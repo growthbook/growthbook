@@ -24814,6 +24814,169 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/value'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/configs-revisions/{key}/{version}/property:
+    put:
+      operationId: putConfigRevisionProperty
+      summary: Set one property of a config draft revision's value
+      description: >-
+        Stages a single property of this config's own value on the draft,
+        leaving every other property untouched. Prefer this over `PUT .../value`
+        when changing one field: a whole-value write from a stale read silently
+        drops properties someone else added in the meantime.
+
+
+        `null` is a value (it does not remove the property) — use `DELETE
+        .../property` to remove one. Pass `version: "new"` to auto-create a
+        draft.
+      tags:
+        - config-revisions
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+        - $ref: '#/components/parameters/skipSchemaValidation'
+        - $ref: '#/components/parameters/ignoreWarnings'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+                property:
+                  description: Name of the property to set in this config's own value.
+                  type: string
+                value:
+                  description: The property's new value. `null` sets it to null.
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Set to true to publish despite schema validation errors,
+                    failed invariants, or schema changes that invalidate
+                    dependent resources. This does not bypass a rejected Custom
+                    Hook; use `skipHooks` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to publish despite a Custom Hook rejection. This
+                    does not bypass schema validation; use
+                    `skipSchemaValidation` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
+              required:
+                - property
+                - value
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/ConfigRevision'
+                  warnings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConfigSchemaWarning'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/property'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteConfigRevisionProperty
+      summary: Remove one property from a config draft revision's value
+      description: >-
+        Stages removal of a single property from this config's own value on the
+        draft; the config then inherits that property from its parent (if any).
+        Every other property is untouched. Pass `version: "new"` to auto-create
+        a draft.
+      tags:
+        - config-revisions
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+        - name: property
+          in: query
+          required: true
+          description: Name of the property to remove.
+          schema:
+            description: Name of the property to remove.
+            type: string
+        - $ref: '#/components/parameters/skipSchemaValidation'
+        - $ref: '#/components/parameters/ignoreWarnings'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/ConfigRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/property'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/configs-revisions/{key}/{version}/schema:
     put:
       operationId: putConfigRevisionSchema
@@ -39765,6 +39928,7 @@ paths:
                                           - type: string
                                           - type: 'null'
                                       steps:
+                                        maxItems: 20
                                         type: array
                                         items:
                                           type: object
@@ -39858,6 +40022,10 @@ paths:
                                   - type
                                   - dataset
                                 additionalProperties: false
+                              linkedFunnelMetricId:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
                             required:
                               - organization
                               - id
@@ -47132,6 +47300,7 @@ paths:
                         - type: string
                         - type: 'null'
                     steps:
+                      maxItems: 20
                       type: array
                       items:
                         type: object
@@ -47513,6 +47682,7 @@ paths:
                                       - type: string
                                       - type: 'null'
                                   steps:
+                                    maxItems: 20
                                     type: array
                                     items:
                                       type: object
@@ -54594,6 +54764,8 @@ components:
                                   type: number
                                 chanceToBeatControl:
                                   type: number
+                                errorMessage:
+                                  type: string
                               required:
                                 - engine
                                 - numerator
@@ -63686,6 +63858,7 @@ components:
                               - type: string
                               - type: 'null'
                           steps:
+                            maxItems: 20
                             type: array
                             items:
                               type: object
@@ -63779,6 +63952,10 @@ components:
                       - type
                       - dataset
                     additionalProperties: false
+                  linkedFunnelMetricId:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
                 required:
                   - organization
                   - id
@@ -64031,6 +64208,7 @@ components:
         - variations
         - datasource
         - contextualBanditQueryId
+        - seed
         - currentLeafWeights
         - banditVersion
         - contextualAttributes
@@ -66542,6 +66720,7 @@ components:
                         - type: string
                         - type: 'null'
                     steps:
+                      maxItems: 20
                       type: array
                       items:
                         type: object
