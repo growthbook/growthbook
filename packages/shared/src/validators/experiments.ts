@@ -858,7 +858,7 @@ export const apiScheduledStopPlanValidator = namedSchema(
       fallback: z
         .enum(SCHEDULED_STOP_FALLBACKS)
         .describe(
-          'What to do at the scheduled end when there is no clear winner. ' +
+          "What to do at the scheduled end when there is no clear winner. " +
             'Required when `mode` is `"auto-ship"`; ignored for other modes.',
         )
         .optional(),

@@ -39928,6 +39928,7 @@ paths:
                                           - type: string
                                           - type: 'null'
                                       steps:
+                                        maxItems: 20
                                         type: array
                                         items:
                                           type: object
@@ -40021,6 +40022,10 @@ paths:
                                   - type
                                   - dataset
                                 additionalProperties: false
+                              linkedFunnelMetricId:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
                             required:
                               - organization
                               - id
@@ -47295,6 +47300,7 @@ paths:
                         - type: string
                         - type: 'null'
                     steps:
+                      maxItems: 20
                       type: array
                       items:
                         type: object
@@ -47676,6 +47682,7 @@ paths:
                                       - type: string
                                       - type: 'null'
                                   steps:
+                                    maxItems: 20
                                     type: array
                                     items:
                                       type: object
@@ -54649,6 +54656,9 @@ components:
         tiebreakerMetricId:
           type: string
         fallback:
+          description: >-
+            What to do at the scheduled end when there is no clear winner.
+            Required when `mode` is `"auto-ship"`; ignored for other modes.
           type: string
           enum:
             - notify
@@ -54657,7 +54667,6 @@ components:
           type: string
       required:
         - mode
-        - fallback
       additionalProperties: false
     ExperimentResults:
       type: object
@@ -63849,6 +63858,7 @@ components:
                               - type: string
                               - type: 'null'
                           steps:
+                            maxItems: 20
                             type: array
                             items:
                               type: object
@@ -63942,6 +63952,10 @@ components:
                       - type
                       - dataset
                     additionalProperties: false
+                  linkedFunnelMetricId:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
                 required:
                   - organization
                   - id
@@ -64194,6 +64208,7 @@ components:
         - variations
         - datasource
         - contextualBanditQueryId
+        - seed
         - currentLeafWeights
         - banditVersion
         - contextualAttributes
@@ -66705,6 +66720,7 @@ components:
                         - type: string
                         - type: 'null'
                     steps:
+                      maxItems: 20
                       type: array
                       items:
                         type: object
