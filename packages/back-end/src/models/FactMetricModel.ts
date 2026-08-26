@@ -472,6 +472,12 @@ export class FactMetricModel extends BaseClass {
       return factTable;
     });
 
+    if (new Set(stepFactTables).size > 5) {
+      throw new Error(
+        "Funnel metrics must have 5 or fewer distinct fact tables",
+      );
+    }
+
     steps.forEach((step, i) => {
       if (!step.name) {
         throw new Error(`Funnel step ${i + 1} must have a name`);
