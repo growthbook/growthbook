@@ -412,9 +412,7 @@ export const HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS = [
 ] as const satisfies readonly (keyof ApiUpdateHoldoutBody)[];
 
 /**
- * Update fields applied to the holdout experiment's current phase. These follow
- * the same path as the internal targeting endpoint rather than a plain update,
- * so the SDK payload and phase history stay correct.
+ * Update fields applied to the holdout's companion experiment.
  */
 export const HOLDOUT_API_TARGETING_UPDATE_FIELDS = [
   "holdoutSize",
