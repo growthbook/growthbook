@@ -15,6 +15,7 @@ import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import {
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 
 export interface RolloutHashingOptionsProps {
@@ -37,6 +38,7 @@ export interface RolloutHashingOptionsProps {
   hashVersion?: 1 | 2;
   setHashVersion?: (v: 1 | 2) => void;
   project?: string;
+  extraIndicator?: React.ReactNode;
 }
 
 export function RolloutHashingOptions({
@@ -54,6 +56,7 @@ export function RolloutHashingOptions({
   hashVersion,
   setHashVersion,
   project,
+  extraIndicator,
 }: RolloutHashingOptionsProps) {
   const filteredAttributes = attributeSchema?.filter(
     (s) => !hasHashAttributes || s.hashAttribute,
@@ -87,16 +90,8 @@ export function RolloutHashingOptions({
           <SelectField
             value={hashAttribute ?? ""}
             onChange={(v) => setHashAttribute(v)}
-            options={filteredAttributes.map(
-              (a): AttributeOptionForTooltip => ({
-                value: a.property,
-                label: a.property,
-                description: a.description,
-                tags: a.tags,
-                datatype: a.datatype,
-                hashAttribute: a.hashAttribute,
-              }),
-            )}
+            extraIndicator={extraIndicator}
+            options={filteredAttributes.map(toAttributeOption)}
             formatOptionLabel={(o, meta) => (
               <AttributeOptionWithTooltip
                 option={o as AttributeOptionForTooltip}
@@ -181,6 +176,7 @@ export interface Props {
   hashVersion?: 1 | 2;
   setHashVersion?: (v: 1 | 2) => void;
   project?: string;
+  extraIndicator?: React.ReactNode;
   // Advanced options
   seed?: string;
   setSeed?: (v: string) => void;
@@ -207,6 +203,7 @@ export default function RolloutPercentInput({
   hashVersion,
   setHashVersion,
   project,
+  extraIndicator,
   seed,
   setSeed,
   ruleId,
@@ -300,6 +297,7 @@ export default function RolloutPercentInput({
           isLive={isLiveRule}
           hashAttribute={hashAttribute}
           setHashAttribute={setHashAttribute}
+          extraIndicator={extraIndicator}
           attributeSchema={attributeSchema}
           hasHashAttributes={hasHashAttributes}
           hashVersion={hashVersion}

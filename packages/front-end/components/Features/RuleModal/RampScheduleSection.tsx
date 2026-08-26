@@ -868,6 +868,7 @@ interface Props {
   readOnly?: boolean;
   feature: FeatureInterface;
   attributeProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   // Used by the standalone modal.
   boxStepGrid?: boolean;
@@ -903,6 +904,7 @@ export default function RampScheduleSection({
   readOnly = false,
   feature,
   attributeProjects,
+  attributeSelectIndicator,
   environments,
   boxStepGrid = false,
   hideNameField = false,
@@ -1418,6 +1420,7 @@ export default function RampScheduleSection({
               onChange={(v) => setPatchFn("condition", v)}
               project={feature.project ?? ""}
               attributeProjects={attributeProjects}
+              attributeSelectIndicator={attributeSelectIndicator}
               slimMode
               emptyText=""
               addRemoveMode
@@ -4047,6 +4050,7 @@ export default function RampScheduleSection({
                 isLive={!!ruleRampSchedule}
                 hashAttribute={hashAttribute}
                 setHashAttribute={setHashAttribute}
+                extraIndicator={attributeSelectIndicator}
                 attributeSchema={attributeSchema}
                 hasHashAttributes={true}
                 hashVersion={hashVersion}

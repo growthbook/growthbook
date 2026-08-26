@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import {
   getAttributeScopeProjectIds,
@@ -45,7 +45,7 @@ export function useAttributeScopePicker({
   const allProjectsPicker = !strictScoping && !!allProjects;
   const effectiveAttributeProjects = allProjectsPicker ? null : scopeProjects;
   const attributeScopeToggle =
-    !strictScoping && project ? (
+    !strictScoping && project && scopeProjects !== null ? (
       <AttributeScopeToggle
         allProjects={allProjectsPicker}
         setAllProjects={setAllProjects}
@@ -58,4 +58,19 @@ export function useAttributeScopePicker({
     effectiveAttributeProjects,
     attributeScopeToggle,
   };
+}
+
+// Variant for feature surfaces, which don't persist the preference — the
+// opt-out lives as local state scoped to the modal.
+export function useLocalAttributeScopePicker(
+  project: string | undefined,
+  scopeProjects: string[] | null,
+): ReturnType<typeof useAttributeScopePicker> {
+  const [allProjects, setAllProjects] = useState(false);
+  return useAttributeScopePicker({
+    project,
+    scopeProjects,
+    allProjects,
+    setAllProjects,
+  });
 }

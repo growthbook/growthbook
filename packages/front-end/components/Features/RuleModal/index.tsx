@@ -57,6 +57,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
+import { useLocalAttributeScopePicker } from "@/components/Experiment/useAttributeScopePicker";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import useApi from "@/hooks/useApi";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
@@ -270,7 +271,9 @@ export default function RuleModal({
     () => getAttributeScopeProjectIds(baseFeature, draftRevision?.metadata),
     [baseFeature, draftRevision],
   );
-  const attributeSchema = useAttributeSchema(false, attributeScopeProjects);
+  const { effectiveAttributeProjects, attributeScopeToggle } =
+    useLocalAttributeScopePicker(baseFeature.project, attributeScopeProjects);
+  const attributeSchema = useAttributeSchema(false, effectiveAttributeProjects);
   // Unfiltered org-wide schema lets validateFeatureRule distinguish between
   // truly-unknown attributes and attributes that exist but aren't scoped to
   // this project, so the client-side error wording matches the server.
@@ -1111,7 +1114,7 @@ export default function RuleModal({
           {
             attributeSchema: allAttributesSchema,
             requireRegisteredAttributes: settings.requireRegisteredAttributes,
-            attributeProjects: attributeScopeProjects,
+            attributeProjects: effectiveAttributeProjects,
           },
         );
         if (newRule) {
@@ -1402,7 +1405,7 @@ export default function RuleModal({
         {
           attributeSchema: allAttributesSchema,
           requireRegisteredAttributes: settings.requireRegisteredAttributes,
-          attributeProjects: attributeScopeProjects,
+          attributeProjects: effectiveAttributeProjects,
         },
       );
       if (correctedRule) {
@@ -2275,7 +2278,8 @@ export default function RuleModal({
             <StandardRuleFields
               ruleType={ruleType}
               feature={feature}
-              attributeProjects={attributeScopeProjects}
+              attributeProjects={effectiveAttributeProjects}
+              attributeSelectIndicator={attributeScopeToggle}
               environments={effectiveEnvList}
               defaultValues={defaultValues}
               setPrerequisiteTargetingSdkIssues={
@@ -2312,7 +2316,8 @@ export default function RuleModal({
               readOnly={!!ruleRampSchedule && !rampIsEditable}
               hideNameField={true}
               feature={feature}
-              attributeProjects={attributeScopeProjects}
+              attributeProjects={effectiveAttributeProjects}
+              attributeSelectIndicator={attributeScopeToggle}
               environments={environments.map((e) => e.id)}
               hashAttribute={form.watch("hashAttribute") as string}
               setHashAttribute={(v) => form.setValue("hashAttribute", v)}
@@ -2331,7 +2336,8 @@ export default function RuleModal({
         {ruleType === "safe-rollout" && (
           <SafeRolloutFields
             feature={feature}
-            attributeProjects={attributeScopeProjects}
+            attributeProjects={effectiveAttributeProjects}
+            attributeSelectIndicator={attributeScopeToggle}
             environment={environment}
             defaultValues={defaultValues}
             setPrerequisiteTargetingSdkIssues={
@@ -2386,7 +2392,8 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
-                  attributeProjects={attributeScopeProjects}
+                  attributeProjects={effectiveAttributeProjects}
+                  attributeSelectIndicator={attributeScopeToggle}
                   environments={effectiveEnvList}
                   defaultValues={defaultValues}
                   prerequisiteValue={form.watch("prerequisites") || []}
@@ -2456,7 +2463,8 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
-                  attributeProjects={attributeScopeProjects}
+                  attributeProjects={effectiveAttributeProjects}
+                  attributeSelectIndicator={attributeScopeToggle}
                   environments={effectiveEnvList}
                   prerequisiteValue={form.watch("prerequisites") || []}
                   setPrerequisiteValue={(prerequisites) =>

@@ -68,6 +68,7 @@ export default function StandardRuleFields({
   ruleType,
   feature,
   attributeProjects,
+  attributeSelectIndicator,
   environments,
   defaultValues,
   setPrerequisiteTargetingSdkIssues,
@@ -89,6 +90,7 @@ export default function StandardRuleFields({
   ruleType: "force" | "rollout";
   feature: FeatureInterface;
   attributeProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   defaultValues: FeatureRule | NewExperimentRefRule;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -525,6 +527,7 @@ export default function StandardRuleFields({
                   form.setValue("hashAttribute", v)
                 }
                 attributeSchema={attributeSchema}
+                extraIndicator={attributeSelectIndicator}
                 hasHashAttributes={hasHashAttributes}
                 hashVersion={form.watch("hashVersion") as 1 | 2 | undefined}
                 setHashVersion={(v: 1 | 2) => form.setValue("hashVersion", v)}
@@ -560,6 +563,7 @@ export default function StandardRuleFields({
             key={conditionKey}
             project={feature.project || ""}
             attributeProjects={attributeProjects}
+            attributeSelectIndicator={attributeSelectIndicator}
             label="Attributes"
           />
           <ConflictCallout field="condition" />

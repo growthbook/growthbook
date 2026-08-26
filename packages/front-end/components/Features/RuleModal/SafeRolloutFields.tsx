@@ -42,6 +42,7 @@ import Callout from "@/ui/Callout";
 export default function SafeRolloutFields({
   feature,
   attributeProjects,
+  attributeSelectIndicator,
   environment,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
@@ -58,6 +59,7 @@ export default function SafeRolloutFields({
 }: {
   feature: FeatureInterface;
   attributeProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   environment: string;
   defaultValues: FeatureRule | NewExperimentRefRule;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -178,6 +180,7 @@ export default function SafeRolloutFields({
           withRadixThemedPortal
           disabled={disableFields}
           label="Sample based on attribute"
+          extraIndicator={attributeSelectIndicator}
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
             .map(toAttributeOption)}
