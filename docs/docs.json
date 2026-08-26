@@ -1052,6 +1052,18 @@
                   "api/Learnings/operation/createLearning",
                   "api/Learnings/operation/searchLearnings"
                 ]
+              },
+              {
+                "group": "Holdouts",
+                "pages": [
+                  "api/Holdouts/operation/getHoldout",
+                  "api/Holdouts/operation/updateHoldout",
+                  "api/Holdouts/operation/listHoldouts",
+                  "api/Holdouts/operation/createHoldout",
+                  "api/Holdouts/operation/startHoldout",
+                  "api/Holdouts/operation/startHoldoutAnalysis",
+                  "api/Holdouts/operation/stopHoldout"
+                ]
               }
             ]
           },
@@ -1124,6 +1136,7 @@
               "api/FeatureV2_model",
               "api/FeatureWithRevisionsV1_model",
               "api/FeatureWithRevisionsV2_model",
+              "api/Holdout_model",
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
               "api/Learning_model",
