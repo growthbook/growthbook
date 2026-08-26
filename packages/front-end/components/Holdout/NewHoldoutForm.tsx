@@ -484,8 +484,10 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               environmentSettings={environmentSettings}
               environments={environments}
               setValue={(env, on) => {
-                environmentSettings[env.id].enabled = on;
-                form.setValue("environmentSettings", environmentSettings);
+                form.setValue("environmentSettings", {
+                  ...environmentSettings,
+                  [env.id]: { ...environmentSettings[env.id], enabled: on },
+                });
               }}
             />
             {/* {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
