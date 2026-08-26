@@ -2066,8 +2066,8 @@ export async function postExperiment(
   }
 
   if (experiment.type === "holdout") {
-    // Holdouts have fixed variations/weights; coverage is the only
-    // payload-affecting field an update can change, and it applies to every phase.
+    // Holdout targeting is handled by postExperimentTargeting, so coverage is
+    // the only payload-affecting field this path handles; apply it to every phase.
     if (data.coverage !== undefined) {
       const coverage = data.coverage;
       const phases = changes.phases || [...experiment.phases];
