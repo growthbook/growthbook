@@ -228,6 +228,9 @@ ENV LD_LIBRARY_PATH="/opt/python/lib:/opt/pydeps:/opt/krb5deps:/usr/lib/x86_64-l
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PM2_HOME=/tmp/.pm2
+# pm2's pidusage probes `getconf CLK_TCK`/`PAGESIZE` via /bin/sh; with no shell it logs a
+# spawn ENOENT per key on boot before falling back to the correct Linux values (100/4096).
+ENV PIDUSAGE_SILENT=1
 
 # App code from the node build stage.
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
@@ -259,5 +262,5 @@ EXPOSE 3100
 # Launch pm2-runtime via node directly: the node_modules/.bin/pm2-runtime shim is
 # a `#!/bin/sh` script that can't exec in a shell-less runtime, but pm2's real
 # entry is plain Node. pm2's only shell-out (pidusage's `getconf` for CPU metrics)
-# fails gracefully to a default, so it's not fatal here.
+# fails gracefully to a default, silenced by PIDUSAGE_SILENT above.
 CMD ["/usr/local/bin/node", "node_modules/pm2/bin/pm2-runtime", "start", "ecosystem.config.js"]
