@@ -47,12 +47,14 @@ const VercelPage = () => {
         // Vercel deep links win; otherwise return to wherever the session expired
         const baseUrl = experimentationItemId?.match(urlRegex)
           ? "/" + experimentationItemId.replace(urlRegex, "/$1/")
-          : getPostAuthRedirectPath();
+          : getPostAuthRedirectPath({ consume: true });
 
         if (projectId) setProject(projectId);
-        router.push(
-          `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}org=${organizationId}`,
-        );
+        // set() replaces any stale org= carried in the saved path
+        const [path, query] = baseUrl.split("?");
+        const searchParams = new URLSearchParams(query);
+        searchParams.set("org", organizationId);
+        router.push(`${path}?${searchParams}`);
       } catch (err) {
         setError(String(err));
       }

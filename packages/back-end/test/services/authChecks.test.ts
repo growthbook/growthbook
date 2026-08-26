@@ -1,5 +1,7 @@
 import {
+  createNonce,
   deriveAuthChecks,
+  isNonceExpired,
   nonceFromState,
 } from "back-end/src/services/auth/authChecks";
 
@@ -16,6 +18,25 @@ describe("deriveAuthChecks", () => {
     const { state } = deriveAuthChecks(secret, "", "abc123");
     expect(nonceFromState(state)).toBe("abc123");
     expect(nonceFromState(undefined)).toBe("");
+  });
+
+  it("round-trips a created nonce, which itself contains a dot", () => {
+    const nonce = createNonce();
+    const { state } = deriveAuthChecks(secret, "sso_1", nonce);
+    expect(nonceFromState(state)).toBe(nonce);
+    expect(isNonceExpired(nonce)).toBe(false);
+  });
+
+  it("expires stale, future, and malformed nonces", () => {
+    const twoHours = 2 * 60 * 60 * 1000;
+    expect(isNonceExpired(`${(Date.now() - twoHours).toString(36)}.x`)).toBe(
+      true,
+    );
+    expect(isNonceExpired(`${(Date.now() + twoHours).toString(36)}.x`)).toBe(
+      true,
+    );
+    expect(isNonceExpired("")).toBe(true);
+    expect(isNonceExpired(".x")).toBe(true);
   });
 
   it("changes both values with the nonce, connection, and secret", () => {

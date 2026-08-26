@@ -23,12 +23,12 @@ export default function OAuthCallbackPage() {
     post(`/auth/callback${qs}`)
       .then(async (json) => {
         if (json?.status === 200) {
-          return router.replace(getPostAuthRedirectPath());
+          return router.replace(getPostAuthRedirectPath({ consume: true }));
         }
         // Another tab may have already finished logging in, making this failure moot
         const refresh = await post("/auth/refresh").catch(() => null);
         if (refresh?.token) {
-          return router.replace(getPostAuthRedirectPath());
+          return router.replace(getPostAuthRedirectPath({ consume: true }));
         }
         setError(json?.message || "An unknown error occurred");
       })

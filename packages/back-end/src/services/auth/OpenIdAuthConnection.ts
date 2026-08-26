@@ -36,7 +36,12 @@ import {
   VERCEL_CLIENT_SECRET,
 } from "back-end/src/services/vercel-native-integration.service";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
-import { deriveAuthChecks, nonceFromState } from "./authChecks";
+import {
+  createNonce,
+  deriveAuthChecks,
+  isNonceExpired,
+  nonceFromState,
+} from "./authChecks";
 
 if (USE_PROXY) {
   custom.setHttpOptionsDefaults(getHttpOptions());
@@ -132,12 +137,13 @@ export class OpenIdAuthConnection implements AuthConnection {
       throw new Error("Missing auth secret cookie");
     }
 
+    const nonce = nonceFromState(params.state);
+    if (isNonceExpired(nonce)) {
+      throw new Error("Login attempt expired");
+    }
+
     // A wrong connection or forged state fails the HMAC comparison inside callback()
-    const checks = deriveAuthChecks(
-      secret,
-      connection.id || "",
-      nonceFromState(params.state),
-    );
+    const checks = deriveAuthChecks(secret, connection.id || "", nonce);
     const tokenSet = await client.callback(
       `${APP_ORIGIN}/oauth/callback`,
       params,
@@ -275,7 +281,7 @@ export class OpenIdAuthConnection implements AuthConnection {
     const { state, code_verifier } = deriveAuthChecks(
       this.getAuthSecret(req, res),
       ssoConnection.id || "",
-      generators.random(),
+      createNonce(),
     );
     const code_challenge = generators.codeChallenge(code_verifier);
 
