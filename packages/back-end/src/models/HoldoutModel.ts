@@ -8,6 +8,7 @@ import {
   isHoldoutStageTransitionAllowed,
   stringToBoolean,
 } from "shared/util";
+import { getActivePhase } from "shared/experiments";
 import {
   ApiHoldoutInterface,
   apiCreateHoldoutBody,
@@ -193,7 +194,8 @@ export function toApiHoldout(
   holdout: HoldoutInterface,
   experiment: ExperimentInterface,
 ): ApiHoldoutInterface {
-  const phase = experiment.phases[experiment.phases.length - 1];
+  const activePhase = getActivePhase(experiment);
+  const lastPhase = experiment.phases[experiment.phases.length - 1];
   const firstPhase = experiment.phases[0];
   const stage = getHoldoutStage(holdout, experiment);
 
@@ -212,10 +214,10 @@ export function toApiHoldout(
     experimentId: holdout.experimentId,
     skipAsDefaultHoldout: holdout.skipAsDefaultHoldout ?? false,
 
-    holdoutSize: coverageToHoldoutSize(phase?.coverage ?? 0),
+    holdoutSize: coverageToHoldoutSize(activePhase?.coverage ?? 0),
     hashAttribute: experiment.hashAttribute,
-    targetingCondition: phase?.condition ?? "",
-    savedGroupTargeting: phase?.savedGroups,
+    targetingCondition: activePhase?.condition ?? "",
+    savedGroupTargeting: activePhase?.savedGroups,
 
     datasourceId: experiment.datasource,
     assignmentQueryId: experiment.exposureQueryId,
@@ -252,7 +254,7 @@ export function toApiHoldout(
     analysisStartDate: holdout.analysisStartDate?.toISOString(),
     dateStopped:
       experiment.status === "stopped"
-        ? phase?.dateEnded?.toISOString()
+        ? lastPhase?.dateEnded?.toISOString()
         : undefined,
 
     statusUpdateSchedule: holdout.statusUpdateSchedule
