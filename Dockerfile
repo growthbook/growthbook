@@ -122,13 +122,14 @@ RUN pnpm rebuild kerberos
 
 COPY packages ./packages
 COPY skills-src ./skills-src
-# Prod-only tree in place: install --prod re-links the workspace projects, prune
-# clears dev deps from .pnpm. prune alone empties project node_modules (pnpm 10).
+# Prod-only tree in place: install --prod re-links the workspace projects (CI=true
+# auto-confirms the no-TTY purge; .pnpm is kept), prune then drops dev deps from
+# .pnpm. prune alone empties the workspace projects' node_modules (pnpm 10).
 RUN \
   pnpm build \
   && test -f packages/back-end/dist/server.js || (echo "ERROR: packages/back-end/dist/server.js is missing after build!" && exit 1) \
   && rm -rf packages/front-end/.next/cache \
-  && pnpm install --frozen-lockfile --offline --prod --no-optional \
+  && CI=true pnpm install --frozen-lockfile --offline --prod --no-optional \
   && CI=true pnpm prune --prod --no-optional \
   && find node_modules \( -name "*.md" -o -name "*.map" -o -name "CHANGELOG*" -o -name "LICENSE*" -o -name "README*" -o \( -name "*.ts" ! -name "*.d.ts" \) \) -type f -delete \
   && find node_modules -type d -name benchmarks -prune -exec rm -rf {} + \
