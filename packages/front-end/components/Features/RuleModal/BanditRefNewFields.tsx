@@ -58,6 +58,7 @@ export default function BanditRefNewFields({
   feature,
   project,
   attributeProjects,
+  attributeSelectIndicator,
   environments,
   prerequisiteValue,
   setPrerequisiteValue,
@@ -88,6 +89,9 @@ export default function BanditRefNewFields({
   project?: string;
   // Attribute-scope union for the attribute pickers; null = unscoped.
   attributeProjects?: string[] | null;
+  // Rendered inside the attribute selects' indicators area (e.g. the
+  // experiment attribute-scope toggle).
+  attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   prerequisiteValue: FeaturePrerequisite[];
   setPrerequisiteValue: (prerequisites: FeaturePrerequisite[]) => void;
@@ -200,6 +204,7 @@ export default function BanditRefNewFields({
               size="legacy"
               withRadixThemedPortal
               containerClassName="flex-1"
+              extraIndicator={attributeSelectIndicator}
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
                 .map(toAttributeOption)}
@@ -221,6 +226,7 @@ export default function BanditRefNewFields({
             <FallbackAttributeSelector
               form={form}
               attributeSchema={attributeSchema}
+              extraIndicator={attributeSelectIndicator}
             />
 
             {hasSDKWithNoBucketingV2 && (
@@ -268,6 +274,7 @@ export default function BanditRefNewFields({
           <TargetingFieldsGroup
             project={project || ""}
             attributeProjects={attributeProjects}
+            attributeSelectIndicator={attributeSelectIndicator}
             environments={environments ?? []}
             feature={feature}
             savedGroups={savedGroupValue}

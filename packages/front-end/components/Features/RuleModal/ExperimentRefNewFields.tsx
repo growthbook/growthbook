@@ -77,6 +77,7 @@ export default function ExperimentRefNewFields({
   feature,
   project,
   attributeProjects,
+  attributeSelectIndicator,
   environments,
   defaultValues,
   prerequisiteValue,
@@ -117,6 +118,9 @@ export default function ExperimentRefNewFields({
   project?: string;
   // Attribute-scope union for the attribute pickers; null = unscoped.
   attributeProjects?: string[] | null;
+  // Rendered inside the attribute selects' indicators area (e.g. the
+  // experiment attribute-scope toggle).
+  attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
   prerequisiteValue: FeaturePrerequisite[];
@@ -408,6 +412,7 @@ export default function ExperimentRefNewFields({
               size="legacy"
               withRadixThemedPortal
               containerClassName="flex-1"
+              extraIndicator={attributeSelectIndicator}
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
                 .map(toAttributeOption)}
@@ -440,6 +445,7 @@ export default function ExperimentRefNewFields({
             <FallbackAttributeSelector
               form={form}
               attributeSchema={attributeSchema}
+              extraIndicator={attributeSelectIndicator}
             />
 
             {hasSDKWithNoBucketingV2 && !isTemplate && (
@@ -526,6 +532,7 @@ export default function ExperimentRefNewFields({
           <TargetingFieldsGroup
             project={project || ""}
             attributeProjects={attributeProjects}
+            attributeSelectIndicator={attributeSelectIndicator}
             environments={environments ?? []}
             feature={feature}
             savedGroups={savedGroupValue}

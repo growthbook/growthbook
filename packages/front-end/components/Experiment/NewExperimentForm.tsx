@@ -1288,6 +1288,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       step={i}
                       source="experiment"
                       project={selectedProject}
+                      attributeProjects={effectiveAttributeProjects}
+                      attributeSelectIndicator={attributeScopeToggle}
                       environments={envs}
                       noSchedule={true}
                       prerequisiteValue={
@@ -1341,6 +1343,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       step={i}
                       source="experiment"
                       project={selectedProject}
+                      attributeProjects={effectiveAttributeProjects}
+                      attributeSelectIndicator={attributeScopeToggle}
                       environments={envs}
                       prerequisiteValue={
                         form.watch("phases.0.prerequisites") || []
