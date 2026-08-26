@@ -14,8 +14,8 @@ import {
   getApprovalFlowSettings,
 } from "shared/enterprise";
 import { useForm } from "react-hook-form";
-import { isEqual } from "lodash";
 import {
+  draftValuesEqual,
   isIdListSupportedAttribute,
   validateAndFixCondition,
 } from "shared/util";
@@ -46,6 +46,7 @@ import ConflictCallout, {
   ConflictProvider,
 } from "@/components/DraftConflicts/ConflictContext";
 import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
+import { namedProjectsFormatter } from "@/components/DraftConflicts/conflictValues";
 import SavedGroupDraftSelectorForChanges, {
   DraftMode,
 } from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
@@ -181,7 +182,7 @@ const SavedGroupForm: FC<{
     (currentRevision?.status === "discarded" ||
       currentRevision?.status === "merged");
 
-  const { mutateDefinitions, project } = useDefinitions();
+  const { mutateDefinitions, project, getProjectById } = useDefinitions();
 
   const { data: savedGroupsData } = useApi<{
     savedGroups: SavedGroupWithoutValues[];
@@ -241,6 +242,9 @@ const SavedGroupForm: FC<{
       projects: "Projects",
       condition: "Condition",
       values: "IDs",
+    },
+    formatters: {
+      projects: namedProjectsFormatter(getProjectById),
     },
     form,
     isNewDraft: draftMode === "new",
@@ -486,11 +490,8 @@ const SavedGroupForm: FC<{
         if (current.id) {
           const baseline = (k: keyof SavedGroupInterface) =>
             (current as Partial<SavedGroupInterface>)[k];
-          // An empty array and an absent field mean the same thing here.
-          const norm = (v: unknown) =>
-            Array.isArray(v) && v.length === 0 ? null : (v ?? null);
           const fieldChanged = (k: keyof SavedGroupFormValues) =>
-            !isEqual(norm(value[k]), norm(baseline(k)));
+            !draftValuesEqual(value[k], baseline(k));
           let payload: UpdateSavedGroupProps;
           if (editInfoOnly) {
             payload = {
