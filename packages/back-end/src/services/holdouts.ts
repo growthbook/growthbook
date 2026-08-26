@@ -64,8 +64,8 @@ export function assertCanRunHoldoutEnvironments(
     projects: string[];
   },
 ): void {
-  // Ignore envs that no longer exist in the org: the holdout can't serve there,
-  // so requiring run permission on them would be a spurious denial.
+  // Envs the org no longer has can't serve the holdout, so demanding run
+  // permission on them would be a spurious denial.
   const orgEnvs = new Set(getEnvironmentIdsFromOrg(context.org));
   const envs = enabledEnvironments.filter((env) => orgEnvs.has(env));
   if (envs.length === 0) return;
@@ -75,10 +75,9 @@ export function assertCanRunHoldoutEnvironments(
 }
 
 /**
- * Reject env ids that don't exist in the org. On update, ids already stored on
- * the holdout are tolerated (pass `existingEnvironments`) so a client echoing
- * settings that predate an environment deletion isn't blocked — only newly
- * referenced ids are checked.
+ * Reject env ids the org doesn't have. Ids already stored on the holdout (pass
+ * `existingEnvironments`) are tolerated, so a client echoing back settings that
+ * predate an environment deletion isn't blocked.
  */
 export function assertValidHoldoutEnvironments(
   context: ReqContext | ApiReqContext,
@@ -103,17 +102,12 @@ export function assertValidHoldoutEnvironments(
 }
 
 /**
- * Update authorization shared by the REST API (`handleApiUpdate`) and the UI
- * endpoint (`updateHoldout`) so the two cannot drift. Update permission is
- * always required (on the current and, when moving the Holdout, destination
- * scope). Beyond that, a change needs run permission on the union of current and
- * newly-requested environments when it authorizes a deployment:
- *   - Schedule changes hand the agenda job authority to transition the Holdout's
- *     status later (e.g. auto-start it), so they require it whatever the stage.
- *   - Targeting/sizing and environment changes only reach live SDK payloads
- *     while the Holdout is running, so they require it only then.
- * Metadata-only changes and clearing the schedule do not. The UI never sends
- * targeting here but still passes the flag.
+ * Shared by the REST and UI update paths so the two cannot drift. Update
+ * permission is always required, on the destination scope when the Holdout is
+ * moving. A change additionally needs run permission when it authorizes a
+ * deployment: schedule changes at any stage, since they hand the agenda job
+ * authority to transition the Holdout later; targeting and environment changes
+ * only while it is running, since that is when they reach live SDK payloads.
  */
 export function assertCanUpdateHoldout(
   context: ReqContext | ApiReqContext,
@@ -157,6 +151,89 @@ export function assertCanUpdateHoldout(
     enabledEnvironments,
     projects: updatedProjects ?? holdout.projects,
   });
+}
+
+/**
+ * Shared by the model's `beforeUpdate` hook and the REST create handler, which
+ * runs it before writing so a rejected schedule can't leave a half-created
+ * Holdout behind.
+ */
+export function assertValidHoldoutSchedule({
+  schedule,
+  currentStage,
+  analysisStartDate,
+}: {
+  schedule:
+    | {
+        startAt?: string | Date | null;
+        startAnalysisPeriodAt?: string | Date | null;
+        stopAt?: string | Date | null;
+      }
+    | null
+    | undefined;
+  currentStage: HoldoutStage;
+  analysisStartDate?: Date | null;
+}): void {
+  if (!schedule) return;
+
+  const startAt = schedule.startAt ? getValidDate(schedule.startAt) : undefined;
+  const startAnalysisPeriodAt = schedule.startAnalysisPeriodAt
+    ? getValidDate(schedule.startAnalysisPeriodAt)
+    : undefined;
+  const stopAt = schedule.stopAt ? getValidDate(schedule.stopAt) : undefined;
+
+  const now = new Date();
+
+  if (startAt && currentStage === "draft" && startAt < now) {
+    throw new BadRequestError("Scheduled start date cannot be in the past");
+  }
+  if (
+    startAnalysisPeriodAt &&
+    currentStage === "running" &&
+    startAnalysisPeriodAt < now
+  ) {
+    throw new BadRequestError(
+      "Scheduled analysis start date cannot be in the past",
+    );
+  }
+  if (stopAt && currentStage !== "stopped" && stopAt < now) {
+    throw new BadRequestError("Scheduled stop date cannot be in the past");
+  }
+
+  if (
+    currentStage === "draft" &&
+    stopAt &&
+    (!startAt || !startAnalysisPeriodAt)
+  ) {
+    throw new BadRequestError(
+      "To set a stop date, you must also set a start date and an analysis start date",
+    );
+  }
+  if (currentStage === "draft" && startAnalysisPeriodAt && !startAt) {
+    throw new BadRequestError(
+      "To set an analysis start date, you must first set a start date",
+    );
+  }
+
+  if (currentStage === "running" && stopAt && !startAnalysisPeriodAt) {
+    throw new BadRequestError(
+      "To set a stop date, you must first set an analysis start date",
+    );
+  }
+
+  const dateError =
+    (startAt &&
+      startAnalysisPeriodAt &&
+      currentStage === "draft" &&
+      startAt > startAnalysisPeriodAt) ||
+    (startAt && stopAt && currentStage === "draft" && startAt > stopAt) ||
+    (startAnalysisPeriodAt &&
+      stopAt &&
+      !analysisStartDate &&
+      startAnalysisPeriodAt > stopAt);
+  if (dateError) {
+    throw new BadRequestError("Scheduled dates must be consecutive");
+  }
 }
 
 export async function canLinkExperimentToHoldoutFromFeatures(
@@ -415,10 +492,9 @@ export async function createHoldoutWithExperiment(
 }
 
 /**
- * Roll an experiment back after its companion holdout write failed (the two
- * documents share no transaction). Returns whether the restore succeeded so
- * callers can gate follow-up work; on failure it logs for manual reconciliation
- * rather than masking the caller's original error.
+ * The two documents share no transaction, so a failed holdout write leaves the
+ * experiment ahead of it. Returns whether the restore landed; a failure is
+ * logged for manual reconciliation rather than masking the caller's error.
  */
 async function rollbackExperimentAfterHoldoutFailure(
   context: ReqContext | ApiReqContext,
@@ -443,10 +519,9 @@ async function rollbackExperimentAfterHoldoutFailure(
 }
 
 /**
- * Queue an SDK payload refresh for a holdout. When a write moves the holdout's
- * environment or project footprint, pass its prior snapshot as `previousHoldout`
- * too so keys for both the old and new footprint are invalidated. Callers decide
- * when a change actually reaches the payload — only running holdouts are served.
+ * Pass `previousHoldout` when a write moves the holdout's environment or project
+ * footprint, so keys for both the old and the new one are invalidated. Callers
+ * decide whether a change reaches the payload at all — only running holdouts serve.
  */
 export function refreshHoldoutPayload(
   context: ReqContext | ApiReqContext,
@@ -477,11 +552,7 @@ export function refreshHoldoutPayload(
   });
 }
 
-/**
- * Applies a validated REST update body to a Holdout and its companion
- * experiment and returns the refreshed pair. Permission gating is the
- * caller's job.
- */
+/** Applies a REST update body across both documents. Callers gate permissions. */
 export async function updateHoldoutWithExperiment(
   context: ReqContext | ApiReqContext,
   {
@@ -510,7 +581,6 @@ export async function updateHoldoutWithExperiment(
 
   const experimentChanges: Partial<ExperimentInterface> = {};
 
-  // 1. Phase-level targeting and sizing.
   const isTargetingChange = HOLDOUT_API_TARGETING_UPDATE_FIELDS.some(
     (field) => body[field] !== undefined,
   );
@@ -520,8 +590,8 @@ export async function updateHoldoutWithExperiment(
       throw new Error("Holdout does not have a phase to target");
     }
 
-    // Reject a malformed targeting condition up front rather than letting it
-    // break bucketing later. validateCondition treats undefined/"{}" as valid.
+    // Catch a malformed condition here rather than at bucketing time.
+    // validateCondition treats undefined and "{}" as valid.
     if (body.targetingCondition !== undefined) {
       const conditionResult = validateCondition(body.targetingCondition);
       if (!conditionResult.success) {
@@ -531,9 +601,8 @@ export async function updateHoldoutWithExperiment(
       }
     }
 
-    // A holdout in its analysis period has two phases ("Holdout" and
-    // "Analysis") that must carry identical targeting, so mirror the change
-    // across every phase rather than only the last one.
+    // The analysis-period phase must carry the same targeting as the payload
+    // phase, so mirror the change across every phase, not just the last.
     const targetingCoverage =
       body.holdoutSize === undefined
         ? undefined
@@ -550,7 +619,6 @@ export async function updateHoldoutWithExperiment(
     }
   }
 
-  // 2. Metadata and analysis settings on the companion experiment.
   for (const field of HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS) {
     if (body[field] !== undefined) {
       (experimentChanges as Record<string, unknown>)[field] = body[field];
@@ -559,9 +627,8 @@ export async function updateHoldoutWithExperiment(
   if (body.owner !== undefined) {
     experimentChanges.owner = await resolveOwnerToUserId(body.owner, context);
   }
-  // Validate analysis settings against the effective post-update values so a
-  // stale metric or exposure query (e.g. left behind when only the datasource
-  // changes) is rejected here rather than failing later at query time.
+  // Validate against the post-update values, so a metric or exposure query left
+  // stale by a datasource-only change is rejected here, not at query time.
   if (
     body.datasourceId !== undefined ||
     body.assignmentQueryId !== undefined ||
@@ -591,7 +658,6 @@ export async function updateHoldoutWithExperiment(
     experimentChanges.name = body.name;
   }
 
-  // 3. Fields on the holdout document itself.
   const holdoutUpdates: UpdateProps<HoldoutInterface> = {};
   for (const field of HOLDOUT_API_UPDATE_FIELDS) {
     if (body[field] !== undefined) {
@@ -620,10 +686,9 @@ export async function updateHoldoutWithExperiment(
     );
   }
 
-  // Persist the experiment first, then the holdout. With no cross-document
-  // transaction, a holdout failure after the experiment write is committed
-  // would leave the pair inconsistent, so snapshot the changed experiment
-  // fields and roll them back on failure (mirrors `setHoldoutStage`).
+  // The experiment is written first and there is no cross-document transaction,
+  // so snapshot what changed and roll it back if the holdout write fails
+  // (mirrors `setHoldoutStage`).
   const originalExperimentValues: Partial<ExperimentInterface> = {};
   for (const key of Object.keys(experimentChanges)) {
     (originalExperimentValues as Record<string, unknown>)[key] = (
@@ -635,6 +700,7 @@ export async function updateHoldoutWithExperiment(
     experiment.status === "running" &&
     (isTargetingChange ||
       body.environments !== undefined ||
+      body.projects !== undefined ||
       body.archived !== undefined);
   const refreshPayload = (finalHoldout: HoldoutInterface) => {
     if (!affectsPayload) return;
@@ -820,20 +886,17 @@ export async function setHoldoutStage(
   let phases = [...experiment.phases] as ExperimentPhase[];
   const changes: Changeset = {};
 
-  // Snapshot the only experiment fields any branch below mutates, before those
-  // mutations run, so a failed holdout write can be compensated by restoring
-  // them (see `commitTransition`).
+  // Snapshot before any branch below mutates them; `commitTransition` restores
+  // these if the holdout write fails.
   const originalStatus = experiment.status;
   const originalPhases = structuredClone(experiment.phases);
 
   const refreshPayload = (event: string) =>
     refreshHoldoutPayload(context, { holdout, event });
 
-  // Commit a stage transition across both documents. With no cross-document
-  // transaction, a holdout failure after the experiment write is committed
-  // rolls the experiment back to its pre-transition status and phases and
-  // rethrows, leaving the schedule pointer untouched so a retry re-selects the
-  // still-due holdout.
+  // Commits across both documents. A holdout failure rolls the experiment back
+  // and rethrows, leaving the schedule pointer untouched so a retry re-selects
+  // the still-due holdout.
   const commitTransition = async (
     event: string,
     holdoutChanges: UpdateProps<HoldoutInterface>,
@@ -954,10 +1017,8 @@ export async function setHoldoutStage(
 }
 
 /**
- * Delete a holdout along with its underlying experiment, unlink it from its
- * linked features and experiments, and refresh affected SDK payloads. Callers
- * are responsible for experiment-level permission checks; deleting the holdout
- * itself enforces canDeleteHoldout.
+ * Callers are responsible for experiment-level permission checks; deleting the
+ * holdout itself enforces canDeleteHoldout.
  */
 export async function deleteHoldoutAndExperiment(
   context: ReqContext,

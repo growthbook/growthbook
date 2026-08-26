@@ -258,9 +258,8 @@ export const updateHoldout = async (
     });
   }
 
-  // Whitelist the client-settable holdout fields. experimentId, the linkage
-  // maps, analysisStartDate, and the computed schedule pointer are server-managed
-  // and must never be written straight from the request body.
+  // Whitelist: experimentId, the linkage maps, analysisStartDate and the computed
+  // schedule pointer are server-managed and must never come from the body.
   const { name, projects, skipAsDefaultHoldout, environmentSettings } =
     req.body;
   const scheduleInput = req.body.statusUpdateSchedule;
@@ -288,9 +287,8 @@ export const updateHoldout = async (
     updates.nextScheduledStatusUpdate = nextScheduledStatusUpdate;
   }
 
-  // Shared with the REST update handler. The UI never sends targeting through
-  // this path (it lives on the companion experiment), but the gate still takes
-  // the flag so both callers stay identical.
+  // Shared with the REST update handler. Targeting lives on the companion
+  // experiment and never comes through here, but the gate still takes the flag.
   assertCanUpdateHoldout(context, {
     holdout,
     updatedProjects: updates.projects,
@@ -310,11 +308,12 @@ export const updateHoldout = async (
 
   const updatedHoldout = await context.models.holdout.update(holdout, updates);
 
-  // Environment changes move a running holdout's SDK payload footprint, so
-  // refresh (mirrors the REST update path). Targeting never comes through here.
+  // Projects and environments move a running holdout's payload footprint
+  // (mirrors the REST update path).
   if (
     experiment.status === "running" &&
-    updates.environmentSettings !== undefined
+    (updates.environmentSettings !== undefined ||
+      updates.projects !== undefined)
   ) {
     refreshHoldoutPayload(context, {
       holdout: updatedHoldout,
@@ -370,8 +369,7 @@ export const editStatus = async (
     stage = req.body.holdoutRunningStatus ?? "running";
   }
 
-  // Lifecycle transitions change what live SDKs serve, so gate on run permission
-  // for the holdout's enabled environments
+  // Lifecycle transitions change what live SDKs serve.
   assertCanRunHoldoutEnvironments(context, {
     enabledEnvironments: getEnabledHoldoutEnvironments(
       holdout.environmentSettings,

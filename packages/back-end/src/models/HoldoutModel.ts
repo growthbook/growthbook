@@ -22,11 +22,7 @@ import {
 import { UpdateProps } from "shared/types/base-model";
 import { ExperimentInterface } from "shared/types/experiment";
 import { getCollection } from "back-end/src/util/mongo.util";
-import {
-  BadRequestError,
-  InvalidStatusError,
-  NotFoundError,
-} from "back-end/src/util/errors";
+import { InvalidStatusError, NotFoundError } from "back-end/src/util/errors";
 import {
   holdoutApiSpec,
   holdoutStartAnalysisEndpoint,
@@ -38,6 +34,7 @@ import { ApiRequest } from "back-end/src/util/handler";
 import {
   assertCanRunHoldoutEnvironments,
   assertCanUpdateHoldout,
+  assertValidHoldoutSchedule,
   createHoldoutWithExperiment,
   normalizeHoldoutScheduleUpdates,
   setHoldoutStage,
@@ -82,8 +79,7 @@ async function handleHoldoutStageTransition(
   if (!req.context.permissions.canUpdateHoldout(holdout, holdout)) {
     req.context.permissions.throwPermissionError();
   }
-  // Lifecycle transitions change what live SDKs serve, so gate on run permission
-  // for the holdout's enabled environments (matches the internal edit-status path).
+  // Lifecycle transitions change what live SDKs serve (matches editStatus).
   assertCanRunHoldoutEnvironments(req.context, {
     enabledEnvironments: getEnabledHoldoutEnvironments(
       holdout.environmentSettings,
@@ -185,10 +181,8 @@ const BaseClass = MakeModelClass({
 const LINKAGE_FIELDS = ["linkedFeatures", "linkedExperiments"] as const;
 
 /**
- * Merges a holdout and its companion experiment into the public API shape.
- *
- * A holdout is invalid without its companion experiment, so callers must resolve
- * it before serializing.
+ * A holdout is invalid without its companion experiment, so callers resolve it
+ * before serializing.
  */
 export function toApiHoldout(
   holdout: HoldoutInterface,
@@ -247,8 +241,7 @@ export function toApiHoldout(
       dateAdded: e.dateAdded.toISOString(),
     })),
 
-    // The phase carries a dateStarted from creation, but it is only meaningful
-    // once the Holdout has left draft.
+    // The phase gets a dateStarted at creation, meaningless until it leaves draft.
     dateStarted:
       stage === "draft" ? undefined : firstPhase?.dateStarted?.toISOString(),
     analysisStartDate: holdout.analysisStartDate?.toISOString(),
@@ -300,15 +293,12 @@ export class HoldoutModel extends BaseClass {
   /***************
    * REST API handlers
    *
-   * All four are overridden because the default implementations assume a single
-   * document: `toApiInterface` is synchronous and per-doc, so it cannot fetch
-   * the companion experiment that supplies most of the API shape.
+   * All four are overridden: the defaults route through `toApiInterface`, which
+   * is synchronous and so cannot fetch the companion experiment that supplies
+   * most of the API shape.
    ***************/
 
   protected toApiInterface(): ApiHoldoutInterface {
-    // No correct sync implementation exists: the API shape needs the companion
-    // experiment, which is an async fetch. Callers must resolve it and
-    // use `toApiHoldout` instead.
     throw new Error(
       "Use handleApi* handlers to serialize a Holdout; toApiInterface cannot resolve its experiment.",
     );
@@ -350,7 +340,6 @@ export class HoldoutModel extends BaseClass {
         )
       : holdouts;
 
-    // Batch the experiment lookup rather than one query per holdout.
     const experiments = await getExperimentsByIds(
       this.context,
       filteredByProject.map((h) => h.experimentId),
@@ -384,8 +373,8 @@ export class HoldoutModel extends BaseClass {
   ): Promise<ApiHoldoutInterface> {
     const body = apiCreateHoldoutBody.parse(req.body);
 
-    // Gate before creating the companion experiment; createExperiment enforces
-    // no permissions, so an unauthorized create would otherwise orphan one.
+    // createExperiment enforces no permissions, so gate before it runs or an
+    // unauthorized create orphans an experiment.
     if (!this.hasPremiumFeature()) {
       throw new Error(
         "Your organization does not have access to this feature.",
@@ -403,6 +392,12 @@ export class HoldoutModel extends BaseClass {
       assertCanRunHoldoutEnvironments(this.context, {
         enabledEnvironments: getEnabledHoldoutEnvironments(body.environments),
         projects: body.projects ?? [],
+      });
+      // Stored by a follow-up update below, which has nothing to roll back to if
+      // rejected. Every new Holdout starts in draft.
+      assertValidHoldoutSchedule({
+        schedule: body.statusUpdateSchedule,
+        currentStage: "draft",
       });
     }
 
@@ -518,65 +513,11 @@ export class HoldoutModel extends BaseClass {
       throw new NotFoundError("Holdout experiment not found");
     }
 
-    const { startAt, startAnalysisPeriodAt, stopAt } =
-      updates.statusUpdateSchedule ?? {};
-
-    const now = new Date();
-    const currentStage = getHoldoutStage(existing, holdoutExperiment);
-
-    // Check if one of the scheduled dates is in the past
-    if (startAt && currentStage === "draft" && new Date(startAt) < now) {
-      throw new BadRequestError("Scheduled start date cannot be in the past");
-    }
-    if (
-      startAnalysisPeriodAt &&
-      currentStage === "running" &&
-      new Date(startAnalysisPeriodAt) < now
-    ) {
-      throw new BadRequestError(
-        "Scheduled analysis start date cannot be in the past",
-      );
-    }
-    if (stopAt && currentStage !== "stopped" && new Date(stopAt) < now) {
-      throw new BadRequestError("Scheduled stop date cannot be in the past");
-    }
-
-    // Check date dependencies
-    if (
-      currentStage === "draft" &&
-      stopAt &&
-      (!startAt || !startAnalysisPeriodAt)
-    ) {
-      throw new BadRequestError(
-        "To set a stop date, you must also set a start date and an analysis start date",
-      );
-    }
-    if (currentStage === "draft" && startAnalysisPeriodAt && !startAt) {
-      throw new BadRequestError(
-        "To set an analysis start date, you must first set a start date",
-      );
-    }
-
-    if (currentStage === "running" && stopAt && !startAnalysisPeriodAt) {
-      throw new BadRequestError(
-        "To set a stop date, you must first set an analysis start date",
-      );
-    }
-
-    // Check if the dates are consecutive
-    const dateError =
-      (startAt &&
-        startAnalysisPeriodAt &&
-        currentStage === "draft" &&
-        startAt > startAnalysisPeriodAt) ||
-      (startAt && stopAt && currentStage === "draft" && startAt > stopAt) ||
-      (startAnalysisPeriodAt &&
-        stopAt &&
-        !existing.analysisStartDate &&
-        startAnalysisPeriodAt > stopAt);
-    if (dateError) {
-      throw new BadRequestError("Scheduled dates must be consecutive");
-    }
+    assertValidHoldoutSchedule({
+      schedule: updates.statusUpdateSchedule,
+      currentStage: getHoldoutStage(existing, holdoutExperiment),
+      analysisStartDate: existing.analysisStartDate,
+    });
   }
 
   public static async getAllHoldoutsToUpdate(): Promise<

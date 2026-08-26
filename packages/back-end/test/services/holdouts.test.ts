@@ -8,6 +8,7 @@ import type { ReqContext } from "back-end/types/request";
 import {
   getHoldoutLivePayloadChanges,
   assertValidHoldoutEnvironments,
+  assertValidHoldoutSchedule,
   getNextScheduledStatusUpdateForStage,
   isHoldoutExperiment,
   normalizeHoldoutScheduleUpdates,
@@ -492,6 +493,72 @@ describe("rollbackExperimentAfterHoldoutFailure", () => {
     });
   });
 
+  describe("payload refresh", () => {
+    const makePayloadContext = (holdoutUpdate: jest.Mock): ReqContext =>
+      ({
+        org: { id: "org", settings: { environments: [{ id: "production" }] } },
+        models: { holdout: { update: holdoutUpdate } },
+      }) as unknown as ReqContext;
+
+    const withProjects = (projects: string[]) =>
+      makeRollbackHoldout({
+        projects,
+        environmentSettings: { production: { enabled: true } },
+      } as unknown as Partial<HoldoutInterface>);
+
+    it("invalidates the old and the new keys when a running holdout moves projects", async () => {
+      const holdoutUpdate = jest
+        .fn()
+        .mockResolvedValue(withProjects(["prj_2"]));
+
+      await updateHoldoutWithExperiment(makePayloadContext(holdoutUpdate), {
+        holdout: withProjects(["prj_1"]),
+        experiment: makeExperiment({ status: "running" }),
+        body: { projects: ["prj_2"] } as ApiUpdateHoldoutBody,
+      });
+
+      expect(mockQueueSDKPayloadRefresh).toHaveBeenCalledTimes(1);
+      const { payloadKeys } = mockQueueSDKPayloadRefresh.mock.calls[0][0];
+      expect(payloadKeys).toEqual(
+        expect.arrayContaining([
+          { environment: "production", project: "prj_2" },
+          { environment: "production", project: "prj_1" },
+        ]),
+      );
+    });
+
+    it("skips the refresh when the holdout is not running", async () => {
+      const holdoutUpdate = jest
+        .fn()
+        .mockResolvedValue(withProjects(["prj_2"]));
+
+      await updateHoldoutWithExperiment(makePayloadContext(holdoutUpdate), {
+        holdout: withProjects(["prj_1"]),
+        experiment: makeExperiment({ status: "draft" }),
+        body: { projects: ["prj_2"] } as ApiUpdateHoldoutBody,
+      });
+
+      expect(mockQueueSDKPayloadRefresh).not.toHaveBeenCalled();
+    });
+
+    it("skips the refresh for a metadata-only change", async () => {
+      const holdoutUpdate = jest
+        .fn()
+        .mockResolvedValue(withProjects(["prj_1"]));
+      mockUpdateExperiment.mockResolvedValueOnce(
+        makeExperiment({ status: "running" }),
+      );
+
+      await updateHoldoutWithExperiment(makePayloadContext(holdoutUpdate), {
+        holdout: withProjects(["prj_1"]),
+        experiment: makeExperiment({ status: "running" }),
+        body: { description: "new" } as ApiUpdateHoldoutBody,
+      });
+
+      expect(mockQueueSDKPayloadRefresh).not.toHaveBeenCalled();
+    });
+  });
+
   describe("lifecycle transitions", () => {
     it("rolls back to the status and phases it wrote", async () => {
       const experiment = makeRollbackExperiment({ status: "running" });
@@ -595,5 +662,112 @@ describe("assertValidHoldoutEnvironments", () => {
         { deleted: { enabled: true } },
       ),
     ).toThrow(/Invalid environment: made_up/);
+  });
+});
+
+describe("assertValidHoldoutSchedule", () => {
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("is a no-op for an absent schedule", () => {
+    expect(() =>
+      assertValidHoldoutSchedule({ schedule: null, currentStage: "draft" }),
+    ).not.toThrow();
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: undefined,
+        currentStage: "draft",
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts consecutive future dates on a draft", () => {
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: {
+          startAt: SOON,
+          startAnalysisPeriodAt: LATER,
+          stopAt: LATEST,
+        },
+        currentStage: "draft",
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects dates in the past for the stage they apply to", () => {
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: { startAt: PAST },
+        currentStage: "draft",
+      }),
+    ).toThrow(/start date cannot be in the past/);
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: { startAnalysisPeriodAt: PAST },
+        currentStage: "running",
+      }),
+    ).toThrow(/analysis start date cannot be in the past/);
+  });
+
+  it("rejects a stop date that is missing the dates leading up to it", () => {
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: { startAt: SOON, stopAt: LATEST },
+        currentStage: "draft",
+      }),
+    ).toThrow(/you must also set a start date and an analysis start date/);
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: { stopAt: LATEST },
+        currentStage: "running",
+      }),
+    ).toThrow(/you must first set an analysis start date/);
+  });
+
+  it("rejects out-of-order dates", () => {
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: {
+          startAt: LATER,
+          startAnalysisPeriodAt: SOON,
+          stopAt: LATEST,
+        },
+        currentStage: "draft",
+      }),
+    ).toThrow(/must be consecutive/);
+  });
+
+  it("accepts ISO strings, as the REST API sends them", () => {
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: {
+          startAt: SOON.toISOString(),
+          startAnalysisPeriodAt: LATER.toISOString(),
+          stopAt: LATEST.toISOString(),
+        },
+        currentStage: "draft",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: { startAt: PAST.toISOString() },
+        currentStage: "draft",
+      }),
+    ).toThrow(/start date cannot be in the past/);
+  });
+
+  it("allows an analysis period that already started to stop at any future date", () => {
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: { startAnalysisPeriodAt: LATEST, stopAt: LATER },
+        currentStage: "analysis-period",
+        analysisStartDate: PAST,
+      }),
+    ).not.toThrow();
   });
 });
