@@ -779,6 +779,10 @@ const apiMetricExperimentVariationResultValidator = z.object({
     .number()
     .describe("Relative uplift mean for this variation, if available")
     .optional(),
+  effectStandardError: z
+    .number()
+    .describe("Standard error of `lift`, if available")
+    .optional(),
   ci: z
     .tuple([z.number(), z.number()])
     .describe("Confidence interval [lower, upper]")
