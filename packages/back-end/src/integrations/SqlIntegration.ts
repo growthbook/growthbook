@@ -2952,16 +2952,67 @@ export default abstract class SqlIntegration
             ${eventQuantileJoin}
         )`;
 
-          return hasFunnel
-            ? joinCte +
-                getFunnelResolutionCTEs(this.getSqlDialect(), {
-                  funnelMetrics: funnelMetricsForSource,
-                  sourceTableName: joinedTableName,
-                  terminalTableName: `__joinedData${sourceSuffix(i)}`,
-                  resolveTablePrefix: `__funnelResolveInc${sourceSuffix(i)}_`,
-                  exposureColumn: "first_exposure_timestamp",
-                })
-            : joinCte;
+          if (!hasFunnel) return joinCte;
+
+          const funnelWorkingCols = new Set(
+            funnelMetricsForSource.flatMap(({ metric, alias }) =>
+              (metric.funnelSettings?.steps ?? []).flatMap(
+                (step, stepIndex) => {
+                  if (step.factTableId !== sources[i].factTable.id) return [];
+                  return [
+                    stepIndex === 0
+                      ? funnelStepResolvedTsColumn(alias, 0)
+                      : funnelStepArrayColumn(alias, stepIndex),
+                  ];
+                },
+              ),
+            ),
+          );
+          const funnelPassthroughCols: string[] = [baseIdType];
+          if (isSource0) {
+            funnelPassthroughCols.push(
+              "variation",
+              ...allDimensionCols.map((d) => d.alias),
+            );
+          }
+          funnelPassthroughCols.push("first_exposure_timestamp");
+          metricData.forEach((data) => {
+            if (isFactFunnelMetric(data.metric)) return;
+            const numeratorHere = data.numeratorSourceIndex === i;
+            const denominatorHere =
+              data.ratioMetric && data.denominatorSourceIndex === i;
+            if (numeratorHere) {
+              funnelPassthroughCols.push(`${data.alias}_value`);
+              if (data.quantileMetric === "event")
+                funnelPassthroughCols.push(`${data.alias}_n_events`);
+            }
+            if (denominatorHere)
+              funnelPassthroughCols.push(`${data.alias}_denominator`);
+          });
+          localCovariatePairs.forEach(
+            ({ data, numeratorHere, denominatorHere }) => {
+              if (numeratorHere)
+                funnelPassthroughCols.push(`${data.alias}_covariate_value`);
+              if (denominatorHere)
+                funnelPassthroughCols.push(
+                  `${data.alias}_covariate_denominator`,
+                );
+            },
+          );
+
+          return (
+            joinCte +
+            getFunnelResolutionCTEs(this.getSqlDialect(), {
+              funnelMetrics: funnelMetricsForSource,
+              sourceTableName: joinedTableName,
+              terminalTableName: `__joinedData${sourceSuffix(i)}`,
+              resolveTablePrefix: `__funnelResolveInc${sourceSuffix(i)}_`,
+              exposureColumn: "first_exposure_timestamp",
+              sourcePassthroughColumns: funnelPassthroughCols.filter(
+                (c) => !funnelWorkingCols.has(c),
+              ),
+            })
+          );
         })
         .join("\n")}
       ${sources
@@ -2983,6 +3034,9 @@ export default abstract class SqlIntegration
         eventQuantileData,
         baseIdType,
         joinedMetricTableName: "__joinedData",
+        funnelsResolvedOnSource: metricData.some((d) =>
+          isFactFunnelMetric(d.metric),
+        ),
         eventQuantileTableName: "__eventQuantileMetric",
         capValueTableName: "__capValue",
         factTablesWithIndices: sources.map((s) => ({
