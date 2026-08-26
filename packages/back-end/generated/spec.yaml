@@ -694,6 +694,14 @@ tags:
   - name: Report_model
     x-displayName: Report
     description: <SchemaDefinition schemaRef="#/components/schemas/Report" />
+  - name: RequireReviewRule_model
+    x-displayName: Require Review Rule
+    description: <SchemaDefinition schemaRef="#/components/schemas/RequireReviewRule" />
+  - name: RequireReviewRuleInput_model
+    x-displayName: Require Review Rule Input
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/RequireReviewRuleInput"
+      />
   - name: RevisionIdRef_model
     x-displayName: Revision Id Ref
     description: <SchemaDefinition schemaRef="#/components/schemas/RevisionIdRef" />
@@ -703,6 +711,11 @@ tags:
   - name: SavedGroup_model
     x-displayName: Saved Group
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
+  - name: SavedGroupApprovalRule_model
+    x-displayName: Saved Group Approval Rule
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/SavedGroupApprovalRule"
+      />
   - name: SavedGroupReferences_model
     x-displayName: Saved Group References
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroupReferences" />
@@ -10185,9 +10198,12 @@ paths:
               properties:
                 rule:
                   anyOf:
-                    - $ref: '#/components/schemas/Targeting Rule'
-                    - $ref: '#/components/schemas/Experiment Rule'
-                    - $ref: '#/components/schemas/Safe Rollout Rule'
+                    - title: Targeting Rule
+                      $ref: '#/components/schemas/Targeting Rule'
+                    - title: Experiment Rule
+                      $ref: '#/components/schemas/Experiment Rule'
+                    - title: Safe Rollout Rule
+                      $ref: '#/components/schemas/Safe Rollout Rule'
                 rampSchedule:
                   description: >-
                     Multi-step ramp schedule for force/rollout rules. Not
@@ -14133,6 +14149,10 @@ paths:
                         - unit
                       additionalProperties: false
                     scheduledStopPlan:
+                      description: >-
+                        End-of-experiment automation applied at the scheduled
+                        end. Required whenever a `stopAt` or `stopAfter` is set
+                        (any mode, including `notify`).
                       $ref: '#/components/schemas/ScheduledStopPlan'
                   additionalProperties: false
                 ignoreWarnings:
@@ -14836,6 +14856,10 @@ paths:
                             - unit
                           additionalProperties: false
                         scheduledStopPlan:
+                          description: >-
+                            End-of-experiment automation applied at the
+                            scheduled end. Required whenever a `stopAt` or
+                            `stopAfter` is set (any mode, including `notify`).
                           $ref: '#/components/schemas/ScheduledStopPlan'
                       additionalProperties: false
                     - type: 'null'
@@ -15302,6 +15326,9 @@ paths:
                     - unit
                   additionalProperties: false
                 scheduledStopPlan:
+                  description: >-
+                    End-of-experiment automation. Required whenever a `stopAt`
+                    or `stopAfter` is set (any mode, including `notify`).
                   $ref: '#/components/schemas/ScheduledStopPlan'
               additionalProperties: false
       responses:
@@ -23247,6 +23274,17 @@ paths:
                     request's Personal Access Token (PAT), if one is being used.
                   type: string
                 schema:
+                  description: >-
+                    Field definitions for this config, as a JSON Schema document
+                    (`{ type: "json-schema", value }`) or typed-code source (`{
+                    type: "typescript" | "protobuf" | "python" | "go" | "rust",
+                    value }`) — converted server-side in one call. Fields whose
+                    key an ancestor (via `parent`/`extends`) already owns follow
+                    "base wins": an identical re-declaration is stripped with a
+                    `redundant-declaration` warning; one with a differing
+                    definition is rejected. A field owned by two sibling bases
+                    is a conflict and is rejected. Omit to leave the config
+                    schema-less. Conversion warnings are returned in `warnings`.
                   $ref: '#/components/schemas/ConfigSchemaSource'
                 source:
                   description: >-
@@ -23655,6 +23693,11 @@ paths:
               type: object
               properties:
                 schema:
+                  description: >-
+                    The schema to check against the config's stored schema — a
+                    JSON Schema document or typed-code source
+                    (`typescript`/`protobuf`/`python`/`go`/`rust`). Read-only:
+                    nothing is mutated.
                   $ref: '#/components/schemas/ConfigSchemaSource'
               required:
                 - schema
@@ -23752,6 +23795,10 @@ paths:
                 type: object
                 properties:
                   schema:
+                    description: >-
+                      The config's schema in the requested format: a JSON Schema
+                      document (`{ type: "json-schema", value }`) or rendered
+                      TypeScript source (`{ type: "typescript", value }`).
                     $ref: '#/components/schemas/ConfigSchemaSource'
                   effective:
                     description: >-
@@ -23909,6 +23956,19 @@ paths:
                     it will be validated as existing in the organization.
                   type: string
                 schema:
+                  description: >-
+                    Replace this config's field definitions, as a JSON Schema
+                    document (`{ type: "json-schema", value }`) or typed-code
+                    source (`{ type: "typescript" | "protobuf" | "python" | "go"
+                    | "rust", value }`). Fields whose key a published ancestor
+                    already owns follow "base wins": an identical re-declaration
+                    is stripped with a `redundant-declaration` warning; one with
+                    a differing definition is rejected. A schema change cascades
+                    the 'base wins' normalization to descendants when published;
+                    a change that removes or retypes fields descendants still
+                    use soft-blocks with a 422 unless the request body sets
+                    `ignoreWarnings: true`. Conversion warnings are returned in
+                    `warnings`.
                   $ref: '#/components/schemas/ConfigSchemaSource'
                 source:
                   description: >-
@@ -24801,6 +24861,169 @@ paths:
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/value'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/configs-revisions/{key}/{version}/property:
+    put:
+      operationId: putConfigRevisionProperty
+      summary: Set one property of a config draft revision's value
+      description: >-
+        Stages a single property of this config's own value on the draft,
+        leaving every other property untouched. Prefer this over `PUT .../value`
+        when changing one field: a whole-value write from a stale read silently
+        drops properties someone else added in the meantime.
+
+
+        `null` is a value (it does not remove the property) — use `DELETE
+        .../property` to remove one. Pass `version: "new"` to auto-create a
+        draft.
+      tags:
+        - config-revisions
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+        - $ref: '#/components/parameters/skipSchemaValidation'
+        - $ref: '#/components/parameters/ignoreWarnings'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+                property:
+                  description: Name of the property to set in this config's own value.
+                  type: string
+                value:
+                  description: The property's new value. `null` sets it to null.
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Set to true to publish despite schema validation errors,
+                    failed invariants, or schema changes that invalidate
+                    dependent resources. This does not bypass a rejected Custom
+                    Hook; use `skipHooks` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to publish despite a Custom Hook rejection. This
+                    does not bypass schema validation; use
+                    `skipSchemaValidation` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
+              required:
+                - property
+                - value
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/ConfigRevision'
+                  warnings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConfigSchemaWarning'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/property'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteConfigRevisionProperty
+      summary: Remove one property from a config draft revision's value
+      description: >-
+        Stages removal of a single property from this config's own value on the
+        draft; the config then inherits that property from its parent (if any).
+        Every other property is untouched. Pass `version: "new"` to auto-create
+        a draft.
+      tags:
+        - config-revisions
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+        - name: property
+          in: query
+          required: true
+          description: Name of the property to remove.
+          schema:
+            description: Name of the property to remove.
+            type: string
+        - $ref: '#/components/parameters/skipSchemaValidation'
+        - $ref: '#/components/parameters/ignoreWarnings'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/ConfigRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/property'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/configs-revisions/{key}/{version}/schema:
     put:
       operationId: putConfigRevisionSchema
@@ -24972,6 +25195,10 @@ paths:
                     belongs to.
                   type: string
                 schema:
+                  description: >-
+                    The named schema source for this projection. Its type names
+                    are captured; its structure derives the config's canonical
+                    schema.
                   $ref: '#/components/schemas/ConfigSchemaSource'
                 additionalProperties:
                   description: >-
@@ -25985,11 +26212,16 @@ paths:
                   type: array
                   items:
                     anyOf:
-                      - $ref: '#/components/schemas/FeatureRevisionRef'
-                      - $ref: '#/components/schemas/SavedGroupRevisionRef'
-                      - $ref: '#/components/schemas/ConfigRevisionRef'
-                      - $ref: '#/components/schemas/ConstantRevisionRef'
-                      - $ref: '#/components/schemas/RevisionIdRef'
+                      - title: Feature Revision Ref
+                        $ref: '#/components/schemas/FeatureRevisionRef'
+                      - title: Saved Group Revision Ref
+                        $ref: '#/components/schemas/SavedGroupRevisionRef'
+                      - title: Config Revision Ref
+                        $ref: '#/components/schemas/ConfigRevisionRef'
+                      - title: Constant Revision Ref
+                        $ref: '#/components/schemas/ConstantRevisionRef'
+                      - title: Revision Id Ref
+                        $ref: '#/components/schemas/RevisionIdRef'
                 dryRun:
                   description: Report every gate and outcome without writing anything.
                   type: boolean
@@ -29930,6 +30162,27 @@ paths:
                       type: array
                       items:
                         type: string
+                    additionalRoles:
+                      description: >-
+                        Additional roles granted alongside this one, in the same
+                        scope. Each is granted independently and environment
+                        access is the union across them.
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          role:
+                            type: string
+                          environments:
+                            type: array
+                            items:
+                              type: string
+                          limitAccessByEnvironment:
+                            type: boolean
+                        required:
+                          - role
+                          - environments
+                        additionalProperties: false
                     projectRoles:
                       type: array
                       items:
@@ -29945,6 +30198,27 @@ paths:
                               type: string
                           limitAccessByEnvironment:
                             type: boolean
+                          additionalRoles:
+                            description: >-
+                              Additional roles granted alongside this one, in
+                              the same scope. Each is granted independently and
+                              environment access is the union across them.
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                role:
+                                  type: string
+                                environments:
+                                  type: array
+                                  items:
+                                    type: string
+                                limitAccessByEnvironment:
+                                  type: boolean
+                              required:
+                                - role
+                                - environments
+                              additionalProperties: false
                         required:
                           - project
                           - role
@@ -30047,6 +30321,60 @@ paths:
         - lang: cURL
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/settings' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/settings/approvals:
+    put:
+      operationId: putApprovalSettings
+      summary: >-
+        Replace the approval requirements for feature flags, configs and
+        constants, and for saved groups. Each family is replaced wholesale when
+        supplied; omit one to leave it unchanged.
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                requireReviews:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RequireReviewRuleInput'
+                approvalFlows:
+                  type: object
+                  properties:
+                    savedGroups:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/SavedGroupApprovalRule'
+                  required:
+                    - savedGroups
+                  additionalProperties: false
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requireReviews:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RequireReviewRule'
+                  approvalFlows:
+                    $ref: '#/components/schemas/approvalFlows'
+                required:
+                  - requireReviews
+                  - approvalFlows
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/settings/approvals' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/version:
     get:
@@ -39656,6 +39984,7 @@ paths:
                                           - type: string
                                           - type: 'null'
                                       steps:
+                                        maxItems: 20
                                         type: array
                                         items:
                                           type: object
@@ -39749,6 +40078,10 @@ paths:
                                   - type
                                   - dataset
                                 additionalProperties: false
+                              linkedFunnelMetricId:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
                             required:
                               - organization
                               - id
@@ -43786,6 +44119,24 @@ paths:
                         type: array
                         items:
                           type: string
+                      additionalRoles:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            role:
+                              type: string
+                            limitAccessByEnvironment:
+                              type: boolean
+                            environments:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - role
+                            - limitAccessByEnvironment
+                            - environments
+                          additionalProperties: false
                       project:
                         type: string
                     required:
@@ -43905,6 +44256,24 @@ paths:
                         type: array
                         items:
                           type: string
+                      additionalRoles:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            role:
+                              type: string
+                            limitAccessByEnvironment:
+                              type: boolean
+                            environments:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - role
+                            - limitAccessByEnvironment
+                            - environments
+                          additionalProperties: false
                       project:
                         type: string
                     required:
@@ -45344,7 +45713,8 @@ paths:
                       - type: 'null'
                   query:
                     anyOf:
-                      - $ref: '#/components/schemas/Query'
+                      - title: Query
+                        $ref: '#/components/schemas/Query'
                       - type: 'null'
                   explorationUrl:
                     description: >-
@@ -46035,7 +46405,8 @@ paths:
                       - type: 'null'
                   query:
                     anyOf:
-                      - $ref: '#/components/schemas/Query'
+                      - title: Query
+                        $ref: '#/components/schemas/Query'
                       - type: 'null'
                   explorationUrl:
                     description: >-
@@ -46760,7 +47131,8 @@ paths:
                       - type: 'null'
                   query:
                     anyOf:
-                      - $ref: '#/components/schemas/Query'
+                      - title: Query
+                        $ref: '#/components/schemas/Query'
                       - type: 'null'
                   explorationUrl:
                     description: >-
@@ -46987,6 +47359,7 @@ paths:
                         - type: string
                         - type: 'null'
                     steps:
+                      maxItems: 20
                       type: array
                       items:
                         type: object
@@ -47368,6 +47741,7 @@ paths:
                                       - type: string
                                       - type: 'null'
                                   steps:
+                                    maxItems: 20
                                     type: array
                                     items:
                                       type: object
@@ -47475,7 +47849,8 @@ paths:
                       - type: 'null'
                   query:
                     anyOf:
-                      - $ref: '#/components/schemas/Query'
+                      - title: Query
+                        $ref: '#/components/schemas/Query'
                       - type: 'null'
                   explorationUrl:
                     description: >-
@@ -49948,12 +50323,18 @@ components:
       additionalProperties: false
     FeatureRuleV1:
       anyOf:
-        - $ref: '#/components/schemas/FeatureForceRule'
-        - $ref: '#/components/schemas/FeatureRolloutRule'
-        - $ref: '#/components/schemas/FeatureExperimentRule'
-        - $ref: '#/components/schemas/FeatureExperimentRefRule'
-        - $ref: '#/components/schemas/FeatureContextualBanditRefRule'
-        - $ref: '#/components/schemas/FeatureSafeRolloutRule'
+        - title: Feature Force Rule
+          $ref: '#/components/schemas/FeatureForceRule'
+        - title: Feature Rollout Rule
+          $ref: '#/components/schemas/FeatureRolloutRule'
+        - title: Feature Experiment Rule
+          $ref: '#/components/schemas/FeatureExperimentRule'
+        - title: Feature Experiment Ref Rule
+          $ref: '#/components/schemas/FeatureExperimentRefRule'
+        - title: Feature Contextual Bandit Ref Rule
+          $ref: '#/components/schemas/FeatureContextualBanditRefRule'
+        - title: Feature Safe Rollout Rule
+          $ref: '#/components/schemas/FeatureSafeRolloutRule'
     FeatureForceRule:
       allOf:
         - description: >
@@ -51960,7 +52341,8 @@ components:
                         - type: string
                         - type: 'null'
                   additionalProperties: false
-            - $ref: '#/components/schemas/FeatureExperimentRule'
+            - title: Feature Experiment Rule
+              $ref: '#/components/schemas/FeatureExperimentRule'
             - allOf:
                 - $ref: '#/components/schemas/FeatureBaseRule'
                 - type: object
@@ -52039,7 +52421,8 @@ components:
                     - variations
                     - contextualBanditId
                   additionalProperties: false
-            - $ref: '#/components/schemas/FeatureSafeRolloutRule'
+            - title: Feature Safe Rollout Rule
+              $ref: '#/components/schemas/FeatureSafeRolloutRule'
         - type: object
           properties:
             allEnvironments:
@@ -54040,6 +54423,10 @@ components:
                     - unit
                   additionalProperties: false
                 scheduledStopPlan:
+                  description: >-
+                    End-of-experiment automation applied at the scheduled end.
+                    Required whenever a `stopAt` or `stopAfter` is set (any
+                    mode, including `notify`).
                   $ref: '#/components/schemas/ScheduledStopPlan'
               additionalProperties: false
             - type: 'null'
@@ -54131,6 +54518,10 @@ components:
             - description: When null, the organization default is used.
               type: 'null'
         decisionFrameworkSettings:
+          description: >-
+            Controls the decision framework and metric overrides for the
+            experiment. Replaces the entire stored object on update (does not
+            patch individual fields).
           $ref: '#/components/schemas/ExperimentDecisionFrameworkSettings'
         metricOverrides:
           description: >-
@@ -54341,6 +54732,9 @@ components:
         tiebreakerMetricId:
           type: string
         fallback:
+          description: >-
+            What to do at the scheduled end when there is no clear winner.
+            Required when `mode` is `"auto-ship"`; ignored for other modes.
           type: string
           enum:
             - notify
@@ -54349,7 +54743,6 @@ components:
           type: string
       required:
         - mode
-        - fallback
       additionalProperties: false
     ExperimentResults:
       type: object
@@ -54449,6 +54842,8 @@ components:
                                   type: number
                                 chanceToBeatControl:
                                   type: number
+                                errorMessage:
+                                  type: string
                               required:
                                 - engine
                                 - numerator
@@ -54814,6 +55209,10 @@ components:
                         - unit
                       additionalProperties: false
                     scheduledStopPlan:
+                      description: >-
+                        End-of-experiment automation applied at the scheduled
+                        end. Required whenever a `stopAt` or `stopAfter` is set
+                        (any mode, including `notify`).
                       $ref: '#/components/schemas/ScheduledStopPlan'
                   additionalProperties: false
                 - type: 'null'
@@ -58883,6 +59282,27 @@ components:
             type: string
         limitAccessByEnvironment:
           type: boolean
+        additionalRoles:
+          description: >-
+            Additional roles granted alongside this one, in the same scope. Each
+            is granted independently and environment access is the union across
+            them.
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+              environments:
+                type: array
+                items:
+                  type: string
+              limitAccessByEnvironment:
+                type: boolean
+            required:
+              - role
+              - environments
+            additionalProperties: false
         managedbyIdp:
           type: boolean
         teams:
@@ -58904,6 +59324,27 @@ components:
                 type: array
                 items:
                   type: string
+              additionalRoles:
+                description: >-
+                  Additional roles granted alongside this one, in the same
+                  scope. Each is granted independently and environment access is
+                  the union across them.
+                type: array
+                items:
+                  type: object
+                  properties:
+                    role:
+                      type: string
+                    environments:
+                      type: array
+                      items:
+                        type: string
+                    limitAccessByEnvironment:
+                      type: boolean
+                  required:
+                    - role
+                    - environments
+                  additionalProperties: false
             required:
               - project
               - role
@@ -59099,27 +59540,17 @@ components:
         requireReviews:
           type: array
           items:
-            type: object
-            properties:
-              requireReviewOn:
-                type: boolean
-              resetReviewOnChange:
-                type: boolean
-              environments:
-                type: array
-                items:
-                  type: string
-              projects:
-                type: array
-                items:
-                  type: string
-              featureRequireEnvironmentReview:
-                type: boolean
-              featureRequireMetadataReview:
-                type: boolean
-              autopublishOnApproval:
-                type: boolean
-            additionalProperties: false
+            $ref: '#/components/schemas/RequireReviewRule'
+        approvalFlows:
+          type: object
+          properties:
+            savedGroups:
+              type: array
+              items:
+                $ref: '#/components/schemas/SavedGroupApprovalRule'
+          required:
+            - savedGroups
+          additionalProperties: false
         targetingReviewMode:
           type: array
           items:
@@ -59209,6 +59640,7 @@ components:
         - secureAttributeSalt
         - killswitchConfirmation
         - requireReviews
+        - approvalFlows
         - featureKeyExample
         - featureRegexValidator
         - banditScheduleValue
@@ -59216,6 +59648,88 @@ components:
         - banditBurnInValue
         - banditBurnInUnit
         - experimentMinLengthDays
+      additionalProperties: false
+    RequireReviewRule:
+      type: object
+      properties:
+        requireReviewOn:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+        resetReviewOnChange:
+          type: boolean
+        environments:
+          type: array
+          items:
+            type: string
+        featureRequireEnvironmentReview:
+          type: boolean
+        featureRequireMetadataReview:
+          type: boolean
+        blockSelfApproval:
+          type: boolean
+        autopublishOnApproval:
+          type: boolean
+        requiredApproverTeams:
+          type: array
+          items:
+            type: string
+      additionalProperties: false
+    SavedGroupApprovalRule:
+      type: object
+      properties:
+        required:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+        resetReviewOnChange:
+          type: boolean
+        requireMetadataReview:
+          type: boolean
+        blockSelfApproval:
+          type: boolean
+        autopublishOnApproval:
+          type: boolean
+        requiredApproverTeams:
+          type: array
+          items:
+            type: string
+      required:
+        - required
+      additionalProperties: false
+    RequireReviewRuleInput:
+      type: object
+      properties:
+        requireReviewOn:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+        resetReviewOnChange:
+          type: boolean
+        environments:
+          type: array
+          items:
+            type: string
+        featureRequireEnvironmentReview:
+          type: boolean
+        featureRequireMetadataReview:
+          type: boolean
+        blockSelfApproval:
+          type: boolean
+        autopublishOnApproval:
+          type: boolean
+        requiredApproverTeams:
+          type: array
+          items:
+            type: string
+      required:
+        - requireReviewOn
       additionalProperties: false
     InformationSchemaTable:
       type: object
@@ -63426,6 +63940,7 @@ components:
                               - type: string
                               - type: 'null'
                           steps:
+                            maxItems: 20
                             type: array
                             items:
                               type: object
@@ -63519,6 +64034,10 @@ components:
                       - type
                       - dataset
                     additionalProperties: false
+                  linkedFunnelMetricId:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
                 required:
                   - organization
                   - id
@@ -63771,6 +64290,7 @@ components:
         - variations
         - datasource
         - contextualBanditQueryId
+        - seed
         - currentLeafWeights
         - banditVersion
         - contextualAttributes
@@ -64006,6 +64526,24 @@ components:
                 type: array
                 items:
                   type: string
+              additionalRoles:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    role:
+                      type: string
+                    limitAccessByEnvironment:
+                      type: boolean
+                    environments:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - role
+                    - limitAccessByEnvironment
+                    - environments
+                  additionalProperties: false
               project:
                 type: string
             required:
@@ -64851,6 +65389,10 @@ components:
       type: object
       properties:
         schema:
+          description: >-
+            The config's schema in the requested format: a JSON Schema document
+            (`{ type: "json-schema", value }`) or rendered TypeScript source (`{
+            type: "typescript", value }`).
           $ref: '#/components/schemas/ConfigSchemaSource'
         effective:
           description: >-
@@ -66264,6 +66806,7 @@ components:
                         - type: string
                         - type: 'null'
                     steps:
+                      maxItems: 20
                       type: array
                       items:
                         type: object
@@ -68039,6 +68582,7 @@ components:
         userEmail:
           type: string
         customHook:
+          description: The hook's full state at this version
           $ref: '#/components/schemas/CustomHook'
       required:
         - auditId
@@ -68059,6 +68603,27 @@ components:
             type: string
         limitAccessByEnvironment:
           type: boolean
+        additionalRoles:
+          description: >-
+            Additional roles granted alongside this one, in the same scope. Each
+            is granted independently and environment access is the union across
+            them.
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+              environments:
+                type: array
+                items:
+                  type: string
+              limitAccessByEnvironment:
+                type: boolean
+            required:
+              - role
+              - environments
+            additionalProperties: false
         projectRoles:
           type: array
           items:
@@ -68074,6 +68639,27 @@ components:
                 type: array
                 items:
                   type: string
+              additionalRoles:
+                description: >-
+                  Additional roles granted alongside this one, in the same
+                  scope. Each is granted independently and environment access is
+                  the union across them.
+                type: array
+                items:
+                  type: object
+                  properties:
+                    role:
+                      type: string
+                    environments:
+                      type: array
+                      items:
+                        type: string
+                    limitAccessByEnvironment:
+                      type: boolean
+                  required:
+                    - role
+                    - environments
+                  additionalProperties: false
             required:
               - project
               - role
@@ -68085,6 +68671,16 @@ components:
         - role
         - environments
         - limitAccessByEnvironment
+      additionalProperties: false
+    approvalFlows:
+      type: object
+      properties:
+        savedGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedGroupApprovalRule'
+      required:
+        - savedGroups
       additionalProperties: false
     monitoring:
       type: object
@@ -68813,9 +69409,12 @@ x-tagGroups:
       - RampSchedule_model
       - RampScheduleTemplate_model
       - Report_model
+      - RequireReviewRule_model
+      - RequireReviewRuleInput_model
       - RevisionIdRef_model
       - Safe Rollout Rule_model
       - SavedGroup_model
+      - SavedGroupApprovalRule_model
       - SavedGroupReferences_model
       - SavedGroupRevision_model
       - SavedGroupRevisionActivityLogEntry_model

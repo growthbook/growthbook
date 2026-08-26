@@ -9,6 +9,7 @@ import {
   getSelectedColumnDatatype,
   isFactFunnelMetric,
 } from "shared/experiments";
+import { getFunnelRuleViolations } from "shared/funnels";
 import { UpdateProps } from "shared/types/base-model";
 import { factMetricValidator, ApiFactMetric } from "shared/validators";
 import {
@@ -290,6 +291,13 @@ export class FactMetricModel extends BaseClass {
       delete newColumnRef.aggregation;
     }
 
+    // A user filter needs both fields; a half-set pair (from the same null
+    // storage) fails the "both or neither" check and blocks unrelated edits
+    if (!newColumnRef.aggregateFilter || !newColumnRef.aggregateFilterColumn) {
+      delete newColumnRef.aggregateFilter;
+      delete newColumnRef.aggregateFilterColumn;
+    }
+
     // If row filters are already defined, do nothing
     if (newColumnRef.rowFilters !== undefined) {
       return newColumnRef;
@@ -445,16 +453,19 @@ export class FactMetricModel extends BaseClass {
     factTableMap: Map<string, FactTableInterface>,
   ): Promise<void> {
     const { steps, ordering, sessionBased } = data.funnelSettings;
-    if (steps.length < 2) {
-      throw new Error("Funnel metrics need at least 2 steps");
-    }
-    // TODO(funnel): support non-sequential ordering
-    if ((ordering ?? "sequential") !== "sequential") {
-      throw new Error("Only sequential funnel ordering is supported for now");
-    }
-    // TODO(funnel): support session-based funnels
-    if (sessionBased) {
-      throw new Error("Session-based funnels are not supported for now");
+
+    // Funnel-definition rules live in shared/funnels so the Product Analytics
+    // builder can surface the same reasons before offering a save. Only the
+    // metric-shape rules and async SQL validation below are model-specific.
+    const [violation] = getFunnelRuleViolations({
+      steps,
+      ordering,
+      sessionBased,
+      datasourceId: data.datasource,
+      getFactTable: (id) => factTableMap.get(id),
+    });
+    if (violation) {
+      throw new Error(violation.message);
     }
 
     // Steps can each read from a different fact table, so everything below is
@@ -464,24 +475,10 @@ export class FactMetricModel extends BaseClass {
       if (!factTable) {
         throw new Error("Could not find funnel fact table");
       }
-      if (factTable.datasource !== data.datasource) {
-        throw new Error(
-          "Funnel Fact Table must belong to the metric's Data Source",
-        );
-      }
       return factTable;
     });
 
-    if (new Set(stepFactTables).size > 5) {
-      throw new Error(
-        "Funnel metrics must have 5 or fewer distinct fact tables",
-      );
-    }
-
     steps.forEach((step, i) => {
-      if (!step.name) {
-        throw new Error(`Funnel step ${i + 1} must have a name`);
-      }
       validateSavedFilterIds({
         columnRef: {
           factTableId: step.factTableId,

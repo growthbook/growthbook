@@ -170,13 +170,13 @@ Of course, make sure that the experiment in question is located on the page that
 
 ### Ensure the `trackingCallback` is called unconditionally
 
-Try not to bury the `trackingCallback` within conditional application logic. Conditionally calling the `trackingCallback` can cause fewer users to be assigned to the experiment than you are expecting. Refer to [this section](/kb/experiments/troubleshooting-experiments#solution-1-ensure-the-trackingcallback-is-triggered-unconditionally) in our Knowledge Base for more information.
+Try not to bury the `trackingCallback` within conditional application logic. Conditionally calling the `trackingCallback` can cause fewer users to be assigned to the experiment than you are expecting. Refer to [this section](/kb/experiments/troubleshooting-experiments#solution-2-ensure-the-trackingcallback-is-triggered-unconditionally) in our Knowledge Base for more information.
 
 #### Experiment Rule Precedence
 
 Rules associated with a feature in GrowthBook are evaluated from top to bottom as they appear in the GrowthBook UI. When a user matches a rule higher up in the list, they will not be evaluated for any subsequent rules. To ensure that the `trackingCallback` fires for users in an experiment, make sure that the Experiment Rule is the first rule that those users match.
 
-Read more about [Experiment Rules](/features/rules#experiments) in our documentation.
+Read more about [Experiment Rules](/features/rules#experiment) in our documentation.
 
 ### Ensure GA4 is properly configured as the Data Source in GrowthBook
 

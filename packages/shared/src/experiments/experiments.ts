@@ -1094,6 +1094,15 @@ export function getFactTableTemplateVariables(
   };
 }
 
+// The timestamp column in a fact table's SQL is configurable, defaulting to
+// `timestamp`. Query generation aliases it to `timestamp` when it first selects
+// from the fact table, so nothing downstream has to know the real name.
+export function getFactTableTimestampColumn(
+  factTable: Pick<FactTableInterface, "timestampColumn"> | undefined | null,
+): string {
+  return factTable?.timestampColumn || "timestamp";
+}
+
 // TODO(sql): refactor to remove factTableMap
 export function getMetricTemplateVariables(
   m: ExperimentMetricInterface,

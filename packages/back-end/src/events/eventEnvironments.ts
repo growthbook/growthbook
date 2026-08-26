@@ -3,8 +3,11 @@ import { ApiFeature } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { getApiFeatureAllEnvs, getApiFeatureEnabledEnvs } from "shared/util";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
+import {
+  getApiFeatureAllEnvs,
+  getApiFeatureEnabledEnvs,
+  getApplicableEnvIds,
+} from "shared/util";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Event `environments` semantics — one meaning, everywhere:
