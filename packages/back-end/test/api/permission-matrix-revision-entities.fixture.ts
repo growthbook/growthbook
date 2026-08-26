@@ -60,55 +60,53 @@ export type Entity = {
   renameBody: Record<string, unknown>;
 };
 
-const ENTITIES: Entity[] = [
-  {
-    label: "Constants",
-    base: "constants",
-    createBody: () => ({
-      key: uniq("const"),
-      name: "Matrix Constant",
-      type: "json",
-      value: '{"timeout":30}',
-    }),
-    idOf: (b) => b.key as string,
-    editSegment: "value",
-    editBody: { value: '{"timeout":45}' },
-    editBody2: { value: '{"timeout":60}' },
-    renameBody: { name: "Renamed" },
-  },
-  {
-    label: "Configs",
-    base: "configs",
-    createBody: () => ({
-      key: uniq("config"),
-      name: "Matrix Config",
-      value: { timeout: 30 },
-    }),
-    idOf: (b) => b.key as string,
-    editSegment: "value",
-    editBody: { value: { timeout: 45 } },
-    editBody2: { value: { timeout: 60 } },
-    renameBody: { name: "Renamed" },
-  },
-  {
-    label: "Saved Groups",
-    base: "saved-groups",
-    createBody: () => ({
-      name: uniq("group"),
-      values: ["u1", "u2"],
-      attributeKey: "userId",
-      owner: "",
-    }),
-    // Saved groups are addressed by generated id, filled in after the seed.
-    idOf: (b) => b.id as string,
-    editSegment: "values",
-    editBody: { values: ["u1", "u2", "u3"] },
-    editBody2: { values: ["u1", "u2", "u3", "u4"] },
-    renameBody: { name: "Renamed" },
-  },
-];
+export const CONSTANT_ENTITY: Entity = {
+  label: "Constants",
+  base: "constants",
+  createBody: () => ({
+    key: uniq("const"),
+    name: "Matrix Constant",
+    type: "json",
+    value: '{"timeout":30}',
+  }),
+  idOf: (b) => b.key as string,
+  editSegment: "value",
+  editBody: { value: '{"timeout":45}' },
+  editBody2: { value: '{"timeout":60}' },
+  renameBody: { name: "Renamed" },
+};
 
-export const [CONSTANTS, CONFIGS, SAVED_GROUPS] = ENTITIES;
+export const CONFIG_ENTITY: Entity = {
+  label: "Configs",
+  base: "configs",
+  createBody: () => ({
+    key: uniq("config"),
+    name: "Matrix Config",
+    value: { timeout: 30 },
+  }),
+  idOf: (b) => b.key as string,
+  editSegment: "value",
+  editBody: { value: { timeout: 45 } },
+  editBody2: { value: { timeout: 60 } },
+  renameBody: { name: "Renamed" },
+};
+
+export const SAVED_GROUP_ENTITY: Entity = {
+  label: "Saved Groups",
+  base: "saved-groups",
+  createBody: () => ({
+    name: uniq("group"),
+    values: ["u1", "u2"],
+    attributeKey: "userId",
+    owner: "",
+  }),
+  // Saved groups are addressed by generated id, filled in after the seed.
+  idOf: (b) => b.id as string,
+  editSegment: "values",
+  editBody: { values: ["u1", "u2", "u3"] },
+  editBody2: { values: ["u1", "u2", "u3", "u4"] },
+  renameBody: { name: "Renamed" },
+};
 
 type Case = {
   name: string;

@@ -7,44 +7,6 @@ on:
 # No path filters on purpose: `paths` and `paths-ignore` can both fire on one
 # commit, so a second workflow can never be mutually exclusive with this one.
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      code: ${{ steps.filter.outputs.code }}
-    steps:
-      - name: Detect whether any code paths changed
-        id: filter
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          EVENT: ${{ github.event_name }}
-          PR: ${{ github.event.number }}
-          BEFORE: ${{ github.event.before }}
-          SHA: ${{ github.sha }}
-        run: |
-          set -uo pipefail
-          if [ "$EVENT" = "pull_request" ]; then
-            files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename') || files=""
-          else
-            files=$(gh api --paginate "repos/$REPO/compare/$BEFORE...$SHA" --jq '.files[]?.filename') || files=""
-          fi
-
-          # Failing to resolve the diff must never silently skip the test suite.
-          if [ -z "$files" ]; then
-            echo "Could not determine changed files; running every job."
-            echo "code=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "Changed files:"
-          echo "$files"
-          if echo "$files" | grep -qE '^(packages/|eslint-rules/|\.github/(workflows/ci\.yml|actions/)|pnpm-lock\.yaml$|package\.json$|eslint\.config\.mjs$|eslint-suppressions\.json$)'; then
-            echo "code=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "code=false" >> "$GITHUB_OUTPUT"
-          fi
-
-  # Formatting covers docs and markdown too, so it is not gated on code changes.
   format:
     runs-on: ubuntu-latest
     steps:
@@ -59,8 +21,6 @@ jobs:
         run: pnpm pretty:check
 
   lint:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -79,8 +39,6 @@ jobs:
 
   # Separate job so the JS jobs never install a Python toolchain.
   stats:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -133,8 +91,6 @@ jobs:
           CI: true
 
   openapi:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -148,14 +104,22 @@ jobs:
           [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm generate-openapi" && git status --porcelain && exit 1 || true
 
   type-check:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
       - uses: ./.github/actions/setup-workspace
+
+      # Only this job emits full-repo buildinfo, so only this job caches it.
+      - name: Cache tsbuildinfo
+        uses: actions/cache@v5
+        with:
+          path: |
+            **/tsconfig.tsbuildinfo
+          key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-tsbuildinfo-
 
       - name: Generate Next.js types
         run: pnpm --filter front-end exec next typegen
@@ -167,8 +131,6 @@ jobs:
 
   # A 4-vCPU runner gives Jest only 3 workers for 300+ files, so shard instead.
   test-back-end:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -195,8 +157,6 @@ jobs:
           CI: true
 
   test-packages:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -220,31 +180,13 @@ jobs:
 
   # The single required status check; renaming it breaks branch protection.
   ci:
+    # `always()` matters: without it this job is skipped when a dependency
+    # fails, and branch protection counts a skipped required check as passing.
     if: always()
     needs:
-      [
-        changes,
-        format,
-        lint,
-        stats,
-        openapi,
-        type-check,
-        test-back-end,
-        test-packages,
-      ]
+      [format, lint, stats, openapi, type-check, test-back-end, test-packages]
     runs-on: ubuntu-latest
     steps:
-      - name: Check job results
-        env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
-        run: |
-          echo "Upstream results: $RESULTS"
-          for r in $RESULTS; do
-            case "$r" in
-              success | skipped) ;;
-              *)
-                echo "A required job did not succeed."
-                exit 1
-                ;;
-            esac
-          done
+      - name: Fail if any required job did not succeed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
