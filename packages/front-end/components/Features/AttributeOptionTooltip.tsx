@@ -127,17 +127,26 @@ export function AttributeOptionProjectsLabel({
   );
 }
 
-// Drop-in `formatOptionLabel` for attribute selects with the standard tooltip.
+// Drop-in `formatOptionLabel` for attribute selects: standard tooltip, plus
+// the right-aligned project annotation on menu rows (never at-rest values).
 export function formatAttributeOptionLabel(
   o: { label: string },
   meta: { context: string },
 ) {
+  const option = o as AttributeOptionForTooltip;
   return (
     <AttributeOptionWithTooltip
-      option={o as AttributeOptionForTooltip}
+      option={option}
       context={meta.context === "value" ? "value" : "menu"}
     >
-      {o.label}
+      {meta.context === "menu" ? (
+        <Flex align="center" gap="3">
+          <span>{o.label}</span>
+          <AttributeOptionProjectsLabel projects={option.projects} />
+        </Flex>
+      ) : (
+        o.label
+      )}
     </AttributeOptionWithTooltip>
   );
 }

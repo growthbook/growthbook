@@ -16,8 +16,7 @@ import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import Switch from "@/ui/Switch";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -134,14 +133,7 @@ export default function FallbackAttributeSelector({
           if (!o.value) {
             return <em className="text-muted">{o.label}</em>;
           }
-          return (
-            <AttributeOptionWithTooltip
-              option={o as AttributeOptionForTooltip}
-              context={meta.context}
-            >
-              {o.label}
-            </AttributeOptionWithTooltip>
-          );
+          return formatAttributeOptionLabel(o, meta);
         }}
         sort={false}
         value={
