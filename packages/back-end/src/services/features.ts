@@ -323,11 +323,13 @@ function buildHoldoutsMapForProjects(
 // Caller must pass holdouts map already filtered by project (e.g. buildHoldoutsMapForProjects).
 export function generateHoldoutsPayload({
   holdoutsMap,
+  groupMap,
 }: {
   holdoutsMap: Map<
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
+  groupMap: GroupMap;
 }): Record<string, FeatureDefinition> {
   const holdoutDefs: Record<string, FeatureDefinition> = {};
   holdoutsMap.forEach((holdoutWithExperiment) => {
@@ -335,24 +337,35 @@ export function generateHoldoutsPayload({
     const holdout = holdoutWithExperiment.holdout;
     if (!exp) return;
 
-    const def: FeatureDefinition = {
-      defaultValue: "genpop",
-      rules: [
-        {
-          id: getHoldoutFeatureDefId(holdout.id),
-          coverage: exp.phases[0].coverage,
-          hashAttribute: exp.hashAttribute,
-          seed: exp.phases[0].seed,
-          hashVersion: 2,
-          variations: ["holdoutcontrol", "holdouttreatment"],
-          weights: [0.5, 0.5],
-          key: exp.trackingKey,
-          phase: `${exp.phases.length - 1}`,
-          meta: [{ key: "0" }, { key: "1" }],
-        },
-      ],
+    const mainPhase = exp.phases[0];
+    if (!mainPhase) return;
+
+    const rule: FeatureDefinitionRule = {
+      id: getHoldoutFeatureDefId(holdout.id),
+      coverage: mainPhase.coverage,
+      hashAttribute: exp.hashAttribute,
+      seed: mainPhase.seed,
+      hashVersion: 2,
+      variations: ["holdoutcontrol", "holdouttreatment"],
+      weights: [0.5, 0.5],
+      key: exp.trackingKey,
+      phase: `${exp.phases.length - 1}`,
+      meta: [{ key: "0" }, { key: "1" }],
     };
-    holdoutDefs[getHoldoutFeatureDefId(holdout.id)] = def;
+
+    const condition = getParsedCondition(
+      groupMap,
+      mainPhase.condition,
+      mainPhase.savedGroups,
+    );
+    if (condition) {
+      rule.condition = condition;
+    }
+
+    holdoutDefs[getHoldoutFeatureDefId(holdout.id)] = {
+      defaultValue: "genpop",
+      rules: [rule],
+    };
   });
   return holdoutDefs;
 }
@@ -1518,6 +1531,7 @@ export async function buildSDKPayloadForConnection(
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
     holdoutsMap: holdoutsMapForConnection,
+    groupMap: data.groupMap,
   });
 
   const experimentsDefinitions = generateAutoExperimentsPayload({
@@ -1544,15 +1558,6 @@ export async function buildSDKPayloadForConnection(
     projectsMap,
   });
 
-  const savedGroupsInUse = filterUsedSavedGroups(
-    getSavedGroupsValuesFromGroupMap(data.groupMap),
-    featureDefinitions,
-    experimentsDefinitions,
-  );
-  const usedSavedGroups = data.savedGroups.filter(
-    (sg) => sg.id in savedGroupsInUse,
-  );
-
   const holdoutsInUse = pruneUnreferencedHoldouts(
     holdoutFeatureDefinitions,
     featureDefinitions,
@@ -1562,6 +1567,15 @@ export async function buildSDKPayloadForConnection(
     ...featureDefinitions,
     ...holdoutsInUse,
   };
+
+  const savedGroupsInUse = filterUsedSavedGroups(
+    getSavedGroupsValuesFromGroupMap(data.groupMap),
+    featuresWithHoldouts,
+    experimentsDefinitions,
+  );
+  const usedSavedGroups = data.savedGroups.filter(
+    (sg) => sg.id in savedGroupsInUse,
+  );
 
   const contextualBanditsInUse = filterUsedContextualBandits(
     cbMap,
