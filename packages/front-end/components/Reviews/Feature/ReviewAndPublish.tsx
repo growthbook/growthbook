@@ -39,6 +39,7 @@ import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
+  isInReviewCycle,
 } from "shared/enterprise";
 import {
   EventUserLoggedIn,
@@ -800,9 +801,6 @@ export default function ReviewAndPublish({
   );
   const featureLockedBySchedule = !!lockingScheduledSibling;
 
-  const isPendingReview =
-    revision?.status === "pending-review" ||
-    revision?.status === "changes-requested";
   const createdBy = revision?.createdBy as
     | EventUserLoggedIn
     | EventUserApiKey
@@ -814,8 +812,11 @@ export default function ReviewAndPublish({
   const isBlockedContributor =
     reviewSetting?.blockSelfApproval &&
     (revision?.contributors ?? []).some((id) => id === user?.id);
+  // The whole review cycle accepts verdicts, "approved" included (matching the
+  // server): an approval that doesn't satisfy coverage or a required team must
+  // not lock out the one that would.
   const canReview =
-    !!isPendingReview &&
+    isInReviewCycle(revision?.status) &&
     createdBy?.id !== user?.id &&
     permissionsUtil.canReviewFeatureDrafts(feature, reviewFootprint);
   // Advancing a draft takes draft authority, or revert/delete authority over a
@@ -2656,7 +2657,7 @@ export default function ReviewAndPublish({
             ))}
 
           {/* Submit review — reviewer action, opens the comment/decision popover */}
-          {canReview && isPendingReview && !approved && (
+          {canReview && !adminPublish && (
             <Flex direction="column" gap="3">
               <ReviewCommentPopover
                 submitUrl={`/feature/${feature.id}/${revision.version}/submit-review`}
@@ -2687,6 +2688,15 @@ export default function ReviewAndPublish({
                 }}
                 trigger={
                   <Button
+                    // Outline once publishing is live or armed on a schedule —
+                    // either way review is no longer the primary action.
+                    variant={
+                      state.submitAction === "publish" &&
+                      state.ctaEnabled &&
+                      canDoPrimary
+                        ? "outline"
+                        : undefined
+                    }
                     style={{ width: "100%" }}
                     icon={<PiCaretDownBold />}
                     iconPosition="right"

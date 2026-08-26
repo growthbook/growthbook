@@ -177,6 +177,7 @@ export function toApiResultAnalysis(
     ciHigh: safeFloatOrNull(data?.ci?.[1]),
     pValue: safeFloatOrNull(data?.pValue),
     chanceToBeatControl: safeFloatOrNull(data?.chanceToWin),
+    ...(data?.errorMessage ? { errorMessage: data.errorMessage } : null),
   };
 }
 
