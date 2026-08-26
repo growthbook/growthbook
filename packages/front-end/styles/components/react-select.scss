@@ -344,7 +344,8 @@
 .gb-select__clear-indicator,
 .gb-select__raw-text-mode-indicator,
 .gb-select__copy-button,
-.gb-multi-select__copy-button {
+.gb-multi-select__copy-button,
+.gb-select__scope-toggle {
   width: 22px;
   height: 22px;
   margin: 0 1px;
@@ -366,7 +367,8 @@
 // Raw text / token mode toggle button inside creatable multiselect (StringArrayField)
 .gb-select__raw-text-mode-indicator,
 .gb-select__copy-button,
-.gb-multi-select__copy-button {
+.gb-multi-select__copy-button,
+.gb-select__scope-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -390,10 +392,23 @@
 .gb-select__control--is-focused .gb-select__raw-text-mode-indicator,
 .gb-multi-select__control--is-focused .gb-select__raw-text-mode-indicator,
 .gb-select__control--is-focused .gb-select__copy-button,
-.gb-multi-select__control--is-focused .gb-multi-select__copy-button {
+.gb-multi-select__control--is-focused .gb-multi-select__copy-button,
+.gb-select__control--is-focused .gb-select__scope-toggle {
   color: hsl(0, 0%, 40%);
   &:hover {
     color: hsl(0, 0%, 20%);
+  }
+}
+
+// Scope toggle: always visible (it carries state). Highlighted while
+// filtering is active; muted like the other indicator buttons when lifted.
+.gb-select__control .gb-select__scope-toggle--filtering,
+.gb-select__control--is-focused .gb-select__scope-toggle--filtering {
+  color: var(--violet-11);
+  background-color: var(--violet-a3) !important;
+  &:hover {
+    color: var(--violet-11);
+    background-color: var(--violet-a4) !important;
   }
 }
 

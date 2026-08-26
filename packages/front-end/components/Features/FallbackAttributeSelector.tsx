@@ -7,6 +7,7 @@ import { SDKAttribute } from "shared/types/organization";
 import { Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useAttributeSchema } from "@/services/features";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -17,6 +18,7 @@ import Switch from "@/ui/Switch";
 import {
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
@@ -25,11 +27,14 @@ export interface Props {
   // eslint-disable-next-line
   form: UseFormReturn<any>;
   attributeSchema: SDKAttribute[];
+  // Rendered inside the select's indicators area (e.g. the attribute-scope toggle).
+  extraIndicator?: React.ReactNode;
 }
 
 export default function FallbackAttributeSelector({
   form,
   attributeSchema,
+  extraIndicator,
 }: Props) {
   const [showSBInformation, setShowSBInformation] = useState(false);
 
@@ -38,6 +43,8 @@ export default function FallbackAttributeSelector({
 
   const permissionsUtil = usePermissionsUtil();
   const settings = useOrgSettings();
+  // Unfiltered (incl. archived) for keep-current tooltip metadata below.
+  const allAttributeSchema = useAttributeSchema(true);
   const orgStickyBucketing = settings.useStickyBucketing;
   const orgFallbackAttribute = settings.useFallbackAttributes;
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
@@ -87,28 +94,27 @@ export default function FallbackAttributeSelector({
     ...attributeSchema
       .filter((s) => !hasHashAttributes || s.hashAttribute)
       .filter((s) => s.property !== form.watch("hashAttribute"))
-      .map((s) => ({
-        label: s.property,
-        value: s.property,
-        description: s.description,
-        tags: s.tags,
-        datatype: s.datatype,
-        hashAttribute: s.hashAttribute,
-      })),
+      .map(toAttributeOption),
   ];
 
-  // If the current fallbackAttribute isn't in the list (it was archived or has been project-scoped), add it for backwards compatibility
+  // If the current fallbackAttribute isn't in the list (it was archived or has
+  // been project-scoped), add it for backwards compatibility. Pull metadata
+  // from the unfiltered schema so its tooltip stays populated.
   if (
     fallbackAttribute &&
     !fallbackAttributeOptions.find((o) => o.value === fallbackAttribute)
   ) {
+    const full = allAttributeSchema.find(
+      (s) => s.property === fallbackAttribute,
+    );
     fallbackAttributeOptions.push({
       label: fallbackAttribute,
       value: fallbackAttribute,
-      description: undefined,
-      tags: undefined,
-      datatype: undefined,
-      hashAttribute: undefined,
+      description: full?.description,
+      tags: full?.tags,
+      datatype: full?.datatype,
+      hashAttribute: full?.hashAttribute,
+      projects: full?.projects,
     });
   }
 
@@ -124,6 +130,7 @@ export default function FallbackAttributeSelector({
       <SelectField
         size="legacy"
         withRadixThemedPortal
+        extraIndicator={extraIndicator}
         options={fallbackAttributeOptions}
         formatOptionLabel={(o, meta) => {
           if (!o.value) {

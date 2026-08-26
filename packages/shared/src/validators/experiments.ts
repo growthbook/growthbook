@@ -1425,7 +1425,7 @@ const postExperimentBody = z
     attributeScopeAllProjects: z
       .boolean()
       .describe(
-        "When true, targeting may use registered attributes from any project instead of only those in scope for the experiment's project and linked features. Only relevant when the organization requires registered attributes with project scoping.",
+        "Picker preference: show attributes from all projects in this experiment's targeting UI instead of only those in scope for its project and linked features. Does not loosen enforcement — when the organization requires registered attributes with project scoping, out-of-scope attributes are still rejected.",
       )
       .optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
@@ -1549,7 +1549,7 @@ const updateExperimentBody = z
     attributeScopeAllProjects: z
       .boolean()
       .describe(
-        "When true, targeting may use registered attributes from any project instead of only those in scope for the experiment's project and linked features. Only relevant when the organization requires registered attributes with project scoping.",
+        "Picker preference: show attributes from all projects in this experiment's targeting UI instead of only those in scope for its project and linked features. Does not loosen enforcement — when the organization requires registered attributes with project scoping, out-of-scope attributes are still rejected.",
       )
       .optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),

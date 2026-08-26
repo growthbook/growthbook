@@ -266,10 +266,14 @@ export const updateFeatureV2 = createApiRequestHandler(
       validateRuleAttributes(
         rule as Parameters<typeof validateRuleAttributes>[0],
         req.context,
-        getAttributeScopeProjectIds(feature, {
-          project: req.body.project,
-          targetingAllProjects: req.body.targetingAllProjects,
-          targetingProjects: req.body.targetingProjects,
+        // Validate against the post-update targeting state so a single PUT
+        // can't narrow targeting while keeping out-of-scope rules.
+        getAttributeScopeProjectIds({
+          project: req.body.project ?? feature.project,
+          targetingAllProjects:
+            req.body.targetingAllProjects ?? feature.targetingAllProjects,
+          targetingProjects:
+            req.body.targetingProjects ?? feature.targetingProjects,
         }) ?? undefined,
       );
     }

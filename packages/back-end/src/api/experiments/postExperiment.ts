@@ -284,7 +284,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       req.context,
       {
         project: payload.project,
-        attributeScopeAllProjects: payload.attributeScopeAllProjects,
       },
     );
     assertRegisteredAttributes(

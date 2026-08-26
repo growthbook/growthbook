@@ -3,6 +3,7 @@ import { Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import {
@@ -14,6 +15,7 @@ import {
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
+import { useStrictAttributeProjectScoping } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import Modal from "@/components/Modal";
@@ -26,13 +28,22 @@ import SavedGroupTargetingField, {
 } from "@/components/Features/SavedGroupTargetingField";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
+import { getLinkedExperimentAttributeScopes } from "./useAttributeScopePicker";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
+  // Widens the attribute picker to the linked features' targeting projects,
+  // matching the back-end scope for this endpoint.
+  linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   close: () => void;
   source?: string;
-}> = ({ experiment, close, mutate, source }) => {
+}> = ({ experiment, linkedFeatures, close, mutate, source }) => {
+  const strictScoping = useStrictAttributeProjectScoping();
+  const { dropdown: dropdownScope } = getLinkedExperimentAttributeScopes(
+    experiment.project,
+    linkedFeatures,
+  );
   const { refreshWatching } = useWatching();
 
   const firstPhase = !experiment.phases.length;
@@ -183,7 +194,9 @@ const NewPhaseForm: FC<{
           key={conditionKey}
           project={experiment.project || ""}
           attributeProjects={
-            experiment.attributeScopeAllProjects ? null : undefined
+            experiment.attributeScopeAllProjects && !strictScoping
+              ? null
+              : dropdownScope
           }
         />
       )}

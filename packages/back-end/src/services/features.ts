@@ -32,7 +32,7 @@ import {
   namespacesToMap,
   recursiveWalk,
   ruleAppliesToEnv,
-  StagedTargetingScope,
+  TargetingScopedEntity,
   stemRuleId,
   stripConfigExtends,
   toApiNamespace,
@@ -3210,7 +3210,8 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   feature: FeatureInterface,
   rules: ApiFeatureEnvSettingsRules,
   existingRules?: FeatureRule[],
-  stagedTargeting?: StagedTargetingScope,
+  // Resolved post-update targeting state; defaults to the feature itself.
+  attributeScopeEntity?: TargetingScopedEntity,
 ): FeatureRule[] => {
   // Honor the opt-in `?skipSchemaValidation=true` escape hatch: drop the schema
   // so values are still normalized (parse / dirty-json) but not schema-checked.
@@ -3218,7 +3219,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
     ? { ...feature, jsonSchema: undefined }
     : feature;
   const attributeScope =
-    getAttributeScopeProjectIds(feature, stagedTargeting) ?? undefined;
+    getAttributeScopeProjectIds(attributeScopeEntity ?? feature) ?? undefined;
   return rules.map((r) => {
     const conditionRes = validateCondition(r.condition);
     if (!conditionRes.success) {

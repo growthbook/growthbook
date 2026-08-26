@@ -78,7 +78,14 @@ export default function MakeChangesFlow({
   // mutated programmatically by the change-type step, not by the user.
   const watchedValues = useWatch({ control: form.control });
   const pickForCompare = <T extends Record<string, unknown>>(v: T) =>
-    omit(v, ["newPhase", "reseed", "bucketVersion", "minBucketVersion"]);
+    omit(v, [
+      "newPhase",
+      "reseed",
+      "bucketVersion",
+      "minBucketVersion",
+      // Picker view preference — must not arm the publish flow on its own.
+      "attributeScopeAllProjects",
+    ]);
   const hasChanges = !isEqual(
     pickForCompare(watchedValues),
     pickForCompare(defaultValues),

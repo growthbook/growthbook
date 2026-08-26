@@ -42,6 +42,7 @@ import ConditionInput from "@/components/Features/ConditionInput";
 import {
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
@@ -520,14 +521,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 containerClassName="flex-1"
                 options={attributeSchema
                   .filter((s) => !hasHashAttributes || s.hashAttribute)
-                  .map((s) => ({
-                    label: s.property,
-                    value: s.property,
-                    description: s.description,
-                    tags: s.tags,
-                    datatype: s.datatype,
-                    hashAttribute: s.hashAttribute,
-                  }))}
+                  .map(toAttributeOption)}
                 value={form.watch("hashAttribute") ?? ""}
                 onChange={(v) => {
                   form.setValue("hashAttribute", v);

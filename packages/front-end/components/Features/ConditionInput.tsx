@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { extractConditionAttributeKeys } from "shared/util";
 import { some } from "lodash";
 import {
   PiArrowSquareOut,
@@ -26,6 +27,7 @@ import {
   getFormatEquivalentOperator,
   formatJSON,
   LARGE_FILE_SIZE,
+  resolveAttributeFilter,
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -60,8 +62,10 @@ import {
   ConditionRowLabel,
 } from "./TargetingConditionsCard";
 import {
+  AttributeOptionProjectsLabel,
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
+  toAttributeOption,
 } from "./AttributeOptionTooltip";
 
 export function ConditionLabel({
@@ -108,6 +112,41 @@ const BASE_OPERATOR: Record<string, string> = {
   $notRegexi: "$notRegex",
 };
 
+// Attribute schema + lookup map scoped to `filter`, but keeping any attribute
+// the condition already references selectable/parsable until the user removes
+// it. Without this, a saved condition using a now-out-of-scope attribute
+// would fail `jsonToConds` and get ejected into the advanced JSON editor.
+function useScopedAttributes(
+  filter: string | string[] | null | undefined,
+  referencedKeys: string[],
+) {
+  const allAttributes = useAttributeMap(null);
+  const scopedSchema = useAttributeSchema(false, filter);
+  const allSchema = useAttributeSchema(false);
+  // Content key so callers can pass the keys array inline without breaking
+  // memoization (an unstable map identity re-fires the onChange effect).
+  const referencedKey = referencedKeys.join("||");
+  return useMemo(() => {
+    const referenced = new Set<string>();
+    for (const k of referencedKey ? referencedKey.split("||") : []) {
+      referenced.add(k);
+      // Dotted keys reference a property on an object attribute.
+      referenced.add(k.split(".")[0]);
+    }
+    const scoped = new Set(scopedSchema.map((s) => s.property));
+    const attributeSchema = [
+      ...scopedSchema,
+      ...allSchema.filter(
+        (s) => !scoped.has(s.property) && referenced.has(s.property),
+      ),
+    ];
+    const attributes = new Map(
+      [...allAttributes].filter(([k]) => scoped.has(k) || referenced.has(k)),
+    );
+    return { attributes, attributeSchema };
+  }, [allAttributes, scopedSchema, allSchema, referencedKey]);
+}
+
 export function operatorSupportsCaseInsensitive(operator: string): boolean {
   return OPERATORS_WITH_CASE_INSENSITIVE.has(operator);
 }
@@ -141,6 +180,9 @@ interface Props {
   // Attribute-scope union overriding `project` for attribute filtering (e.g.
   // a feature's targeting projects); null = show attributes from all projects.
   attributeProjects?: string[] | null;
+  // Rendered inside the attribute selects' indicators area (e.g. the
+  // experiment attribute-scope toggle).
+  attributeSelectIndicator?: React.ReactNode;
   labelClassName?: string;
   emptyText?: string;
   label?: string;
@@ -163,6 +205,7 @@ export default function ConditionInput({
   onChange,
   project,
   attributeProjects,
+  attributeSelectIndicator,
   labelClassName,
   emptyText = "Applied to everyone by default.",
   label = "Target by Attributes",
@@ -179,15 +222,24 @@ export default function ConditionInput({
   setModeLabel,
   removeModeLabel,
 }: Props) {
-  const attributeFilter =
-    attributeProjects !== undefined ? attributeProjects : project;
-  const attributes = useAttributeMap(attributeFilter);
+  const attributeFilter = resolveAttributeFilter(attributeProjects, project);
+  const [value, setValue] = useState(defaultValue);
+  const referencedKeys = useMemo(() => {
+    try {
+      return extractConditionAttributeKeys(JSON.parse(value || "{}"));
+    } catch {
+      return [];
+    }
+  }, [value]);
+  const { attributes, attributeSchema } = useScopedAttributes(
+    attributeFilter,
+    referencedKeys,
+  );
 
   const [advanced, setAdvanced] = useState(
     () => jsonToConds(defaultValue, attributes) === null,
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
-  const [value, setValue] = useState(defaultValue);
   const [conds, setConds] = useState(
     () => jsonToConds(defaultValue, attributes) || [],
   );
@@ -196,7 +248,6 @@ export default function ConditionInput({
     defaultCodeEditorToggledOn,
   );
 
-  const attributeSchema = useAttributeSchema(false, attributeFilter);
   const showAddRemoveSelector =
     !!addRemoveMode && !!addRemoveValue && !!onAddRemoveValueChange;
   const renderAddRemoveSelector = () =>
@@ -634,6 +685,7 @@ export default function ConditionInput({
                 orGroupsCount={conds.length}
                 project={project}
                 attributeProjects={attributeProjects}
+                attributeSelectIndicator={attributeSelectIndicator}
                 labelClassName={labelClassName}
                 emptyText={emptyText}
                 label={label}
@@ -695,6 +747,7 @@ function ConditionAndGroupInput({
   orGroupsCount: number;
   project: string;
   attributeProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   labelClassName?: string;
   emptyText?: string;
   label?: string;
@@ -706,10 +759,9 @@ function ConditionAndGroupInput({
 }) {
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
-  const attributes = useAttributeMap(
-    props.attributeProjects !== undefined
-      ? props.attributeProjects
-      : props.project,
+  const { attributes, attributeSchema } = useScopedAttributes(
+    resolveAttributeFilter(props.attributeProjects, props.project),
+    conds.map((c) => c.field),
   );
 
   // Normalize: secureString/secureString[] only support exact operators (in/nin), not case-insensitive (ini/nini)
@@ -731,13 +783,6 @@ function ConditionAndGroupInput({
   }, [conds, attributes, setConds]);
 
   const listOperators = ["$in", "$nin", "$ini", "$nini"];
-
-  const attributeSchema = useAttributeSchema(
-    false,
-    props.attributeProjects !== undefined
-      ? props.attributeProjects
-      : props.project,
-  );
 
   return (
     <>
@@ -771,20 +816,14 @@ function ConditionAndGroupInput({
             size="legacy"
             disabled={disabled}
             withRadixThemedPortal
+            extraIndicator={props.attributeSelectIndicator}
             value={field}
             options={
               props.allowNestedSavedGroups
                 ? [
                     {
                       label: "Attributes",
-                      options: attributeSchema.map((s) => ({
-                        label: s.property,
-                        value: s.property,
-                        description: s.description,
-                        tags: s.tags,
-                        datatype: s.datatype,
-                        hashAttribute: s.hashAttribute,
-                      })),
+                      options: attributeSchema.map(toAttributeOption),
                     },
                     {
                       label: "Saved Groups",
@@ -800,22 +839,27 @@ function ConditionAndGroupInput({
                       ],
                     },
                   ]
-                : attributeSchema.map((s) => ({
-                    label: s.property,
-                    value: s.property,
-                    description: s.description,
-                    tags: s.tags,
-                    datatype: s.datatype,
-                    hashAttribute: s.hashAttribute,
-                  }))
+                : attributeSchema.map(toAttributeOption)
             }
             formatOptionLabel={(o, meta) => {
+              const option = o as AttributeOptionForTooltip;
               return (
                 <AttributeOptionWithTooltip
-                  option={o as AttributeOptionForTooltip}
+                  option={option}
                   context={meta.context}
                 >
-                  <Text size="md">{o.label}</Text>
+                  <Flex align="center" gap="3">
+                    <Text size="md">{o.label}</Text>
+                    {/* Right-aligned project annotation in the menu only —
+                        not on the at-rest value, and not for the saved-group
+                        pseudo-options (they have no datatype). */}
+                    {meta.context === "menu" &&
+                      option.datatype !== undefined && (
+                        <AttributeOptionProjectsLabel
+                          projects={option.projects}
+                        />
+                      )}
+                  </Flex>
                 </AttributeOptionWithTooltip>
               );
             }}

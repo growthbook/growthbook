@@ -867,8 +867,7 @@ interface Props {
   // Renders the schedule grid in view-only mode.
   readOnly?: boolean;
   feature: FeatureInterface;
-  // Attribute-scope union (feature targeting projects, current ∪ staged);
-  // null = unscoped. Falls back to `feature.project` when omitted.
+  // Attribute-scope union for the attribute pickers; null = unscoped.
   attributeProjects?: string[] | null;
   environments: string[];
   // Used by the standalone modal.

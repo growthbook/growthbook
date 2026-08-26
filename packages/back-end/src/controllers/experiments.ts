@@ -1195,7 +1195,6 @@ export async function postExperiments(
   const attributeScope = await getExperimentAttributeScopeProjects(context, {
     project: data.project,
     linkedFeatures: data.linkedFeatures,
-    attributeScopeAllProjects: data.attributeScopeAllProjects,
   });
   assertRegisteredAttributes(
     context,
@@ -1553,9 +1552,10 @@ export async function postExperiment(
   const attributeScope = await getExperimentAttributeScopeProjects(context, {
     project: "project" in data ? data.project : experiment.project,
     linkedFeatures: experiment.linkedFeatures,
-    attributeScopeAllProjects:
-      data.attributeScopeAllProjects ?? experiment.attributeScopeAllProjects,
   });
+  // Change-aware: this endpoint receives broad payloads from many modals, so
+  // only validate fields that actually differ from the persisted experiment —
+  // a grandfathered out-of-scope attribute must not block unrelated edits.
   assertRegisteredAttributes(
     context,
     {
@@ -1563,15 +1563,27 @@ export async function postExperiment(
       fallbackAttribute: data.fallbackAttribute,
     },
     "experiment",
-    undefined,
+    {
+      hashAttribute: experiment.hashAttribute,
+      fallbackAttribute: experiment.fallbackAttribute,
+    },
     attributeScope,
+  );
+  // Match persisted phases by condition value, not index — reordered or
+  // spliced phase lists must not re-validate grandfathered conditions.
+  const persistedConditions = new Set(
+    (experiment.phases ?? []).map((p) => p.condition),
   );
   for (const phase of data.phases ?? []) {
     assertRegisteredAttributes(
       context,
       { condition: phase.condition },
       "experiment phase",
-      undefined,
+      {
+        condition: persistedConditions.has(phase.condition)
+          ? phase.condition
+          : undefined,
+      },
       attributeScope,
     );
   }
@@ -2849,13 +2861,19 @@ export async function putExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check (org-level setting).
+  // Opt-in attribute registration check (org-level setting). Change-aware
+  // against the phase being edited so a grandfathered out-of-scope attribute
+  // doesn't block unrelated phase edits (dates, reason).
   assertRegisteredAttributes(
     context,
     { condition: phase.condition },
     "experiment phase",
-    undefined,
-    await getExperimentAttributeScopeProjects(context, experiment),
+    { condition: experiment.phases[i]?.condition },
+    await getExperimentAttributeScopeProjects(
+      context,
+      experiment,
+      linkedFeatures,
+    ),
   );
 
   phase.dateStarted = phase.dateStarted
@@ -2990,12 +3008,14 @@ export async function postExperimentTargeting(
       fallbackAttribute: experiment.fallbackAttribute,
       condition: lastPersistedPhase?.condition,
     },
-    await getExperimentAttributeScopeProjects(context, {
-      project: experiment.project,
-      linkedFeatures: experiment.linkedFeatures,
-      attributeScopeAllProjects:
-        attributeScopeAllProjects ?? experiment.attributeScopeAllProjects,
-    }),
+    await getExperimentAttributeScopeProjects(
+      context,
+      {
+        project: experiment.project,
+        linkedFeatures: experiment.linkedFeatures,
+      },
+      linkedFeatures,
+    ),
   );
 
   const phases = [...experiment.phases];
@@ -3152,13 +3172,22 @@ export async function postExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check (org-level setting).
+  // Opt-in attribute registration check (org-level setting). A new phase
+  // usually carries the previous phase's condition forward — change-aware
+  // against it so a grandfathered out-of-scope attribute doesn't block
+  // starting a new phase.
   assertRegisteredAttributes(
     context,
     { condition: data.condition },
     "experiment phase",
-    undefined,
-    await getExperimentAttributeScopeProjects(context, experiment),
+    {
+      condition: experiment.phases[experiment.phases.length - 1]?.condition,
+    },
+    await getExperimentAttributeScopeProjects(
+      context,
+      experiment,
+      linkedFeatures,
+    ),
   );
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();

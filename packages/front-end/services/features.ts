@@ -606,32 +606,53 @@ export function getVariationColor(i: number, experimentTheme = false) {
   return colors[i % colors.length];
 }
 
+// True when the org enforces project-scoped attribute registration. The
+// experiment picker opt-out (`attributeScopeAllProjects`) must be ignored
+// then — it is a view preference and never loosens enforcement.
+export function useStrictAttributeProjectScoping(): boolean {
+  const { isOn, requireProjectScoping } =
+    getRequireRegisteredAttributesSettings(
+      useOrgSettings().requireRegisteredAttributes,
+    );
+  return isOn && requireProjectScoping;
+}
+
 // `projectFilter` may be a single project id or a set of them (e.g. a
 // feature's targeting-project union). null/undefined/empty = no filtering.
+// Resolve a picker's attribute filter: an explicitly provided scope wins
+// (null = unscoped, show everything); otherwise fall back to the entity's
+// primary project.
+export function resolveAttributeFilter(
+  attributeProjects: string[] | null | undefined,
+  fallbackProject: string | undefined,
+): string | string[] | null {
+  return attributeProjects !== undefined
+    ? attributeProjects
+    : fallbackProject || null;
+}
+
 export function useAttributeSchema(
   showArchived = false,
   projectFilter?: string | string[] | null,
 ) {
   const attributeSchema = useOrgSettings().attributeSchema || [];
 
-  const filterProjects = Array.isArray(projectFilter)
-    ? projectFilter.filter(Boolean)
-    : projectFilter
-      ? [projectFilter]
-      : [];
-  const filteredAttributeSchema = attributeSchema.filter((attribute) => {
-    return (
-      !filterProjects.length ||
-      !attribute.projects?.length ||
-      attribute.projects.some((p) => filterProjects.includes(p))
-    );
-  });
+  // Key the memo on the filter's contents, not its identity — callers often
+  // build the projects array inline every render.
+  const filterKey = Array.isArray(projectFilter)
+    ? projectFilter.filter(Boolean).join("||")
+    : (projectFilter ?? "");
   return useMemo(() => {
-    if (!showArchived) {
-      return filteredAttributeSchema.filter((s) => !s.archived);
-    }
-    return filteredAttributeSchema;
-  }, [attributeSchema, showArchived, projectFilter]);
+    const filterProjects = new Set(filterKey ? filterKey.split("||") : []);
+    return attributeSchema.filter((attribute) => {
+      if (!showArchived && attribute.archived) return false;
+      return (
+        !filterProjects.size ||
+        !attribute.projects?.length ||
+        attribute.projects.some((p) => filterProjects.has(p))
+      );
+    });
+  }, [attributeSchema, showArchived, filterKey]);
 }
 
 // Shared formatter so the client-side pre-flight error matches the back-end
@@ -757,10 +778,10 @@ export function validateFeatureRule(
     "rule",
     {
       ...options,
-      project:
-        options.attributeProjects !== undefined
-          ? options.attributeProjects
-          : feature.project,
+      project: resolveAttributeFilter(
+        options.attributeProjects,
+        feature.project,
+      ),
     },
     existingRule
       ? {

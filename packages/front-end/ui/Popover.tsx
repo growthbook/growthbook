@@ -27,6 +27,8 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   content: AllowedChildren;
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
+  // Gap in px between the trigger and the popover (Radix default: 0).
+  sideOffset?: number;
   showCloseButton?: boolean;
   showArrow?: boolean;
   disableDismiss?: boolean;
@@ -57,6 +59,7 @@ export function Popover({
   content,
   side = "bottom",
   align = "center",
+  sideOffset,
   showCloseButton = false,
   showArrow = true,
   disableDismiss = false,
@@ -150,6 +153,7 @@ export function Popover({
             <RadixPopover.Content
               side={side}
               align={align}
+              sideOffset={sideOffset}
               className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
               style={appliedContentStyle}
               {...hoverHandlers}

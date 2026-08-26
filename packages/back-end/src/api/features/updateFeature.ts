@@ -346,9 +346,10 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         envSettings.rules,
         feature.rules ?? [],
         {
-          ...(project != null ? { project } : {}),
-          ...(targetingAllProjects != null ? { targetingAllProjects } : {}),
-          ...(targetingProjects != null ? { targetingProjects } : {}),
+          project: project ?? feature.project,
+          targetingAllProjects:
+            targetingAllProjects ?? feature.targetingAllProjects,
+          targetingProjects: targetingProjects ?? feature.targetingProjects,
         },
       );
       // Inherit stored seed/hashVersion first so the backfill can't re-bucket a legacy rollout.

@@ -15,6 +15,7 @@ import { useAuth } from "@/services/auth";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import {
   useAttributeSchema,
+  useStrictAttributeProjectScoping,
   validateUnregisteredAttributes,
 } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -48,6 +49,9 @@ export function useExperimentTargetingForm(
   // gating in validateUnregisteredAttributes can actually distinguish
   // unknown vs out-of-project attributes.
   const allAttributesSchema = useAttributeSchema(false);
+  // The picker opt-out never loosens validation when the org strictly
+  // enforces project scoping.
+  const strictScoping = useStrictAttributeProjectScoping();
   const [conditionKey, forceConditionRender] = useIncrementer();
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
@@ -166,11 +170,12 @@ export function useExperimentTargetingForm(
         {
           attributeSchema: allAttributesSchema,
           requireRegisteredAttributes: orgSettings.requireRegisteredAttributes,
-          project: value.attributeScopeAllProjects
-            ? null
-            : attributeScopeProjects !== undefined
-              ? attributeScopeProjects
-              : experiment.project || undefined,
+          project:
+            value.attributeScopeAllProjects && !strictScoping
+              ? null
+              : attributeScopeProjects !== undefined
+                ? attributeScopeProjects
+                : experiment.project || undefined,
         },
         existingAttributeParts,
       );

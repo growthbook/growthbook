@@ -12,7 +12,11 @@ import { useState } from "react";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
-import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
+import {
+  NewExperimentRefRule,
+  useAttributeSchema,
+  resolveAttributeFilter,
+} from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -25,6 +29,7 @@ import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import {
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
@@ -52,8 +57,7 @@ export default function SafeRolloutFields({
   onRuleCyclicChange,
 }: {
   feature: FeatureInterface;
-  // Attribute-scope union (feature targeting projects, current ∪ staged);
-  // null = unscoped. Falls back to `feature.project` when omitted.
+  // Attribute-scope union for the attribute pickers; null = unscoped.
   attributeProjects?: string[] | null;
   environment: string;
   defaultValues: FeatureRule | NewExperimentRefRule;
@@ -74,7 +78,7 @@ export default function SafeRolloutFields({
   const [advancedOptionsSeedOpen, setAdvancedOptionsSeedOpen] = useState(false);
   const attributeSchema = useAttributeSchema(
     false,
-    attributeProjects !== undefined ? attributeProjects : feature.project,
+    resolveAttributeFilter(attributeProjects, feature.project),
   );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
@@ -177,14 +181,7 @@ export default function SafeRolloutFields({
           label="Sample based on attribute"
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
-            .map((s) => ({
-              label: s.property,
-              value: s.property,
-              description: s.description,
-              tags: s.tags,
-              datatype: s.datatype,
-              hashAttribute: s.hashAttribute,
-            }))}
+            .map(toAttributeOption)}
           value={form.watch("hashAttribute")}
           onChange={(v) => {
             form.setValue("hashAttribute", v);

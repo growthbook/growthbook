@@ -80,6 +80,9 @@ export type SelectFieldProps = Omit<
   forceUndefinedValueToNull?: boolean;
   useMultilineLabels?: boolean;
   containerStyles?: StylesConfig<SingleValue, boolean>;
+  // Rendered inside the select's indicators area, before the dropdown caret
+  // (e.g. a mini icon button). Mirrors MultiSelectField's copy button.
+  extraIndicator?: ReactNode;
   withRadixThemedPortal?: boolean;
   legacyLabelFormatting?: boolean;
   labelSize?: TextSizes;
@@ -234,6 +237,26 @@ function CustomDropdownIndicator(
   );
 }
 
+function IndicatorsContainerWithExtra(
+  props: React.ComponentProps<typeof components.IndicatorsContainer>,
+) {
+  const selectProps = props.selectProps as unknown as {
+    extraIndicator?: ReactNode;
+  };
+  const extra = selectProps?.extraIndicator;
+
+  if (!extra) {
+    return <components.IndicatorsContainer {...props} />;
+  }
+
+  return (
+    <components.IndicatorsContainer {...props}>
+      {extra}
+      {props.children}
+    </components.IndicatorsContainer>
+  );
+}
+
 const SelectField: FC<SelectFieldProps> = ({
   value,
   options,
@@ -260,6 +283,7 @@ const SelectField: FC<SelectFieldProps> = ({
   forceUndefinedValueToNull = false,
   useMultilineLabels = false,
   containerStyles = {},
+  extraIndicator,
   withRadixThemedPortal = false,
   legacyLabelFormatting = true,
   labelSize,
@@ -461,11 +485,13 @@ const SelectField: FC<SelectFieldProps> = ({
                   formatGroupLabel={formatGroupLabel}
                   isSearchable={!!isSearchable}
                   onPaste={onPaste}
+                  extraIndicator={extraIndicator}
                   components={{
                     Input,
                     DropdownIndicator: CustomDropdownIndicator,
                     IndicatorSeparator: () => null,
                     ClearIndicator: CustomClearIndicator,
+                    IndicatorsContainer: IndicatorsContainerWithExtra,
                     ...(withRadixThemedPortal && {
                       MenuPortal: RadixThemeMenuPortal,
                     }),
@@ -499,11 +525,13 @@ const SelectField: FC<SelectFieldProps> = ({
                   formatGroupLabel={formatGroupLabel}
                   isSearchable={!!isSearchable}
                   onPaste={onPaste}
+                  extraIndicator={extraIndicator}
                   components={{
                     Input,
                     DropdownIndicator: CustomDropdownIndicator,
                     IndicatorSeparator: () => null,
                     ClearIndicator: CustomClearIndicator,
+                    IndicatorsContainer: IndicatorsContainerWithExtra,
                     ...(withRadixThemedPortal && {
                       MenuPortal: RadixThemeMenuPortal,
                     }),

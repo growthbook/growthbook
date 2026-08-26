@@ -2700,6 +2700,26 @@ export default function ReviewAndPublish({
             </Flex>
           )}
 
+          {/* Rebase/conflict affordance must stay reachable when the publish
+              section is hidden (a conflicted or not-yet-approved draft) —
+              without this, a conflicted draft dead-ends: no notice, no
+              "Fix conflicts", no rebase, just "waiting for a reviewer". */}
+          {!showPublishSection && revision && governance && (
+            <Box mt="4">
+              <DivergenceNotice
+                governance={governance}
+                liveVersion={feature.version}
+                baseVersion={revision.baseVersion}
+                onUpdateFromLive={onUpdateFromLive}
+                updating={rebasing}
+                canRebase={permissionsUtil.canEditFeatureDrafts(feature)}
+                onResolveConflicts={() => setResolveConflicts(true)}
+                approvedAt={approvedAt}
+                revisionsSinceApproval={revisionsSinceApproval}
+              />
+            </Box>
+          )}
+
           {/* Non-reviewers see an explicit status while the draft waits on a
               review — without it the tab shows only the status badge and the
               draft reads as stuck. */}

@@ -147,15 +147,6 @@ describe("targeting scope helpers", () => {
       ).toBeNull();
     });
 
-    it("returns null when the experiment opted out", () => {
-      expect(
-        getExperimentAttributeScopeProjectIds(
-          { project: "p1", attributeScopeAllProjects: true },
-          [["p2"]],
-        ),
-      ).toBeNull();
-    });
-
     it("returns null for a project-less experiment", () => {
       expect(getExperimentAttributeScopeProjectIds({}, [["p2"]])).toBeNull();
     });

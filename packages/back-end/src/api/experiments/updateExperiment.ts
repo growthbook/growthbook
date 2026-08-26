@@ -289,11 +289,11 @@ export const updateExperiment = createApiRequestHandler(
       project:
         req.body.project !== undefined ? req.body.project : experiment.project,
       linkedFeatures: experiment.linkedFeatures,
-      attributeScopeAllProjects:
-        req.body.attributeScopeAllProjects ??
-        experiment.attributeScopeAllProjects,
     },
   );
+  // Change-aware: REST clients commonly round-trip full payloads, so only
+  // validate fields that differ from the persisted experiment — a
+  // grandfathered out-of-scope attribute must not block unrelated updates.
   assertRegisteredAttributes(
     req.context,
     {
@@ -301,15 +301,29 @@ export const updateExperiment = createApiRequestHandler(
       fallbackAttribute: req.body.fallbackAttribute,
     },
     "experiment",
-    undefined,
+    {
+      hashAttribute: experiment.hashAttribute,
+      fallbackAttribute: experiment.fallbackAttribute,
+    },
     attributeScope,
+  );
+  // Match persisted phases by condition value, not index — clients that
+  // insert or delete phases must not re-validate grandfathered conditions.
+  const persistedConditions = new Set(
+    (experiment.phases ?? []).map((p) => p.condition),
   );
   for (const phase of req.body.phases ?? []) {
     assertRegisteredAttributes(
       req.context,
       { condition: phase.condition },
       "experiment phase",
-      undefined,
+      {
+        condition:
+          phase.condition !== undefined &&
+          persistedConditions.has(phase.condition)
+            ? phase.condition
+            : undefined,
+      },
       attributeScope,
     );
   }

@@ -3278,7 +3278,15 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
+  // Read-only revision lookup for staged targeting — getDraftRevision would
+  // persist a new draft before validation passes.
+  const existingRevision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
 
   // Opt-in attribute registration check before any side effects (safe-rollout
   // create, holdout linking, revision update).
@@ -3292,7 +3300,8 @@ export async function postFeatureRule(
     },
     "rule",
     undefined,
-    getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+    getAttributeScopeProjectIds(feature, existingRevision?.metadata) ??
+      undefined,
   );
 
   // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
@@ -3315,6 +3324,8 @@ export async function postFeatureRule(
       rule.trackingKey || `${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}${uuidv4()}`;
     rule.safeRolloutId = generateId("sr_");
   }
+
+  const revision = await getDraftRevision(context, feature, parseInt(version));
 
   const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
 

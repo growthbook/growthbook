@@ -25,8 +25,8 @@ import {
   DRAFT_REVISION_STATUSES,
   fillRevisionFromFeature,
   generateVariationId,
-  getAttributeScopeProjectIds,
   getExperimentAttributeScopeProjectIds,
+  getFeatureAttributeScopeWithDrafts,
   getMatchingRules,
   getRequireRegisteredAttributesSettings,
   getNamespaceRanges,
@@ -139,6 +139,7 @@ import { StatsEngine } from "shared/types/stats";
 import {
   ContextualBanditRefRule,
   ExperimentRefRule,
+  FeatureInterface,
   FeatureRule,
 } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
@@ -197,7 +198,10 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
-import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
+import {
+  getActiveDraftMetadataByFeatureIds,
+  getFeatureRevisionsByFeatureIds,
+} from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -4979,12 +4983,15 @@ export async function getRefLinkedFeatureInfo({
   const featuresByFeatureId = Object.fromEntries(
     features.map((f) => [f.id, f]),
   );
-  const revisionsByFeatureId = await getFeatureRevisionsByFeatureIds(
-    context,
-    context.org.id,
-    linkedFeatureIds,
-    featuresByFeatureId,
-  );
+  const [revisionsByFeatureId, draftMetadataByFeatureId] = await Promise.all([
+    getFeatureRevisionsByFeatureIds(
+      context,
+      context.org.id,
+      linkedFeatureIds,
+      featuresByFeatureId,
+    ),
+    getActiveDraftMetadataByFeatureIds(context.org.id, linkedFeatureIds),
+  ]);
 
   const environments = getEnvironmentIdsFromOrg(context.org);
 
@@ -5148,19 +5155,10 @@ export async function getRefLinkedFeatureInfo({
 
       // Attribute-scope projects for this feature (current ∪ draft-staged
       // targeting); null = unscoped (targets all projects).
-      let attributeScopeProjects = getAttributeScopeProjectIds(feature);
-      for (const draft of activeDrafts) {
-        if (attributeScopeProjects === null) break;
-        if (!draft.metadata) continue;
-        const staged = getAttributeScopeProjectIds(feature, draft.metadata);
-        if (staged === null) {
-          attributeScopeProjects = null;
-          break;
-        }
-        attributeScopeProjects = Array.from(
-          new Set([...attributeScopeProjects, ...staged]),
-        );
-      }
+      const attributeScopeProjects = getFeatureAttributeScopeWithDrafts(
+        feature,
+        draftMetadataByFeatureId[feature.id] || [],
+      );
 
       const info: LinkedFeatureInfo = {
         feature,
@@ -5205,51 +5203,42 @@ export async function getLinkedFeatureInfo(
   });
 }
 
-// Projects whose registered attributes are in scope for the experiment's
-// targeting: its own project plus every linked feature's attribute scope
-// (current and draft-staged targeting projects). `undefined` = unscoped,
-// returned when the org hasn't opted into project-scope enforcement, the
-// experiment opted out via `attributeScopeAllProjects`, it has no project,
-// or a linked feature targets all projects. Feed the result straight to
-// `assertRegisteredAttributes`.
+// Enforcement scope for `assertRegisteredAttributes`: the experiment's project
+// plus every linked feature's attribute scope (current ∪ active-draft staged
+// targeting). `undefined` = unscoped. The `attributeScopeAllProjects` picker
+// preference is deliberately ignored — it must never loosen enforcement.
 export async function getExperimentAttributeScopeProjects(
   context: ReqContext | ApiReqContext,
-  experiment: Pick<
-    ExperimentInterface,
-    "project" | "linkedFeatures" | "attributeScopeAllProjects"
-  >,
+  experiment: Pick<ExperimentInterface, "project" | "linkedFeatures">,
+  preloadedFeatures?: FeatureInterface[],
 ): Promise<string[] | undefined> {
   const { isOn, requireProjectScoping } =
     getRequireRegisteredAttributesSettings(
       context.org.settings?.requireRegisteredAttributes,
     );
   if (!isOn || !requireProjectScoping) return undefined;
-  if (experiment.attributeScopeAllProjects || !experiment.project) {
+  if (!experiment.project) {
     return undefined;
   }
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
   const scopes: Array<string[] | null> = [];
   if (linkedFeatureIds.length) {
-    const features = await getFeaturesByIds(context, linkedFeatureIds);
-    const featuresByFeatureId = Object.fromEntries(
-      features.map((f) => [f.id, f]),
-    );
-    const revisionsByFeatureId = await getFeatureRevisionsByFeatureIds(
-      context,
-      context.org.id,
-      linkedFeatureIds,
-      featuresByFeatureId,
-    );
+    const [features, draftMetadataByFeatureId] = await Promise.all([
+      preloadedFeatures
+        ? Promise.resolve(
+            preloadedFeatures.filter((f) => linkedFeatureIds.includes(f.id)),
+          )
+        : getFeaturesByIds(context, linkedFeatureIds),
+      getActiveDraftMetadataByFeatureIds(context.org.id, linkedFeatureIds),
+    ]);
     for (const feature of features) {
-      scopes.push(getAttributeScopeProjectIds(feature));
-      const drafts = (revisionsByFeatureId[feature.id] || []).filter((r) =>
-        DRAFT_REVISION_STATUSES.includes(r.status),
+      scopes.push(
+        getFeatureAttributeScopeWithDrafts(
+          feature,
+          draftMetadataByFeatureId[feature.id] || [],
+        ),
       );
-      for (const draft of drafts) {
-        if (!draft.metadata) continue;
-        scopes.push(getAttributeScopeProjectIds(feature, draft.metadata));
-      }
     }
   }
 

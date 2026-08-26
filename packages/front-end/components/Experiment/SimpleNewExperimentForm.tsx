@@ -18,6 +18,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import {
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
@@ -577,14 +578,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         onChange={(v) => form.setValue("hashAttribute", v)}
         options={attributeSchema
           .filter((s) => !hasHashAttributes || s.hashAttribute)
-          .map((s) => ({
-            label: s.property,
-            value: s.property,
-            description: s.description,
-            tags: s.tags,
-            datatype: s.datatype,
-            hashAttribute: s.hashAttribute,
-          }))}
+          .map(toAttributeOption)}
         formatOptionLabel={(o, meta) => (
           <AttributeOptionWithTooltip
             option={o as AttributeOptionForTooltip}

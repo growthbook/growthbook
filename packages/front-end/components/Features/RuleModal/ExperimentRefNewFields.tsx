@@ -33,6 +33,7 @@ import {
   getFeatureDefaultValue,
   NewExperimentRefRule,
   useAttributeSchema,
+  resolveAttributeFilter,
 } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
@@ -67,6 +68,7 @@ import Text from "@/ui/Text";
 import {
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 
 export default function ExperimentRefNewFields({
@@ -113,8 +115,7 @@ export default function ExperimentRefNewFields({
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
-  // Attribute-scope union (feature targeting projects, current ∪ staged);
-  // null = unscoped. Falls back to `project` when omitted.
+  // Attribute-scope union for the attribute pickers; null = unscoped.
   attributeProjects?: string[] | null;
   environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
@@ -186,7 +187,7 @@ export default function ExperimentRefNewFields({
 
   const attributeSchema = useAttributeSchema(
     false,
-    attributeProjects !== undefined ? attributeProjects : project,
+    resolveAttributeFilter(attributeProjects, project),
   );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
@@ -409,14 +410,7 @@ export default function ExperimentRefNewFields({
               containerClassName="flex-1"
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({
-                  label: s.property,
-                  value: s.property,
-                  description: s.description,
-                  tags: s.tags,
-                  datatype: s.datatype,
-                  hashAttribute: s.hashAttribute,
-                }))}
+                .map(toAttributeOption)}
               value={hashAttribute}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);

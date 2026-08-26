@@ -11,7 +11,11 @@ import Heading from "@/ui/Heading";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RolloutPercentInput from "@/components/Features/RolloutPercentInput";
-import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
+import {
+  NewExperimentRefRule,
+  useAttributeSchema,
+  resolveAttributeFilter,
+} from "@/services/features";
 import LegacyScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
@@ -84,8 +88,7 @@ export default function StandardRuleFields({
 }: {
   ruleType: "force" | "rollout";
   feature: FeatureInterface;
-  // Attribute-scope union (feature targeting projects, current ∪ staged);
-  // null = unscoped. Falls back to `feature.project` when omitted.
+  // Attribute-scope union for the attribute pickers; null = unscoped.
   attributeProjects?: string[] | null;
   environments: string[];
   defaultValues: FeatureRule | NewExperimentRefRule;
@@ -136,7 +139,7 @@ export default function StandardRuleFields({
   );
   const attributeSchema = useAttributeSchema(
     false,
-    attributeProjects !== undefined ? attributeProjects : feature.project,
+    resolveAttributeFilter(attributeProjects, feature.project),
   );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;

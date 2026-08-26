@@ -3820,16 +3820,33 @@ export function getAttributeScopeProjectIds(
   ).filter(Boolean);
 }
 
+// A feature's attribute scope including every active draft's staged targeting.
+// null short-circuits (any unscoped state = unscoped feature).
+export function getFeatureAttributeScopeWithDrafts(
+  feature: TargetingScopedEntity,
+  stagedDrafts: Array<StagedTargetingScope | undefined>,
+): string[] | null {
+  let scope = getAttributeScopeProjectIds(feature);
+  for (const staged of stagedDrafts) {
+    if (scope === null) break;
+    if (!staged) continue;
+    const stagedScope = getAttributeScopeProjectIds(feature, staged);
+    if (stagedScope === null) return null;
+    scope = Array.from(new Set([...scope, ...stagedScope]));
+  }
+  return scope;
+}
+
 // Attribute-scope union for an experiment: its own project plus the attribute
 // scope of every linked feature (targeting conditions evaluate wherever a
-// linked feature is served). null = unscoped — the experiment opted out via
-// `attributeScopeAllProjects`, has no project, or any linked feature is
-// itself unscoped.
+// linked feature is served). null = unscoped — the experiment has no project,
+// or any linked feature is itself unscoped. The experiment's persisted
+// `attributeScopeAllProjects` is deliberately NOT consulted here: it is a
+// picker view preference only and must never loosen enforcement.
 export function getExperimentAttributeScopeProjectIds(
-  experiment: { project?: string; attributeScopeAllProjects?: boolean },
+  experiment: { project?: string },
   linkedFeatureScopes: Array<string[] | null>,
 ): string[] | null {
-  if (experiment.attributeScopeAllProjects) return null;
   if (!experiment.project) return null;
   const ids = new Set<string>([experiment.project]);
   for (const scope of linkedFeatureScopes) {
@@ -3837,6 +3854,26 @@ export function getExperimentAttributeScopeProjectIds(
     scope.forEach((id) => ids.add(id));
   }
   return Array.from(ids);
+}
+
+// The two experiment scopes UI surfaces need: `enforcement` mirrors the
+// back-end check exactly (null when any linked feature is unscoped), while
+// `dropdown` is the stricter picker default where unscoped linked features
+// contribute nothing instead of unscoping the whole list.
+export function getExperimentAttributeScopes(
+  project: string | undefined,
+  linkedFeatureScopes: Array<string[] | null>,
+): { enforcement: string[] | null; dropdown: string[] | null } {
+  return {
+    enforcement: getExperimentAttributeScopeProjectIds(
+      { project },
+      linkedFeatureScopes,
+    ),
+    dropdown: getExperimentAttributeScopeProjectIds(
+      { project },
+      linkedFeatureScopes.filter((s) => s !== null),
+    ),
+  };
 }
 
 export function entityTargetsProject(
