@@ -337,7 +337,7 @@ The GrowthBook constructor has the following parameters:
 - **attributes** (`dict`) - Dictionary of user attributes that are used for targeting and to assign variations
 - **url** (`str`) - The URL of the current request (if applicable)
 - **qa_mode** (`boolean`) - If true, random assignment is disabled and only explicitly forced variations are used.
-- **on_experiment_viewed** (`callable`) - A function that takes `experiment` and `result` as arguments.
+- **on_experiment_viewed** (`callable`) - A function called with keyword arguments `experiment`, `result`, and `user_context` whenever an experiment is run. The parameter names matter — the SDK invokes it with these exact keywords.
 - **api_host** (`str`) - The GrowthBook API host to fetch feature flags from. Defaults to `https://cdn.growthbook.io`
 - **client_key** (`str`) - The client key that will be passed to the API Host to fetch feature flags
 - **decryption_key** (`str`) - If the GrowthBook API endpoint has encryption enabled, specify the decryption key here
@@ -596,14 +596,14 @@ from growthbook import GrowthBookClient, Options, UserContext, Experiment, Resul
 async def on_experiment_viewed(experiment: Experiment, result: Result, user_context: UserContext):
     """Async callback for experiment tracking (runs in the background)"""
     # Use whatever event tracking system you want
-    user_id = result.hash_attribute or "anonymous"
+    user_id = result.hashValue or "anonymous"
 
     await analytics.track_async(user_id, "Experiment Viewed", {
         'experimentId': experiment.key,
         'variationId': result.key,
         'variationValue': result.value,
-        'inExperiment': result.in_experiment,
-        'hashUsed': result.hash_used
+        'inExperiment': result.inExperiment,
+        'hashUsed': result.hashUsed
     })
     print(f"Tracked experiment: {experiment.key} -> {result.value}")
 
@@ -650,7 +650,7 @@ def sync_experiment_tracker(experiment: Experiment, result: Result, user_context
     analytics.track("Experiment Viewed", {
         'experimentId': experiment.key,
         'variationId': result.key,
-        'userId': result.hash_attribute
+        'userId': result.hashValue
     })
 
 client = GrowthBookClient(
@@ -940,7 +940,9 @@ In addition, you can use `gb.eval_feature("feature-key")` to get back a `Feature
 
 **Available starting in version 3.0.0**
 
-The SDK ships inline type hints ([PEP 561](https://peps.python.org/pep-0561/) `py.typed`), so mypy, pyright, and IDEs like VS Code (Pylance) and PyCharm check your GrowthBook calls with zero configuration. This also gives coding agents a feedback loop: wrong feature usage comes back as a checker error instead of shipping.
+The SDK ships inline type hints ([PEP 561](https://peps.python.org/pep-0561/) `py.typed`), so once type checking is enabled — `mypy your_app/`, `pyright your_app/`, or an IDE with checking on, like VS Code (Pylance) or PyCharm — your GrowthBook calls are checked with no SDK-specific configuration. This also gives coding agents a feedback loop: wrong feature usage comes back as a checker error instead of shipping.
+
+All of this happens at check time only — the SDK performs no runtime validation, and code that skips the type checker behaves exactly as before.
 
 Basic inference works out of the box — the return type follows the fallback you provide, and experiments infer their result type from the variations:
 
@@ -975,6 +977,12 @@ Misuse is a checker error:
 
 ```python
 gb.get_feature_value("banner-text", "hello") + 1   # error: str + int
+```
+
+Misspelled keyword arguments to `Experiment` and `FeatureRule` are caught too:
+
+```python
+Experiment(key="my-test", variations=["a", "b"], weigths=[0.5, 0.5])  # checker error: typo
 ```
 
 ### Typed Callbacks
@@ -1036,17 +1044,25 @@ gb.eval_feature("dark-mode").value        # Optional[bool] instead of Any
 </Tab>
 </Tabs>
 
-For dynamic keys (looping over feature names), the generated `FeatureKey` Literal is the escape hatch:
+For dynamic keys (looping over feature names), the generated `FeatureKey` Literal is the escape hatch. Note that `cast` performs no runtime validation — it just silences the checker — so only cast values you know are real feature keys (enumerated from the generated module or your feature payload), never arbitrary input:
 
 ```python
 from typing import cast
 from growthbook_features import FeatureKey
 
-for k in my_keys:
+for k in keys_from_your_feature_payload:
     gb.is_on(cast(FeatureKey, k))
 ```
 
-Regenerate the file whenever your feature list changes — for example as a CI step. Features whose value type can't be inferred (no `defaultValue` and no typed rules) fall back to `Any` and are listed in a warning at generation time.
+Commit the generated file. Its types describe the feature snapshot it was generated from, so they go stale when features change — regenerate in CI and fail the build if the committed file is out of date:
+
+```bash
+python -m growthbook.codegen --input features.json --output growthbook_features.py
+git diff --exit-code growthbook_features.py  # fails if the committed file is stale
+mypy .                                       # or: pyright
+```
+
+Features whose value type can't be inferred (no `defaultValue` and no typed rules) fall back to `Any` and are listed in a warning at generation time.
 
 ## Sticky Bucketing
 
@@ -1313,10 +1329,10 @@ exp = Experiment(
 
         pricing_result = await client.run(complex_exp, user)
 
-        if pricing_result.in_experiment:
+        if pricing_result.inExperiment:
             print(f"User is in pricing experiment: ${pricing_result.value}")
             print(f"Variation ID: {pricing_result.key}")
-            print(f"Hash used: {pricing_result.hash_used}")
+            print(f"Hash used: {pricing_result.hashUsed}")
         else:
             print("User not in pricing experiment")
 
@@ -1367,10 +1383,10 @@ complex_exp = Experiment(
 
 pricing_result = gb.run(complex_exp)
 
-if pricing_result.in_experiment:
+if pricing_result.inExperiment:
     print(f"User is in pricing experiment: ${pricing_result.value}")
     print(f"Variation ID: {pricing_result.key}")
-    print(f"Hash used: {pricing_result.hash_used}")
+    print(f"Hash used: {pricing_result.hashUsed}")
 else:
     print("User not in pricing experiment")
 
@@ -1840,7 +1856,7 @@ async def run_experiment(user_id: str):
 
     return {
         "variation": result.value,
-        "in_experiment": result.in_experiment
+        "in_experiment": result.inExperiment
     }
 ```
 
