@@ -3787,20 +3787,17 @@ export function getTargetingProjectIds(
   );
 }
 
-// Staged (draft-revision) form of the targeting scope, as found on
-// `FeatureRevisionInterface.metadata`. `undefined` fields mean "unchanged".
+// Staged targeting fields from `FeatureRevisionInterface.metadata`;
+// undefined = unchanged.
 export type StagedTargetingScope = {
   project?: string;
   targetingAllProjects?: boolean;
   targetingProjects?: string[];
 };
 
-// Projects whose registered attributes are selectable for targeting on a
-// feature-family entity: primary + targetingProjects, unioned with any
-// staged (draft) values so both the live and the staged state stay editable
-// while a draft is open. Returns null when attribute selection is unscoped —
-// the entity targets all projects (live or staged) or its primary project is
-// empty (an All Projects entity delivers everywhere).
+// Attribute scope = primary + targetingProjects, unioned across live and
+// staged state while a draft is open. null = unscoped: the entity targets
+// all projects (live or staged), or its primary project is empty.
 export function getAttributeScopeProjectIds(
   entity: TargetingScopedEntity,
   staged?: StagedTargetingScope,
@@ -3837,12 +3834,9 @@ export function getFeatureAttributeScopeWithDrafts(
   return scope;
 }
 
-// Attribute-scope union for an experiment: its own project plus the attribute
-// scope of every linked feature (targeting conditions evaluate wherever a
-// linked feature is served). null = unscoped — the experiment has no project,
-// or any linked feature is itself unscoped. The experiment's persisted
-// `attributeScopeAllProjects` is deliberately NOT consulted here: it is a
-// picker view preference only and must never loosen enforcement.
+// Experiment scope: its project plus every linked feature's scope (targeting
+// evaluates wherever a linked feature is served); null = unscoped. The
+// persisted `attributeScopeAllProjects` picker preference never loosens this.
 export function getExperimentAttributeScopeProjectIds(
   experiment: { project?: string },
   linkedFeatureScopes: Array<string[] | null>,
@@ -3856,10 +3850,9 @@ export function getExperimentAttributeScopeProjectIds(
   return Array.from(ids);
 }
 
-// The two experiment scopes UI surfaces need: `enforcement` mirrors the
-// back-end check exactly (null when any linked feature is unscoped), while
-// `dropdown` is the stricter picker default where unscoped linked features
-// contribute nothing instead of unscoping the whole list.
+// `enforcement` mirrors the back-end check (null when any linked feature is
+// unscoped); `dropdown` is the stricter picker default where unscoped linked
+// features contribute nothing.
 export function getExperimentAttributeScopes(
   project: string | undefined,
   linkedFeatureScopes: Array<string[] | null>,

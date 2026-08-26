@@ -292,8 +292,6 @@ export default function SavedGroupTargetingField({
                       options={options}
                       formatOptionLabel={(o, meta) => {
                         if (meta.context !== "value") {
-                          // Menu rows: right-aligned project annotation for
-                          // project-scoped groups (nothing when unscoped).
                           return (
                             <Flex align="center" gap="3">
                               <span>{o.label}</span>

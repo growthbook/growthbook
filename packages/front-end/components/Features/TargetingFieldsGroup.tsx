@@ -13,10 +13,7 @@ import PrerequisiteInput, {
 
 export interface TargetingFieldsGroupProps {
   project: string;
-  // Attribute-scope union overriding `project` for attribute filtering (e.g.
-  // a feature's targeting projects); null = show attributes from all projects.
   attributeProjects?: string[] | null;
-  // Rendered inside the condition attribute selects' indicators area.
   attributeSelectIndicator?: ReactNode;
   environments: string[];
   // When set, `PrerequisiteInput` will use the feature's project + linked-feature

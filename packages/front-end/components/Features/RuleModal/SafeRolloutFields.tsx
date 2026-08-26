@@ -57,7 +57,6 @@ export default function SafeRolloutFields({
   onRuleCyclicChange,
 }: {
   feature: FeatureInterface;
-  // Attribute-scope union for the attribute pickers; null = unscoped.
   attributeProjects?: string[] | null;
   environment: string;
   defaultValues: FeatureRule | NewExperimentRefRule;

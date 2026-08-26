@@ -203,10 +203,8 @@ export function ConditionRow({
         )}
         <Box
           style={{
-            // Wrap threshold, not display width (flex sizes the row). 260
-            // keeps attribute/operator/value on one line inside the Radix
-            // lg dialog (~684px of content), whose chrome is a bit wider
-            // than the legacy modals'.
+            // Wrap threshold, not display width — 260 keeps the condition on
+            // one row inside the Radix lg dialog.
             minWidth: 260,
             flex:
               operatorSlot !== undefined

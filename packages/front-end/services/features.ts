@@ -606,9 +606,8 @@ export function getVariationColor(i: number, experimentTheme = false) {
   return colors[i % colors.length];
 }
 
-// True when the org enforces project-scoped attribute registration. The
-// experiment picker opt-out (`attributeScopeAllProjects`) must be ignored
-// then — it is a view preference and never loosens enforcement.
+// True when the org enforces project-scoped attribute registration — the
+// picker opt-out must be ignored then; it never loosens enforcement.
 export function useStrictAttributeProjectScoping(): boolean {
   const { isOn, requireProjectScoping } =
     getRequireRegisteredAttributesSettings(
@@ -617,8 +616,6 @@ export function useStrictAttributeProjectScoping(): boolean {
   return isOn && requireProjectScoping;
 }
 
-// `projectFilter` may be a single project id or a set of them (e.g. a
-// feature's targeting-project union). null/undefined/empty = no filtering.
 // Resolve a picker's attribute filter: an explicitly provided scope wins
 // (null = unscoped, show everything); otherwise fall back to the entity's
 // primary project.
@@ -637,8 +634,7 @@ export function useAttributeSchema(
 ) {
   const attributeSchema = useOrgSettings().attributeSchema || [];
 
-  // Key the memo on the filter's contents, not its identity — callers often
-  // build the projects array inline every render.
+  // Content-keyed — callers often build the projects array inline per render.
   const filterKey = Array.isArray(projectFilter)
     ? projectFilter.filter(Boolean).join("||")
     : (projectFilter ?? "");
@@ -698,7 +694,6 @@ export function validateUnregisteredAttributes(
   options: {
     attributeSchema?: SDKAttributeSchema;
     requireRegisteredAttributes?: RawRequireRegistered;
-    // Single project or a targeting-union of projects; null = unscoped.
     project?: string | string[] | null;
   },
   existingParts?: AttributeParts,
@@ -742,8 +737,6 @@ export function validateFeatureRule(
   options: {
     attributeSchema?: SDKAttributeSchema;
     requireRegisteredAttributes?: RawRequireRegistered;
-    // Attribute-scope union (feature targeting projects, current ∪ staged).
-    // When set, overrides the `feature.project` fallback; null = unscoped.
     attributeProjects?: string[] | null;
   } = {},
   existingRule?: FeatureRule,

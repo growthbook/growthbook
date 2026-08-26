@@ -263,10 +263,8 @@ export default function RuleModal({
   const { hasCommercialFeature, organization } = useUser();
   const { apiCall } = useAuth();
 
-  // Attribute scope = the feature's targeting-project union (current ∪
-  // draft-staged), matching the back-end check. `feature` is the merged view
-  // where staged targeting REPLACES current, so union the published
-  // `baseFeature` with the draft's staged metadata instead.
+  // `feature` is the merged view where staged targeting REPLACES current, so
+  // union the published `baseFeature` with the draft's staged metadata.
   const attributeScopeProjects = useMemo(
     () => getAttributeScopeProjectIds(baseFeature, draftRevision?.metadata),
     [baseFeature, draftRevision],

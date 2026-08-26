@@ -14,8 +14,6 @@ import type { ChangeType } from "./MakeChangesFlow";
 
 export interface TargetingFormProps {
   experiment: ExperimentInterfaceStringDates;
-  // Attribute-scope union before the opt-out switch (experiment project +
-  // linked features' targeting projects); null = unscoped.
   attributeProjects?: string[] | null;
   form: UseFormReturn<ExperimentTargetingData>;
   changeType?: ChangeType;

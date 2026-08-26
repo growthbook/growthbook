@@ -80,8 +80,7 @@ export type SelectFieldProps = Omit<
   forceUndefinedValueToNull?: boolean;
   useMultilineLabels?: boolean;
   containerStyles?: StylesConfig<SingleValue, boolean>;
-  // Rendered inside the select's indicators area, before the dropdown caret
-  // (e.g. a mini icon button). Mirrors MultiSelectField's copy button.
+  // Rendered before the dropdown caret; mirrors MultiSelectField's copy button.
   extraIndicator?: ReactNode;
   withRadixThemedPortal?: boolean;
   legacyLabelFormatting?: boolean;

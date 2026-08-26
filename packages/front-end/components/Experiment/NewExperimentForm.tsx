@@ -379,10 +379,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const selectedProject = form.watch("project");
 
-  // Attribute pickers filter by the form-selected project (not the page's
-  // project, which can go stale when the selector changes), with the scope
-  // toggle as the escape hatch. The toggled state persists onto the created
-  // experiment via the form payload.
+  // Filter by the form-selected project — the page's project goes stale when
+  // the selector changes.
   const { strictScoping, effectiveAttributeProjects, attributeScopeToggle } =
     useAttributeScopePicker({
       project: selectedProject,

@@ -35,7 +35,6 @@ interface FeatureOption {
   meta: FeatureOptionMeta;
   project: string;
   projectName: string | null | undefined;
-  // Additional projects the feature targets beyond its primary.
   targetingProjectNames?: string[];
   targetingAllProjects?: boolean;
 }

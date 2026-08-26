@@ -36,21 +36,16 @@ export interface UseExperimentTargetingFormResult {
 }
 
 // Shared by the targeting and traffic modals, which both POST to the same
-// `/experiment/:id/targeting` endpoint. `attributeScopeProjects` is the
-// experiment's attribute-scope union (project + linked features' targeting
-// projects); when omitted the pre-flight falls back to `experiment.project`.
+// `/experiment/:id/targeting` endpoint. When `attributeScopeProjects` is
+// omitted the pre-flight falls back to `experiment.project`.
 export function useExperimentTargetingForm(
   experiment: ExperimentInterfaceStringDates,
   attributeScopeProjects?: string[] | null,
 ): UseExperimentTargetingFormResult {
   const { apiCall } = useAuth();
   const orgSettings = useOrgSettings();
-  // Unfiltered schema for client-side validation so requireProjectScoping
-  // gating in validateUnregisteredAttributes can actually distinguish
-  // unknown vs out-of-project attributes.
+  // Unfiltered so the pre-flight can distinguish unknown vs out-of-project.
   const allAttributesSchema = useAttributeSchema(false);
-  // The picker opt-out never loosens validation when the org strictly
-  // enforces project scoping.
   const strictScoping = useStrictAttributeProjectScoping();
   const [conditionKey, forceConditionRender] = useIncrementer();
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =

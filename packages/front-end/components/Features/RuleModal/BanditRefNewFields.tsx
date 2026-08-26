@@ -87,10 +87,7 @@ export default function BanditRefNewFields({
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
-  // Attribute-scope union for the attribute pickers; null = unscoped.
   attributeProjects?: string[] | null;
-  // Rendered inside the attribute selects' indicators area (e.g. the
-  // experiment attribute-scope toggle).
   attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   prerequisiteValue: FeaturePrerequisite[];

@@ -49,7 +49,6 @@ type AttributeParts = {
 // changed — so pre-existing violations don't block unrelated edits.
 // When `project` is provided, attributes scoped to other projects are
 // treated as unregistered (matches the frontend dropdown filtering).
-// Attribute keys referenced by fields that actually changed vs `existingParts`.
 function getChangedAttributeKeys(
   parts: AttributeParts,
   existingParts?: AttributeParts,
@@ -109,11 +108,9 @@ export function assertRegisteredAttributes(
 
 export type AttributeScopeLoader = () => Promise<string[] | undefined>;
 
-// Variant of `assertRegisteredAttributes` for endpoints whose attribute scope
-// requires I/O to compute (revision reads, linked-feature draft sweeps).
-// `loadScope` runs only when the org requires registered attributes WITH
-// project scoping AND an attribute-bearing field actually changed — so
-// no-drift edits and opted-out orgs never pay for the lookups.
+// Variant for endpoints whose attribute scope requires I/O (revision reads,
+// linked-feature sweeps): `loadScope` runs only when the org enforces project
+// scoping AND an attribute-bearing field actually changed.
 export async function assertRegisteredAttributesScoped(
   context: ReqContext,
   parts: AttributeParts,
@@ -137,9 +134,7 @@ export async function assertRegisteredAttributesScoped(
   );
 }
 
-// Share one deferred scope across several assertions (e.g. an experiment's
-// hash/fallback attributes plus every phase): the underlying load runs at
-// most once, and not at all when nothing needs validating.
+// Share one deferred scope across several assertions; loads at most once.
 export function lazyAttributeScope(
   load: AttributeScopeLoader,
 ): AttributeScopeLoader {

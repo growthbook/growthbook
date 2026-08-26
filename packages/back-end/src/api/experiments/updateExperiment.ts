@@ -284,11 +284,6 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
-  // Opt-in attribute registration check (org-level setting). Covers the
-  // experiment-level hash/fallback attributes and every provided phase.
-  // Change-aware: REST clients commonly round-trip full payloads, so only
-  // validate fields that differ from the persisted experiment — a
-  // grandfathered out-of-scope attribute must not block unrelated updates.
   const attributeScope = lazyAttributeScope(() =>
     getExperimentAttributeScopeProjects(req.context, {
       project:

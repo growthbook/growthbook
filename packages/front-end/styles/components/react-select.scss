@@ -400,8 +400,7 @@
   }
 }
 
-// Scope toggle: always visible (it carries state). Highlighted while
-// filtering is active; muted like the other indicator buttons when lifted.
+// Always visible, unlike the hover-only indicators — it carries state.
 .gb-select__control .gb-select__scope-toggle--filtering,
 .gb-select__control--is-focused .gb-select__scope-toggle--filtering {
   color: var(--violet-11);

@@ -480,10 +480,6 @@ export const experimentInterface = z
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
     linkedFeatures: z.array(z.string()).optional(),
-    // Opt-out of project-scoped attribute selection/validation for targeting.
-    // Linked features decide where targeting actually evaluates, so the
-    // computed scope (project + linked features' targeting projects) can be
-    // wrong for experiments linked later or from other projects.
     attributeScopeAllProjects: z.boolean().optional(),
     // Drafts queued for auto-publish on `status -> running`. Each
     // (featureId, revisionVersion) pair is its own row — multiple drafts of

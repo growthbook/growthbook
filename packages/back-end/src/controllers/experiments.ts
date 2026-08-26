@@ -1191,10 +1191,8 @@ export async function postExperiments(
 
   const { metricIds, datasource, invalidMetricIds } = result;
 
-  // Opt-in attribute registration check (org-level setting). Applies before
-  // any DB writes so a typo'd attribute is rejected outright. Sweeps
-  // `data.linkedFeatures` so experiments created from a feature (experiment-ref
-  // rules) can use attributes from the feature's targeting projects.
+  // Sweeps `data.linkedFeatures` so experiments created from a feature can
+  // use attributes from the feature's targeting projects.
   const attributeScope = lazyAttributeScope(() =>
     getExperimentAttributeScopeProjects(context, {
       project: data.project,
@@ -1553,10 +1551,6 @@ export async function postExperiment(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check (org-level setting). Change-aware:
-  // this endpoint receives broad payloads from many modals, so only validate
-  // fields that actually differ from the persisted experiment — a
-  // grandfathered out-of-scope attribute must not block unrelated edits.
   const attributeScope = lazyAttributeScope(() =>
     getExperimentAttributeScopeProjects(context, {
       project: "project" in data ? data.project : experiment.project,
@@ -2868,9 +2862,6 @@ export async function putExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check (org-level setting). Change-aware
-  // against the phase being edited so a grandfathered out-of-scope attribute
-  // doesn't block unrelated phase edits (dates, reason).
   await assertRegisteredAttributesScoped(
     context,
     { condition: phase.condition },
@@ -2993,11 +2984,6 @@ export async function postExperimentTargeting(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check (org-level setting). The targeting
-  // endpoint always receives the full payload (targeting + assignment), but a
-  // scoped modal only edited a subset. Pass the persisted values as
-  // `existingParts` so unchanged stale attributes don't block an unrelated
-  // save — only newly changed attributes are validated.
   const lastPersistedPhase = experiment.phases[experiment.phases.length - 1];
   await assertRegisteredAttributesScoped(
     context,
@@ -3177,10 +3163,6 @@ export async function postExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check (org-level setting). A new phase
-  // usually carries the previous phase's condition forward — change-aware
-  // against it so a grandfathered out-of-scope attribute doesn't block
-  // starting a new phase.
   await assertRegisteredAttributesScoped(
     context,
     { condition: data.condition },

@@ -27,7 +27,6 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   content: AllowedChildren;
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
-  // Gap in px between the trigger and the popover (Radix default: 0).
   sideOffset?: number;
   showCloseButton?: boolean;
   showArrow?: boolean;

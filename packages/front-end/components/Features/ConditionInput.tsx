@@ -112,10 +112,9 @@ const BASE_OPERATOR: Record<string, string> = {
   $notRegexi: "$notRegex",
 };
 
-// Attribute schema + lookup map scoped to `filter`, but keeping any attribute
-// the condition already references selectable/parsable until the user removes
-// it. Without this, a saved condition using a now-out-of-scope attribute
-// would fail `jsonToConds` and get ejected into the advanced JSON editor.
+// Scoped schema + map that keeps already-referenced attributes selectable —
+// otherwise a saved condition using a now-out-of-scope attribute fails
+// `jsonToConds` and gets ejected into the advanced JSON editor.
 function useScopedAttributes(
   filter: string | string[] | null | undefined,
   referencedKeys: string[],
@@ -123,8 +122,7 @@ function useScopedAttributes(
   const allAttributes = useAttributeMap(null);
   const scopedSchema = useAttributeSchema(false, filter);
   const allSchema = useAttributeSchema(false);
-  // Content key so callers can pass the keys array inline without breaking
-  // memoization (an unstable map identity re-fires the onChange effect).
+  // Content-keyed: an unstable map identity re-fires the onChange effect.
   const referencedKey = referencedKeys.join("||");
   return useMemo(() => {
     const referenced = new Set<string>();
@@ -177,11 +175,7 @@ interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   project: string;
-  // Attribute-scope union overriding `project` for attribute filtering (e.g.
-  // a feature's targeting projects); null = show attributes from all projects.
   attributeProjects?: string[] | null;
-  // Rendered inside the attribute selects' indicators area (e.g. the
-  // experiment attribute-scope toggle).
   attributeSelectIndicator?: React.ReactNode;
   labelClassName?: string;
   emptyText?: string;

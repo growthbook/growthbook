@@ -88,7 +88,6 @@ export default function StandardRuleFields({
 }: {
   ruleType: "force" | "rollout";
   feature: FeatureInterface;
-  // Attribute-scope union for the attribute pickers; null = unscoped.
   attributeProjects?: string[] | null;
   environments: string[];
   defaultValues: FeatureRule | NewExperimentRefRule;

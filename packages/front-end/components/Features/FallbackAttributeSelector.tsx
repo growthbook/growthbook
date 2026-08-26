@@ -27,7 +27,6 @@ export interface Props {
   // eslint-disable-next-line
   form: UseFormReturn<any>;
   attributeSchema: SDKAttribute[];
-  // Rendered inside the select's indicators area (e.g. the attribute-scope toggle).
   extraIndicator?: React.ReactNode;
 }
 
@@ -97,9 +96,8 @@ export default function FallbackAttributeSelector({
       .map(toAttributeOption),
   ];
 
-  // If the current fallbackAttribute isn't in the list (it was archived or has
-  // been project-scoped), add it for backwards compatibility. Pull metadata
-  // from the unfiltered schema so its tooltip stays populated.
+  // Keep the current fallbackAttribute selectable (archived or out-of-scope),
+  // with metadata from the unfiltered schema so its tooltip stays populated.
   if (
     fallbackAttribute &&
     !fallbackAttributeOptions.find((o) => o.value === fallbackAttribute)

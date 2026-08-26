@@ -17,8 +17,6 @@ import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
 export interface Props {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
-  // Widens the attribute scope to the linked features' targeting projects
-  // when the flow pivots into a targeting change.
   linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   safeToEdit: boolean;

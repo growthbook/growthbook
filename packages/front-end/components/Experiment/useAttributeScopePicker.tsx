@@ -7,13 +7,9 @@ import {
 import { useStrictAttributeProjectScoping } from "@/services/features";
 import AttributeScopeToggle from "./AttributeScopeToggle";
 
-// Attribute-scope unions for an experiment's pickers, before the opt-out is
-// applied: the experiment's project plus every linked feature's targeting
-// projects. `enforcement` mirrors the back-end check exactly — null (unscoped)
-// when any linked feature targets all projects. `dropdown` is the stricter
-// default the pickers filter by: unscoped linked features contribute nothing
-// instead of widening the list to every attribute; the toggle is the escape
-// hatch.
+// `enforcement` mirrors the back-end check (null when any linked feature is
+// unscoped); `dropdown` is the stricter picker default where unscoped linked
+// features contribute nothing — the toggle is the escape hatch.
 export function getLinkedExperimentAttributeScopes(
   project: string | undefined,
   linkedFeatures: LinkedFeatureInfo[] | undefined,
@@ -26,12 +22,9 @@ export function getLinkedExperimentAttributeScopes(
   return getExperimentAttributeScopes(project, linkedScopes);
 }
 
-// The strict-scoping / opt-out / effective-filter / toggle chain shared by
-// every experiment targeting surface. `scopeProjects` is the restricted
-// attribute scope before the opt-out (null = unscoped); `allProjects` is the
-// picker preference (a form value or the persisted experiment field). The
-// opt-out is ignored (and its toggle hidden) when the org strictly enforces
-// project scoping — the pickers must not offer attributes the server rejects.
+// Shared opt-out chain for the experiment targeting surfaces. Under strict
+// project scoping the opt-out is ignored and its toggle hidden — the pickers
+// must not offer attributes the server rejects.
 export function useAttributeScopePicker({
   project,
   scopeProjects,

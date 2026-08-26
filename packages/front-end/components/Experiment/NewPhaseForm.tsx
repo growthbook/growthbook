@@ -32,8 +32,6 @@ import { getLinkedExperimentAttributeScopes } from "./useAttributeScopePicker";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
-  // Widens the attribute picker to the linked features' targeting projects,
-  // matching the back-end scope for this endpoint.
   linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   close: () => void;

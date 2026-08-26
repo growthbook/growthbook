@@ -5153,8 +5153,6 @@ export async function getRefLinkedFeatureInfo({
         }
       });
 
-      // Attribute-scope projects for this feature (current ∪ draft-staged
-      // targeting); null = unscoped (targets all projects).
       const attributeScopeProjects = getFeatureAttributeScopeWithDrafts(
         feature,
         draftMetadataByFeatureId[feature.id] || [],
@@ -5203,10 +5201,8 @@ export async function getLinkedFeatureInfo(
   });
 }
 
-// Enforcement scope for `assertRegisteredAttributes`: the experiment's project
-// plus every linked feature's attribute scope (current ∪ active-draft staged
-// targeting). `undefined` = unscoped. The `attributeScopeAllProjects` picker
-// preference is deliberately ignored — it must never loosen enforcement.
+// Enforcement scope for `assertRegisteredAttributes`; undefined = unscoped.
+// The `attributeScopeAllProjects` picker preference never loosens this.
 export async function getExperimentAttributeScopeProjects(
   context: ReqContext | ApiReqContext,
   experiment: Pick<ExperimentInterface, "project" | "linkedFeatures">,

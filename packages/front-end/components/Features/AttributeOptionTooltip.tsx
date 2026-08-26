@@ -16,12 +16,9 @@ export interface AttributeOptionForTooltip {
   tags?: string[];
   datatype?: string;
   hashAttribute?: boolean;
-  // Project ids the attribute is scoped to; empty/undefined = all projects.
   projects?: string[];
 }
 
-// Shared select-option mapper so every attribute picker feeds the tooltip
-// and project annotation the same metadata.
 export function toAttributeOption(s: {
   property: string;
   description?: string;
@@ -106,8 +103,6 @@ export function AttributeOptionTooltipContent({
   );
 }
 
-// Right-aligned project annotation for attribute options in dropdown menus,
-// mirroring the prerequisite feature selector's "Project: X" display.
 export function AttributeOptionProjectsLabel({
   projects,
 }: {
@@ -115,10 +110,7 @@ export function AttributeOptionProjectsLabel({
 }) {
   const { getProjectById } = useDefinitions();
   const names = (projects ?? []).map((id) => getProjectById(id)?.name || id);
-  // Unscoped attributes render nothing — the annotation only flags scoped ones.
   if (!names.length) return null;
-  // One notch below the smallest design-system text size — it's a secondary
-  // annotation inside a menu row.
   return (
     <Flex ml="auto" flexShrink="0" align="center" style={{ fontSize: 11 }}>
       <Text size="inherit">
@@ -145,10 +137,8 @@ export function AttributeOptionWithTooltip({
   children: React.ReactNode;
 }) {
   const isValue = context === "value";
-  // Hover-mode @/ui/Popover (not the legacy popper Tooltip): it participates
-  // in Radix's layer system, so it renders above modal Dialogs where the
-  // body-portaled popper does not, and its content stays hoverable (the
-  // attribute link is clickable).
+  // @/ui/Popover, not the legacy popper Tooltip — the popper portals to body
+  // and is invisible above Radix modal Dialogs.
   return (
     <Popover
       openOnHover

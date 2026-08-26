@@ -36,8 +36,6 @@ export type ReleasePlan =
 
 export interface MakeChangesFlowProps {
   experiment: ExperimentInterfaceStringDates;
-  // Attribute-scope union before the opt-out switch (experiment project +
-  // linked features' targeting projects); null = unscoped.
   attributeProjects?: string[] | null;
   form: UseFormReturn<ExperimentTargetingData>;
   // Loosely typed because `useForm` accepts a `DeepPartial<ExperimentTargetingData>`

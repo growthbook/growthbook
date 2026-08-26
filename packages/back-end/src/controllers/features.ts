@@ -3281,11 +3281,8 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check before any side effects (safe-rollout
-  // create, holdout linking, revision update). The scope loader reads the
-  // revision read-only for staged targeting — getDraftRevision would persist
-  // a new draft before validation passes — and only runs when the org
-  // enforces project scoping and the rule references attributes at all.
+  // The scope loader uses read-only getRevision — getDraftRevision would
+  // persist a draft before validation passes.
   await assertRegisteredAttributesScoped(
     context,
     {
