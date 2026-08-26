@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiPlus, PiX } from "react-icons/pi";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { PiArrowLeft, PiPlus, PiX } from "react-icons/pi";
 import {
   CreateFactTableProps,
   DetectedFactTableColumn,
   FactTableColumnType,
   FactTableInterface,
+  FactTableType,
+  NumberFormat,
 } from "shared/types/fact-table";
+import { DocLink } from "@/components/DocLink";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import NewFactTableSqlStep from "@/components/FactTables/NewFactTableSqlStep";
 import Field from "@/components/Forms/Field";
@@ -25,17 +28,14 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
-import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
+import RadioGroup from "@/ui/RadioGroup";
 import { Select, SelectItem } from "@/ui/Select";
-import Table, {
-  TableBody,
-  TableCell,
-  TableColumnHeader,
-  TableHeader,
-  TableRow,
-} from "@/ui/Table";
+import Table, { TableBody, TableCell, TableRow } from "@/ui/Table";
 import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
+import Code from "@/components/SyntaxHighlighting/Code";
+import Link from "@/ui/Link";
 
 // Radix Select can't use an empty string as an item value
 const NONE = "__none__";
@@ -56,6 +56,21 @@ const INLINE_FILTER_CANDIDATES = [
   "type",
   "action",
 ];
+
+// Mirrors numberFormatValidator. Deliberately has no default -- column
+// metadata can't tell us whether a number is money, a duration, or a count.
+const NUMBER_FORMAT_OPTIONS: { value: NumberFormat; label: string }[] = [
+  { value: "", label: "Number" },
+  { value: "currency", label: "Currency" },
+  { value: "time:seconds", label: "Time (s)" },
+  { value: "memory:bytes", label: "Memory (b)" },
+  { value: "memory:kilobytes", label: "Memory (kb)" },
+];
+
+// Detection leaves these two behind when it can't pin a type down, so they are
+// the only ones worth asking about.
+const needsDatatypeChoice = (col: DetectedFactTableColumn) =>
+  col.datatype === "" || col.datatype === "other";
 
 // Room for the SQL step's editor, schema browser, and results panel. The
 // configure step only uses it as a ceiling -- it sizes to its content.
@@ -92,8 +107,10 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     {},
   );
   const [inlineFilterColumn, setInlineFilterColumn] = useState("");
-  // Detected types are usually right, so the list starts as a plain reference
-  const [editingDatatypes, setEditingDatatypes] = useState(false);
+  const [tableType, setTableType] = useState<FactTableType>("event");
+  const [numberFormats, setNumberFormats] = useState<
+    Record<string, NumberFormat>
+  >({});
 
   // Set by the SQL step, so the modal's Next button can run the query first
   const validateSql = useRef<(() => Promise<void>) | null>(null);
@@ -126,6 +143,12 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     [],
   );
 
+  const setNumberFormat = useCallback(
+    (column: string, numberFormat: NumberFormat) =>
+      setNumberFormats((prev) => ({ ...prev, [column]: numberFormat })),
+    [],
+  );
+
   // Which columns each mapping can point at, matching what the API accepts.
   const timestampOptions = (detected || []).filter((c) =>
     ["date", "other", ""].includes(datatypeFor(c)),
@@ -146,6 +169,10 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
 
   const activeIdTypes = identifierTypes.filter((t) => t in userIdColumns);
   const unusedIdTypes = identifierTypes.filter((t) => !(t in userIdColumns));
+  if (!unusedIdTypes.includes("anonymous_id")) {
+    unusedIdTypes.push("anonymous_id");
+    unusedIdTypes.push("org_id");
+  }
 
   const addIdentifier = (idType: string) =>
     setUserIdColumns((prev) => ({ ...prev, [idType]: "" }));
@@ -189,6 +216,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       ).map((t) => t.userIdType);
 
       setDatatypes({});
+      setNumberFormats({});
       setTimestampColumn(
         columns.find((c) => c.datatype === "date")?.column || "",
       );
@@ -203,13 +231,16 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
           }),
         ),
       );
-      setInlineFilterColumn(
+      // An event-type column is the only table type signal the detected
+      // columns give us. Nothing marks a rollup, so that stays a manual choice.
+      const eventTypeColumn =
         INLINE_FILTER_CANDIDATES.find((candidate) =>
           columns.some(
             (c) => c.column === candidate && c.datatype === "string",
           ),
-        ) || "",
-      );
+        ) || "";
+      setInlineFilterColumn(eventTypeColumn);
+      setTableType(eventTypeColumn ? "event" : "model");
     },
     [detected, sql, datasourceId, getDatasourceById],
   );
@@ -222,7 +253,11 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     const timestamp = validColumn(timestampOptions, timestampColumn);
     if (!timestamp) throw new Error("Select a timestamp column");
 
-    const inlineFilter = validColumn(inlineFilterOptions, inlineFilterColumn);
+    // Only an event stream has an event type column to inline filter on
+    const inlineFilter =
+      tableType === "event"
+        ? validColumn(inlineFilterOptions, inlineFilterColumn)
+        : "";
 
     const userIdTypes = identifierTypes.filter((t) =>
       validColumn(identifierOptions, userIdColumns[t] || ""),
@@ -252,15 +287,24 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       datasource: datasourceId,
       sql,
       eventName: eventName || name,
+      tableType,
       userIdTypes,
       ...(Object.keys(remapped).length ? { userIdColumns: remapped } : {}),
       timestampColumn: timestamp,
-      columns: detected.map((col) => ({
-        column: col.column,
-        datatype: datatypeFor(col),
-        ...(col.jsonFields ? { jsonFields: col.jsonFields } : {}),
-        ...(col.column === inlineFilter ? { alwaysInlineFilter: true } : {}),
-      })),
+      columns: detected.map((col) => {
+        const datatype = datatypeFor(col);
+        // A format left over from a column that used to be a number would
+        // otherwise be sent for whatever type it is now
+        const numberFormat =
+          datatype === "number" ? numberFormats[col.column] : "";
+        return {
+          column: col.column,
+          datatype,
+          ...(col.jsonFields ? { jsonFields: col.jsonFields } : {}),
+          ...(col.column === inlineFilter ? { alwaysInlineFilter: true } : {}),
+          ...(numberFormat ? { numberFormat } : {}),
+        };
+      }),
       // Types here come from a handful of sample rows. A background refresh
       // fills in anything we couldn't detect, plus the top values that power
       // inline filter dropdowns.
@@ -322,7 +366,109 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       </Page>
 
       <Page display="Configure">
-        <Flex align="stretch" style={{ maxHeight: BODY_HEIGHT }}>
+        <Flex align="stretch" style={{ maxHeight: BODY_HEIGHT }} gap="4">
+          <Box
+            p="4"
+            style={{
+              flex: "0 0 320px",
+              maxWidth: "50%",
+              overflowY: "auto",
+              // Three columns in 320px is tight once a row shows two selects
+              overflowX: "auto",
+              borderRight: "1px solid var(--gray-a3)",
+              backgroundColor: "var(--slate-a2)",
+            }}
+          >
+            <Flex direction="column" gap="4" style={{ height: "100%" }}>
+              <Code
+                language="sql"
+                code={sql}
+                expandable
+                maxHeight="150px"
+                filename={
+                  <Link
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setStep(0);
+                    }}
+                  >
+                    <PiArrowLeft className="mr-1" /> Edit SQL
+                  </Link>
+                }
+              />
+              <Separator size="4" />
+              <Box>
+                <Text as="div" weight="semibold" mb="1">
+                  Detected columns
+                </Text>
+                <Table size="sm">
+                  <TableBody>
+                    {(detected || []).map((col) => (
+                      <TableRow key={col.column}>
+                        <TableCell>
+                          <Text size="sm">{col.column}</Text>
+                        </TableCell>
+                        <TableCell style={{ width: 120 }}>
+                          {needsDatatypeChoice(col) ? (
+                            <Select
+                              size="sm"
+                              value={datatypeFor(col) || undefined}
+                              setValue={(v) =>
+                                setDatatype(
+                                  col.column,
+                                  v as FactTableColumnType,
+                                )
+                              }
+                              variant="ghost"
+                              placeholder="Unknown"
+                              style={{
+                                maxWidth: 110,
+                              }}
+                            >
+                              {DATATYPE_OPTIONS.map((o) => (
+                                <SelectItem key={o.value} value={o.value}>
+                                  {o.label}
+                                </SelectItem>
+                              ))}
+                            </Select>
+                          ) : datatypeFor(col) === "number" ? (
+                            <Select
+                              size="sm"
+                              value={numberFormats[col.column] || NONE}
+                              setValue={(v) =>
+                                setNumberFormat(
+                                  col.column,
+                                  v === NONE ? "" : (v as NumberFormat),
+                                )
+                              }
+                              variant="ghost"
+                              style={{
+                                maxWidth: 110,
+                              }}
+                            >
+                              {NUMBER_FORMAT_OPTIONS.map((o) => (
+                                <SelectItem
+                                  key={o.value || NONE}
+                                  value={o.value || NONE}
+                                >
+                                  {o.label}
+                                </SelectItem>
+                              ))}
+                            </Select>
+                          ) : (
+                            <Text color="text-mid" size="sm">
+                              {datatypeLabel(datatypeFor(col))}
+                            </Text>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Box>
+            </Flex>
+          </Box>
           <Box p="4" style={{ flex: 1, overflowY: "auto" }}>
             <Flex direction="column" gap="4" style={{ maxWidth: 480 }}>
               <Box>
@@ -356,11 +502,12 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
                 <Frame py="3" px="3" mb="0">
                   {activeIdTypes.length ? (
                     activeIdTypes.map((idType) => (
-                      <Flex key={idType} align="end" gap="2" mb="3">
+                      <Flex key={idType} mb="3" align="center" gap="2">
+                        <Text as="div" size="sm" weight="semibold">
+                          {idType}
+                        </Text>
                         <Box flexGrow="1" style={{ minWidth: 0 }}>
                           <Select
-                            label={idType}
-                            labelSize="sm"
                             mb="0"
                             value={
                               validColumn(
@@ -399,9 +546,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
                     ))
                   ) : (
                     <Text as="div" size="sm" color="text-mid" mb="2">
-                      None of this Data Source&apos;s identifiers matched a
-                      column. Add at least one so GrowthBook can join this Fact
-                      Table to your experiment assignments.
+                      At least one of the following identifiers are required:
                     </Text>
                   )}
                   {unusedIdTypes.length ? (
@@ -423,81 +568,83 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
               </Box>
 
               <Box>
-                <Select
-                  label="Event type column (optional)"
-                  value={
-                    validColumn(inlineFilterOptions, inlineFilterColumn) || NONE
-                  }
-                  setValue={(v) => setInlineFilterColumn(v === NONE ? "" : v)}
-                >
-                  <SelectItem value={NONE}>None</SelectItem>
-                  {inlineFilterOptions.map((c) => (
-                    <SelectItem key={c.column} value={c.column}>
-                      {c.column}
-                    </SelectItem>
-                  ))}
-                </Select>
+                <Text as="div" weight="semibold" mb="2">
+                  Table type
+                </Text>
+                <RadioGroup
+                  value={tableType}
+                  setValue={(v) => setTableType(v as FactTableType)}
+                  gap="2"
+                  options={[
+                    {
+                      value: "event",
+                      label: "Event stream",
+                      description: (
+                        <>
+                          Many event types differentiated by a column like{" "}
+                          <strong>event_name</strong>
+                        </>
+                      ),
+                      renderOutsideItem: true,
+                      renderOnSelect: (
+                        <Frame ml="5" mb="3" px="3" py="3">
+                          <Select
+                            label="Event type column"
+                            labelSize="sm"
+                            mb="0"
+                            value={
+                              validColumn(
+                                inlineFilterOptions,
+                                inlineFilterColumn,
+                              ) || NONE
+                            }
+                            setValue={(v) =>
+                              setInlineFilterColumn(v === NONE ? "" : v)
+                            }
+                          >
+                            <SelectItem value={NONE}>None</SelectItem>
+                            {inlineFilterOptions.map((c) => (
+                              <SelectItem key={c.column} value={c.column}>
+                                {c.column}
+                              </SelectItem>
+                            ))}
+                          </Select>
+                        </Frame>
+                      ),
+                    },
+                    {
+                      value: "model",
+                      label: "Model",
+                      description:
+                        "Table for one specific object type: orders, signups, sessions, etc.",
+                    },
+                    {
+                      value: "rollup",
+                      label: "Daily rollup",
+                      description: "Pre-aggregated, one row per user per day",
+                      renderOutsideItem: true,
+                      renderOnSelect: (
+                        <Box ml="5" mt="1">
+                          <Callout status="warning" size="sm">
+                            Daily timestamps land at midnight, so each
+                            user&apos;s first day of data falls before their
+                            experiment exposure and gets dropped. Shift the
+                            timestamp forward by one day in your SQL to keep it.{" "}
+                            <DocLink docSection="preAggregatedTables">
+                              View example
+                            </DocLink>
+                          </Callout>
+                        </Box>
+                      ),
+                    },
+                    {
+                      value: "other",
+                      label: "Other / Unknown",
+                    },
+                  ]}
+                />
               </Box>
             </Flex>
-          </Box>
-
-          <Box
-            p="4"
-            style={{
-              flex: "0 0 320px",
-              maxWidth: "50%",
-              overflowY: "auto",
-              borderLeft: "1px solid var(--gray-a3)",
-              backgroundColor: "var(--slate-a2)",
-            }}
-          >
-            <Flex align="center" justify="between" gap="3" mb="1">
-              <Text as="div" weight="semibold">
-                Column types
-              </Text>
-              {editingDatatypes ? null : (
-                <Link size="sm" onClick={() => setEditingDatatypes(true)}>
-                  Edit
-                </Link>
-              )}
-            </Flex>
-            <Table size="sm">
-              <TableHeader>
-                <TableRow>
-                  <TableColumnHeader>Column</TableColumnHeader>
-                  <TableColumnHeader>Data type</TableColumnHeader>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(detected || []).map((col) => (
-                  <TableRow key={col.column}>
-                    <TableCell>{col.column}</TableCell>
-                    <TableCell>
-                      {editingDatatypes ? (
-                        <Select
-                          size="sm"
-                          value={datatypeFor(col) || undefined}
-                          setValue={(v) =>
-                            setDatatype(col.column, v as FactTableColumnType)
-                          }
-                          placeholder="Unknown"
-                        >
-                          {DATATYPE_OPTIONS.map((o) => (
-                            <SelectItem key={o.value} value={o.value}>
-                              {o.label}
-                            </SelectItem>
-                          ))}
-                        </Select>
-                      ) : (
-                        <Text color="text-mid">
-                          {datatypeLabel(datatypeFor(col))}
-                        </Text>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
           </Box>
         </Flex>
       </Page>

@@ -34,7 +34,7 @@ export const DATATYPE_OPTIONS: { value: FactTableColumnType; label: string }[] =
   [
     { value: "number", label: "Number" },
     { value: "string", label: "String" },
-    { value: "date", label: "Date / Datetime" },
+    { value: "date", label: "Date/Time" },
     { value: "boolean", label: "Boolean" },
     { value: "json", label: "JSON" },
     { value: "binary", label: "Binary" },

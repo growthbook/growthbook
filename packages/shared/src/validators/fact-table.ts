@@ -42,6 +42,12 @@ export const numberFormatValidator = z.enum([
   "memory:kilobytes",
 ]);
 
+export const factTableTypeValidator = z
+  .enum(["event", "model", "rollup"])
+  .describe(
+    'The shape of the underlying table. "event" is a stream of many event types told apart by a type column, "model" models one specific object type (orders, signups, etc.), "rollup" is pre-aggregated with one row per user per day.',
+  );
+
 export const timestampColumnField = z
   .string()
   .describe(
@@ -177,6 +183,7 @@ export const createFactTablePropsValidator = z
     sql: z.string(),
     timestampColumn: timestampColumnField.optional(),
     eventName: z.string(),
+    tableType: factTableTypeValidator.optional(),
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
@@ -198,6 +205,7 @@ export const updateFactTablePropsValidator = z
     sql: z.string().optional(),
     timestampColumn: timestampColumnField.optional(),
     eventName: z.string().optional(),
+    tableType: factTableTypeValidator.optional(),
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
     archived: z.boolean().optional(),
