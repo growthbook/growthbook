@@ -150,6 +150,7 @@ const MetricGroupModal: FC<{
           </p>
           <MetricsSelector
             datasource={form.watch("datasource")}
+            projects={form.watch("projects")}
             includeFacts={true}
             includeGroups={false}
             selected={form.watch("metrics")}
