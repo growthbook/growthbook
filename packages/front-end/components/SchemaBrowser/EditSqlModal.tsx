@@ -67,6 +67,7 @@ export interface Props {
       | "Identity Join"
       | "Experiment Assignment Query"
       | "Contextual Bandit Assignment Query"
+      | "Interleaving Exposure Query"
       | "Metric"
       | "Segment"
       | "Feature Usage Query";

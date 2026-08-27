@@ -47,7 +47,7 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Experimentation",
     href: "/experiments",
-    path: /^(experiments|experiment\/|bandit|contextual-bandit|namespaces|power-calculator)/,
+    path: /^(experiments|experiment\/|bandit|contextual-bandit|interleaving|namespaces|power-calculator)/,
     Icon: GBExperiment,
     navigateOnExpand: true,
     subLinks: [
@@ -67,6 +67,13 @@ export const navlinks: SidebarLinkProps[] = [
         path: /^contextual-bandits?($|\/)/,
         beta: true,
         filter: ({ gb }) => !!gb?.isOn("contextual-bandits"),
+      },
+      {
+        name: "Interleaving",
+        href: "/interleaving",
+        path: /^interleaving($|\/)/,
+        beta: true,
+        filter: ({ gb }) => !!gb?.isOn("interleaving"),
       },
       {
         name: "Holdouts",

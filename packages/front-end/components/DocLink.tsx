@@ -34,6 +34,7 @@ const docSections = {
   webhookSecrets: "/app/webhooks#webhook-secrets",
   bandits: "/bandits/overview",
   contextualBandits: "/contextual-bandits/overview",
+  interleaving: "/interleaving/overview",
   targeting: "/features/targeting",
   namespaces: "/features/rules#namespaces",
   environments: "/features/environments",

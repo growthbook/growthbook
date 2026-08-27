@@ -24,6 +24,7 @@ import { DataSourceInlineEditIdentifierTypes } from "@/components/Settings/EditD
 import { DataSourceInlineEditIdentityJoins } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
 import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
 import { ContextualBanditAssignmentQueries } from "@/components/Settings/EditDataSource/ContextualBanditAssignmentQueries/ContextualBanditAssignmentQueries";
+import { InterleavingQueries } from "@/components/Settings/EditDataSource/InterleavingQueries/InterleavingQueries";
 import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
@@ -62,6 +63,7 @@ function quotePropertyName(name: string) {
 
 export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
 export const CBAQ_ANCHOR_ID = "contextual-bandit-assignment-queries";
+export const INTERLEAVING_QUERIES_ANCHOR_ID = "interleaving-exposure-queries";
 
 const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
@@ -103,6 +105,7 @@ const DataSourcePage: FC = () => {
   const { apiCall, orgId } = useAuth();
   const { hasCommercialFeature } = useUser();
   const contextualBanditsEnabled = useFeatureIsOn("contextual-bandits");
+  const interleavingEnabled = useFeatureIsOn("interleaving");
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
   // Only the never-provisioned state replaces the settings UI with the onboarding
@@ -566,6 +569,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   hasCommercialFeature("contextual-bandits") && (
                     <Frame id={CBAQ_ANCHOR_ID}>
                       <ContextualBanditAssignmentQueries
+                        dataSource={d}
+                        canEdit={canUpdateDataSourceSettings}
+                      />
+                    </Frame>
+                  )}
+
+                {interleavingEnabled &&
+                  hasCommercialFeature("interleaving") && (
+                    <Frame id={INTERLEAVING_QUERIES_ANCHOR_ID}>
+                      <InterleavingQueries
                         dataSource={d}
                         canEdit={canUpdateDataSourceSettings}
                       />
