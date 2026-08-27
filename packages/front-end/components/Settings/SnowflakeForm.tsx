@@ -18,8 +18,8 @@ const SnowflakeForm: FC<{
   setParams: (params: { [key: string]: string }) => void;
 }> = ({ params, existing, onParamChange, onManualParamChange, setParams }) => {
   const [useAccessUrl, setUseAccessUrl] = useState(!!params.accessUrl);
-  // Convenience variable for the auth method to handle undefined
-  const authMethod = params.authMethod ?? "password";
+  // Saved connections without authMethod used password; new ones default to key-pair.
+  const authMethod = params.authMethod ?? (existing ? "password" : "key-pair");
   const canKeepExistingCredentials = useCanKeepExistingCredentials(
     existing,
     authMethod,
@@ -57,7 +57,7 @@ const SnowflakeForm: FC<{
           className="form-control"
           autoComplete="off"
           name="authMethod"
-          value={params.authMethod ?? "password"}
+          value={authMethod}
           onChange={(e) => {
             const value = e.target.value;
             if (value === "workload-identity") {
@@ -77,8 +77,8 @@ const SnowflakeForm: FC<{
             }
           }}
         >
-          <option value="password">Password</option>
           <option value="key-pair">Key Pair</option>
+          <option value="password">Password</option>
           {(!isCloud() || authMethod === "workload-identity") && (
             <option value="workload-identity">
               Workload Identity Federation

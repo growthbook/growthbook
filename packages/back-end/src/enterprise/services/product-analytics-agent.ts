@@ -1111,6 +1111,7 @@ async function executeGetColumnValues(
   type RawCol = { column: string; datatype: string };
   let factTableSql: string;
   let factTableEventName: string;
+  let factTableTimestampColumn: string | undefined;
   let datasourceId: string;
   let availableColumns: RawCol[];
 
@@ -1122,6 +1123,7 @@ async function executeGetColumnValues(
       if (!ft) return `Fact table "${factTableId}" not found.`;
       factTableSql = ft.sql;
       factTableEventName = ft.eventName ?? "";
+      factTableTimestampColumn = ft.timestampColumn;
       datasourceId = ft.datasource;
       availableColumns = (ft.columns ?? [])
         .filter((c) => !c.deleted)
@@ -1141,6 +1143,7 @@ async function executeGetColumnValues(
       if (!ft) return `Fact table not found.`;
       factTableSql = ft.sql;
       factTableEventName = ft.eventName ?? "";
+      factTableTimestampColumn = ft.timestampColumn;
       datasourceId = ft.datasource;
       availableColumns = (ft.columns ?? [])
         .filter((c) => !c.deleted)
@@ -1196,7 +1199,11 @@ async function executeGetColumnValues(
     rawValues = await runColumnsTopValuesQuery(
       ctx,
       datasource,
-      { sql: factTableSql, eventName: factTableEventName },
+      {
+        sql: factTableSql,
+        eventName: factTableEventName,
+        timestampColumn: factTableTimestampColumn,
+      },
       colsToQuery,
     );
   } catch (err) {

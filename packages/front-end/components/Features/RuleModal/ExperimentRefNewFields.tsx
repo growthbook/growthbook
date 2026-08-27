@@ -33,6 +33,7 @@ import {
   getFeatureDefaultValue,
   NewExperimentRefRule,
   useAttributeSchema,
+  resolveAttributeFilter,
 } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
@@ -65,8 +66,8 @@ import RuleProjectScopeField, {
 import { getExposureQuery } from "@/services/datasources";
 import Text from "@/ui/Text";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 
 export default function ExperimentRefNewFields({
@@ -74,6 +75,8 @@ export default function ExperimentRefNewFields({
   source,
   feature,
   project,
+  attributeProjects,
+  attributeSelectIndicator,
   environments,
   defaultValues,
   prerequisiteValue,
@@ -112,6 +115,8 @@ export default function ExperimentRefNewFields({
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
+  attributeProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
   prerequisiteValue: FeaturePrerequisite[];
@@ -180,7 +185,10 @@ export default function ExperimentRefNewFields({
   const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.getValues("exposureQueryId");
 
-  const attributeSchema = useAttributeSchema(false, project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    resolveAttributeFilter(attributeProjects, project),
+  );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
@@ -400,16 +408,10 @@ export default function ExperimentRefNewFields({
               size="legacy"
               withRadixThemedPortal
               containerClassName="flex-1"
+              extraIndicator={attributeSelectIndicator}
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({
-                  label: s.property,
-                  value: s.property,
-                  description: s.description,
-                  tags: s.tags,
-                  datatype: s.datatype,
-                  hashAttribute: s.hashAttribute,
-                }))}
+                .map(toAttributeOption)}
               value={hashAttribute}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
@@ -418,16 +420,7 @@ export default function ExperimentRefNewFields({
                   form.setValue("exposureQueryId", exposureQueryId);
                 }
               }}
-              formatOptionLabel={(o, meta) => {
-                return (
-                  <AttributeOptionWithTooltip
-                    option={o as AttributeOptionForTooltip}
-                    context={meta.context}
-                  >
-                    {o.label}
-                  </AttributeOptionWithTooltip>
-                );
-              }}
+              formatOptionLabel={formatAttributeOptionLabel}
             />
             {!!holdoutHashAttribute &&
               form.watch("hashAttribute") !== holdoutHashAttribute && (
@@ -439,6 +432,7 @@ export default function ExperimentRefNewFields({
             <FallbackAttributeSelector
               form={form}
               attributeSchema={attributeSchema}
+              extraIndicator={attributeSelectIndicator}
             />
 
             {hasSDKWithNoBucketingV2 && !isTemplate && (
@@ -524,6 +518,8 @@ export default function ExperimentRefNewFields({
         <>
           <TargetingFieldsGroup
             project={project || ""}
+            attributeProjects={attributeProjects}
+            attributeSelectIndicator={attributeSelectIndicator}
             environments={environments ?? []}
             feature={feature}
             savedGroups={savedGroupValue}

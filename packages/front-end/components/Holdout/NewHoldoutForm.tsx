@@ -40,8 +40,8 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
@@ -484,8 +484,10 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               environmentSettings={environmentSettings}
               environments={environments}
               setValue={(env, on) => {
-                environmentSettings[env.id].enabled = on;
-                form.setValue("environmentSettings", environmentSettings);
+                form.setValue("environmentSettings", {
+                  ...environmentSettings,
+                  [env.id]: { ...environmentSettings[env.id], enabled: on },
+                });
               }}
             />
             {/* {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
@@ -520,28 +522,12 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 containerClassName="flex-1"
                 options={attributeSchema
                   .filter((s) => !hasHashAttributes || s.hashAttribute)
-                  .map((s) => ({
-                    label: s.property,
-                    value: s.property,
-                    description: s.description,
-                    tags: s.tags,
-                    datatype: s.datatype,
-                    hashAttribute: s.hashAttribute,
-                  }))}
+                  .map(toAttributeOption)}
                 value={form.watch("hashAttribute") ?? ""}
                 onChange={(v) => {
                   form.setValue("hashAttribute", v);
                 }}
-                formatOptionLabel={(o, meta) => {
-                  return (
-                    <AttributeOptionWithTooltip
-                      option={o as AttributeOptionForTooltip}
-                      context={meta.context}
-                    >
-                      {o.label}
-                    </AttributeOptionWithTooltip>
-                  );
-                }}
+                formatOptionLabel={formatAttributeOptionLabel}
               />
             </div>
 
