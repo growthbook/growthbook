@@ -394,7 +394,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "2.4.0",
+    version: "3.0.0",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -450,7 +450,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.2.9",
+    version: "0.3.0",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
