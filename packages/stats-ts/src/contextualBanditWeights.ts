@@ -856,6 +856,20 @@ function buildTree(
 
   const sseTrajectory: number[][] = [totalSsePerVariation()];
 
+  // Per-variation total sample size across all contexts, and the constant BIC
+  // complexity penalty K*ln(N). Used to gate each split by whether it lowers
+  // BIC (deltaBic < 0).
+  const armTotalSampleSizes = new Array<number>(numVariations).fill(0);
+  for (const ctx of contexts) {
+    for (let v = 0; v < numVariations; v++) {
+      armTotalSampleSizes[v] += ctx.arms[v].n;
+    }
+  }
+  const bicPenaltyValue = bicPenalty(
+    numVariations,
+    armTotalSampleSizes.reduce((a, b) => a + b, 0),
+  );
+
   const splitCache = new Map<number, LeafSplit | null>();
   let dirtyLeaves = new Set<number>(currentLeaf);
 
@@ -885,7 +899,52 @@ function buildTree(
 
     // Stop when no leaf admits a further valid split, or the best available
     // split does not strictly reduce total SSE (e.g. identical categories).
-    if (bestAttr < 0 || bestGain <= 0) break;
+    if (bestAttr < 0 || bestGain <= 0) {
+      break;
+    }
+
+    // BIC stopping gate: the chosen split maximizes SSE reduction, but only
+    // apply it if it lowers BIC.
+    const beforePerVariation = sseTrajectory[sseTrajectory.length - 1];
+    const parentEntries: ContextEntry[] = [];
+    const movingEntries: ContextEntry[] = [];
+    const stayingEntries: ContextEntry[] = [];
+    for (let c = 0; c < contexts.length; c++) {
+      if (currentLeaf[c] !== bestLeaf) continue;
+      parentEntries.push(contexts[c]);
+      if (bestGroup.has(contexts[c].tuple[bestAttr])) {
+        movingEntries.push(contexts[c]);
+      } else {
+        stayingEntries.push(contexts[c]);
+      }
+    }
+    const parentSse = sumOfSquaredErrorsPerVariation(
+      parentEntries,
+      metric,
+      numVariations,
+    );
+    const movingSse = sumOfSquaredErrorsPerVariation(
+      movingEntries,
+      metric,
+      numVariations,
+    );
+    const stayingSse = sumOfSquaredErrorsPerVariation(
+      stayingEntries,
+      metric,
+      numVariations,
+    );
+    const afterPerVariation = beforePerVariation.map(
+      (sse, v) => sse - parentSse[v] + movingSse[v] + stayingSse[v],
+    );
+    const { deltaBic } = bicDeltaForSplit(
+      beforePerVariation,
+      afterPerVariation,
+      armTotalSampleSizes,
+      bicPenaltyValue,
+    );
+    if (deltaBic >= 0) {
+      break;
+    }
 
     const newLeaf = iteration + 1;
     // Both sides of the split now constrain `bestAttr` along their paths: the
@@ -929,55 +988,58 @@ function buildTree(
 }
 
 /**
+ * BIC complexity penalty for a single split: the split adds one new leaf, i.e.
+ * `numVariations` new per-variation means, charged `K * ln(N)` with `N` the
+ * total sample size (0 when there are no units).
+ */
+function bicPenalty(numVariations: number, totalSampleSize: number): number {
+  return totalSampleSize > 0 ? numVariations * Math.log(totalSampleSize) : 0;
+}
+
+/**
+ * BIC change for a single split given the total-tree per-variation SSE before
+ * and after it. lower deltaBIC is better.
+ */
+function bicDeltaForSplit(
+  beforePerVariation: number[],
+  afterPerVariation: number[],
+  armTotalSampleSizes: number[],
+  penalty: number,
+): { logLikelihoodRatio: number; deltaBic: number } {
+  let logLikelihoodRatio = 0;
+  for (let v = 0; v < armTotalSampleSizes.length; v++) {
+    if (beforePerVariation[v] > 0 && afterPerVariation[v] > 0) {
+      logLikelihoodRatio +=
+        armTotalSampleSizes[v] *
+        Math.log(beforePerVariation[v] / afterPerVariation[v]);
+    }
+  }
+  return { logLikelihoodRatio, deltaBic: penalty - logLikelihoodRatio };
+}
+
+/**
  * BIC model-selection statistic for each greedy split, derived from the
  * per-(split, variation) SSE trajectory.
  *
- * Comparing the tree before and after a split under a Gaussian model whose
- * per-variation variance is pooled across leaves, a split adds K
- * (= `numVariations`) parameters — one new per-variation mean for the new leaf.
- * The likelihood-ratio statistic for the split that takes the tree from
- * `sseTrajectory[s - 1]` to `sseTrajectory[s]` is
- *
- *   Lambda_s = sum_v N_v * ln(SSE_before_v / SSE_after_v)
- *
- * where `N_v` is variation `v`'s total sample size and `SSE_*_v` is the
- * total-tree SSE for variation `v` before/after the split. BIC charges a
- * complexity penalty of `K * ln(N)` with `N = sum_v N_v` the total sample size,
- * so `deltaBic = penalty - Lambda`; a negative `deltaBic` favors keeping the
- * split.
- *
- * A variation whose SSE is zero on either side of a split has an undefined
- * log-ratio and contributes nothing to the statistic, keeping it finite.
- *
- * NOTE: recorded for observability only; it does not yet influence when
- * `buildTree` stops growing the tree.
  */
 function computeBicTrajectory(
   sseTrajectory: number[][],
   armTotalSampleSizes: number[],
 ): ContextualBicTrajectoryEntry[] {
-  const numVariations = armTotalSampleSizes.length;
-  const totalSampleSize = armTotalSampleSizes.reduce((a, b) => a + b, 0);
-  const penalty =
-    totalSampleSize > 0 ? numVariations * Math.log(totalSampleSize) : 0;
+  const penalty = bicPenalty(
+    armTotalSampleSizes.length,
+    armTotalSampleSizes.reduce((a, b) => a + b, 0),
+  );
 
   const trajectory: ContextualBicTrajectoryEntry[] = [];
   for (let s = 1; s < sseTrajectory.length; s++) {
-    const before = sseTrajectory[s - 1];
-    const after = sseTrajectory[s];
-    let logLikelihoodRatio = 0;
-    for (let v = 0; v < numVariations; v++) {
-      if (before[v] > 0 && after[v] > 0) {
-        logLikelihoodRatio +=
-          armTotalSampleSizes[v] * Math.log(before[v] / after[v]);
-      }
-    }
-    trajectory.push({
-      numSplits: s,
-      logLikelihoodRatio,
+    const { logLikelihoodRatio, deltaBic } = bicDeltaForSplit(
+      sseTrajectory[s - 1],
+      sseTrajectory[s],
+      armTotalSampleSizes,
       penalty,
-      deltaBic: penalty - logLikelihoodRatio,
-    });
+    );
+    trajectory.push({ numSplits: s, logLikelihoodRatio, penalty, deltaBic });
   }
   return trajectory;
 }
