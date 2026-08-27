@@ -8,6 +8,8 @@ import type {
 
 /** Shared funnel rules and SQL semantics. */
 export const MAX_FUNNEL_STEPS = 20;
+/** Distinct fact tables a funnel Fact Metric may read from. */
+export const MAX_FUNNEL_FACT_TABLES = 5;
 
 const CONVERSION_WINDOW_UNIT_TO_SECONDS: Record<ConversionWindowUnit, number> =
   {
@@ -82,7 +84,8 @@ export function buildPrevResolvedExpr({
 }
 
 // Funnel definition rules
-// Builder funnels support multiple fact tables; funnel fact metrics do not yet.
+// Builder funnels support multiple fact tables; Fact Metrics cap at
+// MAX_FUNNEL_FACT_TABLES.
 
 export type FunnelRuleCode =
   | "too_few_steps"
@@ -175,12 +178,11 @@ export function getFunnelRuleViolations({
     new Set(steps.map((s) => s.factTableId).filter(Boolean)),
   );
 
-  // TODO(funnel): multi-fact table support for funnel metrics
-  if (factTableIds.length > 1) {
+  if (factTableIds.length > MAX_FUNNEL_FACT_TABLES) {
     add(
       "multi_fact_table",
       "fact_metric",
-      "All funnel steps must come from the same fact table for now",
+      `Funnel metrics must have ${MAX_FUNNEL_FACT_TABLES} or fewer distinct fact tables`,
     );
   }
 

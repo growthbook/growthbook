@@ -12,10 +12,14 @@ import {
 import {
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
+  getExperimentAttributeScopeProjects,
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
-import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  assertRegisteredAttributesScoped,
+  lazyAttributeScope,
+} from "back-end/src/services/attributes";
 import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import {
   startExperiment,
@@ -280,25 +284,44 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
-  // Opt-in attribute registration check (org-level setting). Covers the
-  // experiment-level hash/fallback attributes and every provided phase.
-  assertRegisteredAttributes(
+  const attributeScope = lazyAttributeScope(() =>
+    getExperimentAttributeScopeProjects(req.context, {
+      project:
+        req.body.project !== undefined ? req.body.project : experiment.project,
+      linkedFeatures: experiment.linkedFeatures,
+    }),
+  );
+  await assertRegisteredAttributesScoped(
     req.context,
     {
       hashAttribute: req.body.hashAttribute,
       fallbackAttribute: req.body.fallbackAttribute,
     },
     "experiment",
-    undefined,
-    experiment.project,
+    {
+      hashAttribute: experiment.hashAttribute,
+      fallbackAttribute: experiment.fallbackAttribute,
+    },
+    attributeScope,
+  );
+  // Match persisted phases by condition value, not index — clients that
+  // insert or delete phases must not re-validate grandfathered conditions.
+  const persistedConditions = new Set(
+    (experiment.phases ?? []).map((p) => p.condition),
   );
   for (const phase of req.body.phases ?? []) {
-    assertRegisteredAttributes(
+    await assertRegisteredAttributesScoped(
       req.context,
       { condition: phase.condition },
       "experiment phase",
-      undefined,
-      experiment.project,
+      {
+        condition:
+          phase.condition !== undefined &&
+          persistedConditions.has(phase.condition)
+            ? phase.condition
+            : undefined,
+      },
+      attributeScope,
     );
   }
 
