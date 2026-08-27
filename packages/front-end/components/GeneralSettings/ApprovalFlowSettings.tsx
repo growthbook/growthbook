@@ -13,6 +13,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -143,6 +144,11 @@ export default function ApprovalFlowSettings() {
     (p) => !allTabs.some((t) => scopeProjects(t.scope).includes(p.id)),
   );
 
+  // Overrides are wholesale rules the base tab's settings never reach.
+  const overriddenProjects = [
+    ...new Set(tabs.flatMap((t) => scopeProjects(t.scope))),
+  ].map((id) => ({ id, name: projects.find((p) => p.id === id)?.name ?? id }));
+
   return (
     <Frame>
       <Flex gap="4">
@@ -212,13 +218,13 @@ export default function ApprovalFlowSettings() {
                 return (
                   <TabsContent key={tab.id} value={tab.id}>
                     <Frame p="4" mt="3" mb="0">
-                      <Flex align="start" justify="between" gap="3" mb="4">
-                        <Text size="sm" color="text-low">
-                          {scope
-                            ? 'These settings override the base settings in the "All Projects" tab. Each Project belongs to a single override.'
-                            : "Applies to every Project without an override of its own."}
-                        </Text>
-                        {scope ? (
+                      {scope ? (
+                        <Flex align="start" justify="between" gap="3" mb="4">
+                          <Text size="sm" color="text-low">
+                            These settings override the base settings in the
+                            &quot;All Projects&quot; tab. Each Project belongs
+                            to a single override.
+                          </Text>
                           <Button
                             variant="ghost"
                             color="red"
@@ -227,8 +233,24 @@ export default function ApprovalFlowSettings() {
                           >
                             <PiTrash /> Remove override
                           </Button>
-                        ) : null}
-                      </Flex>
+                        </Flex>
+                      ) : null}
+
+                      {!scope && overriddenProjects.length > 0 && (
+                        <Callout status="info" size="sm" mb="4">
+                          These settings are overridden in the following{" "}
+                          {overriddenProjects.length === 1
+                            ? "Project"
+                            : "Projects"}
+                          :{" "}
+                          {overriddenProjects.map((p, i) => (
+                            <span key={p.id}>
+                              {i > 0 && ", "}
+                              <strong>{p.name}</strong>
+                            </span>
+                          ))}
+                        </Callout>
+                      )}
 
                       {scope ? (
                         <Box mb="4">
