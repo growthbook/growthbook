@@ -2,12 +2,14 @@ import router from "next/router";
 import React, { FC, useState } from "react";
 import { date, datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Flex, IconButton, Separator } from "@radix-ui/themes";
 import { reviewScopesRequiringTeam } from "shared/util";
 import { useAuth } from "@/services/auth";
 import TeamModal from "@/components/Teams/TeamModal";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
+import { RoleRulesSummary } from "@/components/Settings/Team/RoleRulesSummary";
+import Frame from "@/ui/Frame";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
@@ -123,12 +125,6 @@ const TeamPage: FC = () => {
             )}
           </Flex>
           <Flex align="center" gap="4" flexShrink="0">
-            <Button
-              variant="outline"
-              onClick={() => setPermissionModalOpen(true)}
-            >
-              Edit permissions
-            </Button>
             {isEditable && canManageTeam && (
               <DropdownMenu
                 trigger={
@@ -176,36 +172,66 @@ const TeamPage: FC = () => {
           )}
         </Flex>
 
-        {approvalScopes.length > 0 && (
-          <Flex direction="column" gap="1" mb="5">
-            <Text weight="semibold">Required approver for:</Text>
-            {approvalScopes.map((scope) => (
-              <Flex
-                key={scope.project ?? "all"}
-                align="center"
-                gap="2"
-                wrap="wrap"
-              >
-                {scope.project ? (
-                  <Link href={`/project/${scope.project}`}>
-                    {getProjectById(scope.project)?.name || scope.project}
-                  </Link>
-                ) : (
-                  <Text>
-                    {approvalScopes.length > 1
-                      ? "All other projects"
-                      : "All projects"}
-                  </Text>
-                )}
-                {scope.environments.length > 0 && (
-                  <Text color="text-low">
-                    · {scope.environments.join(", ")}
-                  </Text>
-                )}
-              </Flex>
-            ))}
+        <Frame px="4" py="4" mb="5">
+          <Flex align="start" justify="between" gap="3">
+            <Flex direction="column" gap="2">
+              <Heading as="h2" size="md" mb="0">
+                Permissions
+              </Heading>
+              <RoleRulesSummary
+                size="md"
+                value={{
+                  role: team.role,
+                  limitAccessByEnvironment: team.limitAccessByEnvironment,
+                  environments: team.environments,
+                  additionalRoles: team.additionalRoles,
+                  projectRoles: team.projectRoles,
+                }}
+              />
+            </Flex>
+            <Button
+              variant="outline"
+              onClick={() => setPermissionModalOpen(true)}
+            >
+              Edit Team Permissions
+            </Button>
           </Flex>
-        )}
+          {approvalScopes.length > 0 && (
+            <>
+              <Separator size="4" my="4" />
+              <Flex direction="column" gap="2">
+                <Heading as="h2" size="md" mb="0">
+                  Required approver for
+                </Heading>
+                {approvalScopes.map((scope) => (
+                  <Flex
+                    key={scope.project ?? "all"}
+                    align="center"
+                    gap="2"
+                    wrap="wrap"
+                  >
+                    {scope.project ? (
+                      <Link href={`/project/${scope.project}`}>
+                        {getProjectById(scope.project)?.name || scope.project}
+                      </Link>
+                    ) : (
+                      <Text>
+                        {approvalScopes.length > 1
+                          ? "All other projects"
+                          : "All projects"}
+                      </Text>
+                    )}
+                    {scope.environments.length > 0 && (
+                      <Text color="text-low">
+                        · {scope.environments.join(", ")}
+                      </Text>
+                    )}
+                  </Flex>
+                ))}
+              </Flex>
+            </>
+          )}
+        </Frame>
 
         <Flex align="center" justify="between" gap="3" mb="2">
           <Heading as="h2" size="md" mb="0">
