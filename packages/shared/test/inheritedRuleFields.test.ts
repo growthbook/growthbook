@@ -58,9 +58,8 @@ describe("an absent field inherits", () => {
   });
 });
 
-// A switched-off rule gates nothing, so it takes no part in inheritance. The
-// UI hides a disabled rule's fields, so anything it still stores is invisible;
-// letting it donate would enforce requirements no settings screen shows.
+// Letting a disabled rule donate its (UI-hidden) fields would enforce
+// requirements no settings screen shows.
 describe("a switched-off rule takes no part in inheritance", () => {
   it("does not donate teams left behind on a disabled base rule", () => {
     const resolved = getReviewSetting(
@@ -146,8 +145,6 @@ describe("normalizeApprovalRuleSettings", () => {
     expect(normalized.requireReviews).toBe(true);
   });
 
-  // The UI hides a disabled rule's fields, so teams it still stores are
-  // invisible and would silently re-arm on re-enable.
   it("scrapes team associations off switched-off rules in both families", () => {
     const normalized = normalizeApprovalRuleSettings({
       requireReviews: [

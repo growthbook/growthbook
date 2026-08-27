@@ -65,9 +65,8 @@ export function resolveProjectScopedRule<T extends ProjectScopedRule>(
   // A base winner is already the bottom layer; only a specific one inherits.
   if (!specificWinner || !baseWinner) return winner;
   // A switched-off rule gates nothing, so it takes no part in inheritance: it
-  // neither borrows fields from the layer beneath nor donates its stored (but
-  // dormant) fields — e.g. approver teams left behind by a disabled base rule
-  // must not leak into an active override that never named any.
+  // neither borrows fields from the layer beneath nor donates its own dormant
+  // ones.
   const active = (rule: T) => !isActive || isActive(rule);
   if (!active(winner)) return winner;
   const layers = [specificWinner, baseWinner].filter(active);
@@ -95,10 +94,9 @@ function dropUnsetFields<T extends object>(rule: T): T {
   ) as T;
 }
 
-// The UI hides a disabled rule's fields, so a team association it still stores
-// is invisible — and would silently re-arm if the rule is ever re-enabled.
-// Scraped on the way in; the resolver also refuses to read them, so rows
-// written before this stay inert.
+// The UI hides a disabled rule's fields, so a stored team association is
+// invisible and would silently re-arm on re-enable. Scraped on write; the
+// resolver also ignores them on read, so pre-existing rows stay inert.
 function dropDormantTeams<T extends { requiredApproverTeams?: string[] }>(
   rule: T,
   active: boolean,
