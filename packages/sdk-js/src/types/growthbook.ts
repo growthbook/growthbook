@@ -507,6 +507,7 @@ export type Polyfills = {
 
   EventSource: any;
   localStorage?: LocalStorageCompat;
+  sessionStorage?: SessionStorageCompat;
 };
 
 export type Helpers = {
@@ -548,6 +549,8 @@ export interface LocalStorageCompat {
   getItem(key: string): string | null | Promise<string | null>;
   setItem(key: string, value: string): void | Promise<void>;
 }
+
+export type SessionStorageCompat = LocalStorageCompat;
 
 export type CacheSettings = {
   backgroundSync: boolean;
