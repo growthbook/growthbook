@@ -64,7 +64,13 @@ export function resolveProjectScopedRule<T extends ProjectScopedRule>(
   if (!winner) return undefined;
   // A base winner is already the bottom layer; only a specific one inherits.
   if (!specificWinner || !baseWinner) return winner;
-  const layers = [specificWinner, baseWinner];
+  // A switched-off rule gates nothing, so it takes no part in inheritance: it
+  // neither borrows fields from the layer beneath nor donates its stored (but
+  // dormant) fields — e.g. approver teams left behind by a disabled base rule
+  // must not leak into an active override that never named any.
+  const active = (rule: T) => !isActive || isActive(rule);
+  if (!active(winner)) return winner;
+  const layers = [specificWinner, baseWinner].filter(active);
 
   const merged: T = { ...winner };
   for (const field of inheritable) {

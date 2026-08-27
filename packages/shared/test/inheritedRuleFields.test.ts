@@ -58,6 +58,59 @@ describe("an absent field inherits", () => {
   });
 });
 
+// A switched-off rule gates nothing, so it takes no part in inheritance. The
+// UI hides a disabled rule's fields, so anything it still stores is invisible;
+// letting it donate would enforce requirements no settings screen shows.
+describe("a switched-off rule takes no part in inheritance", () => {
+  it("does not donate teams left behind on a disabled base rule", () => {
+    const resolved = getReviewSetting(
+      [
+        rule({ requireReviewOn: false }),
+        {
+          requireReviewOn: true,
+          projects: ["prj_a"],
+          environments: ["production"],
+        },
+      ],
+      { project: "prj_a" },
+    );
+
+    expect(resolved?.requireReviewOn).toBe(true);
+    expect(resolved?.requiredApproverTeams).toBeUndefined();
+  });
+
+  it("does not donate any other dormant field either", () => {
+    const override = rule({ projects: ["prj_a"] });
+    delete override.blockSelfApproval;
+
+    const resolved = getReviewSetting(
+      [rule({ requireReviewOn: false }), override],
+      { project: "prj_a" },
+    );
+
+    expect(resolved?.blockSelfApproval).toBeUndefined();
+  });
+
+  it("still lets an enabled base rule donate", () => {
+    const override = rule({ projects: ["prj_a"] });
+    delete override.requiredApproverTeams;
+
+    const resolved = getReviewSetting([rule(), override], { project: "prj_a" });
+
+    expect(resolved?.requiredApproverTeams).toEqual(["t_sec"]);
+  });
+
+  it("returns a switched-off override as-is, borrowing nothing beneath it", () => {
+    const override = rule({ projects: ["prj_a"], requireReviewOn: false });
+    delete override.requiredApproverTeams;
+
+    const resolved = getReviewSetting([rule(), override], { project: "prj_a" });
+
+    expect(resolved?.requireReviewOn).toBe(false);
+    expect(resolved?.requiredApproverTeams).toBeUndefined();
+  });
+});
+
 // Absence is the only unset form, so a null from an older client is dropped on
 // the way in rather than stored as a second way to say the same thing.
 describe("normalizeApprovalRuleSettings", () => {
