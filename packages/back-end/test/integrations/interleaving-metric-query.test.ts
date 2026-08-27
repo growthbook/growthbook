@@ -51,7 +51,9 @@ describe("getInterleavingMetricQuery", () => {
     expect(paired).toContain("__exposures");
     expect(paired).toContain("jsonb_array_elements");
     expect(paired).toContain("__credited");
-    expect(paired).toContain("impression_value");
+    expect(paired).toContain("__eventsAll");
+    expect(paired).toContain("events_matched");
+    expect(paired).toContain("users_pref_treatment");
     expect(paired).toContain("sum_xy");
     expect(paired).toContain("'featured-products-ranker'");
     expect(ownership).toContain("__ownership");

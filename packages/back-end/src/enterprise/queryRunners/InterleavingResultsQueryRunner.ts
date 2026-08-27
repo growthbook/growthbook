@@ -5,6 +5,7 @@ import {
   InterleavingSnapshotInterface,
   InterleavingSnapshotSettings,
   INTERLEAVING_INTERLEAVE_ID_COLUMN,
+  INTERLEAVING_PAIRED_COVERAGE_THRESHOLD,
 } from "shared/validators";
 import { isFactMetric } from "shared/experiments";
 import type { FactMetricInterface } from "shared/types/fact-table";
@@ -29,6 +30,9 @@ export type InterleavingResultsQueryParams = {
 export type InterleavingQueryRunResult = {
   results: ExperimentReportResultDimension[];
   metricEstimators: Record<string, InterleavingEstimator>;
+  // Share of engagement events with a non-NULL interleave_id, per metric
+  // whose fact table has the column (drives the estimator choice)
+  metricInterleaveIdCoverage: Record<string, number>;
 };
 
 /** Variations shown in the results UI: the two ranker list names. */
@@ -49,7 +53,10 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
   InterleavingQueryRunResult
 > {
   private snapshotSettings?: InterleavingSnapshotSettings;
-  private metricEstimators: Record<string, InterleavingEstimator> = {};
+  // Query shape per metric: "combined" when the fact table has an
+  // interleave_id column (final estimator decided by coverage at analysis
+  // time), "ownership" when it does not
+  private metricQueryShapes: Record<string, "combined" | "ownership"> = {};
   private metricsById: Map<string, FactMetricInterface> = new Map();
 
   checkPermissions(): boolean {
@@ -92,16 +99,15 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
         throw new Error(`Fact table not found for metric ${metricId}`);
       }
 
-      // Estimator branching is a property of the METRIC: exposures always
-      // carry interleave_id (the SDK emits it), so paired analysis applies
-      // whenever the metric's fact table can join on it
+      // A fact table with an interleave_id column gets the combined query
+      // (paired + ownership inputs + coverage); the estimator itself is
+      // decided at analysis time from observed coverage, since a column can
+      // exist while its rows are NULL (NULL join keys never match)
       const factTableHasInterleaveId = factTable.columns.some(
         (c) => c.column === INTERLEAVING_INTERLEAVE_ID_COLUMN && !c.deleted,
       );
-      const estimator: InterleavingEstimator = factTableHasInterleaveId
-        ? "paired"
-        : "ownership";
-      this.metricEstimators[metricId] = estimator;
+      const shape = factTableHasInterleaveId ? "combined" : "ownership";
+      this.metricQueryShapes[metricId] = shape;
       this.metricsById.set(metricId, metric);
 
       const numeratorColumn = metric.numerator?.column;
@@ -113,7 +119,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
           : null;
 
       const sql = this.integration.getInterleavingMetricQuery({
-        estimator,
+        estimator: shape === "combined" ? "paired" : "ownership",
         exposureQuery: settings.query,
         userIdType: settings.userIdType,
         trackingKey: settings.trackingKey,
@@ -156,6 +162,8 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
 
     const baselineMetrics: SnapshotVariation["metrics"] = {};
     const treatmentMetrics: SnapshotVariation["metrics"] = {};
+    const metricEstimators: Record<string, InterleavingEstimator> = {};
+    const metricInterleaveIdCoverage: Record<string, number> = {};
     let maxUsers = 0;
 
     for (const metricId of settings.metricIds) {
@@ -165,9 +173,10 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
         number
       >[];
       const row = rows[0];
-      const estimator = this.metricEstimators[metricId] ?? "ownership";
+      const shape = this.metricQueryShapes[metricId] ?? "ownership";
 
       if (!row) {
+        metricEstimators[metricId] = "ownership";
         treatmentMetrics[metricId] = {
           value: 0,
           cr: 0,
@@ -177,6 +186,18 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
         baselineMetrics[metricId] = { value: 0, cr: 0, users: 0 };
         continue;
       }
+
+      // Decide the estimator: paired needs enough events to actually join
+      let estimator: InterleavingEstimator = "ownership";
+      if (shape === "combined") {
+        const total = row.events_total || 0;
+        const coverage = total > 0 ? (row.events_matched || 0) / total : 0;
+        metricInterleaveIdCoverage[metricId] = coverage;
+        if (coverage >= INTERLEAVING_PAIRED_COVERAGE_THRESHOLD) {
+          estimator = "paired";
+        }
+      }
+      metricEstimators[metricId] = estimator;
 
       if (estimator === "paired") {
         const stats = row as unknown as PairedSufficientStats;
@@ -201,6 +222,8 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
           errorMessage: test.errorMessage ?? undefined,
         };
       } else {
+        // Ownership sign test; the combined shape returns the same
+        // preference-count columns as the ownership-only query
         const prefT = row.users_pref_treatment || 0;
         const prefC = row.users_pref_control || 0;
         const usersExposed = row.users_exposed || 0;
@@ -240,7 +263,8 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
 
     return {
       results: [dimension],
-      metricEstimators: this.metricEstimators,
+      metricEstimators,
+      metricInterleaveIdCoverage,
     };
   }
 
@@ -282,6 +306,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
     if (status === "succeeded" && result) {
       updates.results = result.results;
       updates.metricEstimators = result.metricEstimators;
+      updates.metricInterleaveIdCoverage = result.metricInterleaveIdCoverage;
     }
 
     await this.context.models.interleavingSnapshots.updateById(

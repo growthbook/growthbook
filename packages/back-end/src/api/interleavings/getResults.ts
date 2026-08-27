@@ -24,6 +24,7 @@ export const getInterleavingResults = createApiRequestHandler(
             : null,
           queries: snapshot.queries,
           metricEstimators: snapshot.metricEstimators,
+          metricInterleaveIdCoverage: snapshot.metricInterleaveIdCoverage,
           results: snapshot.results,
           dateCreated: snapshot.dateCreated.toISOString(),
         }

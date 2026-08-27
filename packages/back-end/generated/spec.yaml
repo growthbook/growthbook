@@ -16233,6 +16233,12 @@ paths:
                               enum:
                                 - paired
                                 - ownership
+                          metricInterleaveIdCoverage:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: number
                           results:
                             type: array
                             items: {}

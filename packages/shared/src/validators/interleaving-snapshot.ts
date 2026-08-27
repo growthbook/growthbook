@@ -38,6 +38,10 @@ export const interleavingSnapshotValidator = baseSchema
     metricEstimators: z
       .record(z.string(), z.enum(interleavingEstimators))
       .optional(),
+    // Share of each metric's engagement events carrying a non-NULL
+    // interleave_id (drives the paired-vs-ownership choice; only present for
+    // metrics whose fact table has the column)
+    metricInterleaveIdCoverage: z.record(z.string(), z.number()).optional(),
     // ExperimentReportResultDimension[]-shaped (typed loosely for Mongo
     // storage; the runner produces and the front-end consumes the real type)
     results: z.array(z.unknown()).optional(),

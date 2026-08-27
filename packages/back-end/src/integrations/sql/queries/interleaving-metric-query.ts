@@ -20,10 +20,12 @@ import { compileSqlTemplate } from "back-end/src/util/sql";
  * an `items` JSON column (the SDK's nested exposure shape); the __exposures
  * CTE unnests it per warehouse dialect.
  *
- * Paired (interleave_id joinable):
- *   exposures (competitive picks) -> engagement joined per impression x item
- *   -> per-user (x, y, n) restricted to engaged impressions -> one row of
- *   cross-user joint moments for the paired delta-method t-test.
+ * Combined (fact table has an interleave_id column):
+ *   one pass computes BOTH estimators' inputs plus interleave_id coverage:
+ *   paired joint moments from impression-matched events (NULL ids never
+ *   join), ownership preference counts from ALL events, and matched/total
+ *   event counts. The runner picks the estimator by coverage
+ *   (INTERLEAVING_PAIRED_COVERAGE_THRESHOLD).
  *
  * Ownership (no interleave_id):
  *   per user x item ownership share across all competitive exposures ->
@@ -120,6 +122,7 @@ export function getInterleavingMetricQuery(
         m.${INTERLEAVING_INTERLEAVE_ID_COLUMN} AS interleave_id,
         m.${INTERLEAVING_ITEM_ID_COLUMN} AS item_id,
         ${metricType === "proportion" ? "1" : `SUM(${rawValueExpr})`} AS value,
+        COUNT(*) AS event_count,
         MIN(m.timestamp) AS first_event_timestamp
       FROM (
         ${factSql}
@@ -132,14 +135,30 @@ export function getInterleavingMetricQuery(
     )`;
 
     return format(
-      `-- Interleaving metric (paired estimator)
+      `-- Interleaving metric: paired + ownership inputs and interleave_id
+      -- coverage from one pass; the runner picks the estimator by coverage.
+      -- __events is referenced three times, but it is already aggregated and
+      -- multi-referenced CTEs are materialized on Postgres, so the fact
+      -- table itself is scanned once.
     WITH
     ${exposuresCTE},
     ${eventsCTE},
+    __eventsAll AS (
+      -- Ownership input: engagement per user x item across ALL events,
+      -- including those with a NULL interleave_id
+      SELECT
+        ev.user_id,
+        ev.item_id,
+        ${metricType === "proportion" ? "1" : "SUM(ev.value)"} AS value
+      FROM __events ev
+      GROUP BY ev.user_id, ev.item_id
+    ),
     __credited AS (
+      -- Paired input: NULL interleave_id events never satisfy this join
       SELECT
         e.user_id,
         e.interleave_id,
+        e.item_id,
         e.team,
         COALESCE(ev.value, 0) AS value
       FROM __exposures e
@@ -150,41 +169,67 @@ export function getInterleavingMetricQuery(
         AND ev.first_event_timestamp >= e.exposure_timestamp
       )
     ),
-    __userStats AS (
-      -- Engaged-impressions dilution filter via a window (single pass over
-      -- the exposures join; no second join or DISTINCT needed)
+    __userItem AS (
+      -- Engaged-impressions dilution filter (paired) via a window flag;
+      -- ownership share from the same exposure rows
       SELECT
         t.user_id,
-        SUM(t.team * t.value) AS x,
-        SUM((1 - t.team) * t.value) AS y,
-        SUM(t.team) AS n
+        t.item_id,
+        SUM(t.team * t.value * t.eng) AS x_i,
+        SUM((1 - t.team) * t.value * t.eng) AS y_i,
+        SUM(t.team * t.eng) AS n_i,
+        AVG(t.team * 1.0) AS share_t
       FROM (
         SELECT
           c.user_id,
           c.interleave_id,
+          c.item_id,
           c.team,
           c.value,
-          SUM(c.value) OVER (
-            PARTITION BY c.user_id, c.interleave_id
-          ) AS impression_value
+          ${dialect.ifElse(
+            `SUM(c.value) OVER (PARTITION BY c.user_id, c.interleave_id) > 0`,
+            "1",
+            "0",
+          )} AS eng
         FROM __credited c
       ) t
-      WHERE t.impression_value > 0
-      GROUP BY t.user_id
+      GROUP BY t.user_id, t.item_id
+    ),
+    __user AS (
+      SELECT
+        ui.user_id,
+        SUM(ui.x_i) AS x,
+        SUM(ui.y_i) AS y,
+        SUM(ui.n_i) AS n,
+        SUM(COALESCE(ea.value, 0) * ui.share_t) AS wins_t,
+        SUM(COALESCE(ea.value, 0) * (1 - ui.share_t)) AS wins_c
+      FROM __userItem ui
+      LEFT JOIN __eventsAll ea ON (
+        ea.user_id = ui.user_id AND ea.item_id = ui.item_id
+      )
+      GROUP BY ui.user_id
     )
     SELECT
-      COUNT(*) AS users,
-      SUM(u.x) AS sum_x,
-      SUM(u.x * u.x) AS sum_xx,
-      SUM(u.y) AS sum_y,
-      SUM(u.y * u.y) AS sum_yy,
-      SUM(u.n) AS sum_n,
-      SUM(u.n * u.n) AS sum_nn,
-      SUM(u.x * u.y) AS sum_xy,
-      SUM(u.x * u.n) AS sum_xn,
-      SUM(u.y * u.n) AS sum_yn
-    FROM __userStats u
-    WHERE u.n > 0`,
+      SUM(${dialect.ifElse("u.n > 0", "1", "0")}) AS users,
+      SUM(${dialect.ifElse("u.n > 0", "u.x", "0")}) AS sum_x,
+      SUM(${dialect.ifElse("u.n > 0", "u.x * u.x", "0")}) AS sum_xx,
+      SUM(${dialect.ifElse("u.n > 0", "u.y", "0")}) AS sum_y,
+      SUM(${dialect.ifElse("u.n > 0", "u.y * u.y", "0")}) AS sum_yy,
+      SUM(${dialect.ifElse("u.n > 0", "u.n", "0")}) AS sum_n,
+      SUM(${dialect.ifElse("u.n > 0", "u.n * u.n", "0")}) AS sum_nn,
+      SUM(${dialect.ifElse("u.n > 0", "u.x * u.y", "0")}) AS sum_xy,
+      SUM(${dialect.ifElse("u.n > 0", "u.x * u.n", "0")}) AS sum_xn,
+      SUM(${dialect.ifElse("u.n > 0", "u.y * u.n", "0")}) AS sum_yn,
+      COUNT(*) AS users_exposed,
+      SUM(${dialect.ifElse("u.wins_t > u.wins_c", "1", "0")}) AS users_pref_treatment,
+      SUM(${dialect.ifElse("u.wins_c > u.wins_t", "1", "0")}) AS users_pref_control,
+      (SELECT COALESCE(SUM(ev.event_count), 0) FROM __events ev) AS events_total,
+      (SELECT COALESCE(SUM(${dialect.ifElse(
+        `ev.${INTERLEAVING_INTERLEAVE_ID_COLUMN} IS NOT NULL`,
+        "ev.event_count",
+        "0",
+      )}), 0) FROM __events ev) AS events_matched
+    FROM __user u`,
       dialect.formatDialect,
     );
   }

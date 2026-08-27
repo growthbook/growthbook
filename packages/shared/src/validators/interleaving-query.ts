@@ -24,6 +24,12 @@ export const INTERLEAVING_ITEMS_COLUMN = "items";
 // Metric fact-table columns used for attribution joins
 export const INTERLEAVING_ITEM_ID_COLUMN = "item_id";
 
+// Minimum share of a metric's engagement events that must carry a non-NULL
+// interleave_id for the paired estimator to apply (else ownership). Column
+// existence alone is not enough: NULL join keys never match, so a mostly
+// unstamped fact table would silently analyze a sliver of the data.
+export const INTERLEAVING_PAIRED_COVERAGE_THRESHOLD = 0.8;
+
 // Fields inside each element of the `items` JSON array (SDK
 // InterleavedItemMeta shape, camelCase)
 export const INTERLEAVING_ITEM_FIELD_ITEM_ID = "itemId";

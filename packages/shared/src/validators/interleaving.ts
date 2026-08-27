@@ -147,6 +147,7 @@ export const interleavingSnapshotResponseShape = z
     metricEstimators: z
       .record(z.string(), z.enum(interleavingEstimators))
       .optional(),
+    metricInterleaveIdCoverage: z.record(z.string(), z.number()).optional(),
     results: z.array(z.unknown()).optional(),
     dateCreated: z.string(),
   })

@@ -23,6 +23,7 @@ type Props = {
   interleaving: ApiInterleavingInterface;
   results: ExperimentReportResultDimension[];
   metricEstimators: Record<string, InterleavingEstimator>;
+  metricInterleaveIdCoverage?: Record<string, number>;
   snapshotDate: Date;
 };
 
@@ -42,6 +43,7 @@ export const InterleavingResults: FC<Props> = ({
   interleaving,
   results,
   metricEstimators,
+  metricInterleaveIdCoverage,
   snapshotDate,
 }) => {
   const { getExperimentMetricById } = useDefinitions();
@@ -112,11 +114,16 @@ export const InterleavingResults: FC<Props> = ({
       labelHeader="Metrics"
       renderLabelColumn={({ label, metric }) => {
         const estimator = metricEstimators[metric.id];
+        const coverage = metricInterleaveIdCoverage?.[metric.id];
+        const coverageNote =
+          coverage !== undefined
+            ? ` ${Math.round(coverage * 100)}% of this metric's events carried an interleave_id.`
+            : "";
         return (
           <Flex align="center" gap="2">
             <span>{label}</span>
             {estimator ? (
-              <Tooltip body={ESTIMATOR_TOOLTIP[estimator]}>
+              <Tooltip body={ESTIMATOR_TOOLTIP[estimator] + coverageNote}>
                 <Badge
                   label={estimator === "paired" ? "Paired" : "Ownership"}
                   color={estimator === "paired" ? "green" : "violet"}
