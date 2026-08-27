@@ -6,6 +6,8 @@ module.exports = {
   // uuid@14+ ships ESM-only. Let swc transpile it for the Jest CJS runtime.
   transformIgnorePatterns: ["node_modules/(?!\\.pnpm/uuid@|uuid/)"],
   testMatch: ["**/test/**/*.test.(ts|js)"],
+  // Pinned rather than left in the OS temp dir so CI can cache it between runs.
+  cacheDirectory: "<rootDir>/.jest-cache",
   moduleNameMapper: {
     "^axios$": "axios/dist/axios.js",
     "^@typespec/ts-http-runtime/internal/(.*)$":

@@ -98,7 +98,6 @@ import {
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
 import Callout from "@/ui/Callout";
-import UnmetApproverTeams from "@/components/Reviews/UnmetApproverTeams";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -133,7 +132,7 @@ import HelperText from "@/ui/HelperText";
 import PermissionBlocker from "@/ui/PermissionBlocker";
 import Metadata from "@/ui/Metadata";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
-import WaitingForReviewCallout from "@/components/Reviews/WaitingForReviewCallout";
+import ApprovalStatusBand from "@/components/Reviews/ApprovalStatusBand";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import {
   DropdownMenu,
@@ -726,8 +725,8 @@ export default function ReviewAndPublish({
   ]);
 
   const {
-    uncoveredApprovers,
-    uncoveredApproverReasons,
+    insufficientApprovers,
+    insufficientApproverReasons,
     uncoveredFootprintEnvs,
     approvalsCoverFootprint,
     hasUncoveredApproval,
@@ -1300,7 +1299,7 @@ export default function ReviewAndPublish({
           onRevisionMutate={mutate}
           // Same gate the generic timeline passes.
           canRetractVerdict={canRetractVerdict}
-          uncoveredApproverReasons={uncoveredApproverReasons}
+          uncoveredApproverReasons={insufficientApproverReasons}
           // Overview foregrounds the conversation: comments, verdicts, and
           // lifecycle events. Granular content-edit entries collapse into
           // per-run "N other events" toggles.
@@ -1562,8 +1561,8 @@ export default function ReviewAndPublish({
                           timestamp={timestamp}
                           stale={stale}
                           uncoveredReason={
-                            uncoveredApprovers.has(id)
-                              ? uncoveredApproverReasons.get(id)
+                            insufficientApprovers.has(id)
+                              ? insufficientApproverReasons.get(id)
                               : undefined
                           }
                         />
@@ -2344,6 +2343,26 @@ export default function ReviewAndPublish({
     (blockInfo?.overridable || adminPublish);
   const showPublishSection =
     state.submitAction === "publish" || continueToPublish || adminCanBypassNow;
+
+  // Renders in every phase, so it must claim no status: an uncovered approval
+  // can still stand after a later "changes requested" verdict.
+  const coverageBlockMessage = hasUncoveredApproval
+    ? uncoveredFootprintEnvs.length
+      ? `None of this draft's approvals cover ${uncoveredFootprintEnvs.join(", ")}. Someone with review access there must approve it.`
+      : `None of this draft's approvals cover everything it changes.`
+    : null;
+  const approvalGateUnmet =
+    requireReviews && (!requiredTeams.satisfied || hasUncoveredApproval);
+  // An approved draft warrants the band only while a gate is unmet — otherwise
+  // the publish section already carries the state, and "Publishing is blocked"
+  // would contradict an enabled CTA.
+  const showApprovalBand =
+    requireReviews &&
+    !!revision &&
+    state.submitAction !== "publish" &&
+    (revision.status === "approved"
+      ? approvalGateUnmet
+      : revision.status === "draft" || isInReviewCycle(revision.status));
   // The arming control (and thus a dated schedule card) renders in either the
   // step block or the publish section. When neither shows, the read-only card
   // falls back to the summary block above.
@@ -2597,8 +2616,8 @@ export default function ReviewAndPublish({
                           timestamp={timestamp}
                           stale={stale}
                           uncoveredReason={
-                            uncoveredApprovers.has(id)
-                              ? uncoveredApproverReasons.get(id)
+                            insufficientApprovers.has(id)
+                              ? insufficientApproverReasons.get(id)
                               : undefined
                           }
                         />
@@ -2610,553 +2629,613 @@ export default function ReviewAndPublish({
             </Box>
           )}
 
+        {/* Right under the Reviewers status. The waiting phase is suppressed
+            when the admin-bypass publish section renders below — "waiting for
+            a reviewer" next to a working Publish button reads as a
+            contradiction. */}
+        {showApprovalBand && (
+          <Box mt="4">
+            <ApprovalStatusBand
+              phase={
+                revision.status === "approved"
+                  ? "gated"
+                  : state.waitingForReview && !canReview && !showPublishSection
+                    ? "waiting"
+                    : "draft"
+              }
+              footprint={reviewFootprint}
+              unmet={requiredTeams.unmet}
+              coverageMessage={coverageBlockMessage}
+              showSelfApprovalNote={!!isBlockedContributor && canReview}
+              canRecallReview={state.canRecallReview}
+              recallDisabled={secondaryLoading !== null}
+              onRecallReview={doRecallReview}
+            />
+          </Box>
+        )}
+
         {!experimentsStep &&
           (approved || !requireReviews) &&
           renderExperimentSelection()}
 
-        <Box mt="6">
-          {/* The poller gave up on this draft's scheduled publish (cleared on
+        {/* Mirrors every child's render condition — an empty box still draws
+            its margin. */}
+        {((isActiveDraft && !!revision?.scheduledPublishGaveUpAt) ||
+          (showAutoPublishReadonly &&
+            !!revision &&
+            (!scheduledPending || !armingRendersBelow)) ||
+          (canReview && !adminPublish) ||
+          (!showPublishSection &&
+            !!revision &&
+            !!governance &&
+            (governance.divergence !== "current" ||
+              governance.staleApproval)) ||
+          isStepAction ||
+          showPublishSection ||
+          !!submitError ||
+          !!secondaryError) && (
+          <Box mt={showApprovalBand ? "0" : "6"}>
+            {/* The poller gave up on this draft's scheduled publish (cleared on
               cancel/re-arm). Shown to every viewer — matches the generic
               ScheduledPublishControl notice. */}
-          {isActiveDraft && revision?.scheduledPublishGaveUpAt && (
-            <HelperText status="error" size="sm" mb="3">
-              Could not publish
-              {revision.scheduledPublishLastError
-                ? `: ${revision.scheduledPublishLastError}`
-                : "."}
-            </HelperText>
-          )}
+            {isActiveDraft && revision?.scheduledPublishGaveUpAt && (
+              <HelperText status="error" size="sm" mb="3">
+                Could not publish
+                {revision.scheduledPublishLastError
+                  ? `: ${revision.scheduledPublishLastError}`
+                  : "."}
+              </HelperText>
+            )}
 
-          {/* Read-only arming summary for reviewers / non-managers. The dated
+            {/* Read-only arming summary for reviewers / non-managers. The dated
               schedule card renders with the arming control below the rebase
               notice when a publish/step section exists; here it's only a
               fallback for when neither section is shown (e.g. pending review). */}
-          {showAutoPublishReadonly &&
-            revision &&
-            (scheduledPending ? (
-              !armingRendersBelow &&
-              renderScheduleCard(
-                scheduleArmedByAdmin
-                  ? {
-                      onCancel: canCancelAdminSchedule
-                        ? () => doSetAutoPublishArmed(false)
-                        : undefined,
-                      note: "Armed by an admin (approval bypassed). Cancel and re-arm to change it.",
-                    }
-                  : {},
-              )
-            ) : (
-              // "When approved" is just a toggle — show a disabled checkbox.
-              <Checkbox
-                label="Automatically publish when approved"
-                weight="regular"
-                disabled
-                value={true}
-                setValue={() => {}}
-              />
-            ))}
+            {showAutoPublishReadonly &&
+              revision &&
+              (scheduledPending ? (
+                !armingRendersBelow &&
+                renderScheduleCard(
+                  scheduleArmedByAdmin
+                    ? {
+                        onCancel: canCancelAdminSchedule
+                          ? () => doSetAutoPublishArmed(false)
+                          : undefined,
+                        note: "Armed by an admin (approval bypassed). Cancel and re-arm to change it.",
+                      }
+                    : {},
+                )
+              ) : (
+                // "When approved" is just a toggle — show a disabled checkbox.
+                <Checkbox
+                  label="Automatically publish when approved"
+                  weight="regular"
+                  disabled
+                  value={true}
+                  setValue={() => {}}
+                />
+              ))}
 
-          {/* Submit review — reviewer action, opens the comment/decision popover */}
-          {canReview && !adminPublish && (
-            <Flex direction="column" gap="3">
-              <ReviewCommentPopover
-                submitUrl={`/feature/${feature.id}/${revision.version}/submit-review`}
-                storageKey={`review-comment:${feature.id}:${revision.version}`}
-                allowPublishOnApprove={autopublishOnApproval}
-                autoPublishArmed={revisionAutoPublishArmed}
-                autoPublishScheduled={scheduledPending}
-                canReviewerPublish={hasPublishPermission}
-                publishBlocked={reviewerPublishBlocked}
-                publishHasMoreSteps={hasChecklistStep}
-                isBlockedContributor={!!isBlockedContributor}
-                onSuccess={async (opts) => {
-                  let publishedViaArming = false;
-                  if (opts?.publish) {
-                    if (hasChecklistStep) {
-                      checklistAfterApproval.current = true;
-                    } else if (!revisionAutoPublishArmed) {
-                      publishAfterApproval.current = true;
-                    } else {
-                      publishedViaArming = true;
+            {/* Submit review — reviewer action, opens the comment/decision popover */}
+            {canReview && !adminPublish && (
+              <Flex direction="column" gap="3">
+                <ReviewCommentPopover
+                  submitUrl={`/feature/${feature.id}/${revision.version}/submit-review`}
+                  storageKey={`review-comment:${feature.id}:${revision.version}`}
+                  allowPublishOnApprove={autopublishOnApproval}
+                  autoPublishArmed={revisionAutoPublishArmed}
+                  autoPublishScheduled={scheduledPending}
+                  canReviewerPublish={hasPublishPermission}
+                  publishBlocked={reviewerPublishBlocked}
+                  publishHasMoreSteps={hasChecklistStep}
+                  isBlockedContributor={!!isBlockedContributor}
+                  onSuccess={async (opts) => {
+                    let publishedViaArming = false;
+                    if (opts?.publish) {
+                      if (hasChecklistStep) {
+                        checklistAfterApproval.current = true;
+                      } else if (!revisionAutoPublishArmed) {
+                        publishAfterApproval.current = true;
+                      } else {
+                        publishedViaArming = true;
+                      }
                     }
+                    await mutate();
+                    await revisionLogRef?.current?.mutateLog();
+                    if (publishedViaArming) {
+                      onPublish && onPublish();
+                    }
+                  }}
+                  trigger={
+                    <Button
+                      // Outline once publishing is live or armed on a schedule —
+                      // either way review is no longer the primary action.
+                      variant={
+                        state.submitAction === "publish" &&
+                        state.ctaEnabled &&
+                        canDoPrimary
+                          ? "outline"
+                          : undefined
+                      }
+                      style={{ width: "100%" }}
+                      icon={<PiCaretDownBold />}
+                      iconPosition="right"
+                    >
+                      Submit review
+                    </Button>
                   }
-                  await mutate();
-                  await revisionLogRef?.current?.mutateLog();
-                  if (publishedViaArming) {
-                    onPublish && onPublish();
-                  }
-                }}
-                trigger={
-                  <Button
-                    // Outline once publishing is live or armed on a schedule —
-                    // either way review is no longer the primary action.
-                    variant={
-                      state.submitAction === "publish" &&
-                      state.ctaEnabled &&
-                      canDoPrimary
-                        ? "outline"
-                        : undefined
-                    }
-                    style={{ width: "100%" }}
-                    icon={<PiCaretDownBold />}
-                    iconPosition="right"
-                  >
-                    Submit review
-                  </Button>
-                }
-                side="bottom"
-                align="center"
-              />
-            </Flex>
-          )}
+                  side="bottom"
+                  align="center"
+                />
+              </Flex>
+            )}
 
-          {/* Non-reviewers see an explicit status while the draft waits on a
-              review — without it the tab shows only the status badge and the
-              draft reads as stuck. */}
-          {/* Suppressed when the admin-bypass publish section renders below —
-              "waiting for a reviewer" next to a working Publish button reads
-              as a contradiction. */}
-          {state.waitingForReview && !canReview && !showPublishSection && (
-            <WaitingForReviewCallout
-              isOwnDraft={createdBy?.id === user?.id}
-              canRecallReview={state.canRecallReview}
-              disabled={secondaryLoading !== null}
-              onRecallReview={doRecallReview}
-            />
-          )}
+            {/* Rebase/conflict affordance must stay reachable when the publish
+              section is hidden (a conflicted or not-yet-approved draft) —
+              without this, a conflicted draft dead-ends: no notice, no
+              "Fix conflicts", no rebase, just "waiting for a reviewer". */}
+            {/* DivergenceNotice renders nothing for an up-to-date draft with a
+              fresh approval — mirror that here so the box doesn't draw its
+              margin around nothing. */}
+            {!showPublishSection &&
+              revision &&
+              governance &&
+              (governance.divergence !== "current" ||
+                governance.staleApproval) && (
+                <Box mt="4">
+                  <DivergenceNotice
+                    governance={governance}
+                    liveVersion={feature.version}
+                    baseVersion={revision.baseVersion}
+                    onUpdateFromLive={onUpdateFromLive}
+                    updating={rebasing}
+                    canRebase={permissionsUtil.canEditFeatureDrafts(feature)}
+                    onResolveConflicts={() => setResolveConflicts(true)}
+                    approvedAt={approvedAt}
+                    revisionsSinceApproval={revisionsSinceApproval}
+                  />
+                </Box>
+              )}
 
-          {(() => {
-            const continueLabel = "Continue to Publish →";
+            {(() => {
+              const continueLabel = "Continue to Publish →";
 
-            // A pending schedule must be canceled before a manual publish (one
-            // explicit path back to "approved"). An admin bypass override lets an
-            // admin publish now over someone else's pending schedule — but not
-            // over a schedule that was itself admin-armed (that reads as the
-            // intentional deferral, so it still blocks publish-now).
-            const scheduleBlocksPublish =
-              scheduledPending && (!adminPublish || scheduleArmedByAdmin);
-            const publishEnabled =
-              state.submitAction === "publish" &&
-              state.ctaEnabled &&
-              canDoPrimary &&
-              !scheduleBlocksPublish;
+              // A pending schedule must be canceled before a manual publish (one
+              // explicit path back to "approved"). An admin bypass override lets an
+              // admin publish now over someone else's pending schedule — but not
+              // over a schedule that was itself admin-armed (that reads as the
+              // intentional deferral, so it still blocks publish-now).
+              const scheduleBlocksPublish =
+                scheduledPending && (!adminPublish || scheduleArmedByAdmin);
+              const publishEnabled =
+                state.submitAction === "publish" &&
+                state.ctaEnabled &&
+                canDoPrimary &&
+                !scheduleBlocksPublish;
 
-            const continueEnabled =
-              continueToPublish &&
-              state.ctaEnabled &&
-              canDoPrimary &&
-              !scheduleBlocksPublish;
+              const continueEnabled =
+                continueToPublish &&
+                state.ctaEnabled &&
+                canDoPrimary &&
+                !scheduleBlocksPublish;
 
-            const primaryFooterEnabled = continueToPublish
-              ? continueEnabled
-              : publishEnabled;
+              const primaryFooterEnabled = continueToPublish
+                ? continueEnabled
+                : publishEnabled;
 
-            const primaryFooterLabel = continueToPublish
-              ? continueLabel
-              : scheduleBlocksPublish
-                ? "Publish scheduled"
-                : onlyScheduledSelected
-                  ? "Schedule to Start"
-                  : "Publish";
+              const primaryFooterLabel = continueToPublish
+                ? continueLabel
+                : scheduleBlocksPublish
+                  ? "Publish scheduled"
+                  : onlyScheduledSelected
+                    ? "Schedule to Start"
+                    : "Publish";
 
-            {
-              /* Unified auto-publish arming: one checkbox + a mode selector
+              {
+                /* Unified auto-publish arming: one checkbox + a mode selector
                  ("when approved" vs "on a specific date" are mutually exclusive),
                  rendered just above the primary CTA so it reads as related. */
-            }
-            const autoPublishArming = showAutoPublishEditable ? (
-              // Extra bottom margin separates the schedule widget from the admin
-              // bypass checkbox + Publish CTA group that follows.
-              <Box mb="5">
-                <Flex align="center" gap="1">
-                  <Checkbox
-                    label="Automatically publish"
-                    weight="regular"
-                    disabled={savingSchedule}
-                    value={autoPublishArmed}
-                    setValue={(val) => doSetAutoPublishArmed(!!val)}
-                  />
-                  {canArmWhenApproved ? (
-                    <SelectField
-                      containerClassName="select-dropdown-underline mb-0"
-                      value={effectivePublishMode}
+              }
+              const autoPublishArming = showAutoPublishEditable ? (
+                // Extra bottom margin separates the schedule widget from the admin
+                // bypass checkbox + Publish CTA group that follows.
+                <Box mb="5">
+                  <Flex align="center" gap="1">
+                    <Checkbox
+                      label="Automatically publish"
+                      weight="regular"
                       disabled={savingSchedule}
-                      isSearchable={false}
-                      sort={false}
-                      containerStyles={{
-                        control: (s) => ({ ...s, fontSize: 14 }),
-                        singleValue: (s) => ({ ...s, fontSize: 14 }),
-                      }}
-                      options={[
-                        {
-                          label: "when approved",
-                          value: "approve",
-                        },
-                        {
-                          label: "on a specific date",
-                          value: "date",
-                        },
-                      ]}
-                      onChange={(v) =>
-                        doSetPublishMode(v as "approve" | "date")
-                      }
+                      value={autoPublishArmed}
+                      setValue={(val) => doSetAutoPublishArmed(!!val)}
                     />
-                  ) : (
-                    // Approved revisions can only defer to a date — "when
-                    // approved" would just publish now, so show it as text.
-                    <Text size="md">on a specific date</Text>
-                  )}
-                </Flex>
-                {autoPublishArmed && effectivePublishMode === "date" && (
-                  <Box mt="2" ml="4">
-                    {hasScheduledRevisions ? (
-                      <>
-                        <DatePicker
-                          date={scheduleDate || undefined}
-                          setDate={(d) =>
-                            onScheduleDateChange(d ? d.toISOString() : "")
-                          }
-                          precision="datetime"
-                          disableBefore={new Date().toISOString()}
-                        />
-                        <Flex align="center" gap="1" mt="2">
-                          <Checkbox
-                            label="Lock edits to"
-                            weight="regular"
-                            value={scheduleLockEnabled}
-                            setValue={(v) => onScheduleLockToggle(!!v)}
-                          />
-                          <SelectField
-                            containerClassName="select-dropdown-underline mb-0"
-                            value={scheduleLockScope}
-                            disabled={savingSchedule}
-                            isSearchable={false}
-                            sort={false}
-                            containerStyles={{
-                              control: (s) => ({ ...s, fontSize: 14 }),
-                              singleValue: (s) => ({ ...s, fontSize: 14 }),
-                            }}
-                            options={[
-                              { label: "this feature", value: "feature" },
-                              { label: "this draft", value: "draft" },
-                            ]}
-                            onChange={(v) =>
-                              onScheduleLockScopeChange(
-                                v as "draft" | "feature",
-                              )
+                    {canArmWhenApproved ? (
+                      <SelectField
+                        containerClassName="select-dropdown-underline mb-0"
+                        value={effectivePublishMode}
+                        disabled={savingSchedule}
+                        isSearchable={false}
+                        sort={false}
+                        containerStyles={{
+                          control: (s) => ({ ...s, fontSize: 14 }),
+                          singleValue: (s) => ({ ...s, fontSize: 14 }),
+                        }}
+                        options={[
+                          {
+                            label: "when approved",
+                            value: "approve",
+                          },
+                          {
+                            label: "on a specific date",
+                            value: "date",
+                          },
+                        ]}
+                        onChange={(v) =>
+                          doSetPublishMode(v as "approve" | "date")
+                        }
+                      />
+                    ) : (
+                      // Approved revisions can only defer to a date — "when
+                      // approved" would just publish now, so show it as text.
+                      <Text size="md">on a specific date</Text>
+                    )}
+                  </Flex>
+                  {autoPublishArmed && effectivePublishMode === "date" && (
+                    <Box mt="2" ml="4">
+                      {hasScheduledRevisions ? (
+                        <>
+                          <DatePicker
+                            date={scheduleDate || undefined}
+                            setDate={(d) =>
+                              onScheduleDateChange(d ? d.toISOString() : "")
                             }
+                            precision="datetime"
+                            disableBefore={new Date().toISOString()}
                           />
-                        </Flex>
-                        {canBypassScheduleApproval && (
-                          <Box mt="2">
+                          <Flex align="center" gap="1" mt="2">
                             <Checkbox
-                              label={
-                                <span style={{ color: "var(--red-11)" }}>
-                                  Admin: allow scheduled publish to bypass
-                                  checks
-                                </span>
-                              }
+                              label="Lock edits to"
                               weight="regular"
-                              value={scheduleBypassApproval}
-                              setValue={(v) => onScheduleBypassChange(!!v)}
+                              value={scheduleLockEnabled}
+                              setValue={(v) => onScheduleLockToggle(!!v)}
+                            />
+                            <SelectField
+                              containerClassName="select-dropdown-underline mb-0"
+                              value={scheduleLockScope}
+                              disabled={savingSchedule}
+                              isSearchable={false}
+                              sort={false}
+                              containerStyles={{
+                                control: (s) => ({ ...s, fontSize: 14 }),
+                                singleValue: (s) => ({ ...s, fontSize: 14 }),
+                              }}
+                              options={[
+                                { label: "this feature", value: "feature" },
+                                { label: "this draft", value: "draft" },
+                              ]}
+                              onChange={(v) =>
+                                onScheduleLockScopeChange(
+                                  v as "draft" | "feature",
+                                )
+                              }
+                            />
+                          </Flex>
+                          {canBypassScheduleApproval && (
+                            <Box mt="2">
+                              <Checkbox
+                                label={
+                                  <span style={{ color: "var(--red-11)" }}>
+                                    Admin: allow scheduled publish to bypass
+                                    checks
+                                  </span>
+                                }
+                                weight="regular"
+                                value={scheduleBypassApproval}
+                                setValue={(v) => onScheduleBypassChange(!!v)}
+                              />
+                            </Box>
+                          )}
+                          {experiments.length > 0 && (
+                            <Callout status="warning" mt="2">
+                              This draft would start{" "}
+                              {experiments.length === 1
+                                ? "a linked draft experiment"
+                                : `${experiments.length} linked draft experiments`}
+                              . A scheduled publish won&apos;t start{" "}
+                              {experiments.length === 1 ? "it" : "them"} — it
+                              will be held at the scheduled time until{" "}
+                              {experiments.length === 1 ? "it is" : "they are"}{" "}
+                              started (or removed from this draft). Start{" "}
+                              {experiments.length === 1 ? "it" : "them"} before
+                              the scheduled time to avoid a stuck publish.
+                            </Callout>
+                          )}
+                        </>
+                      ) : (
+                        <PremiumTooltip commercialFeature="scheduled-revisions">
+                          <Text size="sm" as="div">
+                            Upgrade to publish on a specific date.
+                          </Text>
+                        </PremiumTooltip>
+                      )}
+                      {scheduleError && (
+                        <Callout status="error" mt="2">
+                          {scheduleError}
+                        </Callout>
+                      )}
+                      {/* Unchecking "Automatically publish" cancels the schedule;
+                      the read-only card below carries Cancel + Change. */}
+                    </Box>
+                  )}
+                </Box>
+              ) : showManagerScheduleReadonly && revision ? (
+                // Armed + not editing: owners see the read-only card with Cancel
+                // and Change (guards against accidental edits).
+                renderScheduleCard({
+                  onChange: () => setEditingSchedule(true),
+                  onCancel: () => doSetAutoPublishArmed(false),
+                })
+              ) : showAutoPublishReadonly && revision && scheduledPending ? (
+                // Read-only card: viewers without publish authority see no controls;
+                // an admin-armed schedule offers Cancel (to publishers) but never an
+                // inline Change — it must be canceled and re-armed.
+                renderScheduleCard(
+                  scheduleArmedByAdmin
+                    ? {
+                        onCancel: canCancelAdminSchedule
+                          ? () => doSetAutoPublishArmed(false)
+                          : undefined,
+                        note: "Armed by an admin (approval bypassed). Cancel and re-arm to change it.",
+                      }
+                    : {},
+                )
+              ) : null;
+
+              return (
+                <>
+                  {/* Step CTA: Request Review / Submit Review / Next. The arming
+                  control renders here for drafts (no publish section yet). */}
+                  {isStepAction && (
+                    <Box mt="4">
+                      {!showPublishSection && autoPublishArming}
+                      <Button
+                        variant="soft"
+                        onClick={doSubmit}
+                        loading={submitting}
+                        // Requesting review is a draft action, and the endpoint
+                        // gates on draft authority — so a publish- or review-only
+                        // role must not be offered it.
+                        disabled={!state.ctaEnabled || !canAdvanceDraft}
+                        style={{ width: "100%" }}
+                      >
+                        {state.ctaLabel}
+                      </Button>
+                      {state.submitAction === "request-review" &&
+                        !canAdvanceDraft && (
+                          <PermissionBlocker mt="2">
+                            You don&apos;t have permission to request review for
+                            this draft.
+                          </PermissionBlocker>
+                        )}
+                    </Box>
+                  )}
+
+                  {/* Publish section: divider, optional admin bypass, the
+                  primary publish button. Hidden for not-yet-approved drafts
+                  unless an admin can bypass — then Request Review stands alone. */}
+                  {showPublishSection && (
+                    <Box
+                      mt="4"
+                      pt="4"
+                      style={{ borderTop: "1px solid var(--gray-a5)" }}
+                    >
+                      {/* Post-approval gates — the band above covers
+                        pre-approval. Shown regardless of publish authority:
+                        what gates the draft is worth knowing even to someone
+                        who can't publish it. Hidden while the admin bypass is
+                        checked — "blocked" next to an enabled Publish button
+                        reads as a contradiction. */}
+                      {requireReviews &&
+                        !adminPublish &&
+                        state.submitAction === "publish" &&
+                        (!requiredTeams.satisfied || hasUncoveredApproval) && (
+                          <Box mb="4">
+                            <ApprovalStatusBand
+                              phase="gated"
+                              footprint={reviewFootprint}
+                              unmet={
+                                requiredTeams.satisfied
+                                  ? []
+                                  : requiredTeams.unmet
+                              }
+                              coverageMessage={coverageBlockMessage}
                             />
                           </Box>
                         )}
-                        {experiments.length > 0 && (
-                          <Callout status="warning" mt="2">
-                            This draft would start{" "}
-                            {experiments.length === 1
-                              ? "a linked draft experiment"
-                              : `${experiments.length} linked draft experiments`}
-                            . A scheduled publish won&apos;t start{" "}
-                            {experiments.length === 1 ? "it" : "them"} — it will
-                            be held at the scheduled time until{" "}
-                            {experiments.length === 1 ? "it is" : "they are"}{" "}
-                            started (or removed from this draft). Start{" "}
-                            {experiments.length === 1 ? "it" : "them"} before
-                            the scheduled time to avoid a stuck publish.
-                          </Callout>
-                        )}
-                      </>
-                    ) : (
-                      <PremiumTooltip commercialFeature="scheduled-revisions">
-                        <Text size="sm" as="div">
-                          Upgrade to publish on a specific date.
-                        </Text>
-                      </PremiumTooltip>
-                    )}
-                    {scheduleError && (
-                      <Callout status="error" mt="2">
-                        {scheduleError}
-                      </Callout>
-                    )}
-                    {/* Unchecking "Automatically publish" cancels the schedule;
-                      the read-only card below carries Cancel + Change. */}
-                  </Box>
-                )}
-              </Box>
-            ) : showManagerScheduleReadonly && revision ? (
-              // Armed + not editing: owners see the read-only card with Cancel
-              // and Change (guards against accidental edits).
-              renderScheduleCard({
-                onChange: () => setEditingSchedule(true),
-                onCancel: () => doSetAutoPublishArmed(false),
-              })
-            ) : showAutoPublishReadonly && revision && scheduledPending ? (
-              // Read-only card: viewers without publish authority see no controls;
-              // an admin-armed schedule offers Cancel (to publishers) but never an
-              // inline Change — it must be canceled and re-armed.
-              renderScheduleCard(
-                scheduleArmedByAdmin
-                  ? {
-                      onCancel: canCancelAdminSchedule
-                        ? () => doSetAutoPublishArmed(false)
-                        : undefined,
-                      note: "Armed by an admin (approval bypassed). Cancel and re-arm to change it.",
-                    }
-                  : {},
-              )
-            ) : null;
 
-            return (
-              <>
-                {/* Step CTA: Request Review / Submit Review / Next. The arming
-                  control renders here for drafts (no publish section yet). */}
-                {isStepAction && (
-                  <Box mt="4">
-                    {!showPublishSection && autoPublishArming}
-                    <Button
-                      variant="soft"
-                      onClick={doSubmit}
-                      loading={submitting}
-                      // Requesting review is a draft action, and the endpoint
-                      // gates on draft authority — so a publish- or review-only
-                      // role must not be offered it.
-                      disabled={!state.ctaEnabled || !canAdvanceDraft}
-                      style={{ width: "100%" }}
-                    >
-                      {state.ctaLabel}
-                    </Button>
-                    {state.submitAction === "request-review" &&
-                      !canAdvanceDraft && (
-                        <PermissionBlocker mt="2">
-                          You don&apos;t have permission to request review for
-                          this draft.
-                        </PermissionBlocker>
-                      )}
-                  </Box>
-                )}
-
-                {/* Publish section: divider, optional admin bypass, the
-                  primary publish button. Hidden for not-yet-approved drafts
-                  unless an admin can bypass — then Request Review stands alone. */}
-                {showPublishSection && (
-                  <Box
-                    mt="4"
-                    pt="4"
-                    style={{ borderTop: "1px solid var(--gray-a5)" }}
-                  >
-                    {/* The verdict stands, so the status stays "Approved". */}
-                    {requireReviews && !requiredTeams.satisfied && (
-                      <Box mb="3">
-                        <Callout status="warning" size="sm">
-                          <UnmetApproverTeams unmet={requiredTeams.unmet} />
-                        </Callout>
-                      </Box>
-                    )}
-
-                    {requireReviews && hasUncoveredApproval && (
-                      <Box mb="3">
-                        <Callout status="warning" size="sm">
-                          {uncoveredFootprintEnvs.length
-                            ? `Approved, but no reviewer has approval rights in ${uncoveredFootprintEnvs.join(", ")}. This draft needs approval from someone who does.`
-                            : `Approved, but no reviewer has approval rights across everything this draft changes.`}
-                        </Callout>
-                      </Box>
-                    )}
-
-                    {/* Divergence/rebase notice renders above the publish button
+                      {/* Divergence/rebase notice renders above the publish button
                     so users consider rebasing before reaching for Publish. */}
-                    {governance && (
-                      <DivergenceNotice
-                        governance={governance}
-                        liveVersion={feature.version}
-                        baseVersion={revision.baseVersion}
-                        onUpdateFromLive={onUpdateFromLive}
-                        updating={rebasing}
-                        canRebase={permissionsUtil.canEditFeatureDrafts(
-                          feature,
-                        )}
-                        onResolveConflicts={() => setResolveConflicts(true)}
-                        approvedAt={approvedAt}
-                        revisionsSinceApproval={revisionsSinceApproval}
-                      />
-                    )}
+                      {governance && (
+                        <DivergenceNotice
+                          governance={governance}
+                          liveVersion={feature.version}
+                          baseVersion={revision.baseVersion}
+                          onUpdateFromLive={onUpdateFromLive}
+                          updating={rebasing}
+                          canRebase={permissionsUtil.canEditFeatureDrafts(
+                            feature,
+                          )}
+                          onResolveConflicts={() => setResolveConflicts(true)}
+                          approvedAt={approvedAt}
+                          revisionsSinceApproval={revisionsSinceApproval}
+                        />
+                      )}
 
-                    {/* Arming control sits below the separator so it reads as
+                      {/* Arming control sits below the separator so it reads as
                     related to the Publish button. */}
-                    {autoPublishArming}
+                      {autoPublishArming}
 
-                    {/* Merge conflicts are never admin-overridable — hide the
+                      {/* Merge conflicts are never admin-overridable — hide the
                     bypass checkbox entirely while one exists. */}
-                    {canAdminPublish &&
-                      mergeResult.success &&
-                      (blockInfo?.overridable || adminPublish) && (
+                      {canAdminPublish &&
+                        mergeResult.success &&
+                        (blockInfo?.overridable || adminPublish) && (
+                          <Box mb="3">
+                            <Checkbox
+                              label={
+                                <span style={{ color: "var(--red-11)" }}>
+                                  Admin: bypass checks and publish now
+                                </span>
+                              }
+                              weight="regular"
+                              value={adminPublish}
+                              setValue={(val) => {
+                                setAdminPublish(!!val);
+                                if (!val) {
+                                  checklistStateRef.current.clear();
+                                  setChecklistIncomplete(false);
+                                  setChecklistBlocked(false);
+                                  setChecklistAcknowledged(false);
+                                  setExperimentsStep(false);
+                                }
+                              }}
+                            />
+                          </Box>
+                        )}
+
+                      {state.showChecklistAcknowledgment && (
                         <Box mb="3">
                           <Checkbox
-                            label={
-                              <span style={{ color: "var(--red-11)" }}>
-                                Admin: bypass checks and publish now
-                              </span>
-                            }
+                            label="Acknowledge incomplete recommended items and continue"
                             weight="regular"
-                            value={adminPublish}
-                            setValue={(val) => {
-                              setAdminPublish(!!val);
-                              if (!val) {
-                                checklistStateRef.current.clear();
-                                setChecklistIncomplete(false);
-                                setChecklistBlocked(false);
-                                setChecklistAcknowledged(false);
-                                setExperimentsStep(false);
-                              }
-                            }}
+                            disabled={!canDoPrimary || scheduleBlocksPublish}
+                            value={checklistAcknowledged}
+                            setValue={(value) =>
+                              setChecklistAcknowledged(!!value)
+                            }
                           />
                         </Box>
                       )}
 
-                    {state.showChecklistAcknowledgment && (
-                      <Box mb="3">
-                        <Checkbox
-                          label="Acknowledge incomplete recommended items and continue"
-                          weight="regular"
-                          disabled={!canDoPrimary || scheduleBlocksPublish}
-                          value={checklistAcknowledged}
-                          setValue={(value) =>
-                            setChecklistAcknowledged(!!value)
-                          }
-                        />
-                      </Box>
-                    )}
-
-                    {/* A live schedule blocks "publish now"; the scheduled
+                      {/* A live schedule blocks "publish now"; the scheduled
                     status card above already explains this and offers
                     Cancel/Change, so we hide the otherwise-dead disabled
                     button. It reappears the moment the block clears (e.g. admin
                     bypass toggled, or the experiments "continue" flow). */}
-                    {!(scheduleBlocksPublish && !continueToPublish) && (
-                      <Button
-                        onClick={primaryFooterEnabled ? doSubmit : undefined}
-                        loading={
-                          submitting &&
-                          (state.submitAction === "publish" ||
-                            continueToPublish)
-                        }
-                        disabled={!primaryFooterEnabled}
-                        icon={state.ctaLocked ? <PiLockSimple /> : undefined}
-                        style={{ width: "100%" }}
-                      >
-                        {primaryFooterLabel}
-                      </Button>
-                    )}
+                      {!(scheduleBlocksPublish && !continueToPublish) && (
+                        <Button
+                          onClick={primaryFooterEnabled ? doSubmit : undefined}
+                          loading={
+                            submitting &&
+                            (state.submitAction === "publish" ||
+                              continueToPublish)
+                          }
+                          disabled={!primaryFooterEnabled}
+                          icon={state.ctaLocked ? <PiLockSimple /> : undefined}
+                          style={{ width: "100%" }}
+                        >
+                          {primaryFooterLabel}
+                        </Button>
+                      )}
 
-                    {/* ── Uniform status displays for the publish state ──
+                      {/* ── Uniform status displays for the publish state ──
                     All callouts use the same size, spacing, and chrome so
                     the column doesn't read as a pile of differently-styled
                     messages. Stacked in priority order: ramps, errors, and
                     finally the "no approval necessary" note. */}
-                    <Flex direction="column" gap="2" mt="3">
-                      {/* First in the stack: a disabled CTA with no reason
+                      <Flex direction="column" gap="2" mt="3">
+                        {/* First in the stack: a disabled CTA with no reason
                           reads as a bug. */}
-                      {!hasPublishPermission && (
-                        <PermissionBlocker>
-                          You don&apos;t have permission to publish this draft.
-                        </PermissionBlocker>
-                      )}
+                        {!hasPublishPermission && (
+                          <PermissionBlocker>
+                            You don&apos;t have permission to publish this
+                            draft.
+                          </PermissionBlocker>
+                        )}
 
-                      {linkedRamps.map((ramp) => (
-                        <Callout key={ramp.id} status="info" size="sm">
-                          Publishing this draft will activate ramp schedule{" "}
-                          <strong>{ramp.name}</strong>. The ramp will begin once
-                          this revision is live.
-                        </Callout>
-                      ))}
-
-                      {!hasChanges &&
-                        (isStranded ? (
-                          <Callout status="warning" size="sm">
-                            This revision is already live but was never marked
-                            published — an earlier publish didn&apos;t finish.
-                            Publish it to reconcile; don&apos;t discard it, or
-                            the Feature Flag will keep serving a revision it
-                            reports as unpublished.
-                          </Callout>
-                        ) : (
-                          <Callout status="info" size="sm">
-                            No changes to publish. Discard the draft or add
-                            changes first.
+                        {linkedRamps.map((ramp) => (
+                          <Callout key={ramp.id} status="info" size="sm">
+                            Publishing this draft will activate ramp schedule{" "}
+                            <strong>{ramp.name}</strong>. The ramp will begin
+                            once this revision is live.
                           </Callout>
                         ))}
 
-                      {featureLockedBySchedule && !adminPublish && (
-                        <Callout status="warning" size="sm">
-                          Another draft
-                          {lockingScheduledSibling?.version
-                            ? ` (revision ${lockingScheduledSibling.version})`
-                            : ""}{" "}
-                          is scheduled to publish and has locked publishing of
-                          other drafts. Cancel that schedule to publish this
-                          revision.
+                        {!hasChanges &&
+                          (isStranded ? (
+                            <Callout status="warning" size="sm">
+                              This revision is already live but was never marked
+                              published — an earlier publish didn&apos;t finish.
+                              Publish it to reconcile; don&apos;t discard it, or
+                              the Feature Flag will keep serving a revision it
+                              reports as unpublished.
+                            </Callout>
+                          ) : (
+                            <Callout status="info" size="sm">
+                              No changes to publish. Discard the draft or add
+                              changes first.
+                            </Callout>
+                          ))}
+
+                        {featureLockedBySchedule && !adminPublish && (
+                          <Callout status="warning" size="sm">
+                            Another draft
+                            {lockingScheduledSibling?.version
+                              ? ` (revision ${lockingScheduledSibling.version})`
+                              : ""}{" "}
+                            is scheduled to publish and has locked publishing of
+                            other drafts. Cancel that schedule to publish this
+                            revision.
+                          </Callout>
+                        )}
+
+                        {!requireReviews && !experimentsStep && !blockInfo && (
+                          <Text size="sm" color="text-mid" as="p">
+                            No approval necessary — these changes can be
+                            published directly.
+                          </Text>
+                        )}
+                      </Flex>
+
+                      {experimentsStep && (
+                        <Box mt="2">
+                          <LinkButton
+                            color="link"
+                            onClick={() => {
+                              checklistStateRef.current.clear();
+                              setChecklistIncomplete(false);
+                              setChecklistBlocked(false);
+                              setChecklistAcknowledged(false);
+                              setExperimentsStep(false);
+                            }}
+                          >
+                            <FaArrowLeft /> Back
+                          </LinkButton>
+                        </Box>
+                      )}
+                    </Box>
+                  )}
+
+                  {/* Errors render outside the publish section so request-review
+                  failures stay visible even when that section is hidden. */}
+                  {(submitError || secondaryError) && (
+                    <Flex direction="column" gap="2" mt="3">
+                      {submitError && (
+                        <Callout status="error" size="sm">
+                          {submitError}
                         </Callout>
                       )}
-
-                      {!requireReviews && !experimentsStep && !blockInfo && (
-                        <Text size="sm" color="text-mid" as="p">
-                          No approval necessary — these changes can be published
-                          directly.
-                        </Text>
+                      {secondaryError && (
+                        <Callout status="error" size="sm">
+                          {secondaryError}
+                        </Callout>
                       )}
                     </Flex>
-
-                    {experimentsStep && (
-                      <Box mt="2">
-                        <LinkButton
-                          color="link"
-                          onClick={() => {
-                            checklistStateRef.current.clear();
-                            setChecklistIncomplete(false);
-                            setChecklistBlocked(false);
-                            setChecklistAcknowledged(false);
-                            setExperimentsStep(false);
-                          }}
-                        >
-                          <FaArrowLeft /> Back
-                        </LinkButton>
-                      </Box>
-                    )}
-                  </Box>
-                )}
-
-                {/* Errors render outside the publish section so request-review
-                  failures stay visible even when that section is hidden. */}
-                {(submitError || secondaryError) && (
-                  <Flex direction="column" gap="2" mt="3">
-                    {submitError && (
-                      <Callout status="error" size="sm">
-                        {submitError}
-                      </Callout>
-                    )}
-                    {secondaryError && (
-                      <Callout status="error" size="sm">
-                        {secondaryError}
-                      </Callout>
-                    )}
-                  </Flex>
-                )}
-              </>
-            );
-          })()}
-        </Box>
+                  )}
+                </>
+              );
+            })()}
+          </Box>
+        )}
       </Box>
     </Box>
   );
