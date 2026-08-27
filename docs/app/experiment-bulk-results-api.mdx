@@ -103,6 +103,7 @@ The query is strict: an unrecognized param is a `400`. Other failures are `400` 
                       "mean": 0.089,
                       "stddev": 0.284,
                       "effect": null,
+                      "effectStandardError": null,
                       "ciLow": null,
                       "ciHigh": null,
                       "chanceToBeatControl": null
@@ -145,7 +146,9 @@ Each metric role entry is `{ metricId, effectiveSettings? }`, where `effectiveSe
 
 ### Variation analyses
 
-Each variation carries `variationIndex` and `variationKey` — the authoritative join keys, taken from the snapshot's stored variation array — plus its `users` count and an `analyses` array holding one entry per stored difference type: `engine`, `differenceType` (`relative`, `absolute`, `scaled`), `numerator`, `denominator`, `mean`, `stddev`, `effect`, `ciLow`, `ciHigh`, `pValue`, and `chanceToBeatControl`. Every statistic is `null` when it is missing or non-finite, and `effect` is expressed according to `differenceType`.
+Each variation carries `variationIndex` and `variationKey` — the authoritative join keys, taken from the snapshot's stored variation array — plus its `users` count and an `analyses` array holding one entry per stored difference type: `engine`, `differenceType` (`relative`, `absolute`, `scaled`), `numerator`, `denominator`, `mean`, `stddev`, `effect`, `effectStandardError`, `ciLow`, `ciHigh`, `pValue`, and `chanceToBeatControl`. Every statistic is `null` when it is missing or non-finite.
+
+`effect` is expressed according to `differenceType`, and `effectStandardError` is its standard error on the same scale — the frequentist standard error of the estimate, or the posterior standard deviation under the Bayesian engine. Note that `stddev` is unrelated: it is the within-variation standard deviation of the metric itself.
 
 ## Semantics
 

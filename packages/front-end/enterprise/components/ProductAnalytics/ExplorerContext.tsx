@@ -26,6 +26,7 @@ import {
   resolveLegacyExplorerComparisonMode,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
+import { isFactFunnelMetric } from "shared/experiments";
 import { isManagedWarehouseUnavailable } from "shared/util";
 import {
   cleanConfigForSubmission,
@@ -108,6 +109,17 @@ export interface ExplorerContextValue {
   /** Funnel sidebar registers a handler; main empty-state CTA invokes before analyze. */
   registerFunnelAnalyzeCollapseHandler: (fn: (() => void) | null) => void;
   collapseFunnelStepsForAnalyze: () => void;
+
+  // ─── Funnel metric link ────────────────────────────────────────────────
+  /** Funnel fact metric this funnel was loaded from, if any. Cleared when the
+   *  datasource changes. Persisted in the URL as `?funnelMetricId=` (not inside
+   *  `?config=`, which would mean changing the strict funnel dataset schema),
+   *  so it survives a refresh and travels with a shared link. */
+  linkedFunnelMetricId: string | null;
+  setLinkedFunnelMetricId: (metricId: string | null) => void;
+  /** True when a metric is linked and its steps have since been edited,
+   *  false when nothing is linked. */
+  funnelLinkIsDirty: boolean;
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
@@ -135,6 +147,7 @@ interface ExplorerProviderProps {
   initialSubmittedConfig?: ExplorerDraftConfig;
   initialExploration?: ProductAnalyticsExploration | null;
   initialComparisonExploration?: ProductAnalyticsExploration | null;
+  initialLinkedFunnelMetricId?: string | null;
   hasExistingResults?: boolean;
   onRunComplete?: (
     exploration: ProductAnalyticsExploration,
@@ -151,6 +164,7 @@ export function ExplorerProvider({
   initialSubmittedConfig,
   initialExploration = null,
   initialComparisonExploration = null,
+  initialLinkedFunnelMetricId = null,
   hasExistingResults = false,
   onRunComplete,
   trackingSource,
@@ -206,6 +220,9 @@ export function ExplorerProvider({
     };
   });
   const [isStale, setIsStale] = useState(false);
+  const [linkedFunnelMetricId, setLinkedFunnelMetricId] = useState<
+    string | null
+  >(initialLinkedFunnelMetricId);
   // True while polling a still-running exploration for completion (B4). Folded
   // into the exposed `loading` so the UI keeps showing a loading state.
   const [polling, setPolling] = useState(false);
@@ -231,6 +248,23 @@ export function ExplorerProvider({
   const funnelAnalyzeCollapseRef = useRef<(() => void) | null>(null);
 
   const draftExploreState: ExplorerDraftConfig = explorerState.draftState;
+
+  // Compare against the metric's own steps rather than tracking edits, so the
+  // flag self-corrects if the user undoes a change back to the original.
+  // Deliberately ignores `unit` and `yAxisScale`: neither exists on a funnel
+  // fact metric, so changing them can't make the metric out of date.
+  const funnelLinkIsDirty = useMemo(() => {
+    if (!linkedFunnelMetricId) return false;
+    if (draftExploreState.dataset?.type !== "funnel") return false;
+    const metric = getFactMetricById(linkedFunnelMetricId);
+    if (!metric || !isFactFunnelMetric(metric)) return false;
+    const dataset = draftExploreState.dataset;
+    return (
+      !isEqual(dataset.steps, metric.funnelSettings.steps) ||
+      (dataset.concurrencyWindowSeconds ?? 0) !==
+        (metric.funnelSettings.concurrencyWindowSeconds ?? 0)
+    );
+  }, [linkedFunnelMetricId, draftExploreState.dataset, getFactMetricById]);
 
   const compareEnabled = draftExploreState.previousTimeFrame != null;
 
@@ -1007,6 +1041,10 @@ export function ExplorerProvider({
       setComparisonQuery(null);
       setComparisonComputed(null);
       setComparisonError(null);
+      // The exploration is being wiped, so any metric it was loaded from no
+      // longer describes it. Leaving the link would offer to update a metric
+      // on another datasource with an unrelated funnel.
+      setLinkedFunnelMetricId(null);
       const datasourceId: string = newDatasourceId ?? datasources[0]?.id ?? "";
       setIsStale(false);
       if (datasourceId) {
@@ -1092,6 +1130,9 @@ export function ExplorerProvider({
       trackingSource,
       registerFunnelAnalyzeCollapseHandler,
       collapseFunnelStepsForAnalyze,
+      linkedFunnelMetricId,
+      setLinkedFunnelMetricId,
+      funnelLinkIsDirty,
       compareEnabled,
       comparisonMode,
       submittedComparisonMode,
@@ -1133,6 +1174,8 @@ export function ExplorerProvider({
       trackingSource,
       registerFunnelAnalyzeCollapseHandler,
       collapseFunnelStepsForAnalyze,
+      linkedFunnelMetricId,
+      funnelLinkIsDirty,
       updateTimestampColumn,
       updateValueInDataset,
     ],

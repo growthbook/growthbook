@@ -28,6 +28,7 @@ export default function ExplorerPageActions() {
     isStale,
     needsFetch,
     trackingSource,
+    linkedFunnelMetricId,
   } = useExplorerContext();
   const { project } = useDefinitions();
   const { hasCommercialFeature, permissionsUtil } = useUser();
@@ -60,6 +61,7 @@ export default function ExplorerPageActions() {
           compareEnabled={compareEnabled}
           previousTimeFrame={draftExploreState.previousTimeFrame ?? null}
           comparisonMode={comparisonMode}
+          linkedFunnelMetricId={linkedFunnelMetricId}
           comparisonExplorationId={comparisonExploration?.id ?? null}
           trackingSource={trackingSource}
         />

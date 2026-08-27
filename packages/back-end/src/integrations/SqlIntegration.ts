@@ -2098,10 +2098,9 @@ export default abstract class SqlIntegration
     // for eventual "skipPartialData" feature
     //
     // Scope FT discovery to this insert's target FT so a pipeline with
-    // multiple cross-FT ratios that share a hub (e.g. `[A/B, A/C]`)
-    // doesn't trip the 2-FT cap inside `getFactTablesForMetrics` when we
-    // try to populate the hub's data cache. The other FTs' data is
-    // populated by separate calls scoped to their own FT.
+    // multiple cross-FT ratios that share a hub (e.g. `[A/B, A/C]`) only
+    // populates the hub's data cache. The other FTs' data is populated by
+    // separate calls scoped to their own FT.
     const { sources, metricData } = parseExperimentFactMetricsParams(
       this.getSqlDialect(),
       {
@@ -2317,9 +2316,8 @@ export default abstract class SqlIntegration
   //     denominator column ref.
   // Source ordering and `m{i}` aliases are derived internally from the
   // metrics' first-appearance order, so the caller-supplied entry order is
-  // not significant. Adding entries beyond 2 is rejected upstream by
-  // getFactTablesForMetrics (it caps at 2 to match the inline experiment
-  // query path).
+  // not significant. Three or more sources are rejected below: only funnels
+  // can span that many tables, and they are not supported incrementally.
   getIncrementalRefreshStatisticsQuery(
     params: IncrementalRefreshStatisticsQueryParams,
   ): string {
@@ -2342,6 +2340,12 @@ export default abstract class SqlIntegration
       // Covariate data joined to single table with `m` alias before columns are extracted
       covariateTableAlias: "m",
     });
+
+    if (sources.length > 2) {
+      throw new Error(
+        "getIncrementalRefreshStatisticsQuery: only two fact tables at a time are supported.",
+      );
+    }
 
     // Index the caller-supplied entries by factTableId so source-ordering
     // (which is decided here by the SQL layer, not the caller) drives lookup.

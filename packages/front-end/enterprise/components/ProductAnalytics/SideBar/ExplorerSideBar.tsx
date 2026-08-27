@@ -39,6 +39,7 @@ import DatasourceTabContent from "./DatasourceTabContent";
 import SqlTabContent from "./SqlTabContent";
 import FunnelTabContent from "./FunnelTabContent";
 import GroupBySection from "./GroupBySection";
+import SaveFunnelMetricAction from "./SaveFunnelMetricAction";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
 import SchemaBrowserSection from "./SchemaBrowserSection";
@@ -428,6 +429,9 @@ export default function ExplorerSideBar({
           <ShowAsSection />
         )}
       {showChartControls && hasInputs && <GroupBySection />}
+      {activeType === "funnel" && renderingInDashboardSidebar && (
+        <SaveFunnelMetricAction />
+      )}
     </Flex>
   );
 }
