@@ -16,7 +16,7 @@ import { getMetricSourceCovariateTableColumns } from "back-end/src/integrations/
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { capCoalesceValue } from "back-end/src/integrations/sql/primitives/cap-coalesce-value";
-import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
+import { afterWatermark } from "back-end/src/integrations/sql/primitives/after-watermark";
 import { toDateLiteral } from "back-end/src/integrations/sql/primitives/to-date-literal";
 
 // Pre-aggregated covariate insert: re-aggregates a fact table's daily partials
@@ -140,7 +140,7 @@ export function getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
             FROM ${params.unitsSourceTableFullName}
             ${
               params.lastCovariateSuccessfulMaxTimestamp
-                ? `WHERE max_timestamp > ${toTimestampWithMs(params.lastCovariateSuccessfulMaxTimestamp)}`
+                ? `WHERE ${afterWatermark("max_timestamp", params.lastCovariateSuccessfulMaxTimestamp)}`
                 : ""
             }
           ) d

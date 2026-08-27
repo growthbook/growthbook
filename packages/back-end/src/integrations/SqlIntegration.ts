@@ -176,6 +176,7 @@ import { getQuantileBoundsFromQueryResponse } from "back-end/src/integrations/sq
 import { getSampleUnitsCTE } from "back-end/src/integrations/sql/ctes/sample-units-cte";
 import { getSegmentCTE } from "back-end/src/integrations/sql/ctes/segment-cte";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
+import { afterWatermark } from "back-end/src/integrations/sql/primitives/after-watermark";
 import { getUserExperimentExposuresQuery as getUserExperimentExposuresQueryFromSql } from "back-end/src/integrations/sql/queries/user-experiment-exposures-query";
 export { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/services/experimentQueries/constants";
 export { MAX_ROWS_PAST_EXPERIMENTS_QUERY } from "back-end/src/integrations/sql/queries/past-experiment-query";
@@ -1734,7 +1735,7 @@ export default abstract class SqlIntegration
             e.experiment_id = '${settings.experimentId}'
             ${
               lastMaxTimestampBinds && params.lastMaxTimestamp
-                ? `AND e.timestamp > ${toTimestampWithMs(params.lastMaxTimestamp)}`
+                ? `AND ${afterWatermark("e.timestamp", params.lastMaxTimestamp)}`
                 : `AND e.timestamp >= ${toTimestampWithMs(settings.startDate)}`
             }
             ${endDate ? `AND e.timestamp <= ${toTimestampWithMs(endDate)}` : ""}
@@ -2141,6 +2142,19 @@ export default abstract class SqlIntegration
       isRatioMetric(metric) &&
       metric.denominator?.factTableId === params.factTableId;
 
+    // A conversion window extends the scan past the phase end date, and for
+    // a running phase the end date is the snapshot time, so the scan would
+    // also admit rows stamped in the future (e.g. client-side event times
+    // from a device clock set ahead). Such a row's timestamp would become the
+    // cache watermark, and every later refresh, which only reads rows after
+    // the watermark, would load nothing until the wall clock caught up.
+    // Never scan past the refresh's own clock instead: rows stamped later
+    // are loaded, once, by the first refresh whose clock passes them.
+    const metricEnd =
+      source.metricEnd > params.incrementalRefreshStartTime
+        ? params.incrementalRefreshStartTime
+        : source.metricEnd;
+
     return format(
       `
     INSERT INTO ${params.metricSourceTableFullName}
@@ -2157,7 +2171,7 @@ export default abstract class SqlIntegration
           })),
           factTable: source.factTable,
           startDate: source.metricStart,
-          endDate: source.metricEnd,
+          endDate: metricEnd,
           experimentId: params.settings.experimentId,
           phase: params.settings.phase,
           customFields: params.settings.customFields,

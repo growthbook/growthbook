@@ -1,11 +1,23 @@
-import { QueryInterface, QueryStatus, Queries } from "shared/types/query";
+import {
+  QueryInterface,
+  QueryPointer,
+  QueryStatus,
+  Queries,
+} from "shared/types/query";
 import { ReqContext } from "back-end/types/request";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   AggregatedFactTableQueryRunner,
   getRestateChunkBounds,
 } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
+import {
+  ProcessedRowsType,
+  RowsType,
+  StartQueryParams,
+} from "back-end/src/queryRunners/QueryRunner";
 import { getQueriesByIds } from "back-end/src/models/QueryModel";
+import { factTableFactory } from "../factories/FactTable.factory";
+import { factMetricFactory } from "../factories/FactMetric.factory";
 
 jest.mock("back-end/src/models/QueryModel");
 
@@ -285,5 +297,191 @@ describe("AggregatedFactTableQueryRunner error surfacing", () => {
     for (const [, payload] of updateRunFields.mock.calls) {
       expect(payload.result).toBeUndefined();
     }
+  });
+});
+
+// The insert window must never run past the run's own clock: the scan's
+// MAX(timestamp) becomes the registry watermark, and a future-stamped row
+// would stall every later incremental append until the wall clock caught up.
+describe("AggregatedFactTableQueryRunner scan window", () => {
+  const NOW = new Date("2024-01-15T06:00:00Z");
+  const DAY = 24 * 60 * 60 * 1000;
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW });
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
+  // Captures the queries the runner would start instead of persisting them.
+  class CapturingRunner extends AggregatedFactTableQueryRunner {
+    public override async startQuery<
+      Rows extends RowsType,
+      ProcessedRows extends ProcessedRowsType,
+    >(params: StartQueryParams<Rows, ProcessedRows>): Promise<QueryPointer> {
+      return {
+        name: params.name,
+        query: `qry_${params.name}`,
+        status: "running",
+      };
+    }
+  }
+
+  const buildRunner = (
+    factTable: ReturnType<typeof factTableFactory.build>,
+  ) => {
+    const { context } = buildContext();
+    const getInsertAggregatedFactTableDataQuery = jest
+      .fn()
+      .mockReturnValue("INSERT");
+    const integration = {
+      datasource: { id: "test-ds", type: "bigquery", settings: {} },
+      context: { org: { id: "test-org" } },
+      generateTablePath: () => "`proj.ds.gb_aggregated_ft_1_user_id`",
+      getDropAggregatedFactTableQuery: () => "DROP",
+      getCreateAggregatedFactTableQuery: () => "CREATE",
+      getInsertAggregatedFactTableDataQuery,
+      getAggregatedFactTableMaxTimestampQuery: () => "SELECT MAX",
+      runIncrementalWithNoOutputQuery: jest.fn(),
+    } as unknown as SourceIntegrationInterface;
+    const model = {
+      id: "aftr_1",
+      organization: "test-org",
+      datasourceId: "test-ds",
+      factTableId: factTable.id,
+      idType: "user_id",
+      queries: [],
+      runStarted: new Date(),
+    };
+    const runner = new CapturingRunner(
+      context,
+      model as never,
+      integration,
+      false,
+    );
+    return { runner, getInsertAggregatedFactTableDataQuery };
+  };
+
+  const metric = factMetricFactory.build({
+    id: "fact_1",
+    numerator: { factTableId: "ft_1", column: "value", aggregation: "sum" },
+  });
+
+  const baseParams = (
+    factTable: ReturnType<typeof factTableFactory.build>,
+  ) => ({
+    factTable,
+    idType: "user_id",
+    metrics: [metric],
+    executionId: "aftexec_1",
+    factTableSettingsHash: "hash",
+    metricState: [],
+    lookbackWindowDays: 14,
+  });
+
+  it("bounds an incremental append at the run's start time", async () => {
+    const factTable = factTableFactory.build({
+      id: "ft_1",
+      userIdTypes: ["user_id"],
+    });
+    const { runner, getInsertAggregatedFactTableDataQuery } =
+      buildRunner(factTable);
+    const lastMaxTimestamp = new Date("2024-01-14T23:00:00Z");
+
+    await runner.startQueries({
+      ...baseParams(factTable),
+      mode: "incremental",
+      aggregatedFactTable: {
+        tableFullName: "`proj.ds.gb_aggregated_ft_1_user_id`",
+        lastMaxTimestamp,
+        currentExecutionId: "aftexec_1",
+        inFlightExecutionId: null,
+      } as never,
+    });
+
+    expect(getInsertAggregatedFactTableDataQuery).toHaveBeenCalledTimes(1);
+    expect(getInsertAggregatedFactTableDataQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        windowStartDate: lastMaxTimestamp,
+        exclusiveStart: true,
+        windowEndDate: NOW,
+      }),
+    );
+  });
+
+  it("closes an unchunked restate at the run's start time", async () => {
+    const factTable = factTableFactory.build({
+      id: "ft_1",
+      userIdTypes: ["user_id"],
+    });
+    const { runner, getInsertAggregatedFactTableDataQuery } =
+      buildRunner(factTable);
+
+    await runner.startQueries({
+      ...baseParams(factTable),
+      mode: "restate",
+      aggregatedFactTable: {
+        tableFullName: null,
+        lastMaxTimestamp: null,
+        currentExecutionId: "aftexec_1",
+        inFlightExecutionId: null,
+      } as never,
+    });
+
+    expect(getInsertAggregatedFactTableDataQuery).toHaveBeenCalledTimes(1);
+    expect(getInsertAggregatedFactTableDataQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        windowStartDate: new Date(NOW.getTime() - 14 * DAY),
+        exclusiveStart: false,
+        windowEndDate: NOW,
+      }),
+    );
+  });
+
+  it("closes only the final chunk of a chunked restate at the run's start time", async () => {
+    const factTable = factTableFactory.build({
+      id: "ft_1",
+      userIdTypes: ["user_id"],
+      aggregatedFactTableSettings: {
+        idTypes: ["user_id"],
+        updateTime: { time: "02:00", timezone: "UTC" },
+        lookbackWindow: 14,
+        restateChunkDays: 7,
+      },
+    });
+    const { runner, getInsertAggregatedFactTableDataQuery } =
+      buildRunner(factTable);
+
+    await runner.startQueries({
+      ...baseParams(factTable),
+      mode: "restate",
+      aggregatedFactTable: {
+        tableFullName: null,
+        lastMaxTimestamp: null,
+        currentExecutionId: "aftexec_1",
+        inFlightExecutionId: null,
+      } as never,
+    });
+
+    const chunks = getRestateChunkBounds(
+      new Date(NOW.getTime() - 14 * DAY),
+      NOW,
+      7,
+    );
+    expect(chunks.length).toBeGreaterThan(1);
+    const calls = getInsertAggregatedFactTableDataQuery.mock.calls.map(
+      (c) => c[0],
+    );
+    expect(calls).toHaveLength(chunks.length);
+    chunks.forEach((chunk, i) => {
+      expect(calls[i].windowStartDate).toEqual(chunk.start);
+      expect(calls[i].windowEndDate).toEqual(chunk.end ?? NOW);
+    });
+    // Interior seams are untouched; only the open final chunk is closed.
+    expect(calls[0].windowEndDate).toEqual(chunks[0].end);
+    expect(calls[0].windowEndDate).not.toEqual(NOW);
+    expect(calls[calls.length - 1].windowEndDate).toEqual(NOW);
   });
 });

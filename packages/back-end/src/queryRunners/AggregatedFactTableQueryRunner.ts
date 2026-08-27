@@ -18,8 +18,8 @@ export const AGGREGATED_FACT_TABLE_PREFIX = "gb_aggregated";
 // Slice the restate window into half-open [start, end) chunks ~chunkDays wide
 // so each chunk's INSERT fits the engine's per-stage write budget. Internal
 // seams snap to UTC midnight so an event_date (= DATE(timestamp), UTC) never
-// spans two chunks. Final chunk is open-ended so late events aren't dropped;
-// chunks tile the window with no overlap or gap.
+// spans two chunks. Final chunk's end is null and is closed at `now` by the
+// caller; chunks tile the window with no overlap or gap.
 export function getRestateChunkBounds(
   windowStart: Date,
   now: Date,
@@ -364,7 +364,13 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
           metrics,
           tableFullName,
           windowStartDate: chunk.start,
-          windowEndDate: chunk.end,
+          // Never scan past the run's own clock. A row stamped in the future
+          // (a client-side event time from a device clock set ahead) would
+          // otherwise become the watermark, and every later incremental run,
+          // which only reads rows after it, would append nothing until the
+          // wall clock caught up. Rows stamped later are appended, once, by
+          // the first run whose clock passes them.
+          windowEndDate: chunk.end ?? now,
           exclusiveStart,
         });
 

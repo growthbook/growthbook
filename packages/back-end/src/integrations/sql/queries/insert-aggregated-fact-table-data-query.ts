@@ -13,7 +13,7 @@ import { getAggregatedFactTableSchema } from "back-end/src/integrations/sql/fact
 // `(idType, event_date)`. Each output row is a disjoint partial of one event
 // slice (multiple rows per key across runs), re-aggregated by the read path.
 // Correctness relies on serial arrival: events arrive in event-time order, so
-// the `timestamp > watermark` slice sees each event exactly once.
+// the slice after the watermark sees each event exactly once.
 export function getInsertAggregatedFactTableDataQuery(
   dialect: SqlDialect,
   params: InsertAggregatedFactTableDataQueryParams,

@@ -417,6 +417,9 @@ export interface InsertMetricSourceDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  // Wall-clock start of the refresh. The fact table scan never runs past it,
+  // so a row stamped ahead of the refresh can't become the cache watermark.
+  incrementalRefreshStartTime: Date;
 }
 
 export interface DropMetricSourceCovariateTableQueryParams {
@@ -495,9 +498,10 @@ export interface InsertAggregatedFactTableDataQueryParams {
   // exclusiveStart=true; restate uses the chunk start with exclusiveStart=false.
   windowStartDate: Date;
   exclusiveStart: boolean;
-  // Exclusive upper bound on event timestamp. Set for all but the last chunk
-  // of a chunked restate so chunks tile [windowStart, now) half-open; null for
-  // incremental, the final restate chunk, and unchunked restates (open to "now").
+  // Exclusive upper bound on event timestamp. The runner always sets it: the
+  // run's start time for incremental, the final restate chunk, and unchunked
+  // restates, so chunks tile [windowStart, now) half-open and a row stamped
+  // ahead of the run can't become the watermark. Null means no upper bound.
   windowEndDate: Date | null;
 }
 
