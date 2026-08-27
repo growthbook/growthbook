@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus, PiTrash } from "react-icons/pi";
@@ -145,9 +145,14 @@ export default function ApprovalFlowSettings() {
   );
 
   // Overrides are wholesale rules the base tab's settings never reach.
-  const overriddenProjects = [
-    ...new Set(tabs.flatMap((t) => scopeProjects(t.scope))),
-  ].map((id) => ({ id, name: projects.find((p) => p.id === id)?.name ?? id }));
+  const overriddenProjects = useMemo(
+    () =>
+      [...new Set(tabs.flatMap((t) => scopeProjects(t.scope)))].map((id) => ({
+        id,
+        name: projects.find((p) => p.id === id)?.name ?? id,
+      })),
+    [tabs, projects],
+  );
 
   return (
     <Frame>

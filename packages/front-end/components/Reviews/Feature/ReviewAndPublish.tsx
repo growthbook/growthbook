@@ -2344,12 +2344,12 @@ export default function ReviewAndPublish({
   const showPublishSection =
     state.submitAction === "publish" || continueToPublish || adminCanBypassNow;
 
-  // Approved and something still blocks the publish (a required team, or no
-  // covering approval). Drives both the band and its wording.
+  // Renders in every phase, so it must claim no status: an uncovered approval
+  // can still stand after a later "changes requested" verdict.
   const coverageBlockMessage = hasUncoveredApproval
     ? uncoveredFootprintEnvs.length
-      ? `Approved, but no reviewer has approval rights in ${uncoveredFootprintEnvs.join(", ")}. This draft requires approval from someone who does.`
-      : `Approved, but no reviewer has approval rights across everything this draft changes.`
+      ? `None of this draft's approvals cover ${uncoveredFootprintEnvs.join(", ")}. Someone with review access there must approve it.`
+      : `None of this draft's approvals cover everything it changes.`
     : null;
   const approvalGateUnmet =
     requireReviews && (!requiredTeams.satisfied || hasUncoveredApproval);
