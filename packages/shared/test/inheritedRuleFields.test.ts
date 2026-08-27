@@ -145,6 +145,39 @@ describe("normalizeApprovalRuleSettings", () => {
     const normalized = normalizeApprovalRuleSettings({ requireReviews: true });
     expect(normalized.requireReviews).toBe(true);
   });
+
+  // The UI hides a disabled rule's fields, so teams it still stores are
+  // invisible and would silently re-arm on re-enable.
+  it("scrapes team associations off switched-off rules in both families", () => {
+    const normalized = normalizeApprovalRuleSettings({
+      requireReviews: [
+        {
+          requireReviewOn: false,
+          projects: [],
+          requiredApproverTeams: ["t_stale"],
+        },
+        {
+          requireReviewOn: true,
+          projects: ["prj_a"],
+          requiredApproverTeams: ["t_live"],
+        },
+      ],
+      approvalFlows: {
+        savedGroups: [
+          { required: false, projects: [], requiredApproverTeams: ["t_stale"] },
+        ],
+      },
+    });
+
+    const [off, on] = normalized.requireReviews as Record<string, unknown>[];
+    expect("requiredApproverTeams" in off).toBe(false);
+    expect(on.requiredApproverTeams).toEqual(["t_live"]);
+    const sgRule = normalized.approvalFlows?.savedGroups?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect("requiredApproverTeams" in sgRule).toBe(false);
+  });
 });
 
 describe("pruneApprovalRuleReferences", () => {

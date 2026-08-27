@@ -95,21 +95,49 @@ function dropUnsetFields<T extends object>(rule: T): T {
   ) as T;
 }
 
+// The UI hides a disabled rule's fields, so a team association it still stores
+// is invisible — and would silently re-arm if the rule is ever re-enabled.
+// Scraped on the way in; the resolver also refuses to read them, so rows
+// written before this stay inert.
+function dropDormantTeams<T extends { requiredApproverTeams?: string[] }>(
+  rule: T,
+  active: boolean,
+): T {
+  if (active || rule.requiredApproverTeams === undefined) return rule;
+  const next = { ...rule };
+  delete next.requiredApproverTeams;
+  return next;
+}
+
 // Applied on the way in, so both rule families store clears the same way.
 export function normalizeApprovalRuleSettings<
   T extends {
-    requireReviews?: boolean | ProjectScopedRule[];
-    approvalFlows?: { savedGroups?: ProjectScopedRule[] };
+    requireReviews?:
+      | boolean
+      | (ProjectScopedRule & {
+          requireReviewOn?: boolean;
+          requiredApproverTeams?: string[];
+        })[];
+    approvalFlows?: {
+      savedGroups?: (ProjectScopedRule & {
+        required?: boolean;
+        requiredApproverTeams?: string[];
+      })[];
+    };
   },
 >(settings: T): T {
   const next: T = { ...settings };
   if (Array.isArray(next.requireReviews)) {
-    next.requireReviews = next.requireReviews.map(dropUnsetFields);
+    next.requireReviews = next.requireReviews.map((rule) =>
+      dropDormantTeams(dropUnsetFields(rule), !!rule.requireReviewOn),
+    );
   }
   if (next.approvalFlows?.savedGroups) {
     next.approvalFlows = {
       ...next.approvalFlows,
-      savedGroups: next.approvalFlows.savedGroups.map(dropUnsetFields),
+      savedGroups: next.approvalFlows.savedGroups.map((rule) =>
+        dropDormantTeams(dropUnsetFields(rule), !!rule.required),
+      ),
     };
   }
   return next;
