@@ -1,4 +1,5 @@
 import { analyzeExperimentPower } from "shared/enterprise";
+import { QueryRunnerRunParentType } from "shared/validators";
 import { tabulateCovariateImbalance } from "shared/health";
 import { addDays } from "date-fns";
 import {
@@ -503,6 +504,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
 > {
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+
+  readonly parentType: QueryRunnerRunParentType = "experimentSnapshot";
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(

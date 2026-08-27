@@ -1,42 +1,39 @@
 import Agenda from "agenda";
+import uniqid from "uniqid";
 import { Queries } from "shared/types/query";
 import {
   AggregatedFactTableInterface,
   AggregatedFactTableRunInterface,
   ContextualBanditSnapshotInterface,
+  QueryRunnerRunParentType,
   SafeRolloutSnapshotInterface,
 } from "shared/validators";
 import {
   errorSnapshotIfStillRunning,
   findRunningSnapshotsByQueryId,
   dangerousFindStalledRunningSnapshotsFromAllOrgs,
-  updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
+import { findRunningMetricsByQueryId } from "back-end/src/models/MetricModel";
+import { findRunningPastExperimentsByQueryId } from "back-end/src/models/PastExperimentsModel";
 import {
-  findRunningMetricsByQueryId,
-  updateMetricQueriesAndStatus,
-} from "back-end/src/models/MetricModel";
-import {
-  findRunningPastExperimentsByQueryId,
-  updatePastExperiments,
-} from "back-end/src/models/PastExperimentsModel";
-import {
+  failQueryRunnerRunQueries,
+  failStaleQueries,
+  findStaleRunningQueries,
   getQueryStatusesByIds,
-  getStaleQueries,
   markPendingQueriesAsFailed,
 } from "back-end/src/models/QueryModel";
 import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import {
-  findReportsByQueryId,
-  updateReport,
-} from "back-end/src/models/ReportModel";
+import { findReportsByQueryId } from "back-end/src/models/ReportModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { QueryRunnerRunModel } from "back-end/src/models/QueryRunnerRunModel";
+import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 const JOB_NAME = "expireOldQueries";
 
 // The time after which a snapshot is considered stalled
@@ -49,18 +46,287 @@ const STALLED_SNAPSHOT_REAP_LIMIT = 50;
 const AGGREGATED_FACT_TABLE_RUN_COLLECTION = "aggregatedfacttableruns";
 const AGGREGATED_FACT_TABLE_COLLECTION = "aggregatedfacttables";
 
-function updateQueryStatus(queries: Queries, ids: Set<string>) {
-  queries.forEach((q) => {
-    if (ids.has(q.query)) {
-      q.status = "failed";
-    }
-  });
+const LEASE_REAP_ERROR =
+  "The process running this analysis stopped unexpectedly. Please try updating results again.";
+const STALE_LEASE_REAP_LIMIT = 20;
+
+/** Returns a copy of the query pointers with the given ids flipped to "failed". */
+function markQueryPointersFailed(
+  queries: Queries | undefined,
+  failedIds: string[],
+): Queries {
+  const failed = new Set(failedIds);
+  return (queries ?? []).map((q) =>
+    failed.has(q.query) ? { ...q, status: "failed" as const } : q,
+  );
 }
 
-const expireOldQueries = async () => {
-  const queries = await getStaleQueries();
-  const queryIds = new Set(queries.map((q) => q.id));
-  const orgIds = new Set(queries.map((q) => q.organization));
+function hasPendingOwnedQuery(
+  queries: Queries | undefined,
+  queryIds: string[],
+): queries is Queries {
+  const owned = new Set(queryIds);
+  return Boolean(
+    queries?.some(
+      (query) =>
+        owned.has(query.query) &&
+        (query.status === "queued" || query.status === "running"),
+    ),
+  );
+}
+
+const PARENT_COLLECTION_NAMES: Record<QueryRunnerRunParentType, string> = {
+  experimentSnapshot: "experimentsnapshots",
+  report: "reports",
+  metric: "metrics",
+  pastExperiments: "pastexperiments",
+  metricAnalysis: "metricanalyses",
+  dimensionSlices: "dimensionslices",
+  safeRolloutSnapshot: "saferolloutsnapshots",
+  contextualBanditSnapshot: "contextualbanditsnapshots",
+  aggregatedFactTableRun: "aggregatedfacttableruns",
+  populationData: "populationdata",
+  productAnalyticsExploration: "analyticsexploration",
+};
+
+type ParentDagDoc = {
+  id: string;
+  organization: string;
+  queries?: Queries;
+  experiment?: string;
+};
+type ParentErrorWriteArgs = {
+  context: ReqContext | ApiReqContext;
+  parentDoc: ParentDagDoc;
+  failedQueryIds: string[];
+  error: string;
+};
+type ParentErrorWriter = (args: ParentErrorWriteArgs) => Promise<boolean>;
+
+/**
+ * For parents with a scalar run status: guards the write on status:"running" so
+ * a parent that already concluded can't be resurrected. Returns whether the
+ * write applied.
+ */
+function statusGuardedWriter(coll: string): ParentErrorWriter {
+  return async function writeStatusGuardedError({
+    context,
+    parentDoc,
+    failedQueryIds,
+    error,
+  }) {
+    if (!hasPendingOwnedQuery(parentDoc.queries, failedQueryIds)) return false;
+    const res = await getCollection(coll).updateOne(
+      {
+        organization: context.org.id,
+        id: parentDoc.id,
+        status: "running",
+        queries: parentDoc.queries,
+      },
+      {
+        $set: {
+          status: "error",
+          error,
+          queries: markQueryPointersFailed(parentDoc.queries, failedQueryIds),
+        },
+      },
+    );
+    return res.modifiedCount > 0;
+  };
+}
+
+/**
+ * For legacy parents with no run status, where a pending query pointer is
+ * the only liveness signal. Returns whether the write applied.
+ */
+function pointerGuardedWriter(
+  coll: string,
+  errorField: string,
+): ParentErrorWriter {
+  return async function writePointerGuardedError({
+    context,
+    parentDoc,
+    failedQueryIds,
+    error,
+  }) {
+    if (!hasPendingOwnedQuery(parentDoc.queries, failedQueryIds)) return false;
+    const res = await getCollection(coll).updateOne(
+      {
+        organization: context.org.id,
+        id: parentDoc.id,
+        queries: parentDoc.queries,
+      },
+      {
+        $set: {
+          [errorField]: error,
+          queries: markQueryPointersFailed(parentDoc.queries, failedQueryIds),
+        },
+      },
+    );
+    return res.modifiedCount > 0;
+  };
+}
+
+/** Every parent error write flows through here so the guard stays uniform. */
+const PARENT_ERROR_WRITERS: Record<
+  QueryRunnerRunParentType,
+  ParentErrorWriter
+> = {
+  experimentSnapshot: async ({ context, parentDoc, failedQueryIds, error }) => {
+    if (!hasPendingOwnedQuery(parentDoc.queries, failedQueryIds)) return false;
+    const wrote = await errorSnapshotIfStillRunning(
+      context,
+      parentDoc.id,
+      {
+        queries: markQueryPointersFailed(parentDoc.queries, failedQueryIds),
+        error,
+      },
+      parentDoc.queries,
+    );
+    // releaseLock filters on currentExecutionSnapshotId, so this is a no-op
+    // unless this snapshot held the incremental-refresh lock.
+    await context.models.incrementalRefresh
+      .releaseLock(parentDoc.experiment ?? "", parentDoc.id)
+      .catch((e) =>
+        logger.warn(
+          e,
+          "Failed to release incremental lock for expired snapshot",
+        ),
+      );
+    return wrote;
+  },
+  report: pointerGuardedWriter("reports", "error"),
+  metric: pointerGuardedWriter("metrics", "analysisError"),
+  pastExperiments: pointerGuardedWriter("pastexperiments", "error"),
+  metricAnalysis: statusGuardedWriter("metricanalyses"),
+  dimensionSlices: pointerGuardedWriter("dimensionslices", "error"),
+  safeRolloutSnapshot: statusGuardedWriter("saferolloutsnapshots"),
+  contextualBanditSnapshot: statusGuardedWriter("contextualbanditsnapshots"),
+  aggregatedFactTableRun: async ({ parentDoc, failedQueryIds, error }) => {
+    if (!hasPendingOwnedQuery(parentDoc.queries, failedQueryIds)) return false;
+    return finalizeStuckAggregatedFactTableRun(
+      parentDoc as unknown as AggregatedFactTableRunInterface,
+      {
+        queries: markQueryPointersFailed(parentDoc.queries, failedQueryIds),
+        error,
+      },
+    );
+  },
+  populationData: statusGuardedWriter("populationdata"),
+  productAnalyticsExploration: statusGuardedWriter("analyticsexploration"),
+};
+
+/**
+ * Cleans up runs whose driver stopped refreshing its 30-second run heartbeat.
+ */
+async function reapStaleQueryRunnerRuns() {
+  const staleRuns =
+    await QueryRunnerRunModel.dangerouslyFindStaleQueryRunnerRuns(
+      STALE_LEASE_REAP_LIMIT,
+    );
+  for (const run of staleRuns) {
+    const reaperToken = uniqid("qrr-reaper_");
+    try {
+      const context = await getContextForAgendaJobByOrgId(run.organization);
+      const claimed = await context.models.queryRunnerRuns.acquireLock(
+        run.id,
+        reaperToken,
+      );
+      if (!claimed) continue;
+      try {
+        // No queries to fail, so skip.
+        if (!run.queryIds.length) continue;
+
+        await failQueryRunnerRunQueries(
+          context,
+          run.queryIds,
+          LEASE_REAP_ERROR,
+        );
+
+        const parentDoc = (await getCollection(
+          PARENT_COLLECTION_NAMES[run.parentType],
+        ).findOne({
+          organization: run.organization,
+          id: run.parentId,
+        })) as ParentDagDoc | null;
+        if (parentDoc) {
+          const wrote = await PARENT_ERROR_WRITERS[run.parentType]({
+            context,
+            parentDoc,
+            failedQueryIds: run.queryIds,
+            error: LEASE_REAP_ERROR,
+          });
+          if (!wrote) {
+            logger.warn(
+              { queryRunnerRunId: run.id, parentId: run.parentId },
+              "Stale query runner parent no longer matches the recorded DAG",
+            );
+          }
+        }
+      } finally {
+        await context.models.queryRunnerRuns
+          .releaseLock(run.id, reaperToken)
+          .catch((e) =>
+            logger.error(
+              { err: e, queryRunnerRunId: run.id },
+              "Failed to release reaper lease",
+            ),
+          );
+      }
+    } catch (e) {
+      logger.error(
+        { err: e, queryRunnerRunId: run.id },
+        "Failed to reap stale query runner lease",
+      );
+    }
+  }
+}
+
+/**
+ * Covers pre-run-record executions during skip-version upgrades.
+ * Parent failures are isolated so the stale-query sweep can continue.
+ */
+async function reapParentFromStaleQueries(
+  parentType: QueryRunnerRunParentType,
+  parent: ParentDagDoc,
+  queryIds: Set<string>,
+  shieldedQueryIds: Set<string>,
+  error: string,
+): Promise<void> {
+  try {
+    const context = await getContextForAgendaJobByOrgId(parent.organization);
+    const ownStaleIds = (parent.queries ?? [])
+      .map((q) => q.query)
+      .filter((id) => queryIds.has(id));
+    const active = await context.models.queryRunnerRuns.getActiveByParent(
+      parentType,
+      parent.id,
+    );
+    if (active) {
+      ownStaleIds.forEach((id) => shieldedQueryIds.add(id));
+      return;
+    }
+    await PARENT_ERROR_WRITERS[parentType]({
+      context,
+      parentDoc: parent,
+      failedQueryIds: ownStaleIds,
+      error,
+    });
+  } catch (e) {
+    logger.error(
+      { err: e, parentId: parent.id, parentType },
+      "Failed to reap parent for stale queries",
+    );
+  }
+}
+
+async function expireOldQueries() {
+  await reapStaleQueryRunnerRuns();
+
+  const staleDocs = await findStaleRunningQueries();
+  const queryIds = new Set(staleDocs.map((d) => d.id));
+  const orgIds = new Set(staleDocs.map((d) => d.organization));
+  const shieldedQueryIds = new Set<string>();
 
   if (queryIds.size > 0) {
     logger.info("Found " + queryIds.size + " stale queries");
@@ -68,75 +334,56 @@ const expireOldQueries = async () => {
     logger.debug("Found no stale queries");
   }
 
-  // Look for matching snapshots and update the status
   const snapshots = await findRunningSnapshotsByQueryId([...queryIds]);
-  for (let i = 0; i < snapshots.length; i++) {
-    const snapshot = snapshots[i];
+  for (const snapshot of snapshots) {
     logger.info("Updating status of snapshot " + snapshot.id);
-    updateQueryStatus(snapshot.queries, queryIds);
-    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
-    await updateSnapshot({
-      context,
-      id: snapshot.id,
-      updates: {
-        error: "Queries were interupted. Please try updating results again.",
-        status: "error",
-        queries: snapshot.queries,
-      },
-    });
-
-    // Release the incremental refresh lock if this snapshot held it.
-    // This is safe because releaseLock filters on currentExecutionSnapshotId,
-    // so it only releases the lock if this specific snapshot still holds it.
-    await context.models.incrementalRefresh
-      .releaseLock(snapshot.experiment, snapshot.id)
-      .catch((e) =>
-        logger.warn(
-          e,
-          "Failed to release incremental lock for expired snapshot",
-        ),
-      );
+    await reapParentFromStaleQueries(
+      "experimentSnapshot",
+      snapshot,
+      queryIds,
+      shieldedQueryIds,
+      "Queries were interupted. Please try updating results again.",
+    );
   }
 
-  // Look for matching reports and update the status
   const reports = await findReportsByQueryId([...queryIds]);
-  for (let i = 0; i < reports.length; i++) {
-    const report = reports[i];
+  for (const report of reports) {
     if (report.type !== "experiment") continue;
     logger.info("Updating status of report " + report.id);
-    updateQueryStatus(report.queries, queryIds);
-    await updateReport(report.organization, report.id, {
-      error: "Queries were interupted. Please try updating results again.",
-      queries: report.queries,
-    });
+    await reapParentFromStaleQueries(
+      "report",
+      report,
+      queryIds,
+      shieldedQueryIds,
+      "Queries were interupted. Please try updating results again.",
+    );
   }
 
-  // Look for matching metrics and update the status
   const metrics = await findRunningMetricsByQueryId([...orgIds], [...queryIds]);
-  for (let i = 0; i < metrics.length; i++) {
-    const metric = metrics[i];
+  for (const metric of metrics) {
     logger.info("Updating status of metric " + metric.id);
-    updateQueryStatus(metric.queries, queryIds);
-    await updateMetricQueriesAndStatus(metric, {
-      queries: metric.queries,
-      analysisError:
-        "Queries were interupted. Please try re-running the analysis.",
-    });
+    await reapParentFromStaleQueries(
+      "metric",
+      metric,
+      queryIds,
+      shieldedQueryIds,
+      "Queries were interupted. Please try re-running the analysis.",
+    );
   }
 
-  // Look for matching pastExperiments and update the status
   const pastExperiments = await findRunningPastExperimentsByQueryId(
     [...orgIds],
     [...queryIds],
   );
-  for (let i = 0; i < pastExperiments.length; i++) {
-    const pastExperiment = pastExperiments[i];
+  for (const pastExperiment of pastExperiments) {
     logger.info("Updating status of pastExperiment " + pastExperiment.id);
-    updateQueryStatus(pastExperiment.queries, queryIds);
-    await updatePastExperiments(pastExperiment, {
-      queries: pastExperiment.queries,
-      error: "Queries were interupted. Please try refreshing the list.",
-    });
+    await reapParentFromStaleQueries(
+      "pastExperiments",
+      pastExperiment,
+      queryIds,
+      shieldedQueryIds,
+      "Queries were interupted. Please try refreshing the list.",
+    );
   }
 
   const metricAnalyses = await MetricAnalysisModel.findByQueryIds(
@@ -145,34 +392,26 @@ const expireOldQueries = async () => {
   );
   for (const metricAnalysis of metricAnalyses) {
     logger.info("Updating status of metricAnalysis " + metricAnalysis.id);
-    const context = await getContextForAgendaJobByOrgId(
-      metricAnalysis.organization,
+    await reapParentFromStaleQueries(
+      "metricAnalysis",
+      metricAnalysis,
+      queryIds,
+      shieldedQueryIds,
+      "Queries were interupted. Please try refreshing the results.",
     );
-    updateQueryStatus(metricAnalysis.queries, queryIds);
-    await context.models.metricAnalysis.update(metricAnalysis, {
-      queries: metricAnalysis.queries,
-      error: "Queries were interupted. Please try refreshing the results.",
-    });
   }
 
-  // Look for matching safe rollout snapshots and update the status
   const srSnapshots = await findRunningSafeRolloutSnapshotsByQueryId([
     ...queryIds,
   ]);
   for (const srSnapshot of srSnapshots) {
     logger.info("Updating status of safe rollout snapshot " + srSnapshot.id);
-    updateQueryStatus(srSnapshot.queries, queryIds);
-    await getCollection<SafeRolloutSnapshotInterface>(
-      "saferolloutsnapshots",
-    ).updateOne(
-      { id: srSnapshot.id },
-      {
-        $set: {
-          error: "Queries were interrupted. Please try updating results again.",
-          status: "error",
-          queries: srSnapshot.queries,
-        },
-      },
+    await reapParentFromStaleQueries(
+      "safeRolloutSnapshot",
+      srSnapshot,
+      queryIds,
+      shieldedQueryIds,
+      "Queries were interrupted. Please try updating results again.",
     );
   }
 
@@ -183,35 +422,31 @@ const expireOldQueries = async () => {
     logger.info(
       "Updating status of contextual bandit snapshot " + cbSnapshot.id,
     );
-    updateQueryStatus(cbSnapshot.queries, queryIds);
-    await getCollection<ContextualBanditSnapshotInterface>(
-      "contextualbanditsnapshots",
-    ).updateOne(
-      { id: cbSnapshot.id },
-      {
-        $set: {
-          error: "Queries were interrupted. Please try updating results again.",
-          status: "error",
-          queries: cbSnapshot.queries,
-        },
-      },
+    await reapParentFromStaleQueries(
+      "contextualBanditSnapshot",
+      cbSnapshot,
+      queryIds,
+      shieldedQueryIds,
+      "Queries were interrupted. Please try updating results again.",
     );
   }
 
-  // Finalize matching aggregated runs: driven only by an in-memory QueryRunner
-  // (no client polling), so a dead process leaves run pointers stuck even though
-  // the query docs were flipped to failed.
   const aggregatedRuns = await findRunningAggregatedFactTableRunsByQueryId([
     ...queryIds,
   ]);
   for (const run of aggregatedRuns) {
     logger.info("Updating status of aggregated fact table run " + run.id);
-    updateQueryStatus(run.queries, queryIds);
-    await finalizeStuckAggregatedFactTableRun(run, {
-      queries: run.queries,
-      error: "Queries were interupted. Please try refreshing the results.",
-    });
+    await reapParentFromStaleQueries(
+      "aggregatedFactTableRun",
+      run,
+      queryIds,
+      shieldedQueryIds,
+      "Queries were interupted. Please try refreshing the results.",
+    );
   }
+
+  // Queries with no tracked parent are never shielded, so orphans still fail here.
+  await failStaleQueries(staleDocs.filter((d) => !shieldedQueryIds.has(d.id)));
 
   try {
     await reapStalledSnapshots();
@@ -230,7 +465,7 @@ const expireOldQueries = async () => {
   } catch (e) {
     logger.error(e, "Failed to reap stalled aggregated fact table runs");
   }
-};
+}
 
 async function reapStalledSnapshots() {
   const stalledBefore = new Date(Date.now() - STALLED_SNAPSHOT_THRESHOLD_MS);
@@ -512,7 +747,7 @@ async function finalizeStuckAggregatedFactTableRun(
   const res = await getCollection<AggregatedFactTableRunInterface>(
     AGGREGATED_FACT_TABLE_RUN_COLLECTION,
   ).updateOne(
-    { id: run.id, finishedAt: null },
+    { id: run.id, finishedAt: null, queries: run.queries },
     { $set: { queries, error, finishedAt: now, dateUpdated: now } },
   );
   if (res.modifiedCount === 0) return false;

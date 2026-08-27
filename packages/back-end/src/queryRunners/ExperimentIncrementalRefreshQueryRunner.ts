@@ -12,6 +12,7 @@ import {
   IncrementalRefreshInterface,
   IncrementalRefreshMetricCovariateSourceInterface,
   IncrementalRefreshMetricSourceInterface,
+  QueryRunnerRunParentType,
 } from "shared/validators";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
@@ -1184,13 +1185,15 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
+  readonly parentType: QueryRunnerRunParentType = "experimentSnapshot";
+
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
     );
   }
 
-  protected override onHeartbeat(): void {
+  protected override async onHeartbeat(): Promise<void> {
     this.context.models.incrementalRefresh
       .touchLockHeartbeat(this.model.experiment, this.model.id)
       .catch((e) =>

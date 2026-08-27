@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { omit } from "lodash";
 import { QueryInterface, QueryType } from "shared/types/query";
 import { QueryLanguage } from "shared/types/datasource";
@@ -207,15 +207,12 @@ export async function updateQueryIfRunning(
 }
 
 /**
- * Conditional update gated on the doc being still in a pending state
- * (queued or running). Returns whether the update matched. Used by
- * executeQuery to fence the run() call so a concurrent cancel that moved
- * the doc to a terminal state can't be resurrected.
+ * Starts a query only while it is still queued. Returns whether this call won
+ * the transition.
  */
-export async function updateQueryIfPending(
+export async function startQueryIfQueued(
   context: ReqContext | ApiReqContext,
   query: QueryInterface,
-  changes: Partial<QueryInterface>,
 ): Promise<boolean> {
   if (query.organization !== context.org.id) {
     throw new Error("Cannot update query from different organization");
@@ -224,9 +221,11 @@ export async function updateQueryIfPending(
     {
       organization: context.org.id,
       id: query.id,
-      status: { $in: ["queued", "running"] },
+      status: "queued",
     },
-    { $set: changes },
+    {
+      $set: { status: "running", startedAt: new Date(), heartbeat: new Date() },
+    },
   );
   return result.matchedCount > 0;
 }
@@ -246,6 +245,47 @@ export async function markPendingQueriesAsFailed(
       organization: context.org.id,
       id: { $in: ids },
       status: { $in: ["running", "queued"] },
+    },
+    {
+      $set: {
+        status: "failed",
+        finishedAt: new Date(),
+        error,
+      },
+    },
+  );
+  return result.modifiedCount;
+}
+
+/**
+ * Running queries heartbeat every 30 seconds, so a heartbeat older than this
+ * cutoff means ~2 missed beats and the process running it is presumed dead.
+ */
+const QUERY_HEARTBEAT_STALE_MS = 70_000;
+
+function staleHeartbeatCutoff(): Date {
+  return new Date(Date.now() - QUERY_HEARTBEAT_STALE_MS);
+}
+
+/**
+ * Fails queries owned by a dead query runner: queued ones plus running ones
+ * whose heartbeat went stale. Running queries with a live heartbeat are left
+ * alone.
+ */
+export async function failQueryRunnerRunQueries(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+  error: string,
+): Promise<number> {
+  if (!ids.length) return 0;
+  const result = await QueryModel.updateMany(
+    {
+      organization: context.org.id,
+      id: { $in: ids },
+      $or: [
+        { status: "queued" },
+        { status: "running", heartbeat: { $lt: staleHeartbeatCutoff() } },
+      ],
     },
     {
       $set: {
@@ -286,33 +326,34 @@ export async function getRecentQuery(
   return latest[0] ? toInterface(latest[0]) : null;
 }
 
-export async function getStaleQueries(): Promise<
-  { id: string; organization: string }[]
+/** Running queries whose heartbeat has gone stale. */
+export async function findStaleRunningQueries(): Promise<
+  { _id: Types.ObjectId; id: string; organization: string }[]
 > {
-  // Queries get a heartbeat updated every 30 seconds while actively running
-  // If there's a fatal error (e.g. Node gets killed), a query could be stuck in a "running" state
-  // This looks for any recent query that missed 2 heartbeats and marks them as failed
-  const lastHeartbeat = new Date();
-  lastHeartbeat.setSeconds(lastHeartbeat.getSeconds() - 70);
+  const docs = await QueryModel.find(
+    { status: "running", heartbeat: { $lt: staleHeartbeatCutoff() } },
+    { _id: 1, id: 1, organization: 1 },
+  ).limit(20);
+  return docs.map((d) => ({
+    _id: d._id,
+    id: d.id,
+    organization: d.organization,
+  }));
+}
 
-  const query = {
-    status: "running",
-    heartbeat: {
-      $lt: lastHeartbeat,
-    },
-  };
-
-  const docs = await QueryModel.find(query, {
-    _id: 1,
-    id: 1,
-    organization: 1,
-  }).limit(20);
-  if (!docs.length) return [];
-
+/**
+ * Re-applies the status and heartbeat predicate so a query that got a fresh
+ * heartbeat (or finished) between find and fail is not clobbered.
+ */
+export async function failStaleQueries(
+  staleQueries: { _id: Types.ObjectId }[],
+): Promise<void> {
+  if (!staleQueries.length) return;
   await QueryModel.updateMany(
     {
-      ...query,
-      _id: { $in: docs.map((d) => d._id) },
+      status: "running",
+      heartbeat: { $lt: staleHeartbeatCutoff() },
+      _id: { $in: staleQueries.map((d) => d._id) },
     },
     {
       $set: {
@@ -321,8 +362,6 @@ export async function getStaleQueries(): Promise<
       },
     },
   );
-
-  return docs.map((doc) => ({ id: doc.id, organization: doc.organization }));
 }
 
 export async function createNewQuery({
@@ -332,7 +371,6 @@ export async function createNewQuery({
   query,
   displayTitle,
   dependencies = [],
-  running = false,
   queryType = "unknown",
   runAtEnd = false,
 }: {
@@ -342,7 +380,6 @@ export async function createNewQuery({
   query: string;
   displayTitle?: string;
   dependencies: string[];
-  running: boolean;
   queryType: QueryType;
   runAtEnd?: boolean;
 }): Promise<QueryInterface> {
@@ -355,8 +392,7 @@ export async function createNewQuery({
     organization,
     query,
     displayTitle,
-    startedAt: running ? new Date() : undefined,
-    status: running ? "running" : "queued",
+    status: "queued",
     dependencies: dependencies,
     runAtEnd: runAtEnd,
     queryType,

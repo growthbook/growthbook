@@ -1012,12 +1012,14 @@ export async function errorSnapshotIfStillRunning(
   context: Context,
   id: string,
   updates: Partial<ExperimentSnapshotInterface>,
+  expectedQueries?: ExperimentSnapshotInterface["queries"],
 ): Promise<boolean> {
   const res = await ExperimentSnapshotModel.updateOne(
     {
       organization: context.org.id,
       id,
       status: "running",
+      ...(expectedQueries !== undefined ? { queries: expectedQueries } : {}),
     },
     { $set: { ...updates, status: "error" } },
   );
