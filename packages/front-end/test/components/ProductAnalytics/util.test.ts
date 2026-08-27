@@ -4,7 +4,11 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { ExplorationConfig, ExplorationDataset } from "shared/validators";
+import {
+  ExplorationConfig,
+  ExplorationDataset,
+  SqlDataset,
+} from "shared/validators";
 import {
   applyTimestampColumn,
   getCommonColumns,
@@ -442,8 +446,8 @@ describe("validateDimensions", () => {
 
 describe("applyTimestampColumn", () => {
   function sqlDraft(
-    overrides: Partial<ExplorerDraftConfig> & {
-      dataset?: Partial<ExplorerDraftConfig["dataset"]>;
+    overrides: Omit<Partial<ExplorerDraftConfig>, "dataset"> & {
+      dataset?: Partial<SqlDataset>;
     } = {},
   ): ExplorerDraftConfig {
     return {
