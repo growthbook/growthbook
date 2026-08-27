@@ -15,7 +15,6 @@ export const interleavingSnapshotSettingsValidator = z
     interleavingQueryId: z.string(),
     query: z.string(),
     userIdType: z.string(),
-    hasInterleaveId: z.boolean(),
     variationNames: z.tuple([z.string(), z.string()]),
     metricIds: z.array(z.string()),
     startDate: z.date(),

@@ -92,15 +92,15 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
         throw new Error(`Fact table not found for metric ${metricId}`);
       }
 
-      // Estimator branching: paired needs interleave_id on BOTH sides of the
-      // join (exposure query and the metric's fact table)
+      // Estimator branching is a property of the METRIC: exposures always
+      // carry interleave_id (the SDK emits it), so paired analysis applies
+      // whenever the metric's fact table can join on it
       const factTableHasInterleaveId = factTable.columns.some(
         (c) => c.column === INTERLEAVING_INTERLEAVE_ID_COLUMN && !c.deleted,
       );
-      const estimator: InterleavingEstimator =
-        settings.hasInterleaveId && factTableHasInterleaveId
-          ? "paired"
-          : "ownership";
+      const estimator: InterleavingEstimator = factTableHasInterleaveId
+        ? "paired"
+        : "ownership";
       this.metricEstimators[metricId] = estimator;
       this.metricsById.set(metricId, metric);
 

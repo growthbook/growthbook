@@ -4,7 +4,10 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   ApiInterleavingQueryInterface,
   INTERLEAVING_EXPOSURE_REQUIRED_COLUMNS,
-  INTERLEAVING_INTERLEAVE_ID_COLUMN,
+  INTERLEAVING_ITEM_FIELD_COMPETITIVE,
+  INTERLEAVING_ITEM_FIELD_ITEM_ID,
+  INTERLEAVING_ITEM_FIELD_VARIATION,
+  INTERLEAVING_ITEMS_COLUMN,
 } from "shared/validators";
 import { useForm } from "react-hook-form";
 import { PiArrowSquareOut } from "react-icons/pi";
@@ -23,7 +26,6 @@ type InterleavingQueryFormValues = {
   description?: string;
   userIdType: string;
   query: string;
-  hasInterleaveId: boolean;
 };
 
 type Props = {
@@ -35,10 +37,11 @@ type Props = {
 };
 
 /**
- * Authoring modal for Interleaving exposure queries: one row per impression x
- * item from the SDK's interleave exposure events. Running the test query
- * validates the required columns and detects whether `interleave_id` is
- * present, which decides the analysis method (paired vs ownership).
+ * Authoring modal for Interleaving exposure queries. The query returns one
+ * row per impression in the SDK's nested exposure shape — item detail rides
+ * in an `items` JSON column that GrowthBook unnests at analysis time.
+ * Running the test query validates the required columns and the shape of
+ * the `items` array elements.
  */
 export const AddEditInterleavingQueryModal: FC<Props> = ({
   interleavingQuery,
@@ -54,13 +57,9 @@ export const AddEditInterleavingQueryModal: FC<Props> = ({
   );
   const defaultUserId = userIdTypeOptions[0]?.value || "user_id";
 
-  const defaultQuery = `SELECT\n  ${defaultUserId} as ${defaultUserId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  interleave_id as interleave_id,\n  item_id as item_id,\n  variation as variation,\n  competitive as competitive\nFROM my_interleave_exposures`;
+  const defaultQuery = `SELECT\n  ${defaultUserId} as ${defaultUserId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  interleave_id as interleave_id,\n  items as items\nFROM my_interleave_exposures`;
 
   const [uiMode, setUiMode] = useState<"view" | "sql">("view");
-  // null until a test query has run; then whether interleave_id came back
-  const [detectedInterleaveId, setDetectedInterleaveId] = useState<
-    boolean | null
-  >(mode === "edit" ? (interleavingQuery?.hasInterleaveId ?? null) : null);
 
   const form = useForm<InterleavingQueryFormValues>({
     defaultValues:
@@ -70,14 +69,12 @@ export const AddEditInterleavingQueryModal: FC<Props> = ({
             description: interleavingQuery.description ?? "",
             userIdType: interleavingQuery.userIdType,
             query: interleavingQuery.query,
-            hasInterleaveId: interleavingQuery.hasInterleaveId,
           }
         : {
             name: "",
             description: "",
             userIdType: defaultUserId,
             query: defaultQuery,
-            hasInterleaveId: false,
           },
   });
 
@@ -94,18 +91,11 @@ export const AddEditInterleavingQueryModal: FC<Props> = ({
   const saveEnabled = !!userEnteredUserIdType && !!userEnteredQuery;
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    const hasInterleaveId =
-      detectedInterleaveId ??
-      new RegExp(`\\b${INTERLEAVING_INTERLEAVE_ID_COLUMN}\\b`, "i").test(
-        value.query ?? "",
-      );
-
     const sharedFields = {
       name: value.name,
       description: value.description || undefined,
       userIdType: value.userIdType,
       query: value.query,
-      hasInterleaveId,
     };
 
     const res =
@@ -142,10 +132,39 @@ export const AddEditInterleavingQueryModal: FC<Props> = ({
         `You are missing the following columns: ${missingColumns.join(", ")}`,
       );
     }
-    setDetectedInterleaveId(
-      returnedColumns.has(INTERLEAVING_INTERLEAVE_ID_COLUMN) &&
-        result[INTERLEAVING_INTERLEAVE_ID_COLUMN] != null,
+
+    // Validate the items JSON shape (array of objects with the SDK's
+    // InterleavedItemMeta fields)
+    const rawItems = result[INTERLEAVING_ITEMS_COLUMN];
+    let items: unknown;
+    try {
+      items = typeof rawItems === "string" ? JSON.parse(rawItems) : rawItems;
+    } catch (e) {
+      throw new Error(
+        `The '${INTERLEAVING_ITEMS_COLUMN}' column must contain a JSON array`,
+      );
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error(
+        `The '${INTERLEAVING_ITEMS_COLUMN}' column must be a non-empty JSON array of drafted items`,
+      );
+    }
+    const first = items[0] as Record<string, unknown>;
+    const requiredFields = [
+      INTERLEAVING_ITEM_FIELD_ITEM_ID,
+      INTERLEAVING_ITEM_FIELD_VARIATION,
+      INTERLEAVING_ITEM_FIELD_COMPETITIVE,
+    ];
+    const missingFields = requiredFields.filter(
+      (f) => first === null || typeof first !== "object" || !(f in first),
     );
+    if (missingFields.length > 0) {
+      throw new Error(
+        `Each element of '${INTERLEAVING_ITEMS_COLUMN}' must include: ${missingFields.join(
+          ", ",
+        )}`,
+      );
+    }
   };
 
   const modalTitle =
@@ -205,12 +224,11 @@ export const AddEditInterleavingQueryModal: FC<Props> = ({
 
         <div className="form-group">
           <label className="mr-5">Query</label>
-          {userEnteredQuery === defaultQuery && (
-            <Callout status="info" mb="2">
-              The prefilled query below may require editing to fit your data
-              structure.
-            </Callout>
-          )}
+          <Callout status="info" mb="2">
+            Return one row per impression. The drafted items ride in the{" "}
+            <code>{INTERLEAVING_ITEMS_COLUMN}</code> JSON column exactly as the
+            SDK emits them — GrowthBook unnests them at analysis time.
+          </Callout>
           {userEnteredQuery && (
             <Code language="sql" code={userEnteredQuery} expandable={true} />
           )}
@@ -225,14 +243,6 @@ export const AddEditInterleavingQueryModal: FC<Props> = ({
             </Button>
           </div>
         </div>
-
-        {detectedInterleaveId !== null && (
-          <Callout status={detectedInterleaveId ? "success" : "warning"} mt="2">
-            {detectedInterleaveId
-              ? "interleave_id detected — impression-level joins are available, so metrics with an interleave_id column use the more sensitive paired analysis."
-              : "No interleave_id detected — metrics will use the ownership analysis (per-user item ownership shares). Add an interleave_id column to enable the paired analysis."}
-          </Callout>
-        )}
       </div>
     </ModalStandard>
   );

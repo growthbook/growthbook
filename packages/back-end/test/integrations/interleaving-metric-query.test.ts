@@ -4,17 +4,16 @@ import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
 import { getInterleavingMetricQuery } from "back-end/src/integrations/sql/queries/interleaving-metric-query";
 
 // The demo storefront's telemetry schema (local-groceries-international):
-// nested interleave exposure events unnested to one row per impression x item
+// one row per impression, item detail in the nested `items` JSON column
+// (GrowthBook's generated SQL does the unnesting)
 const EXPOSURE_QUERY = `SELECT
-  e.user_id as user_id,
-  e.received_at as timestamp,
-  e.properties->>'experimentId' as experiment_id,
-  e.properties->>'interleaveId' as interleave_id,
-  item->>'itemId' as item_id,
-  item->>'variation' as variation,
-  (item->>'competitive')::boolean as competitive
-FROM events e, jsonb_array_elements(e.properties->'items') as item
-WHERE e.event_name = 'Interleave Exposure'`;
+  user_id,
+  received_at as timestamp,
+  properties->>'experimentId' as experiment_id,
+  properties->>'interleaveId' as interleave_id,
+  properties->'items' as items
+FROM events
+WHERE event_name = 'Interleave Exposure'`;
 
 const FACT_TABLE_SQL = `SELECT
   user_id,
@@ -50,6 +49,7 @@ describe("getInterleavingMetricQuery", () => {
 
     // Structural assertions on both variants
     expect(paired).toContain("__exposures");
+    expect(paired).toContain("jsonb_array_elements");
     expect(paired).toContain("__engagedImpressions");
     expect(paired).toContain("sum_xy");
     expect(paired).toContain("'featured-products-ranker'");

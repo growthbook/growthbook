@@ -7,6 +7,7 @@ import {
   optionalOwnerInputField,
 } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
+import { queryPointerValidator } from "./queries";
 
 /**
  * An Interleaving experiment compares two rankers by weaving their ranked
@@ -142,6 +143,7 @@ export const interleavingSnapshotResponseShape = z
     status: z.enum(["pending", "running", "success", "error"]),
     error: z.string().optional(),
     runStarted: z.string().nullable(),
+    queries: z.array(queryPointerValidator),
     metricEstimators: z
       .record(z.string(), z.enum(interleavingEstimators))
       .optional(),
@@ -162,4 +164,16 @@ export const getInterleavingResultsValidator = {
   tags: ["Interleavings"],
   method: "get" as const,
   path: "/interleavings/:id/results",
+};
+
+export const cancelInterleavingRefreshValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: interleavingIdOnlyParam,
+  responseSchema: z.object({ cancelled: z.boolean() }).strict(),
+  summary: "Cancel a running interleaving results refresh",
+  operationId: "cancelInterleavingRefresh",
+  tags: ["Interleavings"],
+  method: "post" as const,
+  path: "/interleavings/:id/cancel-refresh",
 };

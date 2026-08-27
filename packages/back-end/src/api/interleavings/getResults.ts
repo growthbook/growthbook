@@ -22,6 +22,7 @@ export const getInterleavingResults = createApiRequestHandler(
           runStarted: snapshot.runStarted
             ? snapshot.runStarted.toISOString()
             : null,
+          queries: snapshot.queries,
           metricEstimators: snapshot.metricEstimators,
           results: snapshot.results,
           dateCreated: snapshot.dateCreated.toISOString(),

@@ -95,28 +95,20 @@ export const InterleavingForm: FC<Props> = ({
     });
   }, [metricIds, factTables, getExperimentMetricById]);
 
-  // Purely informational: which analysis each selected metric will get
-  const selectedQueryId = form.watch("interleavingQueryId");
+  // Purely informational: which analysis each selected metric will get.
+  // Paired applies when the metric's fact table carries interleave_id
   const metricsUsingOwnership = useMemo(() => {
-    const query = interleavingQueries.find((q) => q.id === selectedQueryId);
     return metricIds.filter((id) => {
       const metric = getExperimentMetricById(id);
       if (!metric || !isFactMetric(metric)) return false;
       const factTable = factTables.find(
         (ft) => ft.id === metric.numerator?.factTableId,
       );
-      const factTableHasInterleaveId = !!factTable?.columns.some(
+      return !factTable?.columns.some(
         (c) => c.column === INTERLEAVING_INTERLEAVE_ID_COLUMN && !c.deleted,
       );
-      return !(query?.hasInterleaveId && factTableHasInterleaveId);
     });
-  }, [
-    metricIds,
-    factTables,
-    interleavingQueries,
-    getExperimentMetricById,
-    selectedQueryId,
-  ]);
+  }, [metricIds, factTables, getExperimentMetricById]);
 
   const handleSubmit = form.handleSubmit(async (value) => {
     if (metricsMissingItemId.length > 0) {
@@ -267,10 +259,9 @@ export const InterleavingForm: FC<Props> = ({
         {metricsUsingOwnership.length > 0 &&
           metricsMissingItemId.length === 0 && (
             <Callout status="info" mt="2">
-              Without <code>{INTERLEAVING_INTERLEAVE_ID_COLUMN}</code> on both
-              the exposure query and the metric fact table, these metrics use
-              the ownership analysis instead of the more sensitive paired
-              analysis:{" "}
+              Without an <code>{INTERLEAVING_INTERLEAVE_ID_COLUMN}</code> column
+              on their fact table, these metrics use the ownership analysis
+              instead of the more sensitive paired analysis:{" "}
               {metricsUsingOwnership
                 .map((id) => getExperimentMetricById(id)?.name || id)
                 .join(", ")}

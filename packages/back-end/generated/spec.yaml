@@ -16129,6 +16129,39 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/interleavings/{id}/refresh' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/cancel-refresh:
+    post:
+      operationId: cancelInterleavingRefresh
+      summary: Cancel a running interleaving results refresh
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                required:
+                  - cancelled
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/interleavings/{id}/cancel-refresh'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/interleavings/{id}/results:
     get:
       operationId: getInterleavingResults
@@ -16169,6 +16202,28 @@ paths:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          queries:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                query:
+                                  type: string
+                                status:
+                                  type: string
+                                  enum:
+                                    - queued
+                                    - running
+                                    - failed
+                                    - partially-succeeded
+                                    - succeeded
+                                name:
+                                  type: string
+                              required:
+                                - query
+                                - status
+                                - name
+                              additionalProperties: false
                           metricEstimators:
                             type: object
                             propertyNames:
@@ -16187,6 +16242,7 @@ paths:
                           - id
                           - status
                           - runStarted
+                          - queries
                           - dateCreated
                         additionalProperties: false
                       - type: 'null'
@@ -42923,8 +42979,6 @@ paths:
                   type: string
                 query:
                   type: string
-                hasInterleaveId:
-                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -42977,14 +43031,11 @@ paths:
                   type: string
                 query:
                   type: string
-                hasInterleaveId:
-                  type: boolean
               required:
                 - datasourceId
                 - name
                 - userIdType
                 - query
-                - hasInterleaveId
               additionalProperties: false
       responses:
         '200':
@@ -63701,8 +63752,6 @@ components:
           type: string
         query:
           type: string
-        hasInterleaveId:
-          type: boolean
       required:
         - id
         - dateCreated
@@ -63712,7 +63761,6 @@ components:
         - name
         - userIdType
         - query
-        - hasInterleaveId
       additionalProperties: false
     CustomField:
       type: object

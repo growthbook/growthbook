@@ -167,6 +167,13 @@ export interface SqlDialect {
   ) => string;
   defaultSchema: string;
   formatDialect: FormatDialect;
+  // JSON-array support for interleaving exposure queries (optional; absence
+  // means the warehouse does not support interleaving analysis yet).
+  // Returns a join clause that unnests `jsonColumn` (one row per element)
+  // exposing each element as `itemAlias`.
+  unnestJsonArray?: (jsonColumn: string, itemAlias: string) => string;
+  // Extracts a scalar field from an unnested JSON element as text.
+  jsonArrayFieldText?: (itemAlias: string, field: string) => string;
   percentileCapSelectClause: (
     values: {
       valueCol: string;

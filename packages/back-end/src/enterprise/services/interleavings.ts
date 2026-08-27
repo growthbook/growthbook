@@ -51,7 +51,6 @@ export async function runInterleavingRefresh(
     interleavingQueryId: interleavingQuery.id,
     query: interleavingQuery.query,
     userIdType: interleavingQuery.userIdType,
-    hasInterleaveId: interleavingQuery.hasInterleaveId,
     variationNames: interleaving.variationNames,
     metricIds: interleaving.metricIds,
     startDate: interleaving.dateStarted ?? interleaving.dateCreated,
@@ -77,4 +76,34 @@ export async function runInterleavingRefresh(
   await runner.startAnalysis({ snapshotSettings });
 
   return { snapshotId: snapshot.id };
+}
+
+/** Cancel the latest running snapshot's queries and delete the snapshot. */
+export async function cancelInterleavingLatestRunningSnapshot(
+  context: Context,
+  interleaving: InterleavingInterface,
+): Promise<boolean> {
+  const latest =
+    await context.models.interleavingSnapshots.getLatestForInterleaving(
+      interleaving.id,
+    );
+  if (!latest || (latest.status !== "running" && latest.status !== "pending")) {
+    return false;
+  }
+
+  const ds = await getDataSourceById(context, interleaving.datasource);
+  if (!ds) {
+    throw new Error(`Datasource missing: ${interleaving.datasource}`);
+  }
+
+  const integration = getSourceIntegrationObject(context, ds, true);
+  const runner = new InterleavingResultsQueryRunner(
+    context,
+    latest,
+    integration,
+    false,
+  );
+  await runner.cancelQueries();
+  await context.models.interleavingSnapshots.delete(latest);
+  return true;
 }

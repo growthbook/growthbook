@@ -77,7 +77,6 @@ export const InterleavingQueries: FC<Props> = ({ dataSource, canEdit }) => {
             <tr>
               <th>Name</th>
               <th>Identifier type</th>
-              <th>Analysis</th>
               {canManage && <th style={{ width: 100 }}></th>}
             </tr>
           </thead>
@@ -86,13 +85,6 @@ export const InterleavingQueries: FC<Props> = ({ dataSource, canEdit }) => {
               <tr key={q.id}>
                 <td>{q.name}</td>
                 <td>{q.userIdType}</td>
-                <td>
-                  {q.hasInterleaveId ? (
-                    <Badge label="Paired" color="green" />
-                  ) : (
-                    <Badge label="Ownership" color="violet" />
-                  )}
-                </td>
                 {canManage && (
                   <td>
                     <Flex gap="3">

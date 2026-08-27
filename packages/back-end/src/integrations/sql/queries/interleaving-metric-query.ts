@@ -1,11 +1,13 @@
 import { format } from "shared/sql";
 import {
-  INTERLEAVING_COMPETITIVE_COLUMN,
   INTERLEAVING_EXPERIMENT_ID_COLUMN,
   INTERLEAVING_INTERLEAVE_ID_COLUMN,
+  INTERLEAVING_ITEM_FIELD_COMPETITIVE,
+  INTERLEAVING_ITEM_FIELD_ITEM_ID,
+  INTERLEAVING_ITEM_FIELD_VARIATION,
   INTERLEAVING_ITEM_ID_COLUMN,
+  INTERLEAVING_ITEMS_COLUMN,
   INTERLEAVING_TIMESTAMP_COLUMN,
-  INTERLEAVING_VARIATION_COLUMN,
 } from "shared/validators";
 import type { InterleavingMetricQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
@@ -13,6 +15,10 @@ import { compileSqlTemplate } from "back-end/src/util/sql";
 
 /**
  * Per-metric sufficient-statistics queries for interleaving experiments.
+ *
+ * The exposure query returns ONE ROW PER IMPRESSION with the item detail in
+ * an `items` JSON column (the SDK's nested exposure shape); the __exposures
+ * CTE unnests it per warehouse dialect.
  *
  * Paired (interleave_id joinable):
  *   exposures (competitive picks) -> engagement joined per impression x item
@@ -63,9 +69,16 @@ export function getInterleavingMetricQuery(
     `${col} >= ${dialect.toTimestamp(startDate)}` +
     (endDate ? ` AND ${col} <= ${dialect.toTimestamp(endDate)}` : "");
 
+  if (!dialect.unnestJsonArray || !dialect.jsonArrayFieldText) {
+    throw new Error(
+      "Interleaving analysis is not supported for this Data Source type yet",
+    );
+  }
+  const item = (field: string) => dialect.jsonArrayFieldText!("item", field);
+
   // 1 for treatment picks, 0 for control picks; other variation values dropped
   const teamExpr = `${dialect.ifElse(
-    `e.${INTERLEAVING_VARIATION_COLUMN} = ${sqlStringLiteral(treatmentName)}`,
+    `${item(INTERLEAVING_ITEM_FIELD_VARIATION)} = ${sqlStringLiteral(treatmentName)}`,
     "1",
     "0",
   )}`;
@@ -75,15 +88,16 @@ export function getInterleavingMetricQuery(
       SELECT
         e.${userIdType} AS user_id,
         ${estimator === "paired" ? `e.${INTERLEAVING_INTERLEAVE_ID_COLUMN} AS interleave_id,` : ""}
-        e.${INTERLEAVING_ITEM_ID_COLUMN} AS item_id,
+        ${item(INTERLEAVING_ITEM_FIELD_ITEM_ID)} AS item_id,
         ${teamExpr} AS team,
         e.${ts} AS exposure_timestamp
       FROM (
         ${exposureSql}
       ) e
+      ${dialect.unnestJsonArray(`e.${INTERLEAVING_ITEMS_COLUMN}`, "item")}
       WHERE e.${INTERLEAVING_EXPERIMENT_ID_COLUMN} = ${sqlStringLiteral(trackingKey)}
-        AND e.${INTERLEAVING_COMPETITIVE_COLUMN} = TRUE
-        AND e.${INTERLEAVING_VARIATION_COLUMN} IN (${sqlStringLiteral(controlName)}, ${sqlStringLiteral(treatmentName)})
+        AND ${item(INTERLEAVING_ITEM_FIELD_COMPETITIVE)} = 'true'
+        AND ${item(INTERLEAVING_ITEM_FIELD_VARIATION)} IN (${sqlStringLiteral(controlName)}, ${sqlStringLiteral(treatmentName)})
         AND ${dateFilter(`e.${ts}`)}
     )`;
 

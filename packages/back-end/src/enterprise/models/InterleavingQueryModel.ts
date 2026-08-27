@@ -15,7 +15,6 @@ const BaseClass = MakeModelClass({
   globallyUniquePrimaryKeys: true,
   defaultValues: {
     owner: "",
-    hasInterleaveId: false,
   },
   additionalIndexes: [
     {
@@ -95,7 +94,6 @@ export class InterleavingQueryModel extends BaseClass {
       description: doc.description,
       userIdType: doc.userIdType,
       query: doc.query,
-      hasInterleaveId: doc.hasInterleaveId,
     };
   }
 

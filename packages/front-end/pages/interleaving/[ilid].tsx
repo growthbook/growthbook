@@ -12,6 +12,10 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import PageHead from "@/components/Layout/PageHead";
 import InterleavingForm from "@/components/Interleaving/InterleavingForm";
+import RunQueriesButton, {
+  getQueryStatus,
+} from "@/components/Queries/RunQueriesButton";
+import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import InterleavingResults from "@/components/Interleaving/InterleavingResults";
 import { useInterleaving } from "@/hooks/useInterleavings";
 import { useInterleavingQueries } from "@/hooks/useInterleavingQueries";
@@ -26,6 +30,7 @@ type ResultsSnapshot = {
   status: "pending" | "running" | "success" | "error";
   error?: string;
   runStarted: string | null;
+  queries: Queries;
   metricEstimators?: Record<string, InterleavingEstimator>;
   results?: ExperimentReportResultDimension[];
   dateCreated: string;
@@ -130,15 +135,23 @@ export default function InterleavingDetailPage() {
           </Heading>
           <Badge label={interleaving.status} color="indigo" />
         </Flex>
-        <Flex gap="2">
+        <Flex gap="2" align="center">
           {canEdit && (
             <Button variant="outline" onClick={() => setEditOpen(true)}>
               Edit
             </Button>
           )}
-          <Button onClick={refresh} disabled={isRunning}>
-            {isRunning ? "Updating…" : "Update results"}
-          </Button>
+          <RunQueriesButton
+            cta="Update results"
+            cancelEndpoint={`/api/v1/interleavings/${ilid}/cancel-refresh`}
+            model={{
+              queries: snapshot?.queries ?? [],
+              runStarted: snapshot?.runStarted ?? null,
+            }}
+            mutate={mutateResults}
+            onSubmit={refresh}
+            icon="refresh"
+          />
         </Flex>
       </Flex>
 
@@ -163,20 +176,7 @@ export default function InterleavingDetailPage() {
             </tr>
             <tr>
               <th className="pr-4">Exposure query</th>
-              <td>
-                {exposureQuery?.name ?? interleaving.interleavingQueryId}{" "}
-                {exposureQuery ? (
-                  <Badge
-                    label={
-                      exposureQuery.hasInterleaveId
-                        ? "has interleave_id"
-                        : "no interleave_id"
-                    }
-                    color={exposureQuery.hasInterleaveId ? "green" : "violet"}
-                    variant="soft"
-                  />
-                ) : null}
-              </td>
+              <td>{exposureQuery?.name ?? interleaving.interleavingQueryId}</td>
             </tr>
             <tr>
               <th className="pr-4">Rankers</th>
@@ -198,9 +198,19 @@ export default function InterleavingDetailPage() {
       </Frame>
 
       <Box mt="4">
-        <Heading as="h3" size="md">
-          Results
-        </Heading>
+        <Flex align="center" justify="between">
+          <Heading as="h3" size="md">
+            Results
+          </Heading>
+          {snapshot && snapshot.queries.length > 0 && (
+            <ViewAsyncQueriesButton
+              queries={snapshot.queries.map((q) => q.query)}
+              error={snapshot.error}
+              status={getQueryStatus(snapshot.queries).status}
+              condensed
+            />
+          )}
+        </Flex>
         {refreshError && (
           <Callout status="error" mb="2">
             {refreshError}
