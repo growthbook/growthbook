@@ -16,6 +16,7 @@ import {
   ExplorationDateRange,
 } from "../../validators/product-analytics";
 import { calculateProductAnalyticsDateRange } from "../product-analytics/sql";
+import { hasTimestampColumn } from "../product-analytics/utils";
 import { differenceTypes, pinSources } from "../dashboards/utils";
 
 // Hard cap on the canonical column count. Used as the zod ceiling on `w`/`x`
@@ -575,7 +576,7 @@ export function resolveBlockComparison(
 ): BlockComparison | null {
   if (
     block.config?.dataset.type === "sql" &&
-    block.config.dataset.timestampColumn === null
+    !hasTimestampColumn(block.config.dataset.timestampColumn)
   ) {
     return null;
   }

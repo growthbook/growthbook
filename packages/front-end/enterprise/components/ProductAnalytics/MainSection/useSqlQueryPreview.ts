@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ExplorationConfig,
-  QueryExecutionResult,
-  type SqlDataset,
-} from "shared/validators";
+import { QueryExecutionResult, type SqlDataset } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import {
+  applySqlPreviewMetadata,
+  isSubmittableConfig,
+} from "@/enterprise/components/ProductAnalytics/util";
 import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 
 export const PREVIEW_ROW_LIMIT = 100;
@@ -32,7 +32,8 @@ export default function useSqlQueryPreview({
   onRun?: () => void;
 }) {
   const { apiCall } = useAuth();
-  const { setDraftExploreState } = useExplorerContext();
+  const { setDraftExploreState, handleSubmit, draftExploreState } =
+    useExplorerContext();
   const { localSql, setIsQueryRunning, setExploreReady } =
     useSqlEditorContext();
   const [state, setState] = useState<SqlQueryPreviewState>(idleState);
@@ -72,53 +73,27 @@ export default function useSqlQueryPreview({
     (
       sql: string,
       columnTypes: SqlDataset["columnTypes"],
-      timestampColumn: string | null,
+      inferredTimestamp: string | null,
     ) => {
-      setDraftExploreState((prev) => {
-        if (prev.dataset.type !== "sql") return prev;
-        const valueColumns = new Set(Object.keys(columnTypes));
-        const shouldDefaultToLine =
-          prev.dataset.timestampColumn === null &&
-          timestampColumn !== null &&
-          (prev.chartType === "bar" || prev.chartType === "table");
-        const dimensions = prev.dimensions.filter(
-          (dimension) =>
-            dimension.dimensionType !== "dynamic" ||
-            dimension.column === null ||
-            valueColumns.has(dimension.column),
-        );
-        return {
-          ...prev,
-          chartType: shouldDefaultToLine ? "line" : prev.chartType,
-          dimensions:
-            shouldDefaultToLine &&
-            !dimensions.some((dimension) => dimension.dimensionType === "date")
-              ? [
-                  {
-                    dimensionType: "date",
-                    column: "date",
-                    dateGranularity: "auto",
-                  },
-                  ...dimensions,
-                ]
-              : dimensions,
-          dataset: {
-            ...prev.dataset,
-            sql,
-            columnTypes,
-            timestampColumn,
-            values: prev.dataset.values.map((value) => ({
-              ...value,
-              valueColumn:
-                value.valueColumn && valueColumns.has(value.valueColumn)
-                  ? value.valueColumn
-                  : null,
-            })),
-          },
-        } as ExplorationConfig;
-      });
+      if (draftExploreState.dataset.type !== "sql") return;
+      const next = applySqlPreviewMetadata(
+        draftExploreState,
+        sql,
+        columnTypes,
+        inferredTimestamp,
+      );
+      const sqlChanged = draftExploreState.dataset.sql !== sql;
+      const previousTimestamp = draftExploreState.dataset.timestampColumn;
+      const nextTimestamp =
+        next.dataset.type === "sql" ? next.dataset.timestampColumn : null;
+      const timestampChanged = previousTimestamp !== nextTimestamp;
+      if ((sqlChanged || timestampChanged) && isSubmittableConfig(next)) {
+        void handleSubmit({ force: true, config: next, setDraft: true });
+        return;
+      }
+      setDraftExploreState(next);
     },
-    [setDraftExploreState],
+    [draftExploreState, handleSubmit, setDraftExploreState],
   );
 
   const runQuery = useCallback(

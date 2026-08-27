@@ -42,7 +42,7 @@ export default function TimestampColumnSelector({
         >
           <Flex align="center" justify="between" gap="2">
             <Flex align="center" width="20px">
-              {timestampColumn === null ? <PiCheck size={16} /> : null}
+              {!timestampColumn ? <PiCheck size={16} /> : null}
             </Flex>
             None
           </Flex>
@@ -71,7 +71,7 @@ export default function TimestampColumnSelector({
     <Flex direction="column" gap="2" width="100%">
       <Text weight="medium">Timestamp column</Text>
       <Flex justify="between" align="center">
-        <Text color="text-low">{timestampColumn ?? "Not set"}</Text>
+        <Text color="text-low">{timestampColumn || "Not set"}</Text>
         {selectTooltip ? (
           <Tooltip body={selectTooltip} usePortal>
             {dropdown}

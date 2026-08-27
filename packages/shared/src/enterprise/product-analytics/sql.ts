@@ -1,5 +1,9 @@
 import { getValidDate } from "shared/dates";
-import { buildMinimalOrCondition, format } from "shared/sql";
+import {
+  buildMinimalOrCondition,
+  format,
+  stripTrailingSemicolon,
+} from "shared/sql";
 import {
   buildPrevResolvedExpr,
   conversionWindowToSeconds,
@@ -43,6 +47,7 @@ import {
   getFactTableTimestampColumn,
   isFactFunnelMetric,
 } from "../../experiments/experiments";
+import { hasTimestampColumn } from "./utils";
 
 // Internal Type definitions
 type MinimalFactTable = Pick<
@@ -67,7 +72,7 @@ function getTimestampColumnExpression(
   factTable: MinimalFactTable,
   helpers: SqlDialect,
 ): string | null {
-  if (!factTable.timestampColumn) {
+  if (!hasTimestampColumn(factTable.timestampColumn)) {
     return factTable.quoteTimestampColumn ? null : "timestamp";
   }
   if (!factTable.quoteTimestampColumn) return factTable.timestampColumn;
@@ -205,6 +210,9 @@ function getFactTableGroups({
 
   switch (config.dataset.type) {
     case "data_source": {
+      if (!hasTimestampColumn(config.dataset.timestampColumn)) {
+        throw new Error("Timestamp column is required");
+      }
       // For a migrated managed warehouse, re-expose former materialized columns as
       // top-level aliases (same as the fact table) so bare references in a raw
       // `data_source` exploration keep resolving. No-op for legacy/other datasources.
@@ -231,7 +239,7 @@ function getFactTableGroups({
         {
           index: 0,
           factTable: createStubFactTable(
-            config.dataset.sql.replace(/;\s*$/, "").trim(),
+            stripTrailingSemicolon(config.dataset.sql),
             config.dataset.timestampColumn,
             config.dataset.columnTypes,
             datasourceSettings,
@@ -981,7 +989,9 @@ function createStubFactTable(
     sql,
     columns,
     userIdTypes,
-    timestampColumn,
+    timestampColumn: hasTimestampColumn(timestampColumn)
+      ? timestampColumn
+      : null,
     quoteTimestampColumn: true,
     filters: [],
   };

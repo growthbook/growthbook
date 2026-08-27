@@ -24,6 +24,7 @@ import {
   computeExplorationComparisonPayload,
   getComparisonAlignmentStrategy,
   resolveLegacyExplorerComparisonMode,
+  hasTimestampColumn,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { isFactFunnelMetric } from "shared/experiments";
@@ -45,6 +46,7 @@ import {
   isTimeSeriesChart,
   isSubmittableConfig,
   normalizeTimelessSqlConfig,
+  applyTimestampColumn,
   stripExplorerDraftFields,
   toFetchKey,
   validateDimensions,
@@ -932,43 +934,12 @@ export function ExplorerProvider({
 
   const updateTimestampColumn = useCallback(
     (column: string | null) => {
-      setDraftExploreState((prev) => {
-        if (
-          prev.dataset.type !== "sql" &&
-          prev.dataset.type !== "data_source"
-        ) {
-          return prev;
-        }
-        if (prev.dataset.type === "data_source" && column === null) return prev;
-        const shouldDefaultToLine =
-          prev.dataset.type === "sql" &&
-          prev.dataset.timestampColumn === null &&
-          column !== null &&
-          (prev.chartType === "bar" || prev.chartType === "table");
-        return {
-          ...prev,
-          chartType: shouldDefaultToLine ? "line" : prev.chartType,
-          dimensions:
-            shouldDefaultToLine &&
-            !prev.dimensions.some(
-              (dimension) => dimension.dimensionType === "date",
-            )
-              ? [
-                  {
-                    dimensionType: "date",
-                    column: "date",
-                    dateGranularity: "auto",
-                  },
-                  ...prev.dimensions,
-                ]
-              : prev.dimensions,
-          dataset: { ...prev.dataset, timestampColumn: column },
-        } as ExplorationConfig;
-      });
-      if (column === null) {
+      setDraftExploreState((prev) => applyTimestampColumn(prev, column));
+      if (!hasTimestampColumn(column)) {
         setComparisonExploration(null);
         setComparisonQuery(null);
         setComparisonComputed(null);
+        setComparisonError(null);
       }
     },
     [setDraftExploreState],

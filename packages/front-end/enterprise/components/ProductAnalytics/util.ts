@@ -17,6 +17,7 @@ import type {
   FunnelDataset,
   ExplorationDateRange,
   ComparisonMode,
+  SqlDataset,
 } from "shared/validators";
 import { isEqual, omit } from "lodash";
 import type { AIChatMention } from "shared/ai-chat";
@@ -31,6 +32,8 @@ import {
   getDateGranularity,
   mapDatabaseTypeToEnum,
   getMetricMixClass,
+  hasTimestampColumn,
+  hasTimeAxis,
 } from "shared/enterprise";
 export {
   getMetricMixClass,
@@ -425,7 +428,7 @@ export function withDefaultSqlCountValue(
     return config;
   }
 
-  const hasTimestamp = config.dataset.timestampColumn !== null;
+  const hasTimestamp = hasTimestampColumn(config.dataset.timestampColumn);
   const dimensions =
     hasTimestamp &&
     !config.dimensions.some((dimension) => dimension.dimensionType === "date")
@@ -967,36 +970,172 @@ export function isTimeSeriesChart(
 export function isTimelessSqlExploration(
   config: Pick<ExplorationConfig, "dataset">,
 ): boolean {
-  return (
-    config.dataset.type === "sql" && config.dataset.timestampColumn === null
-  );
+  return config.dataset.type === "sql" && !hasTimeAxis(config.dataset);
+}
+
+const DEFAULT_DATE_DIMENSION = {
+  dimensionType: "date" as const,
+  column: "date",
+  dateGranularity: "auto" as const,
+};
+
+/**
+ * Single policy for timestamp column changes: adding one defaults bar/table to
+ * a line chart with a date dimension; removing one drops time-series charts,
+ * date dimensions, and comparison windows.
+ */
+export function applyTimestampColumn<T extends ExplorerDraftConfig>(
+  config: T,
+  column: string | null,
+): T {
+  if (config.dataset.type !== "sql" && config.dataset.type !== "data_source") {
+    return config;
+  }
+  if (config.dataset.type === "data_source" && column === null) {
+    return config;
+  }
+
+  const hadTime = hasTimestampColumn(config.dataset.timestampColumn);
+  const hasTime = hasTimestampColumn(column);
+  const nextTimestamp =
+    config.dataset.type === "sql" && !hasTime ? null : column;
+
+  let chartType = config.chartType;
+  let dimensions = config.dimensions;
+
+  if (hasTime && !hadTime) {
+    if (chartType === "bar" || chartType === "table") {
+      chartType = "line";
+    }
+    if (!dimensions.some((dimension) => dimension.dimensionType === "date")) {
+      dimensions = [DEFAULT_DATE_DIMENSION, ...dimensions];
+    }
+  } else if (!hasTime) {
+    if (isTimeSeriesChart(chartType)) {
+      chartType = "bar";
+    }
+    if (dimensions.some((dimension) => dimension.dimensionType === "date")) {
+      dimensions = dimensions.filter(
+        (dimension) => dimension.dimensionType !== "date",
+      );
+    }
+  }
+
+  const unchanged =
+    config.dataset.timestampColumn === nextTimestamp &&
+    chartType === config.chartType &&
+    dimensions === config.dimensions;
+
+  if (!hasTime) {
+    if (
+      unchanged &&
+      config.previousTimeFrame === undefined &&
+      config.comparisonMode === undefined
+    ) {
+      return config;
+    }
+    return {
+      ...stripExplorerDraftFields(config),
+      chartType,
+      dimensions,
+      dataset: { ...config.dataset, timestampColumn: nextTimestamp },
+    } as T;
+  }
+
+  if (unchanged) return config;
+
+  return {
+    ...config,
+    chartType,
+    dimensions,
+    dataset: { ...config.dataset, timestampColumn: nextTimestamp },
+  } as T;
 }
 
 export function normalizeTimelessSqlConfig(
   config: ExplorerDraftConfig,
 ): ExplorerDraftConfig {
   if (!isTimelessSqlExploration(config)) return config;
+  return applyTimestampColumn(config, null);
+}
 
-  const chartType = isTimeSeriesChart(config.chartType)
-    ? "bar"
-    : config.chartType;
-  const dimensions = config.dimensions.filter(
-    (dimension) => dimension.dimensionType !== "date",
-  );
-
+/**
+ * Keep a still-valid manual timestamp pick. Re-infer when the previous column
+ * is gone or when date columns newly appear. Preserve explicit "None" only
+ * when date columns existed before and still exist.
+ */
+export function resolveSqlPreviewTimestamp({
+  previousTimestamp,
+  previousColumnTypes,
+  columnTypes,
+  inferredTimestamp,
+}: {
+  previousTimestamp: string | null;
+  previousColumnTypes: SqlDataset["columnTypes"];
+  columnTypes: SqlDataset["columnTypes"];
+  inferredTimestamp: string | null;
+}): string | null {
   if (
-    chartType === config.chartType &&
-    dimensions.length === config.dimensions.length &&
-    config.previousTimeFrame === undefined
+    hasTimestampColumn(previousTimestamp) &&
+    columnTypes[previousTimestamp] === "date"
   ) {
-    return config;
+    return previousTimestamp;
   }
+  const previouslyHadDates = Object.values(previousColumnTypes).some(
+    (type) => type === "date",
+  );
+  const nowHasDates = Object.values(columnTypes).some(
+    (type) => type === "date",
+  );
+  if (
+    !hasTimestampColumn(previousTimestamp) &&
+    previouslyHadDates &&
+    nowHasDates
+  ) {
+    return null;
+  }
+  return inferredTimestamp;
+}
 
-  return {
-    ...stripExplorerDraftFields(config),
-    chartType,
-    dimensions,
-  };
+export function applySqlPreviewMetadata(
+  config: ExplorerDraftConfig,
+  sql: string,
+  columnTypes: SqlDataset["columnTypes"],
+  inferredTimestamp: string | null,
+): ExplorerDraftConfig {
+  if (config.dataset.type !== "sql") return config;
+  const valueColumns = new Set(Object.keys(columnTypes));
+  const nextTimestamp = resolveSqlPreviewTimestamp({
+    previousTimestamp: config.dataset.timestampColumn,
+    previousColumnTypes: config.dataset.columnTypes,
+    columnTypes,
+    inferredTimestamp,
+  });
+  const dimensions = config.dimensions.filter(
+    (dimension) =>
+      dimension.dimensionType !== "dynamic" ||
+      dimension.column === null ||
+      valueColumns.has(dimension.column),
+  );
+  return applyTimestampColumn(
+    {
+      ...config,
+      dimensions,
+      dataset: {
+        ...config.dataset,
+        sql,
+        columnTypes,
+        values: config.dataset.values.map((value) => ({
+          ...value,
+          valueColumn:
+            value.valueColumn && valueColumns.has(value.valueColumn)
+              ? value.valueColumn
+              : null,
+        })),
+      },
+    },
+    nextTimestamp,
+  );
 }
 
 /** Returns the category of a chart type (timeseries or cumulative).
@@ -1137,7 +1276,8 @@ export function isSubmittableConfig(
       return false;
     if (
       cleanedConfig.dataset.type === "data_source" &&
-      (!cleanedConfig.dataset.table || !cleanedConfig.dataset.timestampColumn)
+      (!cleanedConfig.dataset.table ||
+        !hasTimestampColumn(cleanedConfig.dataset.timestampColumn))
     )
       return false;
   }
@@ -1147,7 +1287,8 @@ export function isSubmittableConfig(
     const hasSql = sql.trim().length > 0;
     const hasColumnTypes = Object.keys(columnTypes).length > 0;
     const timestampIsDate =
-      timestampColumn === null || columnTypes[timestampColumn] === "date";
+      !hasTimestampColumn(timestampColumn) ||
+      columnTypes[timestampColumn] === "date";
     // Config is not submittable without sql, columns, or if timestamp column is not a date
     if (!hasSql || !hasColumnTypes || !timestampIsDate) return false;
   }

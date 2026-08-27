@@ -25,7 +25,11 @@ import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import { ExplorerProvider } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import type { ExplorerDraftConfig } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  normalizeTimelessSqlConfig,
+  stripExplorerDraftFields,
+  type ExplorerDraftConfig,
+} from "@/enterprise/components/ProductAnalytics/util";
 import ProductAnalyticsExplorerSideBarWrapper from "./ProductAnalyticsExplorerSideBarWrapper";
 
 interface Props {
@@ -202,10 +206,13 @@ export default function ProductAnalyticsExplorerSettings({
                 comparison: undefined,
                 comparisonExplorerAnalysisId: undefined,
               }),
-          config: {
-            ...nextConfig,
-            chartType: block.config?.chartType || exploration.config?.chartType,
-          },
+          config: stripExplorerDraftFields(
+            normalizeTimelessSqlConfig({
+              ...nextConfig,
+              chartType:
+                block.config?.chartType || exploration.config?.chartType,
+            }),
+          ),
         } as
           | MetricExplorationBlockInterface
           | FactTableExplorationBlockInterface

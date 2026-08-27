@@ -184,7 +184,7 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
           emptyState
         )}
 
-        {(needsFetch || loading) && !suppressStaleFloatingCallout && (
+        {(isStale || loading) && !suppressStaleFloatingCallout && (
           <Box
             style={{
               position: "absolute",

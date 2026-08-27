@@ -13,6 +13,7 @@ import {
   buildComparisonExplorationConfig,
   computeExplorationComparisonPayload,
   getComparisonAlignmentStrategy,
+  hasTimestampColumn,
 } from "shared/enterprise";
 import { QueryInterface } from "shared/types/query";
 import type { FactMetricInterface } from "shared/types/fact-table";
@@ -113,7 +114,7 @@ export const postProductAnalyticsRun = async (
 
   if (
     config.dataset.type === "sql" &&
-    config.dataset.timestampColumn === null
+    !hasTimestampColumn(config.dataset.timestampColumn)
   ) {
     throw new BadRequestError("Comparisons require a timestamp column");
   }

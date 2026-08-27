@@ -9,6 +9,7 @@ import md5 from "md5";
 import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
+  hasTimestampColumn,
 } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
 import {
@@ -239,7 +240,10 @@ export class AnalyticsExplorationModel extends BaseClass {
       { sort: { dateCreated: -1 }, limit: 5 },
     );
 
-    if (dataset.type === "sql" && dataset.timestampColumn === null) {
+    if (
+      dataset.type === "sql" &&
+      !hasTimestampColumn(dataset.timestampColumn)
+    ) {
       return matches[0] ?? null;
     }
 

@@ -6,9 +6,13 @@ import {
 } from "shared/types/fact-table";
 import { ExplorationConfig, ExplorationDataset } from "shared/validators";
 import {
+  applyTimestampColumn,
   getCommonColumns,
   getColumnTopValues,
+  normalizeTimelessSqlConfig,
+  resolveSqlPreviewTimestamp,
   validateDimensions,
+  type ExplorerDraftConfig,
 } from "@/enterprise/components/ProductAnalytics/util";
 
 function makeColumn(overrides: Partial<ColumnInterface>): ColumnInterface {
@@ -433,5 +437,136 @@ describe("validateDimensions", () => {
     expect(
       validateDimensions(config, () => ft, noFactMetric).dimensions,
     ).toEqual([]);
+  });
+});
+
+describe("applyTimestampColumn", () => {
+  function sqlDraft(
+    overrides: Partial<ExplorerDraftConfig> & {
+      dataset?: Partial<ExplorerDraftConfig["dataset"]>;
+    } = {},
+  ): ExplorerDraftConfig {
+    return {
+      type: "sql",
+      datasource: "ds_1",
+      chartType: "line",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        {
+          dimensionType: "date",
+          column: "date",
+          dateGranularity: "auto",
+        },
+      ],
+      ...overrides,
+      dataset: {
+        type: "sql",
+        sql: "SELECT 1",
+        timestampColumn: "created_at",
+        columnTypes: { created_at: "date" },
+        values: [],
+        ...(overrides.dataset ?? {}),
+      },
+    } as ExplorerDraftConfig;
+  }
+
+  it("defaults bar/table to a line chart and adds a date dimension when a timestamp appears", () => {
+    const config = sqlDraft({
+      chartType: "bar",
+      dimensions: [],
+      dataset: { timestampColumn: null },
+    });
+    const next = applyTimestampColumn(config, "created_at");
+    expect(next.chartType).toBe("line");
+    expect(next.dimensions[0]).toEqual({
+      dimensionType: "date",
+      column: "date",
+      dateGranularity: "auto",
+    });
+    expect(
+      next.dataset.type === "sql" ? next.dataset.timestampColumn : null,
+    ).toBe("created_at");
+  });
+
+  it("resets a line chart, date dimension, and comparison window when the timestamp is cleared", () => {
+    const config = sqlDraft({
+      previousTimeFrame: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      comparisonMode: "previousPeriod",
+    });
+    const next = applyTimestampColumn(config, null);
+    expect(next.chartType).toBe("bar");
+    expect(next.dimensions).toEqual([]);
+    expect(next.previousTimeFrame).toBeUndefined();
+    expect(next.comparisonMode).toBeUndefined();
+    expect(
+      next.dataset.type === "sql" ? next.dataset.timestampColumn : null,
+    ).toBe(null);
+  });
+
+  it("returns the same reference when a timeless config is already clean", () => {
+    const config = sqlDraft({
+      chartType: "bar",
+      dimensions: [],
+      dataset: { timestampColumn: null },
+    });
+    expect(normalizeTimelessSqlConfig(config)).toBe(config);
+  });
+});
+
+describe("resolveSqlPreviewTimestamp", () => {
+  it("keeps a still-valid manual timestamp pick", () => {
+    expect(
+      resolveSqlPreviewTimestamp({
+        previousTimestamp: "event_at",
+        previousColumnTypes: { event_at: "date", created_at: "date" },
+        columnTypes: { event_at: "date", created_at: "date" },
+        inferredTimestamp: "created_at",
+      }),
+    ).toBe("event_at");
+  });
+
+  it("infers a timestamp when date columns newly appear", () => {
+    expect(
+      resolveSqlPreviewTimestamp({
+        previousTimestamp: null,
+        previousColumnTypes: { event_name: "string" },
+        columnTypes: { event_name: "string", created_at: "date" },
+        inferredTimestamp: "created_at",
+      }),
+    ).toBe("created_at");
+  });
+
+  it("clears the timestamp when the new results have no date columns", () => {
+    expect(
+      resolveSqlPreviewTimestamp({
+        previousTimestamp: "created_at",
+        previousColumnTypes: { created_at: "date" },
+        columnTypes: { event_name: "string" },
+        inferredTimestamp: null,
+      }),
+    ).toBe(null);
+  });
+
+  it("preserves explicit None while date columns still exist", () => {
+    expect(
+      resolveSqlPreviewTimestamp({
+        previousTimestamp: null,
+        previousColumnTypes: { created_at: "date" },
+        columnTypes: { created_at: "date", event_at: "date" },
+        inferredTimestamp: "created_at",
+      }),
+    ).toBe(null);
   });
 });

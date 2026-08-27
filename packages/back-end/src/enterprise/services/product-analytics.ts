@@ -7,6 +7,7 @@ import {
 import {
   calculateProductAnalyticsDateRange,
   encodeExplorationConfig,
+  hasTimestampColumn,
   isFunnelSupportedDatasourceType,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
@@ -138,7 +139,9 @@ export async function runProductAnalyticsExploration(
       );
     }
   } else if (dataset.type === "data_source") {
-    // Nothing to fetch or verify
+    if (!hasTimestampColumn(dataset.timestampColumn)) {
+      throw new BadRequestError("Timestamp column is required");
+    }
   } else if (dataset.type === "sql") {
     if (!dataset.sql.trim()) {
       throw new BadRequestError("SQL query is required");
@@ -146,7 +149,7 @@ export async function runProductAnalyticsExploration(
     if (!isReadOnlySQL(dataset.sql)) {
       throw new BadRequestError("Only SELECT queries are allowed");
     }
-    if (dataset.timestampColumn !== null) {
+    if (hasTimestampColumn(dataset.timestampColumn)) {
       if (!dataset.columnTypes[dataset.timestampColumn]) {
         throw new BadRequestError(
           "Timestamp column must exist in query results",
@@ -173,6 +176,13 @@ export async function runProductAnalyticsExploration(
         )
       ) {
         throw new BadRequestError("Date dimensions require a timestamp column");
+      }
+      if (
+        dataset.values.some((value) => value.valueColumn === "$$distinctDates")
+      ) {
+        throw new BadRequestError(
+          "Distinct date values require a timestamp column",
+        );
       }
     }
   } else if (dataset.type === "funnel") {
