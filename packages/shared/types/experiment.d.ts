@@ -250,6 +250,7 @@ export type ExperimentTargetingData = Pick<
     ExperimentInterfaceStringDates,
     | "hashAttribute"
     | "fallbackAttribute"
+    | "attributeScopeAllProjects"
     | "hashVersion"
     | "disableStickyBucketing"
     | "bucketVersion"
@@ -295,6 +296,12 @@ export interface LinkedFeatureInfo {
   inconsistentValues: boolean;
   rulesAbove: boolean;
   environmentStates: Record<string, LinkedFeatureEnvState>;
+  /**
+   * Projects whose registered attributes are in scope for targeting through
+   * this feature (primary + targeting projects, current ∪ draft-staged).
+   * null = unscoped (the feature targets all projects).
+   */
+  attributeScopeProjects?: string[] | null;
   /**
    * True when the live revision has at least one experiment-ref rule for this
    * experiment.
