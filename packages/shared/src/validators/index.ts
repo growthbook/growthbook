@@ -92,4 +92,7 @@ export * from "./contextual-bandit";
 export * from "./contextual-bandit-query";
 export * from "./contextual-bandit-snapshot";
 export * from "./contextual-bandit-event";
+export * from "./interleaving";
+export * from "./interleaving-query";
+export * from "./interleaving-snapshot";
 export * from "./api-errors";

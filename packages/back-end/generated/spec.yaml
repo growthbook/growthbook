@@ -644,6 +644,12 @@ tags:
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/InformationSchemaTable"
       />
+  - name: Interleaving_model
+    x-displayName: Interleaving
+    description: <SchemaDefinition schemaRef="#/components/schemas/Interleaving" />
+  - name: InterleavingQuery_model
+    x-displayName: Interleaving Query
+    description: <SchemaDefinition schemaRef="#/components/schemas/InterleavingQuery" />
   - name: Learning_model
     x-displayName: Learning
     description: <SchemaDefinition schemaRef="#/components/schemas/Learning" />
@@ -65618,6 +65624,133 @@ components:
       required:
         - variation
       additionalProperties: false
+    Interleaving:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        dateUpdated:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        name:
+          type: string
+        description:
+          type: string
+        project:
+          type: string
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        archived:
+          type: boolean
+        status:
+          type: string
+          enum:
+            - draft
+            - running
+            - stopped
+        dateStarted:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        dateStopped:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        trackingKey:
+          type: string
+        datasource:
+          type: string
+        interleavingQueryId:
+          type: string
+        variationNames:
+          type: array
+          prefixItems:
+            - type: string
+            - type: string
+        metricIds:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - owner
+        - tags
+        - archived
+        - status
+        - trackingKey
+        - datasource
+        - interleavingQueryId
+        - variationNames
+        - metricIds
+      additionalProperties: false
+    InterleavingQuery:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        dateUpdated:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        datasourceId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        userIdType:
+          type: string
+        query:
+          type: string
+        hasInterleaveId:
+          type: boolean
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - owner
+        - datasourceId
+        - name
+        - userIdType
+        - query
+        - hasInterleaveId
+      additionalProperties: false
     ApiErrorConflictDetails:
       type: object
       properties:
@@ -67970,6 +68103,8 @@ x-tagGroups:
       - FeatureWithRevisionsV2_model
       - InformationSchema_model
       - InformationSchemaTable_model
+      - Interleaving_model
+      - InterleavingQuery_model
       - Learning_model
       - LookbackOverride_model
       - Member_model

@@ -137,6 +137,7 @@ export type AppFeatures = {
   "home-marketing-banner": Record<string, unknown>;
   "visual-editor-free-access": boolean;
   "contextual-bandits": boolean;
+  interleaving: boolean;
   "show-switch-to-old-exp-create": boolean;
   "playstation-new-internal-dashboard": boolean;
   tester123: boolean;

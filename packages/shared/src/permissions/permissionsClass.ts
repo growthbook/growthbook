@@ -32,6 +32,7 @@ import { ConstantInterface } from "shared/types/constant";
 import { ConfigInterface } from "shared/types/config";
 import { CustomHookInterface } from "../validators/custom-hooks";
 import { ContextualBanditInterface } from "../validators/contextual-bandit";
+import { InterleavingInterface } from "../validators/interleaving";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
 import { PermissionError, isEventForwarderEventsFactTable } from "../util/";
@@ -568,6 +569,59 @@ export class Permissions {
   };
 
   public canRunContextualBanditQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
+  public canViewInterleavingModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.checkProjectFilterPermission(
+          { projects: [p.id] },
+          "createAnalyses",
+        ),
+      );
+    }
+    return this.checkProjectFilterPermission(
+      { projects: project ? [project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canCreateInterleaving = (
+    interleaving: Pick<InterleavingInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: interleaving.project ? [interleaving.project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canUpdateInterleaving = (
+    existing: Pick<InterleavingInterface, "project">,
+    updated: Pick<InterleavingInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "createAnalyses",
+    );
+  };
+
+  public canDeleteInterleaving = (
+    interleaving: Pick<InterleavingInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: interleaving.project ? [interleaving.project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canRunInterleavingQueries = (
     datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
