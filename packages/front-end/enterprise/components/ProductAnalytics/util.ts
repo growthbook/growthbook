@@ -1103,7 +1103,7 @@ export function applySqlPreviewMetadata(
   columnTypes: SqlDataset["columnTypes"],
   inferredTimestamp: string | null,
 ): ExplorerDraftConfig {
-  if (config.dataset.type !== "sql") return config;
+  if (config.type !== "sql") return config;
   const valueColumns = new Set(Object.keys(columnTypes));
   const nextTimestamp = resolveSqlPreviewTimestamp({
     previousTimestamp: config.dataset.timestampColumn,
