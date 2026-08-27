@@ -74,7 +74,8 @@ function isFilteredOut(
 // Run an interleaving experiment against a GrowthBook instance. The
 // definition (which lists to weave, coverage, targeting, kill switch) comes
 // from the instance's payload; the caller supplies only the experiment key,
-// its locally generated candidate lists, and the item identity function.
+// its candidate lists (typically precomputed by an upstream/offline ranking
+// system — the SDK just picks and weaves), and the item identity function.
 export function interleave<T>(
   gb: GrowthBook,
   options: InterleaveOptions<T>,

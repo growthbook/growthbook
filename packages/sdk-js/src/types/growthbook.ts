@@ -180,8 +180,12 @@ export type CBContext = {
   banditVersion?: number;
 };
 
-// A named ranked candidate list supplied by the caller at serving time.
-// Lazy generators are only invoked for lists the experiment actually weaves.
+// A named ranked candidate list. Lists are plain data — the SDK never runs
+// rankers, it only weaves the lists it is given. Typically the rankings are
+// computed upstream (offline/batch pipelines, a ranking service, a feature
+// store) and passed as arrays; items can be bare ids. A lazy generator is an
+// optimization for expensive ON-DEMAND rankers: it is only invoked for lists
+// the experiment actually weaves.
 export interface InterleaveList<T> {
   name: string;
   items: T[] | (() => T[]);
