@@ -225,3 +225,22 @@ export async function assertHoldoutScopeCoversLinked(
     );
   }
 }
+
+export function isHoldoutExperiment(
+  experiment: ExperimentInterface,
+): experiment is ExperimentInterface & { type: "holdout" } {
+  return experiment.type === "holdout";
+}
+
+export function getHoldoutLivePayloadChanges(
+  experiment: ExperimentInterface & { type: "holdout" },
+  coverage: number | undefined,
+): { changesLivePayload: boolean; changedFields: string[] } {
+  const payloadPhase = experiment.phases[0];
+  const coverageChanged =
+    coverage !== undefined && coverage !== payloadPhase?.coverage;
+  return {
+    changesLivePayload: coverageChanged,
+    changedFields: coverageChanged ? ["coverage"] : [],
+  };
+}

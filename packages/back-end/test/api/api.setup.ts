@@ -1,6 +1,5 @@
 import { randomUUID } from "crypto";
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
 import merge from "lodash/merge";
 import { getAuthConnection } from "back-end/src/services/auth";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
@@ -10,6 +9,7 @@ import { queueInit } from "back-end/src/init/queue";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { waitForIndexes } from "back-end/src/models/BaseModel";
 import { ReqContextClass } from "back-end/src/services/context";
+import { testMongoUri } from "back-end/test/mongo";
 
 jest.mock("back-end/src/util/secrets", () => ({
   ...jest.requireActual("back-end/src/util/secrets"),
@@ -46,15 +46,12 @@ export const setupApp = () => {
   // spec each run.
   jest.setTimeout(20000);
 
-  let mongodb;
   let reqContext;
   const auditMock = jest.fn();
   const OLD_ENV = process.env;
   const isReady = new Promise((resolve) => {
     beforeAll(async () => {
-      mongodb = await MongoMemoryServer.create();
-      const uri = mongodb.getUri();
-      process.env.MONGO_URL = uri;
+      process.env.MONGO_URL = testMongoUri();
       getAuthConnection().middleware.mockImplementation((req, res, next) => {
         next();
       });
@@ -109,7 +106,6 @@ export const setupApp = () => {
     afterAll(async () => {
       await getAgendaInstance().stop();
       await mongoose.connection.close();
-      await mongodb.stop();
       process.env = OLD_ENV;
     });
 
