@@ -121,3 +121,45 @@ export const apiUpdateInterleavingBody = z.strictObject({
 export type ApiUpdateInterleavingBody = z.infer<
   typeof apiUpdateInterleavingBody
 >;
+
+const interleavingIdOnlyParam = z.object({ id: z.string() }).strict();
+
+export const refreshInterleavingValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: interleavingIdOnlyParam,
+  responseSchema: z.object({ snapshotId: z.string() }).strict(),
+  summary: "Trigger an interleaving results refresh",
+  operationId: "refreshInterleaving",
+  tags: ["Interleavings"],
+  method: "post" as const,
+  path: "/interleavings/:id/refresh",
+};
+
+export const interleavingSnapshotResponseShape = z
+  .object({
+    id: z.string(),
+    status: z.enum(["pending", "running", "success", "error"]),
+    error: z.string().optional(),
+    runStarted: z.string().nullable(),
+    metricEstimators: z
+      .record(z.string(), z.enum(interleavingEstimators))
+      .optional(),
+    results: z.array(z.unknown()).optional(),
+    dateCreated: z.string(),
+  })
+  .strict();
+
+export const getInterleavingResultsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: interleavingIdOnlyParam,
+  responseSchema: z
+    .object({ snapshot: interleavingSnapshotResponseShape.nullable() })
+    .strict(),
+  summary: "Get the latest interleaving results snapshot",
+  operationId: "getInterleavingResults",
+  tags: ["Interleavings"],
+  method: "get" as const,
+  path: "/interleavings/:id/results",
+};

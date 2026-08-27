@@ -379,11 +379,17 @@ tags:
   - name: ContextualBandits
     x-displayName: Contextual Bandits
     description: ''
+  - name: Interleavings
+    x-displayName: Interleavings
+    description: ''
   - name: Dashboards
     x-displayName: Dashboards
     description: ''
   - name: ContextualBanditQueries
     x-displayName: Contextual Bandit Queries
+    description: ''
+  - name: InterleavingQueries
+    x-displayName: Interleaving Queries
     description: ''
   - name: CustomFields
     x-displayName: Custom Fields
@@ -16090,6 +16096,108 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/linked-feature/{featureId}'
             \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/refresh:
+    post:
+      operationId: refreshInterleaving
+      summary: Trigger an interleaving results refresh
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshotId:
+                    type: string
+                required:
+                  - snapshotId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/interleavings/{id}/refresh' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/results:
+    get:
+      operationId: getInterleavingResults
+      summary: Get the latest interleaving results snapshot
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshot:
+                    anyOf:
+                      - type: object
+                        properties:
+                          id:
+                            type: string
+                          status:
+                            type: string
+                            enum:
+                              - pending
+                              - running
+                              - success
+                              - error
+                          error:
+                            type: string
+                          runStarted:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          metricEstimators:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: string
+                              enum:
+                                - paired
+                                - ownership
+                          results:
+                            type: array
+                            items: {}
+                          dateCreated:
+                            type: string
+                        required:
+                          - id
+                          - status
+                          - runStarted
+                          - dateCreated
+                        additionalProperties: false
+                      - type: 'null'
+                required:
+                  - snapshot
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/interleavings/{id}/results' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/snapshots/{id}:
     get:
@@ -42476,6 +42584,459 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}:
+    get:
+      operationId: getInterleaving
+      summary: Get a single interleaving
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleaving:
+                    $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleaving
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/interleavings/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteInterleaving
+      summary: Delete a single interleaving
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/interleavings/{id}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: updateInterleaving
+      summary: Update a single interleaving
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                project:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                archived:
+                  type: boolean
+                status:
+                  type: string
+                  enum:
+                    - draft
+                    - running
+                    - stopped
+                trackingKey:
+                  type: string
+                interleavingQueryId:
+                  type: string
+                variationNames:
+                  type: array
+                  prefixItems:
+                    - type: string
+                    - type: string
+                metricIds:
+                  type: array
+                  items:
+                    type: string
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleaving:
+                    $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleaving
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/interleavings/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings:
+    post:
+      operationId: createInterleaving
+      summary: Create a single interleaving
+      tags:
+        - Interleavings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization. When
+                    omitted, it defaults to the user associated with the
+                    request's Personal Access Token (PAT), if one is being used.
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                project:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                trackingKey:
+                  type: string
+                datasource:
+                  type: string
+                interleavingQueryId:
+                  type: string
+                variationNames:
+                  type: array
+                  prefixItems:
+                    - type: string
+                    - type: string
+                metricIds:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - name
+                - trackingKey
+                - datasource
+                - interleavingQueryId
+                - variationNames
+                - metricIds
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleaving:
+                    $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleaving
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/interleavings' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listInterleavings
+      summary: Get all interleavings
+      tags:
+        - Interleavings
+      parameters:
+        - name: projectId
+          in: query
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleavings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleavings
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/interleavings' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleaving-queries/{id}:
+    get:
+      operationId: getInterleavingQuery
+      summary: Get a single interleavingQuery
+      tags:
+        - InterleavingQueries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleavingQuery:
+                    $ref: '#/components/schemas/InterleavingQuery'
+                required:
+                  - interleavingQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/interleaving-queries/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteInterleavingQuery
+      summary: Delete a single interleavingQuery
+      tags:
+        - InterleavingQueries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/interleaving-queries/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: updateInterleavingQuery
+      summary: Update a single interleavingQuery
+      tags:
+        - InterleavingQueries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                userIdType:
+                  type: string
+                query:
+                  type: string
+                hasInterleaveId:
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleavingQuery:
+                    $ref: '#/components/schemas/InterleavingQuery'
+                required:
+                  - interleavingQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/interleaving-queries/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleaving-queries:
+    post:
+      operationId: createInterleavingQuery
+      summary: Create a single interleavingQuery
+      tags:
+        - InterleavingQueries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization. When
+                    omitted, it defaults to the user associated with the
+                    request's Personal Access Token (PAT), if one is being used.
+                  type: string
+                datasourceId:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                userIdType:
+                  type: string
+                query:
+                  type: string
+                hasInterleaveId:
+                  type: boolean
+              required:
+                - datasourceId
+                - name
+                - userIdType
+                - query
+                - hasInterleaveId
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleavingQuery:
+                    $ref: '#/components/schemas/InterleavingQuery'
+                required:
+                  - interleavingQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST 'https://api.growthbook.io/api/v1/interleaving-queries'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listInterleavingQueries
+      summary: Get all interleavingQueries
+      tags:
+        - InterleavingQueries
+      parameters:
+        - name: datasourceId
+          in: query
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleavingQueries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InterleavingQuery'
+                required:
+                  - interleavingQueries
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET 'https://api.growthbook.io/api/v1/interleaving-queries'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/custom-fields:
     post:
       operationId: createCustomField
@@ -63038,6 +63599,121 @@ components:
         - query
         - targetingAttributeColumns
       additionalProperties: false
+    Interleaving:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        name:
+          type: string
+        description:
+          type: string
+        project:
+          type: string
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        archived:
+          type: boolean
+        status:
+          type: string
+          enum:
+            - draft
+            - running
+            - stopped
+        dateStarted:
+          type: string
+          format: date-time
+        dateStopped:
+          type: string
+          format: date-time
+        trackingKey:
+          type: string
+        datasource:
+          type: string
+        interleavingQueryId:
+          type: string
+        variationNames:
+          type: array
+          prefixItems:
+            - type: string
+            - type: string
+        metricIds:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - owner
+        - tags
+        - archived
+        - status
+        - trackingKey
+        - datasource
+        - interleavingQueryId
+        - variationNames
+        - metricIds
+      additionalProperties: false
+    InterleavingQuery:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        datasourceId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        userIdType:
+          type: string
+        query:
+          type: string
+        hasInterleaveId:
+          type: boolean
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - owner
+        - datasourceId
+        - name
+        - userIdType
+        - query
+        - hasInterleaveId
+      additionalProperties: false
     CustomField:
       type: object
       properties:
@@ -65624,133 +66300,6 @@ components:
       required:
         - variation
       additionalProperties: false
-    Interleaving:
-      type: object
-      properties:
-        id:
-          type: string
-        dateCreated:
-          type: string
-          format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-        dateUpdated:
-          type: string
-          format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-        name:
-          type: string
-        description:
-          type: string
-        project:
-          type: string
-        owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
-          type: string
-        ownerEmail:
-          description: >-
-            The email address of the owner, when the owner can be resolved to a
-            known user.
-          type: string
-        tags:
-          type: array
-          items:
-            type: string
-        archived:
-          type: boolean
-        status:
-          type: string
-          enum:
-            - draft
-            - running
-            - stopped
-        dateStarted:
-          type: string
-          format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-        dateStopped:
-          type: string
-          format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-        trackingKey:
-          type: string
-        datasource:
-          type: string
-        interleavingQueryId:
-          type: string
-        variationNames:
-          type: array
-          prefixItems:
-            - type: string
-            - type: string
-        metricIds:
-          type: array
-          items:
-            type: string
-      required:
-        - id
-        - dateCreated
-        - dateUpdated
-        - name
-        - owner
-        - tags
-        - archived
-        - status
-        - trackingKey
-        - datasource
-        - interleavingQueryId
-        - variationNames
-        - metricIds
-      additionalProperties: false
-    InterleavingQuery:
-      type: object
-      properties:
-        id:
-          type: string
-        dateCreated:
-          type: string
-          format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-        dateUpdated:
-          type: string
-          format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-        owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
-          type: string
-        ownerEmail:
-          description: >-
-            The email address of the owner, when the owner can be resolved to a
-            known user.
-          type: string
-        datasourceId:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        userIdType:
-          type: string
-        query:
-          type: string
-        hasInterleaveId:
-          type: boolean
-      required:
-        - id
-        - dateCreated
-        - dateUpdated
-        - owner
-        - datasourceId
-        - name
-        - userIdType
-        - query
-        - hasInterleaveId
-      additionalProperties: false
     ApiErrorConflictDetails:
       type: object
       properties:
@@ -68024,8 +68573,10 @@ x-tagGroups:
       - usage
       - meta
       - ContextualBandits
+      - Interleavings
       - Dashboards
       - ContextualBanditQueries
+      - InterleavingQueries
       - CustomFields
       - MetricGroups
       - Teams

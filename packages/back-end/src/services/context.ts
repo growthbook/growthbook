@@ -82,6 +82,9 @@ import { ContextualBanditModel } from "back-end/src/enterprise/models/Contextual
 import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
 import { ContextualBanditSnapshotModel } from "back-end/src/enterprise/models/ContextualBanditSnapshotModel";
 import { ContextualBanditEventModel } from "back-end/src/enterprise/models/ContextualBanditEventModel";
+import { InterleavingModel } from "back-end/src/enterprise/models/InterleavingModel";
+import { InterleavingQueryModel } from "back-end/src/enterprise/models/InterleavingQueryModel";
+import { InterleavingSnapshotModel } from "back-end/src/enterprise/models/InterleavingSnapshotModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
@@ -157,6 +160,9 @@ export type ModelName =
   | "contextualBanditQueries"
   | "contextualBanditSnapshots"
   | "contextualBanditEvents"
+  | "interleavings"
+  | "interleavingQueries"
+  | "interleavingSnapshots"
   | "sessionReplays"
   | "eventForwarderConfigs"
   | "aiCredentials";
@@ -213,6 +219,9 @@ export const modelClasses = {
   contextualBanditQueries: ContextualBanditQueryModel,
   contextualBanditSnapshots: ContextualBanditSnapshotModel,
   contextualBanditEvents: ContextualBanditEventModel,
+  interleavings: InterleavingModel,
+  interleavingQueries: InterleavingQueryModel,
+  interleavingSnapshots: InterleavingSnapshotModel,
   sessionReplays: SessionReplayModel,
   eventForwarderConfigs: EventForwarderConfigModel,
 };
@@ -372,6 +381,9 @@ export class ReqContextClass {
       contextualBanditQueries: new ContextualBanditQueryModel(this),
       contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
       contextualBanditEvents: new ContextualBanditEventModel(this),
+      interleavings: new InterleavingModel(this),
+      interleavingQueries: new InterleavingQueryModel(this),
+      interleavingSnapshots: new InterleavingSnapshotModel(this),
       sessionReplays: new SessionReplayModel(this),
       eventForwarderConfigs: new EventForwarderConfigModel(this),
     };

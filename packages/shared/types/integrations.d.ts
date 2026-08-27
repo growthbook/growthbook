@@ -351,6 +351,25 @@ export interface ContextualBanditSrmQueryParams {
   settings: ExperimentUnitsQuerySettings;
 }
 
+export interface InterleavingMetricQueryParams {
+  // "paired": engagement joins to impressions via interleave_id (DoorDash
+  // estimator); "ownership": user x item ownership shares (Airbnb estimator)
+  estimator: "paired" | "ownership";
+  // The interleaving exposure query SQL (one row per impression x item)
+  exposureQuery: string;
+  userIdType: string;
+  trackingKey: string;
+  // Control first; must match the exposure `variation` column values
+  variationNames: [string, string];
+  startDate: Date;
+  endDate?: Date | null;
+  // The metric's fact table SQL and value semantics
+  factTableSql: string;
+  metricType: "mean" | "proportion";
+  // Numerator column for mean metrics; null means count rows / existence
+  valueColumn: string | null;
+}
+
 export interface CreateExperimentIncrementalUnitsQueryParams {
   settings: ExperimentSnapshotSettings;
   exposureQuery: ResolvedExposureQuery;
@@ -845,6 +864,12 @@ export type DimensionSlicesQueryResponse =
   QueryResponse<DimensionSlicesQueryResponseRows>;
 export type ContextualBanditSrmQueryResponse =
   QueryResponse<ContextualBanditSrmQueryResponseRows>;
+
+// One row of numeric aggregates; the column set depends on the estimator
+// (paired sufficient statistics vs ownership preference counts)
+export type InterleavingMetricQueryResponseRows = Record<string, number>[];
+export type InterleavingMetricQueryResponse =
+  QueryResponse<InterleavingMetricQueryResponseRows>;
 export type DropTableQueryResponse = QueryResponse;
 export type IncrementalWithNoOutputQueryResponse = QueryResponse;
 export type MaxTimestampQueryResponse = QueryResponse<

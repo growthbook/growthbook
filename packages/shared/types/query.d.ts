@@ -52,6 +52,8 @@ export type QueryType =
   | "experimentMetric"
   // Queries for fact metrics in an experiment update (may only actually have one metric)
   | "experimentMultiMetric"
+  // Per-metric sufficient-statistics query for an interleaving experiment
+  | "interleavingMetric"
   // Query run to update the experiment traffic data for the health tab
   | "experimentTraffic"
 
