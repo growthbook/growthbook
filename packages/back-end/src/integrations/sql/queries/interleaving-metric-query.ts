@@ -107,6 +107,12 @@ export function getInterleavingMetricQuery(
     metricType === "proportion" || !valueColumn ? "1" : `m.${valueColumn}`;
 
   if (estimator === "paired") {
+    // Note: events are pre-aggregated per (user, impression, item) and the
+    // join filters on MIN(timestamp) >= exposure timestamp. An item whose
+    // FIRST event precedes the exposure is dropped entirely; an item with
+    // both pre- and post-exposure events counts all of them. Exact per-event
+    // filtering would need join-before-aggregate (fanout); acceptable v1
+    // approximation since engagement follows exposure within an impression.
     const eventsCTE = `
     __events AS (
       SELECT
@@ -130,10 +136,14 @@ export function getInterleavingMetricQuery(
     WITH
     ${exposuresCTE},
     ${eventsCTE},
-    __engagedImpressions AS (
-      SELECT DISTINCT e.user_id, e.interleave_id
+    __credited AS (
+      SELECT
+        e.user_id,
+        e.interleave_id,
+        e.team,
+        COALESCE(ev.value, 0) AS value
       FROM __exposures e
-      JOIN __events ev ON (
+      LEFT JOIN __events ev ON (
         ev.user_id = e.user_id
         AND ev.interleave_id = e.interleave_id
         AND ev.item_id = e.item_id
@@ -141,22 +151,26 @@ export function getInterleavingMetricQuery(
       )
     ),
     __userStats AS (
+      -- Engaged-impressions dilution filter via a window (single pass over
+      -- the exposures join; no second join or DISTINCT needed)
       SELECT
-        e.user_id,
-        SUM(e.team * COALESCE(ev.value, 0)) AS x,
-        SUM((1 - e.team) * COALESCE(ev.value, 0)) AS y,
-        SUM(e.team) AS n
-      FROM __exposures e
-      JOIN __engagedImpressions g ON (
-        g.user_id = e.user_id AND g.interleave_id = e.interleave_id
-      )
-      LEFT JOIN __events ev ON (
-        ev.user_id = e.user_id
-        AND ev.interleave_id = e.interleave_id
-        AND ev.item_id = e.item_id
-        AND ev.first_event_timestamp >= e.exposure_timestamp
-      )
-      GROUP BY e.user_id
+        t.user_id,
+        SUM(t.team * t.value) AS x,
+        SUM((1 - t.team) * t.value) AS y,
+        SUM(t.team) AS n
+      FROM (
+        SELECT
+          c.user_id,
+          c.interleave_id,
+          c.team,
+          c.value,
+          SUM(c.value) OVER (
+            PARTITION BY c.user_id, c.interleave_id
+          ) AS impression_value
+        FROM __credited c
+      ) t
+      WHERE t.impression_value > 0
+      GROUP BY t.user_id
     )
     SELECT
       COUNT(*) AS users,

@@ -50,7 +50,8 @@ describe("getInterleavingMetricQuery", () => {
     // Structural assertions on both variants
     expect(paired).toContain("__exposures");
     expect(paired).toContain("jsonb_array_elements");
-    expect(paired).toContain("__engagedImpressions");
+    expect(paired).toContain("__credited");
+    expect(paired).toContain("impression_value");
     expect(paired).toContain("sum_xy");
     expect(paired).toContain("'featured-products-ranker'");
     expect(ownership).toContain("__ownership");

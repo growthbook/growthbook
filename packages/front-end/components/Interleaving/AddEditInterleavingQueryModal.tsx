@@ -227,7 +227,10 @@ export const AddEditInterleavingQueryModal: FC<Props> = ({
           <Callout status="info" mb="2">
             Return one row per impression. The drafted items ride in the{" "}
             <code>{INTERLEAVING_ITEMS_COLUMN}</code> JSON column exactly as the
-            SDK emits them — GrowthBook unnests them at analysis time.
+            SDK emits them — GrowthBook unnests them at analysis time. Use the{" "}
+            <code>{"{{startDate}}"}</code> and <code>{"{{endDate}}"}</code>{" "}
+            template variables in your WHERE clause so the warehouse can prune
+            partitions before unnesting.
           </Callout>
           {userEnteredQuery && (
             <Code language="sql" code={userEnteredQuery} expandable={true} />
