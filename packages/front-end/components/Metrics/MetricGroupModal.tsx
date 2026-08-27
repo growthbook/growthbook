@@ -1,7 +1,8 @@
-import React, { FC } from "react";
+import React, { FC, useCallback } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { MetricGroupInterface } from "shared/types/metric-groups";
+import { isProjectListValidForProjects } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -18,7 +19,8 @@ const MetricGroupModal: FC<{
   close: () => void;
   mutate: () => void;
 }> = ({ existingMetricGroup = null, close, mutate }) => {
-  const { projects, datasources, getDatasourceById } = useDefinitions();
+  const { projects, datasources, getDatasourceById, metrics, factMetrics } =
+    useDefinitions();
   const permissionsUtil = usePermissionsUtil();
 
   const { apiCall } = useAuth();
@@ -38,6 +40,33 @@ const MetricGroupModal: FC<{
   const projectOptions = useProjectOptions(
     () => permissionsUtil.canCreateMetricGroup(),
     form.watch("projects") || [],
+  );
+
+  const filterMetricsByProjects = useCallback(
+    (newProjects: string[]) => {
+      const currentMetrics = form.getValues("metrics");
+      if (!newProjects.length || !currentMetrics.length) return;
+
+      const validMetrics = currentMetrics.filter((metricId) => {
+        const metric = metrics.find((m) => m.id === metricId);
+        if (metric) {
+          return isProjectListValidForProjects(metric.projects, newProjects);
+        }
+        const factMetric = factMetrics.find((m) => m.id === metricId);
+        if (factMetric) {
+          return isProjectListValidForProjects(
+            factMetric.projects,
+            newProjects,
+          );
+        }
+        return false;
+      });
+
+      if (validMetrics.length !== currentMetrics.length) {
+        form.setValue("metrics", validMetrics);
+      }
+    },
+    [form, metrics, factMetrics],
   );
 
   return (
@@ -121,7 +150,10 @@ const MetricGroupModal: FC<{
             placeholder="All Projects"
             value={form.watch("projects") || []}
             options={projectOptions}
-            onChange={(v) => form.setValue("projects", v)}
+            onChange={(v) => {
+              form.setValue("projects", v);
+              filterMetricsByProjects(v);
+            }}
             customClassName="label-overflow-ellipsis"
           />
         </div>
