@@ -1,0 +1,76 @@
+import fs from "fs";
+import path from "path";
+import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
+import { getInterleavingMetricQuery } from "back-end/src/integrations/sql/queries/interleaving-metric-query";
+
+// The demo storefront's telemetry schema (local-groceries-international):
+// nested interleave exposure events unnested to one row per impression x item
+const EXPOSURE_QUERY = `SELECT
+  e.user_id as user_id,
+  e.received_at as timestamp,
+  e.properties->>'experimentId' as experiment_id,
+  e.properties->>'interleaveId' as interleave_id,
+  item->>'itemId' as item_id,
+  item->>'variation' as variation,
+  (item->>'competitive')::boolean as competitive
+FROM events e, jsonb_array_elements(e.properties->'items') as item
+WHERE e.event_name = 'Interleave Exposure'`;
+
+const FACT_TABLE_SQL = `SELECT
+  user_id,
+  received_at as timestamp,
+  properties->>'item_id' as item_id,
+  properties->>'interleave_id' as interleave_id,
+  (properties->>'value')::float as value
+FROM events
+WHERE event_name = 'Add to Cart'`;
+
+const baseParams = {
+  exposureQuery: EXPOSURE_QUERY,
+  userIdType: "user_id",
+  trackingKey: "featured-products-ranker",
+  variationNames: ["buyers-picks", "price-low"] as [string, string],
+  startDate: new Date("2020-01-01"),
+  endDate: null,
+  factTableSql: FACT_TABLE_SQL,
+  metricType: "proportion" as const,
+  valueColumn: null,
+};
+
+describe("getInterleavingMetricQuery", () => {
+  it("generates paired and ownership SQL and (optionally) writes them for live execution", () => {
+    const paired = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      estimator: "paired",
+    });
+    const ownership = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      estimator: "ownership",
+    });
+
+    // Structural assertions on both variants
+    expect(paired).toContain("__exposures");
+    expect(paired).toContain("__engagedImpressions");
+    expect(paired).toContain("sum_xy");
+    expect(paired).toContain("'featured-products-ranker'");
+    expect(ownership).toContain("__ownership");
+    expect(ownership).toContain("users_pref_treatment");
+    expect(ownership).not.toContain("interleave_id AS interleave_id");
+
+    // Escapes quotes in variation names
+    const quoted = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      estimator: "ownership",
+      variationNames: ["o'brien", "control"] as [string, string],
+    });
+    expect(quoted).toContain("'o''brien'");
+
+    // Optionally dump to disk so the SQL can be executed against the demo
+    // telemetry database (set INTERLEAVING_SQL_OUT to a directory)
+    const outDir = process.env.INTERLEAVING_SQL_OUT;
+    if (outDir) {
+      fs.writeFileSync(path.join(outDir, "paired.sql"), paired);
+      fs.writeFileSync(path.join(outDir, "ownership.sql"), ownership);
+    }
+  });
+});
