@@ -237,6 +237,8 @@ export function useHoverTooltip({
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isContentHoveredRef = useRef(false);
   const isTriggerHoveredRef = useRef(false);
+  const triggerElRef = useRef<HTMLElement | null>(null);
+  const lastMousePosRef = useRef<Position | null>(null);
 
   const clearTimers = useCallback(() => {
     if (showTimerRef.current) {
@@ -273,6 +275,35 @@ export function useHoverTooltip({
     isContentHoveredRef.current = false;
   }, [clearTimers, closeTooltip, id]);
 
+  // A pending show-timer can outlive the pointer actually being over the
+  // trigger when no mouseleave is delivered (e.g. the trigger gets covered by
+  // a modal overlay, or its DOM node is replaced mid-hover). Verify the
+  // pointer is still over a connected trigger before showing.
+  const isPointerOverTrigger = useCallback(() => {
+    const trigger = triggerElRef.current;
+    const pos = lastMousePosRef.current;
+    if (!trigger || !trigger.isConnected || !pos) return false;
+    // jsdom (used in tests) does not implement elementFromPoint
+    if (typeof document.elementFromPoint !== "function") return true;
+    const el = document.elementFromPoint(pos.x, pos.y);
+    return el !== null && trigger.contains(el);
+  }, []);
+
+  const armShowTimer = useCallback(() => {
+    if (showTimerRef.current) {
+      clearTimeout(showTimerRef.current);
+    }
+    showTimerRef.current = setTimeout(() => {
+      showTimerRef.current = null;
+      if (!isPointerOverTrigger()) {
+        setState("idle");
+        return;
+      }
+      const success = openTooltip(id);
+      setState(success ? "visible" : "idle");
+    }, delayMs);
+  }, [delayMs, id, openTooltip, isPointerOverTrigger]);
+
   const isVisible = state === "visible";
 
   // Close on scroll
@@ -290,6 +321,29 @@ export function useHoverTooltip({
     };
   }, [isVisible, close]);
 
+  // Cursor mode closes on any pointer movement, but the trigger's own
+  // handlers can't fire once it is covered or unmounted, which would strand
+  // the tooltip on screen. Listen at the document level while visible.
+  useEffect(() => {
+    if (!isVisible || positioning !== "cursor") return;
+
+    const handlePointer = () => {
+      close();
+    };
+
+    document.addEventListener("mousemove", handlePointer, { capture: true });
+    document.addEventListener("mousedown", handlePointer, { capture: true });
+
+    return () => {
+      document.removeEventListener("mousemove", handlePointer, {
+        capture: true,
+      });
+      document.removeEventListener("mousedown", handlePointer, {
+        capture: true,
+      });
+    };
+  }, [isVisible, positioning, close]);
+
   const onMouseEnter = useCallback(
     (e: React.MouseEvent) => {
       if (!enabled) return;
@@ -297,6 +351,8 @@ export function useHoverTooltip({
       e.stopPropagation?.();
 
       isTriggerHoveredRef.current = true;
+      triggerElRef.current = e.currentTarget as HTMLElement;
+      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
       clearTimers();
 
       // If already visible, just stay visible (cancel any pending hide)
@@ -316,22 +372,16 @@ export function useHoverTooltip({
       }
 
       setState("waiting");
-
-      showTimerRef.current = setTimeout(() => {
-        const success = openTooltip(id);
-        if (success) {
-          setState("visible");
-        } else {
-          setState("idle");
-        }
-      }, delayMs);
+      armShowTimer();
     },
-    [enabled, positioning, state, delayMs, openTooltip, id, clearTimers],
+    [enabled, positioning, state, clearTimers, armShowTimer],
   );
 
   const onMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (!enabled) return;
+
+      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
 
       if (positioning === "cursor") {
         // Update position to cursor coordinates
@@ -348,21 +398,11 @@ export function useHoverTooltip({
 
         // Reset the show timer - tooltip only appears after mouse is still
         if (state === "waiting") {
-          if (showTimerRef.current) {
-            clearTimeout(showTimerRef.current);
-          }
-          showTimerRef.current = setTimeout(() => {
-            const success = openTooltip(id);
-            if (success) {
-              setState("visible");
-            } else {
-              setState("idle");
-            }
-          }, delayMs);
+          armShowTimer();
         }
       }
     },
-    [enabled, positioning, state, delayMs, openTooltip, id, close],
+    [enabled, positioning, state, close, armShowTimer],
   );
 
   const onMouseLeave = useCallback(
