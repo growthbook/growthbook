@@ -70,6 +70,7 @@ type ContextualBanditFormValues = Partial<ExperimentInterfaceStringDates> &
     >
   > & {
     decisionMetric?: string;
+    contextualAttributes?: string[];
   };
 
 export type ContextualBanditFormProps = {
@@ -159,6 +160,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       name: initialValue?.name || "",
       hashAttribute: initialHashAttribute,
       decisionMetric: initialValue?.decisionMetric ?? "",
+      contextualAttributes: initialValue?.contextualAttributes ?? [],
       tags: initialValue?.tags || [],
       targetURLRegex: initialValue?.targetURLRegex || "",
       description: initialValue?.description || "",
@@ -393,9 +395,19 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       }
     }
 
-    const submitContextualAttributes =
-      cbQueries.find((q) => q.id === data.exposureQueryId)
-        ?.targetingAttributeColumns ?? [];
+    const queryAttributeColumns =
+      selectedCbQuery.targetingAttributeColumns ?? [];
+    const submitContextualAttributes = (
+      data.contextualAttributes?.length
+        ? data.contextualAttributes
+        : queryAttributeColumns
+    ).filter((a) => queryAttributeColumns.includes(a));
+    if (submitContextualAttributes.length === 0) {
+      setStep(1);
+      throw new Error(
+        "Select at least one contextual attribute for this Contextual Bandit.",
+      );
+    }
 
     const banditConversionWindowValue =
       shouldIncludeConversionWindow && data.banditConversionWindowValue

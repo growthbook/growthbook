@@ -1,7 +1,9 @@
 import { useFormContext } from "react-hook-form";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { isEqual } from "lodash";
 import { Box, Separator } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import AddEditContextualBanditQueryModal from "@/components/ContextualBandit/AddEditContextualBanditQueryModal";
@@ -50,6 +52,32 @@ export default function ContextualBanditAnalysisFields({
       form.setValue("exposureQueryId", cbQueries[0]?.id ?? "");
     }
   }, [cbQueries, exposureQueryId, form]);
+
+  const queryAttributeColumns = useMemo(
+    () => selectedCbQuery?.targetingAttributeColumns ?? [],
+    [selectedCbQuery],
+  );
+  const watchedContextualAttributes = form.watch("contextualAttributes");
+  const selectedContextualAttributes = useMemo(
+    () => (watchedContextualAttributes ?? []) as string[],
+    [watchedContextualAttributes],
+  );
+
+  useEffect(() => {
+    if (!selectedCbQuery) return;
+    const valid = selectedContextualAttributes.filter((a) =>
+      queryAttributeColumns.includes(a),
+    );
+    const next = valid.length > 0 ? valid : queryAttributeColumns;
+    if (!isEqual(next, selectedContextualAttributes)) {
+      form.setValue("contextualAttributes", next);
+    }
+  }, [
+    selectedCbQuery,
+    queryAttributeColumns,
+    selectedContextualAttributes,
+    form,
+  ]);
 
   const settings = useOrgSettings();
 
@@ -141,20 +169,22 @@ export default function ContextualBanditAnalysisFields({
               />
             )}
             {selectedCbQuery ? (
-              <Box mt="2">
-                <strong className="font-weight-semibold">
-                  Targeting Attributes:{" "}
-                </strong>
-                {(selectedCbQuery.targetingAttributeColumns ?? []).map(
-                  (d, i) => (
-                    <Fragment key={d}>
-                      {i ? ", " : ""}
-                      <code>{d}</code>
-                    </Fragment>
-                  ),
-                )}
-                {!(selectedCbQuery.targetingAttributeColumns ?? []).length && (
-                  <em className="text-muted">none</em>
+              <Box mt="3">
+                <MultiSelectField
+                  label="Contextual Attributes"
+                  value={selectedContextualAttributes}
+                  onChange={(v) => form.setValue("contextualAttributes", v)}
+                  options={queryAttributeColumns.map((a) => ({
+                    label: a,
+                    value: a,
+                  }))}
+                  placeholder="Select contextual attributes…"
+                  helpText="Attributes this Bandit uses as context. Defaults to all query attributes; select a subset to narrow it."
+                />
+                {queryAttributeColumns.length === 0 && (
+                  <em className="text-muted">
+                    The selected query has no targeting attribute columns.
+                  </em>
                 )}
               </Box>
             ) : null}

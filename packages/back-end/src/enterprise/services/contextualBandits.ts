@@ -19,6 +19,7 @@ import {
   ContextualBanditQueryInterface,
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
+  getAllowedTargetingAttributePropertyNames,
   LeafWeight,
   RevisionRampAction,
 } from "shared/validators";
@@ -866,9 +867,13 @@ export async function runContextualBanditSnapshot(
     scheduleChanges,
   );
 
+  const allowedGlobalAttributes = getAllowedTargetingAttributePropertyNames(
+    context.org.settings?.attributeSchema,
+  );
   const snapshotSettings = buildContextualBanditSnapshotSettings(
     updatedCb,
     cbQuery,
+    allowedGlobalAttributes,
   );
 
   const cbs = await context.models.contextualBanditSnapshots.create({
@@ -1109,8 +1114,19 @@ export async function persistContextualBanditEvent(
 export function buildContextualBanditSnapshotSettings(
   cb: ContextualBanditInterface,
   cbQuery: ContextualBanditQueryInterface,
+  allowedGlobalAttributes: Set<string>,
 ): ContextualBanditSnapshotSettings {
   const numVariations = cb.variations?.length || 1;
+
+  const selectedAttributes = new Set(cb.contextualAttributes);
+  const effectiveContextualAttributes = (
+    cbQuery.targetingAttributeColumns ?? []
+  ).filter((a) => selectedAttributes.has(a) && allowedGlobalAttributes.has(a));
+  if (effectiveContextualAttributes.length === 0) {
+    throw new Error(
+      `Contextual bandit ${cb.id} has no usable contextual attributes: none of its selected attributes are on both the query and the attribute schema.`,
+    );
+  }
 
   const banditStart = cb.dateStarted ?? new Date();
   const effectiveEnd = cb.dateStopped ?? new Date();
@@ -1130,8 +1146,7 @@ export function buildContextualBanditSnapshotSettings(
     contextualBanditQueryId: cb.contextualBanditQueryId,
     query: cbQuery.query,
     userIdType: cbQuery.userIdType,
-    contextualAttributes:
-      cbQuery.targetingAttributeColumns ?? cb.contextualAttributes,
+    contextualAttributes: effectiveContextualAttributes,
 
     decisionMetric: cb.decisionMetric ?? "",
     metricSettings: {},
@@ -1201,10 +1216,11 @@ export function buildSnapshotSettingsForCb(
 export function getContextualBanditSettingsForStatsEngine(
   cb: ContextualBanditInterface,
   variationIds: string[],
+  contextualAttributes: string[],
 ): ContextualBanditStatsSettings {
   return {
     varIds: variationIds,
-    contextualAttributes: cb.contextualAttributes,
+    contextualAttributes,
     maxLeaves: cb.maxLeaves,
     minUsersPerLeaf: cb.minUsersPerLeaf,
   };

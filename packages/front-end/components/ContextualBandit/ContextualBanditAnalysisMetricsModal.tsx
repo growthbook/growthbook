@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
+import { isEqual } from "lodash";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import { Box } from "@radix-ui/themes";
@@ -10,6 +11,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import ContextualBanditDecisionMetricSettings, {
   conversionWindowFormValuesFromMetricWindow,
@@ -19,6 +21,7 @@ import ContextualBanditDecisionMetricSettings, {
 type FormValues = {
   datasource: string;
   exposureQueryId: string;
+  contextualAttributes: string[];
   decisionMetric: string;
   banditScheduleValue: number;
   banditScheduleUnit: "hours" | "days";
@@ -84,6 +87,7 @@ export default function ContextualBanditAnalysisMetricsModal({
     defaultValues: {
       datasource: cb.datasource ?? "",
       exposureQueryId: cb.contextualBanditQueryId ?? "",
+      contextualAttributes: cb.contextualAttributes ?? [],
       decisionMetric: cb.decisionMetric ?? "",
       banditScheduleValue:
         cb.scheduleValue ?? scopedSettings.banditScheduleValue.value,
@@ -113,8 +117,19 @@ export default function ContextualBanditAnalysisMetricsModal({
     [contextualBanditQueries, watchedQueryId],
   );
 
-  const derivedContextualAttributes =
-    selectedQuery?.targetingAttributeColumns ?? [];
+  const isDraft = cb.status === "draft";
+  const queryAttributeColumns = useMemo(
+    () => selectedQuery?.targetingAttributeColumns ?? [],
+    [selectedQuery],
+  );
+  const watchedContextualAttributes = form.watch("contextualAttributes");
+  const selectedContextualAttributes = useMemo(
+    () => watchedContextualAttributes ?? [],
+    [watchedContextualAttributes],
+  );
+  const effectiveContextualAttributes = selectedContextualAttributes.filter(
+    (a) => queryAttributeColumns.includes(a),
+  );
 
   useEffect(() => {
     if (!contextualBanditQueries.length) return;
@@ -122,6 +137,23 @@ export default function ContextualBanditAnalysisMetricsModal({
       form.setValue("exposureQueryId", contextualBanditQueries[0]?.id ?? "");
     }
   }, [contextualBanditQueries, watchedQueryId, form]);
+
+  useEffect(() => {
+    if (!isDraft || !selectedQuery) return;
+    const valid = selectedContextualAttributes.filter((a) =>
+      queryAttributeColumns.includes(a),
+    );
+    const next = valid.length > 0 ? valid : queryAttributeColumns;
+    if (!isEqual(next, selectedContextualAttributes)) {
+      form.setValue("contextualAttributes", next);
+    }
+  }, [
+    isDraft,
+    selectedQuery,
+    queryAttributeColumns,
+    selectedContextualAttributes,
+    form,
+  ]);
 
   return (
     <FormProvider {...form}>
@@ -136,8 +168,15 @@ export default function ContextualBanditAnalysisMetricsModal({
           const query = contextualBanditQueries.find(
             (q) => q.id === data.exposureQueryId,
           );
-          const contextualAttributes =
-            query?.targetingAttributeColumns ?? cb.contextualAttributes;
+          const queryAttrs = query?.targetingAttributeColumns ?? [];
+          const contextualAttributes = isDraft
+            ? data.contextualAttributes.filter((a) => queryAttrs.includes(a))
+            : cb.contextualAttributes;
+          if (isDraft && contextualAttributes.length === 0) {
+            throw new Error(
+              "Select at least one contextual attribute for this Contextual Bandit.",
+            );
+          }
 
           const includeConversionWindow =
             !disableBanditConversionWindow &&
@@ -198,26 +237,39 @@ export default function ContextualBanditAnalysisMetricsModal({
         ) : null}
 
         {selectedQuery ? (
-          <div className="form-group">
-            <label className="font-weight-bold">Contextual Attributes</label>
-            <div>
-              {derivedContextualAttributes.length > 0 ? (
-                derivedContextualAttributes.map((attr, i) => (
-                  <Fragment key={attr}>
-                    {i > 0 ? ", " : ""}
-                    <code>{attr}</code>
-                  </Fragment>
-                ))
-              ) : (
-                <em className="text-muted">
-                  None — add targeting attribute columns to the selected query.
-                </em>
-              )}
+          isDraft ? (
+            <MultiSelectField
+              label="Contextual Attributes"
+              value={selectedContextualAttributes}
+              onChange={(v) => form.setValue("contextualAttributes", v)}
+              options={queryAttributeColumns.map((a) => ({
+                label: a,
+                value: a,
+              }))}
+              placeholder="Select contextual attributes…"
+              helpText="Attributes this Bandit uses as context. Defaults to all query attributes; select a subset to narrow it."
+            />
+          ) : (
+            <div className="form-group">
+              <label className="font-weight-bold">Contextual Attributes</label>
+              <div>
+                {effectiveContextualAttributes.length > 0 ? (
+                  effectiveContextualAttributes.map((attr, i) => (
+                    <Fragment key={attr}>
+                      {i > 0 ? ", " : ""}
+                      <code>{attr}</code>
+                    </Fragment>
+                  ))
+                ) : (
+                  <em className="text-muted">None</em>
+                )}
+              </div>
+              <small className="form-text text-muted">
+                Contextual attributes can only be changed while the Bandit is a
+                draft.
+              </small>
             </div>
-            <small className="form-text text-muted">
-              Derived from the selected Contextual Bandit query.
-            </small>
-          </div>
+          )
         ) : null}
 
         <hr className="my-4" />

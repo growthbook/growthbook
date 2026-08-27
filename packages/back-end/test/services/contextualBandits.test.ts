@@ -191,7 +191,11 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const cb = makeCb();
     const eaq = makeExposureQuery();
 
-    const settings = buildContextualBanditSnapshotSettings(cb, eaq);
+    const settings = buildContextualBanditSnapshotSettings(
+      cb,
+      eaq,
+      new Set(["country", "device"]),
+    );
 
     expect(settings).not.toHaveProperty("activationMetric");
     expect(settings).not.toHaveProperty("phase");
@@ -215,6 +219,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const settings = buildContextualBanditSnapshotSettings(
       makeCb({ trackingKey: "first_contextual_bandit" }),
       makeExposureQuery(),
+      new Set(["country", "device"]),
     );
 
     expect(settings.experimentId).toBe("cb_1");
@@ -225,6 +230,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const cbSettings = buildContextualBanditSnapshotSettings(
       makeCb({ trackingKey: "first_contextual_bandit" }),
       makeExposureQuery(),
+      new Set(["country", "device"]),
     );
 
     expect(buildSnapshotSettingsForCb(cbSettings).experimentId).toBe(
@@ -232,13 +238,75 @@ describe("buildContextualBanditSnapshotSettings", () => {
     );
   });
 
-  it("falls back to CB.contextualAttributes when EAQ has no targeting columns", () => {
-    const cb = makeCb({ contextualAttributes: ["plan_tier"] });
-    const eaq = makeExposureQuery({ targetingAttributeColumns: undefined });
+  it("intersects CB, query, and global attributes and preserves query order", () => {
+    const cb = makeCb({ contextualAttributes: ["device", "country"] });
+    const eaq = makeExposureQuery({
+      targetingAttributeColumns: ["country", "device", "plan_tier"],
+    });
 
-    const settings = buildContextualBanditSnapshotSettings(cb, eaq);
+    const settings = buildContextualBanditSnapshotSettings(
+      cb,
+      eaq,
+      new Set(["country", "device", "plan_tier"]),
+    );
 
-    expect(settings.contextualAttributes).toEqual(["plan_tier"]);
+    expect(settings.contextualAttributes).toEqual(["country", "device"]);
+  });
+
+  it("drops an attribute the query no longer exposes", () => {
+    const cb = makeCb({ contextualAttributes: ["country", "device"] });
+    const eaq = makeExposureQuery({ targetingAttributeColumns: ["country"] });
+
+    const settings = buildContextualBanditSnapshotSettings(
+      cb,
+      eaq,
+      new Set(["country", "device"]),
+    );
+
+    expect(settings.contextualAttributes).toEqual(["country"]);
+  });
+
+  it("drops an attribute removed from the global attribute schema", () => {
+    const cb = makeCb({ contextualAttributes: ["country", "device"] });
+    const eaq = makeExposureQuery({
+      targetingAttributeColumns: ["country", "device"],
+    });
+
+    const settings = buildContextualBanditSnapshotSettings(
+      cb,
+      eaq,
+      new Set(["country"]),
+    );
+
+    expect(settings.contextualAttributes).toEqual(["country"]);
+  });
+
+  it("does not include a query attribute the CB did not select", () => {
+    const cb = makeCb({ contextualAttributes: ["country"] });
+    const eaq = makeExposureQuery({
+      targetingAttributeColumns: ["country", "device"],
+    });
+
+    const settings = buildContextualBanditSnapshotSettings(
+      cb,
+      eaq,
+      new Set(["country", "device"]),
+    );
+
+    expect(settings.contextualAttributes).toEqual(["country"]);
+  });
+
+  it("throws when the intersection is empty", () => {
+    const cb = makeCb({ contextualAttributes: ["country"] });
+    const eaq = makeExposureQuery({ targetingAttributeColumns: ["device"] });
+
+    expect(() =>
+      buildContextualBanditSnapshotSettings(
+        cb,
+        eaq,
+        new Set(["country", "device"]),
+      ),
+    ).toThrow(/no usable contextual attributes/);
   });
 
   it("defaults variation weights to uniform when the CB has none set", () => {
@@ -255,6 +323,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const settings = buildContextualBanditSnapshotSettings(
       cb,
       makeExposureQuery(),
+      new Set(["country", "device"]),
     );
 
     expect(settings.variations).toEqual([
@@ -292,6 +361,11 @@ describe("runContextualBanditSnapshot", () => {
       overrides.update ?? jest.fn().mockImplementation((cb) => cb);
     return {
       hasPremiumFeature: jest.fn().mockReturnValue(true),
+      org: {
+        settings: {
+          attributeSchema: [{ property: "country" }, { property: "device" }],
+        },
+      },
       models: {
         contextualBandits: { update: updateMock },
         contextualBanditQueries: {

@@ -281,9 +281,7 @@ export class ContextualBanditModel extends BaseClass {
       }
     }
 
-    const targetingAttributeColumns =
-      doc.targetingAttributeColumns ?? doc.contextualAttributes;
-    if ((targetingAttributeColumns?.length ?? 0) === 0) {
+    if ((doc.contextualAttributes?.length ?? 0) === 0) {
       throw new Error(
         "A contextual bandit must declare at least one contextual attribute.",
       );
@@ -294,7 +292,7 @@ export class ContextualBanditModel extends BaseClass {
         {
           id: doc.id,
           name: doc.name,
-          targetingAttributeColumns,
+          targetingAttributeColumns: doc.contextualAttributes,
         },
       ],
     );
@@ -342,7 +340,6 @@ export class ContextualBanditModel extends BaseClass {
         id: generateVariationId(),
         screenshots: [],
       })),
-      targetingAttributeColumns: body.contextualAttributes,
       contextualAttributes: body.contextualAttributes,
       status: "draft" as const,
       currentLeafWeights: [],
@@ -358,9 +355,6 @@ export class ContextualBanditModel extends BaseClass {
       if (body[field] !== undefined) {
         (out as Record<string, unknown>)[field] = body[field];
       }
-    }
-    if (body.contextualAttributes !== undefined) {
-      out.targetingAttributeColumns = body.contextualAttributes;
     }
     return out as Parameters<typeof this.updateById>[1];
   }
