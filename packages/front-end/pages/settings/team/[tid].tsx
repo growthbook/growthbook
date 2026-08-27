@@ -107,7 +107,7 @@ const TeamPage: FC = () => {
             This team is managed by an idP. To make changes to the{" "}
             <b>team name</b> or <b>team membership</b> please access your idP
             and edit the corresponding group. Team permissions must be edited
-            via the <b>Edit permissions</b> button.
+            via the <b>Edit team permissions</b> button.
           </Callout>
         )}
 
@@ -193,7 +193,7 @@ const TeamPage: FC = () => {
               variant="outline"
               onClick={() => setPermissionModalOpen(true)}
             >
-              Edit Team Permissions
+              Edit team permissions
             </Button>
           </Flex>
           {approvalScopes.length > 0 && (
@@ -201,7 +201,7 @@ const TeamPage: FC = () => {
               <Separator size="4" my="4" />
               <Flex direction="column" gap="2">
                 <Heading as="h2" size="md" mb="0">
-                  Required approver for
+                  Required Approver
                 </Heading>
                 {approvalScopes.map((scope) => (
                   <Flex
