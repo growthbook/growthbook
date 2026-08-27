@@ -1,7 +1,9 @@
 import { tabulateCovariateImbalance } from "shared/health";
 import {
   ExperimentMetricInterface,
+  getFactMetricFactTableIds,
   getFactMetricPrimaryFactTableId,
+  isFactFunnelMetric,
   isFactMetric,
   isRatioMetric,
   isRegressionAdjusted,
@@ -644,15 +646,18 @@ const startExperimentIncrementalRefreshQueries = async (
 
     // Same-FT analysis only runs over metrics whose data is fully present in
     // this cache — both numerator and denominator column refs point at this
-    // FT. Cross-FT ratio metrics have one side in this cache and one side in
-    // another cache; their stats are computed in the cross-FT pair pass
-    // below, so running them here would either double-count or read
-    // half-populated columns.
-    const sameFtMetrics = group.metrics.filter(
-      (m) =>
+    // FT. Cross-FT ratio metrics and multifact funnels have data spread
+    // across caches; their stats are computed in dedicated passes below.
+    const sameFtMetrics = group.metrics.filter((m) => {
+      if (isFactFunnelMetric(m)) {
+        const ftIds = [...new Set(getFactMetricFactTableIds(m))];
+        return ftIds.length === 1;
+      }
+      return (
         getFactMetricPrimaryFactTableId(m) === group.factTableId &&
-        (!isRatioMetric(m) || m.denominator?.factTableId === group.factTableId),
-    );
+        (!isRatioMetric(m) || m.denominator?.factTableId === group.factTableId)
+      );
+    });
 
     let createMetricsSourceQuery: QueryPointer | null = null;
     if (!existingSource) {
@@ -1148,6 +1153,104 @@ const startExperimentIncrementalRefreshQueries = async (
     });
     queries.push(crossStatsQuery);
   }
+
+  // Multifact funnel pass: funnels whose steps span 2+ fact tables need a
+  // stats query that joins ALL of their caches. Group funnels that share the
+  // same FT set into a single query to avoid redundant joins.
+  if (desiredFanOut.multiFtFunnels.length > 0) {
+    const multiFtGroups = new Map<
+      string,
+      {
+        factTableIds: string[];
+        metrics: FactMetricInterface[];
+        pipelines: SourcePipeline[];
+      }
+    >();
+    for (const { metric, factTableIds } of desiredFanOut.multiFtFunnels) {
+      const groupKey = [...factTableIds].sort().join("__");
+      const existing = multiFtGroups.get(groupKey);
+      if (existing) {
+        existing.metrics.push(metric);
+      } else {
+        const pipelines: SourcePipeline[] = [];
+        const seenGroupIds = new Set<string>();
+        for (const ftId of factTableIds) {
+          const group = metricSourceGroups.find(
+            (g) =>
+              g.factTableId === ftId &&
+              g.metrics.some((m) => m.id === metric.id),
+          );
+          if (!group) {
+            throw new Error(
+              `Multifact funnel metric "${metric.id}" is missing a source group for fact table "${ftId}".`,
+            );
+          }
+          if (seenGroupIds.has(group.groupId)) continue;
+          seenGroupIds.add(group.groupId);
+          const pipeline = pipelineByGroupId.get(group.groupId);
+          if (!pipeline) {
+            throw new Error(
+              `Multifact funnel metric "${metric.id}" is missing its pipeline for group "${group.groupId}".`,
+            );
+          }
+          pipelines.push(pipeline);
+        }
+        multiFtGroups.set(groupKey, {
+          factTableIds,
+          metrics: [metric],
+          pipelines,
+        });
+      }
+    }
+
+    for (const subGroup of multiFtGroups.values()) {
+      const ftNames = subGroup.factTableIds
+        .map((id) => params.factTableMap.get(id)?.name ?? id)
+        .join(" x ");
+      const sourceName = `(${ftNames})`;
+
+      const funnelStatsQuery = await startQuery({
+        name: `statistics_multi_ft_funnel_${subGroup.factTableIds.sort().join("_")}`,
+        displayTitle: `Compute Multi-FT Funnel Statistics ${sourceName}`,
+        query: integration.getIncrementalRefreshStatisticsQuery({
+          settings: snapshotSettings,
+          exposureQuery: resolvedExposureQuery,
+          activationMetric: activationMetric,
+          factTableMap: params.factTableMap,
+          unitsSourceTableFullName: unitsTableFullName,
+          metrics: subGroup.metrics,
+          lastMaxTimestamp: null,
+          dimensionsForPrecomputation: org.settings
+            ?.disablePrecomputedDimensions
+            ? []
+            : eligibleDimensionsWithSlicesUnderMaxCells,
+          dimensionsForAnalysis: [],
+          metricSources: subGroup.pipelines.map((p) => ({
+            factTableId: p.group.factTableId,
+            tableFullName: p.tableFullName,
+            ...(p.covariateTableFullName
+              ? { covariateTableFullName: p.covariateTableFullName }
+              : {}),
+          })),
+        }),
+        dependencies: [
+          ...subGroup.pipelines.map((p) => p.insertQuery.query),
+          ...subGroup.pipelines.flatMap((p) =>
+            p.covariateInsertQuery ? [p.covariateInsertQuery.query] : [],
+          ),
+        ],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runIncrementalRefreshStatisticsQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentIncrementalRefreshStatistics",
+      });
+      queries.push(funnelStatsQuery);
+    }
+  }
+
   const runTrafficQuery = shouldRunHealthTrafficQuery({
     snapshotType: params.snapshotType,
     snapshotDimensions: snapshotSettings.dimensions,

@@ -303,6 +303,154 @@ describe("funnel incremental refresh — read (merge + resolve)", () => {
   });
 });
 
+// --- Multifact funnel setup (steps across two different fact tables) ---
+const ordersFactTable = factTableFactory.build({
+  id: "orders",
+  name: "Orders",
+  sql: "SELECT user_id, timestamp, order_id, status FROM orders",
+  userIdTypes: ["user_id"],
+  columns: [
+    {
+      column: "status",
+      datatype: "string",
+      name: "Status",
+      description: "",
+      numberFormat: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      deleted: false,
+    },
+  ],
+});
+
+const multiFtFactTableMap = new Map([
+  [eventsFactTable.id, eventsFactTable],
+  [ordersFactTable.id, ordersFactTable],
+]);
+
+const multiFtFunnel = buildFunnelMetric({
+  id: "fact__mf_funnel",
+  steps: [
+    buildStep("view"), // step 0 in "events"
+    {
+      name: "order",
+      factTableId: "orders",
+      rowFilters: [
+        { column: "status", operator: "=" as const, values: ["completed"] },
+      ],
+      optional: false,
+      conversionWindow: { unit: "hours" as const, value: 24 },
+    }, // step 1 in "orders"
+  ],
+  concurrencyWindowSeconds: 600,
+});
+
+function multiFtSchemaSql(factTableId: string): string {
+  return integration.getCreateMetricSourceTableQuery({
+    settings,
+    exposureQuery: resolvedExposureQuery,
+    factTableId,
+    metrics: [multiFtFunnel],
+    factTableMap: multiFtFactTableMap,
+    metricSourceTableFullName: `proj.ds.metric_source_${factTableId}`,
+  });
+}
+
+function multiFtInsertSql(factTableId: string): string {
+  return integration.getInsertMetricSourceDataQuery({
+    settings,
+    exposureQuery: resolvedExposureQuery,
+    activationMetric: null,
+    factTableMap: multiFtFactTableMap,
+    factTableId,
+    metricSourceTableFullName: `proj.ds.metric_source_${factTableId}`,
+    unitsSourceTableFullName: "proj.ds.units",
+    metrics: [multiFtFunnel],
+    lastMaxTimestamp: null,
+  });
+}
+
+function multiFtReadSql(): string {
+  return integration.getIncrementalRefreshStatisticsQuery({
+    settings,
+    exposureQuery: resolvedExposureQuery,
+    activationMetric: null,
+    dimensionsForPrecomputation: [],
+    dimensionsForAnalysis: [],
+    factTableMap: multiFtFactTableMap,
+    metricSources: [
+      { factTableId: "events", tableFullName: "proj.ds.metric_source_events" },
+      { factTableId: "orders", tableFullName: "proj.ds.metric_source_orders" },
+    ],
+    unitsSourceTableFullName: "proj.ds.units",
+    metrics: [multiFtFunnel],
+    lastMaxTimestamp: null,
+  });
+}
+
+describe("multifact funnel incremental refresh — cache schema", () => {
+  it("emits step 0 columns in the events table and step 1 columns in the orders table", () => {
+    const eventsSql = multiFtSchemaSql("events");
+    const ordersSql = multiFtSchemaSql("orders");
+
+    // Events table: step 0 (scalar resolved-ts), no step 1
+    expect(eventsSql).toMatch(/_step_0_resolved_ts\s+DATETIME/);
+    expect(eventsSql).not.toMatch(/_step_1_arr/);
+
+    // Orders table: step 1 (array), no step 0
+    expect(ordersSql).toMatch(/_step_1_arr\s+ARRAY<DATETIME>/);
+    expect(ordersSql).not.toMatch(/_step_0_resolved_ts/);
+  });
+});
+
+describe("multifact funnel incremental refresh — write", () => {
+  it("writes only each table's own steps' data", () => {
+    const eventsSql = multiFtInsertSql("events");
+    const ordersSql = multiFtInsertSql("orders");
+
+    // Events insert writes step 0 (view filter) but not step 1
+    expect(eventsSql).toContain("(event_name = 'view')");
+    expect(eventsSql).not.toContain("(status = 'completed')");
+
+    // Orders insert writes step 1 (order filter) but not step 0
+    expect(ordersSql).toContain("(status = 'completed')");
+    expect(ordersSql).not.toContain("(event_name = 'view')");
+  });
+});
+
+describe("multifact funnel incremental refresh — read (flatten + resolve)", () => {
+  it("reads from both cache tables", () => {
+    const sql = multiFtReadSql();
+    expect(sql).toContain("proj.ds.metric_source_events");
+    expect(sql).toContain("proj.ds.metric_source_orders");
+  });
+
+  it("flattens sources into __unitMetricsBase before resolving", () => {
+    const sql = multiFtReadSql();
+    expect(sql).toContain("__unitMetricsBase");
+  });
+
+  it("runs the resolution chain on the flattened table", () => {
+    const sql = multiFtReadSql();
+    expect(sql).toContain("__funnelResolveIncMultiFt_");
+    expect(sql).toContain("__unitMetrics");
+  });
+
+  it("does NOT run per-source funnel resolution", () => {
+    const sql = multiFtReadSql();
+    // Single-FT funnels produce __joinedDataSteps / __funnelResolveInc_;
+    // multifact funnels should NOT have these per-source resolution CTEs.
+    expect(sql).not.toContain("__joinedDataSteps");
+    expect(sql).not.toContain("__funnelResolveInc_");
+  });
+
+  it("emits per-step sums in the statistics output", () => {
+    const sql = multiFtReadSql();
+    expect(sql).toContain("m0_step_0_sum");
+    expect(sql).toContain("m0_step_1_sum");
+  });
+});
+
 describe("funnel incremental refresh — resolution parity with inline", () => {
   const intervalSecondsSet = (sql: string): Set<number> =>
     new Set(
