@@ -230,6 +230,29 @@ export type ContextualSseTrajectoryEntry = {
   numSplits: number;
   /** Total SSE summed across every leaf of the tree at this stage. */
   totalSse: number;
+  /**
+   * Per-variation SSE at this stage (positional by variation), summing to
+   * `totalSse`.
+   */
+  ssePerVariation: number[];
+};
+
+/**
+ * BIC model-selection statistic for one greedy regression-tree split, derived
+ * from the per-(split, variation) SSE trajectory.
+ */
+export type ContextualBicTrajectoryEntry = {
+  /** Number of splits after applying this split (its resulting stage; >= 1). */
+  numSplits: number;
+  /**
+   * Likelihood-ratio statistic for the split:
+   * `sum_v N_v * ln(SSE_before_v / SSE_after_v)`.
+   */
+  logLikelihoodRatio: number;
+  /** BIC complexity penalty `K * ln(N)` for the split's K new parameters. */
+  penalty: number;
+  /** `penalty - logLikelihoodRatio`; a negative value favors keeping the split. */
+  deltaBic: number;
 };
 
 /** Full contextual bandit output for a decision-metric run (mirrors gbstats `ContextualBanditResult`). */
@@ -239,6 +262,7 @@ export type ContextualBanditSnapshot = {
   leaf_map?: ContextualLeafMapEntry[];
   leaf_stats?: ContextualLeafStatsEntry[];
   sse_trajectory?: ContextualSseTrajectoryEntry[];
+  bic_trajectory?: ContextualBicTrajectoryEntry[];
 };
 
 export type MultipleExperimentMetricAnalysis = {

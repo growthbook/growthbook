@@ -1,6 +1,7 @@
 import type {
   ContextualBanditResponseSnapshot,
   ContextualBanditSnapshot,
+  ContextualBicTrajectoryEntry,
   ContextualLeafMapEntry,
   ContextualLeafStatsEntry,
   ContextualSseTrajectoryEntry,
@@ -247,15 +248,17 @@ function partitionByContext(
 }
 
 /**
- * Within-group SSE from each member's per-variation arm statistics: pool the
- * arms per variation, then sum `(n - 1) * variance` across variations.
+ * Per-variation within-group SSE from each member's arm statistics: for each
+ * variation, pool the arms across members and return `(n - 1) * variance`. The
+ * total within-group SSE (the objective the tree greedily reduces) is the sum
+ * of the returned array across variations.
  */
-function sumOfSquaredErrorsFromArms(
+function sumOfSquaredErrorsPerVariationFromArms(
   armsPerMember: ContextualBanditArm[][],
   metric: MetricSettingsForStatsEngine,
   numVariations: number,
-): number {
-  let sse = 0;
+): number[] {
+  const sse = new Array<number>(numVariations).fill(0);
   for (let v = 0; v < numVariations; v++) {
     let n = 0;
     let main_sum = 0;
@@ -270,17 +273,18 @@ function sumOfSquaredErrorsFromArms(
       { ...emptyArm(), n, main_sum, main_sum_squares },
       metric,
     );
-    sse += (stat.n - 1) * stat.variance;
+    sse[v] = (stat.n - 1) * stat.variance;
   }
   return sse;
 }
 
-function sumOfSquaredErrors(
+/** Per-variation within-group SSE over a set of contexts (pools their arms). */
+function sumOfSquaredErrorsPerVariation(
   contexts: ContextEntry[],
   metric: MetricSettingsForStatsEngine,
   numVariations: number,
-): number {
-  return sumOfSquaredErrorsFromArms(
+): number[] {
+  return sumOfSquaredErrorsPerVariationFromArms(
     contexts.map((ctx) => ctx.arms),
     metric,
     numVariations,
@@ -677,11 +681,12 @@ type BuildTreeResult = {
   /** One entry per tree leaf, keyed by leaf id. */
   leafInfo: Map<number, LeafInfo>;
   /**
-   * Total within-tree SSE at each stage of greedy growth, in order:
+   * Per-variation within-tree SSE at each stage of greedy growth, in order:
    * index 0 is the root (before the first split), index 1 is after the first
-   * split, etc.
+   * split, etc. Each stage is a per-variation array whose sum is that stage's
+   * total within-tree SSE.
    */
-  sseTrajectory: number[];
+  sseTrajectory: number[][];
 };
 
 /** A leaf's best candidate split, cached across growth iterations. */
@@ -744,14 +749,19 @@ function buildTree(
 
   const isBinomial = metric.main_metric_type === "binomial";
 
-  const totalSse = (): number => {
-    let total = 0;
+  const totalSsePerVariation = (): number[] => {
+    const total = new Array<number>(numVariations).fill(0);
     for (const leafId of new Set(currentLeaf)) {
       const inLeaf: ContextEntry[] = [];
       for (let c = 0; c < contexts.length; c++) {
         if (currentLeaf[c] === leafId) inLeaf.push(contexts[c]);
       }
-      total += sumOfSquaredErrors(inLeaf, metric, numVariations);
+      const leafSse = sumOfSquaredErrorsPerVariation(
+        inLeaf,
+        metric,
+        numVariations,
+      );
+      for (let v = 0; v < numVariations; v++) total[v] += leafSse[v];
     }
     return total;
   };
@@ -844,7 +854,7 @@ function buildTree(
     return best;
   };
 
-  const sseTrajectory: number[] = [totalSse()];
+  const sseTrajectory: number[][] = [totalSsePerVariation()];
 
   const splitCache = new Map<number, LeafSplit | null>();
   let dirtyLeaves = new Set<number>(currentLeaf);
@@ -897,7 +907,7 @@ function buildTree(
         currentLeaf[c] = newLeaf;
       }
     }
-    sseTrajectory.push(totalSse());
+    sseTrajectory.push(totalSsePerVariation());
 
     // Only the split leaf and its new child changed; re-evaluate just those two
     // next iteration and reuse every other leaf's cached best split.
@@ -916,6 +926,60 @@ function buildTree(
   }
 
   return { leafInfo, sseTrajectory };
+}
+
+/**
+ * BIC model-selection statistic for each greedy split, derived from the
+ * per-(split, variation) SSE trajectory.
+ *
+ * Comparing the tree before and after a split under a Gaussian model whose
+ * per-variation variance is pooled across leaves, a split adds K
+ * (= `numVariations`) parameters — one new per-variation mean for the new leaf.
+ * The likelihood-ratio statistic for the split that takes the tree from
+ * `sseTrajectory[s - 1]` to `sseTrajectory[s]` is
+ *
+ *   Lambda_s = sum_v N_v * ln(SSE_before_v / SSE_after_v)
+ *
+ * where `N_v` is variation `v`'s total sample size and `SSE_*_v` is the
+ * total-tree SSE for variation `v` before/after the split. BIC charges a
+ * complexity penalty of `K * ln(N)` with `N = sum_v N_v` the total sample size,
+ * so `deltaBic = penalty - Lambda`; a negative `deltaBic` favors keeping the
+ * split.
+ *
+ * A variation whose SSE is zero on either side of a split has an undefined
+ * log-ratio and contributes nothing to the statistic, keeping it finite.
+ *
+ * NOTE: recorded for observability only; it does not yet influence when
+ * `buildTree` stops growing the tree.
+ */
+function computeBicTrajectory(
+  sseTrajectory: number[][],
+  armTotalSampleSizes: number[],
+): ContextualBicTrajectoryEntry[] {
+  const numVariations = armTotalSampleSizes.length;
+  const totalSampleSize = armTotalSampleSizes.reduce((a, b) => a + b, 0);
+  const penalty =
+    totalSampleSize > 0 ? numVariations * Math.log(totalSampleSize) : 0;
+
+  const trajectory: ContextualBicTrajectoryEntry[] = [];
+  for (let s = 1; s < sseTrajectory.length; s++) {
+    const before = sseTrajectory[s - 1];
+    const after = sseTrajectory[s];
+    let logLikelihoodRatio = 0;
+    for (let v = 0; v < numVariations; v++) {
+      if (before[v] > 0 && after[v] > 0) {
+        logLikelihoodRatio +=
+          armTotalSampleSizes[v] * Math.log(before[v] / after[v]);
+      }
+    }
+    trajectory.push({
+      numSplits: s,
+      logLikelihoodRatio,
+      penalty,
+      deltaBic: penalty - logLikelihoodRatio,
+    });
+  }
+  return trajectory;
 }
 
 export function computeContextualBanditWeights(
@@ -1005,7 +1069,24 @@ export function computeContextualBanditWeights(
   );
 
   const sse_trajectory: ContextualSseTrajectoryEntry[] = sseTrajectory.map(
-    (totalSse, numSplits) => ({ numSplits, totalSse }),
+    (ssePerVariation, numSplits) => ({
+      numSplits,
+      totalSse: ssePerVariation.reduce((total, sse) => total + sse, 0),
+      ssePerVariation,
+    }),
+  );
+
+  // Per-variation total sample size across every context; feeds the BIC
+  // likelihood ratio and complexity penalty computed from the SSE trajectory.
+  const armTotalSampleSizes = new Array<number>(numVariations).fill(0);
+  for (const ctx of contexts) {
+    for (let v = 0; v < numVariations; v++) {
+      armTotalSampleSizes[v] += ctx.arms[v].n;
+    }
+  }
+  const bic_trajectory = computeBicTrajectory(
+    sseTrajectory,
+    armTotalSampleSizes,
   );
 
   const responses: ContextualBanditResponseSnapshot[] = [];
@@ -1038,5 +1119,6 @@ export function computeContextualBanditWeights(
     leaf_map: buildLeafConditionMap(contexts, attributes, leafInfo),
     leaf_stats,
     sse_trajectory,
+    bic_trajectory,
   };
 }
