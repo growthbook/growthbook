@@ -272,14 +272,7 @@
                     "root": "integrations/ai-agents",
                     "pages": [
                       "integrations/mcp",
-                      {
-                        "group": "Agent Skills",
-                        "root": "integrations/ai-agents/agent-skills",
-                        "pages": [
-                          "integrations/ai-agents/agent-skills/feature-flags",
-                          "integrations/ai-agents/agent-skills/experiments"
-                        ]
-                      }
+                      "integrations/ai-agents/agent-skills"
                     ]
                   },
                   "integrations/vercel",
@@ -1256,6 +1249,14 @@
     {
       "source": "/api",
       "destination": "/api/introduction"
+    },
+    {
+      "source": "/integrations/ai-agents/agent-skills/feature-flags",
+      "destination": "/integrations/ai-agents/agent-skills"
+    },
+    {
+      "source": "/integrations/ai-agents/agent-skills/experiments",
+      "destination": "/integrations/ai-agents/agent-skills"
     }
   ]
 }
