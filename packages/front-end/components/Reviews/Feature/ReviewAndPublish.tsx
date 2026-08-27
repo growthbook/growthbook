@@ -2344,8 +2344,6 @@ export default function ReviewAndPublish({
   const showPublishSection =
     state.submitAction === "publish" || continueToPublish || adminCanBypassNow;
 
-  // The approval status band. Its own bottom margin spaces the actions lane
-  // below, so that lane drops its top margin when the band renders.
   // Approved and something still blocks the publish (a required team, or no
   // covering approval). Drives both the band and its wording.
   const coverageBlockMessage = hasUncoveredApproval

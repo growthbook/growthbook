@@ -893,10 +893,8 @@ function ReviewAndPublishRevision<T>({
       !requiredTeams.satisfied ||
       adminPublish);
 
-  // Whether the publish section below has anything to show. Each term mirrors one
-  // child's own condition; without this the divider rendered around an empty box.
-  // The approval status band. Its own bottom margin spaces the actions lane
-  // below, so that lane drops its top margin when the band renders.
+  // Approved and something still blocks the publish (a required team, or no
+  // covering approval). Drives both the band and its wording.
   const coverageBlockMessage = hasUncoveredApproval
     ? uncoveredFootprintEnvs.length
       ? `Approved, but no reviewer has approval rights in ${uncoveredFootprintEnvs.join(", ")}. This draft requires approval from someone who does.`
@@ -912,6 +910,9 @@ function ReviewAndPublishRevision<T>({
     isActiveDraft &&
     (revision.status !== "approved" || approvalGateUnmet);
 
+  // Whether the publish section below has anything to show. Each term mirrors
+  // one child's own condition; without this the divider rendered around an
+  // empty box.
   const publishSectionHasContent =
     governance.divergence !== "current" ||
     staleApproval ||
