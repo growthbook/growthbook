@@ -217,8 +217,8 @@ const TeamPage: FC = () => {
                     ) : (
                       <Text>
                         {approvalScopes.length > 1
-                          ? "All other projects"
-                          : "All projects"}
+                          ? "All other Projects"
+                          : "All Projects"}
                       </Text>
                     )}
                     {scope.environments.length > 0 && (
