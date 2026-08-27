@@ -119,11 +119,9 @@ export function interleave<T>(
   );
   if (!hashValue) return fallbackResult();
   if (isFilteredOut(definition, attributes)) return fallbackResult();
-  // Note: saved-group conditions are not resolved in the plugin (plain
-  // attribute conditions only)
   if (
     definition.condition &&
-    !evalCondition(attributes, definition.condition, {})
+    !evalCondition(attributes, definition.condition, gb.getSavedGroups())
   ) {
     return fallbackResult();
   }

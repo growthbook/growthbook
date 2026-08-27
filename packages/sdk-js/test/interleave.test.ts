@@ -254,6 +254,35 @@ describe("interleave plugin", () => {
     gb2.destroy();
   });
 
+  it("resolves saved-group conditions", () => {
+    const withCondition: InterleaveExperiment = {
+      ...definition,
+      condition: { id: { $inGroup: "beta-testers" } },
+    };
+    const gb = new GrowthBook({
+      attributes: { id: "user-1" },
+      interleaveExperiments: [withCondition],
+      savedGroups: { "beta-testers": ["user-1", "user-2"] },
+      plugins: [interleavePlugin()],
+    });
+    expect(
+      interleave(gb, { key: "ranker-test", lists, getItemId: id }).inExperiment,
+    ).toBe(true);
+    gb.destroy();
+
+    const gb2 = new GrowthBook({
+      attributes: { id: "user-9" },
+      interleaveExperiments: [withCondition],
+      savedGroups: { "beta-testers": ["user-1", "user-2"] },
+      plugins: [interleavePlugin()],
+    });
+    expect(
+      interleave(gb2, { key: "ranker-test", lists, getItemId: id })
+        .inExperiment,
+    ).toBe(false);
+    gb2.destroy();
+  });
+
   it("only realizes lazy lists when enrolled", () => {
     let realized = 0;
     const lazyLists = [

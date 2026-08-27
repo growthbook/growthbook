@@ -33,6 +33,7 @@ import type {
   LogUnion,
   DestroyOptions,
   InterleaveExperiment,
+  SavedGroupsValues,
 } from "./types/growthbook";
 import {
   decrypt,
@@ -650,6 +651,10 @@ export class GrowthBook<
   // Consumed by the interleave plugin (@growthbook/growthbook/plugins)
   public getInterleaveExperiments(): InterleaveExperiment[] {
     return this._options.interleaveExperiments || [];
+  }
+
+  public getSavedGroups(): SavedGroupsValues {
+    return this._options.savedGroups || {};
   }
 
   public triggerExperiment(key: string) {
