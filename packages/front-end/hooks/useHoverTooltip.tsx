@@ -275,10 +275,7 @@ export function useHoverTooltip({
     isContentHoveredRef.current = false;
   }, [clearTimers, closeTooltip, id]);
 
-  // A pending show-timer can outlive the pointer actually being over the
-  // trigger when no mouseleave is delivered (e.g. the trigger gets covered by
-  // a modal overlay, or its DOM node is replaced mid-hover). Verify the
-  // pointer is still over a connected trigger before showing.
+  // A pending show-timer can outlive the pointer. Make sure its still connected
   const isPointerOverTrigger = useCallback(() => {
     const trigger = triggerElRef.current;
     const pos = lastMousePosRef.current;
