@@ -1,0 +1,30 @@
+name: Set up workspace
+description: Install pnpm, Node and workspace dependencies, then build the shared packages.
+
+inputs:
+  build-deps:
+    description: Build the shared packages. Skip it for jobs that only need node_modules.
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Setup Node
+      uses: actions/setup-node@v5
+      with:
+        node-version: "24"
+        cache: "pnpm"
+
+    - name: Install pnpm dependencies
+      run: pnpm install
+      shell: bash
+
+    - name: Build dependencies
+      if: inputs.build-deps == 'true'
+      run: pnpm build:deps
+      shell: bash
+      env:
+        CI: true
