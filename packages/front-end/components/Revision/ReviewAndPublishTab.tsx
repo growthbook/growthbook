@@ -1421,9 +1421,13 @@ function ReviewAndPublishRevision<T>({
               phase={
                 revision.status === "approved"
                   ? "gated"
-                  : state.waitingForReview &&
+                  : // Suppressed only when a working Publish CTA renders below
+                    // (admin bypass) — "waiting" next to it reads as a
+                    // contradiction. publishSectionHasContent is too broad: it
+                    // is true for any active draft.
+                    state.waitingForReview &&
                       !canReview &&
-                      !publishSectionHasContent
+                      !adminBypassAvailable
                     ? "waiting"
                     : "draft"
               }

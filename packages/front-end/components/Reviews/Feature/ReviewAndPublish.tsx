@@ -2671,6 +2671,11 @@ export default function ReviewAndPublish({
             !!revision &&
             (!scheduledPending || !armingRendersBelow)) ||
           (canReview && !adminPublish) ||
+          (!showPublishSection &&
+            !!revision &&
+            !!governance &&
+            (governance.divergence !== "current" ||
+              governance.staleApproval)) ||
           isStepAction ||
           showPublishSection ||
           !!submitError ||
