@@ -32,7 +32,6 @@ type ResultsSnapshot = {
   runStarted: string | null;
   queries: Queries;
   metricEstimators?: Record<string, InterleavingEstimator>;
-  metricInterleaveIdCoverage?: Record<string, number>;
   results?: ExperimentReportResultDimension[];
   dateCreated: string;
 };
@@ -189,8 +188,11 @@ export default function InterleavingDetailPage() {
             <tr>
               <th className="pr-4">Metrics</th>
               <td>
-                {interleaving.metricIds
-                  .map((id) => getExperimentMetricById(id)?.name || id)
+                {interleaving.metrics
+                  .map(
+                    (m) =>
+                      `${getExperimentMetricById(m.id)?.name || m.id} (${m.estimator})`,
+                  )
                   .join(", ") || "None"}
               </td>
             </tr>
@@ -232,9 +234,6 @@ export default function InterleavingDetailPage() {
             interleaving={interleaving}
             results={snapshot.results}
             metricEstimators={snapshot.metricEstimators ?? {}}
-            metricInterleaveIdCoverage={
-              snapshot.metricInterleaveIdCoverage ?? {}
-            }
             snapshotDate={new Date(snapshot.dateCreated)}
           />
         ) : !isRunning ? (

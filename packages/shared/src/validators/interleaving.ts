@@ -28,6 +28,19 @@ export type InterleavingStatus = (typeof interleavingStatus)[number];
 export const interleavingEstimators = ["paired", "ownership"] as const;
 export type InterleavingEstimator = (typeof interleavingEstimators)[number];
 
+// Per-metric analysis config. "paired" is only allowed when the metric's
+// fact table has both item_id and interleave_id columns; "ownership" only
+// requires item_id.
+export const interleavingMetricConfigValidator = z
+  .object({
+    id: z.string(),
+    estimator: z.enum(interleavingEstimators),
+  })
+  .strict();
+export type InterleavingMetricConfig = z.infer<
+  typeof interleavingMetricConfigValidator
+>;
+
 export const interleavingValidator = baseSchema
   .extend({
     name: z.string(),
@@ -50,8 +63,8 @@ export const interleavingValidator = baseSchema
     // SDK list names, control first; must match the exposure `variation` column
     variationNames: z.tuple([z.string(), z.string()]),
 
-    // Fact metric ids (mean or proportion, fact table must have item_id)
-    metricIds: z.array(z.string()),
+    // Mean or proportion Fact Metrics with per-metric estimator choice
+    metrics: z.array(interleavingMetricConfigValidator),
   })
   .strict();
 
@@ -74,7 +87,7 @@ export const apiInterleavingValidator = namedSchema(
     datasource: z.string(),
     interleavingQueryId: z.string(),
     variationNames: z.tuple([z.string(), z.string()]),
-    metricIds: z.array(z.string()),
+    metrics: z.array(interleavingMetricConfigValidator),
   }),
 );
 
@@ -98,7 +111,7 @@ export const apiCreateInterleavingBody = z.strictObject({
   datasource: z.string(),
   interleavingQueryId: z.string(),
   variationNames: z.tuple([z.string(), z.string()]),
-  metricIds: z.array(z.string()),
+  metrics: z.array(interleavingMetricConfigValidator),
 });
 
 export type ApiCreateInterleavingBody = z.infer<
@@ -116,7 +129,7 @@ export const apiUpdateInterleavingBody = z.strictObject({
   trackingKey: z.string().optional(),
   interleavingQueryId: z.string().optional(),
   variationNames: z.tuple([z.string(), z.string()]).optional(),
-  metricIds: z.array(z.string()).optional(),
+  metrics: z.array(interleavingMetricConfigValidator).optional(),
 });
 
 export type ApiUpdateInterleavingBody = z.infer<
@@ -147,7 +160,6 @@ export const interleavingSnapshotResponseShape = z
     metricEstimators: z
       .record(z.string(), z.enum(interleavingEstimators))
       .optional(),
-    metricInterleaveIdCoverage: z.record(z.string(), z.number()).optional(),
     results: z.array(z.unknown()).optional(),
     dateCreated: z.string(),
   })

@@ -351,11 +351,18 @@ export interface ContextualBanditSrmQueryParams {
   settings: ExperimentUnitsQuerySettings;
 }
 
-export interface InterleavingMetricQueryParams {
-  // "paired": engagement joins to impressions via interleave_id (DoorDash
-  // estimator); "ownership": user x item ownership shares (Airbnb estimator)
+export interface InterleavingMetricQueryMetric {
+  // "paired" needs interleave_id on the metric's fact table; "ownership"
+  // only needs item_id. The user chooses per metric.
   estimator: "paired" | "ownership";
-  // The interleaving exposure query SQL (one row per impression x item)
+  metricType: "mean" | "proportion";
+  // Numerator column for mean metrics; null means count rows / existence
+  valueColumn: string | null;
+}
+
+export interface InterleavingMetricQueryParams {
+  // The interleaving exposure query SQL (one row per impression, nested
+  // items JSON column)
   exposureQuery: string;
   userIdType: string;
   trackingKey: string;
@@ -363,11 +370,11 @@ export interface InterleavingMetricQueryParams {
   variationNames: [string, string];
   startDate: Date;
   endDate?: Date | null;
-  // The metric's fact table SQL and value semantics
+  // One query analyzes all metrics sharing this fact table; output columns
+  // are prefixed m{i}_ by array index. Paired/ownership CTEs are only
+  // included when at least one metric requests them.
   factTableSql: string;
-  metricType: "mean" | "proportion";
-  // Numerator column for mean metrics; null means count rows / existence
-  valueColumn: string | null;
+  metrics: InterleavingMetricQueryMetric[];
 }
 
 export interface CreateExperimentIncrementalUnitsQueryParams {

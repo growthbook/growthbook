@@ -32,38 +32,47 @@ const baseParams = {
   startDate: new Date("2020-01-01"),
   endDate: null,
   factTableSql: FACT_TABLE_SQL,
+};
+const proportionMetric = (estimator: "paired" | "ownership") => ({
+  estimator,
   metricType: "proportion" as const,
   valueColumn: null,
-};
+});
 
 describe("getInterleavingMetricQuery", () => {
   it("generates paired and ownership SQL and (optionally) writes them for live execution", () => {
     const paired = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      estimator: "paired",
+      metrics: [proportionMetric("paired")],
     });
     const ownership = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      estimator: "ownership",
+      metrics: [proportionMetric("ownership")],
+    });
+    const both = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      metrics: [proportionMetric("paired"), proportionMetric("ownership")],
     });
 
     // Structural assertions on both variants
+    // Paired-only: no ownership CTEs; ownership-only: no paired CTEs
     expect(paired).toContain("__exposures");
     expect(paired).toContain("jsonb_array_elements");
     expect(paired).toContain("__credited");
-    expect(paired).toContain("__eventsAll");
-    expect(paired).toContain("events_matched");
-    expect(paired).toContain("users_pref_treatment");
-    expect(paired).toContain("sum_xy");
+    expect(paired).toContain("m0_sum_xy");
+    expect(paired).not.toContain("users_pref_treatment");
     expect(paired).toContain("'featured-products-ranker'");
-    expect(ownership).toContain("__ownership");
-    expect(ownership).toContain("users_pref_treatment");
-    expect(ownership).not.toContain("interleave_id AS interleave_id");
+    expect(ownership).toContain("m0_users_pref_treatment");
+    expect(ownership).not.toContain("__credited");
+    // Mixed: both logics in one query, single events scan
+    expect(both).toContain("m0_sum_xy");
+    expect(both).toContain("m1_users_pref_treatment");
+    expect(both).toContain("__eventsAll");
 
     // Escapes quotes in variation names
     const quoted = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      estimator: "ownership",
+      metrics: [proportionMetric("ownership")],
       variationNames: ["o'brien", "control"] as [string, string],
     });
     expect(quoted).toContain("'o''brien'");
@@ -74,6 +83,7 @@ describe("getInterleavingMetricQuery", () => {
     if (outDir) {
       fs.writeFileSync(path.join(outDir, "paired.sql"), paired);
       fs.writeFileSync(path.join(outDir, "ownership.sql"), ownership);
+      fs.writeFileSync(path.join(outDir, "both.sql"), both);
     }
   });
 });

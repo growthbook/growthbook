@@ -16233,12 +16233,6 @@ paths:
                               enum:
                                 - paired
                                 - ownership
-                          metricInterleaveIdCoverage:
-                            type: object
-                            propertyNames:
-                              type: string
-                            additionalProperties:
-                              type: number
                           results:
                             type: array
                             items: {}
@@ -42761,10 +42755,22 @@ paths:
                   prefixItems:
                     - type: string
                     - type: string
-                metricIds:
+                metrics:
                   type: array
                   items:
-                    type: string
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      estimator:
+                        type: string
+                        enum:
+                          - paired
+                          - ownership
+                    required:
+                      - id
+                      - estimator
+                    additionalProperties: false
               additionalProperties: false
       responses:
         '200':
@@ -42827,17 +42833,29 @@ paths:
                   prefixItems:
                     - type: string
                     - type: string
-                metricIds:
+                metrics:
                   type: array
                   items:
-                    type: string
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      estimator:
+                        type: string
+                        enum:
+                          - paired
+                          - ownership
+                    required:
+                      - id
+                      - estimator
+                    additionalProperties: false
               required:
                 - name
                 - trackingKey
                 - datasource
                 - interleavingQueryId
                 - variationNames
-                - metricIds
+                - metrics
               additionalProperties: false
       responses:
         '200':
@@ -63710,10 +63728,22 @@ components:
           prefixItems:
             - type: string
             - type: string
-        metricIds:
+        metrics:
           type: array
           items:
-            type: string
+            type: object
+            properties:
+              id:
+                type: string
+              estimator:
+                type: string
+                enum:
+                  - paired
+                  - ownership
+            required:
+              - id
+              - estimator
+            additionalProperties: false
       required:
         - id
         - dateCreated
@@ -63727,7 +63757,7 @@ components:
         - datasource
         - interleavingQueryId
         - variationNames
-        - metricIds
+        - metrics
       additionalProperties: false
     InterleavingQuery:
       type: object

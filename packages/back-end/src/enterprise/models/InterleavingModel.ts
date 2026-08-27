@@ -2,6 +2,7 @@ import {
   ApiInterleavingInterface,
   InterleavingInterface,
   interleavingValidator,
+  INTERLEAVING_INTERLEAVE_ID_COLUMN,
   INTERLEAVING_ITEM_ID_COLUMN,
 } from "shared/validators";
 import { isFactMetricId } from "shared/experiments";
@@ -19,7 +20,7 @@ const BaseClass = MakeModelClass({
     tags: [],
     archived: false,
     status: "draft",
-    metricIds: [],
+    metrics: [],
   },
   auditLog: {
     entity: "interleaving",
@@ -77,10 +78,10 @@ export class InterleavingModel extends BaseClass {
     const metricsChanged =
       !previousDoc ||
       doc.datasource !== previousDoc.datasource ||
-      JSON.stringify(doc.metricIds) !== JSON.stringify(previousDoc.metricIds);
+      JSON.stringify(doc.metrics) !== JSON.stringify(previousDoc.metrics);
     if (!metricsChanged) return;
 
-    for (const metricId of doc.metricIds) {
+    for (const { id: metricId, estimator } of doc.metrics) {
       if (!isFactMetricId(metricId)) {
         throw new Error(
           `Interleaving metrics must be fact metrics: ${metricId}`,
@@ -122,6 +123,16 @@ export class InterleavingModel extends BaseClass {
           `The '${INTERLEAVING_ITEM_ID_COLUMN}' column on fact table ${factTable.name} must be a physical column, not a virtual one`,
         );
       }
+      if (estimator === "paired") {
+        const interleaveIdColumn = factTable.columns.find(
+          (c) => c.column === INTERLEAVING_INTERLEAVE_ID_COLUMN && !c.deleted,
+        );
+        if (!interleaveIdColumn) {
+          throw new Error(
+            `Metric ${metricId} cannot use the paired analysis: its fact table (${factTable.name}) has no '${INTERLEAVING_INTERLEAVE_ID_COLUMN}' column. Use the ownership analysis instead`,
+          );
+        }
+      }
     }
   }
 
@@ -145,7 +156,7 @@ export class InterleavingModel extends BaseClass {
       datasource: doc.datasource,
       interleavingQueryId: doc.interleavingQueryId,
       variationNames: doc.variationNames,
-      metricIds: doc.metricIds,
+      metrics: doc.metrics,
     };
   }
 

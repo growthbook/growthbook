@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 import { queryPointerValidator } from "./queries";
-import { interleavingEstimators } from "./interleaving";
+import {
+  interleavingEstimators,
+  interleavingMetricConfigValidator,
+} from "./interleaving";
 
 /**
  * Frozen, self-contained settings for a single interleaving snapshot run
@@ -16,7 +19,7 @@ export const interleavingSnapshotSettingsValidator = z
     query: z.string(),
     userIdType: z.string(),
     variationNames: z.tuple([z.string(), z.string()]),
-    metricIds: z.array(z.string()),
+    metrics: z.array(interleavingMetricConfigValidator),
     startDate: z.date(),
     endDate: z.date().nullable().optional(),
   })
@@ -38,10 +41,6 @@ export const interleavingSnapshotValidator = baseSchema
     metricEstimators: z
       .record(z.string(), z.enum(interleavingEstimators))
       .optional(),
-    // Share of each metric's engagement events carrying a non-NULL
-    // interleave_id (drives the paired-vs-ownership choice; only present for
-    // metrics whose fact table has the column)
-    metricInterleaveIdCoverage: z.record(z.string(), z.number()).optional(),
     // ExperimentReportResultDimension[]-shaped (typed loosely for Mongo
     // storage; the runner produces and the front-end consumes the real type)
     results: z.array(z.unknown()).optional(),

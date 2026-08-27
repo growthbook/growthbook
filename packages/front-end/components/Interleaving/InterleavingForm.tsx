@@ -2,14 +2,17 @@ import React, { FC, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import {
   ApiInterleavingInterface,
+  InterleavingMetricConfig,
   INTERLEAVING_INTERLEAVE_ID_COLUMN,
   INTERLEAVING_ITEM_ID_COLUMN,
 } from "shared/validators";
 import { isFactMetric } from "shared/experiments";
+import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import { useInterleavingQueries } from "@/hooks/useInterleavingQueries";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -23,7 +26,7 @@ type InterleavingFormValues = {
   trackingKey: string;
   controlName: string;
   treatmentName: string;
-  metricIds: string[];
+  metrics: InterleavingMetricConfig[];
 };
 
 type Props = {
@@ -34,9 +37,10 @@ type Props = {
 };
 
 /**
- * Create/edit modal for an Interleaving experiment. Metrics are restricted to
- * mean/proportion Fact Metrics; metrics whose fact table lacks an `item_id`
- * column are flagged here and rejected server-side.
+ * Create/edit modal for an Interleaving experiment. Metrics are restricted
+ * to mean/proportion Fact Metrics whose fact table has an `item_id` column.
+ * Each metric is analyzed as "paired" or "ownership" — the user chooses, and
+ * paired is only offered when the fact table also has `interleave_id`.
  */
 export const InterleavingForm: FC<Props> = ({
   interleaving,
@@ -59,7 +63,7 @@ export const InterleavingForm: FC<Props> = ({
             trackingKey: interleaving.trackingKey,
             controlName: interleaving.variationNames[0],
             treatmentName: interleaving.variationNames[1],
-            metricIds: interleaving.metricIds,
+            metrics: interleaving.metrics,
           }
         : {
             name: "",
@@ -69,46 +73,39 @@ export const InterleavingForm: FC<Props> = ({
             trackingKey: "",
             controlName: "control",
             treatmentName: "treatment",
-            metricIds: [],
+            metrics: [],
           },
   });
 
   const datasource = form.watch("datasource");
-  const metricIds = form.watch("metricIds");
+  const metrics = form.watch("metrics");
   const { interleavingQueries } = useInterleavingQueries(
     datasource || undefined,
   );
 
+  const factTableFor = (metricId: string) => {
+    const metric = getExperimentMetricById(metricId);
+    if (!metric || !isFactMetric(metric)) return null;
+    return (
+      factTables.find((ft) => ft.id === metric.numerator?.factTableId) ?? null
+    );
+  };
+  const tableHasColumn = (metricId: string, column: string) =>
+    !!factTableFor(metricId)?.columns.some(
+      (c) => c.column === column && !c.deleted,
+    );
+
   // Metrics whose fact table has no live item_id column can't be attributed
   // to items; the server rejects them, so warn before save
   const metricsMissingItemId = useMemo(() => {
-    return metricIds.filter((id) => {
-      const metric = getExperimentMetricById(id);
-      if (!metric || !isFactMetric(metric)) return false;
-      const factTable = factTables.find(
-        (ft) => ft.id === metric.numerator?.factTableId,
+    return metrics
+      .map((m) => m.id)
+      .filter(
+        (id) =>
+          factTableFor(id) && !tableHasColumn(id, INTERLEAVING_ITEM_ID_COLUMN),
       );
-      if (!factTable) return false;
-      return !factTable.columns.some(
-        (c) => c.column === INTERLEAVING_ITEM_ID_COLUMN && !c.deleted,
-      );
-    });
-  }, [metricIds, factTables, getExperimentMetricById]);
-
-  // Purely informational: which analysis each selected metric will get.
-  // Paired applies when the metric's fact table carries interleave_id
-  const metricsUsingOwnership = useMemo(() => {
-    return metricIds.filter((id) => {
-      const metric = getExperimentMetricById(id);
-      if (!metric || !isFactMetric(metric)) return false;
-      const factTable = factTables.find(
-        (ft) => ft.id === metric.numerator?.factTableId,
-      );
-      return !factTable?.columns.some(
-        (c) => c.column === INTERLEAVING_INTERLEAVE_ID_COLUMN && !c.deleted,
-      );
-    });
-  }, [metricIds, factTables, getExperimentMetricById]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metrics, factTables, getExperimentMetricById]);
 
   const handleSubmit = form.handleSubmit(async (value) => {
     if (metricsMissingItemId.length > 0) {
@@ -125,7 +122,7 @@ export const InterleavingForm: FC<Props> = ({
       trackingKey: value.trackingKey,
       interleavingQueryId: value.interleavingQueryId,
       variationNames: [value.controlName, value.treatmentName],
-      metricIds: value.metricIds,
+      metrics: value.metrics,
     };
 
     const res =
@@ -194,7 +191,7 @@ export const InterleavingForm: FC<Props> = ({
           onChange={(v) => {
             form.setValue("datasource", v);
             form.setValue("interleavingQueryId", "");
-            form.setValue("metricIds", []);
+            form.setValue("metrics", []);
           }}
         />
         <SelectField
@@ -236,15 +233,76 @@ export const InterleavingForm: FC<Props> = ({
           datasource={datasource}
           project={project}
           experimentType={undefined}
-          goalMetrics={metricIds}
+          goalMetrics={metrics.map((m) => m.id)}
           secondaryMetrics={[]}
           guardrailMetrics={[]}
-          setGoalMetrics={(ids) => form.setValue("metricIds", ids)}
+          setGoalMetrics={(ids) => {
+            const existing = new Map(metrics.map((m) => [m.id, m.estimator]));
+            form.setValue(
+              "metrics",
+              ids.map((id) => ({
+                id,
+                estimator:
+                  existing.get(id) ??
+                  (tableHasColumn(id, INTERLEAVING_INTERLEAVE_ID_COLUMN)
+                    ? "paired"
+                    : "ownership"),
+              })),
+            );
+          }}
           goalMetricAllowedFactMetricTypes={["mean", "proportion"]}
           noLegacyMetrics={true}
           noQuantileGoalMetrics={true}
           goalMetricsDescription="Mean or proportion Fact Metrics whose fact table includes an item_id column"
         />
+
+        {metrics.length > 0 && (
+          <div className="mt-2">
+            <label>Analysis method per metric</label>
+            {metrics.map((m, i) => {
+              const pairedEligible = tableHasColumn(
+                m.id,
+                INTERLEAVING_INTERLEAVE_ID_COLUMN,
+              );
+              return (
+                <Flex key={m.id} align="center" gap="3" mb="1">
+                  <div style={{ minWidth: 220 }}>
+                    {getExperimentMetricById(m.id)?.name || m.id}
+                  </div>
+                  <Tooltip
+                    body={
+                      pairedEligible
+                        ? "Paired joins engagement to individual impressions via interleave_id (most sensitive). Ownership attributes engagement by each user's item-ownership shares."
+                        : `Paired requires an '${INTERLEAVING_INTERLEAVE_ID_COLUMN}' column on this metric's fact table`
+                    }
+                  >
+                    <SelectField
+                      value={m.estimator}
+                      options={[
+                        {
+                          value: "paired",
+                          label: pairedEligible
+                            ? "Paired"
+                            : "Paired (requires interleave_id)",
+                        },
+                        { value: "ownership", label: "Ownership" },
+                      ]}
+                      disabled={!pairedEligible}
+                      onChange={(v) => {
+                        const next = [...metrics];
+                        next[i] = {
+                          id: m.id,
+                          estimator: v === "paired" ? "paired" : "ownership",
+                        };
+                        form.setValue("metrics", next);
+                      }}
+                    />
+                  </Tooltip>
+                </Flex>
+              );
+            })}
+          </div>
+        )}
 
         {metricsMissingItemId.length > 0 && (
           <Callout status="error" mt="2">
@@ -256,17 +314,6 @@ export const InterleavingForm: FC<Props> = ({
               .join(", ")}
           </Callout>
         )}
-        {metricsUsingOwnership.length > 0 &&
-          metricsMissingItemId.length === 0 && (
-            <Callout status="info" mt="2">
-              Without an <code>{INTERLEAVING_INTERLEAVE_ID_COLUMN}</code> column
-              on their fact table, these metrics use the ownership analysis
-              instead of the more sensitive paired analysis:{" "}
-              {metricsUsingOwnership
-                .map((id) => getExperimentMetricById(id)?.name || id)
-                .join(", ")}
-            </Callout>
-          )}
       </div>
     </ModalStandard>
   );

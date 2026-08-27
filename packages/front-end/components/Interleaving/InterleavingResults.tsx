@@ -23,7 +23,6 @@ type Props = {
   interleaving: ApiInterleavingInterface;
   results: ExperimentReportResultDimension[];
   metricEstimators: Record<string, InterleavingEstimator>;
-  metricInterleaveIdCoverage?: Record<string, number>;
   snapshotDate: Date;
 };
 
@@ -43,7 +42,6 @@ export const InterleavingResults: FC<Props> = ({
   interleaving,
   results,
   metricEstimators,
-  metricInterleaveIdCoverage,
   snapshotDate,
 }) => {
   const { getExperimentMetricById } = useDefinitions();
@@ -66,8 +64,8 @@ export const InterleavingResults: FC<Props> = ({
 
   const rows: ExperimentTableRow[] = useMemo(() => {
     if (!dimension) return [];
-    return interleaving.metricIds
-      .map((metricId) => {
+    return interleaving.metrics
+      .map(({ id: metricId }) => {
         const metric = getExperimentMetricById(metricId);
         if (!metric) return null;
         const metricVariations: SnapshotMetric[] = dimension.variations.map(
@@ -88,7 +86,7 @@ export const InterleavingResults: FC<Props> = ({
         return row;
       })
       .filter((r): r is ExperimentTableRow => r !== null);
-  }, [dimension, interleaving.metricIds, getExperimentMetricById]);
+  }, [dimension, interleaving.metrics, getExperimentMetricById]);
 
   if (!dimension) {
     return (
@@ -114,16 +112,11 @@ export const InterleavingResults: FC<Props> = ({
       labelHeader="Metrics"
       renderLabelColumn={({ label, metric }) => {
         const estimator = metricEstimators[metric.id];
-        const coverage = metricInterleaveIdCoverage?.[metric.id];
-        const coverageNote =
-          coverage !== undefined
-            ? ` ${Math.round(coverage * 100)}% of this metric's events carried an interleave_id.`
-            : "";
         return (
           <Flex align="center" gap="2">
             <span>{label}</span>
             {estimator ? (
-              <Tooltip body={ESTIMATOR_TOOLTIP[estimator] + coverageNote}>
+              <Tooltip body={ESTIMATOR_TOOLTIP[estimator]}>
                 <Badge
                   label={estimator === "paired" ? "Paired" : "Ownership"}
                   color={estimator === "paired" ? "green" : "violet"}

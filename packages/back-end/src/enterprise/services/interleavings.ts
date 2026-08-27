@@ -38,7 +38,7 @@ export async function runInterleavingRefresh(
     );
   }
 
-  if (interleaving.metricIds.length === 0) {
+  if (interleaving.metrics.length === 0) {
     throw new Error(
       "Add at least one metric to this interleaving experiment before updating results",
     );
@@ -52,7 +52,7 @@ export async function runInterleavingRefresh(
     query: interleavingQuery.query,
     userIdType: interleavingQuery.userIdType,
     variationNames: interleaving.variationNames,
-    metricIds: interleaving.metricIds,
+    metrics: interleaving.metrics,
     startDate: interleaving.dateStarted ?? interleaving.dateCreated,
     endDate: interleaving.dateStopped ?? null,
   };
