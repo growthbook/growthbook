@@ -3,7 +3,8 @@ import type {
   UserScopedGrowthBook,
   GrowthBookClient,
 } from "../GrowthBookClient";
-import { genUUID, getOrCreateSessionReplayId } from "./session-replay-id";
+import { genUUID } from "../util";
+import { getOrCreateGbSessionId } from "./utils/gb-session";
 
 export type AutoAttributeSettings = {
   uuidCookieName?: string;
@@ -14,6 +15,8 @@ export type AutoAttributeSettings = {
   // anonymous id is shared across subdomains. Without this the cookie is
   // host-only and a redirect to another subdomain mints a brand new id.
   uuidCookieDomain?: string;
+  // Hard time cap (ms) on the generic browser session. Defaults to 30 minutes.
+  maxDuration?: number;
 };
 
 function getBrowserDevice(ua: string): { browser: string; deviceType: string } {
@@ -100,7 +103,9 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     return {
       ...getDataLayerVariables(),
       [uuidKey]: _uuid,
-      session_replay_id: getOrCreateSessionReplayId(),
+      gbSessionId: getOrCreateGbSessionId({
+        maxDuration: settings.maxDuration,
+      }),
       ...getURLAttributes(url),
       pageTitle: document.title,
       viewportWidth: window.innerWidth || 0,

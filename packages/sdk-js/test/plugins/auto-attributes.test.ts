@@ -54,7 +54,7 @@ describe("autoAttributesPlugin", () => {
     query: "",
     viewportWidth: expect.any(Number),
     viewportHeight: expect.any(Number),
-    session_replay_id: expect.any(String),
+    gbSessionId: expect.any(String),
   };
 
   beforeEach(() => {
@@ -89,7 +89,7 @@ describe("autoAttributesPlugin", () => {
 
     expect(gb.getAttributes()).toEqual({
       id: expect.any(String),
-      session_replay_id: expect.any(String),
+      gbSessionId: expect.any(String),
       browser: "chrome",
       deviceType: "desktop",
       url: "http://localhost/test?hello=world",
@@ -104,26 +104,26 @@ describe("autoAttributesPlugin", () => {
     gb.destroy();
   });
 
-  it("stores session_replay_id in sessionStorage", () => {
+  it("stores gbSessionId in sessionStorage", () => {
     const plugin = autoAttributesPlugin();
     const gb = new GrowthBook({
       plugins: [plugin],
     });
 
     const stored = JSON.parse(sessionStorage.getItem("gb_session") || "{}") as {
-      session_replay_id?: string;
+      gbSessionId?: string;
     };
-    expect(stored.session_replay_id).toBe(gb.getAttributes().session_replay_id);
+    expect(stored.gbSessionId).toBe(gb.getAttributes().gbSessionId);
 
     gb.destroy();
   });
 
-  it("preserves customer session_id while owning session_replay_id", () => {
+  it("preserves customer session_id while owning gbSessionId", () => {
     sessionStorage.setItem(
       "gb_session",
       JSON.stringify({
-        session_replay_id: "internal-replay-id",
-        lastTouchedAt: Date.now(),
+        gbSessionId: "internal-replay-id",
+        createdAt: Date.now(),
       }),
     );
 
@@ -131,7 +131,7 @@ describe("autoAttributesPlugin", () => {
     const gb = new GrowthBook({
       attributes: {
         session_id: "customer-session-id",
-        session_replay_id: "user-supplied-replay-id",
+        gbSessionId: "user-supplied-replay-id",
       },
       plugins: [plugin],
     });
@@ -139,12 +139,13 @@ describe("autoAttributesPlugin", () => {
     expect(gb.getAttributes()).toEqual(
       expect.objectContaining({
         session_id: "customer-session-id",
-        session_replay_id: "internal-replay-id",
+        gbSessionId: "internal-replay-id",
       }),
     );
 
     gb.destroy();
   });
+
   it("should update attributes on URL change", async () => {
     setWindowURL("http://localhost/test?hello=world");
 
@@ -240,7 +241,7 @@ describe("autoAttributesPlugin", () => {
       JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
     );
 
-    // getAutoAttributes() calls getOrCreateSessionId() before getUtmAttributes(), so
+    // getAutoAttributes() calls getOrCreateGbSessionId() before getUtmAttributes(), so
     // the session storage read for "gb_session" happens first. Chain two Once values:
     // call 1 (gb_session) → null (generate new session), call 2 (utm_params) → UTM data.
     sessionStorage.getItem
