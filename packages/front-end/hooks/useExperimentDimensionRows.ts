@@ -21,6 +21,7 @@ import {
   applyMetricOverrides,
   ExperimentTableRow,
   compareRows,
+  NO_DATA_ERROR_MESSAGE,
 } from "@/services/experiments";
 import { RowError } from "@/components/Experiment/ResultsTable";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -502,7 +503,12 @@ export function generateDimensionRowsForMetric({
     ? newMetric.funnelSettings.steps
     : [];
 
-  const noData = () => ({ users: 0, value: 0, cr: 0, errorMessage: "No data" });
+  const noData = () => ({
+    users: 0,
+    value: 0,
+    cr: 0,
+    errorMessage: NO_DATA_ERROR_MESSAGE,
+  });
 
   const rows: ExperimentTableRow[] = [];
 
