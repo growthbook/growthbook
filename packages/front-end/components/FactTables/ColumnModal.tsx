@@ -412,6 +412,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
               value: "time:seconds",
             },
             {
+              label: "Time (milliseconds)",
+              value: "time:milliseconds",
+            },
+            {
               label: "Memory (bytes)",
               value: "memory:bytes",
             },

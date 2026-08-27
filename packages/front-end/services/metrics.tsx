@@ -260,6 +260,11 @@ export function formatDurationSeconds(value: number) {
   return f;
 }
 
+export function formatDurationMilliseconds(value: number) {
+  // Convert milliseconds to seconds and delegate to formatDurationSeconds
+  return formatDurationSeconds(value / 1000);
+}
+
 export function formatNumber(
   value: number,
   options?: Intl.NumberFormatOptions,
@@ -317,6 +322,8 @@ export function getColumnFormatter(
       return formatCurrency;
     case "time:seconds":
       return formatDurationSeconds;
+    case "time:milliseconds":
+      return formatDurationMilliseconds;
     case "memory:bytes":
       return formatBytes;
     case "memory:kilobytes":
