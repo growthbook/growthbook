@@ -2648,11 +2648,7 @@ export default function ReviewAndPublish({
               footprint={reviewFootprint}
               unmet={requiredTeams.unmet}
               coverageMessage={coverageBlockMessage}
-              showSelfApprovalNote={
-                !!isBlockedContributor &&
-                createdBy?.id !== user?.id &&
-                permissionsUtil.canReviewFeatureDrafts(feature, reviewFootprint)
-              }
+              showSelfApprovalNote={!!isBlockedContributor && canReview}
               canRecallReview={state.canRecallReview}
               recallDisabled={secondaryLoading !== null}
               onRecallReview={doRecallReview}
@@ -3037,8 +3033,11 @@ export default function ReviewAndPublish({
                       {/* Post-approval gates — the band above covers
                         pre-approval. Shown regardless of publish authority:
                         what gates the draft is worth knowing even to someone
-                        who can't publish it. */}
+                        who can't publish it. Hidden while the admin bypass is
+                        checked — "blocked" next to an enabled Publish button
+                        reads as a contradiction. */}
                       {requireReviews &&
+                        !adminPublish &&
                         state.submitAction === "publish" &&
                         (!requiredTeams.satisfied || hasUncoveredApproval) && (
                           <Box mb="4">

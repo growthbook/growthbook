@@ -10,7 +10,7 @@ type UnmetTeams = ApproverTeam[][];
 type ReviewFootprint = { scope: string; environments?: readonly string[] };
 
 // "Finance or Dream Team"
-export function describeApproverTeams(teams: ApproverTeam[]) {
+function describeApproverTeams(teams: ApproverTeam[]) {
   return teams.map((t) => t.name).join(" or ");
 }
 
@@ -38,14 +38,14 @@ function RequirementLine({
   const envs =
     footprint?.scope === "environments" ? (footprint.environments ?? []) : null;
   const teams = unmet.length > 0 ? describeUnmet(unmet) : null;
-  // "any" sanctions nothing, so it says nothing about reach.
+  // Only "everywhere" (a global value change) truly lands in every
+  // environment. "unbound" is metadata-only and "any" sanctions nothing, so
+  // neither claims reach.
   const reach = envs?.length ? (
     <>
       changes <strong>{envs.join(", ")}</strong>
     </>
-  ) : footprint && footprint.scope !== "any" ? (
-    // "everywhere"/"unbound": a global value or metadata change, which lands
-    // wherever the flag serves rather than in named environments.
+  ) : footprint?.scope === "everywhere" ? (
     <>
       changes <strong>every environment</strong>
     </>
@@ -90,13 +90,26 @@ export default function ApprovalStatusBand({
 }) {
   const [recalling, setRecalling] = useState(false);
 
+  const selfApprovalNote = showSelfApprovalNote && (
+    <div>You can&apos;t approve a draft you contributed to.</div>
+  );
+  // A stale/uncovered approval can exist in any phase (e.g. changes were
+  // requested after an approval that no longer counts) — always explain it.
+  const coverageNote = coverageMessage && <div>{coverageMessage}</div>;
+
   if (phase === "draft") {
     return (
       <NoticeBanner
         icon={<PiUserCheckBold />}
         iconColor="gray"
         title="Review required to publish"
-        body={<RequirementLine footprint={footprint} unmet={unmet} />}
+        body={
+          <>
+            <RequirementLine footprint={footprint} unmet={unmet} />
+            {coverageNote}
+            {selfApprovalNote}
+          </>
+        }
       />
     );
   }
@@ -110,7 +123,7 @@ export default function ApprovalStatusBand({
         body={
           <>
             <RequirementLine footprint={footprint} unmet={unmet} />
-            {coverageMessage && <div>{coverageMessage}</div>}
+            {coverageNote}
           </>
         }
       />
@@ -127,9 +140,8 @@ export default function ApprovalStatusBand({
         body={
           <>
             <RequirementLine footprint={footprint} unmet={unmet} />
-            {showSelfApprovalNote && (
-              <div>You can&apos;t approve a draft you contributed to.</div>
-            )}
+            {coverageNote}
+            {selfApprovalNote}
           </>
         }
       />
