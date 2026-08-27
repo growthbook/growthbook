@@ -18,6 +18,7 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
 
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getFeatureRevisionsByFeatureIds: jest.fn(),
+  getActiveDraftMetadataByFeatureIds: jest.fn().mockResolvedValue({}),
 }));
 
 jest.mock("back-end/src/services/features", () => ({
