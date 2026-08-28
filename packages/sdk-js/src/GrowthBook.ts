@@ -32,7 +32,6 @@ import type {
   EventLogger,
   LogUnion,
   DestroyOptions,
-  InterleaveExperiment,
   SavedGroupsValues,
 } from "./types/growthbook";
 import {
@@ -233,9 +232,6 @@ export class GrowthBook<
     if (data.contextualBandits) {
       this._options.contextualBandits = data.contextualBandits;
     }
-    if (data.interleaveExperiments) {
-      this._options.interleaveExperiments = data.interleaveExperiments;
-    }
     if (data.experiments) {
       this._options.experiments = data.experiments;
       this._updateAllAutoExperiments();
@@ -274,9 +270,6 @@ export class GrowthBook<
     }
     if (payload.contextualBandits) {
       this._options.contextualBandits = payload.contextualBandits;
-    }
-    if (payload.interleaveExperiments) {
-      this._options.interleaveExperiments = payload.interleaveExperiments;
     }
     if (payload.experiments) {
       this._options.experiments = payload.experiments;
@@ -646,11 +639,6 @@ export class GrowthBook<
     const { result } = runExperiment(experiment, null, this._getEvalContext());
     this._onExperimentEval(experiment, result);
     return result;
-  }
-
-  // Consumed by the interleave plugin (@growthbook/growthbook/plugins)
-  public getInterleaveExperiments(): InterleaveExperiment[] {
-    return this._options.interleaveExperiments || [];
   }
 
   public getSavedGroups(): SavedGroupsValues {

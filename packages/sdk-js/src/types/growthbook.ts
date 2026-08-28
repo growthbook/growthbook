@@ -50,7 +50,30 @@ export type FeatureRule<T = any> = {
   }>;
   contextualBanditRef?: string;
   contextualVariations?: T[];
+  // Diverts matched users into an interleaving team draft (run by the
+  // interleave plugin). Older SDKs skip this rule (no force/variations) and
+  // fall through to later rules or the default value - a list name.
+  interleave?: InterleaveRuleConfig;
 };
+
+// Serving config carried by an `interleave` feature rule. The feature's value
+// space is list names: when this rule matches, plain feature callers receive
+// `fallbackValue` (?? the feature default) while the interleave plugin runs
+// the draft from this config.
+export interface InterleaveRuleConfig {
+  // Names of the caller-registered lists to weave (>=2)
+  lists: string[];
+  seed?: string;
+  hashAttribute?: string;
+  fallbackAttribute?: string;
+  hashVersion?: number;
+  maxItems?: number;
+  // Share of diverted users (0-100, exclusive) held out on the control list
+  // and tracked as the user-level "<key>__measurement" experiment
+  measurementArmPercent?: number;
+  // Value plain feature callers see when this rule matches (a list name)
+  fallbackValue?: string;
+}
 
 export type ContextualBanditDefinition = {
   banditVersion?: number;
@@ -77,6 +100,7 @@ export type FeatureResultSource =
   | "force"
   | "override"
   | "experiment"
+  | "interleave"
   | "prerequisite"
   | "cyclicPrerequisite";
 
@@ -88,6 +112,8 @@ export interface FeatureResult<T = any> {
   ruleId: string;
   experiment?: Experiment<T>;
   experimentResult?: Result<T>;
+  // Set when source is "interleave": the matched rule's serving config
+  interleaveConfig?: InterleaveRuleConfig;
 }
 
 /** @deprecated */
@@ -189,28 +215,6 @@ export type CBContext = {
 export interface InterleaveList<T> {
   name: string;
   items: T[] | (() => T[]);
-}
-
-// Payload-delivered definition controlling an interleaving experiment
-export interface InterleaveExperiment {
-  key: string;
-  // Names of the caller's lists to weave (>=2). Caller lists not named here
-  // are ignored; a name with no matching caller list serves the fallback.
-  lists: string[];
-  condition?: ConditionInterface;
-  coverage?: number;
-  hashAttribute?: string;
-  fallbackAttribute?: string;
-  hashVersion?: number;
-  seed?: string;
-  filters?: Filter[];
-  active?: boolean;
-  maxItems?: number;
-  // Share of enrolled users (0-100, exclusive of 100) held out of
-  // interleaving and served the control list unchanged, tracked as a
-  // separate user-level experiment ("<key>__measurement") so interleaved
-  // traffic can be compared against the status quo. 0 or absent disables it.
-  measurementArmPercent?: number;
 }
 
 export interface InterleavedItemMeta {
@@ -416,7 +420,6 @@ export type Options = {
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
   contextualBandits?: ContextualBanditDefinitions;
-  interleaveExperiments?: InterleaveExperiment[];
   plugins?: Plugin[];
 };
 
@@ -595,7 +598,6 @@ export type FeatureApiResponse = {
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
-  interleaveExperiments?: InterleaveExperiment[];
 };
 
 // Alias

@@ -8,7 +8,6 @@ import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
   GrowthBook,
-  InterleaveExperiment,
 } from "@growthbook/growthbook";
 import {
   buildReverseDependencyIndex,
@@ -143,8 +142,8 @@ import { logger } from "back-end/src/util/logger";
 import { Counter, Histogram, metrics } from "back-end/src/util/metrics";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { promiseAllChunks } from "back-end/src/util/promise";
+import { InterleavingInterface } from "shared/validators";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { getInterleaveExperimentsForPayload } from "back-end/src/enterprise/services/interleavingPayload";
 import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
@@ -186,6 +185,7 @@ export function generateFeaturesPayload({
   includeRuleIds,
   includeExperimentNames,
   cbMap,
+  ilMap,
   includeDraftExperimentRefs,
   rampMonitoredRuleMap,
   payloadProjects,
@@ -217,6 +217,7 @@ export function generateFeaturesPayload({
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
   cbMap?: Map<string, ContextualBanditInterface>;
+  ilMap?: Map<string, InterleavingInterface>;
   includeDraftExperimentRefs?: boolean;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
   payloadProjects?: string[];
@@ -266,6 +267,7 @@ export function generateFeaturesPayload({
       projectsMap,
       payloadProjects,
       cbMap,
+      ilMap,
       constantMap: constantMap ?? undefined,
       onConstantCycle: (key) => {
         if (reportedCycles.has(key)) return;
@@ -1104,7 +1106,6 @@ export type FeatureDefinitionsResponseArgs = {
   usedSavedGroups: SavedGroupInterface[];
   savedGroupReferencesEnabled?: boolean;
   contextualBandits?: ContextualBanditDefinitions;
-  interleaveExperiments?: InterleaveExperiment[];
   organization: OrganizationInterface;
 };
 export async function getFeatureDefinitionsResponse({
@@ -1119,7 +1120,6 @@ export async function getFeatureDefinitionsResponse({
   capabilities,
   usedSavedGroups,
   contextualBandits,
-  interleaveExperiments,
   savedGroupReferencesEnabled,
   organization,
 }: FeatureDefinitionsResponseArgs): Promise<{
@@ -1132,7 +1132,6 @@ export async function getFeatureDefinitionsResponse({
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
-  interleaveExperiments?: InterleaveExperiment[];
 }> {
   features = cloneDeep(features);
   let processedExperiments: AutoExperiment[] =
@@ -1256,10 +1255,6 @@ export async function getFeatureDefinitionsResponse({
       ...(contextualBanditsForPayload !== undefined && {
         contextualBandits: contextualBanditsForPayload,
       }),
-      // Only running interleaving experiments reach the payload (filtered at
-      // fetch time); omitted entirely from encrypted payloads for now since
-      // SDKs do not decrypt this section yet
-      ...(interleaveExperiments?.length && { interleaveExperiments }),
     };
   }
 
@@ -1487,6 +1482,27 @@ export async function buildSDKPayloadForConnection(
     );
   }
 
+  let ilMap: Map<string, InterleavingInterface> | undefined;
+  const ilIdsFromRules: string[] = [];
+  for (const feature of filteredFeatures) {
+    for (const rule of feature.rules ?? []) {
+      if (rule.type === "interleave-ref" && rule.interleavingId) {
+        ilIdsFromRules.push(rule.interleavingId);
+      }
+    }
+  }
+  const ilIds = Array.from(new Set(ilIdsFromRules));
+  if (ilIds.length > 0) {
+    const ilDocs = await Promise.all(
+      ilIds.map((ilId) => context.models.interleavings.getById(ilId)),
+    );
+    ilMap = new Map(
+      ilDocs
+        .filter((il): il is InterleavingInterface => il !== null)
+        .map((il) => [il.id, il]),
+    );
+  }
+
   const featureDefinitions = generateFeaturesPayload({
     features: filteredFeatures,
     environment,
@@ -1514,6 +1530,7 @@ export async function buildSDKPayloadForConnection(
     projectsMap,
     payloadProjects: projectList,
     cbMap,
+    ilMap,
     rampMonitoredRuleMap: data.rampMonitoredRuleMap,
   });
 
@@ -1576,11 +1593,6 @@ export async function buildSDKPayloadForConnection(
     attributes = context.org.settings?.attributeSchema;
   }
 
-  const interleaveExperiments = await getInterleaveExperimentsForPayload(
-    context,
-    projectList,
-  );
-
   return getFeatureDefinitionsResponse({
     features: featuresWithHoldouts,
     experiments:
@@ -1599,7 +1611,6 @@ export async function buildSDKPayloadForConnection(
       !!savedGroupReferencesEnabled &&
       capabilities.includes("savedGroupReferences"),
     contextualBandits: contextualBanditsInUse,
-    interleaveExperiments,
     organization: context.org,
   });
 }
@@ -1614,7 +1625,6 @@ export type FeatureDefinitionSDKPayload = {
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
-  interleaveExperiments?: InterleaveExperiment[];
 };
 
 export async function getFeatureDefinitions(
@@ -2219,6 +2229,14 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
         type: "contextual-bandit-ref",
         variations: rule.variations,
         contextualBanditId: rule.contextualBanditId,
+      };
+    case "interleave-ref":
+      return {
+        ...base,
+        type: "interleave-ref",
+        interleavingId: rule.interleavingId,
+        coverage: rule.coverage,
+        hashAttribute: rule.hashAttribute,
       };
     case "safe-rollout":
       return {

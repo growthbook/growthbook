@@ -54,6 +54,13 @@ export const CONTEXTUAL_BANDIT_RULE_KEYS = [
   "contextualVariations",
 ] as const;
 
+export const INTERLEAVE_RULE_KEYS = [
+  // Interleave rules carry their serving config here. SDKs without the
+  // interleaving capability drop this key and, seeing no force/variations,
+  // skip the rule and fall through to the default value - a list name.
+  "interleave",
+] as const;
+
 export function getPayloadAllowedKeys(capabilities: SDKCapability[]): {
   featureKeys: readonly string[];
   featureRuleKeys: readonly string[];
@@ -70,6 +77,7 @@ export function getPayloadAllowedKeys(capabilities: SDKCapability[]): {
     ...(capabilities.includes("contextualBandits")
       ? CONTEXTUAL_BANDIT_RULE_KEYS
       : []),
+    ...(capabilities.includes("interleaving") ? INTERLEAVE_RULE_KEYS : []),
   ];
   const removedExperimentKeys = capabilities.includes("prerequisites")
     ? []

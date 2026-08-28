@@ -843,6 +843,13 @@ export function validateFeatureRule(
       hasChanges = true;
       (ruleCopy as SafeRolloutRule).controlValue = newControlValue;
     }
+  } else if (rule.type === "interleave-ref") {
+    if (
+      rule.coverage !== undefined &&
+      (rule.coverage < 0 || rule.coverage > 1)
+    ) {
+      throw new Error("Coverage must be between 0 and 1");
+    }
   } else {
     const newValue = validateFeatureValue(
       feature,

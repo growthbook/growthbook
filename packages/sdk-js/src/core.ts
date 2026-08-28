@@ -18,6 +18,7 @@ import {
   ClientOptions,
   TrackingUserContext,
   UserContext,
+  InterleaveRuleConfig,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
@@ -275,6 +276,52 @@ export function evalFeature<V = unknown>(
             rule,
           });
         continue;
+      }
+
+      // Interleave rules divert matched users into a team draft, run by the
+      // interleave plugin. Evaluation stays pure and value-typed: the value
+      // is a list name (the rule's fallbackValue ?? the feature default) and
+      // the serving config rides on the result for the plugin to act on.
+      if (rule.interleave) {
+        if (rule.condition && !conditionPasses(rule.condition, ctx)) {
+          process.env.NODE_ENV !== "production" &&
+            ctx.global.log("Skip rule because of condition interleave", {
+              id,
+              rule,
+            });
+          continue;
+        }
+        if (
+          !isIncludedInRollout(
+            ctx,
+            rule.seed || id,
+            rule.hashAttribute,
+            ctx.user.saveStickyBucketAssignmentDoc &&
+              !rule.disableStickyBucketing
+              ? rule.fallbackAttribute
+              : undefined,
+            rule.range,
+            rule.coverage,
+            rule.hashVersion,
+          )
+        ) {
+          process.env.NODE_ENV !== "production" &&
+            ctx.global.log("Skip rule because user not included in rollout", {
+              id,
+              rule,
+            });
+          continue;
+        }
+        return getFeatureResult(
+          ctx,
+          id,
+          (rule.interleave.fallbackValue ?? feature.defaultValue) as V,
+          "interleave",
+          rule.id,
+          undefined,
+          undefined,
+          rule.interleave,
+        );
       }
 
       // Feature value is being forced
@@ -829,6 +876,7 @@ function getFeatureResult<T>(
   ruleId?: string,
   experiment?: Experiment<T>,
   result?: Result<T>,
+  interleaveConfig?: InterleaveRuleConfig,
 ): FeatureResult<T> {
   const ret: FeatureResult = {
     value,
@@ -839,6 +887,7 @@ function getFeatureResult<T>(
   };
   if (experiment) ret.experiment = experiment;
   if (result) ret.experimentResult = result;
+  if (interleaveConfig) ret.interleaveConfig = interleaveConfig;
 
   // Track the usage of this feature in real-time
   if (source !== "override") {

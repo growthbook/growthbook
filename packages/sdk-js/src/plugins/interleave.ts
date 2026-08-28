@@ -4,16 +4,15 @@ import type {
   UserScopedGrowthBook,
 } from "../GrowthBookClient";
 import type {
-  InterleaveExperiment,
   InterleaveExposureCallback,
   InterleaveExposureData,
   InterleaveList,
   InterleaveOptions,
   InterleaveResult,
+  InterleaveRuleConfig,
 } from "../types/growthbook";
 import { itemDraft } from "../interleave";
-import { hash, inRange, toString } from "../util";
-import { evalCondition } from "../mongrule";
+import { hash, toString } from "../util";
 import { EVENT_EXPERIMENT_VIEWED } from "../core";
 
 export const EVENT_INTERLEAVE_EXPOSURE = "Interleave Exposure";
@@ -98,42 +97,31 @@ function emitMeasurementExposure(
 }
 
 function getMeasurementArm(
-  definition: InterleaveExperiment,
+  config: InterleaveRuleConfig,
   key: string,
   hashValue: string,
 ): InterleaveArm {
-  const pct = definition.measurementArmPercent;
+  const pct = config.measurementArmPercent;
   // Valid range is (0, 100); anything else disables the measurement split
   if (typeof pct !== "number" || !(pct > 0) || pct >= 100) {
     return "interleaved";
   }
   const n = hash(
-    (definition.seed || key) + MEASUREMENT_EXPERIMENT_SUFFIX,
+    (config.seed || key) + MEASUREMENT_EXPERIMENT_SUFFIX,
     hashValue,
-    definition.hashVersion || 2,
+    config.hashVersion || 2,
   );
   if (n === null) return "interleaved";
   return n < pct / 100 ? "measurement" : "interleaved";
 }
 
-function isFilteredOut(
-  definition: InterleaveExperiment,
-  attributes: Record<string, unknown>,
-): boolean {
-  return (definition.filters || []).some((filter) => {
-    const { hashValue } = getHashValue(attributes, filter.attribute);
-    if (!hashValue) return true;
-    const n = hash(filter.seed, hashValue, filter.hashVersion || 2);
-    if (n === null) return true;
-    return !filter.ranges.some((r) => inRange(n, r));
-  });
-}
-
-// Run an interleaving experiment against a GrowthBook instance. The
-// definition (which lists to weave, coverage, targeting, kill switch) comes
-// from the instance's payload; the caller supplies only the experiment key,
-// its candidate lists (typically precomputed by an upstream/offline ranking
-// system — the SDK just picks and weaves), and the item identity function.
+// Run an interleaving experiment against a GrowthBook instance. Diversion is
+// controlled by the feature with the same key: a matched `interleave` rule
+// (source "interleave") runs the team draft over the caller's registered
+// lists; any other outcome yields a plain value naming the list to serve.
+// The caller supplies only the experiment/feature key, its candidate lists
+// (typically precomputed by an upstream ranking system), and the item
+// identity function.
 export function interleave<T>(
   gb: GrowthBook,
   options: InterleaveOptions<T>,
@@ -145,66 +133,63 @@ export function interleave<T>(
       ? crypto.randomUUID()
       : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
-  const fallbackResult = (): InterleaveResult<T> => {
-    const name = options.fallback || (lists[0] && lists[0].name);
-    const list = lists.find((l) => l.name === name) || lists[0];
+  const untrackedResult = (list?: InterleaveList<T>): InterleaveResult<T> => {
+    const fallbackName = options.fallback || (lists[0] && lists[0].name);
+    const resolved =
+      list || lists.find((l) => l.name === fallbackName) || lists[0];
     return {
       inExperiment: false,
       interleaveId,
       key,
-      items: list ? realizeList(list) : [],
+      items: resolved ? realizeList(resolved) : [],
       trackingProps: (itemId: string) => ({ item_id: itemId }),
     };
   };
 
-  // 1. Look up the payload-delivered definition
-  const definition = (gb.getInterleaveExperiments() || []).find(
-    (d) => d.key === key,
-  );
-  if (!definition || definition.active === false) return fallbackResult();
+  // 1. Evaluate the controller feature. Feature evaluation stays pure: it
+  // only decides whether this user diverts; the draft happens here.
+  const res = gb.evalFeature(key);
+  if (res.source !== "interleave" || !res.interleaveConfig) {
+    // Routed to a plain value: serve the list it names when registered,
+    // otherwise the caller's fallback (also covers a missing feature)
+    const routed =
+      typeof res.value === "string"
+        ? lists.find((l) => l.name === res.value)
+        : undefined;
+    return untrackedResult(routed);
+  }
+  const config = res.interleaveConfig;
 
-  // 2. The definition selects which caller lists get woven
-  const selected = (definition.lists || []).map((name) =>
+  // 2. The rule selects which caller lists get woven
+  const selected = (config.lists || []).map((name) =>
     lists.find((l) => l.name === name),
   );
-  if (selected.length < 2 || selected.some((l) => !l)) return fallbackResult();
+  if (selected.length < 2 || selected.some((l) => !l)) {
+    return untrackedResult();
+  }
 
-  // 3. Per-user enrollment: hash attribute, filters, condition, coverage
+  // 3. User identity (measurement split + draft determinism)
   const attributes = gb.getAttributes();
   const { hashAttribute, hashValue } = getHashValue(
     attributes,
-    definition.hashAttribute,
-    definition.fallbackAttribute,
+    config.hashAttribute,
+    config.fallbackAttribute,
   );
-  if (!hashValue) return fallbackResult();
-  if (isFilteredOut(definition, attributes)) return fallbackResult();
-  if (
-    definition.condition &&
-    !evalCondition(attributes, definition.condition, gb.getSavedGroups())
-  ) {
-    return fallbackResult();
-  }
-  const enrollHash = hash(
-    definition.seed || key,
-    hashValue,
-    definition.hashVersion || 2,
-  );
-  if (enrollHash === null) return fallbackResult();
-  if (enrollHash > (definition.coverage ?? 1)) return fallbackResult();
+  if (!hashValue) return untrackedResult();
 
   // 3.5. Measurement split: a user-level holdout served the control list
   // unchanged, so interleaving itself can be compared against the status quo
   // as a standard user-level experiment
-  const arm = getMeasurementArm(definition, key, hashValue);
+  const arm = getMeasurementArm(config, key, hashValue);
   if (
-    typeof definition.measurementArmPercent === "number" &&
-    definition.measurementArmPercent > 0 &&
-    definition.measurementArmPercent < 100
+    typeof config.measurementArmPercent === "number" &&
+    config.measurementArmPercent > 0 &&
+    config.measurementArmPercent < 100
   ) {
     emitMeasurementExposure(gb, key, arm, hashAttribute, hashValue);
   }
   if (arm === "measurement") {
-    return { ...fallbackResult(), arm };
+    return { ...untrackedResult(), arm };
   }
 
   // 4. Realize only the selected lists and run the per-impression draft
@@ -214,16 +199,11 @@ export function interleave<T>(
   }));
   const rng = (round: number, captain: number) =>
     hash(
-      (definition.seed || key) + "__interleave",
+      (config.seed || key) + "__interleave",
       interleaveId + ":" + round + ":" + captain,
       2,
     ) ?? 0.5;
-  const { items, meta } = itemDraft(
-    realized,
-    getItemId,
-    rng,
-    definition.maxItems,
-  );
+  const { items, meta } = itemDraft(realized, getItemId, rng, config.maxItems);
 
   // 5. Emit the exposure: plugin callback first, then the instance's generic
   // event path (one event per impression, no dedupe)

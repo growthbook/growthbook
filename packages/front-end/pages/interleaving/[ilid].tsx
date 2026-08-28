@@ -23,6 +23,7 @@ import RunQueriesButton, {
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import InterleavingResults from "@/components/Interleaving/InterleavingResults";
+import { useFeaturesList } from "@/services/features";
 import { useInterleaving } from "@/hooks/useInterleavings";
 import { useInterleavingQueries } from "@/hooks/useInterleavingQueries";
 import useApi from "@/hooks/useApi";
@@ -60,6 +61,12 @@ export default function InterleavingDetailPage() {
   const { apiCall } = useAuth();
 
   const { interleaving, loading, error, mutate } = useInterleaving(ilid);
+  const { features } = useFeaturesList({ useCurrentProject: false });
+  const linkedFeatures = features.filter((f) =>
+    (f.rules ?? []).some(
+      (r) => r.type === "interleave-ref" && r.interleavingId === ilid,
+    ),
+  );
   const { interleavingQueriesMap } = useInterleavingQueries(
     interleaving?.datasource,
   );
@@ -216,8 +223,9 @@ export default function InterleavingDetailPage() {
       )}
       {interleaving.status === "draft" && (
         <Callout status="info" mb="3">
-          This interleaving experiment is a draft — it is not included in the
-          SDK payload. Start it to begin serving interleaved lists.
+          This interleaving experiment is a draft — its interleave rules are not
+          served. Link a Feature Flag with an interleave rule, then start it to
+          begin serving interleaved lists.
         </Callout>
       )}
 
@@ -271,6 +279,24 @@ export default function InterleavingDetailPage() {
                           `${getExperimentMetricById(m.id)?.name || m.id} (${m.estimator})`,
                       )
                       .join(", ") || "None"}
+                  </td>
+                </tr>
+                <tr>
+                  <th className="pr-4">Linked Feature Flags</th>
+                  <td>
+                    {linkedFeatures.length ? (
+                      linkedFeatures.map((f, i) => (
+                        <span key={f.id}>
+                          {i > 0 ? ", " : null}
+                          <a href={`/features/${f.id}`}>{f.id}</a>
+                        </span>
+                      ))
+                    ) : (
+                      <em>
+                        None — add an interleave rule to a Feature Flag to
+                        control diversion (required before starting)
+                      </em>
+                    )}
                   </td>
                 </tr>
                 {interleaving.measurementArmPercent ? (

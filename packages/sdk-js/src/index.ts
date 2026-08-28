@@ -59,7 +59,7 @@ export type {
   Plugin,
   LogUnion,
   InterleaveList,
-  InterleaveExperiment,
+  InterleaveRuleConfig,
   InterleavedItemMeta,
   InterleaveResult,
   InterleaveOptions,

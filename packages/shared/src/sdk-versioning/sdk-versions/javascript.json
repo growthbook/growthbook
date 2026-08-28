@@ -1,6 +1,10 @@
 {
   "versions": [
     {
+      "version": "1.8.0",
+      "capabilities": ["interleaving"]
+    },
+    {
       "version": "1.7.0",
       "capabilities": ["contextualBandits"]
     },

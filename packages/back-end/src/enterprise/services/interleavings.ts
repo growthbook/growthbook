@@ -5,6 +5,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { InterleavingResultsQueryRunner } from "back-end/src/enterprise/queryRunners/InterleavingResultsQueryRunner";
 import { refreshSDKPayloadCache } from "back-end/src/services/features";
@@ -138,12 +139,37 @@ async function refreshInterleavingPayload(
   });
 }
 
+// Feature Flags whose rules reference this interleaving (interleave-ref)
+export async function getInterleavingLinkedFeatureIds(
+  context: Context,
+  interleaving: InterleavingInterface,
+): Promise<string[]> {
+  const features = await getAllFeatures(context);
+  return features
+    .filter((f) =>
+      (f.rules ?? []).some(
+        (r) =>
+          r.type === "interleave-ref" && r.interleavingId === interleaving.id,
+      ),
+    )
+    .map((f) => f.id);
+}
+
 export async function startInterleaving(
   context: Context,
   interleaving: InterleavingInterface,
 ): Promise<InterleavingInterface> {
   if (interleaving.status !== "draft") {
     throw new Error("Only draft interleaving experiments can be started");
+  }
+  const linkedFeatureIds = await getInterleavingLinkedFeatureIds(
+    context,
+    interleaving,
+  );
+  if (linkedFeatureIds.length === 0) {
+    throw new Error(
+      "Add an interleave rule to a Feature Flag before starting this interleaving experiment",
+    );
   }
   const updated = await context.models.interleavings.update(interleaving, {
     status: "running",

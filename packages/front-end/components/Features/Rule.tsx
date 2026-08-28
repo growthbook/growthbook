@@ -1675,6 +1675,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 environment={isAllEnvsView ? undefined : environment}
               />
             )}
+            {rule.type === "interleave-ref" && (
+              <Box>
+                <Text weight="medium">INTERLEAVE</Text>{" "}
+                <Text>
+                  Diverts matched users into the{" "}
+                  <Link href={`/interleaving/${rule.interleavingId}`}>
+                    interleaving experiment
+                  </Link>
+                  {rule.coverage !== undefined
+                    ? ` (${Math.round(rule.coverage * 100)}% of traffic)`
+                    : null}
+                  . Everyone else gets this Feature Flag&apos;s value — the list
+                  name to serve.
+                </Text>
+              </Box>
+            )}
             {rampSchedule && (
               <Box mt="4">
                 {!isSimpleSchedule && (

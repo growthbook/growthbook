@@ -44,6 +44,7 @@ import { ProjectInterface } from "shared/types/project";
 import {
   HoldoutInterface,
   ContextualBanditInterface,
+  InterleavingInterface,
   VariationWeightPair,
 } from "shared/validators";
 import {
@@ -717,6 +718,7 @@ export function getFeatureDefinition({
   projectsMap,
   payloadProjects,
   cbMap,
+  ilMap,
   rampMonitoredRuleMap,
   constantMap,
   onConstantCycle,
@@ -749,6 +751,7 @@ export function getFeatureDefinition({
   // (keep all rules); otherwise rules outside the served scope are dropped.
   payloadProjects?: string[];
   cbMap?: Map<string, ContextualBanditInterface>;
+  ilMap?: Map<string, InterleavingInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
   // Per-environment constant values. When provided, EVERY emitted value is
   // resolved here (exactly once): sparse rule values resolve BEFORE the sparse
@@ -1406,6 +1409,37 @@ export function getFeatureDefinition({
               }
             }
           }
+        } else if (r.type === "interleave-ref") {
+          const il = ilMap?.get(r.interleavingId);
+          // Only running interleaving experiments are served; the rule is
+          // dropped entirely otherwise (fall through to the default value,
+          // which names the status-quo list)
+          if (!il || il.archived || il.status !== "running") return null;
+          // SDKs without the interleaving capability would see a rule with no
+          // force/variations and skip it anyway; drop the dead weight
+          if (
+            capabilities !== undefined &&
+            !capabilities.includes("interleaving")
+          ) {
+            return null;
+          }
+          if (r.coverage !== undefined) {
+            rule.coverage =
+              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+          }
+          if (r.hashAttribute) {
+            rule.hashAttribute = r.hashAttribute;
+          }
+          rule.hashVersion = 2;
+          rule.interleave = {
+            lists: [il.variationNames[0], il.variationNames[1]],
+            seed: il.trackingKey,
+            hashAttribute: "id",
+            fallbackValue: il.variationNames[0],
+            ...(il.measurementArmPercent
+              ? { measurementArmPercent: il.measurementArmPercent }
+              : {}),
+          };
         } else if (r.type === "safe-rollout") {
           const safeRollout = safeRolloutMap.get(r.safeRolloutId);
 
