@@ -70,7 +70,8 @@
   font-size: var(--font-size-2) !important;
 }
 
-.gb-select-wrapper--x-small {
+.gb-select-wrapper--x-small,
+.gb-select-wrapper--xs {
   .gb-select__control {
     min-height: 24px !important;
     border-radius: var(--radius-2) !important;

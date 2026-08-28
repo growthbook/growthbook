@@ -247,7 +247,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
               <SelectField
                 // 32px, matching `Field size="md"`. SelectField's own "medium"
                 // is 40px — the two components' size names do not line up.
-                size="small"
+                size="md"
                 value={variation.featureValue === "true" ? "true" : "false"}
                 options={[
                   { label: "True", value: "true" },

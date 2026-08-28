@@ -230,7 +230,7 @@ export function RowFilterInput({
           >
             {i > 0 && <div>AND</div>}
             <SelectField
-              size="small"
+              size="md"
               value={
                 filter.operator === "sql_expr"
                   ? "$$sql_expr"
@@ -286,7 +286,7 @@ export function RowFilterInput({
             />
             {operatorInputRequired && firstSelectCompleted && (
               <SelectField
-                size="small"
+                size="md"
                 value={filter.operator}
                 onChange={(v: RowFilter["operator"]) => {
                   let newValues = filter.values || [];
@@ -361,7 +361,7 @@ export function RowFilterInput({
                   />
                 ) : useValueOptions ? (
                   <SelectField
-                    size="small"
+                    size="md"
                     value={filter.values?.[0] || ""}
                     onChange={(v) => {
                       updateRowFilter({
