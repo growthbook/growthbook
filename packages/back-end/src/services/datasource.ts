@@ -455,7 +455,7 @@ export async function testQueryValidity(
     return findMissingRequiredColumns(
       results,
       requiredColumns,
-      integration.columnNamesAreCaseSensitive === true,
+      integration.columnNamesAreCaseSensitive,
     );
   } catch (e) {
     return e.message;
@@ -484,7 +484,7 @@ export async function testFeatureUsageQueryValidity(
     return findMissingRequiredColumns(
       results,
       requiredColumns,
-      integration.columnNamesAreCaseSensitive === true,
+      integration.columnNamesAreCaseSensitive,
     );
   } catch (e) {
     return e.message;

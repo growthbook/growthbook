@@ -355,7 +355,7 @@ export async function refreshColumns(
     const columns = mergeColumnsWithTypeMap(
       factTable.columns || [],
       typeMap,
-      integration.columnNamesAreCaseSensitive === true,
+      integration.columnNamesAreCaseSensitive,
     );
 
     return { columns, needsBackgroundRefresh: true };

@@ -13,12 +13,12 @@ import {
   ColumnInterface,
   FactTableColumnType,
   FactTableInterface,
-  JSONColumnFields,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ReqContext } from "back-end/types/request";
 import {
   columnNamesMatch,
+  type DetectedJSONFields,
   determineColumnTypes,
   getColumnByName,
   mergeJsonFields,
@@ -236,7 +236,7 @@ export async function runColumnDetectionQuery(
     throw new Error("Testing not supported on this data source");
   }
 
-  const caseSensitive = integration.columnNamesAreCaseSensitive === true;
+  const caseSensitive = integration.columnNamesAreCaseSensitive;
 
   const timestampColumn = getFactTableTimestampColumn(factTable);
 
@@ -257,7 +257,7 @@ export async function runColumnDetectionQuery(
   );
 
   const typeMap = new Map<string, FactTableColumnType>();
-  const jsonMap = new Map<string, JSONColumnFields>();
+  const jsonMap = new Map<string, DetectedJSONFields>();
   const warehouseTypeMap = new Map<string, FactTableColumnType>();
 
   result.columns?.forEach((col) => {
@@ -272,9 +272,9 @@ export async function runColumnDetectionQuery(
         col.fields.length > 0
       ) {
         typeMap.set(col.name, "json");
-        jsonMap.set(
-          col.name,
-          col.fields.reduce(
+        jsonMap.set(col.name, {
+          source: "querySchema",
+          fields: col.fields.reduce(
             (acc, field) => ({
               ...acc,
               [field.name]: {
@@ -283,7 +283,7 @@ export async function runColumnDetectionQuery(
             }),
             {},
           ),
-        );
+        });
       } else if (col.dataType !== "json") {
         typeMap.set(col.name, col.dataType);
       }
@@ -293,7 +293,10 @@ export async function runColumnDetectionQuery(
   determineColumnTypes(result.results, typeMap).forEach((col) => {
     typeMap.set(col.column, col.datatype);
     if (col.jsonFields) {
-      jsonMap.set(col.column, col.jsonFields);
+      jsonMap.set(col.column, {
+        source: "sampledValues",
+        fields: col.jsonFields,
+      });
     }
   });
 
@@ -339,7 +342,7 @@ export async function runColumnDetectionQuery(
       // If we now know the datatype, update it
       if (col.datatype === "" && type !== "") {
         col.datatype = type;
-        col.jsonFields = jsonFields;
+        col.jsonFields = jsonFields?.fields;
         col.dateUpdated = new Date();
       }
       // If this is a JSON column, merge in the JSON fields
@@ -366,7 +369,7 @@ export async function runColumnDetectionQuery(
         column,
         datatype,
         dataTypeFromWarehouse: warehouseTypeMap.get(column),
-        jsonFields: jsonMap.get(column),
+        jsonFields: jsonMap.get(column)?.fields,
         dateCreated: new Date(),
         dateUpdated: new Date(),
         description: "",

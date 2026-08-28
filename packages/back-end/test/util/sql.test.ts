@@ -680,7 +680,11 @@ describe("mergeJsonFields", () => {
   it("adds genuinely new fields and reports the change", () => {
     const { fields, changed } = mergeJsonFields(
       { userId: field("string") },
-      { userId: field("string"), country: field("string") },
+      {
+        source: "sampledValues",
+        fields: { userId: field("string"), country: field("string") },
+      },
+      false,
     );
     expect(changed).toBe(true);
     expect(fields).toEqual({
@@ -689,10 +693,14 @@ describe("mergeJsonFields", () => {
     });
   });
 
-  it("does not re-add a field that already exists under different casing", () => {
+  it("reconciles schema fields under the integration's casing rules", () => {
     const { fields, changed } = mergeJsonFields(
       { userid: field("number") },
-      { userId: field("number") },
+      {
+        source: "querySchema",
+        fields: { userId: field("number") },
+      },
+      false,
     );
     expect(changed).toBe(false);
     expect(fields).toEqual({ userid: field("number") });
@@ -701,7 +709,11 @@ describe("mergeJsonFields", () => {
   it("keeps the existing entry and its datatype when a field recurs", () => {
     const { fields, changed } = mergeJsonFields(
       { userId: field("number") },
-      { userId: field("string") },
+      {
+        source: "sampledValues",
+        fields: { userId: field("string") },
+      },
+      false,
     );
     expect(changed).toBe(false);
     expect(fields).toEqual({ userId: field("number") });
@@ -710,7 +722,10 @@ describe("mergeJsonFields", () => {
   it("treats a casing-only difference as new when caseSensitive", () => {
     const { fields, changed } = mergeJsonFields(
       { userid: field("string") },
-      { userId: field("string") },
+      {
+        source: "querySchema",
+        fields: { userId: field("string") },
+      },
       true,
     );
     expect(changed).toBe(true);
@@ -721,16 +736,44 @@ describe("mergeJsonFields", () => {
   });
 
   it("handles an absent existing set", () => {
-    const { fields, changed } = mergeJsonFields(undefined, {
-      userId: field("string"),
-    });
+    const { fields, changed } = mergeJsonFields(
+      undefined,
+      {
+        source: "sampledValues",
+        fields: { userId: field("string") },
+      },
+      false,
+    );
     expect(changed).toBe(true);
     expect(fields).toEqual({ userId: field("string") });
   });
 
+  it("keeps case-distinct fields inferred from JSON values", () => {
+    const { fields, changed } = mergeJsonFields(
+      { userId: field("number") },
+      {
+        source: "sampledValues",
+        fields: { userid: field("number") },
+      },
+      false,
+    );
+    expect(changed).toBe(true);
+    expect(fields).toEqual({
+      userId: field("number"),
+      userid: field("number"),
+    });
+  });
+
   it("does not mutate the existing object", () => {
     const existing = { userId: field("string") };
-    mergeJsonFields(existing, { country: field("string") });
+    mergeJsonFields(
+      existing,
+      {
+        source: "sampledValues",
+        fields: { country: field("string") },
+      },
+      false,
+    );
     expect(existing).toEqual({ userId: field("string") });
   });
 });
