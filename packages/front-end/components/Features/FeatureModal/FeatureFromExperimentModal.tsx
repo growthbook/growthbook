@@ -353,7 +353,9 @@ export default function FeatureFromExperimentModal({
     if (envsEnabledByPublish.length === 0) return null;
     const envNames = <strong>{envsEnabledByPublish.join(", ")}</strong>;
     const scope =
-      draftMode === "existing" ? "in the selected draft" : "for this feature";
+      draftMode === "existing"
+        ? "in the selected draft"
+        : "for this Feature Flag";
     const verb = envsEnabledByPublish.length === 1 ? "is" : "are";
     const pronoun = envsEnabledByPublish.length === 1 ? "it" : "them";
     return (

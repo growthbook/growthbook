@@ -623,7 +623,7 @@ export default function StartExperimentModal({
                   >
                     {featuresEnablingEnvsCount > 0 && (
                       <Callout size="sm" status="warning" mb="3">
-                        Starting this experiment will turn on{" "}
+                        Starting this experiment will enable{" "}
                         {featuresEnablingEnvsCount} Feature Flag
                         {featuresEnablingEnvsCount === 1 ? "" : "s"} in
                         environments where{" "}
