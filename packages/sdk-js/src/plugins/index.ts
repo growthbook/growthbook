@@ -19,3 +19,11 @@ export type {
   LogEvent,
   SdkInfo,
 } from "./devtools";
+
+// Session-replay types only — the plugin function ships via the auto-wrapper-plus
+// bundle and is intentionally excluded above.
+export type {
+  SessionReplayPrivacyConfig,
+  MaskableInputType,
+  SessionReplayUrlScrubberConfig,
+} from "./session-replay";
