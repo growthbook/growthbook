@@ -1,4 +1,4 @@
-import { InterleaveExperiment } from "@growthbook/growthbook";
+import { FeatureRule as SDKFeatureRule } from "@growthbook/growthbook";
 import { FeatureDefinition } from "shared/types/sdk";
 import { SDKCapability } from "shared/sdk-versioning";
 import { InterleavingInterface } from "shared/validators";
@@ -32,21 +32,17 @@ export function buildInterleaveControllerFeature(
     // status-quo list name preserves plain-caller behavior
     return { defaultValue: control };
   }
-  return {
-    defaultValue: control,
-    rules: [
-      {
-        ...(options?.includeRuleIds ? { id: il.id } : {}),
-        interleave: {
-          lists: [control, treatment],
-          fallbackValue: control,
-          ...(il.measurementArmPercent
-            ? { measurementArmPercent: il.measurementArmPercent }
-            : {}),
-        },
-      },
-    ],
+  const rule: SDKFeatureRule = {
+    ...(options?.includeRuleIds ? { id: il.id } : {}),
+    interleave: {
+      lists: [control, treatment],
+      fallbackValue: control,
+      ...(il.measurementArmPercent
+        ? { measurementArmPercent: il.measurementArmPercent }
+        : {}),
+    },
   };
+  return { defaultValue: control, rules: [rule] };
 }
 
 /**
@@ -60,15 +56,20 @@ export async function getInterleaveFeatureDefinitionsForPayload(
     projects?: string[];
     capabilities?: SDKCapability[];
     includeRuleIds?: boolean;
+    // Interleaving ids already served by a real feature's interleave-ref
+    // rule: linking a flag takes over serving, so no controller feature is
+    // synthesized for them (avoids two serving paths for one experiment)
+    excludeIds?: Set<string>;
   } = {},
 ): Promise<Record<string, FeatureDefinition>> {
-  const { projects, capabilities, includeRuleIds } = options;
+  const { projects, capabilities, includeRuleIds, excludeIds } = options;
   // undefined capabilities = unrestricted (matches generateFeaturesPayload)
   const includeRule =
     capabilities === undefined || capabilities.includes("interleaving");
   const all = await context.models.interleavings.getAll();
   const out: Record<string, FeatureDefinition> = {};
   for (const il of all) {
+    if (excludeIds?.has(il.id)) continue;
     if (!isEmittable(il, projects)) continue;
     out[il.trackingKey] = buildInterleaveControllerFeature(il, {
       includeRule,
@@ -76,29 +77,4 @@ export async function getInterleaveFeatureDefinitionsForPayload(
     });
   }
   return out;
-}
-
-/**
- * Build the `interleaveExperiments` section of the SDK payload: only running,
- * non-archived interleaving experiments, scoped by the payload's project list
- * (an interleaving with no project is global, matching feature semantics).
- * Lives apart from services/interleavings.ts so features.ts can import it
- * without a circular dependency.
- * @deprecated The interleave controller feature replaces this channel.
- */
-export async function getInterleaveExperimentsForPayload(
-  context: ReqContext | ApiReqContext,
-  projects?: string[],
-): Promise<InterleaveExperiment[]> {
-  const all = await context.models.interleavings.getAll();
-  return all
-    .filter((il) => isEmittable(il, projects))
-    .map((il) => ({
-      key: il.trackingKey,
-      lists: [il.variationNames[0], il.variationNames[1]],
-      hashAttribute: "id",
-      ...(il.measurementArmPercent
-        ? { measurementArmPercent: il.measurementArmPercent }
-        : {}),
-    }));
 }

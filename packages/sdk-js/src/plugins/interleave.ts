@@ -4,7 +4,6 @@ import type {
   UserScopedGrowthBook,
 } from "../GrowthBookClient";
 import type {
-  InterleaveExperiment,
   InterleaveExposureCallback,
   InterleaveExposureData,
   InterleaveFeatureAssignment,
@@ -13,8 +12,7 @@ import type {
   InterleaveResult,
 } from "../types/growthbook";
 import { itemDraft } from "../interleave";
-import { hash, inRange, toString } from "../util";
-import { evalCondition } from "../mongrule";
+import { hash } from "../util";
 import { EVENT_EXPERIMENT_VIEWED } from "../core";
 
 export const EVENT_INTERLEAVE_EXPOSURE = "Interleave Exposure";
@@ -53,20 +51,6 @@ export function interleavePlugin(settings: InterleavePluginSettings = {}) {
 
 function realizeList<T>(list: InterleaveList<T>): T[] {
   return typeof list.items === "function" ? list.items() : list.items;
-}
-
-function getHashValue(
-  attributes: Record<string, unknown>,
-  attr?: string,
-  fallback?: string,
-): { hashAttribute: string; hashValue: string } {
-  let hashAttribute = attr || "id";
-  let hashValue = attributes[hashAttribute];
-  if (!hashValue && fallback && attributes[fallback]) {
-    hashAttribute = fallback;
-    hashValue = attributes[fallback];
-  }
-  return { hashAttribute, hashValue: hashValue ? toString(hashValue) : "" };
 }
 
 // The measurement arm turns "interleaving vs status quo" into a standard
@@ -112,19 +96,6 @@ function getMeasurementArm(
   const n = hash(seed + MEASUREMENT_EXPERIMENT_SUFFIX, hashValue, hashVersion);
   if (n === null) return "interleaved";
   return n < pct / 100 ? "measurement" : "interleaved";
-}
-
-function isFilteredOut(
-  definition: InterleaveExperiment,
-  attributes: Record<string, unknown>,
-): boolean {
-  return (definition.filters || []).some((filter) => {
-    const { hashValue } = getHashValue(attributes, filter.attribute);
-    if (!hashValue) return true;
-    const n = hash(filter.seed, hashValue, filter.hashVersion || 2);
-    if (n === null) return true;
-    return !filter.ranges.some((r) => inRange(n, r));
-  });
 }
 
 // Draft the selected lists and emit the per-impression exposure
@@ -237,22 +208,7 @@ export function interleave<T>(
     return interleaveFromAssignment(gb, options, interleaveId, assignment);
   }
 
-  // Legacy path: standalone payload definitions
-  // (Options.interleaveExperiments). Deprecated in favor of the rule.
-  const definition = (gb.getInterleaveExperiments() || []).find(
-    (d) => d.key === key,
-  );
-  if (definition && definition.active !== false) {
-    return interleaveFromDefinition(
-      gb,
-      options,
-      interleaveId,
-      definition,
-      serveList,
-    );
-  }
-
-  // No interleaving configured: if the feature resolved to a list name
+  // No interleave rule matched: if the feature resolved to a list name
   // (e.g. the experiment was stopped and the winner shipped as the
   // feature's value), serve that list
   const resolved =
@@ -324,71 +280,5 @@ function interleaveFromAssignment<T>(
     maxItems: assignment.maxItems,
     hashAttribute: assignment.hashAttribute,
     hashValue: assignment.hashValue,
-  });
-}
-
-/** @deprecated The interleave feature rule replaces standalone definitions. */
-function interleaveFromDefinition<T>(
-  gb: GrowthBook,
-  options: InterleaveOptions<T>,
-  interleaveId: string,
-  definition: InterleaveExperiment,
-  serveList: (name?: string) => InterleaveResult<T>,
-): InterleaveResult<T> {
-  const { key, lists, getItemId } = options;
-
-  const selected = (definition.lists || []).map((name) =>
-    lists.find((l) => l.name === name),
-  );
-  if (selected.length < 2 || selected.some((l) => !l)) return serveList();
-
-  const attributes = gb.getAttributes();
-  const { hashAttribute, hashValue } = getHashValue(
-    attributes,
-    definition.hashAttribute,
-    definition.fallbackAttribute,
-  );
-  if (!hashValue) return serveList();
-  if (isFilteredOut(definition, attributes)) return serveList();
-  if (
-    definition.condition &&
-    !evalCondition(attributes, definition.condition, gb.getSavedGroups())
-  ) {
-    return serveList();
-  }
-  const enrollHash = hash(
-    definition.seed || key,
-    hashValue,
-    definition.hashVersion || 2,
-  );
-  if (enrollHash === null) return serveList();
-  if (enrollHash > (definition.coverage ?? 1)) return serveList();
-
-  const arm = getMeasurementArm(
-    definition.measurementArmPercent,
-    definition.seed || key,
-    definition.hashVersion || 2,
-    hashValue,
-  );
-  if (
-    typeof definition.measurementArmPercent === "number" &&
-    definition.measurementArmPercent > 0 &&
-    definition.measurementArmPercent < 100
-  ) {
-    emitMeasurementExposure(gb, key, arm, hashAttribute, hashValue);
-  }
-  if (arm === "measurement") {
-    return { ...serveList(), arm };
-  }
-
-  return draftAndExpose(gb, {
-    key,
-    interleaveId,
-    selected: selected as InterleaveList<T>[],
-    getItemId,
-    seed: definition.seed || key,
-    maxItems: definition.maxItems,
-    hashAttribute,
-    hashValue,
   });
 }

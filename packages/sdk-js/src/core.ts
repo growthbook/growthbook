@@ -278,9 +278,8 @@ export function evalFeature<V = unknown>(
       }
 
       // Interleaving controller rule: plain evaluation resolves to the
-      // status-quo list name and fires NO exposure (no draft happened) —
-      // only the interleave plugin, via result.interleave, can serve a
-      // blended list
+      // status-quo list name and fires NO draft exposure — only the
+      // interleave plugin, via result.interleave, can serve a blended list
       if (rule.interleave) {
         if (rule.condition && !conditionPasses(rule.condition, ctx)) {
           process.env.NODE_ENV !== "production" &&
@@ -292,7 +291,10 @@ export function evalFeature<V = unknown>(
             ctx,
             rule.seed || id,
             rule.hashAttribute,
-            rule.fallbackAttribute,
+            ctx.user.saveStickyBucketAssignmentDoc &&
+              !rule.disableStickyBucketing
+              ? rule.fallbackAttribute
+              : undefined,
             rule.range,
             rule.coverage,
             rule.hashVersion,
@@ -313,7 +315,7 @@ export function evalFeature<V = unknown>(
         const res = getFeatureResult(
           ctx,
           id,
-          rule.interleave.fallbackValue as V,
+          (rule.interleave.fallbackValue ?? feature.defaultValue) as V,
           "interleave",
           rule.id,
         );

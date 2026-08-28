@@ -199,7 +199,6 @@ export interface InterleaveList<T> {
   items: T[] | (() => T[]);
 }
 
-// Payload-delivered definition controlling an interleaving experiment
 // Interleaving controller rule on a feature. The feature's value space is
 // LIST NAMES: plain feature evaluation resolves this rule to `fallbackValue`
 // (the status-quo list name) and fires no exposure of any kind — only the
@@ -226,29 +225,6 @@ export interface InterleaveFeatureAssignment extends InterleaveRule {
   hashAttribute: string;
   hashValue: string;
 }
-
-/** @deprecated Use an `interleave` feature rule instead. */
-export interface InterleaveExperiment {
-  key: string;
-  // Names of the caller's lists to weave (>=2). Caller lists not named here
-  // are ignored; a name with no matching caller list serves the fallback.
-  lists: string[];
-  condition?: ConditionInterface;
-  coverage?: number;
-  hashAttribute?: string;
-  fallbackAttribute?: string;
-  hashVersion?: number;
-  seed?: string;
-  filters?: Filter[];
-  active?: boolean;
-  maxItems?: number;
-  // Share of enrolled users (0-100, exclusive of 100) held out of
-  // interleaving and served the control list unchanged, tracked as a
-  // separate user-level experiment ("<key>__measurement") so interleaved
-  // traffic can be compared against the status quo. 0 or absent disables it.
-  measurementArmPercent?: number;
-}
-
 export interface InterleavedItemMeta {
   itemId: string;
   variation: string;
@@ -452,7 +428,6 @@ export type Options = {
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
   contextualBandits?: ContextualBanditDefinitions;
-  interleaveExperiments?: InterleaveExperiment[];
   plugins?: Plugin[];
 };
 
@@ -631,7 +606,6 @@ export type FeatureApiResponse = {
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
-  interleaveExperiments?: InterleaveExperiment[];
 };
 
 // Alias

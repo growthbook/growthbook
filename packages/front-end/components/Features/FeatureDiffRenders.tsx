@@ -144,6 +144,8 @@ function getRuleTypeLabel(type: FeatureRule["type"]): string {
       return "Experiment ref";
     case "contextual-bandit-ref":
       return "Contextual Bandit ref";
+    case "interleave-ref":
+      return "Interleave ref";
     case "safe-rollout":
       return "Safe rollout";
   }

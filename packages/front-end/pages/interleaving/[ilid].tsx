@@ -17,12 +17,16 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import PageHead from "@/components/Layout/PageHead";
 import InterleavingForm from "@/components/Interleaving/InterleavingForm";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import SelectField from "@/components/Forms/SelectField";
+import Field from "@/components/Forms/Field";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import InterleavingResults from "@/components/Interleaving/InterleavingResults";
+import { useFeaturesList } from "@/services/features";
 import { useInterleaving } from "@/hooks/useInterleavings";
 import { useInterleavingQueries } from "@/hooks/useInterleavingQueries";
 import useApi from "@/hooks/useApi";
@@ -60,6 +64,14 @@ export default function InterleavingDetailPage() {
   const { apiCall } = useAuth();
 
   const { interleaving, loading, error, mutate } = useInterleaving(ilid);
+  const { features, mutate: mutateFeatures } = useFeaturesList({
+    useCurrentProject: false,
+  });
+  const linkedFeatures = features.filter((f) =>
+    (f.rules ?? []).some(
+      (r) => r.type === "interleave-ref" && r.interleavingId === ilid,
+    ),
+  );
   const { interleavingQueriesMap } = useInterleavingQueries(
     interleaving?.datasource,
   );
@@ -67,6 +79,9 @@ export default function InterleavingDetailPage() {
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkFeatureId, setLinkFeatureId] = useState("");
+  const [linkCoveragePct, setLinkCoveragePct] = useState(100);
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
   const [tab, setTab] = useState<InterleavingTab>(initialTab);
 
@@ -216,8 +231,9 @@ export default function InterleavingDetailPage() {
       )}
       {interleaving.status === "draft" && (
         <Callout status="info" mb="3">
-          This interleaving experiment is a draft — it is not included in the
-          SDK payload. Start it to begin serving interleaved lists.
+          This interleaving experiment is a draft — its interleave rules are not
+          served. Link a Feature Flag with an interleave rule, then start it to
+          begin serving interleaved lists.
         </Callout>
       )}
 
@@ -271,6 +287,33 @@ export default function InterleavingDetailPage() {
                           `${getExperimentMetricById(m.id)?.name || m.id} (${m.estimator})`,
                       )
                       .join(", ") || "None"}
+                  </td>
+                </tr>
+                <tr>
+                  <th className="pr-4">Linked Feature Flags</th>
+                  <td>
+                    {linkedFeatures.length ? (
+                      linkedFeatures.map((f, i) => (
+                        <span key={f.id}>
+                          {i > 0 ? ", " : null}
+                          <a href={`/features/${f.id}`}>{f.id}</a>
+                        </span>
+                      ))
+                    ) : (
+                      <em>
+                        None — link a Feature Flag to control diversion
+                        (required before starting)
+                      </em>
+                    )}{" "}
+                    {canEdit && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setLinkOpen(true)}
+                      >
+                        Link Feature Flag
+                      </Button>
+                    )}
                   </td>
                 </tr>
                 {interleaving.measurementArmPercent ? (
@@ -352,6 +395,65 @@ export default function InterleavingDetailPage() {
           savedQueries={[]}
           error={snapshot.error}
         />
+      )}
+
+      {linkOpen && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          size="md"
+          header="Link Feature Flag"
+          cta="Link and publish"
+          ctaEnabled={!!linkFeatureId}
+          close={() => setLinkOpen(false)}
+          submit={async () => {
+            const pct = Number(linkCoveragePct);
+            if (!(pct >= 0 && pct <= 100)) {
+              throw new Error("Diversion percentage must be from 0 to 100");
+            }
+            await apiCall(`/api/v1/interleavings/${ilid}/link-feature`, {
+              method: "POST",
+              body: JSON.stringify({
+                featureId: linkFeatureId,
+                coverage: pct / 100,
+              }),
+            });
+            await mutateFeatures();
+            setLinkOpen(false);
+          }}
+        >
+          <div className="my-2 ml-3 mr-3">
+            <p>
+              Adds an interleave rule to the selected string Feature Flag and
+              publishes it. The rule diverts matched users into this experiment;
+              the flag&apos;s value names the list everyone else is served.
+            </p>
+            <SelectField
+              label="Feature Flag"
+              options={features
+                .filter(
+                  (f) =>
+                    f.valueType === "string" &&
+                    !linkedFeatures.some((lf) => lf.id === f.id),
+                )
+                .map((f) => ({ value: f.id, label: f.id }))}
+              value={linkFeatureId}
+              onChange={(v) => setLinkFeatureId(v)}
+              helpText="String-valued Feature Flags only — the value space is list names"
+              required
+            />
+            <Field
+              label="Diversion percentage"
+              type="number"
+              min={0}
+              max={100}
+              step={1}
+              value={linkCoveragePct}
+              onChange={(e) => setLinkCoveragePct(Number(e.target.value))}
+              helpText="Share of eligible traffic diverted into interleaving; edit later on the flag rule"
+            />
+          </div>
+        </ModalStandard>
       )}
 
       {confirmStop && (

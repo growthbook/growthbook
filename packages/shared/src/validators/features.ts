@@ -261,12 +261,30 @@ export const safeRolloutRule = baseRule
   .strict();
 
 export type SafeRolloutRule = z.infer<typeof safeRolloutRule>;
+
+// References an Interleaving experiment: when the referenced experiment is
+// running, the SDK payload emits an `interleave` rule (capability-gated) that
+// diverts matched users into the team draft. Serving config comes from the
+// Interleaving doc; targeting comes from this rule's own fields.
+const interleaveRefRule = baseRule
+  .extend({
+    type: z.literal("interleave-ref"),
+    interleavingId: z.string(),
+    // Diversion share of eligible traffic (rule-level percentage rollout)
+    coverage: z.number().optional(),
+    hashAttribute: z.string().optional(),
+  })
+  .strict();
+
+export type InterleaveRefRule = z.infer<typeof interleaveRefRule>;
+
 export const featureRule = z.union([
   forceRule,
   rolloutRule,
   experimentRule,
   experimentRefRule,
   contextualBanditRefRule,
+  interleaveRefRule,
   safeRolloutRule,
 ]);
 
@@ -1039,6 +1057,23 @@ export const apiFeatureContextualBanditRefRuleValidator = namedSchema(
   ),
 );
 
+export const apiFeatureInterleaveRefRuleValidator = namedSchema(
+  "FeatureInterleaveRefRule",
+  z.intersection(
+    apiFeatureBaseRuleValidator
+      .omit({})
+      .describe(
+        "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
+      ),
+    z.object({
+      type: z.literal("interleave-ref"),
+      interleavingId: z.string(),
+      coverage: z.number().optional(),
+      hashAttribute: z.string().optional(),
+    }),
+  ),
+);
+
 // ---- FeatureSafeRolloutRule (schemas/FeatureSafeRolloutRule.yaml) ----
 export const apiFeatureSafeRolloutRuleValidator = namedSchema(
   "FeatureSafeRolloutRule",
@@ -1072,6 +1107,7 @@ export const apiFeatureRuleValidator = namedSchema(
     apiFeatureExperimentRuleValidator,
     apiFeatureExperimentRefRuleValidator,
     apiFeatureContextualBanditRefRuleValidator,
+    apiFeatureInterleaveRefRuleValidator,
     apiFeatureSafeRolloutRuleValidator,
   ]),
 );

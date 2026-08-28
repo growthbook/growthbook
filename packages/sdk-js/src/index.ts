@@ -61,7 +61,6 @@ export type {
   InterleaveList,
   InterleaveRule,
   InterleaveFeatureAssignment,
-  InterleaveExperiment,
   InterleavedItemMeta,
   InterleaveResult,
   InterleaveOptions,

@@ -3,7 +3,7 @@ import { itemDraft, flattenInterleaveExposure } from "../src/interleave";
 import { interleavePlugin, interleave } from "../src/plugins/interleave";
 import { hash } from "../src/util";
 import {
-  InterleaveExperiment,
+  FeatureDefinition,
   InterleaveExposureData,
 } from "../src/types/growthbook";
 
@@ -98,16 +98,25 @@ describe("itemDraft", () => {
 });
 
 describe("interleave plugin", () => {
-  const definition: InterleaveExperiment = {
-    key: "ranker-test",
-    lists: ["control", "treatment"],
+  // Controller feature: value space is list names; the interleave rule
+  // diverts matched users into the draft
+  const feature: FeatureDefinition<string> = {
+    defaultValue: "control",
+    rules: [
+      {
+        interleave: {
+          lists: ["control", "treatment"],
+          fallbackValue: "control",
+        },
+      },
+    ],
   };
   const lists = [
     { name: "control", items: ["A", "B", "C", "D"] },
     { name: "treatment", items: ["C", "A", "D", "B"] },
   ];
 
-  it("serves fallback when the definition is missing", () => {
+  it("serves the caller fallback when the feature is missing", () => {
     const gb = new GrowthBook({
       attributes: { id: "user-1" },
       plugins: [interleavePlugin()],
@@ -118,27 +127,56 @@ describe("interleave plugin", () => {
     gb.destroy();
   });
 
-  it("serves fallback when inactive or coverage is 0", () => {
+  it("serves the list named by the feature value when no interleave rule matches", () => {
     const gb = new GrowthBook({
       attributes: { id: "user-1" },
-      interleaveExperiments: [{ ...definition, active: false }],
+      features: { "ranker-test": { defaultValue: "treatment" } },
       plugins: [interleavePlugin()],
     });
-    expect(
-      interleave(gb, { key: "ranker-test", lists, getItemId: id }).inExperiment,
-    ).toBe(false);
+    const res = interleave(gb, { key: "ranker-test", lists, getItemId: id });
+    expect(res.inExperiment).toBe(false);
+    expect(res.items).toEqual(["C", "A", "D", "B"]); // the treatment list
     gb.destroy();
+  });
 
-    const gb2 = new GrowthBook({
+  it("serves the default-value list when the rule's rollout excludes the user", () => {
+    const gb = new GrowthBook({
       attributes: { id: "user-1" },
-      interleaveExperiments: [{ ...definition, coverage: 0 }],
+      features: {
+        "ranker-test": {
+          defaultValue: "control",
+          rules: [
+            {
+              interleave: {
+                lists: ["control", "treatment"],
+                fallbackValue: "control",
+              },
+              coverage: 0,
+            },
+          ],
+        },
+      },
       plugins: [interleavePlugin()],
     });
-    expect(
-      interleave(gb2, { key: "ranker-test", lists, getItemId: id })
-        .inExperiment,
-    ).toBe(false);
-    gb2.destroy();
+    const res = interleave(gb, { key: "ranker-test", lists, getItemId: id });
+    expect(res.inExperiment).toBe(false);
+    expect(res.items).toEqual(["A", "B", "C", "D"]);
+    gb.destroy();
+  });
+
+  it("keeps evalFeature pure and value-typed for plain feature callers", () => {
+    const gb = new GrowthBook({
+      attributes: { id: "user-1" },
+      features: { "ranker-test": feature },
+    });
+    // No plugin involved: a matched interleave rule still yields a list name
+    const res = gb.evalFeature("ranker-test");
+    expect(res.source).toBe("interleave");
+    expect(res.value).toBe("control"); // the rule's fallbackValue
+    expect(res.interleave?.lists).toEqual(["control", "treatment"]);
+    // Repeat evaluation is deterministic (no draft inside evalFeature)
+    expect(gb.evalFeature("ranker-test").value).toBe("control");
+    gb.destroy();
   });
 
   it("interleaves both lists, fires one exposure per impression, and varies draft by interleaveId", () => {
@@ -146,7 +184,7 @@ describe("interleave plugin", () => {
     const logged: { name: string; props: Record<string, unknown> }[] = [];
     const gb = new GrowthBook({
       attributes: { id: "user-1" },
-      interleaveExperiments: [definition],
+      features: { "ranker-test": feature },
       plugins: [
         interleavePlugin({
           onExposure: (d) => {
@@ -209,7 +247,7 @@ describe("interleave plugin", () => {
     const logged: string[] = [];
     const gb = new GrowthBook({
       attributes: { id: "user-1" },
-      interleaveExperiments: [definition],
+      features: { "ranker-test": feature },
       eventLogger: (name) => {
         logged.push(name);
       },
@@ -228,7 +266,7 @@ describe("interleave plugin", () => {
   it("returns spreadable trackingProps in and out of the experiment", () => {
     const gb = new GrowthBook({
       attributes: { id: "user-1" },
-      interleaveExperiments: [definition],
+      features: { "ranker-test": feature },
       plugins: [interleavePlugin()],
     });
     const res = interleave(gb, {
@@ -254,36 +292,7 @@ describe("interleave plugin", () => {
     gb2.destroy();
   });
 
-  it("resolves saved-group conditions", () => {
-    const withCondition: InterleaveExperiment = {
-      ...definition,
-      condition: { id: { $inGroup: "beta-testers" } },
-    };
-    const gb = new GrowthBook({
-      attributes: { id: "user-1" },
-      interleaveExperiments: [withCondition],
-      savedGroups: { "beta-testers": ["user-1", "user-2"] },
-      plugins: [interleavePlugin()],
-    });
-    expect(
-      interleave(gb, { key: "ranker-test", lists, getItemId: id }).inExperiment,
-    ).toBe(true);
-    gb.destroy();
-
-    const gb2 = new GrowthBook({
-      attributes: { id: "user-9" },
-      interleaveExperiments: [withCondition],
-      savedGroups: { "beta-testers": ["user-1", "user-2"] },
-      plugins: [interleavePlugin()],
-    });
-    expect(
-      interleave(gb2, { key: "ranker-test", lists, getItemId: id })
-        .inExperiment,
-    ).toBe(false);
-    gb2.destroy();
-  });
-
-  it("only realizes lazy lists when enrolled", () => {
+  it("only realizes lazy lists when diverted", () => {
     let realized = 0;
     const lazyLists = [
       { name: "control", items: () => (realized++, ["A", "B"]) },
@@ -291,18 +300,31 @@ describe("interleave plugin", () => {
     ];
     const gb = new GrowthBook({
       attributes: { id: "user-1" },
-      interleaveExperiments: [{ ...definition, coverage: 0 }],
+      features: {
+        "ranker-test": {
+          defaultValue: "control",
+          rules: [
+            {
+              interleave: {
+                lists: ["control", "treatment"],
+                fallbackValue: "control",
+              },
+              coverage: 0,
+            },
+          ],
+        },
+      },
       plugins: [interleavePlugin()],
     });
     interleave(gb, { key: "ranker-test", lists: lazyLists, getItemId: id });
-    expect(realized).toBe(1); // only the fallback list was realized
+    expect(realized).toBe(1); // only the routed/fallback list was realized
     gb.destroy();
   });
 
   it("a throwing onExposure callback does not break serving", () => {
     const gb = new GrowthBook({
       attributes: { id: "user-1" },
-      interleaveExperiments: [definition],
+      features: { "ranker-test": feature },
       plugins: [
         interleavePlugin({
           onExposure: () => {
@@ -323,17 +345,24 @@ describe("measurement arm", () => {
     { name: "control", items: ["A", "B", "C", "D"] },
     { name: "treatment", items: ["C", "A", "D", "B"] },
   ];
-  const definition: InterleaveExperiment = {
-    key: "ranker-test",
-    lists: ["control", "treatment"],
-    measurementArmPercent: 50,
-  };
+  const featureWithMeasurement = (pct?: number): FeatureDefinition<string> => ({
+    defaultValue: "control",
+    rules: [
+      {
+        interleave: {
+          lists: ["control", "treatment"],
+          fallbackValue: "control",
+          ...(pct !== undefined ? { measurementArmPercent: pct } : {}),
+        },
+      },
+    ],
+  });
 
-  function makeGb(userId: string, def: InterleaveExperiment) {
+  function makeGb(userId: string, pct?: number) {
     const events: { name: string; props: Record<string, unknown> }[] = [];
     const gb = new GrowthBook({
       attributes: { id: userId },
-      interleaveExperiments: [def],
+      features: { "ranker-test": featureWithMeasurement(pct) },
       plugins: [interleavePlugin()],
       eventLogger: (name, props) => {
         events.push({ name, props });
@@ -346,7 +375,7 @@ describe("measurement arm", () => {
     let measurement = 0;
     const n = 400;
     for (let i = 0; i < n; i++) {
-      const { gb } = makeGb(`user-${i}`, definition);
+      const { gb } = makeGb(`user-${i}`, 50);
       const res = interleave(gb, { key: "ranker-test", lists, getItemId: id });
       const again = interleave(gb, {
         key: "ranker-test",
@@ -370,7 +399,7 @@ describe("measurement arm", () => {
   });
 
   it("emits one deduped user-level Experiment Viewed exposure per arm", () => {
-    const { gb, events } = makeGb("user-1", definition);
+    const { gb, events } = makeGb("user-1", 50);
     interleave(gb, { key: "ranker-test", lists, getItemId: id });
     interleave(gb, { key: "ranker-test", lists, getItemId: id });
     const viewed = events.filter(
@@ -388,10 +417,7 @@ describe("measurement arm", () => {
 
   it("does not emit measurement exposures when the percent is 0, missing, or invalid", () => {
     for (const pct of [undefined, 0, 100, 150, -5]) {
-      const { gb, events } = makeGb("user-1", {
-        ...definition,
-        measurementArmPercent: pct,
-      });
+      const { gb, events } = makeGb("user-1", pct);
       const res = interleave(gb, { key: "ranker-test", lists, getItemId: id });
       expect(res.arm).toBe("interleaved"); // split disabled
       expect(res.inExperiment).toBe(true);

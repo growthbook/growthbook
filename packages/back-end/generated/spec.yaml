@@ -598,6 +598,11 @@ tags:
   - name: FeatureForceRule_model
     x-displayName: Feature Force Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureForceRule" />
+  - name: FeatureInterleaveRefRule_model
+    x-displayName: Feature Interleave Ref Rule
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/FeatureInterleaveRefRule" />
   - name: FeatureRevisionRef_model
     x-displayName: Feature Revision Ref
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRevisionRef" />
@@ -16318,6 +16323,60 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/interleavings/{id}/stop' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/link-feature:
+    post:
+      operationId: linkInterleavingFeature
+      summary: Link a Feature Flag to an interleaving experiment
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                featureId:
+                  type: string
+                coverage:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+              required:
+                - featureId
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  featureId:
+                    type: string
+                  ruleId:
+                    type: string
+                  revisionVersion:
+                    type: number
+                required:
+                  - featureId
+                  - ruleId
+                  - revisionVersion
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/interleavings/{id}/link-feature' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/snapshots/{id}:
     get:
@@ -49947,6 +50006,7 @@ components:
         - $ref: '#/components/schemas/FeatureExperimentRule'
         - $ref: '#/components/schemas/FeatureExperimentRefRule'
         - $ref: '#/components/schemas/FeatureContextualBanditRefRule'
+        - $ref: '#/components/schemas/FeatureInterleaveRefRule'
         - $ref: '#/components/schemas/FeatureSafeRolloutRule'
     FeatureForceRule:
       allOf:
@@ -50616,6 +50676,118 @@ components:
             - type
             - variations
             - contextualBanditId
+          additionalProperties: false
+    FeatureInterleaveRefRule:
+      allOf:
+        - description: >
+            Common fields shared by all feature rule types. Specific rule types
+            extend
+
+            this base with their own required properties (value, coverage,
+            etc.).
+          type: object
+          properties:
+            description:
+              type: string
+              maxLength: 10000
+            condition:
+              type: string
+            id:
+              type: string
+            enabled:
+              type: boolean
+            scheduleRules:
+              description: Simple time-based on/off schedule for this rule
+              type: array
+              items:
+                $ref: '#/components/schemas/ScheduleRule'
+            scheduleType:
+              description: >
+                UI hint for which scheduling mode is active:
+
+                - `none` – no schedule
+
+                - `schedule` – simple time-based enable/disable via
+                `scheduleRules`
+
+                - `ramp` – multi-step ramp-up controlled by an associated
+                RampSchedule document
+              type: string
+              enum:
+                - none
+                - schedule
+                - ramp
+            rampScheduleId:
+              description: >-
+                ID of the active RampSchedule document controlling this rule.
+                Present when `scheduleType` is `ramp` and a live schedule
+                exists.
+              type: string
+            savedGroupTargeting:
+              type: array
+              items:
+                type: object
+                properties:
+                  matchType:
+                    type: string
+                    enum:
+                      - all
+                      - any
+                      - none
+                  savedGroups:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - matchType
+                  - savedGroups
+                additionalProperties: false
+            prerequisites:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    description: Feature ID of the prerequisite
+                    type: string
+                  condition:
+                    type: string
+                required:
+                  - id
+                  - condition
+                additionalProperties: false
+            allProjects:
+              description: >-
+                When true (the default) the rule applies to every project the
+                feature is delivered to. When false the rule is limited to
+                `projects`.
+              type: boolean
+            projects:
+              description: >-
+                Project IDs this rule is scoped to when `allProjects` is false.
+                An empty array scopes the rule to no project.
+              type: array
+              items:
+                type: string
+          required:
+            - description
+            - id
+            - enabled
+          additionalProperties: false
+        - type: object
+          properties:
+            type:
+              type: string
+              const: interleave-ref
+            interleavingId:
+              type: string
+            coverage:
+              type: number
+            hashAttribute:
+              type: string
+          required:
+            - type
+            - interleavingId
           additionalProperties: false
     FeatureSafeRolloutRule:
       allOf:
@@ -52032,6 +52204,23 @@ components:
                     - type
                     - variations
                     - contextualBanditId
+                  additionalProperties: false
+            - allOf:
+                - $ref: '#/components/schemas/FeatureBaseRule'
+                - type: object
+                  properties:
+                    type:
+                      type: string
+                      const: interleave-ref
+                    interleavingId:
+                      type: string
+                    coverage:
+                      type: number
+                    hashAttribute:
+                      type: string
+                  required:
+                    - type
+                    - interleavingId
                   additionalProperties: false
             - $ref: '#/components/schemas/FeatureSafeRolloutRule'
         - type: object
@@ -67416,6 +67605,98 @@ components:
                       - ramp
                   type:
                     type: string
+                    const: interleave-ref
+                  interleavingId:
+                    type: string
+                  coverage:
+                    type: number
+                  hashAttribute:
+                    type: string
+                required:
+                  - description
+                  - id
+                  - allEnvironments
+                  - type
+                  - interleavingId
+                additionalProperties: false
+              - type: object
+                properties:
+                  description:
+                    type: string
+                    maxLength: 10000
+                  condition:
+                    type: string
+                  id:
+                    type: string
+                  allEnvironments:
+                    type: boolean
+                  environments:
+                    type: array
+                    items:
+                      type: string
+                  allProjects:
+                    type: boolean
+                  projects:
+                    type: array
+                    items:
+                      type: string
+                  enabled:
+                    type: boolean
+                  scheduleRules:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        enabled:
+                          type: boolean
+                      required:
+                        - timestamp
+                        - enabled
+                      additionalProperties: false
+                  savedGroups:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        match:
+                          type: string
+                          enum:
+                            - all
+                            - none
+                            - any
+                        ids:
+                          type: array
+                          items:
+                            type: string
+                      required:
+                        - match
+                        - ids
+                      additionalProperties: false
+                  prerequisites:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        condition:
+                          type: string
+                      required:
+                        - id
+                        - condition
+                      additionalProperties: false
+                  scheduleType:
+                    type: string
+                    enum:
+                      - none
+                      - schedule
+                      - ramp
+                  type:
+                    type: string
                     const: safe-rollout
                   controlValue:
                     type: string
@@ -68800,6 +69081,7 @@ x-tagGroups:
       - FeatureExperimentRefRule_model
       - FeatureExperimentRule_model
       - FeatureForceRule_model
+      - FeatureInterleaveRefRule_model
       - FeatureRevisionRef_model
       - FeatureRevisionSummary_model
       - FeatureRevisionV1_model

@@ -158,6 +158,16 @@ const apiFeatureContextualBanditRefRuleV2 = z.intersection(
   }),
 );
 
+const apiFeatureInterleaveRefRuleV2 = z.intersection(
+  apiFeatureBaseRuleValidator,
+  z.object({
+    type: z.literal("interleave-ref"),
+    interleavingId: z.string(),
+    coverage: z.number().optional(),
+    hashAttribute: z.string().optional(),
+  }),
+);
+
 export const apiFeatureRuleV2Validator = namedSchema(
   "FeatureRuleV2",
   z.intersection(
@@ -167,6 +177,7 @@ export const apiFeatureRuleV2Validator = namedSchema(
       apiFeatureExperimentRuleValidator,
       apiFeatureExperimentRefRuleV2,
       apiFeatureContextualBanditRefRuleV2,
+      apiFeatureInterleaveRefRuleV2,
       apiFeatureSafeRolloutRuleValidator,
     ]),
     apiRuleScopeExtension,
