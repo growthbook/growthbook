@@ -60,6 +60,6 @@ module.exports = {
   setupFilesAfterEnv: ["<rootDir>/test/jest.setup.ts"],
   // For non-CI, lets make sure to cap the workers
   ...(process.env.CI ? {} : { maxWorkers: "50%" }),
-  // Recycle workers before the heap fills; 1GB cost more in restarts than it saved.
-  workerIdleMemoryLimit: "2GB",
+  // Recycle workers before the heap fills; non-CI stays lower for cloud agents running a dev server alongside.
+  workerIdleMemoryLimit: process.env.CI ? "2GB" : "1GB",
 };
