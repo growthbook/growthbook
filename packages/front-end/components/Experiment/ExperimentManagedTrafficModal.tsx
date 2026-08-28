@@ -45,14 +45,15 @@ export interface Props {
 }
 
 /**
- * The Edit Traffic & Variations modal for an experiment that manages its own
- * Feature Flag: the variations table gains a Value column and a value-type
- * picker, and saving stages the flag's values alongside the experiment change.
+ * The Edit Traffic & Variations modal for an experiment whose implementation is
+ * a single Feature Flag: the variations table gains a Value column, and saving
+ * stages the flag's values alongside the experiment change. A flag the
+ * experiment manages also gets the value-type picker.
  *
- * A fork of `EditTrafficModal` rather than a branch inside it — the managed path
+ * A fork of `EditTrafficModal` rather than a branch inside it — this path
  * carries its own state, its own second write, and its own editor, and none of
- * that belongs in the form every other experiment uses. Anything that is not
- * the managed direct-edit path is delegated straight back.
+ * that belongs in the form every other experiment uses. Anything else is
+ * delegated straight back.
  */
 export default function ExperimentManagedTrafficModal({
   close,
@@ -68,8 +69,36 @@ export default function ExperimentManagedTrafficModal({
       isManagedByExperiment(f.feature, experiment.id),
     ) ?? null;
 
-  // Not managed, or not the direct-edit path: the original modal owns it.
-  if (!managedFeature || !safeToEdit) {
+  // A Value column can only name "the" flag when the experiment has exactly one
+  // implementation; with several, or a flag alongside visual changes or a
+  // redirect, it would be editing one of them arbitrarily.
+  const soleFeature =
+    (linkedFeatures ?? []).length === 1 &&
+    !experiment.hasVisualChangesets &&
+    !experiment.hasURLRedirects
+      ? (linkedFeatures ?? [])[0]
+      : null;
+
+  // A flag this experiment does not manage can only be edited here while the
+  // experiment is a draft — the server refuses otherwise, because a running
+  // experiment's shared flag has to be edited and published from the flag
+  // itself. A managed flag carries no such limit: it is read-only on the
+  // Feature Flag page and publishes from the experiment at any time.
+  const editableSoleFeature =
+    soleFeature &&
+    experiment.status === "draft" &&
+    !experiment.nextScheduledStatusUpdate &&
+    soleFeature.state !== "locked" &&
+    soleFeature.state !== "archived" &&
+    soleFeature.state !== "discarded"
+      ? soleFeature
+      : null;
+
+  const targetFeature = managedFeature ?? editableSoleFeature;
+
+  // No single editable flag, or not the direct-edit path: the original modal
+  // owns it.
+  if (!targetFeature || !safeToEdit) {
     return (
       <EditTrafficModal
         close={close}
@@ -88,7 +117,8 @@ export default function ExperimentManagedTrafficModal({
       close={close}
       experiment={experiment}
       mutate={mutate}
-      managedFeature={managedFeature}
+      targetFeature={targetFeature}
+      canEditValueType={!!managedFeature}
       focusVariationId={focusVariationId}
       addVariationOnOpen={addVariationOnOpen}
     />
@@ -99,7 +129,8 @@ function ManagedTrafficForm({
   close,
   experiment,
   mutate,
-  managedFeature,
+  targetFeature,
+  canEditValueType,
   focusVariationId,
   addVariationOnOpen,
 }: {
@@ -107,14 +138,16 @@ function ManagedTrafficForm({
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   /** The Feature Flag this experiment manages. */
-  managedFeature: LinkedFeatureInfo;
+  targetFeature: LinkedFeatureInfo;
+  /** Only a flag this experiment manages may be re-typed from here. */
+  canEditValueType: boolean;
   focusVariationId?: string | null;
   addVariationOnOpen?: boolean;
 }) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const isBandit = experiment.type === "multi-armed-bandit";
-  const feature = managedFeature?.feature ?? null;
+  const feature = targetFeature?.feature ?? null;
 
   // Every change to an existing flag's values is a draft edit — including the
   // value a newly added variation needs.
@@ -127,7 +160,7 @@ function ManagedTrafficForm({
   const [featureValues, setFeatureValues] = useState<Record<string, string>>(
     () =>
       Object.fromEntries(
-        (managedFeature?.values ?? []).map((v) => [v.variationId, v.value]),
+        (targetFeature?.values ?? []).map((v) => [v.variationId, v.value]),
       ),
   );
 
@@ -294,8 +327,8 @@ function ManagedTrafficForm({
               variations: values,
               ...(typeChanged && { valueType }),
               revisionOptions:
-                managedFeature?.pendingDraft != null
-                  ? { targetVersion: managedFeature.pendingDraft.version }
+                targetFeature?.pendingDraft != null
+                  ? { targetVersion: targetFeature.pendingDraft.version }
                   : { forceNewDraft: true },
             },
           },
@@ -332,20 +365,22 @@ function ManagedTrafficForm({
           <ExperimentManagedFeatureVariationEditor
             {...sharedVariationProps}
             belowCoverage={
-              <Box mb="3">
-                <ValueTypeField
-                  value={valueType}
-                  order={VALUE_TYPE_ORDER}
-                  onChange={(v) => {
-                    if (v !== "config" && canEditValues)
-                      handleValueTypeChange(v);
-                  }}
-                />
-              </Box>
+              canEditValueType ? (
+                <Box mb="3">
+                  <ValueTypeField
+                    value={valueType}
+                    order={VALUE_TYPE_ORDER}
+                    onChange={(v) => {
+                      if (v !== "config" && canEditValues)
+                        handleValueTypeChange(v);
+                    }}
+                  />
+                </Box>
+              ) : null
             }
             valueType={valueType}
             feature={feature}
-            sparse={managedFeature?.sparse}
+            sparse={targetFeature?.sparse}
           />
         ) : (
           <FeatureVariationsInput {...sharedVariationProps} />
