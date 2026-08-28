@@ -183,6 +183,30 @@ export const stopInterleavingValidator = {
   path: "/interleavings/:id/stop",
 };
 
+// Adds an interleave-ref rule to a Feature Flag (published immediately),
+// making that flag the diversion controller for this experiment
+export const linkInterleavingFeatureValidator = {
+  bodySchema: z.strictObject({
+    featureId: z.string(),
+    // Diversion share of eligible traffic, 0-1
+    coverage: z.number().min(0).max(1).optional(),
+  }),
+  querySchema: z.never(),
+  paramsSchema: interleavingIdOnlyParam,
+  responseSchema: z
+    .object({
+      featureId: z.string(),
+      ruleId: z.string(),
+      revisionVersion: z.number(),
+    })
+    .strict(),
+  summary: "Link a Feature Flag to an interleaving experiment",
+  operationId: "linkInterleavingFeature",
+  tags: ["Interleavings"],
+  method: "post" as const,
+  path: "/interleavings/:id/link-feature",
+};
+
 export const refreshInterleavingValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),

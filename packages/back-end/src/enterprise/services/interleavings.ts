@@ -2,13 +2,25 @@ import {
   InterleavingInterface,
   InterleavingSnapshotSettings,
 } from "shared/validators";
+import { cloneDeep } from "lodash";
+import type { AuditInterfaceInput } from "shared/types/audit";
+import type { EventUser } from "shared/types/events/event-types";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import { discardIfJustCreated } from "back-end/src/api/features/validations";
+import { updateRevision } from "back-end/src/models/FeatureRevisionModel";
+import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
+import {
+  generateRuleId,
+  getDraftRevision,
+  refreshSDKPayloadCache,
+} from "back-end/src/services/features";
+import { publishContextualBanditRevision } from "back-end/src/enterprise/services/contextualBandits";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { InterleavingResultsQueryRunner } from "back-end/src/enterprise/queryRunners/InterleavingResultsQueryRunner";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 
 type Context = ReqContext | ApiReqContext;
@@ -192,4 +204,92 @@ export async function stopInterleaving(
   });
   await refreshInterleavingPayload(context, updated);
   return updated;
+}
+
+// ---------------------------------------------------------------------------
+// Feature linking: interleave-ref rules are added to features through the
+// standard revision machinery (CB pattern), then published immediately.
+// ---------------------------------------------------------------------------
+
+export async function linkFeatureToInterleaving({
+  context,
+  interleaving,
+  feature,
+  coverage,
+  eventAudit,
+  audit,
+}: {
+  context: Context;
+  interleaving: InterleavingInterface;
+  feature: FeatureInterface;
+  coverage?: number;
+  eventAudit: EventUser;
+  audit: (input: AuditInterfaceInput) => Promise<void>;
+}): Promise<{ version: number; ruleId: string }> {
+  if (feature.valueType !== "string") {
+    throw new Error(
+      "The linked Feature Flag must be string-valued: its value names the list to serve",
+    );
+  }
+  if (
+    (feature.rules ?? []).some(
+      (r) =>
+        r.type === "interleave-ref" && r.interleavingId === interleaving.id,
+    )
+  ) {
+    throw new Error(
+      `Feature Flag ${feature.id} already has a rule for this interleaving experiment`,
+    );
+  }
+  if (!context.environments.length) {
+    throw new Error(
+      "Must have at least one environment configured to use Feature Flags",
+    );
+  }
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const scopedRule: FeatureRule = {
+    type: "interleave-ref",
+    interleavingId: interleaving.id,
+    description: "",
+    id: generateRuleId(),
+    allEnvironments: true,
+    ...(coverage !== undefined ? { coverage } : {}),
+  };
+
+  const revision = await getDraftRevision(context, feature, feature.version);
+  try {
+    const updatedRevision = await updateRevision(
+      context,
+      feature,
+      revision,
+      {
+        rules: [...cloneDeep(revision.rules ?? []), scopedRule],
+        ...(revision.title ? {} : { title: "Link interleaving experiment" }),
+      },
+      {
+        user: eventAudit,
+        action: "add interleave rule",
+        subject: "to all environments",
+        value: JSON.stringify(scopedRule),
+      },
+      false,
+    );
+    await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
+      environments: context.environments,
+    });
+    await publishContextualBanditRevision({
+      context,
+      feature,
+      revision: updatedRevision,
+      comment: `Link interleaving experiment "${interleaving.name}"`,
+      audit,
+    });
+    return { version: updatedRevision.version, ruleId: scopedRule.id };
+  } catch (err) {
+    await discardIfJustCreated(context, revision, true);
+    throw err;
+  }
 }

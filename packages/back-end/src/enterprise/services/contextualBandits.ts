@@ -184,8 +184,8 @@ export async function targetRevisionHasContextualBanditRule({
   return rules.some((r) => isRuleForContextualBandit(r, contextualBandit.id));
 }
 
-/** Merge the draft against live and publish it, mirroring the feature page's publish flow. */
-async function publishContextualBanditRevision({
+/** Merge the draft against live and publish it, mirroring the feature page's publish flow. Generic across rule types (also used by interleaving linking). */
+export async function publishContextualBanditRevision({
   context,
   feature,
   revision,

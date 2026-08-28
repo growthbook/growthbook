@@ -16324,6 +16324,60 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/interleavings/{id}/stop' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/link-feature:
+    post:
+      operationId: linkInterleavingFeature
+      summary: Link a Feature Flag to an interleaving experiment
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                featureId:
+                  type: string
+                coverage:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+              required:
+                - featureId
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  featureId:
+                    type: string
+                  ruleId:
+                    type: string
+                  revisionVersion:
+                    type: number
+                required:
+                  - featureId
+                  - ruleId
+                  - revisionVersion
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/interleavings/{id}/link-feature' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/snapshots/{id}:
     get:
       operationId: getExperimentSnapshot
