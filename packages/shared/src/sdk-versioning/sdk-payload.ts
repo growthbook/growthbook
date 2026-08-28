@@ -45,6 +45,12 @@ export const STICKY_BUCKETING_RULE_KEYS = [
 
 export const PREREQUISITE_RULE_KEYS = ["parentConditions"] as const;
 
+// The interleave rule payload lives under this key so that SDKs without the
+// interleaving capability drop it and, seeing no force/variations, skip the
+// rule and fall through to later rules or the default value (the status-quo
+// list name) with targeting intact.
+export const INTERLEAVE_RULE_KEYS = ["interleave"] as const;
+
 export const CONTEXTUAL_BANDIT_RULE_KEYS = [
   // `contextualBanditRef` (presence identifies a CB rule) points into the top-level contextualBandits map.
   "contextualBanditRef",
@@ -70,6 +76,7 @@ export function getPayloadAllowedKeys(capabilities: SDKCapability[]): {
     ...(capabilities.includes("contextualBandits")
       ? CONTEXTUAL_BANDIT_RULE_KEYS
       : []),
+    ...(capabilities.includes("interleaving") ? INTERLEAVE_RULE_KEYS : []),
   ];
   const removedExperimentKeys = capabilities.includes("prerequisites")
     ? []

@@ -21,6 +21,9 @@ export type VariationMeta = {
 };
 
 export type FeatureRule<T = any> = {
+  // Interleaving controller rule (see InterleaveRule). Delivered under a
+  // capability-gated key so pre-interleaving SDKs drop it and fall through.
+  interleave?: InterleaveRule;
   id?: string;
   condition?: ConditionInterface;
   parentConditions?: ParentConditionInterface[];
@@ -77,6 +80,7 @@ export type FeatureResultSource =
   | "force"
   | "override"
   | "experiment"
+  | "interleave"
   | "prerequisite"
   | "cyclicPrerequisite";
 
@@ -88,6 +92,10 @@ export interface FeatureResult<T = any> {
   ruleId: string;
   experiment?: Experiment<T>;
   experimentResult?: Result<T>;
+  // Set when an interleave rule matched (source === "interleave"): the
+  // assignment the interleave plugin uses to run the draft. Plain feature
+  // callers can ignore it — `value` is already the status-quo list name.
+  interleave?: InterleaveFeatureAssignment;
 }
 
 /** @deprecated */
@@ -192,6 +200,34 @@ export interface InterleaveList<T> {
 }
 
 // Payload-delivered definition controlling an interleaving experiment
+// Interleaving controller rule on a feature. The feature's value space is
+// LIST NAMES: plain feature evaluation resolves this rule to `fallbackValue`
+// (the status-quo list name) and fires no exposure of any kind — only the
+// interleave plugin, which reads FeatureResult.interleave, can run the
+// draft and serve a blended list.
+export interface InterleaveRule {
+  // Names of the caller-provided lists to weave (>=2)
+  lists: string[];
+  // The status-quo list name: what plain feature callers always receive,
+  // and what the measurement arm is served
+  fallbackValue: string;
+  // Share of diverted users (0-100 exclusive) held out on the control list
+  // and tracked as a user-level experiment ("<key>__measurement")
+  measurementArmPercent?: number;
+  maxItems?: number;
+}
+
+// Attached to FeatureResult when an interleave rule matched: everything the
+// interleave plugin needs to run the draft for this user
+export interface InterleaveFeatureAssignment extends InterleaveRule {
+  key: string;
+  seed: string;
+  hashVersion: number;
+  hashAttribute: string;
+  hashValue: string;
+}
+
+/** @deprecated Use an `interleave` feature rule instead. */
 export interface InterleaveExperiment {
   key: string;
   // Names of the caller's lists to weave (>=2). Caller lists not named here

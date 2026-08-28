@@ -277,6 +277,57 @@ export function evalFeature<V = unknown>(
         continue;
       }
 
+      // Interleaving controller rule: plain evaluation resolves to the
+      // status-quo list name and fires NO exposure (no draft happened) —
+      // only the interleave plugin, via result.interleave, can serve a
+      // blended list
+      if (rule.interleave) {
+        if (rule.condition && !conditionPasses(rule.condition, ctx)) {
+          process.env.NODE_ENV !== "production" &&
+            ctx.global.log("Skip rule because of condition", { id, rule });
+          continue;
+        }
+        if (
+          !isIncludedInRollout(
+            ctx,
+            rule.seed || id,
+            rule.hashAttribute,
+            rule.fallbackAttribute,
+            rule.range,
+            rule.coverage,
+            rule.hashVersion,
+          )
+        ) {
+          process.env.NODE_ENV !== "production" &&
+            ctx.global.log("Skip rule because user not included in rollout", {
+              id,
+              rule,
+            });
+          continue;
+        }
+        const { hashAttribute, hashValue } = getHashAttribute(
+          ctx,
+          rule.hashAttribute,
+          rule.fallbackAttribute,
+        );
+        const res = getFeatureResult(
+          ctx,
+          id,
+          rule.interleave.fallbackValue as V,
+          "interleave",
+          rule.id,
+        );
+        res.interleave = {
+          ...rule.interleave,
+          key: rule.key || id,
+          seed: rule.seed || id,
+          hashVersion: rule.hashVersion || 2,
+          hashAttribute,
+          hashValue: toString(hashValue),
+        };
+        return res;
+      }
+
       // Feature value is being forced
       if ("force" in rule) {
         // If it's a conditional rule, skip if the condition doesn't pass

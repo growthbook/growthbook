@@ -28,6 +28,7 @@ const allCapabilities: Record<SDKCapability, boolean> = {
   caseInsensitiveMembership: true,
   namespacesV2: true,
   contextualBandits: true,
+  interleaving: true,
 };
 
 const languages = Object.keys(sdks);

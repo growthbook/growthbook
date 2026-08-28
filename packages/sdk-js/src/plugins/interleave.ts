@@ -7,6 +7,7 @@ import type {
   InterleaveExperiment,
   InterleaveExposureCallback,
   InterleaveExposureData,
+  InterleaveFeatureAssignment,
   InterleaveList,
   InterleaveOptions,
   InterleaveResult,
@@ -98,20 +99,17 @@ function emitMeasurementExposure(
 }
 
 function getMeasurementArm(
-  definition: InterleaveExperiment,
-  key: string,
+  measurementArmPercent: number | undefined,
+  seed: string,
+  hashVersion: number,
   hashValue: string,
 ): InterleaveArm {
-  const pct = definition.measurementArmPercent;
+  const pct = measurementArmPercent;
   // Valid range is (0, 100); anything else disables the measurement split
   if (typeof pct !== "number" || !(pct > 0) || pct >= 100) {
     return "interleaved";
   }
-  const n = hash(
-    (definition.seed || key) + MEASUREMENT_EXPERIMENT_SUFFIX,
-    hashValue,
-    definition.hashVersion || 2,
-  );
+  const n = hash(seed + MEASUREMENT_EXPERIMENT_SUFFIX, hashValue, hashVersion);
   if (n === null) return "interleaved";
   return n < pct / 100 ? "measurement" : "interleaved";
 }
@@ -129,104 +127,43 @@ function isFilteredOut(
   });
 }
 
-// Run an interleaving experiment against a GrowthBook instance. The
-// definition (which lists to weave, coverage, targeting, kill switch) comes
-// from the instance's payload; the caller supplies only the experiment key,
-// its candidate lists (typically precomputed by an upstream/offline ranking
-// system — the SDK just picks and weaves), and the item identity function.
-export function interleave<T>(
+// Draft the selected lists and emit the per-impression exposure
+function draftAndExpose<T>(
   gb: GrowthBook,
-  options: InterleaveOptions<T>,
+  args: {
+    key: string;
+    interleaveId: string;
+    selected: InterleaveList<T>[];
+    getItemId: (item: T) => string;
+    seed: string;
+    maxItems?: number;
+    hashAttribute: string;
+    hashValue: string;
+  },
 ): InterleaveResult<T> {
-  const { key, lists, getItemId } = options;
-  const interleaveId =
-    options.interleaveId ||
-    (typeof crypto !== "undefined" && crypto.randomUUID
-      ? crypto.randomUUID()
-      : Date.now().toString(36) + Math.random().toString(36).slice(2));
-
-  const fallbackResult = (): InterleaveResult<T> => {
-    const name = options.fallback || (lists[0] && lists[0].name);
-    const list = lists.find((l) => l.name === name) || lists[0];
-    return {
-      inExperiment: false,
-      interleaveId,
-      key,
-      items: list ? realizeList(list) : [],
-      trackingProps: (itemId: string) => ({ item_id: itemId }),
-    };
-  };
-
-  // 1. Look up the payload-delivered definition
-  const definition = (gb.getInterleaveExperiments() || []).find(
-    (d) => d.key === key,
-  );
-  if (!definition || definition.active === false) return fallbackResult();
-
-  // 2. The definition selects which caller lists get woven
-  const selected = (definition.lists || []).map((name) =>
-    lists.find((l) => l.name === name),
-  );
-  if (selected.length < 2 || selected.some((l) => !l)) return fallbackResult();
-
-  // 3. Per-user enrollment: hash attribute, filters, condition, coverage
-  const attributes = gb.getAttributes();
-  const { hashAttribute, hashValue } = getHashValue(
-    attributes,
-    definition.hashAttribute,
-    definition.fallbackAttribute,
-  );
-  if (!hashValue) return fallbackResult();
-  if (isFilteredOut(definition, attributes)) return fallbackResult();
-  if (
-    definition.condition &&
-    !evalCondition(attributes, definition.condition, gb.getSavedGroups())
-  ) {
-    return fallbackResult();
-  }
-  const enrollHash = hash(
-    definition.seed || key,
+  const {
+    key,
+    interleaveId,
+    selected,
+    getItemId,
+    seed,
+    maxItems,
+    hashAttribute,
     hashValue,
-    definition.hashVersion || 2,
-  );
-  if (enrollHash === null) return fallbackResult();
-  if (enrollHash > (definition.coverage ?? 1)) return fallbackResult();
+  } = args;
 
-  // 3.5. Measurement split: a user-level holdout served the control list
-  // unchanged, so interleaving itself can be compared against the status quo
-  // as a standard user-level experiment
-  const arm = getMeasurementArm(definition, key, hashValue);
-  if (
-    typeof definition.measurementArmPercent === "number" &&
-    definition.measurementArmPercent > 0 &&
-    definition.measurementArmPercent < 100
-  ) {
-    emitMeasurementExposure(gb, key, arm, hashAttribute, hashValue);
-  }
-  if (arm === "measurement") {
-    return { ...fallbackResult(), arm };
-  }
-
-  // 4. Realize only the selected lists and run the per-impression draft
-  const realized = (selected as InterleaveList<T>[]).map((l) => ({
+  const realized = selected.map((l) => ({
     name: l.name,
     items: realizeList(l),
   }));
   const rng = (round: number, captain: number) =>
     hash(
-      (definition.seed || key) + "__interleave",
+      seed + "__interleave",
       interleaveId + ":" + round + ":" + captain,
       2,
     ) ?? 0.5;
-  const { items, meta } = itemDraft(
-    realized,
-    getItemId,
-    rng,
-    definition.maxItems,
-  );
+  const { items, meta } = itemDraft(realized, getItemId, rng, maxItems);
 
-  // 5. Emit the exposure: plugin callback first, then the instance's generic
-  // event path (one event per impression, no dedupe)
   const data: InterleaveExposureData = {
     timestamp: Date.now(),
     experimentId: key,
@@ -251,7 +188,7 @@ export function interleave<T>(
     inExperiment: true,
     interleaveId,
     key,
-    arm,
+    arm: "interleaved",
     items,
     trackingProps: (itemId: string) => ({
       item_id: itemId,
@@ -259,4 +196,199 @@ export function interleave<T>(
       experiment_id: key,
     }),
   };
+}
+
+// Run an interleaving experiment against a GrowthBook instance. Diversion is
+// controlled by an `interleave` rule on the feature with the same key: plain
+// feature evaluation resolves that rule to a list NAME, while this function
+// recognizes the assignment and is the only path that runs the draft. The
+// caller supplies the candidate lists (typically precomputed by an
+// upstream/offline ranking system — the SDK just picks and weaves) and the
+// item identity function.
+export function interleave<T>(
+  gb: GrowthBook,
+  options: InterleaveOptions<T>,
+): InterleaveResult<T> {
+  const { key, lists } = options;
+  const interleaveId =
+    options.interleaveId ||
+    (typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Date.now().toString(36) + Math.random().toString(36).slice(2));
+
+  const serveList = (name?: string): InterleaveResult<T> => {
+    const wanted = name || options.fallback || (lists[0] && lists[0].name);
+    const list = lists.find((l) => l.name === wanted) || lists[0];
+    return {
+      inExperiment: false,
+      interleaveId,
+      key,
+      items: list ? realizeList(list) : [],
+      trackingProps: (itemId: string) => ({ item_id: itemId }),
+    };
+  };
+
+  // Preferred path: the interleave rule on the controller feature. All
+  // targeting (condition, coverage, prerequisites, filters, environments)
+  // was already applied by feature evaluation.
+  const featureResult = gb.evalFeature<string>(key);
+  const assignment = featureResult.interleave;
+  if (assignment) {
+    return interleaveFromAssignment(gb, options, interleaveId, assignment);
+  }
+
+  // Legacy path: standalone payload definitions
+  // (Options.interleaveExperiments). Deprecated in favor of the rule.
+  const definition = (gb.getInterleaveExperiments() || []).find(
+    (d) => d.key === key,
+  );
+  if (definition && definition.active !== false) {
+    return interleaveFromDefinition(
+      gb,
+      options,
+      interleaveId,
+      definition,
+      serveList,
+    );
+  }
+
+  // No interleaving configured: if the feature resolved to a list name
+  // (e.g. the experiment was stopped and the winner shipped as the
+  // feature's value), serve that list
+  const resolved =
+    typeof featureResult.value === "string" ? featureResult.value : undefined;
+  return serveList(resolved);
+}
+
+function interleaveFromAssignment<T>(
+  gb: GrowthBook,
+  options: InterleaveOptions<T>,
+  interleaveId: string,
+  assignment: InterleaveFeatureAssignment,
+): InterleaveResult<T> {
+  const { key, lists, getItemId } = options;
+
+  const serveControl = (): InterleaveResult<T> => {
+    const list =
+      lists.find((l) => l.name === assignment.fallbackValue) || lists[0];
+    return {
+      inExperiment: false,
+      interleaveId,
+      key,
+      items: list ? realizeList(list) : [],
+      trackingProps: (itemId: string) => ({ item_id: itemId }),
+    };
+  };
+
+  if (!assignment.hashValue) return serveControl();
+
+  const selected = (assignment.lists || []).map((name) =>
+    lists.find((l) => l.name === name),
+  );
+  if (selected.length < 2 || selected.some((l) => !l)) {
+    return serveControl();
+  }
+
+  // Measurement split: a user-level holdout served the control list
+  // unchanged, so interleaving itself can be compared against the status
+  // quo as a standard user-level experiment
+  const arm = getMeasurementArm(
+    assignment.measurementArmPercent,
+    assignment.seed,
+    assignment.hashVersion,
+    assignment.hashValue,
+  );
+  if (
+    typeof assignment.measurementArmPercent === "number" &&
+    assignment.measurementArmPercent > 0 &&
+    assignment.measurementArmPercent < 100
+  ) {
+    emitMeasurementExposure(
+      gb,
+      key,
+      arm,
+      assignment.hashAttribute,
+      assignment.hashValue,
+    );
+  }
+  if (arm === "measurement") {
+    return { ...serveControl(), arm };
+  }
+
+  return draftAndExpose(gb, {
+    key,
+    interleaveId,
+    selected: selected as InterleaveList<T>[],
+    getItemId,
+    seed: assignment.seed,
+    maxItems: assignment.maxItems,
+    hashAttribute: assignment.hashAttribute,
+    hashValue: assignment.hashValue,
+  });
+}
+
+/** @deprecated The interleave feature rule replaces standalone definitions. */
+function interleaveFromDefinition<T>(
+  gb: GrowthBook,
+  options: InterleaveOptions<T>,
+  interleaveId: string,
+  definition: InterleaveExperiment,
+  serveList: (name?: string) => InterleaveResult<T>,
+): InterleaveResult<T> {
+  const { key, lists, getItemId } = options;
+
+  const selected = (definition.lists || []).map((name) =>
+    lists.find((l) => l.name === name),
+  );
+  if (selected.length < 2 || selected.some((l) => !l)) return serveList();
+
+  const attributes = gb.getAttributes();
+  const { hashAttribute, hashValue } = getHashValue(
+    attributes,
+    definition.hashAttribute,
+    definition.fallbackAttribute,
+  );
+  if (!hashValue) return serveList();
+  if (isFilteredOut(definition, attributes)) return serveList();
+  if (
+    definition.condition &&
+    !evalCondition(attributes, definition.condition, gb.getSavedGroups())
+  ) {
+    return serveList();
+  }
+  const enrollHash = hash(
+    definition.seed || key,
+    hashValue,
+    definition.hashVersion || 2,
+  );
+  if (enrollHash === null) return serveList();
+  if (enrollHash > (definition.coverage ?? 1)) return serveList();
+
+  const arm = getMeasurementArm(
+    definition.measurementArmPercent,
+    definition.seed || key,
+    definition.hashVersion || 2,
+    hashValue,
+  );
+  if (
+    typeof definition.measurementArmPercent === "number" &&
+    definition.measurementArmPercent > 0 &&
+    definition.measurementArmPercent < 100
+  ) {
+    emitMeasurementExposure(gb, key, arm, hashAttribute, hashValue);
+  }
+  if (arm === "measurement") {
+    return { ...serveList(), arm };
+  }
+
+  return draftAndExpose(gb, {
+    key,
+    interleaveId,
+    selected: selected as InterleaveList<T>[],
+    getItemId,
+    seed: definition.seed || key,
+    maxItems: definition.maxItems,
+    hashAttribute,
+    hashValue,
+  });
 }

@@ -403,6 +403,184 @@ describe("measurement arm", () => {
   });
 });
 
+describe("interleave feature rule", () => {
+  const lists = [
+    { name: "control", items: ["A", "B", "C", "D"] },
+    { name: "treatment", items: ["C", "A", "D", "B"] },
+  ];
+  const controllerFeature = {
+    defaultValue: "control",
+    rules: [
+      {
+        id: "rule_il",
+        coverage: 1,
+        interleave: {
+          lists: ["control", "treatment"],
+          fallbackValue: "control",
+        },
+      },
+    ],
+  };
+
+  it("evalFeature resolves the rule to the fallback list name with no exposure", () => {
+    const logged: string[] = [];
+    const exposures: unknown[] = [];
+    const gb = new GrowthBook({
+      attributes: { id: "user-1" },
+      features: { "ranker-test": controllerFeature },
+      eventLogger: (name) => {
+        logged.push(name);
+      },
+      plugins: [
+        interleavePlugin({
+          onExposure: (d) => {
+            exposures.push(d);
+          },
+        }),
+      ],
+    });
+    const res = gb.evalFeature("ranker-test");
+    expect(res.value).toBe("control");
+    expect(res.source).toBe("interleave");
+    expect(res.interleave?.lists).toEqual(["control", "treatment"]);
+    expect(exposures.length).toBe(0);
+    expect(logged.filter((n) => n === "Interleave Exposure").length).toBe(0);
+    gb.destroy();
+  });
+
+  it("a scrubbed rule (old SDK view) falls through to the default value", () => {
+    const gb = new GrowthBook({
+      attributes: { id: "user-1" },
+      features: {
+        "ranker-test": {
+          defaultValue: "control",
+          // What a pre-interleaving SDK receives after payload scrubbing:
+          // no interleave key, no force, no variations
+          rules: [{ id: "rule_il", coverage: 1 }],
+        },
+      },
+    });
+    const res = gb.evalFeature("ranker-test");
+    expect(res.value).toBe("control");
+    expect(res.source).toBe("defaultValue");
+    gb.destroy();
+  });
+
+  it("rule coverage excludes users from diversion but keeps the value", () => {
+    const gb = new GrowthBook({
+      attributes: { id: "user-1" },
+      features: {
+        "ranker-test": {
+          defaultValue: "control",
+          rules: [
+            {
+              coverage: 0,
+              interleave: {
+                lists: ["control", "treatment"],
+                fallbackValue: "control",
+              },
+            },
+          ],
+        },
+      },
+      plugins: [interleavePlugin()],
+    });
+    expect(gb.evalFeature("ranker-test").source).toBe("defaultValue");
+    const res = interleave(gb, { key: "ranker-test", lists, getItemId: id });
+    expect(res.inExperiment).toBe(false);
+    expect(res.items).toEqual(["A", "B", "C", "D"]); // the resolved list name
+    gb.destroy();
+  });
+
+  it("the plugin recognizes the rule and is the only draft path", () => {
+    const exposures: InterleaveExposureData[] = [];
+    const gb = new GrowthBook({
+      attributes: { id: "user-1" },
+      features: { "ranker-test": controllerFeature },
+      plugins: [
+        interleavePlugin({
+          onExposure: (d) => {
+            exposures.push(d);
+          },
+        }),
+      ],
+    });
+    const res = interleave(gb, {
+      key: "ranker-test",
+      lists,
+      getItemId: id,
+      interleaveId: "imp-1",
+    });
+    expect(res.inExperiment).toBe(true);
+    expect(res.arm).toBe("interleaved");
+    expect(res.items.slice().sort()).toEqual(["A", "B", "C", "D"]);
+    expect(exposures.length).toBe(1);
+    expect(res.trackingProps("A")).toEqual({
+      item_id: "A",
+      interleave_id: "imp-1",
+      experiment_id: "ranker-test",
+    });
+    // Plain callers still get the list name
+    expect(gb.getFeatureValue("ranker-test", "control")).toBe("control");
+    gb.destroy();
+  });
+
+  it("measurement arm is consistent and serves the control list", () => {
+    // Find one user per arm using the same hash the SDK uses
+    const pct = 50;
+    const armFor = (userId: string) =>
+      (hash("ranker-test__measurement", userId, 2) ?? 1) < pct / 100
+        ? "measurement"
+        : "interleaved";
+    let measurementUser = "";
+    let interleavedUser = "";
+    for (let i = 0; i < 50 && !(measurementUser && interleavedUser); i++) {
+      const u = `user-${i}`;
+      if (armFor(u) === "measurement") measurementUser = measurementUser || u;
+      else interleavedUser = interleavedUser || u;
+    }
+
+    const logged: { name: string; props: Record<string, unknown> }[] = [];
+    const gb = new GrowthBook({
+      attributes: { id: measurementUser },
+      features: {
+        "ranker-test": {
+          defaultValue: "control",
+          rules: [
+            {
+              coverage: 1,
+              interleave: {
+                lists: ["control", "treatment"],
+                fallbackValue: "control",
+                measurementArmPercent: pct,
+              },
+            },
+          ],
+        },
+      },
+      eventLogger: (name, props) => {
+        logged.push({ name, props });
+      },
+      plugins: [interleavePlugin()],
+    });
+    const res = interleave(gb, { key: "ranker-test", lists, getItemId: id });
+    expect(res.arm).toBe("measurement");
+    expect(res.items).toEqual(["A", "B", "C", "D"]); // control list, unblended
+    // Regular user-level exposure under <key>__measurement, no draft exposure
+    const measurementEvents = logged.filter(
+      (e) => e.props.experimentId === "ranker-test__measurement",
+    );
+    expect(measurementEvents.length).toBe(1);
+    expect(measurementEvents[0].props.variationId).toBe("status-quo");
+    expect(logged.filter((e) => e.name === "Interleave Exposure").length).toBe(
+      0,
+    );
+    // Plain evalFeature agrees with what interleave() served
+    expect(gb.evalFeature("ranker-test").value).toBe("control");
+    gb.destroy();
+  });
+});
+
 describe("flattenInterleaveExposure", () => {
   it("produces one canonical row per item", () => {
     const rows = flattenInterleaveExposure({
