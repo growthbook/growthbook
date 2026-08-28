@@ -318,9 +318,12 @@ export function armSseDirect(
   return sumSquares - (sum * sum) / n;
 }
 
-/** Pooled within-group SSE over compact category stats (sums the direct formula). */
-function compactGroupSse(cats: CompactCat[], numVariations: number): number {
-  let sse = 0;
+/** Per-variation pooled within-group SSE over compact category stats. */
+function compactGroupSsePerVariation(
+  cats: CompactCat[],
+  numVariations: number,
+): number[] {
+  const sse = new Array<number>(numVariations).fill(0);
   for (let v = 0; v < numVariations; v++) {
     const base = v * 3;
     let n = 0;
@@ -331,9 +334,17 @@ function compactGroupSse(cats: CompactCat[], numVariations: number): number {
       sum += cat[base + CAT_SUM];
       sumSquares += cat[base + CAT_SUM_SQUARES];
     }
-    sse += armSseDirect(n, sum, sumSquares);
+    sse[v] = armSseDirect(n, sum, sumSquares);
   }
   return sse;
+}
+
+/** Pooled within-group SSE over compact category stats (sums the per-variation values). */
+function compactGroupSse(cats: CompactCat[], numVariations: number): number {
+  return compactGroupSsePerVariation(cats, numVariations).reduce(
+    (a, b) => a + b,
+    0,
+  );
 }
 
 /**
@@ -680,6 +691,7 @@ type BuildTreeResult = {
    * SSE by (stage, variation).  stage = 0 is the root (before the first split)
    */
   sseTrajectory: number[][];
+  bicTrajectory: ContextualBicTrajectoryEntry[];
 };
 
 /** A leaf's best candidate split, cached across growth iterations. */
@@ -694,6 +706,16 @@ type LeafSplit = {
   splitSse: number;
   /** SSE reduction from the split (`sseCurrent - splitSse`). */
   gain: number;
+  /**
+   * Per-variation SSE of the leaf before splitting (parent). Sums to
+   * `sseCurrent`;
+   */
+  parentSsePerVariation: number[];
+  /**
+   * Per-variation SSE of the two child sides combined (after splitting). Sums
+   * to `splitSse`;
+   */
+  childrenSsePerVariation: number[];
 };
 
 /**
@@ -737,7 +759,7 @@ function buildTree(
     [0, new Set<number>()],
   ]);
   if (contexts.length === 0) {
-    return { leafInfo: new Map(), sseTrajectory: [] };
+    return { leafInfo: new Map(), sseTrajectory: [], bicTrajectory: [] };
   }
 
   const isBinomial = metric.main_metric_type === "binomial";
@@ -835,12 +857,25 @@ function buildTree(
       const candidateSseSplit = km.sse;
       const gain = sseCurrent - candidateSseSplit;
       if (best === null || gain > best.gain) {
+        const movingSse = compactGroupSsePerVariation(
+          cats.filter((_, i) => labels[i] === 1),
+          numVariations,
+        );
+        const stayingSse = compactGroupSsePerVariation(
+          cats.filter((_, i) => labels[i] === 0),
+          numVariations,
+        );
         best = {
           attrIndex,
           group,
           sseCurrent,
           splitSse: candidateSseSplit,
           gain,
+          parentSsePerVariation: compactGroupSsePerVariation(
+            cats,
+            numVariations,
+          ),
+          childrenSsePerVariation: movingSse.map((m, v) => m + stayingSse[v]),
         };
       }
     }
@@ -848,6 +883,9 @@ function buildTree(
   };
 
   const sseTrajectory: number[][] = [totalSsePerVariation()];
+  // BIC statistic per accepted split, accumulated as the tree grows (the root
+  // has no split, so this stays one shorter than `sseTrajectory`).
+  const bicTrajectory: ContextualBicTrajectoryEntry[] = [];
 
   // Per-variation total sample size across all contexts, and the BIC
   // complexity penalty K*ln(N). Used to gate each split by whether it lowers
@@ -872,64 +910,37 @@ function buildTree(
     }
     dirtyLeaves = new Set<number>();
 
-    let bestGain = -Infinity;
-    let bestAttr = -1;
     let bestLeaf = -1;
-    let bestGroup: Set<string> = new Set();
+    let bestSplit: LeafSplit | null = null;
     // Visit leaves in ascending id order so gain ties resolve to the earliest
     // leaf (and, within a leaf, the earliest attribute), matching the original
     // single-pass selection.
     for (const leafId of [...new Set(currentLeaf)].sort((a, b) => a - b)) {
       const candidate = splitCache.get(leafId);
       if (!candidate) continue;
-      if (candidate.gain > bestGain) {
-        bestGain = candidate.gain;
-        bestAttr = candidate.attrIndex;
+      if (bestSplit === null || candidate.gain > bestSplit.gain) {
         bestLeaf = leafId;
-        bestGroup = candidate.group;
+        bestSplit = candidate;
       }
     }
 
     // Stop when no leaf admits a further valid split, or the best available
     // split does not strictly reduce total SSE (e.g. identical categories).
-    if (bestAttr < 0 || bestGain <= 0) {
+    if (bestSplit === null || bestSplit.gain <= 0) {
       break;
     }
+    const bestAttr = bestSplit.attrIndex;
+    const bestGroup = bestSplit.group;
+    const parentSsePerVariation = bestSplit.parentSsePerVariation;
+    const childrenSsePerVariation = bestSplit.childrenSsePerVariation;
 
     // BIC stopping gate: the chosen split maximizes SSE reduction, but split
-    // only if it lowers BIC.
+    // only if it lowers BIC. Only `bestLeaf` changes.
     const beforePerVariation = sseTrajectory[sseTrajectory.length - 1];
-    const parentEntries: ContextEntry[] = [];
-    const movingEntries: ContextEntry[] = [];
-    const stayingEntries: ContextEntry[] = [];
-    for (let c = 0; c < contexts.length; c++) {
-      if (currentLeaf[c] !== bestLeaf) continue;
-      parentEntries.push(contexts[c]);
-      if (bestGroup.has(contexts[c].tuple[bestAttr])) {
-        movingEntries.push(contexts[c]);
-      } else {
-        stayingEntries.push(contexts[c]);
-      }
-    }
-    const parentSse = sumOfSquaredErrorsPerVariation(
-      parentEntries,
-      metric,
-      numVariations,
-    );
-    const movingSse = sumOfSquaredErrorsPerVariation(
-      movingEntries,
-      metric,
-      numVariations,
-    );
-    const stayingSse = sumOfSquaredErrorsPerVariation(
-      stayingEntries,
-      metric,
-      numVariations,
-    );
     const afterPerVariation = beforePerVariation.map(
-      (sse, v) => sse - parentSse[v] + movingSse[v] + stayingSse[v],
+      (sse, v) => sse - parentSsePerVariation[v] + childrenSsePerVariation[v],
     );
-    const { deltaBic } = bicDeltaForSplit(
+    const { logLikelihoodRatio, deltaBic } = bicDeltaForSplit(
       beforePerVariation,
       afterPerVariation,
       armTotalSampleSizes,
@@ -960,6 +971,14 @@ function buildTree(
       }
     }
     sseTrajectory.push(totalSsePerVariation());
+    // Record the BIC for the split we just applied. `numSplits` is the resulting
+    // stage index (the newly pushed `sseTrajectory` entry).
+    bicTrajectory.push({
+      numSplits: sseTrajectory.length - 1,
+      logLikelihoodRatio,
+      penalty: bicPenaltyValue,
+      deltaBic,
+    });
 
     // Only the split leaf and its new child changed; re-evaluate just those two
     // next iteration and reuse every other leaf's cached best split.
@@ -977,7 +996,7 @@ function buildTree(
     leafInfo.get(currentLeaf[c])?.memberContexts.push(c);
   }
 
-  return { leafInfo, sseTrajectory };
+  return { leafInfo, sseTrajectory, bicTrajectory };
 }
 
 function bicPenalty(numVariations: number, totalSampleSize: number): number {
@@ -1009,33 +1028,6 @@ function bicDeltaForSplit(
       armTotalSampleSizes[v] * (Math.log(before) - Math.log(after));
   }
   return { logLikelihoodRatio, deltaBic: penalty - logLikelihoodRatio };
-}
-
-/**
- * BIC model-selection statistic for each greedy split, derived from the
- * per-(split, variation) SSE trajectory.
- *
- */
-function computeBicTrajectory(
-  sseTrajectory: number[][],
-  armTotalSampleSizes: number[],
-): ContextualBicTrajectoryEntry[] {
-  const penalty = bicPenalty(
-    armTotalSampleSizes.length,
-    armTotalSampleSizes.reduce((a, b) => a + b, 0),
-  );
-
-  const trajectory: ContextualBicTrajectoryEntry[] = [];
-  for (let s = 1; s < sseTrajectory.length; s++) {
-    const { logLikelihoodRatio, deltaBic } = bicDeltaForSplit(
-      sseTrajectory[s - 1],
-      sseTrajectory[s],
-      armTotalSampleSizes,
-      penalty,
-    );
-    trajectory.push({ numSplits: s, logLikelihoodRatio, penalty, deltaBic });
-  }
-  return trajectory;
 }
 
 export function computeContextualBanditWeights(
@@ -1072,7 +1064,7 @@ export function computeContextualBanditWeights(
     return { attributes, responses: [], leaf_map: [] };
   }
 
-  const { leafInfo, sseTrajectory } = buildTree(
+  const { leafInfo, sseTrajectory, bicTrajectory } = buildTree(
     contexts,
     attributes,
     metricSettings,
@@ -1132,17 +1124,6 @@ export function computeContextualBanditWeights(
     }),
   );
 
-  const armTotalSampleSizes = new Array<number>(numVariations).fill(0);
-  for (const ctx of contexts) {
-    for (let v = 0; v < numVariations; v++) {
-      armTotalSampleSizes[v] += ctx.arms[v].n;
-    }
-  }
-  const bic_trajectory = computeBicTrajectory(
-    sseTrajectory,
-    armTotalSampleSizes,
-  );
-
   const responses: ContextualBanditResponseSnapshot[] = [];
 
   for (let c = 0; c < contexts.length; c++) {
@@ -1173,6 +1154,6 @@ export function computeContextualBanditWeights(
     leaf_map: buildLeafConditionMap(contexts, attributes, leafInfo),
     leaf_stats,
     sse_trajectory,
-    bic_trajectory,
+    bic_trajectory: bicTrajectory,
   };
 }
