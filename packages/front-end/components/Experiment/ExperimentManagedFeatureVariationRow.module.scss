@@ -1,0 +1,8 @@
+// A scalar value never needs to grow — JSON has its own full-width row — and
+// the auto-sizing textarea's resize grip reads as clutter in a table row.
+.scalarValue {
+  :global(textarea.form-control) {
+    resize: none;
+    overflow-y: auto;
+  }
+}

@@ -1,4 +1,4 @@
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import Link from "@/ui/Link";
@@ -32,59 +32,55 @@ export default function VariationServedValue({
   if (!feature) {
     if (!onAdd) return null;
     return (
-      <>
-        <Separator size="4" my="3" />
+      <Box mt="3">
         <Link onClick={onAdd}>
           <Text size="sm" weight="semibold">
             Add variation value
           </Text>
         </Link>
-      </>
+      </Box>
     );
   }
 
   return (
-    <>
-      <Separator size="4" my="3" />
-      <Flex align="center" justify="between" gap="2">
-        <Flex align="center" gap="1" minWidth="0">
-          {isDraft && (
-            <Tooltip content="Unpublished draft value">
-              <Box
-                style={{
-                  flexShrink: 0,
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: "var(--amber-9)",
-                }}
-              />
-            </Tooltip>
-          )}
-          <Metadata
-            label="Serves"
-            size="sm"
-            value={
-              // Not ForceSummary — its "SERVE" prefix would double the label.
-              <ValueDisplay
-                value={value ?? ""}
-                type={feature.valueType}
-                sparse={sparse}
-                defaultValue={feature.defaultValue}
-                showCopyButton={false}
-                fullStyle={{ maxHeight: 60, overflowY: "auto" }}
-              />
-            }
-          />
-        </Flex>
-        {onEdit ? (
-          <Link onClick={onEdit}>
-            <Text size="sm" weight="semibold">
-              Edit
-            </Text>
-          </Link>
-        ) : null}
+    <Flex align="center" justify="between" gap="2" mt="3">
+      <Flex align="center" gap="1" minWidth="0">
+        {isDraft && (
+          <Tooltip content="Unpublished draft value">
+            <Box
+              style={{
+                flexShrink: 0,
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "var(--amber-9)",
+              }}
+            />
+          </Tooltip>
+        )}
+        <Metadata
+          label="Serves"
+          size="sm"
+          value={
+            // Not ForceSummary — its "SERVE" prefix would double the label.
+            <ValueDisplay
+              value={value ?? ""}
+              type={feature.valueType}
+              sparse={sparse}
+              defaultValue={feature.defaultValue}
+              showCopyButton={false}
+              fullStyle={{ maxHeight: 60, overflowY: "auto" }}
+            />
+          }
+        />
       </Flex>
-    </>
+      {onEdit ? (
+        <Link onClick={onEdit}>
+          <Text size="sm" weight="semibold">
+            Edit
+          </Text>
+        </Link>
+      ) : null}
+    </Flex>
   );
 }

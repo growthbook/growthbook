@@ -5,6 +5,7 @@ import {
   SimpleSchema,
 } from "shared/types/feature";
 import {
+  ComponentProps,
   ReactElement,
   ReactNode,
   useEffect,
@@ -92,6 +93,12 @@ export interface Props {
   // the field (top-aligned) instead of on a label row above it, and hides the
   // copy button. Used by the inline config field editor.
   inlineConstantButton?: boolean;
+  /**
+   * Size for the inner text fields. Defaults to whatever `Field` defaults to
+   * (legacy), so existing callers are unchanged; pass a design-system size
+   * when this sits beside other sized fields.
+   */
+  size?: ComponentProps<typeof Field>["size"];
   // JSON features only. Whether this rule value is a sparse patch (merged onto
   // the feature default). When `setSparse` is provided and the feature default
   // is a plain object, a "Sparse patch" toggle renders on the label row.
@@ -134,6 +141,7 @@ export default function FeatureValueField({
   codeInputDefaultHeight,
   hideCopyButton = false,
   inlineConstantButton = false,
+  size,
   sparse,
   setSparse,
   condensed = false,
@@ -890,6 +898,9 @@ export default function FeatureValueField({
       onInsert={insertStringConstant}
       disabled={disabled}
       iconOnly={inlineConstantButton}
+      // The default offset lines the icon up under a label row. Inline there
+      // is no label above the field, so it would just sit low.
+      iconMt={inlineConstantButton ? "0" : undefined}
     />
   ) : null;
   const stringLabelRow =
@@ -908,6 +919,7 @@ export default function FeatureValueField({
 
   const field = (
     <Field
+      size={size}
       ref={stringInputRef}
       label={stringLabelRow ? undefined : label}
       value={value}
@@ -940,10 +952,10 @@ export default function FeatureValueField({
     />
   );
 
-  // Inline layout: the picker rides to the right of the field, top-aligned.
+  // Inline layout: the picker rides to the right of the field, centred on it.
   if (inlineConstantButton && stringInsertButton) {
     return (
-      <Flex align="start" gap="2" width="100%">
+      <Flex align="center" gap="2" width="100%">
         <Box style={{ flex: 1, minWidth: 0 }}>{field}</Box>
         <Box style={{ flexShrink: 0 }}>{stringInsertButton}</Box>
       </Flex>
