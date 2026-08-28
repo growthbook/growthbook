@@ -4446,6 +4446,8 @@ export async function getFeatureMetaInfoById(
       return {
         id: f.id,
         project: f.project,
+        targetingProjects: f.targetingProjects,
+        targetingAllProjects: f.targetingAllProjects,
         archived: f.archived,
         description: f.description,
         dateCreated: f.dateCreated,
@@ -4498,6 +4500,8 @@ export async function getFeatureMetaInfoByIds(
     .map((f) => ({
       id: f.id,
       project: f.project,
+      targetingProjects: f.targetingProjects,
+      targetingAllProjects: f.targetingAllProjects,
       archived: f.archived,
       description: f.description,
       dateCreated: f.dateCreated,

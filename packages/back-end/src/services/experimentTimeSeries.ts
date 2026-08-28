@@ -6,6 +6,7 @@ import {
   expandDerivedMetricsInMap,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
+  getFactMetricFactTableIds,
   getFactMetricPrimaryFactTableId,
   isFactFunnelMetric,
   parseFunnelStepMetricId,
@@ -440,6 +441,69 @@ function getDefinitionMetricId(metricId: string): string {
     : parseSliceMetricId(metricId).baseMetricId;
 }
 
+/**
+ * The slice of a fact metric's definition (and its fact tables') that affects
+ * generated SQL, for change-detection hashes. Funnel steps resolve filters
+ * against their own fact table; step tables beyond the numerator's are hashed
+ * under `funnelStepFactTables`, which stays `undefined` when absent
+ * (JSON.stringify drops it) so unaffected metrics keep their existing hashes.
+ */
+export function getFactMetricDefinitionForHash(
+  factMetric: FactMetricInterface,
+  factTableMap?: Map<string, FactTableInterface>,
+) {
+  const numeratorFactTableId = getFactMetricPrimaryFactTableId(factMetric);
+  const numeratorFactTable = numeratorFactTableId
+    ? factTableMap?.get(numeratorFactTableId)
+    : undefined;
+
+  const denominatorFactTableId = factMetric.denominator?.factTableId;
+  const denominatorFactTable = denominatorFactTableId
+    ? factTableMap?.get(denominatorFactTableId)
+    : undefined;
+
+  const extraFunnelFactTableIds = isFactFunnelMetric(factMetric)
+    ? getFactMetricFactTableIds(factMetric).filter(
+        (id) => id !== numeratorFactTableId,
+      )
+    : [];
+
+  return {
+    metricType: factMetric.metricType,
+    numerator: factMetric.numerator,
+    denominator: factMetric.denominator,
+    cappingSettings: factMetric.cappingSettings,
+    quantileSettings: factMetric.quantileSettings,
+    funnelSettings: factMetric.funnelSettings,
+    numeratorFactTable: {
+      sql: numeratorFactTable?.sql,
+      eventName: numeratorFactTable?.eventName,
+      filters: getFiltersForHash(numeratorFactTable, factMetric.numerator),
+      funnelFilters: isFactFunnelMetric(factMetric)
+        ? factMetric.funnelSettings.steps.flatMap(
+            (step) =>
+              getFiltersForHash(factTableMap?.get(step.factTableId), step) ??
+              [],
+          )
+        : undefined,
+    },
+    denominatorFactTable: {
+      sql: denominatorFactTable?.sql,
+      eventName: denominatorFactTable?.eventName,
+      // TODO: also include denominator filters?
+    },
+    funnelStepFactTables: extraFunnelFactTableIds.length
+      ? extraFunnelFactTableIds.map((id) => {
+          const factTable = factTableMap?.get(id);
+          return {
+            sql: factTable?.sql,
+            eventName: factTable?.eventName,
+          };
+        })
+      : undefined,
+  };
+}
+
 export function getMetricSettingsHash(
   metricId: string,
   metricSettings?: MetricForSnapshot,
@@ -452,42 +516,11 @@ export function getMetricSettingsHash(
   );
   if (!factMetric) {
     return hashObject(metricSettings ?? { id: metricId });
-  } else {
-    const numeratorFactTableId = getFactMetricPrimaryFactTableId(factMetric);
-    const numeratorFactTable = numeratorFactTableId
-      ? factTableMap?.get(numeratorFactTableId)
-      : undefined;
-
-    const denominatorFactTableId = factMetric.denominator?.factTableId;
-    const denominatorFactTable = denominatorFactTableId
-      ? factTableMap?.get(denominatorFactTableId)
-      : undefined;
-
-    return hashObject({
-      ...metricSettings,
-      metricType: factMetric.metricType,
-      numerator: factMetric.numerator,
-      denominator: factMetric.denominator,
-      cappingSettings: factMetric.cappingSettings,
-      quantileSettings: factMetric.quantileSettings,
-      funnelSettings: factMetric.funnelSettings,
-      numeratorFactTable: {
-        sql: numeratorFactTable?.sql,
-        eventName: numeratorFactTable?.eventName,
-        filters: getFiltersForHash(numeratorFactTable, factMetric.numerator),
-        funnelFilters: isFactFunnelMetric(factMetric)
-          ? factMetric.funnelSettings.steps.flatMap(
-              (step) => getFiltersForHash(numeratorFactTable, step) ?? [],
-            )
-          : undefined,
-      },
-      denominatorFactTable: {
-        sql: denominatorFactTable?.sql,
-        eventName: denominatorFactTable?.eventName,
-        // TODO: also include denominator filters?
-      },
-    });
   }
+  return hashObject({
+    ...metricSettings,
+    ...getFactMetricDefinitionForHash(factMetric, factTableMap),
+  });
 }
 
 function getHasSignificantDifference(

@@ -13691,6 +13691,14 @@ paths:
                   type: string
                 fallbackAttribute:
                   type: string
+                attributeScopeAllProjects:
+                  description: >-
+                    Picker preference: show attributes from all projects in this
+                    experiment's targeting UI instead of only those in scope for
+                    its project and linked features. Does not loosen enforcement
+                    — when the organization requires registered attributes with
+                    project scoping, out-of-scope attributes are still rejected.
+                  type: boolean
                 hashVersion:
                   anyOf:
                     - type: number
@@ -14373,6 +14381,14 @@ paths:
                   type: string
                 fallbackAttribute:
                   type: string
+                attributeScopeAllProjects:
+                  description: >-
+                    Picker preference: show attributes from all projects in this
+                    experiment's targeting UI instead of only those in scope for
+                    its project and linked features. Does not loosen enforcement
+                    — when the organization requires registered attributes with
+                    project scoping, out-of-scope attributes are still rejected.
+                  type: boolean
                 hashVersion:
                   anyOf:
                     - type: number
@@ -54338,6 +54354,8 @@ components:
           type: array
           items:
             type: string
+        attributeScopeAllProjects:
+          type: boolean
         hasVisualChangesets:
           type: boolean
         hasURLRedirects:
@@ -54832,6 +54850,11 @@ components:
                                   type: number
                                 percentChange:
                                   type: number
+                                effectStandardError:
+                                  description: >-
+                                    Standard error of the estimated effect
+                                    (`percentChange`).
+                                  type: number
                                 ciLow:
                                   type: number
                                 ciHigh:
@@ -54851,6 +54874,7 @@ components:
                                 - mean
                                 - stddev
                                 - percentChange
+                                - effectStandardError
                                 - ciLow
                                 - ciHigh
                               additionalProperties: false
@@ -55121,6 +55145,8 @@ components:
               type: array
               items:
                 type: string
+            attributeScopeAllProjects:
+              type: boolean
             hasVisualChangesets:
               type: boolean
             hasURLRedirects:
@@ -68234,6 +68260,9 @@ components:
                 type: number
               lift:
                 description: Relative uplift mean for this variation, if available
+                type: number
+              effectStandardError:
+                description: Standard error of `lift`, if available
                 type: number
               ci:
                 description: Confidence interval [lower, upper]

@@ -494,6 +494,7 @@ export const experimentInterface = z
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
     linkedFeatures: z.array(z.string()).optional(),
+    attributeScopeAllProjects: z.boolean().optional(),
     // Drafts queued for auto-publish on `status -> running`. Each
     // (featureId, revisionVersion) pair is its own row — multiple drafts of
     // the same feature can be queued and are merged sequentially at start.
@@ -972,6 +973,7 @@ const apiExperimentShape = z.object({
   banditConversionWindowValue: z.coerce.number().optional(),
   banditConversionWindowUnit: z.enum(["days", "hours"]).optional(),
   linkedFeatures: z.array(z.string()).optional(),
+  attributeScopeAllProjects: z.boolean().optional(),
   hasVisualChangesets: z.boolean().optional(),
   hasURLRedirects: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
@@ -1076,6 +1078,11 @@ export const apiExperimentResultsValidator = namedSchema(
                       mean: z.coerce.number(),
                       stddev: z.coerce.number(),
                       percentChange: z.coerce.number(),
+                      effectStandardError: z.coerce
+                        .number()
+                        .describe(
+                          "Standard error of the estimated effect (`percentChange`).",
+                        ),
                       ciLow: z.coerce.number(),
                       ciHigh: z.coerce.number(),
                       pValue: z.coerce.number().optional(),
@@ -1181,6 +1188,10 @@ const apiBulkResultVariation = z.object({
       stddev: z.number().nullable(),
       // Estimated effect expressed according to differenceType.
       effect: z.number().nullable(),
+      effectStandardError: z
+        .number()
+        .nullable()
+        .describe("Standard error of `effect`, on the same scale."),
       ciLow: z.number().nullable(),
       ciHigh: z.number().nullable(),
       pValue: z.number().nullable().optional(),
@@ -1439,6 +1450,12 @@ const postExperimentBody = z
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
+    attributeScopeAllProjects: z
+      .boolean()
+      .describe(
+        "Picker preference: show attributes from all projects in this experiment's targeting UI instead of only those in scope for its project and linked features. Does not loosen enforcement — when the organization requires registered attributes with project scoping, out-of-scope attributes are still rejected.",
+      )
+      .optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     disableStickyBucketing: z.boolean().optional(),
     bucketVersion: z.number().optional(),
@@ -1557,6 +1574,12 @@ const updateExperimentBody = z
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
+    attributeScopeAllProjects: z
+      .boolean()
+      .describe(
+        "Picker preference: show attributes from all projects in this experiment's targeting UI instead of only those in scope for its project and linked features. Does not loosen enforcement — when the organization requires registered attributes with project scoping, out-of-scope attributes are still rejected.",
+      )
+      .optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     disableStickyBucketing: z.boolean().optional(),
     bucketVersion: z.number().optional(),
