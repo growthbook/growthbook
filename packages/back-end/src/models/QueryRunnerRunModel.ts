@@ -1,7 +1,7 @@
 import { UpdateProps } from "shared/types/base-model";
 import {
   QueryRunnerRunInterface,
-  QueryRunnerRunParentType,
+  QueryRunnerRunTargetType,
   queryRunnerRunValidator,
 } from "shared/validators";
 import { getCollection } from "back-end/src/util/mongo.util";
@@ -24,21 +24,21 @@ const BaseClass = MakeModelClass({
   },
   readonlyFields: ["queryIds"],
   additionalIndexes: [
-    { fields: { organization: 1, parentType: 1, parentId: 1 } }, // Get run by parent
+    { fields: { organization: 1, targetType: 1, targetId: 1 } }, // Get run by target
     { fields: { lockHeartbeatAt: 1, lockToken: 1 } }, // Find stale held runs across orgs
   ],
 });
 
 export class QueryRunnerRunModel extends BaseClass {
   public async createForRun(params: {
-    parentType: QueryRunnerRunParentType;
-    parentId: string;
+    targetType: QueryRunnerRunTargetType;
+    targetId: string;
     datasourceId: string;
     token: string;
   }): Promise<QueryRunnerRunInterface> {
     return this.create({
-      parentType: params.parentType,
-      parentId: params.parentId,
+      targetType: params.targetType,
+      targetId: params.targetId,
       datasourceId: params.datasourceId,
       queryIds: [],
       lockToken: params.token,
@@ -102,21 +102,21 @@ export class QueryRunnerRunModel extends BaseClass {
   }
 
   /** Live run for this product document, if one exists. */
-  public async getActiveRun(
-    parentType: QueryRunnerRunParentType,
-    parentId: string,
+  public async getActiveByTarget(
+    targetType: QueryRunnerRunTargetType,
+    targetId: string,
   ): Promise<QueryRunnerRunInterface | null> {
     const freshThreshold = new Date(Date.now() - QUERY_RUNNER_LOCK_STALE_MS);
     return this._findOne({
-      parentType,
-      parentId,
+      targetType,
+      targetId,
       lockToken: { $ne: null },
       lockHeartbeatAt: { $gte: freshThreshold },
     });
   }
 
   public static async dangerouslyFindActiveRuns(
-    parentType: QueryRunnerRunParentType,
+    targetType: QueryRunnerRunTargetType,
     documents: Array<{ organization: string; id: string }>,
   ): Promise<QueryRunnerRunInterface[]> {
     if (documents.length === 0) return [];
@@ -124,12 +124,12 @@ export class QueryRunnerRunModel extends BaseClass {
     const freshThreshold = new Date(Date.now() - QUERY_RUNNER_LOCK_STALE_MS);
     return getCollection<QueryRunnerRunInterface>(COLLECTION_NAME)
       .find({
-        parentType,
+        targetType,
         lockToken: { $ne: null },
         lockHeartbeatAt: { $gte: freshThreshold },
         $or: documents.map(({ organization, id }) => ({
           organization,
-          parentId: id,
+          targetId: id,
         })),
       })
       .toArray();

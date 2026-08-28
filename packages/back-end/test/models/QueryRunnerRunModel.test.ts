@@ -24,8 +24,8 @@ describe("QueryRunnerRunModel", () => {
 
   const createForRun = (token: string) =>
     model.createForRun({
-      parentType: "experimentSnapshot",
-      parentId: "snp_1",
+      targetType: "experimentSnapshot",
+      targetId: "snp_1",
       datasourceId: "ds_1",
       token,
     });
@@ -67,8 +67,8 @@ describe("QueryRunnerRunModel", () => {
 
     expect(run.id).toMatch(/^qrr_/);
     expect(run.organization).toBe("org_1");
-    expect(run.parentType).toBe("experimentSnapshot");
-    expect(run.parentId).toBe("snp_1");
+    expect(run.targetType).toBe("experimentSnapshot");
+    expect(run.targetId).toBe("snp_1");
     expect(run.datasourceId).toBe("ds_1");
     expect(run.queryIds).toEqual([]);
     expect(run.lockToken).toBe("tok_a");
@@ -166,11 +166,14 @@ describe("QueryRunnerRunModel", () => {
     expect((await getRaw(run.id))?.lockToken).toBe("tok_b");
   });
 
-  describe("getActiveRun", () => {
+  describe("getActiveByTarget", () => {
     it("returns the run while its lock is held", async () => {
       const run = await createForRun("tok_a");
 
-      const active = await model.getActiveRun("experimentSnapshot", "snp_1");
+      const active = await model.getActiveByTarget(
+        "experimentSnapshot",
+        "snp_1",
+      );
       expect(active?.id).toBe(run.id);
     });
 
@@ -178,7 +181,7 @@ describe("QueryRunnerRunModel", () => {
       const run = await createForRun("tok_a");
       await model.releaseLock(run.id, "tok_a");
 
-      expect(await model.getActiveRun("experimentSnapshot", "snp_1")).toBe(
+      expect(await model.getActiveByTarget("experimentSnapshot", "snp_1")).toBe(
         null,
       );
     });
@@ -187,30 +190,30 @@ describe("QueryRunnerRunModel", () => {
       const run = await createForRun("tok_a");
       await setLockHeartbeatAt(run.id, staleDate());
 
-      expect(await model.getActiveRun("experimentSnapshot", "snp_1")).toBe(
+      expect(await model.getActiveByTarget("experimentSnapshot", "snp_1")).toBe(
         null,
       );
     });
 
-    it("returns null for a different parentId or parentType", async () => {
+    it("returns null for a different targetId or targetType", async () => {
       await createForRun("tok_a");
 
-      expect(await model.getActiveRun("experimentSnapshot", "snp_2")).toBe(
+      expect(await model.getActiveByTarget("experimentSnapshot", "snp_2")).toBe(
         null,
       );
-      expect(await model.getActiveRun("report", "snp_1")).toBe(null);
+      expect(await model.getActiveByTarget("report", "snp_1")).toBe(null);
     });
 
     it("is org-scoped", async () => {
       const otherModel = new QueryRunnerRunModel(makeContext("org_2"));
       await otherModel.createForRun({
-        parentType: "experimentSnapshot",
-        parentId: "snp_1",
+        targetType: "experimentSnapshot",
+        targetId: "snp_1",
         datasourceId: "ds_1",
         token: "tok_other",
       });
 
-      expect(await model.getActiveRun("experimentSnapshot", "snp_1")).toBe(
+      expect(await model.getActiveByTarget("experimentSnapshot", "snp_1")).toBe(
         null,
       );
     });
@@ -222,8 +225,8 @@ describe("QueryRunnerRunModel", () => {
 
       const otherModel = new QueryRunnerRunModel(makeContext("org_2"));
       const otherFresh = await otherModel.createForRun({
-        parentType: "experimentSnapshot",
-        parentId: "snp_2",
+        targetType: "experimentSnapshot",
+        targetId: "snp_2",
         datasourceId: "ds_1",
         token: "tok_other",
       });
@@ -235,8 +238,8 @@ describe("QueryRunnerRunModel", () => {
       await model.releaseLock(released.id, "tok_released");
 
       await model.createForRun({
-        parentType: "report",
-        parentId: "rep_unrequested",
+        targetType: "report",
+        targetId: "rep_unrequested",
         datasourceId: "ds_1",
         token: "tok_unrequested",
       });
@@ -271,8 +274,8 @@ describe("QueryRunnerRunModel", () => {
 
       const otherModel = new QueryRunnerRunModel(makeContext("org_2"));
       const stale2 = await otherModel.createForRun({
-        parentType: "report",
-        parentId: "rep_1",
+        targetType: "report",
+        targetId: "rep_1",
         datasourceId: "ds_1",
         token: "tok_2",
       });

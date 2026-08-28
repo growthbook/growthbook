@@ -103,7 +103,7 @@ describe("expireOldQueries", () => {
   const releaseLock = jest.fn().mockResolvedValue(undefined);
   const qrrAcquireLock = jest.fn();
   const qrrReleaseLock = jest.fn().mockResolvedValue(undefined);
-  const qrrGetActiveByParent = jest.fn();
+  const qrrGetActiveByTarget = jest.fn();
   const context = {
     org: { id: "org_1" },
     models: {
@@ -112,7 +112,7 @@ describe("expireOldQueries", () => {
       queryRunnerRuns: {
         acquireLock: qrrAcquireLock,
         releaseLock: qrrReleaseLock,
-        getActiveRun: qrrGetActiveByParent,
+        getActiveByTarget: qrrGetActiveByTarget,
       },
     },
   };
@@ -144,7 +144,7 @@ describe("expireOldQueries", () => {
     mockFindOne.mockResolvedValue(null);
     mockUpdateOne.mockResolvedValue({ modifiedCount: 1 });
     qrrAcquireLock.mockResolvedValue(true);
-    qrrGetActiveByParent.mockResolvedValue(null);
+    qrrGetActiveByTarget.mockResolvedValue(null);
     (getCollection as jest.Mock).mockImplementation(() => makeCollectionMock());
   });
 
@@ -169,8 +169,8 @@ describe("expireOldQueries", () => {
     const staleLease = {
       id: "qrr_1",
       organization: "org_1",
-      parentType: "metricAnalysis",
-      parentId: "ma_1",
+      targetType: "metricAnalysis",
+      targetId: "ma_1",
       queryIds: ["qry_1"],
     };
 
@@ -192,7 +192,7 @@ describe("expireOldQueries", () => {
         ["qry_1"],
         expect.stringContaining("stopped unexpectedly"),
       );
-      expect(qrrGetActiveByParent).not.toHaveBeenCalled();
+      expect(qrrGetActiveByTarget).not.toHaveBeenCalled();
       expect(mockUpdateOne).toHaveBeenCalledWith(
         expect.objectContaining({
           id: "ma_1",
@@ -218,7 +218,7 @@ describe("expireOldQueries", () => {
       expect(qrrReleaseLock).not.toHaveBeenCalled();
     });
 
-    it("releases the lease when the parent is already terminal", async () => {
+    it("releases the lease when the target is already terminal", async () => {
       (
         QueryRunnerRunModel.dangerouslyFindStaleQueryRunnerRuns as jest.Mock
       ).mockResolvedValue([staleLease]);
@@ -244,8 +244,8 @@ describe("expireOldQueries", () => {
       ).mockResolvedValue([
         {
           ...staleLease,
-          parentType: "report",
-          parentId: "rep_1",
+          targetType: "report",
+          targetId: "rep_1",
           queryIds: [],
         },
       ]);
@@ -265,14 +265,14 @@ describe("expireOldQueries", () => {
       expect(qrrReleaseLock).toHaveBeenCalledWith("qrr_1", expect.any(String));
     });
 
-    it("errors a never-published parent when the run dies during SQL generation", async () => {
+    it("errors a never-published target when the run dies during SQL generation", async () => {
       (
         QueryRunnerRunModel.dangerouslyFindStaleQueryRunnerRuns as jest.Mock
       ).mockResolvedValue([
         {
           ...staleLease,
-          parentType: "metricAnalysis",
-          parentId: "ma_1",
+          targetType: "metricAnalysis",
+          targetId: "ma_1",
           queryIds: [],
         },
       ]);
@@ -301,11 +301,11 @@ describe("expireOldQueries", () => {
       expect(qrrReleaseLock).toHaveBeenCalledWith("qrr_1", expect.any(String));
     });
 
-    it("errors a parent whose DAG was never published", async () => {
+    it("errors a target whose DAG was never published", async () => {
       (
         QueryRunnerRunModel.dangerouslyFindStaleQueryRunnerRuns as jest.Mock
       ).mockResolvedValue([
-        { ...staleLease, parentType: "report", parentId: "rep_1" },
+        { ...staleLease, targetType: "report", targetId: "rep_1" },
       ]);
       mockFindOne.mockResolvedValue({
         id: "rep_1",
@@ -329,7 +329,7 @@ describe("expireOldQueries", () => {
       );
     });
 
-    it("leaves an all-terminal parent for resume", async () => {
+    it("leaves an all-terminal target for resume", async () => {
       (
         QueryRunnerRunModel.dangerouslyFindStaleQueryRunnerRuns as jest.Mock
       ).mockResolvedValue([staleLease]);
@@ -346,11 +346,11 @@ describe("expireOldQueries", () => {
       expect(qrrReleaseLock).toHaveBeenCalledWith("qrr_1", expect.any(String));
     });
 
-    it("does not finalize a parent that now points at another run", async () => {
+    it("does not finalize a target that now points at another run", async () => {
       (
         QueryRunnerRunModel.dangerouslyFindStaleQueryRunnerRuns as jest.Mock
       ).mockResolvedValue([
-        { ...staleLease, parentType: "report", parentId: "rep_1" },
+        { ...staleLease, targetType: "report", targetId: "rep_1" },
       ]);
       mockFindOne.mockResolvedValue({
         id: "rep_1",
@@ -382,11 +382,11 @@ describe("expireOldQueries", () => {
       expect(qrrReleaseLock).toHaveBeenCalledWith("qrr_1", expect.any(String));
     });
 
-    it("concludes an all-queued parent through the pending-pointer guard", async () => {
+    it("concludes an all-queued target through the pending-pointer guard", async () => {
       (
         QueryRunnerRunModel.dangerouslyFindStaleQueryRunnerRuns as jest.Mock
       ).mockResolvedValue([
-        { ...staleLease, parentType: "report", parentId: "rep_1" },
+        { ...staleLease, targetType: "report", targetId: "rep_1" },
       ]);
       mockFindOne.mockResolvedValue({
         id: "rep_1",
@@ -421,7 +421,7 @@ describe("expireOldQueries", () => {
       (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([
         snapshotDoc,
       ]);
-      qrrGetActiveByParent.mockResolvedValue({ id: "qrr_9" });
+      qrrGetActiveByTarget.mockResolvedValue({ id: "qrr_9" });
 
       await runJob();
 
@@ -435,7 +435,7 @@ describe("expireOldQueries", () => {
       (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([
         snapshotDoc,
       ]);
-      qrrGetActiveByParent.mockResolvedValue(null);
+      qrrGetActiveByTarget.mockResolvedValue(null);
 
       await runJob();
 
@@ -554,8 +554,8 @@ describe("expireOldQueries", () => {
       ).mockResolvedValue([
         {
           organization: "org_1",
-          parentType: "experimentSnapshot",
-          parentId: "snp_1",
+          targetType: "experimentSnapshot",
+          targetId: "snp_1",
         },
       ]);
 
@@ -605,13 +605,13 @@ describe("expireOldQueries", () => {
     ).mockResolvedValue([
       {
         organization: "org_1",
-        parentType: "contextualBanditSnapshot",
-        parentId: "cbs_1",
+        targetType: "contextualBanditSnapshot",
+        targetId: "cbs_1",
       },
       {
         organization: "org_1",
-        parentType: "aggregatedFactTableRun",
-        parentId: "aftr_1",
+        targetType: "aggregatedFactTableRun",
+        targetId: "aftr_1",
       },
     ]);
 

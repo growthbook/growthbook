@@ -2,7 +2,7 @@ import {
   AggregatedFactTableInterface,
   AggregatedFactTableMetricStateInterface,
   AggregatedFactTableRunInterface,
-  QueryRunnerRunParentType,
+  QueryRunnerRunTargetType,
 } from "shared/validators";
 import { Queries, QueryPointer, QueryStatus } from "shared/types/query";
 import { UpdateProps } from "shared/types/base-model";
@@ -151,7 +151,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
   // to restore it after a restate's up-front invalidation).
   private materializedTableFullName: string | null = null;
 
-  readonly parentType: QueryRunnerRunParentType = "aggregatedFactTableRun";
+  readonly targetType: QueryRunnerRunTargetType = "aggregatedFactTableRun";
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(

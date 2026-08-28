@@ -1,5 +1,5 @@
 import { Queries, QueryInterface, QueryStatus } from "shared/types/query";
-import { QueryRunnerRunParentType } from "shared/validators";
+import { QueryRunnerRunTargetType } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import {
   QueryRunner,
@@ -25,7 +25,7 @@ class TestQueryRunner extends QueryRunner<
   object,
   { success: boolean }
 > {
-  readonly parentType: QueryRunnerRunParentType = "experimentSnapshot";
+  readonly targetType: QueryRunnerRunTargetType = "experimentSnapshot";
 
   checkPermissions() {
     return true;
@@ -537,7 +537,7 @@ describe("QueryRunner", () => {
       { pointers: Queries },
       { success: boolean }
     > {
-      readonly parentType: QueryRunnerRunParentType = "experimentSnapshot";
+      readonly targetType: QueryRunnerRunTargetType = "experimentSnapshot";
       public persistedQueries: Queries = [];
       public updateModelSpy = jest.fn();
       public onQueryFinishSpy = jest.fn();
@@ -991,7 +991,7 @@ describe("QueryRunner", () => {
       { pointers: Queries },
       { success: boolean }
     > {
-      readonly parentType: QueryRunnerRunParentType = "experimentSnapshot";
+      readonly targetType: QueryRunnerRunTargetType = "experimentSnapshot";
       public onHeartbeatSpy = jest.fn();
 
       checkPermissions() {
@@ -1175,7 +1175,7 @@ describe("QueryRunner", () => {
       { pointers: Queries },
       { success: boolean }
     > {
-      readonly parentType: QueryRunnerRunParentType = "experimentSnapshot";
+      readonly targetType: QueryRunnerRunTargetType = "experimentSnapshot";
       public runAnalysisSpy = jest.fn();
       public updateModelSpy = jest.fn();
       public getLatestModelImpl: () => Promise<InterfaceWithQueries> = () =>

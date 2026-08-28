@@ -1,5 +1,5 @@
 import { UpdateProps } from "shared/types/base-model";
-import { QueryRunnerRunParentType } from "shared/validators";
+import { QueryRunnerRunTargetType } from "shared/validators";
 import {
   ExperimentMetricInterface,
   isBinomialMetric,
@@ -276,7 +276,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
 > {
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
-  readonly parentType: QueryRunnerRunParentType = "populationData";
+  readonly targetType: QueryRunnerRunTargetType = "populationData";
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(

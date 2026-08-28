@@ -2,7 +2,7 @@ import EventEmitter from "events";
 import uniqid from "uniqid";
 import {
   QueryRunnerRunInterface,
-  QueryRunnerRunParentType,
+  QueryRunnerRunTargetType,
 } from "shared/validators";
 import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import {
@@ -228,7 +228,7 @@ export abstract class QueryRunner<
   private useCache: boolean;
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
   private lockHeartbeatTimer: null | NodeJS.Timeout = null;
-  abstract readonly parentType: QueryRunnerRunParentType;
+  abstract readonly targetType: QueryRunnerRunTargetType;
   private queryRunnerRunLockToken = uniqid("qrrt_");
   private queryRunnerRun: QueryRunnerRunInterface | null = null;
   private refreshWatchdogTimer: null | NodeJS.Timeout = null;
@@ -341,10 +341,10 @@ export abstract class QueryRunner<
     return persisted;
   }
 
-  private async canWriteParent(): Promise<boolean> {
+  private async canWriteTarget(): Promise<boolean> {
     const stillHeld = await this.touchRunLockHeartbeat();
     if (!stillHeld) {
-      this.standDown("QueryRunner run lock lost before updating parent");
+      this.standDown("QueryRunner run lock lost before updating target");
     }
     return stillHeld;
   }
@@ -478,7 +478,7 @@ export abstract class QueryRunner<
     }
     this.clearAllTimers();
     const fullError = "Error finalizing query results: " + error;
-    if (!(await this.canWriteParent())) return;
+    if (!(await this.canWriteTarget())) return;
     try {
       await this.writeErrorIfStillActive(fullError);
     } catch (writeErr) {
@@ -638,8 +638,8 @@ export abstract class QueryRunner<
     logger.debug(this.model.id + " runner: Starting queries");
     this.queryRunnerRun =
       await this.context.models.queryRunnerRuns.createForRun({
-        parentType: this.parentType,
-        parentId: this.model.id,
+        targetType: this.targetType,
+        targetId: this.model.id,
         datasourceId: this.integration.datasource.id,
         token: this.queryRunnerRunLockToken,
       });
@@ -656,7 +656,7 @@ export abstract class QueryRunner<
         this.experimentUpdateExecutionLogger?.endPhase("runQueries");
         const noQueriesError = "No queries were generated for this analysis";
         logger.debug(this.model.id + " runner: " + noQueriesError);
-        if (!(await this.canWriteParent())) return this.model;
+        if (!(await this.canWriteTarget())) return this.model;
         const newModel = await this.updateModel({
           status: "failed",
           queries: [],
@@ -699,7 +699,7 @@ export abstract class QueryRunner<
         error = "Error running one or more database queries";
       }
 
-      if (!(await this.canWriteParent())) return this.model;
+      if (!(await this.canWriteTarget())) return this.model;
 
       const newModel = await this.updateModel({
         status: error ? "failed" : queryStatus,
@@ -953,7 +953,7 @@ export abstract class QueryRunner<
       }
     }
 
-    if ((error || result) && !(await this.canWriteParent())) {
+    if ((error || result) && !(await this.canWriteTarget())) {
       return queryMap;
     }
 
@@ -1078,7 +1078,7 @@ export abstract class QueryRunner<
     }
 
     this.clearAllTimers();
-    if (!(await this.canWriteParent())) return;
+    if (!(await this.canWriteTarget())) return;
     const newModel = await this.updateModel({
       queries: [],
       status: "failed",

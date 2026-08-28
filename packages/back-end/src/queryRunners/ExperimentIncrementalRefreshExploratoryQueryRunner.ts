@@ -1,4 +1,4 @@
-import { QueryRunnerRunParentType } from "shared/validators";
+import { QueryRunnerRunTargetType } from "shared/validators";
 import {
   ExperimentMetricInterface,
   isFactMetric,
@@ -356,7 +356,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
-  readonly parentType: QueryRunnerRunParentType = "experimentSnapshot";
+  readonly targetType: QueryRunnerRunTargetType = "experimentSnapshot";
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(

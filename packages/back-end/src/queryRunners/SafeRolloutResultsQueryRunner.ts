@@ -7,7 +7,7 @@ import {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotHealth,
   SafeRolloutSnapshotInterface,
-  QueryRunnerRunParentType,
+  QueryRunnerRunTargetType,
 } from "shared/validators";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { getSnapshotSettingsFromSafeRolloutArgs } from "back-end/src/services/safeRolloutSnapshots";
@@ -43,7 +43,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
   // TODO: Decide if we want more granular permissions here for safe rollouts
-  readonly parentType: QueryRunnerRunParentType = "safeRolloutSnapshot";
+  readonly targetType: QueryRunnerRunTargetType = "safeRolloutSnapshot";
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(

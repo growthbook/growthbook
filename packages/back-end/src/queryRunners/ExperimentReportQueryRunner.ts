@@ -1,5 +1,5 @@
 import { ExperimentMetricInterface } from "shared/experiments";
-import { QueryRunnerRunParentType } from "shared/validators";
+import { QueryRunnerRunTargetType } from "shared/validators";
 import { ExperimentSnapshotAnalysis } from "shared/types/experiment-snapshot";
 import {
   ExperimentQueryMetadata,
@@ -43,7 +43,7 @@ export class ExperimentReportQueryRunner extends QueryRunner<
   private factTableMap: FactTableMap = new Map();
   private metricGroups: MetricGroupInterface[] = [];
 
-  readonly parentType: QueryRunnerRunParentType = "report";
+  readonly targetType: QueryRunnerRunTargetType = "report";
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(

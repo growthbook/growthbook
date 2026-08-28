@@ -1,4 +1,4 @@
-import { QueryRunnerRunParentType } from "shared/validators";
+import { QueryRunnerRunTargetType } from "shared/validators";
 import {
   ExperimentDimension,
   DimensionSlicesQueryResponseRows,
@@ -23,7 +23,7 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
   DimensionSlicesParams,
   DimensionSlicesResult[]
 > {
-  readonly parentType: QueryRunnerRunParentType = "dimensionSlices";
+  readonly targetType: QueryRunnerRunTargetType = "dimensionSlices";
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunHealthQueries(

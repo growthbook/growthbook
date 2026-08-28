@@ -5,7 +5,7 @@ import {
   AggregatedFactTableInterface,
   AggregatedFactTableRunInterface,
   ContextualBanditSnapshotInterface,
-  QueryRunnerRunParentType,
+  QueryRunnerRunTargetType,
   SafeRolloutSnapshotInterface,
 } from "shared/validators";
 import {
@@ -75,7 +75,7 @@ function hasPendingOwnedQuery(
   );
 }
 
-const PARENT_COLLECTION_NAMES: Record<QueryRunnerRunParentType, string> = {
+const TARGET_COLLECTION_NAMES: Record<QueryRunnerRunTargetType, string> = {
   experimentSnapshot: "experimentsnapshots",
   report: "reports",
   metric: "metrics",
@@ -89,55 +89,56 @@ const PARENT_COLLECTION_NAMES: Record<QueryRunnerRunParentType, string> = {
   productAnalyticsExploration: "analyticsexploration",
 };
 
-type ParentDagDoc = {
+type TargetDoc = {
   id: string;
   organization: string;
   queries?: Queries;
   experiment?: string;
 };
 
-async function withoutLiveRun<
-  T extends Pick<ParentDagDoc, "id" | "organization">,
->(parentType: QueryRunnerRunParentType, documents: T[]): Promise<T[]> {
+async function withoutLiveRun<T extends Pick<TargetDoc, "id" | "organization">>(
+  targetType: QueryRunnerRunTargetType,
+  documents: T[],
+): Promise<T[]> {
   const liveRuns = await QueryRunnerRunModel.dangerouslyFindActiveRuns(
-    parentType,
+    targetType,
     documents,
   );
   return documents.filter(
     (doc) =>
       !liveRuns.some(
         (run) =>
-          run.organization === doc.organization && run.parentId === doc.id,
+          run.organization === doc.organization && run.targetId === doc.id,
       ),
   );
 }
 
-type ParentErrorWriteArgs = {
+type TargetErrorWriteArgs = {
   context: ReqContext | ApiReqContext;
-  parentDoc: ParentDagDoc;
+  targetDoc: TargetDoc;
   failedQueryIds: string[];
   error: string;
 };
-type ParentErrorWriter = (args: ParentErrorWriteArgs) => Promise<boolean>;
+type TargetErrorWriter = (args: TargetErrorWriteArgs) => Promise<boolean>;
 
 /**
- * For parents with a scalar run status: guards the write on status:"running" so
- * a parent that already concluded can't be resurrected. Returns whether the
+ * For targets with a scalar run status: guards the write on status:"running" so
+ * a target that already concluded can't be resurrected. Returns whether the
  * write applied.
  */
-function statusGuardedWriter(coll: string): ParentErrorWriter {
+function statusGuardedWriter(coll: string): TargetErrorWriter {
   return async function writeStatusGuardedError({
     context,
-    parentDoc,
+    targetDoc,
     failedQueryIds,
     error,
   }) {
-    if (!hasPendingOwnedQuery(parentDoc.queries, failedQueryIds)) return false;
-    const queries = parentDoc.queries ?? [];
+    if (!hasPendingOwnedQuery(targetDoc.queries, failedQueryIds)) return false;
+    const queries = targetDoc.queries ?? [];
     const res = await getCollection(coll).updateOne(
       {
         organization: context.org.id,
-        id: parentDoc.id,
+        id: targetDoc.id,
         status: "running",
         queries,
       },
@@ -154,25 +155,25 @@ function statusGuardedWriter(coll: string): ParentErrorWriter {
 }
 
 /**
- * For legacy parents with no run status, where a pending query pointer is
+ * For legacy targets with no run status, where a pending query pointer is
  * the only liveness signal. Returns whether the write applied.
  */
 function pointerGuardedWriter(
   coll: string,
   errorField: string,
-): ParentErrorWriter {
+): TargetErrorWriter {
   return async function writePointerGuardedError({
     context,
-    parentDoc,
+    targetDoc,
     failedQueryIds,
     error,
   }) {
-    if (!hasPendingOwnedQuery(parentDoc.queries, failedQueryIds)) return false;
-    const queries = parentDoc.queries ?? [];
+    if (!hasPendingOwnedQuery(targetDoc.queries, failedQueryIds)) return false;
+    const queries = targetDoc.queries ?? [];
     const res = await getCollection(coll).updateOne(
       {
         organization: context.org.id,
-        id: parentDoc.id,
+        id: targetDoc.id,
         queries,
       },
       {
@@ -186,17 +187,17 @@ function pointerGuardedWriter(
   };
 }
 
-/** Every parent error write flows through here so the guard stays uniform. */
-const PARENT_ERROR_WRITERS: Record<
-  QueryRunnerRunParentType,
-  ParentErrorWriter
+/** Every target error write flows through here so the guard stays uniform. */
+const TARGET_ERROR_WRITERS: Record<
+  QueryRunnerRunTargetType,
+  TargetErrorWriter
 > = {
-  experimentSnapshot: async ({ context, parentDoc, failedQueryIds, error }) => {
-    if (!hasPendingOwnedQuery(parentDoc.queries, failedQueryIds)) return false;
-    const queries = parentDoc.queries ?? [];
+  experimentSnapshot: async ({ context, targetDoc, failedQueryIds, error }) => {
+    if (!hasPendingOwnedQuery(targetDoc.queries, failedQueryIds)) return false;
+    const queries = targetDoc.queries ?? [];
     const wrote = await errorSnapshotIfStillRunning(
       context,
-      parentDoc.id,
+      targetDoc.id,
       {
         queries: markQueryPointersFailed(queries, failedQueryIds),
         error,
@@ -206,7 +207,7 @@ const PARENT_ERROR_WRITERS: Record<
     // releaseLock filters on currentExecutionSnapshotId, so this is a no-op
     // unless this snapshot held the incremental-refresh lock.
     await context.models.incrementalRefresh
-      .releaseLock(parentDoc.experiment ?? "", parentDoc.id)
+      .releaseLock(targetDoc.experiment ?? "", targetDoc.id)
       .catch((e) =>
         logger.warn(
           e,
@@ -222,12 +223,12 @@ const PARENT_ERROR_WRITERS: Record<
   dimensionSlices: pointerGuardedWriter("dimensionslices", "error"),
   safeRolloutSnapshot: statusGuardedWriter("saferolloutsnapshots"),
   contextualBanditSnapshot: statusGuardedWriter("contextualbanditsnapshots"),
-  aggregatedFactTableRun: async ({ parentDoc, failedQueryIds, error }) => {
-    if (!hasPendingOwnedQuery(parentDoc.queries, failedQueryIds)) return false;
+  aggregatedFactTableRun: async ({ targetDoc, failedQueryIds, error }) => {
+    if (!hasPendingOwnedQuery(targetDoc.queries, failedQueryIds)) return false;
     return finalizeStuckAggregatedFactTableRun(
-      parentDoc as unknown as AggregatedFactTableRunInterface,
+      targetDoc as unknown as AggregatedFactTableRunInterface,
       {
-        queries: markQueryPointersFailed(parentDoc.queries, failedQueryIds),
+        queries: markQueryPointersFailed(targetDoc.queries, failedQueryIds),
         error,
       },
     );
@@ -262,49 +263,49 @@ async function reapStaleQueryRunnerRuns() {
           );
         }
 
-        const parentDoc = (await getCollection(
-          PARENT_COLLECTION_NAMES[run.parentType],
+        const targetDoc = (await getCollection(
+          TARGET_COLLECTION_NAMES[run.targetType],
         ).findOne({
           organization: run.organization,
-          id: run.parentId,
-        })) as ParentDagDoc | null;
-        if (!parentDoc) {
+          id: run.targetId,
+        })) as TargetDoc | null;
+        if (!targetDoc) {
           logger.info(
             {
               queryRunnerRunId: run.id,
-              parentId: run.parentId,
-              parentType: run.parentType,
+              targetId: run.targetId,
+              targetType: run.targetType,
             },
-            "Stale query runner parent document is missing",
+            "Stale query runner target document is missing",
           );
           continue;
         }
 
-        const wrote = await PARENT_ERROR_WRITERS[run.parentType]({
+        const wrote = await TARGET_ERROR_WRITERS[run.targetType]({
           context,
-          parentDoc,
+          targetDoc,
           failedQueryIds: run.queryIds,
           error: LEASE_REAP_ERROR,
         });
         if (!wrote) {
-          const parentQueries = parentDoc.queries ?? [];
+          const targetQueries = targetDoc.queries ?? [];
           const diedBeforePublish =
-            !run.queryIds.length && parentQueries.length > 0;
+            !run.queryIds.length && targetQueries.length > 0;
           const nothingPending =
-            parentQueries.length > 0 &&
-            !hasPendingOwnedQuery(parentDoc.queries, run.queryIds);
+            targetQueries.length > 0 &&
+            !hasPendingOwnedQuery(targetDoc.queries, run.queryIds);
           const message = diedBeforePublish
-            ? "Stale query runner died before publishing a DAG; parent still has a previous DAG"
+            ? "Stale query runner died before publishing a DAG; target still has a previous DAG"
             : nothingPending
-              ? "Stale query runner has nothing pending; leaving parent for resume"
-              : "Stale query runner parent no longer matches the recorded DAG";
+              ? "Stale query runner has nothing pending; leaving target for resume"
+              : "Stale query runner target no longer matches the recorded DAG";
           const log =
             diedBeforePublish || nothingPending ? logger.info : logger.warn;
           log(
             {
               queryRunnerRunId: run.id,
-              parentId: run.parentId,
-              parentType: run.parentType,
+              targetId: run.targetId,
+              targetType: run.targetType,
             },
             message,
           );
@@ -333,8 +334,8 @@ async function reapStaleQueryRunnerRuns() {
  * Parent failures are isolated so the stale-query sweep can continue.
  */
 async function reapParentFromStaleQueries(
-  parentType: QueryRunnerRunParentType,
-  parent: ParentDagDoc,
+  parentType: QueryRunnerRunTargetType,
+  parent: TargetDoc,
   queryIds: Set<string>,
   shieldedQueryIds: Set<string>,
   error: string,
@@ -344,7 +345,7 @@ async function reapParentFromStaleQueries(
     const ownStaleIds = (parent.queries ?? [])
       .map((q) => q.query)
       .filter((id) => queryIds.has(id));
-    const active = await context.models.queryRunnerRuns.getActiveRun(
+    const active = await context.models.queryRunnerRuns.getActiveByTarget(
       parentType,
       parent.id,
     );
@@ -352,9 +353,9 @@ async function reapParentFromStaleQueries(
       ownStaleIds.forEach((id) => shieldedQueryIds.add(id));
       return;
     }
-    await PARENT_ERROR_WRITERS[parentType]({
+    await TARGET_ERROR_WRITERS[parentType]({
       context,
-      parentDoc: parent,
+      targetDoc: parent,
       failedQueryIds: ownStaleIds,
       error,
     });

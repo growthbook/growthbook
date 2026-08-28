@@ -12,7 +12,7 @@ import {
   IncrementalRefreshInterface,
   IncrementalRefreshMetricCovariateSourceInterface,
   IncrementalRefreshMetricSourceInterface,
-  QueryRunnerRunParentType,
+  QueryRunnerRunTargetType,
 } from "shared/validators";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
@@ -1185,7 +1185,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
-  readonly parentType: QueryRunnerRunParentType = "experimentSnapshot";
+  readonly targetType: QueryRunnerRunTargetType = "experimentSnapshot";
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(

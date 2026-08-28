@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 
-export const queryRunnerRunParentTypes = [
+export const queryRunnerRunTargetTypes = [
   "experimentSnapshot",
   "report",
   "metric",
@@ -15,13 +15,13 @@ export const queryRunnerRunParentTypes = [
   "productAnalyticsExploration",
 ] as const;
 
-export type QueryRunnerRunParentType =
-  (typeof queryRunnerRunParentTypes)[number];
+export type QueryRunnerRunTargetType =
+  (typeof queryRunnerRunTargetTypes)[number];
 
 export const queryRunnerRunValidator = baseSchema
   .extend({
-    parentType: z.enum(queryRunnerRunParentTypes),
-    parentId: z.string(),
+    targetType: z.enum(queryRunnerRunTargetTypes),
+    targetId: z.string(),
     datasourceId: z.string(),
 
     // This starts empty because we first acquire the lock and then add the queries

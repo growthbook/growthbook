@@ -1,5 +1,5 @@
 import { UpdateProps } from "shared/types/base-model";
-import { QueryRunnerRunParentType } from "shared/validators";
+import { QueryRunnerRunTargetType } from "shared/validators";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { isBinomialMetric, isRatioMetric } from "shared/experiments";
 import {
@@ -30,7 +30,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
 > {
   private metric?: FactMetricInterface;
 
-  readonly parentType: QueryRunnerRunParentType = "metricAnalysis";
+  readonly targetType: QueryRunnerRunTargetType = "metricAnalysis";
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunMetricAnalysisQueries(
