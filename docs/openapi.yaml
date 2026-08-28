@@ -16089,6 +16089,9 @@ paths:
                           sse_trajectory:
                             type: array
                             items: {}
+                          bic_trajectory:
+                            type: array
+                            items: {}
                         required:
                           - attributes
                           - responses
