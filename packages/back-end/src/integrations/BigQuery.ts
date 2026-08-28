@@ -18,6 +18,7 @@ import {
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { logger } from "back-end/src/util/logger";
@@ -79,6 +80,40 @@ export default class BigQuery extends SqlIntegration {
       { externalId, location, statusAtCancel: apiResult.job?.status },
       "BigQuery cancel request accepted",
     );
+  }
+
+  async getExternalQueryStatus(
+    externalId: string,
+    metadata?: Record<string, string>,
+  ): Promise<ExternalQueryStatus> {
+    const client = this.getClient();
+
+    const location = metadata?.location;
+    const job = location
+      ? client.job(externalId, { location })
+      : client.job(externalId);
+
+    try {
+      const [md] = await job.getMetadata();
+      const status = md.status;
+      if (status && status.state === "DONE") {
+        if (status.errorResult) {
+          return {
+            state: "failed",
+            error: status.errorResult.message || "BigQuery job failed",
+          };
+        }
+        return { state: "succeeded" };
+      }
+      return { state: "running" };
+    } catch (e) {
+      const code = (e as { code?: unknown })?.code;
+      const message = e instanceof Error ? e.message : String(e);
+      if (code === 404 || /not found/i.test(message)) {
+        return { state: "unknown", reason: "expired" };
+      }
+      return { state: "unknown", reason: "unreachable" };
+    }
   }
 
   async runQuery(

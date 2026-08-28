@@ -120,7 +120,10 @@ import {
 } from "shared/types/query";
 import { MissingDatasourceParamsError } from "back-end/src/util/errors";
 import { ReqContext } from "back-end/types/request";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import {
+  ExternalQueryStatus,
+  SourceIntegrationInterface,
+} from "back-end/src/types/Integration";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
@@ -206,6 +209,14 @@ export default abstract class SqlIntegration
   async cancelQuery(externalId: string): Promise<void> {
     // No-op default; warehouses with remote job control override.
     logger.debug(`Cancel query: ${externalId} - not implemented`);
+  }
+
+  async getExternalQueryStatus(
+    externalId: string,
+  ): Promise<ExternalQueryStatus> {
+    // Safe default; warehouses with remote job status override.
+    logger.debug(`External query status: ${externalId} - not implemented`);
+    return { state: "unknown", reason: "unsupported" };
   }
 
   abstract getSqlDialect(): SqlDialect;
