@@ -22,9 +22,21 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getCollection } from "back-end/src/util/mongo.util";
 
 const mockFindOne = jest.fn();
 const mockUpdateOne = jest.fn();
+
+function makeCollectionMock(candidates: unknown[] = []) {
+  return {
+    find: jest.fn().mockReturnValue({
+      limit: jest.fn().mockReturnThis(),
+      toArray: jest.fn().mockResolvedValue(candidates),
+    }),
+    findOne: mockFindOne,
+    updateOne: mockUpdateOne,
+  };
+}
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   dangerousFindStalledRunningSnapshotsFromAllOrgs: jest.fn(),
@@ -42,6 +54,7 @@ jest.mock("back-end/src/models/QueryModel", () => ({
 
 jest.mock("back-end/src/models/QueryRunnerRunModel", () => ({
   QueryRunnerRunModel: {
+    dangerouslyFindActiveRuns: jest.fn(),
     dangerouslyFindStaleQueryRunnerRuns: jest.fn(),
   },
 }));
@@ -74,14 +87,7 @@ jest.mock("back-end/src/models/MetricAnalysisModel", () => ({
 }));
 
 jest.mock("back-end/src/util/mongo.util", () => ({
-  getCollection: jest.fn(() => ({
-    find: jest.fn().mockReturnValue({
-      limit: jest.fn().mockReturnThis(),
-      toArray: jest.fn().mockResolvedValue([]),
-    }),
-    findOne: mockFindOne,
-    updateOne: mockUpdateOne,
-  })),
+  getCollection: jest.fn(),
 }));
 
 jest.mock("back-end/src/util/logger", () => ({
@@ -106,7 +112,7 @@ describe("expireOldQueries", () => {
       queryRunnerRuns: {
         acquireLock: qrrAcquireLock,
         releaseLock: qrrReleaseLock,
-        getActiveByParent: qrrGetActiveByParent,
+        getActiveRun: qrrGetActiveByParent,
       },
     },
   };
@@ -117,6 +123,9 @@ describe("expireOldQueries", () => {
     (failQueryRunnerRunQueries as jest.Mock).mockResolvedValue(1);
     (failStaleQueries as jest.Mock).mockResolvedValue(undefined);
     (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([]);
+    (
+      QueryRunnerRunModel.dangerouslyFindActiveRuns as jest.Mock
+    ).mockResolvedValue([]);
     (
       QueryRunnerRunModel.dangerouslyFindStaleQueryRunnerRuns as jest.Mock
     ).mockResolvedValue([]);
@@ -136,6 +145,7 @@ describe("expireOldQueries", () => {
     mockUpdateOne.mockResolvedValue({ modifiedCount: 1 });
     qrrAcquireLock.mockResolvedValue(true);
     qrrGetActiveByParent.mockResolvedValue(null);
+    (getCollection as jest.Mock).mockImplementation(() => makeCollectionMock());
   });
 
   async function runJob() {
@@ -251,7 +261,87 @@ describe("expireOldQueries", () => {
       await runJob();
 
       expect(failQueryRunnerRunQueries).not.toHaveBeenCalled();
-      expect(mockFindOne).not.toHaveBeenCalled();
+      expect(mockUpdateOne).not.toHaveBeenCalled();
+      expect(qrrReleaseLock).toHaveBeenCalledWith("qrr_1", expect.any(String));
+    });
+
+    it("errors a never-published parent when the run dies during SQL generation", async () => {
+      (
+        QueryRunnerRunModel.dangerouslyFindStaleQueryRunnerRuns as jest.Mock
+      ).mockResolvedValue([
+        {
+          ...staleLease,
+          parentType: "metricAnalysis",
+          parentId: "ma_1",
+          queryIds: [],
+        },
+      ]);
+      mockFindOne.mockResolvedValue({
+        id: "ma_1",
+        organization: "org_1",
+        queries: [],
+      });
+
+      await runJob();
+
+      expect(failQueryRunnerRunQueries).not.toHaveBeenCalled();
+      expect(mockUpdateOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "ma_1",
+          status: "running",
+          queries: [],
+        }),
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            status: "error",
+            error: expect.stringContaining("stopped unexpectedly"),
+          }),
+        }),
+      );
+      expect(qrrReleaseLock).toHaveBeenCalledWith("qrr_1", expect.any(String));
+    });
+
+    it("errors a parent whose DAG was never published", async () => {
+      (
+        QueryRunnerRunModel.dangerouslyFindStaleQueryRunnerRuns as jest.Mock
+      ).mockResolvedValue([
+        { ...staleLease, parentType: "report", parentId: "rep_1" },
+      ]);
+      mockFindOne.mockResolvedValue({
+        id: "rep_1",
+        organization: "org_1",
+        queries: [],
+      });
+
+      await runJob();
+
+      expect(failQueryRunnerRunQueries).toHaveBeenCalledWith(
+        context,
+        ["qry_1"],
+        expect.any(String),
+      );
+      expect(mockUpdateOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "rep_1",
+          queries: [],
+        }),
+        expect.anything(),
+      );
+    });
+
+    it("leaves an all-terminal parent for resume", async () => {
+      (
+        QueryRunnerRunModel.dangerouslyFindStaleQueryRunnerRuns as jest.Mock
+      ).mockResolvedValue([staleLease]);
+      mockFindOne.mockResolvedValue({
+        id: "ma_1",
+        organization: "org_1",
+        queries: [{ name: "a", query: "qry_1", status: "succeeded" }],
+      });
+
+      await runJob();
+
+      expect(failQueryRunnerRunQueries).toHaveBeenCalled();
       expect(mockUpdateOne).not.toHaveBeenCalled();
       expect(qrrReleaseLock).toHaveBeenCalledWith("qrr_1", expect.any(String));
     });
@@ -456,5 +546,78 @@ describe("expireOldQueries", () => {
 
       expect(updateExperiment).not.toHaveBeenCalled();
     });
+
+    it("does not reap an orphaned snapshot with a fresh run lease", async () => {
+      mockOrphanedSnapshot({ type: "standard", triggeredBy: "schedule" });
+      (
+        QueryRunnerRunModel.dangerouslyFindActiveRuns as jest.Mock
+      ).mockResolvedValue([
+        {
+          organization: "org_1",
+          parentType: "experimentSnapshot",
+          parentId: "snp_1",
+        },
+      ]);
+
+      await runJob();
+
+      expect(errorSnapshotIfStillRunning).not.toHaveBeenCalled();
+      expect(markPendingQueriesAsFailed).not.toHaveBeenCalled();
+      expect(updateExperiment).not.toHaveBeenCalled();
+      expect(getQueryStatusesByIds).not.toHaveBeenCalled();
+    });
+  });
+
+  it("does not reap contextual bandit or aggregated runs with fresh leases", async () => {
+    const dateCreated = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const contextualBanditSnapshot = {
+      id: "cbs_1",
+      organization: "org_1",
+      contextualBandit: "cb_1",
+      dateCreated,
+      status: "running",
+      queries: [{ name: "main", query: "qry_cb", status: "queued" }],
+    };
+    const aggregatedFactTableRun = {
+      id: "aftr_1",
+      organization: "org_1",
+      datasourceId: "ds_1",
+      factTableId: "ft_1",
+      idType: "user_id",
+      executionId: "exec_1",
+      dateCreated,
+      finishedAt: null,
+      queries: [{ name: "main", query: "qry_aft", status: "queued" }],
+    };
+    (getCollection as jest.Mock).mockImplementation(
+      (collectionName: string) => {
+        if (collectionName === "contextualbanditsnapshots") {
+          return makeCollectionMock([contextualBanditSnapshot]);
+        }
+        if (collectionName === "aggregatedfacttableruns") {
+          return makeCollectionMock([aggregatedFactTableRun]);
+        }
+        return makeCollectionMock();
+      },
+    );
+    (
+      QueryRunnerRunModel.dangerouslyFindActiveRuns as jest.Mock
+    ).mockResolvedValue([
+      {
+        organization: "org_1",
+        parentType: "contextualBanditSnapshot",
+        parentId: "cbs_1",
+      },
+      {
+        organization: "org_1",
+        parentType: "aggregatedFactTableRun",
+        parentId: "aftr_1",
+      },
+    ]);
+
+    await runJob();
+
+    expect(getQueryStatusesByIds).not.toHaveBeenCalled();
+    expect(mockUpdateOne).not.toHaveBeenCalled();
   });
 });

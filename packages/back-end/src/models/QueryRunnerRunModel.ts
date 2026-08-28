@@ -101,10 +101,8 @@ export class QueryRunnerRunModel extends BaseClass {
     );
   }
 
-  /**
-   * Get the run that has a live lock for this queryRunner, if one exists.
-   */
-  public async getActiveByParent(
+  /** Live run for this product document, if one exists. */
+  public async getActiveRun(
     parentType: QueryRunnerRunParentType,
     parentId: string,
   ): Promise<QueryRunnerRunInterface | null> {
@@ -112,9 +110,29 @@ export class QueryRunnerRunModel extends BaseClass {
     return this._findOne({
       parentType,
       parentId,
-      lockToken: { $ne: null }, // lock is held
-      lockHeartbeatAt: { $gte: freshThreshold }, // lock is fresh
+      lockToken: { $ne: null },
+      lockHeartbeatAt: { $gte: freshThreshold },
     });
+  }
+
+  public static async dangerouslyFindActiveRuns(
+    parentType: QueryRunnerRunParentType,
+    documents: Array<{ organization: string; id: string }>,
+  ): Promise<QueryRunnerRunInterface[]> {
+    if (documents.length === 0) return [];
+
+    const freshThreshold = new Date(Date.now() - QUERY_RUNNER_LOCK_STALE_MS);
+    return getCollection<QueryRunnerRunInterface>(COLLECTION_NAME)
+      .find({
+        parentType,
+        lockToken: { $ne: null },
+        lockHeartbeatAt: { $gte: freshThreshold },
+        $or: documents.map(({ organization, id }) => ({
+          organization,
+          parentId: id,
+        })),
+      })
+      .toArray();
   }
 
   public static async dangerouslyFindStaleQueryRunnerRuns(

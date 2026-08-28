@@ -166,14 +166,11 @@ describe("QueryRunnerRunModel", () => {
     expect((await getRaw(run.id))?.lockToken).toBe("tok_b");
   });
 
-  describe("getActiveByParent", () => {
+  describe("getActiveRun", () => {
     it("returns the run while its lock is held", async () => {
       const run = await createForRun("tok_a");
 
-      const active = await model.getActiveByParent(
-        "experimentSnapshot",
-        "snp_1",
-      );
+      const active = await model.getActiveRun("experimentSnapshot", "snp_1");
       expect(active?.id).toBe(run.id);
     });
 
@@ -181,7 +178,7 @@ describe("QueryRunnerRunModel", () => {
       const run = await createForRun("tok_a");
       await model.releaseLock(run.id, "tok_a");
 
-      expect(await model.getActiveByParent("experimentSnapshot", "snp_1")).toBe(
+      expect(await model.getActiveRun("experimentSnapshot", "snp_1")).toBe(
         null,
       );
     });
@@ -190,7 +187,7 @@ describe("QueryRunnerRunModel", () => {
       const run = await createForRun("tok_a");
       await setLockHeartbeatAt(run.id, staleDate());
 
-      expect(await model.getActiveByParent("experimentSnapshot", "snp_1")).toBe(
+      expect(await model.getActiveRun("experimentSnapshot", "snp_1")).toBe(
         null,
       );
     });
@@ -198,10 +195,10 @@ describe("QueryRunnerRunModel", () => {
     it("returns null for a different parentId or parentType", async () => {
       await createForRun("tok_a");
 
-      expect(await model.getActiveByParent("experimentSnapshot", "snp_2")).toBe(
+      expect(await model.getActiveRun("experimentSnapshot", "snp_2")).toBe(
         null,
       );
-      expect(await model.getActiveByParent("report", "snp_1")).toBe(null);
+      expect(await model.getActiveRun("report", "snp_1")).toBe(null);
     });
 
     it("is org-scoped", async () => {
@@ -213,9 +210,57 @@ describe("QueryRunnerRunModel", () => {
         token: "tok_other",
       });
 
-      expect(await model.getActiveByParent("experimentSnapshot", "snp_1")).toBe(
+      expect(await model.getActiveRun("experimentSnapshot", "snp_1")).toBe(
         null,
       );
+    });
+  });
+
+  describe("dangerouslyFindActiveRuns", () => {
+    it("returns only fresh held leases for the requested documents", async () => {
+      const fresh = await createForRun("tok_fresh");
+
+      const otherModel = new QueryRunnerRunModel(makeContext("org_2"));
+      const otherFresh = await otherModel.createForRun({
+        parentType: "experimentSnapshot",
+        parentId: "snp_2",
+        datasourceId: "ds_1",
+        token: "tok_other",
+      });
+
+      const stale = await createForRun("tok_stale");
+      await setLockHeartbeatAt(stale.id, staleDate());
+
+      const released = await createForRun("tok_released");
+      await model.releaseLock(released.id, "tok_released");
+
+      await model.createForRun({
+        parentType: "report",
+        parentId: "rep_unrequested",
+        datasourceId: "ds_1",
+        token: "tok_unrequested",
+      });
+
+      const leases = await QueryRunnerRunModel.dangerouslyFindActiveRuns(
+        "experimentSnapshot",
+        [
+          { organization: "org_1", id: "snp_1" },
+          { organization: "org_2", id: "snp_2" },
+        ],
+      );
+
+      expect(leases.map((lease) => lease.id).sort()).toEqual(
+        [fresh.id, otherFresh.id].sort(),
+      );
+    });
+
+    it("returns no leases when there are no documents", async () => {
+      expect(
+        await QueryRunnerRunModel.dangerouslyFindActiveRuns(
+          "experimentSnapshot",
+          [],
+        ),
+      ).toEqual([]);
     });
   });
 

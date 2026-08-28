@@ -64,14 +64,14 @@ function markQueryPointersFailed(
 function hasPendingOwnedQuery(
   queries: Queries | undefined,
   queryIds: string[],
-): queries is Queries {
+): boolean {
+  // Never-published DAG: exact-equality on [] is the supersession fence.
+  if (!queries?.length) return true;
   const owned = new Set(queryIds);
-  return Boolean(
-    queries?.some(
-      (query) =>
-        owned.has(query.query) &&
-        (query.status === "queued" || query.status === "running"),
-    ),
+  return queries.some(
+    (query) =>
+      owned.has(query.query) &&
+      (query.status === "queued" || query.status === "running"),
   );
 }
 
@@ -95,6 +95,23 @@ type ParentDagDoc = {
   queries?: Queries;
   experiment?: string;
 };
+
+async function withoutLiveRun<
+  T extends Pick<ParentDagDoc, "id" | "organization">,
+>(parentType: QueryRunnerRunParentType, documents: T[]): Promise<T[]> {
+  const liveRuns = await QueryRunnerRunModel.dangerouslyFindActiveRuns(
+    parentType,
+    documents,
+  );
+  return documents.filter(
+    (doc) =>
+      !liveRuns.some(
+        (run) =>
+          run.organization === doc.organization && run.parentId === doc.id,
+      ),
+  );
+}
+
 type ParentErrorWriteArgs = {
   context: ReqContext | ApiReqContext;
   parentDoc: ParentDagDoc;
@@ -116,18 +133,19 @@ function statusGuardedWriter(coll: string): ParentErrorWriter {
     error,
   }) {
     if (!hasPendingOwnedQuery(parentDoc.queries, failedQueryIds)) return false;
+    const queries = parentDoc.queries ?? [];
     const res = await getCollection(coll).updateOne(
       {
         organization: context.org.id,
         id: parentDoc.id,
         status: "running",
-        queries: parentDoc.queries,
+        queries,
       },
       {
         $set: {
           status: "error",
           error,
-          queries: markQueryPointersFailed(parentDoc.queries, failedQueryIds),
+          queries: markQueryPointersFailed(queries, failedQueryIds),
         },
       },
     );
@@ -150,16 +168,17 @@ function pointerGuardedWriter(
     error,
   }) {
     if (!hasPendingOwnedQuery(parentDoc.queries, failedQueryIds)) return false;
+    const queries = parentDoc.queries ?? [];
     const res = await getCollection(coll).updateOne(
       {
         organization: context.org.id,
         id: parentDoc.id,
-        queries: parentDoc.queries,
+        queries,
       },
       {
         $set: {
           [errorField]: error,
-          queries: markQueryPointersFailed(parentDoc.queries, failedQueryIds),
+          queries: markQueryPointersFailed(queries, failedQueryIds),
         },
       },
     );
@@ -174,14 +193,15 @@ const PARENT_ERROR_WRITERS: Record<
 > = {
   experimentSnapshot: async ({ context, parentDoc, failedQueryIds, error }) => {
     if (!hasPendingOwnedQuery(parentDoc.queries, failedQueryIds)) return false;
+    const queries = parentDoc.queries ?? [];
     const wrote = await errorSnapshotIfStillRunning(
       context,
       parentDoc.id,
       {
-        queries: markQueryPointersFailed(parentDoc.queries, failedQueryIds),
+        queries: markQueryPointersFailed(queries, failedQueryIds),
         error,
       },
-      parentDoc.queries,
+      queries,
     );
     // releaseLock filters on currentExecutionSnapshotId, so this is a no-op
     // unless this snapshot held the incremental-refresh lock.
@@ -234,14 +254,13 @@ async function reapStaleQueryRunnerRuns() {
       );
       if (!claimed) continue;
       try {
-        // No queries to fail, so skip.
-        if (!run.queryIds.length) continue;
-
-        await failQueryRunnerRunQueries(
-          context,
-          run.queryIds,
-          LEASE_REAP_ERROR,
-        );
+        if (run.queryIds.length) {
+          await failQueryRunnerRunQueries(
+            context,
+            run.queryIds,
+            LEASE_REAP_ERROR,
+          );
+        }
 
         const parentDoc = (await getCollection(
           PARENT_COLLECTION_NAMES[run.parentType],
@@ -249,19 +268,46 @@ async function reapStaleQueryRunnerRuns() {
           organization: run.organization,
           id: run.parentId,
         })) as ParentDagDoc | null;
-        if (parentDoc) {
-          const wrote = await PARENT_ERROR_WRITERS[run.parentType]({
-            context,
-            parentDoc,
-            failedQueryIds: run.queryIds,
-            error: LEASE_REAP_ERROR,
-          });
-          if (!wrote) {
-            logger.warn(
-              { queryRunnerRunId: run.id, parentId: run.parentId },
-              "Stale query runner parent no longer matches the recorded DAG",
-            );
-          }
+        if (!parentDoc) {
+          logger.info(
+            {
+              queryRunnerRunId: run.id,
+              parentId: run.parentId,
+              parentType: run.parentType,
+            },
+            "Stale query runner parent document is missing",
+          );
+          continue;
+        }
+
+        const wrote = await PARENT_ERROR_WRITERS[run.parentType]({
+          context,
+          parentDoc,
+          failedQueryIds: run.queryIds,
+          error: LEASE_REAP_ERROR,
+        });
+        if (!wrote) {
+          const parentQueries = parentDoc.queries ?? [];
+          const diedBeforePublish =
+            !run.queryIds.length && parentQueries.length > 0;
+          const nothingPending =
+            parentQueries.length > 0 &&
+            !hasPendingOwnedQuery(parentDoc.queries, run.queryIds);
+          const message = diedBeforePublish
+            ? "Stale query runner died before publishing a DAG; parent still has a previous DAG"
+            : nothingPending
+              ? "Stale query runner has nothing pending; leaving parent for resume"
+              : "Stale query runner parent no longer matches the recorded DAG";
+          const log =
+            diedBeforePublish || nothingPending ? logger.info : logger.warn;
+          log(
+            {
+              queryRunnerRunId: run.id,
+              parentId: run.parentId,
+              parentType: run.parentType,
+            },
+            message,
+          );
         }
       } finally {
         await context.models.queryRunnerRuns
@@ -298,7 +344,7 @@ async function reapParentFromStaleQueries(
     const ownStaleIds = (parent.queries ?? [])
       .map((q) => q.query)
       .filter((id) => queryIds.has(id));
-    const active = await context.models.queryRunnerRuns.getActiveByParent(
+    const active = await context.models.queryRunnerRuns.getActiveRun(
       parentType,
       parent.id,
     );
@@ -469,9 +515,12 @@ async function expireOldQueries() {
 
 async function reapStalledSnapshots() {
   const stalledBefore = new Date(Date.now() - STALLED_SNAPSHOT_THRESHOLD_MS);
-  const candidates = await dangerousFindStalledRunningSnapshotsFromAllOrgs(
-    stalledBefore,
-    STALLED_SNAPSHOT_REAP_LIMIT,
+  const candidates = await withoutLiveRun(
+    "experimentSnapshot",
+    await dangerousFindStalledRunningSnapshotsFromAllOrgs(
+      stalledBefore,
+      STALLED_SNAPSHOT_REAP_LIMIT,
+    ),
   );
 
   for (const snapshot of candidates) {
@@ -652,13 +701,16 @@ async function reapStalledContextualBanditSnapshots() {
     "contextualbanditsnapshots",
   );
 
-  const candidates = await cbsCollection
-    .find({
-      status: "running",
-      dateCreated: { $gt: earliestDate, $lt: stalledBefore },
-    })
-    .limit(STALLED_SNAPSHOT_REAP_LIMIT)
-    .toArray();
+  const candidates = await withoutLiveRun(
+    "contextualBanditSnapshot",
+    await cbsCollection
+      .find({
+        status: "running",
+        dateCreated: { $gt: earliestDate, $lt: stalledBefore },
+      })
+      .limit(STALLED_SNAPSHOT_REAP_LIMIT)
+      .toArray(),
+  );
 
   for (const snapshot of candidates) {
     const queryIds = [...new Set(snapshot.queries.map((q) => q.query))];
@@ -786,11 +838,13 @@ async function finalizeStuckAggregatedFactTableRun(
 // never finalized. Mirrors reapStalledSnapshots.
 async function reapStalledAggregatedFactTableRuns() {
   const stalledBefore = new Date(Date.now() - STALLED_SNAPSHOT_THRESHOLD_MS);
-  const candidates =
+  const candidates = await withoutLiveRun(
+    "aggregatedFactTableRun",
     await dangerousFindStalledAggregatedFactTableRunsFromAllOrgs(
       stalledBefore,
       STALLED_SNAPSHOT_REAP_LIMIT,
-    );
+    ),
+  );
 
   for (const run of candidates) {
     const queryIds = [...new Set(run.queries.map((q) => q.query))];
