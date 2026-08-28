@@ -218,7 +218,7 @@ export const apiHoldoutValidator = namedSchema(
     experimentId: z
       .string()
       .describe(
-        "ID of the companion experiment that stores this Holdout's analysis. Use it with the experiment results endpoints (e.g. GET /experiments/{experimentId}/results).",
+        "ID of the companion experiment that stores this Holdout's analysis. Use it with the experiment results endpoints (e.g. GET /experiments/{experimentId}/results). Pass phase=0 for results across the whole Holdout period, or phase=1 for results limited to the analysis period.",
       ),
     skipAsDefaultHoldout: z
       .boolean()
