@@ -145,6 +145,7 @@ import { projectRouter } from "./routers/project/project.router";
 import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
+import { slackTestRouter } from "./routers/slack-test/slack-test.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
@@ -1174,6 +1175,9 @@ app.use(eventWebHooksRouter);
 
 // Slack integration
 app.use("/integrations/slack", slackIntegrationRouter);
+
+// Slack card/webhook test endpoints (admin-only)
+app.use("/admin/slack-test", slackTestRouter);
 
 // Data Export
 app.use("/data-export", dataExportRouter);
