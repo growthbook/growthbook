@@ -238,6 +238,31 @@ describe("expireOldQueries", () => {
       expect(qrrReleaseLock).toHaveBeenCalledWith("qrr_1", expect.any(String));
     });
 
+    it("keeps the incremental lock when the snapshot error CAS does not apply", async () => {
+      (
+        QueryRunnerRunModel.dangerouslyFindStaleQueryRunnerRuns as jest.Mock
+      ).mockResolvedValue([
+        {
+          ...staleLease,
+          targetType: "experimentSnapshot",
+          targetId: "snp_1",
+        },
+      ]);
+      mockFindOne.mockResolvedValue({
+        id: "snp_1",
+        organization: "org_1",
+        experiment: "exp_1",
+        queries: [{ name: "a", query: "qry_1", status: "running" }],
+      });
+      (errorSnapshotIfStillRunning as jest.Mock).mockResolvedValue(false);
+
+      await runJob();
+
+      expect(errorSnapshotIfStillRunning).toHaveBeenCalled();
+      expect(releaseLock).not.toHaveBeenCalled();
+      expect(qrrReleaseLock).toHaveBeenCalledWith("qrr_1", expect.any(String));
+    });
+
     it("does not infer query ownership when the run has no registered query ids", async () => {
       (
         QueryRunnerRunModel.dangerouslyFindStaleQueryRunnerRuns as jest.Mock

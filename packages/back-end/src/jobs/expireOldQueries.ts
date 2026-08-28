@@ -204,8 +204,8 @@ const TARGET_ERROR_WRITERS: Record<
       },
       queries,
     );
-    // releaseLock filters on currentExecutionSnapshotId, so this is a no-op
-    // unless this snapshot held the incremental-refresh lock.
+    // A failed snapshot CAS means another run may still own this lock.
+    if (!wrote) return false;
     await context.models.incrementalRefresh
       .releaseLock(targetDoc.experiment ?? "", targetDoc.id)
       .catch((e) =>
@@ -214,7 +214,7 @@ const TARGET_ERROR_WRITERS: Record<
           "Failed to release incremental lock for expired snapshot",
         ),
       );
-    return wrote;
+    return true;
   },
   report: pointerGuardedWriter("reports", "error"),
   metric: pointerGuardedWriter("metrics", "analysisError"),
