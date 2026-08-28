@@ -878,17 +878,20 @@ async function reapStalledAggregatedFactTableRuns() {
       latestFinishedAt > 0 ? latestFinishedAt : run.dateCreated.getTime();
     if (Date.now() - lastActivityAt < STALLED_FINALIZE_GRACE_MS) continue;
 
+    // Build a new array; finalizeStuckAggregatedFactTableRun fences on
+    // `queries: run.queries` as the pre-image, so run.queries must stay unmutated.
     const statusById = new Map(statuses.map((s) => [s.id, s.status]));
-    run.queries.forEach((q) => {
-      q.status = statusById.get(q.query) ?? q.status;
-    });
+    const updatedQueries = run.queries.map((q) => ({
+      ...q,
+      status: statusById.get(q.query) ?? q.status,
+    }));
 
     const error = orphanedDag
       ? "Aggregated fact table run stalled: queries were never started (the server likely restarted mid-run). It will be retried on the next scheduled update."
       : "Aggregated fact table run stalled: queries finished but the run was never finalized (the process was likely restarted). It will be retried on the next scheduled update.";
 
     const reaped = await finalizeStuckAggregatedFactTableRun(run, {
-      queries: run.queries,
+      queries: updatedQueries,
       error,
     });
     if (!reaped) continue;
