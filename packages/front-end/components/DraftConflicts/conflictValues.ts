@@ -9,13 +9,23 @@ export function formatConflictValue(v: unknown): string {
   return s.length > MAX_VALUE_CHARS ? `${s.slice(0, MAX_VALUE_CHARS)}…` : s;
 }
 
-function formatList(list: unknown[]): string {
+export function formatList(list: unknown[]): string {
   // Bounded up front so a huge list never stringifies in full.
   const bounded = list.slice(0, 120);
   const s = `[${bounded.map((v) => JSON.stringify(v)).join(", ")}]`;
   return s.length > MAX_VALUE_CHARS || bounded.length < list.length
     ? `${s.slice(0, MAX_VALUE_CHARS)}…`
     : s;
+}
+
+// Renders a project-id list by name, for conflict rows over project fields.
+export function namedProjectsFormatter(
+  getProjectById: (id: string) => { name: string } | null,
+): (value: unknown) => string {
+  return (v) =>
+    formatList(
+      ((v as string[]) ?? []).map((id) => getProjectById(id)?.name ?? id),
+    );
 }
 
 // The fixed scope label the flag stands for: allEnvironments and
@@ -35,15 +45,19 @@ function scopeLabel(flagField: string): string {
 function formatFlaggedList(
   entity: Record<string, unknown>,
   fields: string[],
+  formatters?: Record<string, (value: unknown) => string>,
 ): string | null {
   if (fields.length !== 2) return null;
   const flagField = fields.find((f) => typeof entity[f] === "boolean");
   if (!flagField) return null;
   // The list is often absent when the flag is on, so it can't be required here.
-  const list = entity[fields.find((f) => f !== flagField) as string];
+  const listField = fields.find((f) => f !== flagField) as string;
+  const list = entity[listField];
   if (list !== undefined && !Array.isArray(list)) return null;
-  return entity[flagField]
-    ? scopeLabel(flagField)
+  if (entity[flagField]) return scopeLabel(flagField);
+  const format = formatters?.[listField];
+  return format
+    ? format((list as unknown[]) ?? [])
     : formatList((list as unknown[]) ?? []);
 }
 
@@ -60,7 +74,7 @@ export function formatChunkValue(
     if (format && only !== undefined) return format(only);
     return Array.isArray(only) ? formatList(only) : formatConflictValue(only);
   }
-  const flagged = formatFlaggedList(entity, fields);
+  const flagged = formatFlaggedList(entity, fields, formatters);
   if (flagged !== null) return flagged;
   return formatConflictValue(
     Object.fromEntries(

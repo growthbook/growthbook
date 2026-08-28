@@ -11,6 +11,8 @@ import SelectOwner from "@/components/Owner/SelectOwner";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import SelectField from "@/components/Forms/SelectField";
 import TargetingProjectsField from "@/components/TargetingProjectsField";
+import { namedProjectsFormatter } from "@/components/DraftConflicts/conflictValues";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getMetadataEditEnvs, useEnvironments } from "@/services/features";
@@ -64,6 +66,8 @@ const EditFeatureInfoModal: FC<{
     if (!reviewSetting?.requireReviewOn) return false;
     return reviewSetting.featureRequireMetadataReview !== false;
   })();
+
+  const { getProjectById } = useDefinitions();
 
   const form = useForm({
     defaultValues: {
@@ -123,6 +127,11 @@ const EditFeatureInfoModal: FC<{
       targetingAllProjects: "Targeting Projects",
       targetingProjects: "Targeting Projects",
       description: "Description",
+    },
+    formatters: {
+      project: (v) =>
+        v ? (getProjectById(String(v))?.name ?? String(v)) : "None",
+      targetingProjects: namedProjectsFormatter(getProjectById),
     },
     form,
     isNewDraft: mode === "new",
