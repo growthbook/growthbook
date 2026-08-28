@@ -29,7 +29,7 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
   const detailedWebhook = ["raw", "json"].includes(payloadType);
 
   return (
-    <Link href={href} style={{ textDecoration: "none" }} className="card p-3">
+    <Link href={href} style={{ textDecoration: "none" }} className="p-3">
       <div className="d-flex">
         <div className="ml-2">
           <div className="m-2 p-2 border rounded">
