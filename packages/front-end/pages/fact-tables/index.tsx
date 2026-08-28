@@ -1,7 +1,7 @@
 import { isProjectListValidForProject } from "shared/util";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { date } from "shared/dates";
-import { getFactMetricPrimaryFactTableId } from "shared/experiments";
+import { getFactMetricFactTableIds } from "shared/experiments";
 import { FaArrowRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { Box, Flex, Separator } from "@radix-ui/themes";
@@ -99,19 +99,10 @@ export default function FactTablesPage() {
 
   const factMetricCounts: Record<string, number> = {};
   factMetrics.forEach((m) => {
-    const key = getFactMetricPrimaryFactTableId(m);
-    factMetricCounts[key] = factMetricCounts[key] || 0;
-    factMetricCounts[key]++;
-
-    if (
-      m.metricType === "ratio" &&
-      m.denominator &&
-      m.denominator.factTableId !== key
-    ) {
-      const key = m.denominator.factTableId;
+    getFactMetricFactTableIds(m).forEach((key) => {
       factMetricCounts[key] = factMetricCounts[key] || 0;
       factMetricCounts[key]++;
-    }
+    });
   });
 
   const filteredFactTables = project

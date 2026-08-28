@@ -54,4 +54,48 @@ describe("threeWayMerge array canonicalization", () => {
     expect(result.contested).toEqual([]);
     expect(result.theirFields).toEqual([]);
   });
+
+  it("equates an empty string with an absent key", () => {
+    const base = { description: "" } as Record<string, unknown>;
+    const theirs = {} as Record<string, unknown>;
+    const yours = { description: "mine" } as Record<string, unknown>;
+    const result = threeWayMerge(base, theirs, yours);
+    expect(result.contested).toEqual([]);
+    expect(result.merged).toEqual({ description: "mine" });
+  });
+
+  it("reads an absent field as its declared default", () => {
+    // A migration-added flag: old docs lack it, clients baseline it as false.
+    const base = {
+      targetingAllProjects: false,
+      targetingProjects: [],
+    } as Record<string, unknown>;
+    const theirs = { targetingProjects: [] } as Record<string, unknown>;
+    const yours = {
+      targetingAllProjects: false,
+      targetingProjects: ["prj_1"],
+    } as Record<string, unknown>;
+    const result = threeWayMerge(base, theirs, yours, {
+      chunks: [["targetingAllProjects", "targetingProjects"]],
+      absentDefaults: { targetingAllProjects: false },
+    });
+    expect(result.contested).toEqual([]);
+    expect(result.merged).toEqual(yours);
+  });
+
+  it("still contests the flag chunk without a declared default", () => {
+    const base = {
+      targetingAllProjects: false,
+      targetingProjects: [],
+    } as Record<string, unknown>;
+    const theirs = { targetingProjects: [] } as Record<string, unknown>;
+    const yours = {
+      targetingAllProjects: false,
+      targetingProjects: ["prj_1"],
+    } as Record<string, unknown>;
+    const result = threeWayMerge(base, theirs, yours, {
+      chunks: [["targetingAllProjects", "targetingProjects"]],
+    });
+    expect(result.contested).toHaveLength(1);
+  });
 });

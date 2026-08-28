@@ -358,6 +358,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       buildSHA: build.sha,
       buildDate: build.date,
       buildVersion: build.lastVersion,
+      userDateCreated: data?.accountCreatedAt
+        ? getValidDate(data.accountCreatedAt).toISOString()
+        : "",
       orgOwnerJobTitle:
         currentOrg?.organization?.demographicData?.ownerJobTitle,
       orgOwnerUsageIntents:
@@ -366,6 +369,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   }, [
     data?.superAdmin,
     data?.userId,
+    data?.accountCreatedAt,
     currentOrg?.organization?.demographicData?.ownerJobTitle,
     currentOrg?.organization?.demographicData?.ownerUsageIntents,
   ]);

@@ -22,6 +22,7 @@ import {
   filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
   getApplicableEnvIds,
+  getAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
   getDependentFeatures,
@@ -31,6 +32,7 @@ import {
   namespacesToMap,
   recursiveWalk,
   ruleAppliesToEnv,
+  TargetingScopedEntity,
   stemRuleId,
   stripConfigExtends,
   toApiNamespace,
@@ -323,11 +325,13 @@ function buildHoldoutsMapForProjects(
 // Caller must pass holdouts map already filtered by project (e.g. buildHoldoutsMapForProjects).
 export function generateHoldoutsPayload({
   holdoutsMap,
+  groupMap,
 }: {
   holdoutsMap: Map<
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
+  groupMap: GroupMap;
 }): Record<string, FeatureDefinition> {
   const holdoutDefs: Record<string, FeatureDefinition> = {};
   holdoutsMap.forEach((holdoutWithExperiment) => {
@@ -335,24 +339,35 @@ export function generateHoldoutsPayload({
     const holdout = holdoutWithExperiment.holdout;
     if (!exp) return;
 
-    const def: FeatureDefinition = {
-      defaultValue: "genpop",
-      rules: [
-        {
-          id: getHoldoutFeatureDefId(holdout.id),
-          coverage: exp.phases[0].coverage,
-          hashAttribute: exp.hashAttribute,
-          seed: exp.phases[0].seed,
-          hashVersion: 2,
-          variations: ["holdoutcontrol", "holdouttreatment"],
-          weights: [0.5, 0.5],
-          key: exp.trackingKey,
-          phase: `${exp.phases.length - 1}`,
-          meta: [{ key: "0" }, { key: "1" }],
-        },
-      ],
+    const mainPhase = exp.phases[0];
+    if (!mainPhase) return;
+
+    const rule: FeatureDefinitionRule = {
+      id: getHoldoutFeatureDefId(holdout.id),
+      coverage: mainPhase.coverage,
+      hashAttribute: exp.hashAttribute,
+      seed: mainPhase.seed,
+      hashVersion: 2,
+      variations: ["holdoutcontrol", "holdouttreatment"],
+      weights: [0.5, 0.5],
+      key: exp.trackingKey,
+      phase: `${exp.phases.length - 1}`,
+      meta: [{ key: "0" }, { key: "1" }],
     };
-    holdoutDefs[getHoldoutFeatureDefId(holdout.id)] = def;
+
+    const condition = getParsedCondition(
+      groupMap,
+      mainPhase.condition,
+      mainPhase.savedGroups,
+    );
+    if (condition) {
+      rule.condition = condition;
+    }
+
+    holdoutDefs[getHoldoutFeatureDefId(holdout.id)] = {
+      defaultValue: "genpop",
+      rules: [rule],
+    };
   });
   return holdoutDefs;
 }
@@ -1518,6 +1533,7 @@ export async function buildSDKPayloadForConnection(
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
     holdoutsMap: holdoutsMapForConnection,
+    groupMap: data.groupMap,
   });
 
   const experimentsDefinitions = generateAutoExperimentsPayload({
@@ -1544,15 +1560,6 @@ export async function buildSDKPayloadForConnection(
     projectsMap,
   });
 
-  const savedGroupsInUse = filterUsedSavedGroups(
-    getSavedGroupsValuesFromGroupMap(data.groupMap),
-    featureDefinitions,
-    experimentsDefinitions,
-  );
-  const usedSavedGroups = data.savedGroups.filter(
-    (sg) => sg.id in savedGroupsInUse,
-  );
-
   const holdoutsInUse = pruneUnreferencedHoldouts(
     holdoutFeatureDefinitions,
     featureDefinitions,
@@ -1562,6 +1569,15 @@ export async function buildSDKPayloadForConnection(
     ...featureDefinitions,
     ...holdoutsInUse,
   };
+
+  const savedGroupsInUse = filterUsedSavedGroups(
+    getSavedGroupsValuesFromGroupMap(data.groupMap),
+    featuresWithHoldouts,
+    experimentsDefinitions,
+  );
+  const usedSavedGroups = data.savedGroups.filter(
+    (sg) => sg.id in savedGroupsInUse,
+  );
 
   const contextualBanditsInUse = filterUsedContextualBandits(
     cbMap,
@@ -3208,12 +3224,16 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   feature: FeatureInterface,
   rules: ApiFeatureEnvSettingsRules,
   existingRules?: FeatureRule[],
+  // Resolved post-update targeting state; defaults to the feature itself.
+  attributeScopeEntity?: TargetingScopedEntity,
 ): FeatureRule[] => {
   // Honor the opt-in `?skipSchemaValidation=true` escape hatch: drop the schema
   // so values are still normalized (parse / dirty-json) but not schema-checked.
   const valFeature = context.canSkipSchemaValidationFor("feature")
     ? { ...feature, jsonSchema: undefined }
     : feature;
+  const attributeScope =
+    getAttributeScopeProjectIds(attributeScopeEntity ?? feature) ?? undefined;
   return rules.map((r) => {
     const conditionRes = validateCondition(r.condition);
     if (!conditionRes.success) {
@@ -3249,7 +3269,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
             condition: existingRule.condition,
           }
         : undefined,
-      feature.project,
+      attributeScope,
     );
 
     // Preserve rule-level project scope on the round-trip (mirrors

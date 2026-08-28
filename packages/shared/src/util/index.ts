@@ -123,6 +123,23 @@ export function getSnapshotAnalysis(
   );
 }
 
+export function findAnalysisComputeFailure(
+  analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis | null,
+): { metricId: string; errorMessage: string | null } | null {
+  for (const dimension of analysis?.results ?? []) {
+    for (const variation of dimension.variations ?? []) {
+      for (const [metricId, metric] of Object.entries(
+        variation.metrics ?? {},
+      )) {
+        if (metric?.computeFailed) {
+          return { metricId, errorMessage: metric.errorMessage ?? null };
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export function getSafeRolloutSnapshotAnalysis(
   snapshot: SafeRolloutSnapshotInterface,
   analysisSettings?: SafeRolloutSnapshotAnalysisSettings | null,
