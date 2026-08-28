@@ -2,55 +2,53 @@ name: CI
 on:
   push:
     branches: [main]
-    paths:
-      - "packages/**"
-      - "pnpm-lock.yaml"
-      - "package.json"
-      - "eslint.config.mjs"
-      - "eslint-rules/**"
-      - "eslint-suppressions.json"
   pull_request:
-    paths:
-      - "packages/**"
-      - "pnpm-lock.yaml"
-      - "package.json"
-      - "eslint.config.mjs"
-      - "eslint-rules/**"
-      - "eslint-suppressions.json"
 
+# No path filters on purpose: `paths` and `paths-ignore` can both fire on one
+# commit, so a second workflow can never be mutually exclusive with this one.
 jobs:
-  # Linting, type-checking, and tests
-  ci:
+  format:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - uses: ./.github/actions/setup-workspace
         with:
-          node-version: "24"
-          cache: "pnpm"
+          build-deps: "false"
+
+      - name: Check formatting
+        run: pnpm pretty:check
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
 
       # No eslint cache here on purpose. ESLint keys its cache on file content
       # plus the serialized config, neither of which changes when a type in
       # another package or a rule under eslint-rules/ changes. Caching would let
       # type-aware rules such as switch-exhaustiveness-check pass on stale results.
+      - uses: ./.github/actions/setup-workspace
 
-      - name: Cache tsbuildinfo
-        uses: actions/cache@v5
+      - name: Lint
+        run: pnpm lint:ci
+        env:
+          CI: true
+
+  # Separate job so the JS jobs never install a Python toolchain.
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # Before poetry exists, so the root postinstall skips its stats install and
+      # the explicit step below is the only one.
+      - uses: ./.github/actions/setup-workspace
         with:
-          path: |
-            **/tsconfig.tsbuildinfo
-          key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-tsbuildinfo-
-
-      - name: Install pnpm dependencies
-        run: pnpm install
+          build-deps: "false"
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
@@ -61,7 +59,6 @@ jobs:
 
       - name: Install python dependencies
         run: |
-          # Stats engine
           pip install pipx
           pipx install poetry
           poetry config virtualenvs.in-project true
@@ -77,46 +74,119 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-poetry-
 
-      - name: Build dependencies
-        run: |
-          # Build required dependencies (sdks/shared package)
-          # This is required for linting/type checks to work
-          pnpm run setup
-          # Generate Next.js types (next-env.d.ts, routes.d.ts) for front-end type-check
-          pnpm --filter front-end exec next typegen
+      # `setup` and `test` are pnpm built-ins, so these need an explicit `run`.
+      - name: Install stats engine
+        run: pnpm --filter stats run setup
         env:
           CI: true
 
       - name: Lint
-        run: |
-          pnpm lint:ci
-          pnpm --filter stats lint:ci
+        run: pnpm --filter stats run lint:ci
         env:
           CI: true
 
-      - name: Check formatting
-        run: pnpm pretty:check
+      - name: Test
+        run: pnpm --filter stats run test
+        env:
+          CI: true
+
+  openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
 
       - name: Check OpenAPI spec
         run: |
           pnpm generate-openapi
           [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm generate-openapi" && git status --porcelain && exit 1 || true
 
-      - name: Check doc
-        run: |
-          cd docs
-          pnpm install
-          pnpm gen
-          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm doc-gen" && git status --porcelain && exit 1 || true
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      # Only this job emits full-repo buildinfo, so only this job caches it.
+      - name: Cache tsbuildinfo
+        uses: actions/cache@v5
+        with:
+          path: |
+            **/tsconfig.tsbuildinfo
+          key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-tsbuildinfo-
+
+      - name: Generate Next.js types
+        run: pnpm --filter front-end exec next typegen
 
       - name: Type-check
-        run: |
-          pnpm type-check
+        run: pnpm type-check
         env:
           CI: true
 
+  # A 4-vCPU runner gives Jest only 3 workers for 300+ files, so shard instead.
+  test-back-end:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Cache Jest transform cache
+        uses: actions/cache@v5
+        with:
+          path: packages/back-end/.jest-cache
+          key: ${{ runner.os }}-jest-back-end-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-jest-back-end-${{ matrix.shard }}-
+            ${{ runner.os }}-jest-back-end-
+
       - name: Test
-        run: |
-          pnpm test
+        run: pnpm --filter back-end test --shard=${{ matrix.shard }}/4
         env:
           CI: true
+
+  test-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Cache Jest transform cache
+        uses: actions/cache@v5
+        with:
+          path: packages/shared/.jest-cache
+          key: ${{ runner.os }}-jest-shared-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-jest-shared-
+
+      # stats (pytest) runs in its own job; back-end is sharded above.
+      - name: Test
+        run: pnpm --filter '!back-end' --filter '!stats' -r --workspace-concurrency=1 run test
+        env:
+          CI: true
+
+  # The single required status check; renaming it breaks branch protection.
+  ci:
+    # `always()` matters: without it this job is skipped when a dependency
+    # fails, and branch protection counts a skipped required check as passing.
+    if: always()
+    needs:
+      [format, lint, stats, openapi, type-check, test-back-end, test-packages]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required job did not succeed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

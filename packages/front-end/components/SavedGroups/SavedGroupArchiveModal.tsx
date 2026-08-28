@@ -1,7 +1,12 @@
+import {
+  canStageArchiveDraft,
+  canWriteArchiveIntoDraft,
+} from "shared/permissions";
 import { SavedGroupInterface } from "shared/types/saved-group";
-import { Revision } from "shared/enterprise";
+import { Revision, getApprovalFlowSettings } from "shared/enterprise";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
 import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
 import SavedGroupDraftSelectorForChanges from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
@@ -29,6 +34,7 @@ export default function SavedGroupArchiveModal({
 }: SavedGroupArchiveModalProps) {
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
+  const { userId } = useUser();
 
   const isArchived = !!savedGroup.archived;
 
@@ -44,12 +50,17 @@ export default function SavedGroupArchiveModal({
   const canBypass =
     savedGroup.projects && savedGroup.projects.length > 0
       ? savedGroup.projects.every((proj) =>
-          permissionsUtil.canBypassApprovalChecks({ project: proj || "" }),
+          permissionsUtil.canBypassSavedGroupApprovalChecks({
+            project: proj || "",
+          }),
         )
-      : permissionsUtil.canBypassApprovalChecks({ project: "" });
+      : permissionsUtil.canBypassSavedGroupApprovalChecks({ project: "" });
 
-  const approvalRequired =
-    settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
+  const approvalRequired = !!getApprovalFlowSettings(
+    settings.approvalFlows,
+    "saved-group",
+    savedGroup.projects ?? [],
+  )?.required;
 
   return (
     <ArchiveModal
@@ -60,6 +71,16 @@ export default function SavedGroupArchiveModal({
       openRevisions={openRevisions}
       approvalRequired={approvalRequired}
       canBypassApproval={canBypass}
+      // Archiving is delete-class; unarchiving is an ordinary publish.
+      canLand={
+        isArchived
+          ? permissionsUtil.canRevisionAction(
+              "saved-group",
+              "publish",
+              savedGroup,
+            )
+          : permissionsUtil.canDeleteSavedGroup(savedGroup)
+      }
       referenceCount={totalReferences}
       referencesLoading={loading}
       // The server is the source of truth: archiving a still-referenced Saved
@@ -74,6 +95,21 @@ export default function SavedGroupArchiveModal({
           savedGroups={references?.savedGroups ?? []}
         />
       }
+      canStageDraft={canStageArchiveDraft({
+        permissions: permissionsUtil,
+        model: "saved-group",
+        entity: savedGroup,
+        archived: !savedGroup.archived,
+      })}
+      canWriteIntoDraft={(r) =>
+        canWriteArchiveIntoDraft({
+          permissions: permissionsUtil,
+          model: "saved-group",
+          entity: savedGroup,
+          revision: r,
+          userId,
+        })
+      }
       renderDraftSelector={({
         mode,
         setMode,
@@ -81,10 +117,14 @@ export default function SavedGroupArchiveModal({
         setSelectedDraftId,
         canAutoPublish,
         approvalRequired: gated,
+        canWriteIntoDraft,
+        canDraft,
       }) => (
         <SavedGroupDraftSelectorForChanges
           savedGroup={savedGroup}
           openRevisions={openRevisions}
+          canWriteIntoDraft={canWriteIntoDraft}
+          canDraft={canDraft}
           allRevisions={allRevisions}
           mode={mode}
           setMode={setMode}

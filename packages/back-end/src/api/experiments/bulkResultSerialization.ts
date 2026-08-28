@@ -6,7 +6,10 @@ import {
 import { isDefined } from "shared/util";
 import {
   ExperimentMetricInterface,
+  getFunnelStepMetric,
   isDimensionPrecomputed,
+  isFactFunnelMetric,
+  parseFunnelStepMetricId,
   parseSliceMetricId,
 } from "shared/experiments";
 import { ApiExperimentBulkResult, LookbackOverride } from "shared/validators";
@@ -69,8 +72,9 @@ function parseApiResultDimension(
 }
 
 // Builds a metric display-name resolver that formats slice metrics as
-// "Parent (col: val, ...)" so payloads are self-describing.
-function buildResultMetricNameResolver(
+// "Parent (col: val, ...)" and funnel step metrics as "Parent: Step" so
+// payloads are self-describing.
+export function buildResultMetricNameResolver(
   metricIds: Iterable<string>,
   metricsById: Map<string, ExperimentMetricInterface>,
 ): (id: string) => string | undefined {
@@ -86,6 +90,13 @@ function buildResultMetricNameResolver(
     }),
   );
   return (id: string): string | undefined => {
+    const stepInfo = parseFunnelStepMetricId(id);
+    if (stepInfo.isFunnelStepMetric && stepInfo.stepIndex !== null) {
+      const parent = baseMetricsById.get(stepInfo.baseMetricId);
+      if (!parent || !isFactFunnelMetric(parent)) return undefined;
+      return getFunnelStepMetric(parent, stepInfo.stepIndex)?.name;
+    }
+
     const { baseMetricId, sliceLevels } = parseSliceMetricId(id);
     const baseName = baseMetricsById.get(baseMetricId)?.name;
     if (!baseName) return undefined;
@@ -162,10 +173,12 @@ export function toApiResultAnalysis(
     mean: safeFloatOrNull(data?.stats?.mean),
     stddev: safeFloatOrNull(data?.stats?.stddev),
     effect: safeFloatOrNull(data?.expected),
+    effectStandardError: safeFloatOrNull(data?.uplift?.stddev),
     ciLow: safeFloatOrNull(data?.ci?.[0]),
     ciHigh: safeFloatOrNull(data?.ci?.[1]),
     pValue: safeFloatOrNull(data?.pValue),
     chanceToBeatControl: safeFloatOrNull(data?.chanceToWin),
+    ...(data?.errorMessage ? { errorMessage: data.errorMessage } : null),
   };
 }
 

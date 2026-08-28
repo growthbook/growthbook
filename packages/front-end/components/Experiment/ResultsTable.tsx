@@ -33,12 +33,14 @@ import {
   ExperimentMetricDefinition,
   ExperimentSortBy,
   SetExperimentSortBy,
+  funnelStepMetricId,
   isFactMetric,
 } from "shared/experiments";
 import { PiPencilSimpleFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import {
   ExperimentTableRow,
+  getComputeErrorMessage,
   getEffectLabel,
   getRowResults,
   RowResults,
@@ -57,6 +59,7 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import HelperText from "@/ui/HelperText";
 import VariationLabel from "@/ui/VariationLabel";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
+import { getTimeSeriesGraphVariations } from "@/services/timeSeriesVariations";
 import { DrilldownTooltip, isInteractiveElement } from "./DrilldownTooltip";
 import AlignedGraph from "./AlignedGraph";
 import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";
@@ -424,6 +427,7 @@ export default function ResultsTable({
   const showVariations = orderedVariations.map(
     (v) => !variationFilter?.includes(v.index),
   );
+  const timeSeriesVariations = getTimeSeriesGraphVariations(orderedVariations);
   const filteredVariations = orderedVariations.filter(
     (v) => !variationFilter?.includes(v.index),
   );
@@ -774,10 +778,17 @@ export default function ResultsTable({
                   };
                   let alreadyShownQueryError = false;
                   let alreadyShownQuantileError = false;
+                  let alreadyShownComputeError = false;
 
                   const rowId = row.sliceId
                     ? `${id}-${row.metric.id}-${row.sliceId}`
                     : `${id}-${row.metric.id}-${i}`;
+
+                  const funnelStepId =
+                    row.childRowType === "funnelStep" &&
+                    row.funnelStepIndex !== undefined
+                      ? funnelStepMetricId(row.metric.id, row.funnelStepIndex)
+                      : undefined;
 
                   const timeSeriesButton = showTimeSeriesButton ? (
                     <TimeSeriesButton
@@ -803,7 +814,7 @@ export default function ResultsTable({
                           {/* Render the main results tbody */}
                           <tbody
                             className={clsx("results-group-row", {
-                              "slice-row": row.isSliceRow,
+                              "child-row": row.isChildRow,
                               [styles.clickableRow]: !!effectiveOnRowClick,
                             })}
                             key={`${rowId}-tbody`}
@@ -969,6 +980,75 @@ export default function ResultsTable({
                                   }
                                 }
 
+                                // Show a whole-row error only when this variation has no data to show
+                                const computeError =
+                                  getComputeErrorMessage(stats) ||
+                                  getComputeErrorMessage(baseline);
+                                if (computeError && !stats.users) {
+                                  if (alreadyShownComputeError) {
+                                    return null;
+                                  }
+                                  alreadyShownComputeError = true;
+                                  return drawEmptyRow({
+                                    key: j,
+                                    className: clsx(
+                                      "results-variation-row align-items-center error-row",
+                                      {
+                                        "last-before-slice-header":
+                                          !row.isSliceRow &&
+                                          i < rows.length - 1 &&
+                                          rows[i + 1].isSliceRow &&
+                                          JSON.stringify(
+                                            rows[i + 1].sliceLevels,
+                                          ) !==
+                                            JSON.stringify(
+                                              rows[i]?.sliceLevels || [],
+                                            ) &&
+                                          j === orderedVariations.length - 1,
+                                      },
+                                    ),
+                                    labelColSpan: includedLabelColumns.length,
+                                    renderLabel:
+                                      includedLabelColumns.length > 0,
+                                    renderGraph:
+                                      columnsToDisplay.includes("CI Graph"),
+                                    renderLastColumn:
+                                      columnsToDisplay.includes("Lift"),
+                                    label: (
+                                      <>
+                                        {compactResults ? (
+                                          <div className="position-relative">
+                                            {renderLabelColumn({
+                                              label: row.label,
+                                              metric: row.metric,
+                                              row,
+                                              location: resultGroup,
+                                            })}
+                                          </div>
+                                        ) : null}
+                                        <HelperText
+                                          status="error"
+                                          size="sm"
+                                          mx="2"
+                                        >
+                                          {computeError}
+                                        </HelperText>
+                                      </>
+                                    ),
+                                    graphCellWidth: columnsToDisplay.includes(
+                                      "CI Graph",
+                                    )
+                                      ? graphCellWidth
+                                      : 0,
+                                    rowHeight: compactResults
+                                      ? ROW_HEIGHT + 10
+                                      : ROW_HEIGHT,
+                                    id,
+                                    domain,
+                                    ssrPolyfills,
+                                  });
+                                }
+
                                 const hideScaledImpact =
                                   !rowResults.hasScaledImpact &&
                                   differenceType === "scaled";
@@ -1017,7 +1097,7 @@ export default function ResultsTable({
                                         {!compactResults ? (
                                           <div
                                             className={`d-flex align-items-center ml-2 ${
-                                              row.isSliceRow
+                                              row.isChildRow
                                                 ? "pl-4"
                                                 : dimension
                                                   ? "pl-2" // less padding because no expansion buttons
@@ -1310,7 +1390,7 @@ export default function ResultsTable({
                                           phase={phase}
                                           metric={row.metric}
                                           differenceType={differenceType}
-                                          variations={orderedVariations}
+                                          variations={timeSeriesVariations}
                                           showVariations={showVariations}
                                           statsEngine={statsEngine}
                                           pValueAdjustmentEnabled={
@@ -1320,6 +1400,7 @@ export default function ResultsTable({
                                             startDate,
                                           )}
                                           sliceId={row.sliceId}
+                                          funnelStepId={funnelStepId}
                                           baselineRow={baselineRow}
                                           unavailableMessage={timeSeriesMessage}
                                           preloadedTimeSeries={

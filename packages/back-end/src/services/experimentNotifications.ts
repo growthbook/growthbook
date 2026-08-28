@@ -1,11 +1,8 @@
-import {
-  includeExperimentInPayload,
-  getSnapshotAnalysis,
-  ensureAndReturn,
-} from "shared/util";
+import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
 import {
   expandMetricGroups,
   getMetricResultStatus,
+  parseFunnelStepMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
   getLatestPhaseVariations,
@@ -807,7 +804,14 @@ export const computeExperimentChanges = async ({
           : curMetric.chanceToWin;
       if (criticalValue === undefined) continue;
 
-      const metric = ensureAndReturn(await getExperimentMetricById(context, m));
+      // Skip notifying on funnel step metrics
+      if (parseFunnelStepMetricId(m).isFunnelStepMetric) continue;
+
+      // A snapshot's results can carry metric ids with no resolvable definition
+      // (e.g. a slice metric since removed from the org), so skip those rather
+      // than failing the update.
+      const metric = await getExperimentMetricById(context, m);
+      if (!metric) continue;
 
       const { resultsStatus: curResultsStatus } = getMetricResultStatus({
         metric,

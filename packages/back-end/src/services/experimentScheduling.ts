@@ -443,7 +443,7 @@ export function validateScheduleUpdate({
 
 // Validate the scheduled-stop plan against the experiment and the end this update
 // is setting. Throws on hard config errors; returns soft warnings.
-export function validateScheduledStopPlan(
+function validateScheduledStopPlan(
   context: Context,
   experiment: Pick<ExperimentInterface, "variations" | "goalMetrics">,
   plan: ScheduledStopPlan,
@@ -458,6 +458,10 @@ export function validateScheduledStopPlan(
     throw new BadRequestError(
       "Auto-ship requires the Decision Framework (Pro+ and enabled in org settings)",
     );
+  }
+  // Auto-ship requires a fallback to specify what to do when there's no winner.
+  if (mode === "auto-ship" && !plan.fallback) {
+    throw new BadRequestError('fallback is required when mode is "auto-ship".');
   }
   // force-ship/stop work without EDF, but no win/loss verdict is recorded.
   if ((mode === "force-ship" || mode === "stop") && !hasEDF) {

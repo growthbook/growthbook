@@ -41,12 +41,16 @@ import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  errorSnapshotIfStillRunning,
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
-import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
+import {
+  getFactMetricGroups,
+  getQueryableMetricsFromSnapshotSettings,
+} from "back-end/src/services/experimentQueries/experimentQueries";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
@@ -112,9 +116,10 @@ export const startExperimentResultQueries = async (
     : null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
-  const selectedMetrics = snapshotSettings.metricSettings
-    .map((m) => metricMap.get(m.id))
-    .filter((m) => m) as ExperimentMetricInterface[];
+  const selectedMetrics = getQueryableMetricsFromSnapshotSettings(
+    snapshotSettings,
+    metricMap,
+  );
   if (!selectedMetrics.length) {
     throw new UnrecoverableSnapshotError(
       "Experiment must have at least 1 metric selected.",
@@ -630,6 +635,23 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     if (!obj)
       throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
+  }
+
+  /** True once another finalizer (reaper, cancel) has concluded this snapshot. */
+  protected override isModelTerminal(
+    model: ExperimentSnapshotInterface,
+  ): boolean {
+    return model.status !== "running";
+  }
+
+  /** Persist error only while the snapshot is still running. */
+  protected override async writeErrorIfStillActive(
+    error: string,
+  ): Promise<void> {
+    await errorSnapshotIfStillRunning(this.context, this.model.id, {
+      queries: this.model.queries,
+      error,
+    });
   }
 
   async updateModel({

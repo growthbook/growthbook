@@ -10,14 +10,13 @@ import {
   PiX,
 } from "react-icons/pi";
 import Collapsible from "react-collapsible";
-import { z } from "zod";
 import {
+  ConversionWindow,
   ExplorationConfig,
   FunnelDataset,
   FunnelStep,
-  conversionWindowValidator,
-  rowFilterValidator,
 } from "shared/validators";
+import { RowFilter } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
@@ -34,9 +33,6 @@ import {
 import { factTableToColumnSource } from "./ExplorerFilterRow";
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 import styles from "./ValueCard.module.scss";
-
-type RowFilter = z.infer<typeof rowFilterValidator>;
-type ConversionWindow = z.infer<typeof conversionWindowValidator>;
 
 const CONVERSION_WINDOW_UNITS: ConversionWindow["unit"][] = [
   "minutes",

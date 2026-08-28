@@ -31,6 +31,14 @@ const baseMemberFields = {
   dateCreated: Date,
   limitAccessByEnvironment: Boolean,
   environments: [String],
+  additionalRoles: [
+    {
+      _id: false,
+      role: String,
+      limitAccessByEnvironment: Boolean,
+      environments: [String],
+    },
+  ],
   projectRoles: [
     {
       _id: false,
@@ -38,6 +46,14 @@ const baseMemberFields = {
       role: String,
       limitAccessByEnvironment: Boolean,
       environments: [String],
+      additionalRoles: [
+        {
+          _id: false,
+          role: String,
+          limitAccessByEnvironment: Boolean,
+          environments: [String],
+        },
+      ],
     },
   ],
   teams: [String],
@@ -607,6 +623,8 @@ export async function updateMember(
   });
 }
 
+// Policies are the only grant mechanism — `.strict()` rejects a stray
+// `permissions` array loudly rather than persisting a grant that does nothing.
 export const customRoleValidator = z
   .object({
     id: z.string().min(2).max(64),

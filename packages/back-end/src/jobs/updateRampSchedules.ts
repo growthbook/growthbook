@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { isAwaitingStartApproval } from "shared/validators";
+import { isRampScheduleServing } from "shared/util";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -237,7 +238,7 @@ async function runRampScheduleTick(
     if (
       current.cutoffDate &&
       current.cutoffDate <= now &&
-      ["running", "paused"].includes(current.status)
+      isRampScheduleServing(current)
     ) {
       await completeRollout(context, current, {
         disableActiveTargets: true,

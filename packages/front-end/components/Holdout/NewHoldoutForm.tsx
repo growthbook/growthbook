@@ -40,8 +40,8 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
@@ -107,22 +107,17 @@ export function getNewExperimentDatasourceDefaults(
 
 export const genEnvironmentSettings = ({
   environments,
-  permissions,
-  project,
 }: {
   environments: ReturnType<typeof useEnvironments>;
-  permissions: ReturnType<typeof usePermissionsUtil>;
-  project: string;
 }): Record<string, FeatureEnvironment> => {
   const envSettings: Record<string, FeatureEnvironment> = {};
 
   environments.forEach((e) => {
-    // How should we handle a holdout having multiple projects here?
-    const canPublish = permissions.canPublishFeature({ project }, [e.id]);
-    const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
-    const enabled = canPublish ? defaultEnabled : false;
-
-    envSettings[e.id] = { enabled };
+    // The environment's own default state, nothing else: the holdout endpoints
+    // authorize via the Holdout permissions, project-scoped, so keying defaults
+    // on Feature Publish silently pre-disabled environments for holdout users
+    // who hold no feature permissions at all.
+    envSettings[e.id] = { enabled: e.defaultState ?? true };
   });
 
   return envSettings;
@@ -228,11 +223,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         scopedSettings.regressionAdjustmentEnabled.value,
       environmentSettings:
         initialHoldout?.environmentSettings ||
-        genEnvironmentSettings({
-          environments,
-          permissions: permissionsUtils,
-          project,
-        }),
+        genEnvironmentSettings({ environments }),
     },
   });
 
@@ -487,11 +478,16 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               />
             </div>
             <EnvironmentSelect
+              // No per-environment rule: the create endpoint authorizes via
+              // canCreateHoldout, project-scoped — requiring Feature Publish
+              // here blocked holdout users who hold no feature permissions.
               environmentSettings={environmentSettings}
               environments={environments}
               setValue={(env, on) => {
-                environmentSettings[env.id].enabled = on;
-                form.setValue("environmentSettings", environmentSettings);
+                form.setValue("environmentSettings", {
+                  ...environmentSettings,
+                  [env.id]: { ...environmentSettings[env.id], enabled: on },
+                });
               }}
             />
             {/* {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
@@ -526,28 +522,12 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 containerClassName="flex-1"
                 options={attributeSchema
                   .filter((s) => !hasHashAttributes || s.hashAttribute)
-                  .map((s) => ({
-                    label: s.property,
-                    value: s.property,
-                    description: s.description,
-                    tags: s.tags,
-                    datatype: s.datatype,
-                    hashAttribute: s.hashAttribute,
-                  }))}
+                  .map(toAttributeOption)}
                 value={form.watch("hashAttribute") ?? ""}
                 onChange={(v) => {
                   form.setValue("hashAttribute", v);
                 }}
-                formatOptionLabel={(o, meta) => {
-                  return (
-                    <AttributeOptionWithTooltip
-                      option={o as AttributeOptionForTooltip}
-                      context={meta.context}
-                    >
-                      {o.label}
-                    </AttributeOptionWithTooltip>
-                  );
-                }}
+                formatOptionLabel={formatAttributeOptionLabel}
               />
             </div>
 

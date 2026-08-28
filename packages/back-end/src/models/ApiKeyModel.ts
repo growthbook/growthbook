@@ -111,15 +111,30 @@ export class ApiKeyModel extends BaseClass {
     previousDoc?: ApiKeyInterface,
   ) {
     if (doc.userId) {
+      // Creation only — existing tokens are already rejected at authentication,
+      // and users must still be able to disable or delete the ones they have.
+      if (
+        !previousDoc &&
+        this.context.org.settings?.disablePersonalAccessTokens
+      ) {
+        this.context.throwBadRequestError(
+          "Personal access tokens are disabled for this organization.",
+        );
+      }
       // PATs inherit permissions from their user — scoping fields must not be set
       if (doc.limitAccessByEnvironment) {
         this.context.throwBadRequestError(
           "PATs do not support environment restrictions.",
         );
       }
-      if (doc.projectRoles) {
+      if (doc.projectRoles?.length) {
         this.context.throwBadRequestError(
           "PATs do not support project-scoped roles.",
+        );
+      }
+      if (doc.additionalRoles?.length) {
+        this.context.throwBadRequestError(
+          "PATs do not support additional roles.",
         );
       }
     } else {
@@ -145,7 +160,11 @@ export class ApiKeyModel extends BaseClass {
         );
       }
       this.validateEnvironments(doc.environments);
-      if (doc.projectRoles) {
+      for (const rule of doc.additionalRoles ?? []) {
+        this.validateRole(rule.role);
+        this.validateEnvironments(rule.environments);
+      }
+      if (doc.projectRoles?.length) {
         if (!this.context.hasPremiumFeature("advanced-permissions")) {
           this.context.throwPlanDoesNotAllowError(
             "Your plan does not support project-level permissions on API keys.",
@@ -155,6 +174,10 @@ export class ApiKeyModel extends BaseClass {
           this.validateRole(pr.role);
           await this.validateProject(pr.project);
           this.validateEnvironments(pr.environments);
+          for (const rule of pr.additionalRoles ?? []) {
+            this.validateRole(rule.role);
+            this.validateEnvironments(rule.environments);
+          }
         }
       }
     }
@@ -194,12 +217,14 @@ export class ApiKeyModel extends BaseClass {
     roleId,
     limitAccessByEnvironment,
     environments,
+    additionalRoles,
     projectRoles,
   }: {
     description: string;
     roleId: string;
     limitAccessByEnvironment?: boolean;
     environments?: string[];
+    additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
@@ -211,6 +236,7 @@ export class ApiKeyModel extends BaseClass {
       role: roleId,
       limitAccessByEnvironment,
       environments,
+      additionalRoles,
       projectRoles,
     });
   }
@@ -289,12 +315,14 @@ export class ApiKeyModel extends BaseClass {
       role,
       limitAccessByEnvironment,
       environments,
+      additionalRoles,
       projectRoles,
       description,
     }: {
       role?: string;
       limitAccessByEnvironment?: boolean;
       environments?: string[];
+      additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
       description?: string;
     },
@@ -334,6 +362,7 @@ export class ApiKeyModel extends BaseClass {
         role,
         limitAccessByEnvironment,
         environments,
+        additionalRoles,
         projectRoles,
         description,
       },
@@ -468,6 +497,7 @@ export class ApiKeyModel extends BaseClass {
     role,
     limitAccessByEnvironment,
     environments,
+    additionalRoles,
     projectRoles,
   }: {
     environment: string;
@@ -479,6 +509,7 @@ export class ApiKeyModel extends BaseClass {
     role?: string;
     limitAccessByEnvironment?: boolean;
     environments?: string[];
+    additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
   }): Promise<ApiKeyInterface> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
@@ -506,6 +537,7 @@ export class ApiKeyModel extends BaseClass {
       encryptionKey: encryptSDK ? await generateEncryptionKey() : undefined,
       limitAccessByEnvironment: limitAccessByEnvironment ?? false,
       environments: environments ?? [],
+      additionalRoles,
       projectRoles,
     });
   }

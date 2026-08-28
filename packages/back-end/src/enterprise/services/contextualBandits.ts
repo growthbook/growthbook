@@ -1,4 +1,5 @@
 import { cloneDeep, isEqual, omit } from "lodash";
+import { v4 as uuidv4 } from "uuid";
 import type {
   ExperimentSnapshotSettings,
   SnapshotStatusSummary,
@@ -229,7 +230,10 @@ async function publishContextualBanditRevision({
     revision,
     result: mergeResult.result,
     comment,
-    bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+    bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
+      feature,
+      "feature",
+    ),
   });
 
   await audit({
@@ -281,8 +285,9 @@ export async function linkFeatureToContextualBandit({
   }
 
   if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
+    // Authoring a rule into a draft is draft-class; the publish footprint is
+    // checked separately below when the call also lands.
+    !context.permissions.canEditFeatureDrafts(feature)
   ) {
     context.permissions.throwPermissionError();
   }
@@ -310,7 +315,12 @@ export async function linkFeatureToContextualBandit({
     ? environments
     : (scopedRule.environments ?? []);
 
-  if (!context.permissions.canPublishFeature(feature, ruleEnvFootprint)) {
+  // Landing authority only when this call lands. Staging the rule into a draft
+  // is authoring, gated above; the draft reaches no one until it is published.
+  if (
+    autoPublish &&
+    !context.permissions.canPublishFeature(feature, ruleEnvFootprint)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -376,20 +386,19 @@ export async function linkFeatureToContextualBandit({
     const auditSubject = scopedRule.allEnvironments
       ? "to all environments"
       : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
-    const updatedRevision =
-      (await updateRevision(
-        context,
-        feature,
-        revision,
-        combinedChanges,
-        {
-          user: eventAudit,
-          action: "add contextual bandit rule",
-          subject: auditSubject,
-          value: JSON.stringify(scopedRule),
-        },
-        resetReview,
-      )) ?? revision;
+    const updatedRevision = await updateRevision(
+      context,
+      feature,
+      revision,
+      combinedChanges,
+      {
+        user: eventAudit,
+        action: "add contextual bandit rule",
+        subject: auditSubject,
+        value: JSON.stringify(scopedRule),
+      },
+      resetReview,
+    );
     await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
       environments: ruleEnvFootprint,
     });
@@ -456,8 +465,9 @@ export async function updateContextualBanditFeatureRule({
   }
 
   if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
+    // Authoring a rule into a draft is draft-class; the publish footprint is
+    // checked separately below when the call also lands.
+    !context.permissions.canEditFeatureDrafts(feature)
   ) {
     context.permissions.throwPermissionError();
   }
@@ -516,7 +526,11 @@ export async function updateContextualBanditFeatureRule({
     ]),
   );
 
-  if (!context.permissions.canPublishFeature(feature, ruleChangedEnvs)) {
+  // Landing authority only when this call lands, as above.
+  if (
+    autoPublish &&
+    !context.permissions.canPublishFeature(feature, ruleChangedEnvs)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -548,20 +562,19 @@ export async function updateContextualBanditFeatureRule({
       defaultValueChanged: false,
       settings: org?.settings,
     });
-    const updatedRevision =
-      (await updateRevision(
-        context,
-        feature,
-        revision,
-        { rules: nextRules },
-        {
-          user: eventAudit,
-          action: "update contextual bandit rule",
-          subject: `rule ${ruleIds.join(", ")}`,
-          value: JSON.stringify(scopedRule),
-        },
-        resetReview,
-      )) ?? revision;
+    const updatedRevision = await updateRevision(
+      context,
+      feature,
+      revision,
+      { rules: nextRules },
+      {
+        user: eventAudit,
+        action: "update contextual bandit rule",
+        subject: `rule ${ruleIds.join(", ")}`,
+        value: JSON.stringify(scopedRule),
+      },
+      resetReview,
+    );
     await recordRevisionUpdate(
       context,
       feature,
@@ -591,12 +604,10 @@ export async function updateContextualBanditFeatureRule({
   }
 }
 
-/**
- * Mirror image of `linkFeatureToContextualBandit`: strip every
- * `contextual-bandit-ref` rule pointing at this bandit off the feature. The
- * linkage only comes off once the removal is live — until then the live revision
- * is still serving the rule, so the feature is still linked to the bandit.
- */
+// Mirror image of `linkFeatureToContextualBandit`: strip every
+// `contextual-bandit-ref` rule pointing at this bandit off the feature. The
+// linkage only comes off once the removal is live — until then the live revision
+// is still serving the rule, so the feature is still linked to the bandit.
 export async function unlinkFeatureFromContextualBandit({
   context,
   contextualBandit,
@@ -620,8 +631,9 @@ export async function unlinkFeatureFromContextualBandit({
     isRuleForContextualBandit(r, contextualBandit.id);
 
   if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
+    // Authoring a rule into a draft is draft-class; the publish footprint is
+    // checked separately below when the call also lands.
+    !context.permissions.canEditFeatureDrafts(feature)
   ) {
     context.permissions.throwPermissionError();
   }
@@ -675,7 +687,11 @@ export async function unlinkFeatureFromContextualBandit({
       ),
     );
 
-    if (!context.permissions.canPublishFeature(feature, ruleChangedEnvs)) {
+    // Landing authority only when this call lands, as above.
+    if (
+      autoPublish &&
+      !context.permissions.canPublishFeature(feature, ruleChangedEnvs)
+    ) {
       context.permissions.throwPermissionError();
     }
 
@@ -699,20 +715,19 @@ export async function unlinkFeatureFromContextualBandit({
       defaultValueChanged: false,
       settings: org?.settings,
     });
-    const updatedRevision =
-      (await updateRevision(
-        context,
-        feature,
-        revision,
-        changes,
-        {
-          user: eventAudit,
-          action: "delete contextual bandit rule",
-          subject: `rule ${removedRuleIds.join(", ")}`,
-          value: JSON.stringify(removedRules),
-        },
-        resetReview,
-      )) ?? revision;
+    const updatedRevision = await updateRevision(
+      context,
+      feature,
+      revision,
+      changes,
+      {
+        user: eventAudit,
+        action: "delete contextual bandit rule",
+        subject: `rule ${removedRuleIds.join(", ")}`,
+        value: JSON.stringify(removedRules),
+      },
+      resetReview,
+    );
     await recordRevisionUpdate(
       context,
       feature,
@@ -1037,6 +1052,9 @@ export async function persistContextualBanditEvent(
     ? []
     : leafWeightsFromContextualBanditResult(result, cb.variations);
 
+  // Generate a new random seed when weights are updated to re-bucket users each period
+  const newSeed = weightsWereUpdated ? uuidv4() : undefined;
+
   const cbe = await context.models.contextualBanditEvents.create({
     contextualBandit: cb.id,
     snapshotId: cbs.id,
@@ -1047,14 +1065,41 @@ export async function persistContextualBanditEvent(
     sse_trajectory: result.sse_trajectory,
     weightsWereUpdated,
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
+    // Store the seed for historical tracking
+    ...(newSeed ? { seed: newSeed } : {}),
   });
 
-  await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights, {
-    bumpVersion: weightsWereUpdated,
-  });
+  const updatedCb = await context.models.contextualBandits.patchLeafWeights(
+    cb.id,
+    leafWeights,
+    {
+      bumpVersion: weightsWereUpdated,
+      newSeed,
+    },
+  );
 
   if (weightsWereUpdated) {
-    await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");
+    await refreshLinkedFeaturePayloads(
+      context,
+      updatedCb,
+      "contextualBandit.refresh",
+    );
+    // Best-effort: a throw here would leave the snapshot running and re-persist.
+    try {
+      await context.auditLog({
+        event: "contextualBandit.update",
+        entity: {
+          object: "contextualBandit",
+          id: cb.id,
+        },
+        details: auditDetailsUpdate(cb, updatedCb),
+      });
+    } catch (e) {
+      context.logger.error(
+        e,
+        `Error creating audit log for contextualBandit.update (${cb.id})`,
+      );
+    }
   }
 
   return cbe;

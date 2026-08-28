@@ -38,10 +38,13 @@ import { ExperimentPhase } from "shared/types/experiment";
 import { LegacySavedGroupInterface } from "shared/types/saved-group";
 import { encryptParams } from "back-end/src/services/datasource";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
+import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { migrateBlock } from "back-end/src/enterprise/models/DashboardModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import {
   migrateExperimentReport,
   migrateSnapshot,
+  normalizeJsonSchemaDef,
   pinLegacyRolloutSeeds,
   upgradeDatasourceObject,
   upgradeExperimentDoc,
@@ -51,8 +54,6 @@ import {
   upgradeV0Feature,
 } from "back-end/src/util/migrations";
 import { flattenV1ToV2Rules } from "back-end/src/util/flattenRules";
-import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
-import { migrateBlock } from "back-end/src/enterprise/models/DashboardModel";
 
 describe("Fact Metric Migration", () => {
   it("upgrades delay hours", () => {
@@ -371,6 +372,54 @@ describe("Fact Metric Migration", () => {
         rowFilters: [],
       });
     });
+    it("keeps a complete aggregate filter", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          rowFilters: [],
+          aggregateFilterColumn: "$$count",
+          aggregateFilter: ">= 1",
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+        aggregateFilterColumn: "$$count",
+        aggregateFilter: ">= 1",
+      });
+    });
+    it("drops an aggregate filter column with no filter", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          rowFilters: [],
+          aggregateFilterColumn: "$$count",
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+    it("drops an aggregate filter with a null column", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          rowFilters: [],
+          aggregateFilter: ">= 1",
+          // Mongo stores an explicit `undefined` as null
+          aggregateFilterColumn: null as unknown as string,
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+
     it("Can unmigrate filters for API responses", () => {
       const original: LegacyColumnRef = {
         factTableId: "ft_123",
@@ -2991,6 +3040,57 @@ describe("saved group migrations", () => {
   });
 });
 
+// Documents written before `schemaType`/`simple` existed hold a three-key
+// jsonSchema that means exactly what the five-key one means. Both the feature
+// read and the revision read normalize through this, so an untouched schema
+// never surfaces as an edit.
+describe("normalizeJsonSchemaDef", () => {
+  const legacy = {
+    schema: "",
+    date: new Date("2024-02-26T04:27:49.018Z"),
+    enabled: false,
+  };
+
+  it("backfills the keys that postdate the oldest documents", () => {
+    expect(normalizeJsonSchemaDef(legacy)).toEqual({
+      ...legacy,
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
+    });
+  });
+
+  it("gives a legacy and an already-backfilled document the same spelling", () => {
+    const backfilled = {
+      ...legacy,
+      schemaType: "schema" as const,
+      simple: { type: "object" as const, fields: [] },
+    };
+    expect(normalizeJsonSchemaDef(legacy)).toEqual(
+      normalizeJsonSchemaDef(backfilled),
+    );
+  });
+
+  it("leaves a configured schema alone", () => {
+    const configured = {
+      schemaType: "simple" as const,
+      schema: '{"type":"object"}',
+      simple: {
+        type: "object" as const,
+        fields: [{ key: "a", type: "string" }],
+      },
+      date: legacy.date,
+      enabled: true,
+    };
+    expect(normalizeJsonSchemaDef(configured)).toEqual(configured);
+  });
+
+  it("does not mutate its input", () => {
+    const input = { ...legacy };
+    normalizeJsonSchemaDef(input);
+    expect(input).toEqual(legacy);
+  });
+});
+
 describe("pinLegacyRolloutSeeds", () => {
   const rollout = (over: Partial<FeatureRule> = {}) =>
     ({
@@ -3105,11 +3205,13 @@ describe("Funnel Step Migration (factTable → factTableId)", () => {
           },
         },
       };
-      const result = migrateBlock(block as any);
-      expect((result as any).config.dataset.steps).toEqual([
-        migratedStep("orders"),
-        migratedStep("visits"),
-      ]);
+      expect(migrateBlock(block)).toMatchObject({
+        config: {
+          dataset: {
+            steps: [migratedStep("orders"), migratedStep("visits")],
+          },
+        },
+      });
     });
 
     it("passes through blocks that already have factTableId", () => {
@@ -3136,10 +3238,13 @@ describe("Funnel Step Migration (factTable → factTableId)", () => {
           },
         },
       };
-      const result = migrateBlock(block as any);
-      expect((result as any).config.dataset.steps).toEqual([
-        migratedStep("orders"),
-      ]);
+      expect(migrateBlock(block)).toMatchObject({
+        config: {
+          dataset: {
+            steps: [migratedStep("orders")],
+          },
+        },
+      });
     });
   });
 });

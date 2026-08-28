@@ -1,3 +1,4 @@
+import { PermissionError } from "shared/util";
 import request from "supertest";
 import { FeatureInterface } from "shared/types/feature";
 import {
@@ -122,9 +123,14 @@ describe("features API", () => {
 
   const defaultPermissions = (extra = {}) => ({
     canPublishFeature: () => true,
-    canUpdateFeature: () => true,
+    canEditFeatureDrafts: () => true,
     canCreateFeature: () => true,
-    canBypassApprovalChecks: () => false,
+    // Archiving is delete-class, so the update paths consult this too.
+    canDeleteFeature: () => true,
+    canBypassFlagApprovalChecks: () => false,
+    throwPermissionError: () => {
+      throw new PermissionError("permission denied");
+    },
     ...extra,
   });
 
@@ -671,7 +677,7 @@ describe("features API", () => {
     it("writes nextScheduledUpdate when scheduleRules are updated via API", async () => {
       defaultContext({
         permissions: defaultPermissions({
-          canBypassApprovalChecks: () => true,
+          canBypassFlagApprovalChecks: () => true,
         }),
         hasPremiumFeature: () => true,
         getProjects: async () => [{ id: "project_1" }],
@@ -854,13 +860,13 @@ describe("features API", () => {
       );
     });
 
-    it("role-based bypassApprovalChecks permission bypasses when restApiBypassesReviews=false", async () => {
-      // Tokens/roles that grant bypassApprovalChecks for the feature's project
+    it("role-based FlagsBypassApprovals permission bypasses when restApiBypassesReviews=false", async () => {
+      // Tokens/roles that grant FlagsBypassApprovals for the feature's project
       // can still publish through the REST API even when the org-level
       // restApiBypassesReviews setting is disabled.
       setupUpdateTest(
         { ...approvalRequiredSettings, restApiBypassesReviews: false },
-        { canBypassApprovalChecks: () => true },
+        { canBypassFlagApprovalChecks: () => true },
       );
       const response = await request(app)
         .post("/api/v1/features/myfeature")
@@ -872,10 +878,36 @@ describe("features API", () => {
       );
     });
 
+    it("refuses to archive without delete authority, even for a publisher", async () => {
+      // Archiving takes the flag out of service, so it is delete-class on every
+      // path that can land it — this endpoint included.
+      setupUpdateTest({}, { canDeleteFeature: () => false });
+
+      const response = await request(app)
+        .post("/api/v1/features/myfeature")
+        .send({ archived: true });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("still lets a publisher unarchive without delete authority", async () => {
+      const existing = setupUpdateTest({}, { canDeleteFeature: () => false });
+      (getFeature as jest.Mock).mockResolvedValue({
+        ...existing,
+        archived: true,
+      });
+
+      const response = await request(app)
+        .post("/api/v1/features/myfeature")
+        .send({ archived: false });
+
+      expect(response.status).toBe(200);
+    });
+
     it("throws when approvals required and neither restApiBypassesReviews nor role permission allow bypass", async () => {
       setupUpdateTest(
         { ...approvalRequiredSettings, restApiBypassesReviews: false },
-        { canBypassApprovalChecks: () => false },
+        { canBypassFlagApprovalChecks: () => false },
       );
       (createAndPublishRevision as jest.Mock).mockRejectedValue(
         Object.assign(
@@ -991,7 +1023,7 @@ describe("features API", () => {
           ],
           restApiBypassesReviews: false,
         },
-        { canBypassApprovalChecks: () => false },
+        { canBypassFlagApprovalChecks: () => false },
       );
 
       const response = await request(app)

@@ -50,6 +50,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     handleSubmit,
     loading,
     comparisonMode,
+    linkedFunnelMetricId,
   } = useExplorerContext();
   const pendingCloseRef = useRef(false);
   const onSaveAndCloseRef = useRef(onSaveAndClose);
@@ -93,6 +94,12 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       ...(comparisonMode === "custom" ? { previousTimeFrame } : {}),
     };
   }, [comparisonMode, draftExploreState.previousTimeFrame]);
+  const blockLinkedMetricId =
+    "linkedFunnelMetricId" in block
+      ? (block.linkedFunnelMetricId ?? null)
+      : null;
+  const linkedMetricChanged = linkedFunnelMetricId !== blockLinkedMetricId;
+
   useEffect(() => {
     const nextDraftConfig = stripExplorerDraftFields(draftExploreState);
     const nextConfig = usesDashboardDateRange
@@ -105,7 +112,8 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     if (
       (needsUpdate && !isEqual(block.config, nextConfig)) ||
       comparisonChanged ||
-      shouldInvalidateResults
+      shouldInvalidateResults ||
+      linkedMetricChanged
     ) {
       setBlock({
         ...block,
@@ -118,6 +126,9 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
           nextComparison && (!needsFetch || !invalidateStaleResults)
             ? block.comparisonExplorerAnalysisId
             : undefined,
+        ...(block.type === "funnel-exploration"
+          ? { linkedFunnelMetricId }
+          : {}),
       } as
         | MetricExplorationBlockInterface
         | FactTableExplorationBlockInterface
@@ -135,6 +146,8 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     nextComparison,
     usesDashboardDateRange,
     explorerAnalysisId,
+    linkedMetricChanged,
+    linkedFunnelMetricId,
   ]);
 
   // When Save & Close is requested and the block is stale, run the analysis first.
@@ -171,6 +184,32 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       useDashboardDateControl={usesDashboardDateRange}
       onSubmit={() =>
         handleSubmit({ force: true, config: getEffectiveDraftConfig() })
+      }
+      // Writes config, not just the flag: block.config is what reseeds the draft,
+      // so this is what makes the edit survive a provider remount.
+      onClaimDashboardDateRange={({ dateRange, granularity }) =>
+        setBlock({
+          ...block,
+          globalControlSettings: {
+            ...block.globalControlSettings,
+            dateRange: false,
+          },
+          config: {
+            ...block.config,
+            dateRange,
+            dimensions: granularity
+              ? block.config.dimensions.map((dimension) =>
+                  dimension.dimensionType === "date"
+                    ? { ...dimension, dateGranularity: granularity }
+                    : dimension,
+                )
+              : block.config.dimensions,
+          },
+        } as
+          | MetricExplorationBlockInterface
+          | FactTableExplorationBlockInterface
+          | DataSourceExplorationBlockInterface
+          | FunnelExplorationBlockInterface)
       }
       onGlobalControlSettingsChange={(settings) => {
         const nextSettings = {

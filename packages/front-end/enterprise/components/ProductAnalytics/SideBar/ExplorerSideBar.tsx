@@ -25,8 +25,8 @@ import type { DateRangeCompareValue } from "@/enterprise/components/ProductAnaly
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
-import { formatExplorationDateRange } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
-import Switch from "@/ui/Switch";
+import DashboardFilterInheritTag from "@/enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/DashboardFilterInheritTag";
+import DashboardFilterSummary from "@/enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/DashboardFilterSummary";
 import {
   createEmptyValue,
   getInitialInlineFilters,
@@ -41,6 +41,7 @@ import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
 import FunnelTabContent from "./FunnelTabContent";
 import GroupBySection from "./GroupBySection";
+import SaveFunnelMetricAction from "./SaveFunnelMetricAction";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
 
@@ -49,6 +50,10 @@ interface Props {
   dashboardDateRange?: ExplorationConfig["dateRange"];
   useDashboardDateControl?: boolean;
   onGlobalControlSettingsChange?: (settings: { dateRange?: boolean }) => void;
+  // Editing an inherited date range claims it for the block. Not
+  // onGlobalControlSettingsChange, which reseeds the draft from the block's stored
+  // config and would discard the value just picked.
+  onClaimDashboardDateRange?: (value: DateRangeCompareValue) => void;
   onSubmit?: () => void;
 }
 
@@ -57,6 +62,7 @@ export default function ExplorerSideBar({
   dashboardDateRange,
   useDashboardDateControl = false,
   onGlobalControlSettingsChange,
+  onClaimDashboardDateRange,
   onSubmit,
 }: Props) {
   const [showSaveToDashboardModal, setShowSaveToDashboardModal] =
@@ -76,6 +82,7 @@ export default function ExplorerSideBar({
     needsFetch,
     error,
     trackingSource,
+    linkedFunnelMetricId,
   } = useExplorerContext();
   const { factTables, getFactMetricById, getFactTableById, project } =
     useDefinitions();
@@ -130,6 +137,10 @@ export default function ExplorerSideBar({
     comparison,
     granularity,
   }: DateRangeCompareValue) => {
+    // Targets the block, not the draft, so it can't race the setter below.
+    if (useDashboardDateControl) {
+      onClaimDashboardDateRange?.({ dateRange, comparison, granularity });
+    }
     setDraftExploreState((prev) => {
       const next = {
         ...prev,
@@ -163,6 +174,16 @@ export default function ExplorerSideBar({
     });
   };
 
+  const emptyStaticDimension = draftExploreState.dimensions.some(
+    (d) => d.dimensionType === "static" && d.values.length === 0,
+  );
+  const updateDisabledReason =
+    hasInputs && !isSubmittable
+      ? emptyStaticDimension
+        ? "Select at least one value for the pinned dimension before updating."
+        : "Configure a valid exploration before updating."
+      : undefined;
+
   const isTimeSeriesChart = ["line", "area", "timeseries-table"].includes(
     draftExploreState.chartType,
   );
@@ -181,6 +202,7 @@ export default function ExplorerSideBar({
           compareEnabled={compareEnabled}
           previousTimeFrame={draftExploreState.previousTimeFrame ?? null}
           comparisonMode={comparisonMode}
+          linkedFunnelMetricId={linkedFunnelMetricId}
           comparisonExplorationId={comparisonExploration?.id ?? null}
           trackingSource={trackingSource}
         />
@@ -256,8 +278,11 @@ export default function ExplorerSideBar({
           <Flex direction="row" align="center" justify="between" width="100%">
             <DataSourceDropdown />
             <Tooltip
-              body="Configuration has changed. Click to refresh the chart."
-              shouldDisplay={isStale}
+              body={
+                updateDisabledReason ||
+                "Configuration has changed. Click to refresh the chart."
+              }
+              shouldDisplay={!!updateDisabledReason || isStale}
             >
               <Button
                 size="md"
@@ -300,6 +325,16 @@ export default function ExplorerSideBar({
             backgroundColor: "var(--color-panel-translucent)",
           }}
         >
+          {/* Date Range is the only filter these blocks follow, so the count is
+              0 or 1. */}
+          {dashboardDateRange ? (
+            <DashboardFilterSummary
+              customCount={useDashboardDateControl ? 0 : 1}
+              onRevertAll={() =>
+                onGlobalControlSettingsChange?.({ dateRange: true })
+              }
+            />
+          ) : null}
           <Flex direction="column" gap="2">
             <Text weight="medium">Chart Type</Text>
             {activeType === "funnel" ? (
@@ -312,51 +347,24 @@ export default function ExplorerSideBar({
             <Flex justify="between" align="center" gap="2" width="100%">
               <Text weight="medium">Date Range</Text>
               {dashboardDateRange ? (
-                <Switch
-                  size="sm"
-                  value={useDashboardDateControl}
-                  onChange={(checked) =>
-                    onGlobalControlSettingsChange?.({ dateRange: checked })
-                  }
-                  label={
-                    <Flex direction="row" align="center" gap="1">
-                      <Text size="sm" weight="medium">
-                        Use dashboard date filter
-                      </Text>
-                      <Tooltip
-                        body={
-                          useDashboardDateControl
-                            ? "This block uses the dashboard date range."
-                            : "This block overrides the dashboard date filter."
-                        }
-                      />
-                    </Flex>
+                <DashboardFilterInheritTag
+                  label="Date Range"
+                  inherited={useDashboardDateControl}
+                  onRevert={() =>
+                    onGlobalControlSettingsChange?.({ dateRange: true })
                   }
                 />
               ) : null}
             </Flex>
-            {dashboardDateRange && useDashboardDateControl ? (
-              <Flex
-                p="2"
-                style={{
-                  border: "1px solid var(--gray-a3)",
-                  borderRadius: "var(--radius-3)",
-                  backgroundColor: "var(--gray-a2)",
-                }}
-              >
-                <Text size="md" color="text-low">
-                  {formatExplorationDateRange(dashboardDateRange)}
-                </Text>
-              </Flex>
-            ) : (
-              <DateRangeCompareDropdown
-                fullWidth
-                showCompare
-                showGranularity={isTimeSeriesChart}
-                value={dateRangeValue}
-                onChange={applyDateRange}
-              />
-            )}
+            {/* Editable while inheriting — the draft carries the dashboard's
+                range, and applying a change claims it. */}
+            <DateRangeCompareDropdown
+              fullWidth
+              showCompare
+              showGranularity={isTimeSeriesChart}
+              value={dateRangeValue}
+              onChange={applyDateRange}
+            />
           </Flex>
         </Flex>
       )}
@@ -456,6 +464,9 @@ export default function ExplorerSideBar({
           <ShowAsSection />
         )}
       {hasInputs && <GroupBySection />}
+      {activeType === "funnel" && renderingInDashboardSidebar && (
+        <SaveFunnelMetricAction />
+      )}
     </Flex>
   );
 }

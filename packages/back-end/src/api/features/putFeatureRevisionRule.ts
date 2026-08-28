@@ -1,5 +1,9 @@
 import isEqual from "lodash/isEqual";
-import { ruleAppliesToEnv, resetReviewOnChange } from "shared/util";
+import {
+  getAttributeScopeProjectIds,
+  resetReviewOnChange,
+  ruleAppliesToEnv,
+} from "shared/util";
 import {
   RevisionRampCreateAction,
   RevisionRampUpdateAction,
@@ -192,10 +196,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -323,7 +324,11 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       changedAttributes.hashAttribute = patch.hashAttribute;
     }
     if (Object.keys(changedAttributes).length > 0) {
-      validateRuleAttributes(changedAttributes, req.context, feature.project);
+      validateRuleAttributes(
+        changedAttributes,
+        req.context,
+        getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+      );
     }
     if (
       patch.condition !== undefined ||

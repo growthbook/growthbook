@@ -4,6 +4,8 @@ import {
   getAllMetricIdsFromExperiment,
   isBinomialMetric,
   isFactMetric,
+  isFactMetricJoinable,
+  isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
 import { config, FullModalPowerCalculationParams } from "shared/power";
@@ -137,55 +139,60 @@ export const SelectStep = ({
 
   // only allow metrics from the same datasource in an analysis
   // combine both metrics and remove quantile metrics
-  const availableMetrics: ExperimentMetricDefinition[] = useMemo(
-    () =>
-      [...appMetrics, ...appFactMetrics].filter((m) => {
-        // drop quantile metrics
-        if (quantileMetricType(m) !== "") return false;
+  const availableMetrics: ExperimentMetricDefinition[] = useMemo(() => {
+    const datasourceSettings = datasources.find(
+      (d) => d.id === selectedDatasource,
+    )?.settings;
 
-        // include all for manual metric values source
-        if (metricValuesSource === "manual") {
-          return true;
-        }
+    return [...appMetrics, ...appFactMetrics].filter((m) => {
+      // drop quantile metrics
+      if (quantileMetricType(m) !== "") return false;
 
-        // drop if not in experiment
-        if (metricValuesSource === "experiment") {
-          const experiment = availableExperiments.find(
-            (e) => e.id === metricValuesSourceId,
-          );
-
-          if (experiment && !experiment.allMetrics.includes(m.id)) return false;
-        }
-
-        // drop if not in datasource
-        if (selectedDatasource && m.datasource !== selectedDatasource)
-          return false;
-
-        // drop if does not have user id type
-        const userIdTypes = !isFactMetric(m)
-          ? m.userIdTypes
-          : appFactTables.find((ft) => ft.id === m.numerator.factTableId)
-              ?.userIdTypes;
-        if (
-          selectedIdType &&
-          userIdTypes &&
-          !userIdTypes.includes(selectedIdType)
-        )
-          return false;
-
+      // include all for manual metric values source
+      if (metricValuesSource === "manual") {
         return true;
-      }),
-    [
-      selectedDatasource,
-      selectedIdType,
-      appFactMetrics,
-      appMetrics,
-      appFactTables,
-      metricValuesSource,
-      metricValuesSourceId,
-      availableExperiments,
-    ],
-  );
+      }
+
+      // drop if not in experiment
+      if (metricValuesSource === "experiment") {
+        const experiment = availableExperiments.find(
+          (e) => e.id === metricValuesSourceId,
+        );
+
+        if (experiment && !experiment.allMetrics.includes(m.id)) return false;
+      }
+
+      // drop if not in datasource
+      if (selectedDatasource && m.datasource !== selectedDatasource)
+        return false;
+
+      // drop if does not have user id type
+      if (selectedIdType) {
+        const joinable = isFactMetric(m)
+          ? isFactMetricJoinable(
+              m,
+              selectedIdType,
+              (id) => appFactTables.find((ft) => ft.id === id),
+              datasourceSettings,
+            )
+          : !m.userIdTypes ||
+            isMetricJoinable(m.userIdTypes, selectedIdType, datasourceSettings);
+        if (!joinable) return false;
+      }
+
+      return true;
+    });
+  }, [
+    selectedDatasource,
+    selectedIdType,
+    appFactMetrics,
+    appMetrics,
+    appFactTables,
+    datasources,
+    metricValuesSource,
+    metricValuesSourceId,
+    availableExperiments,
+  ]);
 
   useEffect(() => {
     const metricValuesData = form.getValues("metricValuesData");

@@ -7,7 +7,9 @@ import {
 import {
   getAggregateFilters,
   getSelectedColumnDatatype,
+  isFactFunnelMetric,
 } from "shared/experiments";
+import { getFunnelRuleViolations } from "shared/funnels";
 import { UpdateProps } from "shared/types/base-model";
 import { factMetricValidator, ApiFactMetric } from "shared/validators";
 import {
@@ -15,8 +17,11 @@ import {
   FactMetricInterface,
   FactMetricType,
   FactTableInterface,
+  FunnelFactMetricInterface,
   LegacyColumnRef,
   LegacyFactMetricInterface,
+  RowFilter,
+  StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -51,7 +56,11 @@ const BaseClass = MakeModelClass({
     tags: [],
   },
   // Compound indexes for API list filtering
-  additionalIndexes: [{ fields: { organization: 1, datasource: 1 } }],
+  additionalIndexes: [
+    { fields: { organization: 1, datasource: 1 } },
+    { fields: { organization: 1, "numerator.factTableId": 1 } },
+    { fields: { organization: 1, "funnelSettings.steps.factTableId": 1 } },
+  ],
 });
 
 // extra checks on user filter
@@ -114,6 +123,7 @@ function denominatorRequiredByMetricType(metricType: FactMetricType): boolean {
     case "quantile":
     case "retention":
     case "proportion":
+    case "funnel":
       return false;
     case "ratio":
       return true;
@@ -180,12 +190,24 @@ export class FactMetricModel extends BaseClass {
     factTableId?: string;
     projectId?: string;
   }) {
+    // Both the factTableId filter and projectFilterQuery use a top-level $or,
+    // so combine them under $and to keep one from clobbering the other.
+    const andClauses: FilterQuery<FactMetricInterface>[] = [];
+    if (options?.factTableId) {
+      andClauses.push({
+        $or: [
+          { "numerator.factTableId": options.factTableId },
+          { "funnelSettings.steps.factTableId": options.factTableId },
+        ],
+      });
+    }
+    if (options?.projectId) {
+      andClauses.push(projectFilterQuery(options.projectId));
+    }
+
     const filter: FilterQuery<FactMetricInterface> = {
       ...(options?.datasourceId && { datasource: options.datasourceId }),
-      ...(options?.factTableId && {
-        "numerator.factTableId": options.factTableId,
-      }),
-      ...(options?.projectId && projectFilterQuery(options.projectId)),
+      ...(andClauses.length && { $and: andClauses }),
     };
 
     return this._find(filter, { sort: { id: 1 } });
@@ -267,6 +289,13 @@ export class FactMetricModel extends BaseClass {
     // The Mongo driver stores explicit `undefined` as null, which fails validation on later updates
     if ((newColumnRef.aggregation ?? null) === null) {
       delete newColumnRef.aggregation;
+    }
+
+    // A user filter needs both fields; a half-set pair (from the same null
+    // storage) fails the "both or neither" check and blocks unrelated edits
+    if (!newColumnRef.aggregateFilter || !newColumnRef.aggregateFilterColumn) {
+      delete newColumnRef.aggregateFilter;
+      delete newColumnRef.aggregateFilterColumn;
     }
 
     // If row filters are already defined, do nothing
@@ -369,9 +398,180 @@ export class FactMetricModel extends BaseClass {
 
     const factTableMap = await this.getFactTableMap();
 
+    if (data.metricType === "funnel" && !data.funnelSettings) {
+      throw new Error("Funnel settings required for funnel metrics");
+    }
+    if (data.metricType !== "funnel" && !data.numerator) {
+      throw new Error("Numerator required for non-funnel metrics");
+    }
+
+    if (isFactFunnelMetric(data)) {
+      if (!this.context.hasPremiumFeature("funnel-metrics")) {
+        throw new Error("Funnel metrics are a premium feature");
+      }
+      await this.validateFunnelSettings(data, existingMetric, factTableMap);
+    } else {
+      await this.validateColumnRefs(data, existingMetric, factTableMap);
+    }
+
+    if (data.metricType === "quantile") {
+      if (!this.context.hasPremiumFeature("quantile-metrics")) {
+        throw new Error("Quantile metrics are a premium feature");
+      }
+
+      if (!data.quantileSettings) {
+        throw new Error("Must specify `quantileSettings` for quantile metrics");
+      }
+    }
+    if (
+      data.metricType === "retention" &&
+      !this.context.hasPremiumFeature("retention-metrics") &&
+      data.id !== "fact__demo-d7-purchase-retention" // Allows demo retention metric to be created without premium feature
+    ) {
+      throw new Error("Retention metrics are a premium feature");
+    }
+    if (data.loseRisk < data.winRisk) {
+      throw new Error(
+        `riskThresholdDanger (${data.loseRisk}) must be greater than riskThresholdSuccess (${data.winRisk})`,
+      );
+    }
+
+    if (data.minPercentChange >= data.maxPercentChange) {
+      throw new Error(
+        `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`,
+      );
+    }
+  }
+
+  /**
+   * Funnel metrics describe their events through ordered steps rather than a
+   * numerator ColumnRef, so none of the column/aggregation rules apply.
+   */
+  private async validateFunnelSettings(
+    data: FunnelFactMetricInterface,
+    existingMetric: FactMetricInterface | null,
+    factTableMap: Map<string, FactTableInterface>,
+  ): Promise<void> {
+    const { steps, ordering, sessionBased } = data.funnelSettings;
+
+    // Funnel-definition rules live in shared/funnels so the Product Analytics
+    // builder can surface the same reasons before offering a save. Only the
+    // metric-shape rules and async SQL validation below are model-specific.
+    const [violation] = getFunnelRuleViolations({
+      steps,
+      ordering,
+      sessionBased,
+      datasourceId: data.datasource,
+      getFactTable: (id) => factTableMap.get(id),
+    });
+    if (violation) {
+      throw new Error(violation.message);
+    }
+
+    // Steps can each read from a different fact table, so everything below is
+    // validated against the step's own table.
+    const stepFactTables = steps.map((step) => {
+      const factTable = factTableMap.get(step.factTableId);
+      if (!factTable) {
+        throw new Error("Could not find funnel fact table");
+      }
+      return factTable;
+    });
+
+    steps.forEach((step, i) => {
+      validateSavedFilterIds({
+        columnRef: {
+          factTableId: step.factTableId,
+          column: "",
+          rowFilters: step.rowFilters,
+        },
+        factTable: stepFactTables[i],
+        filterType: "numerator",
+      });
+    });
+
+    if (data.numerator) {
+      throw new Error("Numerator not allowed for funnel metrics");
+    }
+    if (data.denominator) {
+      throw new Error("Denominator not allowed for funnel metrics");
+    }
+    if (data.cappingSettings.type) {
+      throw new Error("Capping is not supported for funnel metrics");
+    }
+    if (data.quantileSettings) {
+      throw new Error("Quantile settings are not supported for funnel metrics");
+    }
+    if (data.metricAutoSlices?.length) {
+      throw new Error("Slices are not supported for funnel metrics");
+    }
+
+    const previousSteps =
+      existingMetric && isFactFunnelMetric(existingMetric)
+        ? existingMetric.funnelSettings.steps
+        : [];
+    // One validation query per fact table rather than per step, since each
+    // query round-trips to the warehouse.
+    const rowFiltersByFactTable = new Map<
+      string,
+      { factTable: FactTableInterface; rowFilters: RowFilter[] }
+    >();
+    steps.forEach((step, index) => {
+      const rowFilters = getNetNewSqlExprRowFilters({
+        rowFilters: step.rowFilters,
+        previousRowFilters: previousSteps[index]?.rowFilters,
+        validateAll: previousSteps[index]?.factTableId !== step.factTableId,
+      });
+      if (!rowFilters.length) return;
+      const existing = rowFiltersByFactTable.get(step.factTableId);
+      if (existing) {
+        existing.rowFilters.push(...rowFilters);
+      } else {
+        rowFiltersByFactTable.set(step.factTableId, {
+          factTable: stepFactTables[index],
+          rowFilters: [...rowFilters],
+        });
+      }
+    });
+    if (!rowFiltersByFactTable.size) return;
+
+    const datasource = await getDataSourceById(this.context, data.datasource);
+    if (!datasource) {
+      throw new Error("Could not find datasource");
+    }
+    const integration = getSourceIntegrationObject(
+      this.context,
+      datasource,
+      true,
+    );
+
+    for (const { factTable, rowFilters } of rowFiltersByFactTable.values()) {
+      await validateFactMetricRowFilterSql({
+        integration,
+        factTable,
+        rowFilters,
+        errorPrefix: "Invalid funnel step row filter SQL: ",
+      });
+    }
+  }
+
+  private async validateColumnRefs(
+    data: StandardFactMetricInterface,
+    existingMetric: FactMetricInterface | null,
+    factTableMap: Map<string, FactTableInterface>,
+  ): Promise<void> {
+    if (data.funnelSettings) {
+      throw new Error("funnelSettings is only allowed for funnel metrics");
+    }
+
     const numeratorFactTable = factTableMap.get(data.numerator.factTableId);
     if (!numeratorFactTable) {
       throw new Error("Could not find numerator fact table");
+    }
+    if (numeratorFactTable.datasource !== data.datasource) {
+      throw new Error(
+        "Numerator Fact Table must belong to the metric's Data Source",
+      );
     }
 
     validateSavedFilterIds({
@@ -461,10 +661,10 @@ export class FactMetricModel extends BaseClass {
 
     const numeratorSqlExprFiltersToValidate = getNetNewSqlExprRowFilters({
       rowFilters: data.numerator.rowFilters,
-      previousRowFilters: existingMetric?.numerator.rowFilters,
+      previousRowFilters: existingMetric?.numerator?.rowFilters,
       validateAll:
         !existingMetric ||
-        existingMetric.numerator.factTableId !== data.numerator.factTableId,
+        existingMetric.numerator?.factTableId !== data.numerator.factTableId,
     });
 
     const denominatorSqlExprFiltersToValidate =
@@ -508,34 +708,6 @@ export class FactMetricModel extends BaseClass {
           errorPrefix: "Invalid denominator row filter SQL: ",
         });
       }
-    }
-
-    if (data.metricType === "quantile") {
-      if (!this.context.hasPremiumFeature("quantile-metrics")) {
-        throw new Error("Quantile metrics are a premium feature");
-      }
-
-      if (!data.quantileSettings) {
-        throw new Error("Must specify `quantileSettings` for quantile metrics");
-      }
-    }
-    if (
-      data.metricType === "retention" &&
-      !this.context.hasPremiumFeature("retention-metrics") &&
-      data.id !== "fact__demo-d7-purchase-retention" // Allows demo retention metric to be created without premium feature
-    ) {
-      throw new Error("Retention metrics are a premium feature");
-    }
-    if (data.loseRisk < data.winRisk) {
-      throw new Error(
-        `riskThresholdDanger (${data.loseRisk}) must be greater than riskThresholdSuccess (${data.winRisk})`,
-      );
-    }
-
-    if (data.minPercentChange >= data.maxPercentChange) {
-      throw new Error(
-        `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`,
-      );
     }
   }
 
@@ -587,6 +759,7 @@ export class FactMetricModel extends BaseClass {
   public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {
     const {
       quantileSettings,
+      funnelSettings,
       cappingSettings,
       windowSettings,
       regressionAdjustmentDays,
@@ -610,6 +783,7 @@ export class FactMetricModel extends BaseClass {
       targetMDE: targetMDE || DEFAULT_TARGET_MDE,
       metricType: metricType,
       quantileSettings: quantileSettings || undefined,
+      funnelSettings: funnelSettings || undefined,
       cappingSettings: {
         ...cappingSettings,
         type: cappingSettings.type || "none",
@@ -620,7 +794,9 @@ export class FactMetricModel extends BaseClass {
         type: windowSettings.type || "none",
       },
       managedBy: factMetric.managedBy || "",
-      numerator: FactMetricModel.addLegacyFiltersToColumnRef(numerator),
+      numerator: numerator
+        ? FactMetricModel.addLegacyFiltersToColumnRef(numerator)
+        : undefined,
       denominator: denominator
         ? FactMetricModel.addLegacyFiltersToColumnRef(denominator)
         : undefined,
