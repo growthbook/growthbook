@@ -144,7 +144,10 @@ import { Counter, Histogram, metrics } from "back-end/src/util/metrics";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { getInterleaveExperimentsForPayload } from "back-end/src/enterprise/services/interleavingPayload";
+import {
+  getInterleaveExperimentsForPayload,
+  getInterleaveFeatureDefinitionsForPayload,
+} from "back-end/src/enterprise/services/interleavingPayload";
 import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
@@ -1563,6 +1566,20 @@ export async function buildSDKPayloadForConnection(
     ...featureDefinitions,
     ...holdoutsInUse,
   };
+
+  // Controller features for running interleaving experiments. A real
+  // feature that already owns the tracking key wins.
+  const interleaveFeatureDefinitions =
+    await getInterleaveFeatureDefinitionsForPayload(context, {
+      projects: projectList,
+      capabilities,
+      includeRuleIds,
+    });
+  for (const [key, def] of Object.entries(interleaveFeatureDefinitions)) {
+    if (!(key in featuresWithHoldouts)) {
+      featuresWithHoldouts[key] = def;
+    }
+  }
 
   const contextualBanditsInUse = filterUsedContextualBandits(
     cbMap,
