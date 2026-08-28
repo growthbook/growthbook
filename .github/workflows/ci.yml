@@ -132,6 +132,8 @@ jobs:
   # A 4-vCPU runner gives Jest only 3 workers for 300+ files, so shard instead.
   test-back-end:
     runs-on: ubuntu-latest
+    # A silently killed Jest worker leaves the parent waiting on the 6h default.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
