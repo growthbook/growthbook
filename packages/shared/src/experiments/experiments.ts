@@ -1186,6 +1186,24 @@ export function getFactMetricPrimaryFactTableId(
 }
 
 /**
+ * Every fact table the metric reads from, de-duplicated and in definition
+ * order (funnel step order; numerator before denominator). Order is load
+ * bearing: the SQL layer assigns source indices from it and source 0 is
+ * privileged.
+ */
+export function getFactMetricFactTableIds(m: FactMetricInterface): string[] {
+  const ids = isFactFunnelMetric(m)
+    ? m.funnelSettings.steps.map((step) => step.factTableId)
+    : [
+        m.numerator.factTableId,
+        ...(isRatioMetric(m) && m.denominator?.factTableId
+          ? [m.denominator.factTableId]
+          : []),
+      ];
+  return Array.from(new Set(ids.filter((id) => !!id)));
+}
+
+/**
  * Every ColumnRef the metric reads from, for dependency scans over fact table
  * columns and filters. Funnel steps have no column of their own, so they are
  * surfaced as column-less refs that still carry their row filters.
@@ -2619,6 +2637,26 @@ export function isMetricJoinable(
   }
 
   return false;
+}
+
+export function isFactMetricJoinable(
+  metric: FactMetricInterface,
+  userIdType: string,
+  getFactTable: (
+    id: string,
+  ) => Pick<FactTableInterface, "userIdTypes"> | null | undefined,
+  settings?: DataSourceSettings,
+): boolean {
+  const factTableIds = getFactMetricFactTableIds(metric);
+  // A malformed metric with no resolvable fact tables can't be queried.
+  if (!factTableIds.length) return false;
+  return factTableIds.every((factTableId) =>
+    isMetricJoinable(
+      getFactTable(factTableId)?.userIdTypes ?? [],
+      userIdType,
+      settings,
+    ),
+  );
 }
 
 export function adjustPValuesBenjaminiHochberg(
