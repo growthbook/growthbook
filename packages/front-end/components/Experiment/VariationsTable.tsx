@@ -168,7 +168,6 @@ interface Props {
   servedValueSparse?: boolean;
   /** The values shown are an unpublished draft, not what is live. */
   servedValueIsDraft?: boolean;
-  onEditServedValue?: (variationId: string) => void;
   onAddServedValue?: (variationId: string) => void;
 }
 
@@ -238,7 +237,6 @@ export function VariationBox({
   servedValueFeature,
   servedValueSparse,
   servedValueIsDraft,
-  onEditServedValue,
   onAddServedValue,
 }: {
   i: number;
@@ -266,7 +264,6 @@ export function VariationBox({
   servedValueFeature?: FeatureInterface;
   servedValueSparse?: boolean;
   servedValueIsDraft?: boolean;
-  onEditServedValue?: (variationId: string) => void;
   /** Offered instead of a value when there is no Feature Flag yet. */
   onAddServedValue?: (variationId: string) => void;
 }) {
@@ -403,9 +400,6 @@ export function VariationBox({
               feature={servedValueFeature}
               sparse={servedValueSparse}
               isDraft={servedValueIsDraft}
-              onEdit={
-                onEditServedValue ? () => onEditServedValue(v.id) : undefined
-              }
             />
           ) : onAddServedValue ? (
             <VariationServedValue onAdd={() => onAddServedValue(v.id)} />
@@ -434,7 +428,6 @@ const VariationsTable: FC<Props> = ({
   servedValueFeature,
   servedValueSparse,
   servedValueIsDraft,
-  onEditServedValue,
   onAddServedValue,
 }) => {
   const { apiCall } = useAuth();
@@ -510,7 +503,6 @@ const VariationsTable: FC<Props> = ({
               servedValueFeature={servedValueFeature}
               servedValueSparse={servedValueSparse}
               servedValueIsDraft={servedValueIsDraft}
-              onEditServedValue={onEditServedValue}
               onAddServedValue={onAddServedValue}
               showNoImage={
                 experiment.status === "draft" || someVariationHasImage

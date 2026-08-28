@@ -17,7 +17,6 @@ export default function VariationServedValue({
   feature,
   sparse,
   isDraft,
-  onEdit,
   onAdd,
 }: {
   value?: string;
@@ -25,7 +24,6 @@ export default function VariationServedValue({
   sparse?: boolean;
   /** The value shown is an unpublished draft, not what is live. */
   isDraft?: boolean;
-  onEdit?: () => void;
   /** Renders the empty-state prompt instead of a value. */
   onAdd?: () => void;
 }) {
@@ -74,13 +72,6 @@ export default function VariationServedValue({
           }
         />
       </Flex>
-      {onEdit ? (
-        <Link onClick={onEdit}>
-          <Text size="sm" weight="semibold">
-            Edit
-          </Text>
-        </Link>
-      ) : null}
     </Flex>
   );
 }

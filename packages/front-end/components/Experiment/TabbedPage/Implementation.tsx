@@ -13,7 +13,6 @@ import { getActivePhaseIndex } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
-import EditFeatureFlagValuesModal from "@/components/Experiment/LinkedChanges/EditFeatureFlagValuesModal";
 import AddManagedFlagModal from "@/components/Experiment/LinkedChanges/AddManagedFlagModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
@@ -149,23 +148,6 @@ export default function Implementation({
   const [addManagedOpen, setAddManagedOpen] = useState(false);
   const [addManagedFocus, setAddManagedFocus] = useState<string | null>(null);
 
-  // Owned here so the variation cards and the flag card open the same editor.
-  const [editValuesOpen, setEditValuesOpen] = useState(false);
-  const [editValuesFocus, setEditValuesFocus] = useState<string | null>(null);
-  const canEditServedValues =
-    !!soleLinkedFeature &&
-    canEditExperiment &&
-    permissionsUtil.canEditFeatureDrafts(soleLinkedFeature.feature) &&
-    // Every sibling control on this card freezes for a scheduled start.
-    !experiment.nextScheduledStatusUpdate &&
-    // A managed flag can be reviewed and published from this page at any time.
-    // A plain linked flag cannot, so editing it once the experiment is running
-    // would open drafts with no way to land them.
-    (isManaged || experiment.status === "draft") &&
-    soleLinkedFeature.state !== "locked" &&
-    soleLinkedFeature.state !== "archived" &&
-    soleLinkedFeature.state !== "discarded";
-
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
 
@@ -225,20 +207,6 @@ export default function Implementation({
           }}
         />
       )}
-      {editValuesOpen && soleLinkedFeature && (
-        <EditFeatureFlagValuesModal
-          feature={soleLinkedFeature.feature}
-          experiment={experiment}
-          linkedFeatureInfo={soleLinkedFeature}
-          numLinkedChanges={linkedFeatures.length}
-          focusVariationId={editValuesFocus}
-          close={() => {
-            setEditValuesOpen(false);
-            setEditValuesFocus(null);
-          }}
-          mutate={mutate}
-        />
-      )}
       {editMetadataIndex !== null && canEditExperiment && (
         <EditVariationMetadataModal
           experiment={experiment}
@@ -266,14 +234,6 @@ export default function Implementation({
             phaseIndex={phases.length - 1}
             servedValueFeature={soleLinkedFeature}
             servedValuePreferDraft={isManaged}
-            onEditServedValue={
-              canEditServedValues
-                ? (variationId) => {
-                    setEditValuesFocus(variationId);
-                    setEditValuesOpen(true);
-                  }
-                : undefined
-            }
             onAddServedValue={
               canAdoptManagedFlag
                 ? (variationId) => {
