@@ -310,7 +310,9 @@ export interface LinkedFeatureInfo {
   hasUnrelatedDraftChanges?: boolean;
   /**
    * Environments currently disabled on the live feature that will be enabled
-   * when the pending draft is auto-published on experiment start.
+   * when the pending draft is auto-published on experiment start. Only set for
+   * drafts queued in `pendingFeatureDrafts` — a draft created directly on the
+   * feature isn't published by the start flow.
    */
   environmentsToEnable?: string[];
 }

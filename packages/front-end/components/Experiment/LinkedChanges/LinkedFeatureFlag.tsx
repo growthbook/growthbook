@@ -33,19 +33,19 @@ type Props = {
 
 function getEnvironmentStateTooltip(
   state: LinkedFeatureEnvState,
-  experimentRunning: boolean,
+  experimentStarted: boolean,
 ): string {
   switch (state) {
     case "active":
-      return experimentRunning
+      return experimentStarted
         ? "The experiment is active in this environment"
         : "The experiment will be active in this environment once started";
     case "disabled-env":
-      return experimentRunning
+      return experimentStarted
         ? "The environment is disabled for this feature, so the experiment is not active"
         : "The environment is disabled for this feature, so the experiment will not be active once started";
     case "disabled-rule":
-      return experimentRunning
+      return experimentStarted
         ? "The experiment is disabled in this environment and is not active"
         : "The experiment is disabled in this environment and will not be active once started";
     case "missing":
@@ -137,10 +137,9 @@ export default function LinkedFeatureFlag({
       env,
       state,
       isActive: state === "active",
-      tooltip: getEnvironmentStateTooltip(
-        state,
-        experiment.status === "running",
-      ),
+      // Draft is the only status where the rule hasn't taken effect yet;
+      // stopped experiments read in the past/present tense like running ones.
+      tooltip: getEnvironmentStateTooltip(state, experiment.status !== "draft"),
     }),
   );
 

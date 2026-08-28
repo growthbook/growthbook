@@ -147,29 +147,13 @@ function LinkedChangeSection({
   );
 }
 
-// Approximate character budget for the ~40% badge region and per-badge
-// overhead (PiPlus icon + padding). Tunable; not pixel-accurate by design.
-const ENV_BADGE_CHAR_BUDGET = 22;
-const ENV_BADGE_OVERHEAD = 3;
-const OVERFLOW_BADGE_COST = 5; // room for the "+ N" badge
+const MAX_VISIBLE_ENV_BADGES = 2;
 
 function EnvironmentBadges({ environments }: { environments: string[] }) {
-  const visible: string[] = [];
-  let used = 0;
-  for (let i = 0; i < environments.length; i++) {
-    const cost = environments[i].length + ENV_BADGE_OVERHEAD;
-    const moreRemain = i < environments.length - 1;
-    const reserve = moreRemain ? OVERFLOW_BADGE_COST : 0;
-    // Always keep at least one real badge, even if it exceeds the budget.
-    if (visible.length > 0 && used + cost + reserve > ENV_BADGE_CHAR_BUDGET) {
-      break;
-    }
-    visible.push(environments[i]);
-    used += cost;
-  }
-  const hidden = environments.slice(visible.length);
+  const visible = environments.slice(0, MAX_VISIBLE_ENV_BADGES);
+  const hidden = environments.slice(MAX_VISIBLE_ENV_BADGES);
   return (
-    <Flex gap="2" justify="end" align="center">
+    <Flex gap="2" align="center" flexShrink="0">
       {visible.map((env) => (
         <Badge
           key={env}
@@ -246,9 +230,9 @@ export default function StartExperimentModal({
     linkedFeatures.length > 0 ||
     visualChangesets.length > 0 ||
     urlRedirects.length > 0;
-  const featuresEnablingEnvs = linkedFeatures.filter(
-    (f) => (f.environmentsToEnable?.length ?? 0) > 0,
-  );
+  const featuresEnablingEnvsCount = linkedFeatures.filter(
+    (f) => !!f.environmentsToEnable?.length,
+  ).length;
   const parsedScheduledDate = experiment.statusUpdateSchedule?.startAt
     ? new Date(experiment.statusUpdateSchedule.startAt)
     : null;
@@ -279,10 +263,8 @@ export default function StartExperimentModal({
   const { hasCommercialFeature } = useUser();
   const { namespaces } = useOrgSettings();
 
-  const { coverage: namespaceCoverage } = getNamespaceDisplayData(
-    latestPhase?.namespace,
-    namespaces,
-  );
+  const { coverage: namespaceCoverage, name: namespaceName } =
+    getNamespaceDisplayData(latestPhase?.namespace, namespaces);
 
   const needsVisualEditorUpgrade =
     experiment.hasVisualChangesets && !hasCommercialFeature("visual-editor");
@@ -543,7 +525,8 @@ export default function StartExperimentModal({
                   {hasNamespace && (
                     <SummaryRow label="Namespace" inline>
                       <Text>
-                        {percentFormatter.format(namespaceCoverage)} included
+                        {percentFormatter.format(namespaceCoverage)} of{" "}
+                        {namespaceName}
                       </Text>
                     </SummaryRow>
                   )}
@@ -638,58 +621,49 @@ export default function StartExperimentModal({
                     type="feature-flag"
                     count={linkedFeatures.length}
                   >
-                    {featuresEnablingEnvs.length > 0 && (
+                    {featuresEnablingEnvsCount > 0 && (
                       <Callout size="sm" status="warning" mb="3">
-                        {featuresEnablingEnvs.length} feature
-                        {featuresEnablingEnvs.length === 1 ? "" : "s"} will be
-                        turned on in new environments.
+                        Starting this experiment will turn on{" "}
+                        {featuresEnablingEnvsCount} Feature Flag
+                        {featuresEnablingEnvsCount === 1 ? "" : "s"} in
+                        environments where{" "}
+                        {featuresEnablingEnvsCount === 1 ? "it is" : "they are"}{" "}
+                        currently off.
                       </Callout>
                     )}
                     <Flex direction="column" gap="2">
                       {linkedFeatures.map((info) =>
                         info.feature?.id ? (
-                          <Flex
+                          <Box
                             key={info.feature.id}
                             className="appbox"
                             p="3"
-                            align="center"
-                            gap="3"
-                            style={{
-                              marginBottom: "0",
-                            }}
+                            mb="0"
                           >
-                            <Box style={{ flexBasis: "60%", minWidth: 0 }}>
+                            <Flex align="center" justify="between" gap="3">
                               <Link
                                 href={`/features/${info.feature.id}`}
                                 target="_blank"
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "4px",
-                                  minWidth: 0,
-                                  maxWidth: "100%",
-                                }}
+                                style={{ minWidth: 0 }}
                               >
-                                <Box
-                                  className="text-ellipsis"
-                                  title={info.feature.id}
-                                  minWidth="0"
-                                >
-                                  <Text weight="semibold" whiteSpace="nowrap">
+                                <Flex align="center" gap="1" minWidth="0">
+                                  <Text
+                                    weight="semibold"
+                                    truncate
+                                    title={info.feature.id}
+                                  >
                                     {info.feature.id}
                                   </Text>
-                                </Box>
-                                <PiArrowSquareOut style={{ flexShrink: 0 }} />
+                                  <PiArrowSquareOut style={{ flexShrink: 0 }} />
+                                </Flex>
                               </Link>
-                            </Box>
-                            {(info.environmentsToEnable?.length ?? 0) > 0 && (
-                              <Box style={{ flexBasis: "40%", minWidth: 0 }}>
+                              {!!info.environmentsToEnable?.length && (
                                 <EnvironmentBadges
-                                  environments={info.environmentsToEnable!}
+                                  environments={info.environmentsToEnable}
                                 />
-                              </Box>
-                            )}
-                          </Flex>
+                              )}
+                            </Flex>
+                          </Box>
                         ) : null,
                       )}
                     </Flex>

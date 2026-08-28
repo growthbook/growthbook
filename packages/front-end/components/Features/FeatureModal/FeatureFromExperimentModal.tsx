@@ -301,9 +301,8 @@ export default function FeatureFromExperimentModal({
     existing && existingFeature
       ? `${existing}:${draftMode}:${draftMode === "existing" ? selectedDraft : ""}`
       : "";
-  // Tracks the destination the rule scope was last initialized for. State (not a
-  // ref) so the warning below can render only once the scope matches the current
-  // destination — otherwise it flashes stale selection against fresh env state.
+  // State, not a ref, so the warning below re-renders once the scope catches up
+  // to the current destination instead of flashing a stale selection.
   const [initializedScopeKey, setInitializedScopeKey] = useState<string | null>(
     null,
   );
@@ -334,8 +333,6 @@ export default function FeatureFromExperimentModal({
   // env that's currently off), so warn the user before they commit.
   const envsEnabledByPublish = useMemo<string[]>(() => {
     if (!existing || enabledEnvsForDestination === null) return [];
-    // Wait until the scope has been initialized for this exact destination;
-    // otherwise the selection still reflects the previous feature/draft.
     if (initializedScopeKey !== destinationKey) return [];
     const enabledSet = new Set(enabledEnvsForDestination);
     const footprint = ruleAllEnvironments
@@ -354,8 +351,6 @@ export default function FeatureFromExperimentModal({
     destinationKey,
   ]);
 
-  // For an existing draft the baseline is that draft's staged env state, which
-  // may already differ from the live feature.
   const enableOnPublishWarning = useMemo<React.ReactNode>(() => {
     if (envsEnabledByPublish.length === 0) return null;
     const envNames = <strong>{envsEnabledByPublish.join(", ")}</strong>;
