@@ -1,24 +1,61 @@
 import Agenda, { Job } from "agenda";
-import { ExperimentPhase } from "shared/validators";
-import { Changeset } from "shared/types/experiment";
+import { getHoldoutStage, HoldoutStage } from "shared/util";
 import {
-  getContextForAgendaJobByOrgId,
-  getEnvironmentIdsFromOrg,
-} from "back-end/src/services/organizations";
+  HoldoutInterface,
+  HoldoutNextScheduledStatusUpdate,
+} from "shared/validators";
+import { ExperimentInterface } from "shared/types/experiment";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
-  getExperimentById,
-  updateExperiment,
-} from "back-end/src/models/ExperimentModel";
-import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { getChangesToStartExperiment } from "back-end/src/services/experiments";
+  normalizeHoldoutScheduleUpdates,
+  setHoldoutStage,
+} from "back-end/src/services/holdouts";
 
 type UpdateSingleHoldoutJob = Job<{
   holdoutId: string;
   organization: string;
 }>;
+
+export function scheduledTypeToStage(
+  scheduledType: HoldoutNextScheduledStatusUpdate["type"],
+): HoldoutStage {
+  switch (scheduledType) {
+    case "start":
+      return "running";
+    case "startAnalysisPeriod":
+      return "analysis-period";
+    case "stop":
+      return "stopped";
+    default:
+      scheduledType satisfies never;
+      throw new Error(
+        `Unhandled scheduled holdout update type: ${scheduledType}`,
+      );
+  }
+}
+
+export function isScheduledTransitionApplicable(
+  scheduledType: HoldoutNextScheduledStatusUpdate["type"],
+  experiment: Pick<ExperimentInterface, "status">,
+  holdout: Pick<HoldoutInterface, "analysisStartDate">,
+): boolean {
+  const currentStage = getHoldoutStage(holdout, experiment);
+
+  switch (scheduledType) {
+    case "start":
+      return currentStage === "draft";
+    case "startAnalysisPeriod":
+      return currentStage === "running";
+    case "stop":
+      return currentStage !== "stopped";
+    default:
+      scheduledType satisfies never;
+      return false;
+  }
+}
 
 const QUEUE_HOLDOUT_UPDATES = "queueScheduledHoldoutUpdates";
 
@@ -79,12 +116,20 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
   if (!holdoutExperiment) {
     throw new Error("Holdout experiment not found: " + holdout.id);
   }
-  if (holdoutExperiment.archived) {
-    logger.info(`Skipping status update: Holdout ${holdout.id} is archived`);
-    return;
-  }
-  if (holdoutExperiment.status === "stopped") {
-    logger.info(`Skipping status update: Holdout ${holdout.id} is stopped`);
+
+  // Archived or already-stopped holdouts have no remaining transitions. Clear any
+  // due pointer so the 1-minute poller stops re-selecting them.
+  if (holdoutExperiment.archived || holdoutExperiment.status === "stopped") {
+    logger.info(
+      `Skipping status update: Holdout ${holdout.id} is ${
+        holdoutExperiment.archived ? "archived" : "stopped"
+      }`,
+    );
+    if (holdout.nextScheduledStatusUpdate) {
+      await context.models.holdout.update(holdout, {
+        nextScheduledStatusUpdate: null,
+      });
+    }
     return;
   }
 
@@ -103,111 +148,29 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
     return;
   }
 
-  const phases = [...holdoutExperiment.phases] as ExperimentPhase[];
-
-  let newNextScheduledStatusUpdate: {
-    type: "start" | "startAnalysisPeriod" | "stop";
-    date: Date;
-  } | null = null;
+  // A manual status change can leave a stale scheduled transition.
+  if (
+    !isScheduledTransitionApplicable(scheduled.type, holdoutExperiment, holdout)
+  ) {
+    const { nextScheduledStatusUpdate } = normalizeHoldoutScheduleUpdates({
+      holdout,
+      experiment: holdoutExperiment,
+      scheduleInput: holdout.statusUpdateSchedule ?? null,
+    });
+    await context.models.holdout.update(holdout, { nextScheduledStatusUpdate });
+    logger.info(
+      `Skipping status update: Holdout ${holdout.id} is no longer in a state to apply "${scheduled.type}"; reconciled next scheduled update.`,
+    );
+    return;
+  }
 
   try {
     logger.info("Start Updating Status for holdout " + holdout.id);
-
-    switch (scheduled.type) {
-      case "start": {
-        const changes: Changeset = await getChangesToStartExperiment(
-          context,
-          holdoutExperiment,
-        );
-
-        if (holdout.statusUpdateSchedule?.startAnalysisPeriodAt) {
-          newNextScheduledStatusUpdate = {
-            type: "startAnalysisPeriod",
-            date: holdout.statusUpdateSchedule.startAnalysisPeriodAt,
-          };
-        }
-
-        await context.models.holdout.update(holdout, {
-          nextScheduledStatusUpdate: newNextScheduledStatusUpdate,
-        });
-        await updateExperiment({
-          context,
-          experiment: holdoutExperiment,
-          changes,
-        });
-        queueSDKPayloadRefresh({
-          context,
-          payloadKeys: getAffectedSDKPayloadKeys(
-            holdout,
-            getEnvironmentIdsFromOrg(context.org),
-          ),
-        });
-        break;
-      }
-      case "startAnalysisPeriod":
-        phases[1] = {
-          ...phases[0],
-          lookbackStartDate: now,
-          dateEnded: undefined,
-          name: "Analysis",
-        };
-
-        if (holdout.statusUpdateSchedule?.stopAt) {
-          newNextScheduledStatusUpdate = {
-            type: "stop",
-            date: holdout.statusUpdateSchedule.stopAt,
-          };
-        }
-
-        await context.models.holdout.update(holdout, {
-          analysisStartDate: now,
-          nextScheduledStatusUpdate: newNextScheduledStatusUpdate,
-        });
-        await updateExperiment({
-          context,
-          experiment: holdoutExperiment,
-          changes: { phases, status: "running" },
-        });
-        queueSDKPayloadRefresh({
-          context,
-          payloadKeys: getAffectedSDKPayloadKeys(
-            holdout,
-            getEnvironmentIdsFromOrg(context.org),
-          ),
-        });
-        break;
-
-      case "stop":
-        // put end date on both phases
-        if (phases[0]) {
-          phases[0].dateEnded = new Date();
-        }
-        if (phases[1]) {
-          phases[1].dateEnded = new Date();
-        }
-        // Set the next scheduled status update to null to exclude from holdoutsToUpdate query
-        await context.models.holdout.update(holdout, {
-          nextScheduledStatusUpdate: null,
-        });
-        // set the status to stopped for the experiment
-        await updateExperiment({
-          context,
-          experiment: holdoutExperiment,
-          changes: {
-            phases,
-            status: "stopped",
-          },
-        });
-        queueSDKPayloadRefresh({
-          context,
-          payloadKeys: getAffectedSDKPayloadKeys(
-            holdout,
-            getEnvironmentIdsFromOrg(context.org),
-          ),
-        });
-        break;
-    }
-
+    await setHoldoutStage(context, {
+      holdout,
+      experiment: holdoutExperiment,
+      stage: scheduledTypeToStage(scheduled.type),
+    });
     logger.info("Successfully Updated Status for holdout " + holdout.id);
   } catch (e) {
     logger.error(e, "Failed to update holdout " + holdout.id);
