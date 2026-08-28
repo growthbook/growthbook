@@ -198,7 +198,7 @@ export default function ContextualBanditDetailPage({
     return globalAttributes.filter((a) => contextual.has(a));
   }, [cb.condition, cb.contextualAttributes, attributeMap]);
 
-  const globalAttributeSchema = useAttributeSchema(false, cb.project);
+  const globalAttributeSchema = useAttributeSchema(false);
   const { effectiveContextualAttributes, droppedContextualAttributes } =
     useMemo(() => {
       const queryAttrs =

@@ -177,6 +177,19 @@ export default function ContextualBanditAnalysisMetricsModal({
               "Select at least one contextual attribute for this Contextual Bandit.",
             );
           }
+          const queryChanged =
+            data.exposureQueryId !== cb.contextualBanditQueryId;
+          if (
+            !isDraft &&
+            queryChanged &&
+            !contextualAttributes.some((a) => queryAttrs.includes(a))
+          ) {
+            throw new Error(
+              `The selected query has no attributes in common with this Bandit's contextual attributes (${contextualAttributes.join(
+                ", ",
+              )}). Choose a query that includes at least one of them.`,
+            );
+          }
 
           const includeConversionWindow =
             !disableBanditConversionWindow &&
