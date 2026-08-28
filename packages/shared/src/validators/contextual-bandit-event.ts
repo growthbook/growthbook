@@ -33,8 +33,7 @@ export type ContextualLeafStatsEntryInterface = z.infer<
 export const contextualSseTrajectoryEntryValidator = z.object({
   numSplits: z.number().int().nonnegative(),
   totalSse: z.number(),
-  /** Per-variation SSE at this stage; sums to `totalSse`. */
-  ssePerVariation: z.array(z.number()),
+  ssePerVariation: z.array(z.number()).optional(),
 });
 export type ContextualSseTrajectoryEntryInterface = z.infer<
   typeof contextualSseTrajectoryEntryValidator

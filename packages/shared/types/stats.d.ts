@@ -231,10 +231,9 @@ export type ContextualSseTrajectoryEntry = {
   /** Total SSE summed across every leaf of the tree at this stage. */
   totalSse: number;
   /**
-   * Per-variation SSE at this stage (positional by variation), summing to
-   * `totalSse`.
+   * Per-variation SSE at this stage, summing to `totalSse`.
    */
-  ssePerVariation: number[];
+  ssePerVariation?: number[];
 };
 
 /**
