@@ -31,7 +31,7 @@ import {
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import rowStyles from "./ExperimentManagedFeatureVariationRow.module.scss";
 
-/** The one column template the header row and every variation row share. */
+// The one column template the header row and every variation row share.
 export function gridColumns({
   hideVariationIds,
   hideValueField,
@@ -43,7 +43,7 @@ export function gridColumns({
   hideValueField?: boolean;
   showDescription?: boolean;
   hideSplit?: boolean;
-  /** The value field is on its own row, so it takes no column here. */
+  // On its own row below, so it takes no column here.
   stackValue?: boolean;
 }): string {
   return [
@@ -62,10 +62,8 @@ export function gridColumns({
 export type ManagedSortableVariation = ExperimentValue & {
   id: string;
   description?: string;
-  /**
-   * The value this variation serves on the experiment's managed Feature Flag.
-   * Separate from `value`, which stays the variation's own key.
-   */
+  // The value served on the linked Feature Flag. Separate from `value`,
+  // which stays the variation's own key.
   featureValue?: string;
 };
 
@@ -83,12 +81,11 @@ interface SortableProps {
   valueAsId: boolean;
   feature?: FeatureInterface;
   showDescription?: boolean;
-  /** Render the value on its own row beneath the grid, whatever its type. */
+  // Render the value on its own row beneath the grid, whatever its type.
   stackValue?: boolean;
   dragging?: boolean;
   className?: string;
   onlySafeToEditVariationMetadata?: boolean;
-  // Auto-focus this variation's Name field on mount.
   autoFocusName?: boolean;
   // JSON features only. Renders the value as a sparse patch (merged onto the
   // feature default) in the value editor.
@@ -145,7 +142,6 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
     ) => {
       if (!setWeight) return;
       rebalance(weights, i, newValue, precision).forEach((w, j) => {
-        // The weight needs updating
         if (w !== weights[j]) {
           setWeight(j, w);
         }
@@ -164,8 +160,6 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
         px="2"
         py="3"
         style={{
-          // A rule between rows rather than a box around each — this reads as a
-          // table, and a boxed row per variation was too heavy.
           borderBottom:
             i < variations.length - 1 ? "1px solid var(--slate-4)" : undefined,
           opacity: dragging ? 0.5 : undefined,
@@ -244,11 +238,9 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             (!setVariations ? (
               <span>{variation.featureValue ?? ""}</span>
             ) : valueType === "boolean" ? (
-              // A choice, not free text. Own picker rather than the shared
-              // field's, whose labels are upper case.
+              // Own picker rather than the shared field's, whose labels
+              // are upper case.
               <SelectField
-                // 32px, matching `Field size="md"`. SelectField's own "medium"
-                // is 40px — the two components' size names do not line up.
                 size="md"
                 value={variation.featureValue === "true" ? "true" : "false"}
                 options={[

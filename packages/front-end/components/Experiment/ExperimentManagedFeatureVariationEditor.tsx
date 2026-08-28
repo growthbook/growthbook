@@ -56,7 +56,7 @@ export interface Props {
   startEditingSplits?: boolean;
   showPreview?: boolean;
   hideCoverage?: boolean;
-  /** Rendered between the coverage widget and the variations table. */
+  // Rendered between the coverage widget and the variations table.
   belowCoverage?: ReactNode;
   disableCoverage?: boolean;
   disableVariations?: boolean;
@@ -69,15 +69,11 @@ export interface Props {
   simple?: boolean;
   sortableClassName?: string;
   onlySafeToEditVariationMetadata?: boolean;
-  // When set, the variation with this id has its Name field auto-focused on
-  // mount.
   autoFocusVariationId?: string | null;
-  // When true, a new variation is appended once on mount (reusing the same
-  // "Add variation" behavior) and its Name field is auto-focused.
+  // Appends a variation once on mount and focuses its Name field.
   autoAddVariationOnMount?: boolean;
-  // JSON features only. When true, each variation value is rendered as a sparse
-  // patch (merged onto the feature default). Pass-through to the value editor;
-  // callers own the sparse toggle since it's a rule-level flag.
+  // JSON only: render each value as a sparse patch onto the feature default.
+  // Callers own the toggle, since it's a rule-level flag.
   sparse?: boolean;
 }
 
@@ -131,8 +127,8 @@ export default function ExperimentManagedFeatureVariationEditor({
   const [numberOfVariations, setNumberOfVariations] = useState(
     Math.max(variations?.length ?? 2, 2) + "",
   );
-  // JSON needs the room, and advanced mode already spends the row's width on the
-  // id and description columns — in both cases the value gets its own row.
+  // JSON needs the room, and advanced mode spends the row's width on the id
+  // and description columns; both put the value on its own row.
   const stackValue = valueType === "json" || editingIds;
 
   // Descriptions are advanced-mode detail; stacking the value frees the room.
@@ -181,8 +177,6 @@ export default function ExperimentManagedFeatureVariationEditor({
     defaultValue,
   ]);
 
-  // Id of a variation added on mount via autoAddVariationOnMount; used to
-  // auto-focus its Name field.
   const [autoAddedVariationId, setAutoAddedVariationId] = useState<
     string | null
   >(null);
@@ -195,7 +189,6 @@ export default function ExperimentManagedFeatureVariationEditor({
       setAutoAddedVariationId(newId);
       setNumberOfVariations((variations?.length ?? 0) + 1 + "");
     }
-    // Only run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoAddVariationOnMount]);
 
@@ -376,6 +369,15 @@ export default function ExperimentManagedFeatureVariationEditor({
                   </div>
                 </div>
               </div>
+              {showPreview && coverage !== undefined && variations ? (
+                <Box pb="3">
+                  <ExperimentSplitVisual
+                    coverage={coverage}
+                    values={variations}
+                    type={valueType ?? "string"}
+                  />
+                </Box>
+              ) : null}
             </div>
           ) : null}
 
@@ -572,16 +574,6 @@ export default function ExperimentManagedFeatureVariationEditor({
                       </Box>
                     </Box>
                   )}
-
-                {showPreview && coverage !== undefined && variations ? (
-                  <div className="box pt-3 px-3">
-                    <ExperimentSplitVisual
-                      coverage={coverage}
-                      values={variations}
-                      type={valueType ?? "string"}
-                    />
-                  </div>
-                ) : null}
               </div>
             </Box>
           )}

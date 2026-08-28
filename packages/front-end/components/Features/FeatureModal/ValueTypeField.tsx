@@ -3,7 +3,10 @@ import { FeatureValueType } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
-import SelectField, { isSingleValue } from "@/components/Forms/SelectField";
+import SelectField, {
+  isSingleValue,
+  SelectFieldSize,
+} from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
@@ -26,13 +29,15 @@ const ValueTypeField: FC<{
   allowConfig?: boolean;
   /** Reorders the base types; config, when offered, stays last. */
   order?: FeatureValueType[];
-}> = ({ onChange, value, allowConfig = false, order }) => {
+  /** Defaults to the un-migrated `legacy` the feature modals already use. */
+  size?: SelectFieldSize;
+}> = ({ onChange, value, allowConfig = false, order, size = "legacy" }) => {
   const { hasCommercialFeature } = useUser();
   const canUseConfig = hasCommercialFeature("feature-configs");
 
   return (
     <SelectField
-      size="legacy"
+      size={size}
       label="Value Type"
       value={value}
       onChange={(v) => onChange(v as FeatureAuthoringType)}

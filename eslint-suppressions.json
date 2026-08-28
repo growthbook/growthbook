@@ -645,11 +645,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/FeatureModal/ValueTypeField.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/FeatureModal/index.tsx": {
     "no-restricted-imports": {
       "count": 1

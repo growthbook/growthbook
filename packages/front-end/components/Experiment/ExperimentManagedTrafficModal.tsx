@@ -24,7 +24,7 @@ import EditTrafficModal from "./EditTrafficModal";
 import ExperimentManagedFeatureVariationEditor from "./ExperimentManagedFeatureVariationEditor";
 import { ManagedSortableVariation } from "./ExperimentManagedFeatureVariationRow";
 
-/** Boolean is a poor fit for most experiments, so it sits last. */
+// Boolean is a poor fit for most experiments, so it sits last.
 const VALUE_TYPE_ORDER: FeatureValueType[] = [
   "string",
   "json",
@@ -38,23 +38,14 @@ export interface Props {
   linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   safeToEdit: boolean;
-  // Auto-focus this variation's Name field when the modal opens.
   focusVariationId?: string | null;
-  // Append a new variation on open and focus its Name field.
   addVariationOnOpen?: boolean;
 }
 
-/**
- * The Edit Traffic & Variations modal for an experiment whose implementation is
- * a single Feature Flag: the variations table gains a Value column, and saving
- * stages the flag's values alongside the experiment change. A flag the
- * experiment manages also gets the value-type picker.
- *
- * A fork of `EditTrafficModal` rather than a branch inside it — this path
- * carries its own state, its own second write, and its own editor, and none of
- * that belongs in the form every other experiment uses. Anything else is
- * delegated straight back.
- */
+// Edit Traffic & Variations for an experiment whose only implementation is a
+// Feature Flag: the table gains a Value column, and saving stages the flag's
+// values alongside the experiment change. A fork of `EditTrafficModal` rather
+// than a branch inside it; anything else is delegated straight back.
 export default function ExperimentManagedTrafficModal({
   close,
   experiment,
@@ -69,9 +60,8 @@ export default function ExperimentManagedTrafficModal({
       isManagedByExperiment(f.feature, experiment.id),
     ) ?? null;
 
-  // A Value column can only name "the" flag when the experiment has exactly one
-  // implementation; with several, or a flag alongside visual changes or a
-  // redirect, it would be editing one of them arbitrarily.
+  // A Value column can only name "the" flag when there is exactly one
+  // implementation; with several it would be editing one arbitrarily.
   const soleFeature =
     (linkedFeatures ?? []).length === 1 &&
     !experiment.hasVisualChangesets &&
@@ -79,11 +69,8 @@ export default function ExperimentManagedTrafficModal({
       ? (linkedFeatures ?? [])[0]
       : null;
 
-  // A flag this experiment does not manage can only be edited here while the
-  // experiment is a draft — the server refuses otherwise, because a running
-  // experiment's shared flag has to be edited and published from the flag
-  // itself. A managed flag carries no such limit: it is read-only on the
-  // Feature Flag page and publishes from the experiment at any time.
+  // The server only accepts value edits for an unmanaged flag while the
+  // experiment is a draft; a managed one it accepts at any time.
   const editableSoleFeature =
     soleFeature &&
     experiment.status === "draft" &&
@@ -96,8 +83,6 @@ export default function ExperimentManagedTrafficModal({
 
   const targetFeature = managedFeature ?? editableSoleFeature;
 
-  // No single editable flag, or not the direct-edit path: the original modal
-  // owns it.
   if (!targetFeature || !safeToEdit) {
     return (
       <EditTrafficModal
@@ -137,9 +122,8 @@ function ManagedTrafficForm({
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
-  /** The Feature Flag this experiment manages. */
   targetFeature: LinkedFeatureInfo;
-  /** Only a flag this experiment manages may be re-typed from here. */
+  // Only a flag this experiment manages may be re-typed from here.
   canEditValueType: boolean;
   focusVariationId?: string | null;
   addVariationOnOpen?: boolean;
@@ -149,8 +133,7 @@ function ManagedTrafficForm({
   const isBandit = experiment.type === "multi-armed-bandit";
   const feature = targetFeature?.feature ?? null;
 
-  // Every change to an existing flag's values is a draft edit — including the
-  // value a newly added variation needs.
+  // Including the value a newly added variation needs.
   const canEditValues =
     !!feature && permissionsUtil.canEditFeatureDrafts(feature);
 
@@ -166,7 +149,7 @@ function ManagedTrafficForm({
 
   const typeChanged = !!feature && valueType !== feature.valueType;
 
-  /** Re-express what is already there rather than clearing it. */
+  // Re-express what is already there rather than clearing it.
   const handleValueTypeChange = (next: FeatureValueType) => {
     if (next === valueType) return;
     setFeatureValues((current) =>
@@ -204,8 +187,7 @@ function ManagedTrafficForm({
     },
   });
 
-  // Only the managed editor's rows carry a flag value; read it structurally so
-  // the shared editor's row type still satisfies this.
+  // Structural so the shared editor's row type still satisfies it.
   const featureValueOf = (row: { id: string; featureValue?: string }) =>
     row.featureValue ?? "";
 
@@ -290,8 +272,7 @@ function ManagedTrafficForm({
     }
 
     // Experiment state first, then the flag's values. The second call re-sends
-    // the variations so the server still cross-checks that every variation has a
-    // value — a new variation and the value it needs are validated together.
+    // the variations so the server cross-checks that each one has a value.
     await apiCall(`/experiment/${experiment.id}`, {
       method: "POST",
       body: JSON.stringify(data),
@@ -366,8 +347,9 @@ function ManagedTrafficForm({
             {...sharedVariationProps}
             belowCoverage={
               canEditValueType ? (
-                <Box mb="3">
+                <Box mb="3" width="200px">
                   <ValueTypeField
+                    size="md"
                     value={valueType}
                     order={VALUE_TYPE_ORDER}
                     onChange={(v) => {
