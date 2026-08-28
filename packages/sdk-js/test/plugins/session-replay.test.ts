@@ -58,7 +58,7 @@ function buildGrowthBook() {
 
 function seedSessionReplayId(sessionReplayId: string) {
   sessionStorage.setItem(
-    "gb_session",
+    "gb_session_replay_id",
     JSON.stringify({
       session_replay_id: sessionReplayId,
       lastTouchedAt: Date.now(),
@@ -217,14 +217,14 @@ describe("sessionReplayPlugin — stopRecording keepalive flush", () => {
     global.fetch = fetchMock;
 
     const initialStored = JSON.parse(
-      sessionStorage.getItem("gb_session") || "{}",
+      sessionStorage.getItem("gb_session_replay_id") || "{}",
     ) as { session_replay_id?: string };
 
     jest.advanceTimersByTime(31 * 60 * 1000);
     await flushMicrotasks();
 
     const rotatedStored = JSON.parse(
-      sessionStorage.getItem("gb_session") || "{}",
+      sessionStorage.getItem("gb_session_replay_id") || "{}",
     ) as { session_replay_id?: string };
     expect(rotatedStored.session_replay_id).toBeTruthy();
     expect(rotatedStored.session_replay_id).not.toBe(
