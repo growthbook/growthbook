@@ -1,10 +1,32 @@
-import { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { HoldoutInterface, ApiUpdateHoldoutBody } from "shared/validators";
+import { holdoutSizeToCoverage } from "shared/util";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { logger } from "back-end/src/util/logger";
+import type { ReqContext } from "back-end/types/request";
 import {
   getHoldoutLivePayloadChanges,
+  assertCanUpdateHoldout,
+  assertValidHoldoutEnvironments,
+  assertValidHoldoutSchedule,
   getNextScheduledStatusUpdateForStage,
   isHoldoutExperiment,
   normalizeHoldoutScheduleUpdates,
+  setHoldoutStage,
+  updateHoldoutWithExperiment,
 } from "back-end/src/services/holdouts";
+
+jest.mock("back-end/src/models/ExperimentModel", () => ({
+  updateExperiment: jest.fn(),
+  createExperiment: jest.fn(),
+  deleteExperimentByIdForOrganization: jest.fn(),
+  getExperimentsByIds: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/features", () => ({
+  queueSDKPayloadRefresh: jest.fn(),
+}));
 
 function makeExperiment(
   overrides: Partial<ExperimentInterface> = {},
@@ -16,7 +38,7 @@ function makeExperiment(
   } as unknown as ExperimentInterface;
 }
 
-function makeHoldout(
+function makeHoldoutExperiment(
   phases: { coverage: number }[],
 ): ExperimentInterface & { type: "holdout" } {
   return makeExperiment({
@@ -47,7 +69,7 @@ describe("isHoldoutExperiment", () => {
 });
 
 describe("getHoldoutLivePayloadChanges", () => {
-  const experiment = makeHoldout([{ coverage: 0.1 }]);
+  const experiment = makeHoldoutExperiment([{ coverage: 0.1 }]);
 
   it("reports a change when coverage differs from phase 0", () => {
     expect(getHoldoutLivePayloadChanges(experiment, 0.2)).toEqual({
@@ -71,7 +93,10 @@ describe("getHoldoutLivePayloadChanges", () => {
   });
 
   it("uses phase 0 as the payload phase, ignoring later phases", () => {
-    const multiPhase = makeHoldout([{ coverage: 0.1 }, { coverage: 0.9 }]);
+    const multiPhase = makeHoldoutExperiment([
+      { coverage: 0.1 },
+      { coverage: 0.9 },
+    ]);
     // Matches phase 0 (0.1) -> no change, even though phase 1 differs.
     expect(
       getHoldoutLivePayloadChanges(multiPhase, 0.1).changesLivePayload,
@@ -331,5 +356,574 @@ describe("getNextScheduledStatusUpdateForStage", () => {
     expect(
       getNextScheduledStatusUpdateForStage({ startAt: SOON }, "draft"),
     ).toBeNull();
+  });
+});
+
+describe("rollbackExperimentAfterHoldoutFailure", () => {
+  const mockUpdateExperiment = updateExperiment as jest.Mock;
+  const mockQueueSDKPayloadRefresh = queueSDKPayloadRefresh as jest.Mock;
+
+  const makeRollbackExperiment = (
+    overrides: Partial<ExperimentInterface> = {},
+  ): ExperimentInterface =>
+    ({
+      id: "exp_1",
+      organization: "org",
+      name: "Old",
+      status: "running",
+      phases: [{ dateEnded: undefined }],
+      dateUpdated: new Date("2026-07-28T12:00:00.000Z"),
+      ...overrides,
+    }) as unknown as ExperimentInterface;
+
+  const makeRollbackHoldout = (
+    overrides: Partial<HoldoutInterface> = {},
+  ): HoldoutInterface =>
+    ({
+      id: "hld_1",
+      organization: "org",
+      name: "Old",
+      projects: [],
+      environmentSettings: {},
+      statusUpdateSchedule: null,
+      nextScheduledStatusUpdate: null,
+      analysisStartDate: undefined,
+      ...overrides,
+    }) as unknown as HoldoutInterface;
+
+  const makeContext = (holdoutUpdate: jest.Mock): ReqContext =>
+    ({
+      org: { id: "org", settings: {} },
+      models: { holdout: { update: holdoutUpdate } },
+    }) as unknown as ReqContext;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("metadata updates", () => {
+    it("rolls the experiment back to the fields it wrote", async () => {
+      const experiment = makeRollbackExperiment();
+      mockUpdateExperiment
+        .mockResolvedValueOnce(makeRollbackExperiment({ name: "New" }))
+        .mockResolvedValueOnce(makeRollbackExperiment({ name: "Old" }));
+      const holdoutUpdate = jest
+        .fn()
+        .mockRejectedValue(new Error("holdout down"));
+
+      await expect(
+        updateHoldoutWithExperiment(makeContext(holdoutUpdate), {
+          holdout: makeRollbackHoldout(),
+          experiment,
+          body: { name: "New" } as ApiUpdateHoldoutBody,
+        }),
+      ).rejects.toThrow("holdout down");
+
+      expect(mockUpdateExperiment).toHaveBeenCalledTimes(2);
+      const rollbackCall = mockUpdateExperiment.mock.calls[1][0];
+      expect(rollbackCall.guard).toBeUndefined();
+      expect(rollbackCall.changes).toEqual({ name: "Old" });
+    });
+
+    it("logs for manual reconciliation when the rollback write fails", async () => {
+      mockUpdateExperiment
+        .mockResolvedValueOnce(makeRollbackExperiment({ name: "New" }))
+        .mockRejectedValueOnce(new Error("revert down"));
+      const holdoutUpdate = jest
+        .fn()
+        .mockRejectedValue(new Error("holdout down"));
+      const error = jest.spyOn(logger, "error").mockImplementation();
+
+      await expect(
+        updateHoldoutWithExperiment(makeContext(holdoutUpdate), {
+          holdout: makeRollbackHoldout(),
+          experiment: makeRollbackExperiment(),
+          body: { name: "New" } as ApiUpdateHoldoutBody,
+        }),
+      ).rejects.toThrow("holdout down");
+
+      expect(error).toHaveBeenCalledTimes(1);
+      expect(error.mock.calls[0][1]).toContain("need reconciling by hand");
+    });
+  });
+
+  describe("targeting updates", () => {
+    it("mirrors targeting changes across every phase", async () => {
+      const experiment = makeExperiment({
+        phases: [
+          {
+            name: "Holdout",
+            condition: "{}",
+            savedGroups: [],
+            coverage: 0.5,
+          },
+          {
+            name: "Analysis",
+            condition: "{}",
+            savedGroups: [],
+            coverage: 0.5,
+          },
+        ] as unknown as ExperimentInterface["phases"],
+      });
+      mockUpdateExperiment.mockResolvedValueOnce(experiment);
+      const holdoutUpdate = jest.fn();
+
+      const savedGroupTargeting = [{ match: "all" as const, ids: ["grp_1"] }];
+      await updateHoldoutWithExperiment(makeContext(holdoutUpdate), {
+        holdout: makeRollbackHoldout(),
+        experiment,
+        body: {
+          targetingCondition: '{"country":"US"}',
+          savedGroupTargeting,
+          holdoutSize: 0.2,
+        } as ApiUpdateHoldoutBody,
+      });
+
+      expect(mockUpdateExperiment).toHaveBeenCalledTimes(1);
+      const { changes } = mockUpdateExperiment.mock.calls[0][0];
+      const expectedCoverage = holdoutSizeToCoverage(0.2);
+      expect(changes.phases).toHaveLength(2);
+      for (const phase of changes.phases) {
+        expect(phase.condition).toBe('{"country":"US"}');
+        expect(phase.savedGroups).toEqual(savedGroupTargeting);
+        expect(phase.coverage).toBe(expectedCoverage);
+      }
+      // Non-targeting fields are preserved.
+      expect(changes.phases[0].name).toBe("Holdout");
+      expect(changes.phases[1].name).toBe("Analysis");
+    });
+  });
+
+  describe("registered attributes", () => {
+    const makeStrictContext = (): ReqContext =>
+      ({
+        org: {
+          id: "org",
+          settings: {
+            environments: [{ id: "production" }],
+            requireRegisteredAttributes: { isOn: true },
+            attributeSchema: [{ property: "id", datatype: "string" }],
+          },
+        },
+        models: {
+          holdout: { update: jest.fn() },
+          projects: { ensureProjectsExist: jest.fn() },
+        },
+      }) as unknown as ReqContext;
+
+    const experiment = () =>
+      makeExperiment({
+        status: "running",
+        hashAttribute: "id",
+        phases: [
+          { condition: '{"country":"US"}', coverage: 0.1 },
+        ] as unknown as ExperimentInterface["phases"],
+      });
+
+    it("rejects a condition that introduces an unregistered attribute", async () => {
+      await expect(
+        updateHoldoutWithExperiment(makeStrictContext(), {
+          holdout: makeRollbackHoldout(),
+          experiment: experiment(),
+          body: {
+            targetingCondition: '{"made_up":"x"}',
+          } as ApiUpdateHoldoutBody,
+        }),
+      ).rejects.toThrow(/made_up/);
+    });
+
+    it("allows a change that leaves the stored attributes alone", async () => {
+      mockUpdateExperiment.mockResolvedValueOnce(experiment());
+      // Echoes back the stored condition, which is already unregistered.
+      await expect(
+        updateHoldoutWithExperiment(makeStrictContext(), {
+          holdout: makeRollbackHoldout(),
+          experiment: experiment(),
+          body: {
+            targetingCondition: '{"country":"US"}',
+            holdoutSize: 0.2,
+          } as ApiUpdateHoldoutBody,
+        }),
+      ).resolves.toBeDefined();
+    });
+  });
+
+  describe("payload refresh", () => {
+    const makePayloadContext = (holdoutUpdate: jest.Mock): ReqContext =>
+      ({
+        org: { id: "org", settings: { environments: [{ id: "production" }] } },
+        models: {
+          holdout: { update: holdoutUpdate },
+          projects: { ensureProjectsExist: jest.fn() },
+        },
+      }) as unknown as ReqContext;
+
+    const withProjects = (projects: string[]) =>
+      makeRollbackHoldout({
+        projects,
+        environmentSettings: { production: { enabled: true } },
+      } as unknown as Partial<HoldoutInterface>);
+
+    it("invalidates the old and the new keys when a running holdout moves projects", async () => {
+      const holdoutUpdate = jest
+        .fn()
+        .mockResolvedValue(withProjects(["prj_2"]));
+
+      await updateHoldoutWithExperiment(makePayloadContext(holdoutUpdate), {
+        holdout: withProjects(["prj_1"]),
+        experiment: makeExperiment({ status: "running" }),
+        body: { projects: ["prj_2"] } as ApiUpdateHoldoutBody,
+      });
+
+      expect(mockQueueSDKPayloadRefresh).toHaveBeenCalledTimes(1);
+      const { payloadKeys } = mockQueueSDKPayloadRefresh.mock.calls[0][0];
+      expect(payloadKeys).toEqual(
+        expect.arrayContaining([
+          { environment: "production", project: "prj_2" },
+          { environment: "production", project: "prj_1" },
+        ]),
+      );
+    });
+
+    it("skips the refresh when the holdout is not running", async () => {
+      const holdoutUpdate = jest
+        .fn()
+        .mockResolvedValue(withProjects(["prj_2"]));
+
+      await updateHoldoutWithExperiment(makePayloadContext(holdoutUpdate), {
+        holdout: withProjects(["prj_1"]),
+        experiment: makeExperiment({ status: "draft" }),
+        body: { projects: ["prj_2"] } as ApiUpdateHoldoutBody,
+      });
+
+      expect(mockQueueSDKPayloadRefresh).not.toHaveBeenCalled();
+    });
+
+    it("skips the refresh for a metadata-only change", async () => {
+      const holdoutUpdate = jest
+        .fn()
+        .mockResolvedValue(withProjects(["prj_1"]));
+      mockUpdateExperiment.mockResolvedValueOnce(
+        makeExperiment({ status: "running" }),
+      );
+
+      await updateHoldoutWithExperiment(makePayloadContext(holdoutUpdate), {
+        holdout: withProjects(["prj_1"]),
+        experiment: makeExperiment({ status: "running" }),
+        body: { description: "new" } as ApiUpdateHoldoutBody,
+      });
+
+      expect(mockQueueSDKPayloadRefresh).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("lifecycle transitions", () => {
+    it("rolls back to the status and phases it wrote", async () => {
+      const experiment = makeRollbackExperiment({ status: "running" });
+      mockUpdateExperiment
+        .mockResolvedValueOnce(makeRollbackExperiment({ status: "stopped" }))
+        .mockResolvedValueOnce(makeRollbackExperiment({ status: "running" }));
+      const holdoutUpdate = jest
+        .fn()
+        .mockRejectedValue(new Error("holdout down"));
+
+      await expect(
+        setHoldoutStage(makeContext(holdoutUpdate), {
+          holdout: makeRollbackHoldout(),
+          experiment,
+          stage: "stopped",
+        }),
+      ).rejects.toThrow("holdout down");
+
+      expect(mockUpdateExperiment).toHaveBeenCalledTimes(2);
+      const rollbackCall = mockUpdateExperiment.mock.calls[1][0];
+      expect(rollbackCall.guard).toBeUndefined();
+      expect(rollbackCall.changes.status).toBe("running");
+    });
+
+    it("refreshes anyway when the rollback itself fails", async () => {
+      // The experiment write stands, and payload eligibility reads its status,
+      // so the cache no longer matches the database.
+      const experiment = makeExperiment({ status: "running" });
+      mockUpdateExperiment
+        .mockResolvedValueOnce(makeExperiment({ status: "stopped" }))
+        .mockRejectedValueOnce(new Error("experiment down"));
+      const holdoutUpdate = jest
+        .fn()
+        .mockRejectedValue(new Error("holdout down"));
+
+      await expect(
+        setHoldoutStage(makeContext(holdoutUpdate), {
+          holdout: makeRollbackHoldout(),
+          experiment,
+          stage: "stopped",
+        }),
+      ).rejects.toThrow("holdout down");
+
+      const events = mockQueueSDKPayloadRefresh.mock.calls.map(
+        ([arg]) => arg.auditContext.event,
+      );
+      expect(events).toEqual(["Rollback failed: Status changed to stopped"]);
+    });
+
+    it("never queues the forward refresh when the holdout write is rolled back", async () => {
+      const experiment = makeExperiment({ status: "running" });
+      mockUpdateExperiment
+        .mockResolvedValueOnce(makeExperiment({ status: "stopped" }))
+        .mockResolvedValueOnce(makeExperiment({ status: "running" }));
+      const holdoutUpdate = jest
+        .fn()
+        .mockRejectedValue(new Error("holdout down"));
+
+      await expect(
+        setHoldoutStage(makeContext(holdoutUpdate), {
+          holdout: makeRollbackHoldout(),
+          experiment,
+          stage: "stopped",
+        }),
+      ).rejects.toThrow("holdout down");
+
+      const events = mockQueueSDKPayloadRefresh.mock.calls.map(
+        ([arg]) => arg.auditContext.event,
+      );
+      // Only the reverted-state refresh runs, not the forward one.
+      expect(events).toEqual(["Reverted: Status changed to stopped"]);
+    });
+  });
+});
+
+describe("assertValidHoldoutEnvironments", () => {
+  const context = {
+    org: {
+      id: "org",
+      settings: {
+        environments: [{ id: "production" }, { id: "staging" }],
+      },
+    },
+  } as unknown as ReqContext;
+
+  it("passes when every id exists in the org", () => {
+    expect(() =>
+      assertValidHoldoutEnvironments(context, {
+        production: { enabled: true },
+        staging: { enabled: false },
+      }),
+    ).not.toThrow();
+  });
+
+  it("throws when an id does not exist in the org", () => {
+    expect(() =>
+      assertValidHoldoutEnvironments(context, {
+        production: { enabled: true },
+        made_up: { enabled: true },
+      }),
+    ).toThrow(/Invalid environment: made_up/);
+  });
+
+  it("is a no-op for undefined or null", () => {
+    expect(() =>
+      assertValidHoldoutEnvironments(context, undefined),
+    ).not.toThrow();
+    expect(() => assertValidHoldoutEnvironments(context, null)).not.toThrow();
+  });
+
+  it("tolerates ids already stored on the holdout", () => {
+    expect(() =>
+      assertValidHoldoutEnvironments(
+        context,
+        { deleted: { enabled: false } },
+        { deleted: { enabled: true } },
+      ),
+    ).not.toThrow();
+  });
+
+  it("still rejects newly introduced ids on update", () => {
+    expect(() =>
+      assertValidHoldoutEnvironments(
+        context,
+        { deleted: { enabled: false }, made_up: { enabled: true } },
+        { deleted: { enabled: true } },
+      ),
+    ).toThrow(/Invalid environment: made_up/);
+  });
+});
+
+describe("assertValidHoldoutSchedule", () => {
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("is a no-op for an absent schedule", () => {
+    expect(() =>
+      assertValidHoldoutSchedule({ schedule: null, currentStage: "draft" }),
+    ).not.toThrow();
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: undefined,
+        currentStage: "draft",
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts consecutive future dates on a draft", () => {
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: {
+          startAt: SOON,
+          startAnalysisPeriodAt: LATER,
+          stopAt: LATEST,
+        },
+        currentStage: "draft",
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects dates in the past for the stage they apply to", () => {
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: { startAt: PAST },
+        currentStage: "draft",
+      }),
+    ).toThrow(/start date cannot be in the past/);
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: { startAnalysisPeriodAt: PAST },
+        currentStage: "running",
+      }),
+    ).toThrow(/analysis start date cannot be in the past/);
+  });
+
+  it("rejects a stop date that is missing the dates leading up to it", () => {
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: { startAt: SOON, stopAt: LATEST },
+        currentStage: "draft",
+      }),
+    ).toThrow(/you must also set a start date and an analysis start date/);
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: { stopAt: LATEST },
+        currentStage: "running",
+      }),
+    ).toThrow(/you must first set an analysis start date/);
+  });
+
+  it("rejects out-of-order dates", () => {
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: {
+          startAt: LATER,
+          startAnalysisPeriodAt: SOON,
+          stopAt: LATEST,
+        },
+        currentStage: "draft",
+      }),
+    ).toThrow(/must be consecutive/);
+  });
+
+  it("accepts ISO strings, as the REST API sends them", () => {
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: {
+          startAt: SOON.toISOString(),
+          startAnalysisPeriodAt: LATER.toISOString(),
+          stopAt: LATEST.toISOString(),
+        },
+        currentStage: "draft",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: { startAt: PAST.toISOString() },
+        currentStage: "draft",
+      }),
+    ).toThrow(/start date cannot be in the past/);
+  });
+
+  it("allows an analysis period that already started to stop at any future date", () => {
+    expect(() =>
+      assertValidHoldoutSchedule({
+        schedule: { startAnalysisPeriodAt: LATEST, stopAt: LATER },
+        currentStage: "analysis-period",
+        analysisStartDate: PAST,
+      }),
+    ).not.toThrow();
+  });
+});
+
+describe("assertCanUpdateHoldout", () => {
+  const makeContext = (canRun: boolean) =>
+    ({
+      org: { id: "org", settings: { environments: [{ id: "production" }] } },
+      permissions: {
+        canUpdateHoldout: () => true,
+        canRunHoldout: () => canRun,
+        throwPermissionError: () => {
+          throw new Error("permission denied");
+        },
+      },
+    }) as unknown as ReqContext;
+
+  const base = {
+    holdout: {
+      projects: [],
+      environmentSettings: { production: { enabled: true } },
+    } as unknown as HoldoutInterface,
+    isTargetingChange: false,
+    isScheduleChange: false,
+    isArchiveChange: false,
+    isRunning: true,
+  };
+
+  it("requires run permission to archive a running holdout", () => {
+    // Archiving pulls it out of the live payload, same as disabling every env.
+    expect(() =>
+      assertCanUpdateHoldout(makeContext(false), {
+        ...base,
+        isArchiveChange: true,
+      }),
+    ).toThrow("permission denied");
+    expect(() =>
+      assertCanUpdateHoldout(makeContext(true), {
+        ...base,
+        isArchiveChange: true,
+      }),
+    ).not.toThrow();
+  });
+
+  it("does not require run permission to archive a holdout that is not running", () => {
+    expect(() =>
+      assertCanUpdateHoldout(makeContext(false), {
+        ...base,
+        isArchiveChange: true,
+        isRunning: false,
+      }),
+    ).not.toThrow();
+  });
+
+  it("does not require run permission for a metadata-only change", () => {
+    expect(() =>
+      assertCanUpdateHoldout(makeContext(false), base),
+    ).not.toThrow();
+  });
+
+  it("requires run permission for targeting and schedule changes", () => {
+    expect(() =>
+      assertCanUpdateHoldout(makeContext(false), {
+        ...base,
+        isTargetingChange: true,
+      }),
+    ).toThrow("permission denied");
+    expect(() =>
+      assertCanUpdateHoldout(makeContext(false), {
+        ...base,
+        isScheduleChange: true,
+        isRunning: false,
+      }),
+    ).toThrow("permission denied");
   });
 });
