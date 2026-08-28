@@ -171,7 +171,7 @@ import {
   ejectManagedFeature,
   getManagedFeatureForExperiment,
   publishManagedDraft,
-  stageManagedValueType,
+  stageManagedFeatureFields,
   requestReviewForManagedDraft,
 } from "back-end/src/services/managedFeatures";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
@@ -4539,17 +4539,21 @@ export async function postExperimentFeatureValues(
     // Staged before the values so both land on the same draft and publish
     // together — the values below are already expressed in the new type.
     const requestedType = features[feature.id].valueType;
-    if (requestedType && requestedType !== feature.valueType) {
-      if (!isManagedByExperiment(feature, experiment.id)) {
-        throw new Error(
-          `Feature ${feature.id}: only a Feature Flag managed by this experiment can change its value type here.`,
-        );
-      }
-      revision = await stageManagedValueType({
+    const managedHere = isManagedByExperiment(feature, experiment.id);
+    if (requestedType && requestedType !== feature.valueType && !managedHere) {
+      throw new Error(
+        `Feature ${feature.id}: only a Feature Flag managed by this experiment can change its value type here.`,
+      );
+    }
+    if (managedHere) {
+      // Control drives a managed flag's default value, so it is staged whenever
+      // either that or the type moves. A shared flag's default belongs to the
+      // flag, not to this experiment, so it is left alone.
+      revision = await stageManagedFeatureFields({
         context,
         feature,
         revision,
-        valueType: requestedType,
+        ...(requestedType && { valueType: requestedType }),
         defaultValue: updatedVariationValues[0].value,
         eventAudit: res.locals.eventAudit,
       });

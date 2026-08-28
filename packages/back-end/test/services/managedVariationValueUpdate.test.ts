@@ -239,9 +239,40 @@ describe("updateManagedVariationValues value type", () => {
   /** The changes staged on the revision by the type change. */
   const staged = () => mockUpdateRevision.mock.calls[0][3];
 
-  it("does nothing extra when the type is unchanged", async () => {
+  it("stages the default value when control moves", async () => {
+    // A managed flag exists to serve this experiment, so control is its
+    // baseline — the default must not keep serving a value control left behind.
+    await update({ valueType: "string" });
+    expect(staged()).toEqual({ defaultValue: "a" });
+  });
+
+  it("leaves the default alone when control has not moved", async () => {
+    mockActiveDraft.mockResolvedValue({ version: 8, defaultValue: "a" });
+    mockValidate.mockResolvedValue([
+      {
+        feature: managedFeature(),
+        existingRevision: { version: 8, defaultValue: "a" },
+        matchingRules: [],
+      },
+    ]);
+
     await update({ valueType: "string" });
     expect(mockUpdateRevision).not.toHaveBeenCalled();
+  });
+
+  it("compares the default against the draft, not the live feature", async () => {
+    // An earlier edit on this same draft may already have staged it.
+    mockActiveDraft.mockResolvedValue({ version: 8, defaultValue: "stale" });
+    mockValidate.mockResolvedValue([
+      {
+        feature: managedFeature(),
+        existingRevision: { version: 8, defaultValue: "stale" },
+        matchingRules: [],
+      },
+    ]);
+
+    await update({ valueType: "string" });
+    expect(staged()).toEqual({ defaultValue: "a" });
   });
 
   it("stages the type and the default value together", async () => {

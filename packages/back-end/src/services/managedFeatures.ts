@@ -370,6 +370,11 @@ export async function createManagedFeatureForExperiment({
     managedBy: { type: "experiment", experimentId: experiment.id },
   };
 
+  // Create alone: the flag is born inert (no rules, disabled everywhere), so
+  // nothing here reaches a payload. The rule, values and environment enablement
+  // land on the first draft; only a publish makes them serve. Seeded values are
+  // derived from variation keys, not authored — so this is create's own initial
+  // content, not an unchecked draft edit.
   if (
     !context.permissions.canCreateFeature(
       baseFeature,
@@ -880,18 +885,27 @@ export async function adoptManagedFlagForExperiment({
  * experiment at any time, so staging is too.
  */
 /**
- * Stages the flag's value type on a draft, so the change is reviewed and
- * published with the values expressed in it rather than landing on a live flag
- * whose values still read as the old type.
+ * Stages the flag-level fields a managed flag's variation values imply, on the
+ * same draft as the values themselves.
  *
- * `defaultValue` moves with it: it is the flag's fallback and would otherwise
- * be left reading as the type that just went away.
+ * The value type, when it moves: publishing it together with values expressed in
+ * it is what stops a live flag briefly holding values that no longer read as its
+ * type.
+ *
+ * The default value, which tracks CONTROL. A managed flag exists only to serve
+ * this experiment, so control is its baseline: `createManagedFeatureForExperiment`
+ * already seeds the default from control, and without this it would keep the
+ * original value while control moved on — leaving whatever serves when the rule
+ * does not match stale, and leaving sparse variation patches merging onto a
+ * baseline nobody chose.
  *
  * A managed flag never carries a JSON schema or a backing Config — it is created
  * without either and locked against the routes that would add one — so there is
  * nothing type-specific left behind to clear.
+ *
+ * Returns the revision unchanged when neither field moved.
  */
-export async function stageManagedValueType({
+export async function stageManagedFeatureFields({
   context,
   feature,
   revision,
@@ -902,33 +916,51 @@ export async function stageManagedValueType({
   context: ReqContext;
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
-  valueType: FeatureValueType;
-  defaultValue: string;
+  /** Omit to keep the type the flag already has. */
+  valueType?: FeatureValueType;
+  /** Control's value. Omit to leave the default alone. */
+  defaultValue?: string;
   eventAudit: EventUser;
 }): Promise<FeatureRevisionInterface> {
+  const typeChanged =
+    valueType !== undefined && valueType !== feature.valueType;
+  // Against the draft, not the feature: an earlier edit on this same draft may
+  // already have staged it.
+  const defaultChanged =
+    defaultValue !== undefined && defaultValue !== revision.defaultValue;
+
+  if (!typeChanged && !defaultChanged) return revision;
+
   const updated = await updateRevision(
     context,
     feature,
     revision,
     {
-      // Merged, not replaced: `updateRevision` writes `metadata` wholesale, so
-      // anything else already staged on this draft would be dropped.
-      metadata: { ...revision.metadata, valueType },
-      defaultValue,
+      ...(typeChanged && {
+        // Merged, not replaced: `updateRevision` writes `metadata` wholesale, so
+        // anything else already staged on this draft would be dropped.
+        metadata: { ...revision.metadata, valueType },
+      }),
+      ...(defaultChanged && { defaultValue }),
     },
     {
       user: eventAudit,
-      action: "change value type",
-      subject: `from ${feature.valueType} to ${valueType}`,
-      value: JSON.stringify({ valueType }),
+      action: typeChanged ? "change value type" : "change default value",
+      subject: typeChanged
+        ? `from ${feature.valueType} to ${valueType}`
+        : "to match the control variation",
+      value: JSON.stringify({
+        ...(typeChanged && { valueType }),
+        ...(defaultChanged && { defaultValue }),
+      }),
     },
-    // The type governs every value the flag serves, so a standing approval no
-    // longer covers what is about to publish.
+    // Both fields govern what the flag serves beyond this experiment's rule, so
+    // a standing approval no longer covers what is about to publish.
     true,
   );
   if (!updated) {
     throw new Error(
-      `Could not stage the value type change on Feature Flag "${feature.id}"`,
+      `Could not stage the Feature Flag changes on "${feature.id}"`,
     );
   }
   return updated;
@@ -997,16 +1029,15 @@ export async function updateManagedVariationValues({
     plan.existingRevision ??
     (await getDraftRevision(context, feature, feature.version));
 
-  if (typeChanged) {
-    revision = await stageManagedValueType({
-      context,
-      feature,
-      revision,
-      valueType: targetType,
-      defaultValue: values[0].value,
-      eventAudit,
-    });
-  }
+  // Control drives the flag's default, so it is staged whenever either moves.
+  revision = await stageManagedFeatureFields({
+    context,
+    feature,
+    revision,
+    ...(typeChanged && { valueType: targetType }),
+    defaultValue: values[0].value,
+    eventAudit,
+  });
 
   revision = await updateExperimentRefVariations({
     context,
