@@ -57,8 +57,6 @@ module.exports = {
     "^@typespec/ts-http-runtime/internal/(.*)$":
       "<rootDir>/../../node_modules/.pnpm/@typespec+ts-http-runtime@0.3.1/node_modules/@typespec/ts-http-runtime/dist/commonjs/$1/internal.js",
   },
-  globalSetup: "<rootDir>/test/globalSetup.ts",
-  globalTeardown: "<rootDir>/test/globalTeardown.ts",
   setupFilesAfterEnv: ["<rootDir>/test/jest.setup.ts"],
   // For non-CI, lets make sure to cap the workers
   ...(process.env.CI ? {} : { maxWorkers: "50%" }),
