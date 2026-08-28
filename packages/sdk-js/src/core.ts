@@ -877,7 +877,7 @@ function getContextualBanditLeaf(
 
 const CONTEXTUAL_BANDIT_FALLBACK_LEAF_ID = -1;
 
-function buildContextualBanditExperiment<T>(
+export function buildContextualBanditExperiment<T>(
   experiment: Experiment<T>,
   contextualBanditRef: string,
   id: string,

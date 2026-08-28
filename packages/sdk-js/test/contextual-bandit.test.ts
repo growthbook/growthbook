@@ -1,6 +1,17 @@
 import { GrowthBook } from "../src";
 import { GrowthBookClient } from "../src/GrowthBookClient";
-import { ContextualBanditDefinitions } from "../src/types/growthbook";
+import {
+  AutoExperiment,
+  ContextualBanditDefinitions,
+  Result,
+} from "../src/types/growthbook";
+
+function sleep(ms = 20) {
+  return new Promise((res) => setTimeout(res, ms));
+}
+
+global.structuredClone =
+  global.structuredClone || ((val) => JSON.parse(JSON.stringify(val)));
 
 function cbRule(overrides: Record<string, unknown> = {}) {
   return {
@@ -484,6 +495,167 @@ describe("contextual bandit feature rules", () => {
     expect(res.experimentResult?.leafId).toEqual(1);
     expect(res.experimentResult?.variationWeights).toEqual([1, 0]);
     expect(res.experimentResult?.banditVersion).toEqual(7);
+
+    gb.destroy();
+  });
+});
+
+function cbAutoExperiment(overrides: Record<string, unknown> = {}) {
+  return {
+    key: "bandit-visual",
+    changeId: "chg_abc123",
+    seed: "bandit-visual",
+    hashAttribute: "id",
+    hashVersion: 2,
+    coverage: 1,
+    weights: [1, 0],
+    meta: [{ key: "0" }, { key: "1" }],
+    contextualBanditRef: "cb-bandit",
+    variations: [
+      {},
+      {
+        css: "h1 { color: red; }",
+        domMutations: [
+          {
+            selector: "h1",
+            action: "set" as const,
+            attribute: "html",
+            value: "new",
+          },
+        ],
+      },
+    ],
+    ...overrides,
+  } as AutoExperiment;
+}
+
+describe("contextual bandit auto experiments", () => {
+  beforeEach(() => {
+    document.head.innerHTML = "";
+    document.body.innerHTML = "<h1>title</h1>";
+  });
+
+  it("buckets on the matching leaf's weights and applies that variation's changes", async () => {
+    const trackingCallback = jest.fn();
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "free" },
+      trackingCallback,
+      experiments: [cbAutoExperiment()],
+      contextualBandits: cbMap(),
+    });
+
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>new</h1>");
+    expect(document.head.innerHTML).toEqual(
+      "<style>h1 { color: red; }</style>",
+    );
+
+    expect(trackingCallback.mock.calls.length).toEqual(1);
+    const [experiment, result] = trackingCallback.mock.calls[0];
+    expect(experiment.key).toEqual("bandit-visual");
+    expect(result.variationId).toEqual(1);
+    expect(result.leafId).toEqual(2);
+    expect(result.variationWeights).toEqual([0, 1]);
+    expect(result.banditVersion).toEqual(7);
+
+    gb.destroy();
+  });
+
+  it("never writes leaf weights onto the payload experiment object", async () => {
+    const exp = cbAutoExperiment();
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "free" },
+      experiments: [exp],
+      contextualBandits: cbMap(),
+    });
+
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>new</h1>");
+    expect(gb.getExperiments()[0]).toBe(exp);
+    expect(exp.weights).toEqual([1, 0]);
+    expect(exp.contextualBandit).toBeUndefined();
+
+    gb.destroy();
+  });
+
+  it("buckets on the aggregate weights with no leaf metadata when the ref is dangling", async () => {
+    const trackingCallback = jest.fn();
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "free" },
+      trackingCallback,
+      experiments: [cbAutoExperiment()],
+    });
+
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>title</h1>");
+    expect(document.head.innerHTML).toEqual("");
+
+    expect(trackingCallback.mock.calls.length).toEqual(1);
+    const [, result] = trackingCallback.mock.calls[0];
+    expect(result.variationId).toEqual(0);
+    expect(result.leafId).toBeUndefined();
+    expect(result.variationWeights).toBeUndefined();
+    expect(result.banditVersion).toBeUndefined();
+
+    gb.destroy();
+  });
+
+  it("re-runs on attribute changes and switches leaves", async () => {
+    const exp = cbAutoExperiment();
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "enterprise" },
+      experiments: [exp],
+      contextualBandits: cbMap(),
+    });
+
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>title</h1>");
+
+    await gb.setAttributes({ id: "u1", plan: "free" });
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>new</h1>");
+    expect(exp.weights).toEqual([1, 0]);
+    expect(exp.contextualBandit).toBeUndefined();
+
+    gb.destroy();
+  });
+
+  it("reports no leaf metadata when the user is excluded by coverage", async () => {
+    const results: Result<unknown>[] = [];
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "free" },
+      experiments: [cbAutoExperiment({ coverage: 0 })],
+      contextualBandits: cbMap(),
+      disableExperimentsOnLoad: true,
+    });
+    gb.subscribe((_, result) => {
+      results.push(result);
+    });
+    gb.triggerAutoExperiments();
+
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>title</h1>");
+    expect(results.length).toEqual(1);
+    expect(results[0].inExperiment).toEqual(false);
+    expect(results[0].leafId).toBeUndefined();
+    expect(results[0].variationWeights).toBeUndefined();
+
+    gb.destroy();
+  });
+
+  it("does not evaluate the bandit when visual experiments are disabled", async () => {
+    const trackingCallback = jest.fn();
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "free" },
+      trackingCallback,
+      disableVisualExperiments: true,
+      experiments: [cbAutoExperiment()],
+      contextualBandits: cbMap(),
+    });
+
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>title</h1>");
+    expect(trackingCallback.mock.calls.length).toEqual(0);
 
     gb.destroy();
   });
