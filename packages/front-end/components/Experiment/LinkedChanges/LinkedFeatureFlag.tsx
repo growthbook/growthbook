@@ -137,8 +137,6 @@ export default function LinkedFeatureFlag({
       env,
       state,
       isActive: state === "active",
-      // Draft is the only status where the rule hasn't taken effect yet;
-      // stopped experiments read in the past/present tense like running ones.
       tooltip: getEnvironmentStateTooltip(state, experiment.status !== "draft"),
     }),
   );

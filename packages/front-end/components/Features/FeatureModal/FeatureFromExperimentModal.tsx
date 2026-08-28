@@ -308,7 +308,6 @@ export default function FeatureFromExperimentModal({
         ? // New feature, or the selected one hasn't loaded yet.
           { allEnvironments: true, selectedEnvironments: NO_ENVIRONMENTS }
         : {
-            // Every available environment enabled → keep "All Environments".
             allEnvironments:
               environments.length > 0 &&
               enabledEnvsForDestination.length === environments.length,

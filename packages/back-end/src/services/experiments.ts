@@ -4962,11 +4962,6 @@ export async function getRefLinkedFeatureInfo({
   linkedFeatureIds: string[];
   refIsDraft: boolean;
   matchRule: (rule: FeatureRule) => boolean;
-  /**
-   * Drafts queued for auto-publish when the parent entity starts. Only these
-   * can be reported via `environmentsToEnable` — a draft the user created
-   * directly on the feature won't be published by the start flow.
-   */
   pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
 }): Promise<LinkedFeatureInfo[]> {
   if (!linkedFeatureIds.length) return [];
@@ -5135,9 +5130,6 @@ export async function getRefLinkedFeatureInfo({
         ),
       );
 
-      // We render the draft's rule values, so the draft's environmentsEnabled
-      // snapshot is what the env states should reflect. Merged per-env to match
-      // `mergeRevision`, which is what publishing actually applies.
       const envEnabled = (environmentId: string): boolean =>
         (state === "draft"
           ? matchedDraftRevision?.environmentsEnabled?.[environmentId]
