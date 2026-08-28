@@ -52,6 +52,7 @@ function formatValue(value: number, format: BigValueFormat, currency: string) {
         currencyDisplay: "narrowSymbol",
       }).format(value);
     case "shortNumber":
+    default:
       return value.toFixed(0);
   }
 }

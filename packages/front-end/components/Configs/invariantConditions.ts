@@ -113,6 +113,8 @@ export function conditionToMongo(c: Condition): Record<string, unknown> {
       }
       return { [c.field]: { [MONGO_OP[c.op]]: rhs } };
     }
+    default:
+      throw new Error(`Unknown operator: ${c.op}`);
   }
 }
 

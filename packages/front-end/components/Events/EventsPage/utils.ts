@@ -162,6 +162,7 @@ export const getEventText = (event: EventInterface): string => {
     case "config.revision.publishScheduleChanged":
     case "config.revision.publishFailed":
     case "webhook.test":
+    default:
       return event.data.event;
   }
 };
