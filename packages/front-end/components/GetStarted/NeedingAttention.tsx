@@ -547,10 +547,10 @@ const NeedingAttention = (): React.ReactElement | null => {
             </TableHeader>
             <TableBody>
               {paginatedFeatureFlags.map((item) => (
-                <TableRow key={item.featureId}>
+                <TableRow key={item.id}>
                   <TableRowHeaderCell className={styles.nameTd}>
                     <Link
-                      href={`/features/${item.featureId}`}
+                      href={`/features/${item.featureId}?v=${item.version}`}
                       style={{
                         textDecoration: "none",
                         color: "inherit",
