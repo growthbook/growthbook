@@ -9,7 +9,11 @@ import {
   useState,
 } from "react";
 import { getEqualWeights } from "shared/experiments";
-import { PiArrowsClockwise, PiLockSimpleFill } from "react-icons/pi";
+import {
+  PiArrowsClockwise,
+  PiLockSimpleFill,
+  PiPlusBold,
+} from "react-icons/pi";
 import {
   decimalToPercent,
   distributeWeights,
@@ -20,9 +24,10 @@ import {
   generateVariationId,
   getDefaultVariationValue,
 } from "@/services/features";
-import { GBAddCircle, GBInfo } from "@/components/Icons";
+import { GBInfo } from "@/components/Icons";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
+import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import styles from "@/components/Features/VariationsInput.module.scss";
@@ -126,6 +131,13 @@ export default function ExperimentManagedFeatureVariationEditor({
   const [numberOfVariations, setNumberOfVariations] = useState(
     Math.max(variations?.length ?? 2, 2) + "",
   );
+  // JSON needs the room, and advanced mode already spends the row's width on the
+  // id and description columns — in both cases the value gets its own row.
+  const stackValue = valueType === "json" || editingIds;
+
+  // Descriptions are advanced-mode detail; stacking the value frees the room.
+  const showDescriptionColumn = showDescriptions || editingIds;
+
   // editingIds already encodes the notion of having bespoke IDs, so if it is false
   // it is probably safe to renormalize variation keys on sort
   const forceRenormalizeVariationKeysOnSort =
@@ -396,9 +408,9 @@ export default function ExperimentManagedFeatureVariationEditor({
                 columns={gridColumns({
                   hideVariationIds,
                   hideValueField: hideValueField || !editingIds,
-                  showDescription: showDescriptions,
+                  showDescription: showDescriptionColumn,
                   hideSplit: hideSplits,
-                  isJson: valueType === "json",
+                  stackValue,
                 })}
                 gap="4"
                 align="center"
@@ -409,23 +421,23 @@ export default function ExperimentManagedFeatureVariationEditor({
                 <>
                   {!hideVariationIds && (
                     <Text size="md" weight="semibold">
-                      Id
+                      {!valueAsId && !hideValueField && editingIds ? "#" : "Id"}
                     </Text>
                   )}
                   {!(hideValueField || !editingIds) && (
                     <Text size="md" weight="semibold">
-                      Key
+                      Id
                     </Text>
                   )}
                   <Text size="md" weight="semibold">
                     Variation Name
                   </Text>
-                  {valueType !== "json" && (
+                  {!stackValue && (
                     <Text size="md" weight="semibold">
                       Value
                     </Text>
                   )}
-                  {showDescriptions && (
+                  {showDescriptionColumn && (
                     <Text size="md" weight="semibold">
                       Description
                     </Text>
@@ -512,7 +524,8 @@ export default function ExperimentManagedFeatureVariationEditor({
                         hideValueField={hideValueField || !editingIds}
                         hideSplit={hideSplits}
                         feature={feature}
-                        showDescription={showDescriptions}
+                        stackValue={stackValue}
+                        showDescription={showDescriptionColumn}
                         className={sortableClassName}
                         autoFocusName={
                           focusVariationId !== null &&
@@ -529,38 +542,32 @@ export default function ExperimentManagedFeatureVariationEditor({
                   variations &&
                   setWeight &&
                   !onlySafeToEditVariationMetadata && (
-                    <Box mt="1" mb="3">
+                    <Box my="4">
                       <Box>
                         {valueType !== "boolean" && setVariations && (
-                          <Link
+                          <Button
+                            variant="ghost"
+                            icon={<PiPlusBold />}
                             onClick={() => {
                               addVariation();
                             }}
                           >
-                            <Flex align="center" gap="2">
-                              <GBAddCircle /> Add variation
-                            </Flex>
-                          </Link>
+                            Add variation
+                          </Button>
                         )}
                         {valueType === "boolean" && (
-                          <>
-                            <Tooltip
-                              content="Boolean features can only have two variations. Use a different feature type to add multiple variations."
-                              side="top"
+                          <Tooltip
+                            content="Boolean features can only have two variations. Use a different feature type to add multiple variations."
+                            side="top"
+                          >
+                            <Button
+                              variant="ghost"
+                              icon={<PiPlusBold />}
+                              disabled
                             >
-                              <Link
-                                style={{
-                                  cursor: "not-allowed",
-                                }}
-                              >
-                                <Flex align="center" gap="2">
-                                  <Text color="text-disabled">
-                                    <GBAddCircle /> Add variation
-                                  </Text>
-                                </Flex>
-                              </Link>
-                            </Tooltip>
-                          </>
+                              Add variation
+                            </Button>
+                          </Tooltip>
                         )}
                       </Box>
                     </Box>

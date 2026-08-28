@@ -29,7 +29,6 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import FeatureValueField from "@/components/Features/FeatureValueField";
-import styles from "@/components/Features/VariationsInput.module.scss";
 import rowStyles from "./ExperimentManagedFeatureVariationRow.module.scss";
 
 /** The one column template the header row and every variation row share. */
@@ -38,22 +37,23 @@ export function gridColumns({
   hideValueField,
   showDescription,
   hideSplit,
-  isJson,
+  stackValue,
 }: {
   hideVariationIds?: boolean;
   hideValueField?: boolean;
   showDescription?: boolean;
   hideSplit?: boolean;
-  isJson?: boolean;
+  /** The value field is on its own row, so it takes no column here. */
+  stackValue?: boolean;
 }): string {
   return [
-    hideVariationIds ? undefined : "56px",
-    hideValueField ? undefined : "minmax(120px, 1fr)",
+    hideVariationIds ? undefined : "36px",
+    hideValueField ? undefined : "minmax(80px, 0.4fr)",
     "minmax(160px, 1fr)",
-    isJson ? undefined : "minmax(180px, 1.2fr)",
+    stackValue ? undefined : "minmax(180px, 1.2fr)",
     showDescription ? "minmax(140px, 1fr)" : undefined,
-    hideSplit ? undefined : "68px",
-    "84px",
+    hideSplit ? undefined : "80px",
+    "56px",
   ]
     .filter(Boolean)
     .join(" ");
@@ -83,6 +83,8 @@ interface SortableProps {
   valueAsId: boolean;
   feature?: FeatureInterface;
   showDescription?: boolean;
+  /** Render the value on its own row beneath the grid, whatever its type. */
+  stackValue?: boolean;
   dragging?: boolean;
   className?: string;
   onlySafeToEditVariationMetadata?: boolean;
@@ -116,6 +118,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
       setWeight,
       feature,
       showDescription,
+      stackValue,
       dragging,
       className = "",
       autoFocusName,
@@ -150,6 +153,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
     };
 
     const isJson = valueType === "json";
+    const stacked = stackValue ?? isJson;
 
     return (
       <Box
@@ -158,7 +162,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
         key={`${variation.id}__${i}`}
         className={className}
         px="2"
-        py="2"
+        py="3"
         style={{
           // A rule between rows rather than a box around each — this reads as a
           // table, and a boxed row per variation was too heavy.
@@ -175,20 +179,22 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             hideValueField,
             showDescription,
             hideSplit,
-            isJson,
+            stackValue: stacked,
           })}
-          gap="4"
+          gapX="4"
+          gapY="2"
           align="center"
         >
           {!hideVariationIds && (
             <Flex align="center" gap="2" minWidth="0">
               {/* A fixed swatch: the shared .colorMarker is absolutely
-                  positioned for a table cell and stretches out of a grid. */}
+                  positioned for a table cell and stretches out of a grid.
+                  Square-edged and the height of the row's fields, so it reads
+                  as a rule rather than a pill. */}
               <Box
                 style={{
                   width: 4,
-                  height: 24,
-                  borderRadius: 2,
+                  height: 32,
                   flexShrink: 0,
                   backgroundColor: getVariationColor(i, true),
                 }}
@@ -197,26 +203,22 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             </Flex>
           )}
 
-          {!hideValueField && (
-            <FeatureValueField
-              size="md"
-              id={`value_${i}`}
-              value={variation.value}
-              placeholder={valueAsId ? i + "" : ""}
-              setValue={(value) => {
-                const newVariations = [...variations];
-                newVariations[i] = { ...variation, value };
-                setVariations?.(newVariations);
-              }}
-              valueType={valueType}
-              feature={feature}
-              renderJSONInline={false}
-              useCodeInput={true}
-              showFullscreenButton={true}
-              codeInputDefaultHeight={FIVE_LINES_HEIGHT}
-              sparse={sparse}
-            />
-          )}
+          {!hideValueField &&
+            (setVariations ? (
+              <Field
+                size="md"
+                id={`value_${i}`}
+                value={variation.value}
+                placeholder={valueAsId ? i + "" : ""}
+                onChange={(e) => {
+                  const newVariations = [...variations];
+                  newVariations[i] = { ...variation, value: e.target.value };
+                  setVariations(newVariations);
+                }}
+              />
+            ) : (
+              <span>{variation.value}</span>
+            ))}
 
           {setVariations ? (
             <Field
@@ -237,8 +239,8 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             <strong>{variation.name || ""}</strong>
           )}
 
-          {/* Scalars sit in the row; JSON gets its own full-width line below. */}
-          {!isJson &&
+          {/* Scalars sit in the row unless the layout stacks them below. */}
+          {!stacked &&
             (!setVariations ? (
               <span>{variation.featureValue ?? ""}</span>
             ) : valueType === "boolean" ? (
@@ -304,7 +306,9 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
 
           {!hideSplit &&
             (customSplit ? (
-              <div className={`position-relative ${styles.percentInputWrap}`}>
+              <div
+                className={`position-relative ${rowStyles.percentInputWrap}`}
+              >
                 <Field
                   size="md"
                   id={`${variation.id}__${i}__3__input`}
@@ -318,7 +322,6 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   min={0}
                   max={100}
                   step="any"
-                  className={styles.percentInput}
                   disabled={!setWeight}
                 />
                 <span>%</span>
@@ -327,7 +330,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
               <span>{decimalToPercent(weights[i])}%</span>
             ))}
 
-          <Flex align="center" justify="end" gap="1">
+          <Flex align="center" justify="end" gap="2">
             {variations.length > 1 &&
               setVariations &&
               !onlySafeToEditVariationMetadata && (
@@ -407,33 +410,42 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
               </DropdownMenu>
             ) : null}
           </Flex>
-        </Grid>
 
-        {isJson && (
-          <Box mt="2">
-            {setVariations ? (
-              <FeatureValueField
-                size="md"
-                id={`featureValue_${i}`}
-                value={variation.featureValue ?? ""}
-                setValue={(featureValue) => {
-                  const newVariations = [...variations];
-                  newVariations[i] = { ...variation, featureValue };
-                  setVariations(newVariations);
-                }}
-                valueType={valueType}
-                feature={feature}
-                renderJSONInline={false}
-                useCodeInput={true}
-                showFullscreenButton={true}
-                codeInputDefaultHeight={FIVE_LINES_HEIGHT}
-                sparse={sparse}
-              />
-            ) : (
-              <span>{variation.featureValue ?? ""}</span>
-            )}
-          </Box>
-        )}
+          {stacked && (
+            <Box
+              style={{
+                // Start after the id gutter and stop before the controls one,
+                // so the editor sits inside the row rather than under it.
+                gridColumn: hideVariationIds ? "1 / -2" : "2 / -2",
+              }}
+            >
+              {setVariations ? (
+                <FeatureValueField
+                  size="md"
+                  label="Value"
+                  id={`featureValue_${i}`}
+                  value={variation.featureValue ?? ""}
+                  setValue={(featureValue) => {
+                    const newVariations = [...variations];
+                    newVariations[i] = { ...variation, featureValue };
+                    setVariations(newVariations);
+                  }}
+                  valueType={valueType}
+                  feature={feature}
+                  renderJSONInline={false}
+                  useCodeInput={isJson}
+                  showFullscreenButton={isJson}
+                  codeInputDefaultHeight={
+                    isJson ? FIVE_LINES_HEIGHT : undefined
+                  }
+                  sparse={sparse}
+                />
+              ) : (
+                <span>{variation.featureValue ?? ""}</span>
+              )}
+            </Box>
+          )}
+        </Grid>
       </Box>
     );
   },

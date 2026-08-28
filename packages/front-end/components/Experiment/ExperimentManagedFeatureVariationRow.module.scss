@@ -5,4 +5,29 @@
     resize: none;
     overflow-y: auto;
   }
+
+  // Field always renders its helper-text <small>, and Bootstrap's .form-text
+  // margin-top applies even with nothing in it (React leaves an empty text node
+  // behind, so :empty misses) — 4px of dead space under the control that leaves
+  // the value sitting above the fields either side of it.
+  :global(small.form-text) {
+    margin-top: 0;
+  }
+}
+
+// The shared percent wrapper sizes its input at a fixed 7em and pins the "%" to
+// a 36px field's baseline. Both overflow an md field in a fixed-width column,
+// putting the input under the drag handle, so this row owns the styling.
+.percentInputWrap {
+  input {
+    width: 100%;
+  }
+
+  span {
+    position: absolute;
+    right: 26px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--slate-11);
+  }
 }

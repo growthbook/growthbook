@@ -3382,6 +3382,9 @@ select.form-control {
   padding-bottom: 4px;
   font-size: var(--font-size-2);
 }
+// The default floor, for textareas with no size class. Sized textareas each
+// override it below — react-textarea-autosize writes its computed height
+// inline, but min-height beats height, so a stale floor here silently wins.
 textarea.form-control {
   min-height: 36px;
   font-size: var(--font-size-2);
@@ -3397,6 +3400,9 @@ textarea.form-control--sm {
   padding-top: 2px;
   padding-bottom: 2px;
   font-size: var(--font-size-1);
+}
+textarea.form-control--sm {
+  min-height: 28px;
 }
 input.form-control--md,
 select.form-control--md {
@@ -3428,10 +3434,23 @@ textarea.form-control--legacy {
   padding-bottom: 6px;
   font-size: var(--font-size-2);
 }
+// Same idea at md, but pinned rather than approximated, because an md textarea
+// sits inline beside 32px inputs. react-textarea-autosize sets height to
+// `line-height x rows + padding + border`, so one row lands on 32 exactly:
+// 20 + 5 + 5 + 2. Each further row adds a clean 20px.
+textarea.form-control--md {
+  min-height: 32px;
+  line-height: var(--line-height-2);
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
 input.form-control--lg,
 select.form-control--lg {
   height: 40px;
   border-radius: var(--radius-3);
+}
+textarea.form-control--lg {
+  min-height: 40px;
 }
 input.form-control--lg,
 select.form-control--lg,
