@@ -40,6 +40,7 @@ import { PiPencilSimpleFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import {
   ExperimentTableRow,
+  getComputeErrorMessage,
   getEffectLabel,
   getRowResults,
   RowResults,
@@ -777,6 +778,7 @@ export default function ResultsTable({
                   };
                   let alreadyShownQueryError = false;
                   let alreadyShownQuantileError = false;
+                  let alreadyShownComputeError = false;
 
                   const rowId = row.sliceId
                     ? `${id}-${row.metric.id}-${row.sliceId}`
@@ -976,6 +978,75 @@ export default function ResultsTable({
                                   } else {
                                     return null;
                                   }
+                                }
+
+                                // Show a whole-row error only when this variation has no data to show
+                                const computeError =
+                                  getComputeErrorMessage(stats) ||
+                                  getComputeErrorMessage(baseline);
+                                if (computeError && !stats.users) {
+                                  if (alreadyShownComputeError) {
+                                    return null;
+                                  }
+                                  alreadyShownComputeError = true;
+                                  return drawEmptyRow({
+                                    key: j,
+                                    className: clsx(
+                                      "results-variation-row align-items-center error-row",
+                                      {
+                                        "last-before-slice-header":
+                                          !row.isSliceRow &&
+                                          i < rows.length - 1 &&
+                                          rows[i + 1].isSliceRow &&
+                                          JSON.stringify(
+                                            rows[i + 1].sliceLevels,
+                                          ) !==
+                                            JSON.stringify(
+                                              rows[i]?.sliceLevels || [],
+                                            ) &&
+                                          j === orderedVariations.length - 1,
+                                      },
+                                    ),
+                                    labelColSpan: includedLabelColumns.length,
+                                    renderLabel:
+                                      includedLabelColumns.length > 0,
+                                    renderGraph:
+                                      columnsToDisplay.includes("CI Graph"),
+                                    renderLastColumn:
+                                      columnsToDisplay.includes("Lift"),
+                                    label: (
+                                      <>
+                                        {compactResults ? (
+                                          <div className="position-relative">
+                                            {renderLabelColumn({
+                                              label: row.label,
+                                              metric: row.metric,
+                                              row,
+                                              location: resultGroup,
+                                            })}
+                                          </div>
+                                        ) : null}
+                                        <HelperText
+                                          status="error"
+                                          size="sm"
+                                          mx="2"
+                                        >
+                                          {computeError}
+                                        </HelperText>
+                                      </>
+                                    ),
+                                    graphCellWidth: columnsToDisplay.includes(
+                                      "CI Graph",
+                                    )
+                                      ? graphCellWidth
+                                      : 0,
+                                    rowHeight: compactResults
+                                      ? ROW_HEIGHT + 10
+                                      : ROW_HEIGHT,
+                                    id,
+                                    domain,
+                                    ssrPolyfills,
+                                  });
                                 }
 
                                 const hideScaledImpact =

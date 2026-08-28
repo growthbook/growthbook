@@ -1,0 +1,21 @@
+name: Checkout agent skills
+description: Check out the pinned GrowthBook skills so they are available to assemble during the build
+
+runs:
+  using: composite
+  steps:
+    - name: Read GrowthBook skills revision
+      id: agent-skills
+      shell: bash
+      run: |
+        REPOSITORY=$(node -p "require('./packages/back-end/agent-skills.lock.json').repository")
+        REF=$(node -p "require('./packages/back-end/agent-skills.lock.json').commit")
+        echo "repository=$REPOSITORY" >> "$GITHUB_OUTPUT"
+        echo "ref=$REF" >> "$GITHUB_OUTPUT"
+
+    - name: Checkout GrowthBook skills
+      uses: actions/checkout@v5
+      with:
+        repository: ${{ steps.agent-skills.outputs.repository }}
+        ref: ${{ steps.agent-skills.outputs.ref }}
+        path: skills-src

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
@@ -363,12 +364,10 @@ export const funnelOrderingValidator = z.enum([
 ]);
 export type FunnelOrdering = z.infer<typeof funnelOrderingValidator>;
 
-export const MAX_FACT_METRIC_FUNNEL_STEPS = 20;
-
 // Funnel-as-experiment-metric settings. Mirrors the quantileSettings pattern:
 // a nullable sub-object on the fact metric. Statistically a proportion.
 export const funnelSettingsValidator = z.object({
-  steps: z.array(funnelStepValidator).min(2).max(MAX_FACT_METRIC_FUNNEL_STEPS),
+  steps: z.array(funnelStepValidator).min(2).max(MAX_FUNNEL_STEPS),
   ordering: funnelOrderingValidator.optional(),
   // Out-of-order tolerance between adjacent steps (seconds). Optional; only
   // meaningful for ordered modes (ignored for "unordered").

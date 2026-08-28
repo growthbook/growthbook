@@ -2203,7 +2203,8 @@ Triggered when an experiment is created
                 scheduledStopPlan?: {
                     mode: "notify" | "auto-ship" | "force-ship" | "stop";
                     tiebreakerMetricId?: string | undefined;
-                    fallback: "notify" | "force-ship";
+                    /** What to do at the scheduled end when there is no clear winner. Required when `mode` is `"auto-ship"`; ignored for other modes. */
+                    fallback?: ("notify" | "force-ship") | undefined;
                     fallbackVariationId?: string | undefined;
                 } | undefined;
             } | null) | undefined;
@@ -2472,7 +2473,8 @@ Triggered when an experiment is updated
                 scheduledStopPlan?: {
                     mode: "notify" | "auto-ship" | "force-ship" | "stop";
                     tiebreakerMetricId?: string | undefined;
-                    fallback: "notify" | "force-ship";
+                    /** What to do at the scheduled end when there is no clear winner. Required when `mode` is `"auto-ship"`; ignored for other modes. */
+                    fallback?: ("notify" | "force-ship") | undefined;
                     fallbackVariationId?: string | undefined;
                 } | undefined;
             } | null) | undefined;
@@ -2702,7 +2704,8 @@ Triggered when an experiment is updated
                 scheduledStopPlan?: {
                     mode: "notify" | "auto-ship" | "force-ship" | "stop";
                     tiebreakerMetricId?: string | undefined;
-                    fallback: "notify" | "force-ship";
+                    /** What to do at the scheduled end when there is no clear winner. Required when `mode` is `"auto-ship"`; ignored for other modes. */
+                    fallback?: ("notify" | "force-ship") | undefined;
                     fallbackVariationId?: string | undefined;
                 } | undefined;
             } | null) | undefined;
@@ -2976,7 +2979,8 @@ Triggered when an experiment is deleted
                 scheduledStopPlan?: {
                     mode: "notify" | "auto-ship" | "force-ship" | "stop";
                     tiebreakerMetricId?: string | undefined;
-                    fallback: "notify" | "force-ship";
+                    /** What to do at the scheduled end when there is no clear winner. Required when `mode` is `"auto-ship"`; ignored for other modes. */
+                    fallback?: ("notify" | "force-ship") | undefined;
                     fallbackVariationId?: string | undefined;
                 } | undefined;
             } | null) | undefined;
