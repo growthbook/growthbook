@@ -27,6 +27,7 @@ import Link from "@/ui/Link";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/ui/Tooltip";
+import Frame from "@/ui/Frame";
 import {
   formatTrafficSplit,
   getHoldoutTrafficBreakdown,
@@ -634,12 +635,7 @@ export default function StartExperimentModal({
                     <Flex direction="column" gap="2">
                       {linkedFeatures.map((info) =>
                         info.feature?.id ? (
-                          <Box
-                            key={info.feature.id}
-                            className="appbox"
-                            p="3"
-                            mb="0"
-                          >
+                          <Frame key={info.feature.id} px="3" py="3" mb="0">
                             <Flex align="center" justify="between" gap="3">
                               <Link
                                 href={`/features/${info.feature.id}`}
@@ -663,7 +659,7 @@ export default function StartExperimentModal({
                                 />
                               )}
                             </Flex>
-                          </Box>
+                          </Frame>
                         ) : null,
                       )}
                     </Flex>
