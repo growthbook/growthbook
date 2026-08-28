@@ -96,7 +96,7 @@ export const postBulkImportFactsValidator = {
     .strict(),
   summary: "Bulk import fact tables, filters, and metrics",
   description:
-    "Creates or updates Fact Tables, Fact Table filters, and Fact Metrics. Resources upsert by `id`. Pass `dryRun: true` to validate with zero writes. Not transactional: a live mid-loop failure returns HTTP 400 with write counts and `errors`.",
+    "Creates or updates Fact Tables, Fact Table filters, and Fact Metrics. Resources upsert by `id`. Pass `dryRun: true` to validate with zero writes. Not transactional: a live mid-loop failure returns HTTP 400 (403 for a permission failure) with write counts and `errors`.",
   operationId: "postBulkImportFacts",
   tags: ["fact-tables"],
   method: "post" as const,

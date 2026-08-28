@@ -78,7 +78,8 @@ export const postBulkImportFacts = createApiRequestHandler(
     id: string,
     err: unknown,
   ) => {
-    if (err instanceof PermissionError) throw err;
+    // Live mode falls through so the 403 still reports what was written
+    if (dryRun && err instanceof PermissionError) throw err;
     const message = err instanceof Error ? err.message : String(err);
     errors.push({
       resourceType,
@@ -87,7 +88,12 @@ export const postBulkImportFacts = createApiRequestHandler(
     });
     if (!dryRun) {
       await registerTagsIfNeeded();
-      throw new BulkImportPartialFailureError(message, writeCounts(), errors);
+      throw new BulkImportPartialFailureError(
+        message,
+        writeCounts(),
+        errors,
+        err instanceof PermissionError ? 403 : 400,
+      );
     }
   };
 
@@ -164,7 +170,6 @@ export const postBulkImportFacts = createApiRequestHandler(
   if (req.body.factTables) {
     for (const { data, id } of req.body.factTables) {
       try {
-        data.tags?.forEach((t) => tagsToAdd.add(t));
         if (data.projects) validateProjectIds(data.projects);
 
         const managedBy =
@@ -336,6 +341,8 @@ export const postBulkImportFacts = createApiRequestHandler(
             numCreated.factTables++;
           }
         }
+        // Last, so a failed item doesn't leave its tags behind
+        data.tags?.forEach((t) => tagsToAdd.add(t));
       } catch (e) {
         await onItemError("factTable", id, e);
       }
@@ -417,7 +424,6 @@ export const postBulkImportFacts = createApiRequestHandler(
     for (const { id: origId, data } of req.body.factMetrics) {
       const id = origId.match(/^fact__/) ? origId : `fact__${origId}`;
       try {
-        data.tags?.forEach((t) => tagsToAdd.add(t));
         if (data.projects) validateProjectIds(data.projects);
 
         const managedBy =
@@ -459,12 +465,14 @@ export const postBulkImportFacts = createApiRequestHandler(
           }
 
           if (dryRun) {
+            const updated = { ...existing, ...changes } as FactMetricInterface;
             await FactMetricModel.validateFactMetric(
-              { ...existing, ...changes } as FactMetricInterface,
+              updated,
               existing,
               factTableMap,
               req.context,
             );
+            factMetricMap.set(existing.id, updated);
           } else {
             const newFactMetric = await req.context.models.factMetrics.update(
               existing,
@@ -489,18 +497,20 @@ export const postBulkImportFacts = createApiRequestHandler(
           }
 
           if (dryRun) {
+            const created = {
+              ...createProps,
+              id,
+              organization: req.organization.id,
+              dateCreated: new Date(),
+              dateUpdated: new Date(),
+            } as FactMetricInterface;
             await FactMetricModel.validateFactMetric(
-              {
-                ...createProps,
-                id,
-                organization: req.organization.id,
-                dateCreated: new Date(),
-                dateUpdated: new Date(),
-              } as FactMetricInterface,
+              created,
               null,
               factTableMap,
               req.context,
             );
+            factMetricMap.set(id, created);
           } else {
             const newFactMetric =
               await req.context.models.factMetrics.create(createProps);
@@ -508,6 +518,7 @@ export const postBulkImportFacts = createApiRequestHandler(
           }
           numCreated.factMetrics++;
         }
+        data.tags?.forEach((t) => tagsToAdd.add(t));
       } catch (e) {
         await onItemError("factMetric", id, e);
       }
