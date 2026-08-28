@@ -222,8 +222,8 @@ export type ContextualLeafStatsEntry = {
 
 /**
  * Total within-tree SSE captured at each stage of greedy regression-tree
- * growth: index 0 is the root (before the first split), the next entry is the
- * total SSE after the first split, then after the second split, etc.
+ * growth: index 0 is the root (before the first split), the next entry is
+ * total SSE after the first split, etc.
  */
 export type ContextualSseTrajectoryEntry = {
   /** Number of splits applied so far. 0 = root, before the first split. */
@@ -242,14 +242,9 @@ export type ContextualSseTrajectoryEntry = {
  * from the per-(split, variation) SSE trajectory.
  */
 export type ContextualBicTrajectoryEntry = {
-  /** Number of splits after applying this split (its resulting stage; >= 1). */
+  /** Number of splits after applying this split (>= 1). */
   numSplits: number;
-  /**
-   * Likelihood-ratio statistic for the split:
-   * `sum_v N_v * ln(SSE_before_v / SSE_after_v)`.
-   */
   logLikelihoodRatio: number;
-  /** BIC complexity penalty `K * ln(N)` for the split's K new parameters. */
   penalty: number;
   /** `penalty - logLikelihoodRatio`; a negative value favors keeping the split. */
   deltaBic: number;

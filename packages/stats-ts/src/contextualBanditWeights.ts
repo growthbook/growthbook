@@ -248,10 +248,7 @@ function partitionByContext(
 }
 
 /**
- * Per-variation within-group SSE from each member's arm statistics: for each
- * variation, pool the arms across members and return `(n - 1) * variance`. The
- * total within-group SSE (the objective the tree greedily reduces) is the sum
- * of the returned array across variations.
+ * Per-variation within-group SSE.
  */
 function sumOfSquaredErrorsPerVariationFromArms(
   armsPerMember: ContextualBanditArm[][],
@@ -278,7 +275,6 @@ function sumOfSquaredErrorsPerVariationFromArms(
   return sse;
 }
 
-/** Per-variation within-group SSE over a set of contexts (pools their arms). */
 function sumOfSquaredErrorsPerVariation(
   contexts: ContextEntry[],
   metric: MetricSettingsForStatsEngine,
@@ -681,10 +677,7 @@ type BuildTreeResult = {
   /** One entry per tree leaf, keyed by leaf id. */
   leafInfo: Map<number, LeafInfo>;
   /**
-   * Per-variation within-tree SSE at each stage of greedy growth, in order:
-   * index 0 is the root (before the first split), index 1 is after the first
-   * split, etc. Each stage is a per-variation array whose sum is that stage's
-   * total within-tree SSE.
+   * SSE by (stage, variation).  stage = 0 is the root (before the first split)
    */
   sseTrajectory: number[][];
 };
@@ -856,7 +849,7 @@ function buildTree(
 
   const sseTrajectory: number[][] = [totalSsePerVariation()];
 
-  // Per-variation total sample size across all contexts, and the constant BIC
+  // Per-variation total sample size across all contexts, and the BIC
   // complexity penalty K*ln(N). Used to gate each split by whether it lowers
   // BIC (deltaBic < 0).
   const armTotalSampleSizes = new Array<number>(numVariations).fill(0);
@@ -903,8 +896,8 @@ function buildTree(
       break;
     }
 
-    // BIC stopping gate: the chosen split maximizes SSE reduction, but only
-    // apply it if it lowers BIC.
+    // BIC stopping gate: the chosen split maximizes SSE reduction, but split
+    // only if it lowers BIC.
     const beforePerVariation = sseTrajectory[sseTrajectory.length - 1];
     const parentEntries: ContextEntry[] = [];
     const movingEntries: ContextEntry[] = [];
@@ -987,18 +980,18 @@ function buildTree(
   return { leafInfo, sseTrajectory };
 }
 
-/**
- * BIC complexity penalty for a single split: the split adds one new leaf, i.e.
- * `numVariations` new per-variation means, charged `K * ln(N)` with `N` the
- * total sample size (0 when there are no units).
- */
 function bicPenalty(numVariations: number, totalSampleSize: number): number {
   return totalSampleSize > 0 ? numVariations * Math.log(totalSampleSize) : 0;
 }
 
+// Relative floor applied to a variation's post-split pooled SSE when it drops to
+// (near) zero, so the likelihood ratio stays finite and scale-invariant. Caps a
+// single variation's per-split contribution at armTotalSampleSize * ln(1/floor).
+const SSE_RATIO_FLOOR = 1e-6;
+
 /**
  * BIC change for a single split given the total-tree per-variation SSE before
- * and after it. lower deltaBIC is better.
+ * and after it.
  */
 function bicDeltaForSplit(
   beforePerVariation: number[],
@@ -1008,11 +1001,12 @@ function bicDeltaForSplit(
 ): { logLikelihoodRatio: number; deltaBic: number } {
   let logLikelihoodRatio = 0;
   for (let v = 0; v < armTotalSampleSizes.length; v++) {
-    if (beforePerVariation[v] > 0 && afterPerVariation[v] > 0) {
-      logLikelihoodRatio +=
-        armTotalSampleSizes[v] *
-        Math.log(beforePerVariation[v] / afterPerVariation[v]);
-    }
+    const before = beforePerVariation[v];
+    // No baseline variance => no improvement to measure (ln(0/0) is undefined).
+    if (before <= 0) continue;
+    const after = Math.max(afterPerVariation[v], before * SSE_RATIO_FLOOR);
+    logLikelihoodRatio +=
+      armTotalSampleSizes[v] * (Math.log(before) - Math.log(after));
   }
   return { logLikelihoodRatio, deltaBic: penalty - logLikelihoodRatio };
 }
@@ -1138,8 +1132,6 @@ export function computeContextualBanditWeights(
     }),
   );
 
-  // Per-variation total sample size across every context; feeds the BIC
-  // likelihood ratio and complexity penalty computed from the SSE trajectory.
   const armTotalSampleSizes = new Array<number>(numVariations).fill(0);
   for (const ctx of contexts) {
     for (let v = 0; v < numVariations; v++) {
