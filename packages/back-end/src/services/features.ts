@@ -8,6 +8,7 @@ import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
   GrowthBook,
+  InterleaveExperiment,
 } from "@growthbook/growthbook";
 import {
   buildReverseDependencyIndex,
@@ -143,6 +144,7 @@ import { Counter, Histogram, metrics } from "back-end/src/util/metrics";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import { getInterleaveExperimentsForPayload } from "back-end/src/enterprise/services/interleavingPayload";
 import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
@@ -1102,6 +1104,7 @@ export type FeatureDefinitionsResponseArgs = {
   usedSavedGroups: SavedGroupInterface[];
   savedGroupReferencesEnabled?: boolean;
   contextualBandits?: ContextualBanditDefinitions;
+  interleaveExperiments?: InterleaveExperiment[];
   organization: OrganizationInterface;
 };
 export async function getFeatureDefinitionsResponse({
@@ -1116,6 +1119,7 @@ export async function getFeatureDefinitionsResponse({
   capabilities,
   usedSavedGroups,
   contextualBandits,
+  interleaveExperiments,
   savedGroupReferencesEnabled,
   organization,
 }: FeatureDefinitionsResponseArgs): Promise<{
@@ -1128,6 +1132,7 @@ export async function getFeatureDefinitionsResponse({
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
+  interleaveExperiments?: InterleaveExperiment[];
 }> {
   features = cloneDeep(features);
   let processedExperiments: AutoExperiment[] =
@@ -1251,6 +1256,10 @@ export async function getFeatureDefinitionsResponse({
       ...(contextualBanditsForPayload !== undefined && {
         contextualBandits: contextualBanditsForPayload,
       }),
+      // Only running interleaving experiments reach the payload (filtered at
+      // fetch time); omitted entirely from encrypted payloads for now since
+      // SDKs do not decrypt this section yet
+      ...(interleaveExperiments?.length && { interleaveExperiments }),
     };
   }
 
@@ -1567,6 +1576,11 @@ export async function buildSDKPayloadForConnection(
     attributes = context.org.settings?.attributeSchema;
   }
 
+  const interleaveExperiments = await getInterleaveExperimentsForPayload(
+    context,
+    projectList,
+  );
+
   return getFeatureDefinitionsResponse({
     features: featuresWithHoldouts,
     experiments:
@@ -1585,6 +1599,7 @@ export async function buildSDKPayloadForConnection(
       !!savedGroupReferencesEnabled &&
       capabilities.includes("savedGroupReferences"),
     contextualBandits: contextualBanditsInUse,
+    interleaveExperiments,
     organization: context.org,
   });
 }
@@ -1599,6 +1614,7 @@ export type FeatureDefinitionSDKPayload = {
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
+  interleaveExperiments?: InterleaveExperiment[];
 };
 
 export async function getFeatureDefinitions(

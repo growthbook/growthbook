@@ -16255,6 +16255,70 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/interleavings/{id}/results' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/start:
+    post:
+      operationId: startInterleaving
+      summary: Start a draft interleaving experiment
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleaving:
+                    $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleaving
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/interleavings/{id}/start' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/stop:
+    post:
+      operationId: stopInterleaving
+      summary: Stop a running interleaving experiment
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleaving:
+                    $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleaving
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/interleavings/{id}/stop' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/snapshots/{id}:
     get:
       operationId: getExperimentSnapshot
@@ -54880,6 +54944,95 @@ components:
         - experiment
         - visualChanges
       additionalProperties: false
+    Interleaving:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        name:
+          type: string
+        description:
+          type: string
+        project:
+          type: string
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        archived:
+          type: boolean
+        status:
+          type: string
+          enum:
+            - draft
+            - running
+            - stopped
+        dateStarted:
+          type: string
+          format: date-time
+        dateStopped:
+          type: string
+          format: date-time
+        trackingKey:
+          type: string
+        datasource:
+          type: string
+        interleavingQueryId:
+          type: string
+        variationNames:
+          type: array
+          prefixItems:
+            - type: string
+            - type: string
+        metrics:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              estimator:
+                type: string
+                enum:
+                  - paired
+                  - ownership
+            required:
+              - id
+              - estimator
+            additionalProperties: false
+        measurementArmPercent:
+          type: number
+          minimum: 0
+          exclusiveMaximum: 100
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - owner
+        - tags
+        - archived
+        - status
+        - trackingKey
+        - datasource
+        - interleavingQueryId
+        - variationNames
+        - metrics
+      additionalProperties: false
     Metric:
       type: object
       properties:
@@ -63681,95 +63834,6 @@ components:
         - userIdType
         - query
         - targetingAttributeColumns
-      additionalProperties: false
-    Interleaving:
-      type: object
-      properties:
-        id:
-          type: string
-        dateCreated:
-          type: string
-          format: date-time
-        dateUpdated:
-          type: string
-          format: date-time
-        name:
-          type: string
-        description:
-          type: string
-        project:
-          type: string
-        owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
-          type: string
-        ownerEmail:
-          description: >-
-            The email address of the owner, when the owner can be resolved to a
-            known user.
-          type: string
-        tags:
-          type: array
-          items:
-            type: string
-        archived:
-          type: boolean
-        status:
-          type: string
-          enum:
-            - draft
-            - running
-            - stopped
-        dateStarted:
-          type: string
-          format: date-time
-        dateStopped:
-          type: string
-          format: date-time
-        trackingKey:
-          type: string
-        datasource:
-          type: string
-        interleavingQueryId:
-          type: string
-        variationNames:
-          type: array
-          prefixItems:
-            - type: string
-            - type: string
-        metrics:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              estimator:
-                type: string
-                enum:
-                  - paired
-                  - ownership
-            required:
-              - id
-              - estimator
-            additionalProperties: false
-        measurementArmPercent:
-          type: number
-          minimum: 0
-          exclusiveMaximum: 100
-      required:
-        - id
-        - dateCreated
-        - dateUpdated
-        - name
-        - owner
-        - tags
-        - archived
-        - status
-        - trackingKey
-        - datasource
-        - interleavingQueryId
-        - variationNames
-        - metrics
       additionalProperties: false
     InterleavingQuery:
       type: object

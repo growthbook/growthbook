@@ -4,6 +4,8 @@ import { Box, Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import { interleavingStatusIndicatorData } from "@/services/interleavings";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -13,12 +15,6 @@ import { useInterleavings } from "@/hooks/useInterleavings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-
-const STATUS_COLORS = {
-  draft: "gray",
-  running: "indigo",
-  stopped: "gray",
-} as const;
 
 export default function InterleavingListPage() {
   const router = useRouter();
@@ -91,9 +87,8 @@ export default function InterleavingListPage() {
               >
                 <td>{il.name}</td>
                 <td>
-                  <Badge
-                    label={il.status}
-                    color={STATUS_COLORS[il.status] ?? "gray"}
+                  <ExperimentStatusIndicator
+                    experimentData={interleavingStatusIndicatorData(il)}
                   />
                 </td>
                 <td>

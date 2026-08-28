@@ -7,6 +7,8 @@ import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { InterleavingResultsQueryRunner } from "back-end/src/enterprise/queryRunners/InterleavingResultsQueryRunner";
+import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 
 type Context = ReqContext | ApiReqContext;
 
@@ -106,4 +108,62 @@ export async function cancelInterleavingLatestRunningSnapshot(
   await runner.cancelQueries();
   await context.models.interleavingSnapshots.delete(latest);
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Lifecycle: draft -> running -> stopped. Only running interleaving
+// experiments are served in the SDK payload, so status transitions must
+// refresh the SDK payload cache for the affected project/environments.
+// ---------------------------------------------------------------------------
+
+async function refreshInterleavingPayload(
+  context: Context,
+  interleaving: InterleavingInterface,
+): Promise<void> {
+  const payloadKeys = getEnvironmentIdsFromOrg(context.org).map(
+    (environment) => ({
+      environment,
+      project: interleaving.project || "",
+    }),
+  );
+  await refreshSDKPayloadCache({
+    context,
+    payloadKeys,
+    treatEmptyProjectAsGlobal: true,
+    auditContext: {
+      event: "interleaving.statusChange",
+      model: "interleaving",
+      id: interleaving.id,
+    },
+  });
+}
+
+export async function startInterleaving(
+  context: Context,
+  interleaving: InterleavingInterface,
+): Promise<InterleavingInterface> {
+  if (interleaving.status !== "draft") {
+    throw new Error("Only draft interleaving experiments can be started");
+  }
+  const updated = await context.models.interleavings.update(interleaving, {
+    status: "running",
+    dateStarted: new Date(),
+  });
+  await refreshInterleavingPayload(context, updated);
+  return updated;
+}
+
+export async function stopInterleaving(
+  context: Context,
+  interleaving: InterleavingInterface,
+): Promise<InterleavingInterface> {
+  if (interleaving.status !== "running") {
+    throw new Error("Only running interleaving experiments can be stopped");
+  }
+  const updated = await context.models.interleavings.update(interleaving, {
+    status: "stopped",
+    dateStopped: new Date(),
+  });
+  await refreshInterleavingPayload(context, updated);
+  return updated;
 }

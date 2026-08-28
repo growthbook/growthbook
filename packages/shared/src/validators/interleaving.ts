@@ -153,6 +153,36 @@ export type ApiUpdateInterleavingBody = z.infer<
 
 const interleavingIdOnlyParam = z.object({ id: z.string() }).strict();
 
+const interleavingLifecycleResponse = z
+  .object({ interleaving: apiInterleavingValidator })
+  .strict();
+
+// Lifecycle: draft -> running -> stopped. Only running interleaving
+// experiments are included in the SDK payload.
+export const startInterleavingValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: interleavingIdOnlyParam,
+  responseSchema: interleavingLifecycleResponse,
+  summary: "Start a draft interleaving experiment",
+  operationId: "startInterleaving",
+  tags: ["Interleavings"],
+  method: "post" as const,
+  path: "/interleavings/:id/start",
+};
+
+export const stopInterleavingValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: interleavingIdOnlyParam,
+  responseSchema: interleavingLifecycleResponse,
+  summary: "Stop a running interleaving experiment",
+  operationId: "stopInterleaving",
+  tags: ["Interleavings"],
+  method: "post" as const,
+  path: "/interleavings/:id/stop",
+};
+
 export const refreshInterleavingValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),

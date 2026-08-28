@@ -139,25 +139,7 @@ export class InterleavingModel extends BaseClass {
   protected toApiInterface(
     doc: InterleavingInterface,
   ): ApiInterleavingInterface {
-    return {
-      id: doc.id,
-      dateCreated: doc.dateCreated.toISOString(),
-      dateUpdated: doc.dateUpdated.toISOString(),
-      name: doc.name,
-      description: doc.description,
-      project: doc.project,
-      owner: doc.owner,
-      tags: doc.tags,
-      archived: doc.archived,
-      status: doc.status,
-      dateStarted: doc.dateStarted?.toISOString(),
-      dateStopped: doc.dateStopped?.toISOString(),
-      trackingKey: doc.trackingKey,
-      datasource: doc.datasource,
-      interleavingQueryId: doc.interleavingQueryId,
-      variationNames: doc.variationNames,
-      metrics: doc.metrics,
-    };
+    return toApiInterleaving(doc);
   }
 
   /** All interleaving experiments referencing an interleaving query. */
@@ -166,4 +148,29 @@ export class InterleavingModel extends BaseClass {
   ): Promise<InterleavingInterface[]> {
     return this._find({ interleavingQueryId });
   }
+}
+
+export function toApiInterleaving(
+  doc: InterleavingInterface,
+): ApiInterleavingInterface {
+  return {
+    id: doc.id,
+    dateCreated: doc.dateCreated.toISOString(),
+    dateUpdated: doc.dateUpdated.toISOString(),
+    name: doc.name,
+    description: doc.description,
+    project: doc.project,
+    owner: doc.owner,
+    tags: doc.tags,
+    archived: doc.archived,
+    status: doc.status,
+    dateStarted: doc.dateStarted?.toISOString(),
+    dateStopped: doc.dateStopped?.toISOString(),
+    trackingKey: doc.trackingKey,
+    datasource: doc.datasource,
+    interleavingQueryId: doc.interleavingQueryId,
+    variationNames: doc.variationNames,
+    metrics: doc.metrics,
+    measurementArmPercent: doc.measurementArmPercent,
+  };
 }
