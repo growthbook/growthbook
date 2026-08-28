@@ -1,9 +1,11 @@
+import { genUUID } from "../util";
+
 type StoredSessionReplayState = {
   session_replay_id: string;
   lastTouchedAt: number;
 };
 
-const SESSION_STORAGE_KEY = "gb_session";
+const SESSION_STORAGE_KEY = "gb_session_replay_id";
 export const SESSION_REPLAY_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
 let inMemorySessionReplayFallback: StoredSessionReplayState | null = null;
@@ -67,19 +69,4 @@ export function getOrCreateSessionReplayId(forceNew = false): string {
   };
   persistSessionReplayState(fresh);
   return fresh.session_replay_id;
-}
-
-// Use the browser's crypto.randomUUID if set to generate a UUID.
-export function genUUID(crypto?: Crypto) {
-  if (crypto && crypto.randomUUID) return crypto.randomUUID();
-  return ("" + 1e7 + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => {
-    const n =
-      crypto && crypto.getRandomValues
-        ? crypto.getRandomValues(new Uint8Array(1))[0]
-        : Math.floor(Math.random() * 256);
-    return (
-      (c as unknown as number) ^
-      (n & (15 >> ((c as unknown as number) / 4)))
-    ).toString(16);
-  });
 }

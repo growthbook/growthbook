@@ -3,7 +3,7 @@ import {
   SESSION_REPLAY_IDLE_TIMEOUT_MS,
 } from "../../src/plugins/session-replay-id";
 
-const STORAGE_KEY = "gb_session";
+const STORAGE_KEY = "gb_session_replay_id";
 
 function readStoredState(): {
   session_replay_id?: string;
