@@ -99,7 +99,7 @@ export default function InterleavingListPage() {
                 <td>
                   {getDatasourceById(il.datasource)?.name ?? il.datasource}
                 </td>
-                <td>{il.metricIds.length}</td>
+                <td>{il.metrics.length}</td>
                 <td>{date(il.dateUpdated)}</td>
               </tr>
             ))}

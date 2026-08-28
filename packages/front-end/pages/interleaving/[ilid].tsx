@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import { InterleavingEstimator } from "shared/validators";
 import type { ExperimentReportResultDimension } from "shared/types/report";
+import type { Queries } from "shared/types/query";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
