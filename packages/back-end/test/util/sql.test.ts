@@ -1,10 +1,14 @@
 import { format } from "shared/sql";
+import { FactTableColumnType } from "shared/types/fact-table";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
   expandDenominatorMetrics,
   replaceCountStar,
   determineColumnTypes,
+  getColumnByName,
+  columnNamesMatch,
+  mergeJsonFields,
   getHost,
 } from "back-end/src/util/sql";
 import { baseDialect } from "back-end/src/integrations/dialects/base";
@@ -620,6 +624,157 @@ from
         },
       ]);
     });
+  });
+});
+
+describe("getColumnByName", () => {
+  it("returns an exact-case match", () => {
+    const map = new Map([["browserFamily", "string"]]);
+    expect(getColumnByName(map, "browserFamily")).toEqual("string");
+  });
+
+  it("matches regardless of case in either direction", () => {
+    const lowered = new Map([["browserfamily", "string"]]);
+    expect(getColumnByName(lowered, "browserFamily")).toEqual("string");
+
+    const uppered = new Map([["BROWSERFAMILY", "string"]]);
+    expect(getColumnByName(uppered, "browserFamily")).toEqual("string");
+  });
+
+  it("returns undefined when the key is absent", () => {
+    const map = new Map([["country", "string"]]);
+    expect(getColumnByName(map, "browserFamily")).toBeUndefined();
+  });
+
+  it("prefers the exact-case entry when both cases exist", () => {
+    const map = new Map([
+      ["userId", "number"],
+      ["userid", "string"],
+    ]);
+    expect(getColumnByName(map, "userid")).toEqual("string");
+  });
+
+  it("does not fall back to a differently-cased key when caseSensitive", () => {
+    const map = new Map([["browserfamily", "string"]]);
+    expect(getColumnByName(map, "browserFamily", true)).toBeUndefined();
+    expect(getColumnByName(map, "browserfamily", true)).toEqual("string");
+  });
+});
+
+describe("columnNamesMatch", () => {
+  it("matches case-insensitively by default", () => {
+    expect(columnNamesMatch("browserFamily", "browserfamily")).toBe(true);
+    expect(columnNamesMatch("userId", "USERID")).toBe(true);
+    expect(columnNamesMatch("userId", "country")).toBe(false);
+  });
+
+  it("requires an exact match when caseSensitive", () => {
+    expect(columnNamesMatch("userId", "userid", true)).toBe(false);
+    expect(columnNamesMatch("userId", "userId", true)).toBe(true);
+  });
+});
+
+describe("mergeJsonFields", () => {
+  const field = (datatype: FactTableColumnType) => ({ datatype });
+
+  it("adds genuinely new fields and reports the change", () => {
+    const { fields, changed } = mergeJsonFields(
+      { userId: field("string") },
+      {
+        source: "sampledValues",
+        fields: { userId: field("string"), country: field("string") },
+      },
+      false,
+    );
+    expect(changed).toBe(true);
+    expect(fields).toEqual({
+      userId: field("string"),
+      country: field("string"),
+    });
+  });
+
+  it("reconciles schema fields under the integration's casing rules", () => {
+    const { fields, changed } = mergeJsonFields(
+      { userid: field("number") },
+      {
+        source: "querySchema",
+        fields: { userId: field("number") },
+      },
+      false,
+    );
+    expect(changed).toBe(false);
+    expect(fields).toEqual({ userid: field("number") });
+  });
+
+  it("keeps the existing entry and its datatype when a field recurs", () => {
+    const { fields, changed } = mergeJsonFields(
+      { userId: field("number") },
+      {
+        source: "sampledValues",
+        fields: { userId: field("string") },
+      },
+      false,
+    );
+    expect(changed).toBe(false);
+    expect(fields).toEqual({ userId: field("number") });
+  });
+
+  it("treats a casing-only difference as new when caseSensitive", () => {
+    const { fields, changed } = mergeJsonFields(
+      { userid: field("string") },
+      {
+        source: "querySchema",
+        fields: { userId: field("string") },
+      },
+      true,
+    );
+    expect(changed).toBe(true);
+    expect(fields).toEqual({
+      userid: field("string"),
+      userId: field("string"),
+    });
+  });
+
+  it("handles an absent existing set", () => {
+    const { fields, changed } = mergeJsonFields(
+      undefined,
+      {
+        source: "sampledValues",
+        fields: { userId: field("string") },
+      },
+      false,
+    );
+    expect(changed).toBe(true);
+    expect(fields).toEqual({ userId: field("string") });
+  });
+
+  it("keeps case-distinct fields inferred from JSON values", () => {
+    const { fields, changed } = mergeJsonFields(
+      { userId: field("number") },
+      {
+        source: "sampledValues",
+        fields: { userid: field("number") },
+      },
+      false,
+    );
+    expect(changed).toBe(true);
+    expect(fields).toEqual({
+      userId: field("number"),
+      userid: field("number"),
+    });
+  });
+
+  it("does not mutate the existing object", () => {
+    const existing = { userId: field("string") };
+    mergeJsonFields(
+      existing,
+      {
+        source: "sampledValues",
+        fields: { country: field("string") },
+      },
+      false,
+    );
+    expect(existing).toEqual({ userId: field("string") });
   });
 });
 

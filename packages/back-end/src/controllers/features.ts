@@ -15,37 +15,41 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import {
-  draftRevertedFromVersion,
-  autoMerge,
-  filterEnvironmentsByFeature,
-  filterProjectsByEnvironmentWithNull,
+  ANY_REVIEW_FOOTPRINT,
+  IsFeatureStaleResult,
   MergeResultChanges,
-  mergeResultHasChanges,
   MergeStrategy,
+  assertSchemaMatchesValueType,
+  autoMerge,
   checkIfRevisionNeedsReview,
+  draftRevertedFromVersion,
   evaluatePublishGovernance,
   featureMetadataEnvelope,
-  resetReviewOnChange,
+  fillRevisionFromFeature,
+  filterEnvironmentsByFeature,
+  filterProjectsByEnvironmentWithNull,
   getAffectedEnvsForExperiment,
+  getApplicableEnvIds,
+  getAttributeScopeProjectIds,
   getDependentExperiments,
   getDependentFeatures,
-  getRevertValueValidationWarnings,
-  getRulesForEnvironment,
-  getEnvsFromRampSchedule,
-  isFeatureStale,
-  IsFeatureStaleResult,
-  mergeRevision,
-  liveRevisionFromFeature,
-  fillRevisionFromFeature,
-  reconcileMergeBaselines,
-  getReviewSetting,
-  normalizeTargetingProjects,
-  normalizeTargetingInUpdates,
-  namespacesToMap,
-  pruneOrphanedRampActions,
-  assertSchemaMatchesValueType,
   getEffectiveRevisionHoldout,
   getRevertTargetHoldout,
+  featureRuleMergeConfig,
+  resolveDraftEdit,
+  getRevertValueValidationWarnings,
+  getReviewSetting,
+  getRulesForEnvironment,
+  isFeatureStale,
+  liveRevisionFromFeature,
+  mergeResultHasChanges,
+  mergeRevision,
+  namespacesToMap,
+  normalizeTargetingInUpdates,
+  normalizeTargetingProjects,
+  pruneOrphanedRampActions,
+  reconcileMergeBaselines,
+  resetReviewOnChange,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -87,12 +91,13 @@ import {
   RevisionLog,
 } from "shared/types/feature-revision";
 import { Changeset, ExperimentInterface } from "shared/types/experiment";
+import { DraftConflict } from "shared/types/draft-conflict";
 import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
+  PutFeatureRuleConflict,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import {
@@ -149,17 +154,22 @@ import {
   getMergeResultPublishEnvs,
   getSavedGroupMap,
   getLiveAndBaseRevisionsForFeature,
+  getFeatureReviewFootprint,
   getLiveRevisionForFeature,
   getDraftRevision,
   assertCanAutoPublish,
   revisionRequiresReview,
 } from "back-end/src/services/features";
+import { assessRevisionApproval } from "back-end/src/services/featurePublishGates";
 import { linkFeatureToContextualBandit } from "back-end/src/enterprise/services/contextualBandits";
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
-import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  assertRegisteredAttributes,
+  assertRegisteredAttributesScoped,
+} from "back-end/src/services/attributes";
 import {
   canLandArchivedState,
   isArchiveTransition,
@@ -207,6 +217,7 @@ import {
   ReviewSubmittedType,
   submitReviewAndComments,
   updateRevision,
+  RevisionContentChangedError,
   setAutoPublishOnApproval,
   setRevisionScheduledPublish,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -1380,10 +1391,14 @@ export async function postFeatureReviewOrComment(
     null,
     { project: feature.project },
   );
+  if (review === "Comment" && !canCommentHere) {
+    context.permissions.throwPermissionError();
+  }
+  // Coarse pre-fetch gate so callers without the review atom cannot probe
+  // which revision versions exist; the footprint check below still runs.
   if (
-    review === "Comment"
-      ? !canCommentHere
-      : !context.permissions.canReviewFeatureDrafts(feature)
+    review !== "Comment" &&
+    !context.permissions.canReviewFeatureDrafts(feature, ANY_REVIEW_FOOTPRINT)
   ) {
     context.permissions.throwPermissionError();
   }
@@ -1397,6 +1412,19 @@ export async function postFeatureReviewOrComment(
   });
   if (!revision) {
     throw new Error("Could not find feature revision");
+  }
+
+  // A verdict is judged against what the draft changes, so it waits on the
+  // revision. Comments keep their pre-fetch refusal.
+  if (review !== "Comment") {
+    const footprint = await getFeatureReviewFootprint({
+      context,
+      feature,
+      revision,
+    });
+    if (!context.permissions.canReviewFeatureDrafts(feature, footprint)) {
+      context.permissions.throwPermissionError();
+    }
   }
   const createdByUser = revision.createdBy as EventUserLoggedIn;
 
@@ -1510,7 +1538,10 @@ export async function postFeatureApproveAndPublish(
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
 
-  if (!context.permissions.canReviewFeatureDrafts(feature)) {
+  // Coarse refusal first: no review rights should 403, not 404 on a bad version.
+  if (
+    !context.permissions.canReviewFeatureDrafts(feature, ANY_REVIEW_FOOTPRINT)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -1522,6 +1553,16 @@ export async function postFeatureApproveAndPublish(
     version: parseInt(version),
   });
   if (!revision) throw new Error("Could not find feature revision");
+
+  // Granting the approval, so judge it against what the draft would change.
+  const approveFootprint = await getFeatureReviewFootprint({
+    context,
+    feature,
+    revision,
+  });
+  if (!context.permissions.canReviewFeatureDrafts(feature, approveFootprint)) {
+    context.permissions.throwPermissionError();
+  }
 
   const createdByUser = revision.createdBy as EventUserLoggedIn;
   if (createdByUser?.id === context.userId) {
@@ -1858,7 +1899,9 @@ export async function postFeatureUndoReview(
   const { id, version } = req.params;
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
-  if (!context.permissions.canReviewFeatureDrafts(feature)) {
+  if (
+    !context.permissions.canReviewFeatureDrafts(feature, ANY_REVIEW_FOOTPRINT)
+  ) {
     context.permissions.throwPermissionError();
   }
   const revision = await getRevision({
@@ -2128,34 +2171,31 @@ export async function postFeaturePublish(
       }
     : { ...revision, ...fillRevisionFromFeature(revision, feature) };
 
-  // For ramp `update` actions, the live schedule may have step patches that
-  // target environments the draft removes. Build a lookup so the review check
-  // can catch the "removing env" direction as well as adding.
-  const liveRampScheduleEnvs = new Map<string, string[] | "all">();
-  for (const action of revision.rampActions ?? []) {
-    if (action.mode !== "update") continue;
-    const liveSchedule = await context.models.rampSchedules.getById(
-      action.rampScheduleId,
-    );
-    if (liveSchedule) {
-      liveRampScheduleEnvs.set(
-        action.rampScheduleId,
-        getEnvsFromRampSchedule(liveSchedule),
-      );
-    }
-  }
+  const { requiresReview, hasCoveringApproval, requiredApproverTeams } =
+    await assessRevisionApproval({
+      context,
+      feature,
+      revision,
+      effectiveRevision,
+      filledLive,
+      base,
+    });
 
-  const requiresReview = checkIfRevisionNeedsReview({
-    feature,
-    baseRevision: filledLive,
-    revision: effectiveRevision,
-    allEnvironments: environmentIds,
-    settings: org.settings,
-    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-    liveRampScheduleEnvs,
-  });
-  if (!adminOverride && requiresReview && revision.status !== "approved") {
-    throw new Error("needs review before publishing");
+  if (!adminOverride && requiresReview && !hasCoveringApproval) {
+    throw new Error(
+      revision.status === "approved"
+        ? "This draft now changes environments its approvers cannot approve. It needs approval from someone with review rights across everything it changes."
+        : "needs review before publishing",
+    );
+  }
+  if (!adminOverride && requiresReview && !requiredApproverTeams.satisfied) {
+    throw new Error(
+      requiredApproverTeams.unmet
+        .map(
+          (t) => `Requires approval from ${t.map((x) => x.name).join(" or ")}.`,
+        )
+        .join(" "),
+    );
   }
   if (requiresReview && !reviewStatuses.includes(revision.status)) {
     throw new Error("Can only publish Draft revisions");
@@ -3241,9 +3281,9 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check before any side effects (safe-rollout
-  // create, holdout linking, revision update).
-  assertRegisteredAttributes(
+  // The scope loader uses read-only getRevision — getDraftRevision would
+  // persist a draft before validation passes.
+  await assertRegisteredAttributesScoped(
     context,
     {
       hashAttribute: (rule as { hashAttribute?: string }).hashAttribute,
@@ -3253,7 +3293,19 @@ export async function postFeatureRule(
     },
     "rule",
     undefined,
-    feature.project,
+    async () => {
+      const existingRevision = await getRevision({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        feature,
+        version: parseInt(version),
+      });
+      return (
+        getAttributeScopeProjectIds(feature, existingRevision?.metadata) ??
+        undefined
+      );
+    },
   );
 
   // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
@@ -4119,13 +4171,24 @@ export async function putRevisionTitle(
 }
 
 export async function postFeatureDefaultValue(
-  req: AuthRequest<{ defaultValue: string }, { id: string; version: string }>,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
+  req: AuthRequest<
+    { defaultValue: string; baseline?: { defaultValue: string } },
+    { id: string; version: string }
+  >,
+  res: Response<
+    | { status: 200; version: number }
+    | {
+        status: 409;
+        message: string;
+        conflict: DraftConflict<{ defaultValue: string }>;
+      },
+    EventUserForResponseLocals
+  >,
 ) {
   const context = getContextFromReq(req);
   const { environments, org } = context;
   const { id, version } = req.params;
-  const { defaultValue } = req.body;
+  const { defaultValue, baseline } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -4137,20 +4200,64 @@ export async function postFeatureDefaultValue(
   }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
+
+  const resolution = resolveDraftEdit<{ defaultValue: string }>({
+    entityId: feature.id,
+    baseline,
+    current: { defaultValue: revision.defaultValue },
+    incoming: { defaultValue },
+    liveVersion: feature.version,
+    draftVersion: revision.version,
+  });
+  if (!resolution.ok) {
+    return res.status(409).json({
+      status: 409,
+      message:
+        "The default value was changed by someone else after you loaded it. Review their version before saving.",
+      conflict: resolution.conflict,
+    });
+  }
+
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: environments,
     defaultValueChanged: true,
     settings: org?.settings,
   });
-  const updatedRevisionAfterDefaultValue = await setDefaultValue(
-    context,
-    feature,
-    revision,
-    defaultValue,
-    res.locals.eventAudit,
-    resetReview,
-  );
+  // The baseline check above closes the stale-editor window; this closes the
+  // request-overlap one, as on the rule path.
+  let updatedRevisionAfterDefaultValue: FeatureRevisionInterface | null;
+  try {
+    updatedRevisionAfterDefaultValue = await setDefaultValue(
+      context,
+      feature,
+      revision,
+      resolution.merged.defaultValue,
+      res.locals.eventAudit,
+      resetReview,
+      { guardDateUpdated: !!baseline },
+    );
+  } catch (e) {
+    if (!(e instanceof RevisionContentChangedError)) throw e;
+    const fresh = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: revision.version,
+    });
+    return res.status(409).json({
+      status: 409,
+      message:
+        "The default value was changed by someone else while you were saving. Review their version before saving.",
+      conflict: {
+        entityId: feature.id,
+        current: { defaultValue: fresh?.defaultValue ?? revision.defaultValue },
+        liveVersion: feature.version,
+        draftVersion: revision.version,
+      },
+    });
+  }
   await recordRevisionUpdate(
     context,
     feature,
@@ -4308,7 +4415,7 @@ export async function putSafeRolloutStatus(
     feature,
     baseRevision: base,
     revision,
-    allEnvironments: environmentIds,
+    orgEnvironments: allEnvironments,
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
@@ -4400,12 +4507,21 @@ export async function putSafeRolloutStatus(
 
 export async function putFeatureRule(
   req: AuthRequest<PutFeatureRuleBody, { id: string; version: string }>,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
+  res: Response<
+    | { status: 200; version: number; autoMergedTheirFields?: string[] }
+    | { status: 409; message: string; conflict: PutFeatureRuleConflict },
+    EventUserForResponseLocals
+  >,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { rule, ruleId, rampSchedule: rampSchedulePayload } = req.body;
+  const {
+    rule,
+    ruleId,
+    baseline,
+    rampSchedule: rampSchedulePayload,
+  } = req.body;
 
   if (!ruleId) {
     throw new Error("Must provide ruleId to identify the rule");
@@ -4473,7 +4589,56 @@ export async function putFeatureRule(
     }
   }
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
+  const requestedVersion = parseInt(version);
+  let revision: FeatureRevisionInterface | null = null;
+  if (requestedVersion !== feature.version) {
+    const existing = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: requestedVersion,
+    });
+    if (
+      existing &&
+      (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(existing.status)
+    ) {
+      revision = existing;
+    } else if (!baseline) {
+      revision = await getDraftRevision(context, feature, requestedVersion);
+    }
+  }
+
+  let effectiveRule = rule;
+  let autoMergedTheirFields: string[] = [];
+  if (baseline) {
+    const liveRule = (feature.rules ?? []).find((r) => r.id === ruleId) ?? null;
+    const resolution = resolveDraftEdit<FeatureRule>({
+      entityId: ruleId,
+      baseline: baseline.rule,
+      current: revision
+        ? ((revision.rules ?? []).find((r) => r.id === ruleId) ?? liveRule)
+        : liveRule,
+      incoming: rule as FeatureRule,
+      liveVersion: feature.version,
+      draftVersion: revision?.version,
+      config: featureRuleMergeConfig(rule as FeatureRule),
+    });
+    if (!resolution.ok) {
+      return res.status(409).json({
+        status: 409,
+        message:
+          "This rule was changed by someone else after you loaded it. Review their version before saving.",
+        conflict: resolution.conflict,
+      });
+    }
+    effectiveRule = resolution.merged;
+    autoMergedTheirFields = resolution.theirFields;
+  }
+
+  if (!revision) {
+    revision = await getDraftRevision(context, feature, feature.version);
+  }
 
   const existingRules = cloneDeep(revision.rules ?? []);
   let existingRule = existingRules.find((r) => r.id === ruleId);
@@ -4497,7 +4662,7 @@ export async function putFeatureRule(
   // An existing rollout inherits its stored (read-time-pinned) seed so it's
   // never re-bucketed; a force rule the UI promoted by dropping coverage has no
   // rollout history, so it seeds off its own id. Id first, so nothing mints one.
-  const inboundRule = rule as FeatureRule;
+  const inboundRule = effectiveRule as FeatureRule;
   if (!inboundRule.id) inboundRule.id = ruleId;
   inheritStoredRolloutSeeds([inboundRule], existingRules);
   addIdsToFlatRules([inboundRule], feature.id);
@@ -4522,10 +4687,11 @@ export async function putFeatureRule(
   assertRegisteredAttributes(
     context,
     {
-      hashAttribute: (rule as { hashAttribute?: string }).hashAttribute,
-      fallbackAttribute: (rule as { fallbackAttribute?: string })
+      hashAttribute: (effectiveRule as { hashAttribute?: string })
+        .hashAttribute,
+      fallbackAttribute: (effectiveRule as { fallbackAttribute?: string })
         .fallbackAttribute,
-      condition: rule.condition,
+      condition: effectiveRule.condition,
     },
     "rule",
     {
@@ -4534,7 +4700,7 @@ export async function putFeatureRule(
         .fallbackAttribute,
       condition: existingRule.condition,
     },
-    feature.project,
+    getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
   );
 
   let rampActionsUpdate:
@@ -4641,7 +4807,7 @@ export async function putFeatureRule(
   const { rules: nextRules } = updateRuleById(existingRules, ruleId, (e) => {
     let merged = {
       ...e,
-      ...(rule as Partial<FeatureRule>),
+      ...(effectiveRule as Partial<FeatureRule>),
     } as FeatureRule;
     if (merged.allEnvironments === true) {
       merged = {
@@ -4697,19 +4863,60 @@ export async function putFeatureRule(
     combinedChanges.rampActions = [...filtered, rampActionsUpdate];
   }
 
-  const updatedRevisionAfterRuleEdit = await updateRevision(
-    context,
-    feature,
-    revision,
-    combinedChanges,
-    {
-      user: res.locals.eventAudit,
-      action: "edit rule" + (rampActionsUpdate ? " with ramp schedule" : ""),
-      subject: `rule ${ruleId}`,
-      value: JSON.stringify(rule),
-    },
-    resetReview,
-  );
+  // The baseline check above closes the stale-editor window; this closes the
+  // request-overlap one. Guarded only when the caller sent a baseline, so
+  // unguarded callers keep the old last-write-wins behavior.
+  let updatedRevisionAfterRuleEdit: FeatureRevisionInterface | null;
+  try {
+    updatedRevisionAfterRuleEdit = await updateRevision(
+      context,
+      feature,
+      revision,
+      combinedChanges,
+      {
+        user: res.locals.eventAudit,
+        action: "edit rule" + (rampActionsUpdate ? " with ramp schedule" : ""),
+        subject: `rule ${ruleId}`,
+        value: JSON.stringify(effectiveRule),
+      },
+      resetReview,
+      { guardDateUpdated: !!baseline },
+    );
+  } catch (e) {
+    if (!(e instanceof RevisionContentChangedError)) throw e;
+    // Someone wrote between our read and our write. Nothing was persisted, so
+    // answer with a conflict against the state that actually won.
+    const fresh = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: revision.version,
+    });
+    const freshRule = (fresh?.rules ?? []).find((r) => r.id === ruleId) ?? null;
+    const lost = resolveDraftEdit<FeatureRule>({
+      entityId: ruleId,
+      baseline: baseline?.rule,
+      current: freshRule,
+      incoming: rule as FeatureRule,
+      liveVersion: feature.version,
+      draftVersion: revision.version,
+      config: featureRuleMergeConfig(rule as FeatureRule),
+    });
+    return res.status(409).json({
+      status: 409,
+      message:
+        "This rule was changed by someone else while you were saving. Review their version before saving.",
+      conflict: lost.ok
+        ? {
+            entityId: ruleId,
+            current: freshRule,
+            liveVersion: feature.version,
+            draftVersion: revision.version,
+          }
+        : lost.conflict,
+    });
+  }
   await recordRevisionUpdate(
     context,
     feature,
@@ -4742,6 +4949,7 @@ export async function putFeatureRule(
   res.status(200).json({
     status: 200,
     version: updatedRevisionAfterRuleEdit?.version ?? revision.version,
+    ...(autoMergedTheirFields.length ? { autoMergedTheirFields } : {}),
   });
 }
 
@@ -4826,18 +5034,25 @@ export async function postFeatureToggle(
       autoPublish?: boolean;
       draftVersion?: number;
       forceNewDraft?: boolean;
+      baseline?: Record<string, boolean>;
     },
     { id: string }
   >,
   res: Response<
-    { status: 200; draftVersion?: number },
+    | { status: 200; draftVersion?: number }
+    | {
+        status: 409;
+        message: string;
+        conflict: DraftConflict<Record<string, boolean>>;
+      },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
   const { environments: orgEnvIds } = context;
   const { id } = req.params;
-  const { environments, autoPublish, draftVersion, forceNewDraft } = req.body;
+  const { environments, autoPublish, draftVersion, forceNewDraft, baseline } =
+    req.body;
   const feature = await getFeature(context, id);
 
   if (!feature) {
@@ -4858,6 +5073,52 @@ export async function postFeatureToggle(
   for (const env of envIds) {
     if (!orgEnvIds.includes(env)) {
       throw new Error(`Invalid environment: ${env}`);
+    }
+  }
+
+  if (baseline) {
+    const targetDraft =
+      autoPublish || forceNewDraft
+        ? null
+        : draftVersion
+          ? await getRevision({
+              context,
+              organization: feature.organization,
+              featureId: feature.id,
+              feature,
+              version: draftVersion,
+            })
+          : await getActiveDraft(context, feature);
+    const currentState = (env: string) =>
+      targetDraft?.environmentsEnabled?.[env] ??
+      feature.environmentSettings?.[env]?.enabled ??
+      false;
+    // A toggle someone else already flipped to the state you want has
+    // converged; only the opposite direction is a conflict.
+    const contested = envIds.filter(
+      (env) =>
+        currentState(env) !== (baseline[env] ?? false) &&
+        currentState(env) !== environments[env],
+    );
+    if (contested.length) {
+      return res.status(409).json({
+        status: 409,
+        message:
+          "These environments were changed by someone else after you loaded them. Review their state before saving.",
+        conflict: {
+          entityId: feature.id,
+          current: Object.fromEntries(
+            envIds.map((env) => [env, currentState(env)]),
+          ),
+          liveVersion: feature.version,
+          ...(targetDraft ? { draftVersion: targetDraft.version } : {}),
+          merge: {
+            contested: contested.map((env) => ({ key: env, fields: [env] })),
+            theirFields: [],
+            yourFields: [],
+          },
+        },
+      });
     }
   }
 
@@ -5203,11 +5464,17 @@ export async function putFeature(
       targetDraftVersion?: number;
       autoPublish?: boolean;
       forceNewDraft?: boolean;
+      baseline?: Record<string, unknown>;
     },
     { id: string }
   >,
   res: Response<
-    { status: 200; feature: FeatureInterface; draftVersion?: number },
+    | { status: 200; feature: FeatureInterface; draftVersion?: number }
+    | {
+        status: 409;
+        message: string;
+        conflict: DraftConflict<Record<string, unknown>>;
+      },
     EventUserForResponseLocals
   >,
 ) {
@@ -5220,8 +5487,13 @@ export async function putFeature(
     throw new Error("Could not find feature");
   }
 
-  const { targetDraftVersion, autoPublish, forceNewDraft, ...updates } =
-    req.body;
+  const {
+    targetDraftVersion,
+    autoPublish,
+    forceNewDraft,
+    baseline,
+    ...updates
+  } = req.body;
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
@@ -5307,6 +5579,54 @@ export async function putFeature(
       section: "feature",
       project: "project" in updates ? updates.project : feature.project,
     });
+  }
+
+  // The metadata envelope lives on the draft, so a concurrent edit to the same
+  // field is the conflict; disjoint fields already survive the diff below.
+  if (baseline) {
+    const guardedKeys = Object.keys(baseline);
+    const targetDraft =
+      autoPublish || forceNewDraft
+        ? null
+        : targetDraftVersion
+          ? await getRevision({
+              context,
+              organization: feature.organization,
+              featureId: feature.id,
+              feature,
+              version: targetDraftVersion,
+            })
+          : await getActiveDraft(context, feature);
+    const effective = (key: string) =>
+      (targetDraft?.metadata as Record<string, unknown> | undefined)?.[key] ??
+      (feature as unknown as Record<string, unknown>)[key];
+    const pick = (source: (key: string) => unknown) =>
+      Object.fromEntries(guardedKeys.map((k) => [k, source(k)]));
+
+    const resolution = resolveDraftEdit<Record<string, unknown>>({
+      entityId: feature.id,
+      baseline,
+      current: pick(effective),
+      incoming: pick((k) => (updates as unknown as Record<string, unknown>)[k]),
+      liveVersion: feature.version,
+      ...(targetDraft ? { draftVersion: targetDraft.version } : {}),
+      // Mutually exclusive, so merging them apart would target all projects
+      // and carry a list at the same time; on older docs the flag is absent,
+      // which reads as false.
+      config: {
+        chunks: [["targetingAllProjects", "targetingProjects"]],
+        absentDefaults: { targetingAllProjects: false },
+      },
+    });
+    if (!resolution.ok) {
+      return res.status(409).json({
+        status: 409,
+        message:
+          "This feature was changed by someone else after you loaded it. Review their version before saving.",
+        conflict: resolution.conflict,
+      });
+    }
+    Object.assign(updates, resolution.merged);
   }
 
   const metadataKeys: (keyof FeatureInterface)[] = [
@@ -6466,6 +6786,50 @@ async function resolvePrerequisiteBaseDraft(
   return await getActiveDraft(context, feature);
 }
 
+function assertPrerequisitesUnchanged({
+  baseline,
+  current,
+  feature,
+  draftVersion,
+  res,
+}: {
+  baseline: FeaturePrerequisite[] | undefined;
+  current: FeaturePrerequisite[];
+  feature: FeatureInterface;
+  draftVersion?: number;
+  res: Response<
+    | { status: 200; draftVersion?: number }
+    | {
+        status: 409;
+        message: string;
+        conflict: DraftConflict<{ prerequisites: FeaturePrerequisite[] }>;
+      },
+    EventUserForResponseLocals
+  >;
+}): boolean {
+  if (!baseline || isEqual(baseline, current)) return true;
+  // These operations address a prerequisite by index, so any change to the
+  // list retargets them. No field merge is possible.
+  res.status(409).json({
+    status: 409,
+    message:
+      "The prerequisites changed after you loaded them. Reload to see the current list.",
+    conflict: {
+      entityId: feature.id,
+      current: { prerequisites: current },
+      liveVersion: feature.version,
+      ...(draftVersion !== undefined ? { draftVersion } : {}),
+      merge: {
+        contested: [],
+        theirFields: [],
+        yourFields: [],
+        wholeEntity: true,
+      },
+    },
+  });
+  return false;
+}
+
 export async function postPrerequisite(
   req: AuthRequest<
     {
@@ -6526,17 +6890,24 @@ export async function putPrerequisite(
       i: number;
       targetDraftVersion?: number;
       forceNewDraft?: boolean;
+      baseline?: FeaturePrerequisite[];
     },
     { id: string }
   >,
   res: Response<
-    { status: 200; draftVersion?: number },
+    | { status: 200; draftVersion?: number }
+    | {
+        status: 409;
+        message: string;
+        conflict: DraftConflict<{ prerequisites: FeaturePrerequisite[] }>;
+      },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { prerequisite, i, targetDraftVersion, forceNewDraft } = req.body;
+  const { prerequisite, i, targetDraftVersion, forceNewDraft, baseline } =
+    req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -6555,6 +6926,17 @@ export async function putPrerequisite(
   );
   const basePrerequisites =
     baseDraftPut?.prerequisites ?? feature.prerequisites ?? [];
+  if (
+    !assertPrerequisitesUnchanged({
+      baseline,
+      current: basePrerequisites,
+      feature,
+      draftVersion: baseDraftPut?.version,
+      res,
+    })
+  ) {
+    return;
+  }
   const newPrerequisites = [...basePrerequisites];
   if (!newPrerequisites[i]) {
     throw new Error("Unknown prerequisite");
@@ -6579,17 +6961,27 @@ export async function putPrerequisite(
 
 export async function deletePrerequisite(
   req: AuthRequest<
-    { i: number; targetDraftVersion?: number; forceNewDraft?: boolean },
+    {
+      i: number;
+      targetDraftVersion?: number;
+      forceNewDraft?: boolean;
+      baseline?: FeaturePrerequisite[];
+    },
     { id: string }
   >,
   res: Response<
-    { status: 200; draftVersion?: number },
+    | { status: 200; draftVersion?: number }
+    | {
+        status: 409;
+        message: string;
+        conflict: DraftConflict<{ prerequisites: FeaturePrerequisite[] }>;
+      },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { i, targetDraftVersion, forceNewDraft } = req.body;
+  const { i, targetDraftVersion, forceNewDraft, baseline } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -6608,6 +7000,17 @@ export async function deletePrerequisite(
   );
   const basePrerequisites =
     baseDraftDel?.prerequisites ?? feature.prerequisites ?? [];
+  if (
+    !assertPrerequisitesUnchanged({
+      baseline,
+      current: basePrerequisites,
+      feature,
+      draftVersion: baseDraftDel?.version,
+      res,
+    })
+  ) {
+    return;
+  }
   const newPrerequisites = [...basePrerequisites];
   if (!newPrerequisites[i]) {
     throw new Error("Unknown prerequisite");

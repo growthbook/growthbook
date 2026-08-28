@@ -28,11 +28,15 @@ import {
   type FeedbackState,
 } from "@/enterprise/components/AIChat/AIChatFeedback";
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
+import MessageTokens from "@/enterprise/components/AIChat/MessageTokens";
 import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMessages";
 import aiChatStyles from "@/enterprise/components/AIChat/AIChatPrimitives.module.scss";
 import ChatComposer, {
   type ChatComposerHandle,
+  type ComposerSubmission,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
+import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
+import { useSkillCommandItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import AgentChatHistory from "./AgentChatHistory";
 import {
   type MessageTurn,
@@ -170,6 +174,15 @@ export default function AgentPanel({
   // Holds the decision to attach to the next outgoing message. Consumed (and
   // cleared) by buildRequestBody so it only rides along with one request.
   const pendingDecisionRef = useRef<ConfirmDecisionBody | null>(null);
+  const pendingSubmissionRef = useRef<ComposerSubmission>({
+    text: "",
+    mentions: [],
+    skills: [],
+  });
+
+  const { items: mentionItems, ready: mentionItemsReady } =
+    useMetricMentionItems();
+  const skillItems = useSkillCommandItems();
 
   const {
     feedbackMap,
@@ -205,11 +218,15 @@ export default function AgentPanel({
     const dsId = datasourceIdRef.current;
     const decision = pendingDecisionRef.current;
     pendingDecisionRef.current = null;
+    const { mentions, skills } = pendingSubmissionRef.current;
+    pendingSubmissionRef.current = { text: "", mentions: [], skills: [] };
     return {
       message,
       conversationId: cid,
       ...(path ? { currentPage: path } : {}),
       ...(dsId ? { datasourceId: dsId } : {}),
+      ...(mentions.length ? { mentions } : {}),
+      ...(skills.length ? { skills } : {}),
       ...(decision ?? {}),
     };
   }, []);
@@ -404,20 +421,33 @@ export default function AgentPanel({
     });
   }, [defaultAIModel, messages.length]);
 
-  const handleSend = useCallback(() => {
-    const text = input.trim();
-    if (!text || loading) return;
-    if (askPrompt && !askPrompt.resolved) {
-      // Typing a free-text reply also resolves the active question.
-      setAskPrompt({ ...askPrompt, resolved: true });
-    }
-    if (confirmPrompt && !confirmPrompt.resolved) {
-      // Typing instead of clicking supersedes the parked mutation server-side.
-      setConfirmPrompt({ ...confirmPrompt, resolved: true });
-    }
-    trackMessageSent();
-    sendMessage();
-  }, [input, loading, sendMessage, askPrompt, confirmPrompt, trackMessageSent]);
+  const handleSend = useCallback(
+    (
+      submission: ComposerSubmission = {
+        text: input,
+        mentions: [],
+        skills: [],
+      },
+    ) => {
+      const text = submission.text.trim();
+      if (!text || loading) return;
+      pendingSubmissionRef.current = submission;
+      if (askPrompt && !askPrompt.resolved) {
+        // Typing a free-text reply also resolves the active question.
+        setAskPrompt({ ...askPrompt, resolved: true });
+      }
+      if (confirmPrompt && !confirmPrompt.resolved) {
+        // Typing instead of clicking supersedes the parked mutation server-side.
+        setConfirmPrompt({ ...confirmPrompt, resolved: true });
+      }
+      trackMessageSent();
+      sendMessage(text, {
+        mentions: submission.mentions,
+        skills: submission.skills,
+      });
+    },
+    [input, loading, sendMessage, askPrompt, confirmPrompt, trackMessageSent],
+  );
 
   const handleAskOption = useCallback(
     (option: AskUserOption) => {
@@ -654,6 +684,9 @@ export default function AgentPanel({
         variant="compact"
         ref={composerRef}
         autoFocus
+        mentionItems={mentionItems}
+        mentionItemsReady={mentionItemsReady}
+        skillItems={skillItems}
         value={input}
         onChange={setInput}
         onSend={handleSend}
@@ -776,7 +809,15 @@ function PersistedTurn({
     <>
       {turn.user && (
         <UserBubble>
-          <Text size="sm">{getUserText(turn.user)}</Text>
+          <Text size="sm">
+            <MessageTokens
+              text={getUserText(turn.user)}
+              mentions={
+                turn.user.role === "user" ? turn.user.mentions : undefined
+              }
+              skills={turn.user.role === "user" ? turn.user.skills : undefined}
+            />
+          </Text>
         </UserBubble>
       )}
 

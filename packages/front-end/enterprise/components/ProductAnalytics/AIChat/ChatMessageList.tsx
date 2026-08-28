@@ -29,6 +29,7 @@ import CollapsedSteps, {
   type CollapsedStepItem,
 } from "@/enterprise/components/AIChat/CollapsedSteps";
 import { useCollapsibleActiveTurnItems } from "@/enterprise/components/AIChat/useCollapsibleActiveTurnItems";
+import MessageTokens from "@/enterprise/components/AIChat/MessageTokens";
 import ExplorationBubble, {
   chartDataFromToolResult,
   chartDataFromRecord,
@@ -321,7 +322,7 @@ export default function ChatMessageList({
         <React.Fragment key={msg.id}>
           <UserBubble>
             <Text color="text-high" size="sm">
-              {userText}
+              <MessageTokens text={userText} mentions={msg.mentions} />
             </Text>
           </UserBubble>
           {timestamp && (

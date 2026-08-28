@@ -201,12 +201,12 @@ function FunnelStepsDisplay({
 }) {
   const { getFactTableById } = useDefinitions();
 
-  // v1 funnels share one fact table across every step, so show it once up top
-  // rather than repeating the same link inside each step panel.
-  const sharedFactTableId = funnelSettings.steps[0]?.factTableId;
-
-  const getStepItems = (step: FunnelStep): DataListItem[] =>
-    step.rowFilters?.length
+  const getStepItems = (step: FunnelStep): DataListItem[] => [
+    {
+      label: "Fact Table",
+      value: <FactTableLink id={step.factTableId} />,
+    },
+    ...(step.rowFilters?.length
       ? [
           {
             label: "Row Filter",
@@ -218,7 +218,8 @@ function FunnelStepsDisplay({
             ),
           },
         ]
-      : [];
+      : []),
+  ];
 
   const getConversionWindowValue = (
     step: FunnelStep,
@@ -235,23 +236,16 @@ function FunnelStepsDisplay({
       <Heading as="h4" size="sm" mb="2">
         Funnel Steps
       </Heading>
-      <Box mb="3">
-        <Text weight="medium" mr="2">
-          Fact Table
-        </Text>
-        <FactTableLink id={sharedFactTableId} />
-      </Box>
       {funnelSettings.steps.map((step, i) => {
         const items = getStepItems(step);
         const conversionWindowValue = getConversionWindowValue(step, i);
         const hasMetadata = !!conversionWindowValue || !!step.optional;
-        const hasContent = items.length > 0 || hasMetadata;
         return (
           <Box key={i} className="appbox" p="3" mb="2">
             <Heading
               as="h4"
               size="sm"
-              mb={hasContent ? "2" : "0"}
+              mb="2"
             >{`Step ${i + 1}: ${step.name}`}</Heading>
             {items.length ? <DataList data={items} maxColumns={1} /> : null}
             {hasMetadata ? (
@@ -647,15 +641,22 @@ export default function FactMetricPage() {
         <Flex align="center" gap="2" pr="2">
           <OpenInExplorerButton
             enabled={canOpenInExplorer}
-            disabledReason={
+            // Funnel metrics open in the Funnel Builder, which understands
+            // steps; every other type goes to the Metric Explorer as before.
+            href={
               isFactFunnelMetric(factMetric)
-                ? "Funnel metrics are not yet supported in the Explorer."
-                : null
+                ? `/product-analytics/explore/funnel?funnelMetricId=${encodeURIComponent(
+                    factMetric.id,
+                  )}`
+                : `/product-analytics/explore/metrics?metricId=${encodeURIComponent(
+                    factMetric.id,
+                  )}`
             }
-            href={`/product-analytics/explore/metrics?metricId=${encodeURIComponent(
-              factMetric.id,
-            )}`}
-            tooltip="Open this Fact Metric in the Product Analytics Explorer to view trends, compare time periods, and slice/dice a metric."
+            tooltip={
+              isFactFunnelMetric(factMetric)
+                ? "Open this funnel in the Funnel Builder to explore its steps, break them down by dimension, and try changes without affecting the metric."
+                : "Open this Fact Metric in the Product Analytics Explorer to view trends, compare time periods, and slice/dice a metric."
+            }
           />
           <DropdownMenu
             trigger={

@@ -31,6 +31,14 @@ const baseMemberFields = {
   dateCreated: Date,
   limitAccessByEnvironment: Boolean,
   environments: [String],
+  additionalRoles: [
+    {
+      _id: false,
+      role: String,
+      limitAccessByEnvironment: Boolean,
+      environments: [String],
+    },
+  ],
   projectRoles: [
     {
       _id: false,
@@ -38,6 +46,14 @@ const baseMemberFields = {
       role: String,
       limitAccessByEnvironment: Boolean,
       environments: [String],
+      additionalRoles: [
+        {
+          _id: false,
+          role: String,
+          limitAccessByEnvironment: Boolean,
+          environments: [String],
+        },
+      ],
     },
   ],
   teams: [String],

@@ -1,6 +1,10 @@
 import cloneDeep from "lodash/cloneDeep";
 import { deleteFeatureRevisionRuleValidator } from "shared/validators";
-import { resetReviewOnChange, ruleAppliesToEnv } from "shared/util";
+import {
+  getApplicableEnvIds,
+  resetReviewOnChange,
+  ruleAppliesToEnv,
+} from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -12,10 +16,7 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import {
-  getApplicableEnvIds,
-  narrowRuleForEnvRemoval,
-} from "back-end/src/util/flattenRules";
+import { narrowRuleForEnvRemoval } from "back-end/src/util/flattenRules";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   assertValidEnvironment,

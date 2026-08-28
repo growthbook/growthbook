@@ -5,6 +5,7 @@ import isEqual from "lodash/isEqual";
 import {
   checkIfRevisionNeedsReview,
   featureMetadataEnvelope,
+  getApplicableEnvIds,
   isRevisionEditLockedBySchedule,
 } from "shared/util";
 import {
@@ -41,7 +42,6 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
-  getApplicableEnvIds,
   isPlausibleFeatureRule,
   isV2RevisionRules,
   narrowRuleToApplicableEnvs,
@@ -1158,7 +1158,7 @@ export async function createRevision({
     feature,
     baseRevision,
     revision,
-    allEnvironments: environments,
+    orgEnvironments: getEnvironments(org),
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
@@ -1368,6 +1368,14 @@ export async function prevalidateRevisionUpdate(
 // like `metadata` REPLACES its stored counterpart. Pass a complete envelope —
 // merge onto the draft's existing one first, as `createOrUpdateDraftWithChanges`
 // does — or the keys you leave out are dropped.
+// Thrown only for callers that opt into the content guard below, so they can
+// answer with a conflict instead of a generic failure.
+export class RevisionContentChangedError extends Error {
+  constructor() {
+    super("This revision changed while the request was in flight");
+  }
+}
+
 export async function updateRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1377,7 +1385,12 @@ export async function updateRevision(
   resetReview: boolean,
   // Rebase is the only content-mutating path allowed while "lock edits" is
   // active (keeps the scheduled draft mergeable); all other edits are frozen.
-  { bypassScheduleLock = false }: { bypassScheduleLock?: boolean } = {},
+  {
+    bypassScheduleLock = false,
+    // Compare-and-set on content via the caller's `dateUpdated`: an edit that
+    // landed since their read wins. Opt-in, so other callers keep last-write-wins.
+    guardDateUpdated = false,
+  }: { bypassScheduleLock?: boolean; guardDateUpdated?: boolean } = {},
 ) {
   if (!bypassScheduleLock && isRevisionEditLockedBySchedule(revision)) {
     throw new Error(
@@ -1417,6 +1430,7 @@ export async function updateRevision(
       featureId: revision.featureId,
       version: revision.version,
       status: revision.status,
+      ...(guardDateUpdated ? { dateUpdated: revision.dateUpdated } : {}),
     },
     {
       $set: {
@@ -1444,6 +1458,7 @@ export async function updateRevision(
     { new: true },
   );
   if (!doc) {
+    if (guardDateUpdated) throw new RevisionContentChangedError();
     throw new Error(
       "This revision changed while the request was in flight — reload and try again.",
     );
@@ -2977,6 +2992,35 @@ export async function getFeatureRevisionsByFeatureIds(
   }
 
   return revisionsByFeatureId;
+}
+
+// Staged targeting metadata for every active draft of the given features.
+// Lean and uncapped, unlike getFeatureRevisionsByFeatureIds.
+export async function getActiveDraftMetadataByFeatureIds(
+  organization: string,
+  featureIds: string[],
+): Promise<Record<string, Array<RevisionMetadata | undefined>>> {
+  const metadataByFeatureId: Record<
+    string,
+    Array<RevisionMetadata | undefined>
+  > = {};
+
+  if (featureIds.length) {
+    const revisions = await FeatureRevisionModel.find({
+      organization,
+      status: { $in: ACTIVE_DRAFT_STATUSES },
+      featureId: { $in: featureIds },
+    })
+      .select("featureId metadata")
+      .lean();
+    revisions.forEach((revision) => {
+      const featureId = revision.featureId;
+      metadataByFeatureId[featureId] = metadataByFeatureId[featureId] || [];
+      metadataByFeatureId[featureId].push(revision.metadata ?? undefined);
+    });
+  }
+
+  return metadataByFeatureId;
 }
 
 export type DraftStatusCounts = Partial<Record<ActiveDraftStatus, number>>;

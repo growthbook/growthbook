@@ -10,31 +10,34 @@ import {
   GrowthBook,
 } from "@growthbook/growthbook";
 import {
+  MergeResultChanges,
+  NodeHandler,
+  PrerequisiteStateResult,
   buildReverseDependencyIndex,
+  checkIfRevisionNeedsReview,
+  entityTargetsProject,
   evalDeterministicPrereqValue,
   evaluatePrerequisiteState,
+  fillRevisionFromFeature,
+  filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
+  getApplicableEnvIds,
+  getAttributeScopeProjectIds,
+  getConfigBackingKey,
+  getConfigBackingPatch,
   getDependentFeatures,
+  getSavedGroupsValuesFromGroupMap,
+  getSavedGroupsValuesFromInterfaces,
   isDefined,
-  MergeResultChanges,
-  PrerequisiteStateResult,
+  namespacesToMap,
+  recursiveWalk,
+  ruleAppliesToEnv,
+  TargetingScopedEntity,
+  stemRuleId,
+  stripConfigExtends,
   toApiNamespace,
   validateCondition,
   validateFeatureValue,
-  getSavedGroupsValuesFromGroupMap,
-  getSavedGroupsValuesFromInterfaces,
-  NodeHandler,
-  recursiveWalk,
-  checkIfRevisionNeedsReview,
-  fillRevisionFromFeature,
-  ruleAppliesToEnv,
-  namespacesToMap,
-  stemRuleId,
-  getConfigBackingKey,
-  getConfigBackingPatch,
-  stripConfigExtends,
-  entityTargetsProject,
-  filterEnvironmentsByFeature,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -108,6 +111,11 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import {
+  getReviewAuthorityFootprint,
+  governingReviewProjectsForFeature,
+  type ReviewAuthorityFootprint,
+} from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -136,7 +144,6 @@ import {
   experimentMapForFeatures,
   getReferenceIdsInFeatures,
 } from "back-end/src/util/features";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
@@ -318,11 +325,13 @@ function buildHoldoutsMapForProjects(
 // Caller must pass holdouts map already filtered by project (e.g. buildHoldoutsMapForProjects).
 export function generateHoldoutsPayload({
   holdoutsMap,
+  groupMap,
 }: {
   holdoutsMap: Map<
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
+  groupMap: GroupMap;
 }): Record<string, FeatureDefinition> {
   const holdoutDefs: Record<string, FeatureDefinition> = {};
   holdoutsMap.forEach((holdoutWithExperiment) => {
@@ -330,24 +339,35 @@ export function generateHoldoutsPayload({
     const holdout = holdoutWithExperiment.holdout;
     if (!exp) return;
 
-    const def: FeatureDefinition = {
-      defaultValue: "genpop",
-      rules: [
-        {
-          id: getHoldoutFeatureDefId(holdout.id),
-          coverage: exp.phases[0].coverage,
-          hashAttribute: exp.hashAttribute,
-          seed: exp.phases[0].seed,
-          hashVersion: 2,
-          variations: ["holdoutcontrol", "holdouttreatment"],
-          weights: [0.5, 0.5],
-          key: exp.trackingKey,
-          phase: `${exp.phases.length - 1}`,
-          meta: [{ key: "0" }, { key: "1" }],
-        },
-      ],
+    const mainPhase = exp.phases[0];
+    if (!mainPhase) return;
+
+    const rule: FeatureDefinitionRule = {
+      id: getHoldoutFeatureDefId(holdout.id),
+      coverage: mainPhase.coverage,
+      hashAttribute: exp.hashAttribute,
+      seed: mainPhase.seed,
+      hashVersion: 2,
+      variations: ["holdoutcontrol", "holdouttreatment"],
+      weights: [0.5, 0.5],
+      key: exp.trackingKey,
+      phase: `${exp.phases.length - 1}`,
+      meta: [{ key: "0" }, { key: "1" }],
     };
-    holdoutDefs[getHoldoutFeatureDefId(holdout.id)] = def;
+
+    const condition = getParsedCondition(
+      groupMap,
+      mainPhase.condition,
+      mainPhase.savedGroups,
+    );
+    if (condition) {
+      rule.condition = condition;
+    }
+
+    holdoutDefs[getHoldoutFeatureDefId(holdout.id)] = {
+      defaultValue: "genpop",
+      rules: [rule],
+    };
   });
   return holdoutDefs;
 }
@@ -1513,6 +1533,7 @@ export async function buildSDKPayloadForConnection(
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
     holdoutsMap: holdoutsMapForConnection,
+    groupMap: data.groupMap,
   });
 
   const experimentsDefinitions = generateAutoExperimentsPayload({
@@ -1539,15 +1560,6 @@ export async function buildSDKPayloadForConnection(
     projectsMap,
   });
 
-  const savedGroupsInUse = filterUsedSavedGroups(
-    getSavedGroupsValuesFromGroupMap(data.groupMap),
-    featureDefinitions,
-    experimentsDefinitions,
-  );
-  const usedSavedGroups = data.savedGroups.filter(
-    (sg) => sg.id in savedGroupsInUse,
-  );
-
   const holdoutsInUse = pruneUnreferencedHoldouts(
     holdoutFeatureDefinitions,
     featureDefinitions,
@@ -1557,6 +1569,15 @@ export async function buildSDKPayloadForConnection(
     ...featureDefinitions,
     ...holdoutsInUse,
   };
+
+  const savedGroupsInUse = filterUsedSavedGroups(
+    getSavedGroupsValuesFromGroupMap(data.groupMap),
+    featuresWithHoldouts,
+    experimentsDefinitions,
+  );
+  const usedSavedGroups = data.savedGroups.filter(
+    (sg) => sg.id in savedGroupsInUse,
+  );
 
   const contextualBanditsInUse = filterUsedContextualBandits(
     cbMap,
@@ -1636,6 +1657,7 @@ export async function getFeatureDefinitions(
       encryptionKey: args.encryptionKey,
       includeVisualExperiments: args.includeVisualExperiments,
       includeDraftExperiments: args.includeDraftExperiments,
+      includeDraftExperimentRefs: args.includeDraftExperimentRefs,
       includeExperimentNames: args.includeExperimentNames,
       includeRedirectExperiments: args.includeRedirectExperiments,
       includeRuleIds: args.includeRuleIds,
@@ -3202,12 +3224,16 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   feature: FeatureInterface,
   rules: ApiFeatureEnvSettingsRules,
   existingRules?: FeatureRule[],
+  // Resolved post-update targeting state; defaults to the feature itself.
+  attributeScopeEntity?: TargetingScopedEntity,
 ): FeatureRule[] => {
   // Honor the opt-in `?skipSchemaValidation=true` escape hatch: drop the schema
   // so values are still normalized (parse / dirty-json) but not schema-checked.
   const valFeature = context.canSkipSchemaValidationFor("feature")
     ? { ...feature, jsonSchema: undefined }
     : feature;
+  const attributeScope =
+    getAttributeScopeProjectIds(attributeScopeEntity ?? feature) ?? undefined;
   return rules.map((r) => {
     const conditionRes = validateCondition(r.condition);
     if (!conditionRes.success) {
@@ -3243,7 +3269,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
             condition: existingRule.condition,
           }
         : undefined,
-      feature.project,
+      attributeScope,
     );
 
     // Preserve rule-level project scope on the round-trip (mirrors
@@ -3717,6 +3743,36 @@ export async function getLiveRevisionForFeature(
   return live;
 }
 
+// Measured against live AND the draft's base: those two can drift, and unioning
+// them means drift only ever demands more authority.
+export async function getFeatureReviewFootprint({
+  context,
+  feature,
+  revision,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+}): Promise<ReviewAuthorityFootprint> {
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
+    context,
+    feature,
+    revision,
+  });
+
+  return getReviewAuthorityFootprint({
+    revision,
+    bases: [live, base],
+    allEnvironments: getEnvironmentIdsFromOrg(context.org),
+    settings: context.org.settings,
+    governingProjects: governingReviewProjectsForFeature({
+      feature,
+      revision,
+      settings: context.org.settings,
+    }),
+  });
+}
+
 export async function getLiveAndBaseRevisionsForFeature({
   context,
   feature,
@@ -3878,8 +3934,6 @@ export async function revisionRequiresReview(
     treatUnresolvedBaseAsReview = false,
   }: { treatUnresolvedBaseAsReview?: boolean } = {},
 ): Promise<boolean> {
-  const allEnvironments = getEnvironmentIdsFromOrg(context.org);
-
   const baseRevision = await getRevision({
     context,
     organization: feature.organization,
@@ -3900,7 +3954,7 @@ export async function revisionRequiresReview(
       ...fillRevisionFromFeature(baseRevision, feature),
     },
     revision: draft,
-    allEnvironments,
+    orgEnvironments: getEnvironments(context.org),
     settings: context.org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
