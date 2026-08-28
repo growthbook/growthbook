@@ -23,8 +23,7 @@ import {
   ensureConfigBacking,
   setConfigBacking,
   valueHasConfigExtends,
-  liveRevisionFromFeature,
-  buildEffectiveDraft,
+  mergeRevision,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import Callout from "@/ui/Callout";
@@ -62,6 +61,8 @@ import HelperText from "@/ui/HelperText";
 import FeatureKeyField from "./FeatureKeyField";
 import TagsField from "./TagsField";
 import ValueTypeField from "./ValueTypeField";
+
+const NO_ENVIRONMENTS: string[] = [];
 
 export type Props = {
   close: () => void;
@@ -205,11 +206,6 @@ export default function FeatureFromExperimentModal({
     experiment.description && experiment.description.length > 0,
   );
 
-  const [ruleAllEnvironments, setRuleAllEnvironments] = useState<boolean>(true);
-  const [ruleSelectedEnvironments, setRuleSelectedEnvironments] = useState<
-    string[]
-  >([]);
-
   const [draftMode, setDraftMode] = useState<DraftMode>("new");
   const [selectedDraft, setSelectedDraft] = useState<number | null>(null);
 
@@ -262,30 +258,24 @@ export default function FeatureFromExperimentModal({
   const enabledEnvsForDestination = useMemo<string[] | null>(() => {
     if (!existing || !existingFeature) return null;
 
-    let enabledMap: Record<string, boolean> = Object.fromEntries(
-      Object.entries(existingFeature.environmentSettings ?? {}).map(
-        ([env, val]) => [env, val.enabled],
-      ),
+    const envIds = environments.map((e) => e.id);
+    const draftRevision =
+      draftMode === "existing" && selectedDraft !== null
+        ? existingFeatureData?.revisions?.find(
+            (r) => r.version === selectedDraft,
+          )
+        : undefined;
+
+    // mergeRevision overlays the draft's environmentsEnabled per env, which is
+    // what publishing applies — envs the draft doesn't record keep their live
+    // value rather than reading as disabled.
+    const destination = draftRevision
+      ? mergeRevision(existingFeature, draftRevision, envIds)
+      : existingFeature;
+
+    return envIds.filter(
+      (id) => !!destination.environmentSettings?.[id]?.enabled,
     );
-
-    if (draftMode === "existing" && selectedDraft !== null) {
-      const revisions = existingFeatureData?.revisions ?? [];
-      const liveRevision = revisions.find(
-        (r) => r.version === existingFeature.version,
-      );
-      const draftRevision = revisions.find((r) => r.version === selectedDraft);
-      if (liveRevision && draftRevision) {
-        const filledLive = liveRevisionFromFeature(
-          liveRevision,
-          existingFeature,
-        );
-        enabledMap =
-          buildEffectiveDraft(draftRevision, filledLive).environmentsEnabled ??
-          enabledMap;
-      }
-    }
-
-    return environments.map((e) => e.id).filter((id) => enabledMap[id]);
   }, [
     existing,
     existingFeature,
@@ -295,45 +285,56 @@ export default function FeatureFromExperimentModal({
     environments,
   ]);
 
-  // Re-initialize the rule scope only when the destination changes (feature or
-  // draft target), not on every render, so manual edits to the selector stick.
   const destinationKey =
     existing && existingFeature
       ? `${existing}:${draftMode}:${draftMode === "existing" ? selectedDraft : ""}`
       : "";
-  // State, not a ref, so the warning below re-renders once the scope catches up
-  // to the current destination instead of flashing a stale selection.
-  const [initializedScopeKey, setInitializedScopeKey] = useState<string | null>(
-    null,
-  );
-  useEffect(() => {
-    if (!existing) {
-      setInitializedScopeKey(null);
-      return;
-    }
-    if (enabledEnvsForDestination === null) return;
-    if (initializedScopeKey === destinationKey) return;
-    setInitializedScopeKey(destinationKey);
-    // Every available environment enabled → keep the simpler "All Environments".
-    const allEnabled =
-      environments.length > 0 &&
-      enabledEnvsForDestination.length === environments.length;
-    setRuleAllEnvironments(allEnabled);
-    setRuleSelectedEnvironments(enabledEnvsForDestination);
-  }, [
-    existing,
-    destinationKey,
-    enabledEnvsForDestination,
-    environments,
-    initializedScopeKey,
-  ]);
+
+  // The rule scope defaults to the destination's enabled envs and switches to
+  // the user's selection once they edit it. Keying the override to the
+  // destination it was made for means a feature/draft change re-seeds on its
+  // own — a stale override simply stops matching, so there's no reset effect
+  // and never a render where the scope lags the destination.
+  const [scopeOverride, setScopeOverride] = useState<{
+    key: string;
+    allEnvironments: boolean;
+    selectedEnvironments: string[];
+  } | null>(null);
+
+  const ruleScope =
+    scopeOverride?.key === destinationKey
+      ? scopeOverride
+      : enabledEnvsForDestination === null
+        ? // New feature, or the selected one hasn't loaded yet.
+          { allEnvironments: true, selectedEnvironments: NO_ENVIRONMENTS }
+        : {
+            // Every available environment enabled → keep "All Environments".
+            allEnvironments:
+              environments.length > 0 &&
+              enabledEnvsForDestination.length === environments.length,
+            selectedEnvironments: enabledEnvsForDestination,
+          };
+  const ruleAllEnvironments = ruleScope.allEnvironments;
+  const ruleSelectedEnvironments = ruleScope.selectedEnvironments;
+
+  const setRuleAllEnvironments = (allEnvironments: boolean) =>
+    setScopeOverride({
+      key: destinationKey,
+      allEnvironments,
+      selectedEnvironments: ruleSelectedEnvironments,
+    });
+  const setRuleSelectedEnvironments = (selectedEnvironments: string[]) =>
+    setScopeOverride({
+      key: destinationKey,
+      allEnvironments: ruleAllEnvironments,
+      selectedEnvironments,
+    });
 
   // Rule-footprint environments not yet enabled on the destination. Publishing
   // this rule flips them on for the feature (the back end enables any footprint
   // env that's currently off), so warn the user before they commit.
   const envsEnabledByPublish = useMemo<string[]>(() => {
     if (!existing || enabledEnvsForDestination === null) return [];
-    if (initializedScopeKey !== destinationKey) return [];
     const enabledSet = new Set(enabledEnvsForDestination);
     const footprint = ruleAllEnvironments
       ? environments.map((e) => e.id)
@@ -347,8 +348,6 @@ export default function FeatureFromExperimentModal({
     ruleAllEnvironments,
     ruleSelectedEnvironments,
     environments,
-    initializedScopeKey,
-    destinationKey,
   ]);
 
   const enableOnPublishWarning = useMemo<React.ReactNode>(() => {
