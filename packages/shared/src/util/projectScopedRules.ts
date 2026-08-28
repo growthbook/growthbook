@@ -64,7 +64,12 @@ export function resolveProjectScopedRule<T extends ProjectScopedRule>(
   if (!winner) return undefined;
   // A base winner is already the bottom layer; only a specific one inherits.
   if (!specificWinner || !baseWinner) return winner;
-  const layers = [specificWinner, baseWinner];
+  // A switched-off rule gates nothing, so it takes no part in inheritance: it
+  // neither borrows fields from the layer beneath nor donates its own dormant
+  // ones.
+  const active = (rule: T) => !isActive || isActive(rule);
+  if (!active(winner)) return winner;
+  const layers = [specificWinner, baseWinner].filter(active);
 
   const merged: T = { ...winner };
   for (const field of inheritable) {
@@ -89,21 +94,48 @@ function dropUnsetFields<T extends object>(rule: T): T {
   ) as T;
 }
 
+// The UI hides a disabled rule's fields, so a stored team association is
+// invisible and would silently re-arm on re-enable. Scraped on write; the
+// resolver also ignores them on read, so pre-existing rows stay inert.
+function dropDormantTeams<T extends { requiredApproverTeams?: string[] }>(
+  rule: T,
+  active: boolean,
+): T {
+  if (active || rule.requiredApproverTeams === undefined) return rule;
+  const next = { ...rule };
+  delete next.requiredApproverTeams;
+  return next;
+}
+
 // Applied on the way in, so both rule families store clears the same way.
 export function normalizeApprovalRuleSettings<
   T extends {
-    requireReviews?: boolean | ProjectScopedRule[];
-    approvalFlows?: { savedGroups?: ProjectScopedRule[] };
+    requireReviews?:
+      | boolean
+      | (ProjectScopedRule & {
+          requireReviewOn?: boolean;
+          requiredApproverTeams?: string[];
+        })[];
+    approvalFlows?: {
+      savedGroups?: (ProjectScopedRule & {
+        required?: boolean;
+        requiredApproverTeams?: string[];
+      })[];
+    };
   },
 >(settings: T): T {
   const next: T = { ...settings };
   if (Array.isArray(next.requireReviews)) {
-    next.requireReviews = next.requireReviews.map(dropUnsetFields);
+    next.requireReviews = next.requireReviews.map((rule) =>
+      dropDormantTeams(dropUnsetFields(rule), !!rule.requireReviewOn),
+    );
   }
   if (next.approvalFlows?.savedGroups) {
     next.approvalFlows = {
       ...next.approvalFlows,
-      savedGroups: next.approvalFlows.savedGroups.map(dropUnsetFields),
+      savedGroups: next.approvalFlows.savedGroups.map((rule) =>
+        dropDormantTeams(dropUnsetFields(rule), !!rule.required),
+      ),
     };
   }
   return next;
