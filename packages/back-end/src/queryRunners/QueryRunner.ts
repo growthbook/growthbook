@@ -1357,10 +1357,7 @@ export abstract class QueryRunner<
 
     // Create a new query in mongo
     logger.debug("Creating query for: " + name);
-    const concurrencyLimitReached = await this.concurrencyLimitReached();
     const dependenciesComplete = dependencies.length === 0;
-    const readyToRun =
-      dependenciesComplete && !runAtEnd && !concurrencyLimitReached;
     const doc = await createNewQuery({
       query,
       queryType,
@@ -1384,14 +1381,9 @@ export abstract class QueryRunner<
         | ((rows: RowsType) => void | Promise<void>)
         | undefined,
     };
-    if (readyToRun) {
-      this.executeQuery(doc, { run, process, onFailure, onSuccess });
-    } else if (dependenciesComplete && !runAtEnd) {
-      this.runCallbacks[doc.id] = runCallbacksEntry;
+    this.runCallbacks[doc.id] = runCallbacksEntry;
+    if (dependenciesComplete && !runAtEnd) {
       this.queueQueryExecution(doc);
-    } else {
-      // save callback methods for execution later
-      this.runCallbacks[doc.id] = runCallbacksEntry;
     }
 
     return {
