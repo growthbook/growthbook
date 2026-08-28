@@ -791,7 +791,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.2.0",
+    version: "1.2.2",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
