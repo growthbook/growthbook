@@ -27,6 +27,7 @@ type InterleavingFormValues = {
   controlName: string;
   treatmentName: string;
   metrics: InterleavingMetricConfig[];
+  measurementArmPercent: number;
 };
 
 type Props = {
@@ -64,6 +65,7 @@ export const InterleavingForm: FC<Props> = ({
             controlName: interleaving.variationNames[0],
             treatmentName: interleaving.variationNames[1],
             metrics: interleaving.metrics,
+            measurementArmPercent: interleaving.measurementArmPercent ?? 0,
           }
         : {
             name: "",
@@ -74,6 +76,7 @@ export const InterleavingForm: FC<Props> = ({
             controlName: "control",
             treatmentName: "treatment",
             metrics: [],
+            measurementArmPercent: 0,
           },
   });
 
@@ -116,6 +119,10 @@ export const InterleavingForm: FC<Props> = ({
         `These metrics' fact tables have no '${INTERLEAVING_ITEM_ID_COLUMN}' column: ${names}. Add the column or remove the metrics.`,
       );
     }
+    const pct = Number(value.measurementArmPercent) || 0;
+    if (pct < 0 || pct >= 100) {
+      throw new Error("Measurement arm percentage must be from 0 to 99");
+    }
     const body = {
       name: value.name,
       description: value.description || undefined,
@@ -123,6 +130,7 @@ export const InterleavingForm: FC<Props> = ({
       interleavingQueryId: value.interleavingQueryId,
       variationNames: [value.controlName, value.treatmentName],
       metrics: value.metrics,
+      measurementArmPercent: pct,
     };
 
     const res =
@@ -228,6 +236,29 @@ export const InterleavingForm: FC<Props> = ({
             />
           </div>
         </div>
+
+        <Field
+          label="Measurement arm percentage"
+          type="number"
+          min={0}
+          max={99}
+          step={1}
+          helpText={
+            <>
+              Share of enrolled users held out of interleaving and shown the
+              control ranker unchanged. Tracked as a separate user-level
+              experiment (
+              <code>
+                {form.watch("trackingKey") || "<tracking key>"}__measurement
+              </code>
+              ) so you can compare interleaving against the status quo. 0
+              disables the measurement arm.
+            </>
+          }
+          {...form.register("measurementArmPercent", {
+            valueAsNumber: true,
+          })}
+        />
 
         <ExperimentMetricsSelector
           datasource={datasource}

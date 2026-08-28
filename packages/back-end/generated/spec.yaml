@@ -42771,6 +42771,10 @@ paths:
                       - id
                       - estimator
                     additionalProperties: false
+                measurementArmPercent:
+                  type: number
+                  minimum: 0
+                  exclusiveMaximum: 100
               additionalProperties: false
       responses:
         '200':
@@ -42849,6 +42853,10 @@ paths:
                       - id
                       - estimator
                     additionalProperties: false
+                measurementArmPercent:
+                  type: number
+                  minimum: 0
+                  exclusiveMaximum: 100
               required:
                 - name
                 - trackingKey
@@ -63744,6 +63752,10 @@ components:
               - id
               - estimator
             additionalProperties: false
+        measurementArmPercent:
+          type: number
+          minimum: 0
+          exclusiveMaximum: 100
       required:
         - id
         - dateCreated

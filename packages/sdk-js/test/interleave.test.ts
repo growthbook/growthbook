@@ -318,6 +318,91 @@ describe("interleave plugin", () => {
   });
 });
 
+describe("measurement arm", () => {
+  const lists = [
+    { name: "control", items: ["A", "B", "C", "D"] },
+    { name: "treatment", items: ["C", "A", "D", "B"] },
+  ];
+  const definition: InterleaveExperiment = {
+    key: "ranker-test",
+    lists: ["control", "treatment"],
+    measurementArmPercent: 50,
+  };
+
+  function makeGb(userId: string, def: InterleaveExperiment) {
+    const events: { name: string; props: Record<string, unknown> }[] = [];
+    const gb = new GrowthBook({
+      attributes: { id: userId },
+      interleaveExperiments: [def],
+      plugins: [interleavePlugin()],
+      eventLogger: (name, props) => {
+        events.push({ name, props });
+      },
+    });
+    return { gb, events };
+  }
+
+  it("splits users deterministically and serves the control list to the measurement arm", () => {
+    let measurement = 0;
+    const n = 400;
+    for (let i = 0; i < n; i++) {
+      const { gb } = makeGb(`user-${i}`, definition);
+      const res = interleave(gb, { key: "ranker-test", lists, getItemId: id });
+      const again = interleave(gb, {
+        key: "ranker-test",
+        lists,
+        getItemId: id,
+      });
+      expect(again.arm).toBe(res.arm); // per-user stable
+      if (res.arm === "measurement") {
+        measurement++;
+        expect(res.inExperiment).toBe(false);
+        expect(res.items).toEqual(["A", "B", "C", "D"]); // control, unblended
+        expect(res.trackingProps("A")).toEqual({ item_id: "A" });
+      } else {
+        expect(res.arm).toBe("interleaved");
+        expect(res.inExperiment).toBe(true);
+      }
+      gb.destroy();
+    }
+    expect(measurement / n).toBeGreaterThan(0.4);
+    expect(measurement / n).toBeLessThan(0.6);
+  });
+
+  it("emits one deduped user-level Experiment Viewed exposure per arm", () => {
+    const { gb, events } = makeGb("user-1", definition);
+    interleave(gb, { key: "ranker-test", lists, getItemId: id });
+    interleave(gb, { key: "ranker-test", lists, getItemId: id });
+    const viewed = events.filter(
+      (e) =>
+        e.name === "Experiment Viewed" &&
+        e.props.experimentId === "ranker-test__measurement",
+    );
+    expect(viewed.length).toBe(1); // deduped across repeat impressions
+    expect(["status-quo", "interleaved"]).toContain(
+      viewed[0].props.variationId,
+    );
+    expect(viewed[0].props.hashValue).toBe("user-1");
+    gb.destroy();
+  });
+
+  it("does not emit measurement exposures when the percent is 0, missing, or invalid", () => {
+    for (const pct of [undefined, 0, 100, 150, -5]) {
+      const { gb, events } = makeGb("user-1", {
+        ...definition,
+        measurementArmPercent: pct,
+      });
+      const res = interleave(gb, { key: "ranker-test", lists, getItemId: id });
+      expect(res.arm).toBe("interleaved"); // split disabled
+      expect(res.inExperiment).toBe(true);
+      expect(events.filter((e) => e.name === "Experiment Viewed").length).toBe(
+        0,
+      );
+      gb.destroy();
+    }
+  });
+});
+
 describe("flattenInterleaveExposure", () => {
   it("produces one canonical row per item", () => {
     const rows = flattenInterleaveExposure({

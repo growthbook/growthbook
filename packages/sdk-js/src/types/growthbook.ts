@@ -206,6 +206,11 @@ export interface InterleaveExperiment {
   filters?: Filter[];
   active?: boolean;
   maxItems?: number;
+  // Share of enrolled users (0-100, exclusive of 100) held out of
+  // interleaving and served the control list unchanged, tracked as a
+  // separate user-level experiment ("<key>__measurement") so interleaved
+  // traffic can be compared against the status quo. 0 or absent disables it.
+  measurementArmPercent?: number;
 }
 
 export interface InterleavedItemMeta {
@@ -228,6 +233,10 @@ export interface InterleaveResult<T> {
   inExperiment: boolean;
   interleaveId: string;
   key: string;
+  // Which side of the measurement split this user is on. "interleaved" =
+  // saw the blended list; "measurement" = held out on the control list.
+  // Absent when the user is not enrolled at all (plain fallback).
+  arm?: "interleaved" | "measurement";
   items: T[];
   // Identity-keyed (safe under client-side filtering/sorting). On fallback
   // results the interleave keys are omitted, so spreading is always safe:

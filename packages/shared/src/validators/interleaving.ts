@@ -41,6 +41,16 @@ export type InterleavingMetricConfig = z.infer<
   typeof interleavingMetricConfigValidator
 >;
 
+// Share of enrolled users (0 <= p < 100) held out of interleaving and served
+// the control ranker unchanged. The SDK tracks the holdout as a standard
+// user-level experiment under `<trackingKey>__measurement` (variations
+// "status-quo" and "interleaved"), so interleaving itself can be compared
+// against the status quo. 0 disables the measurement arm.
+export const measurementArmPercentValidator = z
+  .number()
+  .min(0, "Measurement arm percentage must be at least 0")
+  .lt(100, "Measurement arm percentage must be less than 100");
+
 export const interleavingValidator = baseSchema
   .extend({
     name: z.string(),
@@ -65,6 +75,8 @@ export const interleavingValidator = baseSchema
 
     // Mean or proportion Fact Metrics with per-metric estimator choice
     metrics: z.array(interleavingMetricConfigValidator),
+
+    measurementArmPercent: measurementArmPercentValidator.optional(),
   })
   .strict();
 
@@ -88,6 +100,7 @@ export const apiInterleavingValidator = namedSchema(
     interleavingQueryId: z.string(),
     variationNames: z.tuple([z.string(), z.string()]),
     metrics: z.array(interleavingMetricConfigValidator),
+    measurementArmPercent: measurementArmPercentValidator.optional(),
   }),
 );
 
@@ -112,6 +125,7 @@ export const apiCreateInterleavingBody = z.strictObject({
   interleavingQueryId: z.string(),
   variationNames: z.tuple([z.string(), z.string()]),
   metrics: z.array(interleavingMetricConfigValidator),
+  measurementArmPercent: measurementArmPercentValidator.optional(),
 });
 
 export type ApiCreateInterleavingBody = z.infer<
@@ -130,6 +144,7 @@ export const apiUpdateInterleavingBody = z.strictObject({
   interleavingQueryId: z.string().optional(),
   variationNames: z.tuple([z.string(), z.string()]).optional(),
   metrics: z.array(interleavingMetricConfigValidator).optional(),
+  measurementArmPercent: measurementArmPercentValidator.optional(),
 });
 
 export type ApiUpdateInterleavingBody = z.infer<
