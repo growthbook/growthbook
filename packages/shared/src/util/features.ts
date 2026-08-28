@@ -3796,6 +3796,88 @@ export function getTargetingProjectIds(
   );
 }
 
+// Staged targeting fields from `FeatureRevisionInterface.metadata`;
+// undefined = unchanged.
+export type StagedTargetingScope = {
+  project?: string;
+  targetingAllProjects?: boolean;
+  targetingProjects?: string[];
+};
+
+// Attribute scope = primary + targetingProjects, unioned across live and
+// staged state while a draft is open. null = unscoped: the entity targets
+// all projects (live or staged), or its primary project is empty.
+export function getAttributeScopeProjectIds(
+  entity: TargetingScopedEntity,
+  staged?: StagedTargetingScope,
+): string[] | null {
+  if (entity.targetingAllProjects || staged?.targetingAllProjects) return null;
+  const primaries = [
+    entity.project ?? "",
+    staged?.project ?? entity.project ?? "",
+  ];
+  if (primaries.some((p) => !p)) return null;
+  return Array.from(
+    new Set([
+      ...primaries,
+      ...(entity.targetingProjects ?? []),
+      ...(staged?.targetingProjects ?? []),
+    ]),
+  ).filter(Boolean);
+}
+
+// A feature's attribute scope including every active draft's staged targeting.
+// null short-circuits (any unscoped state = unscoped feature).
+export function getFeatureAttributeScopeWithDrafts(
+  feature: TargetingScopedEntity,
+  stagedDrafts: Array<StagedTargetingScope | undefined>,
+): string[] | null {
+  let scope = getAttributeScopeProjectIds(feature);
+  for (const staged of stagedDrafts) {
+    if (scope === null) break;
+    if (!staged) continue;
+    const stagedScope = getAttributeScopeProjectIds(feature, staged);
+    if (stagedScope === null) return null;
+    scope = Array.from(new Set([...scope, ...stagedScope]));
+  }
+  return scope;
+}
+
+// Experiment scope: its project plus every linked feature's scope (targeting
+// evaluates wherever a linked feature is served); null = unscoped. The
+// persisted `attributeScopeAllProjects` picker preference never loosens this.
+export function getExperimentAttributeScopeProjectIds(
+  experiment: { project?: string },
+  linkedFeatureScopes: Array<string[] | null>,
+): string[] | null {
+  if (!experiment.project) return null;
+  const ids = new Set<string>([experiment.project]);
+  for (const scope of linkedFeatureScopes) {
+    if (scope === null) return null;
+    scope.forEach((id) => ids.add(id));
+  }
+  return Array.from(ids);
+}
+
+// `enforcement` mirrors the back-end check (null when any linked feature is
+// unscoped); `dropdown` is the stricter picker default where unscoped linked
+// features contribute nothing.
+export function getExperimentAttributeScopes(
+  project: string | undefined,
+  linkedFeatureScopes: Array<string[] | null>,
+): { enforcement: string[] | null; dropdown: string[] | null } {
+  return {
+    enforcement: getExperimentAttributeScopeProjectIds(
+      { project },
+      linkedFeatureScopes,
+    ),
+    dropdown: getExperimentAttributeScopeProjectIds(
+      { project },
+      linkedFeatureScopes.filter((s) => s !== null),
+    ),
+  };
+}
+
 export function entityTargetsProject(
   entity: TargetingScopedEntity,
   projectId: string,

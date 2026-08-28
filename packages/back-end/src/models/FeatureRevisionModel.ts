@@ -2994,6 +2994,35 @@ export async function getFeatureRevisionsByFeatureIds(
   return revisionsByFeatureId;
 }
 
+// Staged targeting metadata for every active draft of the given features.
+// Lean and uncapped, unlike getFeatureRevisionsByFeatureIds.
+export async function getActiveDraftMetadataByFeatureIds(
+  organization: string,
+  featureIds: string[],
+): Promise<Record<string, Array<RevisionMetadata | undefined>>> {
+  const metadataByFeatureId: Record<
+    string,
+    Array<RevisionMetadata | undefined>
+  > = {};
+
+  if (featureIds.length) {
+    const revisions = await FeatureRevisionModel.find({
+      organization,
+      status: { $in: ACTIVE_DRAFT_STATUSES },
+      featureId: { $in: featureIds },
+    })
+      .select("featureId metadata")
+      .lean();
+    revisions.forEach((revision) => {
+      const featureId = revision.featureId;
+      metadataByFeatureId[featureId] = metadataByFeatureId[featureId] || [];
+      metadataByFeatureId[featureId].push(revision.metadata ?? undefined);
+    });
+  }
+
+  return metadataByFeatureId;
+}
+
 export type DraftStatusCounts = Partial<Record<ActiveDraftStatus, number>>;
 
 export async function getActiveDraftStates(
