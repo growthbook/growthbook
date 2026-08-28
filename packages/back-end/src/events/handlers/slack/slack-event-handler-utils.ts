@@ -45,12 +45,30 @@ import {
   getFilterDataForNotificationEvent,
 } from "back-end/src/events/handlers/utils";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
-import { getEvent } from "back-end/src/models/EventModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
+
+// EventModel and services/organizations are imported lazily to break an import
+// cycle: this module is reached at startup via
+//   EventModel -> EventNotifier -> webHooksEventHandler -> (here)
+// and importing either of them back at module scope leaves partially-
+// initialized modules, which surfaced as routers failing to register (404s)
+// depending on which file a process happened to load first. Both are only ever
+// needed while handling an event, so deferring costs nothing.
+const getEvent = async (
+  eventId: string,
+): Promise<import("shared/types/events/event").EventInterface | null> =>
+  (await import("back-end/src/models/EventModel")).getEvent(eventId);
+
+const getContextForAgendaJobByOrgId = async (
+  orgId: string,
+): Promise<import("back-end/types/api").ApiReqContext> =>
+  (
+    await import("back-end/src/services/organizations")
+  ).getContextForAgendaJobByOrgId(orgId);
+
 import { getSlackBotAccessTokenForWebhook } from "back-end/src/models/EventWebhookModel";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { renderExperimentCard } from "back-end/src/services/slack/cards";
 import type { CompactEvent } from "back-end/src/services/slack/chartImage";
 
