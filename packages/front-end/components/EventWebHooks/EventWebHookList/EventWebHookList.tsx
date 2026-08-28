@@ -93,14 +93,24 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
       {eventWebHooks.length > 0 && (
         <div>
           {/* List view */}
-          {eventWebHooks.map((eventWebHook) => (
-            <div key={eventWebHook.id} className="mb-3 appbox">
-              <EventWebHookListItem
-                href={`/settings/webhooks/event/${eventWebHook.id}`}
-                eventWebHook={eventWebHook}
-              />
-            </div>
-          ))}
+          {eventWebHooks.map((eventWebHook) => {
+            const managedInSlack =
+              eventWebHook.payloadType === "slack" &&
+              !!eventWebHook.slack?.teamId;
+            const href = managedInSlack
+              ? eventWebHook.slack?.channelId
+                ? `/integrations/slack?channel=${encodeURIComponent(
+                    eventWebHook.id,
+                  )}`
+                : "/integrations/slack"
+              : `/settings/webhooks/event/${eventWebHook.id}`;
+
+            return (
+              <div key={eventWebHook.id} className="mb-3 appbox">
+                <EventWebHookListItem href={href} eventWebHook={eventWebHook} />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
