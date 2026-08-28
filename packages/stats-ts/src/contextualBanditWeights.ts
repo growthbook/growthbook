@@ -970,7 +970,7 @@ function buildTree(
         currentLeaf[c] = newLeaf;
       }
     }
-    sseTrajectory.push(totalSsePerVariation());
+    sseTrajectory.push(afterPerVariation);
     // Record the BIC for the split we just applied. `numSplits` is the resulting
     // stage index (the newly pushed `sseTrajectory` entry).
     bicTrajectory.push({
