@@ -224,14 +224,18 @@ const TARGET_ERROR_WRITERS: Record<
   safeRolloutSnapshot: statusGuardedWriter("saferolloutsnapshots"),
   contextualBanditSnapshot: statusGuardedWriter("contextualbanditsnapshots"),
   aggregatedFactTableRun: async ({ targetDoc, failedQueryIds, error }) => {
-    if (!hasPendingOwnedQuery(targetDoc.queries, failedQueryIds)) return false;
-    return finalizeStuckAggregatedFactTableRun(
-      targetDoc as unknown as AggregatedFactTableRunInterface,
-      {
-        queries: markQueryPointersFailed(targetDoc.queries, failedQueryIds),
-        error,
-      },
-    );
+    const run = await getCollection<AggregatedFactTableRunInterface>(
+      AGGREGATED_FACT_TABLE_RUN_COLLECTION,
+    ).findOne({
+      organization: targetDoc.organization,
+      id: targetDoc.id,
+    });
+    if (!run) return false;
+    if (!hasPendingOwnedQuery(run.queries, failedQueryIds)) return false;
+    return finalizeStuckAggregatedFactTableRun(run, {
+      queries: markQueryPointersFailed(run.queries, failedQueryIds),
+      error,
+    });
   },
   populationData: statusGuardedWriter("populationdata"),
   productAnalyticsExploration: statusGuardedWriter("analyticsexploration"),
