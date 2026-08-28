@@ -49,6 +49,19 @@ async function allConnectedSlackTeamIds(): Promise<string[]> {
   ];
 }
 
+/**
+ * Org ids this Slack workspace is connected to (workspace or channel docs).
+ * Used by the account-link flow to reject linking against a workspace that
+ * isn't connected to any org the user belongs to — the acting org is resolved
+ * from the channel at mention time, so linking is pointless without one.
+ */
+export async function getSlackWorkspaceOrganizationIds(
+  teamId: string,
+): Promise<string[]> {
+  const webhooks = await findSlackWebhooksByTeam(teamId);
+  return [...new Set(webhooks.map((w) => w.organizationId))];
+}
+
 const readBotToken = (w: SlackWebhookDoc): string | undefined =>
   w.slack?.botAccessToken || undefined;
 

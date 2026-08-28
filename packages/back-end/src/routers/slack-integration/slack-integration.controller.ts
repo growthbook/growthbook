@@ -6,7 +6,10 @@ import {
 import { NotificationEventName } from "shared/types/events/base-types";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getContextFromReq,
+  getContextForUserIdInOrg,
+} from "back-end/src/services/organizations";
 import * as SlackIntegration from "back-end/src/models/SlackIntegrationModel";
 import {
   addSlackChannelToWorkspace,
@@ -22,6 +25,8 @@ import {
   type SlackChannelOption,
 } from "back-end/src/services/slackIntegration";
 import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
+import { getSlackWorkspaceOrganizationIds } from "back-end/src/services/slack/slackIdentity";
+import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import { upsertSlackUserLink } from "back-end/src/models/SlackUserLinkModel";
 
 // region GET /integrations/slack
@@ -183,10 +188,42 @@ export const postSlackLink = async (
     });
   }
 
+  // The acting org is resolved per-mention from the channel, not from whatever
+  // org the session happened to be on — so a link is only useful if this Slack
+  // workspace is connected to an org the user belongs to. Verify that here
+  // instead of recording a link that could never answer anything.
+  const workspaceOrgIds = await getSlackWorkspaceOrganizationIds(
+    parsed.slackTeamId,
+  );
+  if (!workspaceOrgIds.length) {
+    return res.status(400).json({
+      message:
+        "This Slack workspace isn't connected to GrowthBook yet. Ask an admin to connect it in Integrations → Slack.",
+    });
+  }
+
+  // Same membership check the assistant applies on every mention.
+  const memberOrgIds: string[] = [];
+  for (const orgId of workspaceOrgIds) {
+    const org = await findOrganizationById(orgId);
+    if (!org) continue;
+    if (await getContextForUserIdInOrg(org, context.userId)) {
+      memberOrgIds.push(orgId);
+    }
+  }
+  if (!memberOrgIds.length) {
+    return res.status(400).json({
+      message:
+        "Your GrowthBook account isn't a member of the organization this Slack workspace is connected to, so the bot can't act for you.",
+    });
+  }
+
   await upsertSlackUserLink({
     slackTeamId: parsed.slackTeamId,
     slackUserId: parsed.slackUserId,
-    organizationId: context.org.id,
+    // Audit only — one org this link can actually act in. The acting org is
+    // resolved from the channel at mention time.
+    organizationId: memberOrgIds[0],
     growthbookUserId: context.userId,
   });
 

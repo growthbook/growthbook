@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
@@ -8,7 +8,6 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import SelectField from "@/components/Forms/SelectField";
 
 // Slack account-link consent page. The bot sends an unlinked user here with a
 // signed `state`; confirming (while logged in to GrowthBook) records "this
@@ -26,7 +25,7 @@ function getQueryValue(v: string | string[] | undefined): string {
 
 const SlackLinkPage = () => {
   const router = useRouter();
-  const { apiCall, orgId, organizations, setOrgId } = useAuth();
+  const { apiCall, orgId } = useAuth();
   const { name, email } = useUser();
 
   const state = getQueryValue(router.query.state);
@@ -34,28 +33,6 @@ const SlackLinkPage = () => {
   const [status, setStatus] = useState<Status>("confirming");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const inFlightRef = useRef(false);
-
-  const orgOptions = useMemo(
-    () =>
-      (organizations || []).map((o) => ({
-        value: o.id,
-        label: o.name || o.id,
-      })),
-    [organizations],
-  );
-
-  const currentOrgName =
-    orgOptions.find((o) => o.value === orgId)?.label || orgId || "—";
-
-  const onSwitchOrg = (newOrgId: string) => {
-    if (!setOrgId || !newOrgId || newOrgId === orgId) return;
-    setOrgId(newOrgId);
-    try {
-      localStorage.setItem("gb-last-picked-org", `"${newOrgId}"`);
-    } catch (e) {
-      console.warn("Unable to save last org in localStorage");
-    }
-  };
 
   const onConfirm = async () => {
     if (inFlightRef.current || !state) return;
@@ -104,8 +81,8 @@ const SlackLinkPage = () => {
               </Heading>
               <Text as="p" color="text-mid">
                 The GrowthBook Slack bot wants to link your Slack identity to
-                your GrowthBook account so it can answer as you. Confirm the
-                organization below.
+                your GrowthBook account so it can answer as you, with your
+                permissions.
               </Text>
             </Box>
 
@@ -118,35 +95,20 @@ const SlackLinkPage = () => {
               }}
             >
               <Text size="sm" color="text-mid" as="p" mb="1">
-                Linking to
+                Linking as
               </Text>
               <Heading as="h2" size="md" mb="2">
-                {currentOrgName}
+                {name ? `${name} (${email})` : email || "your account"}
               </Heading>
-              {(name || email) && (
-                <Text size="sm" color="text-mid" as="p">
-                  as {name ? `${name} (${email})` : email}
-                </Text>
-              )}
-
-              {orgOptions.length > 1 && (
-                <Box mt="3">
-                  <Text size="sm" color="text-mid" as="p" mb="1">
-                    Not the right organization?
-                  </Text>
-                  <SelectField
-                    value={orgId || ""}
-                    options={orgOptions}
-                    onChange={onSwitchOrg}
-                    sort={false}
-                    isSearchable={orgOptions.length > 5}
-                  />
-                </Box>
-              )}
+              <Text size="sm" color="text-mid" as="p">
+                This links your identity, not one organization. In each Slack
+                channel the bot answers within the organization that channel is
+                connected to — and only if you&rsquo;re a member of it.
+              </Text>
             </Box>
 
             <Flex gap="3" align="center">
-              <Button onClick={onConfirm}>Link to {currentOrgName}</Button>
+              <Button onClick={onConfirm}>Link my account</Button>
               <Text size="sm" color="text-mid">
                 You can unlink at any time.
               </Text>
@@ -169,9 +131,8 @@ const SlackLinkPage = () => {
               You&rsquo;re linked
             </Heading>
             <Text as="p" color="text-mid" align="center">
-              Your Slack account is now linked to{" "}
-              <strong>{currentOrgName}</strong>. You can close this tab and go
-              back to Slack.
+              Your Slack account is now linked to GrowthBook. You can close this
+              tab and go back to Slack.
             </Text>
           </Flex>
         )}
