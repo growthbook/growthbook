@@ -396,22 +396,27 @@ describe("persistContextualBanditEvent", () => {
     expect(cbe.id).toBe("cbe_1");
     expect(getByIdMock).toHaveBeenCalledWith(cbs.contextualBandit);
 
-    expect(createCbeMock).toHaveBeenCalledWith({
-      contextualBandit: cb.id,
-      snapshotId: cbs.id,
-      attributes: result.attributes,
-      responses: result.responses,
-      leaf_map: result.leaf_map,
-      weightsWereUpdated: true,
-    });
+    expect(createCbeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contextualBandit: cb.id,
+        snapshotId: cbs.id,
+        attributes: result.attributes,
+        responses: result.responses,
+        leaf_map: result.leaf_map,
+        weightsWereUpdated: true,
+        // New seed is generated when weights are updated
+        seed: expect.any(String),
+      }),
+    );
 
     expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
     const [cbIdArg, leafWeightsArg, patchOptions] =
       patchLeafWeightsMock.mock.calls[0];
     expect(cbIdArg).toBe(cb.id);
     expect(leafWeightsArg).toHaveLength(2);
-    // Weights changed → the version bumps alongside the payload refresh
-    expect(patchOptions).toEqual({ bumpVersion: true });
+    // Weights changed → the version bumps alongside the payload refresh, and a new seed is set
+    expect(patchOptions.bumpVersion).toBe(true);
+    expect(patchOptions.newSeed).toEqual(expect.any(String));
     const expectedLeafWeights = leafWeightsFromContextualBanditResult(
       result,
       cb.variations,
@@ -516,8 +521,8 @@ describe("persistContextualBanditEvent", () => {
     expect(cbIdArg).toBe(cb.id);
     expect(leafWeightsArg).toEqual([]);
     // No weight change → no version bump and no SDK payload refresh, so the
-    // payload's banditVersion stays consistent with the DB.
-    expect(patchOptions).toEqual({ bumpVersion: false });
+    // payload's banditVersion stays consistent with the DB. No new seed either.
+    expect(patchOptions).toEqual({ bumpVersion: false, newSeed: undefined });
     expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
   });
 

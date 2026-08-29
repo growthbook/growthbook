@@ -136,6 +136,8 @@ export type FactMetricData = {
   computeUncappedMetric: boolean;
   numeratorSourceIndex: number;
   denominatorSourceIndex: number;
+  // Empty for non-funnel metrics.
+  funnelStepSourceIndices: number[];
   capCoalesceMetric: string;
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;
@@ -299,7 +301,7 @@ export type TestQueryParams = {
 };
 
 export type ColumnTopValuesParams = {
-  factTable: Pick<FactTableInterface, "sql" | "eventName">;
+  factTable: Pick<FactTableInterface, "sql" | "eventName" | "timestampColumn">;
   columns: ColumnInterface[];
   limit?: number;
   lookbackDays: number;

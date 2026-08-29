@@ -1,5 +1,6 @@
 import { z } from "zod";
 import isEqual from "lodash/isEqual";
+import { v4 as uuidv4 } from "uuid";
 import {
   apiContextualBanditCancelReturn,
   apiContextualBanditLifecycleReturn,
@@ -356,6 +357,7 @@ export class ContextualBanditModel extends BaseClass {
       status: "draft" as const,
       currentLeafWeights: [],
       banditVersion: 0,
+      seed: uuidv4(),
     };
   }
 
@@ -409,6 +411,7 @@ export class ContextualBanditModel extends BaseClass {
     leafWeights: LeafWeight[],
     options?: {
       bumpVersion?: boolean;
+      newSeed?: string;
     },
   ): Promise<ContextualBanditInterface> {
     const existingCB = await this.getById(cbId);
@@ -424,6 +427,9 @@ export class ContextualBanditModel extends BaseClass {
     const set: Record<string, unknown> = { dateUpdated: now };
     if (leafWeights.length > 0) {
       set.currentLeafWeights = leafWeights;
+    }
+    if (options?.newSeed) {
+      set.seed = options.newSeed;
     }
     const res = await collection.updateOne(
       {

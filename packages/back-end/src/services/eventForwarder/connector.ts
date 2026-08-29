@@ -31,7 +31,7 @@ import {
   resolveBigQueryEventForwarderTablePrefix,
 } from "back-end/src/services/eventForwarder/bigquery";
 import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarder/datasourceQueries";
-import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarder/datasourceSync";
+import { reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries } from "back-end/src/services/eventForwarder/datasourceSync";
 import { ensureEventForwarderEventsFactTable } from "back-end/src/services/eventForwarder/factTable";
 import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarder/warehouseSync";
 import {
@@ -312,10 +312,10 @@ export async function provisionEventForwarderThroughLicenseServer(
       });
 
     try {
-      await initializeDatasourceUserIdTypesFromOrgAttributeSchema(
+      await reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
         context,
-        currentEventForwarderConfig.datasourceId,
         currentEventForwarderConfig,
+        context.org.settings?.attributeSchema ?? [],
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";

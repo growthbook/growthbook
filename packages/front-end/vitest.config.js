@@ -6,9 +6,9 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./test/setup.ts"],
-    // Off CI, tests share the box with a running `pnpm dev` stack, so cap
-    // workers.
-    ...(process.env.CI ? {} : { maxWorkers: 2 }),
+    // Off CI, tests share the box with a running `pnpm dev` stack, so leave it
+    // half the cores. CI sets its own worker count from the runner size.
+    ...(process.env.CI ? {} : { maxWorkers: "50%" }),
     coverage: {
       provider: "v8",
     },
