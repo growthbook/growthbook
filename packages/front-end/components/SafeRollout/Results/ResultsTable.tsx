@@ -29,6 +29,7 @@ import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
 import { useAnalysisResultSummary } from "@/ui/hooks/useAnalysisResultSummary";
 import {
   ExperimentTableRow,
+  getComputeErrorMessage,
   getRowResults,
   RowResults,
 } from "@/services/experiments";
@@ -388,6 +389,7 @@ export default function ResultsTable({
                 users: 0,
               };
               let alreadyShownQueryError = false;
+              let alreadyShownComputeError = false;
 
               return (
                 <tbody className={clsx("results-group-row")} key={i}>
@@ -438,6 +440,37 @@ export default function ResultsTable({
                       } else {
                         return null;
                       }
+                    }
+
+                    const computeError =
+                      getComputeErrorMessage(stats) ||
+                      getComputeErrorMessage(baseline);
+                    if (computeError && !stats.users) {
+                      if (alreadyShownComputeError) {
+                        return null;
+                      }
+                      alreadyShownComputeError = true;
+                      return drawEmptyRow({
+                        key: j,
+                        className:
+                          "results-variation-row align-items-center error-row",
+                        label: (
+                          <>
+                            {compactResults ? (
+                              <div className="mb-1">
+                                {renderLabelColumn({
+                                  label: row.label,
+                                  metric: row.metric,
+                                  row,
+                                })}
+                              </div>
+                            ) : null}
+                            <Callout status="error" mb="1" ml="1" size="sm">
+                              {computeError}
+                            </Callout>
+                          </>
+                        ),
+                      });
                     }
 
                     const hideScaledImpact =

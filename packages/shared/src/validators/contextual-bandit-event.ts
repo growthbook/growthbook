@@ -45,9 +45,21 @@ export const contextualSseTrajectoryEntryValidator = z.object({
   numSplits: z.number().int().nonnegative(),
   totalSse: z.number(),
   split: contextualTreeSplitValidator.optional(),
+  ssePerVariation: z.array(z.number()).optional(),
 });
 export type ContextualSseTrajectoryEntryInterface = z.infer<
   typeof contextualSseTrajectoryEntryValidator
+>;
+
+/** BIC model-selection statistic for one greedy tree split (observability only). */
+export const contextualBicTrajectoryEntryValidator = z.object({
+  numSplits: z.number().int().nonnegative(),
+  logLikelihoodRatio: z.number(),
+  penalty: z.number(),
+  deltaBic: z.number(),
+});
+export type ContextualBicTrajectoryEntryInterface = z.infer<
+  typeof contextualBicTrajectoryEntryValidator
 >;
 
 /** Mirrors gbstats `ContextualBanditResponse`. */
@@ -79,8 +91,12 @@ export const contextualBanditEventValidator = baseSchema
     leaf_map: z.array(contextualLeafMapEntryValidator).optional(),
     leaf_stats: z.array(contextualLeafStatsEntryValidator).optional(),
     sse_trajectory: z.array(contextualSseTrajectoryEntryValidator).optional(),
+    bic_trajectory: z.array(contextualBicTrajectoryEntryValidator).optional(),
     weightsWereUpdated: z.boolean(),
     degreesOfFreedom: z.number().int().nonnegative().optional(),
+    // The seed that was applied to the CB when this event was persisted.
+    // Stored for historical tracking; the CB's current seed changes each epoch.
+    seed: z.string().optional(),
   })
   .strict();
 

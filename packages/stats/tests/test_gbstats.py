@@ -1,6 +1,7 @@
 import dataclasses
 from functools import partial
 from unittest import TestCase, main as unittest_main
+from unittest.mock import patch
 import numpy as np
 import pandas as pd
 import copy
@@ -15,6 +16,7 @@ from gbstats.gbstats import (
     get_metric_dfs,
     variation_statistic_from_metric_row,
     process_analysis,
+    process_single_metric,
     get_bandit_result,
     create_bandit_statistics,
     preprocess_bandits,
@@ -29,6 +31,7 @@ from gbstats.models.statistics import (
 from gbstats.models.results import (
     BaselineResponse,
     BayesianVariationResponseIndividual,
+    DimensionResponse,
     FrequentistVariationResponseIndividual,
     MetricStats,
     FrequentistVariationResponse,
@@ -382,6 +385,61 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     weight_by_period=True,
     top_two=True,
 )
+
+
+class TestProcessSingleMetricAnalysisIsolation(TestCase):
+    def test_one_analysis_failure_does_not_discard_the_others(self):
+        good_analysis = dataclasses.replace(DEFAULT_ANALYSIS, dimension="All")
+        bad_analysis = dataclasses.replace(DEFAULT_ANALYSIS, dimension="country")
+        good_dimensions = [DimensionResponse(dimension="All", srm=1.0, variations=[])]
+
+        def process(**kwargs):
+            if kwargs["analysis"].dimension == "country":
+                raise ValueError("boom")
+            return good_dimensions
+
+        with patch("gbstats.gbstats.process_analysis", side_effect=process):
+            result = process_single_metric(
+                rows=QUERY_OUTPUT,
+                metric=COUNT_METRIC,
+                analyses=[good_analysis, bad_analysis],
+            )
+
+        # One aligned slot per requested analysis
+        self.assertEqual(len(result.analyses), 2)
+
+        self.assertIsNone(result.analyses[0].error)
+        self.assertEqual(result.analyses[0].dimensions, good_dimensions)
+
+        self.assertEqual(result.analyses[1].dimensions, [])
+        self.assertEqual(result.analyses[1].error, "boom")
+        analysis_traceback = result.analyses[1].traceback
+        assert analysis_traceback is not None
+        self.assertIn("ValueError: boom", analysis_traceback)
+
+    def test_quantile_skip_keeps_analyses_aligned(self):
+        quantile_metric = dataclasses.replace(
+            COUNT_METRIC, statistic_type="quantile_unit"
+        )
+        skipped_analysis = dataclasses.replace(DEFAULT_ANALYSIS, dimension="")
+        kept_analysis = dataclasses.replace(DEFAULT_ANALYSIS, dimension="country")
+        kept_dimensions = [
+            DimensionResponse(dimension="country", srm=1.0, variations=[])
+        ]
+
+        rows = [{**r, "dim_exp": r["dimension"]} for r in QUERY_OUTPUT]
+
+        with patch("gbstats.gbstats.process_analysis", return_value=kept_dimensions):
+            result = process_single_metric(
+                rows=rows,
+                metric=quantile_metric,
+                analyses=[skipped_analysis, kept_analysis],
+            )
+
+        self.assertEqual(len(result.analyses), 2)
+        self.assertEqual(result.analyses[0].dimensions, [])
+        self.assertIsNone(result.analyses[0].error)
+        self.assertEqual(result.analyses[1].dimensions, kept_dimensions)
 
 
 class TestBanditMinVariationWeightFloor(TestCase):

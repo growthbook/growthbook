@@ -68,7 +68,7 @@ const snapshot: ContextualBanditSnapshot = {
     },
   ],
   sse_trajectory: [
-    { numSplits: 0, totalSse: 200 },
+    { numSplits: 0, totalSse: 200, ssePerVariation: [120, 80] },
     {
       numSplits: 1,
       totalSse: 150,
@@ -78,6 +78,7 @@ const snapshot: ContextualBanditSnapshot = {
         leftLevels: ["CA", "US"],
         rightLevels: ["MX"],
       },
+      ssePerVariation: [90, 60],
     },
   ],
 };

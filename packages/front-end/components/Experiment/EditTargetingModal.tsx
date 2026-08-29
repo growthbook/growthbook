@@ -1,12 +1,16 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import { hasAttributeCondition } from "shared/experiments";
 import { Box } from "@radix-ui/themes";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import {
-  AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Switch from "@/ui/Switch";
@@ -20,11 +24,16 @@ import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
 import MakeChangesFlow from "./MakeChangesFlow";
+import {
+  getLinkedExperimentAttributeScopes,
+  useAttributeScopePicker,
+} from "./useAttributeScopePicker";
 import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
 
 export interface Props {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   safeToEdit: boolean;
 }
@@ -32,9 +41,13 @@ export interface Props {
 export default function EditTargetingModal({
   close,
   experiment,
+  linkedFeatures,
   mutate,
   safeToEdit,
 }: Props) {
+  const { enforcement: enforcementScope, dropdown: dropdownScope } =
+    getLinkedExperimentAttributeScopes(experiment.project, linkedFeatures);
+
   const {
     form,
     defaultValues,
@@ -42,7 +55,15 @@ export default function EditTargetingModal({
     setPrerequisiteTargetingSdkIssues,
     canSubmit,
     onSubmit,
-  } = useExperimentTargetingForm(experiment);
+  } = useExperimentTargetingForm(experiment, enforcementScope);
+
+  const { effectiveAttributeProjects, attributeScopeToggle } =
+    useAttributeScopePicker({
+      project: experiment.project,
+      scopeProjects: dropdownScope,
+      allProjects: form.watch("attributeScopeAllProjects"),
+      setAllProjects: (v) => form.setValue("attributeScopeAllProjects", v),
+    });
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
@@ -78,20 +99,15 @@ export default function EditTargetingModal({
     experiment.project,
   );
 
-  const attributeSchema = useAttributeSchema(false, experiment.project);
+  const attributeSchema = useAttributeSchema(false, effectiveAttributeProjects);
+  // Unfiltered (incl. archived) for keep-current tooltip metadata below.
+  const allAttributeSchema = useAttributeSchema(true);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
   const hashAttributeOptions: AttributeOptionForTooltip[] = attributeSchema
     .filter((s) => !hasHashAttributes || s.hashAttribute)
-    .map((s) => ({
-      label: s.property,
-      value: s.property,
-      description: s.description,
-      tags: s.tags,
-      datatype: s.datatype,
-      hashAttribute: s.hashAttribute,
-    }));
+    .map(toAttributeOption);
 
   // If the current hashAttribute isn't in the list, add it for backwards
   // compatibility (e.g. the attribute was archived or removed from the
@@ -100,9 +116,17 @@ export default function EditTargetingModal({
     form.watch("hashAttribute") &&
     !hashAttributeOptions.find((o) => o.value === form.watch("hashAttribute"))
   ) {
+    const full = allAttributeSchema.find(
+      (s) => s.property === form.watch("hashAttribute"),
+    );
     hashAttributeOptions.push({
       label: form.watch("hashAttribute"),
       value: form.watch("hashAttribute"),
+      description: full?.description,
+      tags: full?.tags,
+      datatype: full?.datatype,
+      hashAttribute: full?.hashAttribute,
+      projects: full?.projects,
     });
   }
 
@@ -143,22 +167,14 @@ export default function EditTargetingModal({
             containerClassName="flex-1"
             label="Assignment Attribute"
             labelClassName="font-weight-bold"
+            extraIndicator={attributeScopeToggle}
             options={hashAttributeOptions}
             sort={false}
             value={form.watch("hashAttribute")}
             onChange={(v) => {
               form.setValue("hashAttribute", v);
             }}
-            formatOptionLabel={(o, meta) => {
-              return (
-                <AttributeOptionWithTooltip
-                  option={o as AttributeOptionForTooltip}
-                  context={meta.context}
-                >
-                  {o.label}
-                </AttributeOptionWithTooltip>
-              );
-            }}
+            formatOptionLabel={formatAttributeOptionLabel}
             helpText={
               "Will be hashed together with the Tracking Key to determine which variation to assign"
             }
@@ -185,6 +201,7 @@ export default function EditTargetingModal({
             <FallbackAttributeSelector
               form={form}
               attributeSchema={attributeSchema}
+              extraIndicator={attributeScopeToggle}
             />
           )}
           {!sdkConnectionsLoading &&
@@ -200,6 +217,8 @@ export default function EditTargetingModal({
           <Box mt="6">
             <TargetingFieldsGroup
               project={experiment.project || ""}
+              attributeProjects={effectiveAttributeProjects}
+              attributeSelectIndicator={attributeScopeToggle}
               environments={envs}
               savedGroups={form.watch("savedGroups") || []}
               setSavedGroups={(v) => form.setValue("savedGroups", v)}
@@ -225,6 +244,7 @@ export default function EditTargetingModal({
   return (
     <MakeChangesFlow
       experiment={experiment}
+      attributeProjects={dropdownScope}
       form={form}
       defaultValues={defaultValues}
       onSubmit={(scope) => onSubmit(mutate, scope)()}
