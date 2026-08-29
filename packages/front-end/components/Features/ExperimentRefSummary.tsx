@@ -348,7 +348,7 @@ export default function ExperimentRefSummary({
               </TableBody>
             </Table>
           </Box>
-          <Box mt="3">
+          <Box mt="3" mb="3">
             {!isBandit && (
               <ExperimentSplitVisual
                 values={getLatestPhaseVariations(experiment).map(

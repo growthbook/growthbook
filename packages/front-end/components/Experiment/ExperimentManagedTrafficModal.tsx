@@ -103,7 +103,7 @@ export default function ExperimentManagedTrafficModal({
       experiment={experiment}
       mutate={mutate}
       targetFeature={targetFeature}
-      canEditValueType={!!managedFeature}
+      isManaged={!!managedFeature}
       focusVariationId={focusVariationId}
       addVariationOnOpen={addVariationOnOpen}
     />
@@ -115,7 +115,7 @@ function ManagedTrafficForm({
   experiment,
   mutate,
   targetFeature,
-  canEditValueType,
+  isManaged,
   focusVariationId,
   addVariationOnOpen,
 }: {
@@ -123,8 +123,9 @@ function ManagedTrafficForm({
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   targetFeature: LinkedFeatureInfo;
-  // Only a flag this experiment manages may be re-typed from here.
-  canEditValueType: boolean;
+  // A flag this experiment manages: it may be re-typed here, and its rule is
+  // the flag's only one.
+  isManaged: boolean;
   focusVariationId?: string | null;
   addVariationOnOpen?: boolean;
 }) {
@@ -190,6 +191,10 @@ function ManagedTrafficForm({
   // Structural so the shared editor's row type still satisfies it.
   const featureValueOf = (row: { id: string; featureValue?: string }) =>
     row.featureValue ?? "";
+
+  const coverageTooltip = isManaged
+    ? null
+    : "Users not included in this Experiment will flow through to subsequent feature flag rules";
 
   const sharedVariationProps = {
     label: null,
@@ -339,14 +344,15 @@ function ManagedTrafficForm({
       submit={submit}
       size="lg"
     >
-      <div className="pt-2">
+      <Box pt="2">
         {/* Shared by both editors; the managed copy adds the value column, the
             type picker and the flag-specific props on top. */}
         {feature ? (
           <ExperimentManagedFeatureVariationEditor
             {...sharedVariationProps}
+            coverageTooltip={coverageTooltip}
             belowCoverage={
-              canEditValueType ? (
+              isManaged ? (
                 <Box mb="3" width="200px">
                   <ValueTypeField
                     size="md"
@@ -367,7 +373,7 @@ function ManagedTrafficForm({
         ) : (
           <FeatureVariationsInput {...sharedVariationProps} />
         )}
-      </div>
+      </Box>
     </ModalStandard>
   );
 }

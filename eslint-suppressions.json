@@ -807,11 +807,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/SortableFeatureVariationRow.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/Features/ValueDisplay.tsx": {
     "no-restricted-imports": {
       "count": 1

@@ -48,7 +48,8 @@ export interface Props {
   coverage?: number;
   setCoverage?: (coverage: number) => void;
   coverageLabel?: string;
-  coverageTooltip?: string;
+  // null drops the info icon entirely.
+  coverageTooltip?: string | null;
   valueAsId?: boolean;
   hideVariationIds?: boolean;
   hideValueField?: boolean;
@@ -131,6 +132,13 @@ export default function ExperimentManagedFeatureVariationEditor({
   // and description columns; both put the value on its own row.
   const stackValue = valueType === "json" || editingIds;
 
+  // The reorder gutter only earns its space while rows can actually be moved.
+  const showDragHandle =
+    !!setVariations &&
+    !disableVariations &&
+    !onlySafeToEditVariationMetadata &&
+    (variations?.length ?? 0) > 1;
+
   // Descriptions are advanced-mode detail; stacking the value frees the room.
   const showDescriptionColumn = showDescriptions || editingIds;
 
@@ -205,7 +213,7 @@ export default function ExperimentManagedFeatureVariationEditor({
           : "Traffic Percentage & Variation Weights";
 
   return (
-    <div className="form-group">
+    <Box mb="4">
       {_label !== null ? (
         <Text as="label" weight="semibold">
           {label}
@@ -214,22 +222,27 @@ export default function ExperimentManagedFeatureVariationEditor({
       {simple ? (
         <>
           {!hideCoverage ? (
-            <div className="px-3 pt-3 bg-highlight rounded mb-3">
-              <label className="mb-0">
-                {coverageLabel}{" "}
-                <Tooltip content={coverageTooltip} side="top">
-                  <Box
-                    as="span"
-                    display="inline-block"
-                    tabIndex={0}
-                    aria-label={`More information about ${coverageLabel}`}
-                  >
-                    <GBInfo />
-                  </Box>
-                </Tooltip>
-              </label>
-              <div className="row align-items-center pb-3 mx-1">
-                <div className="col pl-0">
+            <Box px="4" pt="4" mb="6" className="bg-highlight rounded">
+              <Text as="label" mb="0">
+                {coverageLabel}
+                {coverageTooltip ? (
+                  <>
+                    {" "}
+                    <Tooltip content={coverageTooltip} side="top">
+                      <Box
+                        as="span"
+                        display="inline-block"
+                        tabIndex={0}
+                        aria-label={`More information about ${coverageLabel}`}
+                      >
+                        <GBInfo />
+                      </Box>
+                    </Tooltip>
+                  </>
+                ) : null}
+              </Text>
+              <Flex align="center" pb="4" gap="3">
+                <Box flexGrow="1">
                   <Slider
                     value={
                       isNaN(coverage ?? 0)
@@ -247,11 +260,9 @@ export default function ExperimentManagedFeatureVariationEditor({
                       setCoverage?.(decimal);
                     }}
                   />
-                </div>
-                <div className="col-auto pr-0">
-                  <div
-                    className={`position-relative ${styles.percentInputWrap}`}
-                  >
+                </Box>
+                <Box>
+                  <Box position="relative" className={styles.percentInputWrap}>
                     <Field
                       size="md"
                       style={{ width: 95 }}
@@ -272,11 +283,11 @@ export default function ExperimentManagedFeatureVariationEditor({
                       step="1"
                       disabled={!!disableCoverage}
                     />
-                    <span>%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+                    <Text as="span">%</Text>
+                  </Box>
+                </Box>
+              </Flex>
+            </Box>
           ) : null}
           <Field
             size="md"
@@ -305,22 +316,27 @@ export default function ExperimentManagedFeatureVariationEditor({
       ) : (
         <>
           {!hideCoverage ? (
-            <div className="px-3 pt-3 bg-highlight rounded mb-3">
-              <label className="mb-0">
-                {coverageLabel}{" "}
-                <Tooltip content={coverageTooltip} side="top">
-                  <Box
-                    as="span"
-                    display="inline-block"
-                    tabIndex={0}
-                    aria-label={`More information about ${coverageLabel}`}
-                  >
-                    <GBInfo />
-                  </Box>
-                </Tooltip>
-              </label>
-              <div className="row align-items-center pb-3 mx-1">
-                <div className="col pl-0">
+            <Box px="4" pt="4" mb="6" className="bg-highlight rounded">
+              <Text as="label" mb="0">
+                {coverageLabel}
+                {coverageTooltip ? (
+                  <>
+                    {" "}
+                    <Tooltip content={coverageTooltip} side="top">
+                      <Box
+                        as="span"
+                        display="inline-block"
+                        tabIndex={0}
+                        aria-label={`More information about ${coverageLabel}`}
+                      >
+                        <GBInfo />
+                      </Box>
+                    </Tooltip>
+                  </>
+                ) : null}
+              </Text>
+              <Flex align="center" pb="4" gap="3">
+                <Box flexGrow="1">
                   <Slider
                     value={
                       isNaN(coverage ?? 0)
@@ -338,11 +354,9 @@ export default function ExperimentManagedFeatureVariationEditor({
                       setCoverage?.(decimal);
                     }}
                   />
-                </div>
-                <div className="col-auto pr-0">
-                  <div
-                    className={`position-relative ${styles.percentInputWrap}`}
-                  >
+                </Box>
+                <Box>
+                  <Box position="relative" className={styles.percentInputWrap}>
                     <Field
                       size="md"
                       style={{ width: 95 }}
@@ -365,12 +379,12 @@ export default function ExperimentManagedFeatureVariationEditor({
                         !!disableCoverage && onlySafeToEditVariationMetadata
                       }
                     />
-                    <span>%</span>
-                  </div>
-                </div>
-              </div>
+                    <Text as="span">%</Text>
+                  </Box>
+                </Box>
+              </Flex>
               {showPreview && coverage !== undefined && variations ? (
-                <Box pb="3">
+                <Box pb="4">
                   <ExperimentSplitVisual
                     coverage={coverage}
                     values={variations}
@@ -378,7 +392,7 @@ export default function ExperimentManagedFeatureVariationEditor({
                   />
                 </Box>
               ) : null}
-            </div>
+            </Box>
           ) : null}
 
           {belowCoverage}
@@ -389,7 +403,7 @@ export default function ExperimentManagedFeatureVariationEditor({
             !hideValueField &&
             !disableVariations &&
             setVariations && (
-              <div className="mb-2">
+              <Box mb="2">
                 {!editingIds ? (
                   <Link
                     onClick={() => {
@@ -399,9 +413,9 @@ export default function ExperimentManagedFeatureVariationEditor({
                     Switch to advanced mode
                   </Link>
                 ) : (
-                  <span className="text-muted">Advanced mode</span>
+                  <Text color="text-mid">Advanced mode</Text>
                 )}
-              </div>
+              </Box>
             )}
 
           {!hideVariations && (
@@ -413,6 +427,7 @@ export default function ExperimentManagedFeatureVariationEditor({
                   showDescription: showDescriptionColumn,
                   hideSplit: hideSplits,
                   stackValue,
+                  showDragHandle,
                 })}
                 gap="4"
                 align="center"
@@ -421,6 +436,7 @@ export default function ExperimentManagedFeatureVariationEditor({
                 pb="2"
               >
                 <>
+                  {showDragHandle && <span />}
                   {!hideVariationIds && (
                     <Text size="md" weight="semibold">
                       {!valueAsId && !hideValueField && editingIds ? "#" : "Id"}
@@ -527,6 +543,7 @@ export default function ExperimentManagedFeatureVariationEditor({
                         hideSplit={hideSplits}
                         feature={feature}
                         stackValue={stackValue}
+                        showDragHandle={showDragHandle}
                         showDescription={showDescriptionColumn}
                         className={sortableClassName}
                         autoFocusName={
@@ -579,6 +596,6 @@ export default function ExperimentManagedFeatureVariationEditor({
           )}
         </>
       )}
-    </div>
+    </Box>
   );
 }

@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { FaArrowsAlt } from "react-icons/fa";
+import { RiDraggable } from "react-icons/ri";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
@@ -29,6 +29,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import Text from "@/ui/Text";
 import rowStyles from "./ExperimentManagedFeatureVariationRow.module.scss";
 
 // The one column template the header row and every variation row share.
@@ -38,6 +39,7 @@ export function gridColumns({
   showDescription,
   hideSplit,
   stackValue,
+  showDragHandle,
 }: {
   hideVariationIds?: boolean;
   hideValueField?: boolean;
@@ -45,15 +47,18 @@ export function gridColumns({
   hideSplit?: boolean;
   // On its own row below, so it takes no column here.
   stackValue?: boolean;
+  // The reorder gutter, present only while the table is editable.
+  showDragHandle?: boolean;
 }): string {
   return [
+    showDragHandle ? "18px" : undefined,
     hideVariationIds ? undefined : "36px",
     hideValueField ? undefined : "minmax(80px, 0.4fr)",
     "minmax(160px, 1fr)",
     stackValue ? undefined : "minmax(180px, 1.2fr)",
     showDescription ? "minmax(140px, 1fr)" : undefined,
     hideSplit ? undefined : "80px",
-    "56px",
+    "32px",
   ]
     .filter(Boolean)
     .join(" ");
@@ -83,6 +88,7 @@ interface SortableProps {
   showDescription?: boolean;
   // Render the value on its own row beneath the grid, whatever its type.
   stackValue?: boolean;
+  showDragHandle?: boolean;
   dragging?: boolean;
   className?: string;
   onlySafeToEditVariationMetadata?: boolean;
@@ -116,6 +122,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
       feature,
       showDescription,
       stackValue,
+      showDragHandle,
       dragging,
       className = "",
       autoFocusName,
@@ -160,6 +167,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
         px="2"
         py="3"
         style={{
+          position: "relative",
           borderBottom:
             i < variations.length - 1 ? "1px solid var(--slate-4)" : undefined,
           opacity: dragging ? 0.5 : undefined,
@@ -167,6 +175,19 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
           ...props.style,
         }}
       >
+        <Box
+          aria-hidden
+          style={{
+            position: "absolute",
+            left: 0,
+            // Inset by the row's own py, so the bar spans the content rather
+            // than the full row and reads as a marker, not a divider.
+            top: "calc(var(--space-3) - 1px)",
+            bottom: "calc(var(--space-3) - 1px)",
+            width: 4,
+            backgroundColor: getVariationColor(i, true),
+          }}
+        />
         <Grid
           columns={gridColumns({
             hideVariationIds,
@@ -174,28 +195,28 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             showDescription,
             hideSplit,
             stackValue: stacked,
+            showDragHandle,
           })}
           gapX="4"
           gapY="2"
           align="center"
         >
-          {!hideVariationIds && (
-            <Flex align="center" gap="2" minWidth="0">
-              {/* A fixed swatch: the shared .colorMarker is absolutely
-                  positioned for a table cell and stretches out of a grid.
-                  Square-edged and the height of the row's fields, so it reads
-                  as a rule rather than a pill. */}
-              <Box
-                style={{
-                  width: 4,
-                  height: 32,
-                  flexShrink: 0,
-                  backgroundColor: getVariationColor(i, true),
-                }}
-              />
-              <span>{i}</span>
-            </Flex>
+          {showDragHandle && (
+            <Box
+              {...handle}
+              title="Drag and drop to re-order variations"
+              style={{
+                cursor: "grab",
+                display: "flex",
+                marginLeft: 2,
+                color: "var(--color-text-low)",
+              }}
+            >
+              <RiDraggable size={16} />
+            </Box>
           )}
+
+          {!hideVariationIds && <span>{i}</span>}
 
           {!hideValueField &&
             (setVariations ? (
@@ -298,9 +319,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
 
           {!hideSplit &&
             (customSplit ? (
-              <div
-                className={`position-relative ${rowStyles.percentInputWrap}`}
-              >
+              <Box position="relative" className={rowStyles.percentInputWrap}>
                 <Field
                   size="md"
                   id={`${variation.id}__${i}__3__input`}
@@ -316,24 +335,13 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   step="any"
                   disabled={!setWeight}
                 />
-                <span>%</span>
-              </div>
+                <Text as="span">%</Text>
+              </Box>
             ) : (
               <span>{decimalToPercent(weights[i])}%</span>
             ))}
 
           <Flex align="center" justify="end" gap="2">
-            {variations.length > 1 &&
-              setVariations &&
-              !onlySafeToEditVariationMetadata && (
-                <div
-                  {...handle}
-                  title="Drag and drop to re-order variations"
-                  style={{ cursor: "grab", display: "flex" }}
-                >
-                  <FaArrowsAlt />
-                </div>
-              )}
             {setVariations && !onlySafeToEditVariationMetadata ? (
               <DropdownMenu
                 trigger={
@@ -405,10 +413,11 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
 
           {stacked && (
             <Box
+              className={rowStyles.tightValueCell}
               style={{
                 // Start after the id gutter and stop before the controls one,
                 // so the editor sits inside the row rather than under it.
-                gridColumn: hideVariationIds ? "1 / -2" : "2 / -2",
+                gridColumn: `${(showDragHandle ? 1 : 0) + (hideVariationIds ? 0 : 1) + 1} / -2`,
               }}
             >
               {setVariations ? (

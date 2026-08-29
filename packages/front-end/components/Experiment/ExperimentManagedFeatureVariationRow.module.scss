@@ -31,3 +31,13 @@
     color: var(--slate-11);
   }
 }
+
+// The stacked value cell: the row's own padding separates it from the next row,
+// so the field's trailing margin (Bootstrap's .form-group, or the code editor's
+// wrapper) just pads the row out.
+.tightValueCell {
+  > :global(.rt-Box),
+  :global(.form-group) {
+    margin-bottom: 0;
+  }
+}
