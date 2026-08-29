@@ -13,6 +13,7 @@ import Table, {
   TableRowHeaderCell,
 } from "@/ui/Table";
 import VariationLabel from "@/ui/VariationLabel";
+import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import { getVariationColor } from "@/services/features";
@@ -108,6 +109,7 @@ export default function ContextualBanditOverviewTable({
   units,
   unitDisplayName,
   goalMetricName,
+  goalMetricLink,
   formatMean,
   formatWeight,
 }: {
@@ -117,6 +119,7 @@ export default function ContextualBanditOverviewTable({
   units: number[];
   unitDisplayName: string;
   goalMetricName: string;
+  goalMetricLink?: string | null;
   formatMean: (value: number) => string;
   formatWeight: (value: number) => string;
 }) {
@@ -158,7 +161,19 @@ export default function ContextualBanditOverviewTable({
               </Tooltip>
             </TableColumnHeader>
             <TableColumnHeader>
-              Mean {goalMetricName}{" "}
+              Mean{" "}
+              {goalMetricLink ? (
+                <Link
+                  href={goalMetricLink}
+                  target="_blank"
+                  color="dark"
+                  underline="hover"
+                >
+                  {goalMetricName}
+                </Link>
+              ) : (
+                goalMetricName
+              )}{" "}
               <Tooltip
                 body={`Mean ${goalMetricName} if all traffic were allocated to a single variation.`}
               >

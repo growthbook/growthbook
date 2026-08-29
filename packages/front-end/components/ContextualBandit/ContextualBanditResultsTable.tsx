@@ -7,6 +7,7 @@ import { ApiContextualBanditInterface } from "shared/validators";
 import {
   expandMetricGroups,
   conditionFromLeafClauses,
+  getMetricLink,
 } from "shared/experiments";
 import type {
   ContextualBanditResultsLeaf,
@@ -174,9 +175,11 @@ export default function ContextualBanditResultsTable({
     ? startCase(userIdType.split("_").join(" ")) + "s"
     : "Units";
 
-  const goalMetricName = cb.decisionMetric
-    ? (getExperimentMetricById(cb.decisionMetric)?.name ?? "outcome")
-    : "outcome";
+  const goalMetric = cb.decisionMetric
+    ? getExperimentMetricById(cb.decisionMetric)
+    : null;
+  const goalMetricName = goalMetric?.name ?? "outcome";
+  const goalMetricLink = goalMetric ? getMetricLink(goalMetric.id) : null;
 
   const queryLatest = latest;
   const { status } = getQueryStatus(
@@ -406,6 +409,24 @@ export default function ContextualBanditResultsTable({
       {hasTableData ? (
         <>
           <SectionHeading
+            title="Variation Performance"
+            description="Breakdown by variation."
+          />
+          <Box mb="5">
+            <ContextualBanditOverviewTable
+              variations={variations}
+              means={overallVariationMeans}
+              weights={overallVariationWeights}
+              units={overallVariationUnits}
+              unitDisplayName={unitDisplayName}
+              goalMetricName={goalMetricName}
+              goalMetricLink={goalMetricLink}
+              formatMean={(value) => formatModeValue(value, "means")}
+              formatWeight={formatWeight}
+            />
+          </Box>
+
+          <SectionHeading
             title="Attribute Importance"
             description="Attributes ranked by proportion of error removed."
           />
@@ -419,21 +440,6 @@ export default function ContextualBanditResultsTable({
               compute them.
             </Text>
           )}
-
-          <SectionHeading
-            title="Variation Performance"
-            description="Breakdown by variation."
-          />
-          <ContextualBanditOverviewTable
-            variations={variations}
-            means={overallVariationMeans}
-            weights={overallVariationWeights}
-            units={overallVariationUnits}
-            unitDisplayName={unitDisplayName}
-            goalMetricName={goalMetricName}
-            formatMean={(value) => formatModeValue(value, "means")}
-            formatWeight={formatWeight}
-          />
 
           <Flex
             justify="between"
