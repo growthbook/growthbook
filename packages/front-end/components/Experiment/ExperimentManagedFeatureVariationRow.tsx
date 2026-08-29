@@ -34,14 +34,12 @@ import rowStyles from "./ExperimentManagedFeatureVariationRow.module.scss";
 
 // The one column template the header row and every variation row share.
 export function gridColumns({
-  hideVariationIds,
   hideValueField,
   showDescription,
   hideSplit,
   stackValue,
   showDragHandle,
 }: {
-  hideVariationIds?: boolean;
   hideValueField?: boolean;
   showDescription?: boolean;
   hideSplit?: boolean;
@@ -52,7 +50,7 @@ export function gridColumns({
 }): string {
   return [
     showDragHandle ? "18px" : undefined,
-    hideVariationIds ? undefined : "36px",
+    "36px",
     hideValueField ? undefined : "minmax(80px, 0.4fr)",
     "minmax(160px, 1fr)",
     stackValue ? undefined : "minmax(180px, 1.2fr)",
@@ -77,7 +75,6 @@ interface SortableProps {
   variation: ManagedSortableVariation;
   variations: ManagedSortableVariation[];
   valueType?: FeatureValueType;
-  hideVariationIds?: boolean;
   hideValueField?: boolean;
   setVariations?: (value: ManagedSortableVariation[]) => void;
   setWeight?: (i: number, weight: number) => void;
@@ -90,8 +87,6 @@ interface SortableProps {
   stackValue?: boolean;
   showDragHandle?: boolean;
   dragging?: boolean;
-  className?: string;
-  onlySafeToEditVariationMetadata?: boolean;
   autoFocusName?: boolean;
   // JSON features only. Renders the value as a sparse patch (merged onto the
   // feature default) in the value editor.
@@ -113,9 +108,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
       valueAsId,
       setVariations,
       valueType,
-      hideVariationIds,
       hideValueField,
-      onlySafeToEditVariationMetadata,
       customSplit,
       hideSplit,
       setWeight,
@@ -124,7 +117,6 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
       stackValue,
       showDragHandle,
       dragging,
-      className = "",
       autoFocusName,
       sparse,
       ...props
@@ -163,7 +155,6 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
         ref={ref}
         {...props}
         key={`${variation.id}__${i}`}
-        className={className}
         px="2"
         py="3"
         style={{
@@ -190,7 +181,6 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
         />
         <Grid
           columns={gridColumns({
-            hideVariationIds,
             hideValueField,
             showDescription,
             hideSplit,
@@ -216,7 +206,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             </Box>
           )}
 
-          {!hideVariationIds && <span>{i}</span>}
+          <span>{i}</span>
 
           {!hideValueField &&
             (setVariations ? (
@@ -342,7 +332,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             ))}
 
           <Flex align="center" justify="end" gap="2">
-            {setVariations && !onlySafeToEditVariationMetadata ? (
+            {setVariations ? (
               <DropdownMenu
                 trigger={
                   <IconButton
@@ -417,7 +407,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
               style={{
                 // Start after the id gutter and stop before the controls one,
                 // so the editor sits inside the row rather than under it.
-                gridColumn: `${(showDragHandle ? 1 : 0) + (hideVariationIds ? 0 : 1) + 1} / -2`,
+                gridColumn: `${(showDragHandle ? 1 : 0) + 2} / -2`,
               }}
             >
               {setVariations ? (

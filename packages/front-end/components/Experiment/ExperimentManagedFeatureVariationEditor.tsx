@@ -39,37 +39,24 @@ import {
   gridColumns,
 } from "./ExperimentManagedFeatureVariationRow";
 
+const COVERAGE_LABEL = "Traffic included in this Experiment";
+
 export interface Props {
   valueType?: FeatureValueType;
-  defaultValue?: string;
   variations?: ManagedSortableVariation[];
   setWeight?: (i: number, weight: number) => void;
   setVariations?: (variations: ManagedSortableVariation[]) => void;
   coverage?: number;
   setCoverage?: (coverage: number) => void;
-  coverageLabel?: string;
   // null drops the info icon entirely.
   coverageTooltip?: string | null;
   valueAsId?: boolean;
-  hideVariationIds?: boolean;
-  hideValueField?: boolean;
-  startEditingIndexes?: boolean;
-  startEditingSplits?: boolean;
   showPreview?: boolean;
-  hideCoverage?: boolean;
   // Rendered between the coverage widget and the variations table.
   belowCoverage?: ReactNode;
-  disableCoverage?: boolean;
-  disableVariations?: boolean;
-  disableCustomSplit?: boolean;
   hideSplits?: boolean;
   label?: string | null;
   feature?: FeatureInterface;
-  hideVariations?: boolean;
-  showDescriptions?: boolean;
-  simple?: boolean;
-  sortableClassName?: string;
-  onlySafeToEditVariationMetadata?: boolean;
   autoFocusVariationId?: string | null;
   // Appends a variation once on mount and focuses its Name field.
   autoAddVariationOnMount?: boolean;
@@ -85,28 +72,13 @@ export default function ExperimentManagedFeatureVariationEditor({
   coverage,
   setCoverage,
   valueType,
-  defaultValue = "",
-  coverageLabel = "Traffic included in this Experiment",
   coverageTooltip = "Users not included in the Experiment will skip this rule",
   valueAsId = false,
-  hideVariationIds = false,
-  hideValueField = false,
-  startEditingIndexes = false,
-  startEditingSplits = false,
   showPreview = true,
-  hideCoverage = false,
   belowCoverage,
-  disableCoverage = false,
-  disableVariations = false,
-  disableCustomSplit = false,
   hideSplits = false,
   label: _label,
   feature,
-  hideVariations,
-  showDescriptions,
-  simple,
-  sortableClassName,
-  onlySafeToEditVariationMetadata,
   autoFocusVariationId,
   autoAddVariationOnMount,
   sparse,
@@ -121,31 +93,18 @@ export default function ExperimentManagedFeatureVariationEditor({
 
   const idsMatchIndexes = variations?.every((v, i) => v.value === i + "");
 
-  const [editingSplits, setEditingSplits] = useState(startEditingSplits);
-  const [editingIds, setEditingIds] = useState(
-    startEditingIndexes || !idsMatchIndexes,
-  );
-  const [numberOfVariations, setNumberOfVariations] = useState(
-    Math.max(variations?.length ?? 2, 2) + "",
-  );
+  const [editingSplits, setEditingSplits] = useState(false);
+  const [editingIds, setEditingIds] = useState(!idsMatchIndexes);
   // JSON needs the room, and advanced mode spends the row's width on the id
   // and description columns; both put the value on its own row.
   const stackValue = valueType === "json" || editingIds;
 
   // The reorder gutter only earns its space while rows can actually be moved.
-  const showDragHandle =
-    !!setVariations &&
-    !disableVariations &&
-    !onlySafeToEditVariationMetadata &&
-    (variations?.length ?? 0) > 1;
-
-  // Descriptions are advanced-mode detail; stacking the value frees the room.
-  const showDescriptionColumn = showDescriptions || editingIds;
+  const showDragHandle = !!setVariations && (variations?.length ?? 0) > 1;
 
   // editingIds already encodes the notion of having bespoke IDs, so if it is false
   // it is probably safe to renormalize variation keys on sort
-  const forceRenormalizeVariationKeysOnSort =
-    !valueAsId && !editingIds && !onlySafeToEditVariationMetadata;
+  const forceRenormalizeVariationKeysOnSort = !valueAsId && !editingIds;
 
   const setEqualWeights = () => {
     if (!variations || !setWeight) return;
@@ -161,7 +120,7 @@ export default function ExperimentManagedFeatureVariationEditor({
     const newValues = [
       ...variations,
       {
-        value: getDefaultVariationValue(defaultValue),
+        value: getDefaultVariationValue(""),
         name: `Variation ${variations.length}`,
         weight: 0,
         id: newId,
@@ -182,7 +141,6 @@ export default function ExperimentManagedFeatureVariationEditor({
     weights,
     editingSplits,
     isEqualWeights,
-    defaultValue,
   ]);
 
   const [autoAddedVariationId, setAutoAddedVariationId] = useState<
@@ -195,22 +153,17 @@ export default function ExperimentManagedFeatureVariationEditor({
     const newId = addVariation();
     if (newId !== null) {
       setAutoAddedVariationId(newId);
-      setNumberOfVariations((variations?.length ?? 0) + 1 + "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoAddVariationOnMount]);
 
   const focusVariationId = autoAddedVariationId ?? autoFocusVariationId ?? null;
 
-  const label = _label
-    ? _label
-    : simple
-      ? "Traffic Percentage & Variations"
-      : setVariations
-        ? "Traffic Percentage, Variations, and Weights"
-        : hideCoverage || hideVariations
-          ? "Traffic Percentage"
-          : "Traffic Percentage & Variation Weights";
+  const label =
+    _label ??
+    (setVariations
+      ? "Traffic Percentage, Variations, and Weights"
+      : "Traffic Percentage & Variation Weights");
 
   return (
     <Box mb="4">
@@ -219,383 +172,245 @@ export default function ExperimentManagedFeatureVariationEditor({
           {label}
         </Text>
       ) : null}
-      {simple ? (
-        <>
-          {!hideCoverage ? (
-            <Box px="4" pt="4" mb="6" className="bg-highlight rounded">
-              <Text as="label" mb="0">
-                {coverageLabel}
-                {coverageTooltip ? (
-                  <>
-                    {" "}
-                    <Tooltip content={coverageTooltip} side="top">
-                      <Box
-                        as="span"
-                        display="inline-block"
-                        tabIndex={0}
-                        aria-label={`More information about ${coverageLabel}`}
-                      >
-                        <GBInfo />
-                      </Box>
-                    </Tooltip>
-                  </>
-                ) : null}
-              </Text>
-              <Flex align="center" pb="4" gap="3">
-                <Box flexGrow="1">
-                  <Slider
-                    value={
-                      isNaN(coverage ?? 0)
-                        ? [0]
-                        : [decimalToPercent(coverage ?? 0)]
-                    }
-                    min={0}
-                    max={100}
-                    step={1}
-                    disabled={!!disableCoverage}
-                    onValueChange={(e) => {
-                      let decimal = percentToDecimalForNumber(e[0]);
-                      if (decimal > 1) decimal = 1;
-                      if (decimal < 0) decimal = 0;
-                      setCoverage?.(decimal);
-                    }}
-                  />
+      <Box px="4" pt="4" mb="6" className="bg-highlight rounded">
+        <Text as="label" mb="0">
+          {COVERAGE_LABEL}
+          {coverageTooltip ? (
+            <>
+              {" "}
+              <Tooltip content={coverageTooltip} side="top">
+                <Box
+                  as="span"
+                  display="inline-block"
+                  tabIndex={0}
+                  aria-label={`More information about ${COVERAGE_LABEL}`}
+                >
+                  <GBInfo />
                 </Box>
-                <Box>
-                  <Box position="relative" className={styles.percentInputWrap}>
-                    <Field
-                      size="md"
-                      style={{ width: 95 }}
-                      value={
-                        isNaN(coverage ?? 0)
-                          ? ""
-                          : decimalToPercent(coverage ?? 0)
-                      }
-                      onChange={(e) => {
-                        let decimal = percentToDecimal(e.target.value);
-                        if (decimal > 1) decimal = 1;
-                        if (decimal < 0) decimal = 0;
-                        setCoverage?.(decimal);
-                      }}
-                      type="number"
-                      min={0}
-                      max={100}
-                      step="1"
-                      disabled={!!disableCoverage}
-                    />
-                    <Text as="span">%</Text>
-                  </Box>
-                </Box>
-              </Flex>
-            </Box>
+              </Tooltip>
+            </>
           ) : null}
-          <Field
-            size="md"
-            label="Number of Variations"
-            type="number"
-            value={numberOfVariations}
-            disabled={onlySafeToEditVariationMetadata}
-            onChange={(e) => setNumberOfVariations(e?.target?.value ?? "2")}
-            onBlur={(e) => {
-              let n = parseInt(e?.target?.value ?? numberOfVariations);
-              n = Math.min(Math.max(2, n), 100);
-              const newValues: ManagedSortableVariation[] = [];
-              for (let i = 0; i < n; i++) {
-                newValues.push({
-                  value: getDefaultVariationValue(defaultValue),
-                  name: i === 0 ? "Control" : `Variation ${i}`,
-                  weight: 1 / n,
-                  id: generateVariationId(),
-                });
+        </Text>
+        <Flex align="center" pb="4" gap="3">
+          <Box flexGrow="1">
+            <Slider
+              value={
+                isNaN(coverage ?? 0) ? [0] : [decimalToPercent(coverage ?? 0)]
               }
-              setVariations?.(newValues);
-              setNumberOfVariations(n + "");
-            }}
-          />
-        </>
-      ) : (
-        <>
-          {!hideCoverage ? (
-            <Box px="4" pt="4" mb="6" className="bg-highlight rounded">
-              <Text as="label" mb="0">
-                {coverageLabel}
-                {coverageTooltip ? (
-                  <>
-                    {" "}
-                    <Tooltip content={coverageTooltip} side="top">
-                      <Box
-                        as="span"
-                        display="inline-block"
-                        tabIndex={0}
-                        aria-label={`More information about ${coverageLabel}`}
-                      >
-                        <GBInfo />
-                      </Box>
-                    </Tooltip>
-                  </>
-                ) : null}
-              </Text>
-              <Flex align="center" pb="4" gap="3">
-                <Box flexGrow="1">
-                  <Slider
-                    value={
-                      isNaN(coverage ?? 0)
-                        ? [0]
-                        : [decimalToPercent(coverage ?? 0)]
-                    }
-                    min={0}
-                    max={100}
-                    step={1}
-                    disabled={!!disableCoverage}
-                    onValueChange={(e) => {
-                      let decimal = percentToDecimalForNumber(e[0]);
-                      if (decimal > 1) decimal = 1;
-                      if (decimal < 0) decimal = 0;
-                      setCoverage?.(decimal);
-                    }}
-                  />
-                </Box>
-                <Box>
-                  <Box position="relative" className={styles.percentInputWrap}>
-                    <Field
-                      size="md"
-                      style={{ width: 95 }}
-                      value={
-                        isNaN(coverage ?? 0)
-                          ? ""
-                          : decimalToPercent(coverage ?? 0)
-                      }
-                      onChange={(e) => {
-                        let decimal = percentToDecimal(e.target.value);
-                        if (decimal > 1) decimal = 1;
-                        if (decimal < 0) decimal = 0;
-                        setCoverage?.(decimal);
-                      }}
-                      type="number"
-                      min={0}
-                      max={100}
-                      step="1"
-                      disabled={
-                        !!disableCoverage && onlySafeToEditVariationMetadata
-                      }
-                    />
-                    <Text as="span">%</Text>
-                  </Box>
-                </Box>
-              </Flex>
-              {showPreview && coverage !== undefined && variations ? (
-                <Box pb="4">
-                  <ExperimentSplitVisual
-                    coverage={coverage}
-                    values={variations}
-                    type={valueType ?? "string"}
-                  />
-                </Box>
-              ) : null}
+              min={0}
+              max={100}
+              step={1}
+              onValueChange={(e) => {
+                let decimal = percentToDecimalForNumber(e[0]);
+                if (decimal > 1) decimal = 1;
+                if (decimal < 0) decimal = 0;
+                setCoverage?.(decimal);
+              }}
+            />
+          </Box>
+          <Box>
+            <Box position="relative" className={styles.percentInputWrap}>
+              <Field
+                size="md"
+                style={{ width: 95 }}
+                value={
+                  isNaN(coverage ?? 0) ? "" : decimalToPercent(coverage ?? 0)
+                }
+                onChange={(e) => {
+                  let decimal = percentToDecimal(e.target.value);
+                  if (decimal > 1) decimal = 1;
+                  if (decimal < 0) decimal = 0;
+                  setCoverage?.(decimal);
+                }}
+                type="number"
+                min={0}
+                max={100}
+                step="1"
+              />
+              <Text as="span">%</Text>
             </Box>
-          ) : null}
+          </Box>
+        </Flex>
+        {showPreview && coverage !== undefined && variations ? (
+          <Box pb="4">
+            <ExperimentSplitVisual
+              coverage={coverage}
+              values={variations}
+              type={valueType ?? "string"}
+            />
+          </Box>
+        ) : null}
+      </Box>
 
-          {belowCoverage}
+      {belowCoverage}
 
-          {!hideVariationIds &&
-            !startEditingIndexes &&
-            !valueAsId &&
-            !hideValueField &&
-            !disableVariations &&
-            setVariations && (
-              <Box mb="2">
-                {!editingIds ? (
-                  <Link
-                    onClick={() => {
-                      setEditingIds(true);
-                    }}
-                  >
-                    Switch to advanced mode
-                  </Link>
-                ) : (
-                  <Text color="text-mid">Advanced mode</Text>
-                )}
+      {!valueAsId && setVariations && (
+        <Box mb="2">
+          {!editingIds ? (
+            <Link
+              onClick={() => {
+                setEditingIds(true);
+              }}
+            >
+              Switch to advanced mode
+            </Link>
+          ) : (
+            <Text color="text-mid">Advanced mode</Text>
+          )}
+        </Box>
+      )}
+
+      {
+        <Box>
+          <Grid
+            columns={gridColumns({
+              hideValueField: !editingIds,
+              showDescription: editingIds,
+              hideSplit: hideSplits,
+              stackValue,
+              showDragHandle,
+            })}
+            gap="4"
+            align="center"
+            px="2"
+            pt="3"
+            pb="2"
+          >
+            <>
+              {showDragHandle && <span />}
+              <Text size="md" weight="semibold">
+                {!valueAsId && editingIds ? "#" : "Id"}
+              </Text>
+              {editingIds && (
+                <Text size="md" weight="semibold">
+                  Id
+                </Text>
+              )}
+              <Text size="md" weight="semibold">
+                Variation Name
+              </Text>
+              {!stackValue && (
+                <Text size="md" weight="semibold">
+                  Value
+                </Text>
+              )}
+              {editingIds && (
+                <Text size="md" weight="semibold">
+                  Description
+                </Text>
+              )}
+              {!hideSplits && (
+                <Text size="md" weight="semibold">
+                  <Flex align="center" gap="1">
+                    <span>Split</span>
+                    {!editingSplits && (
+                      <Tooltip content="Customize split" side="top">
+                        <Link
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setEditingSplits(true);
+                          }}
+                          aria-label="Customize split"
+                        >
+                          <PiLockSimpleFill size={15} />
+                        </Link>
+                      </Tooltip>
+                    )}
+                    {editingSplits && !isEqualWeights && !hideSplits && (
+                      <Tooltip
+                        content="Assign equal weights to all variations"
+                        side="top"
+                      >
+                        <Link
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setEqualWeights();
+                          }}
+                          aria-label="Set equal weights"
+                        >
+                          <Flex align="center" gap="1">
+                            <PiArrowsClockwise size={12} />
+                            <Box as="span" style={{ fontSize: "11px" }}>
+                              set equal
+                            </Box>
+                          </Flex>
+                        </Link>
+                      </Tooltip>
+                    )}
+                  </Flex>
+                </Text>
+              )}
+              <span />
+            </>
+          </Grid>
+          <div>
+            {variations && (
+              <SortableVariationsList
+                valuesAsIds={idsMatchIndexes}
+                forceRenormalizeVariationKeysOnSort={
+                  forceRenormalizeVariationKeysOnSort
+                }
+                variations={variations}
+                setVariations={setVariations}
+              >
+                {variations.map((variation, i) => (
+                  <SortableManagedVariationRow
+                    i={i}
+                    key={variation.id}
+                    variation={variation}
+                    variations={variations}
+                    setVariations={setVariations}
+                    setWeight={setWeight}
+                    customSplit={editingSplits}
+                    valueType={valueType}
+                    valueAsId={valueAsId}
+                    hideValueField={!editingIds}
+                    hideSplit={hideSplits}
+                    feature={feature}
+                    stackValue={stackValue}
+                    showDragHandle={showDragHandle}
+                    showDescription={editingIds}
+                    autoFocusName={
+                      focusVariationId !== null &&
+                      variation.id === focusVariationId
+                    }
+                    sparse={sparse}
+                  />
+                ))}
+              </SortableVariationsList>
+            )}
+          </div>
+          <div>
+            {variations && setWeight && (
+              <Box my="4">
+                <Box>
+                  {valueType !== "boolean" && setVariations && (
+                    <Button
+                      variant="ghost"
+                      icon={<PiPlusBold />}
+                      onClick={() => {
+                        addVariation();
+                      }}
+                    >
+                      Add variation
+                    </Button>
+                  )}
+                  {valueType === "boolean" && (
+                    <Tooltip
+                      content="Boolean features can only have two variations. Use a different feature type to add multiple variations."
+                      side="top"
+                    >
+                      <Button variant="ghost" icon={<PiPlusBold />} disabled>
+                        Add variation
+                      </Button>
+                    </Tooltip>
+                  )}
+                </Box>
               </Box>
             )}
-
-          {!hideVariations && (
-            <Box>
-              <Grid
-                columns={gridColumns({
-                  hideVariationIds,
-                  hideValueField: hideValueField || !editingIds,
-                  showDescription: showDescriptionColumn,
-                  hideSplit: hideSplits,
-                  stackValue,
-                  showDragHandle,
-                })}
-                gap="4"
-                align="center"
-                px="2"
-                pt="3"
-                pb="2"
-              >
-                <>
-                  {showDragHandle && <span />}
-                  {!hideVariationIds && (
-                    <Text size="md" weight="semibold">
-                      {!valueAsId && !hideValueField && editingIds ? "#" : "Id"}
-                    </Text>
-                  )}
-                  {!(hideValueField || !editingIds) && (
-                    <Text size="md" weight="semibold">
-                      Id
-                    </Text>
-                  )}
-                  <Text size="md" weight="semibold">
-                    Variation Name
-                  </Text>
-                  {!stackValue && (
-                    <Text size="md" weight="semibold">
-                      Value
-                    </Text>
-                  )}
-                  {showDescriptionColumn && (
-                    <Text size="md" weight="semibold">
-                      Description
-                    </Text>
-                  )}
-                  {!hideSplits && (
-                    <Text size="md" weight="semibold">
-                      <Flex align="center" gap="1">
-                        <span>Split</span>
-                        {!disableVariations &&
-                          !disableCustomSplit &&
-                          !editingSplits &&
-                          !onlySafeToEditVariationMetadata && (
-                            <Tooltip content="Customize split" side="top">
-                              <Link
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setEditingSplits(true);
-                                }}
-                                aria-label="Customize split"
-                              >
-                                <PiLockSimpleFill size={15} />
-                              </Link>
-                            </Tooltip>
-                          )}
-                        {editingSplits &&
-                          !isEqualWeights &&
-                          !disableCustomSplit &&
-                          !hideSplits && (
-                            <Tooltip
-                              content="Assign equal weights to all variations"
-                              side="top"
-                            >
-                              <Link
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setEqualWeights();
-                                }}
-                                aria-label="Set equal weights"
-                              >
-                                <Flex align="center" gap="1">
-                                  <PiArrowsClockwise size={12} />
-                                  <Box as="span" style={{ fontSize: "11px" }}>
-                                    set equal
-                                  </Box>
-                                </Flex>
-                              </Link>
-                            </Tooltip>
-                          )}
-                      </Flex>
-                    </Text>
-                  )}
-                  <span />
-                </>
-              </Grid>
-              <div>
-                {variations && (
-                  <SortableVariationsList
-                    valuesAsIds={idsMatchIndexes}
-                    forceRenormalizeVariationKeysOnSort={
-                      forceRenormalizeVariationKeysOnSort
-                    }
-                    variations={variations}
-                    setVariations={
-                      !disableVariations ? setVariations : undefined
-                    }
-                  >
-                    {variations.map((variation, i) => (
-                      <SortableManagedVariationRow
-                        i={i}
-                        key={variation.id}
-                        variation={variation}
-                        variations={variations}
-                        setVariations={
-                          !disableVariations ? setVariations : undefined
-                        }
-                        setWeight={!disableVariations ? setWeight : undefined}
-                        onlySafeToEditVariationMetadata={
-                          onlySafeToEditVariationMetadata
-                        }
-                        customSplit={editingSplits}
-                        valueType={valueType}
-                        valueAsId={valueAsId}
-                        hideVariationIds={hideVariationIds}
-                        hideValueField={hideValueField || !editingIds}
-                        hideSplit={hideSplits}
-                        feature={feature}
-                        stackValue={stackValue}
-                        showDragHandle={showDragHandle}
-                        showDescription={showDescriptionColumn}
-                        className={sortableClassName}
-                        autoFocusName={
-                          focusVariationId !== null &&
-                          variation.id === focusVariationId
-                        }
-                        sparse={sparse}
-                      />
-                    ))}
-                  </SortableVariationsList>
-                )}
-              </div>
-              <div>
-                {!disableVariations &&
-                  variations &&
-                  setWeight &&
-                  !onlySafeToEditVariationMetadata && (
-                    <Box my="4">
-                      <Box>
-                        {valueType !== "boolean" && setVariations && (
-                          <Button
-                            variant="ghost"
-                            icon={<PiPlusBold />}
-                            onClick={() => {
-                              addVariation();
-                            }}
-                          >
-                            Add variation
-                          </Button>
-                        )}
-                        {valueType === "boolean" && (
-                          <Tooltip
-                            content="Boolean features can only have two variations. Use a different feature type to add multiple variations."
-                            side="top"
-                          >
-                            <Button
-                              variant="ghost"
-                              icon={<PiPlusBold />}
-                              disabled
-                            >
-                              Add variation
-                            </Button>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </Box>
-                  )}
-              </div>
-            </Box>
-          )}
-        </>
-      )}
+          </div>
+        </Box>
+      }
     </Box>
   );
 }

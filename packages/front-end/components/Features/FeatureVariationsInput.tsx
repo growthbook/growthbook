@@ -44,7 +44,6 @@ export interface Props {
   coverageTooltip?: string;
   valueAsId?: boolean;
   hideVariationIds?: boolean;
-  hideValueField?: boolean;
   startEditingIndexes?: boolean;
   startEditingSplits?: boolean;
   showPreview?: boolean;
@@ -58,7 +57,6 @@ export interface Props {
   hideVariations?: boolean;
   showDescriptions?: boolean;
   simple?: boolean;
-  sortableClassName?: string;
   onlySafeToEditVariationMetadata?: boolean;
   // When set, the variation with this id has its Name field auto-focused on
   // mount.
@@ -84,7 +82,6 @@ export default function FeatureVariationsInput({
   coverageTooltip = "Users not included in the Experiment will skip this rule",
   valueAsId = false,
   hideVariationIds = false,
-  hideValueField = false,
   startEditingIndexes = false,
   startEditingSplits = false,
   showPreview = true,
@@ -98,7 +95,6 @@ export default function FeatureVariationsInput({
   hideVariations,
   showDescriptions,
   simple,
-  sortableClassName,
   onlySafeToEditVariationMetadata,
   autoFocusVariationId,
   autoAddVariationOnMount,
@@ -377,7 +373,6 @@ export default function FeatureVariationsInput({
           {!hideVariationIds &&
             !startEditingIndexes &&
             !valueAsId &&
-            !hideValueField &&
             !disableVariations &&
             setVariations && (
               <Box mb="2">
@@ -400,7 +395,7 @@ export default function FeatureVariationsInput({
               <Grid
                 columns={gridColumns({
                   hideVariationIds,
-                  hideValueField: hideValueField || !editingIds,
+                  hideValueField: !editingIds,
                   showDescription: showDescriptions,
                   hideSplit: hideSplits,
                   isJson: valueType === "json",
@@ -417,10 +412,10 @@ export default function FeatureVariationsInput({
                   {showDragHandle && <span />}
                   {!hideVariationIds && (
                     <Text size="md" weight="semibold">
-                      {!valueAsId && !hideValueField && editingIds ? "#" : "Id"}
+                      {!valueAsId && editingIds ? "#" : "Id"}
                     </Text>
                   )}
-                  {!(hideValueField || !editingIds) && (
+                  {editingIds && (
                     <Text size="md" weight="semibold">
                       {hideVariationIds && !valueAsId ? "Value to Force" : "Id"}
                     </Text>
@@ -512,12 +507,11 @@ export default function FeatureVariationsInput({
                         valueType={valueType}
                         valueAsId={valueAsId}
                         hideVariationIds={hideVariationIds}
-                        hideValueField={hideValueField || !editingIds}
+                        hideValueField={!editingIds}
                         hideSplit={hideSplits}
                         feature={feature}
                         showDescription={showDescriptions}
                         showDragHandle={showDragHandle}
-                        className={sortableClassName}
                         autoFocusName={
                           focusVariationId !== null &&
                           variation.id === focusVariationId

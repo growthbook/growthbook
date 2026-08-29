@@ -87,7 +87,6 @@ interface SortableProps {
   showDescription?: boolean;
   showDragHandle?: boolean;
   dragging?: boolean;
-  className?: string;
   onlySafeToEditVariationMetadata?: boolean;
   // Auto-focus this variation's Name field on mount.
   autoFocusName?: boolean;
@@ -121,7 +120,6 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
       showDescription,
       showDragHandle,
       dragging,
-      className = "",
       autoFocusName,
       sparse,
       ...props
@@ -159,7 +157,6 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
         ref={ref}
         {...props}
         key={`${variation.id}__${i}`}
-        className={className}
         px="2"
         py="3"
         style={{
