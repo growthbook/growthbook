@@ -106,7 +106,6 @@ export const contextualBanditSnapshotValidator = baseSchema
         latestPeriod: contextualBanditSrmLatestPeriodValidator.optional(),
       })
       .optional(),
-    multipleExposures: z.number().optional(),
     traffic: contextualBanditTrafficValidator.optional(),
   })
   .strict();

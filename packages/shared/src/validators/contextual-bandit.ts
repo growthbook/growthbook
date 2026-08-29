@@ -42,7 +42,6 @@ export const contextualBanditAnalysisSummaryValidator = z.object({
   health: z
     .object({
       srm: z.number().nullable(),
-      multipleExposures: z.number(),
       totalUsers: z.number(),
     })
     .optional(),
@@ -579,7 +578,6 @@ export const getContextualBanditResultsValidator = {
           queries: z.array(z.unknown()),
           runStarted: z.string().nullable(),
           dateCreated: z.string(),
-          multipleExposures: z.number(),
           type: z.string(),
           triggeredBy: z.string(),
           srm: z

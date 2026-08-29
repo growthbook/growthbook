@@ -89,33 +89,17 @@ function compact(sql: string): string {
   return sql.replace(/\s+/g, "");
 }
 
-describe("getExperimentFactMetricsQuery contextual bandit bandit_version join", () => {
-  it("joins metric outcomes to exposures by (user, bandit_version) with a version window", () => {
+describe("getExperimentFactMetricsQuery contextual bandit first-exposure attribution", () => {
+  it("does not split by version for a contextual bandit with a bandit_version column", () => {
     const c = compact(
       buildSql({ contextualBandit: true, query: cbExposureQuery }),
     );
 
-    // bandit_version is carried through the pipeline
-    expect(c).toContain("bandit_version");
-    expect(c).toContain("d.bandit_versionASbandit_version");
-
-    // The active window end is the next version's first exposure for the user
-    expect(c).toContain("version_window_end");
-    expect(c).toContain(
-      compact(
-        "LEAD(first_exposure_timestamp) OVER ( PARTITION BY user_id ORDER BY first_exposure_timestamp, bandit_version )",
-      ),
-    );
-
-    // The metric join is clipped at the version window end
-    expect(c).toContain(
-      compact(
-        "AND (d.version_window_end IS NULL OR m.timestamp < d.version_window_end)",
-      ),
-    );
-
-    // Per-user aggregation is keyed by bandit_version so versions stay distinct
-    expect(c).toContain("umj.bandit_version");
+    // Units are one-per-user (first exposure), so the pipeline never carries
+    // bandit_version or clips the metric join to a per-version window.
+    expect(c).not.toContain("version_window_end");
+    expect(c).not.toContain("d.bandit_versionASbandit_version");
+    expect(c).not.toContain("umj.bandit_version");
   });
 
   it("does not split by version for a contextual bandit without a bandit_version column", () => {
@@ -125,6 +109,7 @@ describe("getExperimentFactMetricsQuery contextual bandit bandit_version join", 
 
     expect(c).not.toContain("version_window_end");
     expect(c).not.toContain("d.bandit_versionASbandit_version");
+    expect(c).not.toContain("umj.bandit_version");
   });
 
   it("does not split by version for a standard (non-bandit) experiment", () => {
@@ -134,5 +119,6 @@ describe("getExperimentFactMetricsQuery contextual bandit bandit_version join", 
 
     expect(c).not.toContain("version_window_end");
     expect(c).not.toContain("d.bandit_versionASbandit_version");
+    expect(c).not.toContain("umj.bandit_version");
   });
 });

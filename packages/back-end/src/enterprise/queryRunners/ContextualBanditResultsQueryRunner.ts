@@ -57,7 +57,6 @@ export type ContextualBanditSrmResult = {
 export type ContextualBanditQueryRunResult = ContextualBanditResult & {
   srm?: ContextualBanditSrmResult;
   traffic?: ExperimentSnapshotTraffic;
-  multipleExposures?: number;
 };
 
 /** Name of the decision-metric sub-query; shared by `startQueries` and `runAnalysis`. */
@@ -256,13 +255,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
 
     const srm = this.extractSrmResult(queryMap);
 
-    const multipleExposures = Math.max(
-      0,
-      rows
-        .filter((r) => r.variation === "__multiple__")
-        .reduce((sum, r) => sum + (Number(r.users) || 0), 0),
-    );
-
     const cb = await this.loadCbDoc();
 
     const statsSettings = getContextualBanditSettingsForStatsEngine(
@@ -329,7 +321,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       phaseLengthDays: windowLengthDays,
     });
 
-    return { ...analysis, srm, traffic, multipleExposures };
+    return { ...analysis, srm, traffic };
   }
 
   private extractTraffic(
@@ -482,9 +474,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         if (result.traffic) {
           updates.traffic = result.traffic;
         }
-        if (result.multipleExposures !== undefined) {
-          updates.multipleExposures = result.multipleExposures;
-        }
 
         // Similar to experiment `analysisSummary` pattern, persist a lightweight health
         // summary on the CB doc so list views can render the shared status without loading
@@ -498,7 +487,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
           snapshotId: this.model.id,
           health: {
             srm: result.srm?.pValue ?? null,
-            multipleExposures: result.multipleExposures ?? 0,
             totalUsers: summaryTotalUsers,
           },
         };

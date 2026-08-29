@@ -58,7 +58,6 @@ export function getStatusIndicatorData(
       if (health) {
         const cbResultStatus = getContextualBanditResultStatus({
           srm: health.srm ?? null,
-          multipleExposures: health.multipleExposures,
           totalUsers: health.totalUsers ?? 0,
           numOfVariations: experimentData.variations.length,
           healthSettings,

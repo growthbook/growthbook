@@ -52,8 +52,8 @@ function compact(sql: string): string {
   return sql.replace(/\s+/g, "");
 }
 
-describe("getExperimentUnitsQuery contextual bandit bandit_version splitting", () => {
-  it("splits units by (user, bandit_version) and scopes __multiple__ within a version", () => {
+describe("getExperimentUnitsQuery contextual bandit first-exposure attribution", () => {
+  it("attributes each user to their first exposure (one unit per user, no version splitting)", () => {
     const sql = getExperimentUnitsQuery(
       postgresDialect,
       datasource,
@@ -67,19 +67,15 @@ describe("getExperimentUnitsQuery contextual bandit bandit_version splitting", (
     );
     const c = compact(sql);
 
-    // bandit_version is carried through and becomes part of the unit grain.
-    expect(c).toContain("e.bandit_versionASbandit_version");
-    expect(c).toContain("GROUPBYe.user_id,e.bandit_version");
+    // Each user collapses to their earliest exposure's variation.
+    expect(c).toContain("SUBSTRING(MIN(CONCAT(");
 
-    // Within a single (user, bandit_version) group, >1 distinct variation
-    // flags the unit as __multiple__.
-    expect(c).toContain("count(distincte.variation)>1");
-    expect(c).toContain("'__multiple__'");
-
-    // The old per-user pre-aggregation used to scope multiple exposures is
-    // no longer needed now that units are grouped by (user, bandit_version).
-    expect(c).not.toContain("__cbMultipleExposuresByVersion");
-    expect(c).not.toContain("__max_variations_per_version");
+    // Units are one-per-user: never split by (user, bandit_version) and never
+    // bucketed as __multiple__.
+    expect(c).not.toContain("e.bandit_versionASbandit_version");
+    expect(c).not.toContain("GROUPBYe.user_id,e.bandit_version");
+    expect(c).not.toContain("'__multiple__'");
+    expect(c).not.toContain("count(distincte.variation)>1");
   });
 
   it("uses the global multiple-exposure rule for standard experiments", () => {
@@ -91,11 +87,12 @@ describe("getExperimentUnitsQuery contextual bandit bandit_version splitting", (
     const c = compact(sql);
 
     expect(c).toContain("count(distincte.variation)>1");
-    expect(c).not.toContain("__cbMultipleExposuresByVersion");
-    expect(c).not.toContain("bandit_versionASbandit_version");
+    expect(c).toContain("'__multiple__'");
+    expect(c).not.toContain("SUBSTRING(MIN(CONCAT(");
+    expect(c).not.toContain("e.bandit_versionASbandit_version");
   });
 
-  it("does not detect multiple exposures when the assignment query omits bandit_version", () => {
+  it("uses first-exposure attribution even when the assignment query omits bandit_version", () => {
     const sql = getExperimentUnitsQuery(
       postgresDialect,
       datasource,
@@ -114,10 +111,10 @@ describe("getExperimentUnitsQuery contextual bandit bandit_version splitting", (
     );
     const c = compact(sql);
 
-    // Contextual bandits without a bandit_version can't scope multiple-exposure
-    // detection to a period, so we must not flag __multiple__ at all.
+    // Contextual bandits always attribute to the first exposure, so we never
+    // flag __multiple__ regardless of whether bandit_version is present.
+    expect(c).toContain("SUBSTRING(MIN(CONCAT(");
     expect(c).not.toContain("'__multiple__'");
     expect(c).not.toContain("count(distincte.variation)>1");
-    expect(c).not.toContain("__cbMultipleExposuresByVersion");
   });
 });

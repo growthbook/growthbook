@@ -16317,8 +16317,6 @@ paths:
                               - type: 'null'
                           dateCreated:
                             type: string
-                          multipleExposures:
-                            type: number
                           type:
                             type: string
                           triggeredBy:
@@ -16425,7 +16423,6 @@ paths:
                           - queries
                           - runStarted
                           - dateCreated
-                          - multipleExposures
                           - type
                           - triggeredBy
                           - srm
@@ -64991,13 +64988,10 @@ components:
                   anyOf:
                     - type: number
                     - type: 'null'
-                multipleExposures:
-                  type: number
                 totalUsers:
                   type: number
               required:
                 - srm
-                - multipleExposures
                 - totalUsers
               additionalProperties: false
           required:

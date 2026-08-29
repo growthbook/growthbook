@@ -685,46 +685,36 @@ export function getExperimentResultStatus({
 
 export function getContextualBanditResultStatus({
   srm,
-  multipleExposures,
   totalUsers,
   numOfVariations,
   healthSettings,
 }: {
   srm: number | null;
-  multipleExposures: number;
   totalUsers: number;
   numOfVariations: number;
   healthSettings: ExperimentHealthSettings;
 }): ExperimentResultStatusData | undefined {
-  const unhealthyData: ExperimentUnhealthyData = totalUsers
-    ? computeSrmAndMultipleExposuresUnhealthyData({
-        // A missing SRM p-value can't be unhealthy; Infinity keeps it "healthy".
-        srm: srm ?? Infinity,
-        multipleExposures,
-        totalUsers,
-        numOfVariations,
-        // Bandits reweight frequently, so use the bandit-specific minimum.
-        minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
-        healthSettings,
-      })
-    : {};
-
-  const unhealthyStatuses = [
-    ...(unhealthyData.srm ? ["SRM"] : []),
-    ...(unhealthyData.multipleExposures ? ["Multiple exposures"] : []),
-  ];
-
-  if (unhealthyStatuses.length > 0) {
-    return {
-      status: "unhealthy",
-      unhealthyData,
-      tooltip: unhealthyStatuses.join(", "),
-    };
-  }
-
   if (totalUsers === 0) {
     return {
       status: "no-data",
+    };
+  }
+
+  const srmHealthData = getSRMHealthData({
+    // A missing SRM p-value can't be unhealthy; Infinity keeps it "healthy".
+    srm: srm ?? Infinity,
+    srmThreshold: healthSettings.srmThreshold,
+    totalUsersCount: totalUsers,
+    numOfVariations,
+    // Bandits reweight frequently, so use the bandit-specific minimum.
+    minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+  });
+
+  if (srmHealthData === "unhealthy") {
+    return {
+      status: "unhealthy",
+      unhealthyData: { srm: true },
+      tooltip: "SRM",
     };
   }
 

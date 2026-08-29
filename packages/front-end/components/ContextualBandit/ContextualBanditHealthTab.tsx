@@ -3,7 +3,6 @@ import { Flex } from "@radix-ui/themes";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { ExperimentReportVariation } from "shared/types/report";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
-import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { IssueTags } from "@/components/HealthTab/IssueTags";
 import Callout from "@/ui/Callout";
 import {
@@ -35,7 +34,6 @@ export default function ContextualBanditHealthTab({
 
   const traffic = latest?.traffic ?? null;
   const srm = latest?.srm?.pValue ?? null;
-  const multipleExposures = latest?.multipleExposures ?? 0;
   const overallUsers = useMemo(
     () =>
       cb.variations.map((_, i) => traffic?.overall?.variationUnits?.[i] ?? 0),
@@ -78,13 +76,6 @@ export default function ContextualBanditHealthTab({
           users={overallUsers}
           totalUsers={totalUsers}
           latestPeriod={latest?.srm?.latestPeriod ?? null}
-        />
-      </div>
-
-      <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
-        <MultipleExposuresCard
-          totalUsers={totalUsers}
-          multipleExposures={multipleExposures}
         />
       </div>
     </Flex>

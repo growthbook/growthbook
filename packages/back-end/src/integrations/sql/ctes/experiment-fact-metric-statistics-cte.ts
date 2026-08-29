@@ -29,7 +29,6 @@ export function getExperimentFactMetricStatisticsCTE(
     capValueTableName,
     factTablesWithIndices,
     percentileTableIndices,
-    hasBanditVersion,
   }: {
     dimensionCols: DimensionColumnData[];
     metricData: FactMetricData[];
@@ -50,7 +49,6 @@ export function getExperimentFactMetricStatisticsCTE(
     capValueTableName: string;
     factTablesWithIndices: { factTable: FactTableInterface; index: number }[];
     percentileTableIndices: Set<number>;
-    hasBanditVersion?: boolean;
   },
 ): string {
   const useArrayQuantileGrid = dialect.hasArrayQuantileGrid();
@@ -244,7 +242,6 @@ export function getExperimentFactMetricStatisticsCTE(
             ? ""
             : `LEFT JOIN ${joinedMetricTableName}${suffix} m${suffix} ON (
           m${suffix}.${baseIdType} = m.${baseIdType}
-          ${hasBanditVersion ? `AND m${suffix}.bandit_version = m.bandit_version` : ""}
         )`
         }
         ${

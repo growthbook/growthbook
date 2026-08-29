@@ -1282,7 +1282,6 @@ describe("getContextualBanditResultStatus", () => {
   it("flags SRM when the p-value is below the threshold", () => {
     const status = getContextualBanditResultStatus({
       srm: 0.0001,
-      multipleExposures: 0,
       totalUsers: 10000,
       numOfVariations: 2,
       healthSettings,
@@ -1295,39 +1294,9 @@ describe("getContextualBanditResultStatus", () => {
     expect(status?.tooltip).toBe("SRM");
   });
 
-  it("flags multiple exposures over the percent threshold", () => {
-    const status = getContextualBanditResultStatus({
-      srm: 0.9,
-      multipleExposures: 100,
-      totalUsers: 10000,
-      numOfVariations: 2,
-      healthSettings,
-    });
-
-    expect(status?.status).toBe("unhealthy");
-    expect(
-      status?.status === "unhealthy" &&
-        status.unhealthyData.multipleExposures?.multipleExposedUsers,
-    ).toBe(100);
-    expect(status?.tooltip).toBe("Multiple exposures");
-  });
-
-  it("reports both failing checks together", () => {
-    const status = getContextualBanditResultStatus({
-      srm: 0.0001,
-      multipleExposures: 100,
-      totalUsers: 10000,
-      numOfVariations: 2,
-      healthSettings,
-    });
-
-    expect(status?.tooltip).toBe("SRM, Multiple exposures");
-  });
-
   it("returns undefined when healthy", () => {
     const status = getContextualBanditResultStatus({
       srm: 0.9,
-      multipleExposures: 1,
       totalUsers: 10000,
       numOfVariations: 2,
       healthSettings,
@@ -1339,7 +1308,6 @@ describe("getContextualBanditResultStatus", () => {
   it("returns no-data when there is no traffic", () => {
     const status = getContextualBanditResultStatus({
       srm: null,
-      multipleExposures: 0,
       totalUsers: 0,
       numOfVariations: 2,
       healthSettings,

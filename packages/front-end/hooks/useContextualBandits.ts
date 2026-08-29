@@ -171,10 +171,9 @@ export function useContextualBanditLinkedFeatures(cbId: string | undefined) {
   };
 }
 
-/** Health inputs (srm / multipleExposures / totalUsers) driving the CB status badge and Health tab. */
+/** Health inputs (srm / totalUsers) driving the CB status badge and Health tab. */
 export type ContextualBanditStatusHealth = {
   srm: number | null;
-  multipleExposures: number;
   totalUsers: number;
 };
 
@@ -199,7 +198,6 @@ export function useContextualBanditStatusHealth(
       }
       return {
         srm: latest.srm?.pValue ?? null,
-        multipleExposures: latest.multipleExposures ?? 0,
         totalUsers,
       };
     }
@@ -207,7 +205,6 @@ export function useContextualBanditStatusHealth(
     if (persisted && persisted.totalUsers > 0) {
       return {
         srm: persisted.srm ?? null,
-        multipleExposures: persisted.multipleExposures,
         totalUsers: persisted.totalUsers,
       };
     }
@@ -216,7 +213,7 @@ export function useContextualBanditStatusHealth(
 }
 
 /**
- * Computes the CB health issues (Balance / Multiple Exposures) for the current results snapshot.
+ * Computes the CB health issues (Balance) for the current results snapshot.
  */
 export function useContextualBanditHealthIssues(
   cb: ApiContextualBanditInterface,
@@ -230,7 +227,6 @@ export function useContextualBanditHealthIssues(
     const healthSettings = getHealthSettings(orgSettings);
     const resultStatus = getContextualBanditResultStatus({
       srm: health.srm,
-      multipleExposures: health.multipleExposures,
       totalUsers: health.totalUsers,
       numOfVariations,
       healthSettings,
@@ -239,9 +235,6 @@ export function useContextualBanditHealthIssues(
     const issues: IssueValue[] = [];
     if (resultStatus.unhealthyData.srm) {
       issues.push({ label: "Balance", value: "balanceCheck" });
-    }
-    if (resultStatus.unhealthyData.multipleExposures) {
-      issues.push({ label: "Multiple Exposures", value: "multipleExposures" });
     }
     return issues;
   }, [health, orgSettings, numOfVariations]);

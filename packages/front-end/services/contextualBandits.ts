@@ -13,7 +13,6 @@ export function contextualBanditStatusIndicatorData(
   cb: ApiContextualBanditInterface,
   health?: {
     srm: number | null;
-    multipleExposures: number;
     totalUsers: number;
   },
 ): ExperimentDataForStatusStringDates {
@@ -28,7 +27,6 @@ export function contextualBanditStatusIndicatorData(
           snapshotId: "",
           health: {
             srm: health.srm,
-            multipleExposures: health.multipleExposures,
             totalUsers: health.totalUsers,
           },
         }

@@ -772,7 +772,6 @@ export type ContextualBanditResultsForUi = {
   srm: ContextualBanditSrmResult | null;
   /** Health traffic of the latest snapshot run; null when unavailable. */
   traffic: ExperimentSnapshotTraffic | null;
-  multipleExposures: number;
 };
 
 function mapCbsStatusToSnapshotStatus(
@@ -835,7 +834,6 @@ export async function getContextualBanditResultsForUi(
     latestSnapshotSummary,
     srm: latestSnapshot?.srm ?? null,
     traffic: latestSnapshot?.traffic ?? null,
-    multipleExposures: latestSnapshot?.multipleExposures ?? 0,
   };
 }
 
