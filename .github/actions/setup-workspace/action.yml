@@ -3,7 +3,10 @@ description: Install pnpm, Node and workspace dependencies, then build the share
 
 inputs:
   build-deps:
-    description: Build the shared packages. Skip it for jobs that only need node_modules.
+    description: >-
+      Which packages to build: "true" all, "sdk" just the SDKs, "false" none.
+      shared and stats-ts resolve types from src/, so only jobs that execute
+      their code need "true".
     default: "true"
 
 runs:
@@ -22,9 +25,64 @@ runs:
       run: pnpm install
       shell: bash
 
-    - name: Build dependencies
+    # Tree hashes, not hashFiles globs: no node_modules or dist can leak in.
+    - name: Compute build cache keys
+      if: inputs.build-deps != 'false'
+      id: keys
+      shell: bash
+      run: |
+        lock=$(git hash-object pnpm-lock.yaml)
+        {
+          echo "sdk=sdk-$(git rev-parse HEAD:packages/sdk-js)-$(git rev-parse HEAD:packages/sdk-react)-$lock"
+          echo "shared=shared-$(git rev-parse HEAD:packages/shared)-$lock"
+          echo "stats=stats-ts-$(git rev-parse HEAD:packages/stats-ts)-$lock"
+        } >> "$GITHUB_OUTPUT"
+
+    # Content-hash keys, per package: no restore-keys, a prefix match is stale.
+    - name: Cache SDK builds
+      if: inputs.build-deps != 'false'
+      id: cache-sdk
+      uses: actions/cache@v5
+      with:
+        path: |
+          packages/sdk-js/dist
+          packages/sdk-react/dist
+        key: ${{ steps.keys.outputs.sdk }}
+
+    - name: Build SDKs
+      if: inputs.build-deps != 'false' && steps.cache-sdk.outputs.cache-hit != 'true'
+      run: pnpm build:sdks
+      shell: bash
+      env:
+        CI: true
+
+    - name: Cache shared build
       if: inputs.build-deps == 'true'
-      run: pnpm build:deps
+      id: cache-shared
+      uses: actions/cache@v5
+      with:
+        path: packages/shared/dist
+        key: ${{ steps.keys.outputs.shared }}
+
+    # Needs the SDK dist above for types, so it runs after it.
+    - name: Build shared
+      if: inputs.build-deps == 'true' && steps.cache-shared.outputs.cache-hit != 'true'
+      run: pnpm --filter shared run build
+      shell: bash
+      env:
+        CI: true
+
+    - name: Cache stats-ts build
+      if: inputs.build-deps == 'true'
+      id: cache-stats-ts
+      uses: actions/cache@v5
+      with:
+        path: packages/stats-ts/dist
+        key: ${{ steps.keys.outputs.stats }}
+
+    - name: Build stats-ts
+      if: inputs.build-deps == 'true' && steps.cache-stats-ts.outputs.cache-hit != 'true'
+      run: pnpm --filter stats-ts run build
       shell: bash
       env:
         CI: true
