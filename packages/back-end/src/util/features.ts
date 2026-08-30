@@ -1053,9 +1053,14 @@ export function getFeatureDefinition({
           const exp = experimentMap.get(r.experimentId);
           if (!exp) return null;
 
-          if (!includeExperimentInPayload(exp)) return null;
-
           if (exp.status === "draft" && !includeDraftExperimentRefs)
+            return null;
+
+          if (
+            !includeExperimentInPayload(exp, [], {
+              includeDrafts: includeDraftExperimentRefs,
+            })
+          )
             return null;
 
           // Get current experiment phase and use it to set rule properties
@@ -1224,9 +1229,7 @@ export function getFeatureDefinition({
           if (cb.hashAttribute) {
             rule.hashAttribute = cb.hashAttribute;
           }
-          if (cb.seed) {
-            rule.seed = cb.seed;
-          }
+          rule.seed = cb.seed;
           rule.hashVersion = 2;
           // contextual bandits do not currently use sticky bucketing
           rule.disableStickyBucketing = true;

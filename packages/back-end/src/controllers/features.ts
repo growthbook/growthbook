@@ -30,6 +30,7 @@ import {
   filterProjectsByEnvironmentWithNull,
   getAffectedEnvsForExperiment,
   getApplicableEnvIds,
+  getAttributeScopeProjectIds,
   getDependentExperiments,
   getDependentFeatures,
   getEffectiveRevisionHoldout,
@@ -165,7 +166,10 @@ import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
-import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  assertRegisteredAttributes,
+  assertRegisteredAttributesScoped,
+} from "back-end/src/services/attributes";
 import {
   canLandArchivedState,
   isArchiveTransition,
@@ -3280,9 +3284,9 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check before any side effects (safe-rollout
-  // create, holdout linking, revision update).
-  assertRegisteredAttributes(
+  // The scope loader uses read-only getRevision — getDraftRevision would
+  // persist a draft before validation passes.
+  await assertRegisteredAttributesScoped(
     context,
     {
       hashAttribute: (rule as { hashAttribute?: string }).hashAttribute,
@@ -3292,7 +3296,19 @@ export async function postFeatureRule(
     },
     "rule",
     undefined,
-    feature.project,
+    async () => {
+      const existingRevision = await getRevision({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        feature,
+        version: parseInt(version),
+      });
+      return (
+        getAttributeScopeProjectIds(feature, existingRevision?.metadata) ??
+        undefined
+      );
+    },
   );
 
   // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
@@ -4687,7 +4703,7 @@ export async function putFeatureRule(
         .fallbackAttribute,
       condition: existingRule.condition,
     },
-    feature.project,
+    getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
   );
 
   let rampActionsUpdate:
@@ -5597,9 +5613,13 @@ export async function putFeature(
       incoming: pick((k) => (updates as unknown as Record<string, unknown>)[k]),
       liveVersion: feature.version,
       ...(targetDraft ? { draftVersion: targetDraft.version } : {}),
-      // Mutually exclusive, so merging them apart would target all projects and
-      // carry a list at the same time.
-      config: { chunks: [["targetingAllProjects", "targetingProjects"]] },
+      // Mutually exclusive, so merging them apart would target all projects
+      // and carry a list at the same time; on older docs the flag is absent,
+      // which reads as false.
+      config: {
+        chunks: [["targetingAllProjects", "targetingProjects"]],
+        absentDefaults: { targetingAllProjects: false },
+      },
     });
     if (!resolution.ok) {
       return res.status(409).json({

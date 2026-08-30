@@ -203,7 +203,9 @@ export function ConditionRow({
         )}
         <Box
           style={{
-            minWidth: 300,
+            // Wrap threshold, not display width — 260 keeps the condition on
+            // one row inside the Radix lg dialog.
+            minWidth: 260,
             flex:
               operatorSlot !== undefined
                 ? "2 1 0"
