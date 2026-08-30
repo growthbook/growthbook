@@ -32,10 +32,13 @@ runs:
       shell: bash
       run: |
         lock=$(git hash-object pnpm-lock.yaml)
+        sdk="$(git rev-parse HEAD:packages/sdk-js)-$(git rev-parse HEAD:packages/sdk-react)"
+        shared=$(git rev-parse HEAD:packages/shared)
+        # Each key includes what that package compiles against, not just itself.
         {
-          echo "sdk=sdk-$(git rev-parse HEAD:packages/sdk-js)-$(git rev-parse HEAD:packages/sdk-react)-$lock"
-          echo "shared=shared-$(git rev-parse HEAD:packages/shared)-$lock"
-          echo "stats=stats-ts-$(git rev-parse HEAD:packages/stats-ts)-$lock"
+          echo "sdk=sdk-$sdk-$lock"
+          echo "shared=shared-$shared-$sdk-$(git rev-parse HEAD:packages/back-end/typings)-$lock"
+          echo "stats=stats-ts-$(git rev-parse HEAD:packages/stats-ts)-$shared-$lock"
         } >> "$GITHUB_OUTPUT"
 
     # Content-hash keys, per package: no restore-keys, a prefix match is stale.
