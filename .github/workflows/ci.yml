@@ -187,7 +187,8 @@ jobs:
     if: always()
     needs:
       [format, lint, stats, openapi, type-check, test-back-end, test-packages]
-    runs-on: depot-ubuntu-24.04
+    # This job only checks other jobs' results, so a Depot runner buys nothing.
+    runs-on: ubuntu-latest
     steps:
       - name: Fail if any required job did not succeed
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
