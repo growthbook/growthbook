@@ -18,7 +18,7 @@ export const postExperimentComment = createApiRequestHandler(
 
   const existing = await getExperimentById(context, req.params.id);
   if (!existing) {
-    throw new Error("Could not find experiment with that id");
+    return context.throwNotFoundError("Could not find experiment with that id");
   }
 
   const projects = existing.project ? [existing.project] : [];

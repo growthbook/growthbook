@@ -41,8 +41,8 @@ export const experimentsRoutes: OpenApiRoute[] = [
   postVariationImageUpload,
   deleteVariationScreenshot,
   getExperimentNames,
-  // VisualChangeset Endpoints (mounted under /experiments)
   postExperimentComment,
+  // VisualChangeset Endpoints (mounted under /experiments)
   listVisualChangesets,
   postVisualChangesets,
 ];
