@@ -95,6 +95,16 @@ export default function ExperimentManagedFeatureVariationEditor({
 
   const [editingSplits, setEditingSplits] = useState(false);
   const [editingIds, setEditingIds] = useState(!idsMatchIndexes);
+  // Leaving advanced mode drops what only it can author: bespoke ids fall back
+  // to the index, and descriptions are cleared.
+  const exitAdvancedMode = () => {
+    setEditingIds(false);
+    if (!variations || !setVariations) return;
+    setVariations(
+      variations.map((v, i) => ({ ...v, value: i + "", description: "" })),
+    );
+  };
+
   // JSON needs the room, and advanced mode spends the row's width on the id
   // and description columns; both put the value on its own row.
   const stackValue = valueType === "json" || editingIds;
@@ -246,17 +256,17 @@ export default function ExperimentManagedFeatureVariationEditor({
 
       {!valueAsId && setVariations && (
         <Box mb="2">
-          {!editingIds ? (
-            <Link
-              onClick={() => {
+          <Link
+            onClick={() => {
+              if (editingIds) {
+                exitAdvancedMode();
+              } else {
                 setEditingIds(true);
-              }}
-            >
-              Switch to advanced mode
-            </Link>
-          ) : (
-            <Text color="text-mid">Advanced mode</Text>
-          )}
+              }
+            }}
+          >
+            {editingIds ? "Switch to simple mode" : "Switch to advanced mode"}
+          </Link>
         </Box>
       )}
 

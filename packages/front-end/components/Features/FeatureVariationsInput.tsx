@@ -117,6 +117,15 @@ export default function FeatureVariationsInput({
   const [numberOfVariations, setNumberOfVariations] = useState(
     Math.max(variations?.length ?? 2, 2) + "",
   );
+  // Leaving advanced mode drops what only it can author: bespoke ids fall back
+  // to the index. Descriptions are not advanced-only here — `showDescriptions`
+  // is the caller's call — so they are left alone.
+  const exitAdvancedMode = () => {
+    setEditingIds(false);
+    if (!variations || !setVariations) return;
+    setVariations(variations.map((v, i) => ({ ...v, value: i + "" })));
+  };
+
   // editingIds already encodes the notion of having bespoke IDs, so if it is false
   // it is probably safe to renormalize variation keys on sort
   // The reorder gutter only earns its space while rows can actually be moved.
@@ -376,17 +385,19 @@ export default function FeatureVariationsInput({
             !disableVariations &&
             setVariations && (
               <Box mb="2">
-                {!editingIds ? (
-                  <Link
-                    onClick={() => {
+                <Link
+                  onClick={() => {
+                    if (editingIds) {
+                      exitAdvancedMode();
+                    } else {
                       setEditingIds(true);
-                    }}
-                  >
-                    Switch to advanced mode
-                  </Link>
-                ) : (
-                  <Text color="text-mid">Advanced mode</Text>
-                )}
+                    }
+                  }}
+                >
+                  {editingIds
+                    ? "Switch to simple mode"
+                    : "Switch to advanced mode"}
+                </Link>
               </Box>
             )}
 

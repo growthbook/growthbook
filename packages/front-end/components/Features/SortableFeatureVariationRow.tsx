@@ -16,11 +16,9 @@ import {
   floatRound,
   rebalance,
 } from "@/services/utils";
-import {
-  getVariationColor,
-  getVariationDefaultName,
-} from "@/services/features";
+import { getVariationDefaultName } from "@/services/features";
 import Field from "@/components/Forms/Field";
+import VariationNumber from "@/ui/VariationNumber";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import {
   DropdownMenu,
@@ -50,8 +48,8 @@ export function gridColumns({
   showDragHandle?: boolean;
 }): string {
   return [
-    showDragHandle ? "18px" : undefined,
-    hideVariationIds ? undefined : "36px",
+    showDragHandle ? "16px" : undefined,
+    hideVariationIds ? undefined : "16px",
     hideValueField
       ? undefined
       : isJson
@@ -160,7 +158,6 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
         px="2"
         py="3"
         style={{
-          position: "relative",
           borderBottom:
             i < variations.length - 1 ? "1px solid var(--slate-4)" : undefined,
           opacity: dragging ? 0.5 : undefined,
@@ -168,19 +165,6 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
           ...props.style,
         }}
       >
-        <Box
-          aria-hidden
-          style={{
-            position: "absolute",
-            left: 0,
-            // Inset by the row's own py, so the bar spans the content rather
-            // than the full row and reads as a marker, not a divider.
-            top: "calc(var(--space-3) - 1px)",
-            bottom: "calc(var(--space-3) - 1px)",
-            width: 4,
-            backgroundColor: getVariationColor(i, true),
-          }}
-        />
         <Grid
           columns={gridColumns({
             hideVariationIds,
@@ -201,7 +185,6 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
               style={{
                 cursor: "grab",
                 display: "flex",
-                marginLeft: 2,
                 color: "var(--color-text-low)",
               }}
             >
@@ -209,7 +192,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
             </Box>
           )}
 
-          {!hideVariationIds && <span>{i}</span>}
+          {!hideVariationIds && <VariationNumber number={i} />}
 
           {!hideValueField &&
             (setVariations ? (

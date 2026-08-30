@@ -16,11 +16,9 @@ import {
   floatRound,
   rebalance,
 } from "@/services/utils";
-import {
-  getVariationColor,
-  getVariationDefaultName,
-} from "@/services/features";
+import { getVariationDefaultName } from "@/services/features";
 import Field from "@/components/Forms/Field";
+import VariationNumber from "@/ui/VariationNumber";
 import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import {
@@ -49,8 +47,8 @@ export function gridColumns({
   showDragHandle?: boolean;
 }): string {
   return [
-    showDragHandle ? "18px" : undefined,
-    "36px",
+    showDragHandle ? "16px" : undefined,
+    "16px",
     hideValueField ? undefined : "minmax(80px, 0.4fr)",
     "minmax(160px, 1fr)",
     stackValue ? undefined : "minmax(180px, 1.2fr)",
@@ -147,6 +145,32 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
       });
     };
 
+    const setFeatureValue = (featureValue: string) => {
+      if (!setVariations) return;
+      const newVariations = [...variations];
+      newVariations[i] = { ...variation, featureValue };
+      setVariations(newVariations);
+    };
+
+    // Own picker rather than the shared field's, whose labels are upper case.
+    // Width matches the number field in FeatureValueField: two fixed choices
+    // shouldn't stretch across a stacked row.
+    const booleanValueField = (label?: string) => (
+      <Box style={{ width: 120 }}>
+        <SelectField
+          size="md"
+          label={label}
+          value={variation.featureValue === "true" ? "true" : "false"}
+          options={[
+            { label: "True", value: "true" },
+            { label: "False", value: "false" },
+          ]}
+          sort={false}
+          onChange={setFeatureValue}
+        />
+      </Box>
+    );
+
     const isJson = valueType === "json";
     const stacked = stackValue ?? isJson;
 
@@ -158,7 +182,6 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
         px="2"
         py="3"
         style={{
-          position: "relative",
           borderBottom:
             i < variations.length - 1 ? "1px solid var(--slate-4)" : undefined,
           opacity: dragging ? 0.5 : undefined,
@@ -166,19 +189,6 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
           ...props.style,
         }}
       >
-        <Box
-          aria-hidden
-          style={{
-            position: "absolute",
-            left: 0,
-            // Inset by the row's own py, so the bar spans the content rather
-            // than the full row and reads as a marker, not a divider.
-            top: "calc(var(--space-3) - 1px)",
-            bottom: "calc(var(--space-3) - 1px)",
-            width: 4,
-            backgroundColor: getVariationColor(i, true),
-          }}
-        />
         <Grid
           columns={gridColumns({
             hideValueField,
@@ -198,7 +208,6 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
               style={{
                 cursor: "grab",
                 display: "flex",
-                marginLeft: 2,
                 color: "var(--color-text-low)",
               }}
             >
@@ -206,7 +215,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             </Box>
           )}
 
-          <span>{i}</span>
+          <VariationNumber number={i} />
 
           {!hideValueField &&
             (setVariations ? (
@@ -249,33 +258,14 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             (!setVariations ? (
               <span>{variation.featureValue ?? ""}</span>
             ) : valueType === "boolean" ? (
-              // Own picker rather than the shared field's, whose labels
-              // are upper case.
-              <SelectField
-                size="md"
-                value={variation.featureValue === "true" ? "true" : "false"}
-                options={[
-                  { label: "True", value: "true" },
-                  { label: "False", value: "false" },
-                ]}
-                sort={false}
-                onChange={(featureValue) => {
-                  const newVariations = [...variations];
-                  newVariations[i] = { ...variation, featureValue };
-                  setVariations(newVariations);
-                }}
-              />
+              booleanValueField()
             ) : (
               <div className={rowStyles.scalarValue}>
                 <FeatureValueField
                   size="md"
                   id={`featureValue_${i}`}
                   value={variation.featureValue ?? ""}
-                  setValue={(featureValue) => {
-                    const newVariations = [...variations];
-                    newVariations[i] = { ...variation, featureValue };
-                    setVariations(newVariations);
-                  }}
+                  setValue={setFeatureValue}
                   valueType={valueType}
                   feature={feature}
                   renderJSONInline={false}
@@ -405,22 +395,22 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             <Box
               className={rowStyles.tightValueCell}
               style={{
-                // Start after the id gutter and stop before the controls one,
-                // so the editor sits inside the row rather than under it.
-                gridColumn: `${(showDragHandle ? 1 : 0) + 2} / -2`,
+                // Start after the id gutter, then run to the row's right edge:
+                // the controls column has nothing to line up with on this row.
+                gridColumn: `${(showDragHandle ? 1 : 0) + 2} / -1`,
               }}
             >
-              {setVariations ? (
+              {!setVariations ? (
+                <span>{variation.featureValue ?? ""}</span>
+              ) : valueType === "boolean" ? (
+                booleanValueField("Value")
+              ) : (
                 <FeatureValueField
                   size="md"
                   label="Value"
                   id={`featureValue_${i}`}
                   value={variation.featureValue ?? ""}
-                  setValue={(featureValue) => {
-                    const newVariations = [...variations];
-                    newVariations[i] = { ...variation, featureValue };
-                    setVariations(newVariations);
-                  }}
+                  setValue={setFeatureValue}
                   valueType={valueType}
                   feature={feature}
                   renderJSONInline={false}
@@ -431,8 +421,6 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   }
                   sparse={sparse}
                 />
-              ) : (
-                <span>{variation.featureValue ?? ""}</span>
               )}
             </Box>
           )}
