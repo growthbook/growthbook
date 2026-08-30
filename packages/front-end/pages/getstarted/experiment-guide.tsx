@@ -364,10 +364,7 @@ const ExperimentGuide = (): React.ReactElement => {
 
                           <p style={{ fontSize: "15px" }}>
                             Click the “Start Experiment” button in the top right
-                            corner of the selected experiment. This publishes
-                            the test. Users enter a Feature Flag experiment when
-                            your app evaluates the flag, or a Visual Editor
-                            experiment when the page loads.
+                            corner of the selected experiment.
                           </p>
                         </div>
                       }
@@ -378,10 +375,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   </NextLink>
                   <Box mt="2">
                     Define any additional settings, rules and targeting as
-                    desired. Then, click “Run experiment.” This publishes the
-                    test. Users enter a Feature Flag experiment when your app
-                    evaluates the flag, or a Visual Editor experiment when the
-                    page loads.
+                    desired. Then, click “Run experiment.”
                   </Box>
                   <Separator size="4" my="4" />
                 </div>
