@@ -26,8 +26,9 @@ jobs:
       - name: Check formatting
         run: pnpm pretty:check
 
+  # The whole-monorepo type-aware eslint run peaks near 4.5GB, so it needs 16GB.
   lint:
-    runs-on: depot-ubuntu-24.04
+    runs-on: depot-ubuntu-24.04-4
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -44,8 +45,8 @@ jobs:
         run: pnpm lint:ci
         env:
           CI: true
-          # The 8GB runner defaults V8 to a 2GB heap; 16GB runners give this 4096.
-          NODE_OPTIONS: --max-old-space-size=4096
+          # V8 defaults near 4.3GB on any box, which this was already scraping.
+          NODE_OPTIONS: --max-old-space-size=8192
 
   # Separate job so the JS jobs never install a Python toolchain.
   stats:
@@ -173,6 +174,21 @@ jobs:
         env:
           CI: true
 
+  # Split out because front-end is over half of the non-back-end test time and
+  # everything else used to queue behind it.
+  test-front-end:
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Test
+        run: pnpm --filter front-end run test
+        env:
+          CI: true
+
   test-packages:
     runs-on: depot-ubuntu-24.04
     steps:
@@ -190,9 +206,9 @@ jobs:
             ${{ runner.os }}-jest-shared-${{ hashFiles('pnpm-lock.yaml') }}-
             ${{ runner.os }}-jest-shared-
 
-      # stats (pytest) runs in its own job; back-end is sharded above.
+      # back-end is sharded above, stats (pytest) and front-end have own jobs.
       - name: Test
-        run: pnpm --filter '!back-end' --filter '!stats' -r --workspace-concurrency=1 run test
+        run: pnpm --filter '!back-end' --filter '!stats' --filter '!front-end' -r run test
         env:
           CI: true
 
@@ -202,7 +218,16 @@ jobs:
     # fails, and branch protection counts a skipped required check as passing.
     if: always()
     needs:
-      [format, lint, stats, openapi, type-check, test-back-end, test-packages]
+      [
+        format,
+        lint,
+        stats,
+        openapi,
+        type-check,
+        test-back-end,
+        test-front-end,
+        test-packages,
+      ]
     # This job only checks other jobs' results, so a Depot runner buys nothing.
     runs-on: ubuntu-latest
     steps:
