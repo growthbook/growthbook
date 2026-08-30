@@ -1,13 +1,19 @@
 import { useState } from "react";
-import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
+import { Box, Text } from "@radix-ui/themes";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
-import Modal from "../Modal";
-import Callout from "../Radix/Callout";
+import { useForceLicenseRefresh } from "@/hooks/useForceLicenseRefresh";
+import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
+import Callout from "@/ui/Callout";
+import UIButton from "@/ui/Button";
+import Modal from "@/components/Modal";
 import UpgradeModal from "./UpgradeModal";
+import UpdateOrbSubscriptionModal from "./UpdateOrbSubscriptionModal";
+
+const CANCELLATION_SURVEY_URL = "https://form.typeform.com/to/kL75SA6F";
 
 export default function SubscriptionInfo() {
   const { apiCall } = useAuth();
@@ -17,11 +23,20 @@ export default function SubscriptionInfo() {
     canSubscribe,
     accountPlan,
     users,
-    refreshOrganization,
+    organization,
   } = useUser();
+  const {
+    status: organizationRefreshStatus,
+    refresh: refreshOrganizationAfterCancellation,
+    retry: retryOrganizationRefresh,
+  } = useForceLicenseRefresh();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [cancelSubscriptionModal, setCancelSubscriptionModal] = useState(false);
+  const [showCancellationSurveyModal, setShowCancellationSurveyModal] =
+    useState(false);
+  const [updateOrbSubscriptionModal, setUpdateOrbSubscriptionModal] =
+    useState(false);
 
   // Orb subscriptions only count members, not members + invites like Stripe Subscriptions
   const subscriptionSeats =
@@ -38,13 +53,44 @@ export default function SubscriptionInfo() {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason="Your subscription has expired."
           source="billing-renew"
           commercialFeature={null}
         />
       )}
+      {showCancellationSurveyModal && (
+        <Modal
+          useRadixButton={false}
+          open={true}
+          header={null}
+          trackingEventModalType="cancellation-survey"
+          close={() => setShowCancellationSurveyModal(false)}
+          submit={async () => {
+            const surveyUrl = new URL(CANCELLATION_SURVEY_URL);
+
+            if (organization.id) {
+              surveyUrl.searchParams.set("org_id", organization.id);
+            }
+
+            window.open(surveyUrl.toString(), "_blank");
+            setShowCancellationSurveyModal(false);
+          }}
+          cta="Share Feedback"
+          closeCta="No thanks"
+          showHeaderCloseButton={false}
+        >
+          <Box mr="5">
+            <Text as="p" size="3" weight="medium">
+              How can we improve?
+            </Text>
+            <Text as="span">
+              Can you spare 30 seconds to let us know what we can do better?
+            </Text>
+          </Box>
+        </Modal>
+      )}
       {cancelSubscriptionModal && (
         <Modal
+          useRadixButton={false}
           open={true}
           header="Are you sure you want to cancel?"
           trackingEventModalType="cancel-subscription"
@@ -54,7 +100,9 @@ export default function SubscriptionInfo() {
           submitColor="danger"
           submit={async () => {
             await apiCall("/subscription/cancel", { method: "POST" });
-            refreshOrganization();
+            await refreshOrganizationAfterCancellation();
+            setCancelSubscriptionModal(false);
+            setShowCancellationSurveyModal(true);
           }}
         >
           <>
@@ -72,6 +120,33 @@ export default function SubscriptionInfo() {
           </>
         </Modal>
       )}
+      {updateOrbSubscriptionModal && (
+        <StripeProvider>
+          <UpdateOrbSubscriptionModal
+            subscription={subscription || undefined}
+            close={() => setUpdateOrbSubscriptionModal(false)}
+          />
+        </StripeProvider>
+      )}
+      {organizationRefreshStatus !== "idle" ? (
+        <Callout
+          status="warning"
+          mb="3"
+          action={
+            <UIButton
+              size="sm"
+              color="inherit"
+              loading={organizationRefreshStatus === "loading"}
+              onClick={retryOrganizationRefresh}
+            >
+              Try again
+            </UIButton>
+          }
+        >
+          We couldn&apos;t refresh your organization details. Try again to see
+          your updated plan.
+        </Callout>
+      ) : null}
       <div className="col-auto mb-3">
         <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"} Pro
         {subscription?.status === "trialing" && (
@@ -92,27 +167,15 @@ export default function SubscriptionInfo() {
               {subscription?.nextBillDate}
             </div>
             {subscription?.hasPaymentMethod === true ? (
-              <div
-                className="mt-3 px-3 py-2 alert alert-success row"
-                style={{ maxWidth: 650 }}
-              >
-                <div className="col-auto px-1">
-                  <FaCheckCircle />
-                </div>
-                <div className="col">
+              <Box maxWidth="650px" mt="3">
+                <Callout status="success">
                   You have a valid payment method on file. You will be billed
                   automatically on this date.
-                </div>
-              </div>
+                </Callout>
+              </Box>
             ) : subscription?.hasPaymentMethod === false ? (
-              <div
-                className="mt-3 px-3 py-2 alert alert-warning row"
-                style={{ maxWidth: 550 }}
-              >
-                <div className="col-auto px-1">
-                  <FaExclamationTriangle />
-                </div>
-                <div className="col">
+              <Box maxWidth="550px" mt="3">
+                <Callout status="warning">
                   <p>
                     You do not have a valid payment method on file. Your
                     subscription will be cancelled on this date unless you add a
@@ -122,22 +185,22 @@ export default function SubscriptionInfo() {
                     Click <strong>View Plan Details</strong> below to add a
                     payment method.
                   </p>
-                </div>
-              </div>
+                </Callout>
+              </Box>
             ) : null}
           </div>
         )}
       {subscription?.pendingCancelation && subscription?.dateToBeCanceled && (
-        <div className="col-md-12 mb-3 alert alert-danger">
+        <Callout status="error" mb="3">
           Your plan will be canceled, but is still available until the end of
           your billing period on
           {` ${subscription?.dateToBeCanceled}.`}
-        </div>
+        </Callout>
       )}
       {subscription?.status === "canceled" && (
-        <div className="col-md-12 mb-3 alert alert-danger">
+        <Callout status="error" mb="3">
           Your plan was canceled on {` ${subscription?.cancelationDate}.`}
-        </div>
+        </Callout>
       )}
       <div className="col-md-12 mt-4 mb-3 d-flex flex-row px-0">
         {subscription?.billingPlatform === "stripe" ? (
@@ -149,7 +212,7 @@ export default function SubscriptionInfo() {
                   `/subscription/manage`,
                   {
                     method: "POST",
-                  }
+                  },
                 );
                 if (res && res.url) {
                   await redirectWithTimeout(res.url);
@@ -161,6 +224,17 @@ export default function SubscriptionInfo() {
               {subscription?.status !== "canceled"
                 ? "View Plan Details"
                 : "View Previous Invoices"}
+            </Button>
+          </div>
+        ) : null}
+        {subscription?.billingPlatform === "orb" &&
+        subscription?.status === "active" ? (
+          <div className="col-auto">
+            <Button
+              color="primary"
+              onClick={() => setUpdateOrbSubscriptionModal(true)}
+            >
+              Update Invoice Details
             </Button>
           </div>
         ) : null}

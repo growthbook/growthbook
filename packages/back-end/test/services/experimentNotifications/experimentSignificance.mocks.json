@@ -17,7 +17,7 @@
       "tags": [],
       "description": "",
       "hypothesis": "",
-      "metrics": ["met_dd4gxd4lyelugrk", "met_dd4gxd4lyel6394"],
+      "goalMetrics": ["met_dd4gxd4lyelugrk", "met_dd4gxd4lyel6394"],
       "pastNotifications": ["srm", "multiple-exposures"],
       "metricOverrides": [],
       "guardrails": ["met_dd4gxd4lyelugrk", "met_dd4gxd4lyel6394"],
@@ -847,6 +847,165 @@
               }
             ]
           }
+        }
+      },
+      "results": [],
+      "metricRegressionAdjustmentStatuses": []
+    },
+    "frequentistBorderline": {
+      "id": "snp_freq_borderline",
+      "organization": "org_dd4g20lalsnhhpa2",
+      "experiment": "exp_dd4gxd4lyeluxct",
+      "phase": 0,
+      "dateCreated": "2024-09-10T06:29:44.885Z",
+      "runStarted": "2024-09-10T06:29:44.957Z",
+      "error": "",
+      "queries": [],
+      "dimension": null,
+      "unknownVariations": [],
+      "multipleExposures": 0,
+      "status": "success",
+      "settings": {
+        "manual": false,
+        "activationMetric": null,
+        "attributionModel": "firstExposure",
+        "skipPartialData": false,
+        "segment": "",
+        "queryFilter": "",
+        "datasourceId": "ds_dd4gxd4lyel5js1",
+        "dimensions": [],
+        "startDate": "2023-07-09T16:08:00.000Z",
+        "endDate": "2024-09-10T06:29:44.885Z",
+        "experimentId": "checkout-layout",
+        "goalMetrics": ["met_dd4gxd4lyelugrk", "met_dd4gxd4lyel6394"],
+        "secondaryMetrics": [],
+        "guardrailMetrics": [],
+        "regressionAdjustmentEnabled": false,
+        "defaultMetricPriorSettings": {
+          "override": false,
+          "proper": false,
+          "mean": 0,
+          "stddev": 0.3
+        },
+        "exposureQueryId": "user_id",
+        "metricSettings": [],
+        "variations": [
+          { "id": "0", "weight": 0.5 },
+          { "id": "1", "weight": 0.5 }
+        ],
+        "coverage": 1
+      },
+      "analyses": [
+        {
+          "dateCreated": "2024-09-10T06:29:44.885Z",
+          "results": [
+            {
+              "name": "All",
+              "srm": 0.5,
+              "variations": [
+                {
+                  "users": 5000,
+                  "metrics": {
+                    "met_dd4gxd4lyelugrk": {
+                      "cr": 0.5,
+                      "value": 2500,
+                      "users": 5000,
+                      "denominator": 0,
+                      "stats": {
+                        "users": 5000,
+                        "count": 5000,
+                        "stddev": 0.5,
+                        "mean": 0.5
+                      },
+                      "buckets": []
+                    },
+                    "met_dd4gxd4lyel6394": {
+                      "cr": 0.5,
+                      "value": 2500,
+                      "users": 5000,
+                      "denominator": 0,
+                      "stats": {
+                        "users": 5000,
+                        "count": 5000,
+                        "stddev": 0.5,
+                        "mean": 0.5
+                      },
+                      "buckets": []
+                    }
+                  }
+                },
+                {
+                  "users": 5000,
+                  "metrics": {
+                    "met_dd4gxd4lyelugrk": {
+                      "cr": 0.48,
+                      "value": 2400,
+                      "users": 5000,
+                      "denominator": 0,
+                      "stats": {
+                        "users": 5000,
+                        "count": 5000,
+                        "stddev": 0.5,
+                        "mean": 0.48
+                      },
+                      "expected": -0.04,
+                      "uplift": {
+                        "dist": "normal",
+                        "mean": -0.04,
+                        "stddev": 0.02
+                      },
+                      "ci": [-0.08, 0.0],
+                      "pValue": 0.06,
+                      "buckets": []
+                    },
+                    "met_dd4gxd4lyel6394": {
+                      "cr": 0.47,
+                      "value": 2350,
+                      "users": 5000,
+                      "denominator": 0,
+                      "stats": {
+                        "users": 5000,
+                        "count": 5000,
+                        "stddev": 0.5,
+                        "mean": 0.47
+                      },
+                      "expected": -0.06,
+                      "uplift": {
+                        "dist": "normal",
+                        "mean": -0.06,
+                        "stddev": 0.02
+                      },
+                      "ci": [-0.1, -0.02],
+                      "pValue": 0.04,
+                      "buckets": []
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "settings": {
+            "statsEngine": "frequentist",
+            "dimensions": [],
+            "regressionAdjusted": false,
+            "sequentialTesting": false,
+            "sequentialTestingTuningParameter": 5000,
+            "baselineVariationIndex": 0,
+            "differenceType": "relative",
+            "pValueThreshold": 0.05
+          },
+          "status": "success",
+          "error": ""
+        }
+      ],
+      "health": {
+        "traffic": {
+          "overall": {
+            "name": "All",
+            "srm": 0.5,
+            "variationUnits": [5000, 5000]
+          },
+          "dimension": {}
         }
       },
       "results": [],

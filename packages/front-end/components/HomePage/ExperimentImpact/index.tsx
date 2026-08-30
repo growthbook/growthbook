@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
+import { Flex } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { datetime, getValidDate } from "shared/dates";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useAuth } from "@/services/auth";
@@ -12,30 +13,28 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import MetricSelector from "@/components/Experiment/MetricSelector";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Toggle from "@/components/Forms/Toggle";
+import MultiSelectField from "@/ui/MultiSelectField";
+import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
-import Avatar from "@/components/Radix/Avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Avatar from "@/ui/Avatar";
+import DSTooltip from "@/ui/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { GBInfo } from "@/components/Icons";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import { jamesSteinAdjustment } from "./JamesSteinAdjustment";
 import ExperimentImpactTab from "./ExperimentImpactTab";
 
 export function NoExperimentsForImpactBanner() {
   return (
-    <div className={`mt-2 alert alert-warning`}>
+    <Callout status="warning" mt="2">
       <span style={{ fontSize: "1.2em" }}>
         0 experiments for which we could compute scaled impact match your
         filters.
       </span>
-    </div>
+    </Callout>
   );
 }
 
@@ -43,10 +42,13 @@ export function formatImpact(
   impact: number,
   formatter: (
     value: number,
-    options?: Intl.NumberFormatOptions | undefined
+    options?: Intl.NumberFormatOptions | undefined,
   ) => string,
-  formatterOptions: Intl.NumberFormatOptions
+  formatterOptions: Intl.NumberFormatOptions,
 ) {
+  if (impact === 0) {
+    return <>N/A</>;
+  }
   return (
     <>
       <span className="expectedArrows">
@@ -70,6 +72,11 @@ type ExperimentWithImpact = {
   }[];
   type: ExperimentImpactType;
   keyVariationId?: number;
+  keyVariationImpact?: {
+    scaledImpact: number;
+    scaledImpactAdjusted?: number;
+    se: number;
+  };
   error?: string;
 };
 
@@ -87,7 +94,7 @@ type ExperimentImpactSummary = {
   others: ExperimentImpactData;
 };
 
-function scaleImpactAndSetMissingExperiments({
+export function scaleImpactAndSetMissingExperiments({
   experiments,
   snapshots,
   metric,
@@ -95,6 +102,7 @@ function scaleImpactAndSetMissingExperiments({
   startDate,
   endDate,
   adjusted,
+  skipDateFilter = false,
 }: {
   experiments: ExperimentInterfaceStringDates[];
   snapshots: ExperimentSnapshotInterface[] | undefined;
@@ -103,6 +111,11 @@ function scaleImpactAndSetMissingExperiments({
   startDate: string;
   endDate: string | undefined;
   adjusted: boolean;
+  // Skip this function's own date filter when the caller has already date-scoped
+  // `experiments`. This filter keys off the last phase's dateEnded with
+  // exclusive boundaries, which differs from callers that pre-filter on the
+  // result date with inclusive boundaries.
+  skipDateFilter?: boolean;
 }): {
   summaryObj: ExperimentImpactSummary | null;
   nExpsUsedForAdjustment: number;
@@ -113,7 +126,7 @@ function scaleImpactAndSetMissingExperiments({
     .filter((e) => {
       if (!e.phases.length) return false;
       const experimentEndDate = getValidDate(
-        e.phases[e.phases.length - 1]?.dateEnded
+        e.phases[e.phases.length - 1]?.dateEnded,
       );
       const filterStartDate = getValidDate(startDate);
       const filterEndDate = getValidDate(endDate ?? new Date());
@@ -125,10 +138,15 @@ function scaleImpactAndSetMissingExperiments({
         (!endDate || getValidDate(endDate) > new Date());
 
       const fitsDateFilter =
-        (endedAfterStart && endedBeforeEnd) || isRunningAndEndInFuture;
-      const hasMetric = getAllMetricIdsFromExperiment(e, false).includes(
-        metric
-      );
+        skipDateFilter ||
+        (endedAfterStart && endedBeforeEnd) ||
+        isRunningAndEndInFuture;
+      const { metricGroups } = useDefinitions();
+      const hasMetric = getAllMetricIdsFromExperiment(
+        e,
+        false,
+        metricGroups,
+      ).includes(metric);
       const inSelectedProject =
         selectedProjects.includes(e.project ?? "") || !selectedProjects.length;
 
@@ -137,11 +155,11 @@ function scaleImpactAndSetMissingExperiments({
     .sort(
       (a, b) =>
         getValidDate(
-          b.phases[b.phases.length - 1].dateEnded ?? new Date()
+          b.phases[b.phases.length - 1].dateEnded ?? new Date(),
         ).getTime() -
         getValidDate(
-          a.phases[a.phases.length - 1].dateEnded ?? new Date()
-        ).getTime()
+          a.phases[a.phases.length - 1].dateEnded ?? new Date(),
+        ).getTime(),
     );
 
   let nExpsUsedForAdjustment = 0;
@@ -160,8 +178,8 @@ function scaleImpactAndSetMissingExperiments({
         e.results === "won" && !!e.winner && e.status === "stopped"
           ? "winner"
           : e.results === "lost" && e.status === "stopped"
-          ? "loser"
-          : "other";
+            ? "loser"
+            : "other";
 
       const ei: ExperimentWithImpact = {
         experiment: e,
@@ -269,11 +287,23 @@ function scaleImpactAndSetMissingExperiments({
         }
       });
 
+      if (
+        experimentImpact !== null &&
+        experimentAdjustedImpact !== null &&
+        experimentAdjustedImpactStdDev !== null
+      ) {
+        e.keyVariationImpact = {
+          scaledImpact: experimentImpact,
+          scaledImpactAdjusted: experimentAdjustedImpact,
+          se: experimentAdjustedImpactStdDev,
+        };
+      }
+
       if (e.type === "winner") {
         summaryObj.winners.totalAdjustedImpact += experimentAdjustedImpact ?? 0;
         summaryObj.winners.totalAdjustedImpactVariance += Math.pow(
           experimentAdjustedImpactStdDev ?? 0,
-          2
+          2,
         );
         summaryObj.winners.experiments.push(e);
       } else if (e.type === "loser") {
@@ -281,7 +311,7 @@ function scaleImpactAndSetMissingExperiments({
         summaryObj.losers.totalAdjustedImpact -= experimentAdjustedImpact ?? 0;
         summaryObj.losers.totalAdjustedImpactVariance += Math.pow(
           experimentAdjustedImpactStdDev ?? 0,
-          2
+          2,
         );
         summaryObj.losers.experiments.push(e);
       } else {
@@ -302,7 +332,7 @@ export default function ExperimentImpact({
   experiments: ExperimentInterfaceStringDates[];
 }) {
   const experiments = allExperiments.filter(
-    (exp) => exp.type !== "multi-armed-bandit"
+    (exp) => exp.type !== "multi-armed-bandit",
   );
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
@@ -344,7 +374,7 @@ export default function ExperimentImpact({
 
   const metricInterface = metrics.find((m) => m.id === metric);
   const formatter = metricInterface
-    ? getExperimentMetricFormatter(metricInterface, getFactTableById, true)
+    ? getExperimentMetricFormatter(metricInterface, getFactTableById, "number")
     : formatNumber;
 
   const formatterOptions: Intl.NumberFormatOptions = {
@@ -390,7 +420,7 @@ export default function ExperimentImpact({
         console.error(`Error creating scaled impact: ${error.message}`);
       }
     },
-    [apiCall]
+    [apiCall],
   );
 
   useEffect(() => {
@@ -400,13 +430,19 @@ export default function ExperimentImpact({
   }, []);
 
   // 2 check for snapshots w/o impact and update data
-  const {
-    summaryObj,
-    nExpsUsedForAdjustment,
-    experimentsWithNoImpact,
-  } = useMemo(
-    () =>
-      scaleImpactAndSetMissingExperiments({
+  const { summaryObj, nExpsUsedForAdjustment, experimentsWithNoImpact } =
+    useMemo(
+      () =>
+        scaleImpactAndSetMissingExperiments({
+          experiments,
+          snapshots,
+          metric,
+          selectedProjects,
+          startDate,
+          endDate,
+          adjusted,
+        }),
+      [
         experiments,
         snapshots,
         metric,
@@ -414,27 +450,13 @@ export default function ExperimentImpact({
         startDate,
         endDate,
         adjusted,
-      }),
-    [
-      experiments,
-      snapshots,
-      metric,
-      selectedProjects,
-      startDate,
-      endDate,
-      adjusted,
-    ]
-  );
+      ],
+    );
 
   return (
     <div className="pt-2">
+      <h3 className="mt-2 mb-3 mr-4">Experiment Impact</h3>
       <div className="row align-items-start mb-4">
-        <div className="col-md-12 col-lg-auto">
-          <h3 className="mt-2 mb-3 mr-4">Experiment Impact</h3>
-        </div>
-
-        <div className="flex-1" />
-
         <div className="col-3">
           <label className="mb-1">Metric</label>
           <MetricSelector
@@ -448,7 +470,8 @@ export default function ExperimentImpact({
         <div className="col-auto" style={{ maxWidth: 250 }}>
           <label className="mb-1">Projects</label>
           <MultiSelectField
-            placeholder="All projects"
+            legacyHeight
+            placeholder="All Projects"
             value={project ? [project] : selectedProjects}
             disabled={!!project}
             options={projects
@@ -500,10 +523,20 @@ export default function ExperimentImpact({
           </div>
         </div>
         <div className="col pl-3">
-          <label className="mb-1 nowrap">
-            De-bias?
+          <Flex align="center" gap="1">
+            <DSTooltip
+              content="Disabled as there are not enough experiments to shrink estimates"
+              enabled={nExpsUsedForAdjustment < 5}
+            >
+              <Switch
+                id="adjust-scaled-impact"
+                label="De-bias?"
+                disabled={nExpsUsedForAdjustment < 5}
+                onChange={(v) => form.setValue("adjusted", v)}
+                value={adjusted && nExpsUsedForAdjustment >= 5}
+              />
+            </DSTooltip>
             <Tooltip
-              className="ml-1"
               body={
                 <>
                   <div className="mb-2">
@@ -518,19 +551,7 @@ export default function ExperimentImpact({
                 </>
               }
             />
-          </label>
-          <div className="d-flex pl-3">
-            <Toggle
-              id="adjust-scaled-impact"
-              className="form-check-input"
-              disabled={nExpsUsedForAdjustment < 5}
-              disabledMessage={
-                "Disabled as there are not enough experiments to shrink estimates"
-              }
-              setValue={(v) => form.setValue("adjusted", v)}
-              value={adjusted && nExpsUsedForAdjustment >= 5}
-            />
-          </div>
+          </Flex>
         </div>
       </div>
 
@@ -539,28 +560,26 @@ export default function ExperimentImpact({
       ) : summaryObj ? (
         <>
           {experimentsWithNoImpact.length > 0 ? (
-            <div className={`mt-2 alert alert-warning`}>
-              <div className="row">
-                <div className="col-auto">
-                  <span style={{ fontSize: "1.2em" }}>
-                    Some experiments are missing scaled impact results.
-                  </span>
-                </div>
-                <div className="flex-1" />
-                <div className="col-auto">
-                  <button
-                    className="btn btn-sm btn-primary"
-                    onClick={() =>
-                      updateSnapshots(experimentsWithNoImpact).then(
-                        fetchSnapshots
-                      )
-                    }
-                  >
-                    Calculate Scaled Impact
-                  </button>
-                </div>
-              </div>
-            </div>
+            <Callout
+              status="warning"
+              mt="2"
+              action={
+                <Button
+                  color="inherit"
+                  onClick={() =>
+                    updateSnapshots(experimentsWithNoImpact).then(
+                      fetchSnapshots,
+                    )
+                  }
+                >
+                  Calculate Scaled Impact
+                </Button>
+              }
+            >
+              <span style={{ fontSize: "1.2em" }}>
+                Some experiments are missing scaled impact results.
+              </span>
+            </Callout>
           ) : null}
           {summaryObj.losers.experiments.length +
             summaryObj.winners.experiments.length +
@@ -637,7 +656,7 @@ export default function ExperimentImpact({
                             {formatImpact(
                               summaryObj.winners.totalAdjustedImpact * 365,
                               formatter,
-                              formatterOptions
+                              formatterOptions,
                             )}{" "}
                             {summaryObj.winners.totalAdjustedImpactVariance ? (
                               <span className="plusminus ml-1">
@@ -645,11 +664,11 @@ export default function ExperimentImpact({
                                 {formatter(
                                   Math.sqrt(
                                     summaryObj.winners
-                                      .totalAdjustedImpactVariance
+                                      .totalAdjustedImpactVariance,
                                   ) *
                                     1.96 *
                                     365,
-                                  formatterOptions
+                                  formatterOptions,
                                 )}
                               </span>
                             ) : null}
@@ -703,7 +722,7 @@ export default function ExperimentImpact({
                             {formatImpact(
                               summaryObj.losers.totalAdjustedImpact * 365,
                               formatter,
-                              formatterOptions
+                              formatterOptions,
                             )}{" "}
                             {summaryObj.losers.totalAdjustedImpactVariance ? (
                               <span className="plusminus ml-1">
@@ -711,11 +730,11 @@ export default function ExperimentImpact({
                                 {formatter(
                                   Math.sqrt(
                                     summaryObj.losers
-                                      .totalAdjustedImpactVariance
+                                      .totalAdjustedImpactVariance,
                                   ) *
                                     1.96 *
                                     365,
-                                  formatterOptions
+                                  formatterOptions,
                                 )}
                               </span>
                             ) : null}

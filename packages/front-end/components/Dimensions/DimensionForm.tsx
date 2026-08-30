@@ -1,6 +1,7 @@
 import { FC, useMemo, useState } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
-import { DimensionInterface } from "back-end/types/dimension";
+import { DimensionInterface } from "shared/types/dimension";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
 import { validateSQL } from "@/services/datasources";
@@ -11,24 +12,20 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
-import SelectOwner from "../Owner/SelectOwner";
+import SelectOwner from "@/components/Owner/SelectOwner";
 
 const DimensionForm: FC<{
   close: () => void;
   current: Partial<DimensionInterface>;
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
-  const {
-    getDatasourceById,
-    datasources,
-    mutateDefinitions,
-    project,
-  } = useDefinitions();
+  const { getDatasourceById, datasources, mutateDefinitions, project } =
+    useDefinitions();
 
   const validDatasources = datasources.filter(
     (d) =>
       d.id === current.datasource ||
-      isProjectListValidForProject(d.projects, project)
+      isProjectListValidForProject(d.projects, project),
   );
 
   const form = useForm({
@@ -68,9 +65,14 @@ const DimensionForm: FC<{
           requiredColumns={requiredColumns}
           value={sql}
           save={async (sql) => form.setValue("sql", sql)}
+          sqlObjectInfo={{
+            objectType: "Dimension",
+            objectName: form.watch("name"),
+          }}
         />
       )}
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         close={close}
         open={true}
@@ -86,19 +88,25 @@ const DimensionForm: FC<{
             {
               method: current.id ? "PUT" : "POST",
               body: JSON.stringify(value),
-            }
+            },
           );
           mutateDefinitions();
         })}
       >
-        <Field label="Name" required {...form.register("name")} />
+        <Field size="legacy" label="Name" required {...form.register("name")} />
         <SelectOwner
-          resourceType="dimension"
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
         />
-        <Field label="Description" textarea {...form.register("description")} />
+        <Field
+          size="legacy"
+          label="Description"
+          textarea
+          maxLength={MAX_DESCRIPTION_LENGTH}
+          {...form.register("description")}
+        />
         <SelectField
+          size="legacy"
           label="Data Source"
           required
           value={form.watch("datasource")}
@@ -112,6 +120,7 @@ const DimensionForm: FC<{
         />
         {dsProps?.userIds && (
           <SelectField
+            size="legacy"
             label="Identifier Type"
             required
             value={userIdType}
@@ -143,6 +152,7 @@ const DimensionForm: FC<{
           </div>
         ) : (
           <Field
+            size="legacy"
             label="Event Condition"
             required
             {...form.register("sql")}

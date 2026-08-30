@@ -1,17 +1,21 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
+import { DimensionInterface } from "shared/types/dimension";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { DimensionInterface } from "back-end/types/dimension";
 import {
   createDimension,
   deleteDimensionById,
   findDimensionById,
   findDimensionsByOrganization,
+  hasDimensionDatasourceAccess,
   updateDimension,
 } from "back-end/src/models/DimensionModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import {
+  getDataSourceById,
+  getDataSourcesByOrganization,
+} from "back-end/src/models/DataSourceModel";
 
 // region GET /dimensions
 
@@ -30,13 +34,22 @@ type GetDimensionsResponse = {
  */
 export const getDimensions = async (
   req: GetDimensionsRequest,
-  res: Response<GetDimensionsResponse | PrivateApiErrorResponse>
+  res: Response<GetDimensionsResponse | PrivateApiErrorResponse>,
 ) => {
-  const { org } = getContextFromReq(req);
-  const dimensions = await findDimensionsByOrganization(org.id);
+  const context = getContextFromReq(req);
+  const dimensions = await findDimensionsByOrganization(context.org.id);
+
+  // A dimension inherits project access from its datasource, so drop any whose
+  // datasource is inaccessible or no longer exists.
+  const readableDatasourceIds = new Set(
+    (await getDataSourcesByOrganization(context)).map((ds) => ds.id),
+  );
+
   res.status(200).json({
     status: 200,
-    dimensions,
+    dimensions: dimensions.filter((dimension) =>
+      readableDatasourceIds.has(dimension.datasource),
+    ),
   });
 };
 
@@ -65,14 +78,14 @@ type CreateDimensionResponse = {
  */
 export const postDimension = async (
   req: CreateDimensionRequest,
-  res: Response<CreateDimensionResponse | PrivateApiErrorResponse>
+  res: Response<CreateDimensionResponse | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
   if (!context.permissions.canCreateDimension()) {
     context.permissions.throwPermissionError();
   }
-  const { org, userName } = context;
+  const { org, userId } = context;
   const { datasource, name, sql, userIdType, description } = req.body;
 
   const datasourceDoc = await getDataSourceById(context, datasource);
@@ -83,7 +96,7 @@ export const postDimension = async (
   const doc = await createDimension({
     datasource,
     userIdType,
-    owner: userName,
+    owner: userId,
     name,
     sql,
     id: uniqid("dim_"),
@@ -91,6 +104,7 @@ export const postDimension = async (
     dateUpdated: new Date(),
     organization: org.id,
     description,
+    managedBy: "",
   });
 
   res.status(200).json({
@@ -128,7 +142,7 @@ type PutDimensionResponse = {
  */
 export const putDimension = async (
   req: PutDimensionRequest,
-  res: Response<PutDimensionResponse>
+  res: Response<PutDimensionResponse>,
 ) => {
   const context = getContextFromReq(req);
   if (!context.permissions.canUpdateDimension()) {
@@ -141,6 +155,9 @@ export const putDimension = async (
   if (!dimension) {
     throw new Error("Could not find dimension");
   }
+  if (!(await hasDimensionDatasourceAccess(context, dimension))) {
+    throw new Error("You don't have access to this dimension");
+  }
 
   const { datasource, name, sql, userIdType, owner, description } = req.body;
 
@@ -149,13 +166,14 @@ export const putDimension = async (
     throw new Error("Invalid data source");
   }
 
-  await updateDimension(id, org.id, {
+  await updateDimension(context, dimension, {
     datasource,
     userIdType,
     name,
     sql,
     owner,
     description,
+    managedBy: "",
     dateUpdated: new Date(),
   });
 
@@ -182,7 +200,7 @@ type DeleteDimensionResponse = {
  */
 export const deleteDimension = async (
   req: DeleteDimensionRequest,
-  res: Response<DeleteDimensionResponse | PrivateApiErrorResponse>
+  res: Response<DeleteDimensionResponse | PrivateApiErrorResponse>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -195,8 +213,11 @@ export const deleteDimension = async (
   if (!dimension) {
     throw new Error("Could not find dimension");
   }
+  if (!(await hasDimensionDatasourceAccess(context, dimension))) {
+    throw new Error("You don't have access to this dimension");
+  }
   try {
-    await deleteDimensionById(id, org.id);
+    await deleteDimensionById(context, dimension);
   } catch (e) {
     return res.status(400).json({
       status: 400,

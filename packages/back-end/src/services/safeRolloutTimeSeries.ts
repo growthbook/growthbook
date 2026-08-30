@@ -1,0 +1,205 @@
+import md5 from "md5";
+import { isFactMetricId, expandMetricGroups } from "shared/experiments";
+import { SAFE_ROLLOUT_VARIATIONS } from "shared/constants";
+import {
+  CreateMetricTimeSeriesSingleDataPoint,
+  MetricTimeSeriesValue,
+  MetricTimeSeriesVariation,
+  SafeRolloutInterface,
+  SafeRolloutSnapshotInterface,
+  SafeRolloutSnapshotSettings,
+  MetricForSafeRolloutSnapshot,
+  SafeRolloutSnapshotAnalysisSettings,
+  SafeRolloutSnapshotMetricInterface,
+} from "shared/validators";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
+import { ReqContext } from "back-end/types/request";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { logger } from "back-end/src/util/logger";
+import { getFactMetricDefinitionForHash } from "back-end/src/services/experimentTimeSeries";
+
+export async function updateSafeRolloutTimeSeries({
+  context,
+  safeRollout,
+  safeRolloutSnapshot,
+  notificationTriggered,
+}: {
+  context: ReqContext;
+  safeRollout: SafeRolloutInterface;
+  safeRolloutSnapshot: SafeRolloutSnapshotInterface;
+  notificationTriggered: boolean;
+}) {
+  if (
+    // Dimensioned safe rollouts are not supported at the moment
+    (safeRolloutSnapshot.dimension !== "" &&
+      safeRolloutSnapshot.dimension !== undefined) ||
+    // And no way of generating a data point if there are no metrics monitored, but shouldn't happen
+    safeRollout.guardrailMetricIds.length === 0
+  ) {
+    return;
+  }
+
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricsIds = expandMetricGroups(
+    safeRollout.guardrailMetricIds,
+    metricGroups,
+  );
+
+  const analysis = safeRolloutSnapshot.analyses?.[0];
+  const analysisResults = analysis?.results?.[0];
+  const variations = analysisResults?.variations;
+
+  if (!variations || variations.length === 0) {
+    return;
+  }
+
+  // Only control & variant are expected for Safe Rollouts
+  if (variations.length !== 2) {
+    logger.warn(
+      `Safe Rollout ${safeRollout.id} has ${variations.length} variations, expected 2`,
+    );
+  }
+
+  let factMetrics: FactMetricInterface[] | undefined = undefined;
+  let factTableMap: Map<string, FactTableInterface> | undefined = undefined;
+  const factMetricsIds: string[] = metricsIds.filter(isFactMetricId);
+  if (factMetricsIds.length > 0) {
+    factMetrics = await context.models.factMetrics.getByIds(factMetricsIds);
+    factTableMap = await getFactTableMap(context);
+  }
+
+  // A metric whose analysis failed to compute is stored as a zeroed result
+  // flagged computeFailed. Skip it so we don't persist those zeros as a real
+  // time series point; surviving metrics still record.
+  const recordableMetricIds = metricsIds.filter(
+    (metricId) =>
+      !variations.some(
+        (_, variationIndex) =>
+          analysisResults?.variations[variationIndex]?.metrics[metricId]
+            ?.computeFailed,
+      ),
+  );
+
+  if (recordableMetricIds.length === 0) {
+    return;
+  }
+
+  const timeSeriesVariationsPerMetricId = recordableMetricIds.reduce(
+    (acc, metricId) => {
+      acc[metricId] = variations.map((_, variationIndex) => ({
+        id: safeRolloutSnapshot.settings.variations[variationIndex].id,
+        name: SAFE_ROLLOUT_VARIATIONS[variationIndex].name,
+        stats:
+          analysisResults?.variations[variationIndex]?.metrics[metricId]?.stats,
+        absolute: convertMetricToMetricValue(
+          analysisResults?.variations[variationIndex]?.metrics[metricId],
+        ),
+      }));
+
+      return acc;
+    },
+    {} as Record<string, MetricTimeSeriesVariation[]>,
+  );
+
+  const settingsHash = getSafeRolloutSettingsHash(
+    safeRolloutSnapshot.settings,
+    analysis.settings,
+  );
+
+  const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] =
+    recordableMetricIds.map((metricId) => ({
+      source: "safe-rollout",
+      sourceId: safeRollout.id,
+      metricId,
+      lastExperimentSettingsHash: settingsHash,
+      lastMetricSettingsHash: getSafeRolloutMetricSettingsHash(
+        metricId,
+        safeRolloutSnapshot.settings.metricSettings.find(
+          (it) => it.id === metricId,
+        ),
+        factMetrics,
+        factTableMap,
+      ),
+      singleDataPoint: {
+        date: safeRolloutSnapshot.dateCreated,
+        variations: timeSeriesVariationsPerMetricId[metricId],
+        ...(notificationTriggered && { tags: ["triggered-alert"] }),
+      },
+    }));
+
+  await context.models.metricTimeSeries.upsertMultipleSingleDataPoint(
+    metricTimeSeriesSingleDataPoints,
+  );
+}
+
+// Adjusted function for SafeRolloutSnapshotMetric type
+function convertMetricToMetricValue(
+  metric: SafeRolloutSnapshotMetricInterface | undefined,
+): MetricTimeSeriesValue | undefined {
+  if (!metric) {
+    return undefined;
+  }
+
+  // NB: Explicitly naming all fields based on MetricTimeSeriesValue definition
+  return {
+    value: metric.value,
+    denominator: metric.denominator ?? undefined,
+    expected: metric.expected ?? undefined,
+    ci: metric.ci ?? undefined,
+    pValue: metric.pValue ?? undefined,
+    pValueAdjusted: metric.pValueAdjusted ?? undefined,
+    chanceToWin: metric.chanceToWin ?? undefined,
+  };
+}
+
+const hashObject = (obj: object) => md5(JSON.stringify(obj));
+
+function getSafeRolloutSettingsHash(
+  snapshotSettings: SafeRolloutSnapshotSettings,
+  snapshotAnalysisSettings: SafeRolloutSnapshotAnalysisSettings,
+): string {
+  return hashObject({
+    // Snapshot Settings
+    queryFilter: snapshotSettings.queryFilter,
+    datasourceId: snapshotSettings.datasourceId,
+    exposureQueryId: snapshotSettings.exposureQueryId,
+    startDate: snapshotSettings.startDate,
+    regressionAdjustmentEnabled: snapshotSettings.regressionAdjustmentEnabled,
+    experimentId: snapshotSettings.experimentId,
+
+    // Analysis Settings
+    statsEngine: snapshotAnalysisSettings.statsEngine,
+    regressionAdjusted: snapshotAnalysisSettings.regressionAdjusted,
+    sequentialTesting: snapshotAnalysisSettings.sequentialTesting,
+    sequentialTestingTuningParameter:
+      snapshotAnalysisSettings.sequentialTestingTuningParameter,
+    pValueCorrection: snapshotAnalysisSettings.pValueCorrection,
+  });
+}
+
+function getSafeRolloutMetricSettingsHash(
+  metricId: string,
+  metricSettings: MetricForSafeRolloutSnapshot | undefined,
+  factMetrics?: FactMetricInterface[],
+  factTableMap?: Map<string, FactTableInterface>,
+): string {
+  const factMetric = factMetrics?.find((metric) => metric.id === metricId);
+  if (!factMetric) {
+    return hashObject(metricSettings ?? { id: metricId });
+  }
+  // Unlike the experiment hash, this one never serialized funnelSettings, and
+  // standard metrics store null (which JSON.stringify keeps) — omit it so
+  // their hashes stay stable.
+  const { funnelSettings, ...definition } = getFactMetricDefinitionForHash(
+    factMetric,
+    factTableMap,
+  );
+  return hashObject({
+    ...metricSettings,
+    ...definition,
+    ...(funnelSettings ? { funnelSettings } : {}),
+  });
+}

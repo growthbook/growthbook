@@ -1,0 +1,90 @@
+.root {
+  display: flex;
+  align-items: center;
+  padding-top: var(--space-4);
+
+  .container {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: 0;
+    margin: 0;
+    font-size: var(--font-size-1);
+
+    li {
+      box-sizing: border-box;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+  }
+
+  .button,
+  .break {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--space-6);
+    font-size: var(--font-size-1);
+    line-height: var(--line-height-1);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .button {
+    box-sizing: border-box;
+    border: 1px solid var(--gray-a5);
+    border-radius: var(--radius-2);
+    background: var(--color-surface);
+    color: var(--color-text-high);
+    font-family: inherit;
+    font-weight: var(--font-weight-medium);
+    text-align: center;
+    cursor: pointer;
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease;
+
+    &:enabled:hover:not(.current) {
+      border-color: var(--gray-a3);
+      background: var(--gray-a2);
+    }
+
+    &:enabled:active:not(.current) {
+      border-color: var(--gray-a3);
+      background: var(--gray-a3);
+    }
+
+    &:disabled {
+      border-color: var(--gray-a3);
+      color: var(--color-text-disabled);
+      cursor: not-allowed;
+    }
+  }
+
+  .page {
+    width: 100%;
+    padding: 0;
+  }
+
+  .arrow {
+    padding: 0 var(--space-3);
+
+    // The Button wraps children in a Text line box; block the caret out of
+    // inline flow so it centers geometrically instead of sitting ~1px low.
+    svg {
+      display: block;
+    }
+  }
+
+  .current {
+    border-color: var(--violet-a5);
+    background: var(--violet-a3);
+    color: var(--violet-11);
+    cursor: default;
+  }
+
+  .break {
+    color: var(--gray-9);
+  }
+}

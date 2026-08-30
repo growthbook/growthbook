@@ -1,4 +1,4 @@
-import { Environment } from "back-end/types/organization";
+import { Environment } from "shared/types/organization";
 import SelectField, {
   FormatOptionLabelType,
 } from "@/components/Forms/SelectField";
@@ -22,6 +22,7 @@ export default function EnvironmentDropdown({
 }) {
   return (
     <SelectField
+      size="legacy"
       containerClassName={containerClassName}
       label={label}
       value={env || ""}

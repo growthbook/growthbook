@@ -1,166 +1,270 @@
-import mongoose from "mongoose";
-import uniqid from "uniqid";
-import { omit } from "lodash";
-import { SavedGroupInterface } from "shared/src/types";
-import { ApiSavedGroup } from "back-end/types/openapi";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import { isEqual, omit } from "lodash";
 import {
-  CreateSavedGroupProps,
+  SavedGroupInterface,
   LegacySavedGroupInterface,
-  UpdateSavedGroupProps,
-} from "back-end/types/saved-group";
-import { migrateSavedGroup } from "back-end/src/util/migrations";
+  SavedGroupWithoutValues,
+  SavedGroupForDefinitions,
+} from "shared/types/saved-group";
+import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
+import { UpdateProps } from "shared/types/base-model";
+import { UpdateFilter } from "mongodb";
+import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+  entityKey,
+} from "back-end/src/events/bulkPublishCorrelation";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
+import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
+import {
+  logSavedGroupCreatedEvent,
+  logSavedGroupUpdatedEvent,
+  logSavedGroupDeletedEvent,
+} from "back-end/src/services/savedGroupEvents";
+import { touchDefinitionsVersion } from "./DefinitionsVersionModel";
+import { MakeModelClass } from "./BaseModel";
 
-const savedGroupSchema = new mongoose.Schema({
-  id: {
-    type: String,
-    unique: true,
-  },
-  organization: {
-    type: String,
-    index: true,
-  },
-  groupName: String,
-  owner: String,
-  dateCreated: Date,
-  dateUpdated: Date,
-  values: [String],
-  source: String,
-  condition: String,
-  type: {
-    type: String,
-  },
-  attributeKey: String,
-  description: String,
-  projects: [String],
-  // Previously, empty saved groups were ignored in the SDK payload, making all $inGroup operations return true
-  useEmptyListGroup: Boolean,
-});
-
-type SavedGroupDocument = mongoose.Document & LegacySavedGroupInterface;
-
-const SavedGroupModel = mongoose.model<LegacySavedGroupInterface>(
-  "savedGroup",
-  savedGroupSchema
-);
-
-const toInterface = (doc: SavedGroupDocument): SavedGroupInterface => {
-  const legacy = omit(
-    doc.toJSON<SavedGroupDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
-
-  return migrateSavedGroup(legacy);
+// `skipAttributeValidation` lets revert flows write a previously-published
+// condition even if it now references attributes that have since been removed
+// or archived from the org schema. Normal create/update paths leave it unset.
+type WriteOptions = {
+  skipAttributeValidation?: boolean;
 };
 
-export function parseSavedGroupString(list: string) {
-  const values = list
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => !!value);
+const BaseClass = MakeModelClass({
+  schema: savedGroupValidator,
+  collectionName: "savedgroups",
+  affectsDefinitionsVersion: true,
+  definitionsVersionProjectField: "projects",
+  // `values`/`condition` are projected out of the definitions response
+  // (getAllForDefinitions).
+  definitionsVersionExcludedFields: ["values", "condition"],
+  idPrefix: "grp_",
+  auditLog: {
+    entity: "savedGroup",
+    createEvent: "savedGroup.created",
+    updateEvent: "savedGroup.updated",
+    deleteEvent: "savedGroup.deleted",
+  },
+  globallyUniquePrimaryKeys: true,
+  // Org-scoped `getAll()` is on the SDK-payload build path. The default indexes
+  // are id-leading (`{id, organization}`, `{id}`), which can't serve a filter on
+  // `organization` alone — without this a payload rebuild full-scans the
+  // collection. Mirrors FeatureModel's org-leading index.
+  additionalIndexes: [{ fields: { organization: 1 } }],
+});
 
-  return [...new Set(values)];
-}
+export class SavedGroupModel extends BaseClass<WriteOptions> {
+  // Substitutes proposed (unwritten) saved-group docs into getAll() reads so a
+  // publish-time scan (the archive-dependents gate resolves saved-group →
+  // saved-group condition references) sees the batch's combined end-state.
+  // Only ever set on a dedicated plan-scoped scan context — never a request
+  // context that writes. No-op when unset (overlayDocsById returns as-is).
+  private scanOverlay: Map<string, SavedGroupInterface> | null = null;
 
-export async function createSavedGroup(
-  organization: string,
-  group: CreateSavedGroupProps
-): Promise<SavedGroupInterface> {
-  const newGroup = await SavedGroupModel.create({
-    ...group,
-    id: uniqid("grp_"),
-    organization,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    useEmptyListGroup: true,
-  });
-  return toInterface(newGroup);
-}
+  public setScanOverlay(docs: SavedGroupInterface[]): void {
+    this.scanOverlay = new Map(docs.map((d) => [d.id, d]));
+  }
 
-export async function getAllSavedGroups(
-  organization: string
-): Promise<SavedGroupInterface[]> {
-  const savedGroups: SavedGroupDocument[] = await SavedGroupModel.find({
-    organization,
-  });
-  return savedGroups.map(toInterface);
-}
+  public async getAll(): Promise<SavedGroupInterface[]> {
+    return overlayDocsById(await super.getAll(), this.scanOverlay);
+  }
 
-export async function getSavedGroupById(
-  savedGroupId: string,
-  organization: string
-): Promise<SavedGroupInterface | null> {
-  const savedGroup = await SavedGroupModel.findOne({
-    id: savedGroupId,
-    organization: organization,
-  });
+  protected canRead(doc: SavedGroupInterface): boolean {
+    return this.context.permissions.canReadMultiProjectResource(doc.projects);
+  }
 
-  return savedGroup ? toInterface(savedGroup) : null;
-}
+  protected canCreate(doc: SavedGroupInterface): boolean {
+    return this.context.permissions.canCreateSavedGroup(doc);
+  }
 
-export async function getSavedGroupsById(
-  savedGroupIds: string[],
-  organization: string
-): Promise<SavedGroupInterface[]> {
-  const savedGroups = await SavedGroupModel.find({
-    id: savedGroupIds,
-    organization: organization,
-  });
+  protected canUpdate(
+    existing: SavedGroupInterface,
+    _updates: UpdateProps<SavedGroupInterface>,
+    newDoc: SavedGroupInterface,
+  ): boolean {
+    return canLandEntityUpdate({
+      permissions: this.context.permissions,
+      model: "saved-group",
+      existing,
+      newDoc,
+      environments: NO_ENVIRONMENT_BINDING,
+    });
+  }
 
-  return savedGroups ? savedGroups.map((group) => toInterface(group)) : [];
-}
+  protected canDelete(doc: SavedGroupInterface): boolean {
+    return this.context.permissions.canDeleteSavedGroup(doc);
+  }
 
-export async function updateSavedGroupById(
-  savedGroupId: string,
-  organization: string,
-  group: UpdateSavedGroupProps
-): Promise<UpdateSavedGroupProps> {
-  const changes = {
-    ...group,
-    dateUpdated: new Date(),
-  };
+  public static migrateSavedGroup(
+    legacyDoc: LegacySavedGroupInterface,
+    { conditionOmitted = false }: { conditionOmitted?: boolean } = {},
+  ): SavedGroupInterface {
+    // Add `type` field to legacy groups
+    const { source, type, ...otherFields } = legacyDoc;
+    const group: SavedGroupInterface = {
+      ...otherFields,
+      type: type || (source === "runtime" ? "condition" : "list"),
+    };
 
-  await SavedGroupModel.updateOne(
-    {
-      id: savedGroupId,
-      organization: organization,
-    },
-    changes
-  );
+    // Migrate legacy runtime groups to use a condition.
+    // Do not synthesize a condition when it was excluded from the read.
+    if (
+      group.type === "condition" &&
+      !group.condition &&
+      !conditionOmitted &&
+      source === "runtime" &&
+      group.attributeKey
+    ) {
+      group.condition = JSON.stringify({
+        $groups: {
+          $elemMatch: {
+            $eq: group.attributeKey,
+          },
+        },
+      });
+    }
 
-  return changes;
-}
+    return group;
+  }
 
-export async function removeProjectFromSavedGroups(
-  project: string,
-  organization: string
-) {
-  await SavedGroupModel.updateMany(
-    { organization, projects: project },
-    { $pull: { projects: project } }
-  );
-}
+  protected migrate(
+    legacyDoc: LegacySavedGroupInterface,
+    omittedFields?: ReadonlySet<string>,
+  ): SavedGroupInterface {
+    return SavedGroupModel.migrateSavedGroup(legacyDoc, {
+      conditionOmitted: omittedFields?.has("condition") ?? false,
+    });
+  }
 
-export async function deleteSavedGroupById(id: string, organization: string) {
-  await SavedGroupModel.deleteOne({
-    id,
-    organization,
-  });
-}
+  protected async customValidation(
+    doc: SavedGroupInterface,
+    previousDoc?: SavedGroupInterface,
+    writeOptions?: WriteOptions,
+  ) {
+    if (writeOptions?.skipAttributeValidation) return;
+    if (doc.type === "condition" && doc.condition) {
+      assertRegisteredAttributes(
+        this.context,
+        { condition: doc.condition },
+        "saved group",
+        previousDoc ? { condition: previousDoc.condition } : undefined,
+        doc.projects,
+      );
+    }
+  }
 
-export function toSavedGroupApiInterface(
-  savedGroup: SavedGroupInterface
-): ApiSavedGroup {
-  return {
-    id: savedGroup.id,
-    type: savedGroup.type,
-    values: savedGroup.values || [],
-    condition: savedGroup.condition || "",
-    name: savedGroup.groupName,
-    attributeKey: savedGroup.attributeKey || "",
-    dateCreated: savedGroup.dateCreated.toISOString(),
-    dateUpdated: savedGroup.dateUpdated.toISOString(),
-    owner: savedGroup.owner || "",
-    description: savedGroup.description,
-    projects: savedGroup.projects || [],
-  };
+  protected async beforeCreate(doc: SavedGroupInterface) {
+    doc.useEmptyListGroup = true;
+  }
+
+  protected async afterCreate(doc: SavedGroupInterface) {
+    await logSavedGroupCreatedEvent(this.context, this.toApiInterface(doc));
+  }
+
+  protected async afterUpdate(
+    existing: SavedGroupInterface,
+    updates: UpdateProps<SavedGroupInterface>,
+    newDoc: SavedGroupInterface,
+  ) {
+    // If the values, condition, projects, or archived state change, we need to
+    // invalidate cached feature rules. `archived` IS refreshed: the archive
+    // guard is only a bypassable warning, so a still-referenced group can be
+    // archived (ignoreWarnings) — `filterUsedSavedGroups` then drops it from
+    // every referencing feature's payload, and unarchiving restores it, both
+    // of which change served values.
+    if (
+      updates.values ||
+      updates.condition ||
+      updates.projects ||
+      updates.archived !== undefined
+    ) {
+      savedGroupUpdated(this.context).catch((e) => {
+        this.context.logger.error(
+          e,
+          "Error refreshing SDK Payload on saved group update",
+        );
+      });
+    }
+
+    // Don't emit `savedGroup.updated` if nothing meaningful changed (e.g. only
+    // `dateUpdated` was bumped) — mirrors the feature webhook behavior. During
+    // a bulk-publish commit the emission defers to the post-commit flush.
+    const previous = this.toApiInterface(existing);
+    const current = this.toApiInterface(newDoc);
+    if (
+      !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
+    ) {
+      await emitOrDeferBulkPublishEvent(
+        () => logSavedGroupUpdatedEvent(this.context, previous, current),
+        entityKey("saved-group", newDoc.id),
+        captureEventBuffer(this.context),
+      );
+    }
+  }
+
+  protected async afterDelete(doc: SavedGroupInterface) {
+    await logSavedGroupDeletedEvent(this.context, this.toApiInterface(doc));
+  }
+
+  public async removeProjectIdFromAllGroups(projectId: string) {
+    const pullOperation: UpdateFilter<SavedGroupInterface> = {
+      projects: projectId,
+    };
+    await this._dangerousGetCollection().updateMany(
+      { organization: this.context.org.id, projects: projectId },
+      { $pull: pullOperation },
+    );
+    // Raw write bypasses the BaseModel affectsDefinitionsVersion hook.
+    await touchDefinitionsVersion(this.context.org.id);
+  }
+
+  public async getAllWithoutValues(): Promise<SavedGroupWithoutValues[]> {
+    const groups = await this._find({}, { projection: { values: 0 } });
+    return groups as SavedGroupWithoutValues[];
+  }
+
+  /**
+   * Returns saved-group metadata without the payload-heavy values and condition.
+   */
+  public async getAllForDefinitions(): Promise<SavedGroupForDefinitions[]> {
+    const groups = await this._find(
+      {},
+      { projection: { values: 0, condition: 0 } },
+    );
+    return groups as SavedGroupForDefinitions[];
+  }
+
+  public toApiInterface(savedGroup: SavedGroupInterface): ApiSavedGroup {
+    return {
+      id: savedGroup.id,
+      type: savedGroup.type,
+      values: savedGroup.values || [],
+      condition: savedGroup.condition || "",
+      name: savedGroup.groupName,
+      attributeKey: savedGroup.attributeKey || "",
+      dateCreated: savedGroup.dateCreated.toISOString(),
+      dateUpdated: savedGroup.dateUpdated.toISOString(),
+      owner: savedGroup.owner || "",
+      description: savedGroup.description,
+      projects: savedGroup.projects || [],
+      archived: !!savedGroup.archived,
+      useEmptyListGroup: savedGroup.useEmptyListGroup,
+    };
+  }
+  /**
+   * Project scope only, for the given ids — what a read check consults.
+   * Revision listings ask this for every target in a filtered scan, so the
+   * heavy value fields are projected out (`values` can be enormous).
+   * Read-filtered like any other find, so what comes back is what may be read.
+   */
+  public async getReadScopesByIds(ids: string[]) {
+    if (!ids.length) return [];
+    return this._find(
+      { id: { $in: ids } } as Parameters<typeof this._find>[0],
+      { projection: { values: 0, condition: 0 } },
+    );
+  }
 }

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
+import Callout from "@/ui/Callout";
 import LicenseSuccessModal from "./LicenseSuccessModal";
 import UpgradeModal from ".";
 
@@ -11,11 +12,11 @@ export default function VerifyingEmailModal() {
   const { refreshOrganization, license } = useUser();
 
   const emailVerificationToken = String(
-    router.query["email-verification-token"] || ""
+    router.query["email-verification-token"] || "",
   );
 
   const [verifyingEmail, setVerifyingEmail] = useState(
-    !!emailVerificationToken
+    !!emailVerificationToken,
   );
 
   const [verifyEmailSuccess, setVerifyEmailSuccess] = useState(false);
@@ -61,7 +62,6 @@ export default function VerifyingEmailModal() {
     return (
       <UpgradeModal
         close={() => setShowUpgradeModal(false)}
-        reason="To fix an error verifying email."
         source="verify email"
         commercialFeature={null}
       />
@@ -70,6 +70,7 @@ export default function VerifyingEmailModal() {
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       cta="Invite Members"
@@ -91,7 +92,7 @@ export default function VerifyingEmailModal() {
               try again.
             </a>
           </span>
-          <div className="alert alert-danger">{verifyEmailError}</div>
+          <Callout status="error">{verifyEmailError}</Callout>
         </div>
       ) : (
         <div>Please be patient while we verify your account.</div>

@@ -1,54 +1,66 @@
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { BanditEvent } from "shared/validators";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
-import { getSRMHealthData } from "shared/health";
+} from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { getSRMHealthData, getBanditSRMValue } from "shared/health";
 import {
   DEFAULT_SRM_THRESHOLD,
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
 } from "shared/constants";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useUser } from "@/services/UserContext";
 import BanditSRMGraph from "@/components/HealthTab/BanditSRMGraph";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import { pValueFormatter } from "@/services/experiments";
 import SRMWarning from "@/components/Experiment/SRMWarning";
+import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
+  snapshot: ExperimentSnapshotInterface;
   phase: ExperimentPhaseStringDates;
   onNotify: (issue: IssueValue) => void;
 }
 
-export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
+export default function BanditSRMCard({
+  experiment,
+  snapshot,
+  phase,
+  onNotify,
+}: Props) {
   const { settings } = useUser();
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
   const banditEvents: BanditEvent[] = phase?.banditEvents ?? [];
   const currentEvent = banditEvents?.[banditEvents.length - 1];
-  const srm = currentEvent?.banditResult?.srm;
-  const users = experiment.variations.map(
+
+  const srm = getBanditSRMValue(snapshot);
+  const users = getLatestPhaseVariations(experiment).map(
     (_, i) =>
-      currentEvent?.banditResult?.singleVariationResults?.[i]?.users ?? 0
+      currentEvent?.banditResult?.singleVariationResults?.[i]?.users ?? 0,
   );
   const totalUsers = users.reduce((sum, u) => sum + (u ?? 0), 0) ?? 0;
 
   const [chartMode, setChartMode] = useState<"weights" | "users">("users");
 
+  const numOfVariations = getLatestPhaseVariations(experiment).length;
   const overallHealth = useMemo(
     () =>
       getSRMHealthData({
         srm: srm ?? Infinity,
         srmThreshold,
-        numOfVariations: experiment.variations.length,
+        numOfVariations,
         totalUsersCount: totalUsers,
         minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
       }),
-    [srm, srmThreshold, experiment.variations.length, totalUsers]
+    [srm, srmThreshold, numOfVariations, totalUsers],
   );
 
   useEffect(() => {
@@ -60,7 +72,7 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
   if (srm === undefined) {
     return (
       <div className="box my-4 p-3">
-        <div className="alert alert-danger">Traffic data is missing</div>
+        <Callout status="error">Traffic data is missing</Callout>
       </div>
     );
   }
@@ -117,10 +129,12 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
                 />
               </>
             ) : (
-              <div className="alert alert-info font-weight-bold">
-                More traffic is required to detect a Sample Ratio Mismatch
-                (SRM).
-              </div>
+              <Callout status="info">
+                <Text weight="semibold">
+                  More traffic is required to detect a Sample Ratio Mismatch
+                  (SRM).
+                </Text>
+              </Callout>
             )}
           </div>
         </div>

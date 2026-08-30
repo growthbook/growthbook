@@ -1,16 +1,14 @@
-import { Router } from "express";
+import { OpenApiRoute } from "back-end/src/util/handler";
 import { listArchetypes } from "./listArchetypes";
 import { postArchetype } from "./postArchetype";
 import { getArchetype } from "./getArchetype";
 import { putArchetype } from "./putArchetype";
 import { deleteArchetype } from "./deleteArchetype";
 
-const router = Router();
-
-router.get("/", listArchetypes);
-router.post("/", postArchetype);
-router.get("/:id", getArchetype);
-router.put("/:id", putArchetype);
-router.delete("/:id", deleteArchetype);
-
-export default router;
+export const archetypesRoutes: OpenApiRoute[] = [
+  listArchetypes,
+  postArchetype,
+  getArchetype,
+  putArchetype,
+  deleteArchetype,
+];

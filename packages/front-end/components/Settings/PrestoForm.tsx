@@ -1,6 +1,11 @@
 import { FC, ChangeEventHandler } from "react";
-import { PrestoConnectionParams } from "back-end/types/integrations/presto";
+import { PrestoConnectionParams } from "shared/types/integrations/presto";
 import SelectField from "@/components/Forms/SelectField";
+import { isCloud } from "@/services/env";
+import {
+  KEEP_EXISTING_PLACEHOLDER,
+  useCanKeepExistingCredentials,
+} from "@/components/Forms/secretInput";
 import HostWarning from "./HostWarning";
 import SSLConnectionFields from "./SSLConnectionFields";
 
@@ -11,11 +16,40 @@ const PrestoForm: FC<{
   onManualParamChange: (name: string, value: string) => void;
   setParams: (params: { [key: string]: string | boolean }) => void;
 }> = ({ params, existing, onParamChange, onManualParamChange, setParams }) => {
+  const authType = params.authType ?? "basicAuth";
+  const canKeepExistingCredentials = useCanKeepExistingCredentials(
+    existing,
+    authType,
+  );
+  const authMethodOptions = [
+    {
+      value: "basicAuth",
+      label: "Basic Auth (Username/Password)",
+    },
+    {
+      value: "customAuth",
+      label: "Custom Auth (HTTP Authorization header)",
+    },
+    ...(!isCloud()
+      ? [
+          {
+            value: "kerberos",
+            label: "Kerberos",
+          },
+        ]
+      : []),
+    {
+      value: "none",
+      label: "None (Authentication handled outside of GrowthBook)",
+    },
+  ];
+
   return (
     <div className="row">
       <div className="form-group col-md-12">
         <label>Engine</label>
         <SelectField
+          size="legacy"
           name="engine"
           required
           value={params.engine || ""}
@@ -26,32 +60,6 @@ const PrestoForm: FC<{
             { value: "presto", label: "presto" },
             { value: "trino", label: "trino" },
           ]}
-        />
-      </div>
-      <div className="form-group col-md-12">
-        <SelectField
-          label="Authentication Method"
-          options={[
-            {
-              value: "basicAuth",
-              label: "Basic Auth (Username/Password)",
-            },
-            {
-              value: "customAuth",
-              label: "Custom Auth (HTTP Authorization header)",
-            },
-            {
-              value: "none",
-              label: "None (Authentication handled outside of GrowthBook)",
-            },
-          ]}
-          helpText="Basic Auth is the most common method. Custom Auth sets HTTP Authorization header with the provided string. 'None' only is used for custom authentication methods."
-          value={params.authType || "basicAuth"}
-          onChange={(v) => {
-            setParams({
-              authType: v,
-            });
-          }}
         />
       </div>
       <div className=" col-md-12">
@@ -86,7 +94,52 @@ const PrestoForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      {params.authType === "basicAuth" && (
+      {params.engine === "trino" ? (
+        <div className="form-group col-md-12">
+          <label>Trino User</label>
+          <input
+            type="text"
+            className="form-control"
+            name="trinoUser"
+            value={params.trinoUser || ""}
+            onChange={onParamChange}
+            placeholder="growthbook"
+          />
+          <small className="form-text text-muted">
+            The user for X-Trino-User header. It is not sent if empty.
+          </small>
+        </div>
+      ) : (
+        <div className="form-group col-md-12">
+          <label>Query User</label>
+          <input
+            type="text"
+            className="form-control"
+            name="user"
+            value={params.user || "growthbook"}
+            onChange={onParamChange}
+          />
+          <small className="form-text text-muted">
+            The user for X-Presto-User header. Defaults to
+            &quot;growthbook&quot;.
+          </small>
+        </div>
+      )}
+      <div className="col-md-12">
+        <SelectField
+          size="legacy"
+          label="Authentication Method"
+          options={authMethodOptions}
+          helpText="Basic Auth is the most common method. Custom Auth sets HTTP Authorization header with the provided string. Kerberos auth uses KRB5 authentication with client principal. 'None' only is used for custom authentication methods."
+          value={authType}
+          onChange={(v) => {
+            setParams({
+              authType: v,
+            });
+          }}
+        />
+      </div>
+      {authType === "basicAuth" && (
         <>
           <div className="form-group col-md-12">
             <label>Username</label>
@@ -106,24 +159,86 @@ const PrestoForm: FC<{
               type="text"
               className="form-control"
               name="password"
+              required={!canKeepExistingCredentials}
               value={params.password || ""}
               onChange={onParamChange}
-              placeholder={existing ? "(Keep existing)" : ""}
+              placeholder={
+                canKeepExistingCredentials ? KEEP_EXISTING_PLACEHOLDER : ""
+              }
             />
           </div>
         </>
       )}
-      {params.authType === "customAuth" && (
+      {authType === "customAuth" && (
         <div className="form-group col-md-12">
           <label>Custom Auth String</label>
           <input
             type="text"
             className="form-control"
             name="customAuth"
+            required={!canKeepExistingCredentials}
             value={params.customAuth || ""}
             onChange={onParamChange}
+            placeholder={
+              canKeepExistingCredentials ? KEEP_EXISTING_PLACEHOLDER : ""
+            }
           />
         </div>
+      )}
+      {authType === "kerberos" && (
+        <>
+          <div className="form-group col-md-12">
+            <label>Service Principal</label>
+            <input
+              type="text"
+              className="form-control"
+              name="kerberosServicePrincipal"
+              required
+              value={params.kerberosServicePrincipal || ""}
+              onChange={onParamChange}
+              placeholder="presto@db.example.com"
+            />
+            <small className="form-text text-muted">
+              The service principal that you want to connect to. Accepts both
+              full principal (<code>PRESTO/db.example.com@REALM</code>) and
+              library format (<code>presto@db.example.com</code>).
+            </small>
+          </div>
+          <div className="form-group col-md-12">
+            <label>GrowthBook Client Principal</label>
+            <input
+              type="text"
+              className="form-control"
+              name="kerberosClientPrincipal"
+              value={params.kerberosClientPrincipal || ""}
+              onChange={onParamChange}
+              placeholder="HTTP/growthbook.example.com@REALM"
+              pattern="[^/]+\/[^@]+@.+"
+              title="Must be in the format service/hostname@REALM"
+            />
+            <small className="form-text text-muted">
+              The client (GrowthBook) principal. If not specified, the default
+              principal from the system will be used. Should contain the full
+              principal (<code>http/growthbook.example.com@REALM</code>) when
+              provided.
+            </small>
+          </div>
+          <div className="form-group col-md-12">
+            <label>Kerberos User</label>
+            <input
+              type="text"
+              className="form-control"
+              name="kerberosUser"
+              value={params.kerberosUser || ""}
+              onChange={onParamChange}
+              placeholder="growthbook"
+            />
+            <small className="form-text text-muted">
+              This is the value used in the <code>X-Trino-User</code> header.
+              Defaults to <code>growthbook</code> if not specified.
+            </small>
+          </div>
+        </>
       )}
       <div className="form-group col-md-12">
         <label>Default Catalog</label>
@@ -141,13 +256,20 @@ const PrestoForm: FC<{
           type="number"
           className="form-control"
           name="requestTimeout"
-          value={params.requestTimeout || ""}
+          value={
+            params.requestTimeout === undefined ||
+            params.requestTimeout === null
+              ? ""
+              : String(params.requestTimeout)
+          }
           onChange={onParamChange}
-          placeholder="(optional - in seconds. If empty or 0, there will be no limit)"
+          placeholder="Optional — seconds (default 3600 if unset)"
         />
         <div className="form-text text-muted small">
-          The number of seconds before a request will timeout. Set to 0 to
-          disable timeout.
+          Seconds GrowthBook waits for each query (including the connection test
+          when you save). If empty, default is 3600 (one hour). Set to 0 to turn
+          off this client-side limit only; Trino/Presto may still enforce
+          server-side timeouts.
         </div>
       </div>
       <div className="form-group col-md-12">
@@ -174,6 +296,7 @@ const PrestoForm: FC<{
         </small>
       </div>
       <SSLConnectionFields
+        existing={existing}
         onParamChange={onParamChange}
         setSSL={(ssl) => setParams({ ssl })}
         value={{

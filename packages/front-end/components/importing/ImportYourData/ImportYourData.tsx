@@ -11,6 +11,13 @@ const supportedServices = [
     accentColor: "#000",
     text: "Import your projects, features and environments from LaunchDarkly.",
   },
+  {
+    service: "Statsig",
+    icon: "statsig",
+    path: "statsig",
+    accentColor: "#000",
+    text: "Import your projects, features, environments, and metrics from Statsig.",
+  },
 ];
 
 export const ImportYourData: FC<ImportYourDataProps> = (_props) => {

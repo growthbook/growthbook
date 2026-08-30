@@ -1,12 +1,13 @@
 import React from "react";
-import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { MetricAnalysisInterface } from "shared/types/metric-analysis";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  getFactMetricPrimaryFactTableId,
   getMetricLink,
   isBinomialMetric,
   isFactMetric,
 } from "shared/experiments";
-import { MetricInterface } from "back-end/types/metric";
+import { MetricInterface } from "shared/types/metric";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -21,12 +22,12 @@ import MetricName from "@/components/Metrics/MetricName";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 const NorthStarMetricDisplay = ({
   metricId,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  window,
+  window: _window,
   smoothBy,
   hoverDate,
   onHoverCallback,
@@ -59,7 +60,7 @@ const NorthStarMetricDisplay = ({
   }>(`/metrics/${metricId}/northstar`);
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   if (!metric || !data) {
@@ -68,9 +69,10 @@ const NorthStarMetricDisplay = ({
 
   // @todo: get the metric period in days from the 'window'.
   // Disabled window range for now.
-  const experiments = (project
-    ? data.data.experiments.filter((e) => e.project === project)
-    : data.data.experiments
+  const experiments = (
+    project
+      ? data.data.experiments.filter((e) => e.project === project)
+      : data.data.experiments
   ).filter((e) => e.status !== "draft");
 
   const analysis = data.data.analysis;
@@ -80,7 +82,7 @@ const NorthStarMetricDisplay = ({
   const datasource = getDatasourceById(metric.datasource);
   const formatter = getExperimentMetricFormatter(metric, getFactTableById);
   const factTable = isFactMetric(metric)
-    ? getFactTableById(metric.numerator.factTableId)
+    ? getFactTableById(getFactMetricPrimaryFactTableId(metric))
     : undefined;
 
   return (
@@ -122,14 +124,14 @@ const NorthStarMetricDisplay = ({
           ) : (
             <>
               {hasQueries && status === "failed" && (
-                <div className="alert alert-danger my-3">
+                <Callout status="error" my="3">
                   Error running the analysis.
-                </div>
+                </Callout>
               )}
               {hasQueries && status === "running" && (
-                <div className="alert alert-info my-3">
+                <Callout status="info" my="3">
                   Your analysis is currently running.
-                </div>
+                </Callout>
               )}
               {status !== "running" && status !== "failed" && (
                 <div className="mb-2">
@@ -160,6 +162,8 @@ const NorthStarMetricDisplay = ({
                         lookbackDays: analysisDays,
                         populationType: "factTable",
                         populationId: null,
+                        additionalNumeratorFilters: undefined,
+                        additionalDenominatorFilters: undefined,
                       },
                       endOfToday,
                       source: "northstar",
@@ -181,6 +185,7 @@ const NorthStarMetricDisplay = ({
                 }}
               >
                 <RunQueriesButton
+                  useRadixButton={false}
                   icon="refresh"
                   cta={analysis ? "Refresh Data" : "Run Analysis"}
                   mutate={mutate}
@@ -210,6 +215,7 @@ const NorthStarMetricDisplay = ({
                 }}
               >
                 <RunQueriesButton
+                  useRadixButton={false}
                   icon="refresh"
                   cta={analysis ? "Refresh Data" : "Run Analysis"}
                   model={

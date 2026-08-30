@@ -1,4 +1,4 @@
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 

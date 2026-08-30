@@ -5,6 +5,7 @@ import {
   validateName,
   validatePremiumFeatures,
   validateProjects,
+  validateRequireProjectForSdkConnections,
   validateSdkCapabilities,
   validateSdkVersion,
 } from "back-end/src/api/sdk-connections/validations";
@@ -79,14 +80,73 @@ describe("sdk-connections validations", () => {
 
     it("Fails when a project doesn't exist", async () => {
       await expect(
-        validateProjects(context, ["project_2", "project_3"])
+        validateProjects(context, ["project_2", "project_3"]),
       ).rejects.toThrow("The following projects do not exist: project_3");
     });
 
     it("Allows projects that exist", async () => {
       await expect(
-        validateProjects(context, ["project_1", "project_2"])
+        validateProjects(context, ["project_1", "project_2"]),
       ).resolves.not.toThrow();
+    });
+  });
+
+  describe("require project for sdk connections validation", () => {
+    const orgWithRequiredProjects = {
+      id: "org",
+      settings: { requireProjectForSdkConnections: true },
+    };
+
+    it("fails when creating a new SDK Connection without a project", () => {
+      expect(() => {
+        validateRequireProjectForSdkConnections(
+          orgWithRequiredProjects,
+          undefined,
+        );
+      }).toThrow(
+        "SDK Connection is required to be associated with at least one project",
+      );
+    });
+
+    it("fails when removing projects from an existing scoped SDK Connection", () => {
+      expect(() => {
+        validateRequireProjectForSdkConnections(
+          orgWithRequiredProjects,
+          [],
+          ["project-1"],
+        );
+      }).toThrow(
+        "SDK Connection is required to be associated with at least one project",
+      );
+    });
+
+    it("allows updating existing project-less SDK Connections", () => {
+      expect(() => {
+        validateRequireProjectForSdkConnections(
+          orgWithRequiredProjects,
+          [],
+          [],
+        );
+      }).not.toThrow();
+    });
+
+    it("allows updating scoped SDK Connections without changing projects", () => {
+      expect(() => {
+        validateRequireProjectForSdkConnections(
+          orgWithRequiredProjects,
+          undefined,
+          ["project-1"],
+        );
+      }).not.toThrow();
+    });
+
+    it("allows orgs without the setting enabled", () => {
+      expect(() => {
+        validateRequireProjectForSdkConnections(
+          { id: "org", settings: {} },
+          [],
+        );
+      }).not.toThrow();
     });
   });
 
@@ -114,7 +174,7 @@ describe("sdk-connections validations", () => {
               return ["encryption", "remoteEval"];
           }
           return ["encryption"];
-        }
+        },
       );
     });
 
@@ -128,10 +188,10 @@ describe("sdk-connections validations", () => {
           { encryptPayload: true, remoteEvalEnabled: true },
           "javascript",
           "old_version",
-          "latest_version"
+          "latest_version",
         );
       }).toThrow(
-        "You need to ugrade to version latest_version to support remoteEval"
+        "You need to ugrade to version latest_version to support remoteEval",
       );
     });
 
@@ -141,7 +201,7 @@ describe("sdk-connections validations", () => {
           { encryptPayload: true, remoteEvalEnabled: true },
           "other_language",
           "latest_version",
-          "latest_version"
+          "latest_version",
         );
       }).toThrow("SDK version latest_version does not support remoteEval");
     });
@@ -152,7 +212,7 @@ describe("sdk-connections validations", () => {
           { encryptPayload: true, remoteEvalEnabled: false },
           "other_language",
           "latest_version",
-          "latest_version"
+          "latest_version",
         );
       }).not.toThrow();
     });
@@ -183,9 +243,11 @@ describe("sdk-connections validations", () => {
       expect(() => {
         validatePremiumFeatures(context, {
           encryptPayload: false,
-          includeVisualExperiments: true,
+          hashSecureAttributes: true,
         });
-      }).toThrow("Feature visual-editor requires premium subscription!");
+      }).toThrow(
+        "Feature hash-secure-attributes requires premium subscription!",
+      );
     });
 
     it("Allows available features", () => {
@@ -198,7 +260,7 @@ describe("sdk-connections validations", () => {
   describe("sdk version validation", () => {
     beforeEach(() => {
       getSDKVersions.mockImplementation((language: string) =>
-        language === "javascript" ? ["js_old", "js_latest"] : ["other_old"]
+        language === "javascript" ? ["js_old", "js_latest"] : ["other_old"],
       );
     });
 

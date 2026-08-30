@@ -3,13 +3,13 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
-import { getEqualWeights } from "shared/experiments";
+} from "shared/types/experiment";
+import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
 import track from "@/services/track";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { distributeWeights } from "@/services/utils";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const EditVariationsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -45,10 +45,10 @@ const EditVariationsForm: FC<{
   const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="edit-variations-form"
       trackingEventModalSource={source}
-      header={"Edit Variations"}
+      header="Edit Variations"
       open={true}
       close={cancel}
       size="lg"
@@ -67,10 +67,10 @@ const EditVariationsForm: FC<{
                 Math.max(
                   data.variationWeights?.[i] ??
                     1 / (data.variations?.length || 2),
-                  0
+                  0,
                 ),
-                1
-              )
+                1,
+              ),
             ),
           ];
           data.variationWeights = distributeWeights(newWeights, true);
@@ -82,7 +82,7 @@ const EditVariationsForm: FC<{
             // only recompute weights if original weights are the wrong size
             data.variationWeights = getEqualWeights(
               data.variations.length || 2,
-              4
+              4,
             );
           } else {
             data.variationWeights = [...lastPhase.variationWeights];
@@ -95,6 +95,16 @@ const EditVariationsForm: FC<{
         });
         mutate();
         track("edited-variations");
+
+        const numVariationsAdded =
+          data.variations.length - getLatestPhaseVariations(experiment).length;
+        if (numVariationsAdded > 0) {
+          track("Added Variations", {
+            source: "edit-variations-form",
+            numVariationsAdded,
+            totalVariations: data.variations.length,
+          });
+        }
       })}
       cta="Save"
     >
@@ -131,18 +141,18 @@ const EditVariationsForm: FC<{
                 ...newData,
                 key: value,
               };
-            })
+            }),
           );
           form.setValue(
             `variationWeights`,
-            v.map((v) => v.weight)
+            v.map((v) => v.weight),
           );
         }}
         showPreview={false}
-        disableCoverage
+        hideCoverage
         onlySafeToEditVariationMetadata={onlySafeToEditVariationMetadata}
       />
-    </Modal>
+    </ModalStandard>
   );
 };
 

@@ -1,12 +1,17 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { getValidation } from "shared/util";
 import { useState } from "react";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
 import { useRouter } from "next/router";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
+import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import JSONSchemaDescription from "@/components/Features/JSONSchemaDescription";
 import Code from "@/components/SyntaxHighlighting/Code";
 import EditSchemaModal from "@/components/Features/EditSchemaModal";
@@ -15,9 +20,16 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 export interface Props {
   feature: FeatureInterface;
   mutate: () => void;
+  setVersion?: (version: number) => void;
+  revisionList?: MinimalFeatureRevisionInterface[];
 }
 
-export default function JSONValidation({ feature, mutate }: Props) {
+export default function JSONValidation({
+  feature,
+  mutate,
+  setVersion,
+  revisionList,
+}: Props) {
   const { hasCommercialFeature } = useUser();
 
   const router = useRouter();
@@ -25,19 +37,43 @@ export default function JSONValidation({ feature, mutate }: Props) {
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
-  const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
-    feature
-  );
+  const { jsonSchema, validationEnabled, schemaDateUpdated } =
+    getValidation(feature);
 
   const hasJsonValidator = hasCommercialFeature("json-validation");
 
   const [collapsed, setCollapsed] = useState(
-    (hasJsonValidator && validationEnabled) || !isNew
+    (hasJsonValidator && validationEnabled) || !isNew,
   );
 
   const [edit, setEdit] = useState(false);
 
-  if (feature.valueType !== "json") return null;
+  // Boolean flags can't have a validation schema; json/string/number can.
+  if (feature.valueType === "boolean") return null;
+
+  // A config-backed flag (Config mode) uses the config's authoritative schema —
+  // the flag's own schema is disabled. Keyed on `baseConfig`, not the value.
+  const configBackedKey = feature.baseConfig ?? null;
+  if (configBackedKey !== null) {
+    return (
+      <Box>
+        <Flex align="center" gap="1" mb="1">
+          <Heading as="h3" size="md" mb="0">
+            Schema Validation
+          </Heading>
+          <Badge label="Provided by Config" color="violet" variant="soft" />
+        </Flex>
+        <Text as="p" size="sm" color="text-low" fontStyle="italic">
+          This Feature Flag&apos;s default value is backed by the{" "}
+          <Link href={`/configs/${configBackedKey}`}>
+            <code>{configBackedKey}</code>
+          </Link>{" "}
+          Config, which supplies its own schema. The Feature Flag&apos;s own
+          schema is disabled while a Config is attached.
+        </Text>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -46,6 +82,8 @@ export default function JSONValidation({ feature, mutate }: Props) {
           close={() => setEdit(false)}
           feature={feature}
           mutate={mutate}
+          setVersion={setVersion}
+          revisionList={revisionList}
           defaultEnable={!validationEnabled}
           onEnable={() => {
             if (!validationEnabled) {
@@ -57,17 +95,21 @@ export default function JSONValidation({ feature, mutate }: Props) {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason="To get access to JSON Validation,"
           source="json-validation"
           commercialFeature="json-validation"
         />
       )}
-      <Flex align="center">
-        <h3 className="mb-0">
-          {hasJsonValidator && validationEnabled
-            ? "Validation Enabled"
-            : "Validation Not Enabled"}
-        </h3>
+      <Flex align="center" gap="1" mb="1">
+        <Heading as="h3" size="md" mb="0">
+          Schema Validation
+        </Heading>
+        {hasJsonValidator && (
+          <Badge
+            label={validationEnabled ? "Enabled" : "Not enabled"}
+            color={validationEnabled ? "green" : "gray"}
+            variant="soft"
+          />
+        )}
         <div className="ml-auto">
           {!hasJsonValidator ? (
             <Button variant="ghost" onClick={() => setUpgradeModal(true)}>
@@ -89,6 +131,12 @@ export default function JSONValidation({ feature, mutate }: Props) {
           </Button>
         </div>
       </Flex>
+      {!validationEnabled && (
+        <Text as="p" size="sm" color="text-low" fontStyle="italic">
+          Prevent typos and mistakes by specifying validation rules using JSON
+          Schema or our Simple Validation Builder
+        </Text>
+      )}
       {validationEnabled && (
         <Flex pt="2" align="center">
           <JSONSchemaDescription jsonSchema={jsonSchema} />

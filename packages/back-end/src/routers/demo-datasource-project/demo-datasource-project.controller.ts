@@ -1,152 +1,90 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
-import {
-  getDemoDataSourceFeatureId,
-  getDemoDatasourceProjectIdForOrganization,
-} from "shared/demo-datasource";
-import {
-  DEFAULT_P_VALUE_THRESHOLD,
-  DEFAULT_STATS_ENGINE,
-} from "shared/constants";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { ProjectInterface } from "shared/types/project";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ReqContext } from "back-end/types/request";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
-import { createDataSource } from "back-end/src/models/DataSourceModel";
-import {
-  createExperiment,
-  getAllExperiments,
-} from "back-end/src/models/ExperimentModel";
-import {
-  createMetric,
-  createSnapshot,
-} from "back-end/src/services/experiments";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { SoftWarningError } from "back-end/src/util/errors";
 import { PrivateApiErrorResponse } from "back-end/types/api";
-import { DataSourceSettings } from "back-end/types/datasource";
-import { ExperimentInterface } from "back-end/types/experiment";
-import { ExperimentRefRule, FeatureInterface } from "back-end/types/feature";
-import { MetricInterface } from "back-end/types/metric";
-import { ProjectInterface } from "back-end/types/project";
-import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
-import { getMetricMap } from "back-end/src/models/MetricModel";
-import { createFeature } from "back-end/src/models/FeatureModel";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { MetricWindowSettings } from "back-end/types/fact-table";
+import {
+  deleteDemoDatasourceAndDependents,
+  isLegacyDemoSeed,
+  seedDemoResources,
+} from "back-end/src/services/demo-datasource";
+import { cleanupProjectReferences } from "back-end/src/services/projects";
 
-// region Constants for Demo Datasource
+// region Permission checks
 
-// Datasource constants
-const DATASOURCE_TYPE = "postgres";
-const DEMO_DATASOURCE_SETTINGS: DataSourceSettings = {
-  userIdTypes: [{ userIdType: "user_id" }],
-  queries: {
-    exposure: [
-      {
-        id: "user_id",
-        name: "Logged-in User Experiments",
-        userIdType: "user_id",
-        query:
-          "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nexperimentId AS experiment_id,\nvariationId AS variation_id,\nbrowser\nFROM experiment_viewed",
-        dimensions: ["browser"],
-      },
-    ],
-  },
-};
+function checkCanCreateDemoResources(
+  req: AuthRequest,
+  context: ReqContext,
+  demoProjId: string,
+): void {
+  if (!context.permissions.canCreateProjects()) {
+    context.permissions.throwPermissionError();
+  }
+  req.checkPermissions("createAnalyses", "");
 
-const DEMO_DATASOURCE_PARAMS: PostgresConnectionParams = {
-  user: "gbdemoreader",
-  host: "sample-data.growthbook.io",
-  database: "growthbook",
-  password: "WnGeRgTPwEu4",
-  port: 5432,
-  ssl: true,
-  defaultSchema: "sample",
-};
+  if (
+    !context.permissions.canCreateFactMetric({ projects: [demoProjId] }) ||
+    !context.permissions.canCreateFactTable({ projects: [demoProjId] }) ||
+    !context.permissions.canCreateDataSource({
+      projects: [demoProjId],
+      type: "postgres",
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+}
 
-const ASSET_OWNER = "";
-const DEMO_TAGS = ["growthbook-demo"];
+function checkCanDeleteDemoResources(
+  context: ReqContext,
+  demoProjId: string,
+): void {
+  // Only the seeded sample resources are guaranteed to exist, so only their
+  // delete permissions are required up front. Optional user-created leftovers
+  // on the sample Data Source (metrics, segments, dimensions, metric groups,
+  // saved queries) are sample data too and get cleaned up regardless;
+  // requiring their permissions here — several of which are global — would
+  // lock out anyone but an org admin from deleting sample data.
+  if (
+    !context.permissions.canDeleteDataSource({ projects: [demoProjId] }) ||
+    !context.permissions.canDeleteFactMetric({ projects: [demoProjId] }) ||
+    !context.permissions.canDeleteFactTable({ projects: [demoProjId] }) ||
+    !context.permissions.canDeleteFeature(
+      { project: demoProjId },
+      NO_ENVIRONMENT_BINDING,
+    ) ||
+    !context.permissions.canDeleteExperiment({ project: demoProjId })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+}
 
-// Metric constants
-const CONVERSION_WINDOW_SETTINGS: MetricWindowSettings = {
-  type: "conversion",
-  windowUnit: "hours",
-  windowValue: 72,
-  delayUnit: "hours",
-  delayValue: 0,
-};
-const DENOMINATOR_METRIC_NAME = "Purchases - Number of Orders (72 hour window)";
-const DEMO_METRICS: Pick<
-  MetricInterface,
-  "name" | "description" | "type" | "sql" | "windowSettings" | "aggregation"
->[] = [
-  {
-    name: "Purchases - Total Revenue (72 hour window)",
-    description: "The total amount of USD spent aggregated at the user level",
-    type: "revenue",
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
-    windowSettings: CONVERSION_WINDOW_SETTINGS,
-  },
-  {
-    name: "Purchases - Any Order (72 hour window)",
-    description: "Whether the user places any order or not (0/1)",
-    type: "binomial",
-    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM orders",
-    windowSettings: CONVERSION_WINDOW_SETTINGS,
-  },
-  {
-    name: DENOMINATOR_METRIC_NAME,
-    description: "Total number of discrete orders placed by a user",
-    type: "count",
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\n1 AS value\nFROM orders",
-    windowSettings: CONVERSION_WINDOW_SETTINGS,
-  },
-  {
-    name: "Retention - [1, 14) Days",
-    description:
-      "Whether the user logged in 1-14 days after experiment exposure",
-    type: "binomial",
-    windowSettings: {
-      type: "conversion",
-      delayValue: 24,
-      delayUnit: "hours",
-      windowUnit: "days",
-      windowValue: 13,
-    },
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM pages WHERE path = '/'",
-  },
-  {
-    name: "Days Active in Next 7 Days",
-    description:
-      "Count of times the user was active in the next 7 days after exposure",
-    type: "count",
-    windowSettings: {
-      type: "conversion",
-      delayValue: 0,
-      delayUnit: "hours",
-      windowUnit: "days",
-      windowValue: 7,
-    },
-    aggregation: "COUNT(DISTINCT value)",
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nDATE_TRUNC('day', timestamp) AS value\nFROM pages WHERE path = '/'",
-  },
-];
+// endregion Permission checks
 
-const DEMO_RATIO_METRIC: Pick<
-  MetricInterface,
-  "name" | "description" | "type" | "sql"
-> = {
-  name: "Purchases - Average Order Value (ratio)",
-  description:
-    "The average value of purchases made in the 72 hours after exposure divided by the total number of purchases",
-  type: "revenue",
-  sql:
-    "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
-};
+/**
+ * Shared by DELETE and reset: remove the sample Data Source and everything
+ * built on it, clean up references to the Sample Data project, and delete the
+ * project itself. Returns labels of reference-cleanup steps that failed.
+ */
+async function deleteDemoProjectAndResources(
+  context: ReqContext,
+  demoProjId: string,
+): Promise<string[]> {
+  await deleteDemoDatasourceAndDependents(context);
 
-// endregion Constants for Demo Datasource
+  const failedToCleanUp = await cleanupProjectReferences(context, demoProjId);
+
+  if (await context.models.projects.getById(demoProjId)) {
+    await context.models.projects.deleteById(demoProjId);
+  }
+
+  return failedToCleanUp;
+}
 
 // region POST /demo-datasource-project
 
@@ -160,7 +98,9 @@ type CreateDemoDatasourceProjectResponse = {
 
 /**
  * POST /demo-datasource-project
- * Create a demo-datasource-project resource
+ * Create the sample data project and its seeded resources. Idempotent: any
+ * seeded resource that already exists is left alone, so re-posting heals a
+ * partial seed.
  * @param req
  * @param res
  */
@@ -169,34 +109,17 @@ export const postDemoDatasourceProject = async (
   res: Response<
     CreateDemoDatasourceProjectResponse | PrivateApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const context = getContextFromReq(req);
+  const demoProjId = getDemoDatasourceProjectIdForOrganization(context.org.id);
 
-  if (!context.permissions.canCreateProjects()) {
-    context.permissions.throwPermissionError();
-  }
-  req.checkPermissions("createAnalyses", "");
+  checkCanCreateDemoResources(req, context, demoProjId);
 
-  const { org, environments } = context;
+  const existingDemoProject: ProjectInterface | null =
+    await context.models.projects.getById(demoProjId);
 
-  const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
-
-  if (
-    !context.permissions.canCreateMetric({ projects: [demoProjId] }) ||
-    !context.permissions.canCreateDataSource({
-      projects: [demoProjId],
-      type: "postgres",
-    })
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  const existingDemoProject: ProjectInterface | null = await context.models.projects.getById(
-    demoProjId
-  );
-
-  if (existingDemoProject) {
+  if (existingDemoProject && (await isLegacyDemoSeed(context))) {
     const existingExperiments = await getAllExperiments(context, {
       project: existingDemoProject.id,
       includeArchived: true,
@@ -211,241 +134,15 @@ export const postDemoDatasourceProject = async (
   }
 
   try {
-    const project = await context.models.projects.create({
-      id: demoProjId,
-      name: "Sample Data",
-    });
-    const datasource = await createDataSource(
-      context,
-      "Sample Data Source",
-      DATASOURCE_TYPE,
-      DEMO_DATASOURCE_PARAMS,
-      DEMO_DATASOURCE_SETTINGS,
-      undefined,
-      "",
-      [project.id]
-    );
-
-    // Create metrics
-    const metrics = await Promise.all(
-      DEMO_METRICS.map(async (m) => {
-        return createMetric({
-          ...m,
-          organization: org.id,
-          owner: ASSET_OWNER,
-          userIdColumns: { user_id: "user_id" },
-          userIdTypes: ["user_id"],
-          datasource: datasource.id,
-          projects: [project.id],
-          tags: DEMO_TAGS,
-        });
-      })
-    );
-
-    const denominatorMetricId = metrics.find(
-      (m) => m.name === DENOMINATOR_METRIC_NAME
-    )?.id;
-    const ratioMetric = denominatorMetricId
-      ? await createMetric({
-          ...DEMO_RATIO_METRIC,
-          denominator: denominatorMetricId,
-          organization: org.id,
-          owner: ASSET_OWNER,
-          userIdColumns: { user_id: "user_id" },
-          userIdTypes: ["user_id"],
-          datasource: datasource.id,
-          projects: [project.id],
-          tags: DEMO_TAGS,
-        })
-      : undefined;
-
-    const goalMetrics = metrics.slice(0, 1).map((m) => m.id);
-
-    const secondaryMetrics = metrics
-      .slice(1, undefined)
-      .map((m) => m.id)
-      .concat(ratioMetric ? ratioMetric?.id : []);
-
-    // Create experiment
-    const experimentStartDate = new Date();
-    experimentStartDate.setDate(experimentStartDate.getDate() - 30);
-    const experimentToCreate: Pick<
-      ExperimentInterface,
-      | "name"
-      | "owner"
-      | "description"
-      | "datasource"
-      | "goalMetrics"
-      | "secondaryMetrics"
-      | "project"
-      | "hypothesis"
-      | "exposureQueryId"
-      | "status"
-      | "tags"
-      | "trackingKey"
-      | "variations"
-      | "phases"
-    > = {
-      name: getDemoDataSourceFeatureId(),
-      trackingKey: getDemoDataSourceFeatureId(),
-      description: `**THIS IS A DEMO EXPERIMENT USED FOR DEMONSTRATION PURPOSES ONLY**
-
-Experiment to test impact of checkout cart design.
-Both variations move the "Proceed to checkout" button to a single table, but with different
-spacing and headings.`,
-      hypothesis: `We predict new variations will increase Purchase metrics and have uncertain effects on Retention.`,
-      owner: ASSET_OWNER,
-      datasource: datasource.id,
-      project: project.id,
-      goalMetrics,
-      secondaryMetrics,
-      exposureQueryId: "user_id",
-      status: "running",
-      tags: DEMO_TAGS,
-      variations: [
-        {
-          id: "v0",
-          key: "0",
-          name: "Current",
-          screenshots: [
-            {
-              path: "/images/demo-datasource/current.png",
-            },
-          ],
-        },
-        {
-          id: "v1",
-          key: "1",
-          name: "Dev-Compact",
-          screenshots: [
-            {
-              path: "/images/demo-datasource/dev-compact.png",
-            },
-          ],
-        },
-        {
-          id: "v2",
-          key: "2",
-          name: "Dev",
-          screenshots: [
-            {
-              path: "/images/demo-datasource/dev.png",
-            },
-          ],
-        },
-      ],
-      phases: [
-        {
-          dateStarted: experimentStartDate,
-          name: "",
-          reason: "",
-          coverage: 1,
-          condition: "",
-          namespace: { enabled: false, name: "", range: [0, 1] },
-          variationWeights: [0.3334, 0.3333, 0.3333],
-        },
-      ],
-    };
-
-    const createdExperiment = await createExperiment({
-      data: experimentToCreate,
-      context,
-    });
-
-    // Create feature
-    const featureToCreate: FeatureInterface = {
-      id: getDemoDataSourceFeatureId(),
-      version: 1,
-      project: project.id,
-      organization: org.id,
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      description:
-        "Controls checkout layout UI. Employees forced to see new UI, other users randomly assigned to one of three designs.",
-      owner: ASSET_OWNER,
-      valueType: "string",
-      defaultValue: "current",
-      tags: DEMO_TAGS,
-      environmentSettings: {},
-    };
-
-    environments.forEach((env) => {
-      featureToCreate.environmentSettings[env] = {
-        enabled: true,
-        rules: [
-          {
-            type: "force",
-            description: "",
-            id: `${getDemoDataSourceFeatureId()}-employee-force-rule`,
-            value: "dev",
-            condition: `{"is_employee":true}`,
-            enabled: true,
-          },
-          {
-            type: "experiment-ref",
-            description: "",
-            id: `${getDemoDataSourceFeatureId()}-exp-rule`,
-            enabled: true,
-            experimentId: getDemoDataSourceFeatureId(), // This value is replaced below after the experiment is created.
-            variations: [
-              {
-                variationId: "v0",
-                value: "current",
-              },
-              {
-                variationId: "v1",
-                value: "dev-compact",
-              },
-              {
-                variationId: "v2",
-                value: "dev",
-              },
-            ],
-          },
-        ],
-      };
-
-      featureToCreate.environmentSettings[env].rules.forEach((rule) => {
-        if (rule.type === "experiment-ref") {
-          (rule as ExperimentRefRule).experimentId = createdExperiment.id;
-        }
-      });
-    });
-
-    await createFeature(context, featureToCreate);
-
-    const analysisSettings: ExperimentSnapshotAnalysisSettings = {
-      statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
-      differenceType: "relative",
-      dimensions: [],
-      pValueThreshold:
-        org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
-      numGoalMetrics: goalMetrics.length,
-    };
-
-    const metricMap = await getMetricMap(context);
-    const factTableMap = await getFactTableMap(context);
-
-    await createSnapshot({
-      experiment: createdExperiment,
-      context,
-      phaseIndex: 0,
-      defaultAnalysisSettings: analysisSettings,
-      additionalAnalysisSettings: [],
-      settingsForSnapshotMetrics: [],
-      metricMap: metricMap,
-      factTableMap,
-      useCache: true,
-      type: "standard",
-      triggeredBy: "manual",
-    });
+    const { project, experiment } = await seedDemoResources(context);
 
     res.status(200).json({
       status: 200,
-      project: project,
-      experimentId: createdExperiment.id,
+      project,
+      experimentId: experiment.id,
     });
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     res.status(500).json({
       status: 500,
       message: `Failed to create demo datasource and project with message: ${e.message}`,
@@ -455,3 +152,115 @@ spacing and headings.`,
 };
 
 // endregion POST /demo-datasource-project
+
+// region DELETE /demo-datasource-project
+
+type DeleteDemoDatasourceProjectRequest = AuthRequest;
+
+type DeleteDemoDatasourceProjectResponse = {
+  status: 200;
+};
+
+/**
+ * DELETE /demo-datasource-project
+ * Delete the sample Data Source, everything built on it (seeded or
+ * user-created), the seeded Feature Flag, and the Sample Data project.
+ * Resources that only reference the project (not the Data Source) are kept:
+ * any project reference is removed and they fall back to "All Projects".
+ * @param req
+ * @param res
+ */
+export const deleteDemoDatasourceProject = async (
+  req: DeleteDemoDatasourceProjectRequest,
+  res: Response<
+    DeleteDemoDatasourceProjectResponse | PrivateApiErrorResponse,
+    EventUserForResponseLocals
+  >,
+) => {
+  const context = getContextFromReq(req);
+  const demoProjId = getDemoDatasourceProjectIdForOrganization(context.org.id);
+
+  if (!context.permissions.canDeleteProject(demoProjId)) {
+    context.permissions.throwPermissionError();
+  }
+  checkCanDeleteDemoResources(context, demoProjId);
+
+  const failedToCleanUp = await deleteDemoProjectAndResources(
+    context,
+    demoProjId,
+  );
+
+  if (failedToCleanUp.length > 0) {
+    res.status(400).json({
+      status: 400,
+      message:
+        `Sample data deleted, but failed to remove the Project from the following resources: ` +
+        failedToCleanUp.join(", "),
+    });
+    return;
+  }
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+// endregion DELETE /demo-datasource-project
+
+// region POST /demo-datasource-project/reset
+
+type ResetDemoDatasourceProjectRequest = AuthRequest;
+
+type ResetDemoDatasourceProjectResponse = {
+  status: 200;
+  project: ProjectInterface;
+  experimentId: string;
+};
+
+/**
+ * POST /demo-datasource-project/reset
+ * Exactly delete + create: remove the sample Data Source, everything built on
+ * it (user-created resources included), and the project, then re-seed from
+ * scratch. Handles legacy seeds the same way DELETE does.
+ * @param req
+ * @param res
+ */
+export const postResetDemoDatasourceProject = async (
+  req: ResetDemoDatasourceProjectRequest,
+  res: Response<
+    ResetDemoDatasourceProjectResponse | PrivateApiErrorResponse,
+    EventUserForResponseLocals
+  >,
+) => {
+  const context = getContextFromReq(req);
+  const demoProjId = getDemoDatasourceProjectIdForOrganization(context.org.id);
+
+  checkCanCreateDemoResources(req, context, demoProjId);
+  if (!context.permissions.canDeleteProject(demoProjId)) {
+    context.permissions.throwPermissionError();
+  }
+  checkCanDeleteDemoResources(context, demoProjId);
+
+  try {
+    // Failed reference-cleanup steps are ignored here: the project is
+    // recreated under the same deterministic ID, so stale references simply
+    // point at the new Sample Data project.
+    await deleteDemoProjectAndResources(context, demoProjId);
+    const { project, experiment } = await seedDemoResources(context);
+
+    res.status(200).json({
+      status: 200,
+      project,
+      experimentId: experiment.id,
+    });
+  } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
+    res.status(500).json({
+      status: 500,
+      message: `Failed to reset sample data with message: ${e.message}`,
+    });
+  }
+  return;
+};
+
+// endregion POST /demo-datasource-project/reset

@@ -1,8 +1,9 @@
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
-import { useState } from "react";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
+import { Fragment, useState } from "react";
 import { isDefined } from "shared/util";
 import { isCloud } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   ssoConnection: Partial<SSOConnectionInterface> | null;
@@ -15,7 +16,7 @@ export default function SSOSettings({ ssoConnection }: Props) {
   if (!ssoConnection) return null;
 
   return (
-    <div className="alert alert-info">
+    <Callout status="info">
       <div className="d-flex">
         <div>
           <h3>Enterprise SSO Enabled</h3>
@@ -29,11 +30,11 @@ export default function SSOSettings({ ssoConnection }: Props) {
                   <div className="small mt-1">
                     or any of the following email domains:{" "}
                     {ssoConnection.emailDomains.slice(1).map((d, i) => (
-                      <>
-                        <strong key={i}>{d}</strong>
+                      <Fragment key={d}>
+                        <strong>{d}</strong>
                         {i < (ssoConnection.emailDomains?.length || 0) - 2 &&
                           ", "}
-                      </>
+                      </Fragment>
                     ))}
                   </div>
                 )}
@@ -66,6 +67,6 @@ export default function SSOSettings({ ssoConnection }: Props) {
           code={JSON.stringify(ssoConnection, null, 2)}
         />
       )}
-    </div>
+    </Callout>
   );
 }

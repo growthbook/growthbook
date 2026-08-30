@@ -1,23 +1,15 @@
-import { Get{{pascalCase object}}Response } from "../../../types/openapi";
-import { 
-  find{{pascalCase object}}ById, 
-  to{{pascalCase object}}ApiInterface 
-} from "../../models/{{pascalCase object}}Model";
-import { createApiRequestHandler } from "../../util/handler";
-import { get{{pascalCase object}}Validator } from "../../validators/openapi";
+import { get{{pascalCase object}}Validator } from "shared/validators";
+import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const get{{pascalCase object}} = createApiRequestHandler(get{{pascalCase object}}Validator)(
-  async (req): Promise<Get{{pascalCase object}}Response> => {
-    const {{camelCase object}} = await find{{pascalCase object}}ById(
-      req.params.id,
-      req.organization.id
-    );
+  async (req) => {
+    const {{camelCase object}} = await req.context.models.{{camelCase object}}s.getById(req.params.id);
     if (!{{camelCase object}}) {
       throw new Error("Could not find {{camelCase object}} with that id");
     }
 
     return {
-      {{camelCase object}}: to{{pascalCase object}}ApiInterface({{camelCase object}}),
+      {{camelCase object}}: req.context.models.{{camelCase object}}s.toApiInterface({{camelCase object}}),
     };
   }
 );

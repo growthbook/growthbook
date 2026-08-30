@@ -1,6 +1,11 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
+import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
+import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
+import { AttributeBadge } from "./AttributeBadge";
+import ConfigBackedSummary from "./ConfigBackedSummary";
 import ValueDisplay from "./ValueDisplay";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -13,26 +18,38 @@ export default function RolloutSummary({
   coverage,
   feature,
   hashAttribute,
+  sparse = false,
+  environment,
 }: {
   value: string;
   coverage: number;
   feature: FeatureInterface;
   hashAttribute: string;
+  monitored?: boolean;
+  sparse?: boolean;
+  // Environment this value is shown for, so a config-backed value previews its
+  // matching env flavor. Absent (all-environments view) = the base value.
+  environment?: string;
 }) {
+  const displayCoverage = coverage;
   const type = feature.valueType;
+  // Mirror the SDK compiler: values resolve a config ONLY when the feature is
+  // config-backed (baseConfig set) — a stray `@config:` on a plain flag is
+  // stripped at serve time, so it must not preview as backed.
+  const baseConfigKey = getFeatureBaseConfigKey(feature);
+  const configKey =
+    baseConfigKey !== null
+      ? (getConfigBackingKey(value) ?? baseConfigKey)
+      : null;
   return (
     <Box>
-      <div className="mb-3">
-        <strong className="mr-2 font-weight-semibold">SAMPLE</strong> users by{" "}
-        <span className="mr-1 border px-2 py-1 bg-light rounded">
-          {hashAttribute}
-        </span>
-      </div>
+      <Flex direction="row" gap="2" mb="3">
+        <Text weight="medium">SAMPLE</Text> by{" "}
+        <AttributeBadge attributeId={hashAttribute} />
+      </Flex>
       <Box className="mb-3">
         <Flex gap="3" align="center">
-          <Box>
-            <strong className="font-weight-semibold">ROLLOUT</strong>
-          </Box>
+          <Text weight="medium">ROLLOUT</Text>
           <Box flexGrow="1" style={{ maxWidth: 250 }}>
             <Box
               className="progress d-none d-md-flex"
@@ -55,7 +72,7 @@ export default function RolloutSummary({
               <Box
                 className="progress-bar"
                 style={{
-                  width: coverage * 100 + "%",
+                  width: displayCoverage * 100 + "%",
                   top: "0",
                   left: "0",
                   position: "absolute",
@@ -67,22 +84,46 @@ export default function RolloutSummary({
             </Box>
           </Box>
           <Box>
-            <span className="mr-1 border px-2 py-1 bg-light rounded">
-              {percentFormatter.format(coverage)}
-            </span>{" "}
-            of users
+            <Badge
+              color="gray"
+              mr="2"
+              label={
+                <Text color="text-high">
+                  {percentFormatter.format(displayCoverage)}
+                </Text>
+              }
+            />
+            of units
           </Box>
         </Flex>
       </Box>
-      <Flex gap="3">
-        <Box>
-          <strong className="font-weight-semibold">SERVE</strong>
-        </Box>
-        <Box>
-          <ValueDisplay value={value} type={type} />
-        </Box>
-      </Flex>
-      <ValidateValue value={value} feature={feature} />
+      {configKey !== null ? (
+        <ConfigBackedSummary
+          value={value}
+          configKey={configKey}
+          feature={feature}
+          sparse={sparse}
+          environment={environment}
+        />
+      ) : (
+        <>
+          <Flex gap="3">
+            <Box>
+              <Text weight="medium">SERVE</Text>
+            </Box>
+            <Box flexGrow="1">
+              <ValueDisplay
+                value={value}
+                type={type}
+                showFullscreenButton={true}
+                sparse={sparse}
+                defaultValue={feature.defaultValue}
+              />
+            </Box>
+          </Flex>
+          <ValidateValue value={value} feature={feature} />
+        </>
+      )}
     </Box>
   );
 }

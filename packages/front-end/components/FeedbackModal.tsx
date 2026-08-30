@@ -31,17 +31,18 @@ export default function FeedbackModal({
 }: Props) {
   const formRef = useRef<HTMLFormElement>(null);
   const [formState, setFormState] = useState<"initial" | "submitted">(
-    "initial"
+    "initial",
   );
   const ctaEnabled = formState === "initial";
   const { email } = useUser();
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={open}
       header={header}
-      cta={ctaEnabled ? cta : sentCta ?? cta}
+      cta={ctaEnabled ? cta : (sentCta ?? cta)}
       closeCta="Close"
       close={close}
       submit={() => {
@@ -60,6 +61,7 @@ export default function FeedbackModal({
         <>
           {prompt ? (
             <Field
+              size="legacy"
               label={prompt}
               required
               textarea
@@ -69,6 +71,7 @@ export default function FeedbackModal({
           ) : null}
           {followUpEmail ? (
             <Field
+              size="legacy"
               label="Email (optional)"
               helpText="We may reach out to you with follow up questions. (We promise not to spam you)"
               name="email"

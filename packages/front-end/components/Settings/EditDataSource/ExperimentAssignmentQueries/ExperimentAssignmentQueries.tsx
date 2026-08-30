@@ -2,43 +2,40 @@ import React, { FC, Fragment, useCallback, useMemo, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { FaChevronRight, FaPlus } from "react-icons/fa";
-import { useRouter } from "next/router";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
+import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
+import { DimensionSlicesInterface } from "shared/types/dimension";
+import { isEventForwarderManaged } from "shared/util";
+import {
+  EVENT_FORWARDER_MANAGED_TOOLTIP,
+  EventForwarderManagedBadge,
+} from "@/components/Settings/EditDataSource/EventForwarderManaged";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/components/Radix/Badge";
-import Callout from "@/components/Radix/Callout";
+import Badge from "@/ui/Badge";
+import Callout from "@/ui/Callout";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
-export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-  canEdit = true,
-}) => {
-  const router = useRouter();
-  let intitialOpenIndexes: boolean[] = [];
-  if (router.query.openAll === "1") {
-    intitialOpenIndexes = Array.from(
-      Array(dataSource.settings?.queries?.exposure?.length || 0)
-    ).fill(true);
-  }
+export const ExperimentAssignmentQueries: FC<
+  ExperimentAssignmentQueriesProps
+> = ({ dataSource, onSave, onCancel, canEdit = true }) => {
+  const intitialOpenIndexes: boolean[] = Array.from(
+    Array(dataSource.settings?.queries?.exposure?.length || 0),
+  ).fill(true);
 
   const [uiMode, setUiMode] = useState<UIMode>("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
-  const [openIndexes, setOpenIndexes] = useState<boolean[]>(
-    intitialOpenIndexes
-  );
+  const [openIndexes, setOpenIndexes] =
+    useState<boolean[]>(intitialOpenIndexes);
 
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
@@ -51,7 +48,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
       setOpenIndexes(updatedOpenIndexes);
     },
-    [openIndexes]
+    [openIndexes],
   );
 
   const handleCancel = useCallback(() => {
@@ -62,7 +59,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
   const experimentExposureQueries = useMemo(
     () => dataSource.settings?.queries?.exposure || [],
-    [dataSource.settings?.queries?.exposure]
+    [dataSource.settings?.queries?.exposure],
   );
 
   const handleAdd = useCallback(() => {
@@ -75,7 +72,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       setEditingIndex(idx);
       setUiMode(uiMode);
     },
-    []
+    [],
   );
 
   const handleActionDeleteClicked = useCallback(
@@ -87,7 +84,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
       await onSave(copy);
     },
-    [onSave, dataSource]
+    [onSave, dataSource],
   );
 
   const handleSave = useCallback(
@@ -97,7 +94,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       copy.settings.queries.exposure[idx] = exposureQuery;
       await onSave(copy);
     },
-    [dataSource, onSave]
+    [dataSource, onSave],
   );
 
   const [validatingQuery, setValidatingQuery] = useState(false);
@@ -106,11 +103,10 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     () => async () => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
       setValidatingQuery(true);
-      // Resaving the document as-is will automatically revalidate any queries in error state
       await onSave(copy);
       setValidatingQuery(false);
     },
-    [dataSource, onSave]
+    [dataSource, onSave],
   );
 
   if (!dataSource) {
@@ -120,9 +116,9 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
   return (
     <Box>
-      <Flex align="start" gap="2" mb="0" justify="between">
+      <Flex align="center" gap="2" mb="3" justify="between">
         <Box>
-          <Flex align="center" gap="3" mb="3">
+          <Flex align="center" gap="3" mb="0">
             <Heading as="h3" size="4" mb="0">
               Experiment Assignment Queries
             </Heading>
@@ -132,21 +128,19 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
               radius="medium"
             />
           </Flex>
-          <p>
-            Queries that return a list of experiment variation assignment
-            events. Returns a record of which experiment variation was assigned
-            to each user.
-          </p>
         </Box>
 
-        {canEdit && (
-          <Box>
-            <Button onClick={handleAdd}>
-              <FaPlus className="mr-1" /> Add
-            </Button>
-          </Box>
-        )}
+        <Box>
+          <Button onClick={handleAdd} disabled={!canEdit} icon={<PiPlus />}>
+            Add
+          </Button>
+        </Box>
       </Flex>
+      <p>
+        Queries that return a list of experiment variation assignment events.
+        Returns a record of which experiment variation was assigned to each
+        user.
+      </p>
 
       {/* region Empty state */}
       {experimentExposureQueries.length === 0 ? (
@@ -159,20 +153,25 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
       {experimentExposureQueries.map((query, idx) => {
         const isOpen = openIndexes[idx] || false;
+        const isManaged = isEventForwarderManaged(query);
+        const managedTooltip = isManaged
+          ? EVENT_FORWARDER_MANAGED_TOOLTIP
+          : undefined;
 
         return (
           <Card mt="3" key={query.id}>
             <Flex align="start" justify="between" py="2" px="3" gap="3">
               {/* region Title Bar */}
               <Box width="100%">
-                <Flex>
-                  <Heading as="h4" size="3" mb="1">
-                    {query.name}
-                  </Heading>
-                  {query.description && (
-                    <p className="ml-3 text-muted">{query.description}</p>
+                <Heading as="h4" size="3" mb="0">
+                  {query.name}
+                  {isManaged && (
+                    <EventForwarderManagedBadge type="assignment query" />
                   )}
-                </Flex>
+                </Heading>
+                {query.description && (
+                  <p className="text-muted mb-0 mt-1">{query.description}</p>
+                )}
 
                 <Flex gap="4">
                   <Box>
@@ -205,13 +204,15 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                       </Box>
                       <Box mt="3">
                         <Button
+                          color="inherit"
                           onClick={handleValidate()}
                           loading={validatingQuery}
                         >
                           Check it again.
                         </Button>
-                        {canEdit && (
+                        {canEdit && !isManaged && (
                           <Button
+                            color="inherit"
                             onClick={handleActionClicked(idx, "edit")}
                             style={{ marginLeft: "1rem" }}
                           >
@@ -230,48 +231,72 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
               <Flex align="center">
                 {canEdit && (
-                  <MoreMenu>
-                    <button
-                      className="dropdown-item py-2"
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="2"
+                        highContrast
+                        aria-label={`${query.name} query actions`}
+                      >
+                        <PiDotsThreeVertical size={18} />
+                      </IconButton>
+                    }
+                    menuPlacement="end"
+                    variant="soft"
+                  >
+                    <DropdownMenuItem
                       onClick={handleActionClicked(idx, "edit")}
+                      disabled={isManaged}
+                      tooltip={managedTooltip}
                     >
                       Edit Query
-                    </button>
+                    </DropdownMenuItem>
                     {query.dimensions.length > 0 ? (
-                      <button
-                        className="dropdown-item py-2"
+                      <DropdownMenuItem
                         onClick={handleActionClicked(idx, "dimension")}
+                        disabled={isManaged}
+                        tooltip={managedTooltip}
                       >
-                        Configure Dimensions
-                      </button>
+                        Edit Dimensions
+                      </DropdownMenuItem>
                     ) : null}
-
-                    <hr className="dropdown-divider" />
-                    <DeleteButton
-                      onClick={handleActionDeleteClicked(idx)}
-                      className="dropdown-item text-danger py-2"
-                      iconClassName="mr-2"
-                      style={{ borderRadius: 0 }}
-                      useIcon={false}
-                      displayName={query.name}
-                      deleteMessage={`Are you sure you want to delete identifier join ${query.name}?`}
-                      title="Delete"
-                      text="Delete"
-                      outline={false}
-                    />
-                  </MoreMenu>
+                    <DropdownMenuItem
+                      color="red"
+                      disabled={isManaged}
+                      tooltip={managedTooltip}
+                      confirmation={{
+                        submit: handleActionDeleteClicked(idx),
+                        confirmationTitle: `Delete ${query.name}`,
+                        cta: "Delete",
+                        getConfirmationContent: async () =>
+                          `Are you sure you want to delete experiment assignment query ${query.name}?`,
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenu>
                 )}
 
-                <button
-                  className="btn ml-3 text-dark"
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  ml="3"
+                  aria-label={isOpen ? "Collapse query" : "Expand query"}
+                  aria-expanded={isOpen}
                   onClick={handleExpandCollapseForIndex(idx)}
                 >
-                  <FaChevronRight
+                  <PiCaretRight
                     style={{
                       transform: `rotate(${isOpen ? "90deg" : "0deg"})`,
                     }}
                   />
-                </button>
+                </IconButton>
               </Flex>
 
               {/* endregion Actions*/}
@@ -283,6 +308,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                   language="sql"
                   code={query.query}
                   containerClassName="mb-0"
+                  expandable
                 />
               </Box>
             )}
@@ -305,9 +331,9 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       {uiMode === "dimension" ? (
         <UpdateDimensionMetadataModal
           exposureQuery={experimentExposureQueries[editingIndex]}
-          dataSource={dataSource}
+          datasourceId={dataSource.id}
           close={() => setUiMode("view")}
-          onSave={handleSave(editingIndex)}
+          onSave={handleSaveDimensionMetadata(editingIndex, dataSource, onSave)}
         />
       ) : null}
 
@@ -315,3 +341,69 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     </Box>
   );
 };
+
+const handleSaveDimensionMetadata =
+  (
+    editingIndex: number,
+    dataSource: DataSourceInterfaceWithParams,
+    onSave: (dataSource: DataSourceInterfaceWithParams) => void,
+  ) =>
+  async (
+    customDimensionMetadata: CustomDimensionMetadata[],
+    dimensionSlices?: DimensionSlicesInterface,
+  ) => {
+    const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+    const exposureQuery = copy.settings?.queries?.exposure?.[editingIndex];
+
+    if (!exposureQuery) {
+      throw new Error(
+        "Exposure queries out of sync. Refresh the page and try again.",
+      );
+    }
+
+    exposureQuery.dimensionMetadata = exposureQuery.dimensions.map((d) => {
+      const existingMetadata = exposureQuery.dimensionMetadata?.find(
+        (m) => m.dimension === d,
+      ) ?? {
+        dimension: d,
+        specifiedSlices: [],
+      };
+
+      const trafficSlices = dimensionSlices?.results
+        .find((r) => r.dimension === d)
+        ?.dimensionSlices.map((s) => s.name);
+
+      const customDimension = customDimensionMetadata?.find(
+        (m) => m.dimension === d,
+      );
+
+      // if custom slices are defined, use them, otherwise use the traffic slices.
+      // If neither are defined, use fall back to the existing values.
+      const specifiedSlices = customDimension?.customSlicesArray?.length
+        ? customDimension.customSlicesArray
+        : (trafficSlices ?? existingMetadata.specifiedSlices);
+
+      return {
+        ...existingMetadata,
+        specifiedSlices,
+        customSlices: !!customDimension?.customSlicesArray?.length,
+      };
+    });
+
+    // re-order the dimensions array based on the priority
+    exposureQuery.dimensions = exposureQuery.dimensions.sort((a, b) => {
+      const aMetadata = customDimensionMetadata?.find((m) => m.dimension === a);
+      const bMetadata = customDimensionMetadata?.find((m) => m.dimension === b);
+      // if missing metadata, put it at the end
+      if (!aMetadata) return 1;
+      if (!bMetadata) return -1;
+      return aMetadata.priority - bMetadata.priority;
+    });
+
+    // if dimension slices updated, update the dimension slices id
+    if (dimensionSlices) {
+      exposureQuery.dimensionSlicesId = dimensionSlices.id;
+    }
+
+    await onSave(copy);
+  };

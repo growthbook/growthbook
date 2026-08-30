@@ -1,4 +1,4 @@
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import Modal from "@/components/Modal";
 import ConnectionDiagram from "@/components/Features/SDKConnections/ConnectionDiagram";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -24,6 +24,7 @@ export default function CheckSDKConnectionModal({
   const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={showModalClose ? close : undefined}

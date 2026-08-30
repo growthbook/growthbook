@@ -1,4 +1,4 @@
-import { EventInterface } from "back-end/types/event";
+import { EventInterface } from "shared/types/events/event";
 
 // region Feature
 
@@ -40,37 +40,37 @@ export const getEventText = (event: EventInterface): string => {
   switch (event.data.event) {
     case "user.login":
       return getTitleForUserLogin(
-        event.version ? event.data.data.object : event.data.data.current
+        event.version ? event.data.data.object : event.data.data.current,
       );
 
     case "experiment.created":
       return getTitleForExperimentCreated(
-        event.version ? event.data.data.object : event.data.data.current
+        event.version ? event.data.data.object : event.data.data.current,
       );
 
     case "experiment.updated":
       return getTitleForExperimentUpdated(
-        event.version ? event.data.data.object : event.data.data.current
+        event.version ? event.data.data.object : event.data.data.current,
       );
 
     case "experiment.deleted":
       return getTitleForExperimentDeleted(
-        event.version ? event.data.data.object : event.data.data.previous
+        event.version ? event.data.data.object : event.data.data.previous,
       );
 
     case "feature.created":
       return getTitleForFeatureCreated(
-        event.version ? event.data.data.object : event.data.data.current
+        event.version ? event.data.data.object : event.data.data.current,
       );
 
     case "feature.updated":
       return getTitleForFeatureUpdated(
-        event.version ? event.data.data.object : event.data.data.current
+        event.version ? event.data.data.object : event.data.data.current,
       );
 
     case "feature.deleted":
       return getTitleForFeatureDeleted(
-        event.version ? event.data.data.object : event.data.data.previous
+        event.version ? event.data.data.object : event.data.data.previous,
       );
 
     default:

@@ -1,0 +1,51 @@
+.flagCard {
+  border-radius: var(--radius-2);
+  background-color: var(--slate-a3);
+  color: var(--color-text-high);
+  font-weight: 500;
+}
+
+.cardItemValue {
+  text-align: right;
+}
+
+.flagCardWon {
+  background-color: var(--green-a3);
+  .cardItemValue {
+    color: var(--green-11);
+  }
+}
+
+.flagCardLost {
+  background-color: var(--red-a3);
+  .cardItemValue {
+    color: var(--red-a12);
+  }
+}
+
+.labelContainer {
+  display: flex;
+  background-color: var(--gray-a9);
+  border-top-left-radius: var(--radius-2);
+  border-bottom-left-radius: var(--radius-2);
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+}
+
+.labelContainerWon {
+  background-color: var(--green-a9);
+}
+
+.labelContainerLost {
+  background-color: var(--red-a9);
+}
+
+.labelText {
+  writing-mode: vertical-rl;
+  text-orientation: sideways;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  color: var(--white-a12);
+  padding: var(--space-2) 0;
+}

@@ -1,12 +1,7 @@
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import SDKLanguageLogo, {
   getLanguagesByFilter,
   LanguageFilter,
@@ -32,12 +27,12 @@ export function SDKLanguageOption({
 }) {
   return (
     <div
-      className={`hover-highlight cursor-pointer border rounded ${
+      className={`hover-highlight d-inline-flex align-items-center cursor-pointer border rounded ${
         selected ? "bg-light" : ""
       }`}
       style={{
         height: 50,
-        padding: 10,
+        padding: "0 10px",
         boxShadow: selected ? "0 0 0 1px var(--text-color-primary)" : "",
       }}
       onClick={(e) => {
@@ -109,13 +104,14 @@ export default function SDKLanguageSelector({
   const filterLanguages = (languages: SDKLanguage[]): SDKLanguage[] => {
     if (includeAll) return languages;
     return languages.filter(
-      (language) => !limitLanguages || limitLanguages.includes(language)
+      (language) => !limitLanguages || limitLanguages.includes(language),
     );
   };
 
   const frontEnd = filterLanguages(["javascript", "react", "nocode-other"]);
   const backEnd = filterLanguages([
     "nodejs",
+    "nextjs",
     "php",
     "ruby",
     "python",
@@ -295,20 +291,21 @@ export default function SDKLanguageSelector({
             </div>
           </div>
         )}
-        {includeOther && (!limitLanguages || limitLanguages.includes("other")) && (
-          <div className="col-auto mb-1">
-            {renderLabels && (
-              <div className="small mb-2">
-                <strong>Other</strong>
-              </div>
-            )}
-            <SDKLanguageOption
-              language={"other"}
-              onClick={() => handleLanguageOptionClick("other")}
-              selected={selected.has("other")}
-            />
-          </div>
-        )}
+        {includeOther &&
+          (!limitLanguages || limitLanguages.includes("other")) && (
+            <div className="col-auto mb-1">
+              {renderLabels && (
+                <div className="small mb-2">
+                  <strong>Other</strong>
+                </div>
+              )}
+              <SDKLanguageOption
+                language={"other"}
+                onClick={() => handleLanguageOptionClick("other")}
+                selected={selected.has("other")}
+              />
+            </div>
+          )}
         {!includeAll && limitLanguages && !hideShowAllLanguages && (
           <div className="col-auto align-self-center" style={{ marginTop: 10 }}>
             <a

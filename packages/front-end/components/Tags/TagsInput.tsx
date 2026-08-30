@@ -1,11 +1,11 @@
 import { FC } from "react";
 import { StylesConfig } from "react-select";
-import { TagInterface } from "back-end/types/tag";
+import { TagInterface } from "shared/types/tag";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { findClosestRadixColor, TAG_COLORS_MAP } from "@/services/tags";
-import { RadixColor } from "@/components/Radix/HelperText";
+import { RadixColor } from "@/ui/HelperText";
 
 export interface ColorOption {
   readonly value: string;
@@ -26,6 +26,7 @@ const TagsInput: FC<{
   tagOptions?: TagInterface[];
   prompt?: string;
   creatable?: boolean;
+  customClassName?: string;
 }> = ({
   onChange,
   value,
@@ -34,6 +35,7 @@ const TagsInput: FC<{
   tagOptions,
   prompt = "Tags...",
   creatable = true,
+  customClassName,
 }) => {
   const { tags, getTagById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
@@ -117,6 +119,7 @@ const TagsInput: FC<{
 
   return (
     <MultiSelectField
+      legacyHeight
       options={
         tagOptions.map((t) => {
           // Converts Radix color to hex color to make it compatible with MultiSelectField
@@ -124,7 +127,7 @@ const TagsInput: FC<{
           return {
             value: t.id,
             label: t.id,
-            color: hexColor || "var(--form-multivalue-text-color)",
+            color: hexColor || "var(--slate-12)",
             tooltip: t.description,
           };
         }) ?? []
@@ -138,6 +141,7 @@ const TagsInput: FC<{
       customStyles={tagStyles}
       placeholder={prompt}
       creatable={creatable}
+      customClassName={customClassName}
     />
   );
 };

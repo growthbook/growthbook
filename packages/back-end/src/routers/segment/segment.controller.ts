@@ -1,7 +1,14 @@
 import type { Response } from "express";
 import { FilterQuery } from "mongoose";
 import { z } from "zod";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { SegmentInterface } from "shared/types/segment";
+import {
+  createSegmentModelValidator,
+  updateSegmentModelValidator,
+} from "shared/validators";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { MetricInterface } from "shared/types/metric";
+import { ExperimentInterface } from "shared/types/experiment";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -16,13 +23,6 @@ import {
   deleteExperimentSegment,
   getExperimentsUsingSegment,
 } from "back-end/src/models/ExperimentModel";
-import { MetricInterface } from "back-end/types/metric";
-import { SegmentInterface } from "back-end/types/segment";
-import { ExperimentInterface } from "back-end/types/experiment";
-import {
-  createSegmentValidator,
-  updateSegmentValidator,
-} from "./segment.validators";
 
 // region GET /segments
 
@@ -41,7 +41,7 @@ type GetSegmentsResponse = {
  */
 export const getSegments = async (
   req: GetSegmentsRequest,
-  res: Response<GetSegmentsResponse, EventUserForResponseLocals>
+  res: Response<GetSegmentsResponse, EventUserForResponseLocals>,
 ) => {
   const context = getContextFromReq(req);
   const segments = await context.models.segments.getAll();
@@ -77,7 +77,7 @@ type GetSegmentUsageResponse = {
  */
 export const getSegmentUsage = async (
   req: GetSegmentUsageRequest,
-  res: Response<GetSegmentUsageResponse, EventUserForResponseLocals>
+  res: Response<GetSegmentUsageResponse, EventUserForResponseLocals>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -113,7 +113,9 @@ export const getSegmentUsage = async (
 
 // region POST /segments
 
-type CreateSegmentRequest = AuthRequest<z.infer<typeof createSegmentValidator>>;
+type CreateSegmentRequest = AuthRequest<
+  z.infer<typeof createSegmentModelValidator>
+>;
 
 type CreateSegmentResponse = {
   status: 200;
@@ -131,7 +133,7 @@ export const postSegment = async (
   res: Response<
     CreateSegmentResponse | ApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const {
     datasource,
@@ -191,7 +193,7 @@ export const postSegment = async (
 // region PUT /segments/:id
 
 type PutSegmentRequest = AuthRequest<
-  z.infer<typeof updateSegmentValidator>,
+  z.infer<typeof updateSegmentModelValidator>,
   { id: string }
 >;
 
@@ -210,7 +212,7 @@ export const putSegment = async (
   res: Response<
     PutSegmentResponse | ApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -283,7 +285,7 @@ type DeleteSegmentResponse = {
  */
 export const deleteSegment = async (
   req: DeleteSegmentRequest,
-  res: Response<DeleteSegmentResponse, EventUserForResponseLocals>
+  res: Response<DeleteSegmentResponse, EventUserForResponseLocals>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -311,7 +313,7 @@ export const deleteSegment = async (
       { organization: org.id, "estimateParams.segment": id },
       {
         $unset: { "estimateParams.segment": "" },
-      }
+      },
     );
   }
 

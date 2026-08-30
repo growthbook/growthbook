@@ -1,9 +1,13 @@
-import { ReactNode } from "react";
+import { FC, ReactNode } from "react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth, safeLogout } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
+import { isCloud } from "@/services/env";
+import Callout from "@/ui/Callout";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
+import SelectInitialPlan from "./Auth/SelectInitialPlan";
 import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
 import TopNavLite from "./Layout/TopNavLite";
@@ -28,9 +32,9 @@ const LoggedInPageGuard = ({
               className="appbox p-4"
               style={{ maxWidth: 500, margin: "auto" }}
             >
-              <h3 className="mb-3">Error Signing In</h3>
-              <div className="alert alert-danger">{error}</div>
-              <div className="d-flex">
+              <h3 className="mb-3">Something Went Wrong</h3>
+              <Callout status="error">{error}</Callout>
+              <div className="d-flex align-items-center mt-3">
                 <Button
                   className="ml-auto"
                   onClick={async () => {
@@ -75,6 +79,25 @@ const LoggedInPageGuard = ({
   return <>{children}</>;
 };
 
+const InitialPlanGate: FC<{ children: ReactNode }> = ({ children }) => {
+  const { effectiveAccountPlan } = useUser();
+  const { initialPlanSelection } = useAuth();
+  const initialPlanSelectionEnabled = useFeatureIsOn("pro-signup-flow");
+
+  const hasExistingPaidPlan =
+    !!effectiveAccountPlan &&
+    ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan);
+
+  const showSelectPlanFlow =
+    initialPlanSelectionEnabled &&
+    !!initialPlanSelection &&
+    isCloud() &&
+    !hasExistingPaidPlan;
+
+  if (showSelectPlanFlow) return <SelectInitialPlan />;
+  return <>{children}</>;
+};
+
 const ProtectedPage: React.FC<{
   organizationRequired: boolean;
   children: ReactNode;
@@ -88,7 +111,9 @@ const ProtectedPage: React.FC<{
         {!organizationRequired ? (
           <>{children}</>
         ) : orgId ? (
-          <WatchProvider>{children}</WatchProvider>
+          <InitialPlanGate>
+            <WatchProvider>{children}</WatchProvider>
+          </InitialPlanGate>
         ) : (
           <CreateOrJoinOrganization />
         )}

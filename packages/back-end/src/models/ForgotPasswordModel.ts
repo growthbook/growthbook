@@ -32,7 +32,7 @@ export type ForgotPasswordDocument = mongoose.Document &
 
 export const ForgotPasswordModel = mongoose.model<ForgotPasswordInterface>(
   "ForgotPassword",
-  forgotPasswordSchema
+  forgotPasswordSchema,
 );
 
 export async function createForgotPasswordToken(email: string): Promise<void> {
@@ -57,7 +57,7 @@ export async function createForgotPasswordToken(email: string): Promise<void> {
   try {
     if (!isEmailEnabled()) {
       throw new Error(
-        "Email server not configured. Check server logs for reset link."
+        "Email server not configured. Check server logs for reset link.",
       );
     }
 
@@ -69,10 +69,10 @@ export async function createForgotPasswordToken(email: string): Promise<void> {
 }
 
 export async function getUserIdFromForgotPasswordToken(
-  token: string
+  token: string,
 ): Promise<string> {
   const doc = await ForgotPasswordModel.findOne({
-    token,
+    token: { $eq: String(token) },
   });
 
   if (!doc) return "";
@@ -88,6 +88,6 @@ export async function getUserIdFromForgotPasswordToken(
 
 export async function deleteForgotPasswordToken(token: string) {
   return ForgotPasswordModel.deleteOne({
-    token,
+    token: { $eq: String(token) },
   });
 }

@@ -1,16 +1,17 @@
 import React, { FC } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
-import { ArchetypeInterface } from "back-end/types/archetype";
+import { ArchetypeInterface } from "shared/types/archetype";
 import Field from "@/components/Forms/Field";
 import AttributeForm from "@/components/Archetype/AttributeForm";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import { useEnvironments } from "@/services/features";
+import Checkbox from "@/ui/Checkbox";
 
 const ArchetypeAttributesModal: FC<{
   close: () => void;
@@ -24,6 +25,7 @@ const ArchetypeAttributesModal: FC<{
     attributes: string;
     isPublic: boolean;
     projects: string[];
+    environments: string[];
   }>({
     defaultValues: {
       name: initialValues?.name || "",
@@ -31,11 +33,13 @@ const ArchetypeAttributesModal: FC<{
       attributes: initialValues?.attributes || "",
       isPublic: initialValues?.isPublic ?? true,
       projects: initialValues?.projects || [],
+      environments: initialValues?.environments || [],
     },
   });
 
   const { apiCall } = useAuth();
   const { project, projects } = useDefinitions();
+  const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const hasPermissionToAddEditArchetypes =
     permissionsUtil.canCreateArchetype({
@@ -45,24 +49,25 @@ const ArchetypeAttributesModal: FC<{
       {
         projects: initialValues?.projects ? initialValues.projects : [project],
       },
-      {}
+      {},
     );
   const permissionRequired = (project: string) => {
     return initialValues?.id
       ? permissionsUtil.canUpdateArchetype(
           { projects: initialValues?.projects },
-          { projects: [project] }
+          { projects: [project] },
         )
       : permissionsUtil.canCreateArchetype({ projects: [project] });
   };
 
   const projectOptions = useProjectOptions(
     permissionRequired,
-    form.watch("projects") || []
+    form.watch("projects") || [],
   );
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="add-edit-archetype"
       trackingEventModalSource={source}
       open={true}
@@ -97,11 +102,18 @@ const ArchetypeAttributesModal: FC<{
       ) : (
         <>
           <div>
-            <Field label={"Name"} required={true} {...form.register("name")} />
+            <Field
+              size="legacy"
+              label={"Name"}
+              required={true}
+              {...form.register("name")}
+            />
           </div>
           <div>
             <Field
+              size="legacy"
               label={"Description"}
+              maxLength={MAX_DESCRIPTION_LENGTH}
               {...form.register("description")}
               textarea
             />
@@ -109,8 +121,9 @@ const ArchetypeAttributesModal: FC<{
           {projects?.length > 0 && (
             <div className="form-group">
               <MultiSelectField
+                legacyHeight
                 label={<>Projects </>}
-                placeholder="All projects"
+                placeholder="All Projects"
                 value={form.watch("projects")}
                 options={projectOptions}
                 onChange={(v) => form.setValue("projects", v)}
@@ -119,20 +132,28 @@ const ArchetypeAttributesModal: FC<{
               />
             </div>
           )}
-          <div className="mb-3">
-            <label className="mr-3">
-              Make archetype public?{" "}
-              <Tooltip
-                body={
-                  "Allow other team members to see this archetypal user for testing"
-                }
+          {environments.length > 0 && (
+            <div className="form-group">
+              <MultiSelectField
+                label="Environments"
+                placeholder="All environments"
+                value={form.watch("environments")}
+                options={environments.map((env) => ({
+                  label: env.id,
+                  value: env.id,
+                }))}
+                onChange={(v) => form.setValue("environments", v)}
+                helpText="Limit this archetype to specific environments. Leave empty to show it in all environments."
               />
-            </label>
-            <Toggle
+            </div>
+          )}
+          <div className="mb-3">
+            <Checkbox
               id="public"
+              label="Make archetype public"
+              description="Allow other team members to see this archetypal user for testing"
               value={form.watch("isPublic")}
               setValue={(v) => form.setValue("isPublic", v)}
-              label="Public"
             />
           </div>
           <div>

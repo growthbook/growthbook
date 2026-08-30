@@ -14,7 +14,7 @@ const RefreshLicenseButton: FC = () => {
       `/license`,
       {
         method: "GET",
-      }
+      },
     );
 
     if (res.status !== 200) {

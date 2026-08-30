@@ -1,36 +1,65 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import {
+  draftValuesEqual,
   formatByteSizeString,
   SAVED_GROUP_SIZE_LIMIT_BYTES,
   ID_LIST_DATATYPES,
   validateCondition,
 } from "shared/util";
-import { SavedGroupInterface } from "shared/src/types";
-import { logger } from "back-end/src/util/logger";
+import {
+  SavedGroupInterface,
+  SavedGroupWithoutValues,
+  CreateSavedGroupProps,
+  UpdateSavedGroupProps,
+} from "shared/types/saved-group";
+import {
+  Revision,
+  SAVED_GROUP_METADATA_FIELDS,
+  getApprovalFlowSettings,
+  normalizeProposedChanges,
+} from "shared/enterprise";
+import { DraftConflict } from "shared/types/draft-conflict";
+import {
+  canStageArchiveDraft,
+  canWriteArchiveIntoDraft,
+} from "back-end/src/revisions/landAuthority";
+import {
+  compensateFailedLanding,
+  runGuardedWrite,
+} from "back-end/src/revisions/landingSequence";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
-  CreateSavedGroupProps,
-  UpdateSavedGroupProps,
-} from "back-end/types/saved-group";
+  isRevisionRequired,
+  createOrUpdateRevision,
+  buildPatchOps,
+  applyPatchToSnapshot,
+  ensureLiveRevisionExists,
+} from "back-end/src/revisions/util";
+import { getAdapter } from "back-end/src/revisions";
+import { isPureRevertPatch } from "back-end/src/revisions/revertPurity";
+import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import {
-  createSavedGroup,
-  deleteSavedGroupById,
-  getSavedGroupById,
-  updateSavedGroupById,
-} from "back-end/src/models/SavedGroupModel";
+  dispatchSavedGroupRevisionEvent,
+  deriveChange,
+} from "back-end/src/services/savedGroupRevisionEvents";
 import {
-  auditDetailsCreate,
-  auditDetailsDelete,
-  auditDetailsUpdate,
-} from "back-end/src/services/audit";
-import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+  assertSavedGroupDeletable,
+  loadSavedGroupReferences,
+} from "back-end/src/services/savedGroups";
+import { assertSavedGroupArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 
 // region POST /saved-groups
 
-type CreateSavedGroupRequest = AuthRequest<CreateSavedGroupProps>;
+type CreateSavedGroupRequest = AuthRequest<
+  CreateSavedGroupProps,
+  Record<string, never>,
+  { skipCycleCheck?: string }
+>;
 
 type CreateSavedGroupResponse = {
   status: 200;
@@ -45,10 +74,10 @@ type CreateSavedGroupResponse = {
  */
 export const postSavedGroup = async (
   req: CreateSavedGroupRequest,
-  res: Response<CreateSavedGroupResponse>
+  res: Response<CreateSavedGroupResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const { org, userName } = context;
+  const { org, userId } = context;
   const {
     groupName,
     owner,
@@ -59,6 +88,7 @@ export const postSavedGroup = async (
     description,
     projects,
   } = req.body;
+  const skipCycleCheck = req.query.skipCycleCheck;
 
   if (!context.permissions.canCreateSavedGroup({ ...req.body })) {
     context.permissions.throwPermissionError();
@@ -71,7 +101,13 @@ export const postSavedGroup = async (
   let uniqValues: string[] | undefined = undefined;
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
-    const conditionRes = validateCondition(condition);
+    const allSavedGroups = await context.models.savedGroups.getAll();
+    const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+    const conditionRes = validateCondition(
+      condition,
+      groupMap,
+      skipCycleCheck === "1",
+    );
     if (!conditionRes.success) {
       throw new Error(conditionRes.error);
     }
@@ -85,51 +121,49 @@ export const postSavedGroup = async (
     }
     const attributeSchema = org.settings?.attributeSchema || [];
     const datatype = attributeSchema.find(
-      (sdkAttr) => sdkAttr.property === attributeKey
+      (sdkAttr) => sdkAttr.property === attributeKey,
     )?.datatype;
     if (!datatype) {
       throw new Error("Unknown attributeKey");
     }
     if (!ID_LIST_DATATYPES.includes(datatype)) {
       throw new Error(
-        "Cannot create an ID List for the given attribute key. Try using a Condition Group instead."
+        "Cannot create an ID List for the given attribute key. Try using a Condition Group instead.",
       );
     }
     uniqValues = [...new Set(values)];
-    if (
-      new Blob([JSON.stringify(uniqValues)]).size > SAVED_GROUP_SIZE_LIMIT_BYTES
-    ) {
-      throw new Error(
-        `The maximum size for a list is ${formatByteSizeString(
-          SAVED_GROUP_SIZE_LIMIT_BYTES
-        )}.`
-      );
-    }
+    // Check that the size is within the global limit as well as any limit imposed by the organization
+    validateListSize(
+      uniqValues,
+      org.settings?.savedGroupSizeLimit,
+      context.permissions.canBypassSavedGroupSizeLimit(projects),
+    );
   }
   if (typeof description === "string" && description.length > 100) {
     throw new Error("Description must be at most 100 characters");
   }
 
-  const savedGroup = await createSavedGroup(org.id, {
+  const savedGroup = await context.models.savedGroups.create({
     values: uniqValues,
     type,
     condition,
     groupName,
-    owner: owner || userName,
+    owner: owner || userId,
     attributeKey,
     description,
     projects,
   });
 
-  await req.audit({
-    event: "savedGroup.created",
-    entity: {
-      object: "savedGroup",
-      id: savedGroup.id,
-      name: groupName,
+  // Create an initial "live" revision to represent the created state
+  await ensureLiveRevisionExists(
+    context,
+    "saved-group",
+    savedGroup as unknown as Record<string, unknown> & {
+      id: string;
+      owner?: string;
+      dateCreated?: Date;
     },
-    details: auditDetailsCreate(savedGroup),
-  });
+  );
 
   return res.status(200).json({
     status: 200,
@@ -138,6 +172,28 @@ export const postSavedGroup = async (
 };
 
 // endregion POST /saved-groups
+
+// region GET /saved-groups
+
+type GetSavedGroupsResponse = {
+  status: 200;
+  savedGroups: SavedGroupWithoutValues[];
+};
+
+// GET /saved-groups
+// List for the Saved Groups admin page: includes `condition` (preview/search/
+// sort) but omits `values`. Unlike `/organization/definitions`, which drops
+// both heavy fields because it loads on every page.
+export const getSavedGroups = async (
+  req: AuthRequest,
+  res: Response<GetSavedGroupsResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const savedGroups = await context.models.savedGroups.getAllWithoutValues();
+  return res.status(200).json({ status: 200, savedGroups });
+};
+
+// endregion GET /saved-groups
 
 // region GET /saved-groups/:id
 
@@ -156,20 +212,19 @@ type GetSavedGroupResponse = {
  */
 export const getSavedGroup = async (
   req: GetSavedGroupRequest,
-  res: Response<GetSavedGroupResponse>
+  res: Response<GetSavedGroupResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
 
   if (!id) {
-    throw new Error("Must specify saved group id");
+    throw new Error("Must specify Saved Group id");
   }
 
-  const savedGroup = await getSavedGroupById(id, org.id);
+  const savedGroup = await context.models.savedGroups.getById(id);
 
   if (!savedGroup) {
-    throw new Error("Could not find saved group");
+    throw new Error("Could not find Saved Group");
   }
 
   return res.status(200).json({
@@ -180,206 +235,290 @@ export const getSavedGroup = async (
 
 // endregion GET /saved-groups/:id
 
-// region POST /saved-groups/:id/add-items
-
-type PostSavedGroupAddItemsRequest = AuthRequest<
-  { items: string[] },
-  { id: string }
->;
-
-type PostSavedGroupAddItemsResponse = {
-  status: 200;
-};
+// region POST /saved-groups/:id/add-items and /remove-items
 
 /**
- * POST /saved-groups/:id/add-items
- * Update one saved-group resource by adding the specified list of items
- * @param req
- * @param res
+ * Add or remove items on an ID-list Saved Group — one flow, two verbs. The
+ * endpoints differ only in how `newValues` is computed; sharing the rest
+ * keeps the landing rules from drifting.
  */
-export const postSavedGroupAddItems = async (
-  req: PostSavedGroupAddItemsRequest,
-  res: Response<PostSavedGroupAddItemsResponse | ApiErrorResponse>
-) => {
-  const context = getContextFromReq(req);
-  const { org } = context;
-  const { id } = req.params;
-  const { items } = req.body;
-
-  if (!id) {
-    throw new Error("Must specify saved group id");
-  }
-
-  const savedGroup = await getSavedGroupById(id, org.id);
-
-  if (!savedGroup) {
-    throw new Error("Could not find saved group");
-  }
-
-  if (!context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
-    context.permissions.throwPermissionError();
-  }
-
-  if (savedGroup.type !== "list") {
-    throw new Error("Can only add items to ID list saved groups");
-  }
-
-  if (!items) {
-    throw new Error("Must specify items to add to group");
-  }
-
-  if (!Array.isArray(items)) {
-    throw new Error("Must provide a list of items to add");
-  }
-
-  const attributeSchema = org.settings?.attributeSchema || [];
-  const datatype = attributeSchema.find(
-    (sdkAttr) => sdkAttr.property === savedGroup.attributeKey
-  )?.datatype;
-  if (!datatype) {
-    throw new Error("Unknown attributeKey");
-  }
-  if (!ID_LIST_DATATYPES.includes(datatype)) {
-    throw new Error(
-      "Cannot add items to this group. The attribute key's datatype is not supported."
-    );
-  }
-  const newValues = [...new Set([...(savedGroup.values || []), ...items])];
-  if (
-    new Blob([JSON.stringify(newValues)]).size > SAVED_GROUP_SIZE_LIMIT_BYTES
-  ) {
-    throw new Error(
-      `The maximum size for a list is ${formatByteSizeString(
-        SAVED_GROUP_SIZE_LIMIT_BYTES
-      )}. Adding these items to the list would exceed the limit.`
-    );
-  }
-
-  const changes = await updateSavedGroupById(id, org.id, {
-    values: newValues,
-  });
-
-  const updatedSavedGroup = { ...savedGroup, ...changes };
-
-  await req.audit({
-    event: "savedGroup.updated",
-    entity: {
-      object: "savedGroup",
-      id: updatedSavedGroup.id,
-      name: savedGroup.groupName,
-    },
-    details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
-  });
-
-  savedGroupUpdated(context, savedGroup.id);
-
-  return res.status(200).json({
-    status: 200,
-  });
+type ItemsMutation = {
+  /** "add items to" / "remove items from". */
+  verb: string;
+  /** "add to group" / "remove from group". */
+  shortVerb: string;
+  /** "add" / "remove". */
+  bareVerb: string;
+  apply(baseValues: string[], items: string[]): string[];
 };
 
-// endregion POST /saved-groups/:id/add-items
+type SavedGroupItemsRequest = AuthRequest<{ items: string[] }, { id: string }>;
+type SavedGroupItemsResponse =
+  | { status: 200; requiresApproval?: false; revision?: Revision }
+  | { status: 202; requiresApproval: boolean; revision: Revision };
 
-// region POST /saved-groups/:id/remove-items
+const mutateSavedGroupItems =
+  (mutation: ItemsMutation) =>
+  async (
+    req: SavedGroupItemsRequest,
+    res: Response<SavedGroupItemsResponse | ApiErrorResponse>,
+  ) => {
+    const context = getContextFromReq(req);
+    const { org } = context;
+    const { id } = req.params;
+    const { items } = req.body;
 
-type PostSavedGroupRemoveItemsRequest = AuthRequest<
-  { items: string[] },
-  { id: string }
->;
+    if (!id) {
+      throw new Error("Must specify Saved Group id");
+    }
 
-type PostSavedGroupRemoveItemsResponse = {
-  status: 200;
-};
+    const savedGroup = await context.models.savedGroups.getById(id);
 
-/**
- * POST /saved-groups/:id/remove-items
- * Update one saved-group resource by removing the specified list of items
- * @param req
- * @param res
- */
-export const postSavedGroupRemoveItems = async (
-  req: PostSavedGroupRemoveItemsRequest,
-  res: Response<PostSavedGroupRemoveItemsResponse | ApiErrorResponse>
-) => {
-  const context = getContextFromReq(req);
-  const { org } = context;
-  const { id } = req.params;
-  const { items } = req.body;
+    if (!savedGroup) {
+      throw new Error("Could not find Saved Group");
+    }
 
-  if (!id) {
-    throw new Error("Must specify saved group id");
-  }
+    if (
+      !context.permissions.canRevisionAction(
+        "saved-group",
+        "draft",
+        savedGroup,
+        NO_ENVIRONMENT_BINDING,
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
 
-  const savedGroup = await getSavedGroupById(id, org.id);
+    if (savedGroup.type !== "list") {
+      throw new Error(`Can only ${mutation.verb} ID list saved groups`);
+    }
 
-  if (!savedGroup) {
-    throw new Error("Could not find saved group");
-  }
+    if (!items) {
+      throw new Error(`Must specify items to ${mutation.shortVerb}`);
+    }
 
-  if (!context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
-    context.permissions.throwPermissionError();
-  }
+    if (!Array.isArray(items)) {
+      throw new Error(`Must provide a list of items to ${mutation.bareVerb}`);
+    }
 
-  if (savedGroup.type !== "list") {
-    throw new Error("Can only remove items from ID list saved groups");
-  }
+    const attributeSchema = org.settings?.attributeSchema || [];
+    const datatype = attributeSchema.find(
+      (sdkAttr) => sdkAttr.property === savedGroup.attributeKey,
+    )?.datatype;
+    if (!datatype) {
+      throw new Error("Unknown attributeKey");
+    }
+    if (!ID_LIST_DATATYPES.includes(datatype)) {
+      throw new Error(
+        `Cannot ${mutation.verb} this group. The attribute key's datatype is not supported.`,
+      );
+    }
 
-  if (!items) {
-    throw new Error("Must specify items to remove from group");
-  }
+    const approvalRequired = isRevisionRequired(context, "saved-group", id);
+    // Without approvals this call lands the change live immediately, so it takes
+    // publish on top of draft. Revert authority is no substitute: a membership
+    // edit is never a pure restore. With approvals on, the change only stages a
+    // draft and the publish gate runs when someone lands it.
+    if (
+      !approvalRequired &&
+      !context.permissions.canRevisionAction(
+        "saved-group",
+        "publish",
+        savedGroup,
+        NO_ENVIRONMENT_BINDING,
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
 
-  if (!Array.isArray(items)) {
-    throw new Error("Must provide a list of items to remove");
-  }
-
-  const attributeSchema = org.settings?.attributeSchema || [];
-  const datatype = attributeSchema.find(
-    (sdkAttr) => sdkAttr.property === savedGroup.attributeKey
-  )?.datatype;
-  if (!datatype) {
-    throw new Error("Unknown attributeKey");
-  }
-  if (!ID_LIST_DATATYPES.includes(datatype)) {
-    throw new Error(
-      "Cannot remove items from this group. The attribute key's datatype is not supported."
+    await ensureLiveRevisionExists(
+      context,
+      "saved-group",
+      savedGroup as unknown as Record<string, unknown> & {
+        id: string;
+        owner?: string;
+        dateCreated?: Date;
+      },
     );
-  }
-  const toRemove = new Set(items);
-  const newValues = (savedGroup.values || []).filter(
-    (value) => !toRemove.has(value)
-  );
-  const changes = await updateSavedGroupById(id, org.id, {
-    values: newValues,
-  });
 
-  const updatedSavedGroup = { ...savedGroup, ...changes };
+    // When approval is required, stack the change on top of any existing open
+    // draft so the user's pending changes accumulate. When approval isn't
+    // required we'll merge immediately, so base the new values on the live
+    // entity and force a fresh revision below — otherwise we'd merge a draft
+    // that may contain unrelated pending changes (e.g. a groupName edit) and
+    // mark them as merged even though `savedGroups.update` only applies the
+    // values change.
+    let baseValues: string[] = savedGroup.values ?? [];
+    // Whether an open draft already existed (so we emit revision.updated rather
+    // than revision.created when stacking onto it).
+    let hadOpenDraft = false;
+    if (approvalRequired) {
+      const existingRevision =
+        await context.models.revisions.getOpenByTargetAndAuthor(
+          "saved-group",
+          id,
+          context.userId,
+        );
+      hadOpenDraft = !!existingRevision;
+      if (existingRevision) {
+        const currentState = applyPatchToSnapshot(
+          existingRevision.target.snapshot as SavedGroupInterface,
+          normalizeProposedChanges(existingRevision.target.proposedChanges),
+        );
+        baseValues = currentState.values ?? [];
+      }
+    }
+    const newValues = mutation.apply(baseValues, items);
+    validateListSize(
+      newValues,
+      org.settings?.savedGroupSizeLimit,
+      context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
+    );
 
-  await req.audit({
-    event: "savedGroup.updated",
-    entity: {
-      object: "savedGroup",
-      id: updatedSavedGroup.id,
-      name: savedGroup.groupName,
-    },
-    details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
-  });
+    let revision = await createOrUpdateRevision(
+      context,
+      "saved-group",
+      savedGroup as unknown as Record<string, unknown> & { id: string },
+      [{ op: "replace", path: "/values", value: newValues }],
+      {
+        // replaceChanges: false (default) — merge with any existing proposed ops
+        forceCreate: !approvalRequired, // keep any pre-existing draft untouched
+      },
+    );
 
-  savedGroupUpdated(context, savedGroup.id);
+    // When approval isn't required, merge the revision immediately so the
+    // caller's change takes effect instead of leaving a stranded draft. Claim the
+    // (CAS-guarded) merge before the live write so a concurrent discard can't
+    // orphan a half-applied change; reopen if the write then fails.
+    if (!approvalRequired) {
+      // Kept for compensation: the claim overwrites `revision` with the merged row.
+      const priorRevision = revision;
+      revision = await context.models.revisions.merge(
+        revision.id,
+        context.userId,
+        { bypass: false },
+      );
+      let landedDoc: Record<string, unknown> | null = null;
+      try {
+        // Guarded on the pre-image; the merge claim above guards the revision
+        // only. The write reports its landed doc so a post-write failure can
+        // put live state back, not just un-merge.
+        await runGuardedWrite("saved-group", savedGroup.id, () =>
+          context.models.savedGroups.updateIfUnchanged(
+            savedGroup,
+            { values: newValues },
+            undefined,
+            {
+              onWritten: (doc: unknown) => {
+                landedDoc = doc as Record<string, unknown>;
+              },
+            },
+          ),
+        );
+      } catch (e) {
+        try {
+          // Live back first, then un-merge — ordering and guards live in
+          // `compensateFailedLanding`.
+          await compensateFailedLanding({
+            context,
+            entityType: "saved-group",
+            entity: savedGroup as unknown as Record<string, unknown> & {
+              id: string;
+            },
+            persisted: landedDoc,
+            changes: { values: newValues } as Record<string, unknown>,
+            unmerge: () =>
+              context.models.revisions.reopenAfterFailedApply(
+                revision.id,
+                context.userId,
+                priorRevision,
+                revision.dateUpdated,
+              ),
+          });
+        } catch {
+          // ignore — surface the original update error
+        }
+        throw e;
+      }
+      await dispatchSavedGroupRevisionEvent(context, revision, {
+        type: "published",
+      });
+      return res.status(200).json({
+        status: 200,
+        requiresApproval: false,
+        revision,
+      });
+    }
 
-  return res.status(200).json({
-    status: 200,
-  });
-};
+    await dispatchSavedGroupRevisionEvent(
+      context,
+      revision,
+      hadOpenDraft
+        ? { type: "updated", change: "values" }
+        : { type: "created" },
+    );
+    return res.status(202).json({
+      status: 202,
+      requiresApproval: approvalRequired,
+      revision,
+    });
+  };
+
+export const postSavedGroupAddItems = mutateSavedGroupItems({
+  verb: "add items to",
+  shortVerb: "add to group",
+  bareVerb: "add",
+  apply: (baseValues, items) => [...new Set([...baseValues, ...items])],
+});
+
+export const postSavedGroupRemoveItems = mutateSavedGroupItems({
+  verb: "remove items from",
+  shortVerb: "remove from group",
+  bareVerb: "remove",
+  apply: (baseValues, items) => {
+    const toRemove = new Set(items);
+    return baseValues.filter((value: string) => !toRemove.has(value));
+  },
+});
 
 // endregion POST /saved-groups/:id/remove-items
 
 // region PUT /saved-groups/:id
 
-type PutSavedGroupRequest = AuthRequest<UpdateSavedGroupProps, { id: string }>;
+type PutSavedGroupRequest = AuthRequest<
+  UpdateSavedGroupProps,
+  { id: string },
+  {
+    skipCycleCheck?: string;
+    bypassApproval?: string;
+    autoPublish?: string;
+    revisionId?: string;
+    forceCreateRevision?: string;
+    title?: string;
+    comment?: string;
+    revertedFrom?: string;
+  }
+>;
 
-type PutSavedGroupResponse = {
-  status: 200;
-};
+// Cap on a single conflict value shipped back for display in a 409.
+const MAX_CONFLICT_VALUE_BYTES = 20_000;
+
+type PutSavedGroupResponse =
+  | {
+      status: 200;
+      requiresApproval?: false;
+      revision?: Revision;
+    }
+  | {
+      status: 202;
+      requiresApproval: boolean;
+      revision: Revision;
+    }
+  | {
+      status: 409;
+      message: string;
+      conflict: DraftConflict<Record<string, unknown>>;
+    };
 
 /**
  * PUT /saved-groups/:id
@@ -389,7 +528,7 @@ type PutSavedGroupResponse = {
  */
 export const putSavedGroup = async (
   req: PutSavedGroupRequest,
-  res: Response<PutSavedGroupResponse | ApiErrorResponse>
+  res: Response<PutSavedGroupResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -400,45 +539,217 @@ export const putSavedGroup = async (
     condition,
     description,
     projects,
+    archived,
+    baseline,
   } = req.body;
+  const skipCycleCheck = req.query.skipCycleCheck;
   const { id } = req.params;
 
   if (!id) {
-    throw new Error("Must specify saved group id");
+    throw new Error("Must specify Saved Group id");
   }
 
-  const savedGroup = await getSavedGroupById(id, org.id);
+  const savedGroup = await context.models.savedGroups.getById(id);
 
   if (!savedGroup) {
-    throw new Error("Could not find saved group");
+    throw new Error("Could not find Saved Group");
   }
 
-  if (!context.permissions.canUpdateSavedGroup(savedGroup, { ...req.body })) {
+  // A request that touches nothing but `archived` is a pure archive/unarchive
+  // (what the archive modal sends), and rides its landing authority alone — a
+  // delete-only role can take a group out of service without edit rights.
+  const archiveOnlyRequest =
+    typeof req.body.archived === "boolean" &&
+    Object.keys(req.body).every(
+      (k) => k === "archived" || k === "ignoreWarnings",
+    );
+  const canLandArchive =
+    archiveOnlyRequest &&
+    !!req.body.archived !== !!savedGroup.archived &&
+    canLandArchivedState({
+      permissions: context.permissions,
+      model: "saved-group",
+      entity: savedGroup,
+      archived: !!req.body.archived,
+    });
+
+  // Permission check always runs regardless of approval flow status
+  const canDraftEntity = context.permissions.canRevisionAction(
+    "saved-group",
+    "draft",
+    savedGroup,
+    NO_ENVIRONMENT_BINDING,
+  );
+
+  // Restoring a previously-published revision is its own atom, so a revert-only
+  // role (no draft authority) still gets in when the request names a revert
+  // target. What it may then WRITE is narrowed to a pure restoration below, so
+  // this cannot be used to author arbitrary drafts. Mirrors the constant twin.
+  const canRideRevert =
+    !!req.query.revertedFrom &&
+    context.permissions.canRevisionAction(
+      "saved-group",
+      "revert",
+      savedGroup,
+      NO_ENVIRONMENT_BINDING,
+    );
+
+  if (!canLandArchive && !canDraftEntity && !canRideRevert) {
     context.permissions.throwPermissionError();
   }
 
+  const approvalRequired = isRevisionRequired(context, "saved-group", id);
+
+  // If updating a specific revision, fetch it to compare against merged state
+  const revisionId = req.query.revisionId;
+  let targetRevision: Revision | null = null;
+  let comparisonBase: SavedGroupInterface = savedGroup;
+
+  // Set when comparing against a draft; tells the client a fork keeps both versions.
+  let draftComparisonVersion: number | undefined;
+
+  if (revisionId) {
+    targetRevision = await context.models.revisions.getByIdReadable(revisionId);
+    // Writing `archived` into a PINNED revision is a write into someone else's
+    // draft: it makes that draft delete-class, so its author — a publisher
+    // without delete — could no longer publish their own work.
+    // `archiveOnlyRequest` inspects only the body, so it does not cover this
+    // query-param path.
+    if (
+      targetRevision &&
+      typeof archived === "boolean" &&
+      !canWriteArchiveIntoDraft({
+        permissions: context.permissions,
+        model: "saved-group",
+        entity: savedGroup,
+        revision: targetRevision,
+        userId: context.userId,
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    if (targetRevision && targetRevision.target.type === "saved-group") {
+      // Apply patch ops to snapshot to get current state of the revision
+      const patchedSnapshot = applyPatchToSnapshot(
+        targetRevision.target.snapshot as SavedGroupInterface,
+        normalizeProposedChanges(targetRevision.target.proposedChanges),
+      );
+      comparisonBase = { ...savedGroup, ...patchedSnapshot };
+      draftComparisonVersion = targetRevision.version ?? 0;
+    }
+  }
+
+  if (baseline) {
+    const incoming: Record<string, unknown> = {
+      groupName,
+      owner,
+      values,
+      condition,
+      description,
+      projects,
+    };
+    const base = comparisonBase as unknown as Record<string, unknown>;
+    const contested = Object.keys(baseline).filter((k) => {
+      const loaded = (baseline as Record<string, unknown>)[k];
+      if (draftValuesEqual(loaded, base[k])) return false;
+      // Someone else changed it; only a differing submission is contested.
+      return (
+        incoming[k] !== undefined && !draftValuesEqual(incoming[k], base[k])
+      );
+    });
+    if (contested.length) {
+      const current: Record<string, unknown> = Object.fromEntries(
+        Object.keys(baseline).map((k) => [k, base[k]]),
+      );
+      // Withhold huge lists; the client offers reload instead of merge choices.
+      const omittedFields = Object.keys(current).filter(
+        (k) =>
+          Array.isArray(current[k]) &&
+          JSON.stringify(current[k]).length > MAX_CONFLICT_VALUE_BYTES,
+      );
+      for (const k of omittedFields) delete current[k];
+      return res.status(409).json({
+        status: 409,
+        message:
+          "This saved group was changed by someone else after you loaded it. Review their version before saving.",
+        conflict: {
+          entityId: savedGroup.id,
+          current,
+          liveVersion: 0,
+          draftVersion: draftComparisonVersion,
+          omittedFields: omittedFields.length ? omittedFields : undefined,
+          merge: {
+            contested: contested.map((k) => ({ key: k, fields: [k] })),
+            theirFields: [],
+            yourFields: [],
+          },
+        },
+      });
+    }
+  }
+
+  // Helper to check if a value actually changed
+  // If newVal is null/undefined, don't treat it as a change (form sends null for untouched fields)
+  const hasChanged = (newVal: unknown, oldVal: unknown): boolean => {
+    // If new value is null/undefined, assume field wasn't intentionally changed
+    if (newVal == null) {
+      return false;
+    }
+    // If old value is null/undefined but new value exists, that's a change
+    if (oldVal == null) {
+      return true;
+    }
+    // Otherwise use deep equality
+    return !isEqual(newVal, oldVal);
+  };
+
   const fieldsToUpdate: UpdateSavedGroupProps = {};
 
-  if (typeof groupName !== "undefined" && groupName !== savedGroup.groupName) {
+  if (
+    typeof groupName !== "undefined" &&
+    hasChanged(groupName, comparisonBase.groupName)
+  ) {
     fieldsToUpdate.groupName = groupName;
   }
-  if (typeof owner !== "undefined" && owner !== savedGroup.owner) {
+  if (typeof owner !== "undefined" && hasChanged(owner, comparisonBase.owner)) {
     fieldsToUpdate.owner = owner;
   }
   if (
     savedGroup.type === "list" &&
     values &&
-    !isEqual(values, savedGroup.values)
+    hasChanged(values, comparisonBase.values)
   ) {
     fieldsToUpdate.values = values;
+    // Check that the size is within the global limit as well as any limit imposed by the organization
+    validateListSize(
+      values,
+      org.settings?.savedGroupSizeLimit,
+      context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
+    );
   }
   if (
     savedGroup.type === "condition" &&
     condition &&
-    condition !== savedGroup.condition
+    hasChanged(condition, comparisonBase.condition)
   ) {
-    // Validate condition to make sure it's valid
-    const conditionRes = validateCondition(condition);
+    // Validate condition to make sure it's valid. When skipCycleCheck=1 (used by
+    // importers), still validate general JSON/syntax but skip saved-group
+    // cyclic/invalid reference checks so users can fix them later.
+    const allSavedGroups = await context.models.savedGroups.getAll();
+    const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+    // Include the updated condition in the savedGroupsObj for validation
+    groupMap.set(savedGroup.id, {
+      ...savedGroup,
+      condition,
+    });
+    const conditionRes = validateCondition(
+      condition,
+      groupMap,
+      // When skipCycleCheck=1, skip only saved-group *cycle* checks while still
+      // enforcing JSON validity and other saved-group errors (unknown group,
+      // invalid nested condition, max depth).
+      skipCycleCheck === "1",
+    );
     if (!conditionRes.success) {
       throw new Error(conditionRes.error);
     }
@@ -448,53 +759,327 @@ export const putSavedGroup = async (
 
     fieldsToUpdate.condition = condition;
   }
-  if (description !== savedGroup.description) {
+  if (hasChanged(description, comparisonBase.description)) {
     if (typeof description === "string" && description.length > 100) {
       throw new Error("Description must be at most 100 characters");
     }
     fieldsToUpdate.description = description;
   }
-  if (!isEqual(savedGroup.projects, projects)) {
+  if (hasChanged(projects, comparisonBase.projects)) {
     if (projects) {
       await context.models.projects.ensureProjectsExist(projects);
     }
+    // Taking a group INTO a project is a write there, so the destination needs
+    // authoring rights too — via the shared helper that decides what a
+    // destination is.
+    if (
+      !holdsMoveDestination({
+        permissions: context.permissions,
+        model: "saved-group",
+        action: "draft",
+        existing: comparisonBase,
+        proposed: { ...comparisonBase, projects: projects ?? [] },
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
     fieldsToUpdate.projects = projects;
   }
+  if (hasChanged(archived, comparisonBase.archived)) {
+    // Gate only live-state transitions.
+    if (!!archived !== !!savedGroup.archived) {
+      const canLand = canLandArchivedState({
+        permissions: context.permissions,
+        model: "saved-group",
+        entity: savedGroup,
+        archived: !!archived,
+      });
+      const canStage =
+        canLand ||
+        canStageArchiveDraft({
+          permissions: context.permissions,
+          model: "saved-group",
+          entity: savedGroup,
+          archived: !!archived,
+        });
+      if (!canStage) {
+        context.permissions.throwPermissionError();
+      }
+    }
+    fieldsToUpdate.archived = archived;
+  }
 
-  // If there are no changes, return early
-  if (Object.keys(fieldsToUpdate).length === 0) {
+  // Soft-warn (bypassable by ignoreWarnings) on the archive transition when the
+  // saved group is still referenced. Same gate as the REST archive endpoint and
+  // the front-end SavedGroupArchiveModal. Only archiving is guarded; unarchiving
+  // is always allowed.
+  if (fieldsToUpdate.archived === true && !comparisonBase.archived) {
+    await assertSavedGroupArchiveDependentsGuard(
+      context,
+      { id },
+      { armed: false },
+    );
+  }
+
+  const forceCreateRevision = req.query.forceCreateRevision === "1";
+  const bypassApproval = req.query.bypassApproval === "1";
+  const autoPublish = req.query.autoPublish === "1";
+  const title = req.query.title;
+  const comment = req.query.comment;
+  const revertedFrom = req.query.revertedFrom;
+
+  // All edits flow through the revision system: if no draft-intent flag was
+  // provided (revisionId/forceCreateRevision) we treat the request as an
+  // implicit auto-publish so the change is still tracked as a revision and
+  // merged immediately when approval isn't required.
+  const wantsDraft = !!revisionId || forceCreateRevision;
+  const wantsMerge = bypassApproval || autoPublish || !wantsDraft;
+
+  // If there are no changes and the caller didn't ask for a new empty draft
+  // or an explicit publish action, short-circuit.
+  if (
+    Object.keys(fieldsToUpdate).length === 0 &&
+    !forceCreateRevision &&
+    !bypassApproval &&
+    !autoPublish
+  ) {
     return res.status(200).json({
       status: 200,
     });
   }
 
-  const changes = await updateSavedGroupById(id, org.id, fieldsToUpdate);
-
-  const updatedSavedGroup = { ...savedGroup, ...changes };
-
-  await req.audit({
-    event: "savedGroup.updated",
-    entity: {
-      object: "savedGroup",
-      id: updatedSavedGroup.id,
-      name: groupName,
+  await ensureLiveRevisionExists(
+    context,
+    "saved-group",
+    savedGroup as unknown as Record<string, unknown> & {
+      id: string;
+      owner?: string;
+      dateCreated?: Date;
     },
-    details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
-  });
+  );
 
-  // If the values, condition, or projects change, we need to invalidate cached feature rules
-  if (
-    fieldsToUpdate.condition ||
-    fieldsToUpdate.values ||
-    fieldsToUpdate.projects
-  ) {
-    savedGroupUpdated(context, savedGroup.id).catch((e) => {
-      logger.error(e, "Error refreshing SDK Payload on saved group update");
-    });
+  const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
+
+  // Resolved once (only for a request that names a revert target) and consulted
+  // by both the write-narrowing check and the landing gate below.
+  const pureRevertPatch = revertedFrom
+    ? await isPureRevertPatch(context, {
+        revertedFrom,
+        entityType: "saved-group",
+        entityId: savedGroup.id,
+        patchOps,
+      })
+    : false;
+
+  // A caller who got in on revert authority alone may only write a revision that
+  // purely restores the named published revision. The change set comes from the
+  // caller's body, so a valid `revertedFrom` id must never front arbitrary values.
+  if (!canLandArchive && !canDraftEntity && !pureRevertPatch) {
+    context.permissions.throwPermissionError();
   }
 
-  return res.status(200).json({
-    status: 200,
+  // Landing a change live is publish-class, not edit-class. Checked before the
+  // revision is created so a blocked publish leaves nothing behind. A pure
+  // archive carries its own landing authority (checked above), so it's exempt.
+  // Revert authority also lands one, but only once the ops are proven to restore
+  // the named revision.
+  const willPublish =
+    wantsMerge && (!approvalRequired || bypassApproval || autoPublish);
+  if (
+    willPublish &&
+    !canLandArchive &&
+    !context.permissions.canRevisionAction(
+      "saved-group",
+      "publish",
+      savedGroup,
+    ) &&
+    !(
+      pureRevertPatch &&
+      context.permissions.canRevisionAction(
+        "saved-group",
+        "revert",
+        savedGroup,
+        NO_ENVIRONMENT_BINDING,
+      )
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+  // A landing that relocates the group takes PUBLISH in the destination — the
+  // draft-authority destination check earlier in this handler covers staging
+  // only. Without it, publish@A plus draft@B lands a move into B.
+  if (
+    willPublish &&
+    !holdsMoveDestination({
+      permissions: context.permissions,
+      model: "saved-group",
+      action: "publish",
+      existing: savedGroup,
+      proposed: { ...savedGroup, ...fieldsToUpdate },
+      environments: NO_ENVIRONMENT_BINDING,
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  // When publishing or creating a fresh draft we force a new revision; an
+  // implicit save while approval is required also forces one (wantsMerge but
+  // can't merge yet). Otherwise we update the targeted draft.
+  const forceCreate = wantsMerge || forceCreateRevision;
+
+  // Delegate to the adapter so the multi-project bypass rule has a single
+  // source of truth (also used by the generic revision controller).
+  const canBypass = getAdapter("saved-group").canBypassApproval(
+    context,
+    savedGroup as unknown as Record<string, unknown>,
+  );
+
+  // bypassApproval is an explicit admin override — enforce it before the
+  // revision is written, so a caller without the atom doesn't leave one behind.
+  if (wantsMerge && bypassApproval && approvalRequired && !canBypass) {
+    context.permissions.throwPermissionError();
+  }
+
+  // When updating a revision, merge changes (don't replace) to preserve other fields
+  let revision = await createOrUpdateRevision(
+    context,
+    "saved-group",
+    savedGroup as unknown as Record<string, unknown> & { id: string },
+    patchOps,
+    {
+      // replaceChanges: false (default) — merge with existing proposed changes
+      forceCreate,
+      title,
+      comment,
+      revertedFrom,
+      // Only update a specific draft revision when we're staying in draft mode
+      revisionId:
+        wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,
+    },
+  );
+
+  if (wantsMerge) {
+    // autoPublish is the "metadata-only shortcut": it lets non-admins publish
+    // changes immediately when the org has disabled metadata review. It must
+    // NOT be usable to bypass full content review — otherwise any editor could
+    // append `?autoPublish=1` to skip the approval flow. Enforce server-side
+    // that autoPublish is only honoured when (a) the change is limited to
+    // metadata fields AND metadata review is disabled, or (b) the caller has
+    // the admin bypass permission.
+    if (autoPublish && approvalRequired && !canBypass) {
+      // Reverts restore an already-reviewed state. When the org enables
+      // "reverts bypass approval", any editor may publish a revert without
+      // approval (edit permission already enforced earlier in this handler).
+      const isRevertBypass =
+        !!revertedFrom && !!org.settings?.revertsBypassApproval;
+      if (!isRevertBypass) {
+        const isMetadataOnlyChange =
+          Object.keys(fieldsToUpdate).length > 0 &&
+          Object.keys(fieldsToUpdate).every((k) =>
+            SAVED_GROUP_METADATA_FIELDS.has(k),
+          );
+        const metadataReviewRequired =
+          getApprovalFlowSettings(
+            org.settings?.approvalFlows,
+            "saved-group",
+            savedGroup.projects ?? [],
+          )?.requireMetadataReview ?? true;
+        if (!isMetadataOnlyChange || metadataReviewRequired) {
+          context.permissions.throwPermissionError();
+        }
+      }
+    }
+
+    const canImmediatelyMerge =
+      !approvalRequired || bypassApproval || autoPublish;
+
+    if (canImmediatelyMerge) {
+      // Only record a bypass when the caller used the explicit admin override.
+      // autoPublish / no-flag represent "approval wasn't required for this
+      // change", which is a normal merge, not a bypass.
+      const isBypass = approvalRequired && bypassApproval;
+
+      // Claim the (CAS-guarded) merge before the live write so a concurrent
+      // discard can't orphan a half-applied change; reopen if the write fails.
+      // Kept for compensation: the claim overwrites `revision` with the merged row.
+      const priorRevision = revision;
+      revision = await context.models.revisions.merge(
+        revision.id,
+        context.userId,
+        {
+          bypass: isBypass,
+        },
+      );
+
+      let landedDoc: Record<string, unknown> | null = null;
+      try {
+        // Guarded on the pre-image; reported from inside the write — see above.
+        await runGuardedWrite("saved-group", savedGroup.id, () =>
+          context.models.savedGroups.updateIfUnchanged(
+            savedGroup,
+            fieldsToUpdate,
+            undefined,
+            {
+              onWritten: (doc: unknown) => {
+                landedDoc = doc as Record<string, unknown>;
+              },
+            },
+          ),
+        );
+      } catch (e) {
+        try {
+          // Live back first, then un-merge — ordering and guards live in
+          // `compensateFailedLanding`.
+          await compensateFailedLanding({
+            context,
+            entityType: "saved-group",
+            entity: savedGroup as unknown as Record<string, unknown> & {
+              id: string;
+            },
+            persisted: landedDoc,
+            changes: fieldsToUpdate as Record<string, unknown>,
+            unmerge: () =>
+              context.models.revisions.reopenAfterFailedApply(
+                revision.id,
+                context.userId,
+                priorRevision,
+                revision.dateUpdated,
+              ),
+          });
+        } catch {
+          // ignore — surface the original update error
+        }
+        throw e;
+      }
+
+      // See the revert paths in revisionActions: a landing revert owes both events.
+      await dispatchSavedGroupRevisionEvent(context, revision, {
+        type: "published",
+      });
+      if (revision.revertedFrom) {
+        await dispatchSavedGroupRevisionEvent(context, revision, {
+          type: "reverted",
+        });
+      }
+
+      return res.status(200).json({
+        status: 200,
+        revision,
+      });
+    }
+  }
+
+  await dispatchSavedGroupRevisionEvent(
+    context,
+    revision,
+    forceCreate
+      ? { type: "created" }
+      : { type: "updated", change: deriveChange(patchOps) },
+  );
+  return res.status(202).json({
+    status: 202,
+    requiresApproval: approvalRequired,
+    revision,
   });
 };
 
@@ -525,14 +1110,14 @@ type DeleteSavedGroupResponse =
  */
 export const deleteSavedGroup = async (
   req: DeleteSavedGroupRequest,
-  res: Response<DeleteSavedGroupResponse>
+  res: Response<DeleteSavedGroupResponse>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
 
   const { org } = context;
 
-  const savedGroup = await getSavedGroupById(id, org.id);
+  const savedGroup = await context.models.savedGroups.getById(id);
 
   if (!savedGroup) {
     res.status(403).json({
@@ -554,17 +1139,23 @@ export const deleteSavedGroup = async (
     context.permissions.throwPermissionError();
   }
 
-  await deleteSavedGroupById(id, org.id);
+  // Require the saved group to be archived first. Archive is reversible;
+  // delete isn't, so this gives users an undo step. Archive itself still
+  // flows through the approval system, but delete bypasses it.
+  if (!savedGroup.archived) {
+    res.status(400).json({
+      status: 400,
+      message: "Saved group must be archived before it can be deleted",
+    });
+    return;
+  }
 
-  await req.audit({
-    event: "savedGroup.deleted",
-    entity: {
-      object: "savedGroup",
-      id: id,
-      name: savedGroup.groupName,
-    },
-    details: auditDetailsDelete(savedGroup),
-  });
+  // Reference integrity (orthogonal to the archived-first UX gate above): a
+  // dangling group id silently flips live targeting, so block delete while any
+  // feature/experiment/other saved group still references it.
+  await assertSavedGroupDeletable(context, id);
+
+  await context.models.savedGroups.delete(savedGroup);
 
   res.status(200).json({
     status: 200,
@@ -572,3 +1163,86 @@ export const deleteSavedGroup = async (
 };
 
 // endregion DELETE /saved-groups/:id
+
+// region GET /saved-groups/:id/references
+
+type SavedGroupReferencesResponse =
+  | {
+      status: 200;
+      features: { id: string; name: string; project?: string }[];
+      experiments: {
+        id: string;
+        name: string;
+        project?: string;
+        projects?: string[];
+      }[];
+      savedGroups: { id: string; groupName: string; projects?: string[] }[];
+    }
+  | { message: string };
+
+// GET /saved-groups/:id/references
+// Returns features, experiments, and saved groups that reference this saved group.
+// Checks direct references plus one level of saved-group chaining (saved groups whose
+// condition directly contains this group's ID, and features/experiments that reference those).
+export const getSavedGroupReferences = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<SavedGroupReferencesResponse>,
+) => {
+  const { id } = req.params;
+  const context = getContextFromReq(req);
+
+  const refs = await loadSavedGroupReferences(context, id);
+  if (!refs) {
+    res.status(404).json({ message: "Saved group not found" });
+    return;
+  }
+
+  return res.status(200).json({
+    status: 200,
+    ...refs,
+  });
+};
+
+// endregion GET /saved-groups/:id/references
+
+export function validateListSize(
+  values: Array<unknown>,
+  savedGroupSizeLimit: number | undefined,
+  canBypassSizeLimit: boolean,
+) {
+  if (
+    savedGroupSizeLimit &&
+    values.length > savedGroupSizeLimit &&
+    !canBypassSizeLimit
+  ) {
+    throw new Error(
+      `Your organization has imposed a maximum list length of ${savedGroupSizeLimit}`,
+    );
+  }
+  if (new Blob([JSON.stringify(values)]).size > SAVED_GROUP_SIZE_LIMIT_BYTES) {
+    throw new Error(
+      `The maximum size for a list is ${formatByteSizeString(
+        SAVED_GROUP_SIZE_LIMIT_BYTES,
+      )}.`,
+    );
+  }
+}
+
+// region GET /saved-groups/draft-states
+
+export const getSavedGroupDraftStates = async (
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response,
+) => {
+  const context = getContextFromReq(req);
+  const groupIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
+  const groups = await context.models.revisions.getActiveDraftStates(
+    "saved-group",
+    groupIds,
+  );
+  return res.status(200).json({ status: 200, groups });
+};
+
+// endregion GET /saved-groups/draft-states

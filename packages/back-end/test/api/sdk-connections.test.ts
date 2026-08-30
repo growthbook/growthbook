@@ -10,7 +10,7 @@ import {
   createSDKConnection,
   findSDKConnectionById,
   editSDKConnection,
-  deleteSDKConnectionById,
+  deleteSDKConnectionModel,
 } from "back-end/src/models/SdkConnectionModel";
 import {
   validatePutPayload,
@@ -25,11 +25,11 @@ jest.mock("back-end/src/api/sdk-connections/validations", () => ({
 }));
 
 const originalValidatePutPayload = jest.requireActual(
-  "back-end/src/api/sdk-connections/validations"
+  "back-end/src/api/sdk-connections/validations",
 ).validatePutPayload;
 
 const originalValidatePostPayload = jest.requireActual(
-  "back-end/src/api/sdk-connections/validations"
+  "back-end/src/api/sdk-connections/validations",
 ).validatePostPayload;
 
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
@@ -38,7 +38,7 @@ jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   editSDKConnection: jest.fn(),
   findSDKConnectionById: jest.fn(),
   findSDKConnectionsByOrganization: jest.fn(),
-  deleteSDKConnectionById: jest.fn(),
+  deleteSDKConnectionModel: jest.fn(),
 }));
 
 jest.mock("shared/sdk-versioning", () => ({
@@ -48,7 +48,7 @@ jest.mock("shared/sdk-versioning", () => ({
 }));
 
 describe("sdk-connections API", () => {
-  const { app, auditMock, setReqContext } = setupApp();
+  const { app, setReqContext } = setupApp();
   const mockApiSDKConnectionInterface = ({ id }) => `mock-${id}`;
 
   beforeEach(() => {
@@ -56,7 +56,7 @@ describe("sdk-connections API", () => {
     validatePostPayload.mockImplementation(originalValidatePostPayload);
     getSDKVersions.mockReturnValue(["old-version", "latest-version"]);
     toApiSDKConnectionInterface.mockImplementation(
-      mockApiSDKConnectionInterface
+      mockApiSDKConnectionInterface,
     );
   });
 
@@ -73,7 +73,7 @@ describe("sdk-connections API", () => {
       sdkConnectionFactory.build({
         organization: org.id,
         environments: org.environments[0],
-      })
+      }),
     );
 
     findSDKConnectionsByOrganization.mockReturnValue(connections);
@@ -101,7 +101,7 @@ describe("sdk-connections API", () => {
       sdkConnectionFactory.build({
         organization: org.id,
         environment: org.environments[0].id,
-      })
+      }),
     );
 
     findSDKConnectionsByOrganization.mockReturnValue(connections);
@@ -127,7 +127,7 @@ describe("sdk-connections API", () => {
 
     let created;
 
-    createSDKConnection.mockImplementation((v) => {
+    createSDKConnection.mockImplementation((c, v) => {
       created = sdkConnectionFactory.build(v);
       return created;
     });
@@ -147,15 +147,6 @@ describe("sdk-connections API", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       sdkConnection: mockApiSDKConnectionInterface(created),
-    });
-    expect(auditMock).toHaveBeenCalledWith({
-      details: `{"post":{"id":"${
-        created.id
-      }","name":"my-connection","organization":"org","dateCreated":"${created.dateCreated.toISOString()}","dateUpdated":"${created.dateUpdated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
-        created.key
-      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"sdkVersion":"latest-version","includeVisualExperiments":false,"includeDraftExperiments":false,"includeExperimentNames":false,"includeRedirectExperiments":false,"includeRuleIds":false,"hashSecureAttributes":false},"context":{}}`,
-      entity: { id: created.id, object: "sdk-connection" },
-      event: "sdk-connection.create",
     });
   });
 
@@ -206,7 +197,8 @@ describe("sdk-connections API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Request body: [language] Required",
+      message:
+        "Request body: [language] Invalid input: expected string, received undefined",
     });
   });
 
@@ -238,10 +230,10 @@ describe("sdk-connections API", () => {
     expect(response.status).toBe(400);
     expect(getSDKCapabilities).toHaveBeenCalledWith(
       "javascript",
-      "latest-version"
+      "latest-version",
     );
     expect(hasPremiumFeatureMock).toHaveBeenCalledWith(
-      "encrypt-features-endpoint"
+      "encrypt-features-endpoint",
     );
     expect(response.body).toEqual({
       message:
@@ -303,7 +295,7 @@ describe("sdk-connections API", () => {
     expect(response.status).toBe(400);
     expect(getSDKCapabilities).toHaveBeenCalledWith(
       "javascript",
-      "latest-version"
+      "latest-version",
     );
     expect(response.body).toEqual({
       message: "SDK version latest-version does not support remoteEval",
@@ -313,7 +305,7 @@ describe("sdk-connections API", () => {
   it("checks for SDK cacapbilities for the latest version when creating new sdk-connections", async () => {
     getLatestSDKVersion.mockReturnValue("latest-version");
     getSDKCapabilities.mockImplementation((_, v) =>
-      v === "latest-version" ? ["remoteEval"] : []
+      v === "latest-version" ? ["remoteEval"] : [],
     );
 
     setReqContext({
@@ -393,6 +385,92 @@ describe("sdk-connections API", () => {
     });
   });
 
+  describe("requireProjectForSdkConnections enabled", () => {
+    const requireProjectContext = (overrides = {}) =>
+      setReqContext({
+        org: {
+          ...org,
+          settings: { requireProjectForSdkConnections: true },
+        },
+        permissions: {
+          canCreateSDKConnection: () => true,
+          canUpdateSDKConnection: () => true,
+        },
+        ...overrides,
+      });
+
+    it("fails to create new sdk-connections without a project", async () => {
+      requireProjectContext();
+
+      const response = await request(app)
+        .post("/api/v1/sdk-connections")
+        .send({
+          name: "my-connection",
+          environment: org.environments[0].id,
+          language: "javascript",
+          sdkVersion: "latest-version",
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        message:
+          "SDK Connection is required to be associated with at least one project",
+      });
+    });
+
+    it("fails to update existing sdk-connections if removing projects", async () => {
+      requireProjectContext();
+
+      const existing = sdkConnectionFactory.build({
+        organization: org.id,
+        environment: org.environments[0].id,
+        projects: ["project-1"],
+      });
+      findSDKConnectionById.mockReturnValue(existing);
+
+      const response = await request(app)
+        .put(`/api/v1/sdk-connections/${existing.id}`)
+        .send({ projects: [] })
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        message:
+          "SDK Connection is required to be associated with at least one project",
+      });
+    });
+
+    it("allows updating existing project-less sdk-connections", async () => {
+      requireProjectContext();
+
+      const existing = sdkConnectionFactory.build({
+        organization: org.id,
+        environment: org.environments[0].id,
+        projects: [],
+      });
+      findSDKConnectionById.mockReturnValue(existing);
+
+      const updated = sdkConnectionFactory.build({
+        organization: org.id,
+        environment: org.environments[0].id,
+        projects: [],
+        name: "renamed-connection",
+      });
+      editSDKConnection.mockResolvedValue(updated);
+
+      const response = await request(app)
+        .put(`/api/v1/sdk-connections/${existing.id}`)
+        .send({ name: "renamed-connection" })
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        sdkConnection: mockApiSDKConnectionInterface(updated),
+      });
+    });
+  });
+
   it("can update sdk-connections", async () => {
     const context = {
       org,
@@ -434,23 +512,10 @@ describe("sdk-connections API", () => {
     expect(editSDKConnection).toHaveBeenCalledWith(
       context,
       existing,
-      await originalValidatePutPayload(context, update, existing)
+      await originalValidatePutPayload(context, update, existing),
     );
     expect(response.body).toEqual({
       sdkConnection: mockApiSDKConnectionInterface(updated),
-    });
-    expect(auditMock).toHaveBeenCalledWith({
-      details: `{"pre":{"id":"${
-        existing.id
-      }","name":"my-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateUpdated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
-        existing.key
-      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"language":"javascript","sdkVersion":"latest-version"},"post":{"id":"${
-        updated.id
-      }","name":"my-new-connection","dateCreated":"${updated.dateCreated.toISOString()}","dateUpdated":"${updated.dateUpdated.toISOString()}","languages":["ruby"],"environment":"production","projects":[],"encryptionKey":"","key":"${
-        updated.key
-      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"sdkVersion":"latest-version"},"context":{}}`,
-      entity: { id: updated.id, object: "sdk-connection" },
-      event: "sdk-connection.update",
     });
   });
 
@@ -490,10 +555,11 @@ describe("sdk-connections API", () => {
   });
 
   it("can delete sdk-connections", async () => {
-    setReqContext({
+    const context = {
       org,
       permissions: { canDeleteSDKConnection: () => true },
-    });
+    };
+    setReqContext(context);
 
     const existing = sdkConnectionFactory.build({
       name: "my-connection",
@@ -508,17 +574,8 @@ describe("sdk-connections API", () => {
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
-    expect(deleteSDKConnectionById).toHaveBeenCalledWith("org", existing.id);
+    expect(deleteSDKConnectionModel).toHaveBeenCalledWith(context, existing);
     expect(response.body).toEqual({ deletedId: existing.id });
-    expect(auditMock).toHaveBeenCalledWith({
-      details: `{"pre":{"id":"${
-        existing.id
-      }","name":"my-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateCreated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
-        existing.key
-      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"language":"javascript"},"context":{}}`,
-      entity: { id: existing.id, object: "sdk-connection" },
-      event: "sdk-connection.delete",
-    });
   });
 
   it("checks for permissions when deleting sdk-connections", async () => {
@@ -545,7 +602,7 @@ describe("sdk-connections API", () => {
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(400);
-    expect(deleteSDKConnectionById).not.toHaveBeenCalledWith();
+    expect(deleteSDKConnectionModel).not.toHaveBeenCalledWith();
     expect(response.body).toEqual({ message: "permission error" });
   });
 });

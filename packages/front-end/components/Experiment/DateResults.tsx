@@ -2,17 +2,23 @@ import { FC, useMemo, useState } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-} from "back-end/types/report";
+} from "shared/types/report";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import {
   expandMetricGroups,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
+  funnelStepMetricId,
   isExpectedDirection,
+  isFactFunnelMetric,
   isStatSig,
   quantileMetricType,
   shouldHighlight,
 } from "shared/experiments";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  SignificanceThresholds,
+  StatsEngine,
+} from "shared/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   formatNumber,
@@ -21,28 +27,36 @@ import {
 } from "@/services/metrics";
 import { getEffectLabel } from "@/services/experiments";
 import { useCurrency } from "@/hooks/useCurrency";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Toggle from "@/components/Forms/Toggle";
-import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Switch from "@/ui/Switch";
+import { getMetricResultGroup } from "@/hooks/useExperimentDimensionRows";
+import Tooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
 
 const numberFormatter = new Intl.NumberFormat();
 
-// Represents data for one metric graph
-type Metric = {
-  metric: ExperimentMetricInterface;
-  resultGroup: "goal" | "secondary" | "guardrail";
+// A single chart within a metric section. `label` is the heading to show above
+// the chart, or null for a metric with a single unlabeled chart. Funnel metrics
+// build one labeled chart per step; the caller owns the heading text, so the
+// renderer makes no assumption about what a labeled chart represents.
+type MetricChart = {
+  label: string | null;
   datapoints: ExperimentDateGraphDataPoint[];
+};
+
+// Represents a metric's section, which may hold several charts (funnel steps).
+type Metric = {
+  metric: ExperimentMetricDefinition;
+  resultGroup: "goal" | "secondary" | "guardrail";
+  charts: MetricChart[];
 };
 
 const DateResults: FC<{
   variations: ExperimentReportVariation[];
+  significanceThresholds: SignificanceThresholds;
   results: ExperimentReportResultDimension[];
   seriestype: string;
   goalMetrics: string[];
@@ -54,6 +68,7 @@ const DateResults: FC<{
 }> = ({
   results,
   variations,
+  significanceThresholds,
   seriestype,
   goalMetrics,
   secondaryMetrics,
@@ -62,21 +77,13 @@ const DateResults: FC<{
   differenceType,
   ssrPolyfills,
 }) => {
-  const {
-    getExperimentMetricById,
-    getFactTableById,
-    metricGroups,
-    ready,
-  } = useDefinitions();
+  const { getExperimentMetricById, getFactTableById, metricGroups, ready } =
+    useDefinitions();
 
-  const _confidenceLevels = useConfidenceLevels();
-  const _pValueThreshold = usePValueThreshold();
   const _displayCurrency = useCurrency();
 
-  const { ciUpper, ciLower } =
-    ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+  const { bayesianConfidenceLevels, pValueThreshold } = significanceThresholds;
+  const { ciUpper, ciLower } = bayesianConfidenceLevels;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
 
   const [cumulativeState, setCumulative] = useState(false);
@@ -116,32 +123,29 @@ const DateResults: FC<{
     });
   }, [results, cumulative, variations]);
 
-  const {
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-  } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(
-      goalMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedSecondaries = expandMetricGroups(
-      secondaryMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedGuardrails = expandMetricGroups(
-      guardrailMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
+  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
+    useMemo(() => {
+      const expandedGoals = expandMetricGroups(
+        goalMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedSecondaries = expandMetricGroups(
+        secondaryMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedGuardrails = expandMetricGroups(
+        guardrailMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
 
-    return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [
-    goalMetrics,
-    metricGroups,
-    ssrPolyfills?.metricGroups,
-    secondaryMetrics,
-    guardrailMetrics,
-  ]);
+      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+    }, [
+      goalMetrics,
+      metricGroups,
+      ssrPolyfills?.metricGroups,
+      secondaryMetrics,
+      guardrailMetrics,
+    ]);
 
   // Data for the metric graphs
   const metricSections = useMemo<Metric[]>(() => {
@@ -152,12 +156,137 @@ const DateResults: FC<{
       return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
     });
 
-    // Merge goal and guardrail metrics
+    // Build per-date datapoints for one series. `readMetricId` selects which
+    // stats to read (bare metric or funnel step id); `metricForFormat` drives
+    // formatting and highlighting.
+    const buildDatapoints = (
+      readMetricId: string,
+      metricForFormat: ExperimentMetricDefinition,
+    ): ExperimentDateGraphDataPoint[] => {
+      // Keep track of cumulative users and value for each variation
+      const totalUsers: number[] = [];
+      const totalValue: number[] = [];
+      const totalDenominator: number[] = [];
+
+      return sortedResults.map((d) => {
+        const baseline = d.variations[0]?.metrics?.[readMetricId];
+        return {
+          d: getValidDateOffsetByUTC(d.name),
+          variations: variations.map((variation, i) => {
+            const stats = d.variations[i]?.metrics?.[readMetricId];
+            const value = stats?.value;
+            const uplift = stats?.uplift;
+
+            totalUsers[i] = totalUsers[i] || 0;
+            totalValue[i] = totalValue[i] || 0;
+            totalDenominator[i] = totalDenominator[i] || 0;
+
+            totalUsers[i] += stats?.users || 0;
+            totalValue[i] += value || 0;
+            totalDenominator[i] += stats?.denominator || stats?.users || 0;
+
+            const v = value || 0;
+            let ci: [number, number] | undefined = undefined;
+            // Since this is relative uplift, the baseline is a horizontal line at zero
+            let up = 0;
+            // For non-baseline variations and cumulative turned off, include error bars
+            if (i && !cumulative) {
+              const x = uplift?.mean || 0;
+              // const sx = uplift?.stddev || 0;
+              const dist = uplift?.dist || "";
+              ci = stats?.ci;
+              if (dist === "lognormal") {
+                up = Math.exp(x) - 1;
+              } else {
+                up = x;
+              }
+            }
+            // For non-baseline variations and cumulative turned ON, calculate uplift from cumulative data
+            else if (i) {
+              const crA = totalDenominator[0]
+                ? totalValue[0] / totalDenominator[0]
+                : 0;
+              const crB = totalDenominator[i]
+                ? totalValue[i] / totalDenominator[i]
+                : 0;
+              if (differenceType === "absolute") {
+                up = crB - crA;
+              } else {
+                up = crA ? (crB - crA) / Math.abs(crA) : 0;
+              }
+            }
+
+            const v_formatted = getExperimentMetricFormatter(
+              metricForFormat,
+              ssrPolyfills?.getFactTableById || getFactTableById,
+            )(
+              cumulative
+                ? totalDenominator[i]
+                  ? totalValue[i] / totalDenominator[i]
+                  : 0
+                : stats?.cr || 0,
+              { currency: displayCurrency },
+            );
+
+            const p = stats?.pValueAdjusted ?? stats?.pValue ?? 1;
+            const ctw = stats?.chanceToWin;
+
+            const statSig = isStatSig(p, pValueThreshold);
+
+            const highlight =
+              !cumulative &&
+              shouldHighlight({
+                metric: metricForFormat,
+                baseline,
+                stats,
+                hasEnoughData: true,
+                belowMinChange: false,
+              });
+
+            let className = "";
+            if (i && highlight) {
+              if (statsEngine === "frequentist" && statSig) {
+                const expectedDirection = isExpectedDirection(
+                  stats,
+                  metricForFormat,
+                );
+                if (expectedDirection) {
+                  className = "won";
+                } else {
+                  className = "lost";
+                }
+              } else if (statsEngine === "bayesian" && ctw) {
+                if (ctw > ciUpper) {
+                  className = "won";
+                } else if (ctw < ciLower) {
+                  className = "lost";
+                }
+              }
+            }
+
+            const users = cumulative ? totalUsers[i] : stats?.users || 0;
+
+            return {
+              v,
+              v_formatted,
+              users,
+              up,
+              ci,
+              p,
+              ctw,
+              className,
+            };
+          }),
+        };
+      });
+    };
+
+    // One section per metric, deduped across goal, secondary, and guardrail.
     return (
       Array.from(
         new Set(
-          expandedGoals.concat(expandedSecondaries).concat(expandedGuardrails)
-        )
+          expandedGoals.concat(expandedSecondaries).concat(expandedGuardrails),
+        ),
       )
         .map((metricId) => {
           const metric =
@@ -165,134 +294,35 @@ const DateResults: FC<{
             getExperimentMetricById(metricId);
 
           if (!metric) return;
-          // Keep track of cumulative users and value for each variation
-          const totalUsers: number[] = [];
-          const totalValue: number[] = [];
-          const totalDenominator: number[] = [];
 
-          const datapoints: ExperimentDateGraphDataPoint[] = sortedResults.map(
-            (d) => {
-              const baseline = d.variations[0]?.metrics?.[metricId];
-              return {
-                d: getValidDateOffsetByUTC(d.name),
-                variations: variations.map((variation, i) => {
-                  const stats = d.variations[i]?.metrics?.[metricId];
-                  const value = stats?.value;
-                  const uplift = stats?.uplift;
-
-                  totalUsers[i] = totalUsers[i] || 0;
-                  totalValue[i] = totalValue[i] || 0;
-                  totalDenominator[i] = totalDenominator[i] || 0;
-
-                  totalUsers[i] += stats?.users || 0;
-                  totalValue[i] += value || 0;
-                  totalDenominator[i] +=
-                    stats?.denominator || stats?.users || 0;
-
-                  const v = value || 0;
-                  let ci: [number, number] | undefined = undefined;
-                  // Since this is relative uplift, the baseline is a horizontal line at zero
-                  let up = 0;
-                  // For non-baseline variations and cumulative turned off, include error bars
-                  if (i && !cumulative) {
-                    const x = uplift?.mean || 0;
-                    // const sx = uplift?.stddev || 0;
-                    const dist = uplift?.dist || "";
-                    ci = stats?.ci;
-                    if (dist === "lognormal") {
-                      up = Math.exp(x) - 1;
-                    } else {
-                      up = x;
-                    }
-                  }
-                  // For non-baseline variations and cumulative turned ON, calculate uplift from cumulative data
-                  else if (i) {
-                    const crA = totalDenominator[0]
-                      ? totalValue[0] / totalDenominator[0]
-                      : 0;
-                    const crB = totalDenominator[i]
-                      ? totalValue[i] / totalDenominator[i]
-                      : 0;
-                    if (differenceType === "absolute") {
-                      up = crB - crA;
-                    } else {
-                      up = crA ? (crB - crA) / crA : 0;
-                    }
-                  }
-
-                  const v_formatted = getExperimentMetricFormatter(
-                    metric,
-                    ssrPolyfills?.getFactTableById || getFactTableById
-                  )(
-                    cumulative
-                      ? totalDenominator[i]
-                        ? totalValue[i] / totalDenominator[i]
-                        : 0
-                      : stats?.cr || 0,
-                    { currency: displayCurrency }
-                  );
-
-                  const p = stats?.pValueAdjusted ?? stats?.pValue ?? 1;
-                  const ctw = stats?.chanceToWin;
-
-                  const statSig = isStatSig(p, pValueThreshold);
-
-                  const highlight =
-                    !cumulative &&
-                    shouldHighlight({
-                      metric,
-                      baseline,
-                      stats,
-                      hasEnoughData: true,
-                      belowMinChange: false,
-                    });
-
-                  let className = "";
-                  if (i && highlight) {
-                    if (statsEngine === "frequentist" && statSig) {
-                      const expectedDirection = isExpectedDirection(
-                        stats,
-                        metric
-                      );
-                      if (expectedDirection) {
-                        className = "won";
-                      } else {
-                        className = "lost";
-                      }
-                    } else if (statsEngine === "bayesian" && ctw) {
-                      if (ctw > ciUpper) {
-                        className = "won";
-                      } else if (ctw < ciLower) {
-                        className = "lost";
-                      }
-                    }
-                  }
-
-                  const users = cumulative ? totalUsers[i] : stats?.users || 0;
-
-                  return {
-                    v,
-                    v_formatted,
-                    users,
-                    up,
-                    ci,
-                    p,
-                    ctw,
-                    className,
-                  };
-                }),
-              };
-            }
+          const resultGroup = getMetricResultGroup(
+            metric.id,
+            expandedGoals,
+            expandedSecondaries,
           );
+
+          if (isFactFunnelMetric(metric)) {
+            return {
+              metric,
+              resultGroup,
+              charts: metric.funnelSettings.steps.map((step, stepIndex) => ({
+                label: `Step ${stepIndex + 1}: ${step.name}${
+                  step.optional ? " (optional)" : ""
+                }`,
+                datapoints: buildDatapoints(
+                  funnelStepMetricId(metric.id, stepIndex),
+                  metric,
+                ),
+              })),
+            };
+          }
 
           return {
             metric,
-            resultGroup: getMetricResultGroup(
-              metric.id,
-              expandedGoals,
-              expandedSecondaries
-            ),
-            datapoints,
+            resultGroup,
+            charts: [
+              { label: null, datapoints: buildDatapoints(metric.id, metric) },
+            ],
           };
         })
         // Filter out any edge cases when the metric is undefined
@@ -332,27 +362,26 @@ const DateResults: FC<{
           </div>
           <div>
             <Tooltip
-              body="Cumulative charts disabled for Scaled Impact difference type"
-              shouldDisplay={differenceType === "scaled"}
+              content="Cumulative charts disabled for Scaled Impact difference type"
+              enabled={differenceType === "scaled"}
             >
-              <Toggle
-                label="Cumulative"
+              <Switch
                 id="cumulative"
+                label="Cumulative"
                 value={cumulative}
-                setValue={setCumulative}
+                onChange={setCumulative}
                 disabled={differenceType === "scaled"}
               />
             </Tooltip>
-            Cumulative
           </div>
         </div>
       )}
       <div className="mb-5">
-        <h2>Users</h2>
+        <h2>Units</h2>
         <ExperimentDateGraph
           yaxis="users"
-          variationNames={variations.map((v) => v.name)}
-          label="Users"
+          variations={variations}
+          label="Units"
           datapoints={users}
           formatter={formatNumber}
           cumulative={cumulative}
@@ -374,7 +403,7 @@ const DateResults: FC<{
         </>
       )}
 
-      {metricSections.map(({ metric, resultGroup, datapoints }) => (
+      {metricSections.map(({ metric, resultGroup, charts }) => (
         <div className="mb-5" key={metric.id}>
           <h3>
             {metric.name}{" "}
@@ -382,24 +411,38 @@ const DateResults: FC<{
               <Badge color="gray" label={resultGroup} />
             )}
           </h3>
-          {!quantileMetricType(metric) || !cumulative ? (
-            <ExperimentDateGraph
-              yaxis="effect"
-              datapoints={datapoints}
-              label={getEffectLabel(differenceType ?? "relative")}
-              formatter={
-                differenceType === "relative"
-                  ? formatPercent
-                  : getExperimentMetricFormatter(metric, getFactTableById, true)
-              }
-              formatterOptions={metricFormatterOptions}
-              variationNames={variations.map((v) => v.name)}
-              statsEngine={statsEngine}
-              hasStats={!cumulative}
-            />
-          ) : (
-            <>No cumulative graph available for quantile metrics</>
-          )}
+          {charts.map((chart, chartIndex) => (
+            <div
+              className={chart.label !== null ? "mb-4 ml-3" : ""}
+              key={chart.label ?? chartIndex}
+            >
+              {chart.label !== null && <h5 className="mb-1">{chart.label}</h5>}
+              {!quantileMetricType(metric) || !cumulative ? (
+                <ExperimentDateGraph
+                  yaxis="effect"
+                  datapoints={chart.datapoints}
+                  label={getEffectLabel(differenceType ?? "relative")}
+                  formatter={
+                    differenceType === "relative"
+                      ? formatPercent
+                      : getExperimentMetricFormatter(
+                          metric,
+                          getFactTableById,
+                          differenceType === "absolute"
+                            ? "percentagePoints"
+                            : "number",
+                        )
+                  }
+                  formatterOptions={metricFormatterOptions}
+                  variations={variations}
+                  statsEngine={statsEngine}
+                  hasStats={!cumulative}
+                />
+              ) : (
+                <>No cumulative graph available for quantile metrics</>
+              )}
+            </div>
+          ))}
         </div>
       ))}
     </div>

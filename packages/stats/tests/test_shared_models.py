@@ -1,16 +1,29 @@
 """This file tests statistic variances for two reasons:
 1. Demonstrating of the expected inputs
 2. Demonstrating equivalence to numpy methods that take raw data"""
+
 from unittest import TestCase, main as unittest_main
-
 import numpy as np
+from dataclasses import asdict
+from typing import Literal
 
+from gbstats.messages import ZERO_NEGATIVE_VARIANCE_MESSAGE
 from gbstats.models.statistics import (
     ProportionStatistic,
     RatioStatistic,
+    RegressionAdjustedRatioStatistic,
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
+    QuantileStatistic,
     compute_theta,
+)
+
+from gbstats.frequentist.tests import FrequentistConfig, TwoSidedTTest
+
+from gbstats.models.tests import (
+    EffectMoments,
+    EffectMomentsConfig,
+    sum_stats,
 )
 
 N = 4
@@ -60,7 +73,7 @@ class TestRatioStatistic(TestCase):
         stat = RatioStatistic(
             m_statistic=m_stat,
             d_statistic=d_stat,
-            m_d_sum_of_products=np.sum(METRIC_1 * METRIC_3),
+            m_d_sum_of_products=float(np.sum(METRIC_1 * METRIC_3)),
             n=N,
         )
         expected_covariance = np.cov(METRIC_1, METRIC_3)
@@ -77,7 +90,7 @@ class TestRatioStatistic(TestCase):
         stat = RatioStatistic(
             m_statistic=m_stat,
             d_statistic=d_stat,
-            m_d_sum_of_products=np.sum(METRIC_1 * METRIC_3),
+            m_d_sum_of_products=float(np.sum(METRIC_1 * METRIC_3)),
             n=N,
         )
         self.assertEqual(stat.variance, 0)
@@ -95,7 +108,7 @@ class TestRegressionAdjustedStatistic(TestCase):
             post_statistic=post_stat,
             pre_statistic=pre_stat,
             n=N,
-            post_pre_sum_of_products=np.sum(METRIC_1 * METRIC_3),
+            post_pre_sum_of_products=float(np.sum(METRIC_1 * METRIC_3)),
             theta=0,
         )
         expected_unadjusted_mean = np.mean(METRIC_3)
@@ -103,7 +116,10 @@ class TestRegressionAdjustedStatistic(TestCase):
         self.assertEqual(ra_stat.mean, expected_unadjusted_mean)
         self.assertEqual(ra_stat.variance, ra_stat.post_statistic.variance)
 
-        ra_stat.theta = 0.23
+        ra_stat_temp = {k: v for k, v in asdict(ra_stat).items() if k != "theta"}
+        ra_stat_temp["theta"] = 0.23
+        ra_stat = RegressionAdjustedStatistic(**ra_stat_temp)
+
         self.assertNotEqual(ra_stat.unadjusted_mean, ra_stat.mean)
         self.assertNotEqual(ra_stat.variance, ra_stat.post_statistic.variance)
         self.assertEqual(ra_stat.unadjusted_mean, expected_unadjusted_mean)
@@ -121,7 +137,7 @@ class TestRegressionAdjustedStatistic(TestCase):
             post_statistic=post_stat,
             pre_statistic=pre_stat,
             n=n_small,
-            post_pre_sum_of_products=np.sum(METRIC_1 * METRIC_3),
+            post_pre_sum_of_products=float(np.sum(METRIC_1 * METRIC_3)),
             theta=0.3,
         )
         self.assertEqual(ra_stat.variance, 0)
@@ -145,22 +161,295 @@ class TestComputeTheta(TestCase):
             post_statistic=post_stat_a,
             pre_statistic=pre_stat_a,
             n=N,
-            post_pre_sum_of_products=np.sum(METRIC_1 * METRIC_3),
+            post_pre_sum_of_products=float(np.sum(METRIC_1 * METRIC_3)),
             theta=999,
         )
         ra_stat_b = RegressionAdjustedStatistic(
             post_statistic=post_stat_b,
             pre_statistic=pre_stat_b,
             n=N,
-            post_pre_sum_of_products=np.sum(METRIC_1 * METRIC_3),
+            post_pre_sum_of_products=float(np.sum(METRIC_1 * METRIC_3)),
             theta=999,
         )
         self.assertEqual(round(compute_theta(ra_stat_a, ra_stat_b), 5), 0.01864)
-        pre_stat_a.sum = 0
-        pre_stat_a.sum_squares = 0
-        pre_stat_b.sum = 0
-        pre_stat_b.sum_squares = 0
+
+        pre_stat_a = SampleMeanStatistic(n=N, sum=0, sum_squares=0)
+        pre_stat_b = SampleMeanStatistic(n=N, sum=0, sum_squares=0)
+        ra_stat_a = RegressionAdjustedStatistic(
+            post_statistic=post_stat_a,
+            pre_statistic=pre_stat_a,
+            n=N,
+            post_pre_sum_of_products=0,
+            theta=999,
+        )
+        ra_stat_b = RegressionAdjustedStatistic(
+            post_statistic=post_stat_b,
+            pre_statistic=pre_stat_b,
+            n=N,
+            post_pre_sum_of_products=0,
+            theta=999,
+        )
         self.assertEqual(compute_theta(ra_stat_a, ra_stat_b), 0)
+
+
+class TestSumStats(TestCase):
+    def setUp(self):
+        self.stat_a_0 = SampleMeanStatistic(n=500, sum=10, sum_squares=75)
+        self.stat_a_1 = SampleMeanStatistic(n=500, sum=40, sum_squares=73)
+        self.stat_a_2 = SampleMeanStatistic(n=500, sum=10, sum_squares=75)
+        self.stat_a_3 = SampleMeanStatistic(n=500, sum=40, sum_squares=73)
+        self.stat_b_0 = SampleMeanStatistic(n=500, sum=4, sum_squares=7)
+        self.stat_b_1 = SampleMeanStatistic(n=500, sum=20, sum_squares=13)
+        self.stat_b_2 = SampleMeanStatistic(n=500, sum=4, sum_squares=7)
+        self.stat_b_3 = SampleMeanStatistic(n=500, sum=20, sum_squares=13)
+
+        nu = 0.9
+        n_c = 11054
+        n_t = 10861
+        quantile_hat_c = 7.157987489967789
+        quantile_hat_t = 7.694499927525767
+        quantile_lower_c = 7.098780136176828
+        quantile_lower_t = 7.64180598628119
+        quantile_upper_c = 7.217194843758751
+        quantile_upper_t = 7.747193868770344
+        self.q_stat_c = QuantileStatistic(
+            n=n_c,
+            n_star=n_c,
+            nu=nu,
+            quantile_hat=quantile_hat_c,
+            quantile_lower=quantile_lower_c,
+            quantile_upper=quantile_upper_c,
+        )
+        self.q_stat_t = QuantileStatistic(
+            n=n_t,
+            n_star=n_t,
+            nu=nu,
+            quantile_hat=quantile_hat_t,
+            quantile_lower=quantile_lower_t,
+            quantile_upper=quantile_upper_t,
+        )
+
+    # assert we can sum statistics
+    def test_sum_correct(self):
+        stat_a_true = self.stat_a_0 + self.stat_a_1 + self.stat_a_2 + self.stat_a_3
+        stat_b_true = self.stat_b_0 + self.stat_b_1 + self.stat_b_2 + self.stat_b_3
+        stat_a, stat_b = sum_stats(
+            [
+                (self.stat_a_0, self.stat_b_0),
+                (self.stat_a_1, self.stat_b_1),
+                (self.stat_a_2, self.stat_b_2),
+                (self.stat_a_3, self.stat_b_3),
+            ]
+        )
+        self.assertEqual(stat_a, stat_a_true)
+        self.assertEqual(stat_b, stat_b_true)
+
+    # assert that if there is only one quantile statistic, we can sum it
+    def test_quantile_success(self):
+        q_stat_c_2, q_stat_t_2 = sum_stats([(self.q_stat_c, self.q_stat_t)])
+        self.assertEqual(q_stat_c_2, self.q_stat_c)
+        self.assertEqual(q_stat_t_2, self.q_stat_t)
+
+    # assert that if we pass in multiple quantile statistics, we get error
+    def test_quantile_failure(self):
+        with self.assertRaises(ValueError):
+            sum_stats([(self.q_stat_c, self.q_stat_t), (self.q_stat_c, self.q_stat_t)])
+
+
+class TestQuantileStatisticZeroVariance(TestCase):
+    # Collapsed bounds (lower == upper) can happen at any n: sketch resolution
+    # at very high n, or an atom at the quantile for discrete data. Both must
+    # route to the zero-variance error path instead of a floored variance.
+    def make_stat(self, n: int, lower: float, upper: float) -> QuantileStatistic:
+        return QuantileStatistic(
+            n=n,
+            n_star=n,
+            nu=0.9,
+            quantile_hat=5.0,
+            quantile_lower=lower,
+            quantile_upper=upper,
+        )
+
+    def test_collapsed_bounds_large_n_has_zero_variance(self):
+        stat = self.make_stat(n=60_000_000, lower=5.0, upper=5.0)
+        self.assertTrue(stat._has_zero_variance)
+
+    def test_collapsed_bounds_small_n_has_zero_variance(self):
+        stat = self.make_stat(n=999, lower=5.0, upper=5.0)
+        self.assertTrue(stat._has_zero_variance)
+
+    def test_distinct_bounds_no_zero_variance(self):
+        stat = self.make_stat(n=60_000_000, lower=4.99, upper=5.01)
+        self.assertFalse(stat._has_zero_variance)
+
+    def test_collapsed_bounds_returns_error_message(self):
+        stat_a = self.make_stat(n=60_000_000, lower=5.0, upper=5.0)
+        stat_b = self.make_stat(n=60_000_000, lower=4.99, upper=5.01)
+        moments = EffectMoments(
+            [(stat_a, stat_b)],
+            config=EffectMomentsConfig(difference_type="absolute"),
+        )
+        self.assertEqual(
+            moments.compute_result().error_message, ZERO_NEGATIVE_VARIANCE_MESSAGE
+        )
+
+
+# Statistics for EffectMoments
+RASTAT_A = RegressionAdjustedStatistic(
+    post_statistic=ProportionStatistic(n=4, sum=1),
+    pre_statistic=ProportionStatistic(n=4, sum=0),
+    n=4,
+    post_pre_sum_of_products=0,
+    theta=None,
+)
+
+RASTAT_B = RegressionAdjustedStatistic(
+    post_statistic=ProportionStatistic(n=3, sum=1),
+    pre_statistic=ProportionStatistic(n=3, sum=1),
+    n=3,
+    post_pre_sum_of_products=1,
+    theta=None,
+)
+
+
+class TestEffectMomentsResult(TestCase):
+    def test_negative_variance(self):
+        stat_a_init = {
+            k: v for k, v in asdict(RASTAT_A).items() if k != "post_statistic"
+        }
+        stat_b = RASTAT_B
+        post_statistic = ProportionStatistic(n=RASTAT_A.n, sum=-7)
+        stat_a = RegressionAdjustedStatistic(
+            **stat_a_init, post_statistic=post_statistic
+        )
+        test = TwoSidedTTest(
+            stats=[(stat_a, stat_b)],
+            config=FrequentistConfig(difference_type="absolute"),
+        )
+        moments = EffectMoments(
+            [(test.stat_a, test.stat_b)],
+            config=EffectMomentsConfig(difference_type="absolute"),
+        )
+        self.assertEqual(moments.variance, -1.1023019547325101)
+        self.assertEqual(
+            moments.compute_result().error_message, ZERO_NEGATIVE_VARIANCE_MESSAGE
+        )
+
+
+class TestEffectMomentsNegativeBaseline(TestCase):
+    def _moments(
+        self,
+        mean_a: float,
+        mean_b: float,
+        difference_type: Literal["relative", "absolute"],
+    ):
+        n = 1000
+        # Same spread either side so the only thing that differs is the mean.
+        stat_a = SampleMeanStatistic(
+            n=n, sum=mean_a * n, sum_squares=(mean_a**2 + 4) * n
+        )
+        stat_b = SampleMeanStatistic(
+            n=n, sum=mean_b * n, sum_squares=(mean_b**2 + 4) * n
+        )
+        return EffectMoments(
+            [(stat_a, stat_b)],
+            config=EffectMomentsConfig(difference_type=difference_type),
+        ).compute_result()
+
+    def test_relative_sign_matches_absolute_sign(self):
+        for mean_a, mean_b in [(-10, -5), (-10, -15), (-2, 3), (10, 15), (10, 5)]:
+            absolute = self._moments(mean_a, mean_b, "absolute")
+            relative = self._moments(mean_a, mean_b, "relative")
+            self.assertIsNone(absolute.error_message)
+            self.assertIsNone(relative.error_message)
+            self.assertEqual(
+                np.sign(relative.point_estimate),
+                np.sign(absolute.point_estimate),
+                msg=f"sign mismatch for baseline {mean_a} -> {mean_b}",
+            )
+
+    def test_relative_magnitude_scaled_by_baseline_magnitude(self):
+        relative = self._moments(-10, -5, "relative")
+        self.assertAlmostEqual(relative.point_estimate, 0.5)
+        self.assertGreater(relative.standard_error, 0)
+
+
+class TestEffectMomentsCupedRatioNegativeBaseline(TestCase):
+    """Negating the metric negates the relative lift exactly, so the standard
+    error must be identical for the positive- and negative-baseline versions
+    of the same data. The negation pair alone cannot catch a variance error
+    that is itself sign-symmetric, so the golden standard errors (validated
+    against a finite-difference delta-method computation) pin the magnitude."""
+
+    @staticmethod
+    def _stat(
+        m_post: np.ndarray, d_post: np.ndarray, m_pre: np.ndarray, d_pre: np.ndarray
+    ) -> RegressionAdjustedRatioStatistic:
+        n = len(m_post)
+        return RegressionAdjustedRatioStatistic(
+            n=n,
+            m_statistic_post=SampleMeanStatistic(
+                n=n, sum=float(np.sum(m_post)), sum_squares=float(np.sum(m_post**2))
+            ),
+            d_statistic_post=SampleMeanStatistic(
+                n=n, sum=float(np.sum(d_post)), sum_squares=float(np.sum(d_post**2))
+            ),
+            m_statistic_pre=SampleMeanStatistic(
+                n=n, sum=float(np.sum(m_pre)), sum_squares=float(np.sum(m_pre**2))
+            ),
+            d_statistic_pre=SampleMeanStatistic(
+                n=n, sum=float(np.sum(d_pre)), sum_squares=float(np.sum(d_pre**2))
+            ),
+            m_post_m_pre_sum_of_products=float(np.sum(m_post * m_pre)),
+            d_post_d_pre_sum_of_products=float(np.sum(d_post * d_pre)),
+            m_pre_d_pre_sum_of_products=float(np.sum(m_pre * d_pre)),
+            m_post_d_post_sum_of_products=float(np.sum(m_post * d_post)),
+            m_post_d_pre_sum_of_products=float(np.sum(m_post * d_pre)),
+            m_pre_d_post_sum_of_products=float(np.sum(m_pre * d_post)),
+            theta=0.5,
+        )
+
+    # Treatment numerators roughly 11x and 9x the denominators, versus 10x for
+    # control, so the two datasets give an improving and a declining lift. Both
+    # directions matter: they exercise all four sign combinations of the
+    # baseline mean and the mean difference in the variance gradient.
+    M_POST_B_IMPROVING = np.array([17.0, 12.0, 23.0, 28.0, 12.0, 22.0, 29.0, 16.0])
+    M_POST_B_DECLINING = np.array([14.0, 9.0, 17.0, 23.0, 9.0, 18.0, 22.0, 13.0])
+
+    def _moments(self, sign: int, m_post_b: np.ndarray):
+        d_post_a = np.array([1.0, 2.0, 1.5, 2.5, 2.0, 1.0, 1.5, 2.5])
+        d_pre_a = np.array([1.5, 1.0, 2.0, 2.0, 2.5, 1.0, 1.0, 2.0])
+        m_post_a = sign * np.array([12.0, 19.0, 16.0, 24.0, 21.0, 9.0, 14.0, 26.0])
+        m_pre_a = sign * np.array([16.0, 11.0, 21.0, 19.0, 26.0, 11.0, 9.0, 21.0])
+        d_post_b = np.array([1.5, 1.0, 2.0, 2.5, 1.0, 2.0, 2.5, 1.5])
+        d_pre_b = np.array([1.0, 1.5, 2.0, 2.5, 1.0, 2.5, 2.0, 1.5])
+        m_pre_b = sign * np.array([11.0, 17.0, 22.0, 27.0, 10.0, 27.0, 21.0, 16.0])
+        return EffectMoments(
+            [
+                (
+                    self._stat(m_post_a, d_post_a, m_pre_a, d_pre_a),
+                    self._stat(sign * m_post_b, d_post_b, m_pre_b, d_pre_b),
+                )
+            ],
+            config=EffectMomentsConfig(difference_type="relative"),
+        ).compute_result()
+
+    def test_negating_the_metric_negates_lift_and_keeps_standard_error(self):
+        for label, m_post_b, expected_lift, expected_se in [
+            ("improving", self.M_POST_B_IMPROVING, 0.1039280, 0.0286196),
+            ("declining", self.M_POST_B_DECLINING, -0.1372068, 0.0223934),
+        ]:
+            with self.subTest(treatment=label):
+                positive = self._moments(1, m_post_b)
+                negative = self._moments(-1, m_post_b)
+                self.assertIsNone(positive.error_message)
+                self.assertIsNone(negative.error_message)
+                self.assertAlmostEqual(positive.point_estimate, expected_lift)
+                self.assertAlmostEqual(positive.standard_error, expected_se)
+                self.assertAlmostEqual(
+                    negative.point_estimate, -positive.point_estimate
+                )
+                self.assertAlmostEqual(negative.standard_error, positive.standard_error)
 
 
 if __name__ == "__main__":

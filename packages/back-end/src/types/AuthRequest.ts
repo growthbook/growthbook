@@ -1,37 +1,44 @@
 import { Request, Response } from "express";
+import { UserScopedGrowthBook } from "@growthbook/growthbook";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
+import { AuditInterface } from "shared/types/audit";
 import {
   EnvScopedPermission,
   GlobalPermission,
   OrganizationInterface,
   ProjectScopedPermission,
-} from "back-end/types/organization";
-import { AuditInterface } from "back-end/types/audit";
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
-import { TeamInterface } from "back-end/types/team";
-import { UserInterface } from "back-end/types/user";
+} from "shared/types/organization";
+import { TeamInterface } from "shared/types/team";
+import { UserInterface } from "shared/types/user";
+import { AppFeatures } from "shared/types/app-features";
 
 export type PermissionFunctions = {
   checkPermissions(permission: GlobalPermission): void;
   checkPermissions(
     permission: ProjectScopedPermission,
-    project: string | string[] | undefined
+    project: string | string[] | undefined,
   ): void;
   checkPermissions(
     permission: EnvScopedPermission,
     project: string | (string | undefined)[] | undefined,
-    envs: string[] | Set<string>
+    envs: string[] | Set<string>,
   ): void;
 };
 
-// eslint-disable-next-line
 export type AuthRequest<
   Body = unknown,
   Params = unknown,
-  QueryParams = unknown
+  QueryParams = unknown,
 > = Request<Params, unknown, Body, QueryParams> & {
   currentUser: Pick<
     UserInterface,
-    "email" | "id" | "name" | "verified" | "superAdmin"
+    | "email"
+    | "id"
+    | "name"
+    | "verified"
+    | "superAdmin"
+    | "npsSurveyAt"
+    | "dateCreated"
   >;
   email: string;
   verified?: boolean;
@@ -39,15 +46,21 @@ export type AuthRequest<
   loginMethod?: SSOConnectionInterface;
   authSubject?: string;
   name?: string;
+  vercelInstallationId?: string;
   superAdmin?: boolean;
   organization?: OrganizationInterface;
   teams: TeamInterface[];
   audit: (
-    data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">
+    data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">,
   ) => Promise<void>;
+  gb?: UserScopedGrowthBook<AppFeatures>;
 } & PermissionFunctions;
 
 export type ResponseWithStatusAndError<T = unknown> = Response<
   | (T & { status: 200 })
-  | { status: 400 | 401 | 403 | 404 | 405 | 406; message: string }
+  | {
+      status: 400 | 401 | 403 | 404 | 405 | 406 | 429;
+      message: string;
+      retryAfter?: number;
+    }
 >;

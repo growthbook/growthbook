@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Link from "@/components/Radix/Link";
-import Callout from "@/components/Radix/Callout";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 export default function ExperimentLookupPage() {
   const router = useRouter();
@@ -16,11 +16,11 @@ export default function ExperimentLookupPage() {
   useEffect(() => {
     apiCall<{ experimentId: string | null }>(
       `/experiments/tracking-key?trackingKey=${encodeURIComponent(
-        trackingKey + ""
+        trackingKey + "",
       )}`,
       {
         method: "GET",
-      }
+      },
     )
       .then((res) => {
         if (res.experimentId) {
@@ -35,7 +35,7 @@ export default function ExperimentLookupPage() {
   }, [trackingKey, apiCall, router]);
 
   if (error) {
-    return <div className="alert alert-danger">{error}</div>;
+    return <Callout status="error">{error}</Callout>;
   }
 
   if (loading) {
@@ -46,7 +46,7 @@ export default function ExperimentLookupPage() {
     <div className="container-fluid pagecontents pt-4">
       <Callout status="error">Experiment not found</Callout>
       <div className="mt-3 px-3">
-        <Link href="/experiments" size="3">
+        <Link href="/experiments" size="lg">
           All Experiments
         </Link>
       </div>

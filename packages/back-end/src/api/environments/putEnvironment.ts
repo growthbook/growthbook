@@ -1,13 +1,16 @@
-import { PutEnvironmentResponse } from "back-end/types/openapi";
+import { putEnvironmentValidator } from "shared/validators";
+import { OrganizationInterface } from "shared/types/organization";
+import { isEqual } from "lodash";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { putEnvironmentValidator } from "back-end/src/validators/openapi";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { OrganizationInterface } from "back-end/types/organization";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { validatePayload } from "./validations";
 
 export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
-  async (req): Promise<PutEnvironmentResponse> => {
+  async (req) => {
     const id = req.params.id;
     const org = req.context.org;
     const environments = org.settings?.environments || [];
@@ -25,7 +28,7 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
     if (
       !req.context.permissions.canUpdateEnvironment(
         environment,
-        updatedEnvironment
+        updatedEnvironment,
       )
     )
       req.context.permissions.throwPermissionError();
@@ -34,7 +37,7 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
       settings: {
         ...org.settings,
         environments: environments.map((env) =>
-          env.id === id ? updatedEnvironment : env
+          env.id === id ? updatedEnvironment : env,
         ),
       },
     };
@@ -50,8 +53,32 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
       details: auditDetailsUpdate(environment, updatedEnvironment),
     });
 
+    if (environment.projects) {
+      const existingProjects = environment.projects;
+      const newProjects = updatedEnvironment.projects;
+
+      if (!isEqual(existingProjects, newProjects)) {
+        const connections = await findSDKConnectionsByOrganization(req.context);
+        const affectedConnections = connections.filter(
+          (c) => c.environment === id,
+        );
+
+        // Re-read the org: req.context still holds the pre-update environments, which would rebuild payloads against the old project list
+        queueSDKPayloadRefresh({
+          context: await getContextForAgendaJobByOrgId(org.id),
+          payloadKeys: [],
+          sdkConnections: affectedConnections,
+          auditContext: {
+            event: "projects changed",
+            model: "environment",
+            id: id,
+          },
+        });
+      }
+    }
+
     return {
       environment: updatedEnvironment,
     };
-  }
+  },
 );

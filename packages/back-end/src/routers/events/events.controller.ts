@@ -1,6 +1,7 @@
 import type { Response } from "express";
+import { parseIntWithDefault, parseIntWithDefaultCapped } from "shared/util";
+import { EventInterface } from "shared/types/events/event";
 import * as Event from "back-end/src/models/EventModel";
-import { EventInterface } from "back-end/types/event";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -24,16 +25,16 @@ type GetEventsResponse = {
 
 export const getEvents = async (
   req: GetEventsRequest,
-  res: Response<GetEventsResponse | ApiErrorResponse>
+  res: Response<GetEventsResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { page, perPage, type, from, to, sortOrder } = req.query;
 
   const eventTypes = JSON.parse(type || "[]");
 
-  const cappedPerPage = Math.min(parseInt(perPage), 100);
+  const cappedPerPage = parseIntWithDefaultCapped(perPage, 30, 100);
   const events = await Event.getEventsForOrganization(context.org.id, {
-    page: parseInt(page),
+    page: parseIntWithDefault(page, 1),
     perPage: cappedPerPage,
     eventTypes,
     from,
@@ -43,7 +44,7 @@ export const getEvents = async (
 
   return res.json({
     events: events.filter((event) =>
-      context.permissions.canViewEvent(event.data)
+      context.permissions.canViewEvent(event.data),
     ),
   });
 };
@@ -60,7 +61,7 @@ type GetEventsCountResponse = {
 
 export const getEventsCount = async (
   req: GetEventsCountRequest,
-  res: Response<GetEventsCountResponse | ApiErrorResponse>
+  res: Response<GetEventsCountResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { type, from, to } = req.query;
@@ -82,13 +83,13 @@ type GetEventResponse = {
 
 export const getEventById = async (
   req: GetEventRequest,
-  res: Response<GetEventResponse | ApiErrorResponse>
+  res: Response<GetEventResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
   const event = await Event.getEventForOrganization(
     req.params.id,
-    context.org.id
+    context.org.id,
   );
   if (!event) {
     return res.status(404).json({ message: "Not Found" });

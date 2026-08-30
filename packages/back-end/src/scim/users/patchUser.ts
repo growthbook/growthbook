@@ -1,14 +1,14 @@
 import { cloneDeep } from "lodash";
 import { Response } from "express";
+import { Member, OrganizationInterface } from "shared/types/organization";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { ScimError, ScimPatchRequest, ScimUser } from "back-end/types/scim";
-import { Member, OrganizationInterface } from "back-end/types/organization";
 import { expandOrgMembers } from "back-end/src/services/organizations";
 import { expandedMembertoScimUser } from "./getUser";
 
 export async function removeUserFromOrg(
   org: OrganizationInterface,
-  user: Member
+  user: Member,
 ) {
   const updatedOrgMembers = cloneDeep(org.members);
 
@@ -17,7 +17,7 @@ export async function removeUserFromOrg(
 
   if (userIsAdmin) {
     const numberOfAdmins = org.members.filter(
-      (member) => member.role === "admin"
+      (member) => member.role === "admin",
     );
 
     if (numberOfAdmins.length === 1) {
@@ -34,7 +34,7 @@ export async function removeUserFromOrg(
 
 export async function patchUser(
   req: ScimPatchRequest,
-  res: Response<ScimUser | ScimError>
+  res: Response<ScimUser | ScimError>,
 ) {
   const { Operations } = req.body;
   const { id: userId } = req.params;
@@ -63,7 +63,7 @@ export async function patchUser(
 
   const updatedScimUser: ScimUser = expandedMembertoScimUser(
     expandedMember[0],
-    false
+    false,
   );
 
   for (const operation of Operations) {

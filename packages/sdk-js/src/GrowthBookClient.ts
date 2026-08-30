@@ -1,41 +1,46 @@
 import type {
   ApiHost,
+  Attributes,
+  AutoExperiment,
   ClientKey,
+  ClientOptions,
+  DestroyOptions,
+  EvalContext,
+  EventLogger,
+  EventProperties,
   Experiment,
   FeatureApiResponse,
+  FeatureDefinitions,
   FeatureResult,
-  RefreshFeaturesOptions,
-  Result,
-  WidenPrimitives,
-  EvalContext,
+  FeatureUsageCallback,
+  GlobalContext,
   InitOptions,
   InitResponse,
   InitSyncOptions,
-  GlobalContext,
-  UserContext,
-  ClientOptions,
-  FeatureDefinitions,
-  AutoExperiment,
-  TrackingCallbackWithUser,
-  Attributes,
-  TrackingCallback,
-  EventLogger,
-  EventProperties,
+  LogUnion,
   Plugin,
+  RefreshFeaturesOptions,
+  Result,
+  TrackingCallback,
+  TrackingCallbackWithUser,
+  UserContext,
+  WidenPrimitives,
 } from "./types/growthbook";
 import { loadSDKVersion } from "./util";
 import {
+  clearAutoRefresh,
   configureCache,
   refreshFeatures,
-  startStreaming,
+  startBackgroundSync,
   unsubscribe,
 } from "./feature-repository";
 import {
-  runExperiment,
+  decryptPayload,
   evalFeature as _evalFeature,
   getAllStickyBucketAssignmentDocs,
-  decryptPayload,
   getApiHosts,
+  getTrackingUserContext,
+  runExperiment,
 } from "./core";
 import { StickyBucketService } from "./sticky-bucket-service";
 
@@ -43,7 +48,7 @@ const SDK_VERSION = loadSDKVersion();
 
 export class GrowthBookClient<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AppFeatures extends Record<string, any> = Record<string, any>
+  AppFeatures extends Record<string, any> = Record<string, any>,
 > {
   public debug: boolean;
   public ready: boolean;
@@ -91,6 +96,9 @@ export class GrowthBookClient<
     if (data.savedGroups) {
       this._options.savedGroups = data.savedGroups;
     }
+    if (data.contextualBandits) {
+      this._options.contextualBandits = data.contextualBandits;
+    }
     this.ready = true;
   }
 
@@ -106,13 +114,19 @@ export class GrowthBookClient<
     if (payload.features) {
       this._features = payload.features;
     }
+    if (payload.savedGroups) {
+      this._options.savedGroups = payload.savedGroups;
+    }
+    if (payload.contextualBandits) {
+      this._options.contextualBandits = payload.contextualBandits;
+    }
     if (payload.experiments) {
       this._experiments = payload.experiments;
     }
 
     this.ready = true;
 
-    startStreaming(this, options);
+    startBackgroundSync(this, options);
 
     return this;
   }
@@ -126,7 +140,7 @@ export class GrowthBookClient<
 
     if (options.payload) {
       await this.setPayload(options.payload);
-      startStreaming(this, options);
+      startBackgroundSync(this, options);
       return {
         success: true,
         source: "init",
@@ -136,14 +150,14 @@ export class GrowthBookClient<
         ...options,
         allowStale: true,
       });
-      startStreaming(this, options);
+      startBackgroundSync(this, options);
       await this.setPayload(data || {});
       return res;
     }
   }
 
   public async refreshFeatures(
-    options?: RefreshFeaturesOptions
+    options?: RefreshFeaturesOptions,
   ): Promise<void> {
     const res = await this._refresh({
       ...(options || {}),
@@ -208,9 +222,13 @@ export class GrowthBookClient<
     this._options.globalAttributes = attributes;
   }
 
-  public destroy() {
+  public destroy(options?: DestroyOptions) {
+    options = options || {};
     this._destroyed = true;
     unsubscribe(this);
+    if (options.destroyAllStreams) {
+      clearAutoRefresh();
+    }
 
     // Release references to save memory
     this._features = {};
@@ -231,22 +249,26 @@ export class GrowthBookClient<
   public logEvent(
     eventName: string,
     properties: EventProperties,
-    userContext: UserContext
+    userContext: UserContext,
   ) {
     if (this._options.eventLogger) {
       const ctx = this._getEvalContext(userContext);
-      this._options.eventLogger(eventName, properties, ctx.user);
+      this._options.eventLogger(
+        eventName,
+        properties,
+        getTrackingUserContext(ctx.user),
+      );
     }
   }
 
   public runInlineExperiment<T>(
     experiment: Experiment<T>,
-    userContext: UserContext
+    userContext: UserContext,
   ): Result<T> {
     const { result } = runExperiment(
       experiment,
       null,
-      this._getEvalContext(userContext)
+      this._getEvalContext(userContext),
     );
     return result;
   }
@@ -279,39 +301,43 @@ export class GrowthBookClient<
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
+      contextualBandits: this._options.contextualBandits,
       forcedFeatureValues: this._options.forcedFeatureValues,
       forcedVariations: this._options.forcedVariations,
       trackingCallback: this._options.trackingCallback,
       onFeatureUsage: this._options.onFeatureUsage,
+      eventLogger: this._options.eventLogger,
     };
   }
 
   public isOn<K extends string & keyof AppFeatures = string>(
     key: K,
-    userContext: UserContext
+    userContext: UserContext,
   ): boolean {
     return this.evalFeature(key, userContext).on;
   }
 
   public isOff<K extends string & keyof AppFeatures = string>(
     key: K,
-    userContext: UserContext
+    userContext: UserContext,
   ): boolean {
     return this.evalFeature(key, userContext).off;
   }
 
   public getFeatureValue<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(key: K, defaultValue: V, userContext: UserContext): WidenPrimitives<V> {
-    const value = this.evalFeature<WidenPrimitives<V>, K>(key, userContext)
-      .value;
+    const value = this.evalFeature<WidenPrimitives<V>, K>(
+      key,
+      userContext,
+    ).value;
     return value === null ? (defaultValue as WidenPrimitives<V>) : value;
   }
 
   public evalFeature<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(id: K, userContext: UserContext): FeatureResult<V | null> {
     return _evalFeature(id, this._getEvalContext(userContext));
   }
@@ -326,49 +352,65 @@ export class GrowthBookClient<
     this._options.trackingCallback = callback;
   }
 
+  public setFeatureUsageCallback(callback: FeatureUsageCallback) {
+    this._options.onFeatureUsage = callback;
+  }
+
   public async applyStickyBuckets(
     partialContext: Omit<
       UserContext,
       "stickyBucketService" | "stickyBucketAssignmentDocs"
     >,
-    stickyBucketService: StickyBucketService
+    stickyBucketService: StickyBucketService,
   ): Promise<UserContext> {
     const ctx = this._getEvalContext(partialContext);
 
     const stickyBucketAssignmentDocs = await getAllStickyBucketAssignmentDocs(
       ctx,
-      stickyBucketService
+      stickyBucketService,
     );
 
-    const userContext: UserContext = {
+    return {
       ...partialContext,
       stickyBucketAssignmentDocs,
       saveStickyBucketAssignmentDoc: (doc) =>
         stickyBucketService.saveAssignments(doc),
     };
-
-    return userContext;
   }
 
-  public createScopedInstance(userContext: UserContext) {
-    return new UserScopedGrowthBook(this, userContext, this._options.plugins);
+  public createScopedInstance(
+    userContext: UserContext,
+    userPlugins?: Plugin[],
+  ) {
+    return new UserScopedGrowthBook(this, userContext, [
+      ...(this._options.plugins || []),
+      ...(userPlugins || []),
+    ]);
   }
 }
 
 export class UserScopedGrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AppFeatures extends Record<string, any> = Record<string, any>
+  AppFeatures extends Record<string, any> = Record<string, any>,
 > {
   private _gb: GrowthBookClient;
   private _userContext: UserContext;
+  public logs: Array<LogUnion>;
 
   constructor(
     gb: GrowthBookClient<AppFeatures>,
     userContext: UserContext,
-    plugins?: Plugin[]
+    plugins?: Plugin[],
   ) {
     this._gb = gb;
     this._userContext = userContext;
+    this.logs = [];
+
+    this._userContext.trackedExperiments =
+      this._userContext.trackedExperiments || new Set();
+    this._userContext.trackedFeatureUsage =
+      this._userContext.trackedFeatureUsage || {};
+    this._userContext.devLogs = this.logs;
 
     if (plugins) {
       for (const plugin of plugins) {
@@ -391,24 +433,38 @@ export class UserScopedGrowthBook<
 
   public getFeatureValue<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(key: K, defaultValue: V): WidenPrimitives<V> {
     return this._gb.getFeatureValue(key, defaultValue, this._userContext);
   }
 
   public evalFeature<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(id: K): FeatureResult<V | null> {
     return this._gb.evalFeature(id, this._userContext);
   }
 
   public logEvent(eventName: string, properties?: EventProperties) {
+    if (this._userContext.enableDevMode) {
+      this.logs.push({
+        eventName,
+        properties,
+        timestamp: Date.now().toString(),
+        logType: "event",
+      });
+    }
     this._gb.logEvent(eventName, properties || {}, this._userContext);
   }
 
   public setTrackingCallback(cb: TrackingCallback) {
     this._userContext.trackingCallback = cb;
+  }
+  public setFeatureUsageCallback(cb: FeatureUsageCallback) {
+    this._userContext.onFeatureUsage = cb;
+  }
+  public getApiInfo(): [ApiHost, ClientKey] {
+    return this._gb.getApiInfo();
   }
   public getClientKey() {
     return this._gb.getClientKey();
@@ -421,5 +477,27 @@ export class UserScopedGrowthBook<
       ...this._userContext.attributes,
       ...attributes,
     };
+  }
+  public setAttributeOverrides(overrides: Attributes) {
+    this._userContext.attributeOverrides = overrides;
+  }
+  public async setForcedVariations(vars: Record<string, number>) {
+    this._userContext.forcedVariations = vars || {};
+  }
+  // eslint-disable-next-line
+  public setForcedFeatures(map: Map<string, any>) {
+    this._userContext.forcedFeatureValues = map;
+  }
+  public getUserContext() {
+    return this._userContext;
+  }
+  public getVersion() {
+    return SDK_VERSION;
+  }
+  public getDecryptedPayload() {
+    return this._gb.getDecryptedPayload();
+  }
+  public inDevMode(): boolean {
+    return !!this._userContext.enableDevMode;
   }
 }

@@ -1,235 +1,337 @@
-import { useMemo, useState } from "react";
-import { ago } from "shared/dates";
-import { SavedGroupInterface } from "shared/src/types";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { date, datetime } from "shared/dates";
 import {
-  experimentsReferencingSavedGroups,
-  featuresReferencingSavedGroups,
-  isProjectListValidForProject,
-  truncateString,
-} from "shared/util";
-import { FaMagnifyingGlass } from "react-icons/fa6";
-import { isEmpty } from "lodash";
-import { Box } from "@radix-ui/themes";
+  SavedGroupInterface,
+  SavedGroupWithoutValues,
+} from "shared/types/saved-group";
+import { isProjectListValidForProject, truncateString } from "shared/util";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import { useEnvironments, useFeaturesList } from "@/services/features";
-import { useSearch } from "@/services/search";
-import { getSavedGroupMessage } from "@/pages/saved-groups";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import { useExperiments } from "@/hooks/useExperiments";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import {
+  draftStatusDots,
+  draftStatusTooltip,
+} from "@/components/Reviews/RevisionStatusBadge";
+import { useSavedGroupDraftStates } from "@/hooks/useSavedGroupDraftStates";
+import SavedGroupSearchFilters from "@/components/Search/SavedGroupSearchFilters";
+import TruncatedConditionDisplay from "./TruncatedConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
+import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
 
 export interface Props {
-  groups: SavedGroupInterface[];
-  mutate: () => void;
+  groups: SavedGroupWithoutValues[];
+  mutate: () => void | Promise<void>;
 }
 
 export default function ConditionGroups({ groups, mutate }: Props) {
-  const [
-    savedGroupForm,
-    setSavedGroupForm,
-  ] = useState<null | Partial<SavedGroupInterface>>(null);
-  const { project } = useDefinitions();
+  const [savedGroupForm, setSavedGroupForm] =
+    useState<null | Partial<SavedGroupInterface>>(null);
+  const [deleteModal, setDeleteModal] =
+    useState<SavedGroupWithoutValues | null>(null);
+  const { project, projects, getProjectById } = useDefinitions();
+  const { getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
-  const canCreate = permissionsUtil.canViewSavedGroupModal(project);
-  const canUpdate = (savedGroup: Pick<SavedGroupInterface, "projects">) =>
-    permissionsUtil.canUpdateSavedGroup(savedGroup, savedGroup);
-  const canDelete = (savedGroup: Pick<SavedGroupInterface, "projects">) =>
-    permissionsUtil.canDeleteSavedGroup(savedGroup);
+  const canCreate = permissionsUtil.canViewSavedGroupModal(project, projects);
   const { apiCall } = useAuth();
 
-  const environments = useEnvironments();
+  const draftHook = useSavedGroupDraftStates();
 
   const conditionGroups = useMemo(() => {
     return groups.filter((g) => g.type === "condition");
   }, [groups]);
 
-  const filteredConditionGroups = project
-    ? conditionGroups.filter((group) =>
-        isProjectListValidForProject(group.projects, project)
-      )
-    : conditionGroups;
-
-  const { features } = useFeaturesList(false);
-  const { experiments } = useExperiments();
-
-  // Get a list of feature ids for every saved group
-  const referencingFeaturesByGroup = useMemo(
+  const filteredConditionGroups = useMemo(
     () =>
-      featuresReferencingSavedGroups({
-        savedGroups: filteredConditionGroups,
-        features,
-        environments,
-      }),
-    [filteredConditionGroups, environments, features]
+      project
+        ? conditionGroups.filter((group) =>
+            isProjectListValidForProject(group.projects, project),
+          )
+        : conditionGroups,
+    [conditionGroups, project],
   );
 
-  const referencingExperimentsByGroup = useMemo(
-    () =>
-      experimentsReferencingSavedGroups({
-        savedGroups: filteredConditionGroups,
-        experiments,
-      }),
-    [filteredConditionGroups, experiments]
+  const [showArchived, setShowArchived] = useState(false);
+
+  const conditionGroupsWithOwners = useAddComputedFields(
+    filteredConditionGroups,
+    (group) => {
+      const projectNames = (group.projects ?? [])
+        .map((id) => getProjectById(id)?.name ?? "")
+        .filter(Boolean);
+      return {
+        ownerNameDisplay: getOwnerDisplay(group.owner),
+        projectNames,
+      };
+    },
+    [getOwnerDisplay, getProjectById],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: filteredConditionGroups,
+  const hasArchived = conditionGroups.some((g) => g.archived);
+  const hasDraftStates = Object.keys(draftHook.draftStates).length > 0;
+
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTableColumnHeader,
+    pagination,
+    syntaxFilters,
+    setSearchValue,
+  } = useSearch({
+    items: conditionGroupsWithOwners,
     localStorageKey: "savedGroupsRuntime",
     defaultSortField: "dateCreated",
     defaultSortDir: -1,
-    searchFields: ["groupName^3", "condition^2", "owner"],
+    searchFields: ["groupName^3", "condition^2", "ownerNameDisplay"],
+    pageSize: 50,
+    updateSearchQueryOnChange: true,
+    filterResults: !showArchived
+      ? (items) => items.filter((g) => !g.archived)
+      : undefined,
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [];
+        if (item.archived) is.push("archived");
+        return is;
+      },
+      has: (item) => {
+        const has: string[] = [];
+        if (draftHook.draftStates[item.id]) has.push("draft", "drafts");
+        return has;
+      },
+      owner: (item) => item.ownerNameDisplay,
+      project: (item) => [...(item.projects ?? []), ...item.projectNames],
+    },
   });
+
+  // Sync showArchived state from is:archived syntax filter
+  useEffect(() => {
+    setShowArchived(
+      syntaxFilters.some(
+        (f) => f.field === "is" && f.values.includes("archived"),
+      ),
+    );
+  }, [syntaxFilters]);
+
+  const hasDraftFilter = syntaxFilters.some(
+    (f) => f.field === "has" && f.values.includes("draft"),
+  );
+
+  useEffect(() => {
+    if (hasDraftFilter) {
+      draftHook.fetchAll();
+    } else {
+      const ids = items.map((s) => s.id);
+      if (ids.length) draftHook.fetchSome(ids);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, hasDraftFilter]);
 
   if (!conditionGroups) return <LoadingOverlay />;
 
   return (
-    <Box mt="4" mb="5" p="4" className="appbox">
-      {savedGroupForm && (
-        <SavedGroupForm
-          close={() => setSavedGroupForm(null)}
-          current={savedGroupForm}
-          type="condition"
+    <>
+      {deleteModal && (
+        <SavedGroupDeleteModal
+          savedGroup={deleteModal}
+          close={() => setDeleteModal(null)}
+          onDelete={async () => {
+            await apiCall(`/saved-groups/${deleteModal.id}`, {
+              method: "DELETE",
+            });
+            mutate();
+          }}
         />
       )}
-      <div className="row align-items-center mb-1">
-        <div className="col-auto">
-          <h2 className="mb-0">Condition Groups</h2>
-        </div>
-        <div className="flex-1"></div>
-        {canCreate ? (
-          <div className="col-auto">
-            <Button
-              onClick={async () => {
-                setSavedGroupForm({});
-              }}
-            >
+      <Box mt="4" mb="5" p="4" className="appbox">
+        {savedGroupForm && (
+          <SavedGroupForm
+            close={() => setSavedGroupForm(null)}
+            current={savedGroupForm}
+            type="condition"
+            mutate={mutate}
+          />
+        )}
+        <Flex align="center" justify="between" mb="1">
+          <h2 style={{ margin: 0 }}>Condition Groups</h2>
+          <Tooltip
+            body="You do not have permission to create Saved Groups."
+            shouldDisplay={!canCreate}
+          >
+            <Button disabled={!canCreate} onClick={() => setSavedGroupForm({})}>
               Add Condition Group
             </Button>
-          </div>
-        ) : null}
-      </div>
-      <p className="text-gray mb-1">
-        Set up advanced targeting rules based on user attributes.
-      </p>
-      <p className="text-gray">
-        For example, target users located in the US <b>and</b> on a mobile
-        device.
-      </p>
-      {filteredConditionGroups.length > 0 && (
-        <>
-          <div className="row mb-4 align-items-center">
-            <div className="col-auto">
-              <Field
-                inputGroupClassName="bg-white"
-                prepend={<FaMagnifyingGlass />}
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
+          </Tooltip>
+        </Flex>
+        <p className="text-gray mb-1">
+          Set up advanced targeting rules based on user attributes.
+        </p>
+        <p className="text-gray">
+          For example, target users located in the US <b>and</b> on a mobile
+          device.
+        </p>
+        {filteredConditionGroups.length > 0 && (
+          <>
+            <Flex align="center" justify="between" gap="3" mb="4">
+              <Box style={{ width: "40%" }}>
+                <Field
+                  size="legacy"
+                  placeholder="Search..."
+                  type="search"
+                  {...searchInputProps}
+                />
+              </Box>
+              <SavedGroupSearchFilters
+                searchInputProps={searchInputProps}
+                syntaxFilters={syntaxFilters}
+                setSearchValue={setSearchValue}
+                groups={filteredConditionGroups}
+                hasArchived={hasArchived}
+                hasDraftStates={hasDraftStates}
               />
-            </div>
-          </div>
-          <div className="row mb-3">
-            <div className="col-12">
-              <table className="table gbtable appbox">
-                <thead>
-                  <tr>
-                    <SortableTH field="groupName">Name</SortableTH>
-                    <SortableTH field="condition">Condition</SortableTH>
-                    <th>Description</th>
-                    <th className="col-2">Projects</th>
-                    <SortableTH field="owner">Owner</SortableTH>
-                    <SortableTH field="dateUpdated">Date Updated</SortableTH>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((s) => {
-                    return (
-                      <tr key={s.id}>
-                        <td>{s.groupName}</td>
-                        <td>
-                          <ConditionDisplay
-                            condition={s.condition || ""}
-                            savedGroups={[]}
+            </Flex>
+            <Table variant="list" stickyHeader roundedCorners>
+              <TableHeader>
+                <TableRow>
+                  <SortableTableColumnHeader
+                    field="groupName"
+                    style={{ maxWidth: 200 }}
+                  >
+                    Name
+                  </SortableTableColumnHeader>
+                  <SortableTableColumnHeader field="condition">
+                    Condition
+                  </SortableTableColumnHeader>
+                  <TableColumnHeader>Description</TableColumnHeader>
+                  <TableColumnHeader>Projects</TableColumnHeader>
+                  <TableColumnHeader style={{ textAlign: "center" }}>
+                    Draft Status
+                  </TableColumnHeader>
+                  <SortableTableColumnHeader field="dateUpdated">
+                    Last Modified
+                  </SortableTableColumnHeader>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((s) => {
+                  const draftEntry = draftHook.draftStates[s.id];
+                  return (
+                    <TableRow key={s.id}>
+                      <TableCell style={{ width: 250 }}>
+                        <Flex align="center" gap="2">
+                          <Link
+                            href={`/saved-groups/${s.id}`}
+                            style={{
+                              color: "var(--gray-12)",
+                              display: "-webkit-box",
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: "vertical",
+                              textOverflow: "ellipsis",
+                              overflow: "hidden",
+                              lineHeight: "1.2em",
+                              wordBreak: "break-word",
+                              overflowWrap: "anywhere",
+                            }}
+                          >
+                            {s.groupName}
+                          </Link>
+                        </Flex>
+                      </TableCell>
+                      <TableCell style={{ width: 400 }}>
+                        <TruncatedConditionDisplay
+                          condition={s.condition || ""}
+                          savedGroups={[]}
+                        />
+                      </TableCell>
+                      <TableCell style={{ minWidth: 200 }}>
+                        {truncateString(s.description || "", 40)}
+                      </TableCell>
+                      <TableCell>
+                        {(s?.projects?.length || 0) > 0 ? (
+                          <ProjectBadges
+                            resourceType="saved group"
+                            projectIds={s.projects}
                           />
-                        </td>
-                        <td>{truncateString(s.description || "", 40)}</td>
-                        <td>
-                          {(s?.projects?.length || 0) > 0 ? (
-                            <ProjectBadges
-                              resourceType="saved group"
-                              projectIds={s.projects}
-                            />
-                          ) : (
-                            <ProjectBadges resourceType="saved group" />
-                          )}
-                        </td>
-                        <td>{s.owner}</td>
-                        <td>{ago(s.dateUpdated)}</td>
-                        <td style={{ width: 30 }}>
-                          <MoreMenu>
-                            {canUpdate(s) ? (
-                              <a
-                                href="#"
-                                className="dropdown-item"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setSavedGroupForm(s);
-                                }}
-                              >
-                                Edit
-                              </a>
-                            ) : null}
-                            {canDelete(s) ? (
-                              <DeleteButton
-                                displayName="Saved Group"
-                                className="dropdown-item text-danger"
-                                useIcon={false}
-                                text="Delete"
-                                title="Delete SavedGroup"
-                                onClick={async () => {
-                                  await apiCall(`/saved-groups/${s.id}`, {
-                                    method: "DELETE",
-                                  });
-                                  mutate();
-                                }}
-                                getConfirmationContent={getSavedGroupMessage(
-                                  referencingFeaturesByGroup[s.id],
-                                  referencingExperimentsByGroup[s.id]
-                                )}
-                                canDelete={
-                                  isEmpty(referencingFeaturesByGroup[s.id]) &&
-                                  isEmpty(referencingExperimentsByGroup[s.id])
-                                }
-                              />
-                            ) : null}
-                          </MoreMenu>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {!items.length && isFiltered && (
-                    <tr>
-                      <td colSpan={7} align={"center"}>
-                        No matching saved groups
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
-    </Box>
+                        ) : (
+                          <ProjectBadges resourceType="saved group" />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {draftEntry
+                          ? (() => {
+                              const dots = draftStatusDots(draftEntry);
+                              if (!dots.length) return null;
+                              return (
+                                <Tooltip
+                                  flipTheme={false}
+                                  body={draftStatusTooltip(draftEntry)}
+                                  usePortal
+                                >
+                                  <Flex
+                                    align="center"
+                                    justify="center"
+                                    gap="1"
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      padding: "0 4px",
+                                    }}
+                                  >
+                                    {dots.map((bg) => (
+                                      <span
+                                        key={bg}
+                                        style={{
+                                          display: "block",
+                                          width: 8,
+                                          height: 8,
+                                          borderRadius: "50%",
+                                          flexShrink: 0,
+                                          background: bg,
+                                        }}
+                                      />
+                                    ))}
+                                  </Flex>
+                                </Tooltip>
+                              );
+                            })()
+                          : null}
+                      </TableCell>
+                      <TableCell title={datetime(s.dateUpdated)}>
+                        {date(s.dateUpdated)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {!items.length && isFiltered && (
+                  <TableRow>
+                    <TableCell colSpan={6} style={{ textAlign: "center" }}>
+                      No matching saved groups
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+            {pagination}
+          </>
+        )}
+      </Box>
+    </>
   );
 }

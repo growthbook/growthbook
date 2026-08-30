@@ -2,12 +2,12 @@ import React, { FC, useMemo, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   IdentityJoinQuery,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 
 import { useForm } from "react-hook-form";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import Modal from "@/components/Modal";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { validateSQL } from "@/services/datasources";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -28,12 +28,13 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
   onCancel,
   onSave,
 }) => {
-  const identityTypes = useMemo(() => dataSource.settings.userIdTypes || [], [
-    dataSource.settings.userIdTypes,
-  ]);
+  const identityTypes = useMemo(
+    () => dataSource.settings.userIdTypes || [],
+    [dataSource.settings.userIdTypes],
+  );
   const existingIdentityJoins = useMemo(
     () => dataSource.settings.queries?.identityJoins || [],
-    [dataSource.settings.queries?.identityJoins]
+    [dataSource.settings.queries?.identityJoins],
   );
 
   const defaultQuery = useMemo(() => {
@@ -98,7 +99,7 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
 
   if (!identityJoin && mode === "edit") {
     console.error(
-      "ImplementationError: identityJoin is required for Edit mode"
+      "ImplementationError: identityJoin is required for Edit mode",
     );
     return null;
   }
@@ -112,9 +113,11 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
           requiredColumns={new Set(userEnteredIdentityJoinIds)}
           value={userEnteredQuery}
           save={async (sql) => form.setValue("query", sql)}
+          sqlObjectInfo={{ objectType: "Identity Join" }}
         />
       )}
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         submit={handleSubmit}
@@ -132,6 +135,7 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
         <div className="row">
           <div className="col-xs-12 col-md-6">
             <MultiSelectField
+              legacyHeight
               label="Identifier Types"
               value={userEnteredIdentityJoinIds}
               onChange={(value) => {

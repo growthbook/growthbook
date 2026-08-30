@@ -7,6 +7,7 @@ export function MetricWindowSettingsForm({ form, type }) {
     <>
       <div className="col-auto">
         <Field
+          size="legacy"
           {...form.register("windowSettings.windowValue", {
             valueAsNumber: true,
           })}
@@ -21,11 +22,12 @@ export function MetricWindowSettingsForm({ form, type }) {
       </div>
       <div className="col-auto">
         <SelectField
+          size="legacy"
           value={form.watch("windowSettings.windowUnit")}
           onChange={(value) => {
             form.setValue(
               "windowSettings.windowUnit",
-              value as "days" | "hours" | "weeks"
+              value as "days" | "hours" | "weeks",
             );
           }}
           sort={false}
@@ -55,12 +57,13 @@ export function MetricWindowSettingsForm({ form, type }) {
     <div className="mb-3 mt-4">
       <div className="form-group mb-1">
         <SelectField
+          size="legacy"
           label={"Metric Window"}
           value={form.watch("windowSettings.type")}
           onChange={(value) => {
             form.setValue(
               "windowSettings.type",
-              value as "conversion" | "lookback" | ""
+              value as "conversion" | "lookback" | "",
             );
           }}
           sort={false}

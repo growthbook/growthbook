@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { stringToBoolean } from "../util";
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
 export const accountPlans: Set<AccountPlan> = new Set([
@@ -10,14 +11,18 @@ export const accountPlans: Set<AccountPlan> = new Set([
 ]);
 
 export type CommercialFeature =
+  | "ai-suggestions"
+  | "ai-byok"
   | "scim"
   | "sso"
   | "advanced-permissions"
   | "encrypt-features-endpoint"
   | "schedule-feature-flag"
+  | "events-forwarder"
   | "custom-metadata"
   | "override-metrics"
   | "regression-adjustment"
+  | "post-stratification"
   | "sequential-testing"
   | "pipeline-mode"
   | "audit-logging"
@@ -33,6 +38,7 @@ export type CommercialFeature =
   | "custom-launch-checklist"
   | "multi-metric-queries"
   | "no-access-role"
+  | "project-admin-role"
   | "teams"
   | "sticky-bucketing"
   | "require-approvals"
@@ -44,6 +50,7 @@ export type CommercialFeature =
   | "custom-roles"
   | "quantile-metrics"
   | "retention-metrics"
+  | "funnel-metrics"
   | "custom-markdown"
   | "experiment-impact"
   | "metric-populations"
@@ -53,9 +60,40 @@ export type CommercialFeature =
   | "environment-inheritance"
   | "templates"
   | "historical-power"
-  | "decision-framework";
+  | "decision-framework"
+  | "unlimited-cdn-usage"
+  | "unlimited-managed-warehouse-usage"
+  | "safe-rollout"
+  | "require-project-for-features-setting"
+  | "require-project-for-sdk-connections-setting"
+  | "holdouts"
+  | "saveSqlExplorerQueries"
+  | "metric-effects"
+  | "metric-correlations"
+  | "learnings"
+  | "dashboards"
+  | "product-analytics-dashboards"
+  | "share-product-analytics-dashboards"
+  | "precomputed-dimensions"
+  | "custom-hooks"
+  | "metric-slices"
+  | "manage-official-resources"
+  | "incremental-refresh"
+  | "adv-presentations"
+  | "ramp-schedules"
+  | "scheduled-revisions"
+  | "feature-configs"
+  | "releases"
+  | "contextual-bandits";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
+
+// Missing field/value = unlimited.
+export type OrgLimits = {
+  maxProjects?: number | null;
+  customEnvironments?: boolean;
+  roleManagement?: boolean;
+};
 
 export type SubscriptionInfo = {
   billingPlatform?: "stripe" | "orb";
@@ -67,6 +105,7 @@ export type SubscriptionInfo = {
   dateToBeCanceled: string;
   cancelationDate: string;
   pendingCancelation: boolean;
+  isVercelIntegration: boolean;
 };
 
 export interface LicenseInterface {
@@ -90,6 +129,7 @@ export interface LicenseInterface {
     tooltipText: string; // The text to show in the tooltip
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
+  vercelInstallationId?: string;
   stripeSubscription?: {
     id: string;
     qty: number;
@@ -123,6 +163,7 @@ export interface LicenseInterface {
   installationUsers: {
     [installationId: string]: {
       date: string;
+      installationName?: string;
       userHashes: string[];
       licenseUserCodes?: LicenseUserCodes;
     };
@@ -134,6 +175,7 @@ export interface LicenseInterface {
   lastFailedFetchDate?: Date; // Date of the last failed fetch
   lastServerErrorMessage?: string; // The last error message from a failed fetch
   signedChecksum: string; // Checksum of the license data signed with the private key
+  limits?: OrgLimits; // NOT part of the signed checksum (see verifyLicenseInterface)
 }
 
 // Old/Airgapped style license keys where the license data is encrypted in the key itself
@@ -163,109 +205,107 @@ export type LicenseData = {
   eat?: string;
 };
 
+const commercialFeaturesPro: CommercialFeature[] = [
+  "advanced-permissions",
+  "encrypt-features-endpoint",
+  "schedule-feature-flag",
+  "events-forwarder",
+  "override-metrics",
+  "regression-adjustment",
+  "sequential-testing",
+  "visual-editor",
+  "archetypes",
+  "simulate",
+  "cloud-proxy",
+  "hash-secure-attributes",
+  "livechat",
+  "remote-evaluation",
+  "sticky-bucketing",
+  "code-references",
+  "prerequisites",
+  "redirects",
+  "multiple-sdk-webhooks",
+  "quantile-metrics",
+  "retention-metrics",
+  "funnel-metrics",
+  "metric-populations",
+  "multi-armed-bandits",
+  "historical-power",
+  "decision-framework",
+  "safe-rollout",
+  "ramp-schedules",
+  "unlimited-managed-warehouse-usage",
+  "saveSqlExplorerQueries",
+  "precomputed-dimensions",
+  "product-analytics-dashboards",
+];
+
+const commercialFeaturesProSso: CommercialFeature[] = [
+  ...commercialFeaturesPro,
+  "sso",
+];
+
+const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
+  "ai-suggestions",
+  "ai-byok",
+  "scim",
+  "audit-logging",
+  "custom-metadata",
+  "post-stratification",
+  "pipeline-mode",
+  "multi-metric-queries",
+  "json-validation",
+  "multi-org",
+  "teams",
+  "custom-launch-checklist",
+  "no-access-role",
+  "require-approvals",
+  "prerequisite-targeting",
+  "custom-roles",
+  "project-admin-role",
+  "custom-markdown",
+  "experiment-impact",
+  "large-saved-groups",
+  "metric-groups",
+  "environment-inheritance",
+  "templates",
+  "require-project-for-features-setting",
+  "require-project-for-sdk-connections-setting",
+  "holdouts",
+  "metric-effects",
+  "metric-correlations",
+  "learnings",
+  "dashboards",
+  "custom-hooks",
+  "metric-slices",
+  "manage-official-resources",
+  "share-product-analytics-dashboards",
+  "incremental-refresh",
+  "adv-presentations",
+  "contextual-bandits",
+  "scheduled-revisions",
+  "feature-configs",
+  "releases",
+];
+
+const commercialFeaturesEnterprise: CommercialFeature[] = [
+  ...commercialFeaturesProSso,
+  ...commercialFeaturesEnterpriseOnly,
+];
+
 export const accountFeatures: CommercialFeaturesMap = {
   oss: new Set<CommercialFeature>([]),
   starter: new Set<CommercialFeature>([]),
-  pro: new Set<CommercialFeature>([
-    "advanced-permissions",
-    "encrypt-features-endpoint",
-    "schedule-feature-flag",
-    "override-metrics",
-    "regression-adjustment",
-    "sequential-testing",
-    "visual-editor",
-    "archetypes",
-    "simulate",
-    "cloud-proxy",
-    "hash-secure-attributes",
-    "livechat",
-    "remote-evaluation",
-    "sticky-bucketing",
-    "code-references",
-    "prerequisites",
-    "redirects",
-    "multiple-sdk-webhooks",
-    "quantile-metrics",
-    "retention-metrics",
-    "metric-populations",
-    "multi-armed-bandits",
-    "historical-power",
-    "decision-framework",
-  ]),
-  pro_sso: new Set<CommercialFeature>([
-    "sso",
-    "advanced-permissions",
-    "encrypt-features-endpoint",
-    "schedule-feature-flag",
-    "override-metrics",
-    "regression-adjustment",
-    "sequential-testing",
-    "visual-editor",
-    "archetypes",
-    "simulate",
-    "cloud-proxy",
-    "hash-secure-attributes",
-    "livechat",
-    "remote-evaluation",
-    "sticky-bucketing",
-    "code-references",
-    "prerequisites",
-    "redirects",
-    "multiple-sdk-webhooks",
-    "quantile-metrics",
-    "retention-metrics",
-    "metric-populations",
-    "multi-armed-bandits",
-    "historical-power",
-    "decision-framework",
-  ]),
-  enterprise: new Set<CommercialFeature>([
-    "scim",
-    "sso",
-    "advanced-permissions",
-    "audit-logging",
-    "encrypt-features-endpoint",
-    "schedule-feature-flag",
-    "custom-metadata",
-    "override-metrics",
-    "regression-adjustment",
-    "sequential-testing",
-    "pipeline-mode",
-    "multi-metric-queries",
-    "visual-editor",
-    "archetypes",
-    "simulate",
-    "cloud-proxy",
-    "hash-secure-attributes",
-    "json-validation",
-    "livechat",
-    "remote-evaluation",
-    "multi-org",
-    "teams",
-    "custom-launch-checklist",
-    "no-access-role",
-    "sticky-bucketing",
-    "require-approvals",
-    "code-references",
-    "prerequisites",
-    "prerequisite-targeting",
-    "redirects",
-    "multiple-sdk-webhooks",
-    "quantile-metrics",
-    "retention-metrics",
-    "custom-roles",
-    "custom-markdown",
-    "experiment-impact",
-    "metric-populations",
-    "large-saved-groups",
-    "multi-armed-bandits",
-    "metric-groups",
-    "environment-inheritance",
-    "templates",
-    "historical-power",
-    "decision-framework",
-  ]),
+  pro: new Set<CommercialFeature>(commercialFeaturesPro),
+  pro_sso: new Set<CommercialFeature>(commercialFeaturesProSso),
+  enterprise: new Set<CommercialFeature>(commercialFeaturesEnterprise),
 };
+
+if (stringToBoolean(process.env.IS_CLOUD)) {
+  Object.values(accountFeatures).forEach((features) => {
+    features.add("ai-suggestions"); // All plans on cloud have ai-suggestions, though the usage limits vary
+  });
+}
 
 export interface LicenseUserCodes {
   invites: string[];
@@ -275,6 +315,7 @@ export interface LicenseUserCodes {
 
 export interface LicenseMetaData {
   installationId: string;
+  installationName?: string;
   gitSha: string;
   gitCommitDate: string;
   sdkLanguages: string[];

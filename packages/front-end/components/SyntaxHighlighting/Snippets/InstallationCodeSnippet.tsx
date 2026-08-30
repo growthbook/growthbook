@@ -1,9 +1,10 @@
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import React, { useCallback, useMemo } from "react";
 import { Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { DocLink } from "@/components/DocLink";
 import EventTrackerSelector from "@/components/SyntaxHighlighting/Snippets/EventTrackerSelector";
+import { DataRegion, getEventIngestorHost } from "@/services/dataRegions";
 
 export default function InstallationCodeSnippet({
   language,
@@ -13,6 +14,7 @@ export default function InstallationCodeSnippet({
   remoteEvalEnabled,
   eventTracker,
   setEventTracker,
+  eventIngestorRegion,
 }: {
   language: SDKLanguage;
   apiKey: string;
@@ -21,7 +23,14 @@ export default function InstallationCodeSnippet({
   remoteEvalEnabled: boolean;
   eventTracker: string;
   setEventTracker: (value: string) => void;
+  eventIngestorRegion?: DataRegion;
 }) {
+  const eventIngestorHost =
+    eventTracker === "growthbook" &&
+    eventIngestorRegion &&
+    eventIngestorRegion !== "us-east-1"
+      ? getEventIngestorHost(eventIngestorRegion)
+      : undefined;
   const nocodeSnippet =
     eventTracker && eventTracker === "GTM"
       ? `
@@ -30,10 +39,10 @@ export default function InstallationCodeSnippet({
   s=document.createElement('script'); s.async=true;
   s.dataset.apiHost=${JSON.stringify(apiHost)};
   s.dataset.clientKey=${JSON.stringify(apiKey)};${
-          encryptionKey
-            ? `\n  s.dataset.decryptionKey=${JSON.stringify(encryptionKey)};`
-            : ""
-        }${remoteEvalEnabled ? `\n  s.dataset.remoteEval="true";` : ""}
+    encryptionKey
+      ? `\n  s.dataset.decryptionKey=${JSON.stringify(encryptionKey)};`
+      : ""
+  }${remoteEvalEnabled ? `\n  s.dataset.remoteEval="true";` : ""}
   s.src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js";
   document.head.appendChild(s);
 })();
@@ -41,12 +50,16 @@ export default function InstallationCodeSnippet({
       `.trim()
       : `
 <script async
-  data-api-host=${JSON.stringify(apiHost)}
+  data-api-host=${JSON.stringify(apiHost)}${eventTracker === "growthbook" ? `\n  data-tracking="growthbook"` : ""}${
+    eventIngestorHost
+      ? `\n  data-event-ingestor-host=${JSON.stringify(eventIngestorHost)}`
+      : ""
+  }
   data-client-key=${JSON.stringify(apiKey)}${
-          encryptionKey
-            ? `\n  data-decryption-key=${JSON.stringify(encryptionKey)}`
-            : ""
-        }${remoteEvalEnabled ? `\n  data-remote-eval="true"` : ""}
+    encryptionKey
+      ? `\n  data-decryption-key=${JSON.stringify(encryptionKey)}`
+      : ""
+  }${remoteEvalEnabled ? `\n  data-remote-eval="true"` : ""}
   src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
 ></script>
             `.trim();
@@ -58,7 +71,7 @@ export default function InstallationCodeSnippet({
       "nocode-shopify",
       "nocode-other",
     ],
-    []
+    [],
   );
 
   const getInstallationCodeSnippet = useCallback(
@@ -68,7 +81,9 @@ export default function InstallationCodeSnippet({
           <>
             Add the GrowthBook snippet to your Google Tag Manager as a Custom
             HTML tag.{" "}
-            <DocLink docSection="gtmSetup">View Documentation</DocLink>
+            <DocLink useRadix={false} docSection="gtmSetup">
+              View Documentation
+            </DocLink>
             <Code language="html" code={nocodeSnippet} />
           </>
         );
@@ -137,11 +152,20 @@ yarn add @growthbook/growthbook-react`.trim()}
       if (language === "nodejs") {
         return (
           <Code
-            language="sh"
-            code={`
-npm i --save @growthbook/growthbook
-# OR
-yarn add @growthbook/growthbook`.trim()}
+            language="bash"
+            code={`npm install @growthbook/growthbook
+# or
+yarn add @growthbook/growthbook`}
+          />
+        );
+      }
+      if (language === "nextjs") {
+        return (
+          <Code
+            language="bash"
+            code={`npm install @flags-sdk/growthbook
+# or
+yarn add @flags-sdk/growthbook`}
           />
         );
       }
@@ -331,7 +355,7 @@ yarn add @growthbook/edge-utils`.trim()}
 
       return <em>Depends on your platform</em>;
     },
-    [clientSideLanguages, eventTracker, nocodeSnippet]
+    [clientSideLanguages, eventTracker, nocodeSnippet],
   );
 
   return (

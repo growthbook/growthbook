@@ -1,5 +1,5 @@
 import React from "react";
-import { SchemaFormat } from "back-end/types/datasource";
+import { SchemaFormat } from "shared/types/datasource";
 import clsx from "clsx";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 
@@ -70,6 +70,9 @@ export const eventTrackerMapping: Record<
   clevertap: {
     logo: "/images/3rd-party-logos/datasource-logos/clevertap.png",
     label: "CleverTap",
+  },
+  eventForwarder: {
+    label: "Event Forwarder",
   },
   custom: {
     label: "Other",

@@ -1,15 +1,22 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { useMemo, useState } from "react";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { Fragment, useMemo, useState } from "react";
 import { getScopedSettings } from "shared/settings";
-import { upperFirst } from "lodash";
-import { expandMetricGroups, getMetricLink } from "shared/experiments";
+import {
+  expandMetricGroups,
+  getMetricLink,
+  isFactMetric,
+} from "shared/experiments";
+import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
+import Heading from "@/ui/Heading";
+import Frame from "@/ui/Frame";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -30,76 +37,87 @@ export default function AnalysisSettings({
 }: Props) {
   const {
     getDatasourceById,
-    getProjectById,
     getExperimentMetricById,
+    getMetricById,
     getSegmentById,
+    segments,
     metricGroups,
   } = useDefinitions();
   const { organization } = useUser();
-  const _settings = useOrgSettings();
-  const settings = ssrPolyfills?.useOrgSettings() || _settings;
   const permissionsUtil = usePermissionsUtil();
 
   const [analysisModal, setAnalysisModal] = useState(false);
 
-  const project =
-    ssrPolyfills?.getProjectById(experiment.project || "") ||
-    getProjectById(experiment.project || "");
-
   const canEditAnalysisSettings =
     canEdit && permissionsUtil.canUpdateExperiment(experiment, {});
-
-  const { settings: scopedSettings } = getScopedSettings({
-    organization: organization?.settings
-      ? organization
-      : { settings: settings },
-    project: project ?? undefined,
-    experiment: experiment,
-  });
 
   const datasource = experiment
     ? getDatasourceById(experiment.datasource)
     : null;
 
   const assignmentQuery = datasource?.settings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   );
 
-  const statsEngine = scopedSettings.statsEngine.value;
+  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
+    useMemo(() => {
+      const expandedGoals = [
+        ...new Set(
+          expandMetricGroups(
+            experiment.goalMetrics,
+            ssrPolyfills?.metricGroups || metricGroups,
+          ),
+        ),
+      ];
+      const expandedSecondaries = [
+        ...new Set(
+          expandMetricGroups(
+            experiment.secondaryMetrics,
+            ssrPolyfills?.metricGroups || metricGroups,
+          ),
+        ),
+      ];
+      const expandedGuardrails = [
+        ...new Set(
+          expandMetricGroups(
+            experiment.guardrailMetrics,
+            ssrPolyfills?.metricGroups || metricGroups,
+          ),
+        ),
+      ];
 
-  const {
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-  } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(
+      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+    }, [
       experiment.goalMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedSecondaries = expandMetricGroups(
       experiment.secondaryMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedGuardrails = expandMetricGroups(
       experiment.guardrailMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
+      metricGroups,
+      ssrPolyfills?.metricGroups,
+    ]);
 
-    return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [
-    experiment.goalMetrics,
-    experiment.secondaryMetrics,
-    experiment.guardrailMetrics,
-    metricGroups,
-    ssrPolyfills?.metricGroups,
-  ]);
-
-  const goals: { name: string; id: string }[] = [];
+  const goalsWithTargetMDE: ExperimentMetricInterfaceWithComputedTargetMDE[] =
+    [];
   expandedGoals.forEach((m) => {
-    const name =
-      ssrPolyfills?.getExperimentMetricById?.(m)?.name ||
-      getExperimentMetricById(m)?.name;
-    if (name) goals.push({ name, id: m });
+    const metric =
+      ssrPolyfills?.getExperimentMetricById?.(m) || getExperimentMetricById(m);
+    if (metric) {
+      // For legacy metrics with a denominator, look up the denominator metric
+      const denominatorMetric =
+        !isFactMetric(metric) && metric.denominator
+          ? getMetricById(metric.denominator)
+          : undefined;
+      const { settings: scopedSettings } = getScopedSettings({
+        organization,
+        experiment,
+        metric,
+        denominatorMetric: denominatorMetric ?? undefined,
+      });
+      goalsWithTargetMDE.push({
+        ...metric,
+        computedTargetMDE: scopedSettings.targetMDE.value ?? DEFAULT_TARGET_MDE,
+        metricTargetMDE: metric.targetMDE ?? DEFAULT_TARGET_MDE,
+      });
+    }
   });
   const secondary: { name: string; id: string }[] = [];
   expandedSecondaries.forEach((m) => {
@@ -117,6 +135,7 @@ export default function AnalysisSettings({
   });
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
 
   return (
     <>
@@ -134,69 +153,66 @@ export default function AnalysisSettings({
         />
       ) : null}
 
-      <div className="box p-4 my-4">
+      <Frame>
         <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-          <h4 className="m-0">Analysis Settings</h4>
+          <Heading color="text-high" as="h4" size="sm" mb="0">
+            Analysis Settings
+          </Heading>
           <div className="flex-1" />
           {canEditAnalysisSettings ? (
-            <button
-              className="btn p-0 link-purple"
-              onClick={() => {
-                setAnalysisModal(true);
-              }}
-            >
-              Edit
-            </button>
+            <Link onClick={() => setAnalysisModal(true)}>
+              <Text weight="semibold">Edit</Text>
+            </Link>
           ) : null}
         </div>
 
         {!isPublic && (
           <div className="row">
             <div className="col-4 mb-4">
-              <div className="h5">Data Source</div>
-              <div>{datasource ? datasource.name : <em>none</em>}</div>
+              <Text color="text-high" weight="semibold">
+                Data Source
+              </Text>
+              <div>
+                <Text color="text-mid">
+                  {datasource ? datasource.name : "--"}
+                </Text>
+              </div>
             </div>
 
             <div className="col-4 mb-4">
-              <div className="h5">Experiment Assignment Table</div>
+              <Text color="text-high" weight="semibold">
+                Experiment Assignment Table
+              </Text>
               <div>
-                {assignmentQuery ? assignmentQuery.name : <em>none</em>}
+                <Text color="text-mid">
+                  {assignmentQuery ? assignmentQuery.name : "--"}
+                </Text>
               </div>
             </div>
 
             {experiment.activationMetric && (
               <div className="col-4 mb-4">
-                <div className="h5">Activation Metric</div>
+                <Text color="text-high" weight="semibold">
+                  Activation Metric
+                </Text>
                 <div>
-                  {getExperimentMetricById(experiment.activationMetric)?.name}
+                  <Text color="text-mid">
+                    {getExperimentMetricById(experiment.activationMetric)?.name}
+                  </Text>
                 </div>
               </div>
             )}
-
-            <div className="col-4 mb-4">
-              <div className="h5">Segment</div>
-              <div>
-                {experiment.segment ? (
-                  <>{getSegmentById(experiment.segment)?.name}</>
-                ) : (
-                  <em>none (all users)</em>
-                )}
-              </div>
-            </div>
-
-            {!isBandit && (
+            {!isHoldout && (segments.length > 0 || experiment.segment) && (
               <div className="col-4 mb-4">
-                <div className="h5">Stats Engine</div>
-                <div>{upperFirst(statsEngine)}</div>
-              </div>
-            )}
-            {isBandit && (
-              <div className="col-4 mb-4">
-                <div className="h5">CUPED</div>
+                <Text color="text-high" weight="semibold">
+                  Segment
+                </Text>
                 <div>
-                  {experiment.regressionAdjustmentEnabled
-                    ? "Enabled"
-                    : "Disabled"}
+                  <Text color="text-mid">
+                    {experiment.segment
+                      ? getSegmentById(experiment.segment)?.name
+                      : "all users"}
+                  </Text>
                 </div>
               </div>
             )}
@@ -204,32 +220,52 @@ export default function AnalysisSettings({
         )}
 
         <div className="row mt-4">
-          <div className="col-4">
-            <div className="h5">
+          <div className="col-4 mb-4">
+            <Text color="text-high" weight="semibold">
               {!isBandit ? "Goal Metrics" : "Decision Metric"}
-            </div>
+            </Text>
             <div>
-              {goals.length ? (
+              {goalsWithTargetMDE.length ? (
                 <ul className="list-unstyled mb-0">
-                  {goals.map((metric, i) => {
+                  {goalsWithTargetMDE.map((metric, i) => {
                     if (isBandit && i > 0) return null;
                     return (
-                      <li key={`goal-${i}`}>
-                        <Link href={getMetricLink(metric.id)}>
-                          {metric.name}
-                        </Link>
-                      </li>
+                      <Fragment key={metric.id}>
+                        <li>
+                          <Link href={getMetricLink(metric.id)}>
+                            {metric.name}
+                          </Link>
+                        </li>
+                        <li>
+                          {isBandit &&
+                            experiment.banditConversionWindowValue &&
+                            experiment.banditConversionWindowUnit && (
+                              <Text size="sm" color="text-mid">
+                                Conversion Window:{" "}
+                                {experiment.banditConversionWindowValue}{" "}
+                                {experiment.banditConversionWindowValue === 1
+                                  ? experiment.banditConversionWindowUnit.slice(
+                                      0,
+                                      -1,
+                                    )
+                                  : experiment.banditConversionWindowUnit}
+                              </Text>
+                            )}
+                        </li>
+                      </Fragment>
                     );
                   })}
                 </ul>
               ) : (
-                <em>none</em>
+                <Text color="text-mid">--</Text>
               )}
             </div>
           </div>
 
           <div className="col-4">
-            <div className="h5">Secondary Metrics</div>
+            <Text color="text-high" weight="semibold">
+              Secondary Metrics
+            </Text>
             <div>
               {secondary.length ? (
                 <ul className="list-unstyled mb-0">
@@ -240,54 +276,66 @@ export default function AnalysisSettings({
                   ))}
                 </ul>
               ) : (
-                <em>none</em>
+                <Text color="text-mid">--</Text>
               )}
             </div>
           </div>
-
-          <div className="col-4">
-            <div className="h5">Guardrail Metrics</div>
-            <div>
-              {guardrails.length ? (
-                <ul className="list-unstyled mb-0">
-                  {guardrails.map((metric, i) => (
-                    <li key={`guardrail-${i}`}>
-                      <Link href={getMetricLink(metric.id)}>{metric.name}</Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <em>none</em>
-              )}
+          {!isHoldout && (
+            <div className="col-4">
+              <Text color="text-high" weight="semibold">
+                Guardrail Metrics
+              </Text>
+              <div>
+                {guardrails.length ? (
+                  <ul className="list-unstyled mb-0">
+                    {guardrails.map((metric, i) => (
+                      <li key={`guardrail-${i}`}>
+                        <Link href={getMetricLink(metric.id)}>
+                          {metric.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <Text color="text-mid">--</Text>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
-
         {isBandit && (
           <div className="row mt-4">
             <div className="col-4">
-              <div className="h5">Exploratory Stage</div>
+              <Text color="text-high" weight="semibold">
+                Exploratory Stage
+              </Text>
               <div>
-                {experiment.banditBurnInValue ?? 1}{" "}
-                {(experiment.banditBurnInUnit ?? "days") === "days"
-                  ? "day"
-                  : "hour"}
-                {(experiment.banditBurnInValue ?? 1) !== 1 ? "s" : ""}
+                <Text color="text-mid">
+                  {experiment.banditBurnInValue ?? 1}{" "}
+                  {(experiment.banditBurnInUnit ?? "days") === "days"
+                    ? "day"
+                    : "hour"}
+                  {(experiment.banditBurnInValue ?? 1) !== 1 ? "s" : ""}
+                </Text>
               </div>
             </div>
 
             <div className="col-4">
-              <div className="h5">Update Cadence</div>
+              <Text color="text-high" weight="semibold">
+                Update Cadence
+              </Text>
               <div>
-                Every {experiment.banditScheduleValue ?? 1}{" "}
-                {(experiment.banditScheduleUnit ?? "days") === "days"
-                  ? "days"
-                  : "hours"}
+                <Text color="text-mid">
+                  Every {experiment.banditScheduleValue ?? 1}{" "}
+                  {(experiment.banditScheduleUnit ?? "days") === "days"
+                    ? "days"
+                    : "hours"}
+                </Text>
               </div>
             </div>
           </div>
         )}
-      </div>
+      </Frame>
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, RequestHandler } from "express";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import usersRouter from "./users/users.router";
 import groupsRouter from "./groups/groups.router";
@@ -6,8 +6,8 @@ import scimMiddleware from "./middleware/scimMiddleware";
 
 const router = Router();
 
-router.use(authenticateApiRequestMiddleware);
-router.use(scimMiddleware);
+router.use(authenticateApiRequestMiddleware as RequestHandler);
+router.use(scimMiddleware as RequestHandler);
 
 // API endpoints
 router.use("/users", usersRouter);

@@ -1,7 +1,7 @@
 import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import React from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import Tooltip from "./Tooltip/Tooltip";
 
 export interface Props {
@@ -16,7 +16,12 @@ export interface Props {
     | "feature"
     | "attribute"
     | "sdk connection"
-    | "saved group";
+    | "saved group"
+    | "holdout"
+    | "dashboard"
+    | "custom field"
+    | "experiment"
+    | "constant";
   projectIds?: string[];
   invalidProjectIds?: string[];
   invalidProjectMessage?: string;
@@ -25,7 +30,7 @@ export interface Props {
 }
 // these types can only have one project associated with them, and we don't
 // want to show the project badge for them (rather than 'all')
-const singularProjectTypes = ["feature"];
+const singularProjectTypes = ["feature", "experiment", "constant"];
 
 export default function ProjectBadges({
   resourceType,
@@ -42,8 +47,8 @@ export default function ProjectBadges({
     }
     return (
       <Badge
-        label="All projects"
-        key="All projects"
+        label="All Projects"
+        key="All Projects"
         color={!project ? "purple" : "gray"}
         style={{
           maxWidth: "120px",
@@ -56,7 +61,7 @@ export default function ProjectBadges({
   }
 
   let filteredProjects = projectIds.map((pid) =>
-    projects.find((p) => p.id === pid)
+    projects.find((p) => p.id === pid),
   );
   if (!filteredProjects.length) return null;
   if (sort) {

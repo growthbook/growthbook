@@ -1,23 +1,35 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { CommercialFeature } from "shared/enterprise";
 import {
   SDKCapability,
   getConnectionsSDKCapabilities,
 } from "shared/sdk-versioning";
+import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import styles from "@/components/Experiment/LinkedChanges/AddLinkedChanges.module.scss";
+import { useUser } from "@/services/UserContext";
+import Text from "@/ui/Text";
+import Avatar from "@/ui/Avatar";
+import Button from "@/ui/Button";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
 
-const LINKED_CHANGES = {
+export const LINKED_CHANGES: Record<
+  LinkedChange,
+  {
+    header: string;
+    cta: string;
+    description: string;
+    commercialFeature: CommercialFeature | "";
+    sdkCapabilityKey: SDKCapability | "";
+  }
+> = {
   "feature-flag": {
     header: "Feature Flag",
     cta: "Link Feature Flag",
     description:
       "Use feature flags and SDKs to make changes in your front-end, back-end or mobile application code.",
-    commercialFeature: false,
+    commercialFeature: "",
     sdkCapabilityKey: "",
   },
   "visual-editor": {
@@ -25,15 +37,15 @@ const LINKED_CHANGES = {
     cta: "Launch Visual Editor",
     description:
       "Use our no-code browser extension to A/B test minor changes, such as headings or button text.",
-    commercialFeature: true,
+    commercialFeature: "visual-editor",
     sdkCapabilityKey: "visualEditor",
   },
   redirects: {
     header: "URL Redirects",
-    cta: "Add URL Redirects",
+    cta: "Add URL Redirect",
     description:
       "Use our no-code tool to A/B test URL redirects for whole pages, or to test parts of a URL.",
-    commercialFeature: true,
+    commercialFeature: "redirects",
     sdkCapabilityKey: "redirects",
   },
 };
@@ -41,23 +53,21 @@ const LINKED_CHANGES = {
 const AddLinkedChangeRow = ({
   type,
   setModal,
-  hasFeature,
   experiment,
 }: {
   type: LinkedChange;
-  setModal: (boolean) => void;
-  hasFeature: boolean;
+  setModal: (open: boolean) => void;
   experiment: ExperimentInterfaceStringDates;
 }) => {
-  const {
-    header,
-    cta,
-    description,
-    commercialFeature,
-    sdkCapabilityKey,
-  } = LINKED_CHANGES[type];
-  const { component: Icon, color } = ICON_PROPERTIES[type];
+  const { header, cta, description, commercialFeature, sdkCapabilityKey } =
+    LINKED_CHANGES[type];
+  const { component: Icon, radixColor } = ICON_PROPERTIES[type];
   const { data: sdkConnectionsData } = useSDKConnections();
+
+  const { hasCommercialFeature } = useUser();
+  const hasFeature = commercialFeature
+    ? hasCommercialFeature(commercialFeature)
+    : true;
 
   const hasSDKWithFeature =
     type === "feature-flag" ||
@@ -66,70 +76,70 @@ const AddLinkedChangeRow = ({
       project: experiment.project ?? "",
     }).includes(sdkCapabilityKey as SDKCapability);
 
-  const isCTAClickable =
-    (!commercialFeature || hasFeature) && hasSDKWithFeature;
+  const isCTAClickable = hasSDKWithFeature;
 
   return (
-    <div className="d-flex">
-      <span
-        className="mr-3"
-        style={{
-          background: `${color}15`,
-          borderRadius: "50%",
-          height: "45px",
-          width: "45px",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <Icon
-          style={{
-            color: color,
-            height: "24px",
-            width: "24px",
-          }}
-        />
-      </span>
-      <div className="flex-grow-1">
-        <div className="d-flex justify-content-between">
-          <b
-            className={isCTAClickable ? styles.sectionHeader : undefined}
-            onClick={() => {
-              if (isCTAClickable) {
-                setModal(true);
-              }
-            }}
+    <Flex align="center" justify="between" gap="3" width="100%">
+      <Flex align="center" direction="row" flexGrow="1" minWidth="0" gap="5">
+        <Box width="150px" flexShrink="0">
+          <Avatar
+            radius="full"
+            color={radixColor as AvatarProps["color"]}
+            size="md"
+            variant="soft"
+            mr="2"
           >
+            <Icon />
+          </Avatar>
+          <Text size="lg" weight="semibold" color="text-high">
             {header}
-          </b>
-          {isCTAClickable ? (
-            <div
-              className="btn btn-link link-purple p-0"
+          </Text>
+        </Box>
+        <Box flexGrow="1" minWidth="0">
+          <Text color="text-low">{description}</Text>
+        </Box>
+      </Flex>
+      <Box flexShrink="0">
+        {isCTAClickable ? (
+          commercialFeature && !hasFeature ? (
+            <PremiumTooltip
+              commercialFeature={commercialFeature}
+              body={
+                "You can add this to your draft, but you will not be able to start the experiment until upgrading."
+              }
+              usePortal={true}
+            >
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setModal(true);
+                }}
+              >
+                {cta}
+              </Button>
+            </PremiumTooltip>
+          ) : (
+            <Button
+              variant="ghost"
               onClick={() => {
                 setModal(true);
               }}
             >
               {cta}
-            </div>
-          ) : commercialFeature && !hasFeature ? (
-            <PremiumTooltip commercialFeature={type as CommercialFeature}>
-              <div className="btn btn-link p-0 disabled">{cta}</div>
-            </PremiumTooltip>
-          ) : (
-            <div>
-              <Tooltip
-                body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
-                tipPosition="top"
-              >
-                <div className="btn btn-link disabled p-0">{cta}</div>
-              </Tooltip>
-            </div>
-          )}
-        </div>
-        <p className="mt-2 mb-1">{description}</p>
-      </div>
-    </div>
+            </Button>
+          )
+        ) : (
+          <Tooltip
+            body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
+            tipPosition="top"
+          >
+            <Button variant="ghost" disabled>
+              {cta}
+            </Button>
+          </Tooltip>
+        )}
+      </Box>
+    </Flex>
   );
 };
 
@@ -148,12 +158,8 @@ export default function AddLinkedChanges({
   setFeatureModal: (state: boolean) => unknown;
   setUrlRedirectModal: (state: boolean) => unknown;
 }) {
-  const { hasCommercialFeature } = useUser();
-
-  const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
-  const hasURLRedirectsFeature = hasCommercialFeature("redirects");
-
   if (experiment.status !== "draft") return null;
+  if (experiment.nextScheduledStatusUpdate) return null;
   if (experiment.archived) return null;
   // Already has linked changes
   if (numLinkedChanges && numLinkedChanges > 0) return null;
@@ -174,42 +180,21 @@ export default function AddLinkedChanges({
   };
 
   const possibleSections = Object.keys(sections);
-  const sectionsToRender = possibleSections.filter((s) => sections[s].render);
-  if (!sectionsToRender.length) return null;
 
   return (
-    <div className="appbox px-4 py-3 my-4">
-      {sectionsToRender.length < possibleSections.length ? (
-        <>
-          <h4>Add Implementation</h4>
-        </>
-      ) : (
-        <>
-          <h4>Select an Implementation</h4>
-        </>
-      )}
-      <hr />
-      <>
-        {sectionsToRender.map((s, i) => {
-          return (
-            <div key={s}>
-              <AddLinkedChangeRow
-                type={s as LinkedChange}
-                setModal={sections[s].setModal}
-                hasFeature={
-                  s === "visual-editor"
-                    ? hasVisualEditorFeature
-                    : s === "redirects"
-                    ? hasURLRedirectsFeature
-                    : true
-                }
-                experiment={experiment}
-              />
-              {i < sectionsToRender.length - 1 && <hr />}
-            </div>
-          );
-        })}
-      </>
-    </div>
+    <Box className="appbox mb-0" p="4" mt="2" mb="0">
+      {possibleSections.map((s, i) => {
+        return (
+          <Box key={s}>
+            <AddLinkedChangeRow
+              type={s as LinkedChange}
+              setModal={sections[s].setModal}
+              experiment={experiment}
+            />
+            {i < possibleSections.length - 1 && <Separator size="4" my="3" />}
+          </Box>
+        );
+      })}
+    </Box>
   );
 }

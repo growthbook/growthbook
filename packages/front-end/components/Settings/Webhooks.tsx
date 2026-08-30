@@ -1,5 +1,5 @@
 import React, { FC, Fragment } from "react";
-import { WebhookInterface } from "back-end/types/webhook";
+import { WebhookInterface } from "shared/types/webhook";
 import { FaCheck } from "react-icons/fa";
 import { ago } from "shared/dates";
 import useApi from "@/hooks/useApi";
@@ -10,17 +10,18 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 
 const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
-    "/legacy-sdk-webhooks"
+    "/legacy-sdk-webhooks",
   );
   const { getProjectById, projects } = useDefinitions();
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -100,6 +101,7 @@ const Webhooks: FC = () => {
                   <td>
                     {permissionsUtil.canManageLegacySDKWebhooks() ? (
                       <DeleteButton
+                        useRadix={false}
                         link={true}
                         className={"text-primary"}
                         displayName="Webhook"

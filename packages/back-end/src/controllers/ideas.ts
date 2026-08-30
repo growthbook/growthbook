@@ -1,5 +1,7 @@
 import { Response } from "express";
 import { FilterQuery } from "mongoose";
+import { IdeaInterface } from "shared/types/idea";
+import { Vote } from "shared/types/vote";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getIdeasByOrganization,
@@ -8,9 +10,7 @@ import {
   deleteIdeaById,
   getIdeasByQuery,
 } from "back-end/src/services/ideas";
-import { IdeaInterface } from "back-end/types/idea";
 import { addTagsDiff } from "back-end/src/models/TagModel";
-import { Vote } from "back-end/types/vote";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   getImpactEstimate,
@@ -22,7 +22,7 @@ import { getExperimentByIdea } from "back-end/src/models/ExperimentModel";
 export async function getIdeas(
   // eslint-disable-next-line
   req: AuthRequest<any, any, { project?: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   let project = "";
@@ -40,7 +40,7 @@ export async function getIdeas(
 
 export async function getEstimatedImpact(
   req: AuthRequest<{ metric: string; segment?: string }>,
-  res: Response
+  res: Response,
 ) {
   const { metric, segment } = req.body;
 
@@ -49,7 +49,7 @@ export async function getEstimatedImpact(
     context,
     metric,
     context.org.settings?.metricAnalysisDays || 30,
-    segment
+    segment,
   );
 
   res.status(200).json({
@@ -65,7 +65,7 @@ export async function getEstimatedImpact(
  */
 export async function postIdeas(
   req: AuthRequest<Partial<IdeaInterface>>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -87,7 +87,7 @@ export async function postIdeas(
 
 export async function getIdea(
   req: AuthRequest<Partial<IdeaInterface>, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -114,7 +114,7 @@ export async function getIdea(
           estimateOrg: estimate.organization,
           ideaOrg: idea.organization,
         },
-        "Estimate org does not match idea org"
+        "Estimate org does not match idea org",
       );
       estimate = null;
     }
@@ -144,7 +144,7 @@ export async function getIdea(
  */
 export async function postIdea(
   req: AuthRequest<IdeaInterface, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { id } = req.params;
   const idea = await getIdeaById(id);
@@ -197,7 +197,7 @@ export async function postIdea(
 
 export async function deleteIdea(
   req: AuthRequest<IdeaInterface, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { id } = req.params;
   const idea = await getIdeaById(id);
@@ -236,7 +236,7 @@ export async function deleteIdea(
 
 export async function postVote(
   req: AuthRequest<Partial<Vote>, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { id } = req.params;
   const data = req.body;
@@ -303,7 +303,7 @@ export async function postVote(
 
 export async function getRecentIdeas(
   req: AuthRequest<unknown, { num: string }, { project?: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { num } = req.params;
@@ -324,7 +324,7 @@ export async function getRecentIdeas(
       .limit(intNum + 5);
 
     const recentIdeas = ideas.sort(
-      (a, b) => b.dateCreated.getTime() - a.dateCreated.getTime()
+      (a, b) => b.dateCreated.getTime() - a.dateCreated.getTime(),
     );
     res.status(200).json({
       status: 200,

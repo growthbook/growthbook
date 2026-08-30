@@ -1,5 +1,8 @@
 import React, { FC, useState } from "react";
-import { EventInterface, NotificationEventName } from "back-end/types/event";
+import {
+  EventInterface,
+  NotificationEventName,
+} from "shared/types/events/event";
 import { FaDownload, FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
@@ -11,10 +14,11 @@ import Pagination from "@/components/Pagination";
 import { EventsTableRow } from "@/components/Events/EventsPage/EventsTableRow";
 import SelectField from "@/components/Forms/SelectField";
 import { notificationEventNames } from "@/components/EventWebHooks/utils";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Button from "@/components/Radix/Button";
+import MultiSelectField from "@/ui/MultiSelectField";
+import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 type EventsPageProps = {
   filterURLParams: string;
@@ -52,9 +56,9 @@ export const EventsPage: FC<EventsPageProps> = ({
   if (!permissionsUtil.canViewAuditLogs()) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -90,14 +94,14 @@ export const EventsPage: FC<EventsPageProps> = ({
         {filters}
       </div>
       {error && (
-        <div className="alert alert-danger mt-2">
+        <Callout status="error" mt="2">
           There was an error loading the events.
-        </div>
+        </Callout>
       )}
       {hasExportError && (
-        <div className="alert alert-danger mt-2">
+        <Callout status="error" mt="2">
           There was an error exporting the events.
-        </div>
+        </Callout>
       )}
 
       <table className="mt-3 table gbtable appbox--align-top table-hover appbox">
@@ -194,7 +198,7 @@ export const EventsPageContainer = () => {
     "/events/count?type=" +
       JSON.stringify(eventType) +
       (fromDate ? "&from=" + fromDate?.toISOString() : "") +
-      (toDate ? "&to=" + toDate?.toISOString() : "")
+      (toDate ? "&to=" + toDate?.toISOString() : ""),
   );
   const {
     isDownloading,
@@ -217,6 +221,7 @@ export const EventsPageContainer = () => {
     <>
       <div>
         <MultiSelectField
+          legacyHeight
           value={eventType}
           placeholder="Filter event type"
           sort={false}
@@ -264,6 +269,7 @@ export const EventsPageContainer = () => {
       <div className="flex-grow-1"></div>
       <div>
         <SelectField
+          size="legacy"
           containerClassName="ml-2 d-flex align-items-center mb-0"
           labelClassName="mr-2 mb-0"
           label="Show"

@@ -1,8 +1,8 @@
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import { ArchetypeInterface } from "back-end/types/archetype";
-import { ApiArchetype } from "back-end/types/openapi";
+import { ArchetypeInterface } from "shared/types/archetype";
+import { ApiArchetype } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 
 const archetypeSchema = new mongoose.Schema({
@@ -19,6 +19,7 @@ const archetypeSchema = new mongoose.Schema({
   owner: String,
   isPublic: Boolean,
   projects: [String],
+  environments: [String],
   dateCreated: Date,
   dateUpdated: Date,
   attributes: String,
@@ -28,7 +29,7 @@ type ArchetypeDocument = mongoose.Document & ArchetypeInterface;
 
 const ArchetypeModel = mongoose.model<ArchetypeInterface>(
   "archetype",
-  archetypeSchema
+  archetypeSchema,
 );
 
 type CreateArchetypeProps = Omit<
@@ -42,10 +43,7 @@ type UpdateArchetypeProps = Omit<
 >;
 
 const toInterface = (doc: ArchetypeDocument): ArchetypeInterface =>
-  omit(
-    doc.toJSON<ArchetypeDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
+  omit(doc.toJSON<ArchetypeDocument>({ flattenMaps: true }), ["__v", "_id"]);
 
 export function parseArchetypeString(list: string) {
   const values = list
@@ -57,7 +55,7 @@ export function parseArchetypeString(list: string) {
 }
 
 export async function createArchetype(
-  arch: CreateArchetypeProps
+  arch: CreateArchetypeProps,
 ): Promise<ArchetypeInterface> {
   const newArch = await ArchetypeModel.create({
     ...arch,
@@ -71,7 +69,7 @@ export async function createArchetype(
 export async function getAllArchetypes(
   organization: string,
   owner: string,
-  project?: string
+  project?: string,
 ): Promise<ArchetypeInterface[]> {
   const query: FilterQuery<ArchetypeDocument> = {
     organization: organization,
@@ -100,7 +98,7 @@ export async function getAllArchetypes(
 
 export async function getArchetypeById(
   archetypeId: string,
-  organization: string
+  organization: string,
 ): Promise<ArchetypeInterface | null> {
   const archetype = await ArchetypeModel.findOne({
     id: archetypeId,
@@ -113,7 +111,7 @@ export async function getArchetypeById(
 export async function updateArchetypeById(
   archetypeId: string,
   organization: string,
-  archProps: UpdateArchetypeProps
+  archProps: UpdateArchetypeProps,
 ): Promise<UpdateArchetypeProps> {
   const changes = {
     ...archProps,
@@ -125,7 +123,7 @@ export async function updateArchetypeById(
       id: archetypeId,
       organization: organization,
     },
-    changes
+    changes,
   );
 
   return changes;
@@ -139,15 +137,18 @@ export async function deleteArchetypeById(id: string, organization: string) {
 }
 
 export function toArchetypeApiInterface(
-  archetype: ArchetypeInterface
+  archetype: ArchetypeInterface,
 ): ApiArchetype {
   let parsedAttributes = {};
   try {
     parsedAttributes = JSON.parse(archetype.attributes);
   } catch {
-    logger.error("Failed to parse archetype attributes json", {
-      archetypeId: archetype.id,
-    });
+    logger.error(
+      {
+        archetypeId: archetype.id,
+      },
+      "Failed to parse archetype attributes json",
+    );
   }
   return {
     id: archetype.id,
@@ -159,5 +160,6 @@ export function toArchetypeApiInterface(
     isPublic: archetype.isPublic,
     attributes: parsedAttributes,
     projects: archetype.projects || [],
+    environments: archetype.environments || [],
   };
 }

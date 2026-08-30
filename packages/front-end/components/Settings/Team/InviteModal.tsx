@@ -1,18 +1,23 @@
+import { Box } from "@radix-ui/themes";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   DefaultMemberRole,
   MemberRoleWithProjects,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
-import RoleSelector from "./RoleSelector";
+import Callout from "@/ui/Callout";
+import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import useOrgLimits from "@/hooks/useOrgLimits";
+import RoleRulesTable from "./RoleRulesTable";
+import RoleRulesSummaryRow from "./RoleRulesSummary";
 
 type InviteResult = {
   email: string;
@@ -34,6 +39,8 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
     freeSeats,
     canSubscribe,
   } = useUser();
+  const { orgSupportsRoles } = useOrgLimits();
+  const [editingRoles, setEditingRoles] = useState(false);
 
   const form = useForm<{
     email: string[];
@@ -45,25 +52,24 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
         projectRoles: [],
         ...getDefaultRole(organization),
         ...(defaultRole ? { role: defaultRole } : {}),
+        ...(orgSupportsRoles() ? {} : { role: "admin" }),
       },
     },
   });
   const [successfulInvites, setSuccessfulInvites] = useState<InviteResult[]>(
-    []
+    [],
   );
   const [failedInvites, setFailedInvites] = useState<InviteResult[]>([]);
   const { apiCall } = useAuth();
   const [showUpgradeModal, setShowUpgradeModal] = useState(
-    isCloud() && canSubscribe && seatsInUse >= freeSeats
-      ? "Whoops! You reached your free seat limit."
-      : ""
+    isCloud() && canSubscribe && seatsInUse >= freeSeats,
   );
 
   const [showContactSupport, setShowContactSupport] = useState(
     ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
       license &&
       license.hardCap &&
-      (license.seats || 0) <= seatsInUse
+      (license.seats || 0) <= seatsInUse,
   );
 
   // Hit their free limit and needs to upgrade to invite more team members
@@ -72,7 +78,6 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       <UpgradeModal
         close={close}
         source="invite team"
-        reason={showUpgradeModal}
         commercialFeature={null}
       />
     );
@@ -82,6 +87,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
   if (showContactSupport) {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         close={close}
@@ -108,7 +114,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       canSubscribe &&
       seatsInUse + value.email.length > freeSeats
     ) {
-      setShowUpgradeModal("Whoops! You reached your free seat limit.");
+      setShowUpgradeModal(true);
       return;
     }
 
@@ -162,12 +168,13 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       close={close}
       header="Invite Member"
       open={true}
       cta="Invite"
-      size="lg"
+      size="xl"
       closeCta={
         successfulInvites.length || failedInvites.length ? "Close" : "Cancel"
       }
@@ -179,13 +186,13 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       {successfulInvites.length || failedInvites.length ? (
         <>
           {successfulInvites.length === 1 && (
-            <div className="alert alert-success" role="alert">
+            <Callout status="success" role="alert">
               Successfully invited <strong>{successfulInvites[0].email}</strong>
               !
-            </div>
+            </Callout>
           )}
           {successfulInvites.length > 1 && (
-            <div className="alert alert-success" role="alert">
+            <Callout status="success" role="alert">
               <strong>Successfully invited the following members:</strong>
               <div className="pt-2">
                 <ul>
@@ -198,14 +205,14 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
                   })}
                 </ul>
               </div>
-            </div>
+            </Callout>
           )}
           {failedInvites.length === 1 && (
             <>
-              <div className="alert alert-danger">
+              <Callout status="error">
                 Failed to send invite email to{" "}
                 <strong>{failedInvites[0].email}</strong>
-              </div>
+              </Callout>
               <p>You can manually send them the following invite link:</p>
               <div className="mb-3">
                 <code>{failedInvites[0].inviteUrl}</code>
@@ -214,7 +221,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
           )}
           {failedInvites.length > 1 && (
             <>
-              <div className="alert alert-danger" role="alert">
+              <Callout status="error">
                 <strong>
                   Whoops! We weren&apos;t able to email the following members:
                 </strong>
@@ -229,7 +236,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
                     })}
                   </ul>
                 </div>
-              </div>
+              </Callout>
               <div className="pl-2 pr-2">
                 To manually send a member their invite link, close this modal
                 and click the 3 dots next to each member and select &apos;Resend
@@ -241,15 +248,20 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       ) : (
         <>
           <StringArrayField
+            legacyHeight
             required
             label="Email Address"
+            placeholder="name@company.com"
             value={form.watch("email")}
             onChange={(emails) => {
               // check for multiple values
               const parsedEmails: string[] = [];
               emails.forEach((em) => {
                 parsedEmails.push(
-                  ...em.split(/[\s,]/g).filter((e) => e.trim().length > 0)
+                  ...em
+                    .split(/[\s,;]/g)
+                    .map((e) => e.trim())
+                    .filter((e) => e.length > 0),
                 );
               });
               // dedup:
@@ -259,13 +271,25 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
             helpText="Enter a list of emails to invite multiple members at once."
             type="email"
           />
-          <RoleSelector
-            value={form.watch("roleInfo")}
-            setValue={(value) => form.setValue("roleInfo", value)}
-            showUpgradeModal={() =>
-              setShowUpgradeModal("To enable advanced permissioning,")
-            }
-          />
+          {editingRoles ? (
+            <RoleRulesTable
+              value={form.watch("roleInfo")}
+              setValue={(value) => form.setValue("roleInfo", value)}
+            />
+          ) : (
+            <RoleRulesSummaryRow
+              label="Role"
+              value={form.watch("roleInfo")}
+              onEdit={() => setEditingRoles(true)}
+            />
+          )}
+          <Box mt="3">
+            <UpgradeMessage
+              showUpgradeModal={() => setShowUpgradeModal(true)}
+              commercialFeature="advanced-permissions"
+              upgradeMessage="enable per-environment and per-project permissions"
+            />
+          </Box>
         </>
       )}
     </Modal>

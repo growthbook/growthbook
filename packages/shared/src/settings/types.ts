@@ -1,10 +1,10 @@
-import { DataSourceInterface } from "back-end/types/datasource";
+import { DataSourceInterface } from "shared/types/datasource";
 import {
   ExperimentInterface,
   AttributionModel,
   ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
-import { MetricInterface } from "back-end/types/metric";
+} from "shared/types/experiment";
+import { MetricDefinitionInterface } from "shared/types/metric";
 import {
   OrganizationSettings,
   NorthStarMetric,
@@ -13,11 +13,13 @@ import {
   MemberRoleInfo,
   OrganizationInterface,
   RequireReview,
-} from "back-end/types/organization";
-import { StatsEngine } from "back-end/types/stats";
-import { ProjectInterface } from "back-end/types/project";
-import { ReportInterface } from "back-end/types/report";
-import { MetricWindowSettings } from "back-end/types/fact-table";
+  TargetingReviewRule,
+} from "shared/types/organization";
+import { StatsEngine, PValueCorrection } from "shared/types/stats";
+import { ProjectInterface } from "shared/types/project";
+import { ReportInterface } from "shared/types/report";
+import { MetricWindowSettings } from "shared/types/fact-table";
+import { ExperimentMetricDefinition } from "../experiments/experiments";
 
 interface SettingMetadata {
   scopeApplied?: keyof ScopeDefinition | "organization";
@@ -42,25 +44,24 @@ export interface ScopeDefinition {
   project?: ProjectInterface;
   datasource?: DataSourceInterface;
   experiment?: ExperimentInterface | ExperimentInterfaceStringDates;
-  metric?: MetricInterface;
-  denominatorMetric?: MetricInterface;
+  metric?: ExperimentMetricDefinition;
+  denominatorMetric?: MetricDefinitionInterface;
   report?: ReportInterface;
 }
 
-export type ScopeSettingsFn = (
-  scopes: ScopeDefinition
-) => {
+export type ScopeSettingsFn = (scopes: ScopeDefinition) => {
   settings: ScopedSettings;
   scopeSettings: ScopeSettingsFn;
 };
 
 interface MetricSettings {
-  windowType: MetricWindowSettings["type"] | null;
-  windowHours: number | null;
-  delayHours: number | null;
+  windowType: MetricWindowSettings["type"];
+  windowHours: number;
+  delayHours: number;
 
-  winRisk: number | null;
-  loseRisk: number | null;
+  winRisk: number;
+  loseRisk: number;
+  targetMDE: number;
 }
 
 interface BaseSettings {
@@ -76,14 +77,18 @@ interface BaseSettings {
   defaultRole: MemberRoleInfo;
   statsEngine: StatsEngine;
   pValueThreshold: number;
+  pValueCorrection: PValueCorrection;
   regressionAdjustmentEnabled: boolean;
   regressionAdjustmentDays: number;
   sequentialTestingEnabled: boolean;
   sequentialTestingTuningParameter: number;
+  postStratificationEnabled: boolean;
   attributionModel: AttributionModel;
+  srmThreshold: number;
   secureAttributeSalt: string;
   killswitchConfirmation: boolean;
   requireReviews: boolean | RequireReview[];
+  targetingReviewMode: TargetingReviewRule[];
   featureKeyExample: string;
   featureRegexValidator: string;
   banditScheduleValue: number;
@@ -92,6 +97,10 @@ interface BaseSettings {
   banditBurnInUnit: "hours" | "days";
   experimentMinLengthDays: number;
   experimentMaxLengthDays: number | undefined;
+  maxMetricSliceLevels: number;
+  topValuesLookbackValue: number;
+  topValuesLookbackUnit: "days";
+  useStickyBucketing: boolean;
 }
 
 // todo: encapsulate all settings, including experiment

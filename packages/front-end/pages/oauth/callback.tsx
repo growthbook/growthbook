@@ -1,9 +1,9 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import Button from "@/components/Button";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { redirectWithTimeout, safeLogout } from "@/services/auth";
+import { OAuthError } from "@/components/OAuthError";
 import { getApiHost } from "@/services/env";
+import { getPostAuthRedirectPath } from "@/services/auth";
 
 export default function OAuthCallbackPage() {
   const router = useRouter();
@@ -15,29 +15,22 @@ export default function OAuthCallbackPage() {
         ? window.location.search
         : "?" + window.location.hash.substring(1);
 
-    window
-      .fetch(getApiHost() + `/auth/callback${qs}`, {
-        method: "POST",
-        credentials: "include",
-      })
-      .then((res) => res.json())
-      .then((json) => {
-        if (json?.status !== 200) {
-          setError(json?.message || "An unknown error occurred");
-        } else {
-          try {
-            let redirect =
-              window.sessionStorage.getItem("postAuthRedirectPath") ?? "/";
-            // make sure the redirect path is relative (starts with a / followed by a string or nothing)
-            if (!/^\/\w*/.test(redirect)) {
-              redirect = "/";
-            }
-            router.replace(redirect);
-          } catch (e) {
-            // just redirect to the home page if there's an error
-            router.replace("/");
-          }
+    const post = (path: string) =>
+      window
+        .fetch(getApiHost() + path, { method: "POST", credentials: "include" })
+        .then((res) => res.json());
+
+    post(`/auth/callback${qs}`)
+      .then(async (json) => {
+        if (json?.status === 200) {
+          return router.replace(getPostAuthRedirectPath({ consume: true }));
         }
+        // Another tab may have already finished logging in, making this failure moot
+        const refresh = await post("/auth/refresh").catch(() => null);
+        if (refresh?.token) {
+          return router.replace(getPostAuthRedirectPath({ consume: true }));
+        }
+        setError(json?.message || "An unknown error occurred");
       })
       .catch((e) => {
         setError(e.message);
@@ -46,37 +39,7 @@ export default function OAuthCallbackPage() {
 
   return (
     <div className="container py-4">
-      {error ? (
-        <div>
-          <div className="mt-5 alert alert-danger">
-            <strong>OAuth Error:</strong> {error}
-          </div>
-          <div className="row">
-            <div className="col-auto">
-              <Button
-                color="primary"
-                onClick={async () => {
-                  await redirectWithTimeout(window.location.origin);
-                }}
-              >
-                Retry
-              </Button>
-            </div>
-            <div className="col-auto">
-              <Button
-                color="outline-primary"
-                onClick={async () => {
-                  await safeLogout();
-                }}
-              >
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <LoadingOverlay />
-      )}
+      {error ? <OAuthError error={error} /> : <LoadingOverlay />}
     </div>
   );
 }

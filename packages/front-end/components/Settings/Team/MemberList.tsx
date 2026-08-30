@@ -1,48 +1,123 @@
-import React, { FC, useEffect, useState } from "react";
-import { FaCheck, FaTimes } from "react-icons/fa";
-import { ExpandedMember } from "back-end/types/organization";
+import React, { FC, ReactNode, useEffect, useState } from "react";
+import { ExpandedMember } from "shared/types/organization";
 import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import router from "next/router";
-import { roleHasAccessToEnv, useAuth } from "@/services/auth";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import {
+  EffectiveRoleSource,
+  getEffectiveRolesForProject,
+} from "shared/permissions";
+import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Link from "@/ui/Link";
+import RoleRuleLabel from "@/components/Settings/Team/RoleRuleLabel";
+import Callout from "@/ui/Callout";
 import { usingSSO } from "@/services/env";
-import { useEnvironments } from "@/services/features";
+import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import InviteModal from "@/components/Settings/Team/InviteModal";
 import AdminSetPasswordModal from "@/components/Settings/Team/AdminSetPasswordModal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
-import Button from "@/components/Radix/Button";
+import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRoleModal";
+import Button from "@/ui/Button";
+import Text from "@/ui/Text";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@/ui/DropdownMenu";
+
+// Keyed by the rule, not just the role: the same role can apply with different
+// environment restrictions.
+function rulesWithSources(roles: EffectiveRoleSource[]) {
+  const out: {
+    key: string;
+    role: string;
+    limitAccessByEnvironment: boolean;
+    environments: string[];
+    sources: string[];
+  }[] = [];
+  roles.forEach((er) => {
+    const src = er.sourceType === "user" ? "Direct" : `Team: ${er.sourceName}`;
+    const key = `${er.role}|${er.limitAccessByEnvironment}|${er.environments.join(",")}`;
+    const existing = out.find((e) => e.key === key);
+    if (existing) existing.sources.push(src);
+    else
+      out.push({
+        key,
+        role: er.role,
+        limitAccessByEnvironment: er.limitAccessByEnvironment,
+        environments: er.environments,
+        sources: [src],
+      });
+  });
+  return out;
+}
+
+function RuleLines({
+  roles,
+  organization,
+}: {
+  roles: EffectiveRoleSource[];
+  organization: Parameters<typeof RoleRuleLabel>[0]["organization"];
+}) {
+  return (
+    <>
+      {rulesWithSources(roles).map((e) => (
+        <div key={e.key}>
+          <RoleRuleLabel
+            {...e}
+            organization={organization}
+            sources={
+              e.sources.some((src) => src !== "Direct")
+                ? e.sources.join(", ")
+                : undefined
+            }
+          />
+        </div>
+      ))}
+    </>
+  );
+}
 
 const MemberList: FC<{
   mutate: () => void;
   project: string;
   canEditRoles?: boolean;
+  canEditProjectRoles?: boolean; // Some users with the project-admin role can't edit global roles, but they can edit roles for a specific project
   canDeleteMembers?: boolean;
   canInviteMembers?: boolean;
+  filters?: ReactNode;
 }> = ({
   mutate,
   project,
   canEditRoles = true,
+  canEditProjectRoles = false,
   canDeleteMembers = true,
   canInviteMembers = true,
+  filters,
 }) => {
   const [inviting, setInviting] = useState(!!router.query["just-subscribed"]);
   const { apiCall } = useAuth();
-  const { userId, users, organization } = useUser();
+  const { userId, users, organization, teams } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
-  const [
-    passwordResetModal,
-    setPasswordResetModal,
-  ] = useState<ExpandedMember | null>(null);
+  const [projectRoleModal, setProjectRoleModal] = useState<string>("");
+  const [passwordResetModal, setPasswordResetModal] =
+    useState<ExpandedMember | null>(null);
   const { projects } = useDefinitions();
-  const environments = useEnvironments();
 
   const openInviteModal = !!router.query["just-subscribed"];
 
@@ -55,36 +130,74 @@ const MemberList: FC<{
   };
 
   const roleModalUser = users.get(roleModal);
+  const projectRoleModalUser = users.get(projectRoleModal);
 
   const members = Array.from(users).sort((a, b) =>
-    a[1].name.localeCompare(b[1].name)
+    a[1].name.localeCompare(b[1].name),
   );
 
-  const membersList: ExpandedMember[] =
-    members.map(([, member]) => {
-      return {
-        ...member,
-        numTeams: member.teams?.length || 0,
-      } as ExpandedMember;
-    }) || [];
+  // Every project someone set a rule on — the member or one of their teams.
+  const scopedProjectIds = (member: ExpandedMember) => [
+    ...new Set([
+      ...(member.projectRoles || []).map((pr) => pr.project),
+      ...(member.teams || []).flatMap(
+        (id) =>
+          (teams || [])
+            .find((t) => t.id === id)
+            ?.projectRoles?.map((pr) => pr.project) || [],
+      ),
+    ]),
+  ];
+
+  const membersList: ExpandedMember[] = members.map(([, member]) => ({
+    ...member,
+    numTeams: member.teams?.length || 0,
+  }));
 
   const {
     items,
     searchInputProps,
     isFiltered,
-    SortableTH,
+    SortableTableColumnHeader,
     pagination,
   } = useSearch({
-    items: membersList || [],
+    items: membersList,
     localStorageKey: "members",
     defaultSortField: "name",
     searchFields: ["name", "email"],
     pageSize: 20,
+    defaultMappings: {
+      lastLoginDate: new Date(0).toISOString(),
+    },
   });
   return (
     <>
       {canInviteMembers && inviting && (
         <InviteModal close={() => setInviting(false)} mutate={mutate} />
+      )}
+      {projectRoleModal && projectRoleModalUser && (
+        <ChangeProjectRoleModal
+          memberName={projectRoleModalUser.name || projectRoleModalUser.email}
+          projectRole={
+            projectRoleModalUser.projectRoles?.find(
+              (r) => r.project === project,
+            ) || {
+              role: projectRoleModalUser.role,
+              environments: projectRoleModalUser.environments || [],
+              limitAccessByEnvironment:
+                projectRoleModalUser.limitAccessByEnvironment || false,
+              project: project,
+            }
+          }
+          close={() => setProjectRoleModal("")}
+          onConfirm={async (value) => {
+            await apiCall(`/member/${projectRoleModal}/project-role`, {
+              method: "PUT",
+              body: JSON.stringify({ projectRole: value }),
+            });
+            mutate();
+          }}
+        />
       )}
       {canEditRoles && roleModal && roleModalUser && (
         <ChangeRoleModal
@@ -94,9 +207,12 @@ const MemberList: FC<{
             limitAccessByEnvironment: !!roleModalUser.limitAccessByEnvironment,
             role: roleModalUser.role,
             projectRoles: roleModalUser.projectRoles,
+            additionalRoles: roleModalUser.additionalRoles,
           }}
-          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
-          close={() => setRoleModal(null)}
+          teams={(teams || []).filter((t) =>
+            roleModalUser.teams?.includes(t.id),
+          )}
+          close={() => setRoleModal("")}
           onConfirm={async (value) => {
             await apiCall(`/member/${roleModal}/role`, {
               method: "PUT",
@@ -114,162 +230,262 @@ const MemberList: FC<{
       )}
 
       <div className="my-4">
-        <div className="d-flex align-items-end mt-4 mb-2">
-          <div>
-            <h5>Active Members{` (${users.size})`}</h5>
-          </div>
-          <div className="ml-3">
-            <Field
-              placeholder="Search..."
-              type="search"
-              {...searchInputProps}
-            />
-          </div>
-          <div className="flex-1" />
-          <div>
-            {canInviteMembers && (
-              <Button mb="1" onClick={onInvite}>
-                Invite Member
-              </Button>
-            )}
-          </div>
-        </div>
-        <table className="table appbox gbtable">
-          <thead>
-            <tr>
-              <SortableTH field="name">Name</SortableTH>
-              <SortableTH field="email">Email</SortableTH>
-              <SortableTH field="dateCreated">Date Joined</SortableTH>
-              <SortableTH field="lastLoginDate">Last Login</SortableTH>
-              <th>{project ? "Project Role" : "Global Role"}</th>
-              {!project && <th>Project Roles</th>}
-              {environments.map((env) => (
-                <th key={env.id}>{env.id}</th>
-              ))}
-              <SortableTH field="numTeams">Teams</SortableTH>
-              <th style={{ width: 50 }} />
-            </tr>
-          </thead>
-          <tbody>
+        <Flex align="center" justify="between" gap="3" mt="4" mb="2">
+          <Flex align="center" gap="3">
+            <h5 className="mb-0">Active Members{` (${users.size})`}</h5>
+            <Box width="250px" flexShrink="0">
+              <Field
+                placeholder="Search..."
+                type="search"
+                containerClassName="mb-0"
+                {...searchInputProps}
+              />
+            </Box>
+            {filters}
+          </Flex>
+          {canInviteMembers && (
+            <Button onClick={onInvite}>Invite member</Button>
+          )}
+        </Flex>
+        <Table variant="surface" layout="fixed">
+          <TableHeader>
+            <TableRow>
+              <SortableTableColumnHeader
+                field="name"
+                style={{ width: MEMBER_COLUMN_WIDTHS.name }}
+              >
+                Name
+              </SortableTableColumnHeader>
+              <SortableTableColumnHeader
+                field="email"
+                style={{ width: MEMBER_COLUMN_WIDTHS.email }}
+              >
+                Email
+              </SortableTableColumnHeader>
+              <SortableTableColumnHeader
+                field="dateCreated"
+                style={{ width: MEMBER_COLUMN_WIDTHS.date }}
+              >
+                Date Joined
+              </SortableTableColumnHeader>
+              <SortableTableColumnHeader
+                field="lastLoginDate"
+                style={{ width: MEMBER_COLUMN_WIDTHS.date }}
+              >
+                Last Login
+              </SortableTableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.role}>
+                <Tooltip body="The role(s) that actually apply after combining this member's own role with any teams they're on. Hover a value to see each source.">
+                  {project ? "Project Role" : "Role"}
+                </Tooltip>
+              </TableColumnHeader>
+              {!project && (
+                <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.projectRoles}>
+                  Project Roles
+                </TableColumnHeader>
+              )}
+              <SortableTableColumnHeader
+                field="numTeams"
+                style={{ width: MEMBER_COLUMN_WIDTHS.teams }}
+              >
+                Teams
+              </SortableTableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.actions} />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {items.map((member) => {
-              const roleInfo =
-                (project &&
-                  member.projectRoles?.find((r) => r.project === project)) ||
-                member;
+              const effectiveRoles = getEffectiveRolesForProject(
+                member,
+                project || null,
+                teams || [],
+              );
               return (
-                <tr key={member.id}>
-                  <td>{member.name}</td>
-                  <td>
-                    <div className="d-flex align-items-center">
-                      {member.managedByIdp ? (
-                        <Tooltip
-                          className="mr-2"
-                          body="This user is managed by an external identity provider."
-                        >
+                <TableRow key={member.id}>
+                  <TableCell>{member.name}</TableCell>
+                  <TableCell>
+                    <Flex align="center" gap="2">
+                      {member.managedByIdp && (
+                        <Tooltip body="This user is managed by an external identity provider.">
                           <RxIdCard className="text-blue" />
                         </Tooltip>
-                      ) : null}
+                      )}
                       {member.email}
-                    </div>
-                  </td>
-                  <td>{member.dateCreated && datetime(member.dateCreated)}</td>
-                  <td>{member.lastLoginDate && date(member.lastLoginDate)}</td>
-                  <td>{roleInfo.role}</td>
+                    </Flex>
+                  </TableCell>
+                  <TableCell
+                    title={
+                      member.dateCreated
+                        ? datetime(member.dateCreated)
+                        : undefined
+                    }
+                  >
+                    {member.dateCreated && date(member.dateCreated)}
+                  </TableCell>
+                  <TableCell
+                    title={
+                      member.lastLoginDate
+                        ? datetime(member.lastLoginDate)
+                        : undefined
+                    }
+                  >
+                    {member.lastLoginDate && date(member.lastLoginDate)}
+                  </TableCell>
+                  <TableCell>
+                    <RuleLines
+                      roles={effectiveRoles}
+                      organization={organization}
+                    />
+                  </TableCell>
                   {!project && (
-                    <td className="col-2">
-                      {member.projectRoles?.map((pr) => {
-                        const p = projects.find((p) => p.id === pr.project);
-                        if (p?.name) {
-                          return (
-                            <div key={`project-tags-${p.id}`}>
-                              <ProjectBadges
-                                resourceType="member"
-                                projectIds={[p.id]}
-                              />{" "}
-                              — {pr.role}
-                            </div>
-                          );
-                        }
-                        return null;
+                    <TableCell>
+                      {scopedProjectIds(member).map((projectId) => {
+                        const p = projects.find((p) => p.id === projectId);
+                        if (!p?.name) return null;
+                        const roles = getEffectiveRolesForProject(
+                          member,
+                          projectId,
+                          teams || [],
+                        );
+                        return (
+                          <div key={`project-tags-${p.id}`}>
+                            <ProjectBadges
+                              resourceType="member"
+                              projectIds={[p.id]}
+                            />
+                            <RuleLines
+                              roles={roles}
+                              organization={organization}
+                            />
+                          </div>
+                        );
                       })}
-                    </td>
+                    </TableCell>
                   )}
-                  {environments.map((env) => {
-                    const access = roleHasAccessToEnv(
-                      roleInfo,
-                      env.id,
-                      organization
-                    );
-                    return (
-                      <td key={env.id}>
-                        {access === "N/A" ? (
-                          <span className="text-muted">N/A</span>
-                        ) : access === "yes" ? (
-                          <FaCheck className="text-success" />
-                        ) : (
-                          <FaTimes className="text-danger" />
-                        )}
-                      </td>
-                    );
-                  })}
 
-                  <td>{member.teams ? member.teams.length : 0}</td>
+                  <TableCell>
+                    {(member.teams ?? []).map((teamId) => {
+                      const team = (teams ?? []).find((t) => t.id === teamId);
+                      if (!team) return null;
+                      return (
+                        <div key={teamId}>
+                          <Link href={`/settings/team/${teamId}`}>
+                            {team.name}
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </TableCell>
 
-                  <td>
-                    {canEditRoles && member.id !== userId && (
-                      <>
-                        <MoreMenu>
-                          <button
-                            className="dropdown-item"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setRoleModal(member.id);
-                            }}
+                  <TableCell justify="end">
+                    {member.id !== userId && (
+                      <DropdownMenu
+                        trigger={
+                          <IconButton
+                            variant="ghost"
+                            color="gray"
+                            radius="full"
+                            size="2"
+                            highContrast
                           >
-                            Edit Role
-                          </button>
+                            <BsThreeDotsVertical size={18} />
+                          </IconButton>
+                        }
+                        menuPlacement="end"
+                        variant="soft"
+                      >
+                        <DropdownMenuGroup>
+                          {canEditRoles && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setRoleModal(member.id);
+                              }}
+                            >
+                              Edit role
+                            </DropdownMenuItem>
+                          )}
+                          {!canEditRoles && canEditProjectRoles && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setProjectRoleModal(member.id);
+                              }}
+                            >
+                              Edit Project role
+                            </DropdownMenuItem>
+                          )}
                           {canDeleteMembers && !usingSSO() && (
-                            <button
-                              className="dropdown-item"
-                              onClick={(e) => {
-                                e.preventDefault();
+                            <DropdownMenuItem
+                              onClick={() => {
                                 setPasswordResetModal(member);
                               }}
                             >
-                              Reset Password
-                            </button>
+                              Reset password
+                            </DropdownMenuItem>
                           )}
-                          {canDeleteMembers && !member.managedByIdp && (
-                            <DeleteButton
-                              link={true}
-                              text="Remove User"
-                              useIcon={false}
-                              className="dropdown-item"
-                              displayName={member.email}
-                              onClick={async () => {
-                                await apiCall(`/member/${member.id}`, {
-                                  method: "DELETE",
-                                });
-                                mutate();
+                          {canDeleteMembers && (
+                            <DropdownMenuItem
+                              color="red"
+                              confirmation={{
+                                submit: async () => {
+                                  await apiCall(`/member/${member.id}`, {
+                                    method: "DELETE",
+                                  });
+                                  mutate();
+                                },
+                                confirmationTitle: "Remove user",
+                                cta: "Remove user",
+                                getConfirmationContent: async () => (
+                                  <>
+                                    Are you sure you want to remove{" "}
+                                    {member.email}?
+                                    {member.managedByIdp && (
+                                      <Callout status="warning" mt="2">
+                                        <Flex direction="column" gap="2">
+                                          <Text weight="semibold" size="md">
+                                            This user is managed by an external
+                                            identity provider.
+                                          </Text>
+                                          <span>
+                                            We suggest deprovisioning this user
+                                            from your external identity provider
+                                            directly.
+                                          </span>
+                                          <span>
+                                            If you deprovision this user here,
+                                            and they&apos;re still provisioned
+                                            in your external identity provider,
+                                            they will be automatically
+                                            re-provisioned.
+                                          </span>
+                                        </Flex>
+                                      </Callout>
+                                    )}
+                                  </>
+                                ),
                               }}
-                            />
+                            >
+                              Remove user
+                            </DropdownMenuItem>
                           )}
-                        </MoreMenu>
-                      </>
+                        </DropdownMenuGroup>
+                      </DropdownMenu>
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
             {!items.length && isFiltered && (
-              <tr>
-                <td colSpan={4} align={"center"}>
+              <TableRow>
+                <TableCell
+                  colSpan={7 + (project ? 0 : 1)}
+                  style={{ textAlign: "center" }}
+                >
                   No matching members found.
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
         {pagination}
       </div>
     </>

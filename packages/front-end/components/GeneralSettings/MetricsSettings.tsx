@@ -1,23 +1,34 @@
 import { useFormContext } from "react-hook-form";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import React from "react";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { hasFileConfig } from "@/services/env";
 import { supportedCurrencies } from "@/services/settings";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Callout from "@/components/Radix/Callout";
-import Frame from "@/components/Radix/Frame";
+import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
+import Checkbox from "@/ui/Checkbox";
+import HelperText from "@/ui/HelperText";
+import { useUser } from "@/services/UserContext";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 export default function MetricsSettings() {
   const form = useFormContext();
+  const { hasCommercialFeature } = useUser();
   const metricAnalysisDays = form.watch("metricAnalysisDays");
   const metricAnalysisDaysWarningMsg =
     metricAnalysisDays && metricAnalysisDays > 365
       ? "Using more historical data will slow down metric analysis queries"
       : "";
-  const currencyOptions = Object.entries(
-    supportedCurrencies
-  ).map(([value, label]) => ({ value, label }));
+  const maxMetricSliceLevels = form.watch("maxMetricSliceLevels");
+  const maxMetricSliceLevelsWarningMsg =
+    maxMetricSliceLevels && maxMetricSliceLevels > 20
+      ? "Using too many slice levels may increase query costs substantially. All Auto Slice levels are analyzed every time an experiment refreshes."
+      : "";
+  const currencyOptions = Object.entries(supportedCurrencies).map(
+    ([value, label]) => ({ value, label }),
+  );
   return (
     <Frame>
       <Flex gap="4">
@@ -30,10 +41,11 @@ export default function MetricsSettings() {
         <Flex align="start" direction="column" flexGrow="1" pt="6">
           <Box mb="6" width="100%">
             <Text as="label" className="font-weight-semibold" size="3">
-              Amount of historical data to use on metric analysis page
+              Metric analysis lookback window
             </Text>
             <Box width="200px">
               <Field
+                size="legacy"
                 type="number"
                 append="days"
                 containerClassName="mb-0"
@@ -43,6 +55,9 @@ export default function MetricsSettings() {
                 })}
               />
             </Box>
+            <HelperText status="info" size="sm" mt="1">
+              Amount of historical data to use on the metric analysis page.
+            </HelperText>
             {metricAnalysisDaysWarningMsg && (
               <Callout status="warning" mt="2">
                 {metricAnalysisDaysWarningMsg}
@@ -65,7 +80,8 @@ export default function MetricsSettings() {
             <div>
               <div className="form-inline">
                 <Field
-                  label="Minimum Metric Total"
+                  size="legacy"
+                  label="Minimum metric total"
                   type="number"
                   min={0}
                   className="ml-2"
@@ -80,7 +96,7 @@ export default function MetricsSettings() {
               <p>
                 <small className="text-muted mb-3">
                   The total metric value required in an experiment variation
-                  before showing results
+                  before showing results.
                 </small>
               </p>
             </div>
@@ -90,7 +106,8 @@ export default function MetricsSettings() {
             <div>
               <div className="form-inline">
                 <Field
-                  label="Maximum Percentage Change"
+                  size="legacy"
+                  label="Maximum percentage change"
                   type="number"
                   min={0}
                   append="%"
@@ -106,7 +123,7 @@ export default function MetricsSettings() {
               <p>
                 <small className="text-muted mb-3">
                   An experiment that changes the metric by more than this
-                  percent will be flagged as suspicious
+                  percent will be flagged as suspicious.
                 </small>
               </p>
             </div>
@@ -116,7 +133,8 @@ export default function MetricsSettings() {
             <div>
               <div className="form-inline">
                 <Field
-                  label="Minimum Percentage Change"
+                  size="legacy"
+                  label="Minimum percentage change"
                   type="number"
                   min={0}
                   append="%"
@@ -132,7 +150,7 @@ export default function MetricsSettings() {
               <p>
                 <small className="text-muted mb-3">
                   An experiment that changes the metric by less than this
-                  percent percent will be considered a draw
+                  percent will be considered a draw.
                 </small>
               </p>
             </div>
@@ -142,7 +160,8 @@ export default function MetricsSettings() {
             <div>
               <div className="form-inline">
                 <Field
-                  label="Target Minimum Detectable Effect"
+                  size="legacy"
+                  label="Target minimum detectable effect"
                   type="number"
                   min={0}
                   append="%"
@@ -155,31 +174,113 @@ export default function MetricsSettings() {
                   })}
                 />
               </div>
-              <p>
+              <Box maxWidth="740px">
                 <small className="text-muted mb-3">
                   The percentage change that you want to be able to reliably
                   detect before ending your experiment. This is used to estimate
-                  the &quot;Days Left&quot; for running experiments.
-                  <br />
-                  Lower values require more data to reach a decision point for
-                  an experiment.
+                  the &quot;Days Left&quot; for running experiments. Lower
+                  values require more data to reach a decision point for an
+                  experiment.
                 </small>
-              </p>
+              </Box>
             </div>
             {/* endregion Target MDE */}
           </Box>
           {/* endregion Metrics Behavior Defaults */}
           <>
             <SelectField
-              label="Display Currency"
+              size="legacy"
+              label="Display currency"
               value={form.watch("displayCurrency") || "USD"}
               options={currencyOptions}
               onChange={(v: string) => form.setValue("displayCurrency", v)}
               required
-              placeholder="Select currency..."
-              helpText="This should match what is stored in the data source and controls what currency symbol is displayed."
+              markRequired
+              placeholder="Select a currency..."
+              helpText="This should match what is stored in the Data Source and controls what currency symbol is displayed."
             />
           </>
+
+          {/* Require Fact Metrics */}
+          <Box mt="3" mb="6" width="100%">
+            <Flex align="start" justify="start" gap="3">
+              <Box>
+                <Checkbox
+                  id="toggle-disableLegacyMetricCreation"
+                  value={!!form.watch("disableLegacyMetricCreation")}
+                  setValue={(value) => {
+                    form.setValue("disableLegacyMetricCreation", value);
+                  }}
+                  mt="1"
+                />
+              </Box>
+              <Flex
+                direction="column"
+                justify="start"
+                style={{ marginTop: "1px" }}
+              >
+                <Box>
+                  <Text
+                    size="3"
+                    className="font-weight-semibold"
+                    htmlFor="toggle-disableLegacyMetricCreation"
+                    as="label"
+                    mb="2"
+                  >
+                    Require Fact Metrics
+                  </Text>
+                </Box>
+                <Box>
+                  <Text size="2" color="gray">
+                    If enabled, users will only be able to create Fact Metrics.
+                    Legacy metric creation will be disabled.
+                  </Text>
+                </Box>
+              </Flex>
+            </Flex>
+          </Box>
+
+          <Box mb="6" width="100%" mt="2">
+            <Heading as="h4" size="4" mb="3">
+              Metric Slices
+            </Heading>
+            <Text as="label" className="font-weight-semibold" size="3">
+              Max Auto Slice levels
+              <PaidFeatureBadge
+                commercialFeature="metric-slices"
+                premiumText="This is an Enterprise feature"
+                variant="outline"
+                ml="2"
+              />
+            </Text>
+            <Box mb="3">
+              {hasCommercialFeature("metric-slices")
+                ? `Maximum number of Auto Slice levels that can be configured for metric analysis. Default is ${DEFAULT_MAX_METRIC_SLICE_LEVELS}.`
+                : "This feature requires an Enterprise license."}
+            </Box>
+            <Box width="200px">
+              <Field
+                size="legacy"
+                type="number"
+                min="0"
+                max="200"
+                step="1"
+                disabled={
+                  hasFileConfig() || !hasCommercialFeature("metric-slices")
+                }
+                {...form.register("maxMetricSliceLevels", {
+                  valueAsNumber: true,
+                  min: 0,
+                  max: 200,
+                })}
+              />
+            </Box>
+            {maxMetricSliceLevelsWarningMsg && (
+              <Callout status="warning" mt="2">
+                {maxMetricSliceLevelsWarningMsg}
+              </Callout>
+            )}
+          </Box>
         </Flex>
       </Flex>
     </Frame>

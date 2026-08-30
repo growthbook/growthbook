@@ -4,8 +4,9 @@ import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Avatar from "@/components/Avatar/Avatar";
+import EventUser from "@/components/Avatar/EventUser";
 import Markdown from "@/components/Markdown/Markdown";
+import Callout from "@/ui/Callout";
 
 const DiscussionFeed: FC<{
   num?: number;
@@ -27,7 +28,7 @@ const DiscussionFeed: FC<{
   const { users } = useUser();
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -42,15 +43,18 @@ const DiscussionFeed: FC<{
           const user = users.get(comment.userId);
           const email = user ? user.email : comment.userEmail;
           const name = user ? user.name : comment.userName;
+          const eventUser = {
+            type: "dashboard" as const,
+            id: comment.userId,
+            email: email ?? "",
+            name: name ?? "",
+          };
 
           return (
             <li className="mb-3" key={i}>
-              <Avatar
-                email={email}
-                className="mr-2 float-left"
-                size={24}
-                name={name}
-              />
+              <div className="mr-2 float-left">
+                <EventUser user={eventUser} display="avatar" size="sm" />
+              </div>
               <div
                 className="card cursor-pointer border-0"
                 onClick={(e) => {
@@ -59,8 +63,10 @@ const DiscussionFeed: FC<{
                 }}
               >
                 <div className="">
-                  <strong>{name || email}</strong> commented on{" "}
-                  {comment.parentType}
+                  <strong>
+                    <EventUser user={eventUser} display="name" />
+                  </strong>{" "}
+                  commented on {comment.parentType}
                   <div className="text-muted">{date(comment.date)}</div>
                 </div>
                 <div

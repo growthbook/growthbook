@@ -1,12 +1,14 @@
-import { Router } from "express";
+import { OpenApiRoute } from "back-end/src/util/handler";
 import { getSegment } from "./getSegment";
 import { listSegments } from "./listSegments";
+import { deleteSegment } from "./deleteSegment";
+import { postSegment } from "./postSegment";
+import { updateSegment } from "./updateSegment";
 
-const router = Router();
-
-// Segment Endpoints
-// Mounted at /api/v1/segments
-router.get("/", listSegments);
-router.get("/:id", getSegment);
-
-export default router;
+export const segmentsRoutes: OpenApiRoute[] = [
+  listSegments,
+  getSegment,
+  postSegment,
+  updateSegment,
+  deleteSegment,
+];

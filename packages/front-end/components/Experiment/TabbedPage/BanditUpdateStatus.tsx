@@ -1,15 +1,17 @@
 import React, { useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { BanditEvent } from "shared/validators";
 import { ago, datetime, getValidDate } from "shared/dates";
 import { upperFirst } from "lodash";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { Flex } from "@radix-ui/themes";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import Callout from "@/ui/Callout";
 
 export default function BanditUpdateStatus({
   experiment,
@@ -22,7 +24,7 @@ export default function BanditUpdateStatus({
   isPublic?: boolean;
   ssrSnapshot?: ExperimentSnapshotInterface;
 }) {
-  const { latest: _latest } = useSnapshot();
+  const { latestSummary: _latest } = useSnapshot();
   const latest = _latest ?? ssrSnapshot;
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
@@ -44,7 +46,7 @@ export default function BanditUpdateStatus({
   }
 
   const start = getValidDate(
-    experiment?.banditStageDateStarted ?? phase?.dateStarted
+    experiment?.banditStageDateStarted ?? phase?.dateStarted,
   ).getTime();
   const burnInHoursMultiple = experiment.banditBurnInUnit === "days" ? 24 : 1;
   const burnInRunDate = getValidDate(
@@ -53,7 +55,7 @@ export default function BanditUpdateStatus({
         burnInHoursMultiple *
         60 *
         60 *
-        1000
+        1000,
   );
 
   const _error = !lastEvent?.banditResult
@@ -132,7 +134,7 @@ export default function BanditUpdateStatus({
               {experiment.status === "running" &&
                 !isPublic &&
                 ["explore", "exploit"].includes(
-                  experiment.banditStage ?? ""
+                  experiment.banditStage ?? "",
                 ) && (
                   <>
                     <tr>
@@ -144,7 +146,8 @@ export default function BanditUpdateStatus({
                       <td className="text-muted">Next scheduled update:</td>
                       <td>
                         {experiment.nextSnapshotAttempt &&
-                        experiment.autoSnapshots ? (
+                        experiment.autoSnapshots &&
+                        !experiment.disableAutoSnapshots ? (
                           ago(experiment.nextSnapshotAttempt)
                         ) : (
                           <em>Not scheduled</em>
@@ -207,29 +210,28 @@ export default function BanditUpdateStatus({
           </div>
 
           {!isPublic && error ? (
-            <div className="alert small alert-danger mx-2 px-1 pt-2 pb-1 row align-items-start">
-              <div className="col">
-                <FaExclamationTriangle className="mr-1" />
-                {error}
-              </div>
-              {generatedSnapshot || latest ? (
-                <div className="col-auto">
-                  <ViewAsyncQueriesButton
-                    queries={
-                      (generatedSnapshot || latest)?.queries?.map(
-                        (q) => q.query
-                      ) ?? []
-                    }
-                    error={(generatedSnapshot || latest)?.error}
-                    status={status}
-                    display={null}
-                    color="link link-purple p-0 pb-1"
-                    condensed={true}
-                    hideQueryCount={true}
-                  />
-                </div>
-              ) : null}
-            </div>
+            <Callout status="error" size="sm" mx="2">
+              <Flex align="start" justify="between" gap="2">
+                <div>{error}</div>
+                {generatedSnapshot || latest ? (
+                  <div>
+                    <ViewAsyncQueriesButton
+                      queries={
+                        (generatedSnapshot || latest)?.queries?.map(
+                          (q) => q.query,
+                        ) ?? []
+                      }
+                      error={(generatedSnapshot || latest)?.error}
+                      status={status}
+                      display={null}
+                      color="link link-purple p-0 pb-1"
+                      condensed={true}
+                      hideQueryCount={true}
+                    />
+                  </div>
+                ) : null}
+              </Flex>
+            </Callout>
           ) : null}
 
           {!isPublic && experiment.status === "running" && mutate && (

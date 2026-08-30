@@ -1,9 +1,9 @@
-import { Queries } from "back-end/types/query";
+import { Queries } from "shared/types/query";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   ExperimentSnapshotReportInterface,
-} from "back-end/types/report";
+} from "shared/types/report";
 import React from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/services/auth";
@@ -51,7 +51,7 @@ export default function ReportResultMoreMenu({
     hasData && supportsNotebooks && notebookUrl && notebookFilename;
 
   return (
-    <MoreMenu autoCloseOnClick={false} useRadix={true} className="ml-2">
+    <MoreMenu autoCloseOnClick={false} className="ml-2">
       {setNameModalOpen ? (
         <button
           className="dropdown-item py-2"
@@ -83,7 +83,7 @@ export default function ReportResultMoreMenu({
             const url = URL.createObjectURL(
               new Blob([res.notebook], {
                 type: "application/json",
-              })
+              }),
             );
 
             const name = notebookFilename
@@ -116,6 +116,7 @@ export default function ReportResultMoreMenu({
         <>
           <hr className="mx-4 my-2" />
           <DeleteButton
+            useRadix={false}
             className="dropdown-item text-danger"
             useIcon={false}
             text="Delete report"
@@ -127,7 +128,7 @@ export default function ReportResultMoreMenu({
                 `/report/${report.id}`,
                 {
                   method: "DELETE",
-                }
+                },
               );
               router.push(`/experiment/${report.experimentId}#results`);
             }}

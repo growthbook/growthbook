@@ -1,13 +1,14 @@
 import { FC, useEffect, useState } from "react";
 import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
-import { FaCheck, FaPlus } from "react-icons/fa";
+import { FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { OWNER_JOB_TITLES } from "shared/constants";
 import {
   OwnerJobTitle,
   CreateOrganizationPostBody,
-} from "back-end/types/organization";
+} from "shared/types/organization";
+import { Box, Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -19,10 +20,10 @@ import {
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { LOCALSTORAGE_PROJECT_KEY } from "@/services/DefinitionsContext";
+import { useProject } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
-import Checkbox from "@/components/Radix/Checkbox";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import style from "./CreateOrJoinOrganization.module.scss";
 import WelcomeFrame from "./WelcomeFrame";
 
@@ -41,6 +42,7 @@ const CreateOrJoinOrganization: FC<{
       ownerJobTitle: "" as OwnerJobTitle,
       ownerFeatureFlagUsageIntent: false,
       ownerExperimentUsageIntent: false,
+      ownerProductAnalyticsUsageIntent: false,
     },
   });
 
@@ -53,8 +55,7 @@ const CreateOrJoinOrganization: FC<{
 
   const { apiCall, logout, setOrgId } = useAuth();
   const { updateUser } = useUser();
-
-  const [, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+  const [, setProject] = useProject();
 
   const { data: recommendedOrgsData } = useApi<{
     organizations: {
@@ -75,7 +76,6 @@ const CreateOrJoinOrganization: FC<{
     } else {
       setMode("create");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgs]);
 
   const joinOrgFormSubmit = async (org) => {
@@ -120,21 +120,32 @@ const CreateOrJoinOrganization: FC<{
   const showJoin = isMultiOrg() && showMultiOrgSelfSelector() && orgs;
 
   const leftside = (
-    <>
-      <h1 className="title h1">Welcome to GrowthBook!</h1>
-      {showCreate || showJoin ? (
-        <p>
-          You aren&apos;t part of an organization yet. <br />
-          {showCreate && showJoin
-            ? `Create or join one here.`
-            : showCreate
-            ? `Create a new one here.`
-            : `Join one here.`}
-        </p>
-      ) : (
-        <p>Ask your admin to invite you to the organization.</p>
-      )}
-    </>
+    <Flex direction="column" justify="between" height="100%" p="6">
+      <Box>
+        <a href="https://www.growthbook.io" target="_blank" rel="noreferrer">
+          <img
+            src="/logo/growth-book-logo-white.svg"
+            style={{ maxWidth: "150px" }}
+            alt="GrowthBook"
+          />
+        </a>
+      </Box>
+      <Box>
+        <h1 className="title h1">Welcome to GrowthBook!</h1>
+        {showCreate || showJoin ? (
+          <p>
+            You aren&apos;t part of an organization yet. <br />
+            {showCreate && showJoin
+              ? `Create or join one here.`
+              : showCreate
+                ? `Create a new one here.`
+                : `Join one here.`}
+          </p>
+        ) : (
+          <p>Ask your admin to invite you to the organization.</p>
+        )}
+      </Box>
+    </Flex>
   );
 
   const titleCopy = (orgs) => {
@@ -199,15 +210,13 @@ const CreateOrJoinOrganization: FC<{
                       </button>
                     </div>
                     {org.currentUserIsPending && (
-                      <div className="alert alert-success mt-2 mb-0">
-                        <div className="mb-2">
-                          <FaCheck /> Your membership is pending.
-                        </div>
+                      <Callout status="success" mt="2" mb="0">
+                        <div className="mb-2">Your membership is pending.</div>
                         <div>
                           Please contact your organization&apos;s admin to
                           approve your membership.
                         </div>
-                      </div>
+                      </Callout>
                     )}
                   </div>
                 ))}
@@ -237,12 +246,17 @@ const CreateOrJoinOrganization: FC<{
                       };
                       if (value.ownerFeatureFlagUsageIntent) {
                         body.demographicData?.ownerUsageIntents?.push(
-                          "featureFlags"
+                          "featureFlags",
                         );
                       }
                       if (value.ownerExperimentUsageIntent) {
                         body.demographicData?.ownerUsageIntents?.push(
-                          "experiments"
+                          "experiments",
+                        );
+                      }
+                      if (value.ownerProductAnalyticsUsageIntent) {
+                        body.demographicData?.ownerUsageIntents?.push(
+                          "productAnalytics",
                         );
                       }
                       const resp = await apiCall<{
@@ -259,7 +273,19 @@ const CreateOrJoinOrganization: FC<{
                       if (resp.projectId) {
                         setProject(resp.projectId);
                       }
+                      if (setOrgId) {
+                        setOrgId(resp.orgId);
+                      }
+                      try {
+                        localStorage.setItem(
+                          "gb-last-picked-org",
+                          `"${resp.orgId}"`,
+                        );
+                      } catch (e) {
+                        console.warn("Cannot set gb-last-picked-org");
+                      }
                       setLoading(false);
+                      router.push("/");
                     } catch (e) {
                       setError(e.message);
                       setLoading(false);
@@ -273,17 +299,12 @@ const CreateOrJoinOrganization: FC<{
                     </p>
                   </div>
                   <Field
+                    size="legacy"
                     label={
-                      <>
-                        <div className="font-weight-bold">
-                          Organization Name
-                          <span className="text-danger ml-1">*</span>
-                        </div>
-
-                        <div className={`${style.textMid}`}>
-                          Organization name can be edited anytime.
-                        </div>
-                      </>
+                      <div className="font-weight-bold">
+                        Organization Name
+                        <span className="text-danger ml-1">*</span>
+                      </div>
                     }
                     required
                     autoFocus
@@ -294,6 +315,7 @@ const CreateOrJoinOrganization: FC<{
                     {...newOrgForm.register("company")}
                   />
                   <SelectField
+                    size="legacy"
                     label="Your role"
                     labelClassName="font-weight-bold"
                     markRequired
@@ -303,7 +325,7 @@ const CreateOrJoinOrganization: FC<{
                       ([key, title]) => ({
                         label: title,
                         value: key,
-                      })
+                      }),
                     )}
                     onChange={(value: OwnerJobTitle) => {
                       newOrgForm.setValue("ownerJobTitle", value);
@@ -322,7 +344,21 @@ const CreateOrJoinOrganization: FC<{
                       setValue={(v) => {
                         newOrgForm.setValue(
                           "ownerFeatureFlagUsageIntent",
-                          v === true
+                          v === true,
+                        );
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Checkbox
+                      mt="2"
+                      size="md"
+                      label="Run experiments"
+                      value={!!newOrgForm.watch("ownerExperimentUsageIntent")}
+                      setValue={(v) => {
+                        newOrgForm.setValue(
+                          "ownerExperimentUsageIntent",
+                          v === true,
                         );
                       }}
                     />
@@ -332,12 +368,14 @@ const CreateOrJoinOrganization: FC<{
                       mt="2"
                       mb="6"
                       size="md"
-                      label="Run experiments"
-                      value={!!newOrgForm.watch("ownerExperimentUsageIntent")}
+                      label="Product analytics"
+                      value={
+                        !!newOrgForm.watch("ownerProductAnalyticsUsageIntent")
+                      }
                       setValue={(v) => {
                         newOrgForm.setValue(
-                          "ownerExperimentUsageIntent",
-                          v === true
+                          "ownerProductAnalyticsUsageIntent",
+                          v === true,
                         );
                       }}
                     />
@@ -349,7 +387,9 @@ const CreateOrJoinOrganization: FC<{
                     Create organization
                   </button>
                   {error && (
-                    <div className="alert alert-danger mt-2">{error}</div>
+                    <Callout status="error" mt="2">
+                      {error}
+                    </Callout>
                   )}
                 </form>
 
@@ -367,10 +407,10 @@ const CreateOrJoinOrganization: FC<{
         ) : (
           <div>
             <h3 className="h2">Invitation Required</h3>
-            <div className="alert alert-danger">
+            <Callout status="error">
               You must be invited by an administrator in order to use
               GrowthBook.
-            </div>
+            </Callout>
           </div>
         )}{" "}
       </div>

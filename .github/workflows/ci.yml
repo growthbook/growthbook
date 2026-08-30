@@ -1,95 +1,194 @@
 name: CI
 on:
   push:
-    branches: main
-    paths:
-      - "packages/**"
-      - "yarn.lock"
-      - ".eslintrc"
-      - ".eslintignore"
-      - ".prettierignore"
+    branches: [main]
   pull_request:
-    paths:
-      - "packages/**"
-      - "yarn.lock"
-      - ".eslintrc"
-      - ".eslintignore"
-      - ".prettierignore"
 
+# No path filters on purpose: `paths` and `paths-ignore` can both fire on one
+# commit, so a second workflow can never be mutually exclusive with this one.
 jobs:
-  # Linting, type-checking, and tests
-  ci:
-    runs-on: depot-ubuntu-22.04-4
+  format:
+    runs-on: depot-ubuntu-24.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v5
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-workspace
         with:
-          node-version: "20"
-          cache: "yarn"
+          build-deps: "false"
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.11
-          cache: "pip"
+      - name: Check formatting
+        run: pnpm pretty:check
 
-      - name: Cache eslint
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/.eslintcache
-          key: ${{ runner.os }}-eslint-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
-          restore-keys: |
-            ${{ runner.os }}-eslint-
+  lint:
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
 
-      - name: Install dependencies
-        run: |
-          # Main app
-          yarn install
+      # No eslint cache here on purpose. ESLint keys its cache on file content
+      # plus the serialized config, neither of which changes when a type in
+      # another package or a rule under eslint-rules/ changes. Caching would let
+      # type-aware rules such as switch-exhaustiveness-check pass on stale results.
+      - uses: ./.github/actions/setup-workspace
 
-          # Stats engine
-          pip install pipx
-          pipx install poetry
+      - name: Lint
+        run: pnpm lint:ci
         env:
           CI: true
 
-      - name: Build dependencies
+  # Separate job so the JS jobs never install a Python toolchain.
+  stats:
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # Before poetry exists, so the root postinstall skips its stats install and
+      # the explicit step below is the only one.
+      - uses: ./.github/actions/setup-workspace
+        with:
+          build-deps: "false"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.11
+          cache: "pip"
+          cache-dependency-path: "packages/stats/requirements.txt"
+
+      - name: Install python dependencies
         run: |
-          # Build required dependencies (sdks/shared package)
-          # This is required for linting/type checks to work
-          yarn setup
+          pip install pipx
+          pipx install poetry
+          poetry config virtualenvs.in-project true
+        env:
+          CI: true
+
+      - name: Cache poetry dependencies
+        uses: actions/cache@v5
+        id: poetry-cache
+        with:
+          path: packages/stats/.venv
+          key: ${{ runner.os }}-poetry-${{ hashFiles('packages/stats/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
+      # `setup` and `test` are pnpm built-ins, so these need an explicit `run`.
+      - name: Install stats engine
+        run: pnpm --filter stats run setup
         env:
           CI: true
 
       - name: Lint
-        run: |
-          yarn lint:ci
-          yarn workspace stats lint:ci
-        env:
-          CI: true
-
-      - name: Check api types
-        run: |
-          yarn generate-api-types
-          [[ -n $(git status --porcelain) ]] && echo "You need to run yarn generate-api-types" && git status --porcelain && exit 1 || true
-
-      - name: Check doc
-        run: |
-          cd docs
-          yarn
-          yarn gen
-          [[ -n $(git status --porcelain) ]] && echo "You need to run yarn gen-doc" && git status --porcelain && exit 1 || true
-
-      - name: Type-check
-        run: |
-          yarn type-check
+        run: pnpm --filter stats run lint:ci
         env:
           CI: true
 
       - name: Test
-        run: |
-          yarn test
+        run: pnpm --filter stats run test
         env:
           CI: true
+
+  openapi:
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Check OpenAPI spec
+        run: |
+          pnpm generate-openapi
+          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm generate-openapi" && git status --porcelain && exit 1 || true
+
+  type-check:
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      # Only this job emits full-repo buildinfo, so only this job caches it.
+      - name: Cache tsbuildinfo
+        uses: actions/cache@v5
+        with:
+          path: |
+            **/tsconfig.tsbuildinfo
+          key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-tsbuildinfo-
+
+      - name: Generate Next.js types
+        run: pnpm --filter front-end exec next typegen
+
+      - name: Type-check
+        run: pnpm type-check
+        env:
+          CI: true
+
+  # A 4-vCPU runner gives Jest only 3 workers for 300+ files, so shard instead.
+  test-back-end:
+    runs-on: depot-ubuntu-24.04
+    # A silently killed Jest worker leaves the parent waiting on the 6h default.
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Cache Jest transform cache
+        uses: actions/cache@v5
+        with:
+          path: packages/back-end/.jest-cache
+          key: ${{ runner.os }}-jest-back-end-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-jest-back-end-${{ matrix.shard }}-
+            ${{ runner.os }}-jest-back-end-
+
+      - name: Test
+        run: pnpm --filter back-end test --shard=${{ matrix.shard }}/4
+        env:
+          CI: true
+
+  test-packages:
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Cache Jest transform cache
+        uses: actions/cache@v5
+        with:
+          path: packages/shared/.jest-cache
+          key: ${{ runner.os }}-jest-shared-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-jest-shared-
+
+      # stats (pytest) runs in its own job; back-end is sharded above.
+      - name: Test
+        run: pnpm --filter '!back-end' --filter '!stats' -r --workspace-concurrency=1 run test
+        env:
+          CI: true
+
+  # The single required status check; renaming it breaks branch protection.
+  ci:
+    # `always()` matters: without it this job is skipped when a dependency
+    # fails, and branch protection counts a skipped required check as passing.
+    if: always()
+    needs:
+      [format, lint, stats, openapi, type-check, test-back-end, test-packages]
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - name: Fail if any required job did not succeed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

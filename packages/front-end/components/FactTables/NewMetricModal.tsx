@@ -1,13 +1,21 @@
 import { useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
-import { MetricInterface } from "back-end/types/metric";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import {
+  MetricDefinitionInterface,
+  MetricInterface,
+} from "shared/types/metric";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import MetricForm from "@/components/Metrics/MetricForm";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Modal from "@/ui/Modal";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 
 export type MetricModalState = {
-  currentMetric?: MetricInterface;
+  currentMetric?: MetricDefinitionInterface;
   currentFactMetric?: FactMetricInterface;
   mode: "edit" | "duplicate" | "new";
 };
@@ -38,12 +46,11 @@ export function MetricModal({
     );
   } else if (currentMetric) {
     return (
-      <MetricForm
-        current={currentMetric}
-        edit={mode === "edit"}
-        duplicate={mode === "duplicate"}
-        source={source + (mode === "duplicate" ? "-duplicate" : "")}
-        onClose={close}
+      <EditMetricModal
+        close={close}
+        mode={mode}
+        source={source}
+        currentMetric={currentMetric}
       />
     );
   } else if (currentFactMetric) {
@@ -61,36 +68,92 @@ export function MetricModal({
   }
 }
 
+// Metrics coming from the definitions endpoint are missing heavy fields like
+// `sql`, so fetch the full metric before seeding the form. Otherwise saving an
+// edit would silently wipe those fields.
+function EditMetricModal({
+  close,
+  mode,
+  source,
+  currentMetric,
+}: {
+  close: () => void;
+  mode: "edit" | "duplicate";
+  source: string;
+  currentMetric: MetricDefinitionInterface;
+}) {
+  const { data, error } = useApi<{ metric: MetricInterface }>(
+    `/metric/${currentMetric.id}`,
+  );
+
+  if (error) {
+    return (
+      <Modal.Root
+        open={true}
+        onOpenChange={(open) => {
+          if (!open) close();
+        }}
+        dismissible
+        hasDescription={false}
+        trackingEventModalType=""
+      >
+        <Modal.Header>
+          <Modal.Title>
+            {mode === "edit" ? "Edit Metric" : "Duplicate Metric"}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Callout status="error">{error.message}</Callout>
+        </Modal.Body>
+        <Modal.Footer>
+          <Modal.Close>
+            <Button variant="ghost" onClick={close}>
+              Close
+            </Button>
+          </Modal.Close>
+        </Modal.Footer>
+      </Modal.Root>
+    );
+  }
+  if (!data) {
+    return <LoadingOverlay />;
+  }
+
+  // When duplicating, apply only the caller's intended overrides on top of the
+  // full fetched metric — the rest of currentMetric is a possibly-stale
+  // definitions copy
+  const current: MetricInterface =
+    mode === "edit"
+      ? data.metric
+      : {
+          ...data.metric,
+          name: currentMetric.name,
+          managedBy: currentMetric.managedBy,
+        };
+
+  return (
+    <MetricForm
+      current={current}
+      edit={mode === "edit"}
+      duplicate={mode === "duplicate"}
+      source={source + (mode === "duplicate" ? "-duplicate" : "")}
+      onClose={close}
+    />
+  );
+}
+
 export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
-  const {
-    factMetrics,
-    metrics,
-    factTables,
-    project,
-    getDatasourceById,
-  } = useDefinitions();
-
-  const filteredFactMetrics = factMetrics
-    .filter((f) => !datasource || f.datasource === datasource)
-    .filter((f) => isProjectListValidForProject(f.projects, project));
-
-  const filteredMetrics = metrics
-    .filter((f) => !datasource || f.datasource === datasource)
-    .filter((f) => isProjectListValidForProject(f.projects, project));
+  const { factTables, project, getDatasourceById } = useDefinitions();
 
   const filteredFactTables = factTables
     .filter((f) => !datasource || f.datasource === datasource)
     .filter((f) => isProjectListValidForProject(f.projects, project));
 
   // Determine the most appropriate default type based on what the org has already created
-  // - If there are no fact tables yet, always default to legacy
-  // - If there are more legacy metrics than fact metrics, default to legacy
+  // - If there are no fact tables, default to legacy
   // - Otherwise, default to fact
-  // TODO: add an org setting to explicitly override this default
   let defaultType: "fact" | "legacy" = "fact";
   if (filteredFactTables.length === 0) {
-    defaultType = "legacy";
-  } else if (filteredMetrics.length > filteredFactMetrics.length) {
     defaultType = "legacy";
   }
 

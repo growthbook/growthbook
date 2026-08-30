@@ -1,8 +1,8 @@
 import React, { FC, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
-import z from "zod";
-import { NotificationEventName } from "back-end/src/events/base-types";
-import { TagInterface } from "back-end/types/tag";
+import { z } from "zod";
+import { TagInterface } from "shared/types/tag";
+import { isEventWebhookWildcard } from "shared/validators";
 import {
   eventWebHookEventOptions,
   notificationEventNames,
@@ -14,7 +14,7 @@ import {
 import Modal from "@/components/Modal";
 import TagsInput from "@/components/Tags/TagsInput";
 import Field from "@/components/Forms/Field";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 
 type SlackIntegrationAddEditModalProps = {
   projects: {
@@ -31,7 +31,9 @@ type SlackIntegrationAddEditModalProps = {
   error: string | null;
 };
 
-export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps> = ({
+export const SlackIntegrationAddEditModal: FC<
+  SlackIntegrationAddEditModalProps
+> = ({
   projects,
   environments,
   tagOptions,
@@ -83,7 +85,15 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
       description: z.string().trim().min(0),
       projects: z.array(z.string()),
       environments: z.array(z.string()),
-      events: z.array(z.enum(notificationEventNames)),
+      events: z.array(
+        z
+          .string()
+          .refine(
+            (val) =>
+              notificationEventNames.includes(val as never) ||
+              isEventWebhookWildcard(val),
+          ),
+      ),
       tags: z.array(z.string()),
       slackAppId: z.string().trim().min(2),
       slackSigningKey: z.string().trim().min(2),
@@ -100,6 +110,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       header={modalTitle}
       cta={buttonText}
@@ -123,6 +134,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
         .
       </p>
       <Field
+        size="legacy"
         label="Name"
         placeholder="My Slack integration"
         autoComplete="off"
@@ -135,6 +147,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
       />
 
       <Field
+        size="legacy"
         label="Description"
         placeholder="(optional description)"
         autoComplete="off"
@@ -146,20 +159,21 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
       />
 
       <MultiSelectField
+        legacyHeight
         label="Event filters"
         helpText="Only receive notifications for matching events."
         value={form.watch("events")}
-        options={eventWebHookEventOptions.map(({ id }) => ({
-          label: id,
-          value: id,
-        }))}
+        options={eventWebHookEventOptions.flatMap(({ options }) =>
+          options.map((opt) => ({ label: opt.label, value: opt.value })),
+        )}
         onChange={(value: string[]) => {
-          form.setValue("events", value as NotificationEventName[]);
+          form.setValue("events", value);
           handleFormValidation();
         }}
       />
 
       <Field
+        size="legacy"
         label="Slack App ID"
         autoComplete="off"
         helpText="Copy the Slack App ID from the app's Basic Information page"
@@ -172,6 +186,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
       />
 
       <Field
+        size="legacy"
         label="Slack App Incoming Webhook URL"
         autoComplete="off"
         helpText="Copy the Incoming Webhook URL for your Slack App. This can be found on the Incoming Webhooks page under Features for your Slack app configuration"
@@ -184,6 +199,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
       />
 
       <Field
+        size="legacy"
         label="Slack Signing Key"
         autoComplete="off"
         required
@@ -196,6 +212,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
       />
 
       <MultiSelectField
+        legacyHeight
         label="Environment filters"
         helpText="Only receive notifications for matching environments."
         value={form.watch("environments")}
@@ -210,6 +227,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
       />
 
       <MultiSelectField
+        legacyHeight
         label="Project filters"
         helpText="Only receive notifications for matching projects."
         value={form.watch("projects")}
@@ -232,7 +250,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
             onChange={(selected: string[]) => {
               form.setValue(
                 "tags",
-                selected.map((item) => item)
+                selected.map((item) => item),
               );
               handleFormValidation();
             }}

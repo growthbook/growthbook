@@ -1,5 +1,5 @@
 import { BsArrowRepeat } from "react-icons/bs";
-import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
+import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 
@@ -13,7 +13,7 @@ export default function MetricAnalysisMoreMenu({
   canRunMetricQuery?: boolean;
 }) {
   return (
-    <MoreMenu autoCloseOnClick={false}>
+    <MoreMenu useRadix={false} autoCloseOnClick={false}>
       {(metricAnalysis?.queries?.length ?? 0) > 0 && (
         <ViewAsyncQueriesButton
           queries={metricAnalysis?.queries.map((q) => q.query) ?? []}

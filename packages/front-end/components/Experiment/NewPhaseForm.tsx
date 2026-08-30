@@ -1,11 +1,18 @@
-import { FC } from "react";
+import { FC, useState } from "react";
+import { Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import { useForm } from "react-hook-form";
-import { validateAndFixCondition } from "shared/util";
-import { getEqualWeights } from "shared/experiments";
+import {
+  getNamespaceRanges,
+  isMultiRangeNamespaceFormat,
+  NamespaceValue,
+  validateAndFixCondition,
+} from "shared/util";
+import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
@@ -19,13 +26,33 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
 import DatePicker from "@/components/DatePicker";
+import Callout from "@/ui/Callout";
+import {
+  getLinkedExperimentAttributeScopes,
+  useAttributeScopePicker,
+} from "./useAttributeScopePicker";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   close: () => void;
   source?: string;
-}> = ({ experiment, close, mutate, source }) => {
+}> = ({ experiment, linkedFeatures, close, mutate, source }) => {
+  const { dropdown: dropdownScope } = getLinkedExperimentAttributeScopes(
+    experiment.project,
+    linkedFeatures,
+  );
+  const [scopeAllProjects, setScopeAllProjects] = useState(
+    !!experiment.attributeScopeAllProjects,
+  );
+  const { effectiveAttributeProjects, attributeScopeToggle } =
+    useAttributeScopePicker({
+      project: experiment.project,
+      scopeProjects: dropdownScope,
+      allProjects: scopeAllProjects,
+      setAllProjects: setScopeAllProjects,
+    });
   const { refreshWatching } = useWatching();
 
   const firstPhase = !experiment.phases.length;
@@ -33,23 +60,45 @@ const NewPhaseForm: FC<{
   const prevPhase: Partial<ExperimentPhaseStringDates> =
     experiment.phases[experiment.phases.length - 1] || {};
 
+  const lastPhaseVariations = getLatestPhaseVariations(experiment);
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       name: prevPhase.name || "Main",
-      coverage: prevPhase.coverage || 1,
+      coverage: prevPhase.coverage ?? 1,
       variationWeights:
         prevPhase.variationWeights ||
-        getEqualWeights(experiment.variations.length),
+        getEqualWeights(lastPhaseVariations.length),
+      variations:
+        prevPhase.variations ??
+        lastPhaseVariations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        })),
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
       condition: prevPhase.condition || "",
       savedGroups: prevPhase.savedGroups || [],
       seed: prevPhase.seed || "",
-      namespace: {
-        enabled: prevPhase.namespace?.enabled || false,
-        name: prevPhase.namespace?.name || "",
-        range: prevPhase.namespace?.range || [0, 0.5],
-      },
+      namespace: (() => {
+        const prevNs = prevPhase.namespace
+          ? (prevPhase.namespace as NamespaceValue)
+          : undefined;
+        return {
+          enabled: prevNs?.enabled || false,
+          name: prevNs?.name || "",
+          // Handle both old (single range) and new (multiple ranges) formats
+          ranges: prevNs
+            ? getNamespaceRanges(prevNs)
+            : ([[0, 0.5]] as [number, number][]),
+          // Preserve format and hashAttribute so submit is correct even if the
+          // user never re-interacts with the NamespaceSelector dropdown.
+          format: prevNs?.format,
+          hashAttribute:
+            prevNs && isMultiRangeNamespaceFormat(prevNs)
+              ? prevNs.hashAttribute
+              : undefined,
+        };
+      })(),
     },
   });
 
@@ -60,7 +109,7 @@ const NewPhaseForm: FC<{
   // Make sure variation weights add up to 1 (allow for a little bit of rounding error)
   const totalWeights = variationWeights.reduce(
     (total: number, weight: number) => total + weight,
-    0
+    0,
   );
   const isValid = totalWeights > 0.99 && totalWeights < 1.01;
 
@@ -81,7 +130,7 @@ const NewPhaseForm: FC<{
       {
         method: "POST",
         body: JSON.stringify(value),
-      }
+      },
     );
     mutate();
     refreshWatching();
@@ -92,6 +141,7 @@ const NewPhaseForm: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="new-phase-form"
       trackingEventModalSource={source}
       header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
@@ -103,13 +153,14 @@ const NewPhaseForm: FC<{
       size="lg"
     >
       {hasLinkedChanges && experiment.status !== "stopped" && (
-        <div className="alert alert-warning">
+        <Callout status="warning">
           <strong>Warning:</strong> Starting a new phase will immediately affect
           all linked Feature Flags and Visual Changes.
-        </div>
+        </Callout>
       )}
       <div className="row">
         <Field
+          size="legacy"
           label="Name"
           containerClassName="col-lg"
           required
@@ -118,6 +169,7 @@ const NewPhaseForm: FC<{
       </div>
       {!firstPhase && (
         <Field
+          size="legacy"
           label="Reason for Starting New Phase"
           textarea
           {...form.register("reason")}
@@ -142,12 +194,16 @@ const NewPhaseForm: FC<{
         />
       )}
 
+      {hasLinkedChanges && <Separator size="4" my="5" />}
+
       {hasLinkedChanges && (
         <ConditionInput
           defaultValue={form.watch("condition")}
           onChange={(condition) => form.setValue("condition", condition)}
           key={conditionKey}
           project={experiment.project || ""}
+          attributeProjects={effectiveAttributeProjects}
+          attributeSelectIndicator={attributeScopeToggle}
         />
       )}
 
@@ -158,9 +214,8 @@ const NewPhaseForm: FC<{
         setWeight={(i, weight) =>
           form.setValue(`variationWeights.${i}`, weight)
         }
-        valueAsId={true}
         variations={
-          experiment.variations.map((v, i) => {
+          getLatestPhaseVariations(experiment).map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,
@@ -177,6 +232,8 @@ const NewPhaseForm: FC<{
           form={form}
           featureId={experiment.trackingKey}
           trackingKey={experiment.trackingKey}
+          experimentHashAttribute={experiment.hashAttribute}
+          fallbackAttribute={experiment.fallbackAttribute}
         />
       )}
     </Modal>

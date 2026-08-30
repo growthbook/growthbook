@@ -15,16 +15,17 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { CSS } from "@dnd-kit/utilities";
 import { GrDrag } from "react-icons/gr";
-import Link from "next/link";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
+import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 //import track from "@/services/track";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 
 export default function MetricGroupDetails({
   metricGroup,
@@ -38,7 +39,7 @@ export default function MetricGroupDetails({
   const permissionsUtil = usePermissionsUtil();
   const { getMetricById, getFactMetricById } = useDefinitions();
   const factMetricsInList: string[] = [];
-  const metricObjs: ExperimentMetricInterface[] = metricGroup.metrics
+  const metricObjs: ExperimentMetricDefinition[] = metricGroup.metrics
     .map((id) => {
       const mi = getMetricById(id);
       if (mi) return mi;
@@ -48,7 +49,7 @@ export default function MetricGroupDetails({
         return fm;
       }
     })
-    .filter((m) => m) as ExperimentMetricInterface[];
+    .filter((m) => m) as ExperimentMetricDefinition[];
 
   const [items, setItems] = useState(metricObjs.length ? metricObjs : []);
   useEffect(() => {
@@ -60,7 +61,7 @@ export default function MetricGroupDetails({
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
   function getMetricIndex(id: string) {
     if (!items || !items.length) return -1;
@@ -102,7 +103,7 @@ export default function MetricGroupDetails({
                 from: oldIndex,
                 to: newIndex,
               }),
-            }
+            },
           ).then(async () => {
             await mutate();
           });
@@ -212,7 +213,7 @@ function SortableMetricRow(props) {
 }
 
 interface SortableProps {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   metricGroupId: string;
   i: number;
   mutate?: () => void;
@@ -261,13 +262,18 @@ function MetricRow({
         <Link href={metricUrl}>{metric.name}</Link>
       </td>
       <td style={{ width: "27%" }}>
-        {isFactMetric(metric) ? metric.metricType : metric.type}
+        {isFactMetric(metric) ? (
+          <FactMetricTypeDisplayName type={metric.metricType} />
+        ) : (
+          metric.type
+        )}
       </td>
       <td style={{ width: "30%" }}>
         {metric.datasource ? getDatasourceById(metric.datasource)?.name : ""}
       </td>
       <td style={{ width: "3%" }}>
         <DeleteButton
+          useRadix={false}
           className="dropdown-item text-danger"
           displayName="Metric from Group"
           deleteMessage="Remove this metric from the group?"
@@ -277,7 +283,7 @@ function MetricRow({
               `/metric-group/${metricGroupId}/remove/${metric.id}`,
               {
                 method: "DELETE",
-              }
+              },
             ).then(async () => {
               if (mutate) {
                 await mutate();

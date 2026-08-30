@@ -1,23 +1,27 @@
-import { OrganizationSettings } from "back-end/types/organization";
+import { OrganizationSettings } from "shared/types/organization";
 import { FaUpload } from "react-icons/fa";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { load, dump } from "js-yaml";
 import { createPatch } from "diff";
 import { html } from "diff2html";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { isSecretDatasourceParamKey } from "shared/util";
 import cloneDeep from "lodash/cloneDeep";
 import {
   MetricCappingSettings,
   MetricWindowSettings,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import {
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
 } from "shared/constants";
+import { MetricInterface } from "shared/types/metric";
 import { useAuth } from "@/services/auth";
 import { useConfigJson } from "@/services/config";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useApi from "@/hooks/useApi";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -26,17 +30,7 @@ import UploadConfigYml from "./UploadConfigYml";
 function sanitizeSecrets(d: DataSourceInterfaceWithParams) {
   if (!d || !d.params) return;
   Object.keys(d.params).forEach((p) => {
-    if (
-      [
-        "password",
-        "pass",
-        "secretAccessKey",
-        "accessKeyId",
-        "privateKey",
-        "refreshToken",
-        "secret",
-      ].includes(p)
-    ) {
+    if (isSecretDatasourceParamKey(p)) {
       d.params[p] = "********";
     }
   });
@@ -49,17 +43,20 @@ export default function RestoreConfigYamlButton({
   settings?: OrganizationSettings;
   mutate: () => void;
 }) {
-  const {
-    datasources,
-    metrics,
-    dimensions,
-    mutateDefinitions,
-    segments,
-  } = useDefinitions();
+  const { datasources, dimensions, mutateDefinitions, segments } =
+    useDefinitions();
+
+  // Definitions only contain slimmed metrics (no sql, etc.), so fetch the
+  // full versions for the import diff. /metrics excludes archived metrics by
+  // default, matching the old definitions-based behavior.
+  const { data: metricsData } = useApi<{ metrics: MetricInterface[] }>(
+    "/metrics",
+  );
+  const metrics = metricsData?.metrics;
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
-  const [parsed, setParsed] = useState(null);
+  const [parsed, setParsed] = useState<object | null>(null);
   const [diffHTML, setDiffHTML] = useState("");
 
   const { apiCall } = useAuth();
@@ -72,7 +69,7 @@ export default function RestoreConfigYamlButton({
 
   const config = useConfigJson({
     datasources,
-    metrics,
+    metrics: metrics || [],
     dimensions,
     settings,
     segments,
@@ -215,7 +212,7 @@ export default function RestoreConfigYamlButton({
         Object.keys(origConfig.datasources).forEach((k) => {
           sanitizeSecrets(
             // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-            origConfig.datasources[k] as DataSourceInterfaceWithParams
+            origConfig.datasources[k] as DataSourceInterfaceWithParams,
           );
         });
       }
@@ -231,7 +228,7 @@ export default function RestoreConfigYamlButton({
         dump(newConfig, { skipInvalid: true }),
         "",
         "",
-        { context: 10 }
+        { context: 10 },
       );
 
       setDiffHTML(html(patch, {}));
@@ -241,10 +238,19 @@ export default function RestoreConfigYamlButton({
     }
   }
 
+  if (!metricsData) {
+    return (
+      <Button disabled loading icon={<FaUpload />}>
+        Import from config.yml
+      </Button>
+    );
+  }
+
   return (
     <div>
       {open && (
         <PagedModal
+          useRadixButton={false}
           trackingEventModalType="import-settings-config-yaml"
           close={() => setOpen(false)}
           header="Import from config.yml"
@@ -277,8 +283,6 @@ export default function RestoreConfigYamlButton({
               if (!json || typeof json !== "object") {
                 throw new Error("Could not parsed yaml file into JSON object");
               }
-
-              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'object' is not assignable to par... Remove this comment to see the full error message
               setParsed(json);
               parseConfig(json);
             }}
@@ -292,6 +296,7 @@ export default function RestoreConfigYamlButton({
             </div>
 
             <Field
+              size="legacy"
               textarea
               label={
                 <>

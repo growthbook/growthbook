@@ -1,19 +1,25 @@
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { ExperimentSnapshotReportInterface } from "back-end/types/report";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { ExperimentSnapshotReportInterface } from "shared/types/report";
+import { getEffectiveLookbackOverride } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime, getValidDate } from "shared/dates";
-import React, { RefObject, useEffect, useState } from "react";
+import React, { RefObject, useEffect, useMemo, useState } from "react";
 import { PiEye } from "react-icons/pi";
+import { Box, Text } from "@radix-ui/themes";
+import { startCase } from "lodash";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 import { useAuth } from "@/services/auth";
-import Callout from "@/components/Radix/Callout";
-import Button from "@/components/Radix/Button";
-import { DropdownMenu } from "@/components/Radix/DropdownMenu";
-import Metadata from "@/components/Radix/Metadata";
-import Link from "@/components/Radix/Link";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
+import Metadata from "@/ui/Metadata";
+import Link from "@/ui/Link";
+import { Popover } from "@/ui/Popover";
+import { useDefinitions } from "@/services/DefinitionsContext";
+
+const numberFormatter = Intl.NumberFormat();
 
 export default function ReportAnalysisSettingsBar({
   report,
@@ -52,8 +58,36 @@ export default function ReportAnalysisSettingsBar({
   }, [_snapshot, snapshot]);
 
   const analysis = snapshot
-    ? getSnapshotAnalysis(snapshot) ?? undefined
+    ? (getSnapshotAnalysis(snapshot) ?? undefined)
     : undefined;
+
+  const { getDatasourceById } = useDefinitions();
+
+  const datasourceSettings = report.experimentAnalysisSettings.datasource
+    ? getDatasourceById(report.experimentAnalysisSettings.datasource)?.settings
+    : undefined;
+
+  const lookbackOverride = getEffectiveLookbackOverride(
+    report.experimentAnalysisSettings.attributionModel,
+    report.experimentAnalysisSettings.lookbackOverride,
+  );
+
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === report.experimentAnalysisSettings.exposureQueryId,
+  )?.userIdType;
+
+  const totalUnits = useMemo(() => {
+    let totalUsers = 0;
+    analysis?.results?.forEach((result) => {
+      result?.variations?.forEach((v) => (totalUsers += v?.users || 0));
+    });
+    return totalUsers;
+  }, [analysis?.results]);
+
+  // Convert userIdType to display name (e.g. "user_id" -> "User Ids")
+  const unitDisplayName = userIdType
+    ? startCase(userIdType.split("_").join(" ")) + "s"
+    : "Units";
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasMetrics =
@@ -67,49 +101,54 @@ export default function ReportAnalysisSettingsBar({
     <>
       <div className="mb-1 d-flex align-items-center justify-content-between">
         <div className="h3 mb-1">Analysis</div>
-        <DropdownMenu
+        <Popover
           trigger={
             <Link>
               <PiEye className="mr-1" />
               View details
             </Link>
           }
-          menuPlacement="end"
-        >
-          <div style={{ minWidth: 250 }} className="p-2">
-            <h5>Results computed with:</h5>
-            <Metadata
-              label="Engine"
-              value={
-                analysis?.settings?.statsEngine === "frequentist"
-                  ? "Frequentist"
-                  : "Bayesian"
-              }
-            />
-            <Metadata
-              label="CUPED"
-              value={
-                analysis?.settings?.regressionAdjusted ? "Enabled" : "Disabled"
-              }
-            />
-            {analysis?.settings?.statsEngine === "frequentist" && (
+          align="end"
+          content={
+            <div style={{ minWidth: 250 }}>
+              <h5>Results computed with:</h5>
               <Metadata
-                label="Sequential"
+                label="Engine"
                 value={
-                  analysis?.settings?.sequentialTesting ? "Enabled" : "Disabled"
+                  analysis?.settings?.statsEngine === "frequentist"
+                    ? "Frequentist"
+                    : "Bayesian"
                 }
               />
-            )}
-            {snapshot.runStarted && (
-              <div className="text-right mt-3">
+              <Metadata
+                label="CUPED"
+                value={
+                  analysis?.settings?.regressionAdjusted
+                    ? "Enabled"
+                    : "Disabled"
+                }
+              />
+              {analysis?.settings?.statsEngine === "frequentist" && (
                 <Metadata
-                  label="Run date"
-                  value={datetime(snapshot.runStarted)}
+                  label="Sequential"
+                  value={
+                    analysis?.settings?.sequentialTesting
+                      ? "Enabled"
+                      : "Disabled"
+                  }
                 />
-              </div>
-            )}
-          </div>
-        </DropdownMenu>
+              )}
+              {snapshot.runStarted && (
+                <div className="text-right mt-3">
+                  <Metadata
+                    label="Run date"
+                    value={datetime(snapshot.runStarted)}
+                  />
+                </div>
+              )}
+            </div>
+          }
+        />
       </div>
       <div className="py-1 d-flex mb-2">
         <div className="row align-items-center" style={{ gap: "0.5rem 1rem" }}>
@@ -150,22 +189,38 @@ export default function ReportAnalysisSettingsBar({
               </div>
             </div>
           </div>
-        </div>
-        <div className="row flex-grow-1 flex-shrink-0 pt-1 px-2 justify-content-end">
-          <div className="col-auto px-0">
-            {hasData && snapshot.runStarted ? (
-              <div
-                className="text-muted text-right"
-                style={{ width: 130, fontSize: "0.8em" }}
-                title={datetime(snapshot.runStarted)}
-              >
-                <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
-                  last updated
+          {lookbackOverride ? (
+            <div className="col-auto d-flex align-items-end">
+              <div>
+                <div className="uppercase-title text-muted">
+                  Lookback Enforced
                 </div>
-                <div className="d-inline-block" style={{ lineHeight: 1 }}>
-                  {ago(snapshot.runStarted)}
+                <div className="relative">
+                  {lookbackOverride.type === "date"
+                    ? `${date(lookbackOverride.value, "UTC")} - ${snapshot.settings.endDate ? date(snapshot.settings.endDate, "UTC") : "now"}`
+                    : `${lookbackOverride.value} ${lookbackOverride.valueUnit}`}
                 </div>
               </div>
+            </div>
+          ) : null}
+        </div>
+        <div className="row flex-grow-1 flex-shrink-0 pt-1 px-2 justify-content-end align-items-center">
+          <div className="col-auto mr-2" style={{ fontSize: "12px" }}>
+            <Metadata
+              label={unitDisplayName}
+              value={numberFormatter.format(totalUnits ?? 0)}
+            />
+          </div>
+          <div className="col-auto px-0">
+            {hasData && snapshot.runStarted ? (
+              <Box style={{ lineHeight: 1.2, fontSize: "12px" }}>
+                <Text
+                  weight="medium"
+                  style={{ color: "var(--color-text-mid)" }}
+                >
+                  Updated {ago(snapshot.runStarted ?? "")}
+                </Text>
+              </Box>
             ) : null}
           </div>
           {canUpdateReport && mutateReport && mutateSnapshot ? (
@@ -181,7 +236,7 @@ export default function ReportAnalysisSettingsBar({
                 model={snapshot}
                 cancelEndpoint={`/report/${report.id}/cancel`}
                 color="outline-primary"
-                useRadixButton={true}
+                radixVariant="soft"
                 onSubmit={async () => {
                   try {
                     const res = await apiCall<{
@@ -205,7 +260,7 @@ export default function ReportAnalysisSettingsBar({
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
+                size="md"
                 ml="2"
                 onClick={() => setEditAnalysisOpen(true)}
               >

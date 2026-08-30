@@ -1,5 +1,5 @@
-import { ArchetypeInterface } from "back-end/types/archetype";
-import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
+import { ArchetypeInterface } from "shared/types/archetype";
+import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
 import useApi from "./useApi";
 
 export const useArchetype = ({
@@ -20,11 +20,11 @@ export const useArchetype = ({
   }>(
     `/archetype/eval/${feature.id}/${version}?skipRulesWithPrerequisites=${
       skipRulesWithPrerequisites ? 1 : 0
-    }&project=${project ?? ""}`
+    }&project=${project ?? ""}`,
   );
 
 export const parseFeatureResult = (
-  tr: FeatureTestResult
+  tr: FeatureTestResult,
 ): {
   matchedRule: string;
   matchedRuleName: string;
@@ -35,7 +35,7 @@ export const parseFeatureResult = (
   const debugLog: string[] = [];
   if (tr?.result?.ruleId && tr?.featureDefinition?.rules) {
     matchedRule = tr.featureDefinition.rules.find(
-      (r) => r.id === tr?.result?.ruleId
+      (r) => r.id === tr?.result?.ruleId,
     );
   }
   let matchedRuleName = "";
@@ -63,15 +63,15 @@ export const parseFeatureResult = (
         debugLog.push(`Skipped because user did not match the rule conditions`);
       } else if (reason === "Skip rule because user not included in rollout") {
         debugLog.push(
-          `Skipped rule because the user is not included in rollout`
+          `Skipped rule because the user is not included in rollout`,
         );
       } else if (reason === "In experiment") {
         debugLog.push(`Included user in experiment rule`);
       } else if (reason === "Use default value") {
         debugLog.push(
           `No rules matched, using default value (${JSON.stringify(
-            tr?.defaultValue
-          )})`
+            tr?.defaultValue,
+          )})`,
         );
       } else {
         debugLog.push(`${log[0]}`);

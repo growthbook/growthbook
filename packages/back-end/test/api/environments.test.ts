@@ -1,8 +1,12 @@
 import request from "supertest";
-import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import {
+  findOrganizationById,
+  updateOrganization,
+} from "back-end/src/models/OrganizationModel";
 import { setupApp } from "./api.setup";
 
 jest.mock("back-end/src/models/OrganizationModel", () => ({
+  findOrganizationById: jest.fn(),
   updateOrganization: jest.fn(),
 }));
 
@@ -181,29 +185,32 @@ describe("environements API", () => {
   });
 
   it("can update environments", async () => {
+    const org = {
+      id: "org1",
+      settings: {
+        environments: [
+          {
+            id: "env1",
+            description: "env1",
+            toggleOnList: true,
+            defaultState: true,
+            projects: ["bla"],
+          },
+          {
+            id: "env2",
+          },
+        ],
+      },
+    };
+    // The payload refresh re-reads the org by id after the write
+    jest.mocked(findOrganizationById).mockResolvedValue(org as never);
     setReqContext({
       models: {
         projects: {
           getAll: () => [{ id: "proj1" }, { id: "proj2" }, { id: "proj3" }],
         },
       },
-      org: {
-        id: "org1",
-        settings: {
-          environments: [
-            {
-              id: "env1",
-              description: "env1",
-              toggleOnList: true,
-              defaultState: true,
-              projects: ["bla"],
-            },
-            {
-              id: "env2",
-            },
-          ],
-        },
-      },
+      org,
       permissions: {
         canUpdateEnvironment: () => true,
       },
@@ -335,7 +342,8 @@ describe("environements API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Request body: [toggleOnList] Expected boolean, received string",
+      message:
+        "Request body: [toggleOnList] Invalid input: expected boolean, received string",
     });
     expect(updateOrganization).not.toHaveBeenCalledWith();
     expect(auditMock).not.toHaveBeenCalledWith();
@@ -555,7 +563,8 @@ describe("environements API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Request body: [id] Required",
+      message:
+        "Request body: [id] Invalid input: expected string, received undefined, [toggleOnList] Invalid input: expected boolean, received string",
     });
     expect(updateOrganization).not.toHaveBeenCalledWith();
     expect(auditMock).not.toHaveBeenCalledWith();

@@ -1,22 +1,24 @@
 import React, { FC, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useForm } from "react-hook-form";
-import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
-import { FeatureInterface } from "back-end/types/feature";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
+import { FeatureInterface } from "shared/types/feature";
+import { Box, Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useCustomFields } from "@/hooks/useCustomFields";
 import {
-  useCustomFields,
   filterCustomFieldsForSectionAndProject,
-} from "@/hooks/useCustomFields";
+  isCustomFieldBooleanTrue,
+  toCustomFieldBooleanString,
+} from "@/services/customFields";
 import Markdown from "@/components/Markdown/Markdown";
-import Modal from "@/components/Modal";
-import DataList, { DataListItem } from "@/components/Radix/DataList";
-import Button from "@/components/Radix/Button";
-import Frame from "@/components/Radix/Frame";
-import CustomFieldInput from "./CustomFieldInput";
+import DataList, { DataListItem } from "@/ui/DataList";
+import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
+import Link from "@/ui/Link";
+import CustomFieldEditModal, {
+  CustomFieldDraftInfo,
+} from "./CustomFieldEditModal";
 
 const CustomFieldDisplay: FC<{
   label?: string;
@@ -25,6 +27,9 @@ const CustomFieldDisplay: FC<{
   className?: string;
   section: CustomFieldSection;
   target: ExperimentInterfaceStringDates | FeatureInterface;
+  mt?: "1" | "2" | "3" | "4" | "5" | "6";
+  /** When provided, the edit modal shows a draft callout and "Save to Draft" CTA. */
+  draftInfo?: CustomFieldDraftInfo;
 }> = ({
   label = "Additional Fields",
   canEdit = true,
@@ -32,54 +37,23 @@ const CustomFieldDisplay: FC<{
   className = "",
   section,
   target,
+  mt,
+  draftInfo,
 }) => {
   const [editModal, setEditModal] = useState(false);
+
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     section,
-    target.project
+    target.project,
   );
-  const customFieldsMap = new Map();
-  const defaultFields: Record<string, string> = {};
-  if (customFields && customFields.length) {
-    customFields.map((v) => {
-      defaultFields[v.id] =
-        v.type === "boolean"
-          ? JSON.stringify(!!v.defaultValue)
-          : v.type === "multiselect"
-          ? JSON.stringify([v?.defaultValue ? v.defaultValue : ""])
-          : "" + (v?.defaultValue ? v.defaultValue : "");
-      customFieldsMap.set(v.id, v);
-    });
-  }
 
-  const currentCustomFields = target?.customFields || {};
+  const currentCustomFields = target.customFields || {};
   const { hasCommercialFeature } = useUser();
   const hasCustomFieldAccess = hasCommercialFeature("custom-metadata");
-  const form = useForm<
-    Partial<ExperimentInterfaceStringDates | FeatureInterface>
-  >({
-    defaultValues: {
-      customFields: target?.customFields || defaultFields,
-    },
-  });
-  const { apiCall } = useAuth();
-  const submitForm = async (value) => {
-    if (section === "experiment") {
-      await apiCall(`/experiment/${target.id}`, {
-        method: "POST",
-        body: JSON.stringify({ ...value }),
-      });
-    } else if (section === "feature") {
-      await apiCall(`/feature/${target.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ ...value }),
-      });
-    }
-    if (mutate) mutate();
-  };
-  if (!customFields || customFields?.length === 0) {
-    return <></>;
+
+  if (!customFields?.length || !hasCustomFieldAccess) {
+    return null;
   }
 
   const displayFieldsObj: DataListItem[] = [];
@@ -87,7 +61,7 @@ const CustomFieldDisplay: FC<{
     Object.entries(currentCustomFields ?? {}).map(([fid, cValue]) => [
       fid,
       cValue ?? "",
-    ])
+    ]),
   );
   const getMultiSelectValue = (value: string) => {
     try {
@@ -96,27 +70,54 @@ const CustomFieldDisplay: FC<{
       return value;
     }
   };
-  const getDisplayValue = (v: CustomField, cValue: string) => {
-    return v.type === "multiselect" ? (
-      getMultiSelectValue(cValue)
-    ) : v.type === "markdown" ? (
-      <Markdown className="card-text">{cValue ?? ""}</Markdown>
-    ) : v.type === "textarea" ? (
-      <div style={{ whiteSpace: "pre" }}>{cValue ?? ""}</div>
-    ) : v.type === "url" && cValue !== "" ? (
-      <a href={cValue} target="_blank" rel="noreferrer">
-        {cValue ?? ""}
-      </a>
-    ) : v.type === "boolean" ? (
-      <>{cValue ? "yes" : "no"}</>
-    ) : cValue ? (
-      cValue
-    ) : (
-      <em className="text-muted">none</em>
-    );
+  const getDisplayValue = (v: CustomField, cValue: unknown) => {
+    const stringValue =
+      typeof cValue === "boolean"
+        ? toCustomFieldBooleanString(cValue)
+        : String(cValue ?? "");
+
+    switch (v.type) {
+      case "multiselect":
+        return getMultiSelectValue(stringValue);
+      case "markdown":
+        return <Markdown className="card-text">{stringValue}</Markdown>;
+      case "textarea":
+        return <div style={{ whiteSpace: "pre" }}>{stringValue}</div>;
+      case "url":
+        if (stringValue !== "") {
+          return (
+            <a href={stringValue} target="_blank" rel="noreferrer">
+              {stringValue}
+            </a>
+          );
+        }
+        break;
+      case "boolean":
+        return <>{isCustomFieldBooleanTrue(cValue) ? "yes" : "no"}</>;
+      case "date":
+        if (stringValue) {
+          return new Date(stringValue).toLocaleDateString();
+        }
+        break;
+      case "datetime":
+        if (stringValue) {
+          return new Date(stringValue).toLocaleString();
+        }
+        break;
+      case "text":
+      case "enum":
+      case "number":
+        break;
+      default: {
+        const exhaustiveCheck: never = v.type;
+        return exhaustiveCheck;
+      }
+    }
+
+    return stringValue || <Text color="text-mid">--</Text>;
   };
 
-  Array.from(customFieldsMap.values()).forEach((v: CustomField) => {
+  customFields.forEach((v) => {
     displayFieldsObj.push({
       label: v.name,
       value: getDisplayValue(v, currentValueMap.get(v.id) ?? ""),
@@ -124,71 +125,51 @@ const CustomFieldDisplay: FC<{
     });
   });
 
-  if (!hasCustomFieldAccess) return null;
+  const editLink = canEdit ? (
+    <Link onClick={() => setEditModal(true)}>
+      <Text weight="semibold">Edit</Text>
+    </Link>
+  ) : null;
 
   return (
-    <Box>
+    <>
       {editModal && (
-        <Modal
-          trackingEventModalType="edit-custom-fields"
-          header={"Edit Custom Fields"}
-          open={editModal}
-          close={() => {
-            setEditModal(false);
-          }}
-          size="lg"
-          submit={form.handleSubmit(async (value) => {
-            await submitForm(value);
-          })}
-          cta="Save"
-        >
-          {hasCustomFieldAccess ? (
-            <CustomFieldInput
-              customFields={customFields}
-              section={section}
-              project={target.project}
-              setCustomFields={(value) => {
-                form.setValue("customFields", value);
-              }}
-              currentCustomFields={form.watch("customFields") || {}}
-            />
-          ) : (
-            <div className="text-center">
-              <PremiumTooltip commercialFeature={"custom-metadata"}>
-                Custom fields are available as part of the enterprise plan
-              </PremiumTooltip>
-            </div>
-          )}
-        </Modal>
+        <CustomFieldEditModal
+          section={section}
+          target={target}
+          close={() => setEditModal(false)}
+          mutate={mutate}
+          draftInfo={draftInfo}
+        />
       )}
-      {displayFieldsObj && (
+      {section === "feature" ? (
+        <>
+          <Flex justify="between" align="center" mt={mt}>
+            <Flex align="center" gap="1">
+              <Heading as="h4" size="sm" mb="0">
+                {label ? label : ""}
+              </Heading>
+            </Flex>
+            <div className="flex-1" />
+            {editLink}
+          </Flex>
+          <DataList data={displayFieldsObj} maxColumns={3} />
+        </>
+      ) : (
         <Frame className={className} my="3">
           <Box>
-            <Flex justify="between" align="center">
-              <Heading as="h4" size="3">
+            <Flex justify="between" align="center" mb="3">
+              <Heading color="text-high" as="h4" size="sm" mb="0">
                 {label ? label : ""}
               </Heading>
               <div className="flex-1" />
-              {canEdit && hasCustomFieldAccess ? (
-                <>
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setEditModal(true);
-                    }}
-                  >
-                    Edit
-                  </Button>
-                </>
-              ) : (
-                <></>
-              )}
+              {editLink}
             </Flex>
             <DataList data={displayFieldsObj} maxColumns={3} />
           </Box>
         </Frame>
       )}
-    </Box>
+    </>
   );
 };
 

@@ -6,7 +6,7 @@ import {
   ExperimentValue,
   FeatureInterface,
   FeatureValueType,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import clsx from "clsx";
 import {
   decimalToPercent,
@@ -63,7 +63,7 @@ export const ExperimentVariationRow = forwardRef<
       feature,
       ...props
     },
-    ref
+    ref,
   ) => {
     const weights = variations.map((v) => v.weight);
     const weight = weights[i];
@@ -79,7 +79,7 @@ export const ExperimentVariationRow = forwardRef<
     const rebalanceAndUpdate = (
       i: number,
       newValue: number,
-      precision: number = 4
+      precision: number = 4,
     ) => {
       if (!setWeight) return;
       rebalance(weights, i, newValue, precision).forEach((w, j) => {
@@ -125,6 +125,8 @@ export const ExperimentVariationRow = forwardRef<
               valueType={valueType}
               feature={feature}
               renderJSONInline={false}
+              useCodeInput={true}
+              showFullscreenButton={true}
             />
           ) : (
             <>{variation.value}</>
@@ -133,6 +135,7 @@ export const ExperimentVariationRow = forwardRef<
         <td key={`${variation.id}__${i}__2`}>
           {setVariations ? (
             <Field
+              size="legacy"
               label=""
               placeholder={`${getVariationDefaultName(variation, valueType)}`}
               value={variation.name || ""}
@@ -155,6 +158,7 @@ export const ExperimentVariationRow = forwardRef<
               <div className="col d-flex flex-row">
                 <div className={`position-relative ${styles.percentInputWrap}`}>
                   <Field
+                    size="legacy"
                     id={`${variation.id}__${i}__3__input`}
                     style={{ width: 95 }}
                     value={val}
@@ -187,7 +191,7 @@ export const ExperimentVariationRow = forwardRef<
             )}
             {setVariations && (
               <div className="col-auto">
-                <MoreMenu zIndex={1000000}>
+                <MoreMenu useRadix={false} zIndex={1000000}>
                   <Tooltip
                     body="Experiments must have at least two variations"
                     shouldDisplay={variations.length <= 2}
@@ -196,7 +200,7 @@ export const ExperimentVariationRow = forwardRef<
                       disabled={variations.length <= 2}
                       className={clsx(
                         "dropdown-item",
-                        variations.length > 2 && "text-danger"
+                        variations.length > 2 && "text-danger",
                       )}
                       onClick={(e) => {
                         e.preventDefault();
@@ -206,7 +210,7 @@ export const ExperimentVariationRow = forwardRef<
 
                         const newWeights = distributeWeights(
                           newValues.map((v) => v.weight),
-                          customSplit
+                          customSplit,
                         );
 
                         newValues.forEach((v, j) => {
@@ -226,19 +230,14 @@ export const ExperimentVariationRow = forwardRef<
         </td>
       </tr>
     );
-  }
+  },
 );
 
 ExperimentVariationRow.displayName = "ExperimentVariationRow";
 
 export function SortableExperimentVariationRow(props: SortableProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: props.variation.id });
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: props.variation.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),

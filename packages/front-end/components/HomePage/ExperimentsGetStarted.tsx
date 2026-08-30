@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/router";
 import { FaArrowLeft } from "react-icons/fa";
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectInterface } from "shared/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
@@ -15,12 +15,15 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import Button from "@/components/Button";
+import CreateExperimentModal from "@/components/Experiment/CreateExperimentModal";
+import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 
 const ExperimentsGetStarted = (): React.ReactElement => {
-  const { metrics, datasources, mutateDefinitions, project } = useDefinitions();
+  const { metrics, datasources, mutateDefinitions, project, projects } =
+    useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -36,21 +39,19 @@ const ExperimentsGetStarted = (): React.ReactElement => {
   const { organization } = useUser();
 
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization?.id || ""
+    organization?.id || "",
   );
 
   const hasDataSource = datasources.some(
-    (d) => !d.projects?.includes(demoProjectId)
+    (d) => !d.projects?.includes(demoProjectId),
   );
   const hasMetrics = metrics.some(
-    (m) => !m.id.match(/^met_sample/) && !m.projects?.includes(demoProjectId)
+    (m) => !m.id.match(/^met_sample/) && !m.projects?.includes(demoProjectId),
   );
   const currentStep = hasMetrics ? 3 : hasDataSource ? 2 : 1;
 
-  const {
-    projectId: demoDataSourceProjectId,
-    demoExperimentId,
-  } = useDemoDataSourceProject();
+  const { projectId: demoDataSourceProjectId, demoExperimentId } =
+    useDemoDataSourceProject();
 
   const { apiCall } = useAuth();
 
@@ -58,14 +59,14 @@ const ExperimentsGetStarted = (): React.ReactElement => {
     if (demoDataSourceProjectId && demoExperimentId) {
       router.push(`/experiment/${demoExperimentId}`);
     } else {
-      track("Create Sample Project", {
-        source: "experiments-get-started",
-      });
       const res = await apiCall<{
         project: ProjectInterface;
         experimentId: string;
       }>("/demo-datasource-project", {
         method: "POST",
+      });
+      track("Create Sample Project", {
+        source: "experiments-get-started",
       });
       await mutateDefinitions();
       if (res.experimentId) {
@@ -109,10 +110,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
         )}
 
         {designExperimentOpen && (
-          <NewExperimentForm
+          <CreateExperimentModal
             onClose={() => setDesignExperimentOpen(false)}
             source={"get-started"}
-            isNewExperiment={true}
           />
         )}
 
@@ -135,11 +135,13 @@ const ExperimentsGetStarted = (): React.ReactElement => {
               experiment.
             </p>
             {hasFileConfig() && (
-              <div className="alert alert-info">
+              <Callout status="info">
                 It looks like you have a <code>config.yml</code> file. Use that
                 to define data sources and metrics.{" "}
-                <DocLink docSection="config_yml">View Documentation</DocLink>
-              </div>
+                <DocLink useRadix={false} docSection="config_yml">
+                  View Documentation
+                </DocLink>
+              </Callout>
             )}
             <div className="row mb-3">
               <div className="col">
@@ -183,10 +185,13 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       !(hasDataSource
                         ? datasources.some((datasource) =>
                             permissionsUtil.canUpdateDataSourceSettings(
-                              datasource
-                            )
+                              datasource,
+                            ),
                           )
-                        : permissionsUtil.canViewCreateDataSourceModal(project))
+                        : permissionsUtil.canViewCreateDataSourceModal(
+                            project,
+                            projects,
+                          ))
                     }
                     cta="Add data source"
                     finishedCTA="View data sources"
@@ -210,7 +215,8 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                         Create your first metric definition. Use this as a goal
                         or guardrail when analyzing your experiment results.
                         With GrowthBook, you can build out an entire metric
-                        library to represent all of the KPIs for your business
+                        library to represent all of the KPIs for your
+                        organization.
                       </p>
                     }
                     hideCTA={!envAllowsCreatingMetrics()}
@@ -249,7 +255,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta={"Import Experiment"}
                     finishedCTA="Import Experiment"
                     permissionsError={
-                      !permissionsUtil.canViewExperimentModal(project)
+                      !permissionsUtil.canViewExperimentModal(project, projects)
                     }
                     imageLeft={true}
                     onClick={() => {
@@ -262,15 +268,21 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                 </div>
               </div>
             </div>
-            <div className="alert alert-info text-center">
-              <p>
-                Not ready to connect to your data warehouse? Explore a sample
-                experiment first to get a feel for the GrowthBook platform.
-              </p>
-              <Button color="outline-primary" onClick={openSampleExperiment}>
-                View Sample Experiment
-              </Button>
-            </div>
+            <Callout status="info">
+              <Text as="div" align="center">
+                <p>
+                  Not ready to connect to your data warehouse? Explore a sample
+                  experiment first to get a feel for the GrowthBook platform.
+                </p>
+                <Button
+                  color="inherit"
+                  variant="outline"
+                  onClick={openSampleExperiment}
+                >
+                  View Sample Experiment
+                </Button>
+              </Text>
+            </Callout>
           </div>
         ) : (
           <div>
@@ -301,7 +313,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="View Sample Experiment"
                     finishedCTA="View Sample Experiment"
                     permissionsError={
-                      !permissionsUtil.canViewExperimentModal(project)
+                      !permissionsUtil.canViewExperimentModal(project, projects)
                     }
                     imageLeft={false}
                     onClick={openSampleExperiment}
@@ -331,7 +343,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="Design New Experiment"
                     finishedCTA="Design New Experiment"
                     permissionsError={
-                      !permissionsUtil.canViewExperimentModal(project)
+                      !permissionsUtil.canViewExperimentModal(project, projects)
                     }
                     imageLeft={false}
                     onClick={() => {
@@ -357,7 +369,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="Analyze Existing Experiment"
                     finishedCTA="Analyze Existing Experiment"
                     permissionsError={
-                      !permissionsUtil.canViewExperimentModal(project)
+                      !permissionsUtil.canViewExperimentModal(project, projects)
                     }
                     imageLeft={false}
                     onClick={() => {

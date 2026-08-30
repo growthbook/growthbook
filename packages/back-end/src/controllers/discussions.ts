@@ -1,9 +1,11 @@
 import { Response } from "express";
+import { DiscussionParentType } from "shared/types/discussion";
+import { DISCUSSION_PARENT_TYPES } from "shared/constants";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { DiscussionParentType } from "back-end/types/discussion";
 import {
   addComment,
   getDiscussionByParent,
+  getDiscussionCommentCounts,
   getLastNDiscussions,
   getProjectsByParentId,
 } from "back-end/src/services/discussions";
@@ -14,7 +16,7 @@ export async function postDiscussions(
     { comment: string },
     { parentId: string; parentType: DiscussionParentType }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId, email, userName } = context;
@@ -33,7 +35,7 @@ export async function postDiscussions(
       parentType,
       parentId,
       { id: userId, email: email, name: userName },
-      comment
+      comment,
     );
     res.status(200).json({
       status: 200,
@@ -55,7 +57,7 @@ export async function deleteComment(
       index: string;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -73,7 +75,7 @@ export async function deleteComment(
     const discussion = await getDiscussionByParent(
       org.id,
       parentType,
-      parentId
+      parentId,
     );
     if (!discussion) {
       return res.status(404).json({
@@ -114,7 +116,7 @@ export async function putComment(
       index: string;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -133,7 +135,7 @@ export async function putComment(
     const discussion = await getDiscussionByParent(
       org.id,
       parentType,
-      parentId
+      parentId,
     );
     if (!discussion || !discussion.comments[i]) {
       return res.status(404).json({
@@ -173,7 +175,7 @@ export async function getDiscussion(
     null,
     { parentId: string; parentType: DiscussionParentType }
   >,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { parentId, parentType } = req.params;
@@ -182,7 +184,7 @@ export async function getDiscussion(
     const discussion = await getDiscussionByParent(
       org.id,
       parentType,
-      parentId
+      parentId,
     );
     res.status(200).json({
       status: 200,
@@ -196,9 +198,86 @@ export async function getDiscussion(
   }
 }
 
+// One page of cards is the realistic ask; anything beyond this is abuse or a
+// bug, and each id costs its own permission lookup.
+const MAX_DISCUSSION_COUNT_IDS = 100;
+
+export async function getDiscussionCounts(
+  req: AuthRequest<
+    null,
+    { parentType: DiscussionParentType },
+    { ids?: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { parentType } = req.params;
+
+  // The route has no schema validation, so parentType is an unvalidated cast.
+  // Reject unknown values rather than letting them reach the lookup switch.
+  if (!DISCUSSION_PARENT_TYPES.includes(parentType)) {
+    return res.status(400).json({
+      status: 400,
+      message: `Unsupported discussion parent type: ${parentType}`,
+    });
+  }
+
+  // `?ids=a&ids=b` arrives as an array, so normalize before splitting rather
+  // than assuming a string. Cap the batch: each id costs a permission lookup,
+  // and they run concurrently.
+  const rawIds = req.query?.ids;
+  const ids = (Array.isArray(rawIds) ? rawIds.join(",") : rawIds || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)
+    .slice(0, MAX_DISCUSSION_COUNT_IDS);
+
+  try {
+    // Only return counts for parents the caller can actually read. Without
+    // this, the batch endpoint leaks whether (and how many) comments exist on
+    // resources the user isn't allowed to view. Mirrors the read check the
+    // single-parent comment write path does via getProjectsByParentId.
+    const readableIds = (
+      await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const projects = await getProjectsByParentId(
+              context,
+              parentType,
+              id,
+            );
+            return context.permissions.canReadMultiProjectResource(projects)
+              ? id
+              : null;
+          } catch {
+            // Parent not found or otherwise inaccessible — omit it.
+            return null;
+          }
+        }),
+      )
+    ).filter((id): id is string => id !== null);
+
+    const counts = await getDiscussionCommentCounts(
+      org.id,
+      parentType,
+      readableIds,
+    );
+    res.status(200).json({
+      status: 200,
+      counts,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+
 export async function getRecentDiscussions(
   req: AuthRequest<null, { num: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { num } = req.params;

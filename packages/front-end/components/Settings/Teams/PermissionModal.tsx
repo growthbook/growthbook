@@ -1,9 +1,9 @@
-import { MemberRoleWithProjects } from "back-end/types/organization";
-import { useForm } from "react-hook-form";
-import Modal from "@/components/Modal";
+import { useState } from "react";
+import { MemberRoleWithProjects } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import { Team } from "@/services/UserContext";
-import RoleSelector from "@/components/Settings/Team/RoleSelector";
+import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export const PermissionsModal = ({
   team,
@@ -16,40 +16,37 @@ export const PermissionsModal = ({
   onClose: () => void;
   onSuccess: () => Promise<unknown>;
 }) => {
-  const form = useForm<{
-    roleInfo: MemberRoleWithProjects;
-  }>({
-    defaultValues: {
-      roleInfo: {
-        role: team.role,
-        limitAccessByEnvironment: team.limitAccessByEnvironment,
-        environments: team.environments,
-        projectRoles: team.projectRoles || [],
-      },
-    },
+  const [value, setValue] = useState<MemberRoleWithProjects>({
+    role: team.role,
+    limitAccessByEnvironment: team.limitAccessByEnvironment,
+    environments: team.environments,
+    additionalRoles: team.additionalRoles || [],
+    projectRoles: team.projectRoles || [],
   });
   const { apiCall } = useAuth();
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       open={open}
       close={() => onClose()}
-      header={"Edit Team Permissions"}
-      submit={form.handleSubmit(async (value) => {
+      header="Edit Team Permissions"
+      subheader={
+        <>
+          Members of <strong>{team.name}</strong> get these on top of their own
+          roles.
+        </>
+      }
+      size="xl"
+      submit={async () => {
         await apiCall(`/teams/${team.id}`, {
           method: "PUT",
-          body: JSON.stringify({
-            permissions: { ...value.roleInfo },
-          }),
+          body: JSON.stringify({ permissions: value }),
         });
         await onSuccess();
-      })}
+      }}
     >
-      <RoleSelector
-        value={form.watch("roleInfo")}
-        setValue={(value) => form.setValue("roleInfo", value)}
-      />
-    </Modal>
+      <RoleRulesTable value={value} setValue={setValue} />
+    </ModalStandard>
   );
 };

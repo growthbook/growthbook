@@ -34,10 +34,37 @@ async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Fake Date only, so cache staleness follows explicit clock moves rather than how
+// long SDK init happens to take on a loaded machine.
+function useFrozenClock() {
+  jest.useFakeTimers({
+    doNotFake: [
+      "hrtime",
+      "nextTick",
+      "performance",
+      "queueMicrotask",
+      "requestAnimationFrame",
+      "cancelAnimationFrame",
+      "requestIdleCallback",
+      "cancelIdleCallback",
+      "setImmediate",
+      "clearImmediate",
+      "setInterval",
+      "clearInterval",
+      "setTimeout",
+      "clearTimeout",
+    ],
+  });
+}
+
+function advanceClock(ms: number) {
+  jest.setSystemTime(Date.now() + ms);
+}
+
 function mockApi(
   data: FeatureApiResponse | null,
   supportSSE: boolean = false,
-  delay: number = 50
+  delay: number = 50,
 ) {
   // eslint-disable-next-line
   const f = jest.fn((url: string, resp: any) => {
@@ -67,7 +94,7 @@ function mockApi(
                     forcedVariations,
                     forcedFeatures: new Map(forcedFeaturesArray),
                     url: evalUrl,
-                  })
+                  }),
                 )
               : Promise.reject("Fetch error");
           },
@@ -95,7 +122,7 @@ async function seedLocalStorage(
   attributeBlob = `{"ca":{"uid":"5"},"fv":{},"url":""}`,
   feature: string = "foo",
   value: string = "localstorage",
-  staleAt: number = 50
+  staleAt: number = 50,
 ) {
   await clearCache();
   localStorage.setItem(
@@ -115,7 +142,7 @@ async function seedLocalStorage(
           sse,
         },
       ],
-    ])
+    ]),
   );
 }
 
@@ -164,6 +191,10 @@ const sdkPayloadUpdated = {
 };
 
 describe("remote-eval", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("debounces network requests for same clientKey and cacheKeyAttributes", async () => {
     await clearCache();
     const [f, cleanup] = mockApi(sdkPayload);
@@ -448,11 +479,11 @@ describe("remote-eval", () => {
 
     // // Cache SSE value
     const lsValue = JSON.parse(
-      localStorage.getItem(localStorageCacheKey) || "[]"
+      localStorage.getItem(localStorageCacheKey) || "[]",
     );
     expect(lsValue.length).toEqual(1);
     expect(lsValue[0][0]).toEqual(
-      `https://fakeapi.sample.io||qwerty1234||{"ca":{"uid":"5"},"fv":{},"url":""}`
+      `https://fakeapi.sample.io||qwerty1234||{"ca":{"uid":"5"},"fv":{},"url":""}`,
     );
     expect(lsValue[0][1].sse).toEqual(true);
 
@@ -466,6 +497,7 @@ describe("remote-eval", () => {
   });
 
   it("uses localStorage cache", async () => {
+    useFrozenClock();
     await clearCache();
     await seedLocalStorage();
 
@@ -502,43 +534,43 @@ describe("remote-eval", () => {
     expect(f.mock.calls.length).toEqual(0);
 
     // Wait for localStorage entry to expire and refresh features
-    await sleep(120);
+    advanceClock(120);
     await growthbook.refreshFeatures();
     expect(f.mock.calls.length).toEqual(1);
     expect(growthbook.evalFeature("foo").value).toEqual("api");
     const staleAt = new Date(
       JSON.parse(
-        localStorage.getItem(localStorageCacheKey) || "[]"
-      )[0][1].staleAt
+        localStorage.getItem(localStorageCacheKey) || "[]",
+      )[0][1].staleAt,
     ).getTime();
 
     // Wait for localStorage entry to expire again
     // Since the payload didn't change, make sure it updates localStorage staleAt flag
-    await sleep(120);
+    advanceClock(120);
     await growthbook.refreshFeatures();
     expect(f.mock.calls.length).toEqual(2);
     expect(growthbook.evalFeature("foo").value).toEqual("api");
     const newStaleAt = new Date(
       JSON.parse(
-        localStorage.getItem(localStorageCacheKey) || "[]"
-      )[0][1].staleAt
+        localStorage.getItem(localStorageCacheKey) || "[]",
+      )[0][1].staleAt,
     ).getTime();
     expect(newStaleAt).toBeGreaterThan(staleAt);
 
     // If api has a new version, refreshFeatures should pick it up
     data.features.foo.defaultValue = "new";
     data.dateUpdated = "2020-02-01T00:00:00Z";
-    await sleep(120);
+    advanceClock(120);
     await growthbook.refreshFeatures();
     expect(f.mock.calls.length).toEqual(3);
     expect(growthbook.evalFeature("foo").value).toEqual("new");
 
     const lsValue = JSON.parse(
-      localStorage.getItem(localStorageCacheKey) || "[]"
+      localStorage.getItem(localStorageCacheKey) || "[]",
     );
     expect(lsValue.length).toEqual(1);
     expect(lsValue[0][0]).toEqual(
-      `https://fakeapi.sample.io||qwerty1234||{"ca":{"uid":"5"},"fv":{},"url":""}`
+      `https://fakeapi.sample.io||qwerty1234||{"ca":{"uid":"5"},"fv":{},"url":""}`,
     );
     expect(lsValue[0][1].version).toEqual(data.dateUpdated);
     expect(lsValue[0][1].data.features).toEqual({
@@ -574,10 +606,10 @@ describe("remote-eval", () => {
     await Promise.all([growthbook1.loadFeatures(), growthbook2.loadFeatures()]);
 
     const call1 = f.mock.calls.find((c) =>
-      c[0].match(/^https:\/\/fakeapi1\.sample\.io\.*/)
+      c[0].match(/^https:\/\/fakeapi1\.sample\.io\.*/),
     );
     const call2 = f.mock.calls.find((c) =>
-      c[0].match(/^https:\/\/fakeapi2\.sample\.io\.*/)
+      c[0].match(/^https:\/\/fakeapi2\.sample\.io\.*/),
     );
     const headers1 = call1?.[1]?.headers || {};
     const headers2 = call2?.[1]?.headers || {};
@@ -602,14 +634,14 @@ describe("remote-eval", () => {
           `${host}/api/features/${clientKey}`,
           {
             headers: { "x-other-property": "bar" },
-          }
+          },
         );
       };
 
     await growthbook3.loadFeatures();
 
     const call3 = f.mock.calls.find((c) =>
-      c[0].match(/^https:\/\/fakeapi3\.sample\.io\.*/)
+      c[0].match(/^https:\/\/fakeapi3\.sample\.io\.*/),
     );
     const headers3 = call3?.[1]?.headers || {};
     expect(headers3["x-custom-header"]).toEqual(undefined);

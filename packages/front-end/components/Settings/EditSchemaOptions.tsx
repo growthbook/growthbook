@@ -1,4 +1,4 @@
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ChangeEventHandler } from "react";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
@@ -41,6 +41,7 @@ export default function EditSchemaOptions({
           <Tooltip body="This is required if you want to use our automatic metric generation. You can find this in your Amplitude account by going to your organizational settings and locating your project settings." />
         </label>
         <Field
+          size="legacy"
           type="text"
           className="form-control"
           name="projectId"

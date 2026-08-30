@@ -1,71 +1,68 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { useGrowthBook } from "@growthbook/growthbook-react";
-import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
+import { useAuth } from "@/services/auth";
+import GetStartedAndHomePage from "@/components/GetStarted";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { useFeaturesList } from "@/services/features";
+import { isExperimentationLeaning } from "@/services/onboarding";
+import Callout from "@/ui/Callout";
+
+type FeatureExpUsage = {
+  hasFeatures: boolean;
+  hasExperiments: boolean;
+};
 
 export default function Home(): React.ReactElement {
   const router = useRouter();
-  const {
-    experiments,
-    loading: experimentsLoading,
-    error: experimentsError,
-  } = useExperiments();
-
-  const {
-    features,
-    loading: featuresLoading,
-    error: featuresError,
-  } = useFeaturesList(false);
-
+  const { apiCall } = useAuth();
   const { organization } = useUser();
 
-  const gb = useGrowthBook();
+  // Fetch fresh on mount — we don't want a cached "no features yet" result
+  // bouncing the user back to /setup right after they create their first one.
+  const [data, setData] = useState<FeatureExpUsage | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiCall<FeatureExpUsage>("/organization/feature-exp-usage", {
+      method: "GET",
+    })
+      .then((res) => {
+        if (!cancelled) setData(res);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [apiCall]);
+
+  const hasFeatureOrExperiment = data
+    ? data.hasFeatures || data.hasExperiments
+    : undefined;
+
+  const willRedirect = hasFeatureOrExperiment === false;
 
   useEffect(() => {
     if (!organization) return;
-    if (featuresLoading || experimentsLoading) {
-      return;
-    }
+    if (!willRedirect) return;
 
-    const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-      organization.id || ""
+    const useNewOnboarding = isExperimentationLeaning(
+      organization?.demographicData,
     );
-
-    const hasFeatures = features.some((f) => f.project !== demoProjectId);
-    const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
-
-    if (hasFeatures) {
-      router.replace("/features");
-    } else if (hasExperiments) {
-      router.replace("/experiments");
+    if (!organization.isVercelIntegration && !useNewOnboarding) {
+      router.replace("/setup");
     } else {
-      if (gb.isOn("use-new-setup-flow-2")) {
-        router.replace("/setup");
-      } else {
-        router.replace("/getstarted");
-      }
+      router.replace("/getstarted");
     }
-  }, [
-    organization,
-    features.length,
-    experiments.length,
-    featuresLoading,
-    experimentsLoading,
-  ]);
+  }, [organization, willRedirect, router]);
 
-  if (experimentsError || featuresError) {
+  if (error) {
     return (
-      <div className="alert alert-danger">
-        {experimentsError?.message ||
-          featuresError?.message ||
-          "An error occurred"}
-      </div>
+      <Callout status="error">{error.message || "An error occurred"}</Callout>
     );
   }
-
-  return <LoadingOverlay />;
+  if (!data || willRedirect) return <LoadingOverlay />;
+  return <GetStartedAndHomePage showMarketingBanner />;
 }

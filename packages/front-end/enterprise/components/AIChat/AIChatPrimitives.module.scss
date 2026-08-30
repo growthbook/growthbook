@@ -1,0 +1,173 @@
+// Keyframes + pseudo-classes that cannot live in inline styles.
+
+@keyframes gb-ai-chat-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gb-ai-sidebar-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.spinIcon {
+  animation: gb-ai-chat-spin 0.8s linear infinite;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.streamingDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-12);
+  animation: gb-ai-sidebar-pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.bubble {
+  overflow-wrap: anywhere;
+
+  * {
+    overflow-wrap: anywhere !important;
+  }
+}
+
+.deleteButton {
+  &:hover svg {
+    color: var(--red-11);
+    transition: color 120ms ease;
+  }
+
+  svg {
+    transition: color 120ms ease;
+  }
+}
+
+// Interactive state concerns for list items.
+// Static layout lives in inline styles on the component.
+.conversationItem {
+  background: none;
+  color: var(--gray-12);
+
+  .conversationDeleteBtn {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 100ms ease;
+  }
+
+  &:hover {
+    background: var(--gray-a3);
+
+    .conversationDeleteBtn {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
+  &.conversationItemActive {
+    background: var(--violet-10);
+    color: #fff;
+
+    &:hover {
+      background: var(--violet-10);
+    }
+  }
+}
+
+.searchResultItem {
+  background: transparent;
+  color: var(--gray-12);
+
+  &:hover {
+    background: var(--gray-a3);
+  }
+}
+
+.feedbackButton {
+  color: var(--gray-a9);
+  transition: color 120ms ease;
+
+  &:hover {
+    color: var(--gray-12);
+  }
+
+  &.feedbackPositive {
+    color: var(--green-11);
+  }
+
+  &.feedbackNegative {
+    color: var(--red-11);
+  }
+}
+
+// Superseded active-turn items fade and blur into the background before
+// being moved into the "Completed N steps" drawer. The opacity passes
+// through ~0.4 with a slight blur (the "recede into the background"
+// midpoint) and finishes at 0 so removal from the layout is invisible.
+//
+// Keep the duration in sync with `DEFAULT_FADE_MS` in
+// `useCollapsibleActiveTurnItems.ts`.
+@keyframes gb-ai-collapse-out {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+  60% {
+    opacity: 0.4;
+    filter: blur(2px);
+    transform: translateY(-1px);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(3px);
+    transform: translateY(-3px);
+  }
+}
+
+.activeTurnItemWrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.collapsingItem {
+  animation: gb-ai-collapse-out 250ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+.userBubble {
+  color: white;
+
+  span {
+    color: inherit !important;
+  }
+
+  ::selection {
+    background: rgba(255, 255, 255, 0.35);
+    color: #fff;
+  }
+}
+
+.collapsedToggle {
+  &:hover {
+    color: var(--gray-12);
+  }
+}
+
+.collapsedContent {
+  pre {
+    background: var(--gray-a3) !important;
+    width: fit-content;
+    max-width: 100%;
+  }
+}

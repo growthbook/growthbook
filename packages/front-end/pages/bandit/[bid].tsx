@@ -1,12 +1,13 @@
 import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
+} from "shared/types/experiment";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { includeExperimentInPayload } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -23,10 +24,12 @@ import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
+import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 
 const BanditExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -43,9 +46,11 @@ const BanditExperimentPage = (): ReactElement => {
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
-  const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
-    number | null
+  const [trafficModalOpen, setTrafficModalOpen] = useState(false);
+  const [trafficFocusVariation, setTrafficFocusVariation] = useState<
+    string | null
   >(null);
+  const [addVariationOnOpen, setAddVariationOnOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -54,6 +59,8 @@ const BanditExperimentPage = (): ReactElement => {
     linkedFeatures: LinkedFeatureInfo[];
     envs: string[];
     urlRedirects: URLRedirectInterface[];
+    visualChangesetEnvStates?: LinkedChangeEnvStates;
+    urlRedirectEnvStates?: LinkedChangeEnvStates;
   }>(`/experiment/${bid}`);
 
   useSwitchOrg(data?.experiment?.organization ?? null);
@@ -64,6 +71,11 @@ const BanditExperimentPage = (): ReactElement => {
     if (!data?.experiment) return;
     if (!data.experiment?.type || data.experiment.type === "standard") {
       router.replace(window.location.href.replace("bandit/", "experiment/"));
+    }
+    if (data?.experiment?.type === "holdout") {
+      let url = window.location.href.replace(/(.*)\/bandit\/.*/, "$1/holdout/");
+      url += data?.experiment?.holdoutId;
+      router.replace(url);
     }
   }, [data, router]);
 
@@ -79,6 +91,8 @@ const BanditExperimentPage = (): ReactElement => {
     visualChangesets = [],
     linkedFeatures = [],
     urlRedirects = [],
+    visualChangesetEnvStates,
+    urlRedirectEnvStates,
   } = data;
 
   const canEditExperiment =
@@ -111,12 +125,28 @@ const BanditExperimentPage = (): ReactElement => {
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
     : null;
+  const editTraffic = canRunExperiment
+    ? (variationId?: string) => {
+        // Callers may pass a DOM event, so only string ids focus a variation.
+        setTrafficFocusVariation(
+          typeof variationId === "string" ? variationId : null,
+        );
+        setTrafficModalOpen(true);
+      }
+    : null;
+  const addVariation = canRunExperiment
+    ? () => {
+        setTrafficFocusVariation(null);
+        setAddVariationOnOpen(true);
+        setTrafficModalOpen(true);
+      }
+    : null;
 
   const safeToEdit =
     experiment.status !== "running" ||
     !includeExperimentInPayload(
       experiment,
-      linkedFeatures.map((f) => f.feature)
+      linkedFeatures.map((f) => f.feature),
     );
 
   return (
@@ -163,7 +193,7 @@ const BanditExperimentPage = (): ReactElement => {
                 dateStarted: new Date().toISOString(),
                 dateEnded: undefined,
                 variationWeights: p.variationWeights.map(
-                  () => 1 / (p.variationWeights.length || 2)
+                  () => 1 / (p.variationWeights.length || 2),
                 ),
                 banditEvents: undefined,
               };
@@ -211,10 +241,10 @@ const BanditExperimentPage = (): ReactElement => {
             (experiment.linkedFeatures?.length ||
               experiment.hasVisualChangesets ||
               experiment.hasURLRedirects) ? (
-              <div className="alert alert-danger">
+              <Callout status="error">
                 Changing the project may prevent your linked Feature Flags,
                 Visual Changes, and URL Redirects from being sent to users.
-              </div>
+              </Callout>
             ) : null
           }
           source="bid"
@@ -225,6 +255,7 @@ const BanditExperimentPage = (): ReactElement => {
           close={() => setPhaseModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           source="bid"
         />
       )}
@@ -243,6 +274,7 @@ const BanditExperimentPage = (): ReactElement => {
           close={() => setEditPhasesOpen(false)}
           mutateExperiment={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           editTargeting={editTargeting}
           source="bid"
         />
@@ -252,8 +284,24 @@ const BanditExperimentPage = (): ReactElement => {
           close={() => setTargetingModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
           // source="bid"
+        />
+      )}
+      {trafficModalOpen && (
+        <EditTrafficModal
+          close={() => {
+            setTrafficModalOpen(false);
+            setTrafficFocusVariation(null);
+            setAddVariationOnOpen(false);
+          }}
+          mutate={mutate}
+          experiment={experiment}
+          linkedFeatures={linkedFeatures}
+          safeToEdit={safeToEdit}
+          focusVariationId={trafficFocusVariation}
+          addVariationOnOpen={addVariationOnOpen}
         />
       )}
 
@@ -284,8 +332,10 @@ const BanditExperimentPage = (): ReactElement => {
           editPhase={editPhase}
           envs={data.envs}
           editTargeting={editTargeting}
-          checklistItemsRemaining={checklistItemsRemaining}
-          setChecklistItemsRemaining={setChecklistItemsRemaining}
+          editTraffic={editTraffic}
+          addVariation={addVariation}
+          visualChangesetEnvStates={visualChangesetEnvStates}
+          urlRedirectEnvStates={urlRedirectEnvStates}
         />
       </SnapshotProvider>
     </>

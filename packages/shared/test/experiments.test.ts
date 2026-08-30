@@ -1,18 +1,38 @@
-import {
-  ExperimentAnalysisSummaryResultsStatus,
-  ExperimentAnalysisSummaryVariationStatus,
-} from "back-end/types/experiment";
+import normal from "@stdlib/stats/base/dists/normal";
 import {
   FactTableInterface,
+  FactMetricInterface,
   ColumnInterface,
   FactFilterInterface,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
+import { IndexedPValue } from "shared/types/stats";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   getColumnRefWhereClause,
   canInlineFilterColumn,
   getAggregateFilters,
-  getDecisionFrameworkStatus,
+  getColumnExpression,
+  expandVirtualColumnsInSql,
+  sqlReferencesColumn,
+  validateVirtualColumnExpression,
+  getSelectedColumnDatatype,
+  adjustPValuesBenjaminiHochberg,
+  adjustPValuesHolmBonferroni,
+  adjustedCI,
+  setAdjustedPValuesOnResults,
+  chanceToWinFlatPrior,
+  getRowFilterSQL,
+  getEffectiveLookbackOverride,
+  getIntersectionBaseMetricIds,
+  isFactMetricJoinable,
+  parseSliceQueryString,
+  parseSliceMetricId,
+  generateSliceString,
+  getAllExpandedMetricIdsFromExperiment,
+  ExperimentMetricInterface,
 } from "../src/experiments";
+import { createLikeStringMatchFn } from "../src/sql";
+import { LookbackOverride } from "../src/validators/experiments";
 
 describe("Experiments", () => {
   describe("Fact Tables", () => {
@@ -26,6 +46,8 @@ describe("Experiments", () => {
       name: "Event Name",
       alwaysInlineFilter: true,
       deleted: false,
+      autoSlices: ["s1", "s2", "s3"],
+      isAutoSliceColumn: true,
     };
     const column2: ColumnInterface = {
       column: "page",
@@ -55,6 +77,43 @@ describe("Experiments", () => {
       description: "The count of the event",
       numberFormat: "",
       name: "Event Count",
+      deleted: false,
+    };
+    const jsonColumn: ColumnInterface = {
+      column: "data",
+      datatype: "json",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "JSON data",
+      numberFormat: "",
+      name: "data",
+      deleted: false,
+      jsonFields: {
+        a: { datatype: "string" },
+        b: { datatype: "number" },
+        "c.d": { datatype: "string" },
+        "c.e": { datatype: "number" },
+        bool: { datatype: "boolean" },
+      },
+    };
+    const boolColumn: ColumnInterface = {
+      column: "is_bot",
+      datatype: "boolean",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "Is bot",
+      numberFormat: "",
+      name: "Is Bot",
+      deleted: false,
+    };
+    const dateColumn: ColumnInterface = {
+      column: "signup_date",
+      datatype: "date",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "The signup date",
+      numberFormat: "",
+      name: "Signup Date",
       deleted: false,
     };
     const deletedColumn: ColumnInterface = {
@@ -99,263 +158,1478 @@ describe("Experiments", () => {
       FactTableInterface,
       "userIdTypes" | "columns" | "filters"
     > = {
-      columns: [column, column2, userIdColumn, numericColumn, deletedColumn],
+      columns: [
+        column,
+        column2,
+        userIdColumn,
+        numericColumn,
+        deletedColumn,
+        jsonColumn,
+        boolColumn,
+        dateColumn,
+      ],
       filters: [filter, filter2, filter3],
       userIdTypes: ["user_id"],
     };
 
     const escapeStringLiteral = (str: string) => str.replace(/'/g, "''");
+    const stringMatch = createLikeStringMatchFn({
+      escapeStringLiteral,
+      emitEscapeClause: false,
+    });
+    const jsonExtract = (jsonCol: string, path: string, isNumeric: boolean) => {
+      if (isNumeric) {
+        return `${jsonCol}:'${path}'::float`;
+      }
+      return `${jsonCol}:'${path}'`;
+    };
+    const evalBoolean = (col: string, value: boolean) => {
+      return `${col} IS ${value ? "TRUE" : "FALSE"}`;
+    };
+    const castToTimestamp = (col: string) => `CAST(${col} AS TIMESTAMP)`;
 
     describe("canInlineFilterColumn", () => {
       it("returns true for string columns with alwaysInlineFilter", () => {
-        expect(
-          canInlineFilterColumn(factTable, {
-            column: column.column,
-            datatype: column.datatype,
-            deleted: column.deleted,
-          })
-        ).toBe(true);
+        expect(canInlineFilterColumn(factTable, column.column)).toBe(true);
       });
       it("returns true for string columns, even if alwaysInlineFilter is false", () => {
-        expect(
-          canInlineFilterColumn(factTable, {
-            column: column2.column,
-            datatype: column2.datatype,
-            deleted: column2.deleted,
-          })
-        ).toBe(true);
+        expect(canInlineFilterColumn(factTable, column2.column)).toBe(true);
+      });
+      it("returns true for boolean columns", () => {
+        expect(canInlineFilterColumn(factTable, boolColumn.column)).toBe(true);
       });
       it("returns false for deleted columns", () => {
-        expect(
-          canInlineFilterColumn(factTable, {
-            column: deletedColumn.column,
-            datatype: deletedColumn.datatype,
-            deleted: deletedColumn.deleted,
-          })
-        ).toBe(false);
+        expect(canInlineFilterColumn(factTable, deletedColumn.column)).toBe(
+          false,
+        );
       });
       it("returns false for numeric columns", () => {
-        expect(
-          canInlineFilterColumn(factTable, {
-            column: numericColumn.column,
-            datatype: numericColumn.datatype,
-            deleted: numericColumn.deleted,
-          })
-        ).toBe(false);
+        expect(canInlineFilterColumn(factTable, numericColumn.column)).toBe(
+          false,
+        );
       });
       it("returns false for userId columns", () => {
-        expect(
-          canInlineFilterColumn(factTable, {
-            column: userIdColumn.column,
-            datatype: userIdColumn.datatype,
-            deleted: userIdColumn.deleted,
-          })
-        ).toBe(false);
+        expect(canInlineFilterColumn(factTable, userIdColumn.column)).toBe(
+          false,
+        );
+      });
+      it("returns false for unknown column", () => {
+        expect(canInlineFilterColumn(factTable, "unknown_column")).toBe(false);
+      });
+      it("returns true for nested JSON string field", () => {
+        expect(canInlineFilterColumn(factTable, `${jsonColumn.column}.a`)).toBe(
+          true,
+        );
+      });
+      it("returns false for nested JSON non-string field", () => {
+        expect(canInlineFilterColumn(factTable, `${jsonColumn.column}.b`)).toBe(
+          false,
+        );
       });
     });
 
     describe("getColumnRefWhereClause", () => {
       it("returns empty array when there are no filters", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: "event_name",
-              filters: [],
               factTableId: "",
             },
-            escapeStringLiteral
-          )
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            stringMatch,
+          }),
         ).toStrictEqual([]);
 
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: "event_name",
-              filters: [],
-              inlineFilters: {},
+              rowFilters: [],
               factTableId: "",
             },
-            escapeStringLiteral
-          )
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            stringMatch,
+          }),
         ).toStrictEqual([]);
 
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: "event_name",
-              filters: [],
-              inlineFilters: {
-                [column.column]: [],
-              },
+              rowFilters: [
+                {
+                  operator: "in",
+                  column: column.column,
+                  values: [],
+                },
+              ],
               factTableId: "",
             },
-            escapeStringLiteral
-          )
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            stringMatch,
+          }),
         ).toStrictEqual([]);
 
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: "event_name",
-              filters: [],
-              inlineFilters: {
-                [column.column]: [""],
-              },
+              rowFilters: [
+                // Missing value
+                {
+                  operator: "sql_expr",
+                },
+                {
+                  operator: "sql_expr",
+                  values: [""],
+                },
+                {
+                  operator: "saved_filter",
+                  values: [],
+                },
+                // Invalid values
+                {
+                  operator: "saved_filter",
+                  values: ["invalid_id"],
+                },
+                // Missing column
+                {
+                  operator: "in",
+                  column: "",
+                  values: ["value1", "value2"],
+                },
+                {
+                  operator: "is_null",
+                },
+              ],
               factTableId: "",
             },
-            escapeStringLiteral
-          )
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            stringMatch,
+          }),
         ).toStrictEqual([]);
       });
-      it("ignores invalid filters, but uses invalid inline filter columns", () => {
+      it("Adds row filters even for columns that don't exist", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
-              filters: ["unknown_id"],
+              rowFilters: [
+                {
+                  operator: "=",
+                  column: "unknown_column",
+                  values: ["unknown_value"],
+                },
+                {
+                  operator: "=",
+                  column: numericColumn.column,
+                  values: ["1"],
+                },
+                {
+                  operator: "=",
+                  column: deletedColumn.column,
+                  values: ["deleted"],
+                },
+                {
+                  operator: "=",
+                  column: userIdColumn.column,
+                  values: ["user"],
+                },
+              ],
               factTableId: "",
-              inlineFilters: {
-                unknown_column: ["unknown_value"],
-                [numericColumn.column]: ["1"],
-                [deletedColumn.column]: ["deleted"],
-                [userIdColumn.column]: ["user"],
-              },
             },
-            escapeStringLiteral
-          )
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            stringMatch,
+          }),
         ).toStrictEqual([
-          "unknown_column = 'unknown_value'",
-          `${numericColumn.column} = '1'`,
-          `${deletedColumn.column} = 'deleted'`,
-          `${userIdColumn.column} = 'user'`,
+          "(unknown_column = 'unknown_value')",
+          `(${numericColumn.column} = 1)`,
+          `(${deletedColumn.column} = 'deleted')`,
+          `(${userIdColumn.column} = 'user')`,
         ]);
       });
       it("returns where clause for single filter", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
-              filters: [filter.id],
+              rowFilters: [
+                {
+                  operator: "saved_filter",
+                  values: [filter.id],
+                },
+              ],
               factTableId: "",
             },
-            escapeStringLiteral
-          )
-        ).toStrictEqual([filter.value]);
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            stringMatch,
+          }),
+        ).toStrictEqual([`(${filter.value})`]);
       });
       it("returns where clause for multiple filters", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
-              filters: [filter.id, filter2.id],
+              rowFilters: [
+                {
+                  operator: "saved_filter",
+                  values: [filter.id],
+                },
+                {
+                  operator: "saved_filter",
+                  values: [filter2.id],
+                },
+              ],
               factTableId: "",
             },
-            escapeStringLiteral
-          )
-        ).toStrictEqual([filter.value, filter2.value]);
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            stringMatch,
+          }),
+        ).toStrictEqual([`(${filter.value})`, `(${filter2.value})`]);
       });
-      it("returns where clause for single inline filter value", () => {
+      it("returns where clause for single row filter value", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
-              filters: [],
-              inlineFilters: {
-                [column.column]: ["login"],
-              },
+              rowFilters: [
+                {
+                  operator: "in",
+                  column: column.column,
+                  values: ["login"],
+                },
+              ],
               factTableId: "",
             },
-            escapeStringLiteral
-          )
-        ).toStrictEqual([`${column.column} = 'login'`]);
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            stringMatch,
+          }),
+        ).toStrictEqual([`(${column.column} = 'login')`]);
       });
-      it("returns where clause for multiple inline filter values", () => {
+      it("converts in to =, not_in to != when there is only 1 value", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
-              filters: [],
-              inlineFilters: {
-                [column.column]: ["login", "signup"],
-              },
+              rowFilters: [
+                {
+                  operator: "in",
+                  column: column.column,
+                  values: ["login"],
+                },
+                {
+                  operator: "not_in",
+                  column: column.column,
+                  values: ["logout"],
+                },
+              ],
               factTableId: "",
             },
-            escapeStringLiteral
-          )
-        ).toStrictEqual([`${column.column} IN (\n  'login',\n  'signup'\n)`]);
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            stringMatch,
+          }),
+        ).toStrictEqual([
+          `(${column.column} = 'login')`,
+          `(${column.column} != 'logout')`,
+        ]);
       });
-      it("returns where clause for inline filters and filters", () => {
+
+      it("uses in clause", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
-              filters: [filter.id],
-              inlineFilters: {
-                [column.column]: ["login"],
-              },
+              rowFilters: [
+                {
+                  column: column.column,
+                  operator: "in",
+                  values: ["login", "signup"],
+                },
+              ],
               factTableId: "",
             },
-            escapeStringLiteral
-          )
-        ).toStrictEqual([`${column.column} = 'login'`, filter.value]);
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            stringMatch,
+          }),
+        ).toStrictEqual([`(${column.column} IN (\n  'login',\n  'signup'\n))`]);
       });
-      it("escapes string literals", () => {
+
+      it("ignores duplicate values", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
-              filters: [],
-              inlineFilters: {
-                [column.column]: ["login's"],
-              },
+              rowFilters: [
+                {
+                  column: column.column,
+                  operator: "in",
+                  values: ["login", "login", "signup"],
+                },
+              ],
               factTableId: "",
             },
-            escapeStringLiteral
-          )
-        ).toStrictEqual([`${column.column} = 'login''s'`]);
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            stringMatch,
+          }),
+        ).toStrictEqual([`(${column.column} IN (\n  'login',\n  'signup'\n))`]);
+      });
+      it("supports multiple row filters", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: column.column,
+              rowFilters: [
+                {
+                  operator: "in",
+                  column: column.column,
+                  values: ["login"],
+                },
+                {
+                  operator: "starts_with",
+                  column: column.column,
+                  values: ["sign"],
+                },
+                {
+                  operator: "sql_expr",
+                  values: ["device='desktop'"],
+                },
+                {
+                  operator: "saved_filter",
+                  values: [filter.id],
+                },
+              ],
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            stringMatch,
+          }),
+        ).toStrictEqual([
+          `(${column.column} = 'login')`,
+          `(${column.column} LIKE 'sign%')`,
+          `(device='desktop')`,
+          `(${filter.value})`,
+        ]);
       });
       it("removes duplicate inline filter and filter values", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
-              filters: [filter3.id],
-              inlineFilters: {
-                [column.column]: ["login"],
-              },
+              rowFilters: [
+                {
+                  operator: "saved_filter",
+                  values: [filter3.id],
+                },
+                {
+                  operator: "=",
+                  column: column.column,
+                  values: ["login"],
+                },
+                {
+                  operator: "in",
+                  column: column.column,
+                  values: ["login"],
+                },
+              ],
               factTableId: "",
             },
-            escapeStringLiteral
-          )
-        ).toStrictEqual([`${column.column} = 'login'`]);
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            stringMatch,
+          }),
+        ).toStrictEqual([`(${column.column} = 'login')`]);
       });
-      it("removes duplicate inline filter values", () => {
-        expect(
-          getColumnRefWhereClause(
-            factTable,
-            {
-              column: column.column,
-              filters: [],
-              inlineFilters: {
-                [column.column]: ["login", "login"],
+
+      describe("getRowFilterSQL", () => {
+        it("escapes string literals", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                operator: "=",
+                column: column.column,
+                values: ["login's"],
               },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${column.column} = 'login''s')`);
+        });
+
+        it("supports JSON columns", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: `${jsonColumn.column}.b`,
+                operator: "=",
+                values: ["hello"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${jsonColumn.column}:'b'::float = 'hello')`);
+        });
+        it("changes = true to is_true for boolean columns", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: boolColumn.column,
+                operator: "=",
+                values: ["true"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${boolColumn.column} IS TRUE)`);
+        });
+        it("changes = false to is_false for boolean columns", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: boolColumn.column,
+                operator: "=",
+                values: ["false"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${boolColumn.column} IS FALSE)`);
+        });
+        it("can detect column types for JSON fields", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: `${jsonColumn.column}.bool`,
+                operator: "=",
+                values: ["true"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${jsonColumn.column}:'bool' IS TRUE)`);
+        });
+        it("handles direct operators for strings", () => {
+          const operators = [">", "<", ">=", "<=", "!=", "="] as const;
+          for (const operator of operators) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: column.column,
+                  operator,
+                  values: ["foo"],
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+              }),
+            ).toStrictEqual(`(${column.column} ${operator} 'foo')`);
+          }
+        });
+        it("casts both sides to timestamp for date columns", () => {
+          const operators = [">", "<", ">=", "<=", "!=", "="] as const;
+          for (const operator of operators) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: dateColumn.column,
+                  operator,
+                  values: ["2024-01-01T17:00:00.000Z"],
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+                castToTimestamp,
+              }),
+            ).toStrictEqual(
+              `(CAST(${dateColumn.column} AS TIMESTAMP) ${operator} CAST('2024-01-01 17:00:00' AS TIMESTAMP))`,
+            );
+          }
+        });
+        it("pads minute-precision values to whole seconds", () => {
+          // DateFilterInput stores `yyyy-MM-dd'T'HH:mm` for the ordering
+          // operators. ClickHouse rejects a seconds-less DateTime literal.
+          const operators = [">", "<", ">=", "<=", "!="] as const;
+          for (const operator of operators) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: dateColumn.column,
+                  operator,
+                  values: ["2024-01-01T17:00"],
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+                castToTimestamp,
+              }),
+            ).toStrictEqual(
+              `(CAST(${dateColumn.column} AS TIMESTAMP) ${operator} CAST('2024-01-01 17:00:00' AS TIMESTAMP))`,
+            );
+          }
+        });
+        it("compares date-only values against the start of the day for < and >=", () => {
+          const call = (operator: "<" | ">=") =>
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator,
+                values: ["2024-01-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            });
+          expect(call(">=")).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) >= CAST('2024-01-01' AS TIMESTAMP))`,
+          );
+          expect(call("<")).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) < CAST('2024-01-01' AS TIMESTAMP))`,
+          );
+        });
+        it("compares date-only values against the end of the day for <= and >", () => {
+          const call = (operator: "<=" | ">") =>
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator,
+                values: ["2024-01-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            });
+          // "on or before Jan 1" runs through the whole of Jan 1
+          expect(call("<=")).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) < CAST('2024-01-02' AS TIMESTAMP))`,
+          );
+          // "after Jan 1" starts once Jan 1 is over
+          expect(call(">")).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) >= CAST('2024-01-02' AS TIMESTAMP))`,
+          );
+        });
+        it("matches the whole calendar day for date-only equality", () => {
+          const col = `CAST(${dateColumn.column} AS TIMESTAMP)`;
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "=",
+                values: ["2024-01-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(${col} >= CAST('2024-01-01' AS TIMESTAMP) AND ${col} < CAST('2024-01-02' AS TIMESTAMP))`,
+          );
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "!=",
+                values: ["2024-01-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(NOT (${col} >= CAST('2024-01-01' AS TIMESTAMP) AND ${col} < CAST('2024-01-02' AS TIMESTAMP)))`,
+          );
+        });
+        it("rolls a date-only day end over month and year boundaries", () => {
+          const col = `CAST(${dateColumn.column} AS TIMESTAMP)`;
+          const call = (value: string) =>
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "=",
+                values: [value],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            });
+          // leap day
+          expect(call("2024-02-29")).toStrictEqual(
+            `(${col} >= CAST('2024-02-29' AS TIMESTAMP) AND ${col} < CAST('2024-03-01' AS TIMESTAMP))`,
+          );
+          expect(call("2024-12-31")).toStrictEqual(
+            `(${col} >= CAST('2024-12-31' AS TIMESTAMP) AND ${col} < CAST('2025-01-01' AS TIMESTAMP))`,
+          );
+        });
+        it("expands date-only in/not_in into per-day ranges", () => {
+          const col = `CAST(${dateColumn.column} AS TIMESTAMP)`;
+          const day = (from: string, to: string) =>
+            `(${col} >= CAST('${from}' AS TIMESTAMP) AND ${col} < CAST('${to}' AS TIMESTAMP))`;
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "in",
+                values: ["2024-01-01", "2024-02-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(${day("2024-01-01", "2024-01-02")} OR ${day("2024-02-01", "2024-02-02")})`,
+          );
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "not_in",
+                values: ["2024-01-01", "2024-02-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(NOT (${day("2024-01-01", "2024-01-02")} OR ${day("2024-02-01", "2024-02-02")}))`,
+          );
+        });
+        it("casts each value for date in/not_in with a time component", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "in",
+                values: ["2024-01-01T09:00:00Z", "2024-02-01T09:00:00Z"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) IN (\n  CAST('2024-01-01 09:00:00' AS TIMESTAMP),\n  CAST('2024-02-01 09:00:00' AS TIMESTAMP)\n))`,
+          );
+        });
+        it("does not cast is_null/not_null for date columns", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "is_null",
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(`(${dateColumn.column} IS NULL)`);
+        });
+        it("ignores blank values for date columns", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: ">",
+                values: [""],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toBeNull();
+        });
+        it("matches no rows for unparseable date values instead of dropping the filter", () => {
+          for (const values of [
+            ["foo"],
+            ["2024-13-45"],
+            ["2024-01-01 24:00"],
+          ]) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: dateColumn.column,
+                  operator: ">",
+                  values,
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+                castToTimestamp,
+              }),
+            ).toStrictEqual("(1 = 0)");
+          }
+        });
+        it("accepts an all-zero fractional part but rejects sub-second precision", () => {
+          const call = (value: string) =>
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: ">",
+                values: [value],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            });
+
+          // `Date.toISOString()` always emits a fraction; dropping an all-zero
+          // one doesn't move the boundary.
+          for (const value of [
+            "2024-01-01T17:00:00.000Z",
+            "2024-01-01T17:00:00.0",
+            "2024-01-01 17:00:00.000",
+          ]) {
+            expect(call(value)).toStrictEqual(
+              `(CAST(${dateColumn.column} AS TIMESTAMP) > CAST('2024-01-01 17:00:00' AS TIMESTAMP))`,
+            );
+          }
+
+          // Anything finer than a second can't be honoured — the column is cast
+          // to the same (sometimes second-precision) type — so match no rows
+          // rather than silently comparing against a truncated boundary.
+          for (const value of [
+            "2024-01-01T17:00:00.500Z",
+            "2024-01-01T17:00:00.001",
+            "2024-01-01 17:00:00.5",
+          ]) {
+            expect(call(value)).toStrictEqual("(1 = 0)");
+          }
+        });
+        it("matches no rows when only some date in/not_in values are unparseable", () => {
+          for (const operator of ["in", "not_in"] as const) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: dateColumn.column,
+                  operator,
+                  values: ["2024-01-01", "foo", "2024-02-01"],
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+                castToTimestamp,
+              }),
+            ).toStrictEqual("(1 = 0)");
+          }
+        });
+        it("keeps an inclusive upper bound for a date between with a time", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "between",
+                values: ["2024-01-01", "2024-02-01T17:00:00.000Z"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) BETWEEN CAST('2024-01-01' AS TIMESTAMP) AND CAST('2024-02-01 17:00:00' AS TIMESTAMP))`,
+          );
+        });
+        it("includes the whole final day of a date-only between", () => {
+          const col = `CAST(${dateColumn.column} AS TIMESTAMP)`;
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "between",
+                values: ["2024-01-01", "2024-02-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(${col} >= CAST('2024-01-01' AS TIMESTAMP) AND ${col} < CAST('2024-02-02' AS TIMESTAMP))`,
+          );
+        });
+        it("excludes the whole final day of a date-only not_between", () => {
+          const col = `CAST(${dateColumn.column} AS TIMESTAMP)`;
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "not_between",
+                values: ["2024-01-01", "2024-02-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(${col} < CAST('2024-01-01' AS TIMESTAMP) OR ${col} >= CAST('2024-02-02' AS TIMESTAMP))`,
+          );
+        });
+        it("returns null for between with no bounds set", () => {
+          for (const values of [undefined, [], ["", ""]]) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: dateColumn.column,
+                  operator: "between",
+                  values,
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+                castToTimestamp,
+              }),
+            ).toBeNull();
+          }
+        });
+        it("matches no rows for a between whose bounds are unparseable", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "between",
+                values: ["foo", "bar"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual("(1 = 0)");
+        });
+        it("degrades a single-bound date between to an open-ended comparison", () => {
+          const call = (values: string[]) =>
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "between",
+                values,
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            });
+          // only lower bound -> >=
+          expect(call(["2024-01-01", ""])).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) >= CAST('2024-01-01' AS TIMESTAMP))`,
+          );
+          // only upper bound -> through the end of that day
+          expect(call(["", "2024-02-01"])).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) < CAST('2024-02-02' AS TIMESTAMP))`,
+          );
+          // an unparseable bound is malformed, not absent
+          expect(call(["2024-01-01", "foo"])).toStrictEqual("(1 = 0)");
+        });
+        it("degrades a single-bound not_between to the inverted comparison", () => {
+          const call = (values: string[]) =>
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "not_between",
+                values,
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            });
+          // not_between [lower, ∞) -> < lower
+          expect(call(["2024-01-01", ""])).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) < CAST('2024-01-01' AS TIMESTAMP))`,
+          );
+          // not_between (-∞, upper] -> after the end of that day
+          expect(call(["", "2024-02-01"])).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) >= CAST('2024-02-02' AS TIMESTAMP))`,
+          );
+        });
+        it("handles between for numeric columns without a cast", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: numericColumn.column,
+                operator: "between",
+                values: ["1", "10"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${numericColumn.column} BETWEEN 1 AND 10)`);
+        });
+        it("falls back to lexicographic comparison without a timestamp cast", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: ">",
+                values: ["2024-01-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${dateColumn.column} > '2024-01-01')`);
+        });
+        it("does not cast string columns even when a timestamp cast is available", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: ">",
+                values: ["2024-01-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(`(${column.column} > '2024-01-01')`);
+        });
+        it("handles direct operators for integers", () => {
+          const operators = [">", "<", ">=", "<=", "!=", "="] as const;
+          for (const operator of operators) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: numericColumn.column,
+                  operator,
+                  values: ["42"],
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+              }),
+            ).toStrictEqual(`(${numericColumn.column} ${operator} 42)`);
+          }
+        });
+        it("handles direct operators for floats and negatives", () => {
+          const operators = [">", "<", ">=", "<=", "!=", "="] as const;
+          for (const operator of operators) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: numericColumn.column,
+                  operator,
+                  values: ["-42.5"],
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+              }),
+            ).toStrictEqual(`(${numericColumn.column} ${operator} -42.5)`);
+          }
+        });
+        it("quotes non-numbers even for numeric columns", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: numericColumn.column,
+                operator: "=",
+                values: ["123a"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${numericColumn.column} = '123a')`);
+        });
+        it("quotes numbers for string columns", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "=",
+                values: ["123"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${column.column} = '123')`);
+        });
+        it("handles not_in operator", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "not_in",
+                values: ["foo", "bar"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${column.column} NOT IN (\n  'foo',\n  'bar'\n))`);
+        });
+        it("handles not_in operator for numbers", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: numericColumn.column,
+                operator: "not_in",
+                values: ["1", "-2", "3.5", "5c"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(
+            `(${numericColumn.column} NOT IN (\n  1,\n  -2,\n  3.5,\n  '5c'\n))`,
+          );
+        });
+        it("handles is_null operator", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "is_null",
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${column.column} IS NULL)`);
+        });
+        it("handles not_null operator", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "not_null",
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${column.column} IS NOT NULL)`);
+        });
+        it("handles starts_with operator", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "starts_with",
+                values: ["foo"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${column.column} LIKE 'foo%')`);
+        });
+        it("handles ends_with operator", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "ends_with",
+                values: ["foo"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${column.column} LIKE '%foo')`);
+        });
+        it("handles contains operator", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "contains",
+                values: ["foo"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${column.column} LIKE '%foo%')`);
+        });
+        it("handles not_contains operator", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "not_contains",
+                values: ["foo"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${column.column} NOT LIKE '%foo%')`);
+        });
+        it("escapes strings in LIKE clauses", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "contains",
+                values: ["f_o'o%"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${column.column} LIKE '%f\\_o''o\\%%')`);
+        });
+        // Dialects like BigQuery/Snowflake treat backslash as a string-literal
+        // escape character. The wildcard-escaping backslash must be inserted
+        // before escapeStringLiteral runs so it gets doubled into a valid
+        // escape sequence, rather than leaving an illegal bare `\_` / `\%`.
+        const backslashEscapeStringLiteral = (str: string) =>
+          str.replace(/(['\\])/g, "\\$1");
+        it("doubles wildcard-escape backslashes for backslash-escaping dialects", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "starts_with",
+                values: ["foo_bar"],
+              },
+              escapeStringLiteral: backslashEscapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral: backslashEscapeStringLiteral,
+                emitEscapeClause: false,
+              }),
+            }),
+          ).toStrictEqual(`(${column.column} LIKE 'foo\\\\_bar%')`);
+        });
+        it("escapes percent wildcards for backslash-escaping dialects", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "contains",
+                values: ["50%off"],
+              },
+              escapeStringLiteral: backslashEscapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral: backslashEscapeStringLiteral,
+                emitEscapeClause: false,
+              }),
+            }),
+          ).toStrictEqual(`(${column.column} LIKE '%50\\\\%off%')`);
+        });
+        it("escapes a literal backslash in the value as a LIKE metacharacter", () => {
+          // Base-style dialect (only doubles quotes). The value `a\b` must have
+          // its backslash escaped so it matches literally rather than being
+          // consumed as a LIKE escape.
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "starts_with",
+                values: ["a\\b"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral,
+                emitEscapeClause: true,
+              }),
+            }),
+          ).toStrictEqual(`(${column.column} LIKE 'a\\\\b%' ESCAPE '\\')`);
+        });
+        it("appends an ESCAPE clause for backslash-doubling dialects when supported", () => {
+          // Snowflake-style dialect: escapeStringLiteral doubles backslashes, so
+          // the ESCAPE clause's escape char must also be doubled in the literal.
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "starts_with",
+                values: ["foo_bar"],
+              },
+              escapeStringLiteral: backslashEscapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral: backslashEscapeStringLiteral,
+                emitEscapeClause: true,
+              }),
+            }),
+          ).toStrictEqual(
+            `(${column.column} LIKE 'foo\\\\_bar%' ESCAPE '\\\\')`,
+          );
+        });
+      });
+
+      it("includes metric slices", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
               factTableId: "",
             },
-            escapeStringLiteral
-          )
-        ).toStrictEqual([`${column.column} = 'login'`]);
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            sliceInfo: {
+              isSliceMetric: true,
+              baseMetricId: "fact__abc123",
+              sliceLevels: [
+                {
+                  column: column.column,
+                  datatype: "string",
+                  levels: ["l1"],
+                },
+                {
+                  column: column2.column,
+                  datatype: "string",
+                  levels: ["l2", "l3"],
+                },
+              ],
+            },
+            stringMatch,
+          }),
+        ).toStrictEqual([
+          `(${column.column} = 'l1')`,
+          // TODO: this should be an IN clause, fix the test once the code is updated
+          `(${column2.column} = 'l2')`,
+        ]);
+      });
+      it("includes metric auto slices - boolean", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            sliceInfo: {
+              isSliceMetric: true,
+              baseMetricId: "fact__abc123",
+              sliceLevels: [
+                {
+                  column: boolColumn.column,
+                  datatype: "boolean",
+                  levels: ["true"],
+                },
+              ],
+            },
+            stringMatch,
+          }),
+        ).toStrictEqual([`(${boolColumn.column} IS TRUE)`]);
+      });
+      it("includes metric auto slices - other", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            sliceInfo: {
+              isSliceMetric: true,
+              baseMetricId: "fact__abc123",
+              sliceLevels: [
+                {
+                  column: column.column,
+                  datatype: "string",
+                  levels: [],
+                },
+              ],
+            },
+            stringMatch,
+          }),
+        ).toStrictEqual([
+          `(${column.column} NOT IN (\n  's1',\n  's2',\n  's3'\n))`,
+        ]);
+      });
+      it("combines multiple types of filters", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              rowFilters: [
+                {
+                  operator: "is_false",
+                  column: boolColumn.column,
+                },
+                {
+                  operator: "saved_filter",
+                  values: [filter.id],
+                },
+              ],
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            sliceInfo: {
+              isSliceMetric: true,
+              baseMetricId: "fact__abc123",
+              sliceLevels: [
+                {
+                  column: column.column,
+                  datatype: "string",
+                  levels: ["l1"],
+                },
+              ],
+            },
+            stringMatch,
+          }),
+        ).toStrictEqual([
+          `(${column.column} = 'l1')`,
+          `(${boolColumn.column} IS FALSE)`,
+          `(${filter.value})`,
+        ]);
       });
     });
     describe("getAggregateFilter", () => {
@@ -364,7 +1638,7 @@ describe("Experiments", () => {
           getAggregateFilters({
             columnRef: null,
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
         expect(
           getAggregateFilters({
@@ -374,7 +1648,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
         expect(
           getAggregateFilters({
@@ -384,7 +1658,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
         expect(
           getAggregateFilters({
@@ -394,7 +1668,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
         expect(
           getAggregateFilters({
@@ -404,7 +1678,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
       });
       it("parses a single filter with different operators", () => {
@@ -416,7 +1690,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value > 0"]);
         expect(
           getAggregateFilters({
@@ -426,7 +1700,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value < 5"]);
         expect(
           getAggregateFilters({
@@ -436,7 +1710,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value >= 10"]);
         expect(
           getAggregateFilters({
@@ -446,7 +1720,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value <= 15"]);
         expect(
           getAggregateFilters({
@@ -456,7 +1730,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value = 1.5"]);
         expect(
           getAggregateFilters({
@@ -466,7 +1740,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value != 0.15"]);
         expect(
           getAggregateFilters({
@@ -476,7 +1750,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value <> 0.15"]);
       });
       it("parses multiple filters", () => {
@@ -489,7 +1763,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([
           "value > 0",
           "value < 5",
@@ -509,7 +1783,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toThrowError("Invalid user filter: %3");
       });
       it("ignores invalid filters when opted in", () => {
@@ -522,7 +1796,7 @@ describe("Experiments", () => {
             },
             column: "col",
             ignoreInvalid: true,
-          })
+          }),
         ).toStrictEqual(["col > 5"]);
       });
       it("skips when column is not $$distinctUsers", () => {
@@ -534,7 +1808,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
         expect(
           getAggregateFilters({
@@ -544,226 +1818,1048 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
+      });
+    });
+
+    describe("getColumnExpression", () => {
+      it("replaces JSON column access with proper syntax", () => {
+        expect(
+          getColumnExpression(`${jsonColumn.column}.a`, factTable, jsonExtract),
+        ).toBe(`${jsonColumn.column}:'a'`);
+
+        expect(
+          getColumnExpression(`${jsonColumn.column}.b`, factTable, jsonExtract),
+        ).toBe(`${jsonColumn.column}:'b'::float`);
+
+        expect(
+          getColumnExpression(
+            `${jsonColumn.column}.c.d`,
+            factTable,
+            jsonExtract,
+          ),
+        ).toBe(`${jsonColumn.column}:'c.d'`);
+
+        expect(
+          getColumnExpression(
+            `${jsonColumn.column}.c.e`,
+            factTable,
+            jsonExtract,
+          ),
+        ).toBe(`${jsonColumn.column}:'c.e'::float`);
+      });
+
+      it("returns untransformed column for non-JSON columns", () => {
+        expect(getColumnExpression(column.column, factTable, jsonExtract)).toBe(
+          column.column,
+        );
+      });
+
+      it("returns untransformed column for unknown columns", () => {
+        expect(
+          getColumnExpression("unknown_column", factTable, jsonExtract),
+        ).toBe("unknown_column");
+      });
+
+      it("supports aliases", () => {
+        expect(
+          getColumnExpression(
+            `${jsonColumn.column}.b`,
+            factTable,
+            jsonExtract,
+            "m",
+          ),
+        ).toBe(`m.${jsonColumn.column}:'b'::float`);
+
+        expect(
+          getColumnExpression(column.column, factTable, jsonExtract, "m"),
+        ).toBe(`m.${column.column}`);
+
+        expect(
+          getColumnExpression("unknown", factTable, jsonExtract, "m"),
+        ).toBe(`m.unknown`);
+      });
+
+      it("assumes datatype of string for unknown JSON fields", () => {
+        expect(
+          getColumnExpression(
+            `${jsonColumn.column}.unknown`,
+            factTable,
+            jsonExtract,
+          ),
+        ).toBe(`${jsonColumn.column}:'unknown'`);
+
+        expect(
+          getColumnExpression(
+            `${jsonColumn.column}.c.unknown`,
+            factTable,
+            jsonExtract,
+          ),
+        ).toBe(`${jsonColumn.column}:'c.unknown'`);
+
+        expect(
+          getColumnExpression(
+            `${jsonColumn.column}.unknown.unknown`,
+            factTable,
+            jsonExtract,
+          ),
+        ).toBe(`${jsonColumn.column}:'unknown.unknown'`);
+      });
+    });
+    describe("getSelectedColumnDatatype", () => {
+      it("returns the datatype of the selected column", () => {
+        expect(
+          getSelectedColumnDatatype({ factTable, column: column.column }),
+        ).toBe(column.datatype);
+        expect(
+          getSelectedColumnDatatype({ factTable, column: column2.column }),
+        ).toBe(column2.datatype);
+        expect(
+          getSelectedColumnDatatype({ factTable, column: userIdColumn.column }),
+        ).toBe(userIdColumn.datatype);
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: numericColumn.column,
+          }),
+        ).toBe(numericColumn.datatype);
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: deletedColumn.column,
+          }),
+        ).toBe(deletedColumn.datatype);
+        expect(
+          getSelectedColumnDatatype({ factTable, column: jsonColumn.column }),
+        ).toBe(jsonColumn.datatype);
+      });
+
+      it("supports nested JSON fields", () => {
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: `${jsonColumn.column}.a`,
+          }),
+        ).toBe("string");
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: `${jsonColumn.column}.b`,
+          }),
+        ).toBe("number");
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: `${jsonColumn.column}.c.d`,
+          }),
+        ).toBe("string");
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: `${jsonColumn.column}.c.e`,
+          }),
+        ).toBe("number");
+      });
+
+      it("returns undefined for unknown columns", () => {
+        expect(
+          getSelectedColumnDatatype({ factTable, column: "unknown" }),
+        ).toBe(undefined);
+
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: `${jsonColumn.column}.unknown`,
+          }),
+        ).toBe(undefined);
+      });
+
+      it("Can exclude deleted columns", () => {
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: deletedColumn.column,
+            excludeDeleted: true,
+          }),
+        ).toBe(undefined);
       });
     });
   });
 });
 
-function setMetricsOnResultsStatus({
-  resultsStatus,
-  goalMetrics,
-  guardrailMetrics,
-  secondVariation,
-}: {
-  resultsStatus: ExperimentAnalysisSummaryResultsStatus;
-  goalMetrics?: ExperimentAnalysisSummaryVariationStatus["goalMetrics"];
-  guardrailMetrics?: ExperimentAnalysisSummaryVariationStatus["guardrailMetrics"];
-  secondVariation?: ExperimentAnalysisSummaryVariationStatus;
-}): ExperimentAnalysisSummaryResultsStatus {
-  return {
-    ...resultsStatus,
-    variations: [
-      {
-        ...resultsStatus.variations[0],
-        ...(goalMetrics ? { goalMetrics: goalMetrics } : {}),
-        ...(guardrailMetrics ? { guardrailMetrics: guardrailMetrics } : {}),
-      },
-      ...(secondVariation ? [secondVariation] : []),
-    ],
-  };
+function mockIndexedPvalue(
+  pvalues: number[],
+  index?: number[],
+): IndexedPValue[] {
+  // @ts-expect-error IndexedPValue typing here is for convenience
+  return pvalues.map((p, i) => {
+    return { pValue: p, index: [index ? index[i] : i] };
+  });
 }
 
-describe("decision tree is correct", () => {
-  const resultsStatus: ExperimentAnalysisSummaryResultsStatus = {
-    variations: [
-      {
-        variationId: "1",
-        goalMetrics: {},
-        guardrailMetrics: {},
-      },
-    ],
-    settings: { sequentialTesting: false },
-  };
-  it("returns the correct underpowered decisions", () => {
-    const daysNeeded = undefined;
-
-    // winning stat sig not enough to trigger any rec
-    const noDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "won", superStatSigStatus: "neutral" } },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(noDecision).toEqual(undefined);
-
-    // losing stat sig not enough to trigger any rec
-    const noNegDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "lost", superStatSigStatus: "neutral" } },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(noNegDecision).toEqual(undefined);
-
-    // super stat sig triggers rec
-    const shipDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "won", superStatSigStatus: "won" } },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(shipDecision?.status).toEqual("ship-now");
-
-    // super stat sig triggers rec with guardrail failure
-    const discussDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "won", superStatSigStatus: "won" } },
-        guardrailMetrics: {
-          "01": { status: "lost" },
-        },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: ["01"],
-      daysNeeded: undefined,
-    });
-    expect(discussDecision?.status).toEqual("ready-for-review");
-    expect(discussDecision?.tooltip).toMatch(
-      "However, one or more guardrails are failing"
+describe("pvalue correction method", () => {
+  it("does HB procedure correctly", () => {
+    expect(
+      adjustPValuesHolmBonferroni(
+        mockIndexedPvalue([0.01, 0.04, 0.03, 0.005, 0.55, 0.6]),
+      ),
+    ).toEqual(
+      mockIndexedPvalue([0.03, 0.05, 0.12, 0.12, 1, 1], [3, 0, 2, 1, 4, 5]),
     );
-
-    // losing super stat sig triggers rec
-    const negDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "lost", superStatSigStatus: "lost" } },
+  });
+  it("does BH procedure correctly", () => {
+    expect(
+      adjustPValuesBenjaminiHochberg(
+        mockIndexedPvalue([0.898, 0.138, 0.007, 0.964, 0.538, 0.006, 0.138]),
+      ).map((x) => {
+        return { pValue: +x.pValue.toFixed(8), index: x.index };
       }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(negDecision?.status).toEqual("rollback-now");
+    ).toEqual(
+      mockIndexedPvalue(
+        [0.964, 0.964, 0.7532, 0.2415, 0.2415, 0.0245, 0.0245],
+        [3, 0, 4, 1, 6, 2, 5],
+      ),
+    );
+  });
+});
 
-    // losing super stat sig on one variation not enough
-    const somewhatNegDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "lost", superStatSigStatus: "lost" } },
-        secondVariation: {
-          variationId: "2",
-          goalMetrics: {
-            "1": { status: "neutral", superStatSigStatus: "neutral" },
+describe("pvalue correction on results", () => {
+  it("pvals and CIs adjusted in place", () => {
+    const results = [
+      {
+        name: "res1",
+        srm: 0.5,
+        variations: [
+          {
+            users: 100,
+            metrics: {
+              met1: { value: 0, cr: 0, users: 0, pValue: 0.025 },
+              met2: { value: 0, cr: 0, users: 0, pValue: 0.03 },
+            },
           },
-          guardrailMetrics: {},
-        },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(somewhatNegDecision).toEqual(undefined);
+        ],
+      },
+    ];
+    const expectedResultsHB = [
+      {
+        name: "res1",
+        srm: 0.5,
+        variations: [
+          {
+            users: 100,
+            metrics: {
+              met1: {
+                value: 0,
+                cr: 0,
+                users: 0,
+                pValue: 0.025,
+                pValueAdjusted: 0.05,
+              },
+              met2: {
+                value: 0,
+                cr: 0,
+                users: 0,
+                pValue: 0.03,
+                pValueAdjusted: 0.05,
+              },
+            },
+          },
+        ],
+      },
+    ];
+    const expectedResultsBH = [
+      {
+        name: "res1",
+        srm: 0.5,
+        variations: [
+          {
+            users: 100,
+            metrics: {
+              met1: {
+                value: 0,
+                cr: 0,
+                users: 0,
+                pValue: 0.025,
+                pValueAdjusted: 0.03,
+              },
+              met2: {
+                value: 0,
+                cr: 0,
+                users: 0,
+                pValue: 0.03,
+                pValueAdjusted: 0.03,
+              },
+            },
+          },
+        ],
+      },
+    ];
+
+    setAdjustedPValuesOnResults(results, ["met1", "met2"], "holm-bonferroni");
+    expect(results).toEqual(expectedResultsHB);
+    setAdjustedPValuesOnResults(
+      results,
+      ["met1", "met2"],
+      "benjamini-hochberg",
+    );
+    expect(results).toEqual(expectedResultsBH);
   });
 
-  it("returns the correct powered decisions", () => {
-    const daysNeeded = 0;
-
-    // winning stat sig enough to trigger rec
-    const decision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "won", superStatSigStatus: "neutral" } },
+  it("does BH procedure correctly", () => {
+    expect(
+      adjustPValuesBenjaminiHochberg(
+        mockIndexedPvalue([0.898, 0.138, 0.007, 0.964, 0.538, 0.006, 0.138]),
+      ).map((x) => {
+        return { pValue: +x.pValue.toFixed(8), index: x.index };
       }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(decision?.status).toEqual("ship-now");
+    ).toEqual(
+      mockIndexedPvalue(
+        [0.964, 0.964, 0.7532, 0.2415, 0.2415, 0.0245, 0.0245],
+        [3, 0, 4, 1, 6, 2, 5],
+      ),
+    );
+  });
 
-    // neutral triggers no decision
-    const noDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: {
-          "1": { status: "neutral", superStatSigStatus: "neutral" },
+  it("adjusts CIs as we expect", () => {
+    const adjCIs95pct = adjustedCI(0.049999999, 0.1, 0.05);
+    expect(adjCIs95pct[0]).toBeGreaterThan(0);
+    expect(adjCIs95pct[1]).toBeLessThan(0.2);
+    expect(adjCIs95pct.map((x) => +x.toFixed(8))).toEqual([0, 0.2]);
+
+    expect(
+      adjustedCI(0.0099999999, 0.1, 0.01).map((x) => +x.toFixed(8)),
+    ).toEqual([0, 0.2]);
+  });
+});
+
+function roundToSeventhDecimal(num: number): number {
+  return Number(num.toFixed(7));
+}
+
+describe("chanceToWinFlatPrior", () => {
+  it("chance to win flat prior correct", () => {
+    const alpha = Math.PI / 100;
+    const expected = Math.sqrt(Math.PI);
+    const s = Math.PI;
+    const multiplier_two_sided = normal.quantile(1 - alpha / 2, 0, 1);
+    const multiplier_one_sided = normal.quantile(1 - alpha, 0, 1);
+
+    const truth = 0.7136874;
+    const truthInverse = 1 - truth;
+    const lower_two_sided = expected - s * multiplier_two_sided;
+    const upper_two_sided = expected + s * multiplier_two_sided;
+    const lower_one_sided = expected - s * multiplier_one_sided;
+    const upper_one_sided = expected + s * multiplier_one_sided;
+
+    expect(
+      chanceToWinFlatPrior(
+        expected,
+        Number.NEGATIVE_INFINITY,
+        Number.POSITIVE_INFINITY,
+        alpha,
+        true,
+      ),
+    ).toEqual(0);
+    expect(chanceToWinFlatPrior(0, -1, 1, alpha, true)).toEqual(0.5); //sanity check that effect size of 0 results in 0.5
+    expect(chanceToWinFlatPrior(0, 0, 0, alpha, true)).toEqual(0); //sanity check that effect size of 0 and 0 uncertainty results in 0
+    expect(chanceToWinFlatPrior(1, 0, 0, alpha, true)).toEqual(0); //sanity check that effect size of 1 and 0 uncertainty results in 1 for inverse case
+    expect(chanceToWinFlatPrior(1, 0, 0, alpha, false)).toEqual(1); //sanity check that effect size of 1 and 0 uncertainty results in 1 for non-inverse case
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          lower_two_sided,
+          upper_two_sided,
+          alpha,
+          false,
+        ),
+      ),
+    ).toEqual(roundToSeventhDecimal(truth));
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          lower_two_sided,
+          upper_two_sided,
+          alpha,
+          true,
+        ),
+      ),
+    ).toEqual(roundToSeventhDecimal(truthInverse));
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          Number.NEGATIVE_INFINITY,
+          upper_one_sided,
+          alpha,
+          false,
+        ),
+      ),
+    ).toEqual(roundToSeventhDecimal(truth));
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          Number.NEGATIVE_INFINITY,
+          upper_one_sided,
+          alpha,
+          true,
+        ),
+      ),
+    ).toEqual(roundToSeventhDecimal(truthInverse));
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          lower_one_sided,
+          Number.POSITIVE_INFINITY,
+          alpha,
+          false,
+        ),
+      ),
+    ).toEqual(roundToSeventhDecimal(truth));
+    expect(
+      roundToSeventhDecimal(
+        chanceToWinFlatPrior(
+          expected,
+          lower_one_sided,
+          Number.POSITIVE_INFINITY,
+          alpha,
+          true,
+        ),
+      ),
+    ).toEqual(roundToSeventhDecimal(truthInverse));
+  });
+});
+
+describe("getEffectiveLookbackOverride", () => {
+  const windowOverride: LookbackOverride = {
+    type: "window",
+    value: 7,
+    valueUnit: "days",
+  };
+  const dateOverride: LookbackOverride = {
+    type: "date",
+    value: new Date("2025-06-01"),
+  };
+
+  it("returns the override when attributionModel is 'lookbackOverride' and override is defined", () => {
+    expect(
+      getEffectiveLookbackOverride("lookbackOverride", windowOverride),
+    ).toEqual(windowOverride);
+  });
+
+  it("returns the date override when attributionModel is 'lookbackOverride'", () => {
+    expect(
+      getEffectiveLookbackOverride("lookbackOverride", dateOverride),
+    ).toEqual(dateOverride);
+  });
+
+  it("returns undefined when attributionModel is 'firstExposure'", () => {
+    expect(
+      getEffectiveLookbackOverride("firstExposure", windowOverride),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when attributionModel is 'experimentDuration'", () => {
+    expect(
+      getEffectiveLookbackOverride("experimentDuration", windowOverride),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when attributionModel is 'lookbackOverride' but override is undefined", () => {
+    expect(
+      getEffectiveLookbackOverride("lookbackOverride", undefined),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when both are undefined", () => {
+    expect(getEffectiveLookbackOverride(undefined, undefined)).toBeUndefined();
+  });
+
+  it("returns undefined when attributionModel is undefined but override is defined", () => {
+    expect(
+      getEffectiveLookbackOverride(undefined, windowOverride),
+    ).toBeUndefined();
+  });
+});
+
+describe("getIntersectionBaseMetricIds", () => {
+  it("returns non-slice subset ids when superset is empty", () => {
+    expect(
+      getIntersectionBaseMetricIds(["a", "b", "m_goal?dim:country=us"], []),
+    ).toEqual(["a", "b"]);
+  });
+
+  it("omits slice metrics and keeps base ids in superset order", () => {
+    const sliceId = "m_goal?dim:country=us";
+    expect(
+      getIntersectionBaseMetricIds(["m_goal"], ["m_goal", sliceId, "other"]),
+    ).toEqual(["m_goal"]);
+  });
+
+  it("includes every base metric in the subset that appears in the superset", () => {
+    expect(
+      getIntersectionBaseMetricIds(
+        ["m_a", "m_b"],
+        ["m_b", "m_a?dim:x=y", "m_a"],
+      ),
+    ).toEqual(["m_b", "m_a"]);
+  });
+});
+
+describe("parseSliceQueryString", () => {
+  it("parses a simple slice query string", () => {
+    expect(parseSliceQueryString("dim:browser=Chrome&dim:country=AU")).toEqual([
+      { column: "browser", datatype: "string", levels: ["Chrome"] },
+      { column: "country", datatype: "string", levels: ["AU"] },
+    ]);
+  });
+
+  it("treats an empty value as no levels", () => {
+    expect(parseSliceQueryString("dim:browser=")).toEqual([
+      { column: "browser", datatype: "string", levels: [] },
+    ]);
+  });
+
+  it("round-trips values containing % and other special characters", () => {
+    const slices = {
+      promo: "50% off",
+      pattern: "%foo%",
+      "col%name": "a&b=c",
+    };
+    expect(parseSliceQueryString(generateSliceString(slices))).toEqual([
+      { column: "col%name", datatype: "string", levels: ["a&b=c"] },
+      { column: "pattern", datatype: "string", levels: ["%foo%"] },
+      { column: "promo", datatype: "string", levels: ["50% off"] },
+    ]);
+  });
+
+  it("parses slice metric ids with % in the level without throwing", () => {
+    const sliceString = generateSliceString({ query: "LIKE '%checkout%'" });
+    expect(parseSliceMetricId(`m_goal?${sliceString}`)).toEqual({
+      isSliceMetric: true,
+      baseMetricId: "m_goal",
+      sliceLevels: [
+        {
+          column: "query",
+          datatype: "string",
+          levels: ["LIKE '%checkout%'"],
         },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
+      ],
     });
-    expect(noDecision?.status).toEqual("ready-for-review");
+  });
+});
 
-    // Guardrail failure suggests reviewing
-    const guardrailDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        guardrailMetrics: { "01": { status: "lost" } },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: ["01"],
-      daysNeeded,
+describe("getAllExpandedMetricIdsFromExperiment", () => {
+  // The collector only inspects ids, so the map values can be placeholders.
+  const mapOf = (...ids: string[]) =>
+    new Map(
+      ids.map((id) => [id, { id } as unknown as ExperimentMetricInterface]),
+    );
+
+  it("includes derived metrics of the metrics being analyzed", () => {
+    const ids = getAllExpandedMetricIdsFromExperiment({
+      exp: { goalMetrics: ["m_a"], guardrailMetrics: ["f_b"] },
+      expandedMetricMap: mapOf(
+        "m_a",
+        "m_a?dim:country=us",
+        "m_a?dim:country=",
+        "m_a?dim:a=1&dim:b=2",
+        "f_b",
+        "f_b?step=0",
+      ),
     });
-    expect(guardrailDecision?.status).toEqual("ready-for-review");
+    expect(ids.sort()).toEqual(
+      [
+        "m_a",
+        "m_a?dim:country=us",
+        "m_a?dim:country=",
+        "m_a?dim:a=1&dim:b=2",
+        "f_b",
+        "f_b?step=0",
+      ].sort(),
+    );
+  });
 
-    // losing stat sig enough to trigger any rec
-    const negDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "lost", superStatSigStatus: "neutral" } },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
+  it("ignores derived metrics whose parent is not being analyzed", () => {
+    // e.g. the map was expanded before an unjoinable metric was scrubbed
+    const ids = getAllExpandedMetricIdsFromExperiment({
+      exp: { goalMetrics: ["m_a"] },
+      expandedMetricMap: mapOf(
+        "m_a",
+        "m_a?dim:country=us",
+        "m_orphan",
+        "m_orphan?dim:country=us",
+        "f_orphan?step=0",
+      ),
     });
-    expect(negDecision?.status).toEqual("rollback-now");
+    expect(ids.sort()).toEqual(["m_a", "m_a?dim:country=us"].sort());
+  });
 
-    // losing stat sig in two variations also triggers a rec
-    const negDecisionTwoVar = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "lost", superStatSigStatus: "neutral" } },
-        secondVariation: {
-          variationId: "2",
-          goalMetrics: {
-            "1": { status: "lost", superStatSigStatus: "neutral" },
+  it("resolves parents through metric groups", () => {
+    const ids = getAllExpandedMetricIdsFromExperiment({
+      exp: { goalMetrics: ["mg_1"] },
+      expandedMetricMap: mapOf("m_a", "m_a?dim:x=1"),
+      metricGroups: [
+        { id: "mg_1", metrics: ["m_a"] } as unknown as MetricGroupInterface,
+      ],
+    });
+    expect(ids.sort()).toEqual(["m_a", "m_a?dim:x=1"].sort());
+  });
+});
+
+describe("Virtual Columns", () => {
+  const jsonExtract = (jsonCol: string, path: string, isNumeric: boolean) =>
+    `${jsonCol}:'${path}'${isNumeric ? "::float" : ""}`;
+
+  function col(
+    partial: Partial<ColumnInterface> & { column: string },
+  ): ColumnInterface {
+    return {
+      name: partial.column,
+      description: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      datatype: "number",
+      numberFormat: "",
+      deleted: false,
+      ...partial,
+    };
+  }
+
+  describe("getColumnExpression (virtual)", () => {
+    const factTable = {
+      columns: [
+        col({ column: "price", datatype: "number" }),
+        col({ column: "quantity", datatype: "number" }),
+        col({
+          column: "vc_total",
+          isVirtual: true,
+          sql: "price * quantity",
+          datatype: "number",
+        }),
+      ],
+    };
+
+    it("inlines the expression wrapped in parens", () => {
+      expect(getColumnExpression("vc_total", factTable, jsonExtract)).toBe(
+        "(price * quantity)",
+      );
+    });
+
+    it("qualifies referenced columns with the alias", () => {
+      expect(getColumnExpression("vc_total", factTable, jsonExtract, "m")).toBe(
+        "(m.price * m.quantity)",
+      );
+    });
+
+    it("leaves an already-qualified reference alone even with spaces around the dot", () => {
+      // A copied qualified expression must not be re-qualified into
+      // `m.m . price`, which is invalid SQL.
+      const spaced = {
+        columns: [
+          col({ column: "price", datatype: "number" }),
+          col({ column: "quantity", datatype: "number" }),
+          col({
+            column: "spaced_vc",
+            isVirtual: true,
+            sql: "m . price * quantity",
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(getColumnExpression("spaced_vc", spaced, jsonExtract, "m")).toBe(
+        "(m . price * m.quantity)",
+      );
+    });
+
+    it("does not rewrite column names inside string literals", () => {
+      const withLiteral = {
+        columns: [
+          col({ column: "status", datatype: "string" }),
+          col({ column: "price", datatype: "number" }),
+          col({
+            column: "flagged_vc",
+            isVirtual: true,
+            sql: "CASE WHEN status = 'price' THEN price ELSE 0 END",
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(
+        getColumnExpression("flagged_vc", withLiteral, jsonExtract, "m"),
+      ).toBe("(CASE WHEN m.status = 'price' THEN m.price ELSE 0 END)");
+    });
+
+    it("recursively inlines a virtual column that references another", () => {
+      const chained = {
+        columns: [
+          col({ column: "price", datatype: "number" }),
+          col({ column: "cost", datatype: "number" }),
+          col({
+            column: "margin_vc",
+            isVirtual: true,
+            sql: "price - cost",
+            datatype: "number",
+          }),
+          col({
+            column: "margin_pct_vc",
+            isVirtual: true,
+            sql: "margin_vc / price",
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(
+        getColumnExpression("margin_pct_vc", chained, jsonExtract, "m"),
+      ).toBe("((m.price - m.cost) / m.price)");
+    });
+
+    it("does not re-qualify already-qualified column names", () => {
+      const alreadyQualified = {
+        columns: [
+          col({ column: "price", datatype: "number" }),
+          col({ column: "quantity", datatype: "number" }),
+          col({
+            column: "vc_total",
+            isVirtual: true,
+            sql: "m.price * m.quantity",
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(
+        getColumnExpression("vc_total", alreadyQualified, jsonExtract, "m"),
+      ).toBe("(m.price * m.quantity)");
+    });
+  });
+
+  describe("expandVirtualColumnsInSql", () => {
+    const factTable = {
+      columns: [
+        col({ column: "amount", datatype: "number" }),
+        col({ column: "qty", datatype: "number" }),
+        col({
+          column: "revenue_vc",
+          isVirtual: true,
+          sql: "amount * qty",
+          datatype: "number",
+        }),
+      ],
+    };
+
+    it("expands a virtual column reference in a raw fragment (no alias)", () => {
+      expect(expandVirtualColumnsInSql("revenue_vc > 100", factTable)).toBe(
+        "(amount * qty) > 100",
+      );
+    });
+
+    it("leaves fragments without virtual columns unchanged", () => {
+      expect(expandVirtualColumnsInSql("amount > 100", factTable)).toBe(
+        "amount > 100",
+      );
+    });
+
+    it("does not expand a virtual column name inside a string literal", () => {
+      expect(expandVirtualColumnsInSql("label = 'revenue_vc'", factTable)).toBe(
+        "label = 'revenue_vc'",
+      );
+    });
+  });
+
+  describe("sqlReferencesColumn", () => {
+    it("detects a bare identifier reference", () => {
+      expect(sqlReferencesColumn("margin_vc / price", "margin_vc")).toBe(true);
+    });
+
+    it("does not match a name inside a string literal", () => {
+      expect(sqlReferencesColumn("status = 'margin_vc'", "margin_vc")).toBe(
+        false,
+      );
+    });
+
+    it("does not match a partial identifier", () => {
+      expect(sqlReferencesColumn("gross_margin_vc + 1", "margin_vc")).toBe(
+        false,
+      );
+    });
+
+    it("does not match an already-qualified identifier", () => {
+      expect(sqlReferencesColumn("m.price", "price")).toBe(false);
+    });
+
+    it("does not match a qualified identifier with whitespace around the dot", () => {
+      expect(sqlReferencesColumn("m . price", "price")).toBe(false);
+      expect(sqlReferencesColumn("m.\n  price", "price")).toBe(false);
+      expect(sqlReferencesColumn('m . "price"', "price")).toBe(false);
+      expect(sqlReferencesColumn("`m` . `price`", "price", "`")).toBe(false);
+    });
+
+    it("matches a double-quoted identifier in the default dialect", () => {
+      expect(sqlReferencesColumn('"margin_vc" / 2', "margin_vc")).toBe(true);
+    });
+
+    it("treats a double-quoted span as a string literal in a backtick dialect", () => {
+      expect(sqlReferencesColumn('label = "margin_vc"', "margin_vc", "`")).toBe(
+        false,
+      );
+    });
+
+    it("matches a backtick-quoted identifier in a backtick dialect", () => {
+      expect(sqlReferencesColumn("`margin_vc` / 2", "margin_vc", "`")).toBe(
+        true,
+      );
+    });
+
+    it("does not match a name inside a line comment", () => {
+      expect(sqlReferencesColumn("price -- margin_vc\n + 1", "margin_vc")).toBe(
+        false,
+      );
+    });
+
+    it("does not match a name inside a block comment", () => {
+      expect(
+        sqlReferencesColumn("price /* margin_vc */ + 1", "margin_vc"),
+      ).toBe(false);
+    });
+
+    it("does not match a name inside a dollar-quoted string", () => {
+      expect(sqlReferencesColumn("$$margin_vc$$", "margin_vc")).toBe(false);
+      expect(sqlReferencesColumn("$tag$margin_vc$tag$", "margin_vc")).toBe(
+        false,
+      );
+    });
+
+    it("still matches around a lone dollar sign with no closing delimiter", () => {
+      expect(sqlReferencesColumn("margin_vc + $1", "margin_vc")).toBe(true);
+    });
+  });
+
+  describe("validateVirtualColumnExpression", () => {
+    const ok = (sql: string, quote?: "`" | '"') =>
+      validateVirtualColumnExpression(sql, quote);
+
+    it("accepts ordinary scalar expressions", () => {
+      expect(ok("price * quantity")).toBeNull();
+      expect(ok("first_name || ' ' || last_name")).toBeNull();
+      expect(ok("DATE_DIFF(shipped_at, ordered_at, DAY)")).toBeNull();
+      expect(
+        ok("CASE WHEN price > 0 THEN (price - cost) ELSE 0 END"),
+      ).toBeNull();
+    });
+
+    it("rejects a statement separator", () => {
+      expect(ok("price; DELETE FROM users")).toMatch(/';'/);
+      expect(ok("price;")).toMatch(/';'/);
+    });
+
+    it("rejects the paren-escape stacking payload", () => {
+      // Rejected on the unbalanced ')' it hits before the ';' — either way the
+      // expression cannot escape the wrapping parentheses.
+      expect(ok("1) AS x FROM t; DROP TABLE orders; SELECT (1")).not.toBeNull();
+    });
+
+    it("rejects escaping the wrapping parentheses", () => {
+      // Would emit `(1) AS x FROM t UNION SELECT (1)` — balanced overall, but
+      // it closes a paren it never opened.
+      expect(ok("1) AS x FROM t UNION SELECT (1")).toMatch(/unbalanced '\)'/);
+      expect(ok("1)")).toMatch(/unbalanced '\)'/);
+    });
+
+    it("rejects unbalanced open parentheses", () => {
+      expect(ok("COALESCE(price, 0")).toMatch(/unbalanced '\('/);
+    });
+
+    it("rejects a trailing line comment that would swallow the closing paren", () => {
+      expect(ok("1 --")).toMatch(/line comment/);
+      expect(ok("1 -- trailing")).toMatch(/line comment/);
+    });
+
+    it("allows a line comment terminated by a newline", () => {
+      expect(ok("price -- note\n * quantity")).toBeNull();
+    });
+
+    it("rejects an unterminated block comment", () => {
+      expect(ok("price /* note")).toMatch(/block comment/);
+    });
+
+    it("allows a closed block comment", () => {
+      expect(ok("price /* note */ * quantity")).toBeNull();
+    });
+
+    it("rejects an unterminated quoted string", () => {
+      expect(ok("first_name || '")).toMatch(/unterminated/);
+    });
+
+    it("ignores separators and parens inside literals and comments", () => {
+      expect(ok("status || ';'")).toBeNull();
+      expect(ok("status || ')'")).toBeNull();
+      expect(ok("price /* ; ) */ * 2")).toBeNull();
+      expect(ok("$$; )$$")).toBeNull();
+    });
+
+    it("honors the dialect identifier quote", () => {
+      expect(ok('"weird;col" * 2')).toBeNull();
+      expect(ok("`weird;col` * 2", "`")).toBeNull();
+    });
+  });
+
+  describe("dialect-aware quoted-identifier expansion", () => {
+    const chained = (ref: string) => ({
+      columns: [
+        col({ column: "price", datatype: "number" }),
+        col({ column: "cost", datatype: "number" }),
+        col({
+          column: "margin_vc",
+          isVirtual: true,
+          sql: "price - cost",
+          datatype: "number",
+        }),
+        col({
+          column: "margin_pct_vc",
+          isVirtual: true,
+          sql: ref,
+          datatype: "number",
+        }),
+      ],
+    });
+
+    it("expands a nested virtual column referenced via a double-quoted identifier", () => {
+      expect(
+        getColumnExpression(
+          "margin_pct_vc",
+          chained('"margin_vc" / price'),
+          jsonExtract,
+          "m",
+        ),
+      ).toBe("((m.price - m.cost) / m.price)");
+    });
+
+    it("expands a nested virtual column referenced via a backtick identifier (backtick dialect)", () => {
+      expect(
+        getColumnExpression(
+          "margin_pct_vc",
+          chained("`margin_vc` / price"),
+          jsonExtract,
+          "m",
+          "`",
+        ),
+      ).toBe("((m.price - m.cost) / m.price)");
+    });
+
+    it("re-quotes a real column referenced via a quoted identifier", () => {
+      const ft = {
+        columns: [
+          col({ column: "price", datatype: "number" }),
+          col({
+            column: "doubled_vc",
+            isVirtual: true,
+            sql: '"price" * 2',
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(getColumnExpression("doubled_vc", ft, jsonExtract, "m")).toBe(
+        '(m."price" * 2)',
+      );
+    });
+  });
+});
+
+describe("isFactMetricJoinable", () => {
+  const factTables = new Map<string, Pick<FactTableInterface, "userIdTypes">>([
+    ["ft_users", { userIdTypes: ["user_id"] }],
+    ["ft_anon", { userIdTypes: ["anonymous_id"] }],
+    ["ft_both", { userIdTypes: ["user_id", "anonymous_id"] }],
+  ]);
+  const getFactTable = (id: string) => factTables.get(id);
+
+  const funnelOnTables = (factTableIds: string[]) =>
+    ({
+      metricType: "funnel",
+      numerator: null,
+      denominator: null,
+      funnelSettings: {
+        steps: factTableIds.map((factTableId, i) => ({
+          name: `Step ${i + 1}`,
+          factTableId,
+          rowFilters: [],
+          optional: false,
+          conversionWindow: null,
+        })),
+      },
+    }) as unknown as FactMetricInterface;
+
+  const ratioOnTables = (numerator: string, denominator: string) =>
+    ({
+      metricType: "ratio",
+      numerator: { factTableId: numerator, column: "$$count" },
+      denominator: { factTableId: denominator, column: "$$count" },
+    }) as unknown as FactMetricInterface;
+
+  it("is joinable when every step's fact table reaches the id type", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_both"]),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(true);
+  });
+
+  it("is not joinable when a later step's fact table cannot reach the id type", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_anon"]),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(false);
+  });
+
+  it("is not joinable when a cross-table ratio's denominator cannot reach the id type", () => {
+    expect(
+      isFactMetricJoinable(
+        ratioOnTables("ft_users", "ft_anon"),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(false);
+  });
+
+  it("treats a missing fact table as not joinable", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_deleted"]),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(false);
+  });
+
+  it("treats a metric with no resolvable fact tables as not joinable", () => {
+    expect(
+      isFactMetricJoinable(funnelOnTables(["", ""]), "user_id", getFactTable),
+    ).toBe(false);
+  });
+
+  it("honors identity joins from datasource settings", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_anon"]),
+        "user_id",
+        getFactTable,
+        {
+          queries: {
+            identityJoins: [
+              { ids: ["user_id", "anonymous_id"], query: "SELECT 1" },
+            ],
           },
-          guardrailMetrics: {},
         },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(negDecisionTwoVar?.status).toEqual("rollback-now");
-
-    // losing stat sig in only one variation not enough, leads to ready for review
-    const ambiguousDecisionTwoVar = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "lost", superStatSigStatus: "neutral" } },
-        secondVariation: {
-          variationId: "2",
-          goalMetrics: {
-            "1": { status: "neutral", superStatSigStatus: "neutral" },
-          },
-          guardrailMetrics: {},
-        },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(ambiguousDecisionTwoVar?.status).toEqual("ready-for-review");
+      ),
+    ).toBe(true);
   });
 });

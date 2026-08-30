@@ -2,7 +2,7 @@ import React from "react";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import { useUser } from "@/services/UserContext";
 import { DocLink } from "@/components/DocLink";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
@@ -55,10 +55,10 @@ export default function EncryptionToggle({
         </label>
         <div className="row mb-4">
           <div className="col-md-3">
-            <Toggle
+            <Switch
               id={"encryptSDK"}
               value={!!value}
-              setValue={setValue}
+              onChange={setValue}
               disabled={!hasFeature}
             />
           </div>
@@ -68,7 +68,9 @@ export default function EncryptionToggle({
               style={{ fontSize: 11 }}
             >
               Requires changes to your implementation.{" "}
-              <DocLink docSection="encryptedSDKEndpoints">View docs</DocLink>
+              <DocLink useRadix={false} docSection="encryptedSDKEndpoints">
+                View docs
+              </DocLink>
             </div>
           )}
         </div>

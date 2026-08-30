@@ -9,6 +9,15 @@
       "capabilities": ["semverTargeting"]
     },
     {
+      "version": "1.2.1"
+    },
+    {
+      "version": "1.2.0"
+    },
+    {
+      "version": "1.1.1"
+    },
+    {
       "version": "1.1.0",
       "capabilities": ["encryption"]
     },
@@ -17,8 +26,20 @@
       "capabilities": ["bucketingV2"]
     },
     {
+      "version": "0.3.0"
+    },
+    {
+      "version": "0.2.0"
+    },
+    {
+      "version": "0.1.0"
+    },
+    {
+      "version": "0.0.1"
+    },
+    {
       "version": "0.0.0",
-      "capabilities": ["looseUnmarshalling"]
+      "capabilities": ["looseUnmarshalling", "namespacesV2"]
     }
   ]
 }

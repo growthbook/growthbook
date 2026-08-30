@@ -1,13 +1,32 @@
 {
   "versions": [
     {
+      "version": "0.2.9"
+    },
+    {
+      "version": "0.2.8"
+    },
+    {
+      "version": "0.2.7",
+      "capabilities": ["caseInsensitiveRegex", "caseInsensitiveMembership"]
+    },
+    {
+      "version": "0.2.6"
+    },
+    {
       "version": "0.2.5"
     },
     {
       "version": "0.2.4"
     },
     {
+      "version": "0.2.2"
+    },
+    {
       "version": "0.2.1"
+    },
+    {
+      "version": "0.2.0"
     },
     {
       "version": "0.1.7"
@@ -23,6 +42,7 @@
       "version": "0.1.4",
       "capabilities": [
         "looseUnmarshalling",
+        "namespacesV2",
         "encryption",
         "streaming",
         "bucketingV2",
@@ -34,6 +54,39 @@
         "redirects",
         "stickyBucketing"
       ]
+    },
+    {
+      "version": "0.1.3"
+    },
+    {
+      "version": "0.1.2"
+    },
+    {
+      "version": "0.1.1"
+    },
+    {
+      "version": "0.1.0"
+    },
+    {
+      "version": "0.0.7"
+    },
+    {
+      "version": "0.0.6"
+    },
+    {
+      "version": "0.0.5"
+    },
+    {
+      "version": "0.0.4"
+    },
+    {
+      "version": "0.0.3"
+    },
+    {
+      "version": "0.0.2"
+    },
+    {
+      "version": "0.0.1"
     }
   ]
 }

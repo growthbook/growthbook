@@ -1,18 +1,28 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { calculateNamespaceCoverage } from "shared/util";
+import { hasTargetingConfigured } from "shared/experiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
-import { formatTrafficSplit } from "@/services/utils";
+import { AttributeBadge } from "@/components/Features/AttributeBadge";
+import {
+  formatTrafficSplit,
+  getHoldoutTrafficBreakdown,
+} from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { GBInfo } from "@/components/Icons";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
+import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
+import Link from "@/ui/Link";
 
 export interface Props {
   phaseIndex?: number | null;
   experiment: ExperimentInterfaceStringDates;
   editTargeting?: (() => void) | null;
+  editTraffic?: (() => void) | null;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -24,46 +34,84 @@ export default function TrafficAndTargeting({
   phaseIndex = null,
   experiment,
   editTargeting,
+  editTraffic,
 }: Props) {
   const { namespaces } = useOrgSettings();
 
   const phase = experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
-  const namespaceRange = hasNamespace
-    ? phase.namespace!.range[1] - phase.namespace!.range[0]
-    : 1;
+
+  // Calculate total namespace allocation
+  const namespaceRange =
+    hasNamespace && phase.namespace
+      ? calculateNamespaceCoverage(phase.namespace)
+      : 1;
+
   const namespaceName = hasNamespace
     ? namespaces?.find((n) => n.name === phase.namespace!.name)?.label ||
       phase.namespace!.name
     : "";
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
+  const holdoutTraffic = getHoldoutTrafficBreakdown(phase);
+
+  const hasConfiguredTargeting = hasTargetingConfigured(phase);
 
   return (
     <>
       {phase ? (
         <>
-          <div className="box p-4 my-4">
+          <Frame>
             <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-              <h4 className="m-0">Traffic Allocation</h4>
+              <Heading color="text-high" as="h4" size="sm" mb="0">
+                Traffic Allocation
+              </Heading>
               <div className="flex-1" />
-              {editTargeting &&
-              !(isBandit && experiment.status === "running") ? (
-                <button className="btn p-0 link-purple" onClick={editTargeting}>
-                  Edit
-                </button>
+              {editTraffic && !(isBandit && experiment.status === "running") ? (
+                <Link onClick={() => editTraffic()}>
+                  <Text weight="semibold">Edit</Text>
+                </Link>
               ) : null}
             </div>
 
             <div className="row">
               <div className="col-4">
                 <div className="h5">Traffic</div>
-                <div>
-                  {Math.floor(phase.coverage * 100)}% included
-                  {experiment.type !== "multi-armed-bandit" && (
-                    <>, {formatTrafficSplit(phase.variationWeights, 2)} split</>
-                  )}
-                </div>
+                {!isHoldout && (
+                  <div>
+                    <Text color="text-mid">
+                      {Math.floor(phase.coverage * 100)}% included
+                      {experiment.type !== "multi-armed-bandit" && (
+                        <>
+                          , {formatTrafficSplit(phase.variationWeights, 2)}{" "}
+                          split
+                        </>
+                      )}
+                    </Text>
+                  </div>
+                )}
+                {isHoldout && (
+                  <>
+                    <div>
+                      <Text color="text-mid">
+                        {holdoutTraffic.inHoldoutPercent}% in holdout
+                      </Text>
+                    </div>
+                    <div>
+                      <Text color="text-mid">
+                        {holdoutTraffic.forMeasurementPercent}% not in holdout
+                        (for measurement)
+                      </Text>
+                    </div>
+                    <div>
+                      <Text color="text-mid">
+                        {holdoutTraffic.notForMeasurementPercent}% not in
+                        holdout (not for measurement)
+                      </Text>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="col-4">
@@ -77,110 +125,126 @@ export default function TrafficAndTargeting({
                     <GBInfo />
                   </Tooltip>
                 </div>
-                <div>
-                  {experiment.hashAttribute || "id"}
+                <div className="d-flex flex-wrap align-items-center gap-1">
+                  <AttributeBadge
+                    attributeId={experiment.hashAttribute || "id"}
+                  />
                   {experiment.fallbackAttribute ? (
-                    <>, {experiment.fallbackAttribute} </>
-                  ) : (
-                    " "
-                  )}
-                  {
+                    <>
+                      ,{" "}
+                      <AttributeBadge
+                        attributeId={experiment.fallbackAttribute}
+                      />
+                    </>
+                  ) : null}
+                  {!isHoldout ? (
                     <HashVersionTooltip>
                       <small className="text-muted ml-1">
                         (V{experiment.hashVersion || 2} hashing)
                       </small>
                     </HashVersionTooltip>
-                  }
+                  ) : null}
                 </div>
-                {experiment.disableStickyBucketing ? (
+                {!isHoldout && experiment.disableStickyBucketing ? (
                   <div className="mt-1">
-                    Sticky bucketing: <em>disabled</em>
+                    <Text color="text-mid">
+                      Sticky bucketing: <em>disabled</em>
+                    </Text>
                   </div>
                 ) : null}
               </div>
 
-              <div className="col-4">
-                <div className="h5">
-                  Namespace{" "}
-                  <Tooltip
-                    popperStyle={{ lineHeight: 1.5 }}
-                    body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces"
-                  >
-                    <GBInfo />
-                  </Tooltip>
+              {!isHoldout && (
+                <div className="col-4">
+                  <div className="h5">
+                    Namespace{" "}
+                    <Tooltip
+                      popperStyle={{ lineHeight: 1.5 }}
+                      body="Use namespaces to run mutually exclusive experiments. Manage namespaces under Experimentation → Namespaces"
+                    >
+                      <GBInfo />
+                    </Tooltip>
+                  </div>
+                  <div>
+                    {hasNamespace ? (
+                      <Text color="text-mid">
+                        {namespaceName} (
+                        {percentFormatter.format(namespaceRange)})
+                      </Text>
+                    ) : (
+                      <Text color="text-mid">Global (all users)</Text>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  {hasNamespace ? (
-                    <>
-                      {namespaceName}{" "}
-                      <span className="text-muted">
-                        ({percentFormatter.format(namespaceRange)})
-                      </span>
-                    </>
-                  ) : (
-                    <em>Global (all users)</em>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
-          </div>
+          </Frame>
 
-          <div className="box p-4 my-4">
+          <Frame>
             <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-              <h4 className="m-0">Targeting</h4>
+              <Heading color="text-high" as="h4" size="sm" mb="0">
+                Targeting
+              </Heading>
               <div className="flex-1" />
               {editTargeting &&
               !(isBandit && experiment.status === "running") ? (
-                <button className="btn p-0 link-purple" onClick={editTargeting}>
-                  Edit
-                </button>
+                <Link onClick={editTargeting}>
+                  <Text weight="semibold">Edit</Text>
+                </Link>
               ) : null}
             </div>
-
-            <div className="row">
-              <div className="col-4">
-                <div className="h5">Attribute Targeting</div>
-                <div>
-                  {phase.condition && phase.condition !== "{}" ? (
-                    <ConditionDisplay condition={phase.condition} />
-                  ) : (
-                    <em>None</em>
-                  )}
+            {hasConfiguredTargeting ? (
+              <div className="row">
+                <div className="col-4">
+                  <div className="h5">Attribute Targeting</div>
+                  <div>
+                    {phase.condition && phase.condition !== "{}" ? (
+                      <ConditionDisplay condition={phase.condition} />
+                    ) : (
+                      <Text color="text-mid">--</Text>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="col-4">
-                <div className="h5">Saved Group Targeting</div>
-                <div>
-                  {phase.savedGroups?.length ? (
-                    <SavedGroupTargetingDisplay
-                      savedGroups={phase.savedGroups}
-                    />
-                  ) : (
-                    <em>None</em>
-                  )}
+                <div className="col-4">
+                  <div className="h5">Saved Group Targeting</div>
+                  <div>
+                    {phase.savedGroups?.length ? (
+                      <SavedGroupTargetingDisplay
+                        savedGroups={phase.savedGroups}
+                      />
+                    ) : (
+                      <Text color="text-mid">--</Text>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="col-4">
-                <div className="h5">Prerequisite Targeting</div>
-                <div>
-                  {phase.prerequisites?.length ? (
-                    <ConditionDisplay prerequisites={phase.prerequisites} />
-                  ) : (
-                    <em>None</em>
-                  )}
-                </div>
+                {!isHoldout && (
+                  <div className="col-4">
+                    <div className="h5">Prerequisite Targeting</div>
+                    <div>
+                      {phase.prerequisites?.length ? (
+                        <ConditionDisplay prerequisites={phase.prerequisites} />
+                      ) : (
+                        <Text color="text-mid">--</Text>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
+            ) : (
+              <Text color="text-mid">
+                No targeting ({isHoldout ? "holdout" : "experiment"} will
+                include all traffic)
+              </Text>
+            )}
+          </Frame>
         </>
       ) : (
-        <div className="alert alert-warning my-4">
-          <FaExclamationTriangle className="mr-1" />
+        <Callout status="warning" mb="4">
           No traffic allocation or targeting configured yet. Add a phase to this
           experiment.
-        </div>
+        </Callout>
       )}
     </>
   );

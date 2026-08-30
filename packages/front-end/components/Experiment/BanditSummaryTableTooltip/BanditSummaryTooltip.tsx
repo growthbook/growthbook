@@ -1,11 +1,11 @@
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { BsXCircle } from "react-icons/bs";
 import clsx from "clsx";
 import { MdSwapCalls } from "react-icons/md";
 import { isFactMetric } from "shared/experiments";
-import { MetricInterface } from "back-end/types/metric";
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { MetricInterface } from "shared/types/metric";
+import { BanditEvent } from "shared/validators";
 import { RxInfoCircled } from "react-icons/rx";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -16,6 +16,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { GBCuped } from "@/components/Icons";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import VariationLabel from "@/ui/VariationLabel";
 
 export const TOOLTIP_WIDTH = 350;
 export const TOOLTIP_HEIGHT = 300; // Used for over/under layout calculation. Actual height may vary.
@@ -107,7 +108,7 @@ export default function BanditSummaryTooltip({
   const meanText = data.metric
     ? getExperimentMetricFormatter(data.metric, getFactTableById)(
         data.stats.cr ?? 0,
-        metricFormatterOptions
+        metricFormatterOptions,
       )
     : (data.stats.cr ?? 0) + "";
 
@@ -117,16 +118,16 @@ export default function BanditSummaryTooltip({
       {data.metric
         ? getExperimentMetricFormatter(data.metric, getFactTableById)(
             data.stats.ci?.[0] ?? 0,
-            metricFormatterOptions
+            metricFormatterOptions,
           )
-        : data.stats.ci?.[0] ?? 0}
+        : (data.stats.ci?.[0] ?? 0)}
       ,{" "}
       {data.metric
         ? getExperimentMetricFormatter(data.metric, getFactTableById)(
             data.stats.ci?.[1] ?? 0,
-            metricFormatterOptions
+            metricFormatterOptions,
           )
-        : data.stats.ci?.[1] ?? 0}
+        : (data.stats.ci?.[1] ?? 0)}
       ]
     </>
   );
@@ -134,10 +135,10 @@ export default function BanditSummaryTooltip({
     data.layoutX === "element-right"
       ? "3%"
       : data.layoutX === "element-left"
-      ? "97%"
-      : data.layoutX === "element-center"
-      ? "50%"
-      : "50%";
+        ? "97%"
+        : data.layoutX === "element-center"
+          ? "50%"
+          : "50%";
 
   return (
     <div
@@ -213,23 +214,19 @@ export default function BanditSummaryTooltip({
             className="variation-label mt-2 d-flex justify-content-between"
             style={{ gap: 8 }}
           >
-            <div
-              className={`variation variation${data.variation.index} with-variation-label d-inline-flex align-items-center`}
-              style={{ maxWidth: 300 }}
-            >
-              <span className="label" style={{ width: 16, height: 16 }}>
-                {data.variation.index}
-              </span>
-              <span className="d-inline-block text-ellipsis font-weight-bold">
-                {data.variation.name}
-              </span>
-            </div>
+            <VariationLabel
+              number={data.variation.index}
+              name={data.variation.name}
+              size="md"
+              maxWidth="300px"
+              disableTooltip
+            />
           </div>
 
           <div
             className={clsx(
               "results-overview mt-2 px-3 pb-2 rounded position-relative",
-              data.status
+              data.status,
             )}
             style={{ paddingTop: 12 }}
           >
@@ -237,7 +234,7 @@ export default function BanditSummaryTooltip({
               <div
                 className={clsx(
                   "results-status position-absolute d-flex align-items-center",
-                  data.status
+                  data.status,
                 )}
               >
                 <Tooltip
@@ -272,7 +269,7 @@ export default function BanditSummaryTooltip({
                   percentFormatter.format(data?.probability ?? 0)
                 ) : (
                   <em className="text-muted">
-                    <small>not enough data</small>
+                    <small>Not enough data</small>
                   </em>
                 )}
               </div>

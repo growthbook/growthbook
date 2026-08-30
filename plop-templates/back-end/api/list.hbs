@@ -1,16 +1,10 @@
-import { List{{pascalCase object}}sResponse } from "../../../types/openapi";
-import { 
-  find{{pascalCase object}}sByOrganization, 
-  to{{pascalCase object}}ApiInterface 
-} from "../../models/{{pascalCase object}}Model";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
-import { list{{pascalCase object}}sValidator } from "../../validators/openapi";
+import { list{{pascalCase object}}sValidator } from "shared/validators";
+import { applyPagination, createApiRequestHandler } from "back-end/src/util/handler";
 
 export const list{{pascalCase object}}s = createApiRequestHandler(list{{pascalCase object}}sValidator)(
-  async (req): Promise<List{{pascalCase object}}sResponse> => {
-    const {{camelCase object}}s = await find{{pascalCase object}}sByOrganization(req.organization.id);
+  async (req) => {
+    const {{camelCase object}}s = await req.context.models.{{camelCase object}}s.getAll();
 
-    // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
       {{camelCase object}}s.sort((a, b) => a.id.localeCompare(b.id)),
       req.query
@@ -18,7 +12,7 @@ export const list{{pascalCase object}}s = createApiRequestHandler(list{{pascalCa
 
     return {
       {{camelCase object}}s: filtered.map(({{camelCase object}}) =>
-        to{{pascalCase object}}ApiInterface({{camelCase object}})
+        req.context.models.{{camelCase object}}s.toApiInterface({{camelCase object}})
       ),
       ...returnFields,
     };

@@ -1,12 +1,13 @@
 import React, { FC } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -36,11 +37,11 @@ const MetricGroupModal: FC<{
 
   const projectOptions = useProjectOptions(
     () => permissionsUtil.canCreateMetricGroup(),
-    form.watch("projects") || []
+    form.watch("projects") || [],
   );
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       header={existingMetricGroup ? "Edit Metric Group" : "Add Metric Group"}
       open={true}
@@ -58,11 +59,11 @@ const MetricGroupModal: FC<{
                 projects: value.projects,
                 metrics: value.metrics,
               }),
-            }
+            },
           );
           if (!results) {
             throw new Error(
-              "Failed to create or update metric group. Please try again."
+              "Failed to create or update metric group. Please try again.",
             );
           }
         } else {
@@ -78,11 +79,11 @@ const MetricGroupModal: FC<{
                 projects: value.projects,
                 metrics: value.metrics,
               }),
-            }
+            },
           );
           if (!results || !results.metricGroup) {
             throw new Error(
-              "Failed to create or update metric group. Please try again."
+              "Failed to create or update metric group. Please try again.",
             );
           }
         }
@@ -92,15 +93,23 @@ const MetricGroupModal: FC<{
       cta="Save"
       close={close}
     >
-      <Field label="Name" {...form.register("name")} required={true} />
       <Field
+        size="legacy"
+        label="Name"
+        {...form.register("name")}
+        required={true}
+      />
+      <Field
+        size="legacy"
         label="Description"
         type="textarea"
+        maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
       />
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
+            legacyHeight
             label={
               <>
                 Projects{" "}
@@ -109,7 +118,7 @@ const MetricGroupModal: FC<{
                 />
               </>
             }
-            placeholder="All projects"
+            placeholder="All Projects"
             value={form.watch("projects") || []}
             options={projectOptions}
             onChange={(v) => form.setValue("projects", v)}
@@ -119,9 +128,9 @@ const MetricGroupModal: FC<{
       )}
       <div className="form-group">
         <SelectField
+          size="legacy"
           required={true}
           label="Data Source"
-          labelClassName="font-weight-bold"
           value={datasource?.id || ""}
           onChange={(newDatasource) => {
             form.setValue("datasource", newDatasource);
@@ -150,7 +159,7 @@ const MetricGroupModal: FC<{
           />
         </div>
       )}
-    </Modal>
+    </ModalStandard>
   );
 };
 

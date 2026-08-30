@@ -1,5 +1,5 @@
 import { IconButton } from "@radix-ui/themes";
-import { PopulationDataInterface } from "back-end/types/population-data";
+import { PopulationDataInterface } from "shared/types/population-data";
 import { useEffect, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -18,11 +18,8 @@ import { MetricParamsInput } from "@/components/PowerCalculation/PowerCalculatio
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
-import Callout from "@/components/Radix/Callout";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-} from "@/components/Radix/DropdownMenu";
+import Callout from "@/ui/Callout";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -48,6 +45,7 @@ const DataInput = ({
     <>
       <div className="ml-2 mt-4">
         <Field
+          size="legacy"
           label={
             <div>
               <span className="font-weight-bold mr-1">
@@ -187,7 +185,11 @@ const PopulationDataQueryInput = ({
     projects: datasourceProjects ?? [],
   });
 
-  const { data, error: getError, mutate } = useApi<{
+  const {
+    data,
+    error: getError,
+    mutate,
+  } = useApi<{
     populationData: PopulationDataInterface;
   }>(`/population-data/${metricValuesPopulationId}`, {
     shouldRun: () => !!metricValuesPopulationId,
@@ -218,6 +220,7 @@ const PopulationDataQueryInput = ({
       {queryModalOpen ? (
         <AsyncQueriesModal
           queries={populationData?.queries?.map((q) => q.query) ?? []}
+          savedQueries={[]}
           error={populationData?.error}
           close={() => setQueryModalOpen(false)}
         />
@@ -242,7 +245,7 @@ const PopulationDataQueryInput = ({
                   });
                   form.setValue(
                     "metricValuesData.populationId",
-                    res.populationData?.id
+                    res.populationData?.id,
                   );
                   setMetricsEditable(false);
                   mutate();
@@ -252,6 +255,7 @@ const PopulationDataQueryInput = ({
               }}
             >
               <RunQueriesButton
+                useRadixButton={false}
                 icon="refresh"
                 cta={
                   populationData?.status === "success"
@@ -428,6 +432,7 @@ export const SetParamsStep = ({
   }
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="power-calculation-set-params"
       allowlistedTrackingEventProps={{
         source: form.getValues("metricValuesData.source"),
@@ -453,8 +458,8 @@ export const SetParamsStep = ({
             onSubmit(
               ensureAndReturnPowerCalculationParams(
                 engineType,
-                form.getValues()
-              )
+                form.getValues(),
+              ),
             )
           }
         >

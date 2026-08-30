@@ -1,269 +1,112 @@
 import { useForm } from "react-hook-form";
 import {
   FeatureInterface,
+  FeatureValueType,
   JSONSchemaDef,
-  SchemaField,
   SimpleSchema,
-} from "back-end/types/feature";
-import React, { useState } from "react";
+} from "shared/types/feature";
+import React, { useMemo, useState } from "react";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
 import {
   getJSONValidator,
   inferSimpleSchemaFromValue,
   simpleToJSONSchema,
+  getReviewSetting,
+  assertSchemaMatchesValueType,
 } from "shared/util";
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { getEnabledEnvironments, useEnvironments } from "@/services/features";
+import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import { useAuth } from "@/services/auth";
-import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
-import Modal from "@/components/Modal";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import Switch from "@/ui/Switch";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { GBAddCircle } from "@/components/Icons";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import EditSchemaField from "@/components/Features/EditSchemaField";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 
 export interface Props {
   feature: FeatureInterface;
   close: () => void;
   mutate: () => void;
+  setVersion?: (version: number) => void;
+  revisionList?: MinimalFeatureRevisionInterface[];
   defaultEnable?: boolean;
   onEnable?: () => void;
-}
-
-// TODO: enable this when we have a GUI for entering feature values based on the schema
-const SUPPORTS_DEFAULT_VALUES = false;
-
-function EditSchemaField({
-  i,
-  value,
-  inObject,
-  onChange,
-}: {
-  i: number;
-  value: SchemaField;
-  inObject: boolean;
-  onChange: (value: SchemaField) => void;
-}) {
-  return (
-    <div>
-      <div className="row">
-        {inObject && (
-          <div className="col">
-            <Field
-              label="Property Key"
-              value={value.key}
-              onChange={(e) => onChange({ ...value, key: e.target.value })}
-              required
-              maxLength={64}
-            />
-          </div>
-        )}
-        <div className="col">
-          <SelectField
-            label="Type"
-            value={value.type}
-            onChange={(type) =>
-              onChange({ ...value, type: type as SchemaField["type"] })
-            }
-            sort={false}
-            options={[
-              {
-                value: "string",
-                label: "Text String",
-              },
-              {
-                value: "integer",
-                label: "Integer",
-              },
-              {
-                value: "float",
-                label: "Float (Decimal)",
-              },
-              {
-                value: "boolean",
-                label: "Boolean (True/False)",
-              },
-            ]}
-            required
-          />
-        </div>
-      </div>
-      <Field
-        label="Description"
-        value={value.description}
-        onChange={(e) => onChange({ ...value, description: e.target.value })}
-        maxLength={256}
-      />
-      {inObject && (
-        <div className="form-group">
-          <Toggle
-            id={`schema_required_${i}`}
-            value={value.required}
-            setValue={(v) => onChange({ ...value, required: v })}
-            type="toggle"
-          />{" "}
-          <label htmlFor={`schema_required_${i}`}>Required</label>
-        </div>
-      )}
-      {value.type !== "boolean" && (
-        <>
-          <MultiSelectField
-            label="Restrict to Specific Values"
-            placeholder="(Optional)"
-            value={value.enum}
-            onChange={(e) => {
-              if (e.length > 256) return;
-              e = e.filter((v) => v !== "" && v != null && v.length <= 256);
-              onChange({ ...value, enum: e });
-            }}
-            options={value.enum.map((v) => ({ value: v, label: v }))}
-            creatable
-            noMenu
-          />
-          {value.enum.length === 0 && (
-            <div className="row">
-              <div className="col">
-                <Field
-                  label={value.type === "string" ? "Min Length" : "Minimum"}
-                  value={value.min}
-                  max={value.max || undefined}
-                  min={value.type === "string" ? 0 : undefined}
-                  type="number"
-                  step={value.type !== "float" ? 1 : "any"}
-                  onChange={(e) =>
-                    onChange({ ...value, min: parseInt(e.target.value) })
-                  }
-                />
-              </div>
-              <div className="col">
-                <Field
-                  label={value.type === "string" ? "Max Length" : "Maximum"}
-                  value={value.max}
-                  type="number"
-                  min={value.min || undefined}
-                  max={value.type === "string" ? 256 : undefined}
-                  step={value.type !== "float" ? 1 : "any"}
-                  onChange={(e) =>
-                    onChange({ ...value, max: parseInt(e.target.value) })
-                  }
-                />
-              </div>
-            </div>
-          )}
-        </>
-      )}
-      {inObject && SUPPORTS_DEFAULT_VALUES && (
-        <>
-          {value.type === "boolean" ? (
-            <SelectField
-              label="Default Value"
-              sort={false}
-              value={
-                ["false", ""].includes(value.default) ? value.default : "true"
-              }
-              onChange={(v) => onChange({ ...value, default: v })}
-              options={[
-                {
-                  value: "true",
-                  label: "True",
-                },
-                {
-                  value: "false",
-                  label: "False",
-                },
-              ]}
-              initialOption="No Default"
-              required
-            />
-          ) : value.enum.length > 0 ? (
-            <SelectField
-              label="Default Value"
-              sort={false}
-              value={value.default}
-              onChange={(v) => onChange({ ...value, default: v })}
-              options={value.enum.map((v) => ({ value: v, label: v }))}
-              initialOption="No Default"
-            />
-          ) : (
-            <Field
-              label="Default Value"
-              value={value.default}
-              onChange={(e) => onChange({ ...value, default: e.target.value })}
-              {...(value.type === "string"
-                ? {
-                    minLength: value.min,
-                    maxLength: value.max,
-                  }
-                : {
-                    type: "number",
-                    step: value.type === "float" ? "any" : 1,
-                    min: value.min,
-                    max: value.max,
-                  })}
-            />
-          )}
-        </>
-      )}
-    </div>
-  );
 }
 
 function EditSimpleSchema({
   schema,
   setSchema,
+  valueType,
 }: {
   schema: SimpleSchema;
   setSchema: (schema: SimpleSchema) => void;
+  valueType?: FeatureValueType;
 }) {
   const [expandedFields, setExpandedFields] = useState(new Set<number>());
 
+  const lockedPrimitive = valueType === "string" || valueType === "number";
+
   return (
     <div>
-      <SelectField
-        label="Type"
-        labelClassName="font-weight-bold text-dark"
-        value={schema.type}
-        sort={false}
-        onChange={(type) =>
-          setSchema({
-            ...schema,
-            type: type as SimpleSchema["type"],
-          })
-        }
-        options={[
-          {
-            value: "object",
-            label: "Object",
-          },
-          {
-            value: "object[]",
-            label: "Array of Objects",
-          },
-          {
-            value: "primitive",
-            label: "Primitive Value (string, number, boolean)",
-          },
-          {
-            value: "primitive[]",
-            label: "Array of Primitive Values",
-          },
-        ]}
-        required
-      />
-      {schema.type === "primitive[]" || schema.type === "primitive" ? (
+      {!lockedPrimitive && (
+        <SelectField
+          size="legacy"
+          label="Type"
+          labelClassName="font-weight-bold text-dark"
+          value={schema.type}
+          sort={false}
+          onChange={(type) =>
+            setSchema({
+              ...schema,
+              type: type as SimpleSchema["type"],
+            })
+          }
+          options={[
+            {
+              value: "object",
+              label: "Object",
+            },
+            {
+              value: "object[]",
+              label: "Array of Objects",
+            },
+            {
+              value: "primitive",
+              label: "Primitive Value (string, number, boolean)",
+            },
+            {
+              value: "primitive[]",
+              label: "Array of Primitive Values",
+            },
+          ]}
+          required
+        />
+      )}
+      {lockedPrimitive ||
+      schema.type === "primitive[]" ||
+      schema.type === "primitive" ? (
         <div className="form-group">
           <label className="font-weight-bold text-dark">
-            {schema.type === "primitive" ? "Primitive Value" : "Array Items"}
+            {schema.type === "primitive[]" ? "Array Items" : "Primitive Value"}
           </label>
           <div className="appbox p-3 bg-light">
             <EditSchemaField
               i={0}
+              valueType={valueType}
               value={
                 schema.fields[0] || {
                   key: "",
-                  type: "string",
+                  type: valueType === "number" ? "float" : "string",
                   required: false,
                   default: "",
                   description: "",
@@ -425,12 +268,34 @@ export default function EditSchemaModal({
   feature,
   close,
   mutate,
+  setVersion,
+  revisionList = [],
   defaultEnable,
   onEnable,
 }: Props) {
-  const defaultSimpleSchema = feature.jsonSchema?.simple?.fields?.length
+  const permissionsUtil = usePermissionsUtil();
+  const valueType = feature.valueType;
+  const defaultSimpleSchema: SimpleSchema = feature.jsonSchema?.simple?.fields
+    ?.length
     ? feature.jsonSchema.simple
-    : inferSimpleSchemaFromValue(feature.defaultValue);
+    : valueType === "string" || valueType === "number"
+      ? {
+          // String/number flags hold a single primitive value
+          type: "primitive",
+          fields: [
+            {
+              key: "",
+              type: valueType === "string" ? "string" : "float",
+              required: true,
+              default: "",
+              description: "",
+              enum: [],
+              min: 0,
+              max: valueType === "string" ? 256 : 100,
+            },
+          ],
+        }
+      : inferSimpleSchemaFromValue(feature.defaultValue);
 
   const defaultJSONSchema = feature.jsonSchema?.schema || "{}";
 
@@ -445,46 +310,74 @@ export default function EditSchemaModal({
       schemaType: defaultSchemaType,
       simple: defaultSimpleSchema,
       schema: defaultJSONSchema,
-      enabled: defaultEnable ? true : feature.jsonSchema?.enabled ?? true,
+      enabled: defaultEnable ? true : (feature.jsonSchema?.enabled ?? true),
     },
   });
   const { apiCall } = useAuth();
+  const settings = useOrgSettings();
+
+  const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
+    const raw = settings?.requireReviews;
+    if (raw === true) return "all";
+    if (!Array.isArray(raw)) return "none";
+    const reviewSetting = getReviewSetting(raw, feature);
+    if (!reviewSetting?.requireReviewOn) return "none";
+    const envList = reviewSetting.environments ?? [];
+    return envList.length === 0 ? "all" : new Set(envList);
+  }, [settings?.requireReviews, feature]);
+
+  // Approval-gating and AUTHORITY are separate factors. A schema change lands
+  // on the feature's served values, so the footprint is the environments the
+  // flag is enabled in — the same envs the publish endpoint answers for.
+  const environments = useEnvironments();
+  const canPublishSchema = permissionsUtil.canPublishFeature(
+    feature,
+    Array.from(getEnabledEnvironments(feature, environments)),
+  );
+  const canAutoPublish = gatedEnvSet === "none" && canPublishSchema;
+
+  const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
+    revisionList,
+    canAutoPublish,
+  );
+
+  const [mode, setMode] = useState<DraftMode>(initialMode);
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       header="Edit Feature Validation"
-      cta="Save"
+      cta={mode === "publish" ? "Publish" : "Save to Draft"}
       size="lg"
       submit={form.handleSubmit(async (value) => {
         if (value.enabled && value.schemaType === "schema") {
-          // make sure the json schema is valid json schema
           let schemaString = value.schema;
           let parsedSchema;
           try {
             if (schemaString !== "") {
-              // first see if it is valid json:
               try {
                 parsedSchema = JSON.parse(schemaString);
               } catch (e) {
-                // If the JSON is invalid, try to parse it with 'dirty-json' instead
+                // Fall back to dirty-json for lenient parsing
                 parsedSchema = dJSON.parse(schemaString);
                 schemaString = stringify(parsedSchema);
               }
-              // make sure it is valid json schema:
               const ajv = getJSONValidator();
               ajv.compile(parsedSchema);
             }
           } catch (e) {
             throw new Error(
-              `The JSON Schema is invalid. Please check it and try again. Validator error: "${e.message}"`
+              `The JSON Schema is invalid. Please check it and try again. Validator error: "${e.message}"`,
             );
           }
 
           if (schemaString !== value.schema) {
             form.setValue("schema", schemaString);
             throw new Error(
-              "We fixed some errors in the schema. If it looks correct, save again."
+              "We fixed some errors in the schema. If it looks correct, save again.",
             );
           }
         } else if (value.enabled && value.schemaType === "simple") {
@@ -496,40 +389,55 @@ export default function EditSchemaModal({
             ajv.compile(parsedSchema);
           } catch (e) {
             throw new Error(
-              `The Simple Schema is invalid. Please check it and try again. Validator error: "${e.message}"`
+              `The Simple Schema is invalid. Please check it and try again. Validator error: "${e.message}"`,
             );
           }
         }
 
-        await apiCall(`/feature/${feature.id}/schema`, {
-          method: "POST",
-          body: JSON.stringify(value),
-        });
+        assertSchemaMatchesValueType(value, feature.valueType);
+
+        const body: Record<string, unknown> = {
+          ...value,
+          ...(mode === "publish"
+            ? { autoPublish: true }
+            : mode === "existing"
+              ? { targetDraftVersion: selectedDraft }
+              : { forceNewDraft: true }),
+        };
+        const res = await apiCall<{ draftVersion?: number }>(
+          `/feature/${feature.id}/schema`,
+          {
+            method: "POST",
+            body: JSON.stringify(body),
+          },
+        );
         mutate();
+        const resolvedVersion =
+          res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
+        if (resolvedVersion !== null && setVersion) setVersion(resolvedVersion);
         onEnable && value.enabled && onEnable();
       })}
       close={close}
       open={true}
     >
-      <div className="form-group d-flex align-items-top mb-4">
-        <Toggle
-          id={"schemaEnabled"}
-          value={form.watch("enabled")}
-          setValue={(v) => form.setValue("enabled", v)}
-        />{" "}
-        <div className="ml-3">
-          <label
-            htmlFor="schemaEnabled"
-            className="mb-0 font-weight-bold text-dark"
-          >
-            Enable Validation
-          </label>
-          <div>
-            These validation rules will only apply going forward. Existing
-            feature values will not be affected.
-          </div>
-        </div>
-      </div>
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={canAutoPublish}
+        gatedEnvSet={gatedEnvSet}
+      />
+      <Switch
+        id={"schemaEnabled"}
+        label="Enable Validation"
+        description="These validation rules will only apply going forward. Existing feature values will not be affected."
+        value={form.watch("enabled")}
+        onChange={(v) => form.setValue("enabled", v)}
+        mb="4"
+      />
       {form.watch("enabled") && (
         <>
           <div className="form-group">
@@ -559,11 +467,11 @@ export default function EditSchemaModal({
                     if (form.watch("schema") === "{}") {
                       try {
                         const schemaString = simpleToJSONSchema(
-                          form.watch("simple")
+                          form.watch("simple"),
                         );
                         form.setValue(
                           "schema",
-                          stringify(JSON.parse(schemaString))
+                          stringify(JSON.parse(schemaString)),
                         );
                       } catch (e) {
                         // Ignore errors, we just want to set the default value
@@ -579,6 +487,7 @@ export default function EditSchemaModal({
             <EditSimpleSchema
               schema={form.watch("simple")}
               setSchema={(v) => form.setValue("simple", v)}
+              valueType={valueType}
             />
           ) : (
             <CodeTextArea
@@ -593,6 +502,6 @@ export default function EditSchemaModal({
           )}
         </>
       )}
-    </Modal>
+    </ModalStandard>
   );
 }

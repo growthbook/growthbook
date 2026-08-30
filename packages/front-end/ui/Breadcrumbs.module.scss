@@ -1,0 +1,46 @@
+// Non-last breadcrumb items are hidden on small screens
+.ancestor {
+  display: none;
+
+  @media (min-width: 992px) {
+    // display: contents collapses the span from the flex layout,
+    // letting the inner Text/Link participate directly as flex children.
+    // This preserves correct gap spacing without a wrapper box.
+    display: contents;
+  }
+}
+
+// Separator icons are hidden on small screens (even for the last item's
+// separator, since its preceding ancestors are hidden and a floating ">"
+// would appear before the current page name)
+.separator {
+  display: none;
+
+  @media (min-width: 992px) {
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+.current {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+
+  > span {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+// Cap each ancestor crumb's width so a long ancestor name (e.g. the experiment
+// name in a report's "Experiments > <experiment> > <report>" trail) can't eat
+// the whole bar and push the current page's crumb off-screen. 22ch is a width
+// budget: wide enough to keep most names readable, narrow enough that a couple
+// of ancestors plus the current crumb still fit on one line. Overflow past the
+// cap is ellipsized by the Link's `truncate` (full name stays in the `title`).
+.crumbLink {
+  max-width: 22ch;
+  overflow: hidden;
+}

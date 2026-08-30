@@ -1,17 +1,23 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
 import { FaKey } from "react-icons/fa";
-import Link from "next/link";
-import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
+import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
+import Link from "@/ui/Link";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
 import ApiKeysModal from "@/components/Settings/ApiKeysModal";
 import { useAuth } from "@/services/auth";
 import { groupApiKeysByType } from "@/services/secret-api-keys.utils";
 import useApi from "@/hooks/useApi";
+import Callout from "@/ui/Callout";
+import { useUser } from "@/services/UserContext";
 
 type PersonalAccessTokensProps = {
   accessTokens: ApiKeyInterface[];
   onDelete: (keyId: string | undefined) => () => Promise<void>;
   onReveal: (keyId: string | undefined) => () => Promise<string>;
+  onToggleDisabled: (
+    keyId: string | undefined,
+    disabled: boolean,
+  ) => () => Promise<void>;
   onCreate: () => void;
 };
 
@@ -19,9 +25,12 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
   accessTokens,
   onDelete,
   onReveal,
+  onToggleDisabled,
   onCreate,
 }) => {
   const [open, setOpen] = useState(false);
+  const { settings } = useUser();
+  const tokensDisabled = !!settings?.disablePersonalAccessTokens;
 
   return (
     <div>
@@ -29,7 +38,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
         <ApiKeysModal
           close={() => setOpen(false)}
           onCreate={onCreate}
-          type="user"
+          personalAccessToken
         />
       )}
 
@@ -47,24 +56,33 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
             canCreateKeys
             canDeleteKeys
             onReveal={onReveal}
+            onToggleDisabled={onToggleDisabled}
           />
         )}
-        <button
-          className="btn btn-primary"
-          onClick={(e) => {
-            e.preventDefault();
-            setOpen(true);
-          }}
-        >
-          <FaKey /> Create New Personal Access Token
-        </button>
+        {tokensDisabled ? (
+          <Callout status="warning">
+            Personal access tokens are disabled for your organization. Existing
+            tokens no longer work and new ones can&apos;t be created. Contact an
+            admin if you need API access.
+          </Callout>
+        ) : (
+          <button
+            className="btn btn-primary"
+            onClick={(e) => {
+              e.preventDefault();
+              setOpen(true);
+            }}
+          >
+            <FaKey /> Create New Personal Access Token
+          </button>
+        )}
       </div>
 
       <div className="mb-5">
-        <div className="alert alert-info">
-          Administrators can also create read-only keys for an organization on
+        <Callout status="info">
+          Administrators can also create userless keys for an organization on
           the <Link href="/settings/keys">API Keys</Link> page.
-        </div>
+        </Callout>
       </div>
     </div>
   );
@@ -94,7 +112,7 @@ export const PersonalAccessTokensContainer = () => {
       }
       return res.key.key;
     },
-    [apiCall]
+    [apiCall],
   );
 
   const onDelete = useCallback(
@@ -109,7 +127,19 @@ export const PersonalAccessTokensContainer = () => {
       });
       mutate();
     },
-    [mutate, apiCall]
+    [mutate, apiCall],
+  );
+
+  const onToggleDisabled = useCallback(
+    (keyId: string | undefined, disabled: boolean) => async () => {
+      if (!keyId) return;
+      await apiCall(`/keys/${keyId}/disabled`, {
+        method: "PUT",
+        body: JSON.stringify({ disabled }),
+      });
+      mutate();
+    },
+    [apiCall, mutate],
   );
 
   return (
@@ -118,6 +148,7 @@ export const PersonalAccessTokensContainer = () => {
       accessTokens={userKeys}
       onCreate={mutate}
       onReveal={onReveal}
+      onToggleDisabled={onToggleDisabled}
     />
   );
 };

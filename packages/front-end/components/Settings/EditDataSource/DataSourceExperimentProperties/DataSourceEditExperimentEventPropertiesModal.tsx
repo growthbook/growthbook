@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import {
   DataSourceEvents,
   DataSourceInterfaceWithParams,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 
@@ -13,11 +13,9 @@ type DataSourceEditExperimentEventPropertiesProps = {
   onCancel: () => void;
 };
 
-export const DataSourceEditExperimentEventPropertiesModal: FC<DataSourceEditExperimentEventPropertiesProps> = ({
-  dataSource,
-  onCancel,
-  onSave,
-}) => {
+export const DataSourceEditExperimentEventPropertiesModal: FC<
+  DataSourceEditExperimentEventPropertiesProps
+> = ({ dataSource, onCancel, onSave }) => {
   const form = useForm<DataSourceEvents>({
     defaultValues: {
       experimentEvent: dataSource.settings?.events?.experimentEvent || "",
@@ -49,6 +47,7 @@ export const DataSourceEditExperimentEventPropertiesModal: FC<DataSourceEditExpe
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       submit={handleSubmit}
@@ -65,21 +64,25 @@ export const DataSourceEditExperimentEventPropertiesModal: FC<DataSourceEditExpe
             <div className="">
               <h4 className="font-weight-bold">Experiments</h4>
               <Field
+                size="legacy"
                 label="View Experiment Event"
                 placeholder="$experiment_started"
                 {...form.register("experimentEvent")}
               />
               <Field
+                size="legacy"
                 label="Experiment Id Property"
                 placeholder="Experiment name"
                 {...form.register("experimentIdProperty")}
               />
               <Field
+                size="legacy"
                 label="Variation Id Property"
                 placeholder="Variant name"
                 {...form.register("variationIdProperty")}
               />
               <Field
+                size="legacy"
                 label="Extra UserId Property (optional)"
                 placeholder=""
                 {...form.register("extraUserIdProperty")}

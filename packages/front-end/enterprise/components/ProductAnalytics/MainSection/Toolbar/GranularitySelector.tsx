@@ -1,0 +1,71 @@
+import React from "react";
+import { dateGranularity, ExplorationDateRange } from "shared/validators";
+import {
+  calculateProductAnalyticsDateRange,
+  getDateGranularity,
+} from "shared/enterprise";
+import { Flex } from "@radix-ui/themes";
+import { Select, SelectItem } from "@/ui/Select";
+import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
+import { getValidDateGranularities } from "@/enterprise/components/ProductAnalytics/util";
+
+const dateGranularityLabels: Record<(typeof dateGranularity)[number], string> =
+  {
+    auto: "Auto",
+    hour: "By Hour",
+    day: "By Day",
+    week: "By Week",
+    month: "By Month",
+    year: "By Year",
+  };
+
+export function ControlledGranularitySelector({
+  dateRange,
+  granularity,
+  onChange,
+  disabled,
+  width,
+}: {
+  dateRange: ExplorationDateRange;
+  granularity: (typeof dateGranularity)[number];
+  onChange: (granularity: (typeof dateGranularity)[number]) => void;
+  disabled?: boolean;
+  width?: number;
+}) {
+  const resolvedDateRange = calculateProductAnalyticsDateRange(dateRange);
+  const autoGranularity = getDateGranularity("auto", resolvedDateRange);
+  const validGranularities = getValidDateGranularities(resolvedDateRange);
+  const selectedGranularity = validGranularities.includes(granularity)
+    ? granularity
+    : "auto";
+
+  return (
+    <Select
+      size="md"
+      value={selectedGranularity}
+      placeholder="Granularity"
+      disabled={disabled}
+      style={width ? { width } : undefined}
+      setValue={(v) => onChange(v as (typeof dateGranularity)[number])}
+    >
+      {validGranularities.map((g) => (
+        <SelectItem key={g} value={g}>
+          {g === "auto" ? (
+            <Flex
+              direction="row"
+              align="center"
+              gap="2"
+              style={{ whiteSpace: "nowrap" }}
+            >
+              <Text>{dateGranularityLabels[autoGranularity]}</Text>
+              <Badge label="Auto" />
+            </Flex>
+          ) : (
+            dateGranularityLabels[g]
+          )}
+        </SelectItem>
+      ))}
+    </Select>
+  );
+}

@@ -1,8 +1,10 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
-import { omit } from "lodash";
-import uniqid from "uniqid";
-import { AuditInterface } from "back-end/types/audit";
-import { EntityType } from "back-end/src/types/Audit";
+import { AuditInterface, EntityType } from "shared/types/audit";
+import {
+  removeMongooseFields,
+  ToInterface,
+} from "back-end/src/util/mongo.util";
+import { generateId } from "back-end/src/util/uuid";
 
 const auditSchema = new mongoose.Schema({
   id: {
@@ -41,36 +43,54 @@ type AuditDocument = mongoose.Document & AuditInterface;
 
 const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
 
-/**
- * Convert the Mongo document to an AuditInterface, omitting Mongo default fields __v, _id
- * @param doc
- */
-const toInterface = (doc: AuditDocument): AuditInterface => {
-  return (omit(doc.toJSON<AuditDocument>(), [
-    "__v",
-    "_id",
-  ]) as unknown) as AuditInterface;
+const toInterface: ToInterface<AuditInterface> = (doc) => {
+  const audit = removeMongooseFields(doc);
+  // Legacy audit docs may be missing the user field entirely
+  if (!audit.user) {
+    audit.user = { id: "", email: "", name: "Unknown" };
+  }
+  return audit;
 };
 
 export async function insertAudit(
-  data: Omit<AuditInterface, "id">
+  data: Omit<AuditInterface, "id">,
 ): Promise<AuditInterface> {
   const auditDoc = await AuditModel.create({
     ...data,
-    id: uniqid("aud_"),
+    id: generateId("aud_"),
   });
   return toInterface(auditDoc);
 }
 
+/**
+ * find all audits by user id and organization
+ * @param userId
+ * @param organization
+ */
+export async function findRecentAuditByUserIdAndOrganization(
+  userId: string,
+  organization: string,
+): Promise<Omit<AuditInterface, "details">[]> {
+  const userAudits = await AuditModel.find({
+    "user.id": userId,
+    organization,
+  })
+    .select("-details")
+    .limit(10)
+    .sort({ dateCreated: -1 });
+  const transformed = userAudits.map((doc) => toInterface(doc));
+  return transformed;
+}
+
 export async function findAuditByOrganization(
   organization: string,
-  options?: QueryOptions
+  options?: QueryOptions,
 ): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
     {
       organization,
     },
-    options
+    options,
   );
   return auditDocs.map((doc) => toInterface(doc));
 }
@@ -79,15 +99,18 @@ export async function findAuditByEntity(
   organization: string,
   type: EntityType,
   id: string,
-  options?: QueryOptions
+  options?: QueryOptions,
+  customFilter?: FilterQuery<AuditDocument>,
 ): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
     {
       organization,
       "entity.object": type,
       "entity.id": id,
+      ...customFilter,
     },
-    options
+    null,
+    options,
   );
   return auditDocs.map((doc) => toInterface(doc));
 }
@@ -97,7 +120,7 @@ export async function findAuditByEntityList(
   type: EntityType,
   ids: string[],
   customFilter?: FilterQuery<AuditDocument>,
-  options?: QueryOptions
+  options?: QueryOptions,
 ): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
     {
@@ -108,7 +131,8 @@ export async function findAuditByEntityList(
       },
       ...customFilter,
     },
-    options
+    null,
+    options,
   );
   return auditDocs.map((doc) => toInterface(doc));
 }
@@ -117,15 +141,18 @@ export async function findAuditByEntityParent(
   organization: string,
   type: EntityType,
   id: string,
-  options?: QueryOptions
+  options?: QueryOptions,
+  customFilter?: FilterQuery<AuditDocument>,
 ): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
     {
       organization,
       "parent.object": type,
       "parent.id": id,
+      ...customFilter,
     },
-    options
+    null,
+    options,
   );
   return auditDocs.map((doc) => toInterface(doc));
 }
@@ -133,14 +160,17 @@ export async function findAuditByEntityParent(
 export async function findAllAuditsByEntityType(
   organization: string,
   type: EntityType,
-  options?: QueryOptions
+  options?: QueryOptions,
+  customFilter?: FilterQuery<AuditDocument>,
 ): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
     {
       organization,
       "entity.object": type,
+      ...customFilter,
     },
-    options
+    null,
+    options,
   );
   return auditDocs.map((doc) => toInterface(doc));
 }
@@ -148,14 +178,61 @@ export async function findAllAuditsByEntityType(
 export async function findAllAuditsByEntityTypeParent(
   organization: string,
   type: EntityType,
-  options?: QueryOptions
+  options?: QueryOptions,
+  customFilter?: FilterQuery<AuditDocument>,
 ): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
     {
       organization,
       "parent.object": type,
+      ...customFilter,
     },
-    options
+    null,
+    options,
   );
   return auditDocs.map((doc) => toInterface(doc));
+}
+
+export async function countAuditByEntity(
+  organization: string,
+  type: EntityType,
+  id: string,
+): Promise<number> {
+  return await AuditModel.countDocuments({
+    organization,
+    "entity.object": type,
+    "entity.id": id,
+  });
+}
+
+export async function countAuditByEntityParent(
+  organization: string,
+  type: EntityType,
+  id: string,
+): Promise<number> {
+  return await AuditModel.countDocuments({
+    organization,
+    "parent.object": type,
+    "parent.id": id,
+  });
+}
+
+export async function countAllAuditsByEntityType(
+  organization: string,
+  type: EntityType,
+): Promise<number> {
+  return await AuditModel.countDocuments({
+    organization,
+    "entity.object": type,
+  });
+}
+
+export async function countAllAuditsByEntityTypeParent(
+  organization: string,
+  type: EntityType,
+): Promise<number> {
+  return await AuditModel.countDocuments({
+    organization,
+    "parent.object": type,
+  });
 }

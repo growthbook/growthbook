@@ -14,6 +14,10 @@ import {
   getSettingsForSnapshotMetrics,
   updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
+import {
+  ConcurrentIncrementalRefreshError,
+  UnrecoverableSnapshotError,
+} from "back-end/src/util/errors";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
@@ -44,17 +48,12 @@ export default async function (agenda: Agenda) {
     for (let i = 0; i < experiments.length; i++) {
       await queueExperimentUpdate(
         experiments[i].organization,
-        experiments[i].id
+        experiments[i].id,
       );
     }
   });
 
-  agenda.define(
-    UPDATE_SINGLE_EXP,
-    // This job queries a datasource, which may be slow. Give it 30 minutes to complete.
-    { lockLifetime: 30 * 60 * 1000 },
-    updateSingleExperiment
-  );
+  agenda.define(UPDATE_SINGLE_EXP, updateSingleExperiment);
 
   // Update experiment results
   await startUpdateJob();
@@ -68,7 +67,7 @@ export default async function (agenda: Agenda) {
     for (let i = 0; i < experiments.length; i++) {
       await queueExperimentUpdate(
         experiments[i].organization,
-        experiments[i].id
+        experiments[i].id,
       );
     }
 
@@ -84,7 +83,7 @@ export default async function (agenda: Agenda) {
 
   async function queueExperimentUpdate(
     organization: string,
-    experimentId: string
+    experimentId: string,
   ) {
     const job = agenda.create(UPDATE_SINGLE_EXP, {
       organization,
@@ -100,7 +99,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-async function updateSingleExperiment(job: UpdateSingleExpJob) {
+const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const experimentId = job.attrs.data?.experimentId;
   const orgId = job.attrs.data?.organization;
 
@@ -141,23 +140,26 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     logger.info("Start Refreshing Results for experiment " + experimentId);
     const datasource = await getDataSourceById(
       context,
-      experiment.datasource || ""
+      experiment.datasource || "",
     );
     if (!datasource) {
       throw new Error("Error refreshing experiment, could not find datasource");
     }
 
-    const {
-      regressionAdjustmentEnabled,
-      settingsForSnapshotMetrics,
-    } = await getSettingsForSnapshotMetrics(context, experiment);
+    const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
+      await getSettingsForSnapshotMetrics(context, experiment);
 
-    const analysisSettings = getDefaultExperimentAnalysisSettings(
-      experiment.statsEngine || scopedSettings.statsEngine.value,
+    const metricGroups = await context.models.metricGroups.getAll();
+
+    const analysisSettings = getDefaultExperimentAnalysisSettings({
+      statsEngine: experiment.statsEngine || scopedSettings.statsEngine.value,
       experiment,
       organization,
-      regressionAdjustmentEnabled
-    );
+      regressionAdjustmentEnabled,
+      postStratificationEnabled: scopedSettings.postStratificationEnabled.value,
+      pValueThreshold: scopedSettings.pValueThreshold.value,
+      metricGroups,
+    });
 
     const metricMap = await getMetricMap(context);
     const factTableMap = await getFactTableMap(context);
@@ -182,9 +184,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       context,
       phaseIndex: experiment.phases.length - 1,
       defaultAnalysisSettings: analysisSettings,
-      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-        analysisSettings
-      ),
+      additionalAnalysisSettings:
+        getAdditionalExperimentAnalysisSettings(analysisSettings),
       settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
       metricMap,
       factTableMap,
@@ -197,7 +198,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     const currentSnapshot = queryRunner.model;
 
     logger.info(
-      "Successfully Refreshed Results for experiment " + experimentId
+      "Successfully Refreshed Results for experiment " + experimentId,
     );
 
     if (experiment.type === "multi-armed-bandit") {
@@ -216,9 +217,24 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       });
     }
   } catch (e) {
+    // Lock contention is transient so we don't disable auto-updates
+    if (e instanceof ConcurrentIncrementalRefreshError) {
+      logger.info(
+        "Skipping auto-update for experiment " +
+          experimentId +
+          ": incremental refresh already in progress",
+      );
+      return;
+    }
+
     logger.error(e, "Failed to update experiment: " + experimentId);
-    // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)
-    if (experiment.type === "multi-armed-bandit") return;
+    // Turn off auto-updating for the future (bandits keep retrying unless the failure is deterministic)
+    if (
+      experiment.type === "multi-armed-bandit" &&
+      !(e instanceof UnrecoverableSnapshotError)
+    ) {
+      return;
+    }
     try {
       await updateExperiment({
         context,
@@ -234,4 +250,4 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       await notifyAutoUpdate({ context, experiment, success: false });
     }
   }
-}
+};

@@ -1,10 +1,8 @@
-import isEqual from "lodash/isEqual";
 import intersection from "lodash/intersection";
 import {
   NotificationEvent,
   LegacyNotificationEvent,
-} from "back-end/src/events/notification-events";
-import { ApiFeature } from "back-end/types/openapi";
+} from "shared/types/events/notification-events";
 
 export type FilterDataForNotificationEvent = {
   tags: string[];
@@ -12,7 +10,7 @@ export type FilterDataForNotificationEvent = {
 };
 
 export const getFilterDataForNotificationEvent = (
-  event: NotificationEvent | LegacyNotificationEvent
+  event: NotificationEvent | LegacyNotificationEvent,
 ): FilterDataForNotificationEvent | null => {
   return {
     tags: event.tags || [],
@@ -20,8 +18,9 @@ export const getFilterDataForNotificationEvent = (
   };
 };
 
-// Will only notify for environments in which rules were modified.
-// Other feature events (currently) apply to all environments
+// Matches the event's routing `environments` field (see
+// back-end/src/events/eventEnvironments.ts for how it is derived) against a
+// subscription's environment filter.
 export const filterEventForEnvironments = ({
   event,
   environments,
@@ -34,54 +33,11 @@ export const filterEventForEnvironments = ({
     return true;
   }
 
+  // `[]` means "no environment-scoped impact" (see eventEnvironments.ts), so it
+  // correctly matches nothing here. Widening it at this layer sent every
+  // description edit — metadata isn't in RELEVANT_KEYS_FOR_ALL_ENVS, so its
+  // producer emits [] — to every environment-filtered subscription. An event that
+  // reaches ALL environments has to say so at the PRODUCER, which is the only place
+  // that can tell "affects nothing" from "affects everything".
   return intersection(event.environments || [], environments).length > 0;
 };
-
-// Some of the feature keys that change affect all enabled environments
-export const RELEVANT_KEYS_FOR_ALL_ENVS: (keyof ApiFeature)[] = [
-  "archived",
-  "defaultValue",
-  "prerequisites",
-  "project",
-  "valueType",
-];
-
-export function getChangedApiFeatureEnvironments(
-  previous: ApiFeature,
-  current: ApiFeature
-): string[] {
-  const allEnvs = Array.from(
-    new Set([
-      ...Object.keys(previous.environments),
-      ...Object.keys(current.environments),
-    ])
-  );
-
-  if (
-    RELEVANT_KEYS_FOR_ALL_ENVS.some((k) => !isEqual(previous[k], current[k]))
-  ) {
-    // Some of the relevant keys for all environments has changed.
-    return allEnvs;
-  }
-
-  // Manual environment filtering
-  const changedEnvironments = new Set<string>();
-
-  // Add in environments if their specific settings changed
-  allEnvs.forEach((env) => {
-    const previousEnvSettings = previous.environments[env];
-    const currentEnvSettings = current.environments[env];
-
-    // If the environment is disabled both before and after the change, ignore changes
-    if (!previousEnvSettings?.enabled && !currentEnvSettings?.enabled) {
-      return;
-    }
-
-    // the environment has changed
-    if (!isEqual(previousEnvSettings, currentEnvSettings)) {
-      changedEnvironments.add(env);
-    }
-  });
-
-  return Array.from(changedEnvironments);
-}

@@ -1,18 +1,62 @@
 import { z } from "zod";
 import {
+  postExperimentValidator,
+  postMetricValidator,
+  putMetricValidator,
+  updateExperimentValidator,
+} from "shared/validators";
+import { DataSourceInterface } from "shared/types/datasource";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { isFactMetric } from "shared/experiments";
+import { ExperimentInterface, Variation } from "shared/types/experiment";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { OrganizationInterface } from "shared/types/organization";
+import { Context } from "back-end/src/models/BaseModel";
+import {
+  ScheduleUpdateInput,
+  validateScheduleUpdate,
+} from "back-end/src/services/experimentScheduling";
+import {
+  applyVariationWeightsToLatestPhase,
+  fillEmptyVariationKeys,
+  getExperimentMetricById,
+  normalizeStatusUpdateScheduleChanges,
+  postExperimentApiPayloadToInterface,
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
+  updateExperimentBanditSettings,
+  updateExperimentApiPayloadToInterface,
+  validateVariationIds,
 } from "back-end/src/services/experiments";
-import {
-  postMetricValidator,
-  putMetricValidator,
-} from "back-end/src/validators/openapi";
-import { DataSourceInterface } from "back-end/types/datasource";
-import { OrganizationInterface } from "back-end/types/organization";
 
 describe("experiments utils", () => {
+  describe("validateVariationIds", () => {
+    it("resolves variationId aliases while preferring explicit ids", () => {
+      const variations = [
+        { id: "control", variationId: "ignored", key: "0" },
+        { variationId: "treatment", key: "1" },
+        { key: "2" },
+      ];
+
+      validateVariationIds(variations);
+
+      expect(variations[0].id).toBe("control");
+      expect(variations[1].id).toBe("treatment");
+      expect(variations[2].id).toMatch(/^var_/);
+    });
+
+    it("rejects duplicate resolved variation ids", () => {
+      expect(() =>
+        validateVariationIds([
+          { id: "duplicate", key: "0" },
+          { variationId: "duplicate", key: "1" },
+        ]),
+      ).toThrow("Variation IDs must be unique.");
+    });
+  });
+
   describe("postMetricApiPayloadIsValid", () => {
     it("should return a successful result when providing the minimum number of fields", () => {
       const input: z.infer<typeof postMetricValidator.bodySchema> = {
@@ -61,7 +105,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Can only specify one of: sql, sqlBuilder, mixpanel"
+        "Can only specify one of: sql, sqlBuilder, mixpanel",
       );
     });
 
@@ -87,7 +131,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Binomial metrics cannot have userAggregationSQL"
+        "Binomial metrics cannot have userAggregationSQL",
       );
     });
 
@@ -116,7 +160,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
+        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
       );
     });
 
@@ -146,7 +190,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`"
+        "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`",
       );
     });
 
@@ -175,7 +219,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
+        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
       );
     });
 
@@ -204,7 +248,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither"
+        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
       );
     });
 
@@ -233,7 +277,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither"
+        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
       );
     });
 
@@ -263,7 +307,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`"
+        "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`",
       );
     });
 
@@ -292,7 +336,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither."
+        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
       );
     });
 
@@ -322,7 +366,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "riskThresholdDanger must be higher than riskThresholdSuccess"
+        "riskThresholdDanger must be higher than riskThresholdSuccess",
       );
     });
 
@@ -374,7 +418,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toBe(
-        "Can only specify one of: sql, sqlBuilder, mixpanel"
+        "Can only specify one of: sql, sqlBuilder, mixpanel",
       );
     });
   });
@@ -418,7 +462,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Can only specify one of: sql, sqlBuilder, mixpanel"
+        "Can only specify one of: sql, sqlBuilder, mixpanel",
       );
     });
 
@@ -440,7 +484,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Binomial metrics cannot have userAggregationSQL"
+        "Binomial metrics cannot have userAggregationSQL",
       );
     });
 
@@ -465,7 +509,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
+        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
       );
     });
 
@@ -491,7 +535,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`"
+        "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`",
       );
     });
 
@@ -516,7 +560,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
+        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
       );
     });
 
@@ -541,7 +585,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither"
+        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
       );
     });
 
@@ -566,7 +610,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither"
+        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
       );
     });
 
@@ -592,7 +636,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`"
+        "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`",
       );
     });
 
@@ -617,7 +661,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither."
+        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
       );
     });
 
@@ -643,7 +687,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "riskThresholdDanger must be higher than riskThresholdSuccess"
+        "riskThresholdDanger must be higher than riskThresholdSuccess",
       );
     });
 
@@ -715,7 +759,7 @@ describe("experiments utils", () => {
         const result = postMetricApiPayloadToMetricInterface(
           input,
           organization,
-          datasource
+          datasource,
         );
 
         expect(result.aggregation).toEqual("sum(values)");
@@ -784,7 +828,7 @@ describe("experiments utils", () => {
         const result = postMetricApiPayloadToMetricInterface(
           input,
           organization,
-          datasource
+          datasource,
         );
 
         expect(result.aggregation).toEqual(undefined);
@@ -798,7 +842,7 @@ describe("experiments utils", () => {
         expect(result.datasource).toEqual("ds_abc123");
         expect(result.denominator).toBe(undefined);
         expect(result.description).toEqual(
-          "This is a metric with lots of fields"
+          "This is a metric with lots of fields",
         );
         expect(result.ignoreNulls).toEqual(false);
         expect(result.inverse).toEqual(true);
@@ -871,7 +915,7 @@ describe("experiments utils", () => {
         const result = postMetricApiPayloadToMetricInterface(
           input,
           organization,
-          datasource
+          datasource,
         );
 
         expect(result.cappingSettings.type).toEqual("absolute");
@@ -927,7 +971,7 @@ describe("experiments utils", () => {
         const result = postMetricApiPayloadToMetricInterface(
           input,
           organization,
-          datasource
+          datasource,
         );
 
         expect(result.windowSettings.delayValue).toEqual(5);
@@ -979,7 +1023,7 @@ describe("experiments utils", () => {
         const result = postMetricApiPayloadToMetricInterface(
           input,
           organization,
-          datasource
+          datasource,
         );
 
         expect(result.windowSettings.delayValue).toEqual(10);
@@ -1018,7 +1062,7 @@ describe("experiments utils", () => {
       const result = postMetricApiPayloadToMetricInterface(
         input,
         organization,
-        datasource
+        datasource,
       );
 
       expect(result.aggregation).toEqual("sum(values)");
@@ -1130,7 +1174,7 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       expect(result.datasource).toBe(undefined);
       expect(result.denominator).toBe(undefined);
       expect(result.description).toEqual(
-        "This is a metric with lots of fields"
+        "This is a metric with lots of fields",
       );
       expect(result.ignoreNulls).toBe(undefined);
       expect(result.inverse).toEqual(true);
@@ -1225,5 +1269,1016 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       expect(result.type).toEqual("count");
       expect(result.userIdTypes).toEqual(undefined);
     });
+  });
+
+  describe("updateExperimentApiPayloadToInterface", () => {
+    const organization = {
+      id: "org_123",
+      settings: {},
+    } as unknown as OrganizationInterface;
+
+    function makeExperiment(): ExperimentInterface {
+      return {
+        id: "exp_123",
+        organization: "org_123",
+        trackingKey: "exp_123",
+        name: "Test Experiment",
+        type: "standard",
+        project: "proj_1",
+        hypothesis: "",
+        description: "",
+        tags: [],
+        owner: "",
+        dateCreated: new Date("2026-01-01T00:00:00.000Z"),
+        dateUpdated: new Date("2026-01-01T00:00:00.000Z"),
+        archived: false,
+        status: "running",
+        autoSnapshots: false,
+        hashAttribute: "id",
+        hashVersion: 2,
+        disableStickyBucketing: false,
+        variations: [
+          {
+            id: "v0",
+            key: "control",
+            name: "Control",
+            description: "",
+            screenshots: [],
+          },
+          {
+            id: "v1",
+            key: "treatment",
+            name: "Treatment",
+            description: "",
+            screenshots: [],
+          },
+        ],
+        phases: [
+          {
+            name: "Main",
+            dateStarted: new Date("2026-01-01T00:00:00.000Z"),
+            dateEnded: undefined,
+            reason: "",
+            seed: "seed_123",
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            condition: "{}",
+            savedGroups: [],
+            prerequisites: [],
+            namespace: {
+              enabled: false,
+              name: "",
+              range: [0, 1],
+            },
+            variations: [
+              { id: "v1", status: "stopped" },
+              { id: "v0", status: "active" },
+            ],
+          },
+        ],
+        goalMetrics: [],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
+        regressionAdjustmentEnabled: false,
+        sequentialTestingEnabled: false,
+        shareLevel: "organization",
+        linkedFeatures: [],
+        hasVisualChangesets: false,
+        hasURLRedirects: false,
+      } as unknown as ExperimentInterface;
+    }
+
+    it("does not overwrite phase variations on phases-only updates", () => {
+      const experiment = makeExperiment();
+      const changes = updateExperimentApiPayloadToInterface(
+        {
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-02-01T00:00:00.000Z",
+              variations: [{ id: "v0" }, { id: "v1" }],
+            },
+          ],
+        },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.variations).toBe(undefined);
+      expect(changes.phases?.[0].variations).toEqual([
+        { id: "v1", status: "stopped" },
+        { id: "v0", status: "active" },
+      ]);
+    });
+
+    it("synchronizes existing phases when only top-level variations are updated", () => {
+      const experiment = makeExperiment();
+      const changes = updateExperimentApiPayloadToInterface(
+        {
+          variations: [
+            { id: "v0", key: "control", name: "Control" },
+            { id: "v1", key: "treatment", name: "Treatment" },
+            { id: "v2", key: "new", name: "New" },
+          ],
+        },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.phases?.[0].variations).toEqual([
+        { id: "v0", status: "active" },
+        { id: "v1", status: "active" },
+        { id: "v2", status: "active" },
+      ]);
+    });
+
+    it("uses top-level variation order and preserves phase statuses by id in mixed updates", () => {
+      const experiment = makeExperiment();
+      const changes = updateExperimentApiPayloadToInterface(
+        {
+          variations: [
+            { id: "v1", key: "treatment", name: "Treatment" },
+            { id: "v0", key: "control", name: "Control" },
+          ],
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-02-01T00:00:00.000Z",
+              variations: [{ id: "v0" }, { id: "v1" }],
+            },
+          ],
+        },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.phases?.[0].variations).toEqual([
+        { id: "v1", status: "active" },
+        { id: "v0", status: "active" },
+      ]);
+    });
+
+    it("does not overwrite phase variations when top-level variations are not provided", () => {
+      const experiment = makeExperiment();
+      const changes = updateExperimentApiPayloadToInterface(
+        {
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-02-01T00:00:00.000Z",
+            },
+          ],
+        },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.phases?.[0].variations).toEqual([
+        { id: "v1", status: "stopped" },
+        { id: "v0", status: "active" },
+      ]);
+    });
+
+    it("clears the segment when segmentId is an empty string", () => {
+      const experiment = { ...makeExperiment(), segment: "seg_1" };
+      const changes = updateExperimentApiPayloadToInterface(
+        { segmentId: "" },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.segment).toBe("");
+    });
+
+    it("leaves the segment untouched when segmentId is omitted", () => {
+      const experiment = { ...makeExperiment(), segment: "seg_1" };
+      const changes = updateExperimentApiPayloadToInterface(
+        { name: "Renamed" },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.segment).toBe(undefined);
+      expect("segment" in changes).toBe(false);
+    });
+
+    it("clears the activation metric when activationMetric is an empty string", () => {
+      const experiment = { ...makeExperiment(), activationMetric: "met_1" };
+      const changes = updateExperimentApiPayloadToInterface(
+        { activationMetric: "" },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.activationMetric).toBe("");
+    });
+
+    it("leaves the activation metric untouched when it is omitted", () => {
+      const experiment = { ...makeExperiment(), activationMetric: "met_1" };
+      const changes = updateExperimentApiPayloadToInterface(
+        { name: "Renamed" },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect("activationMetric" in changes).toBe(false);
+    });
+  });
+
+  describe("applyVariationWeightsToLatestPhase", () => {
+    it("sets variationWeights on the last phase and preserves other phase fields", () => {
+      const experiment = {
+        phases: [
+          {
+            name: "Main",
+            condition: "{}",
+            variationWeights: [0.5, 0.5],
+            coverage: 1,
+            dateStarted: new Date("2024-01-01"),
+          },
+        ],
+      } as ExperimentInterface;
+
+      const next = applyVariationWeightsToLatestPhase(experiment, [0.6, 0.4]);
+
+      expect(next).toHaveLength(1);
+      expect(next[0].variationWeights).toEqual([0.6, 0.4]);
+      expect(next[0].name).toEqual("Main");
+      expect(next[0].coverage).toBe(1);
+      expect(experiment.phases[0].variationWeights).toEqual([0.5, 0.5]);
+    });
+
+    it("only updates the last phase when multiple phases exist", () => {
+      const experiment = {
+        phases: [
+          {
+            name: "Ramp",
+            condition: "{}",
+            variationWeights: [0.5, 0.5],
+            coverage: 0.2,
+            dateStarted: new Date("2024-01-01"),
+          },
+          {
+            name: "Main",
+            condition: "{}",
+            variationWeights: [0.5, 0.5],
+            coverage: 1,
+            dateStarted: new Date("2024-02-01"),
+          },
+        ],
+      } as ExperimentInterface;
+
+      const next = applyVariationWeightsToLatestPhase(experiment, [0.7, 0.3]);
+
+      expect(next[0].variationWeights).toEqual([0.5, 0.5]);
+      expect(next[1].variationWeights).toEqual([0.7, 0.3]);
+    });
+  });
+
+  describe("experiment API payload mappers", () => {
+    const org = { id: "org_test" } as OrganizationInterface;
+    const datasource = {
+      id: "ds_test",
+      settings: { queries: { exposure: [{ id: "exp_query_1" }] } },
+    } as DataSourceInterface;
+
+    it("postExperimentApiPayloadToInterface maps metricOverrides and decisionFrameworkSettings", () => {
+      const payload: z.infer<typeof postExperimentValidator.bodySchema> = {
+        trackingKey: "track_b",
+        name: "Experiment B",
+        assignmentQueryId: "exp_query_1",
+        variations: [
+          { key: "0", name: "Control" },
+          { key: "1", name: "Treatment" },
+        ],
+        metricOverrides: [
+          {
+            id: "met_1",
+            delayHours: 12,
+            winRisk: 0.05,
+          },
+        ],
+        decisionFrameworkSettings: {
+          decisionCriteriaId: "crit_1",
+          decisionFrameworkMetricOverrides: [{ id: "met_1", targetMDE: 0.1 }],
+        },
+        postStratificationEnabled: false,
+      };
+
+      const out = postExperimentApiPayloadToInterface(payload, org, datasource);
+      expect(out.metricOverrides).toEqual([
+        { id: "met_1", delayHours: 12, winRisk: 0.05 },
+      ]);
+      expect(out.decisionFrameworkSettings).toEqual({
+        decisionCriteriaId: "crit_1",
+        decisionFrameworkMetricOverrides: [{ id: "met_1", targetMDE: 0.1 }],
+      });
+      expect(out.postStratificationEnabled).toBe(false);
+    });
+
+    it("postExperimentApiPayloadToInterface preserves variation ids and traffic splits", () => {
+      const payload: z.infer<typeof postExperimentValidator.bodySchema> = {
+        trackingKey: "track_ids",
+        name: "Experiment with custom variation ids",
+        assignmentQueryId: "exp_query_1",
+        variations: [
+          { id: "control", key: "0", name: "Control" },
+          { variationId: "treatment", key: "1", name: "Treatment" },
+        ],
+        phases: [
+          {
+            name: "Main",
+            dateStarted: "2026-07-23T00:00:00.000Z",
+            trafficSplit: [
+              { variationId: "treatment", weight: 0.25 },
+              { variationId: "control", weight: 0.75 },
+            ],
+          },
+        ],
+      };
+
+      const out = postExperimentApiPayloadToInterface(payload, org, datasource);
+
+      expect(out.variations.map((variation) => variation.id)).toEqual([
+        "control",
+        "treatment",
+      ]);
+      expect(out.phases[0].variations).toEqual([
+        { id: "control", status: "active" },
+        { id: "treatment", status: "active" },
+      ]);
+      expect(out.phases[0].variationWeights).toEqual([0.75, 0.25]);
+    });
+
+    it("updateExperimentApiPayloadToInterface sets exposureQueryId from assignmentQueryId", () => {
+      const experiment = {
+        status: "draft",
+        type: "standard",
+        exposureQueryId: "old_query",
+      } as unknown as ExperimentInterface;
+
+      const payload: z.infer<typeof updateExperimentValidator.bodySchema> = {
+        assignmentQueryId: "new_query",
+      };
+
+      const changes = updateExperimentApiPayloadToInterface(
+        payload,
+        experiment,
+        new Map(),
+        org,
+      );
+      expect(changes.exposureQueryId).toBe("new_query");
+      expect(
+        (changes as { assignmentQueryId?: string }).assignmentQueryId,
+      ).toBe(undefined);
+    });
+  });
+});
+
+describe("normalizeStatusUpdateScheduleChanges", () => {
+  function makeExperiment(
+    overrides: Partial<ExperimentInterface> = {},
+  ): ExperimentInterface {
+    return {
+      id: "exp_123",
+      organization: "org_123",
+      trackingKey: "exp_123",
+      name: "Test",
+      type: "standard",
+      status: "draft",
+      owner: "",
+      tags: [],
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      archived: false,
+      autoSnapshots: false,
+      hashAttribute: "id",
+      hashVersion: 2,
+      disableStickyBucketing: false,
+      variations: [],
+      phases: [],
+      goalMetrics: [],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      regressionAdjustmentEnabled: false,
+      sequentialTestingEnabled: false,
+      shareLevel: "organization",
+      linkedFeatures: [],
+      hasVisualChangesets: false,
+      hasURLRedirects: false,
+      nextScheduledStatusUpdate: null,
+      statusUpdateSchedule: null,
+      ...overrides,
+    } as unknown as ExperimentInterface;
+  }
+
+  it("null clears both schedule and staged start", () => {
+    const experiment = makeExperiment({
+      statusUpdateSchedule: { startAt: new Date("2099-01-01") },
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: null,
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.statusUpdateSchedule).toBeNull();
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("valid future startAt sets schedule and clears any staged start", () => {
+    const future = new Date("2099-06-01T12:00:00Z");
+    const experiment = makeExperiment({
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: { startAt: future },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect((changes.statusUpdateSchedule as { startAt: Date }).startAt).toEqual(
+      future,
+    );
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("object with no startAt clears both schedule and staged start", () => {
+    const experiment = makeExperiment({
+      statusUpdateSchedule: { startAt: new Date("2099-01-01") },
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: {} as { startAt: Date },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.statusUpdateSchedule).toBeNull();
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("status moving out of draft clears a pending staged start when no schedule key is present", () => {
+    const experiment = makeExperiment({
+      status: "draft",
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = { status: "running" };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("status staying draft does not clear a pending staged start", () => {
+    const experiment = makeExperiment({
+      status: "draft",
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = { status: "draft" };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.nextScheduledStatusUpdate).toBeUndefined();
+  });
+
+  it("no schedule key and no status change leaves changes untouched", () => {
+    const experiment = makeExperiment({
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = { name: "renamed" };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.nextScheduledStatusUpdate).toBeUndefined();
+  });
+
+  it("draft defers a relative stopAfter (no resolution, no staged stop)", () => {
+    const experiment = makeExperiment({ status: "draft" });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: { stopAfter: { value: 7, unit: "days" } },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    const sched = changes.statusUpdateSchedule as {
+      stopAt?: Date;
+      stopAfter?: { value: number; unit: string };
+    };
+    expect(sched.stopAfter).toEqual({ value: 7, unit: "days" });
+    expect(sched.stopAt).toBeUndefined();
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("running stopAt in the future stages a stop", () => {
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const experiment = makeExperiment({ status: "running" });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: { stopAt: future },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.nextScheduledStatusUpdate).toEqual({
+      type: "stop",
+      date: future,
+    });
+  });
+
+  it("running stopAt already in the past does not stage a stop", () => {
+    const experiment = makeExperiment({ status: "running" });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: { stopAt: new Date("2000-01-01") },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("running resolves a relative stopAfter off the phase start and stages a stop", () => {
+    const start = new Date();
+    const experiment = makeExperiment({
+      status: "running",
+      phases: [{ dateStarted: start }],
+    } as Partial<ExperimentInterface>);
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: { stopAfter: { value: 7, unit: "days" } },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    const sched = changes.statusUpdateSchedule as {
+      stopAt?: Date;
+      stopAfter?: unknown;
+    };
+    expect(sched.stopAt).toBeInstanceOf(Date);
+    expect(sched.stopAfter).toBeUndefined();
+    expect(changes.nextScheduledStatusUpdate?.type).toBe("stop");
+  });
+
+  it("running does not stage a stop when a relative stopAfter resolves to the past", () => {
+    const start = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    const experiment = makeExperiment({
+      status: "running",
+      phases: [{ dateStarted: start }],
+    } as Partial<ExperimentInterface>);
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: { stopAfter: { value: 30, unit: "days" } },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("carries the nested scheduledStopPlan through when the schedule has dates", () => {
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const experiment = makeExperiment({ status: "running" });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: {
+        stopAt: future,
+        scheduledStopPlan: { mode: "stop", fallback: "notify" },
+      },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    const sched = changes.statusUpdateSchedule as {
+      scheduledStopPlan?: { mode: string; fallback: string };
+    };
+    expect(sched.scheduledStopPlan).toEqual({
+      mode: "stop",
+      fallback: "notify",
+    });
+  });
+
+  it("drops the nested scheduledStopPlan when there are no schedule dates", () => {
+    const experiment = makeExperiment({ status: "running" });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: {
+        scheduledStopPlan: { mode: "notify", fallback: "notify" },
+      } as ExperimentInterface["statusUpdateSchedule"],
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.statusUpdateSchedule).toBeNull();
+  });
+
+  it("drops the nested scheduledStopPlan on a start-only schedule (no end)", () => {
+    const future = new Date("2099-06-01T12:00:00Z");
+    const experiment = makeExperiment({ status: "draft" });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: {
+        startAt: future,
+        scheduledStopPlan: { mode: "notify", fallback: "notify" },
+      } as ExperimentInterface["statusUpdateSchedule"],
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    const sched = changes.statusUpdateSchedule as {
+      startAt?: Date;
+      scheduledStopPlan?: unknown;
+    };
+    expect(sched.startAt).toEqual(future);
+    expect(sched.scheduledStopPlan).toBeUndefined();
+  });
+});
+
+describe("fillEmptyVariationKeys", () => {
+  const makeVariation = (key: string, id = `v_${key || "new"}`): Variation => ({
+    id,
+    name: key || "New",
+    description: "",
+    key,
+    screenshots: [],
+  });
+
+  it("is a no-op when no variations have an empty key", () => {
+    const variations = [makeVariation("0"), makeVariation("1")];
+    const snapshot = variations.map((v) => ({ ...v }));
+
+    fillEmptyVariationKeys(variations, ["0", "1"]);
+
+    expect(variations).toEqual(snapshot);
+  });
+
+  it("is a no-op for an empty variations array", () => {
+    const variations: Variation[] = [];
+
+    fillEmptyVariationKeys(variations, ["0", "1"]);
+
+    expect(variations).toEqual([]);
+  });
+
+  it("assigns the next numeric key for the typical sequential case", () => {
+    const variations = [
+      makeVariation("0"),
+      makeVariation("1"),
+      makeVariation(""),
+    ];
+
+    fillEmptyVariationKeys(variations, ["0", "1"]);
+
+    expect(variations.map((v) => v.key)).toEqual(["0", "1", "2"]);
+  });
+
+  it("assigns monotonically increasing keys to multiple empties", () => {
+    const variations = [
+      makeVariation("0"),
+      makeVariation("1"),
+      makeVariation(""),
+      makeVariation(""),
+    ];
+
+    fillEmptyVariationKeys(variations, ["0", "1"]);
+
+    expect(variations.map((v) => v.key)).toEqual(["0", "1", "2", "3"]);
+  });
+
+  it("skips existing customized keys to avoid collision", () => {
+    const variations = [
+      makeVariation("0"),
+      makeVariation("2"),
+      makeVariation(""),
+    ];
+
+    fillEmptyVariationKeys(variations, ["0", "2"]);
+
+    expect(variations.map((v) => v.key)).toEqual(["0", "2", "3"]);
+  });
+
+  it("starts at 0 when no existing keys are non-negative integers", () => {
+    const variations = [
+      makeVariation("control"),
+      makeVariation("treatment"),
+      makeVariation(""),
+    ];
+
+    fillEmptyVariationKeys(variations, ["control", "treatment"]);
+
+    expect(variations.map((v) => v.key)).toEqual(["control", "treatment", "0"]);
+  });
+
+  it("uses the largest non-negative integer key in a mixed set", () => {
+    const variations = [
+      makeVariation("control"),
+      makeVariation("5"),
+      makeVariation(""),
+    ];
+
+    fillEmptyVariationKeys(variations, ["control", "5"]);
+
+    expect(variations.map((v) => v.key)).toEqual(["control", "5", "6"]);
+  });
+
+  it("ignores non-canonical numeric strings when finding the largest", () => {
+    const variations = [
+      makeVariation("0"),
+      makeVariation("007"),
+      makeVariation("-1"),
+      makeVariation("3.5"),
+      makeVariation(""),
+    ];
+
+    fillEmptyVariationKeys(variations, ["0", "007", "-1", "3.5"]);
+
+    expect(variations[variations.length - 1].key).toBe("1");
+  });
+
+  it("assigns 0 when there are no existing keys at all", () => {
+    const variations = [makeVariation(""), makeVariation("")];
+
+    fillEmptyVariationKeys(variations, []);
+
+    expect(variations.map((v) => v.key)).toEqual(["0", "1"]);
+  });
+
+  it("does not modify variations whose key is already set", () => {
+    const variations = [
+      makeVariation("0"),
+      makeVariation("custom"),
+      makeVariation(""),
+    ];
+
+    fillEmptyVariationKeys(variations, ["0", "custom"]);
+
+    expect(variations[0].key).toBe("0");
+    expect(variations[1].key).toBe("custom");
+    expect(variations[2].key).toBe("1");
+  });
+});
+
+describe("validateScheduleUpdate", () => {
+  // The stop-plan branch (which dereferences context) is never hit by these
+  // date-focused cases, so a bare context is safe.
+  const context = {} as Context;
+
+  const run = (opts: {
+    experimentType?: ExperimentInterface["type"];
+    status?: ExperimentInterface["status"];
+    archived?: boolean;
+    phaseStart?: Date;
+    existingSchedule?: { startAt?: string; stopAt?: string } | null;
+    incoming: ScheduleUpdateInput;
+  }): string[] =>
+    validateScheduleUpdate({
+      context,
+      experimentType: opts.experimentType ?? "standard",
+      status: opts.status ?? "draft",
+      archived: opts.archived ?? false,
+      phaseStart: opts.phaseStart,
+      existingSchedule: opts.existingSchedule
+        ? {
+            ...(opts.existingSchedule.startAt
+              ? { startAt: new Date(opts.existingSchedule.startAt) }
+              : {}),
+            ...(opts.existingSchedule.stopAt
+              ? { stopAt: new Date(opts.existingSchedule.stopAt) }
+              : {}),
+          }
+        : null,
+      variations: [],
+      goalMetrics: [],
+      incoming: opts.incoming,
+    });
+
+  it("throws when experiment type is bandit", () => {
+    expect(() =>
+      run({
+        experimentType: "multi-armed-bandit",
+        incoming: { startAt: "2099-01-01T00:00:00Z" },
+      }),
+    ).toThrow("Scheduling is not supported for Bandit experiments.");
+  });
+
+  it("throws when the experiment is archived", () => {
+    expect(() =>
+      run({ archived: true, incoming: { startAt: "2099-01-01T00:00:00Z" } }),
+    ).toThrow(
+      "Cannot change the schedule of a stopped or archived experiment.",
+    );
+  });
+
+  it("throws when the experiment is stopped", () => {
+    expect(() =>
+      run({
+        status: "stopped",
+        incoming: { startAt: "2099-01-01T00:00:00Z" },
+      }),
+    ).toThrow(
+      "Cannot change the schedule of a stopped or archived experiment.",
+    );
+  });
+
+  it("throws when startAt is in the past", () => {
+    expect(() =>
+      run({ incoming: { startAt: "2000-01-01T00:00:00Z" } }),
+    ).toThrow("startAt must be in the future.");
+  });
+
+  it("does not throw for a valid future startAt on a standard experiment", () => {
+    expect(() =>
+      run({ incoming: { startAt: "2099-01-01T00:00:00Z" } }),
+    ).not.toThrow();
+  });
+
+  it("throws when stopAt is not after startAt", () => {
+    expect(() =>
+      run({
+        incoming: {
+          startAt: "2099-06-01T00:00:00Z",
+          stopAt: "2099-05-01T00:00:00Z",
+        },
+      }),
+    ).toThrow("stopAt must be after startAt.");
+  });
+
+  it("does not re-check a past startAt that is unchanged from the stored value", () => {
+    // An end-date/shipping edit on an already-scheduled experiment re-submits the
+    // stored (now-past) startAt; it should not trip the future-start check.
+    expect(() =>
+      run({
+        incoming: { startAt: "2000-01-01T00:00:00Z" },
+        existingSchedule: { startAt: "2000-01-01T00:00:00Z" },
+      }),
+    ).not.toThrow();
+  });
+
+  it("throws when a new stopAt is in the past", () => {
+    expect(() => run({ incoming: { stopAt: "2000-01-01T00:00:00Z" } })).toThrow(
+      "stopAt must be in the future",
+    );
+  });
+
+  it("throws when stopAt is changed to a different past date", () => {
+    expect(() =>
+      run({
+        incoming: { stopAt: "2000-02-01T00:00:00Z" },
+        existingSchedule: { stopAt: "2000-01-01T00:00:00Z" },
+      }),
+    ).toThrow("stopAt must be in the future");
+  });
+
+  it("does not re-check a past stopAt that is unchanged from the stored value", () => {
+    // e.g. a notify-mode end already fired and kept the experiment running; an
+    // unrelated edit re-submits the stored (now-past) stopAt.
+    expect(() =>
+      run({
+        incoming: { stopAt: "2000-01-01T00:00:00Z" },
+        existingSchedule: { stopAt: "2000-01-01T00:00:00Z" },
+      }),
+    ).not.toThrow();
+  });
+
+  it("does not throw for a future stopAt", () => {
+    expect(() =>
+      run({ incoming: { stopAt: "2099-01-01T00:00:00Z" } }),
+    ).not.toThrow();
+  });
+
+  it("throws when a running stopAfter resolves to the past", () => {
+    const start = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    expect(() =>
+      run({
+        status: "running",
+        phaseStart: start,
+        incoming: { stopAfter: { value: 30, unit: "days" } },
+      }),
+    ).toThrow("which has already passed");
+  });
+
+  it("does not throw when a running stopAfter resolves to the future", () => {
+    expect(() =>
+      run({
+        status: "running",
+        phaseStart: new Date(),
+        incoming: { stopAfter: { value: 30, unit: "days" } },
+      }),
+    ).not.toThrow();
+  });
+
+  it("does not check stopAfter for a non-running experiment", () => {
+    // A draft's relative end is resolved off the real start time later; it must
+    // not be evaluated against the (absent) phase start here.
+    const start = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    expect(() =>
+      run({
+        status: "draft",
+        phaseStart: start,
+        incoming: { stopAfter: { value: 30, unit: "days" } },
+      }),
+    ).not.toThrow();
+  });
+});
+
+describe("getExperimentMetricById funnel steps", () => {
+  const funnelMetric = {
+    id: "fact__funnel",
+    name: "Signup Funnel",
+    metricType: "funnel",
+    numerator: null,
+    denominator: null,
+    funnelSettings: {
+      steps: [
+        { name: "View", factTableId: "ft_views", rowFilters: [] },
+        { name: "Signup", factTableId: "ft_events", rowFilters: [] },
+      ],
+    },
+  } as unknown as FactMetricInterface;
+
+  const context = {
+    models: {
+      factMetrics: {
+        getById: async (id: string) =>
+          id === funnelMetric.id ? funnelMetric : null,
+      },
+    },
+  } as unknown as Context;
+
+  it("resolves a step id to a proportion metric named after its step", async () => {
+    const step = await getExperimentMetricById(context, "fact__funnel?step=1");
+
+    expect(step?.name).toBe("Signup Funnel: Signup");
+    expect(step && isFactMetric(step) && step.metricType).toBe("proportion");
+  });
+
+  it("returns null for a step the funnel no longer has", async () => {
+    expect(
+      await getExperimentMetricById(context, "fact__funnel?step=7"),
+    ).toBeNull();
+  });
+
+  it("returns null when the step's parent is not a funnel", async () => {
+    expect(await getExperimentMetricById(context, "fact__other?step=0")).toBe(
+      null,
+    );
+  });
+});
+
+describe("updateExperimentBanditSettings", () => {
+  it("refuses to reweight when an analysis failed to compute", () => {
+    const experiment = {
+      phases: [{ variationWeights: [0.5, 0.5] }],
+    } as unknown as ExperimentInterface;
+    const snapshot = {
+      analyses: [
+        {
+          results: [
+            {
+              variations: [
+                {
+                  metrics: {
+                    decision: {
+                      computeFailed: true,
+                      errorMessage: "decision analysis failed",
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    } as unknown as ExperimentSnapshotInterface;
+
+    expect(() =>
+      updateExperimentBanditSettings({
+        experiment,
+        snapshot,
+        reweight: true,
+      }),
+    ).toThrow("Bandit analysis failed: decision analysis failed");
+    expect(experiment.phases[0].variationWeights).toEqual([0.5, 0.5]);
+    expect(experiment.phases[0].banditEvents).toBeUndefined();
   });
 });

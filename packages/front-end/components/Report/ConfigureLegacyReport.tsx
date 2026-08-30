@@ -3,12 +3,12 @@ import { useFieldArray, useForm } from "react-hook-form";
 import {
   ExperimentReportInterface,
   MetricSnapshotSettings,
-} from "back-end/types/report";
+} from "shared/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import uniq from "lodash/uniq";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -16,8 +16,8 @@ import {
 } from "shared/constants";
 import { datetime, getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
-import { MetricInterface } from "back-end/types/metric";
-import { DifferenceType } from "back-end/types/stats";
+import { MetricDefinitionInterface } from "shared/types/metric";
+import { DifferenceType } from "shared/types/stats";
 import {
   getAllMetricIdsFromExperiment,
   getMetricSnapshotSettings,
@@ -41,7 +41,7 @@ import SelectField from "@/components/Forms/SelectField";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import MetricSelector from "@/components/Experiment/MetricSelector";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import DatePicker from "@/components/DatePicker";
@@ -64,6 +64,7 @@ export default function ConfigureLegacyReport({
     getDatasourceById,
     getMetricById,
     getExperimentMetricById,
+    metricGroups,
   } = useDefinitions();
   const datasource = getDatasourceById(report.args.datasource);
 
@@ -82,25 +83,25 @@ export default function ConfigureLegacyReport({
   });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
-  const hasSequentialTestingFeature = hasCommercialFeature(
-    "sequential-testing"
-  );
+  const hasSequentialTestingFeature =
+    hasCommercialFeature("sequential-testing");
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     report.args,
-    false
+    false,
+    metricGroups,
   );
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
-    getExperimentMetricById(m)
+    getExperimentMetricById(m),
   );
   const denominatorMetricIds = uniq(
     allExperimentMetrics
       .map((m) => m?.denominator)
-      .filter((m) => m && typeof m === "string") as string[]
+      .filter((m) => m && typeof m === "string") as string[],
   );
-  const denominatorMetrics: MetricInterface[] = useMemo(() => {
+  const denominatorMetrics: MetricDefinitionInterface[] = useMemo(() => {
     return denominatorMetricIds
       .map((m) => getMetricById(m as string))
       .filter(isDefined);
@@ -115,7 +116,7 @@ export default function ConfigureLegacyReport({
         getExposureQuery(
           datasource?.settings,
           report.args.exposureQueryId,
-          report.args.userIdType
+          report.args.userIdType,
         )?.id || "",
       attributionModel:
         report.args.attributionModel ||
@@ -150,7 +151,7 @@ export default function ConfigureLegacyReport({
         metric: metric,
         denominatorMetrics: denominatorMetrics,
         experimentRegressionAdjustmentEnabled: !!form.watch(
-          `regressionAdjustmentEnabled`
+          `regressionAdjustmentEnabled`,
         ),
         organizationSettings: orgSettings,
         metricOverrides: report.args.metricOverrides,
@@ -167,7 +168,7 @@ export default function ConfigureLegacyReport({
   ]);
 
   const filteredSegments = segments.filter(
-    (s) => s.datasource === report.args.datasource
+    (s) => s.datasource === report.args.datasource,
   );
 
   const datasourceProperties = datasource?.properties;
@@ -183,6 +184,7 @@ export default function ConfigureLegacyReport({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       inline={true}
       header=""
@@ -204,13 +206,13 @@ export default function ConfigureLegacyReport({
             body: JSON.stringify({
               args,
             }),
-          }
+          },
         );
         trackReport(
           "update",
           "SaveAndRunButton",
           datasource?.type || null,
-          res.updatedReport
+          res.updatedReport,
         );
         mutate();
         viewResults();
@@ -218,6 +220,7 @@ export default function ConfigureLegacyReport({
       cta="Save and Run"
     >
       <Field
+        size="legacy"
         label="Tracking Key"
         labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
@@ -230,11 +233,12 @@ export default function ConfigureLegacyReport({
             <div
               className={`col-${Math.max(
                 Math.round(12 / variations.fields.length),
-                3
+                3,
               )} mb-2`}
               key={i}
             >
               <Field
+                size="legacy"
                 label={v.name}
                 labelClassName="mb-0"
                 containerClassName="mb-1"
@@ -255,11 +259,12 @@ export default function ConfigureLegacyReport({
             <div
               className={`col-${Math.max(
                 Math.round(12 / variations.fields.length),
-                3
+                3,
               )} mb-2`}
               key={i}
             >
               <Field
+                size="legacy"
                 label={v.name}
                 labelClassName="mb-0"
                 containerClassName="mb-1"
@@ -277,6 +282,7 @@ export default function ConfigureLegacyReport({
       </div>
       {datasource?.properties?.userIds && (
         <SelectField
+          size="legacy"
           label={
             <>
               Experiment Assignment Table{" "}
@@ -294,8 +300,9 @@ export default function ConfigureLegacyReport({
             };
           })}
           formatOptionLabel={({ label, value }) => {
-            const userIdType = exposureQueries?.find((e) => e.id === value)
-              ?.userIdType;
+            const userIdType = exposureQueries?.find(
+              (e) => e.id === value,
+            )?.userIdType;
             return (
               <>
                 {label}
@@ -353,6 +360,7 @@ export default function ConfigureLegacyReport({
       </div>
 
       <ExperimentMetricsSelector
+        experimentType={experiment?.type}
         datasource={report.args.datasource}
         exposureQueryId={exposureQueryId}
         project={project?.id}
@@ -382,6 +390,7 @@ export default function ConfigureLegacyReport({
         newUi={false}
       />
       <SelectField
+        size="legacy"
         label="Difference Type"
         labelClassName="font-weight-bold"
         value={form.watch("differenceType")}
@@ -409,18 +418,25 @@ export default function ConfigureLegacyReport({
         includeFacts={true}
         label={
           <>
-            Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
+            Activation Metric{" "}
+            <MetricsSelectorTooltip
+              onlyBinomial={true}
+              noFactFunnelMetrics={true}
+              isSingular={true}
+            />
           </>
         }
         labelClassName="font-weight-bold"
         initialOption="None"
         onlyBinomial
+        filterFactFunnelMetrics
         value={form.watch("activationMetric") || ""}
         onChange={(value) => form.setValue("activationMetric", value || "")}
         helpText="Users must convert on this metric before being included"
       />
       {datasourceProperties?.experimentSegments && (
         <SelectField
+          size="legacy"
           label="Segment"
           labelClassName="font-weight-bold"
           // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
@@ -438,6 +454,7 @@ export default function ConfigureLegacyReport({
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
+          size="legacy"
           label="Handling In-Progress Conversions"
           labelClassName="font-weight-bold"
           value={form.watch("skipPartialData") ? "strict" : "loose"}
@@ -459,6 +476,7 @@ export default function ConfigureLegacyReport({
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
+          size="legacy"
           label={
             <AttributionModelTooltip>
               <strong>Conversion Window Override</strong> <FaQuestionCircle />
@@ -495,6 +513,7 @@ export default function ConfigureLegacyReport({
         <div className="d-flex flex-row no-gutters align-items-top ml-1">
           <div className="col-3">
             <SelectField
+              size="legacy"
               label={
                 <PremiumTooltip commercialFeature="sequential-testing">
                   <GBSequential /> Use Sequential Testing
@@ -526,6 +545,7 @@ export default function ConfigureLegacyReport({
             }}
           >
             <Field
+              size="legacy"
               label="Tuning parameter"
               type="number"
               containerClassName="mb-0"
@@ -554,29 +574,19 @@ export default function ConfigureLegacyReport({
       )}
       {form.watch("statsEngine") === "bayesian" && (
         <div className="align-items-center">
-          <label
-            className="ml-1 mr-1 mb-3 font-weight-bold"
-            htmlFor="useLatestPriorSettings"
-          >
-            Use latest metric prior settings{" "}
-            <Tooltip
-              body={
-                "Enabling this ensures the report uses the latest priors set for your organization and metrics. You can disable it to freeze the priors for this report and keep them from changing when metric definitions change."
-              }
-            >
-              <FaQuestionCircle />
-            </Tooltip>
-          </label>
-          <Toggle
+          <Switch
             id="useLatestPriorSettings"
+            label="Use latest metric prior settings"
+            description="Enabling this ensures the report uses the latest priors set for your organization and metrics. You can disable it to freeze the priors for this report and keep them from changing when metric definitions change."
             value={form.watch("useLatestPriorSettings")}
-            setValue={(v) => form.setValue("useLatestPriorSettings", v)}
+            onChange={(v) => form.setValue("useLatestPriorSettings", v)}
           />
         </div>
       )}
       <div className="d-flex flex-row no-gutters align-items-center mb-3 ml-1">
         <div className="col-3">
           <SelectField
+            size="legacy"
             label={
               <PremiumTooltip commercialFeature="regression-adjustment">
                 <GBCuped /> Use Regression Adjustment (CUPED)
@@ -606,6 +616,7 @@ export default function ConfigureLegacyReport({
         <div className="row">
           <div className="col">
             <Field
+              size="legacy"
               label="Custom SQL Filter"
               labelClassName="font-weight-bold"
               {...form.register("queryFilter")}

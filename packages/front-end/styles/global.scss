@@ -1,4 +1,5 @@
 @use "colors";
+@use "variables";
 @import "theme";
 
 // Bootstrap variable overrides must be loaded BEFORE Bootstrap
@@ -17,6 +18,9 @@ body {
   -webkit-font-smoothing: antialiased;
   background-color: var(--background-color);
   color: var(--text-color-main);
+  &.no-scroll {
+    overflow: hidden;
+  }
 }
 
 .text-main {
@@ -43,6 +47,11 @@ body {
 
 .main {
   padding-left: 240px;
+  &.product-analytics-explore-landing {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
   &.lite {
     padding-left: 0;
   }
@@ -212,7 +221,7 @@ pre {
   background-color: rgba(124, 69, 234, 0.1);
   border: 2px solid #7c45ea;
 }
-.dark .btn-outline-primary {
+.dark-theme .btn-outline-primary {
   @include button-outline-variant(
     colors.$highlight-purple-light,
     #fff,
@@ -266,12 +275,6 @@ pre {
   color: #8fb3a8;
   margin-left: 8px;
   cursor: not-allowed !important;
-  .toggle-switch.teal + label {
-    background: #cfe6de;
-  }
-  .toggle-switch.teal input:checked + label {
-    background: #cfe6de;
-  }
 }
 .btn-outline-selected:not(:disabled):not(.disabled) {
   background-color: rgba(69, 196, 234, 0.1);
@@ -312,6 +315,10 @@ pre {
   }
 }
 
+.opacity50 {
+  opacity: 0.5;
+}
+
 .experiment-row-tooltip-wrapper {
   z-index: 820;
   &.tooltip-animate-appear .experiment-row-tooltip {
@@ -326,49 +333,16 @@ pre {
 .experiment-row-tooltip {
   position: absolute;
   display: inline-block;
-  background-color: var(--surface-background-color-alt);
+  background-color: var(--color-panel-solid);
   box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
   padding: 3px 8px;
-  border: 1px solid var(--border-color-300);
   box-sizing: border-box;
   border-radius: 2px;
   font-size: 12px;
   color: var(--text-color-table);
   pointer-events: all;
-  transition: 250ms all;
-
-  .opacity50 {
-    opacity: 0.5;
-  }
-
-  .arrow {
-    position: absolute;
-    width: 60px;
-    margin-left: -30px;
-    height: 30px;
-    overflow: hidden;
-    transform: scaleX(0.75);
-    pointer-events: none;
-    &::after {
-      left: 20px;
-      content: "";
-      position: absolute;
-      width: 20px;
-      height: 20px;
-      border-radius: 2px;
-      background-color: var(--surface-background-color-alt);
-      border: 1px solid var(--border-color-300);
-      box-sizing: border-box;
-      transform: rotate(45deg);
-      box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
-    }
-    &.top::after {
-      top: 27px;
-    }
-    &.bottom::after {
-      bottom: 27px;
-    }
-  }
+  transition: 150ms all;
+  box-shadow: var(--shadow-5);
 
   .results-overview {
     background-color: #66666610;
@@ -548,8 +522,10 @@ pre {
 
 .main.experiment,
 .main.bandit,
+.main.holdout,
 .public.experiment,
-.public.bandit {
+.public.bandit,
+.public.holdout {
   .experiment-header {
     .border {
       border-bottom: 1px solid var(--border-color-200);
@@ -605,7 +581,9 @@ pre {
       position: sticky;
       z-index: 930;
       // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025);
+      box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.1),
+        0 4px 4px rgba(0, 0, 0, 0.025);
       .header-tabs .tab-wrapper {
         overflow: hidden;
       }
@@ -625,10 +603,31 @@ pre {
   &.pinned {
     background-color: var(--color-surface-solid);
     // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.1),
+      0 4px 4px rgba(0, 0, 0, 0.025);
     .header-tabs .tab-wrapper {
       overflow: hidden;
     }
+    .rt-BaseTabList {
+      box-shadow: none !important;
+    }
+  }
+}
+.feature-tabs {
+  background-color: var(--color-background);
+  // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in FeaturesHeader.tsx
+  top: 55px;
+  height: 40px;
+  transition: 150ms all;
+
+  &.pinned {
+    position: sticky;
+    z-index: 930;
+    // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.1),
+      0 4px 4px rgba(0, 0, 0, 0.025);
     .rt-BaseTabList {
       box-shadow: none !important;
     }
@@ -641,7 +640,7 @@ pre {
   }
 }
 
-.dimension-header-label {
+.slice-header-label {
   margin-top: 30px;
   padding: 0 10px;
 }
@@ -653,19 +652,83 @@ pre {
   }
 }
 
+// Wide config tables (the field editor + the usage tables on the config page).
+// Same trade-off as .experiment-results-wrapper: an `overflow-x` ancestor breaks
+// a document-sticky header AND would clip the inline edit-field dropdowns, so we
+// only enable x-scroll once the viewport is too narrow to show the table without
+// squeezing/truncating, and drop the sticky header at that same breakpoint.
+// Above it there is no scroll container (header sticks, dropdowns aren't
+// clipped); below it we trade the sticky header for horizontal scroll. Viewport
+// (not container) query on purpose — a container-query ancestor would establish a
+// containing block that re-clips the `position: fixed` react-select menus.
+// Keep the breakpoint in the two rules in sync.
+.config-table-scroll {
+  @media (max-width: 1400px) {
+    overflow-x: auto;
+  }
+}
+.config-table-sticky-header {
+  position: sticky;
+  @media (max-width: 1400px) {
+    position: static;
+  }
+}
+
 .experiment-results,
 .bandit-summary-results {
   tbody {
-    .results-label-row {
+    &.child-row {
       background-color: var(--slate-a2);
     }
-    tr:not(.noborder) {
-      box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
-
-      &:not(.results-label-row) {
-        td:not(.graph-cell):not(:last-child) {
-          box-shadow: rgba(102, 102, 102, 0.125) -1px 0 inset;
+    tr {
+      &:not(.slice-header-row) {
+        box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
         }
+      }
+
+      &.slice-collapsed {
+        box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+        &.last-slice-header {
+          box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+          &.results-clickable-row:hover {
+            box-shadow: var(--shadow-3);
+          }
+        }
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
+      }
+      &.slice-expanded {
+        box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
+      }
+
+      &:last-of-type:not(.slice-collapsed):not(.slice-expanded) {
+        box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
+      }
+
+      &.last-before-slice-header {
+        box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
+      }
+
+      &:not(.results-label-row):not(.slice-header-row) {
+        td:not(.graph-cell):not(:last-child) {
+          box-shadow: rgba(102, 102, 102, 0.05) -1px 0 inset;
+        }
+      }
+
+      td:first-of-type {
+        padding-left: var(--space-1);
       }
     }
   }
@@ -700,12 +763,16 @@ pre {
       &.header-label {
         padding-bottom: 5px;
         font-size: 16px;
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-high);
       }
 
       &.label {
         color: var(--color-text-mid);
-        font-size: 13px;
+        font-size: 12px;
+        font-weight: var(--font-weight-bold);
         padding-bottom: 5px;
+        line-height: 16px;
       }
     }
   }
@@ -732,10 +799,9 @@ pre {
     font-size: 14px;
   }
   .result-number-sub {
-    font-size: 12px;
-    //font-style: italic;
-    line-height: 14px;
-    margin-top: 3px;
+    font-size: 11px;
+    line-height: 13px;
+    margin-top: 2px;
   }
   .plusminus {
     font-size: 12px;
@@ -794,6 +860,14 @@ pre {
     cursor: pointer;
     transition: 100ms all;
   }
+  tr.results-metric-row {
+    height: 55px;
+    box-shadow: var(--slate-a5) 0 -1px inset;
+  }
+  tr.results-clickable-row {
+    cursor: pointer;
+    transition: box-shadow 100ms ease;
+  }
   .visx-axis-left .visx-axis-line {
     // axis line has a 0.5 pixel offset. reverse it
     transform: translate(0.5px, -0.5px);
@@ -845,7 +919,7 @@ main.main {
 }
 .badge-purple {
   background-color: var(--form-multivalue-background-color);
-  color: var(--form-multivalue-text-color);
+  color: var(--slate-12);
 }
 .badge-yellow {
   background-color: var(--alert-warn-background);
@@ -890,10 +964,6 @@ main.main {
   background-color: var(--table-row-highlight-background-color);
 }
 
-.webhook-filters .select-all .gb-multi-select__control {
-  background-color: var(--table-row-highlight-background-color) !important;
-}
-
 .experiment-switch-page {
   opacity: 0.6;
   transition: opacity 0.2s;
@@ -916,14 +986,16 @@ main.main {
     }
   }
 }
-.dark .bg-white textarea.form-control,
-.dark .tab-content input.form-control {
+.dark-theme .bg-white textarea.form-control,
+.dark-theme .tab-content input.form-control {
   background-color: var(--black-a3);
 }
 
 .hover-show {
   .show-target {
-    transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
+    &:not(.instant) {
+      transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
+    }
     opacity: 0;
   }
   &:hover {
@@ -936,7 +1008,7 @@ main.main {
   opacity: 0.5;
   transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
   &:hover {
-    opacity: 1;
+    opacity: 1 !important;
   }
 }
 .hover-underline {
@@ -956,7 +1028,7 @@ main.main {
 
 .link-purple {
   color: var(--violet-a11);
-  text-decoration: none;
+  text-decoration: var(--violet-a5);
   &:hover {
     color: var(--violet-a10);
     text-decoration: underline;
@@ -984,7 +1056,7 @@ main.main {
   margin: 0 auto;
 }
 .gbtable {
-  background-color: var(--surface-background-color);
+  background-color: var(--color-panel-solid); //var(--surface-background-color);
   margin-bottom: 0;
   thead {
     th {
@@ -1009,8 +1081,28 @@ main.main {
   td {
     vertical-align: middle;
   }
+  &.table-valign-top {
+    td,
+    th {
+      vertical-align: top;
+    }
+  }
+
+  .dark-theme &.decision-criteria-table {
+    tbody {
+      tr {
+        background-color: #1b2339;
+        td {
+          color: var(--text-color-main);
+        }
+      }
+    }
+    .hover-highlight:hover {
+      background-color: rgba(124, 69, 234, 0.06);
+    }
+  }
 }
-.dark .gbtable {
+.dark-theme .gbtable {
   thead {
     th {
       background-color: #262d42;
@@ -1018,6 +1110,30 @@ main.main {
   }
   td {
     vertical-align: middle;
+  }
+  &.table-valign-top {
+    td,
+    th {
+      vertical-align: top;
+    }
+  }
+}
+
+.query-table {
+  thead {
+    th {
+      background-color: var(--slate-2);
+    }
+  }
+}
+
+.dark-theme .query-table {
+  thead {
+    th {
+      // hard coded to match slate-a2 on the background color
+      // opaque to prevent table header from showing through
+      background-color: rgba(36, 43, 61, 1);
+    }
   }
 }
 
@@ -1181,7 +1297,7 @@ main.main {
     border-color: var(--border-color-300);
   }
 }
-.dark .buttontabs {
+.dark-theme .buttontabs {
   .nav-button-item {
     &.active {
       color: colors.$highlight-purple-light;
@@ -1196,7 +1312,7 @@ main.main {
   background-color: rgba(255, 255, 255, 1);
   padding: 7px 9px;
 }
-.dark .dropdown-circle {
+.dark-theme .dropdown-circle {
   background-color: rgba(255, 255, 255, 0.1);
 }
 .shiftdown-1 {
@@ -1328,8 +1444,8 @@ main.main {
     }
   }
 }
-.dark .appbox:not(.nobg) .appbox,
-.dark .box:not(.nobg) .appbox {
+.dark-theme .appbox:not(.nobg) .appbox,
+.dark-theme .box:not(.nobg) .appbox {
   background-color: var(--white-a1);
 }
 
@@ -1345,9 +1461,6 @@ main.main {
 .flex-1 {
   flex: 1;
 }
-.diff-wrapper td {
-  padding: 0 10px !important;
-}
 .expandable-container {
   overflow: hidden;
   max-height: 120px;
@@ -1357,6 +1470,11 @@ main.main {
 }
 .badge-used {
   opacity: 0.5;
+}
+
+// Required for the collapsible component to work correctly with lazyRender={true} - https://github.com/glennflanagan/react-collapsible/issues/36
+.Collapsible__contentInner {
+  border: 1px solid transparent;
 }
 
 .Collapsible__trigger {
@@ -1371,51 +1489,45 @@ main.main {
     transition: transform 0.1s;
     transform: rotate(0deg);
   }
+  .chevron-right {
+    transition: transform 0.1s;
+    transform: rotate(0deg);
+  }
   &.is-open {
     .chevron {
       transform: rotate(90deg);
     }
+    .chevron-right {
+      transform: rotate(90deg);
+    }
+    .draft-selector-collapsible-trigger {
+      border-radius: var(--radius-4) var(--radius-4) 0 0;
+    }
   }
 }
 
-.code-holder {
-  margin: 0.5em 0;
-
-  &.collapsible pre {
-    transition: max-height 0.2s;
-    max-height: 60em;
-    overflow-y: scroll;
+.draft-selector-collapsible-trigger {
+  background-color: var(--violet-a3);
+  border-radius: var(--radius-4);
+  &:hover {
+    background-color: var(--violet-a4);
   }
-
-  &.collapsed pre {
-    max-height: 10em;
+  &.no-hover:hover {
+    background-color: var(--violet-a3);
   }
-
-  .action-buttons {
-    .message {
-      padding: 2px 6px;
-      background: colors.$highlight-purple;
-      color: #fff;
-      position: relative;
-      margin-right: 10px;
-      display: inline-block;
-      border-radius: 3px;
-      margin-top: 2px;
-
-      .arrow {
-        position: absolute;
-        left: 100%;
-        top: 50%;
-        margin-top: -6px;
-        border: 6px solid transparent;
-        border-left: 6px solid colors.$highlight-purple;
-      }
+  &.has-conflict {
+    background-color: var(--amber-a3);
+    &:hover {
+      background-color: var(--amber-a4);
+    }
+    &.no-hover:hover {
+      background-color: var(--amber-a3);
     }
   }
+}
 
-  pre {
-    margin: 0 !important;
-  }
+.draft-selector-collapsible-content {
+  border: 0px !important;
 }
 
 .gb-tooltip {
@@ -1424,6 +1536,10 @@ main.main {
   font-size: 13px;
   text-transform: initial;
   font-weight: normal;
+  opacity: 0;
+  transition:
+    opacity 0.3s ease,
+    visibility 0.3s ease;
 
   .arrow {
     position: absolute;
@@ -1465,6 +1581,14 @@ main.main {
     color: var(--text-color-premium);
   }
 
+  &.tooltip-visible {
+    opacity: 1;
+    visibility: visible;
+  }
+  &.tooltip-hidden {
+    opacity: 0;
+    visibility: hidden;
+  }
   &[data-popper-placement^="top"] > .arrow {
     bottom: -4px;
     margin-left: -4px;
@@ -1517,12 +1641,8 @@ main.main {
   }
 
   .intro-side {
-    background-color: colors.$purple;
-    background: radial-gradient(
-      at 50% 100%,
-      rgba(109, 18, 228, 0.75),
-      rgb(15, 1, 94)
-    );
+    background: url("/images/login-background.png") lightgray 50% / cover
+      no-repeat;
     color: #fff;
     padding-bottom: 30px;
     vertical-align: middle;
@@ -1622,82 +1742,6 @@ main.main {
     box-shadow: rgba(6, 6, 6, 0.365) 0px 0px 1px;
     clip-path: polygon(0% 0%, 104% -4%, 100% 100%);
     border: 1px inset var(--border-color-300);
-  }
-}
-
-.toggle-switch {
-  display: inline-block;
-  margin-right: 5px;
-  vertical-align: middle;
-  height: 25px;
-  width: 50px;
-  position: relative;
-
-  input[type="checkbox"] {
-    height: 0;
-    width: 0;
-    visibility: hidden;
-  }
-
-  label {
-    position: absolute;
-    top: 0;
-    left: 0;
-    cursor: pointer;
-    text-indent: -9999px;
-    width: 50px;
-    height: 25px;
-    background: var(--form-switch-background);
-    display: block;
-    border-radius: 100px;
-    margin-bottom: 0;
-    padding-bottom: 0;
-  }
-
-  label:after {
-    content: "";
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 21px;
-    height: 21px;
-    background: var(--surface-background-color);
-    border-radius: 90px;
-    transition: 0.3s;
-  }
-
-  input:checked + label:after {
-    left: calc(100% - 2px);
-    transform: translateX(-100%);
-  }
-
-  input:checked + label {
-    background: var(--form-switch-background-active);
-  }
-  &.toggle-featureValue input:checked + label {
-    background: colors.$blue;
-  }
-
-  label:active:after {
-    width: 30px;
-  }
-
-  &.disabled {
-    label {
-      cursor: not-allowed;
-    }
-    label:active:after {
-      width: 21px;
-    }
-  }
-
-  &.teal {
-    label {
-      background: #cfe6de;
-    }
-    input:checked + label {
-      background: colors.$teal;
-    }
   }
 }
 
@@ -2003,58 +2047,11 @@ main.main {
 }
 
 .variation {
-  $colors: colors.$variant-0, colors.$variant-1, colors.$variant-2,
-    colors.$variant-3, colors.$variant-4, colors.$variant-5, colors.$variant-6,
-    colors.$variant-7, colors.$variant-8;
+  $colors:
+    colors.$variant-0, colors.$variant-1, colors.$variant-2, colors.$variant-3,
+    colors.$variant-4, colors.$variant-5, colors.$variant-6, colors.$variant-7,
+    colors.$variant-8;
 
-  &.with-variation-label {
-    .label {
-      display: inline-flex;
-      flex-shrink: 0;
-      align-items: center;
-      justify-content: center;
-      width: 24px;
-      height: 24px;
-      line-height: 24px;
-      color: var(--slate-11);
-      font-weight: 600;
-      border: 1.5px solid var(--slate-a11);
-      border-radius: 20px;
-      margin-right: var(--space-2);
-    }
-
-    .name {
-      color: var(--slate-11);
-      margin-right: 4px;
-    }
-
-    @for $i from 0 through 99 {
-      $color-index: $i % length($colors);
-      $color: nth($colors, $color-index + 1);
-      &.variation#{$i} {
-        .label {
-          border-color: $color;
-          color: $color;
-        }
-
-        .name {
-          color: $color;
-        }
-      }
-    }
-  }
-
-  &.with-variation-border-bottom {
-    border-bottom: 7px solid var(--slate-11);
-
-    @for $i from 0 through 99 {
-      $color-index: $i % length($colors);
-      $color: nth($colors, $color-index + 1);
-      &.variation#{$i} {
-        border-bottom: 7px solid $color;
-      }
-    }
-  }
   &.with-small-border {
     border-top: 4px solid var(--slate-11);
     @for $i from 0 through 99 {
@@ -2073,18 +2070,6 @@ main.main {
       $color: nth($colors, $color-index + 1);
       &.variation#{$i} {
         background-color: $color;
-      }
-    }
-  }
-
-  &.with-variation-right-shadow {
-    box-shadow: -3px 0 0 var(--slate-11) inset;
-
-    @for $i from 0 through 99 {
-      $color-index: $i % length($colors);
-      $color: nth($colors, $color-index + 1);
-      &.variation#{$i} {
-        box-shadow: -3px 0 0 $color inset;
       }
     }
   }
@@ -2179,6 +2164,10 @@ main.main {
     visibility: hidden;
   }
   tr:hover .tr-hover {
+    visibility: visible;
+  }
+  // Radix Table rows may not be native <tr>; show row-hover actions in list tables
+  .rt-TableBody .rt-TableRow:hover .tr-hover {
     visibility: visible;
   }
 
@@ -2607,11 +2596,16 @@ li.metrics a span img {
   }
   .carousel-control-next-icon,
   .carousel-control-prev-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 30px;
     height: 30px;
     border-radius: 50px;
-    background-size: 50%;
+    background-image: none;
     background-color: colors.$gray-600;
+    color: #fff;
+    font-size: 18px;
   }
   .carousel-inner {
     overflow: visible;
@@ -2623,6 +2617,11 @@ li.metrics a span img {
 
 html {
   scroll-behavior: smooth;
+  body[data-scroll-locked] {
+    // fixes Radix <Select> layout shift
+    overflow: visible !important;
+    margin-right: 0 !important;
+  }
 }
 
 .variationWrap {
@@ -2736,16 +2735,16 @@ html {
       .gb-select__input-container {
         margin: 0 !important;
         padding: 0 !important;
-        max-width: 220px !important;
+        max-width: 250px !important;
         .gb-select__input {
-          max-width: 220px !important;
+          max-width: 250px !important;
         }
       }
       .gb-select__single-value {
         margin: 0 10px 0 0 !important;
         padding: 0 1px !important;
         color: var(--text-dark) !important;
-        max-width: 220px !important;
+        max-width: 250px !important;
       }
     }
     .gb-select__indicators {
@@ -2820,13 +2819,9 @@ html {
   position: relative;
   .gb-multi-select__menu-portal {
     position: absolute !important;
-    top: -8px;
-    left: 290px;
-    @media (max-width: 520px) {
-      top: auto;
-      bottom: 0;
-      left: 0;
-    }
+    top: auto;
+    bottom: 0;
+    left: 0;
   }
 }
 
@@ -2917,11 +2912,8 @@ html {
     }
   }
   .secondary-box {
-    background: linear-gradient(
-        0deg,
-        rgba(124, 69, 234, 0.06),
-        rgba(124, 69, 234, 0.06)
-      ),
+    background:
+      linear-gradient(0deg, rgba(124, 69, 234, 0.06), rgba(124, 69, 234, 0.06)),
       #ffffff;
     box-shadow: 0px 1px 3px rgba(23, 18, 33, 0.08);
     border-radius: 3px;
@@ -2954,6 +2946,10 @@ html {
 }
 
 .new-share {
+  .scrolly {
+    max-height: 40vh;
+    overflow-y: auto;
+  }
   .selected-area {
     background-color: rgba(27, 103, 235, 0.036);
   }
@@ -3033,18 +3029,112 @@ html {
     margin: 0;
     font-weight: 400;
   }
-  .variation-result {
+  .variation-result,
+  .result-winner,
+  .result-lost,
+  .result-dnf,
+  .result-inconclusive {
     font-weight: bold;
+    font-size: 1.5rem;
+  }
+  .presentation-appear {
+    animation: presentation-appear-fade 0.4s ease forwards;
+  }
+}
+@keyframes presentation-appear-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 .presentation-preview {
   width: 100%;
   height: 350px;
+  overflow: hidden;
   > div {
     width: 200%;
     height: 700px;
     transform-origin: top left;
     transform: scale(0.5);
+  }
+}
+
+// Custom presentation deck (replaces Spectacle)
+.presentation-deck {
+  &.presentation-deck-preview {
+    max-height: 700px;
+    .presentation-deck-footer {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.85rem;
+    }
+    .presentation-slide-dots button {
+      width: 6px !important;
+      height: 6px !important;
+      min-width: 6px;
+      &[style*="width: 20px"] {
+        width: 12px !important;
+      }
+    }
+  }
+
+  &.presentation-deck-print {
+    .presentation-print-slide:last-child {
+      page-break-after: auto;
+    }
+  }
+}
+
+@media print {
+  .presentation-deck-print .presentation-print-slide {
+    min-height: 100vh;
+    box-sizing: border-box;
+  }
+}
+
+.presentation-transition-fade {
+  .presentation-slide-content {
+    animation: presentation-fade-in 0.6s ease;
+  }
+}
+@keyframes presentation-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.presentation-transition-slide-next {
+  .presentation-slide-content {
+    animation: presentation-slide-in-from-right 0.6s ease;
+  }
+}
+.presentation-transition-slide-prev {
+  .presentation-slide-content {
+    animation: presentation-slide-in-from-left 0.6s ease;
+  }
+}
+@keyframes presentation-slide-in-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(80px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes presentation-slide-in-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-80px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
@@ -3090,7 +3180,8 @@ html {
 .rta__autocomplete {
   margin-top: 25px;
   z-index: 998;
-  box-shadow: 0 4px 8px 0 var(--border-color-300),
+  box-shadow:
+    0 4px 8px 0 var(--border-color-300),
     0 6px 20px 0 var(--border-color-300);
 }
 .rta__list {
@@ -3215,6 +3306,10 @@ td.disabled {
 .cursor-disabled {
   cursor: not-allowed;
 }
+// Offsets a row action button to align with the control of a labelless "normal"-size field.
+.field-row-action {
+  padding-top: 10px;
+}
 .cursor-default {
   cursor: default;
 }
@@ -3225,6 +3320,9 @@ td.disabled {
 .form-group.error .gb-multi-select__control,
 .form-group.error input[type="text"] {
   border-color: colors.$danger !important;
+}
+.gb-select-wrapper.warning .gb-select__control {
+  border-color: var(--amber-11) !important;
 }
 
 .gb-select--is-disabled,
@@ -3262,14 +3360,99 @@ td.disabled {
     }
   }
 }
+.form-control {
+  border-color: var(--gray-a7);
+  border-radius: var(--radius-2);
+  background-color: var(--color-surface);
+}
 .form-control:focus {
-  border-color: var(--border-color-200);
+  border-color: var(--gray-a7);
   box-shadow: 0px 0px 0px 1px var(--violet-8);
 }
 .form-control:disabled {
   cursor: not-allowed;
   color: var(--color-text-disabled) !important;
-  background-color: var(--slate-a3) !important;
+  background-color: var(--gray-a2) !important;
+}
+// Normalize input/select heights to our size scale; textarea uses min-height so it can still grow
+input.form-control,
+select.form-control {
+  height: 36px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  font-size: var(--font-size-2);
+}
+textarea.form-control {
+  min-height: 36px;
+  font-size: var(--font-size-2);
+}
+input.form-control--sm,
+select.form-control--sm {
+  height: 28px;
+  border-radius: var(--radius-2);
+}
+input.form-control--sm,
+select.form-control--sm,
+textarea.form-control--sm {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  font-size: var(--font-size-1);
+}
+input.form-control--md,
+select.form-control--md {
+  height: 32px;
+  border-radius: var(--radius-2);
+}
+input.form-control--legacy,
+select.form-control--legacy {
+  height: 36px;
+  border-radius: var(--radius-2);
+}
+input.form-control--md,
+select.form-control--md,
+textarea.form-control--md {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  font-size: var(--font-size-2);
+}
+input.form-control--legacy,
+select.form-control--legacy {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  font-size: var(--font-size-2);
+}
+// Textareas grow from padding rather than a fixed height, so they need more
+// vertical padding than the fixed-height inputs/selects to feel like legacy.
+textarea.form-control--legacy {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  font-size: var(--font-size-2);
+}
+input.form-control--lg,
+select.form-control--lg {
+  height: 40px;
+  border-radius: var(--radius-3);
+}
+input.form-control--lg,
+select.form-control--lg,
+textarea.form-control--lg {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  font-size: var(--font-size-3);
+}
+.form-control--error {
+  border-color: var(--red-8) !important;
+  &:focus {
+    border-color: var(--violet-8) !important;
+    outline-color: var(--violet-8) !important;
+  }
+}
+.form-control--warning {
+  border-color: var(--amber-8) !important;
+  &:focus {
+    border-color: var(--violet-8) !important;
+    outline-color: var(--violet-8) !important;
+  }
 }
 input:disabled {
   cursor: not-allowed;
@@ -3288,6 +3471,10 @@ input:disabled {
     text-overflow: ellipsis;
   }
 }
+.input-group-text {
+  background-color: var(--gray-a2) !important;
+  border-color: var(--border-color-200) !important;
+}
 
 .text-premium {
   color: var(--text-color-premium);
@@ -3301,15 +3488,6 @@ input:disabled {
 
   .alert-link {
     color: var(--text-color-main);
-  }
-}
-
-.alert-cool-1 {
-  border-radius: 5px;
-  color: #4d7693;
-  background: linear-gradient(to top, #c0d6e6, #d5ebf0);
-  .btn-link {
-    color: #007bff;
   }
 }
 
@@ -3376,6 +3554,10 @@ input:disabled {
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 7px;
+}
+.tags-cell-content .tags-container {
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 .feature-draft-copy {
   font-size: 14px;
@@ -3523,4 +3705,311 @@ input:disabled {
     right: 0;
     background-color: var(--accent-indicator);
   }
+}
+
+// Ace Editor theme overrides
+.ace_editor {
+  background-color: var(--color-background) !important;
+}
+.ace_editor .ace_gutter {
+  background: var(--color-panel-solid) !important;
+}
+.ace_editor.ace_autocomplete {
+  width: 500px !important;
+  background-color: var(--color-surface-solid) !important;
+}
+
+// Ace autocomplete is appended to body (outside .radix-themes), so it doesn't
+// see theme variables. Set explicit backgrounds by theme so the list is readable.
+.light-theme .ace_editor.ace_autocomplete {
+  background-color: #ffffff !important;
+}
+.dark-theme .ace_editor.ace_autocomplete {
+  background-color: #0c1122 !important;
+}
+
+.needs-attentions-table {
+  thead th {
+    font-weight: 600;
+  }
+  tbody td {
+    font-weight: 400;
+  }
+}
+.rounded-table {
+  border-radius: 0.33rem;
+  overflow: hidden;
+  border-spacing: 0;
+  border-collapse: separate;
+  border: 1px solid var(--slate-a6);
+}
+.border-violet {
+  border-color: var(--violet-a7);
+}
+
+.dashboard-disabled {
+  opacity: 50%;
+  pointer-events: none;
+}
+
+// react-grid-layout overrides for dashboard blocks
+.dashboard-grid-container {
+  position: relative;
+}
+
+.dashboard-grid {
+  position: relative;
+
+  // Make sure each grid item is a clean stacking context so the inner
+  // .appbox shadow/border don't get clipped by RGL's positioning. Also need
+  // position:relative so the disabled-resize tooltip overlay can absolutely
+  // position itself in the corner where RGL renders the handle.
+  .dashboard-grid-item {
+    height: 100%;
+    width: 100%;
+    position: relative;
+
+    &.is-grid-interaction-disabled .react-resizable-handle {
+      display: none !important;
+    }
+  }
+
+  // RGL adds .react-resizable-handle on every item; only show it while the
+  // user is actively editing the dashboard. In view/share mode the block is
+  // a static container.
+  .react-resizable-handle {
+    display: none;
+  }
+  &.is-editing .react-resizable-handle {
+    display: block;
+  }
+
+  // Tone down the default Tabler-style resize handle so it blends in with
+  // the Radix violet palette.
+  &.is-editing .react-resizable-handle::after {
+    border-color: var(--violet-9);
+  }
+
+  // When resizing is disabled (edit drawer is open) keep the handle visible
+  // but dimmed, and let the sibling overlay capture hover so we can surface
+  // a tooltip explaining why it's inactive.
+  &.is-resize-disabled .react-resizable-handle {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  // The placeholder RGL shows under a dragging block - match the violet
+  // accent and round the corners to look like an inset block outline.
+  .react-grid-placeholder {
+    background: var(--violet-a4) !important;
+    border: 2px dashed var(--violet-9);
+    border-radius: 6px;
+    opacity: 1 !important;
+  }
+}
+
+.dashboard-grid-add-block-gap {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed transparent;
+  border-radius: 6px;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+
+  button {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  &:hover,
+  &:focus-within,
+  &.is-open {
+    background: var(--violet-a2);
+    border-color: var(--violet-a7);
+
+    button {
+      opacity: 1;
+    }
+  }
+}
+
+// Transparent overlay rendered over the bottom-right corner of a block while
+// the edit drawer is open. Sits on Tooltip's own trigger <span> so Popper
+// anchors correctly. `display: block` is required because <span> is inline
+// by default, which would collapse the overlay.
+.dashboard-resize-handle-disabled-overlay {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: block;
+  width: 22px;
+  height: 22px;
+  cursor: not-allowed;
+  z-index: 3;
+}
+
+// Drag handle inside the block toolbar.
+.dashboard-block-drag-handle {
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+// Inner block container needs to fill the RGL cell so resizing the block
+// shrinks/grows the content area, not just the outer wrapper.
+.dashboard-block.appbox {
+  height: 100%;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.opacity-0 {
+  opacity: 0;
+}
+
+.hover-border-violet {
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0);
+  border-radius: 2px;
+  &:hover {
+    border-color: var(--violet-11);
+  }
+}
+
+// For absolute or fixed containers that should position themselves after the sidebar
+.sidebarLeft {
+  left: variables.$sidebarwidth;
+}
+// Conditionally add these classes based on the SidebarOpenProvider
+@media (max-width: 1180px) {
+  .sidebarLeftOpen {
+    left: variables.$sidebarwidth !important;
+  }
+  .sidebarLeftClosed {
+    left: 0 !important;
+  }
+}
+
+.rr-player {
+  float: none !important;
+  box-shadow: none !important;
+}
+
+// ── rrweb-player control bar overrides ───────────────────────────────────────
+// The player uses Svelte-scoped class names (.svelte-XXXXX) with specificity
+// (0,3,0). !important on the base class names wins without hardcoding the hash.
+//
+// Layout goal (single row):
+//   [play/pause] [1x][2x][4x][8x]  |  [time ══progress══ time]  |  [skip inactive] [⛶]
+//
+// Technique: display:contents on .rr-controller__btns "unwraps" all buttons
+// into direct flex children of .rr-controller. flex:1 on .rr-timeline fills
+// the middle; buttons before .switch sort left, .switch and anything after
+// sort right.
+
+// Control bar — single horizontal row
+.rr-controller {
+  flex-direction: row !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  padding: 0 8px !important;
+  gap: 2px !important;
+  background: var(--color-panel-solid) !important;
+  border-top: 1px solid var(--slate-a4) !important;
+  border-radius: 0 !important;
+}
+
+// Unwrap button container — its children become direct flex items of .rr-controller
+.rr-controller__btns {
+  display: contents !important;
+}
+
+// Play/pause + speed buttons → left (default order 1)
+.rr-controller__btns button {
+  order: 1 !important;
+}
+
+// Timeline (time labels + progress bar) → grows to fill middle space
+.rr-timeline {
+  order: 5 !important;
+  flex: 1 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  margin-left: 12px !important;
+  gap: 12px !important; // buffer so the handle circle (10px radius) can't overlap the time labels
+}
+
+// Skip-inactive toggle → right of timeline
+.rr-controller__btns .switch {
+  order: 10 !important;
+  margin: 0 4px 0 12px !important;
+}
+
+// Any buttons after .switch (e.g. fullscreen) → rightmost
+.rr-controller__btns .switch ~ button {
+  order: 11 !important;
+}
+
+// Progress track
+.rr-progress {
+  background: var(--slate-a4) !important;
+  border-top-color: var(--color-panel-solid) !important;
+  border-bottom-color: var(--color-panel-solid) !important;
+}
+
+// Played portion
+.rr-progress__step {
+  background: var(--accent-9) !important;
+}
+
+// Scrub handle
+.rr-progress__handler {
+  background: var(--accent-9) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+// Time labels
+.rr-timeline__time {
+  color: var(--gray-11) !important;
+  font-size: 12px !important;
+  width: auto !important;
+  white-space: nowrap !important;
+}
+
+// Active/selected button (current speed, playing)
+.rr-controller__btns button.active {
+  background: var(--accent-9) !important;
+  color: #fff !important;
+}
+
+// Pressed state
+.rr-controller__btns button:active {
+  background: var(--accent-3) !important;
+}
+
+// Remove Bootstrap's default label bottom margin from the toggle
+.switch label {
+  margin-bottom: 0 !important;
+}
+
+// Skip-inactive toggle track (off)
+.switch label::before {
+  background: var(--accent-6) !important;
+}
+
+// Skip-inactive toggle track (on)
+.switch input[type="checkbox"]:checked + label::before {
+  background: var(--accent-9) !important;
+}
+
+// Replay mouse cursor dot
+.replayer-mouse::after {
+  background: var(--accent-9) !important;
 }

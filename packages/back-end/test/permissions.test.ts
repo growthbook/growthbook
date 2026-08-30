@@ -1,14 +1,33 @@
-import { Permissions } from "shared/permissions";
 import {
-  getUserPermissions,
+  ENV_SCOPED_PERMISSIONS,
+  Permissions,
   roleToPermissionMap,
-} from "back-end/src/util/organization.util";
-import { OrganizationInterface } from "back-end/types/organization";
-import { TeamInterface } from "back-end/types/team";
-import { FeatureInterface } from "back-end/types/feature";
-import { MetricInterface } from "back-end/types/metric";
+} from "shared/permissions";
+import { OrganizationInterface } from "shared/types/organization";
+import { TeamInterface } from "shared/types/team";
+import { FeatureInterface } from "shared/types/feature";
+import { MetricInterface } from "shared/types/metric";
+import { DataSourceInterface } from "shared/types/datasource";
 import { SUPERADMIN_DEFAULT_ROLE } from "back-end/src/util/secrets";
-import { DataSourceInterface } from "back-end/types/datasource";
+import { getUserPermissions } from "back-end/src/util/organization.util";
+
+/**
+ * The envGrants a SINGLE role contributes: its env-scoped permissions under its
+ * own restriction, or undefined (toEqual-invisible) when it grants none.
+ * Merged entries (user + team) concatenate contributors' grants and are written
+ * out by hand where the distinction is the point under test.
+ */
+function expectedEnvGrants(
+  role: string,
+  org: OrganizationInterface,
+  environments: string[],
+  limitAccessByEnvironment: boolean,
+) {
+  const perms = roleToPermissionMap(role, org);
+  const scoped = ENV_SCOPED_PERMISSIONS.filter((p) => perms[p]);
+  if (!scoped.length) return undefined;
+  return [{ environments, limitAccessByEnvironment, permissions: scoped }];
+}
 
 describe("Build base user permissions", () => {
   const testOrg: OrganizationInterface = {
@@ -40,7 +59,7 @@ describe("Build base user permissions", () => {
   // Basic user permissions - no project-level permissions or teams
   it("should throw error if user isn't in the org", async () => {
     expect(async () =>
-      getUserPermissions({ id: "base_user_not_in_org" }, testOrg, [])
+      getUserPermissions({ id: "base_user_not_in_org" }, testOrg, []),
     ).rejects.toThrow("User is not a member of this organization");
   });
 
@@ -49,13 +68,19 @@ describe("Build base user permissions", () => {
       getUserPermissions(
         { id: "base_user_not_in_org", superAdmin: true },
         testOrg,
-        []
-      )
+        [],
+      ),
     ).toEqual({
       global: {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap(SUPERADMIN_DEFAULT_ROLE, testOrg),
+        envGrants: expectedEnvGrants(
+          SUPERADMIN_DEFAULT_ROLE,
+          testOrg,
+          [],
+          false,
+        ),
       },
       projects: {},
     });
@@ -68,13 +93,14 @@ describe("Build base user permissions", () => {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "collaborator" }],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("collaborator", testOrg),
+        envGrants: expectedEnvGrants("collaborator", testOrg, [], false),
       },
       projects: {},
     });
@@ -87,13 +113,14 @@ describe("Build base user permissions", () => {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "noaccess" }],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("noaccess", testOrg),
+        envGrants: expectedEnvGrants("noaccess", testOrg, [], false),
       },
       projects: {},
     });
@@ -103,13 +130,14 @@ describe("Build base user permissions", () => {
     const userPermissions = getUserPermissions(
       { id: "base_user_123" },
       testOrg,
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("readonly", testOrg),
+        envGrants: expectedEnvGrants("readonly", testOrg, [], false),
       },
       projects: {},
     });
@@ -122,13 +150,14 @@ describe("Build base user permissions", () => {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "collaborator" }],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("collaborator", testOrg),
+        envGrants: expectedEnvGrants("collaborator", testOrg, [], false),
       },
       projects: {},
     });
@@ -141,13 +170,14 @@ describe("Build base user permissions", () => {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "engineer" }],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("engineer", testOrg),
+        envGrants: expectedEnvGrants("engineer", testOrg, [], false),
       },
       projects: {},
     });
@@ -160,13 +190,14 @@ describe("Build base user permissions", () => {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "analyst" }],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("analyst", testOrg),
+        envGrants: expectedEnvGrants("analyst", testOrg, [], false),
       },
       projects: {},
     });
@@ -179,13 +210,14 @@ describe("Build base user permissions", () => {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "experimenter" }],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("experimenter", testOrg),
+        envGrants: expectedEnvGrants("experimenter", testOrg, [], false),
       },
       projects: {},
     });
@@ -198,13 +230,14 @@ describe("Build base user permissions", () => {
         ...testOrg,
         members: [{ ...testOrg.members[0], role: "admin" }],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("admin", testOrg),
+        envGrants: expectedEnvGrants("admin", testOrg, [], false),
       },
       projects: {},
     });
@@ -232,19 +265,26 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
         environments: ["development"],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("admin", testOrg),
+        envGrants: expectedEnvGrants("admin", testOrg, ["development"], false),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: ["staging"],
           limitAccessByEnvironment: false,
           permissions: roleToPermissionMap("collaborator", testOrg),
+          envGrants: expectedEnvGrants(
+            "collaborator",
+            testOrg,
+            ["staging"],
+            false,
+          ),
         },
       },
     });
@@ -264,13 +304,19 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
         environments: ["staging", "development", "production"],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("engineer", testOrg),
+        envGrants: expectedEnvGrants(
+          "engineer",
+          testOrg,
+          ["staging", "development", "production"],
+          false,
+        ),
       },
       projects: {},
     });
@@ -290,13 +336,19 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      []
+      [],
     );
     expect(userPermissions).toEqual({
       global: {
         environments: ["staging", "production", "unknown"],
         limitAccessByEnvironment: true,
         permissions: roleToPermissionMap("engineer", testOrg),
+        envGrants: expectedEnvGrants(
+          "engineer",
+          testOrg,
+          ["staging", "production", "unknown"],
+          true,
+        ),
       },
       projects: {},
     });
@@ -322,7 +374,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      []
+      [],
     );
 
     expect(userPermissions).toEqual({
@@ -330,12 +382,14 @@ describe("Build base user permissions", () => {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("readonly", testOrg),
+        envGrants: expectedEnvGrants("readonly", testOrg, [], false),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: [],
           limitAccessByEnvironment: false,
           permissions: roleToPermissionMap("engineer", testOrg),
+          envGrants: expectedEnvGrants("engineer", testOrg, [], false),
         },
       },
     });
@@ -366,7 +420,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      []
+      [],
     );
 
     expect(userPermissions).toEqual({
@@ -374,17 +428,20 @@ describe("Build base user permissions", () => {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("readonly", testOrg),
+        envGrants: expectedEnvGrants("readonly", testOrg, [], false),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: [],
           limitAccessByEnvironment: false,
           permissions: roleToPermissionMap("engineer", testOrg),
+          envGrants: expectedEnvGrants("engineer", testOrg, [], false),
         },
         prj_exl5jr5dl4rbw123: {
           environments: [],
           limitAccessByEnvironment: false,
           permissions: roleToPermissionMap("analyst", testOrg),
+          envGrants: expectedEnvGrants("analyst", testOrg, [], false),
         },
       },
     });
@@ -404,7 +461,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      []
+      [],
     );
 
     expect(userPermissions).toEqual({
@@ -412,6 +469,12 @@ describe("Build base user permissions", () => {
         environments: ["staging", "development"],
         limitAccessByEnvironment: true,
         permissions: roleToPermissionMap("engineer", testOrg),
+        envGrants: expectedEnvGrants(
+          "engineer",
+          testOrg,
+          ["staging", "development"],
+          true,
+        ),
       },
       projects: {},
     });
@@ -445,7 +508,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      []
+      [],
     );
 
     expect(userPermissions).toEqual({
@@ -453,17 +516,30 @@ describe("Build base user permissions", () => {
         environments: ["staging", "development"],
         limitAccessByEnvironment: true,
         permissions: roleToPermissionMap("engineer", testOrg),
+        envGrants: expectedEnvGrants(
+          "engineer",
+          testOrg,
+          ["staging", "development"],
+          true,
+        ),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: ["production"],
           limitAccessByEnvironment: true,
           permissions: roleToPermissionMap("engineer", testOrg),
+          envGrants: expectedEnvGrants(
+            "engineer",
+            testOrg,
+            ["production"],
+            true,
+          ),
         },
         prj_exl5jr5dl4rbw123: {
           environments: [],
           limitAccessByEnvironment: false,
           permissions: roleToPermissionMap("analyst", testOrg),
+          envGrants: expectedEnvGrants("analyst", testOrg, [], false),
         },
       },
     });
@@ -512,7 +588,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -520,20 +596,227 @@ describe("Build base user permissions", () => {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("collaborator", testOrg),
+        envGrants: expectedEnvGrants("collaborator", testOrg, [], false),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: ["production"],
           limitAccessByEnvironment: true,
           permissions: roleToPermissionMap("engineer", testOrg),
+          envGrants: expectedEnvGrants(
+            "engineer",
+            testOrg,
+            ["production"],
+            true,
+          ),
         },
         prj_exl5jr5dl4rbw123: {
           environments: [],
           limitAccessByEnvironment: false,
           permissions: roleToPermissionMap("analyst", testOrg),
+          envGrants: expectedEnvGrants("analyst", testOrg, [], false),
         },
       },
     });
+  });
+
+  it("should let an explicit project-level noaccess role take precedence over a team's global role (project role isn't widened by team global)", async () => {
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "SCIM Group",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "idp",
+        role: "readonly",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        managedByIdp: true,
+      },
+    ];
+
+    const userPermissions = getUserPermissions(
+      { id: "base_user_123" },
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "readonly",
+            projectRoles: [
+              {
+                project: "prj_hidden",
+                role: "noaccess",
+                limitAccessByEnvironment: false,
+                environments: [],
+              },
+            ],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams,
+    );
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("readonly", testOrg),
+        envGrants: expectedEnvGrants("readonly", testOrg, [], false),
+      },
+      projects: {
+        prj_hidden: {
+          environments: [],
+          limitAccessByEnvironment: false,
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          envGrants: expectedEnvGrants("noaccess", testOrg, [], false),
+        },
+      },
+    });
+
+    const permissions = new Permissions(userPermissions);
+    expect(permissions.canReadSingleProjectResource("prj_hidden")).toEqual(
+      false,
+    );
+  });
+
+  it("should let an explicit team project role take precedence over the user's global role", async () => {
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Restricted Project Team",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "noaccess",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [
+          {
+            project: "prj_restricted",
+            role: "noaccess",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+        managedByIdp: false,
+      },
+    ];
+
+    const userPermissions = getUserPermissions(
+      { id: "base_user_123" },
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "engineer",
+            projectRoles: [],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams,
+    );
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("engineer", testOrg),
+        envGrants: expectedEnvGrants("engineer", testOrg, [], false),
+      },
+      projects: {
+        prj_restricted: {
+          environments: [],
+          limitAccessByEnvironment: false,
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          envGrants: expectedEnvGrants("noaccess", testOrg, [], false),
+        },
+      },
+    });
+
+    const permissions = new Permissions(userPermissions);
+    expect(permissions.canReadSingleProjectResource("prj_restricted")).toEqual(
+      false,
+    );
+  });
+
+  it("should union a user's explicit project role with a team's explicit project role (a user-level noaccess does not block a team's explicit grant on the same project)", async () => {
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Project Engineers",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "noaccess",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [
+          {
+            project: "prj_shared",
+            role: "engineer",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+        managedByIdp: false,
+      },
+    ];
+
+    const userPermissions = getUserPermissions(
+      { id: "base_user_123" },
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "readonly",
+            projectRoles: [
+              {
+                project: "prj_shared",
+                role: "noaccess",
+                limitAccessByEnvironment: false,
+                environments: [],
+              },
+            ],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams,
+    );
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("readonly", testOrg),
+        envGrants: expectedEnvGrants("readonly", testOrg, [], false),
+      },
+      projects: {
+        prj_shared: {
+          environments: [],
+          limitAccessByEnvironment: false,
+          permissions: roleToPermissionMap("engineer", testOrg),
+          envGrants: expectedEnvGrants("engineer", testOrg, [], false),
+        },
+      },
+    });
+
+    const permissions = new Permissions(userPermissions);
+    expect(permissions.canReadSingleProjectResource("prj_shared")).toEqual(
+      true,
+    );
   });
 
   it("should not override a user's global permissions with a team's permissions if the user has a more permissive role (e.g. don't override admin permissions with collaborator permissions", async () => {
@@ -566,7 +849,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -574,6 +857,7 @@ describe("Build base user permissions", () => {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("admin", testOrg),
+        envGrants: expectedEnvGrants("admin", testOrg, [], false),
       },
       projects: {},
     });
@@ -612,7 +896,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -620,6 +904,11 @@ describe("Build base user permissions", () => {
         environments: ["production", "staging"],
         limitAccessByEnvironment: true,
         permissions: roleToPermissionMap("engineer", testOrg),
+        envGrants: [
+          ...(expectedEnvGrants("engineer", testOrg, ["production"], true) ??
+            []),
+          ...(expectedEnvGrants("engineer", testOrg, ["staging"], true) ?? []),
+        ],
       },
       projects: {},
     });
@@ -658,7 +947,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -666,6 +955,16 @@ describe("Build base user permissions", () => {
         environments: ["production", "staging", "development"],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("engineer", testOrg),
+        envGrants: [
+          ...(expectedEnvGrants("engineer", testOrg, ["production"], true) ??
+            []),
+          ...(expectedEnvGrants(
+            "engineer",
+            testOrg,
+            ["staging", "development"],
+            true,
+          ) ?? []),
+        ],
       },
       projects: {},
     });
@@ -715,7 +1014,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -723,12 +1022,18 @@ describe("Build base user permissions", () => {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("readonly", testOrg),
+        envGrants: expectedEnvGrants("readonly", testOrg, [], false),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: [],
           limitAccessByEnvironment: false,
           permissions: roleToPermissionMap("engineer", testOrg),
+          envGrants: [
+            ...(expectedEnvGrants("engineer", testOrg, ["staging"], true) ??
+              []),
+            ...(expectedEnvGrants("engineer", testOrg, [], false) ?? []),
+          ],
         },
       },
     });
@@ -784,7 +1089,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -792,17 +1097,25 @@ describe("Build base user permissions", () => {
         environments: ["development"],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("admin", testOrg),
+        envGrants: expectedEnvGrants("admin", testOrg, ["development"], false),
       },
       projects: {
         prj_test: {
           environments: [],
           limitAccessByEnvironment: false,
           permissions: roleToPermissionMap("collaborator", testOrg),
+          envGrants: expectedEnvGrants("collaborator", testOrg, [], false),
         },
         prj_exl5jr5dl4rbw856: {
           environments: ["production"],
           limitAccessByEnvironment: true,
           permissions: roleToPermissionMap("engineer", testOrg),
+          envGrants: expectedEnvGrants(
+            "engineer",
+            testOrg,
+            ["production"],
+            true,
+          ),
         },
       },
     });
@@ -838,7 +1151,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -846,6 +1159,12 @@ describe("Build base user permissions", () => {
         environments: ["staging", "production"],
         limitAccessByEnvironment: true,
         permissions: roleToPermissionMap("engineer", testOrg),
+        envGrants: expectedEnvGrants(
+          "engineer",
+          testOrg,
+          ["staging", "production"],
+          true,
+        ),
       },
       projects: {},
     });
@@ -881,7 +1200,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -889,6 +1208,15 @@ describe("Build base user permissions", () => {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("admin", testOrg),
+        envGrants: [
+          ...(expectedEnvGrants("admin", testOrg, [], false) ?? []),
+          ...(expectedEnvGrants(
+            "engineer",
+            testOrg,
+            ["staging", "production"],
+            true,
+          ) ?? []),
+        ],
       },
       projects: {},
     });
@@ -924,7 +1252,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -932,6 +1260,15 @@ describe("Build base user permissions", () => {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("experimenter", testOrg),
+        envGrants: [
+          ...(expectedEnvGrants("experimenter", testOrg, [], false) ?? []),
+          ...(expectedEnvGrants(
+            "engineer",
+            testOrg,
+            ["staging", "production"],
+            true,
+          ) ?? []),
+        ],
       },
       projects: {},
     });
@@ -969,7 +1306,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -977,6 +1314,12 @@ describe("Build base user permissions", () => {
         environments: ["production", "staging"],
         limitAccessByEnvironment: true,
         permissions: roleToPermissionMap("experimenter", testOrg),
+        envGrants: [
+          ...(expectedEnvGrants("engineer", testOrg, ["production"], true) ??
+            []),
+          ...(expectedEnvGrants("experimenter", testOrg, ["staging"], true) ??
+            []),
+        ],
       },
       projects: {},
     });
@@ -1026,7 +1369,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -1034,12 +1377,19 @@ describe("Build base user permissions", () => {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("readonly", testOrg),
+        envGrants: expectedEnvGrants("readonly", testOrg, [], false),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: ["development"],
           limitAccessByEnvironment: true,
           permissions: roleToPermissionMap("experimenter", testOrg),
+          envGrants: expectedEnvGrants(
+            "experimenter",
+            testOrg,
+            ["development"],
+            true,
+          ),
         },
       },
     });
@@ -1082,7 +1432,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -1090,12 +1440,14 @@ describe("Build base user permissions", () => {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("readonly", testOrg),
+        envGrants: expectedEnvGrants("readonly", testOrg, [], false),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: [],
           limitAccessByEnvironment: false,
           permissions: roleToPermissionMap("analyst", testOrg),
+          envGrants: expectedEnvGrants("analyst", testOrg, [], false),
         },
       },
     });
@@ -1145,7 +1497,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -1153,12 +1505,19 @@ describe("Build base user permissions", () => {
         environments: ["staging", "development"],
         limitAccessByEnvironment: true,
         permissions: roleToPermissionMap("experimenter", testOrg),
+        envGrants: expectedEnvGrants(
+          "experimenter",
+          testOrg,
+          ["staging", "development"],
+          true,
+        ),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: [],
           limitAccessByEnvironment: false,
           permissions: roleToPermissionMap("engineer", testOrg),
+          envGrants: expectedEnvGrants("engineer", testOrg, [], false),
         },
       },
     });
@@ -1208,7 +1567,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -1216,12 +1575,24 @@ describe("Build base user permissions", () => {
         environments: ["staging", "development"],
         limitAccessByEnvironment: true,
         permissions: roleToPermissionMap("experimenter", testOrg),
+        envGrants: expectedEnvGrants(
+          "experimenter",
+          testOrg,
+          ["staging", "development"],
+          true,
+        ),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: ["development", "production"],
           limitAccessByEnvironment: true,
           permissions: roleToPermissionMap("engineer", testOrg),
+          envGrants: [
+            ...(expectedEnvGrants("engineer", testOrg, ["development"], true) ??
+              []),
+            ...(expectedEnvGrants("engineer", testOrg, ["production"], true) ??
+              []),
+          ],
         },
       },
     });
@@ -1264,7 +1635,7 @@ describe("Build base user permissions", () => {
           },
         ],
       },
-      teams
+      teams,
     );
 
     expect(userPermissions).toEqual({
@@ -1272,14 +1643,137 @@ describe("Build base user permissions", () => {
         environments: [],
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("engineer", testOrg),
+        envGrants: expectedEnvGrants("engineer", testOrg, [], false),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
           environments: [],
           limitAccessByEnvironment: false,
           permissions: roleToPermissionMap("readonly", testOrg),
+          envGrants: expectedEnvGrants("readonly", testOrg, [], false),
         },
       },
+    });
+  });
+  describe("environment grants do not cross-contaminate across merged roles", () => {
+    // The representation-level bug this pins: permissions and environment lists
+    // used to union independently, so "publish in dev" from one role plus
+    // "create in production" from another became BOTH actions in BOTH
+    // environments. The env verdict now comes from per-role grants. Standard
+    // roles all carry identical env-scoped atoms, so only custom roles can
+    // express the exclusive pairing that makes the leak observable.
+    const orgWithSplitRoles: OrganizationInterface = {
+      ...testOrg,
+      customRoles: [
+        {
+          id: "publisher_only",
+          description: "",
+          policies: ["ReadData", "FlagsPublish"],
+        },
+        {
+          id: "creator_only",
+          description: "",
+          policies: ["ReadData", "FlagsCreate"],
+        },
+      ],
+      members: [
+        {
+          ...testOrg.members[0],
+          role: "publisher_only",
+          limitAccessByEnvironment: true,
+          environments: ["staging"],
+          teams: ["team_prod_creator"],
+        },
+      ],
+    };
+    const teams: TeamInterface[] = [
+      {
+        id: "team_prod_creator",
+        name: "Prod creators",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "",
+        role: "creator_only",
+        limitAccessByEnvironment: true,
+        environments: ["production"],
+        projectRoles: [],
+        managedByIdp: false,
+      },
+    ];
+    const permissions = () =>
+      new Permissions(
+        getUserPermissions({ id: "base_user_123" }, orgWithSplitRoles, teams),
+      );
+
+    it("each role's env-scoped permissions work in that role's environments", () => {
+      expect(
+        permissions().canPublishFeature({ project: "" }, ["staging"]),
+      ).toEqual(true);
+      expect(
+        permissions().canCreateFeature({ project: "" }, ["production"]),
+      ).toEqual(true);
+    });
+
+    it("neither permission leaks into the other role's environments", () => {
+      expect(
+        permissions().canPublishFeature({ project: "" }, ["production"]),
+      ).toEqual(false);
+      expect(
+        permissions().canCreateFeature({ project: "" }, ["staging"]),
+      ).toEqual(false);
+    });
+
+    it("covers a footprint spanning both roles' environments", () => {
+      // The union is per PERMISSION: publish is granted by the staging role
+      // only, so it covers staging alone. Give the same permission a second
+      // grant and the two compose — the member holds publish in both.
+      const bothPublish: OrganizationInterface = {
+        ...orgWithSplitRoles,
+        customRoles: [
+          {
+            id: "publisher_only",
+            description: "",
+            policies: ["ReadData", "FlagsPublish"],
+          },
+          {
+            id: "creator_only",
+            description: "",
+            policies: ["ReadData", "FlagsPublish"],
+          },
+        ],
+      };
+      const perms = new Permissions(
+        getUserPermissions({ id: "base_user_123" }, bothPublish, teams),
+      );
+      expect(
+        perms.canPublishFeature({ project: "" }, ["staging", "production"]),
+      ).toEqual(true);
+    });
+
+    it("still refuses a footprint neither role's grant of that permission covers", () => {
+      const perms = permissions();
+      // publish comes only from the staging role, so production is out of reach
+      // no matter what the production role grants.
+      expect(
+        perms.canPublishFeature({ project: "" }, ["staging", "production"]),
+      ).toEqual(false);
+    });
+
+    it("the flat merged fields would have allowed the leak", () => {
+      // Documents WHY grants exist: the legacy fields still union, so a check
+      // against them alone reads production as allowed for publishFeatures.
+      const raw = getUserPermissions(
+        { id: "base_user_123" },
+        orgWithSplitRoles,
+        teams,
+      );
+      expect(raw.global.environments).toEqual(
+        expect.arrayContaining(["staging", "production"]),
+      );
+      expect(raw.global.permissions.publishFeatures).toEqual(true);
+      expect(raw.global.permissions.createFeatures).toEqual(true);
     });
   });
 });
@@ -1330,7 +1824,7 @@ describe("PermissionsUtilClass.canReadSingleProjectResource check for features",
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      permissions.canReadSingleProjectResource(feature.project)
+      permissions.canReadSingleProjectResource(feature.project),
     );
 
     expect(filteredFeatures).toEqual([]);
@@ -1353,7 +1847,7 @@ describe("PermissionsUtilClass.canReadSingleProjectResource check for features",
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      permissions.canReadSingleProjectResource(feature.project)
+      permissions.canReadSingleProjectResource(feature.project),
     );
 
     expect(filteredFeatures).toEqual([]);
@@ -1377,7 +1871,7 @@ describe("PermissionsUtilClass.canReadSingleProjectResource check for features",
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      permissions.canReadSingleProjectResource(feature.project)
+      permissions.canReadSingleProjectResource(feature.project),
     );
 
     expect(filteredFeatures).toEqual([
@@ -1429,7 +1923,7 @@ describe("PermissionsUtilClass.canReadSingleProjectResource check for features",
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      permissions.canReadSingleProjectResource(feature.project)
+      permissions.canReadSingleProjectResource(feature.project),
     );
 
     expect(filteredFeatures).toEqual([
@@ -1497,7 +1991,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadMultiProjectResource(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects),
     );
 
     expect(filteredMetrics).toEqual([
@@ -1531,7 +2025,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadMultiProjectResource(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects),
     );
 
     expect(filteredMetrics).toEqual([
@@ -1559,7 +2053,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadMultiProjectResource(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects),
     );
 
     expect(filteredMetrics).toEqual([]);
@@ -1584,7 +2078,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadMultiProjectResource(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects),
     );
 
     expect(filteredMetrics).toEqual([]);
@@ -1614,7 +2108,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadMultiProjectResource(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects),
     );
 
     expect(filteredMetrics).toEqual([
@@ -1654,7 +2148,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadMultiProjectResource(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects),
     );
 
     expect(filteredMetrics).toEqual([]);
@@ -1726,7 +2220,7 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
     });
 
     expect(permissions.canCreateAttribute({ projects: ["ABC123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -1747,7 +2241,7 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
     });
 
     expect(permissions.canCreateAttribute({ projects: ["ABC123"] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -1768,7 +2262,7 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
     });
 
     expect(permissions.canCreateAttribute({ projects: ["ABC123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -1789,7 +2283,7 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
     });
 
     expect(
-      permissions.canCreateAttribute({ projects: ["ABC123", "DEF456"] })
+      permissions.canCreateAttribute({ projects: ["ABC123", "DEF456"] }),
     ).toEqual(false);
   });
 
@@ -1815,7 +2309,7 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
     });
 
     expect(
-      permissions.canCreateAttribute({ projects: ["ABC123", "DEF456"] })
+      permissions.canCreateAttribute({ projects: ["ABC123", "DEF456"] }),
     ).toEqual(true);
   });
 });
@@ -1865,7 +2359,10 @@ describe("PermissionsUtilClass.canUpdateAttribute check", () => {
     });
 
     expect(
-      permissions.canUpdateAttribute({ projects: ["ABC123"] }, { projects: [] })
+      permissions.canUpdateAttribute(
+        { projects: ["ABC123"] },
+        { projects: [] },
+      ),
     ).toEqual(false);
   });
 
@@ -1880,7 +2377,28 @@ describe("PermissionsUtilClass.canUpdateAttribute check", () => {
     });
 
     expect(
-      permissions.canUpdateAttribute({ projects: ["ABC123"] }, { projects: [] })
+      permissions.canUpdateAttribute(
+        { projects: ["ABC123"] },
+        { projects: [] },
+      ),
+    ).toEqual(true);
+  });
+
+  it("User with attribute update permission can update when a ready event forwarder exists", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canUpdateAttribute(
+        { projects: ["ABC123"] },
+        { projects: [] },
+      ),
     ).toEqual(true);
   });
 
@@ -1908,8 +2426,8 @@ describe("PermissionsUtilClass.canUpdateAttribute check", () => {
     expect(
       permissions.canUpdateAttribute(
         { projects: ["ABC123"] },
-        { projects: ["ABC123", "DEF456"] }
-      )
+        { projects: ["ABC123", "DEF456"] },
+      ),
     ).toEqual(true);
   });
 });
@@ -1979,7 +2497,7 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
     });
 
     expect(permissions.canDeleteAttribute({ projects: ["ABC123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -2000,7 +2518,7 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
     });
 
     expect(permissions.canDeleteAttribute({ projects: ["ABC123"] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -2021,7 +2539,7 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
     });
 
     expect(permissions.canDeleteAttribute({ projects: ["ABC123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -2042,7 +2560,7 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
     });
 
     expect(
-      permissions.canDeleteAttribute({ projects: ["ABC123", "DEF456"] })
+      permissions.canDeleteAttribute({ projects: ["ABC123", "DEF456"] }),
     ).toEqual(false);
   });
 
@@ -2068,7 +2586,7 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
     });
 
     expect(
-      permissions.canDeleteAttribute({ projects: ["ABC123", "DEF456"] })
+      permissions.canDeleteAttribute({ projects: ["ABC123", "DEF456"] }),
     ).toEqual(true);
   });
 });
@@ -2132,7 +2650,7 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
 
     expect(permissions.canCreateSegment({ projects: [] })).toEqual(false);
     expect(permissions.canCreateSegment({ projects: ["ABC123"] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -2227,13 +2745,13 @@ describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
 
     expect(permissions.canUpdateSegment({ projects: [] }, {})).toEqual(false);
     expect(
-      permissions.canUpdateSegment({ projects: ["ABC123"] }, { projects: [] })
+      permissions.canUpdateSegment({ projects: ["ABC123"] }, { projects: [] }),
     ).toEqual(false);
     expect(
       permissions.canUpdateSegment(
         { projects: ["ABC123"] },
-        { projects: ["ABC123", "DEF456"] }
-      )
+        { projects: ["ABC123", "DEF456"] },
+      ),
     ).toEqual(true);
   });
 
@@ -2328,7 +2846,7 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
 
     expect(permissions.canDeleteSegment({ projects: [] })).toEqual(false);
     expect(permissions.canDeleteSegment({ projects: ["ABC123"] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -3099,7 +3617,7 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
     });
 
     expect(
-      permissions.canUpdateIdea({ project: "" }, { project: "abc123" })
+      permissions.canUpdateIdea({ project: "" }, { project: "abc123" }),
     ).toEqual(false);
   });
 
@@ -3114,7 +3632,7 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
     });
 
     expect(
-      permissions.canUpdateIdea({ project: "" }, { project: "abc123" })
+      permissions.canUpdateIdea({ project: "" }, { project: "abc123" }),
     ).toEqual(true);
   });
 
@@ -3129,7 +3647,7 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
     });
 
     expect(
-      permissions.canUpdateIdea({ project: "abc123" }, { project: "" })
+      permissions.canUpdateIdea({ project: "abc123" }, { project: "" }),
     ).toEqual(false);
   });
 
@@ -3150,7 +3668,7 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
     });
 
     expect(
-      permissions.canUpdateIdea({ project: "abc123" }, { project: "" })
+      permissions.canUpdateIdea({ project: "abc123" }, { project: "" }),
     ).toEqual(false);
   });
 
@@ -3176,7 +3694,7 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
     });
 
     expect(
-      permissions.canUpdateIdea({ project: "abc123" }, { project: "def456" })
+      permissions.canUpdateIdea({ project: "abc123" }, { project: "def456" }),
     ).toEqual(true);
   });
 });
@@ -3420,7 +3938,7 @@ describe("PermissionsUtilClass.canCreateExperiment check", () => {
     });
 
     expect(permissions.canCreateExperiment({ project: "abc123" })).toEqual(
-      false
+      false,
     );
   });
 
@@ -3441,7 +3959,7 @@ describe("PermissionsUtilClass.canCreateExperiment check", () => {
     });
 
     expect(permissions.canCreateExperiment({ project: "abc123" })).toEqual(
-      true
+      true,
     );
   });
 });
@@ -3485,7 +4003,7 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
     });
 
     expect(
-      permissions.canUpdateExperiment({ project: "" }, { project: "abc123" })
+      permissions.canUpdateExperiment({ project: "" }, { project: "abc123" }),
     ).toEqual(false);
   });
 
@@ -3500,7 +4018,7 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
     });
 
     expect(
-      permissions.canUpdateExperiment({ project: "" }, { project: "abc123" })
+      permissions.canUpdateExperiment({ project: "" }, { project: "abc123" }),
     ).toEqual(true);
   });
 
@@ -3515,7 +4033,7 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
     });
 
     expect(
-      permissions.canUpdateExperiment({ project: "abc123" }, { project: "" })
+      permissions.canUpdateExperiment({ project: "abc123" }, { project: "" }),
     ).toEqual(false);
   });
 
@@ -3536,7 +4054,7 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
     });
 
     expect(
-      permissions.canUpdateExperiment({ project: "abc123" }, { project: "" })
+      permissions.canUpdateExperiment({ project: "abc123" }, { project: "" }),
     ).toEqual(false);
   });
 
@@ -3564,8 +4082,8 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
     expect(
       permissions.canUpdateExperiment(
         { project: "abc123" },
-        { project: "def456" }
-      )
+        { project: "def456" },
+      ),
     ).toEqual(true);
   });
 });
@@ -3635,7 +4153,7 @@ describe("PermissionsUtilClass.canDeleteExperiment check", () => {
     });
 
     expect(permissions.canDeleteExperiment({ project: "abc123" })).toEqual(
-      false
+      false,
     );
   });
 
@@ -3656,7 +4174,7 @@ describe("PermissionsUtilClass.canDeleteExperiment check", () => {
     });
 
     expect(permissions.canDeleteExperiment({ project: "abc123" })).toEqual(
-      true
+      true,
     );
   });
 });
@@ -3752,7 +4270,7 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
     });
 
     expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -3786,7 +4304,7 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
     });
 
     expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -3808,7 +4326,7 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
 
     expect(
       // its false since the user doesn't have permission in all projects
-      permissions.canCreateMetric({ projects: ["abc123", "def456"] })
+      permissions.canCreateMetric({ projects: ["abc123", "def456"] }),
     ).toEqual(false);
   });
 
@@ -3835,7 +4353,37 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
 
     expect(
       // its true since the user DOES have permission in all projects
-      permissions.canCreateMetric({ projects: ["abc123", "def456"] })
+      permissions.canCreateMetric({ projects: ["abc123", "def456"] }),
+    ).toEqual(true);
+  });
+
+  it("canCreateMetric should block creation if the user isn't an admin and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canCreateMetric({ projects: ["abc123"], managedBy: "admin" }),
+    ).toEqual(false);
+  });
+
+  it("canCreateMetric should allow creation if the user is an admin and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canCreateMetric({ projects: ["abc123"], managedBy: "admin" }),
     ).toEqual(true);
   });
 });
@@ -4038,6 +4586,50 @@ describe("PermissionsUtilClass.canUpdateMetric check", () => {
 
     expect(permissions.canUpdateMetric(metric, updates)).toEqual(false);
   });
+
+  it("canUpdateMetric should allow updates if the user is an admin and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
+      projects: ["def456"],
+      managedBy: "admin",
+    };
+
+    const updates: Pick<MetricInterface, "projects"> = {
+      projects: [],
+    };
+
+    expect(permissions.canUpdateMetric(metric, updates)).toEqual(true);
+  });
+
+  it("canUpdateMetric should not allow updates if the user is an experimenter and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
+      projects: ["def456"],
+      managedBy: "admin",
+    };
+
+    const updates: Pick<MetricInterface, "projects"> = {
+      projects: [],
+    };
+
+    expect(permissions.canUpdateMetric(metric, updates)).toEqual(false);
+  });
 });
 
 describe("PermissionsUtilClass.canDeleteMetric check", () => {
@@ -4131,7 +4723,7 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
     });
 
     expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -4165,7 +4757,7 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
     });
 
     expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -4187,7 +4779,7 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
 
     expect(
       // its false since the user doesn't have permission in all projects
-      permissions.canCreateMetric({ projects: ["abc123", "def456"] })
+      permissions.canCreateMetric({ projects: ["abc123", "def456"] }),
     ).toEqual(false);
   });
 
@@ -4214,7 +4806,37 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
 
     expect(
       // its true since the user DOES have permission in all projects
-      permissions.canCreateMetric({ projects: ["abc123", "def456"] })
+      permissions.canCreateMetric({ projects: ["abc123", "def456"] }),
+    ).toEqual(true);
+  });
+
+  it("canDeleteMetric should not allow deletion if the user is an experimenter and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canDeleteMetric({ projects: ["abc123"], managedBy: "admin" }),
+    ).toEqual(false);
+  });
+
+  it("canDeleteMetric should allow deletion if the user is an admin and the metric is managed by admin", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    expect(
+      permissions.canDeleteMetric({ projects: ["abc123"], managedBy: "admin" }),
     ).toEqual(true);
   });
 });
@@ -4284,7 +4906,7 @@ describe("PermissionsUtilClass.canCreateFactTable check", () => {
     });
 
     expect(permissions.canCreateFactTable({ projects: ["abc123"] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -4305,7 +4927,7 @@ describe("PermissionsUtilClass.canCreateFactTable check", () => {
     });
 
     expect(permissions.canCreateFactTable({ projects: ["abc123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -4326,7 +4948,7 @@ describe("PermissionsUtilClass.canCreateFactTable check", () => {
     });
 
     expect(permissions.canCreateFactTable({ projects: ["abc123"] })).toEqual(
-      true
+      true,
     );
   });
 });
@@ -4370,7 +4992,10 @@ describe("PermissionsUtilClass.canUpdateFactTable check", () => {
     });
 
     expect(
-      permissions.canUpdateFactTable({ projects: [] }, { projects: ["abc123"] })
+      permissions.canUpdateFactTable(
+        { projects: [] },
+        { projects: ["abc123"] },
+      ),
     ).toEqual(true);
   });
 
@@ -4385,7 +5010,10 @@ describe("PermissionsUtilClass.canUpdateFactTable check", () => {
     });
 
     expect(
-      permissions.canUpdateFactTable({ projects: [] }, { projects: ["abc123"] })
+      permissions.canUpdateFactTable(
+        { projects: [] },
+        { projects: ["abc123"] },
+      ),
     ).toEqual(false);
   });
 
@@ -4406,7 +5034,10 @@ describe("PermissionsUtilClass.canUpdateFactTable check", () => {
     });
 
     expect(
-      permissions.canUpdateFactTable({ projects: ["abc123"] }, { projects: [] })
+      permissions.canUpdateFactTable(
+        { projects: ["abc123"] },
+        { projects: [] },
+      ),
     ).toEqual(false);
   });
 
@@ -4434,9 +5065,39 @@ describe("PermissionsUtilClass.canUpdateFactTable check", () => {
     expect(
       permissions.canUpdateFactTable(
         { projects: ["abc123"] },
-        { projects: ["abc123", "def456"] }
-      )
+        { projects: ["abc123", "def456"] },
+      ),
     ).toEqual(true);
+  });
+
+  it("canUpdateFactTable should let a user without manageOfficialResources edit the Event Forwarder Events fact table, but not promote it to an official resource", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+
+    const eventForwarderFactTable = {
+      id: "ds_abc123_events",
+      datasource: "ds_abc123",
+      managedBy: "api" as const,
+      projects: [],
+    };
+
+    expect(
+      permissions.canUpdateFactTable(eventForwarderFactTable, {
+        description: "Updated",
+      }),
+    ).toEqual(true);
+
+    expect(
+      permissions.canUpdateFactTable(eventForwarderFactTable, {
+        managedBy: "admin",
+      }),
+    ).toEqual(false);
   });
 });
 
@@ -4505,7 +5166,7 @@ describe("PermissionsUtilClass.canDeleteFactTable check", () => {
     });
 
     expect(permissions.canDeleteFactTable({ projects: ["abc123"] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -4526,7 +5187,7 @@ describe("PermissionsUtilClass.canDeleteFactTable check", () => {
     });
 
     expect(permissions.canDeleteFactTable({ projects: ["abc123"] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -4547,7 +5208,7 @@ describe("PermissionsUtilClass.canDeleteFactTable check", () => {
     });
 
     expect(permissions.canDeleteFactTable({ projects: ["abc123"] })).toEqual(
-      true
+      true,
     );
   });
 });
@@ -4680,7 +5341,7 @@ describe("PermissionsUtilClass.canAddComment check", () => {
     });
 
     expect(permissions.canAddComment(["abc123", "def123", "hij123"])).toEqual(
-      true
+      true,
     );
   });
   it("canAddComment returns false for user with global noaccess role on experiment in 'def123'", () => {
@@ -4700,7 +5361,7 @@ describe("PermissionsUtilClass.canAddComment check", () => {
     });
 
     expect(permissions.canAddComment(["abc123", "def123", "hij123"])).toEqual(
-      false
+      false,
     );
   });
   // This is a test specific to the putUpload endpoint - the user needs to have addComment permission either globally, or in atleast 1 project in order to be able to upload images
@@ -4936,7 +5597,12 @@ describe("PermissionsUtilClass.canByPassApprovalChecks", () => {
       projects: {},
     });
 
-    expect(permissions.canBypassApprovalChecks({ project: "" })).toEqual(false);
+    expect(
+      permissions.canBypassFlagApprovalChecks({ project: "" }, "feature"),
+    ).toEqual(false);
+    expect(
+      permissions.canBypassSavedGroupApprovalChecks({ project: "" }),
+    ).toEqual(false);
   });
 
   it("User with admin role able to bypassApprovalCheck", async () => {
@@ -4949,7 +5615,66 @@ describe("PermissionsUtilClass.canByPassApprovalChecks", () => {
       projects: {},
     });
 
-    expect(permissions.canBypassApprovalChecks({ project: "" })).toEqual(true);
+    expect(
+      permissions.canBypassFlagApprovalChecks({ project: "" }, "feature"),
+    ).toEqual(true);
+    expect(
+      permissions.canBypassSavedGroupApprovalChecks({ project: "" }),
+    ).toEqual(true);
+  });
+
+  it("User with project admin role able to bypassApprovalCheck for features in their project", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("gbDefault_projectAdmin", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      },
+    });
+
+    expect(
+      permissions.canBypassFlagApprovalChecks({ project: "abc123" }, "feature"),
+    ).toEqual(true);
+    // Project Admin held the single pre-split atom, which covered saved groups.
+    expect(
+      permissions.canBypassSavedGroupApprovalChecks({ project: "abc123" }),
+    ).toEqual(true);
+  });
+
+  it("User with project admin role unable to bypassApprovalCheck for features outside their project", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("gbDefault_projectAdmin", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      },
+    });
+
+    expect(
+      permissions.canBypassFlagApprovalChecks(
+        { project: "other_project" },
+        "feature",
+      ),
+    ).toEqual(false);
+    expect(
+      permissions.canBypassSavedGroupApprovalChecks({
+        project: "other_project",
+      }),
+    ).toEqual(false);
   });
 });
 
@@ -4991,7 +5716,9 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
       projects: {},
     });
 
-    expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(true);
+    expect(
+      permissions.canReviewFeatureDrafts({ project: "" }, { scope: "any" }),
+    ).toEqual(true);
   });
 
   it("User with engineer role able to reviewFeatureDrafts", async () => {
@@ -5004,7 +5731,9 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
       projects: {},
     });
 
-    expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(true);
+    expect(
+      permissions.canReviewFeatureDrafts({ project: "" }, { scope: "any" }),
+    ).toEqual(true);
   });
 
   it("User with anaylst role able to reviewFeatureDrafts", async () => {
@@ -5017,7 +5746,9 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
       projects: {},
     });
 
-    expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(false);
+    expect(
+      permissions.canReviewFeatureDrafts({ project: "" }, { scope: "any" }),
+    ).toEqual(false);
   });
 
   it("User with global readonly role, but experimenter role on project 'abc123', should be able to reivew features in project 'abc123'", async () => {
@@ -5036,9 +5767,12 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
       },
     });
 
-    expect(permissions.canReviewFeatureDrafts({ project: "abc123" })).toEqual(
-      true
-    );
+    expect(
+      permissions.canReviewFeatureDrafts(
+        { project: "abc123" },
+        { scope: "any" },
+      ),
+    ).toEqual(true);
   });
 
   it("User with global experimenter role, but readonly role on project 'abc123', should be able to reivew features in project 'abc123'", async () => {
@@ -5057,9 +5791,12 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
       },
     });
 
-    expect(permissions.canReviewFeatureDrafts({ project: "abc123" })).toEqual(
-      false
-    );
+    expect(
+      permissions.canReviewFeatureDrafts(
+        { project: "abc123" },
+        { scope: "any" },
+      ),
+    ).toEqual(false);
   });
 
   it("User with admin role able to bypassApprovalCheck", async () => {
@@ -5072,7 +5809,9 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
       projects: {},
     });
 
-    expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(true);
+    expect(
+      permissions.canReviewFeatureDrafts({ project: "" }, { scope: "any" }),
+    ).toEqual(true);
   });
 });
 
@@ -5147,7 +5886,7 @@ describe("PermissionsUtilClass.canCreateVisualChange", () => {
     });
 
     expect(permissions.canCreateVisualChange({ project: "ABC123" })).toEqual(
-      true
+      true,
     );
   });
 
@@ -5249,7 +5988,7 @@ describe("PermissionsUtilClass.canCreateDataSource", () => {
     });
 
     expect(
-      permissions.canCreateDataSource({ projects: [], type: undefined })
+      permissions.canCreateDataSource({ projects: [], type: undefined }),
     ).toEqual(true);
   });
 
@@ -5264,25 +6003,7 @@ describe("PermissionsUtilClass.canCreateDataSource", () => {
     });
 
     expect(
-      permissions.canCreateDataSource({ projects: [], type: undefined })
-    ).toEqual(false);
-  });
-
-  it("User with admin role unable to create growthbook_clickhouse source", async () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("admin", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
-
-    expect(
-      permissions.canCreateDataSource({
-        projects: [],
-        type: "growthbook_clickhouse",
-      })
+      permissions.canCreateDataSource({ projects: [], type: undefined }),
     ).toEqual(false);
   });
 });
@@ -5326,7 +6047,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceParams", () => {
     });
 
     expect(
-      permissions.canUpdateDataSourceParams({ projects: [], type: undefined })
+      permissions.canUpdateDataSourceParams({ projects: [], type: undefined }),
     ).toEqual(true);
   });
 
@@ -5341,7 +6062,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceParams", () => {
     });
 
     expect(
-      permissions.canUpdateDataSourceParams({ projects: [], type: undefined })
+      permissions.canUpdateDataSourceParams({ projects: [], type: undefined }),
     ).toEqual(false);
   });
 
@@ -5359,7 +6080,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceParams", () => {
       permissions.canUpdateDataSourceParams({
         projects: [],
         type: "growthbook_clickhouse",
-      })
+      }),
     ).toEqual(false);
   });
 });
@@ -5403,7 +6124,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     });
 
     expect(permissions.canUpdateDataSourceSettings({ projects: [] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -5418,7 +6139,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     });
 
     expect(permissions.canUpdateDataSourceSettings({ projects: [] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -5433,7 +6154,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     });
 
     expect(permissions.canUpdateDataSourceSettings({ projects: [] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -5448,7 +6169,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     });
 
     expect(permissions.canUpdateDataSourceSettings({ projects: [] })).toEqual(
-      true
+      true,
     );
   });
 
@@ -5469,7 +6190,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     });
 
     expect(
-      permissions.canUpdateDataSourceSettings({ projects: ["abc123"] })
+      permissions.canUpdateDataSourceSettings({ projects: ["abc123"] }),
     ).toEqual(true);
   });
 
@@ -5490,7 +6211,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     });
 
     expect(permissions.canUpdateDataSourceSettings({ projects: [] })).toEqual(
-      false
+      false,
     );
   });
 
@@ -5513,7 +6234,7 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
     expect(
       permissions.canUpdateDataSourceSettings({
         projects: ["abc123", "def123"],
-      })
+      }),
     ).toEqual(false);
   });
 });
@@ -5693,7 +6414,7 @@ describe("PermissionsUtilClass.canRunTestQueries check", () => {
   });
 });
 
-describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
+describe("PermissionsUtilClass.canEditFeatureDrafts", () => {
   const testOrg: OrganizationInterface = {
     id: "org_sktwi1id9l7z9xkjb",
     name: "Test Org",
@@ -5731,7 +6452,7 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
       projects: {},
     });
 
-    expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(false);
+    expect(permissions.canEditFeatureDrafts({ project: "" })).toEqual(false);
   });
 
   it("User with engineer role is able to manage feature drafts", async () => {
@@ -5744,7 +6465,7 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
       projects: {},
     });
 
-    expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(true);
+    expect(permissions.canEditFeatureDrafts({ project: "" })).toEqual(true);
   });
 
   it("User with anaylst role is not able to manage feature drafts", async () => {
@@ -5757,7 +6478,7 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
       projects: {},
     });
 
-    expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(false);
+    expect(permissions.canEditFeatureDrafts({ project: "" })).toEqual(false);
   });
 
   it("User with global readonly role is not able to manage feature drafts for feature without a project", async () => {
@@ -5776,7 +6497,7 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
       },
     });
 
-    expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(false);
+    expect(permissions.canEditFeatureDrafts({ project: "" })).toEqual(false);
   });
 
   it("User with global readonly role is able to manage feature drafts if their project specific permissions grant it", async () => {
@@ -5795,12 +6516,12 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
       },
     });
 
-    expect(permissions.canManageFeatureDrafts({ project: "abc123" })).toEqual(
-      true
+    expect(permissions.canEditFeatureDrafts({ project: "abc123" })).toEqual(
+      true,
     );
   });
 
-  it("canManageFeatureDrafts works as expected for a feature without the project property", async () => {
+  it("canEditFeatureDrafts works as expected for a feature without the project property", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("engineer", testOrg),
@@ -5816,10 +6537,10 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
       },
     });
 
-    expect(permissions.canManageFeatureDrafts({})).toEqual(true);
+    expect(permissions.canEditFeatureDrafts({})).toEqual(true);
   });
 
-  it("canManageFeatureDrafts works as expected for a feature without the project property", async () => {
+  it("canEditFeatureDrafts works as expected for a feature without the project property", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("collaborator", testOrg),
@@ -5835,7 +6556,7 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
       },
     });
 
-    expect(permissions.canManageFeatureDrafts({})).toEqual(false);
+    expect(permissions.canEditFeatureDrafts({})).toEqual(false);
   });
 });
 
@@ -5951,7 +6672,9 @@ describe("PermissionsUtilClass.canCreateFeature check", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateFeature({ project: "" })).toEqual(true);
+    expect(
+      permissions.canCreateFeature({ project: "" }, ["production"]),
+    ).toEqual(true);
   });
 
   it("canCreateFeature returns false for user with global 'analyst' role when trying to create a feature in all projects", () => {
@@ -5964,7 +6687,9 @@ describe("PermissionsUtilClass.canCreateFeature check", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateFeature({ project: "" })).toEqual(false);
+    expect(
+      permissions.canCreateFeature({ project: "" }, ["production"]),
+    ).toEqual(false);
   });
 
   it("canCreateFeature returns true for user with global 'analyst' role when trying to create a feature in a project they have engineer permissions for", () => {
@@ -5983,7 +6708,9 @@ describe("PermissionsUtilClass.canCreateFeature check", () => {
       },
     });
 
-    expect(permissions.canCreateFeature({ project: "ABC123" })).toEqual(true);
+    expect(
+      permissions.canCreateFeature({ project: "ABC123" }, ["production"]),
+    ).toEqual(true);
   });
 
   it("canCreateFeature returns false for user with global 'engineer' role when trying to create a feature in a project they have analyst permissions for", () => {
@@ -6002,100 +6729,17 @@ describe("PermissionsUtilClass.canCreateFeature check", () => {
       },
     });
 
-    expect(permissions.canCreateFeature({ project: "ABC123" })).toEqual(false);
-  });
-});
-
-describe("PermissionsUtilClass.canUpdateFeature check", () => {
-  const testOrg: OrganizationInterface = {
-    id: "org_sktwi1id9l7z9xkjb",
-    name: "Test Org",
-    ownerEmail: "test@test.com",
-    url: "https://test.com",
-    dateCreated: new Date(),
-    invites: [],
-    members: [
-      {
-        id: "base_user_123",
-        role: "readonly",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [],
-        teams: [],
-      },
-    ],
-    settings: {
-      environments: [
-        { id: "development", description: "" },
-        { id: "staging", description: "" },
-        { id: "production", description: "" },
-      ],
-    },
-  };
-
-  it("canUpdateFeature returns true for user with global 'engineer' role when trying to update a feature in all projects", () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("engineer", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    });
-
-    expect(permissions.canUpdateFeature({}, { project: "abc123" })).toEqual(
-      true
-    );
-  });
-
-  it("canUpdateFeature returns false for user with global 'analyst' role when trying to update a feature in a specific project and move it to all projects", () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("analyst", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {
-        ABC123: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-      },
-    });
-
     expect(
-      permissions.canUpdateFeature({ project: "ABC123" }, { project: "" })
+      permissions.canCreateFeature({ project: "ABC123" }, ["production"]),
     ).toEqual(false);
   });
-
-  it("canUpdateFeature returns true for user with global 'analyst' role when trying to move a feature from 1 project they have engineer permissions for to another project they have engineer permissions for", () => {
-    const permissions = new Permissions({
-      global: {
-        permissions: roleToPermissionMap("analyst", testOrg),
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {
-        ABC123: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        DEF456: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-      },
-    });
-
-    expect(
-      permissions.canUpdateFeature({ project: "ABC123" }, { project: "DEF456" })
-    ).toEqual(true);
-  });
 });
+
+// The move-aware `canUpdateFeature` is gone: there is no edit verb. Authoring a
+// change is `editFeatureDrafts` (project-scoped, so a move has no second project
+// to check), and landing it — including into a different project — is
+// `publishFeatures`, checked against both the source and destination at each
+// publish site. Those paths are covered by the publish tests.
 
 describe("PermissionsUtilClass.canDeleteFeature check", () => {
   const testOrg: OrganizationInterface = {
@@ -6135,7 +6779,9 @@ describe("PermissionsUtilClass.canDeleteFeature check", () => {
       projects: {},
     });
 
-    expect(permissions.canDeleteFeature({ project: "" })).toEqual(true);
+    expect(
+      permissions.canDeleteFeature({ project: "" }, ["production"]),
+    ).toEqual(true);
   });
 
   it("canDeleteFeature returns false for user with global 'analyst' role when trying to delete a feature in all projects", () => {
@@ -6148,7 +6794,9 @@ describe("PermissionsUtilClass.canDeleteFeature check", () => {
       projects: {},
     });
 
-    expect(permissions.canDeleteFeature({ project: "" })).toEqual(false);
+    expect(
+      permissions.canDeleteFeature({ project: "" }, ["production"]),
+    ).toEqual(false);
   });
 
   it("canDeleteFeature returns true for user with global 'analyst' role when trying to delete a feature in a project they have engineer permissions for", () => {
@@ -6167,7 +6815,9 @@ describe("PermissionsUtilClass.canDeleteFeature check", () => {
       },
     });
 
-    expect(permissions.canDeleteFeature({ project: "ABC123" })).toEqual(true);
+    expect(
+      permissions.canDeleteFeature({ project: "ABC123" }, ["production"]),
+    ).toEqual(true);
   });
 
   it("canDeleteFeature returns false for user with global 'engineer' role when trying to delete a feature in a project they have analyst permissions for", () => {
@@ -6186,6 +6836,8 @@ describe("PermissionsUtilClass.canDeleteFeature check", () => {
       },
     });
 
-    expect(permissions.canDeleteFeature({ project: "ABC123" })).toEqual(false);
+    expect(
+      permissions.canDeleteFeature({ project: "ABC123" }, ["production"]),
+    ).toEqual(false);
   });
 });

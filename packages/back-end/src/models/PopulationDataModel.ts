@@ -1,5 +1,5 @@
-import { PopulationDataInterface } from "back-end/types/population-data";
-import { populationDataInterfaceValidator } from "back-end/src/routers/population-data/population-data.validators";
+import { PopulationDataInterface } from "shared/types/population-data";
+import { populationDataInterfaceValidator } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -12,7 +12,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "populationData.update",
     deleteEvent: "populationData.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   additionalIndexes: [
     {
       fields: {
@@ -27,7 +27,7 @@ export class PopulationDataModel extends BaseClass {
   protected canRead(doc: PopulationDataInterface): boolean {
     const { datasource } = this.getForeignRefs(doc);
     return this.context.permissions.canReadMultiProjectResource(
-      datasource?.projects || []
+      datasource?.projects || [],
     );
   }
   protected canCreate(doc: PopulationDataInterface): boolean {
@@ -47,7 +47,7 @@ export class PopulationDataModel extends BaseClass {
     sourceId: string,
     userIdType: string,
     onlySuccess = true,
-    lookbackDays = 7
+    lookbackDays = 7,
   ) {
     // end date in the last week
     const lastWeek = new Date();
@@ -60,7 +60,7 @@ export class PopulationDataModel extends BaseClass {
         endDate: { $gte: lastWeek },
         ...(onlySuccess ? { status: "success" } : {}),
       },
-      { sort: { dateCreated: -1 }, limit: 1 }
+      { sort: { dateCreated: -1 }, limit: 1 },
     );
     return populationData[0] ? populationData[0] : null;
   }

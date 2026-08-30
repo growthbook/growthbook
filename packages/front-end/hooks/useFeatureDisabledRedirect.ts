@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useEffect } from "react";
-import { AppFeatures } from "@/types/app-features";
+import { AppFeatures } from "shared/types/app-features";
 
 type UseFeatureDisabledRedirect = {
   ready: boolean;
@@ -15,7 +15,7 @@ type UseFeatureDisabledRedirect = {
  */
 export const useFeatureDisabledRedirect = (
   featureKey: keyof AppFeatures,
-  redirectTo: string = "/"
+  redirectTo: string = "/",
 ): UseFeatureDisabledRedirect => {
   const router = useRouter();
   const growthbook = useGrowthBook<AppFeatures>();
@@ -29,7 +29,7 @@ export const useFeatureDisabledRedirect = (
         router.replace(redirectTo);
       }
     },
-    [ready, router, shouldRender, redirectTo]
+    [ready, router, shouldRender, redirectTo],
   );
 
   return {

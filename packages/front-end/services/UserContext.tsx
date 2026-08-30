@@ -1,5 +1,4 @@
-import { ApiKeyInterface } from "back-end/types/apikey";
-import { TeamInterface } from "back-end/types/team";
+import { TeamInterface } from "shared/types/team";
 import {
   EnvScopedPermission,
   GlobalPermission,
@@ -11,14 +10,15 @@ import {
   ProjectScopedPermission,
   UserPermissions,
   GetOrganizationResponse,
-} from "back-end/types/organization";
+  OrganizationUsage,
+} from "shared/types/organization";
 import type {
   AccountPlan,
   CommercialFeature,
   LicenseInterface,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useRouter } from "next/router";
 import {
   createContext,
@@ -29,12 +29,18 @@ import {
   useMemo,
   useState,
 } from "react";
-import * as Sentry from "@sentry/react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import {
+  setUser as sentrySetUser,
+  setTag as sentrySetTag,
+} from "@sentry/nextjs";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
-import { useFeature } from "@growthbook/growthbook-react";
+import { AgreementType } from "shared/validators";
+import { AIProvider } from "shared/ai";
+import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
 import {
   getGrowthBookBuild,
   getSuperadminDefaultRole,
@@ -54,17 +60,21 @@ export interface PermissionFunctions {
   check(
     permission: EnvScopedPermission,
     project: string[] | string | undefined,
-    envs: string[]
+    envs: string[],
   ): boolean;
   check(
     permission: ProjectScopedPermission,
-    project: string[] | string | undefined
+    project: string[] | string | undefined,
   ): boolean;
 }
 
 export type Team = Omit<TeamInterface, "members"> & {
   members?: ExpandedMember[];
 };
+
+interface RefreshOrganizationOptions {
+  forceLicenseRefresh?: boolean;
+}
 
 export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   createDimensions: false,
@@ -84,21 +94,28 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   readData: false,
   manageCustomRoles: false,
   manageCustomFields: false,
+  manageDecisionCriteria: false,
 };
 
 export interface UserContextValue {
   ready?: boolean;
   userId?: string;
   name?: string;
+  pylonHmacHash?: string;
   email?: string;
   superAdmin?: boolean;
+  npsSurveyAt?: string;
+  accountCreatedAt?: string;
+  npsSurveyEnabled?: boolean;
   license?: Partial<LicenseInterface> | null;
+  installationName?: string;
   subscription: SubscriptionInfo | null;
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
   getUserDisplay: (id: string, fallback?: boolean) => string;
+  getOwnerDisplay: (owner: string | undefined) => string;
   updateUser: () => Promise<void>;
-  refreshOrganization: () => Promise<void>;
+  refreshOrganization: (options?: RefreshOrganizationOptions) => Promise<void>;
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
   settings: OrganizationSettings;
   enterpriseSSO?: Partial<SSOConnectionInterface> | null;
@@ -106,12 +123,16 @@ export interface UserContextValue {
   effectiveAccountPlan?: AccountPlan;
   licenseError: string;
   commercialFeatures: CommercialFeature[];
-  apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
+  agreements?: AgreementType[];
+  // AI providers with a usable API key, from the org's own stored keys or the
+  // host's environment variables.
+  aiKeyProviders: AIProvider[];
   seatsInUse: number;
   roles: Role[];
   teams?: Team[];
   error?: string;
+  orgSuspended: boolean;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
   commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
   permissionsUtil: Permissions;
@@ -121,6 +142,7 @@ export interface UserContextValue {
   };
   canSubscribe: boolean;
   freeSeats: number;
+  usage?: OrganizationUsage;
 }
 
 interface UserResponse {
@@ -128,8 +150,12 @@ interface UserResponse {
   userId: string;
   userName: string;
   email: string;
+  pylonHmacHash: string;
   verified: boolean;
   superAdmin: boolean;
+  npsSurveyAt?: string;
+  accountCreatedAt?: string;
+  npsSurveyEnabled?: boolean;
   organizations?: UserOrganizations;
   currentUserPermissions: UserPermissions;
 }
@@ -141,14 +167,16 @@ export const UserContext = createContext<UserContextValue>({
   roles: [],
   commercialFeatures: [],
   getUserDisplay: () => "",
+  getOwnerDisplay: () => "",
   updateUser: async () => {
     // Do nothing
   },
   refreshOrganization: async () => {
     // Do nothing
   },
-  apiKeys: [],
   organization: {},
+  agreements: [],
+  aiKeyProviders: [],
   subscription: null,
   licenseError: "",
   seatsInUse: 0,
@@ -168,6 +196,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   canSubscribe: false,
   freeSeats: 3,
+  orgSuspended: false,
 });
 
 export function useUser() {
@@ -186,11 +215,13 @@ export function getCurrentUser() {
 }
 
 export function UserContextProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, orgId, setOrganizations } = useAuth();
+  const { apiCall, isAuthenticated, orgId, setOrganizations } = useAuth();
 
-  const selfServePricingEnabled = useFeature("self-serve-billing").on;
-
-  const { data, mutate: mutateUser, error } = useApi<UserResponse>(`/user`, {
+  const {
+    data,
+    mutate: mutateUser,
+    error,
+  } = useApi<UserResponse>(`/user`, {
     shouldRun: () => isAuthenticated,
     orgScoped: false,
   });
@@ -203,11 +234,27 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   const {
     data: currentOrg,
-    mutate: refreshOrganization,
+    mutate: mutateOrganization,
     error: orgLoadingError,
   } = useApi<GetOrganizationResponse>(`/organization`, {
     shouldRun: () => !!orgId,
   });
+
+  const refreshOrganization = useCallback(
+    async (options?: RefreshOrganizationOptions) => {
+      if (!options?.forceLicenseRefresh) {
+        await mutateOrganization();
+        return;
+      }
+
+      const organization = await apiCall<GetOrganizationResponse>(
+        "/organization?forceLicenseRefresh=true",
+        { method: "GET" },
+      );
+      await mutateOrganization(organization, false);
+    },
+    [apiCall, mutateOrganization],
+  );
 
   const hashedOrganizationId = useMemo(() => {
     const id = currentOrg?.organization?.id || "";
@@ -241,7 +288,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           }
           return res;
         },
-        []
+        [],
       );
       return { ...team, members: hydratedMembers };
     });
@@ -311,6 +358,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       buildSHA: build.sha,
       buildDate: build.date,
       buildVersion: build.lastVersion,
+      userDateCreated: data?.accountCreatedAt
+        ? getValidDate(data.accountCreatedAt).toISOString()
+        : "",
       orgOwnerJobTitle:
         currentOrg?.organization?.demographicData?.ownerJobTitle,
       orgOwnerUsageIntents:
@@ -319,6 +369,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   }, [
     data?.superAdmin,
     data?.userId,
+    data?.accountCreatedAt,
     currentOrg?.organization?.demographicData?.ownerJobTitle,
     currentOrg?.organization?.demographicData?.ownerUsageIntents,
   ]);
@@ -336,6 +387,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       hasLicenseKey: !!currentOrg?.organization?.licenseKey,
       freeSeats: currentOrg?.organization?.freeSeats || 3,
       discountCode: currentOrg?.organization?.discountCode || "",
+      isVercelIntegration: !!currentOrg?.organization?.isVercelIntegration,
     });
   }, [currentOrg, hashedOrganizationId, user?.role]);
 
@@ -359,19 +411,35 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
     // Error tracking only enabled on GrowthBook Cloud
     if (isSentryEnabled()) {
-      Sentry.setUser({ email: data.email, id: data.userId });
+      sentrySetUser({ email: data.email, id: data.userId });
     }
   }, [data?.email, data?.userId]);
 
+  useEffect(() => {
+    // Error tracking only enabled on GrowthBook Cloud
+    const orgId = currentOrg?.organization?.id;
+    if (isSentryEnabled() && orgId) {
+      sentrySetTag("organization", orgId);
+    }
+  }, [currentOrg?.organization?.id]);
+
+  const hasVisualEditorPromo = useFeatureIsOn("visual-editor-free-access");
+
   const commercialFeatures = useMemo(() => {
-    return new Set(currentOrg?.commercialFeatures || []);
-  }, [currentOrg?.commercialFeatures]);
+    const features = new Set<CommercialFeature>(
+      currentOrg?.commercialFeatures || [],
+    );
+    // This is a temporary override to give some users access to the visual editor
+    // If we decide to keep this, we should add a getEffectiveCommercialFeatures that expands this functionality
+    if (hasVisualEditorPromo) features.add("visual-editor");
+    return features;
+  }, [currentOrg?.commercialFeatures, hasVisualEditorPromo]);
 
   const permissionsCheck = useCallback(
     (
       permission: Permission,
       project?: string[] | string,
-      envs?: string[]
+      envs?: string[],
     ): boolean => {
       if (!currentOrg?.currentUserPermissions || !currentOrg || !data?.userId)
         return false;
@@ -380,10 +448,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         currentOrg.currentUserPermissions,
         permission,
         project,
-        envs ? [...envs] : undefined
+        envs ? [...envs] : undefined,
       );
     },
-    [currentOrg, data?.userId]
+    [currentOrg, data?.userId],
   );
 
   const permissions = useMemo(() => {
@@ -408,7 +476,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   ]);
 
   const permissionsUtil = useMemo(() => {
-    return new Permissions(
+    const basePermissions: UserPermissions =
       currentOrg?.currentUserPermissions || {
         global: {
           permissions: {},
@@ -416,8 +484,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           environments: [],
         },
         projects: {},
-      }
-    );
+      };
+
+    return new Permissions(basePermissions);
   }, [currentOrg?.currentUserPermissions]);
 
   const getUserDisplay = useCallback(
@@ -426,7 +495,14 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       if (!u && fallback) return id;
       return u?.name || u?.email || "";
     },
-    [users]
+    [users],
+  );
+
+  const getOwnerDisplay = useCallback(
+    (owner: string | undefined) => {
+      return getOwnerDisplayName({ owner, users });
+    },
+    [users],
   );
 
   const watching = useMemo(() => {
@@ -464,13 +540,11 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     )
       return false;
 
-    if (!selfServePricingEnabled) return false;
-
     if (["active", "trialing", "past_due"].includes(subscription?.status || ""))
       return false;
 
     return true;
-  }, [organization, license, subscription, selfServePricingEnabled]);
+  }, [organization, license, subscription]);
 
   return (
     <UserContext.Provider
@@ -479,33 +553,42 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         userId: data?.userId,
         name: data?.userName,
         email: data?.email,
+        pylonHmacHash: data?.pylonHmacHash,
         superAdmin: data?.superAdmin,
+        npsSurveyAt: data?.npsSurveyAt,
+        accountCreatedAt: data?.accountCreatedAt,
+        npsSurveyEnabled: data?.npsSurveyEnabled,
         updateUser,
         user,
         users,
         getUserDisplay: getUserDisplay,
-        refreshOrganization: refreshOrganization as () => Promise<void>,
+        getOwnerDisplay: getOwnerDisplay,
+        refreshOrganization,
         roles: currentOrg?.roles || [],
         permissions,
         permissionsUtil,
         settings: currentOrg?.organization?.settings || {},
         license,
+        installationName: currentOrg?.installationName || undefined,
         subscription,
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,
         effectiveAccountPlan: currentOrg?.effectiveAccountPlan,
         commercialFeatureLowestPlan: currentOrg?.commercialFeatureLowestPlan,
         licenseError: currentOrg?.licenseError || "",
-        commercialFeatures: currentOrg?.commercialFeatures || [],
-        apiKeys: currentOrg?.apiKeys || [],
+        commercialFeatures: [...commercialFeatures],
+        agreements: currentOrg?.agreements || [],
+        aiKeyProviders: currentOrg?.aiKeyProviders || [],
         organization: organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
         error: error?.message || orgLoadingError?.message,
+        orgSuspended: organization?.suspended === true && !data?.superAdmin,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
         watching: watching,
         canSubscribe,
         freeSeats: organization?.freeSeats || 3,
+        usage: currentOrg?.usage,
       }}
     >
       {children}

@@ -1,9 +1,14 @@
 import { Response } from "express";
 import { Stripe } from "stripe";
-import { PaymentMethod } from "shared/src/types/subscriptions";
 import {
-  LicenseServerError,
-  getEffectiveAccountPlan,
+  PaymentMethod,
+  StripeAddress,
+  TaxIdType,
+} from "shared/types/subscriptions";
+import { DailyUsage, UsageLimits } from "shared/types/organization";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import { LicenseServerError } from "back-end/src/util/errors";
+import {
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
@@ -14,6 +19,8 @@ import {
   postNewInlineSubscriptionToLicenseServer,
   postCancelSubscriptionToLicenseServer,
   getPortalUrlFromServer,
+  getCustomerDataFromServer,
+  updateCustomerDataFromServer,
 } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -21,30 +28,34 @@ import {
   getContextFromReq,
 } from "back-end/src/services/organizations";
 import { formatBrandName } from "back-end/src/services/stripe";
-import { DailyUsage, UsageLimits } from "back-end/types/organization";
 import { logger } from "back-end/src/util/logger";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { getDailyCDNUsageForOrg } from "back-end/src/services/clickhouse";
+import {
+  getDailyUsageForOrg,
+  migrateOverageEventsForOrgId,
+} from "back-end/src/services/licenseServerManagedClickhouse";
 import {
   createSetupIntent,
   deletePaymentMethodById,
   updateDefaultPaymentMethod,
   getPaymentMethodsByLicenseKey,
+  getUsage as getOrgUsage,
 } from "back-end/src/enterprise/billing/index";
+import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 
 function withLicenseServerErrorHandling<T>(
-  fn: (req: AuthRequest<T>, res: Response) => Promise<void>
+  fn: (req: AuthRequest<T>, res: Response) => Promise<void>,
 ) {
   return async (req: AuthRequest<T>, res: Response) => {
     try {
       return await fn(req, res);
     } catch (e) {
       if (e instanceof LicenseServerError) {
-        logger.error(`License server error (${e.status}): ${e.message}`);
+        logger.error(e, `License server error (${e.status}): ${e.message}`);
         return res
           .status(e.status)
           .json({ status: e.status, message: e.message });
@@ -58,7 +69,7 @@ function withLicenseServerErrorHandling<T>(
 export const postNewProTrialSubscription = withLicenseServerErrorHandling(
   async function (
     req: AuthRequest<{ name: string; email?: string }>,
-    res: Response
+    res: Response,
   ) {
     const { name: nameFromForm, email: emailFromForm } = req.body;
 
@@ -77,7 +88,7 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
       org.name,
       nameFromForm || userName,
       emailFromForm || email,
-      qty
+      qty,
     );
     if (!org.licenseKey) {
       await updateOrganization(org.id, { licenseKey: result.license.id });
@@ -89,11 +100,14 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
     }
 
     res.status(200).json(result);
-  }
+  },
 );
 
 export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
-  async function (req: AuthRequest, res: Response) {
+  async function (
+    req: AuthRequest<{ radarSessionId?: string }>,
+    res: Response,
+  ) {
     const context = getContextFromReq(req);
 
     if (!context.permissions.canManageBilling()) {
@@ -101,17 +115,19 @@ export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
     }
 
     const { org, userName } = context;
+    const { radarSessionId } = req.body || {};
 
     const result = await postNewProSubscriptionIntentToLicenseServer(
       org.id,
       org.name,
       org.ownerEmail,
-      userName
+      userName,
+      { radarSessionId },
     );
     await updateOrganization(org.id, { licenseKey: result.license.id });
 
     res.status(200).json({ clientSecret: result.clientSecret });
-  }
+  },
 );
 
 export const postNewProSubscription = withLicenseServerErrorHandling(
@@ -138,16 +154,25 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
       org.ownerEmail,
       userName,
       qty,
-      returnUrl
+      returnUrl,
     );
     await updateOrganization(org.id, { licenseKey: result.license.id });
 
     res.status(200).json(result);
-  }
+  },
 );
 
 export const postInlineProSubscription = withLicenseServerErrorHandling(
-  async function (req: AuthRequest, res: Response) {
+  async function (
+    req: AuthRequest<{
+      email: string;
+      additionalEmails: string[];
+      taxConfig?: { type: TaxIdType; value: string };
+      name: string;
+      address?: StripeAddress;
+    }>,
+    res: Response,
+  ) {
     const context = getContextFromReq(req);
 
     if (!context.permissions.canManageBilling()) {
@@ -166,11 +191,27 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
 
     const result = await postNewInlineSubscriptionToLicenseServer(
       org.id,
-      nonInviteSeatQty
+      nonInviteSeatQty,
+      req.body.email,
+      req.body.additionalEmails,
+      req.body.name,
+      req.body.address,
+      req.body.taxConfig,
     );
 
+    const managedWarehouseDatasource = await getGrowthbookDatasource(context);
+    if (
+      managedWarehouseDatasource &&
+      !isManagedWarehouseAwaitingProvisioning(managedWarehouseDatasource)
+    ) {
+      // new pro users might have events in the overage_events table if they had
+      // use more than 1M events.  This moves those events over to the main table,
+      // so that they can see them.
+      await migrateOverageEventsForOrgId(org.id);
+    }
+
     res.status(200).json(result);
-  }
+  },
 );
 
 export const postCreateBillingSession = withLicenseServerErrorHandling(
@@ -195,13 +236,13 @@ export const postCreateBillingSession = withLicenseServerErrorHandling(
       status: results.status,
       url: results.url,
     });
-  }
+  },
 );
 
 export const postSubscriptionSuccess = withLicenseServerErrorHandling(
   async function (
     req: AuthRequest<{ checkoutSessionId: string }>,
-    res: Response
+    res: Response,
   ) {
     const context = getContextFromReq(req);
 
@@ -211,7 +252,7 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
 
     const { org } = context;
     const result = await postNewSubscriptionSuccessToLicenseServer(
-      req.body.checkoutSessionId
+      req.body.checkoutSessionId,
     );
     org.licenseKey = result.id;
     await updateOrganization(org.id, { licenseKey: result.id });
@@ -222,7 +263,7 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
     res.status(200).json({
       status: 200,
     });
-  }
+  },
 );
 
 export async function cancelSubscription(req: AuthRequest, res: Response) {
@@ -248,8 +289,8 @@ export async function cancelSubscription(req: AuthRequest, res: Response) {
 }
 
 export async function postSetupIntent(
-  req: AuthRequest<null, null>,
-  res: Response
+  req: AuthRequest<{ radarSessionId?: string }>,
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -258,12 +299,15 @@ export async function postSetupIntent(
   }
 
   const { org } = context;
+  const { radarSessionId } = req.body || {};
 
   try {
     if (!org.licenseKey) {
       throw new Error("No license key found for organization");
     }
-    const { clientSecret } = await createSetupIntent(org.licenseKey);
+    const { clientSecret } = await createSetupIntent(org.licenseKey, {
+      radarSessionId,
+    });
     return res.status(200).json({ clientSecret });
   } catch (e) {
     return res.status(400).json({ status: 400, message: e.message });
@@ -272,7 +316,7 @@ export async function postSetupIntent(
 
 export async function updateCustomerDefaultPayment(
   req: AuthRequest<{ paymentMethodId: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -298,7 +342,7 @@ export async function updateCustomerDefaultPayment(
 
 export async function fetchPaymentMethods(
   req: AuthRequest<null, null>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -345,7 +389,7 @@ export async function fetchPaymentMethods(
             type: "us_bank_account",
             last4: method.us_bank_account.last4 || "",
             brand: formatBrandName(
-              method.us_bank_account.bank_name || method.type
+              method.us_bank_account.bank_name || method.type,
             ),
             isDefault,
           };
@@ -357,7 +401,7 @@ export async function fetchPaymentMethods(
             isDefault,
           };
         }
-      }
+      },
     );
 
     return res
@@ -370,7 +414,7 @@ export async function fetchPaymentMethods(
 
 export async function deletePaymentMethod(
   req: AuthRequest<{ paymentMethodId: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -396,7 +440,11 @@ export async function deletePaymentMethod(
 
 export async function getUsage(
   req: AuthRequest<unknown, unknown, { monthsAgo?: number }>,
-  res: Response<{ status: 200; cdnUsage: DailyUsage[]; limits: UsageLimits }>
+  res: Response<{
+    status: 200;
+    usage: DailyUsage[];
+    limits: UsageLimits;
+  }>,
 ) {
   const context = getContextFromReq(req);
 
@@ -413,36 +461,59 @@ export async function getUsage(
 
   // Beginning of the month
   const start = new Date();
-  start.setMonth(start.getMonth() - monthsAgo);
-  start.setDate(1);
-  start.setHours(0, 0, 0, 0);
+  start.setUTCDate(1);
+  start.setUTCHours(0, 0, 0, 0);
+  start.setUTCMonth(start.getUTCMonth() - monthsAgo);
 
   // End of the month
-  const end = new Date();
-  end.setMonth(end.getMonth() - monthsAgo + 1);
-  end.setDate(0);
-  end.setHours(23, 59, 59, 999);
+  const end = new Date(start);
+  end.setUTCMonth(end.getUTCMonth() + 1);
+  end.setUTCDate(0);
+  end.setUTCHours(23, 59, 59, 999);
 
-  const cdnUsage = await getDailyCDNUsageForOrg(org.id, start, end);
+  const usage = await getDailyUsageForOrg(org.id, start, end);
 
-  const limits: UsageLimits = {
-    cdnRequests: null,
-    cdnBandwidth: null,
-  };
+  const {
+    limits: {
+      requests: cdnRequests,
+      bandwidth: cdnBandwidth,
+      managedClickhouseEvents,
+    },
+  } = await getOrgUsage(org);
 
-  const plan = getEffectiveAccountPlan(org);
-  if (plan === "starter" || plan === "pro" || plan === "pro_sso") {
-    // 10 million requests, no bandwidth limit
-    // TODO: Store this limit as part of the license/org instead of hard-coding
-    limits.cdnRequests = 10_000_000;
+  res.json({
+    status: 200,
+    usage,
+    limits: {
+      cdnRequests,
+      cdnBandwidth,
+      managedClickhouseEvents,
+    },
+  });
+}
+
+export async function getCustomerData(
+  req: AuthRequest<null, null>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
   }
 
-  res.json({ status: 200, cdnUsage, limits });
+  try {
+    const customerData = await getCustomerDataFromServer(context.org.id);
+
+    return res.status(200).json(customerData);
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
 }
 
 export async function getPortalUrl(
   req: AuthRequest<null, null>,
-  res: Response<{ status: number; portalUrl?: string; message?: string }>
+  res: Response<{ status: number; portalUrl?: string; message?: string }>,
 ) {
   const context = getContextFromReq(req);
 
@@ -459,6 +530,36 @@ export async function getPortalUrl(
       status: 200,
       portalUrl: data.portalUrl,
     });
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
+}
+
+export async function updateCustomerData(
+  req: AuthRequest<{
+    name: string;
+    email: string;
+    address?: StripeAddress;
+    taxConfig: { type?: TaxIdType; value?: string };
+  }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+
+  const { org } = context;
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    await updateCustomerDataFromServer(org.id, {
+      name: req.body.name,
+      email: req.body.email,
+      address: req.body.address,
+      taxConfig: req.body.taxConfig,
+    });
+    return res.status(200).json({ status: 200 });
   } catch (e) {
     return res.status(400).json({ status: 400, message: e.message });
   }

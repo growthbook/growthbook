@@ -1,9 +1,10 @@
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import React, { ReactElement, useEffect, useState } from "react";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import CodeSnippetModal from "@/components/Features/CodeSnippetModal";
+import Callout from "@/ui/Callout";
 import SDKConnectionForm from "./SDKConnectionForm";
 
 export default function InitialSDKConnectionForm({
@@ -26,10 +27,8 @@ export default function InitialSDKConnectionForm({
   const { data, error, mutate } = useSDKConnections();
   const connections = data?.connections;
 
-  const [
-    currentConnection,
-    setCurrentConnection,
-  ] = useState<SDKConnectionInterface | null>(null);
+  const [currentConnection, setCurrentConnection] =
+    useState<SDKConnectionInterface | null>(null);
 
   useEffect(() => {
     setCurrentConnection(() => {
@@ -42,7 +41,7 @@ export default function InitialSDKConnectionForm({
   }, [connections]);
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!connections) {
     return <LoadingOverlay />;

@@ -1,33 +1,45 @@
 import md5 from "md5";
 import {
+  getAllExpandedMetricIdsFromExperiment,
   getAllMetricIdsFromExperiment,
   isFactMetricId,
+  expandDerivedMetricsInMap,
+  getLatestPhaseVariations,
+  isDimensionPrecomputed,
+  getFactMetricFactTableIds,
+  getFactMetricPrimaryFactTableId,
+  isFactFunnelMetric,
+  parseFunnelStepMetricId,
+  parseSliceMetricId,
 } from "shared/experiments";
-import { ReqContext } from "back-end/types/organization";
 import {
+  CreateMetricTimeSeriesSingleDataPoint,
+  MetricTimeSeriesDataPointTag,
+  MetricTimeSeriesValue,
+  MetricTimeSeriesVariation,
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentInterface,
   GoalMetricStatus,
   GuardrailMetricStatus,
-} from "back-end/src/validators/experiments";
+} from "shared/validators";
 import {
+  ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
   SnapshotMetric,
-} from "back-end/types/experiment-snapshot";
-import {
-  CreateMetricTimeSeriesSingleDataPoint,
-  MetricTimeSeriesValue,
-  MetricTimeSeriesVariation,
-} from "back-end/src/validators/metric-time-series";
+} from "shared/types/experiment-snapshot";
 import {
   FactMetricInterface,
   FactTableInterface,
-} from "back-end/types/fact-table";
+  ColumnRef,
+} from "shared/types/fact-table";
+import { ReqContext } from "back-end/types/request";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getTimeSeriesAnalyses } from "back-end/src/services/experimentDimensionTimeSeries";
 
 export async function updateExperimentTimeSeries({
   context,
@@ -42,8 +54,9 @@ export async function updateExperimentTimeSeries({
   experimentSnapshot: ExperimentSnapshotInterface;
   notificationsTriggered: string[];
 }) {
-  // Only update time series for dimensionless snapshots, but if we want to
-  // support dimensions for time series, we should revisit this
+  // This function handles the main (dimensionless) experiment time series.
+  // Precomputed dimension time series are written by
+  // runEagerExperimentAndUnitDimensionsAnalyses after their analyses are persisted.
   if (
     experimentSnapshot.dimension !== null &&
     experimentSnapshot.dimension !== ""
@@ -51,119 +64,294 @@ export async function updateExperimentTimeSeries({
     return;
   }
 
-  const metricGroups = await context.models.metricGroups.getAll();
-  const metricsIds = getAllMetricIdsFromExperiment(
-    experimentSnapshot.settings,
-    false,
-    metricGroups
-  );
-  const relativeAnalysis = experimentSnapshot.analyses.find(
-    (analysis) =>
-      analysis.settings.differenceType === "relative" &&
-      (analysis.settings.baselineVariationIndex === undefined ||
-        analysis.settings.baselineVariationIndex === 0)
-  );
-  const absoluteAnalysis = experimentSnapshot.analyses.find(
-    (analysis) =>
-      analysis.settings.differenceType === "absolute" &&
-      (analysis.settings.baselineVariationIndex === undefined ||
-        analysis.settings.baselineVariationIndex === 0)
-  );
-  const scaledAnalysis = experimentSnapshot.analyses.find(
-    (analysis) =>
-      analysis.settings.differenceType === "scaled" &&
-      (analysis.settings.baselineVariationIndex === undefined ||
-        analysis.settings.baselineVariationIndex === 0)
-  );
-
-  // We should always have this, otherwise the snapshot has not
-  // been analyzed and we won't have useful data to update the time series with
-  const variations = relativeAnalysis?.results[0]?.variations;
-  if (!variations || variations.length === 0) {
-    return;
-  }
-
-  let factMetrics: FactMetricInterface[] | undefined = undefined;
-  let factTableMap: Map<string, FactTableInterface> | undefined = undefined;
-  const factMetricsIds: string[] = metricsIds.filter(isFactMetricId);
-  if (factMetricsIds.length > 0) {
-    factMetrics = await context.models.factMetrics.getByIds(factMetricsIds);
-    factTableMap = await getFactTableMap(context);
-  }
-
-  const timeSeriesVariationsPerMetricId = metricsIds.reduce((acc, metricId) => {
-    acc[metricId] = variations.map((_, variationIndex) => ({
-      id: experiment.variations[variationIndex].id,
-      name: experiment.variations[variationIndex].name,
-      stats:
-        // NB: Using relative as a base to save space because it matches relative & absolute
-        relativeAnalysis?.results[0]?.variations[variationIndex]?.metrics[
-          metricId
-        ]?.stats,
-      relative: convertMetricToMetricValue(
-        relativeAnalysis?.results[0]?.variations[variationIndex]?.metrics[
-          metricId
-        ]
-      ),
-      absolute: convertMetricToMetricValue(
-        absoluteAnalysis?.results[0]?.variations[variationIndex]?.metrics[
-          metricId
-        ]
-      ),
-      scaled: convertMetricToMetricValue(
-        scaledAnalysis?.results[0]?.variations[variationIndex]?.metrics[
-          metricId
-        ]
-      ),
-    }));
-
-    return acc;
-  }, {} as Record<string, MetricTimeSeriesVariation[]>);
-
-  const experimentHash = getExperimentSettingsHash(
-    experimentSnapshot.settings,
-    relativeAnalysis.settings
-  );
+  const { allMetricIds, factMetrics, factTableMap } =
+    await getExperimentTimeSeriesContext({
+      context,
+      experiment,
+      experimentSnapshot,
+    });
+  const analyses = getTimeSeriesAnalyses({
+    analyses: experimentSnapshot.analyses,
+  });
 
   // As we tag the whole snapshot, we just care if any metric has a significant difference from the previous status
   const hasSignificantDifference = getHasSignificantDifference(
     previousAnalysisSummary,
-    experiment.analysisSummary
+    experiment.analysisSummary,
   );
 
-  const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] = metricsIds.map(
-    (metricId) => ({
-      source: "experiment",
-      sourceId: experiment.id,
-      sourcePhase: experimentSnapshot.phase,
-      metricId,
-      lastExperimentSettingsHash: experimentHash,
-      lastMetricSettingsHash: getMetricSettingsHash(
-        metricId,
-        experimentSnapshot.settings.metricSettings.find(
-          (it) => it.id === metricId
-        ),
-        factMetrics,
-        factTableMap
-      ),
-      singleDataPoint: {
-        date: experimentSnapshot.dateCreated,
-        variations: timeSeriesVariationsPerMetricId[metricId],
-      },
-      tags:
-        notificationsTriggered.length > 0 || hasSignificantDifference
-          ? ["triggered-alert"]
-          : undefined,
-    })
+  await updateExperimentAnalysisTimeSeries({
+    context,
+    experiment,
+    experimentSnapshot,
+    analyses,
+    allMetricIds,
+    factMetrics,
+    factTableMap,
+    tags:
+      notificationsTriggered.length > 0 || hasSignificantDifference
+        ? ["triggered-alert"]
+        : undefined,
+  });
+}
+
+export async function getExperimentTimeSeriesContext({
+  context,
+  experiment,
+  experimentSnapshot,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  experimentSnapshot: ExperimentSnapshotInterface;
+}) {
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+
+  // Expand all derived metrics (slices and funnel steps) into the metricMap
+  expandDerivedMetricsInMap({
+    metricMap,
+    factTableMap,
+    experiment,
+    metricGroups,
+  });
+
+  const allMetricIds = getAllExpandedMetricIdsFromExperiment({
+    exp: experimentSnapshot.settings,
+    expandedMetricMap: metricMap,
+    metricGroups,
+  });
+
+  // Only the stored metrics, not the derived ids also in allMetricIds: those
+  // hash against their parent's definition (see getDefinitionMetricId).
+  let factMetrics: FactMetricInterface[] | undefined;
+  const factMetricsIds = getAllMetricIdsFromExperiment(
+    experimentSnapshot.settings,
+    true,
+    metricGroups,
+  ).filter(isFactMetricId);
+  if (factMetricsIds.length > 0) {
+    factMetrics = await context.models.factMetrics.getByIds(factMetricsIds);
+  }
+
+  return {
+    metricMap,
+    factTableMap,
+    allMetricIds,
+    factMetrics,
+  };
+}
+
+/**
+ * Persists time series for a group of analyses that share the same snapshot
+ * context. Dimensionless analyses write the main experiment series; analyses
+ * for a precomputed dimension write one series per dimension value.
+ */
+export async function updateExperimentAnalysisTimeSeries({
+  context,
+  experiment,
+  experimentSnapshot,
+  analyses,
+  allMetricIds,
+  factMetrics,
+  factTableMap,
+  tags,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  experimentSnapshot: ExperimentSnapshotInterface;
+  analyses: ExperimentSnapshotAnalysis[];
+  allMetricIds: string[];
+  factMetrics: FactMetricInterface[] | undefined;
+  factTableMap: Map<string, FactTableInterface>;
+  tags?: MetricTimeSeriesDataPointTag[];
+}) {
+  const dimensionIds = new Set(analyses.flatMap((a) => a.settings.dimensions));
+  if (dimensionIds.size > 1) {
+    throw new Error(
+      "Cannot update time series for analyses from multiple dimensions",
+    );
+  }
+  const [dimensionId] = Array.from(dimensionIds);
+  if (
+    dimensionId &&
+    !isDimensionPrecomputed(
+      dimensionId,
+      experimentSnapshot.settings.precomputedUnitDimensionIds ?? [],
+    )
+  ) {
+    throw new Error(
+      `Cannot update time series for unsupported dimension: ${dimensionId}`,
+    );
+  }
+
+  const timeSeriesAnalyses = getTimeSeriesAnalyses({
+    analyses,
+    dimensionId,
+  });
+  if (timeSeriesAnalyses.length === 0) {
+    return;
+  }
+
+  const relativeAnalysis = getAnalysisByDifferenceType(
+    timeSeriesAnalyses,
+    "relative",
   );
+  const absoluteAnalysis = getAnalysisByDifferenceType(
+    timeSeriesAnalyses,
+    "absolute",
+  );
+  const scaledAnalysis = getAnalysisByDifferenceType(
+    timeSeriesAnalyses,
+    "scaled",
+  );
+  const baseAnalysis = relativeAnalysis ?? absoluteAnalysis ?? scaledAnalysis;
+  if (!baseAnalysis) {
+    throw new Error("No base analysis found for time series");
+  }
+
+  const variationIds = getLatestPhaseVariations(experiment);
+  const allDataPoints: CreateMetricTimeSeriesSingleDataPoint[] = [];
+  const dimensionValues = dimensionId
+    ? baseAnalysis.results.map((result) => result.name)
+    : [undefined];
+
+  for (const dimensionValue of dimensionValues) {
+    const resultsByDifferenceType = {
+      relative: getAnalysisResult(relativeAnalysis, dimensionValue),
+      absolute: getAnalysisResult(absoluteAnalysis, dimensionValue),
+      scaled: getAnalysisResult(scaledAnalysis, dimensionValue),
+    };
+    const baseResult =
+      resultsByDifferenceType.relative ??
+      resultsByDifferenceType.absolute ??
+      resultsByDifferenceType.scaled;
+    if (!baseResult?.variations?.length) continue;
+
+    const experimentHash = getExperimentSettingsHash(
+      experimentSnapshot.settings,
+      baseAnalysis.settings,
+    );
+
+    for (const metricId of allMetricIds) {
+      const variations: MetricTimeSeriesVariation[] = variationIds.map(
+        (v, variationIndex) => {
+          // Each difference type computes independently; drop the ones that
+          // errored and keep the rest, rather than dropping the whole metric.
+          const relativeMetric = getComputedMetric(
+            resultsByDifferenceType.relative,
+            variationIndex,
+            metricId,
+          );
+          const absoluteMetric = getComputedMetric(
+            resultsByDifferenceType.absolute,
+            variationIndex,
+            metricId,
+          );
+          const scaledMetric = getComputedMetric(
+            resultsByDifferenceType.scaled,
+            variationIndex,
+            metricId,
+          );
+
+          return {
+            id: v.id,
+            name: v.name,
+            stats:
+              (relativeMetric ?? absoluteMetric ?? scaledMetric)?.stats ??
+              undefined,
+            relative: convertMetricToMetricValue(relativeMetric),
+            absolute: convertMetricToMetricValue(absoluteMetric),
+            scaled: convertMetricToMetricValue(scaledMetric),
+          };
+        },
+      );
+
+      const hasComputedValue = variations.some(
+        (v) =>
+          v.relative !== undefined ||
+          v.absolute !== undefined ||
+          v.scaled !== undefined,
+      );
+      if (!hasComputedValue) continue;
+
+      const baseDataPoint = {
+        source: "experiment",
+        sourceId: experiment.id,
+        sourcePhase: experimentSnapshot.phase,
+        metricId,
+        lastExperimentSettingsHash: experimentHash,
+        lastMetricSettingsHash: getMetricSettingsHash(
+          metricId,
+          experimentSnapshot.settings.metricSettings.find(
+            (it) => it.id === metricId,
+          ),
+          factMetrics,
+          factTableMap,
+        ),
+        singleDataPoint: {
+          date: experimentSnapshot.dateCreated,
+          variations,
+          ...(tags?.length ? { tags: [...tags] } : {}),
+        },
+      } as const;
+
+      allDataPoints.push(
+        dimensionId && dimensionValue !== undefined
+          ? {
+              ...baseDataPoint,
+              dimensionId,
+              dimensionValue,
+            }
+          : baseDataPoint,
+      );
+    }
+  }
+
+  if (allDataPoints.length === 0) {
+    return;
+  }
 
   await context.models.metricTimeSeries.upsertMultipleSingleDataPoint(
-    metricTimeSeriesSingleDataPoints
+    allDataPoints,
+  );
+}
+
+function getAnalysisResult(
+  analysis: ExperimentSnapshotAnalysis | undefined,
+  dimensionValue: string | undefined,
+): ExperimentSnapshotAnalysis["results"][number] | undefined {
+  if (!analysis) return undefined;
+  if (dimensionValue === undefined) return analysis.results[0];
+  return analysis.results.find((result) => result.name === dimensionValue);
+}
+
+// A stats-engine compute failure yields a zeroed metric flagged computeFailed.
+// Drop those so a failed difference type is neither recorded as a real value
+// nor picked as the stats source. Key off computeFailed, not errorMessage: a
+// successful metric can carry errorMessage: null from gbstats.
+function getComputedMetric(
+  result: ExperimentSnapshotAnalysis["results"][number] | undefined,
+  variationIndex: number,
+  metricId: string,
+): SnapshotMetric | undefined {
+  const metric = result?.variations[variationIndex]?.metrics[metricId];
+  return metric && !metric.computeFailed ? metric : undefined;
+}
+
+function getAnalysisByDifferenceType(
+  analyses: ExperimentSnapshotAnalysis[],
+  differenceType: ExperimentSnapshotAnalysisSettings["differenceType"],
+): ExperimentSnapshotAnalysis | undefined {
+  return analyses.find(
+    (analysis) =>
+      analysis.results.length > 0 &&
+      analysis.settings.differenceType === differenceType,
   );
 }
 
 function convertMetricToMetricValue(
-  metric: SnapshotMetric | undefined
+  metric: SnapshotMetric | undefined,
 ): MetricTimeSeriesValue | undefined {
   if (!metric) {
     return undefined;
@@ -173,12 +361,14 @@ function convertMetricToMetricValue(
   // when SnapshotMetric and MetricTimeSeriesDataPoint change
   return {
     value: metric.value,
-    denominator: metric.denominator,
-    expected: metric.expected,
-    ci: metric.ci,
-    pValue: metric.pValue,
-    pValueAdjusted: metric.pValueAdjusted,
-    chanceToWin: metric.chanceToWin,
+    // FIXME: This converts null into undefined, needed because of type mismatch
+    // between zod & mongoose & stats engine
+    denominator: metric.denominator ?? undefined,
+    expected: metric.expected ?? undefined,
+    ci: metric.ci ?? undefined,
+    pValue: metric.pValue ?? undefined,
+    pValueAdjusted: metric.pValueAdjusted ?? undefined,
+    chanceToWin: metric.chanceToWin ?? undefined,
   };
 }
 
@@ -186,7 +376,7 @@ const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 function getExperimentSettingsHash(
   snapshotSettings: ExperimentSnapshotSettings,
-  snapshotAnalysisSettings: ExperimentSnapshotAnalysisSettings
+  snapshotAnalysisSettings: ExperimentSnapshotAnalysisSettings,
 ): string {
   return hashObject({
     // snapshotSettings
@@ -205,6 +395,8 @@ function getExperimentSettingsHash(
     dimensions: snapshotAnalysisSettings.dimensions,
     statsEngine: snapshotAnalysisSettings.statsEngine,
     regressionAdjusted: snapshotAnalysisSettings.regressionAdjusted,
+    postStratificationEnabled:
+      snapshotAnalysisSettings.postStratificationEnabled,
     sequentialTesting: snapshotAnalysisSettings.sequentialTesting,
     sequentialTestingTuningParameter:
       snapshotAnalysisSettings.sequentialTestingTuningParameter,
@@ -213,57 +405,127 @@ function getExperimentSettingsHash(
   });
 }
 
-function getMetricSettingsHash(
+export function getFiltersForHash(
+  factTable: FactTableInterface | undefined,
+  columnRef: Pick<ColumnRef, "rowFilters"> | null,
+) {
+  if (!factTable || !columnRef) {
+    return undefined;
+  }
+
+  const savedFilterIds = (columnRef.rowFilters || [])
+    .filter((f) => f.operator === "saved_filter")
+    .map((f) => f.values?.[0]);
+
+  return factTable.filters
+    .filter((it) => savedFilterIds.includes(it.id))
+    .map((it) => ({
+      id: it.id,
+      name: it.name,
+      value: it.value,
+    }));
+}
+
+/**
+ * The id whose stored definition governs a metric. Funnel steps and slices are
+ * derived from a parent and have no document of their own, so they hash against
+ * the parent: an edit anywhere in the parent (another step's row filters, say)
+ * tags every derived series. That blast radius is wider than strictly needed,
+ * but it matches how the parent already behaves and errs toward flagging a
+ * change rather than hiding it.
+ */
+function getDefinitionMetricId(metricId: string): string {
+  const stepInfo = parseFunnelStepMetricId(metricId);
+  return stepInfo.isFunnelStepMetric
+    ? stepInfo.baseMetricId
+    : parseSliceMetricId(metricId).baseMetricId;
+}
+
+/**
+ * The slice of a fact metric's definition (and its fact tables') that affects
+ * generated SQL, for change-detection hashes. Funnel steps resolve filters
+ * against their own fact table; step tables beyond the numerator's are hashed
+ * under `funnelStepFactTables`, which stays `undefined` when absent
+ * (JSON.stringify drops it) so unaffected metrics keep their existing hashes.
+ */
+export function getFactMetricDefinitionForHash(
+  factMetric: FactMetricInterface,
+  factTableMap?: Map<string, FactTableInterface>,
+) {
+  const numeratorFactTableId = getFactMetricPrimaryFactTableId(factMetric);
+  const numeratorFactTable = numeratorFactTableId
+    ? factTableMap?.get(numeratorFactTableId)
+    : undefined;
+
+  const denominatorFactTableId = factMetric.denominator?.factTableId;
+  const denominatorFactTable = denominatorFactTableId
+    ? factTableMap?.get(denominatorFactTableId)
+    : undefined;
+
+  const extraFunnelFactTableIds = isFactFunnelMetric(factMetric)
+    ? getFactMetricFactTableIds(factMetric).filter(
+        (id) => id !== numeratorFactTableId,
+      )
+    : [];
+
+  return {
+    metricType: factMetric.metricType,
+    numerator: factMetric.numerator,
+    denominator: factMetric.denominator,
+    cappingSettings: factMetric.cappingSettings,
+    quantileSettings: factMetric.quantileSettings,
+    funnelSettings: factMetric.funnelSettings,
+    numeratorFactTable: {
+      sql: numeratorFactTable?.sql,
+      eventName: numeratorFactTable?.eventName,
+      filters: getFiltersForHash(numeratorFactTable, factMetric.numerator),
+      funnelFilters: isFactFunnelMetric(factMetric)
+        ? factMetric.funnelSettings.steps.flatMap(
+            (step) =>
+              getFiltersForHash(factTableMap?.get(step.factTableId), step) ??
+              [],
+          )
+        : undefined,
+    },
+    denominatorFactTable: {
+      sql: denominatorFactTable?.sql,
+      eventName: denominatorFactTable?.eventName,
+      // TODO: also include denominator filters?
+    },
+    funnelStepFactTables: extraFunnelFactTableIds.length
+      ? extraFunnelFactTableIds.map((id) => {
+          const factTable = factTableMap?.get(id);
+          return {
+            sql: factTable?.sql,
+            eventName: factTable?.eventName,
+          };
+        })
+      : undefined,
+  };
+}
+
+export function getMetricSettingsHash(
   metricId: string,
   metricSettings?: MetricForSnapshot,
   factMetrics?: FactMetricInterface[],
-  factTableMap?: Map<string, FactTableInterface>
+  factTableMap?: Map<string, FactTableInterface>,
 ): string {
-  const factMetric = factMetrics?.find((metric) => metric.id === metricId);
+  const definitionMetricId = getDefinitionMetricId(metricId);
+  const factMetric = factMetrics?.find(
+    (metric) => metric.id === definitionMetricId,
+  );
   if (!factMetric) {
     return hashObject(metricSettings ?? { id: metricId });
-  } else {
-    const numeratorFactTableId = factMetric.numerator.factTableId;
-    const numeratorFactTable = numeratorFactTableId
-      ? factTableMap?.get(numeratorFactTableId)
-      : undefined;
-
-    const denominatorFactTableId = factMetric.denominator?.factTableId;
-    const denominatorFactTable = denominatorFactTableId
-      ? factTableMap?.get(denominatorFactTableId)
-      : undefined;
-
-    const numeratorFilters = numeratorFactTable?.filters.filter((it) =>
-      factMetric.numerator.filters.includes(it.id)
-    );
-
-    return hashObject({
-      ...metricSettings,
-      metricType: factMetric.metricType,
-      numerator: factMetric.numerator,
-      denominator: factMetric.denominator,
-      cappingSettings: factMetric.cappingSettings,
-      quantileSettings: factMetric.quantileSettings,
-      numeratorFactTable: {
-        sql: numeratorFactTable?.sql,
-        eventName: numeratorFactTable?.eventName,
-        filters: numeratorFilters?.map((it) => ({
-          id: it.id,
-          name: it.name,
-          value: it.value,
-        })),
-      },
-      denominatorFactTable: {
-        sql: denominatorFactTable?.sql,
-        eventName: denominatorFactTable?.eventName,
-      },
-    });
   }
+  return hashObject({
+    ...metricSettings,
+    ...getFactMetricDefinitionForHash(factMetric, factTableMap),
+  });
 }
 
 function getHasSignificantDifference(
-  previousAnalysisSummary: ExperimentAnalysisSummary,
-  currentAnalysisSummary: ExperimentAnalysisSummary
+  previousAnalysisSummary: ExperimentAnalysisSummary | undefined,
+  currentAnalysisSummary: ExperimentAnalysisSummary | undefined,
 ) {
   const currentResults = currentAnalysisSummary?.resultsStatus;
   if (!currentResults) {
@@ -284,14 +546,14 @@ function getHasSignificantDifference(
             ])
           : []),
         ...(variation?.guardrailMetrics
-          ? Object.entries(
-              variation.guardrailMetrics
-            ).map(([metricId, metric]) => [
-              `${variation.variationId}-${metricId}`,
-              metric.status,
-            ])
+          ? Object.entries(variation.guardrailMetrics).map(
+              ([metricId, metric]) => [
+                `${variation.variationId}-${metricId}`,
+                metric.status,
+              ],
+            )
           : []),
-      }))
+      })),
     );
   };
 
@@ -305,6 +567,6 @@ function getHasSignificantDifference(
   const previousResultsMap = parseToMap(previousResults);
   return Object.entries(currentMetricsParsed).some(
     ([metricKey, status]) =>
-      isSignificant(status) && previousResultsMap.get(metricKey) !== status
+      isSignificant(status) && previousResultsMap.get(metricKey) !== status,
   );
 }

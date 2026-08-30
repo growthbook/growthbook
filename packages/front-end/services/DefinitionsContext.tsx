@@ -1,8 +1,9 @@
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { DimensionInterface } from "back-end/types/dimension";
-import { MetricInterface } from "back-end/types/metric";
-import { SegmentInterface } from "back-end/types/segment";
-import { ProjectInterface } from "back-end/types/project";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { DataRegion } from "shared/util";
+import { DimensionInterface } from "shared/types/dimension";
+import { MetricDefinitionInterface } from "shared/types/metric";
+import { SegmentInterface } from "shared/types/segment";
+import { ProjectInterface } from "shared/types/project";
 import {
   useContext,
   useMemo,
@@ -11,36 +12,49 @@ import {
   ReactNode,
   useCallback,
   ReactElement,
+  useEffect,
 } from "react";
-import { TagInterface } from "back-end/types/tag";
+import { TagInterface } from "shared/types/tag";
 import {
   FactMetricInterface,
-  FactTableInterface,
-} from "back-end/types/fact-table";
-import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
-import { SavedGroupInterface } from "shared/src/types";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { CustomField } from "back-end/types/custom-fields";
+  FactTableDefinition,
+} from "shared/types/fact-table";
+import { ExperimentMetricDefinition, isFactMetricId } from "shared/experiments";
+import { SavedGroupForDefinitions } from "shared/types/saved-group";
+import { ConstantWithoutValue } from "shared/types/constant";
+import { ConfigWithoutValue } from "shared/types/config";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { CustomField } from "shared/types/custom-fields";
+import { DecisionCriteriaInterface } from "shared/types/experiment";
+import { WebhookSecretFrontEndInterface } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { findClosestRadixColor } from "./tags";
+import { useUser } from "./UserContext";
 
 type Definitions = {
-  metrics: MetricInterface[];
-  _metricsIncludingArchived: MetricInterface[];
+  metrics: MetricDefinitionInterface[];
+  _metricsIncludingArchived: MetricDefinitionInterface[];
   datasources: DataSourceInterfaceWithParams[];
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
   projects: ProjectInterface[];
-  savedGroups: SavedGroupInterface[];
+  savedGroups: SavedGroupForDefinitions[];
+  constants: ConstantWithoutValue[];
+  _constantsIncludingArchived: ConstantWithoutValue[];
+  configs: ConfigWithoutValue[];
+  _configsIncludingArchived: ConfigWithoutValue[];
   metricGroups: MetricGroupInterface[];
   customFields: CustomField[];
   tags: TagInterface[];
-  factTables: FactTableInterface[];
-  _factTablesIncludingArchived: FactTableInterface[];
+  factTables: FactTableDefinition[];
+  _factTablesIncludingArchived: FactTableDefinition[];
   factMetrics: FactMetricInterface[];
   _factMetricsIncludingArchived: FactMetricInterface[];
+  decisionCriteria: DecisionCriteriaInterface[];
+  webhookSecrets: WebhookSecretFrontEndInterface[];
+  eventIngestorRegion?: DataRegion;
 };
 
 type DefinitionContextValue = Definitions & {
@@ -50,17 +64,22 @@ type DefinitionContextValue = Definitions & {
   setProject: (id: string) => void;
   refreshTags: (newTags: string[]) => Promise<void>;
   mutateDefinitions: (changes?: Partial<Definitions>) => Promise<void>;
-  getMetricById: (id: string) => null | MetricInterface;
+  getMetricById: (id: string) => null | MetricDefinitionInterface;
   getDatasourceById: (id: string) => null | DataSourceInterfaceWithParams;
   getDimensionById: (id: string) => null | DimensionInterface;
   getSegmentById: (id: string) => null | SegmentInterface;
   getProjectById: (id: string) => null | ProjectInterface;
-  getSavedGroupById: (id: string) => null | SavedGroupInterface;
+  getSavedGroupById: (id: string) => null | SavedGroupForDefinitions;
+  getConstantById: (id: string) => null | ConstantWithoutValue;
+  getConstantByKey: (key: string) => null | ConstantWithoutValue;
+  getConfigById: (id: string) => null | ConfigWithoutValue;
+  getConfigByKey: (key: string) => null | ConfigWithoutValue;
   getTagById: (id: string) => null | TagInterface;
-  getFactTableById: (id: string) => null | FactTableInterface;
+  getFactTableById: (id: string) => null | FactTableDefinition;
   getFactMetricById: (id: string) => null | FactMetricInterface;
-  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
+  getExperimentMetricById: (id: string) => null | ExperimentMetricDefinition;
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
+  getDecisionCriteriaById: (id: string) => null | DecisionCriteriaInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -82,6 +101,10 @@ const defaultValue: DefinitionContextValue = {
   segments: [],
   tags: [],
   savedGroups: [],
+  constants: [],
+  _constantsIncludingArchived: [],
+  configs: [],
+  _configsIncludingArchived: [],
   metricGroups: [],
   customFields: [],
   projects: [],
@@ -89,32 +112,37 @@ const defaultValue: DefinitionContextValue = {
   _factTablesIncludingArchived: [],
   factMetrics: [],
   _factMetricsIncludingArchived: [],
+  decisionCriteria: [],
+  webhookSecrets: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
   getSegmentById: () => null,
   getProjectById: () => null,
   getSavedGroupById: () => null,
+  getConstantById: () => null,
+  getConstantByKey: () => null,
+  getConfigById: () => null,
+  getConfigByKey: () => null,
   getTagById: () => null,
   getFactTableById: () => null,
   getFactMetricById: () => null,
   getExperimentMetricById: () => null,
   getMetricGroupById: () => null,
+  getDecisionCriteriaById: () => null,
 };
 
-export const DefinitionsContext = createContext<DefinitionContextValue>(
-  defaultValue
-);
+export const DefinitionsContext =
+  createContext<DefinitionContextValue>(defaultValue);
 
 interface IndexableItem {
   id: string;
 }
 function useGetById<T extends IndexableItem>(
-  items?: T[]
+  items?: T[],
 ): (id: string) => T | null {
   return useMemo(() => {
     if (!items) {
-      // eslint-disable-next-line
       return () => null;
     }
 
@@ -134,14 +162,47 @@ export function useDefinitions() {
 
 export const LOCALSTORAGE_PROJECT_KEY = "gb_current_project" as const;
 
+// Applies user's team(s) default project constraint once per browser session
+let teamConstraintApplied = false;
+function useTeamProjectConstraint() {
+  const { user, teams } = useUser();
+  const [project, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+
+  useEffect(() => {
+    if (!user?.teams || !teams || teamConstraintApplied) return;
+
+    const defaultProjects = new Set<string>();
+    (teams || []).forEach((team) => {
+      if (team?.defaultProject && user?.teams?.includes(team.id)) {
+        defaultProjects.add(team.defaultProject);
+      }
+    });
+
+    // Apply default project if applicable
+    teamConstraintApplied = true;
+    if (defaultProjects.size > 0 && !defaultProjects.has(project)) {
+      const firstAllowedProject = Array.from(defaultProjects)[0];
+      setProject(firstAllowedProject);
+    }
+  }, [user?.teams, teams, project, setProject]);
+
+  return [project, setProject] as const;
+}
+
+export const useProject = () => {
+  return useTeamProjectConstraint();
+};
+
 export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
+  const { orgSuspended, organization } = useUser();
   const { data, error, mutate } = useApi<Definitions & { status: 200 }>(
-    "/organization/definitions"
+    "/organization/definitions",
+    { shouldRun: () => !orgSuspended && !!organization?.id },
   );
 
-  const [project, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+  const [project, setProject] = useProject();
 
   const activeMetrics = useMemo(() => {
     if (!data || !data.metrics) {
@@ -164,13 +225,20 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.metricGroups;
   }, [data?.metricGroups]);
 
+  const decisionCriteria = useMemo(() => {
+    if (!data || !data.decisionCriteria) {
+      return [];
+    }
+    return data.decisionCriteria;
+  }, [data?.decisionCriteria]);
+
   const activeFactMetrics = useMemo(() => {
     if (!data || !data.factMetrics) {
       return [];
     }
     return data.factMetrics.filter((m) => {
       const numeratorFactTable = data.factTables.find(
-        (f) => f.id === m.denominator?.factTableId
+        (f) => f.id === m.denominator?.factTableId,
       );
       const denominatorFactTable = m.denominator?.factTableId
         ? data.factTables.find((f) => f.id === m.denominator?.factTableId)
@@ -207,6 +275,51 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.factTables;
   }, [data?.factTables]);
 
+  const activeSavedGroups = useMemo(() => {
+    if (!data || !data.savedGroups) {
+      return [];
+    }
+
+    return data.savedGroups.filter((sg) => !sg.archived);
+  }, [data?.savedGroups]);
+
+  const allSavedGroups = useMemo(() => {
+    if (!data || !data.savedGroups) {
+      return [];
+    }
+
+    return data.savedGroups;
+  }, [data?.savedGroups]);
+
+  // `!data.constants` guard keeps older API responses (pre-constants) working.
+  const activeConstants = useMemo(() => {
+    if (!data || !data.constants) {
+      return [];
+    }
+    return data.constants.filter((c) => !c.archived);
+  }, [data?.constants]);
+
+  const allConstants = useMemo(() => {
+    if (!data || !data.constants) {
+      return [];
+    }
+    return data.constants;
+  }, [data?.constants]);
+
+  const activeConfigs = useMemo(() => {
+    if (!data || !data.configs) {
+      return [];
+    }
+    return data.configs.filter((c) => !c.archived);
+  }, [data?.configs]);
+
+  const allConfigs = useMemo(() => {
+    if (!data || !data.configs) {
+      return [];
+    }
+    return data.configs;
+  }, [data?.configs]);
+
   const allTags = useMemo(() => {
     if (!data || !data.tags) {
       return [];
@@ -226,11 +339,25 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getDimensionById = useGetById(data?.dimensions);
   const getSegmentById = useGetById(data?.segments);
   const getProjectById = useGetById(data?.projects);
-  const getSavedGroupById = useGetById(data?.savedGroups);
+  const getSavedGroupById = useGetById(allSavedGroups);
+  const getConstantById = useGetById(allConstants);
+  const getConstantByKey = useMemo(() => {
+    const m = new Map<string, ConstantWithoutValue>();
+    allConstants.forEach((c) => m.set(c.key, c));
+    return (key: string) => m.get(key) || null;
+  }, [allConstants]);
+  const getConfigById = useGetById(allConfigs);
+  const getConfigByKey = useMemo(() => {
+    const m = new Map<string, ConfigWithoutValue>();
+    allConfigs.forEach((c) => m.set(c.key, c));
+    return (key: string) => m.get(key) || null;
+  }, [allConfigs]);
   const getTagById = useGetById(allTags);
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
+
   const getMetricGroupById = useGetById(data?.metricGroups);
+  const getDecisionCriteriaById = useGetById(data?.decisionCriteria);
 
   const getExperimentMetricById = useCallback(
     (id: string) => {
@@ -239,7 +366,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       }
       return getMetricById(id);
     },
-    [getMetricById, getFactMetricById]
+    [getMetricById, getFactMetricById],
   );
 
   let value: DefinitionContextValue;
@@ -260,7 +387,11 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       dimensions: data.dimensions,
       segments: data.segments,
       tags: allTags,
-      savedGroups: data.savedGroups,
+      savedGroups: activeSavedGroups,
+      constants: activeConstants,
+      _constantsIncludingArchived: allConstants,
+      configs: activeConfigs,
+      _configsIncludingArchived: allConfigs,
       metricGroups: metricGroups,
       customFields: data.customFields,
       projects: data.projects,
@@ -269,6 +400,9 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       _factTablesIncludingArchived: allFactTables,
       factMetrics: activeFactMetrics,
       _factMetricsIncludingArchived: allFactMetrics,
+      decisionCriteria: decisionCriteria,
+      webhookSecrets: data.webhookSecrets,
+      eventIngestorRegion: data.eventIngestorRegion,
       setProject,
       getMetricById,
       getDatasourceById,
@@ -276,11 +410,16 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getSegmentById,
       getProjectById,
       getSavedGroupById,
+      getConstantById,
+      getConstantByKey,
+      getConfigById,
+      getConfigByKey,
       getTagById,
       getFactTableById,
       getFactMetricById,
       getExperimentMetricById,
       getMetricGroupById,
+      getDecisionCriteriaById,
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);
         const newTags = tags.filter((t) => !existingTags.includes(t));
@@ -294,10 +433,10 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
                   id: t,
                   color: "blue",
                   description: "",
-                }))
+                })),
               ),
             },
-            false
+            false,
           );
         }
       },

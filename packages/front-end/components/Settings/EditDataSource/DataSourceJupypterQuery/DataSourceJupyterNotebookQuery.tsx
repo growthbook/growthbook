@@ -1,19 +1,17 @@
 import React, { FC, useCallback, useState } from "react";
-import { FaPlus } from "react-icons/fa";
+import { PiPlus } from "react-icons/pi";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditJupyterNotebookQueryRunner } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/EditJupyterNotebookQueryRunner";
 import Code from "@/components/SyntaxHighlighting/Code";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 type DataSourceJupyterNotebookQueryProps = DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryProps> = ({
-  onSave,
-  dataSource,
-  canEdit = true,
-}) => {
+export const DataSourceJupyterNotebookQuery: FC<
+  DataSourceJupyterNotebookQueryProps
+> = ({ onSave, dataSource, canEdit = true }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
@@ -40,17 +38,14 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
           <Box>
             <Button
               variant={dataSource.settings.notebookRunQuery ? "ghost" : "solid"}
+              icon={
+                dataSource.settings.notebookRunQuery ? undefined : <PiPlus />
+              }
               onClick={() => {
                 setUiMode("edit");
               }}
             >
-              {dataSource.settings.notebookRunQuery ? (
-                <>Edit</>
-              ) : (
-                <>
-                  <FaPlus className="mr-1" /> Add
-                </>
-              )}
+              {dataSource.settings.notebookRunQuery ? "Edit" : "Add"}
             </Button>
           </Box>
         )}

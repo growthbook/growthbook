@@ -1,12 +1,12 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { getDefaultRole, isRoleValid } from "shared/permissions";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   addMemberToOrg,
   convertMemberToManagedByIdp,
   expandOrgMembers,
 } from "back-end/src/services/organizations";
-import { OrganizationInterface } from "back-end/types/organization";
 import { ScimError, ScimUser, ScimUserPostRequest } from "back-end/types/scim";
 import {
   createUser as createNewUser,
@@ -15,7 +15,7 @@ import {
 
 export async function createUser(
   req: ScimUserPostRequest,
-  res: Response<ScimUser | ScimError>
+  res: Response<ScimUser | ScimError>,
 ) {
   const { externalId, displayName, userName, growthbookRole } = req.body;
 
@@ -33,8 +33,9 @@ export async function createUser(
   }
 
   const expandedMembers = await expandOrgMembers(org.members);
+  const userNameLower = (userName || "").toLowerCase();
   const existingOrgMember = expandedMembers.find(
-    (member) => member.email === userName
+    (member) => member.email.toLowerCase() === userNameLower,
   );
 
   const responseObj = cloneDeep(req.body);

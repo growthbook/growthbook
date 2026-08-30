@@ -1,16 +1,19 @@
-import { QueryInterface, QueryStatistics } from "back-end/types/query";
+import { QueryInterface, QueryStatistics } from "shared/types/query";
 import { ReactElement } from "react";
+import { isManagedWarehouse } from "shared/util";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBInfo } from "@/components/Icons";
+import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const numberFormatter = Intl.NumberFormat();
 
-function getNumberOfMetricsInQuery(q: QueryInterface) {
+export function getNumberOfMetricsInQuery(q: QueryInterface) {
   if (q.queryType === "experimentMetric") return 1;
   if (q.queryType === "experimentMultiMetric") {
     return (
       Object.keys(q.rawResult?.[0] || {}).filter((col) =>
-        col.match(/^m(\d+)_id$/)
+        col.match(/^m(\d+)_id$/),
       ).length || 1
     );
   }
@@ -24,19 +27,35 @@ export default function QueryStatsRow({
   queries: QueryInterface[];
   showPipelineMode?: boolean;
 }) {
+  const { hasCommercialFeature } = useUser();
+  const { datasources } = useDefinitions();
+  // Fact table optimization is an Enterprise feature, but the Managed Warehouse
+  // gets it for free since GrowthBook owns the compute.
+  const hasOptimizedQueries =
+    hasCommercialFeature("multi-metric-queries") ||
+    datasources.some((d) => isManagedWarehouse(d));
+
   const queryStats: QueryStatistics[] = queries
     .map((q) => q.statistics)
     .filter((q): q is QueryStatistics => !!q);
 
   if (!queryStats.length) return null;
 
-  const usingPipelineMode = queries.some(
-    (q) => q.queryType === "experimentUnits"
-  );
+  const usingPipelineMode = queries.some((q) => {
+    if (q.queryType === "experimentUnits") return true;
+    if (q.queryType?.includes("experimentIncrementalRefresh")) return true;
+    return false;
+  });
+
+  // A fact-metric query is only "optimized" when it actually combines more than
+  // one metric. Single-metric queries share the same query type/builder but
+  // weren't combined, so exclude them from the optimized count.
   const factTableOptimizedMetrics = queries
     .filter((q) => q.queryType === "experimentMultiMetric")
     .map((q) => getNumberOfMetricsInQuery(q))
+    .filter((n) => n > 1)
     .reduce((sum, n) => sum + n, 0);
+
   const totalMetrics = queries
     .map((q) => getNumberOfMetricsInQuery(q))
     .reduce((sum, n) => sum + n, 0);
@@ -79,7 +98,9 @@ export default function QueryStatsRow({
               </div>
             </>
           }
-          commercialFeature="multi-metric-queries"
+          commercialFeature={
+            hasOptimizedQueries ? undefined : "multi-metric-queries"
+          }
         >
           <div className="col-auto mb-2">
             <span className="uppercase-title">
@@ -119,6 +140,16 @@ export default function QueryStatsRow({
       <NumericQueryStatDisplay
         stat="Rows Processed"
         values={queryStats.map((q) => q.rowsProcessed)}
+        format="number"
+      />
+      <NumericQueryStatDisplay
+        stat="Physical Written Bytes"
+        values={queryStats.map((q) => q.physicalWrittenBytes)}
+        format="bytes"
+      />
+      <NumericQueryStatDisplay
+        stat="Rows Inserted"
+        values={queryStats.map((q) => q.rowsInserted)}
         format="number"
       />
       <BooleanQueryStatDisplay

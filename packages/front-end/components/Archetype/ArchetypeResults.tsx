@@ -1,8 +1,8 @@
 import React, { FC, Fragment, useState } from "react";
-import { ArchetypeInterface } from "back-end/types/archetype";
-import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
+import { ArchetypeInterface } from "shared/types/archetype";
+import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
-import Link from "next/link";
+import Link from "@/ui/Link";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import { ArchetypeValueDisplay } from "@/components/Features/ValueDisplay";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -18,19 +18,16 @@ const ArchetypeResults: FC<{
   onChange: () => void;
 }> = ({ feature, archetype, featureResults, onChange }) => {
   const enableAdvDebug = false;
-  const [showExpandedResults, setShowExpandedResults] = useState<boolean>(
-    false
-  );
+  const [showExpandedResults, setShowExpandedResults] =
+    useState<boolean>(false);
   const [showExpandedResultsId, setShowExpandedResultsId] = useState<
     string | null
   >(null);
   const [showExpandedResultsEnv, setShowExpandedResultsEnv] = useState<
     string | null
   >(null);
-  const [
-    editArchetype,
-    setEditArchetype,
-  ] = useState<Partial<ArchetypeInterface> | null>(null);
+  const [editArchetype, setEditArchetype] =
+    useState<Partial<ArchetypeInterface> | null>(null);
 
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -43,12 +40,8 @@ const ArchetypeResults: FC<{
   Object.keys(featureResults).map((id) => {
     const res = featureResults[id];
     res.map((tr: FeatureTestResult) => {
-      const {
-        matchedRule,
-        matchedRuleName,
-        brief,
-        debugLog,
-      } = parseFeatureResult(tr);
+      const { matchedRule, matchedRuleName, brief, debugLog } =
+        parseFeatureResult(tr);
       detailsMap.set(id + tr.env, {
         matchedRuleName,
         matchedRule,
@@ -149,7 +142,7 @@ const ArchetypeResults: FC<{
                   code={JSON.stringify(
                     JSON.parse(details.archetype.attributes),
                     null,
-                    2
+                    2,
                   )}
                 />
               </div>
@@ -161,7 +154,7 @@ const ArchetypeResults: FC<{
                     code={JSON.stringify(
                       details.results.result.experimentResult,
                       null,
-                      2
+                      2,
                     )}
                   />
                 </div>
@@ -182,7 +175,7 @@ const ArchetypeResults: FC<{
                   code={JSON.stringify(
                     details.results?.featureDefinition,
                     null,
-                    2
+                    2,
                   )}
                 />
               </div>
@@ -194,7 +187,7 @@ const ArchetypeResults: FC<{
   };
 
   return (
-    <div className={`mb-3`}>
+    <div className={`mb-3`} style={{ overflowX: "auto" }}>
       <table className="table gbtable appbox">
         <thead>
           <tr>
@@ -237,6 +230,7 @@ const ArchetypeResults: FC<{
                           <Code code={attrDisplay} language="json" />
                         </>
                       }
+                      flipTheme={false}
                     >
                       {archetype.name}
                       {archetype.description && (
@@ -249,52 +243,64 @@ const ArchetypeResults: FC<{
                       )}
                     </Tooltip>
                   </td>
-                  {featureResults[archetype.id] &&
-                    featureResults[archetype.id].map(
-                      (result: FeatureTestResult) => (
+                  {environments.map((env) => {
+                    const result = featureResults[archetype.id]?.find(
+                      (r) => r.env === env.id,
+                    );
+                    if (!result) {
+                      return (
                         <td
-                          key={result.env}
-                          className={`${styles.valueCell} cursor-pointer ${
-                            showExpandedResultsId === archetype.id &&
-                            showExpandedResultsEnv === result.env
-                              ? styles.cellExpanded
-                              : ""
-                          }`}
-                          onClick={() => {
-                            if (enableAdvDebug) {
-                              if (
-                                showExpandedResults &&
-                                showExpandedResultsId === archetype.id &&
-                                showExpandedResultsEnv === result.env
-                              ) {
-                                // the current details are already open, so close them:
-                                setShowExpandedResults(false);
-                                setShowExpandedResultsId(null);
-                                setShowExpandedResultsEnv(null);
-                              } else {
-                                setShowExpandedResults(true);
-                                setShowExpandedResultsId(archetype.id);
-                                setShowExpandedResultsEnv(result.env);
-                              }
-                            }
-                          }}
+                          key={env.id}
+                          className={styles.valueCell}
+                          title="Archetype not evaluated for this environment"
                         >
-                          {result.enabled ? (
-                            <>{ArchetypeValueDisplay({ result, feature })}</>
-                          ) : (
-                            <span className="text-muted">disabled</span>
-                          )}
+                          <span className="text-muted">—</span>
                         </td>
-                      )
-                    )}
+                      );
+                    }
+                    return (
+                      <td
+                        key={result.env}
+                        className={`${styles.valueCell} cursor-pointer ${
+                          showExpandedResultsId === archetype.id &&
+                          showExpandedResultsEnv === result.env
+                            ? styles.cellExpanded
+                            : ""
+                        }`}
+                        onClick={() => {
+                          if (enableAdvDebug) {
+                            if (
+                              showExpandedResults &&
+                              showExpandedResultsId === archetype.id &&
+                              showExpandedResultsEnv === result.env
+                            ) {
+                              setShowExpandedResults(false);
+                              setShowExpandedResultsId(null);
+                              setShowExpandedResultsEnv(null);
+                            } else {
+                              setShowExpandedResults(true);
+                              setShowExpandedResultsId(archetype.id);
+                              setShowExpandedResultsEnv(result.env);
+                            }
+                          }
+                        }}
+                      >
+                        {result.enabled ? (
+                          <>{ArchetypeValueDisplay({ result, feature })}</>
+                        ) : (
+                          <span className="text-muted">disabled</span>
+                        )}
+                      </td>
+                    );
+                  })}
                 </tr>
                 {showExpandedResults &&
                   showExpandedResultsId === archetype.id && (
                     <>
                       {expandedResults(
                         detailsMap.get(
-                          showExpandedResultsId + showExpandedResultsEnv
-                        )
+                          showExpandedResultsId + showExpandedResultsEnv,
+                        ),
                       )}
                     </>
                   )}

@@ -1,5 +1,6 @@
 import {
   EvalContext,
+  ContextualBanditDefinition,
   FeatureDefinition,
   FeatureResult,
   Experiment,
@@ -15,6 +16,8 @@ import {
   FeatureApiResponse,
   Options,
   ClientOptions,
+  TrackingUserContext,
+  UserContext,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
@@ -22,6 +25,7 @@ import {
   chooseVariation,
   decrypt,
   getBucketRanges,
+  getEqualWeights,
   getQueryStringOverride,
   getUrlRegExp,
   hash,
@@ -72,17 +76,39 @@ async function safeCall(fn: () => void | Promise<void>) {
 function onExperimentViewed(
   ctx: EvalContext,
   experiment: Experiment<unknown>,
-  result: Result<unknown>
-) {
+  result: Result<unknown>,
+): Promise<void>[] {
+  // Make sure a tracking callback is only fired once per unique experiment
+  if (ctx.user.trackedExperiments) {
+    const k = getExperimentDedupeKey(experiment, result);
+    if (ctx.user.trackedExperiments.has(k)) {
+      return [];
+    }
+    ctx.user.trackedExperiments.add(k);
+  }
+
+  if (ctx.user.enableDevMode && ctx.user.devLogs) {
+    ctx.user.devLogs.push({
+      experiment,
+      result,
+      timestamp: Date.now().toString(),
+      logType: "experiment",
+    });
+  }
+
   const calls: Promise<void>[] = [];
 
   if (ctx.global.trackingCallback) {
     const cb = ctx.global.trackingCallback;
-    calls.push(safeCall(() => cb(experiment, result, ctx.user)));
+    calls.push(
+      safeCall(() => cb(experiment, result, getTrackingUserContext(ctx.user))),
+    );
   }
   if (ctx.user.trackingCallback) {
     const cb = ctx.user.trackingCallback;
-    calls.push(safeCall(() => cb(experiment, result)));
+    calls.push(
+      safeCall(() => cb(experiment, result, getTrackingUserContext(ctx.user))),
+    );
   }
   if (ctx.global.eventLogger) {
     const cb = ctx.global.eventLogger;
@@ -96,17 +122,75 @@ function onExperimentViewed(
             hashAttribute: result.hashAttribute,
             hashValue: result.hashValue,
           },
-          ctx.user
-        )
-      )
+          getTrackingUserContext(ctx.user),
+        ),
+      ),
     );
   }
   return calls;
 }
 
+function onFeatureUsage(
+  ctx: EvalContext,
+  key: string,
+  ret: FeatureResult<unknown>,
+): void {
+  // Only track a feature once, unless the assigned value changed
+  if (ctx.user.trackedFeatureUsage) {
+    const stringifiedValue = JSON.stringify(ret.value);
+    if (ctx.user.trackedFeatureUsage[key] === stringifiedValue) return;
+    ctx.user.trackedFeatureUsage[key] = stringifiedValue;
+
+    if (ctx.user.enableDevMode && ctx.user.devLogs) {
+      ctx.user.devLogs.push({
+        featureKey: key,
+        result: ret,
+        timestamp: Date.now().toString(),
+        logType: "feature",
+      });
+    }
+
+    // Deduped by value above — subscribers only fire on value changes, not every eval.
+    if (ctx.user.featureUsageSubs?.size) {
+      ctx.user.featureUsageSubs.forEach((cb) => {
+        try {
+          cb(key, ret);
+        } catch (e) {
+          console.error(e);
+        }
+      });
+    }
+  }
+
+  if (ctx.global.onFeatureUsage) {
+    const cb = ctx.global.onFeatureUsage;
+    safeCall(() => cb(key, ret, getTrackingUserContext(ctx.user)));
+  }
+  if (ctx.user.onFeatureUsage) {
+    const cb = ctx.user.onFeatureUsage;
+    safeCall(() => cb(key, ret));
+  }
+  if (ctx.global.eventLogger) {
+    const cb = ctx.global.eventLogger;
+    safeCall(() =>
+      cb(
+        EVENT_FEATURE_EVALUATED,
+        {
+          feature: key,
+          source: ret.source,
+          value: ret.value,
+          ruleId: ret.source === "defaultValue" ? "$default" : ret.ruleId || "",
+          variationId: ret.experimentResult ? ret.experimentResult.key : "",
+        },
+        getTrackingUserContext(ctx.user),
+      ),
+    );
+  }
+}
+
 export function evalFeature<V = unknown>(
   id: string,
-  ctx: EvalContext
+  ctx: EvalContext,
 ): FeatureResult<V | null> {
   if (ctx.stack.evaluatedFeatures.has(id)) {
     process.env.NODE_ENV !== "production" &&
@@ -115,7 +199,7 @@ export function evalFeature<V = unknown>(
         {
           from: ctx.stack.id,
           to: id,
-        }
+        },
       );
     return getFeatureResult(ctx, id, null, "cyclicPrerequisite");
   }
@@ -160,7 +244,7 @@ export function evalFeature<V = unknown>(
           const evalObj = { value: parentResult.value };
           const evaled = evalCondition(
             evalObj,
-            parentCondition.condition || {}
+            parentCondition.condition || {},
           );
           if (!evaled) {
             // blocking prerequisite eval failed: feature evaluation fails
@@ -176,7 +260,7 @@ export function evalFeature<V = unknown>(
                 {
                   id,
                   rule,
-                }
+                },
               );
             continue rules;
           }
@@ -217,7 +301,7 @@ export function evalFeature<V = unknown>(
               : undefined,
             rule.range,
             rule.coverage,
-            rule.hashVersion
+            rule.hashVersion,
           )
         ) {
           process.env.NODE_ENV !== "production" &&
@@ -242,6 +326,7 @@ export function evalFeature<V = unknown>(
               ctx.global.saveDeferredTrack({
                 experiment: t.experiment,
                 result: t.result,
+                user: getTrackingUserContext(ctx.user),
               });
             }
           });
@@ -249,7 +334,10 @@ export function evalFeature<V = unknown>(
 
         return getFeatureResult(ctx, id, rule.force as V, "force", rule.id);
       }
-      if (!rule.variations) {
+      // Contextual bandit rules carry their variations under
+      // `contextualVariations` so older SDKs skip them; read either field here.
+      const ruleVariations = rule.contextualVariations ?? rule.variations;
+      if (!ruleVariations) {
         process.env.NODE_ENV !== "production" &&
           ctx.global.log("Skip invalid rule", {
             id,
@@ -261,7 +349,7 @@ export function evalFeature<V = unknown>(
 
       // For experiment rules, run an experiment
       const exp: Experiment<V> = {
-        variations: rule.variations as [V, V, ...V[]],
+        variations: ruleVariations as [V, V, ...V[]],
         key: rule.key || id,
       };
       if ("coverage" in rule) exp.coverage = rule.coverage;
@@ -284,9 +372,15 @@ export function evalFeature<V = unknown>(
       if (rule.hashVersion) exp.hashVersion = rule.hashVersion;
       if (rule.filters) exp.filters = rule.filters;
       if (rule.condition) exp.condition = rule.condition;
+      if (rule.contextualBanditRef) {
+        buildContextualBanditExperiment(exp, rule.contextualBanditRef, id, ctx);
+      }
 
       // Only return a value if the user is part of the experiment
       const { result } = runExperiment(exp, id, ctx);
+      if (exp.contextualBandit && !(result.hashUsed && result.inExperiment)) {
+        delete exp.contextualBandit;
+      }
       ctx.global.onExperimentEval && ctx.global.onExperimentEval(exp, result);
       if (result.inExperiment && !result.passthrough) {
         return getFeatureResult(
@@ -296,7 +390,7 @@ export function evalFeature<V = unknown>(
           "experiment",
           rule.id,
           exp,
-          result
+          result,
         );
       }
     }
@@ -313,14 +407,14 @@ export function evalFeature<V = unknown>(
     ctx,
     id,
     feature.defaultValue === undefined ? null : feature.defaultValue,
-    "defaultValue"
+    "defaultValue",
   );
 }
 
 export function runExperiment<T>(
   experiment: Experiment<T>,
   featureId: string | null,
-  ctx: EvalContext
+  ctx: EvalContext,
 ): {
   result: Result<T>;
   trackingCall?: Promise<void>;
@@ -349,6 +443,13 @@ export function runExperiment<T>(
   // 2.5. Merge in experiment overrides from the context
   experiment = mergeOverrides(experiment, ctx);
 
+  if (experiment.contextualBandit && experiment.weights) {
+    experiment.contextualBandit = {
+      ...experiment.contextualBandit,
+      variationWeights: experiment.weights,
+    };
+  }
+
   // 2.6 New, more powerful URL targeting
   if (
     experiment.urlPatterns &&
@@ -367,7 +468,7 @@ export function runExperiment<T>(
   const qsOverride = getQueryStringOverride(
     key,
     ctx.user.url || "",
-    numVariations
+    numVariations,
   );
   if (qsOverride !== null) {
     process.env.NODE_ENV !== "production" &&
@@ -381,7 +482,7 @@ export function runExperiment<T>(
         experiment,
         qsOverride,
         false,
-        featureId
+        featureId,
       ),
     };
   }
@@ -417,7 +518,7 @@ export function runExperiment<T>(
     experiment.hashAttribute,
     ctx.user.saveStickyBucketAssignmentDoc && !experiment.disableStickyBucketing
       ? experiment.fallbackAttribute
-      : undefined
+      : undefined,
   );
   if (!hashValue) {
     process.env.NODE_ENV !== "production" &&
@@ -555,7 +656,7 @@ export function runExperiment<T>(
   const n = hash(
     experiment.seed || key,
     hashValue,
-    experiment.hashVersion || 1
+    experiment.hashVersion || 1,
   );
   if (n === null) {
     process.env.NODE_ENV !== "production" &&
@@ -573,7 +674,7 @@ export function runExperiment<T>(
       getBucketRanges(
         numVariations,
         experiment.coverage === undefined ? 1 : experiment.coverage,
-        experiment.weights
+        experiment.weights,
       );
     assigned = chooseVariation(n, ranges);
   }
@@ -592,7 +693,7 @@ export function runExperiment<T>(
         false,
         featureId,
         undefined,
-        true
+        true,
       ),
     };
   }
@@ -621,7 +722,7 @@ export function runExperiment<T>(
         experiment,
         experiment.force === undefined ? -1 : experiment.force,
         false,
-        featureId
+        featureId,
       ),
     };
   }
@@ -656,7 +757,7 @@ export function runExperiment<T>(
     true,
     featureId,
     n,
-    foundStickyBucket
+    foundStickyBucket,
   );
 
   // 13.5. Persist sticky bucket
@@ -664,16 +765,20 @@ export function runExperiment<T>(
     ctx.user.saveStickyBucketAssignmentDoc &&
     !experiment.disableStickyBucketing
   ) {
-    const { changed, key: attrKey, doc } = generateStickyBucketAssignmentDoc(
+    const {
+      changed,
+      key: attrKey,
+      doc,
+    } = generateStickyBucketAssignmentDoc(
       ctx,
       hashAttribute,
       toString(hashValue),
       {
         [getStickyBucketExperimentKey(
           experiment.key,
-          experiment.bucketVersion
+          experiment.bucketVersion,
         )]: result.key,
-      }
+      },
     );
     if (changed) {
       // update local docs
@@ -692,13 +797,14 @@ export function runExperiment<T>(
     ctx.global.saveDeferredTrack({
       experiment,
       result,
+      user: getTrackingUserContext(ctx.user),
     });
   }
   const trackingCall = !trackingCalls.length
     ? undefined
     : trackingCalls.length === 1
-    ? trackingCalls[0]
-    : Promise.all(trackingCalls).then(() => {});
+      ? trackingCalls[0]
+      : Promise.all(trackingCalls).then(() => {});
 
   // 14.1 Keep track of completed changeIds
   "changeId" in experiment &&
@@ -722,7 +828,7 @@ function getFeatureResult<T>(
   source: FeatureResultSource,
   ruleId?: string,
   experiment?: Experiment<T>,
-  result?: Result<T>
+  result?: Result<T>,
 ): FeatureResult<T> {
   const ret: FeatureResult = {
     value,
@@ -736,45 +842,101 @@ function getFeatureResult<T>(
 
   // Track the usage of this feature in real-time
   if (source !== "override") {
-    if (ctx.global.onFeatureUsage) {
-      const cb = ctx.global.onFeatureUsage;
-      safeCall(() => cb(key, ret, ctx.user));
-    }
-    if (ctx.user.onFeatureUsage) {
-      const cb = ctx.user.onFeatureUsage;
-      safeCall(() => cb(key, ret));
-    }
-
-    if (ctx.global.eventLogger) {
-      const cb = ctx.global.eventLogger;
-      safeCall(() =>
-        cb(
-          EVENT_FEATURE_EVALUATED,
-          {
-            feature: key,
-            source: ret.source,
-            value: ret.value,
-            ruleId:
-              ret.source === "defaultValue" ? "$default" : ret.ruleId || "",
-            variationId: ret.experimentResult ? ret.experimentResult.key : "",
-          },
-          ctx.user
-        )
-      );
-    }
+    onFeatureUsage(ctx, key, ret);
   }
 
   return ret;
 }
 
+function getAttributes(user: UserContext) {
+  return {
+    ...user.attributes,
+    ...user.attributeOverrides,
+  };
+}
+
+export function getTrackingUserContext(user: UserContext): TrackingUserContext {
+  return {
+    attributes: getAttributes(user),
+    url: user.url,
+  };
+}
+
+function getContextualBanditLeaf(
+  cbDefinition: ContextualBanditDefinition,
+  ctx: EvalContext,
+): { leafId: number; weights: number[] } | null {
+  for (const context of cbDefinition.contexts || []) {
+    if (conditionPasses((context.condition || {}) as ConditionInterface, ctx)) {
+      return { leafId: context.leafId, weights: context.weights };
+    }
+  }
+
+  return null;
+}
+
+const CONTEXTUAL_BANDIT_FALLBACK_LEAF_ID = -1;
+
+function buildContextualBanditExperiment<T>(
+  experiment: Experiment<T>,
+  contextualBanditRef: string,
+  id: string,
+  ctx: EvalContext,
+): void {
+  const cbDefinition = ctx.global.contextualBandits?.[contextualBanditRef];
+  if (!cbDefinition) {
+    process.env.NODE_ENV !== "production" &&
+      ctx.global.log(
+        "Contextual bandit ref not found in payload, using aggregate weights",
+        { id, contextualBanditRef },
+      );
+    return;
+  }
+
+  let leaf: { leafId: number; weights: number[] } | null = null;
+  if (cbDefinition.contexts && cbDefinition.contexts.length) {
+    try {
+      leaf = getContextualBanditLeaf(cbDefinition, ctx);
+    } catch (e) {
+      process.env.NODE_ENV !== "production" &&
+        ctx.global.log(
+          "Contextual bandit leaf selection threw, using fallback weights",
+          { id, contextualBanditRef, error: e },
+        );
+    }
+  }
+
+  if (leaf) {
+    experiment.weights = leaf.weights;
+    experiment.contextualBandit = {
+      leafId: leaf.leafId,
+      variationWeights: leaf.weights,
+      banditVersion: cbDefinition.banditVersion,
+    };
+    return;
+  }
+
+  process.env.NODE_ENV !== "production" &&
+    ctx.global.log(
+      "Contextual bandit: no matching leaf, using fallback weights",
+      { id, contextualBanditRef },
+    );
+  experiment.contextualBandit = {
+    leafId: CONTEXTUAL_BANDIT_FALLBACK_LEAF_ID,
+    variationWeights:
+      experiment.weights ?? getEqualWeights(experiment.variations.length),
+    banditVersion: cbDefinition.banditVersion,
+  };
+}
+
 function conditionPasses(
   condition: ConditionInterface,
-  ctx: EvalContext
+  ctx: EvalContext,
 ): boolean {
   return evalCondition(
-    ctx.user.attributes || {},
+    getAttributes(ctx.user),
     condition,
-    ctx.global.savedGroups || {}
+    ctx.global.savedGroups || {},
   );
 }
 
@@ -795,7 +957,7 @@ function isIncludedInRollout(
   fallbackAttribute: string | undefined,
   range: VariationRange | undefined,
   coverage: number | undefined,
-  hashVersion: number | undefined
+  hashVersion: number | undefined,
 ): boolean {
   if (!range && coverage === undefined) return true;
 
@@ -812,8 +974,8 @@ function isIncludedInRollout(
   return range
     ? inRange(n, range)
     : coverage !== undefined
-    ? n <= coverage
-    : true;
+      ? n <= coverage
+      : true;
 }
 
 export function getExperimentResult<T>(
@@ -823,7 +985,7 @@ export function getExperimentResult<T>(
   hashUsed: boolean,
   featureId: string | null,
   bucket?: number,
-  stickyBucketUsed?: boolean
+  stickyBucketUsed?: boolean,
 ): Result<T> {
   let inExperiment = true;
   // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
@@ -837,7 +999,7 @@ export function getExperimentResult<T>(
     experiment.hashAttribute,
     ctx.user.saveStickyBucketAssignmentDoc && !experiment.disableStickyBucketing
       ? experiment.fallbackAttribute
-      : undefined
+      : undefined,
   );
 
   const meta: Partial<VariationMeta> = experiment.meta
@@ -860,12 +1022,19 @@ export function getExperimentResult<T>(
   if (bucket !== undefined) res.bucket = bucket;
   if (meta.passthrough) res.passthrough = meta.passthrough;
 
+  const cb = experiment.contextualBandit;
+  if (cb && hashUsed && inExperiment) {
+    res.leafId = cb.leafId;
+    res.variationWeights = cb.variationWeights;
+    if (cb.banditVersion !== undefined) res.banditVersion = cb.banditVersion;
+  }
+
   return res;
 }
 
 function mergeOverrides<T>(
   experiment: Experiment<T>,
-  ctx: EvalContext
+  ctx: EvalContext,
 ): Experiment<T> {
   const key = experiment.key;
   const o = ctx.global.overrides;
@@ -874,7 +1043,7 @@ function mergeOverrides<T>(
     if (typeof experiment.url === "string") {
       experiment.url = getUrlRegExp(
         // eslint-disable-next-line
-        experiment.url as any
+        experiment.url as any,
       );
     }
   }
@@ -885,20 +1054,22 @@ function mergeOverrides<T>(
 export function getHashAttribute(
   ctx: EvalContext,
   attr?: string,
-  fallback?: string
+  fallback?: string,
 ) {
   let hashAttribute = attr || "id";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let hashValue: any = "";
 
-  if (ctx.user.attributes && ctx.user.attributes[hashAttribute]) {
-    hashValue = ctx.user.attributes[hashAttribute];
+  const attributes = getAttributes(ctx.user);
+
+  if (attributes[hashAttribute]) {
+    hashValue = attributes[hashAttribute];
   }
 
   // if no match, try fallback
-  if (ctx.user.attributes && !hashValue && fallback) {
-    if (ctx.user.attributes[fallback]) {
-      hashValue = ctx.user.attributes[fallback];
+  if (!hashValue && fallback) {
+    if (attributes[fallback]) {
+      hashValue = attributes[fallback];
     }
     if (hashValue) {
       hashAttribute = fallback;
@@ -955,12 +1126,12 @@ function getStickyBucketVariation({
   const assignments = getStickyBucketAssignments(
     ctx,
     expHashAttribute,
-    expFallbackAttribute
+    expFallbackAttribute,
   );
 
-  // users with any blocked bucket version (0 to minExperimentBucketVersion) are excluded from the test
+  // users with any blocked bucket version (0 to minExperimentBucketVersion - 1) are excluded from the test
   if (expMinBucketVersion > 0) {
-    for (let i = 0; i <= expMinBucketVersion; i++) {
+    for (let i = 0; i < expMinBucketVersion; i++) {
       const blockedKey = getStickyBucketExperimentKey(expKey, i);
       if (assignments[blockedKey] !== undefined) {
         return {
@@ -984,40 +1155,48 @@ function getStickyBucketVariation({
 
 function getStickyBucketExperimentKey(
   experimentKey: string,
-  experimentBucketVersion?: number
+  experimentBucketVersion?: number,
 ): StickyExperimentKey {
   experimentBucketVersion = experimentBucketVersion || 0;
   return `${experimentKey}__${experimentBucketVersion}`;
 }
 
+export function getStickyBucketAttributeKey(
+  attributeName: string,
+  attributeValue: string,
+): StickyAttributeKey {
+  return `${attributeName}||${attributeValue}`;
+}
+
 function getStickyBucketAssignments(
   ctx: EvalContext,
   expHashAttribute: string,
-  expFallbackAttribute?: string
+  expFallbackAttribute?: string,
 ): StickyAssignments {
   if (!ctx.user.stickyBucketAssignmentDocs) return {};
   const { hashAttribute, hashValue } = getHashAttribute(ctx, expHashAttribute);
-  const hashKey = `${hashAttribute}||${toString(hashValue)}`;
+  const hashKey = getStickyBucketAttributeKey(
+    hashAttribute,
+    toString(hashValue),
+  );
 
-  const {
-    hashAttribute: fallbackAttribute,
-    hashValue: fallbackValue,
-  } = getHashAttribute(ctx, expFallbackAttribute);
+  const { hashAttribute: fallbackAttribute, hashValue: fallbackValue } =
+    getHashAttribute(ctx, expFallbackAttribute);
   const fallbackKey = fallbackValue
-    ? `${fallbackAttribute}||${toString(fallbackValue)}`
+    ? getStickyBucketAttributeKey(fallbackAttribute, toString(fallbackValue))
     : null;
 
   const assignments: StickyAssignments = {};
   if (fallbackKey && ctx.user.stickyBucketAssignmentDocs[fallbackKey]) {
     Object.assign(
       assignments,
-      ctx.user.stickyBucketAssignmentDocs[fallbackKey].assignments || {}
+      ctx.user.stickyBucketAssignmentDocs[fallbackKey].assignments || {},
     );
   }
   if (ctx.user.stickyBucketAssignmentDocs[hashKey]) {
     Object.assign(
       assignments,
-      ctx.user.stickyBucketAssignmentDocs[hashKey].assignments || {}
+      ctx.user.stickyBucketAssignmentDocs[hashKey].assignments || {},
     );
   }
   return assignments;
@@ -1027,13 +1206,13 @@ function generateStickyBucketAssignmentDoc(
   ctx: EvalContext,
   attributeName: string,
   attributeValue: string,
-  assignments: StickyAssignments
+  assignments: StickyAssignments,
 ): {
   key: StickyAttributeKey;
   doc: StickyAssignmentsDocument;
   changed: boolean;
 } {
-  const key = `${attributeName}||${attributeValue}`;
+  const key = getStickyBucketAttributeKey(attributeName, attributeValue);
   const existingAssignments =
     ctx.user.stickyBucketAssignmentDocs &&
     ctx.user.stickyBucketAssignmentDocs[key]
@@ -1056,7 +1235,7 @@ function generateStickyBucketAssignmentDoc(
 
 function deriveStickyBucketIdentifierAttributes(
   ctx: EvalContext,
-  data?: FeatureApiResponse
+  data?: FeatureApiResponse,
 ) {
   const attributes = new Set<string>();
   const features =
@@ -1067,7 +1246,8 @@ function deriveStickyBucketIdentifierAttributes(
     const feature = features[id];
     if (feature.rules) {
       for (const rule of feature.rules) {
-        if (rule.variations) {
+        // Contextual bandit rules carry their variations under `contextualVariations`
+        if (rule.variations || rule.contextualVariations) {
           attributes.add(rule.hashAttribute || "id");
           if (rule.fallbackAttribute) {
             attributes.add(rule.fallbackAttribute);
@@ -1088,21 +1268,19 @@ function deriveStickyBucketIdentifierAttributes(
 export async function getAllStickyBucketAssignmentDocs(
   ctx: EvalContext,
   stickyBucketService: StickyBucketService,
-  data?: FeatureApiResponse
+  data?: FeatureApiResponse,
 ) {
   const attributes = getStickyBucketAttributes(ctx, data);
   return stickyBucketService.getAllAssignments(attributes);
 }
 
-function getStickyBucketAttributes(
+export function getStickyBucketAttributes(
   ctx: EvalContext,
-  data?: FeatureApiResponse
+  data?: FeatureApiResponse,
 ): Record<string, string> {
   const attributes: Record<string, string> = {};
-  const stickyBucketIdentifierAttributes = deriveStickyBucketIdentifierAttributes(
-    ctx,
-    data
-  );
+  const stickyBucketIdentifierAttributes =
+    deriveStickyBucketIdentifierAttributes(ctx, data);
   stickyBucketIdentifierAttributes.forEach((attr) => {
     const { hashValue } = getHashAttribute(ctx, attr);
     attributes[attr] = toString(hashValue);
@@ -1113,13 +1291,13 @@ function getStickyBucketAttributes(
 export async function decryptPayload(
   data: FeatureApiResponse,
   decryptionKey: string | undefined,
-  subtle?: SubtleCrypto
+  subtle?: SubtleCrypto,
 ): Promise<FeatureApiResponse> {
   data = { ...data };
   if (data.encryptedFeatures) {
     try {
       data.features = JSON.parse(
-        await decrypt(data.encryptedFeatures, decryptionKey, subtle)
+        await decrypt(data.encryptedFeatures, decryptionKey, subtle),
       );
     } catch (e) {
       console.error(e);
@@ -1129,7 +1307,7 @@ export async function decryptPayload(
   if (data.encryptedExperiments) {
     try {
       data.experiments = JSON.parse(
-        await decrypt(data.encryptedExperiments, decryptionKey, subtle)
+        await decrypt(data.encryptedExperiments, decryptionKey, subtle),
       );
     } catch (e) {
       console.error(e);
@@ -1139,19 +1317,27 @@ export async function decryptPayload(
   if (data.encryptedSavedGroups) {
     try {
       data.savedGroups = JSON.parse(
-        await decrypt(data.encryptedSavedGroups, decryptionKey, subtle)
+        await decrypt(data.encryptedSavedGroups, decryptionKey, subtle),
       );
     } catch (e) {
       console.error(e);
     }
     delete data.encryptedSavedGroups;
   }
+  if (data.encryptedContextualBandits) {
+    try {
+      data.contextualBandits = JSON.parse(
+        await decrypt(data.encryptedContextualBandits, decryptionKey, subtle),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    delete data.encryptedContextualBandits;
+  }
   return data;
 }
 
-export function getApiHosts(
-  options: Options | ClientOptions
-): {
+export function getApiHosts(options: Options | ClientOptions): {
   apiHost: string;
   streamingHost: string;
   apiRequestHeaders?: Record<string, string>;
@@ -1164,4 +1350,16 @@ export function getApiHosts(
     apiRequestHeaders: options.apiHostRequestHeaders,
     streamingHostRequestHeaders: options.streamingHostRequestHeaders,
   };
+}
+
+export function getExperimentDedupeKey(
+  experiment: Experiment<unknown>,
+  result: Result<unknown>,
+) {
+  return (
+    result.hashAttribute +
+    result.hashValue +
+    experiment.key +
+    result.variationId
+  );
 }

@@ -1,59 +1,52 @@
 import { snowflakeCreateTableOptions } from "shared/enterprise";
-import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
+import { SqlDialect } from "shared/types/sql";
+import { QueryResponse, ExternalIdCallback } from "shared/types/integrations";
+import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { runSnowflakeQuery } from "back-end/src/services/snowflake";
-import { QueryResponse } from "back-end/src/types/Integration";
-import { FormatDialect } from "back-end/src/util/sql";
+import {
+  cancelSnowflakeQuery,
+  runSnowflakeQuery,
+} from "back-end/src/services/snowflake";
 import SqlIntegration from "./SqlIntegration";
+import { snowflakeDialect } from "./dialects/snowflake";
 
 export default class Snowflake extends SqlIntegration {
   params!: SnowflakeConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<SnowflakeConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<SnowflakeConnectionParams>(encryptedParams);
+  }
+  getSqlDialect(): SqlDialect {
+    return snowflakeDialect;
   }
   isWritingTablesSupported(): boolean {
     return true;
   }
   createUnitsTableOptions() {
+    if (!this.datasource.settings.pipelineSettings) {
+      throw new Error("Pipeline settings are required to create a units table");
+    }
     return snowflakeCreateTableOptions(
-      this.datasource.settings.pipelineSettings ?? {}
+      this.datasource.settings.pipelineSettings,
     );
   }
-  getFormatDialect(): FormatDialect {
-    return "snowflake";
+  runQuery(
+    sql: string,
+    setExternalId: ExternalIdCallback | undefined,
+    queryMetadata: RunQueryMetadata,
+  ): Promise<QueryResponse> {
+    return runSnowflakeQuery(this.params, sql, setExternalId, queryMetadata);
   }
-  getSensitiveParamKeys(): string[] {
-    return ["password", "privateKey", "privateKeyPassword"];
+  async cancelQuery(externalId: string): Promise<void> {
+    await cancelSnowflakeQuery(this.params, externalId);
   }
-  runQuery(sql: string): Promise<QueryResponse> {
-    return runSnowflakeQuery(this.params, sql);
-  }
-  formatDate(col: string): string {
-    return `TO_VARCHAR(${col}, 'YYYY-MM-DD')`;
-  }
-  formatDateTimeString(col: string): string {
-    return `TO_VARCHAR(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`;
-  }
-  castToString(col: string): string {
-    return `TO_VARCHAR(${col})`;
-  }
-  ensureFloat(col: string): string {
-    return `CAST(${col} AS DOUBLE)`;
-  }
-  hasCountDistinctHLL(): boolean {
+  supportsLimitZeroColumnValidation(): boolean {
     return true;
   }
-  hllAggregate(col: string): string {
-    return `HLL_ACCUMULATE(${col})`;
-  }
-  hllReaggregate(col: string): string {
-    return `HLL_COMBINE(${col})`;
-  }
-  hllCardinality(col: string): string {
-    return `HLL_ESTIMATE(${col})`;
+  hasQuantileSketch(): boolean {
+    return true;
   }
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('INFORMATION_SCHEMA')";

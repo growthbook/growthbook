@@ -1,0 +1,393 @@
+import {
+  ChangeEvent,
+  FC,
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { FaAngleDown, FaAngleUp, FaCheck } from "react-icons/fa";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/ui/DropdownMenu";
+import { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
+import Field from "@/components/Forms/Field";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+
+const USE_SEARCH_BOX = true;
+
+// Serialize a parsed filter back into `field:[!][op]v1,v2` search-string syntax.
+// Exported so other filter UIs (e.g. SidebarExperimentFilters) reuse the same
+// round-trip format instead of re-implementing it.
+export function filterToString(filter: SyntaxFilter): string {
+  return (
+    filter.field +
+    ":" +
+    (filter.negated ? "!" : "") +
+    filter.operator +
+    filter.values
+      // Quote values containing spaces (token separators) or commas (value
+      // separators) so they round-trip through the parser as a single value.
+      .map((v) => (v.includes(" ") || v.includes(",") ? '"' + v + '"' : v))
+      .join(",")
+  );
+}
+
+// Regex matching one serialized filter token (`field:[!][op]values`) in the
+// raw search string. The prefix is regex-escaped (operators like `^` are regex
+// metacharacters), and a negative lookahead keeps a plain `field:` pattern
+// from also swallowing `field:!...` / `field:>...` tokens for the same field.
+function filterTokenRegex(filter: SyntaxFilter): RegExp {
+  const prefix = (
+    filter.field +
+    ":" +
+    (filter.negated ? "!" : "") +
+    filter.operator
+  ).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const guard = filter.operator
+    ? ""
+    : filter.negated
+      ? "(?![><^~=])"
+      : "(?![!><^~=])";
+  return new RegExp(`${prefix}${guard}(?:"[^"]*"|[^\\s])*`, "g");
+}
+
+// Common interfaces
+export interface SearchFiltersItem {
+  id: string;
+  name: string | JSX.Element;
+  searchValue: string;
+  operator?: SearchTermFilterOperator;
+  negated?: boolean;
+  filter?: string;
+  hr?: boolean;
+  disabled?: boolean;
+}
+
+export interface BaseSearchFiltersProps {
+  searchInputProps: {
+    value: string;
+    onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  };
+  syntaxFilters: SyntaxFilter[];
+  setSearchValue: (value: string) => void;
+}
+
+export const FilterHeading: FC<{
+  heading: string;
+  open: boolean;
+}> = ({ heading, open }) => {
+  return (
+    <IconButton
+      variant="ghost"
+      color="gray"
+      radius="small"
+      size="3"
+      highContrast
+    >
+      <Flex gap="2" align="center">
+        <Flex gap="0" align="center">
+          {heading}
+        </Flex>
+        {open ? <FaAngleUp /> : <FaAngleDown />}
+      </Flex>
+    </IconButton>
+  );
+};
+
+export const FilterItem: FC<{
+  item: string | JSX.Element;
+  exists: boolean;
+}> = ({ item, exists }) => {
+  return (
+    <Box className="position-relative">
+      {exists ? (
+        <Box
+          className="position-absolute"
+          style={{ left: "-2px", fontSize: "0.8rem" }}
+        >
+          <FaCheck />{" "}
+        </Box>
+      ) : (
+        ""
+      )}
+      <Box pl="4">
+        {typeof item === "string" ? <OverflowText>{item}</OverflowText> : item}
+      </Box>
+    </Box>
+  );
+};
+
+export const FilterDropdown: FC<{
+  filter: string;
+  items: SearchFiltersItem[];
+  syntaxFilters: SyntaxFilter[];
+  open: string;
+  setOpen: (value: string) => void;
+  updateQuery: (filter: SyntaxFilter) => void;
+  operator?: string;
+  heading?: string;
+  menuPlacement?: "start" | "center" | "end";
+}> = ({
+  filter,
+  items,
+  open,
+  setOpen,
+  updateQuery,
+  syntaxFilters,
+  operator = "",
+  heading,
+  menuPlacement = "start",
+}) => {
+  const [filterSearch, setFilterSearch] = useState<string>("");
+  const filterLabel = heading ?? filter;
+  const showSearchFilter = useMemo(
+    () => USE_SEARCH_BOX && items.length > 10,
+    [items],
+  );
+  const filteredItems = useMemo(() => {
+    if (!filterSearch) return items;
+    const query = filterSearch.toLowerCase();
+    return items.filter((i) => {
+      const haystack = typeof i.name === "string" ? i.name : i.searchValue;
+      return haystack.toLowerCase().includes(query);
+    });
+  }, [items, filterSearch]);
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (open !== filter) {
+      setFilterSearch("");
+      return;
+    }
+
+    if (!showSearchFilter) return;
+
+    const focusTimer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+    return () => clearTimeout(focusTimer);
+  }, [filter, open, showSearchFilter]);
+
+  return (
+    <DropdownMenu
+      trigger={FilterHeading({
+        heading: filterLabel,
+        open: open === filter,
+      })}
+      variant="soft"
+      open={open === filter}
+      menuPlacement={menuPlacement}
+      onOpenChange={(o) => {
+        setOpen(o ? filter : "");
+      }}
+    >
+      <DropdownMenuLabel>Filter by {filterLabel}</DropdownMenuLabel>
+      {showSearchFilter && (
+        <Box px="2" pb="1" style={{ maxWidth: "250px" }}>
+          <Field
+            size="legacy"
+            ref={inputRef}
+            value={filterSearch}
+            onChange={(e) => setFilterSearch(e.target.value)}
+            type="search"
+            placeholder={`Search ${filterLabel}`}
+            aria-label={`Search ${filterLabel} filters`}
+            onKeyDown={(e) => {
+              if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
+                e.stopPropagation();
+              }
+            }}
+          />
+        </Box>
+      )}
+      {filteredItems.map((i) => (
+        <Fragment key={i.id}>
+          {i.hr && <Box my="2" style={{ borderBottom: "1px solid #ccc" }} />}
+          <DropdownMenuItem
+            key={i.id}
+            disabled={i.disabled}
+            style={{ maxWidth: "250px" }}
+            onClick={() => {
+              const f: SyntaxFilter = {
+                field: i?.filter ?? filter,
+                values: [i.searchValue],
+                operator: i?.operator ?? "",
+                negated: i?.negated ?? false,
+              };
+              updateQuery(f);
+            }}
+          >
+            <FilterItem
+              item={i.name}
+              exists={doesFilterExistInSearch({
+                syntaxFilters,
+                field: i?.filter ?? filter,
+                value: i.searchValue,
+                operator: i?.operator ?? operator,
+              })}
+            />
+          </DropdownMenuItem>
+        </Fragment>
+      ))}
+    </DropdownMenu>
+  );
+};
+
+// Helper function for checking if a filter exists in the syntax filters
+function doesFilterExistInSearch({
+  syntaxFilters,
+  field,
+  value,
+  operator,
+  negated,
+}: {
+  syntaxFilters: SyntaxFilter[];
+  field: string;
+  value: string;
+  operator?: string;
+  negated?: boolean;
+}): boolean {
+  // Value matching is case-insensitive to mirror how filterSearchTerm actually
+  // filters (it lowercases both sides), so hand-typed `status:Running` still
+  // maps to the "running" option.
+  const hasValue = (filter: SyntaxFilter) =>
+    filter.values.some((v) => v.toLowerCase() === value.toLowerCase());
+
+  if (negated !== undefined && operator !== undefined) {
+    return syntaxFilters.some(
+      (filter) =>
+        filter.field === field &&
+        filter.operator === operator &&
+        hasValue(filter) &&
+        filter.negated === negated,
+    );
+  }
+  if (operator !== undefined) {
+    return syntaxFilters.some(
+      (filter) =>
+        filter.field === field &&
+        filter.operator === operator &&
+        hasValue(filter),
+    );
+  } else {
+    return syntaxFilters.some(
+      (filter) => filter.field === field && hasValue(filter),
+    );
+  }
+}
+
+// Base hook
+export const useSearchFiltersBase = ({
+  searchInputProps,
+  syntaxFilters,
+  setSearchValue,
+}: BaseSearchFiltersProps) => {
+  const [dropdownFilterOpen, setDropdownFilterOpen] = useState("");
+  const { projects, project } = useDefinitions();
+
+  const addFilterToSearch = useCallback(
+    (filter: SyntaxFilter) => {
+      const term = filterToString(filter);
+      setSearchValue(
+        (searchInputProps.value.length > 0
+          ? searchInputProps.value + " " + term
+          : term
+        ).trim(),
+      );
+    },
+    [searchInputProps.value, setSearchValue],
+  );
+
+  const updateFilterToSearch = useCallback(
+    (filter: SyntaxFilter) => {
+      const term = filterToString(filter);
+      const newValue = searchInputProps.value.replace(
+        filterTokenRegex(filter),
+        term,
+      );
+      setSearchValue(newValue.trim());
+    },
+    [searchInputProps, setSearchValue],
+  );
+
+  const removeFilterToSearch = useCallback(
+    (filter: SyntaxFilter) => {
+      const newValue = searchInputProps.value.replace(
+        filterTokenRegex(filter),
+        "",
+      );
+      setSearchValue(newValue.trim());
+    },
+    [searchInputProps.value, setSearchValue],
+  );
+
+  const updateQuery = useCallback(
+    (filter: SyntaxFilter) => {
+      const existingFilter = syntaxFilters.find(
+        (f) =>
+          f.field === filter.field &&
+          f.operator === filter.operator &&
+          f.negated === filter.negated,
+      );
+
+      if (existingFilter) {
+        // Case-insensitive, matching how filterSearchTerm filters and how the
+        // UI decides an option is checked — otherwise a hand-typed
+        // `status:Running` renders checked but can never be unchecked.
+        const newValue = (filter.values[0] ?? "").toLowerCase();
+        const valueExists = existingFilter.values.some(
+          (v) => v.toLowerCase() === newValue,
+        );
+
+        if (valueExists) {
+          existingFilter.values = existingFilter.values.filter(
+            (v) => v.toLowerCase() !== newValue,
+          );
+
+          if (existingFilter.values.length === 0) {
+            removeFilterToSearch(existingFilter);
+          } else {
+            updateFilterToSearch(existingFilter);
+          }
+        } else {
+          existingFilter.values = existingFilter.values.concat(filter.values);
+          updateFilterToSearch(existingFilter);
+        }
+      } else {
+        addFilterToSearch(filter);
+      }
+    },
+    [
+      syntaxFilters,
+      addFilterToSearch,
+      updateFilterToSearch,
+      removeFilterToSearch,
+    ],
+  );
+
+  return {
+    dropdownFilterOpen,
+    setDropdownFilterOpen,
+    project,
+    projects,
+    updateQuery,
+    doesFilterExist: useCallback(
+      (field: string, value: string, operator?: string, negated?: boolean) =>
+        doesFilterExistInSearch({
+          syntaxFilters,
+          field,
+          value,
+          operator,
+          negated,
+        }),
+      [syntaxFilters],
+    ),
+  };
+};

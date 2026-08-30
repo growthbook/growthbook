@@ -1,4 +1,5 @@
-import { NextFunction, Request, Response } from "express";
+import crypto from "crypto";
+import { NextFunction, Request, RequestHandler, Response } from "express";
 import {
   Issuer,
   IssuerMetadata,
@@ -8,33 +9,39 @@ import {
   custom,
 } from "openid-client";
 
-import jwtExpress, { RequestHandler } from "express-jwt";
+import { expressjwt, GetVerificationKey } from "express-jwt";
+import type { Algorithm } from "jsonwebtoken";
 import jwks from "jwks-rsa";
 import { SSO_CONFIG } from "shared/enterprise";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { MemoryCache } from "back-end/src/services/cache";
 import {
   SSOConnectionInterface,
   UnauthenticatedResponse,
-} from "back-end/types/sso-connection";
+} from "shared/types/sso-connection";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { MemoryCache } from "back-end/src/services/cache";
 import {
-  AuthChecksCookie,
+  AuthSecretCookie,
+  PendingSSOConnectionCookie,
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
 import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "back-end/src/util/secrets";
-import { getSSOConnectionById } from "back-end/src/models/SSOConnectionModel";
+import { _dangerousGetSSOConnectionById } from "back-end/src/models/SSOConnectionModel";
 import {
   getUserLoginPropertiesFromRequest,
   trackLoginForUser,
 } from "back-end/src/services/users";
 import { getHttpOptions } from "back-end/src/util/http.util";
+import {
+  VERCEL_CLIENT_ID,
+  VERCEL_CLIENT_SECRET,
+} from "back-end/src/services/vercel-native-integration.service";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
-
-type AuthChecks = {
-  connection_id: string;
-  state: string;
-  code_verifier: string;
-};
+import {
+  createNonce,
+  deriveAuthChecks,
+  isNonceExpired,
+  nonceFromState,
+} from "./authChecks";
 
 if (USE_PROXY) {
   custom.setHttpOptionsDefaults(getHttpOptions());
@@ -44,14 +51,36 @@ const passthroughQueryParams = ["hypgen", "hypothesis"];
 
 // Micro-Cache with a TTL of 30 seconds, avoids hitting Mongo on every request
 const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
-  const ssoConnection = await getSSOConnectionById(ssoConnectionId);
+  const ssoConnection = await _dangerousGetSSOConnectionById(ssoConnectionId);
   if (ssoConnection) {
     return ssoConnection;
   }
   throw new Error("Could not find SSO connection - " + ssoConnectionId);
 }, 30);
 
-const clientMap: Map<SSOConnectionInterface, Client> = new Map();
+// A stable key for clientMap
+// Cache key must include all fields that affect the OpenID Client, so updates
+// (e.g. clientSecret rotation) invalidate the cache. Otherwise users could be
+// locked out until server restart.
+function getConnectionCacheKey(connection: SSOConnectionInterface): string {
+  const baseId =
+    connection.id ??
+    `${connection.clientId}:${connection.metadata?.issuer ?? ""}`;
+  const configHash = crypto
+    .createHash("sha256")
+    .update(
+      JSON.stringify({
+        clientId: connection.clientId,
+        clientSecret: connection.clientSecret ?? "",
+        metadata: connection.metadata,
+      }),
+    )
+    .digest("hex")
+    .slice(0, 16);
+  return `${baseId}:${configHash}`;
+}
+
+const clientMap: Map<string, Client> = new Map();
 
 const jwksMiddlewareCache: { [key: string]: RequestHandler } = {};
 
@@ -59,9 +88,13 @@ export class OpenIdAuthConnection implements AuthConnection {
   async refresh(
     req: Request,
     res: Response,
-    refreshToken: string
+    refreshToken: string,
   ): Promise<TokensResponse> {
-    const { client } = await getConnectionFromRequest(req, res);
+    const { client, connection } = await getConnectionFromRequest(req, res);
+
+    if (connection.id?.startsWith("vercel:")) {
+      throw new Error("Session expired. Must re-authenticate in Vercel.");
+    }
 
     const tokenSet = await client.refresh(refreshToken);
 
@@ -77,15 +110,17 @@ export class OpenIdAuthConnection implements AuthConnection {
   }
   async getUnauthenticatedResponse(
     req: Request,
-    res: Response
+    res: Response,
   ): Promise<UnauthenticatedResponse> {
     const { connection, client } = await getConnectionFromRequest(req, res);
-    const redirectURI = this.getRedirectURI(connection, client, req, res);
 
     // If there's an existing incomplete auth session for this Cloud SSO provider,
     // confirm with the user to give them a chance to cancel and reset to the default auth
-    const checks = this.getAuthChecks(req);
-    const confirm = !!connection.id && checks?.connection_id === connection.id;
+    const confirm =
+      !!connection.id &&
+      PendingSSOConnectionCookie.getValue(req) === connection.id;
+
+    const redirectURI = this.getRedirectURI(connection, client, req, res);
 
     return {
       redirectURI,
@@ -95,26 +130,26 @@ export class OpenIdAuthConnection implements AuthConnection {
   async processCallback(req: Request, res: Response): Promise<TokensResponse> {
     const { connection, client } = await getConnectionFromRequest(req, res);
 
-    // Get rid of temporary codeVerifier cookie
-    const checks = this.getAuthChecks(req);
-    AuthChecksCookie.setValue("", req, res);
-
-    if (!checks) {
-      throw new Error("Missing auth checks in session");
-    }
-    if (checks.connection_id !== (connection.id || "")) {
-      throw new Error("Invalid auth checks in session");
-    }
-
     const params = client.callbackParams(req.originalUrl);
+
+    const secret = AuthSecretCookie.getValue(req);
+    if (!secret) {
+      throw new Error("Missing auth secret cookie");
+    }
+
+    const nonce = nonceFromState(params.state);
+    if (isNonceExpired(nonce)) {
+      throw new Error("Login attempt expired");
+    }
+
+    // A wrong connection or forged state fails the HMAC comparison inside callback()
+    const checks = deriveAuthChecks(secret, connection.id || "", nonce);
     const tokenSet = await client.callback(
       `${APP_ORIGIN}/oauth/callback`,
       params,
-      {
-        code_verifier: checks.code_verifier,
-        state: checks.state,
-      }
+      checks,
     );
+    PendingSSOConnectionCookie.setValue("", req, res);
 
     const email = tokenSet.claims().email;
     if (email) {
@@ -141,12 +176,12 @@ export class OpenIdAuthConnection implements AuthConnection {
   async middleware(
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const { connection } = await getConnectionFromRequest(
         req as Request,
-        res
+        res,
       );
 
       // Store the ssoConnectionId in the request
@@ -155,12 +190,13 @@ export class OpenIdAuthConnection implements AuthConnection {
       const metadata = connection.metadata;
 
       const jwksUri = metadata.jwks_uri;
-      const algorithms = metadata.id_token_signing_alg_values_supported;
+      const algorithms =
+        metadata.id_token_signing_alg_values_supported as Algorithm[];
       const issuer = metadata.issuer;
 
       if (!jwksUri || !algorithms || !issuer) {
         throw new Error(
-          "Missing SSO metadata: 'issuer', 'jwks_uri', and/or 'id_token_signing_alg_values_supported'"
+          "Missing SSO metadata: 'issuer', 'jwks_uri', and/or 'id_token_signing_alg_values_supported'",
         );
       }
 
@@ -173,17 +209,37 @@ export class OpenIdAuthConnection implements AuthConnection {
 
       let middleware = jwksMiddlewareCache[cacheKey];
       if (!middleware) {
-        middleware = jwtExpress({
-          secret: jwks.expressJwtSecret({
-            cache: true,
-            cacheMaxEntries: 50,
-            rateLimit: true,
-            jwksRequestsPerMinute: 5,
-            jwksUri,
-          }),
+        const jwksClient = jwks.expressJwtSecret({
+          cache: true,
+          cacheMaxEntries: 200,
+          cacheMaxAge: 10 * 60 * 60 * 1000,
+          rateLimit: false,
+          jwksRequestsPerMinute: 10,
+          jwksUri,
+          requestAgent: getHttpOptions().agent,
+        });
+
+        const getKey: GetVerificationKey = (req, token) => {
+          return new Promise((resolve, reject) => {
+            const callback = (err: Error | null, key?: string) => {
+              if (err) return reject(err);
+              resolve(key);
+            };
+            jwksClient(
+              req,
+              token?.header,
+              token?.payload,
+              callback as (err: Error | null, secret?: unknown) => void,
+            );
+          });
+        };
+
+        middleware = expressjwt({
+          secret: getKey,
           audience: connection.clientId,
           issuer,
           algorithms,
+          requestProperty: "user",
         });
         jwksMiddlewareCache[cacheKey] = middleware;
       }
@@ -193,11 +249,11 @@ export class OpenIdAuthConnection implements AuthConnection {
     }
   }
 
-  private getAuthChecks(req: Request) {
-    const checks = AuthChecksCookie.getValue(req);
-    if (!checks) return null;
-    const parsed: AuthChecks = JSON.parse(checks);
-    return parsed;
+  // Re-set on every use so the TTL slides for active browsers
+  private getAuthSecret(req: Request, res: Response): string {
+    const secret = AuthSecretCookie.getValue(req) || generators.random();
+    AuthSecretCookie.setValue(secret, req, res);
+    return secret;
   }
   private getMaxAge(tokenSet: TokenSet) {
     if (tokenSet.expires_in) {
@@ -212,20 +268,26 @@ export class OpenIdAuthConnection implements AuthConnection {
     ssoConnection: SSOConnectionInterface,
     client: Client,
     req: Request,
-    res: Response
+    res: Response,
   ) {
-    const code_verifier = generators.codeVerifier();
+    // Vercel has a provider-initiated SSO flow that differs from the normal OAuth flow
+    if (ssoConnection.id?.startsWith("vercel:")) {
+      const installationId = ssoConnection.id.split(":")[1];
+      return `https://vercel.com/sso/integrations/${
+        process.env.VERCEL_INTEGRATION_SLUG || "growthbook"
+      }/${installationId}`;
+    }
+
+    const { state, code_verifier } = deriveAuthChecks(
+      this.getAuthSecret(req, res),
+      ssoConnection.id || "",
+      createNonce(),
+    );
     const code_challenge = generators.codeChallenge(code_verifier);
 
-    const state = generators.state();
-
-    const checks: AuthChecks = {
-      connection_id: ssoConnection.id || "",
-      code_verifier,
-      state,
-    };
-
-    AuthChecksCookie.setValue(JSON.stringify(checks), req, res);
+    if (ssoConnection.id) {
+      PendingSSOConnectionCookie.setValue(ssoConnection.id, req, res);
+    }
 
     let url = client.authorizationUrl({
       scope: `openid email profile ${
@@ -255,8 +317,14 @@ export class OpenIdAuthConnection implements AuthConnection {
 }
 
 async function getConnectionFromRequest(req: Request, res: Response) {
-  // First, get the connection info
+  // First, get the connection info from either the cookie or the header
   let ssoConnectionId = SSOConnectionIdCookie.getValue(req);
+  if (!ssoConnectionId) {
+    const headerValue = req.headers["x-sso-connection-id"];
+    if (headerValue && typeof headerValue === "string") {
+      ssoConnectionId = headerValue;
+    }
+  }
 
   let persistSSOConnectionId = false;
 
@@ -274,7 +342,25 @@ async function getConnectionFromRequest(req: Request, res: Response) {
   }
 
   let connection: SSOConnectionInterface;
-  if (IS_CLOUD && ssoConnectionId) {
+  if (
+    IS_CLOUD &&
+    VERCEL_CLIENT_ID &&
+    VERCEL_CLIENT_SECRET &&
+    ssoConnectionId.startsWith("vercel:")
+  ) {
+    connection = {
+      id: ssoConnectionId,
+      clientId: VERCEL_CLIENT_ID,
+      clientSecret: VERCEL_CLIENT_SECRET,
+      metadata: {
+        issuer: "https://marketplace.vercel.com",
+        jwks_uri: "https://marketplace.vercel.com/.well-known/jwks",
+        id_token_signing_alg_values_supported: ["RS256"],
+        authorization_endpoint: "https://api.vercel.com/oauth/authorize",
+        token_endpoint: "https://api.vercel.com/oauth/access_token",
+      },
+    };
+  } else if (IS_CLOUD && ssoConnectionId) {
     connection = await ssoConnectionCache.get(ssoConnectionId);
   } else if (SSO_CONFIG) {
     connection = SSO_CONFIG;
@@ -283,7 +369,8 @@ async function getConnectionFromRequest(req: Request, res: Response) {
   }
 
   // Then, get the corresponding OpenID Client
-  let client = clientMap.get(connection);
+  const cacheKey = getConnectionCacheKey(connection);
+  let client = clientMap.get(cacheKey);
   if (!client) {
     const issuer = new Issuer(connection.metadata as IssuerMetadata);
     client = new issuer.Client({
@@ -295,7 +382,7 @@ async function getConnectionFromRequest(req: Request, res: Response) {
         ? "client_secret_basic"
         : "none",
     });
-    clientMap.set(connection, client);
+    clientMap.set(cacheKey, client);
   }
 
   // If we've made it this far, the connection was found and we should persist it in a cookie

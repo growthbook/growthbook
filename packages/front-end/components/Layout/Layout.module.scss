@@ -1,12 +1,9 @@
+@use "../../styles/variables";
 @import "../../styles/colors.scss";
-$sidebarwidth: 240px;
-$expandedwidth: 240px;
-$collapsedSidebarwidth: 70px;
-$topbarheight: 60px;
 
 .sidebar {
   background-color: var(--color-landmark);
-  width: $sidebarwidth;
+  width: variables.$sidebarwidth;
   flex-direction: column;
   display: flex;
   height: 100%;
@@ -19,7 +16,7 @@ $topbarheight: 60px;
 }
 .sidebarlogo {
   padding: 8px 20px 8px;
-  width: $sidebarwidth;
+  width: variables.$sidebarwidth;
   height: 56px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.5);
 }
@@ -58,10 +55,46 @@ $topbarheight: 60px;
   }
 }
 
+.searchTrigger {
+  display: flex;
+  align-items: center;
+  line-height: 1rem;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.2); //#10172e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 18px;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.1); //#10172e;
+    color: #fff;
+  }
+}
+
+.searchTriggerLabel {
+  flex: 1;
+  text-align: left;
+}
+
+.searchTriggerKbd {
+  font-size: 11px;
+  font-family: inherit;
+  padding: 1px 5px;
+  color: rgba(255, 255, 255, 0.5);
+  opacity: 0.8;
+  font-weight: bold;
+}
+
 @media (max-width: 1180px) {
   .sidebar {
-    width: $expandedwidth;
-    left: -$expandedwidth;
+    width: variables.$expandedwidth;
+    left: -(variables.$expandedwidth);
     padding-top: 60px;
     z-index: 1000;
   }
@@ -70,7 +103,7 @@ $topbarheight: 60px;
   }
   .closebutton {
     position: absolute;
-    top: $topbarheight;
+    top: variables.$topbarheight;
     right: 0;
     width: 40px !important;
     height: 40px !important;

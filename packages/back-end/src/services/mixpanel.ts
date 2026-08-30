@@ -1,8 +1,17 @@
+import { Agent } from "node:https";
 import { URLSearchParams } from "url";
-import fetch from "node-fetch";
-import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
+import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
+import { fetch } from "back-end/src/util/http.util";
 
 const encodedParams = new URLSearchParams();
+
+// node-fetch v2 reuses keep-alive sockets via Node's global Agent. Node 24.17.0's
+// http.Agent change (CVE-2026-48931) makes it read a pooled socket the server has
+// already closed, surfacing as "FetchError: ... Premature close"
+// (ERR_STREAM_PREMATURE_CLOSE). JQL requests are infrequent, so disabling
+// keep-alive here sidesteps the stale-socket reuse with no meaningful cost.
+// Ref: https://github.com/nodejs/node/issues/63989
+const jqlAgent = new Agent({ keepAlive: false });
 
 // eslint-disable-next-line
 type MixpanelResultRow = any;
@@ -36,7 +45,7 @@ function indentJs(js: string) {
 export function formatQuery(
   js: string,
   params?: Record<string, unknown>,
-  extraJs?: string
+  extraJs?: string,
 ) {
   return indentJs(`
     ${params ? `var params = ${JSON.stringify(params, null, 2)};` : ""}
@@ -49,7 +58,7 @@ export function formatQuery(
 
 export async function runQuery<T extends MixpanelResultRow>(
   conn: MixpanelConnectionParams,
-  query: string
+  query: string,
 ): Promise<T> {
   encodedParams.set("script", query);
   encodedParams.set("project_id", conn.projectId);
@@ -66,10 +75,11 @@ export async function runQuery<T extends MixpanelResultRow>(
       "Content-Type": "application/x-www-form-urlencoded",
       "X-Mixpanel-Integration-ID": "growthbook",
       Authorization: `Basic ${Buffer.from(
-        `${conn.username}:${conn.secret}`
+        `${conn.username}:${conn.secret}`,
       ).toString("base64")}`,
     },
     body: encodedParams,
+    agent: jqlAgent,
   };
 
   const res = await fetch(url, options);

@@ -1,14 +1,11 @@
 import { ID_LIST_DATATYPES, validateCondition } from "shared/util";
-import { PostSavedGroupResponse } from "back-end/types/openapi";
-import {
-  createSavedGroup,
-  toSavedGroupApiInterface,
-} from "back-end/src/models/SavedGroupModel";
+import { postSavedGroupValidator } from "shared/validators";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postSavedGroupValidator } from "back-end/src/validators/openapi";
+import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
-  async (req): Promise<PostSavedGroupResponse> => {
+  async (req) => {
     const { name, attributeKey, values, condition, owner, projects } = req.body;
 
     if (!req.context.permissions.canCreateSavedGroup({ ...req.body })) {
@@ -30,15 +27,22 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       }
     }
 
+    // Creation never requires approval (consistent with features): a brand-new
+    // saved group has no dependents, so creating it can't change any feature's
+    // targeting. Approvals apply to subsequent changes via the revision flow.
+
     // If this is a condition group, make sure the condition is valid and not empty
     if (type === "condition") {
       if (attributeKey || values) {
         throw new Error(
-          "Cannot specify attributeKey or values for condition groups"
+          "Cannot specify attributeKey or values for condition groups",
         );
       }
 
-      const conditionRes = validateCondition(condition);
+      // Validate condition
+      const allSavedGroups = await req.context.models.savedGroups.getAll();
+      const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+      const conditionRes = validateCondition(condition, groupMap);
       if (!conditionRes.success) {
         throw new Error(conditionRes.error);
       }
@@ -50,40 +54,50 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
     else if (type === "list") {
       if (!attributeKey || !values) {
         throw new Error(
-          "Must specify an attributeKey and values for list groups"
+          "Must specify an attributeKey and values for list groups",
         );
       }
       const attributeSchema = req.organization.settings?.attributeSchema || [];
       const datatype = attributeSchema.find(
-        (sdkAttr) => sdkAttr.property === attributeKey
+        (sdkAttr) => sdkAttr.property === attributeKey,
       )?.datatype;
       if (!datatype) {
         throw new Error("Unknown attributeKey");
       }
       if (!ID_LIST_DATATYPES.includes(datatype)) {
         throw new Error(
-          "Cannot create an ID List for the given attribute key. Try using a Condition Group instead."
+          "Cannot create an ID List for the given attribute key. Try using a Condition Group instead.",
         );
       }
       if (condition) {
         throw new Error("Cannot specify a condition for list groups");
       }
+      validateListSize(
+        values,
+        req.context.org.settings?.savedGroupSizeLimit,
+        req.context.permissions.canBypassSavedGroupSizeLimit(projects),
+      );
     } else {
       throw new Error("Must specify a saved group type");
     }
 
-    const savedGroup = await createSavedGroup(req.organization.id, {
+    const savedGroup = await req.context.models.savedGroups.create({
       type: type,
       values: values || [],
       groupName: name,
-      owner: owner || "",
+      // Falls back to the authenticated user (only present for Personal Access
+      // Tokens) when no owner is provided, otherwise stays empty.
+      owner: owner || req.context.userId || "",
       condition: condition || "",
       attributeKey,
       projects,
     });
 
     return {
-      savedGroup: toSavedGroupApiInterface(savedGroup),
+      savedGroup: await resolveOwnerEmail(
+        req.context.models.savedGroups.toApiInterface(savedGroup),
+        req.context,
+      ),
     };
-  }
+  },
 );

@@ -1,10 +1,11 @@
 import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import NextLink from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Separator } from "@radix-ui/themes";
 import { useRouter } from "next/router";
-import { GeneratedHypothesisInterface } from "back-end/types/generated-hypothesis";
+import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis";
+import Link from "@/ui/Link";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -17,6 +18,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
+import Callout from "@/ui/Callout";
 
 const ExperimentGuide = (): React.ReactElement => {
   const { organization } = useUser();
@@ -29,10 +31,8 @@ const ExperimentGuide = (): React.ReactElement => {
   const router = useRouter();
   const params = router.query;
   const { apiCall } = useAuth();
-  const [
-    generatedHypothesis,
-    setGeneratedHypothesis,
-  ] = useState<GeneratedHypothesisInterface | null>(null);
+  const [generatedHypothesis, setGeneratedHypothesis] =
+    useState<GeneratedHypothesisInterface | null>(null);
   const [loadingHypothesis, setLoadingHypothesis] = useState(false);
 
   useEffect(() => {
@@ -71,24 +71,24 @@ const ExperimentGuide = (): React.ReactElement => {
   }
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   const isSDKIntegrated =
     sdkConnections?.connections.some((c) => c.connected) || false;
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization.id || ""
+    organization.id || "",
   );
   // Ignore the demo datasource
   const hasExperiments = project
     ? experiments.some(
-        (e) => e.project !== demoProjectId && e.project === project
+        (e) => e.project !== demoProjectId && e.project === project,
       )
     : experiments.some((e) => e.project !== demoProjectId);
 
   // Ignore the demo datasource
   const hasDatasource = datasources.some(
-    (d) => !d.projects?.includes(demoProjectId)
+    (d) => !d.projects?.includes(demoProjectId),
   );
 
   const hasStartedExperiment = project
@@ -96,10 +96,10 @@ const ExperimentGuide = (): React.ReactElement => {
         (e) =>
           e.project !== demoProjectId &&
           e.status !== "draft" &&
-          e.project === project
+          e.project === project,
       )
     : experiments.some(
-        (e) => e.project !== demoProjectId && e.status !== "draft"
+        (e) => e.project !== demoProjectId && e.status !== "draft",
       );
 
   // if coming from hypothesis generator, show slightly different UI
@@ -107,7 +107,7 @@ const ExperimentGuide = (): React.ReactElement => {
     ? "Run an Auto-generated Website Experiment"
     : "Run an Experiment";
   const generatedExp = experiments.find(
-    (e) => e.id === generatedHypothesis?.experiment
+    (e) => e.id === generatedHypothesis?.experiment,
   );
   const hasStartedGeneratedExp =
     generatedHypothesis && generatedExp
@@ -125,7 +125,6 @@ const ExperimentGuide = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="get-started-experiment-guide"
           commercialFeature={null}
         />
@@ -170,7 +169,7 @@ const ExperimentGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <Link
+                <NextLink
                   href="/sdks"
                   style={{
                     fontSize: "17px",
@@ -180,14 +179,14 @@ const ExperimentGuide = (): React.ReactElement => {
                   onClick={() =>
                     setStep({
                       step: "Integrate the GrowthBook SDK into your app",
-                      source: "experiments",
+                      source: "experimentGuide",
                       sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
                       stepKey: "sdk",
                     })
                   }
                 >
                   Integrate the GrowthBook SDK into your app
-                </Link>
+                </NextLink>
                 <Box mt="2">Allow GrowthBook to communicate with your app.</Box>
                 <Separator size="4" my="4" />
               </div>
@@ -220,7 +219,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   )}
                 </div>
                 <div className="col">
-                  <Link
+                  <NextLink
                     href={`/experiment/${generatedHypothesis.experiment}`}
                     style={{
                       fontSize: "17px",
@@ -232,7 +231,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     onClick={() =>
                       setStep({
                         step: "Editing Your Auto-generated Experiment",
-                        source: "experiments",
+                        source: "experimentGuide",
                         sourceParams: params.hypId
                           ? `hypId=${params.hypId}`
                           : "",
@@ -241,7 +240,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     }
                   >
                     Configure Your Auto-generated Experiment
-                  </Link>
+                  </NextLink>
                   <p className="mt-2">
                     Define any additional settings, rules and targeting as
                     desired. Then, click “Run experiment.”
@@ -275,7 +274,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   )}
                 </div>
                 <div className="col">
-                  <Link
+                  <NextLink
                     href="/experiments"
                     style={{
                       fontSize: "17px",
@@ -287,7 +286,7 @@ const ExperimentGuide = (): React.ReactElement => {
                         step: project
                           ? "Design the First Experiment for this Project"
                           : "Design Your Organization’s First Experiment",
-                        source: "experiments",
+                        source: "experimentGuide",
                         stepKey: "createExperiment",
                       })
                     }
@@ -295,7 +294,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     {project
                       ? "Design the First Experiment for this Project"
                       : "Design Your Organization’s First Experiment"}
-                  </Link>
+                  </NextLink>
                   <Box mt="2">
                     Create an experiment and change variations. Choose from
                     Feature Flags, URL Redirects, or the Visual Editor (Pro).
@@ -332,7 +331,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   )}
                 </div>
                 <div className="col">
-                  <Link
+                  <NextLink
                     href="/experiments"
                     style={{
                       fontSize: "17px",
@@ -344,7 +343,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     onClick={() =>
                       setStep({
                         step: "Start the Test",
-                        source: "experiments",
+                        source: "experimentGuide",
                         stepKey: "startExperiment",
                       })
                     }
@@ -373,7 +372,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     >
                       Start the Test
                     </Tooltip>
-                  </Link>
+                  </NextLink>
                   <Box mt="2">
                     Define any additional settings, rules and targeting as
                     desired. Then, click “Run experiment.”
@@ -409,7 +408,7 @@ const ExperimentGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <Link
+                <NextLink
                   href="/datasources"
                   style={{
                     fontSize: "17px",
@@ -419,14 +418,14 @@ const ExperimentGuide = (): React.ReactElement => {
                   onClick={() =>
                     setStep({
                       step: "Connect to Your Data Warehouse",
-                      source: "experiments",
+                      source: "experimentGuide",
                       sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
                       stepKey: "connectDataWarehouse",
                     })
                   }
                 >
                   Connect to Your Data Warehouse
-                </Link>
+                </NextLink>
                 <Box mt="2">
                   Allow GrowthBook to query your warehouse to compute traffic
                   totals and metric results.

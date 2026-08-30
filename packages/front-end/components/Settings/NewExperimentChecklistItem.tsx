@@ -1,5 +1,5 @@
 import CreatableSelect from "react-select/creatable";
-import { ChecklistTask } from "back-end/types/experimentLaunchChecklist";
+import { ChecklistTask } from "shared/types/experimentLaunchChecklist";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { ReactSelectProps } from "@/components/Forms/SelectField";
@@ -15,8 +15,20 @@ type AutoChecklistOption = {
     | "project"
     | "tag"
     | "customField"
-    | "prerequisiteTargeting";
+    | "prerequisiteTargeting"
+    | "schedule";
 };
+
+// Prefix https:// when no scheme is present. Only the scheme is lower-cased;
+// the rest of the URL keeps its casing since paths/query strings are
+// case-sensitive (e.g. Google Drive links). See #6237.
+export function normalizeChecklistTaskUrl(rawValue: string): string {
+  const match = rawValue.match(/^(https?):\/\//i);
+  if (match) {
+    return match[1].toLowerCase() + "://" + rawValue.slice(match[0].length);
+  }
+  return "https://" + rawValue;
+}
 
 export default function NewExperimentChecklistItem({
   experimentLaunchChecklist,
@@ -61,6 +73,11 @@ export default function NewExperimentChecklistItem({
       label: "Ensure prerequisite targeting is set for this experiment",
       propertyKey: "prerequisiteTargeting",
     },
+    {
+      value: "Add scheduled start date to experiment",
+      label: "Add scheduled start date to experiment",
+      propertyKey: "schedule",
+    },
   ];
 
   function addNewTask(newTaskInput: ChecklistTask) {
@@ -74,7 +91,7 @@ export default function NewExperimentChecklistItem({
       label: `Add a value for "${field.name}"`,
       customFieldId: field.id,
       propertyKey: "customField",
-    })
+    }),
   );
 
   const combinedChecklistOptions = [
@@ -101,7 +118,7 @@ export default function NewExperimentChecklistItem({
           classNamePrefix="gb-select"
           options={combinedChecklistOptions.filter((option) => {
             return !experimentLaunchChecklist.some(
-              (index) => index.task === option.value
+              (index) => index.task === option.value,
             );
           })}
           placeholder="Choose from pre-defined tasks or create your own custom task"
@@ -127,6 +144,7 @@ export default function NewExperimentChecklistItem({
         />
         {newTaskInput.task && newTaskInput.completionType === "manual" ? (
           <Field
+            size="legacy"
             label="Add URL (Optional)"
             autoFocus
             type="url"
@@ -138,14 +156,9 @@ export default function NewExperimentChecklistItem({
               }
             }}
             onChange={(e) => {
-              const url = e.target.value.toLowerCase();
-
-              const containsHttp =
-                url.startsWith("http://") || url.startsWith("https://");
-
               setNewTaskInput({
                 ...newTaskInput,
-                url: containsHttp ? url : "https://" + url,
+                url: normalizeChecklistTaskUrl(e.target.value),
               });
             }}
           />
@@ -159,7 +172,7 @@ export default function NewExperimentChecklistItem({
               addNewTask(newTaskInput);
             }}
           >
-            Add Task
+            Add To Checklist
           </button>
           <button
             className="btn btn-link"

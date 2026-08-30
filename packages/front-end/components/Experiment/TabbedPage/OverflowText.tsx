@@ -6,7 +6,7 @@ export default function OverflowText({
   maxWidth,
   ...props
 }: DetailedHTMLProps<HTMLAttributes<HTMLSpanElement>, HTMLSpanElement> & {
-  maxWidth?: number;
+  maxWidth?: number | string;
 }) {
   return (
     <span
@@ -17,7 +17,7 @@ export default function OverflowText({
         textOverflow: "ellipsis",
         display: "inline-block",
         whiteSpace: "nowrap",
-        verticalAlign: "middle",
+        verticalAlign: "bottom",
       }}
       {...props}
     >

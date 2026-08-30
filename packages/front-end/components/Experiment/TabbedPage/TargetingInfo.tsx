@@ -1,11 +1,13 @@
 import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import clsx from "clsx";
+import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
@@ -32,6 +34,10 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
+function formatRanges(ranges: [number, number][]): string {
+  return ranges.map(([start, end]) => `[${start} - ${end}]`).join(" ");
+}
+
 export default function TargetingInfo({
   phaseIndex = null,
   experiment,
@@ -50,16 +56,13 @@ export default function TargetingInfo({
 
   const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
-  const namespaceRange = hasNamespace
-    ? phase.namespace!.range[1] - phase.namespace!.range[0]
-    : 1;
-  const namespaceRanges: [number, number] = hasNamespace
-    ? [phase.namespace!.range[1] || 0, phase.namespace!.range[0] || 0]
-    : [0, 1];
-  const namespaceName = hasNamespace
-    ? namespaces?.find((n) => n.name === phase.namespace!.name)?.label ||
-      phase.namespace!.name
-    : "";
+
+  // Calculate total namespace allocation
+  const {
+    coverage: namespaceCoverage,
+    ranges: namespaceRanges,
+    name: namespaceName,
+  } = getNamespaceDisplayData(phase.namespace, namespaces);
 
   const hasSavedGroupsChanges =
     showChanges &&
@@ -90,16 +93,11 @@ export default function TargetingInfo({
   );
 
   const changesHasNamespace = changes?.namespace && changes.namespace.enabled;
-  const changesNamespaceRange = changes?.namespace
-    ? changes.namespace.range[1] - changes.namespace.range[0]
-    : 1;
-  const changesNamespaceRanges: [number, number] = changes?.namespace
-    ? [changes.namespace.range[1] || 0, changes.namespace.range[0] || 0]
-    : [0, 1];
-  const changesNamespaceName = changesHasNamespace
-    ? namespaces?.find((n) => n.name === changes.namespace!.name)?.label ||
-      changes.namespace!.name
-    : "";
+  const {
+    coverage: changesNamespaceCoverage,
+    ranges: changesNamespaceRanges,
+    name: changesNamespaceName,
+  } = getNamespaceDisplayData(changes?.namespace, namespaces);
 
   return (
     <div>
@@ -134,13 +132,18 @@ export default function TargetingInfo({
                       <GBInfo />
                     </Tooltip>
                   </div>
-                  <div>
-                    {experiment.hashAttribute || "id"}
+                  <div className="d-flex flex-wrap align-items-center gap-1">
+                    <AttributeBadge
+                      attributeId={experiment.hashAttribute || "id"}
+                    />
                     {experiment.fallbackAttribute ? (
-                      <>, {experiment.fallbackAttribute} </>
-                    ) : (
-                      " "
-                    )}
+                      <>
+                        ,{" "}
+                        <AttributeBadge
+                          attributeId={experiment.fallbackAttribute}
+                        />
+                      </>
+                    ) : null}
                     {
                       <HashVersionTooltip>
                         <small className="text-muted ml-1">
@@ -166,7 +169,8 @@ export default function TargetingInfo({
                   <div className="d-flex">
                     <div
                       className={clsx("d-flex", {
-                        "text-danger font-weight-bold mw-50": hasSavedGroupsChanges,
+                        "text-danger font-weight-bold mw-50":
+                          hasSavedGroupsChanges,
                       })}
                     >
                       {hasSavedGroupsChanges && (
@@ -209,7 +213,8 @@ export default function TargetingInfo({
                   <div className="d-flex">
                     <div
                       className={clsx("d-flex", {
-                        "text-danger font-weight-bold mw-50": hasConditionChanges,
+                        "text-danger font-weight-bold mw-50":
+                          hasConditionChanges,
                       })}
                     >
                       {hasConditionChanges && (
@@ -248,7 +253,8 @@ export default function TargetingInfo({
                   <div className="d-flex">
                     <div
                       className={clsx("d-flex", {
-                        "text-danger font-weight-bold mw-50": hasPrerequisiteChanges,
+                        "text-danger font-weight-bold mw-50":
+                          hasPrerequisiteChanges,
                       })}
                     >
                       {hasPrerequisiteChanges && (
@@ -291,7 +297,7 @@ export default function TargetingInfo({
               <div className={clsx("mb-3", horizontalView && "mr-4")}>
                 <div className="mb-1">
                   <strong>Namespace targeting</strong>{" "}
-                  <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces">
+                  <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under Experimentation → Namespaces">
                     <GBInfo />
                   </Tooltip>
                 </div>
@@ -312,13 +318,14 @@ export default function TargetingInfo({
                           <>
                             {namespaceName}{" "}
                             <span className="text-muted">
-                              ({percentFormatter.format(namespaceRange)})
+                              ({percentFormatter.format(namespaceCoverage)})
                             </span>
-                            {showNamespaceRanges && (
-                              <span className="text-muted small ml-1">
-                                [{namespaceRanges[0]} - {namespaceRanges[1]}]
-                              </span>
-                            )}
+                            {showNamespaceRanges &&
+                              namespaceRanges.length > 0 && (
+                                <span className="text-muted small ml-1">
+                                  {formatRanges(namespaceRanges)}
+                                </span>
+                              )}
                           </>
                         ) : (
                           <em>Global (all users)</em>
@@ -336,14 +343,18 @@ export default function TargetingInfo({
                           <>
                             {changesNamespaceName}{" "}
                             <span className="text-muted">
-                              ({percentFormatter.format(changesNamespaceRange)})
+                              (
+                              {percentFormatter.format(
+                                changesNamespaceCoverage,
+                              )}
+                              )
                             </span>
-                            {showNamespaceRanges && (
-                              <span className="text-muted small ml-1">
-                                [{changesNamespaceRanges[0]} -{" "}
-                                {changesNamespaceRanges[1]}]
-                              </span>
-                            )}
+                            {showNamespaceRanges &&
+                              changesNamespaceRanges.length > 0 && (
+                                <span className="text-muted small ml-1">
+                                  {formatRanges(changesNamespaceRanges)}
+                                </span>
+                              )}
                           </>
                         ) : (
                           <em>Global (all users)</em>
@@ -383,7 +394,7 @@ export default function TargetingInfo({
                             ,{" "}
                             {formatTrafficSplit(
                               phase.variationWeights,
-                              showDecimals ? 2 : 0
+                              showDecimals ? 2 : 0,
                             )}{" "}
                             split
                           </>
@@ -402,7 +413,7 @@ export default function TargetingInfo({
                               ,{" "}
                               {formatTrafficSplit(
                                 changes?.variationWeights ?? [],
-                                showDecimals ? 2 : 0
+                                showDecimals ? 2 : 0,
                               )}{" "}
                               split
                             </>
@@ -461,7 +472,8 @@ export default function TargetingInfo({
                       <div className="d-flex">
                         <div
                           className={clsx("d-flex", {
-                            "text-danger font-weight-bold": hasVariationWeightsChanges,
+                            "text-danger font-weight-bold":
+                              hasVariationWeightsChanges,
                           })}
                         >
                           {hasVariationWeightsChanges && (
@@ -472,7 +484,7 @@ export default function TargetingInfo({
                           <div>
                             {formatTrafficSplit(
                               phase.variationWeights,
-                              showDecimals ? 2 : 0
+                              showDecimals ? 2 : 0,
                             )}
                           </div>
                         </div>
@@ -484,7 +496,7 @@ export default function TargetingInfo({
                             <div>
                               {formatTrafficSplit(
                                 changes?.variationWeights ?? [],
-                                showDecimals ? 2 : 0
+                                showDecimals ? 2 : 0,
                               )}
                             </div>
                           </div>

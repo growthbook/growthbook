@@ -5,24 +5,26 @@ import React, {
   ReactElement,
   ReactNode,
   useCallback,
+  useRef,
 } from "react";
 import { useRouter } from "next/router";
-import {
-  MemberRoleInfo,
-  OrganizationInterface,
-} from "back-end/types/organization";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   IdTokenResponse,
   UnauthenticatedResponse,
-} from "back-end/types/sso-connection";
-import * as Sentry from "@sentry/react";
-import { roleSupportsEnvLimit } from "shared/permissions";
+} from "shared/types/sso-connection";
+import { setUser as sentrySetUser } from "@sentry/nextjs";
 import Modal from "@/components/Modal";
+import ApiWarningModal from "@/components/ApiWarningModal";
 import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useSessionStorage } from "@/hooks/useSessionStorage";
+import type { InitialPlanOptions } from "@/components/Auth/SelectInitialPlan";
+import Callout from "@/ui/Callout";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
-import { LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
+import { getGrowthBookTrackingHeaders } from "./utils";
+import { useProject, LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
+import { captureAttribution } from "./attribution-capture";
 
 export type UserOrganizations = { id: string; name: string }[];
 // eslint-disable-next-line
@@ -30,8 +32,17 @@ type ErrorHandler = (responseData: any) => void;
 export type ApiCallType<T> = (
   url: string,
   options?: RequestInit,
-  errorHandler?: ErrorHandler
+  errorHandler?: ErrorHandler,
 ) => Promise<T>;
+
+// Append the ignoreWarnings flag so the server skips soft warnings on retry.
+export function appendIgnoreWarnings(url: string): string {
+  return url + (url.includes("?") ? "&" : "?") + "ignoreWarnings=true";
+}
+
+export function isExternalApiPath(url: string): boolean {
+  return /^\/api\/v\d/.test(url);
+}
 
 export interface AuthContextValue {
   isAuthenticated: boolean;
@@ -40,8 +51,12 @@ export interface AuthContextValue {
   apiCall: <T>(
     url: string | null,
     options?: RequestInit,
-    errorHandler?: ErrorHandler
+    errorHandler?: ErrorHandler,
   ) => Promise<T>;
+  fetchRaw: (url: string, options?: RequestInit) => Promise<Response>;
+  // Show the global "Save anyway?" dialog; resolves true if the user proceeds.
+  confirmIgnoreWarnings: (warnings: string[]) => Promise<boolean>;
+  ssoConnectionId: string;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
@@ -49,6 +64,8 @@ export interface AuthContextValue {
   specialOrg?: null | Partial<OrganizationInterface>;
   setOrgName?: (name: string) => void;
   setSpecialOrg?: (org: null | Partial<OrganizationInterface>) => void;
+  initialPlanSelection?: InitialPlanOptions;
+  setInitialPlanSelection?: (value: InitialPlanOptions) => void;
 }
 
 export const AuthContext = React.createContext<AuthContextValue>({
@@ -62,6 +79,9 @@ export const AuthContext = React.createContext<AuthContextValue>({
     let x: any;
     return x;
   },
+  fetchRaw: async () => new Response(),
+  confirmIgnoreWarnings: async () => false,
+  ssoConnectionId: "",
   orgId: null,
 });
 
@@ -137,7 +157,7 @@ const isUnregisteredCloudUser = () => {
 
   try {
     const currentProject = window.localStorage.getItem(
-      LOCALSTORAGE_PROJECT_KEY
+      LOCALSTORAGE_PROJECT_KEY,
     );
     return currentProject === null;
   } catch (_) {
@@ -150,6 +170,8 @@ const addCloudRegisterParam = (uri: string) => {
   url.searchParams.append("screen_hint", "signup");
   return url.toString();
 };
+
+export const INITIAL_PLAN_SELECTION_SESSION_KEY = "gb-initial-plan-selection";
 
 function getDetailedError(error: string): string | ReactElement {
   const curUrl = window.location.origin;
@@ -168,7 +190,9 @@ function getDetailedError(error: string): string | ReactElement {
           environment variables{" "}
           <code className="font-weight-bold">APP_ORIGIN</code> and{" "}
           <code className="font-weight-bold">API_HOST</code>.{" "}
-          <DocLink docSection="config_domains_and_ports">View docs</DocLink>
+          <DocLink useRadix={false} docSection="config_domains_and_ports">
+            View docs
+          </DocLink>
         </div>
       );
     }
@@ -184,6 +208,31 @@ export async function safeLogout() {
   });
   const json = await res.json();
   await redirectWithTimeout(json?.redirectURI || window.location.origin);
+}
+
+// Where to land once login completes; only a same-origin relative path is trusted
+export function getPostAuthRedirectPath({ consume = false } = {}): string {
+  try {
+    const path = window.sessionStorage.getItem("postAuthRedirectPath") ?? "/";
+    if (consume) {
+      window.sessionStorage.removeItem("postAuthRedirectPath");
+    }
+    // Reject protocol-relative (//host) and backslash (/\host) escapes
+    return /^\/(?![/\\])/.test(path) ? path : "/";
+  } catch (e) {
+    return "/";
+  }
+}
+
+export function savePostAuthRedirectPath() {
+  try {
+    window.sessionStorage.setItem(
+      "postAuthRedirectPath",
+      window.location.pathname + (window.location.search || ""),
+    );
+  } catch (e) {
+    // ignore
+  }
 }
 
 export async function redirectWithTimeout(url: string, timeout: number = 5000) {
@@ -205,25 +254,49 @@ export const AuthProvider: React.FC<{
 }> = ({ exitOnNoAuth = true, children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
+  const [ssoConnectionId, setSsoConnectionId] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
-  const [
-    specialOrg,
-    setSpecialOrg,
-  ] = useState<Partial<OrganizationInterface> | null>(null);
+  const [specialOrg, setSpecialOrg] =
+    useState<Partial<OrganizationInterface> | null>(null);
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
   const [initError, setInitError] = useState("");
   const [sessionError, setSessionError] = useState(false);
+  // Pending soft-warning requests, batched so concurrent ones share one dialog.
+  const pendingWarnings = useRef<
+    { warnings: string[]; resolve: (proceed: boolean) => void }[]
+  >([]);
+  const [currentWarnings, setCurrentWarnings] = useState<string[] | null>(null);
+  const [initialPlanSelection, setInitialPlanSelection] =
+    useSessionStorage<InitialPlanOptions>(
+      INITIAL_PLAN_SELECTION_SESSION_KEY,
+      "",
+    );
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
-  const [, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+  const [, setProject] = useProject();
 
   async function init() {
+    if (typeof window !== "undefined") {
+      // Capture marketing attribution into gb_attr cookie before any OAuth
+      // redirect. Handles direct app landings (e.g. paid ads pointing at
+      // app.growthbook.io). The Webflow site sets the same cookie for users
+      // arriving via the marketing funnel.
+      captureAttribution();
+
+      const plan = new URLSearchParams(window.location.search).get("plan");
+      if ((plan === "pro" || plan === "starter") && isCloud()) {
+        setInitialPlanSelection(plan);
+      }
+    }
     const resp = await refreshToken();
     if ("token" in resp) {
       setInitError("");
       setToken(resp.token);
+      if (resp.ssoConnectionId) {
+        setSsoConnectionId(resp.ssoConnectionId);
+      }
       setLoading(false);
     } else if (!exitOnNoAuth) {
       setInitError("");
@@ -232,9 +305,11 @@ export const AuthProvider: React.FC<{
       if (resp.confirm) {
         setAuthComponent(
           <Modal
+            useRadixButton={false}
             trackingEventModalType=""
             open={true}
             submit={async () => {
+              savePostAuthRedirectPath();
               await redirectWithTimeout(resp.redirectURI);
             }}
             close={async () => {
@@ -247,19 +322,10 @@ export const AuthProvider: React.FC<{
             <p>
               You must sign in with your Enterprise SSO provider to continue.
             </p>
-          </Modal>
+          </Modal>,
         );
       } else {
-        try {
-          const redirectAddress =
-            window.location.pathname + (window.location.search || "");
-          window.sessionStorage.setItem(
-            "postAuthRedirectPath",
-            redirectAddress
-          );
-        } catch (e) {
-          // ignore
-        }
+        savePostAuthRedirectPath();
 
         // Don't need to confirm, just redirect immediately
         if (isUnregisteredCloudUser()) {
@@ -280,7 +346,7 @@ export const AuthProvider: React.FC<{
             }
             setAuthComponent(null);
           }}
-        />
+        />,
       );
     } else {
       console.log(resp);
@@ -313,7 +379,7 @@ export const AuthProvider: React.FC<{
       const init = { ...options };
       init.headers = init.headers || {};
       init.headers["Authorization"] = `Bearer ${token}`;
-      init.credentials = "include";
+      init.credentials = isExternalApiPath(url) ? "omit" : "include";
 
       if (init.body && !init.headers["Content-Type"]) {
         init.headers["Content-Type"] = "application/json";
@@ -322,6 +388,11 @@ export const AuthProvider: React.FC<{
       if (orgId && !init.headers["X-Organization"]) {
         init.headers["X-Organization"] = orgId;
       }
+
+      Object.assign(
+        init.headers,
+        getGrowthBookTrackingHeaders(router.pathname),
+      );
 
       const response = await fetch(getApiHost() + url, init);
 
@@ -333,18 +404,106 @@ export const AuthProvider: React.FC<{
         responseData = await response.blob();
       } else {
         responseData = await response.json();
+        if (
+          !response.ok &&
+          responseData &&
+          typeof responseData === "object" &&
+          typeof responseData.status !== "number"
+        ) {
+          responseData.status = response.status;
+        }
       }
 
       return responseData;
     },
-    [orgId]
+    [orgId, router.pathname],
   );
+
+  const fetchRaw = useCallback(
+    async (url: string, options: RequestInit = {}): Promise<Response> => {
+      const init = { ...options };
+      init.headers = init.headers || {};
+      init.headers["Authorization"] = `Bearer ${token}`;
+
+      if (!init.credentials) {
+        init.credentials = isExternalApiPath(url) ? "omit" : "include";
+      }
+
+      if (init.body && !init.headers["Content-Type"]) {
+        init.headers["Content-Type"] = "application/json";
+      }
+
+      if (orgId && !init.headers["X-Organization"]) {
+        init.headers["X-Organization"] = orgId;
+      }
+
+      Object.assign(
+        init.headers,
+        getGrowthBookTrackingHeaders(router.pathname),
+      );
+
+      const response = await fetch(getApiHost() + url, init);
+
+      if (response.status === 401) {
+        try {
+          const errorData = await response
+            .clone()
+            .json()
+            .catch(() => null);
+          if (errorData?.message === "jwt expired") {
+            const resp = await refreshToken();
+            if ("token" in resp) {
+              setToken(resp.token);
+              if (resp.ssoConnectionId) {
+                setSsoConnectionId(resp.ssoConnectionId);
+              }
+              init.headers["Authorization"] = `Bearer ${resp.token}`;
+              return fetch(getApiHost() + url, init);
+            } else if ("redirectURI" in resp) {
+              savePostAuthRedirectPath();
+              await redirectWithTimeout(resp.redirectURI);
+            }
+            setSessionError(true);
+            throw new Error(
+              "Your session has expired. Refresh the page to continue.",
+            );
+          }
+        } catch (e) {
+          if (e instanceof Error && e.message.includes("session has expired")) {
+            throw e;
+          }
+          console.error("Token refresh failed for 401 response:", e);
+        }
+      }
+
+      return response;
+    },
+    [orgId, token, router.pathname],
+  );
+
+  // Register a warning request; all pending requests share one dialog.
+  const confirmIgnoreWarnings = useCallback((warnings: string[]) => {
+    return new Promise<boolean>((resolve) => {
+      pendingWarnings.current.push({ warnings, resolve });
+      setCurrentWarnings([
+        ...new Set(pendingWarnings.current.flatMap((w) => w.warnings)),
+      ]);
+    });
+  }, []);
+
+  // Resolve every pending warning with the same choice and close the dialog.
+  const resolveWarnings = useCallback((proceed: boolean) => {
+    const pending = pendingWarnings.current;
+    pendingWarnings.current = [];
+    setCurrentWarnings(null);
+    pending.forEach((w) => w.resolve(proceed));
+  }, []);
 
   const apiCall = useCallback(
     async (
       url: string | null,
       options: RequestInit = {},
-      errorHandler: ErrorHandler | null = null
+      errorHandler: ErrorHandler | null = null,
     ) => {
       if (typeof url !== "string") return;
 
@@ -356,6 +515,9 @@ export const AuthProvider: React.FC<{
           const resp = await refreshToken();
           if ("token" in resp) {
             setToken(resp.token);
+            if (resp.ssoConnectionId) {
+              setSsoConnectionId(resp.ssoConnectionId);
+            }
             responseData = await _makeApiCall(url, resp.token, options);
             // Still failing
             if (responseData.status && responseData.status >= 400) {
@@ -363,23 +525,37 @@ export const AuthProvider: React.FC<{
             }
             return responseData;
           } else if ("redirectURI" in resp) {
-            try {
-              const redirectAddress =
-                window.location.pathname + (window.location.search || "");
-              window.sessionStorage.setItem(
-                "postAuthRedirectPath",
-                redirectAddress
-              );
-            } catch (e) {
-              // ignore
-            }
+            savePostAuthRedirectPath();
             // Don't need to confirm, just redirect immediately
             await redirectWithTimeout(resp.redirectURI);
           }
           setSessionError(true);
           throw new Error(
-            "Your session has expired. Refresh the page to continue."
+            "Your session has expired. Refresh the page to continue.",
           );
+        }
+
+        // Soft warning: let the user acknowledge, then re-submit ignoring warnings.
+        if (
+          responseData.status === 422 &&
+          Array.isArray(responseData.warnings)
+        ) {
+          const proceed = await confirmIgnoreWarnings(responseData.warnings);
+          if (proceed) {
+            responseData = await _makeApiCall(
+              appendIgnoreWarnings(url),
+              token,
+              options,
+            );
+            if (responseData.status && responseData.status >= 400) {
+              if (errorHandler) {
+                errorHandler(responseData);
+              }
+              throw new Error(responseData.message || "There was an error");
+            }
+            return responseData;
+          }
+          throw new Error(responseData.message || "Action cancelled");
         }
 
         if (errorHandler) {
@@ -390,7 +566,7 @@ export const AuthProvider: React.FC<{
 
       return responseData;
     },
-    [token, _makeApiCall]
+    [token, _makeApiCall, confirmIgnoreWarnings],
   );
 
   const wrappedSetOrganizations = useCallback(
@@ -427,12 +603,13 @@ export const AuthProvider: React.FC<{
         }
       }
     },
-    [initialOrgId, orgId, router.query.org, specialOrg?.id]
+    [initialOrgId, orgId, router.query.org, specialOrg?.id],
   );
 
   if (initError) {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         header="logo"
         open={true}
@@ -451,7 +628,7 @@ export const AuthProvider: React.FC<{
           Error connecting to the GrowthBook API at <code>{getApiHost()}</code>.
         </p>
         <p>Received the following error message:</p>
-        <div className="alert alert-danger">{getDetailedError(initError)}</div>
+        <Callout status="error">{getDetailedError(initError)}</Callout>
       </Modal>
     );
   }
@@ -459,6 +636,7 @@ export const AuthProvider: React.FC<{
   if (sessionError) {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         cta="OK"
@@ -487,12 +665,17 @@ export const AuthProvider: React.FC<{
           setOrganizations([]);
           setSpecialOrg(null);
           setToken("");
+          setSsoConnectionId("");
+          setInitialPlanSelection("");
           if (isSentryEnabled()) {
-            Sentry.setUser(null);
+            sentrySetUser(null);
           }
           await redirectWithTimeout(res.redirectURI || window.location.origin);
         },
         apiCall,
+        fetchRaw,
+        confirmIgnoreWarnings,
+        ssoConnectionId,
         orgId,
         setOrgId,
         organizations: orgList,
@@ -511,26 +694,21 @@ export const AuthProvider: React.FC<{
         },
         specialOrg,
         setSpecialOrg,
+        initialPlanSelection,
+        setInitialPlanSelection,
       }}
     >
       <>
         {children}
         {authComponent}
+        {currentWarnings && (
+          <ApiWarningModal
+            warnings={currentWarnings}
+            onConfirm={() => resolveWarnings(true)}
+            onCancel={() => resolveWarnings(false)}
+          />
+        )}
       </>
     </AuthContext.Provider>
   );
 };
-
-export function roleHasAccessToEnv(
-  role: MemberRoleInfo,
-  env: string,
-  org: Partial<OrganizationInterface>
-): "yes" | "no" | "N/A" {
-  if (!roleSupportsEnvLimit(role.role, org)) return "N/A";
-
-  if (!role.limitAccessByEnvironment) return "yes";
-
-  if (role.environments.includes(env)) return "yes";
-
-  return "no";
-}

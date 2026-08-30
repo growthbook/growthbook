@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   isBinomialMetric,
   isFactMetric,
+  isFactMetricJoinable,
+  isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
 import { config, FullModalPowerCalculationParams } from "shared/power";
 import { isProjectListValidForProject } from "shared/util";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Modal from "@/components/Modal";
@@ -17,8 +19,8 @@ import {
   defaultValue,
   PowerCalculationForm,
 } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
-import HelperText from "@/components/Radix/HelperText";
-import RadioGroup from "@/components/Radix/RadioGroup";
+import HelperText from "@/ui/HelperText";
+import RadioGroup from "@/ui/RadioGroup";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -43,6 +45,7 @@ export const SelectStep = ({
 }) => {
   const {
     metrics: appMetrics,
+    metricGroups,
     factMetrics: appFactMetrics,
     segments: appSegments,
     project,
@@ -78,13 +81,13 @@ export const SelectStep = ({
         .map((exp) => {
           const datasource = datasources.find((d) => d.id === exp.datasource);
           const exposureQuery = datasource?.settings?.queries?.exposure?.find(
-            (e) => e.id === exp.exposureQueryId
+            (e) => e.id === exp.exposureQueryId,
           );
 
           return {
             ...exp,
             exposureQueryUserIdType: exposureQuery?.userIdType,
-            allMetrics: getAllMetricIdsFromExperiment(exp),
+            allMetrics: getAllMetricIdsFromExperiment(exp, false, metricGroups),
           };
         })
         .filter((e) => {
@@ -96,7 +99,7 @@ export const SelectStep = ({
             return false;
           return true;
         }),
-    [experiments, datasources]
+    [experiments, datasources, metricGroups],
   );
 
   const availableSegments = useMemo(
@@ -114,7 +117,7 @@ export const SelectStep = ({
         }
         return true;
       }),
-    [appSegments, datasources, project, permissionsUtil]
+    [appSegments, datasources, project, permissionsUtil],
   );
   const availableFactTables = useMemo(
     () =>
@@ -131,70 +134,75 @@ export const SelectStep = ({
         }
         return true;
       }),
-    [appFactTables, datasources, project, permissionsUtil]
+    [appFactTables, datasources, project, permissionsUtil],
   );
 
   // only allow metrics from the same datasource in an analysis
   // combine both metrics and remove quantile metrics
-  const availableMetrics: ExperimentMetricInterface[] = useMemo(
-    () =>
-      [...appMetrics, ...appFactMetrics].filter((m) => {
-        // drop quantile metrics
-        if (quantileMetricType(m) !== "") return false;
+  const availableMetrics: ExperimentMetricDefinition[] = useMemo(() => {
+    const datasourceSettings = datasources.find(
+      (d) => d.id === selectedDatasource,
+    )?.settings;
 
-        // include all for manual metric values source
-        if (metricValuesSource === "manual") {
-          return true;
-        }
+    return [...appMetrics, ...appFactMetrics].filter((m) => {
+      // drop quantile metrics
+      if (quantileMetricType(m) !== "") return false;
 
-        // drop if not in experiment
-        if (metricValuesSource === "experiment") {
-          const experiment = availableExperiments.find(
-            (e) => e.id === metricValuesSourceId
-          );
-
-          if (experiment && !experiment.allMetrics.includes(m.id)) return false;
-        }
-
-        // drop if not in datasource
-        if (selectedDatasource && m.datasource !== selectedDatasource)
-          return false;
-
-        // drop if does not have user id type
-        const userIdTypes = !isFactMetric(m)
-          ? m.userIdTypes
-          : appFactTables.find((ft) => ft.id === m.numerator.factTableId)
-              ?.userIdTypes;
-        if (
-          selectedIdType &&
-          userIdTypes &&
-          !userIdTypes.includes(selectedIdType)
-        )
-          return false;
-
+      // include all for manual metric values source
+      if (metricValuesSource === "manual") {
         return true;
-      }),
-    [
-      selectedDatasource,
-      selectedIdType,
-      appFactMetrics,
-      appMetrics,
-      appFactTables,
-      metricValuesSource,
-      metricValuesSourceId,
-      availableExperiments,
-    ]
-  );
+      }
+
+      // drop if not in experiment
+      if (metricValuesSource === "experiment") {
+        const experiment = availableExperiments.find(
+          (e) => e.id === metricValuesSourceId,
+        );
+
+        if (experiment && !experiment.allMetrics.includes(m.id)) return false;
+      }
+
+      // drop if not in datasource
+      if (selectedDatasource && m.datasource !== selectedDatasource)
+        return false;
+
+      // drop if does not have user id type
+      if (selectedIdType) {
+        const joinable = isFactMetric(m)
+          ? isFactMetricJoinable(
+              m,
+              selectedIdType,
+              (id) => appFactTables.find((ft) => ft.id === id),
+              datasourceSettings,
+            )
+          : !m.userIdTypes ||
+            isMetricJoinable(m.userIdTypes, selectedIdType, datasourceSettings);
+        if (!joinable) return false;
+      }
+
+      return true;
+    });
+  }, [
+    selectedDatasource,
+    selectedIdType,
+    appFactMetrics,
+    appMetrics,
+    appFactTables,
+    datasources,
+    metricValuesSource,
+    metricValuesSourceId,
+    availableExperiments,
+  ]);
 
   useEffect(() => {
     const metricValuesData = form.getValues("metricValuesData");
     switch (metricValuesSource) {
       case "factTable": {
         setAvailablePopulations(
-          availableFactTables.map((p) => ({ label: p.name, value: p.id }))
+          availableFactTables.map((p) => ({ label: p.name, value: p.id })),
         );
         const factTable = availableFactTables.find(
-          (f) => f.id === metricValuesSourceId
+          (f) => f.id === metricValuesSourceId,
         );
         if (factTable) {
           form.setValue("metricValuesData", {
@@ -210,10 +218,10 @@ export const SelectStep = ({
       }
       case "segment": {
         setAvailablePopulations(
-          availableSegments.map((p) => ({ label: p.name, value: p.id }))
+          availableSegments.map((p) => ({ label: p.name, value: p.id })),
         );
         const segment = availableSegments.find(
-          (s) => s.id === metricValuesSourceId
+          (s) => s.id === metricValuesSourceId,
         );
         if (segment) {
           form.setValue("metricValuesData", {
@@ -229,10 +237,10 @@ export const SelectStep = ({
       }
       case "experiment": {
         setAvailablePopulations(
-          availableExperiments.map((p) => ({ label: p.name, value: p.id }))
+          availableExperiments.map((p) => ({ label: p.name, value: p.id })),
         );
         const experiment = availableExperiments.find(
-          (e) => e.id === metricValuesSourceId
+          (e) => e.id === metricValuesSourceId,
         );
         if (experiment) {
           form.setValue("metricValuesData", {
@@ -245,7 +253,7 @@ export const SelectStep = ({
           setIdentifiers(
             experiment.exposureQueryUserIdType
               ? [experiment.exposureQueryUserIdType]
-              : []
+              : [],
           );
         }
         break;
@@ -272,7 +280,7 @@ export const SelectStep = ({
 
   const field = (
     key: keyof typeof config,
-    metric: ExperimentMetricInterface
+    metric: ExperimentMetricDefinition,
   ) => ({
     [key]: defaultValue(config[key], metric.priorSettings, settings),
   });
@@ -292,6 +300,7 @@ export const SelectStep = ({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="power-calculation-select"
       open
       size="lg"
@@ -358,7 +367,7 @@ export const SelectStep = ({
             if (value !== metricValuesSource) {
               form.setValue(
                 "metricValuesData.source",
-                value as FullModalPowerCalculationParams["metricValuesData"]["source"]
+                value as FullModalPowerCalculationParams["metricValuesData"]["source"],
               );
               // reset form values
               resetMetricsUsersInForm({ form });
@@ -374,6 +383,7 @@ export const SelectStep = ({
         {metricValuesSource !== "manual" ? (
           <>
             <SelectField
+              size="legacy"
               label={
                 <>
                   <span className="mr-auto font-weight-bold">
@@ -393,6 +403,7 @@ export const SelectStep = ({
               forceUndefinedValueToNull={true}
             />
             <SelectField
+              size="legacy"
               label={
                 <>
                   <span className="mr-auto font-weight-bold">
@@ -438,6 +449,7 @@ export const SelectStep = ({
           Pick the key metrics for which you want to estimate power.
         </div>
         <MultiSelectField
+          legacyHeight
           sort={false}
           value={selectedMetrics}
           options={availableMetrics.map(({ name: label, id: value }) => ({
@@ -451,12 +463,12 @@ export const SelectStep = ({
               "metrics",
               value.reduce((result, id) => {
                 const metric = ensureAndReturn(
-                  availableMetrics.find((m) => m.id === id)
+                  availableMetrics.find((m) => m.id === id),
                 );
                 if (!selectedDatasource)
                   form.setValue(
                     "metricValuesData.datasource",
-                    metric.datasource
+                    metric.datasource,
                   );
 
                 return {
@@ -481,7 +493,7 @@ export const SelectStep = ({
                     ...field("metricPriorLiftStandardDeviation", metric),
                   },
                 };
-              }, {})
+              }, {}),
             );
           }}
         />

@@ -1,0 +1,35 @@
+@keyframes status {
+  0%,
+  40% {
+    opacity: 1;
+  }
+  45%,
+  95% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes statusMessage {
+  0%,
+  40% {
+    opacity: 0;
+  }
+  45%,
+  95% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animateStatus {
+  animation: status 7s ease-in-out infinite;
+}
+
+.animateStatusMessage {
+  animation: statusMessage 7s ease-in-out infinite;
+}

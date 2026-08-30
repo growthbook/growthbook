@@ -1,43 +1,40 @@
+import { getLatestPhaseVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
-import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
+} from "shared/types/experiment";
+import { URLRedirectInterface } from "shared/types/url-redirect";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
-import { experimentHasLiveLinkedChanges } from "shared/util";
-import React, { ReactNode, useEffect, useRef, useState } from "react";
-import { date, daysBetween } from "shared/dates";
+import { experimentHasLiveLinkedChanges, getHoldoutStage } from "shared/util";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import Link from "next/link";
 import Collapsible from "react-collapsible";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiCheck, PiEye, PiLink } from "react-icons/pi";
+import { PiCheck, PiEye, PiLink, PiPencilSimpleFill } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
   ReportInterface,
-} from "back-end/types/report";
-import { useAuth } from "@/services/auth";
-import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
-import Avatar from "@/components/Radix/Avatar";
-import Modal from "@/components/Modal";
-import { useScrollPosition } from "@/hooks/useScrollPosition";
+} from "shared/types/report";
+import { HoldoutInterfaceStringDates } from "shared/validators";
+import { format } from "date-fns-tz";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useAuth } from "@/services/auth";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Avatar from "@/ui/Avatar";
+import Modal from "@/components/Modal";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebration } from "@/hooks/useCelebration";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { formatPercent } from "@/services/metrics";
-import { AppFeatures } from "@/types/app-features";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import {
   DropdownMenu,
@@ -45,49 +42,74 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownSubMenu,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
 import { useWatching } from "@/services/WatchProvider";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { convertExperimentToTemplate } from "@/services/experiments";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
+import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
+import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import HelperText from "@/components/Radix/HelperText";
-import TemplateForm from "../Templates/TemplateForm";
+import HelperText from "@/ui/HelperText";
+import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
+import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
+import ScheduledEndPassedBanner from "@/components/Experiment/TabbedPage/ScheduledEndPassedBanner";
+import StartExperimentModal, {
+  PendingDraftFailure,
+} from "@/components/Experiment/TabbedPage/StartExperimentModal";
+import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
+import { useHoldouts } from "@/hooks/useHoldouts";
+import PhaseSelector from "@/components/Experiment/PhaseSelector";
+import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
+import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import RemoveFromHoldoutModal from "@/components/Experiment/holdout/RemoveFromHoldoutModal";
+import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
 } from "./EditExperimentInfoModal";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
+import EditHoldoutInfoModal from "./EditHoldoutInfoModal";
 import { ExperimentTab } from ".";
 
 export interface Props {
   tab: ExperimentTab;
-  setTab: (tab: ExperimentTab) => void;
+  setTab: (tab: ExperimentTab, scrollToId?: string) => void;
   experiment: ExperimentInterfaceStringDates;
   envs: string[];
   mutate: () => void;
   duplicate?: (() => void) | null;
   setStatusModal: (open: boolean) => void;
-  setAuditModal: (open: boolean) => void;
+  setCompareModal: (open: boolean) => void;
   setWatchersModal: (open: boolean) => void;
   editResult?: () => void;
   safeToEdit: boolean;
   mutateWatchers: () => void;
   usersWatching: (string | undefined)[];
-  checklistItemsRemaining: number | null;
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
   editTags?: (() => void) | null;
   healthNotificationCount: number;
-  verifiedConnections: SDKConnectionInterface[];
   linkedFeatures: LinkedFeatureInfo[];
+  visualChangesets: VisualChangesetInterface[];
+  urlRedirects: URLRedirectInterface[];
+  holdout?: HoldoutInterfaceStringDates;
+  showDashboardView: boolean;
+  editSchedule?: (() => void) | null;
 }
 
 const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
+
+const HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP = {
+  start: "Holdout starts ",
+  startAnalysisPeriod: "Analysis starts ",
+  stop: "Analysis ends ",
+};
 
 const DisabledHealthTabTooltip = ({
   reason,
@@ -122,24 +144,25 @@ export default function ExperimentHeader({
   envs,
   mutate,
   duplicate,
-  setAuditModal,
+  setCompareModal,
   setStatusModal,
   setWatchersModal,
   safeToEdit,
   usersWatching,
   mutateWatchers,
   editResult,
-  checklistItemsRemaining,
   editTargeting,
   newPhase,
   editPhases,
   editTags,
   healthNotificationCount,
-  verifiedConnections,
   linkedFeatures,
+  visualChangesets,
+  urlRedirects,
+  holdout,
+  showDashboardView,
+  editSchedule,
 }: Props) {
-  const growthbook = useGrowthBook<AppFeatures>();
-
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
   const { watchedExperiments, refreshWatching } = useWatching();
@@ -148,27 +171,31 @@ export default function ExperimentHeader({
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
   const startCelebration = useCelebration();
-  const { data: sdkConnections } = useSDKConnections();
   const { snapshot, phase, analysis } = useSnapshot();
-  const connections = sdkConnections?.connections || [];
+  const {
+    checklistItemsRemaining,
+    checklistHardBlockerCount,
+    incompleteChecklistItems,
+  } = usePreLaunchChecklist();
 
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showBanditModal, setShowBanditModal] = useState(false);
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
-  const [
-    editInfoFocusSelector,
-    setEditInfoFocusSelector,
-  ] = useState<FocusSelector>("name");
+  const [editInfoFocusSelector, setEditInfoFocusSelector] =
+    useState<FocusSelector>("name");
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showAddToHoldoutModal, setShowAddToHoldoutModal] = useState(false);
+  const [showRemoveFromHoldoutModal, setShowRemoveFromHoldoutModal] =
+    useState(false);
 
   const isWatching = watchedExperiments.includes(experiment.id);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
 
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareLevel, setShareLevel] = useState<ShareLevel>(
-    experiment.shareLevel || "organization"
+    experiment.shareLevel || "organization",
   );
   const [saveShareLevelStatus, setSaveShareLevelStatus] = useState<
     null | "loading" | "success" | "fail"
@@ -187,48 +214,39 @@ export default function ExperimentHeader({
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
   const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   )?.userIdType;
 
   const reportArgs: ExperimentSnapshotReportArgs = {
     userIdType: userIdType as "user" | "anonymous" | undefined,
   };
-  const tabsRef = useRef<HTMLDivElement>(null);
+  const tabsPinSentinelRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
-  const { scrollY } = useScrollPosition();
-  useEffect(() => {
-    if (!tabsRef.current) return;
-    const isHeaderSticky =
-      tabsRef.current.getBoundingClientRect().top <= TABS_HEADER_HEIGHT_PX;
-    setHeaderPinned(isHeaderSticky);
-  }, [scrollY]);
 
   const phases = experiment.phases || [];
-  const lastPhaseIndex = phases.length - 1;
-  const lastPhase = phases[lastPhaseIndex] as
-    | undefined
-    | ExperimentPhaseStringDates;
-  const startDate = phases?.[0]?.dateStarted
-    ? date(phases[0].dateStarted)
-    : null;
-  const endDate =
-    phases.length > 0
-      ? lastPhase?.dateEnded
-        ? date(lastPhase.dateEnded ?? "")
-        : "now"
-      : date(new Date());
-  const viewingOldPhase = phases.length > 0 && phase < phases.length - 1;
+  const hasMultiplePhases = phases.length > 1;
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  // Structured per-feature failures from the last failed start attempt
+  // (pending_draft_publish_failed) — lets the start modal link each blocked
+  // feature draft instead of only showing the error string.
+  const [pendingDraftFailures, setPendingDraftFailures] = useState<
+    PendingDraftFailure[]
+  >([]);
 
   const hasMultiArmedBanditFeature = hasCommercialFeature(
-    "multi-armed-bandits"
+    "multi-armed-bandits",
   );
+  const holdoutsEnabled = hasCommercialFeature("holdouts");
+  const { holdouts } = useHoldouts(experiment.project);
 
-  const hasUpdatePermissions = permissionsUtil.canViewExperimentModal(
-    experiment.project
-  );
-  const canDeleteExperiment = permissionsUtil.canDeleteExperiment(experiment);
+  const hasUpdatePermissions = !holdout
+    ? permissionsUtil.canUpdateExperiment(experiment, {})
+    : permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects });
+  const canDeleteExperiment = !holdout
+    ? permissionsUtil.canDeleteExperiment(experiment)
+    : permissionsUtil.canDeleteHoldout(holdout);
   const canEditExperiment = !experiment.archived && hasUpdatePermissions;
 
   let hasRunExperimentsPermission = true;
@@ -239,33 +257,67 @@ export default function ExperimentHeader({
   }
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
   const canCreateTemplate =
-    permissionsUtil.canViewExperimentTemplateModal() &&
+    permissionsUtil.canViewExperimentTemplateModal(experiment.project) &&
     hasCommercialFeature("templates");
-  const checklistIncomplete =
-    checklistItemsRemaining !== null && checklistItemsRemaining > 0;
 
   const isUsingHealthUnsupportDatasource =
     !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
   const disableHealthTab = isUsingHealthUnsupportDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
+  const holdoutStage = holdout
+    ? getHoldoutStage(holdout, experiment)
+    : undefined;
 
   const hasResults = !!analysis?.results?.[0];
+
+  const { getDecisionCriteria, getRunningExperimentResultStatus } =
+    useRunningExperimentStatus();
+
+  const decisionCriteria = getDecisionCriteria(
+    experiment.decisionFrameworkSettings?.decisionCriteriaId,
+  );
+
+  const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
   const shouldHideTabs =
-    experiment.status === "draft" && !hasResults && phases.length === 1;
+    (experiment.status === "draft" && !hasResults && phases.length === 1) ||
+    showDashboardView;
 
   useEffect(() => {
-    if (shouldHideTabs) {
+    if (shouldHideTabs) return;
+    const el = tabsPinSentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setHeaderPinned(!entry.isIntersecting);
+      },
+      {
+        root: null,
+        rootMargin: `-${TABS_HEADER_HEIGHT_PX}px 0px 0px 0px`,
+        threshold: 0,
+      },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [shouldHideTabs]);
+
+  // When the tab strip is hidden (e.g. an unstarted draft), the only
+  // reachable view is the overview, so force the active tab there. Once `tab`
+  // is already "overview" this is a no-op, so Back exits cleanly.
+  useEffect(() => {
+    if (shouldHideTabs && tab !== "overview") {
       setTab("overview");
     }
-  }, [shouldHideTabs, setTab]);
+  }, [shouldHideTabs, tab, setTab]);
 
   async function handleWatchUpdates(watch: boolean) {
     await apiCall(
       `/user/${watch ? "watch" : "unwatch"}/experiment/${experiment.id}`,
       {
         method: "POST",
-      }
+      },
     );
     refreshWatching();
     mutateWatchers();
@@ -282,26 +334,56 @@ export default function ExperimentHeader({
       }
     }
 
-    try {
-      await apiCall(`/experiment/${experiment.id}/status`, {
+    setPendingDraftFailures([]);
+    if (isHoldout) {
+      await apiCall(`/holdout/${holdout?.id}/edit-status`, {
         method: "POST",
         body: JSON.stringify({
           status: "running",
+          holdoutRunningStatus: "running",
         }),
       });
-      await mutate();
-      startCelebration();
-
-      track("Start experiment", {
-        source: "experiment-start-banner",
-        action: "main CTA",
-      });
-      setTab("results");
-      setShowStartExperiment(false);
-    } catch (e) {
-      setShowStartExperiment(false);
-      throw e;
+    } else {
+      await apiCall(
+        `/experiment/${experiment.id}/status`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            status: "running",
+          }),
+        },
+        (responseData) => {
+          if (
+            responseData?.code === "pending_draft_publish_failed" &&
+            Array.isArray(responseData?.details?.failedFeatureDrafts)
+          ) {
+            setPendingDraftFailures(responseData.details.failedFeatureDrafts);
+          }
+        },
+      );
     }
+    await mutate();
+    startCelebration();
+
+    track("Start experiment", {
+      source: "experiment-start-banner",
+      action: "main CTA",
+      hasDatasource: !!dataSource,
+      hasExperimentAssignmentQuery: !!experiment.exposureQueryId,
+    });
+    setTab("results");
+  }
+
+  async function approveScheduledExperimentStart() {
+    await apiCall(`/experiment/${experiment.id}/approve-scheduled-start`, {
+      method: "POST",
+    });
+    await mutate();
+
+    track("Approve Scheduled Experiment Start", {
+      source: "experiment-start-banner",
+      action: "main CTA",
+    });
   }
 
   useEffect(() => {
@@ -319,14 +401,14 @@ export default function ExperimentHeader({
           setSaveShareLevelStatus("success");
           saveShareLevelTimeout.current = window.setTimeout(
             () => setSaveShareLevelStatus(null),
-            SAVE_SETTING_TIMEOUT_MS
+            SAVE_SETTING_TIMEOUT_MS,
           );
         })
         .catch(() => {
           setSaveShareLevelStatus("fail");
           saveShareLevelTimeout.current = window.setTimeout(
             () => setSaveShareLevelStatus(null),
-            SAVE_SETTING_TIMEOUT_MS
+            SAVE_SETTING_TIMEOUT_MS,
           );
         });
       track("Experiment: Set Share Level", {
@@ -367,9 +449,7 @@ export default function ExperimentHeader({
     );
 
   const showConvertButton =
-    canRunExperiment &&
-    growthbook.isOn("bandits") &&
-    experiment.status === "draft";
+    canRunExperiment && experiment.status === "draft" && !isHoldout;
 
   const showShareableReportButton =
     permissionsUtil.canCreateReport(experiment) && snapshot;
@@ -378,11 +458,60 @@ export default function ExperimentHeader({
 
   const showSaveAsTemplateButton = canCreateTemplate && !isBandit;
 
+  const showEditHoldoutScheduleButton =
+    isHoldout &&
+    canEditExperiment &&
+    editSchedule &&
+    experiment.status !== "stopped" &&
+    !experiment.archived;
+
+  const holdoutHasSchedule =
+    isHoldout &&
+    Object.values(holdout?.statusUpdateSchedule ?? {}).some(
+      (value) => value !== null,
+    );
+  const hasExperimentSchedule = !!experiment.statusUpdateSchedule?.startAt;
+  const nextScheduledStartDate =
+    experiment.nextScheduledStatusUpdate?.type === "start" &&
+    experiment.nextScheduledStatusUpdate?.date
+      ? new Date(experiment.nextScheduledStatusUpdate.date)
+      : null;
+  const checklistReady = checklistItemsRemaining === 0;
+
+  const runningExperimentDecisionBanner =
+    experiment.status === "running" && !isHoldout && runningExperimentStatus ? (
+      <RunningExperimentDecisionBanner
+        experiment={experiment}
+        runningExperimentStatus={runningExperimentStatus}
+        decisionCriteria={decisionCriteria}
+      />
+    ) : null;
+
+  const scheduledEndPassedBanner =
+    experiment.status === "running" && !isHoldout && !isBandit ? (
+      <ScheduledEndPassedBanner
+        experiment={experiment}
+        runningExperimentStatus={runningExperimentStatus}
+        editSchedule={
+          canEditExperiment && editSchedule ? () => editSchedule() : undefined
+        }
+      />
+    ) : null;
+
   return (
     <>
-      {showEditInfoModal ? (
+      {showEditInfoModal && !isHoldout ? (
         <EditExperimentInfoModal
           experiment={experiment}
+          setShowEditInfoModal={setShowEditInfoModal}
+          mutate={mutate}
+          focusSelector={editInfoFocusSelector}
+        />
+      ) : null}
+      {showEditInfoModal && isHoldout && holdout ? (
+        <EditHoldoutInfoModal
+          experiment={experiment}
+          holdout={holdout}
           setShowEditInfoModal={setShowEditInfoModal}
           mutate={mutate}
           focusSelector={editInfoFocusSelector}
@@ -400,6 +529,7 @@ export default function ExperimentHeader({
       )}
       {showBanditModal ? (
         <Modal
+          useRadixButton={false}
           open={true}
           close={() => setShowBanditModal(false)}
           trackingEventModalType=""
@@ -442,14 +572,15 @@ export default function ExperimentHeader({
               <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
             </p>
             {!isBandit && experiment.goalMetrics.length > 0 && (
-              <div className="alert alert-warning">
+              <Callout status="warning">
                 <Collapsible
                   trigger={
-                    <div>
-                      <FaExclamationTriangle className="mr-2" />
-                      Some of your experiment settings may be altered. More info{" "}
-                      <FaAngleRight className="chevron" />
-                    </div>
+                    <Flex justify="between" gap="1">
+                      Some of your experiment settings may be altered.{" "}
+                      <Box>
+                        <FaAngleRight className="chevron" />
+                      </Box>
+                    </Flex>
                   }
                   transitionTime={100}
                 >
@@ -462,18 +593,19 @@ export default function ExperimentHeader({
                     <li>
                       Experiment variations will begin with{" "}
                       <strong>equal weights</strong> (
-                      {experiment.variations
-                        .map((_, i) =>
-                          i < 3
-                            ? formatPercent(
-                                1 / (experiment.variations.length ?? 2)
-                              )
-                            : i === 3
-                            ? "..."
-                            : null
-                        )
-                        .filter(Boolean)
-                        .join(", ")}
+                      {(() => {
+                        const variations = getLatestPhaseVariations(experiment);
+                        return variations
+                          .map((_, i) =>
+                            i < 3
+                              ? formatPercent(1 / (variations.length ?? 2))
+                              : i === 3
+                                ? "..."
+                                : null,
+                          )
+                          .filter(Boolean)
+                          .join(", ");
+                      })()}
                       ).
                     </li>
                     <li>
@@ -489,52 +621,69 @@ export default function ExperimentHeader({
                     </li>
                   </ul>
                 </Collapsible>
-              </div>
+              </Callout>
             )}
           </div>
         </Modal>
       ) : null}
       {showDeleteModal ? (
-        <Modal
-          header="Delete Experiment"
+        <ModalStandard
+          header={`Delete ${isHoldout ? "Holdout" : "Experiment"}`}
           trackingEventModalType="delete-experiment"
           trackingEventModalSource="experiment-more-menu"
           open={true}
           close={() => setShowDeleteModal(false)}
           cta="Delete"
+          ctaColor="red"
           submit={async () => {
             try {
               await apiCall<{ status: number; message?: string }>(
-                `/experiment/${experiment.id}`,
+                `/${isHoldout ? "holdout" : "experiment"}/${
+                  isHoldout ? holdout?.id : experiment.id
+                }`,
                 {
                   method: "DELETE",
-                  body: JSON.stringify({ id: experiment.id }),
-                }
+                  body: JSON.stringify({
+                    id: isHoldout ? holdout?.id : experiment.id,
+                  }),
+                },
               );
-              router.push(isBandit ? "/bandits" : "/experiments");
+              router.push(
+                isBandit
+                  ? "/bandits"
+                  : isHoldout
+                    ? "/holdouts"
+                    : "/experiments",
+              );
             } catch (e) {
               console.error(e);
             }
           }}
         >
-          <div>
-            <p>Are you sure you want to delete this experiment?</p>
+          <Box>
+            <Text as="p">
+              Are you sure you want to delete this{" "}
+              {isHoldout ? "holdout" : "experiment"}?
+            </Text>
             {!safeToEdit ? (
-              <div className="alert alert-danger">
-                This will immediately stop all linked Feature Flags and Visual
-                Changes from running
-              </div>
+              <Callout status="warning">
+                This will immediately stop all linked Feature Flags, Visual
+                Editor Changes, and URL Redirects from running
+              </Callout>
             ) : null}
-          </div>
-        </Modal>
+          </Box>
+        </ModalStandard>
       ) : null}
       {showArchiveModal ? (
-        <Modal
-          header={`${experiment.archived ? "Unarchive" : "Archive"} Experiment`}
+        <ModalStandard
+          header={`${experiment.archived ? "Unarchive" : "Archive"} ${
+            isHoldout ? "Holdout" : "Experiment"
+          }`}
           trackingEventModalType="archive-experiment"
           trackingEventModalSource="experiment-more-menu"
           open={true}
           cta={experiment.archived ? "Unarchive" : "Archive"}
+          ctaColor={experiment.archived ? "violet" : "red"}
           close={() => setShowArchiveModal(false)}
           submit={async () => {
             try {
@@ -544,7 +693,7 @@ export default function ExperimentHeader({
                 }`,
                 {
                   method: "POST",
-                }
+                },
               );
               mutate();
             } catch (e) {
@@ -552,111 +701,45 @@ export default function ExperimentHeader({
             }
           }}
         >
-          <div>
-            <p>{`Are you sure you want to ${
+          <Box>
+            <Text as="p">{`Are you sure you want to ${
               experiment.archived ? "unarchive" : "archive"
-            } this experiment?`}</p>
+            } this ${isHoldout ? "holdout" : "experiment"}?`}</Text>
             {!safeToEdit && !experiment.archived ? (
-              <div className="alert alert-danger">
-                This will immediately stop all linked Feature Flags and Visual
-                Changes from running
-              </div>
+              <Callout status="warning">
+                This will immediately stop all linked Feature Flags, Visual
+                Editor Changes, and URL Redirects from running
+              </Callout>
             ) : null}
-          </div>
-        </Modal>
+          </Box>
+        </ModalStandard>
       ) : null}
       {showStartExperiment && experiment.status === "draft" && (
-        <Modal
-          trackingEventModalType="start-experiment"
-          trackingEventModalSource={
-            checklistIncomplete || !verifiedConnections.length
-              ? "incomplete-checklist"
-              : "complete-checklist"
-          }
-          open={true}
-          size="md"
-          closeCta={
-            checklistIncomplete || !verifiedConnections.length
-              ? "Close"
-              : "Start Immediately"
-          }
-          closeCtaClassName="btn btn-primary"
-          onClickCloseCta={
-            checklistIncomplete || !verifiedConnections.length
-              ? () => setShowStartExperiment(false)
-              : async () => startExperiment()
-          }
-          secondaryCTA={
-            checklistIncomplete || !verifiedConnections.length ? (
-              <button
-                className="btn btn-link text-decoration-none"
-                onClick={async () => startExperiment()}
-              >
-                <span
-                  style={{
-                    color: "var(--text-color-primary)",
-                  }}
-                >
-                  Start Anyway
-                </span>
-              </button>
-            ) : (
-              <button
-                className="btn btn-link text-decoration-none"
-                onClick={() => setShowStartExperiment(false)}
-              >
-                <span
-                  style={{
-                    color: "var(--text-color-primary)",
-                  }}
-                >
-                  Cancel
-                </span>
-              </button>
-            )
-          }
-          close={() => setShowStartExperiment(false)}
-          header="Start Experiment"
-        >
-          <div className="p-2">
-            {checklistIncomplete ? (
-              <div className="alert alert-warning">
-                You have{" "}
-                <strong>
-                  {checklistItemsRemaining} task
-                  {checklistItemsRemaining > 1 ? "s " : " "}
-                </strong>
-                left to complete. Review the Pre-Launch Checklist before
-                starting this experiment.
-              </div>
-            ) : null}
-            {!verifiedConnections.length ? (
-              <div className="alert alert-warning">
-                You haven&apos;t integrated GrowthBook into your app.{" "}
-                {connections.length > 0 ? (
-                  <Link href="/sdks">Manage SDK Connections</Link>
-                ) : (
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowStartExperiment(false);
-                      setShowSdkForm(true);
-                    }}
-                  >
-                    Add SDK Connection
-                  </a>
-                )}
-              </div>
-            ) : null}
-            <div>
-              Once started, linked changes will be activated and users will
-              begin to see your experiment variations{" "}
-              <strong>immediately</strong>.
-            </div>
-          </div>
-        </Modal>
+        <StartExperimentModal
+          experiment={experiment}
+          close={() => {
+            setShowStartExperiment(false);
+            setPendingDraftFailures([]);
+          }}
+          startExperiment={startExperiment}
+          pendingDraftFailures={pendingDraftFailures}
+          scheduleExperiment={approveScheduledExperimentStart}
+          checklistItemsRemaining={checklistItemsRemaining || 0}
+          checklistHardBlockerCount={checklistHardBlockerCount}
+          incompleteChecklistItems={incompleteChecklistItems}
+          isHoldout={isHoldout}
+          linkedFeatures={linkedFeatures}
+          visualChangesets={visualChangesets}
+          urlRedirects={urlRedirects}
+        />
       )}
+      {showScheduleModal && !isHoldout ? (
+        <EditScheduleModal
+          experiment={experiment}
+          close={() => setShowScheduleModal(false)}
+          mutate={mutate}
+        />
+      ) : null}
       {showTemplateForm && (
         <TemplateForm
           onClose={() => setShowTemplateForm(false)}
@@ -672,7 +755,6 @@ export default function ExperimentHeader({
           close={() => setShareModalOpen(false)}
           closeCta="Close"
           header={`Share "${experiment.name}"`}
-          useRadixButton={true}
           secondaryCTA={shareLinkButton}
         >
           <div className="mb-3">
@@ -693,6 +775,7 @@ export default function ExperimentHeader({
           </div>
 
           <SelectField
+            size="legacy"
             label="View access"
             value={shareLevel}
             onChange={(v: ShareLevel) => setShareLevel(v)}
@@ -721,64 +804,130 @@ export default function ExperimentHeader({
           </div>
         </Modal>
       )}
+      {showAddToHoldoutModal ? (
+        <AddToHoldoutModal
+          experiment={experiment}
+          close={() => setShowAddToHoldoutModal(false)}
+          mutate={mutate}
+        />
+      ) : null}
+      {showRemoveFromHoldoutModal ? (
+        <RemoveFromHoldoutModal
+          experiment={experiment}
+          close={() => setShowRemoveFromHoldoutModal(false)}
+          mutate={mutate}
+        />
+      ) : null}
 
-      <div className="container-fluid pagecontents position-relative experiment-header px-3 pt-3">
-        <div className="d-flex align-items-center">
-          <Flex direction="row" align="center">
-            <h1 className="mb-0">{experiment.name}</h1>
-            <Box ml="2">
+      <div
+        className={
+          "container-fluid pagecontents position-relative px-3 pt-3 pb-0"
+        }
+      >
+        <Flex direction="row" align="start" justify="between" gap="5">
+          <Flex align="center" gap="2">
+            <Heading
+              as="h1"
+              size="2xl"
+              color="text-high"
+              overflowWrap="anywhere"
+              weight="medium"
+            >
+              {experiment.name}
+            </Heading>
+            <Box style={{ userSelect: "none" }}>
               <ExperimentStatusIndicator experimentData={experiment} />
             </Box>
           </Flex>
-          <div className="ml-auto flex-1"></div>
-          {canRunExperiment ? (
-            <div className="ml-2 flex-shrink-0">
-              {experiment.status === "running" ? (
-                <ExperimentActionButtons
-                  editResult={editResult}
-                  editTargeting={editTargeting}
-                  isBandit={isBandit}
-                />
-              ) : experiment.status === "draft" ? (
-                <Tooltip
-                  shouldDisplay={
-                    isBandit &&
-                    !experimentHasLiveLinkedChanges(experiment, linkedFeatures)
-                  }
-                  body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
-                >
-                  <button
-                    className="btn btn-teal"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowStartExperiment(true);
+
+          <Flex direction="row" align="center" gap="2" flexShrink="0">
+            {isHoldout && holdout?.nextScheduledStatusUpdate ? (
+              <Button
+                variant="ghost"
+                onClick={() => setTab("overview", "holdout-schedule")}
+              >
+                {
+                  HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP[
+                    holdout.nextScheduledStatusUpdate.type
+                  ]
+                }
+                {format(
+                  new Date(holdout.nextScheduledStatusUpdate.date),
+                  "MMM d, yyyy 'at' h:mm a",
+                )}
+              </Button>
+            ) : (
+              <div>
+                {experiment.status === "running" ? (
+                  <ExperimentActionButtons
+                    editResult={canRunExperiment ? editResult : undefined}
+                    editTargeting={canRunExperiment ? editTargeting : undefined}
+                    isBandit={isBandit}
+                    runningExperimentStatus={runningExperimentStatus}
+                    holdoutStage={holdoutStage}
+                  />
+                ) : experiment.status === "draft" && nextScheduledStartDate ? (
+                  <Button
+                    variant="ghost"
+                    disabled={!canRunExperiment}
+                    onClick={() => {
+                      if (editSchedule) setShowScheduleModal(true);
                     }}
-                    disabled={
+                  >
+                    Starts{" "}
+                    {format(
+                      nextScheduledStartDate,
+                      "MMM d, yyyy 'at' h:mm a (z)",
+                    )}{" "}
+                    {editSchedule && <PiPencilSimpleFill className="ml-1" />}
+                  </Button>
+                ) : experiment.status === "draft" ? (
+                  <Tooltip
+                    shouldDisplay={
                       isBandit &&
                       !experimentHasLiveLinkedChanges(
                         experiment,
-                        linkedFeatures
+                        linkedFeatures,
                       )
                     }
+                    body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
                   >
-                    Start Experiment <MdRocketLaunch />
-                  </button>
-                </Tooltip>
-              ) : null}
-              {experiment.status === "stopped" && experiment.results ? (
-                <>
-                  {canEditExperiment ? (
-                    <Button onClick={() => setShareModalOpen(true)}>
-                      Share...
+                    <Button
+                      variant={checklistReady ? "solid" : "soft"}
+                      onClick={() => {
+                        setShowStartExperiment(true);
+                      }}
+                      disabled={
+                        !canRunExperiment ||
+                        (isBandit &&
+                          !experimentHasLiveLinkedChanges(
+                            experiment,
+                            linkedFeatures,
+                          ))
+                      }
+                      icon={
+                        hasExperimentSchedule ? undefined : <MdRocketLaunch />
+                      }
+                    >
+                      {hasExperimentSchedule
+                        ? "Approve for Scheduled Start"
+                        : `Start ${isHoldout ? "Holdout" : "Experiment"}`}
                     </Button>
-                  ) : shareLevel === "public" ? (
-                    shareLinkButton
-                  ) : null}
-                </>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="ml-2">
+                  </Tooltip>
+                ) : null}
+                {experiment.status === "stopped" && experiment.results ? (
+                  <>
+                    {canEditExperiment ? (
+                      <Button onClick={() => setShareModalOpen(true)}>
+                        Share...
+                      </Button>
+                    ) : shareLevel === "public" ? (
+                      shareLinkButton
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+            )}
             <DropdownMenu
               trigger={
                 <IconButton
@@ -787,6 +936,7 @@ export default function ExperimentHeader({
                   radius="full"
                   size="3"
                   highContrast
+                  ml="2"
                 >
                   <BsThreeDotsVertical size={18} />
                 </IconButton>
@@ -798,18 +948,6 @@ export default function ExperimentHeader({
               menuPlacement="end"
             >
               <DropdownMenuGroup>
-                {canRunExperiment &&
-                  !isBandit &&
-                  (experiment.status !== "draft" || hasResults) && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setStatusModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Edit status
-                    </DropdownMenuItem>
-                  )}
                 {canEditExperiment ? (
                   <DropdownMenuItem
                     onClick={() => {
@@ -820,81 +958,186 @@ export default function ExperimentHeader({
                     Edit info
                   </DropdownMenuItem>
                 ) : null}
-                {editPhases && !isBandit && (
+                {canRunExperiment &&
+                  !isBandit &&
+                  !isHoldout &&
+                  (experiment.status !== "draft" || hasResults) && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setStatusModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Edit status
+                    </DropdownMenuItem>
+                  )}
+                {editPhases && !isBandit && !isHoldout && (
                   <DropdownMenuItem
                     onClick={() => {
                       editPhases();
                       setDropdownOpen(false);
                     }}
                   >
-                    Edit phases
+                    Edit phase
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem
-                  onClick={() => {
-                    setAuditModal(true);
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Audit log
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownSubMenu
-                  trigger={
-                    <Flex
-                      align="center"
-                      className={isWatching ? "font-weight-bold" : ""}
-                    >
-                      <PiEye style={{ marginRight: "5px" }} size={18} />
-                      <span className="pr-5">
-                        {isWatching ? "Watching" : "Not watching"}
-                      </span>
-                    </Flex>
-                  }
-                >
+                {showEditHoldoutScheduleButton && (
                   <DropdownMenuItem
-                    onClick={async () => {
-                      await handleWatchUpdates(!isWatching);
+                    onClick={() => {
+                      editSchedule();
+                      setDropdownOpen(false);
                     }}
                   >
-                    {isWatching ? "Stop watching" : "Start watching"}
+                    {holdoutHasSchedule ? "Edit " : "Add "} Schedule
                   </DropdownMenuItem>
-                </DropdownSubMenu>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setWatchersModal(true);
-                    setDropdownOpen(false);
-                  }}
-                  disabled={!usersWatching.length}
-                >
-                  <Flex as="div" align="center">
-                    <IconButton
-                      style={{
-                        marginRight: "5px",
-                        backgroundColor:
-                          usersWatching.length > 0
-                            ? "var(--violet-9)"
-                            : "var(--slate-9)",
+                )}
+                {canEditExperiment &&
+                  !isHoldout &&
+                  holdoutsEnabled &&
+                  holdouts.length > 0 &&
+                  !experiment.holdoutId &&
+                  experiment.status === "draft" && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setShowAddToHoldoutModal(true);
                       }}
-                      radius="full"
-                      size="1"
                     >
-                      {usersWatching.length || 0}
-                    </IconButton>
-                    {usersWatching.length > 0 ? "View watchers" : "No watchers"}
-                  </Flex>
-                </DropdownMenuItem>
+                      Add to holdout
+                    </DropdownMenuItem>
+                  )}
+                {canEditExperiment && !isHoldout && experiment.holdoutId && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setShowRemoveFromHoldoutModal(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Remove from holdout
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuGroup>
+              {isHoldout && canRunExperiment && (
+                <>
+                  {(holdout?.nextScheduledStatusUpdate ||
+                    experiment.status !== "draft" ||
+                    hasResults) && <DropdownMenuSeparator />}
+                  <DropdownMenuGroup>
+                    {holdout?.nextScheduledStatusUpdate &&
+                      (experiment.status === "running" && editResult ? (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            editResult();
+                            setDropdownOpen(false);
+                          }}
+                        >
+                          <Tooltip
+                            body={`Override Holdout schedule and manually ${holdoutStage === "running" ? "start next phase" : "stop Holdout"} now`}
+                            tipPosition="left"
+                          >
+                            {holdoutStage === "running"
+                              ? "Start Analysis Phase"
+                              : "Stop Holdout"}
+                          </Tooltip>
+                        </DropdownMenuItem>
+                      ) : experiment.status === "draft" ? (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setShowStartExperiment(true);
+                            setDropdownOpen(false);
+                          }}
+                        >
+                          <Tooltip
+                            body="Override Holdout schedule and manually start Holdout now"
+                            tipPosition="left"
+                          >
+                            Start Holdout
+                          </Tooltip>
+                        </DropdownMenuItem>
+                      ) : null)}
+                    {(experiment.status !== "draft" || hasResults) && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setStatusModal(true);
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        Force Status Change
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuGroup>
+                </>
+              )}
+              {!isHoldout && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownSubMenu
+                      trigger={
+                        <Flex
+                          align="center"
+                          className={isWatching ? "font-weight-bold" : ""}
+                        >
+                          <PiEye style={{ marginRight: "5px" }} size={18} />
+                          <span className="pr-5">
+                            {isWatching ? "Watching" : "Not watching"}
+                          </span>
+                        </Flex>
+                      }
+                    >
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          await handleWatchUpdates(!isWatching);
+                        }}
+                      >
+                        {isWatching ? "Stop watching" : "Start watching"}
+                      </DropdownMenuItem>
+                    </DropdownSubMenu>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setWatchersModal(true);
+                        setDropdownOpen(false);
+                      }}
+                      disabled={!usersWatching.length}
+                    >
+                      <Flex as="div" align="center">
+                        <IconButton
+                          style={{
+                            marginRight: "5px",
+                            backgroundColor:
+                              usersWatching.length > 0
+                                ? "var(--violet-9)"
+                                : "var(--slate-9)",
+                          }}
+                          radius="full"
+                          size="1"
+                        >
+                          {usersWatching.length || 0}
+                        </IconButton>
+                        {usersWatching.length > 0
+                          ? "View watchers"
+                          : "No watchers"}
+                      </Flex>
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              )}
+              <DropdownMenuItem
+                onClick={() => {
+                  setCompareModal(true);
+                  setDropdownOpen(false);
+                }}
+              >
+                Audit history
+              </DropdownMenuItem>
               {/* Only show the separator if one of the following cases is true to avoid double separators */}
-              {showConvertButton ||
-              showShareableReportButton ||
-              showShareButton ||
-              showSaveAsTemplateButton ? (
+              {(showConvertButton ||
+                showShareableReportButton ||
+                showShareButton ||
+                showSaveAsTemplateButton) &&
+              !isHoldout ? (
                 <DropdownMenuSeparator />
               ) : null}
-              {showSaveAsTemplateButton && (
+              {showSaveAsTemplateButton && !isHoldout && (
                 <DropdownMenuItem
                   onClick={() => {
                     setShowTemplateForm(true);
@@ -904,7 +1147,7 @@ export default function ExperimentHeader({
                   Save as template...
                 </DropdownMenuItem>
               )}
-              {showShareButton && (
+              {showShareButton && !isHoldout && (
                 <DropdownMenuItem
                   onClick={() => {
                     setShareModalOpen(true);
@@ -914,7 +1157,7 @@ export default function ExperimentHeader({
                   Share {isBandit ? "Bandit" : "Experiment"}
                 </DropdownMenuItem>
               )}
-              {showShareableReportButton ? (
+              {showShareableReportButton && !isHoldout && (
                 <DropdownMenuItem
                   onClick={async () => {
                     const res = await apiCall<{ report: ReportInterface }>(
@@ -924,7 +1167,7 @@ export default function ExperimentHeader({
                         body: reportArgs
                           ? JSON.stringify(reportArgs)
                           : undefined,
-                      }
+                      },
                     );
                     if (!res.report) {
                       throw new Error("Failed to create report");
@@ -937,8 +1180,8 @@ export default function ExperimentHeader({
                 >
                   Create shareable report
                 </DropdownMenuItem>
-              ) : null}
-              {showConvertButton && (
+              )}
+              {showConvertButton && !isHoldout && (
                 <>
                   <DropdownMenuGroup>
                     <DropdownMenuItem
@@ -1003,71 +1246,106 @@ export default function ExperimentHeader({
                 )}
               </DropdownMenuGroup>
             </DropdownMenu>
-          </div>
-        </div>
+          </Flex>
+        </Flex>
         <ProjectTagBar
           experiment={experiment}
+          holdout={holdout}
           setShowEditInfoModal={setShowEditInfoModal}
           setEditInfoFocusSelector={setEditInfoFocusSelector}
-          editTags={!viewingOldPhase ? editTags : undefined}
+          editTags={editTags}
         />
-      </div>
-      {shouldHideTabs ? null : (
-        <div
-          className={clsx("experiment-tabs d-print-none", {
-            pinned: headerPinned,
-          })}
-        >
-          <div className="position-relative container-fluid pagecontents px-3">
-            <div className="d-flex header-tabs" ref={tabsRef}>
-              <Tabs
-                value={tab}
-                onValueChange={setTab}
-                style={{ width: "100%" }}
-              >
-                <TabsList size="3">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="results">Results</TabsTrigger>
-                  {isBandit ? (
-                    <TabsTrigger value="explore">Explore</TabsTrigger>
-                  ) : null}
-                  {disableHealthTab ? (
-                    <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
-                      <TabsTrigger disabled value="health">
-                        Health
-                      </TabsTrigger>
-                    </DisabledHealthTabTooltip>
-                  ) : (
-                    <TabsTrigger
-                      value="health"
-                      onClick={() => {
-                        track("Open health tab", { source: "tab-click" });
-                      }}
-                    >
-                      Health
-                      {healthNotificationCount > 0 ? (
-                        <Avatar size="sm" ml="2" color="red">
-                          {healthNotificationCount}
-                        </Avatar>
-                      ) : null}
-                    </TabsTrigger>
-                  )}
-                </TabsList>
-              </Tabs>
 
-              <div className="col-auto experiment-date-range mr-2">
-                {startDate && (
-                  <span>
-                    {startDate} — {endDate}{" "}
-                    <span className="text-muted">
-                      ({daysBetween(startDate, endDate)} days)
-                    </span>
-                  </span>
-                )}
+        {runningExperimentDecisionBanner ? (
+          <Box pt="1" pb="1">
+            {runningExperimentDecisionBanner}
+          </Box>
+        ) : null}
+        {scheduledEndPassedBanner ? (
+          <Box pt="1" pb="1">
+            {scheduledEndPassedBanner}
+          </Box>
+        ) : null}
+      </div>
+
+      {shouldHideTabs ? null : (
+        <>
+          <div
+            ref={tabsPinSentinelRef}
+            aria-hidden
+            className="d-print-none"
+            style={{
+              height: 1,
+              width: "100%",
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            className={clsx("experiment-tabs d-print-none", {
+              pinned: headerPinned,
+            })}
+          >
+            <div className="position-relative container-fluid pagecontents px-3">
+              <div className="d-flex header-tabs">
+                <Tabs
+                  value={tab}
+                  onValueChange={setTab}
+                  style={{ width: "100%" }}
+                >
+                  <TabsList size="lg">
+                    <Flex align="center" className="flex-1">
+                      <TabsTrigger value="overview">Overview</TabsTrigger>
+                      <TabsTrigger value="results">Results</TabsTrigger>
+                      {isBandit ? (
+                        <TabsTrigger value="explore">Explore</TabsTrigger>
+                      ) : null}
+                      {!isBandit && !isHoldout && (
+                        <TabsTrigger value="dashboards">Dashboards</TabsTrigger>
+                      )}
+                      {disableHealthTab ? (
+                        <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
+                          <TabsTrigger disabled value="health">
+                            Health
+                          </TabsTrigger>
+                        </DisabledHealthTabTooltip>
+                      ) : (
+                        <TabsTrigger
+                          value="health"
+                          onClick={() => {
+                            track("Open health tab", { source: "tab-click" });
+                          }}
+                        >
+                          Health
+                          {healthNotificationCount > 0 ? (
+                            <Avatar size="sm" ml="2" color="red">
+                              {healthNotificationCount}
+                            </Avatar>
+                          ) : null}
+                        </TabsTrigger>
+                      )}
+                      {hasMultiplePhases ? (
+                        <>
+                          <div className="flex-1" />
+                          <Text size="md" weight="medium">
+                            <PhaseSelector
+                              phase={phase}
+                              phases={experiment.phases}
+                              isBandit={
+                                experiment.type === "multi-armed-bandit"
+                              }
+                              isHoldout={experiment.type === "holdout"}
+                              holdout={holdout}
+                            />
+                          </Text>
+                        </>
+                      ) : null}
+                    </Flex>
+                  </TabsList>
+                </Tabs>
               </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </>
   );

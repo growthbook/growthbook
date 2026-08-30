@@ -1,41 +1,49 @@
-import { ListMetricsResponse } from "back-end/types/openapi";
+import { stringToBoolean } from "shared/util";
+import { listMetricsValidator } from "shared/validators";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
 import { toMetricApiInterface } from "back-end/src/services/experiments";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
-  applyFilter,
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { listMetricsValidator } from "back-end/src/validators/openapi";
 
-export const listMetrics = createApiRequestHandler(listMetricsValidator)(
-  async (req): Promise<ListMetricsResponse> => {
-    const metrics = await getMetricsByOrganization(req.context);
+export const listMetrics = createApiRequestHandler(listMetricsValidator)(async (
+  req,
+) => {
+  const includeArchived =
+    req.query.includeArchived === undefined
+      ? undefined
+      : stringToBoolean(req.query.includeArchived.toString());
 
-    const datasources = await getDataSourcesByOrganization(req.context);
+  // Filter at the database level for better performance
+  const metrics = await getMetricsByOrganization(req.context, {
+    datasourceId: req.query.datasourceId,
+    projectId: req.query.projectId,
+    includeArchived,
+  });
 
-    // TODO: Move sorting/limiting to the database query for better performance
-    const { filtered, returnFields } = applyPagination(
-      metrics
-        .filter(
-          (metric) =>
-            applyFilter(req.query.datasourceId, metric.datasource) &&
-            applyFilter(req.query.projectId, metric.projects, true)
-        )
-        .sort((a, b) => a.id.localeCompare(b.id)),
-      req.query
-    );
+  const datasources = await getDataSourcesByOrganization(req.context);
 
-    return {
-      metrics: filtered.map((metric) =>
+  // Sorting could be done at DB level, but we sort here instead to handle config file metrics
+  // TODO: Move sorting and pagination (limit/offset) to database for better performance
+  const { filtered, returnFields } = applyPagination(
+    metrics.sort((a, b) => a.id.localeCompare(b.id)),
+    req.query,
+  );
+
+  return {
+    metrics: await resolveOwnerEmails(
+      filtered.map((metric) =>
         toMetricApiInterface(
           req.organization,
           metric,
-          datasources.find((ds) => ds.id === metric.datasource) || null
-        )
+          datasources.find((ds) => ds.id === metric.datasource) || null,
+        ),
       ),
-      ...returnFields,
-    };
-  }
-);
+      req.context,
+    ),
+    ...returnFields,
+  };
+});

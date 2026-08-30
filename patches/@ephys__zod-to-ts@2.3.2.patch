@@ -1,0 +1,17 @@
+diff --git a/dist/utils.js b/dist/utils.js
+index 06fc4a2cf44c7c0ecec69d5d5ed6aa952bb70495..6d102241f1e9d098f389b12d9cf23c5a8ba92c9f 100644
+--- a/dist/utils.js
++++ b/dist/utils.js
+@@ -97,7 +97,11 @@ export function addTsDocComment(node, text) {
+     }
+ }
+ export function getSchemaDescription(schema, registry) {
+-    return registry.get(schema)?.description;
++    let node = schema;
++    while (node.isOptional()) {
++        node = node.def.innerType;
++    }
++    return node.meta()?.description ? node.meta()?.description: registry.get(node)?.description;  
+ }
+ export function getSchemaIdentifier(schema, registry) {
+     const id = (registry ?? globalRegistry).get(schema)?.id;

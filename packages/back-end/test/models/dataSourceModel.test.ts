@@ -1,27 +1,25 @@
-import { Permissions } from "shared/permissions";
+import { Permissions, roleToPermissionMap } from "shared/permissions";
+import {
+  DataSourceInterface,
+  DataSourceSettings,
+} from "shared/types/datasource";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   updateDataSource,
   validateExposureQueriesAndAddMissingIds,
   hasActualChanges,
 } from "back-end/src/models/DataSourceModel";
-import {
-  DataSourceInterface,
-  DataSourceSettings,
-} from "back-end/types/datasource";
 import { testQueryValidity } from "back-end/src/services/datasource";
 import { usingFileConfig } from "back-end/src/init/config";
-import { OrganizationInterface, ReqContext } from "back-end/types/organization";
-import { roleToPermissionMap } from "back-end/src/util/organization.util";
+import { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/services/datasource");
 jest.mock("back-end/src/init/config");
 
-const mockedTestQueryValidity: jest.MockedFunction<
-  typeof testQueryValidity
-> = testQueryValidity as jest.MockedFunction<typeof testQueryValidity>;
-const mockedUsingFileConfig: jest.MockedFunction<
-  typeof usingFileConfig
-> = usingFileConfig as jest.MockedFunction<typeof usingFileConfig>;
+const mockedTestQueryValidity: jest.MockedFunction<typeof testQueryValidity> =
+  testQueryValidity as jest.MockedFunction<typeof testQueryValidity>;
+const mockedUsingFileConfig: jest.MockedFunction<typeof usingFileConfig> =
+  usingFileConfig as jest.MockedFunction<typeof usingFileConfig>;
 
 describe("dataSourceModel", () => {
   const datasource: DataSourceInterface = {
@@ -80,7 +78,7 @@ describe("dataSourceModel", () => {
       projects: {},
     }),
   };
-  const context = (partialContext as unknown) as ReqContext;
+  const context = partialContext as unknown as ReqContext;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -125,9 +123,9 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
-      console.log("new updates", new_updates);
+
       expect(mockedTestQueryValidity).toHaveBeenCalled();
       expect(new_updates).toEqual({
         queries: {
@@ -162,7 +160,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -191,7 +189,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -220,7 +218,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -250,7 +248,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -279,7 +277,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
       expect(testQueryValidity).not.toHaveBeenCalled();
       const expected = updates;
@@ -289,7 +287,7 @@ describe("dataSourceModel", () => {
       expect(new_updates).toEqual(updates);
     });
 
-    it("should revalidate unchanged queries if forceCheckValidation is true", async () => {
+    it('should revalidate unchanged queries when validation is "all"', async () => {
       mockedTestQueryValidity.mockResolvedValue("bad query");
       const updates: Partial<DataSourceSettings> = {
         queries: {
@@ -309,7 +307,7 @@ describe("dataSourceModel", () => {
         context,
         datasource,
         updates,
-        true
+        "all",
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -317,6 +315,87 @@ describe("dataSourceModel", () => {
         expected.queries.exposure[0].error = "bad query";
       }
       expect(new_updates).toEqual(updates);
+    });
+
+    it("should skip validation for event forwarder managed exposure queries when skipEventForwarderManagedValidation is true", async () => {
+      mockedTestQueryValidity.mockResolvedValue("Table not found");
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "user_id",
+              userIdType: "user_id",
+              dimensions: [],
+              name: "user_id",
+              description: "",
+              query: "SELECT user_id FROM experiment_viewed",
+              managedBy: "api",
+            },
+          ],
+        },
+      };
+      const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
+        datasource,
+        updates,
+        "changed",
+        true,
+      );
+      expect(testQueryValidity).not.toHaveBeenCalled();
+      expect(new_updates.queries?.exposure?.[0].error).toBeUndefined();
+    });
+
+    it('should validate event forwarder managed exposure queries when validation is "all"', async () => {
+      mockedTestQueryValidity.mockResolvedValue("Table not found");
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "user_id",
+              userIdType: "user_id",
+              dimensions: [],
+              name: "user_id",
+              description: "",
+              query: "SELECT user_id FROM experiment_viewed",
+              managedBy: "api",
+            },
+          ],
+        },
+      };
+      const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
+        datasource,
+        updates,
+        "all",
+      );
+      expect(testQueryValidity).toHaveBeenCalled();
+      expect(new_updates.queries?.exposure?.[0].error).toBe("Table not found");
+    });
+
+    it("should validate event forwarder managed exposure queries on user settings save", async () => {
+      mockedTestQueryValidity.mockResolvedValue("Table not found");
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "user_id",
+              userIdType: "user_id",
+              dimensions: [],
+              name: "user_id",
+              description: "",
+              query: "SELECT user_id FROM experiment_viewed",
+              managedBy: "api",
+            },
+          ],
+        },
+      };
+      const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
+        datasource,
+        updates,
+      );
+      expect(testQueryValidity).toHaveBeenCalled();
+      expect(new_updates.queries?.exposure?.[0].error).toBe("Table not found");
     });
   });
 
@@ -328,7 +407,7 @@ describe("dataSourceModel", () => {
       };
       await expect(
         //TODO: Create a helper function to create a mock datasource if we need to do this again
-        updateDataSource(context, datasource, updates)
+        updateDataSource(context, datasource, updates),
       ).rejects.toThrow("Cannot update. Data sources managed by config.yml");
     });
   });

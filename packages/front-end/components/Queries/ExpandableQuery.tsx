@@ -1,5 +1,5 @@
-import { FC } from "react";
-import { QueryInterface } from "back-end/types/query";
+import { FC, ReactNode, useCallback } from "react";
+import { QueryInterface } from "shared/types/query";
 import { formatDistanceStrict } from "date-fns";
 import {
   FaCircle,
@@ -9,21 +9,24 @@ import {
 } from "react-icons/fa";
 import { getValidDate } from "shared/dates";
 import { isFactMetricId } from "shared/experiments";
+import { isManagedWarehousePendingQueryError } from "shared/util";
 import { FaBoltLightning } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Callout from "@/components/Radix/Callout";
-import HelperText from "@/components/Radix/HelperText";
-import QueryStatsRow from "./QueryStatsRow";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
+import QueryStatsRow, { getNumberOfMetricsInQuery } from "./QueryStatsRow";
+import QueryResultTable from "./QueryResultTable";
 
 const ExpandableQuery: FC<{
   query: QueryInterface;
   i: number;
   total: number;
 }> = ({ query, i, total }) => {
-  let title = "";
-  if (query.language === "sql") {
+  let title = query.displayTitle || "";
+  if (query.language === "sql" && !title) {
     const comments = query.query.match(/(\n|^)\s*-- ([^\n]+)/);
     if (comments && comments[2]) {
       title = comments[2];
@@ -31,6 +34,49 @@ const ExpandableQuery: FC<{
   }
 
   const { getFactMetricById } = useDefinitions();
+
+  const getResultCell = useCallback(
+    (value: unknown): { content: ReactNode; text: string } => {
+      if (typeof value === "string" && isFactMetricId(value)) {
+        const factMetric = getFactMetricById(value);
+        if (factMetric) {
+          const name = factMetric.name || value;
+          return {
+            content: (
+              <span className="badge badge-secondary" title={value}>
+                {name}
+              </span>
+            ),
+            text: name,
+          };
+        }
+      }
+
+      const json = JSON.stringify(value);
+      return {
+        content: json ?? <em className="text-muted">null</em>,
+        text: json ?? "null",
+      };
+    },
+    [getFactMetricById],
+  );
+
+  const renderResultValue = useCallback(
+    (value: unknown) => getResultCell(value).content,
+    [getResultCell],
+  );
+
+  const getResultCellText = useCallback(
+    (value: unknown) => getResultCell(value).text,
+    [getResultCell],
+  );
+
+  // A fact-metric query is only "optimized" when it actually combines more than
+  // one metric. Single-metric queries share the same query type/builder but
+  // weren't combined, so don't surface the badge for them.
+  const isCombinedMetricQuery =
+    query.queryType === "experimentMultiMetric" &&
+    getNumberOfMetricsInQuery(query) > 1;
 
   return (
     <div className="mb-4">
@@ -52,7 +98,7 @@ const ExpandableQuery: FC<{
           {title && " - "}
           Query {i + 1} of {total}
         </span>
-        {query.queryType === "experimentMultiMetric" && (
+        {isCombinedMetricQuery && (
           <div className="ml-auto">
             <Tooltip
               body={
@@ -62,12 +108,6 @@ const ExpandableQuery: FC<{
                     Multiple metrics in the same Fact Table are being combined
                     into a single query, which is much faster and more
                     efficient.
-                  </p>
-                  <p>
-                    This is a new feature, so please report any issues you
-                    encounter. You can disable this optimization under{" "}
-                    <strong>Settings</strong> -&gt; <strong>General</strong>{" "}
-                    -&gt; <strong>Experiment Settings</strong>.
                   </p>
                 </>
               }
@@ -80,72 +120,31 @@ const ExpandableQuery: FC<{
         )}
       </h4>
       <Code language={query.language} code={query.query} expandable={true} />
-      {query.error && (
-        <div className="alert alert-danger">
-          <pre className="m-0 p-0" style={{ whiteSpace: "pre-wrap" }}>
-            {query.error}
-          </pre>
-        </div>
-      )}
+      {query.error &&
+        (isManagedWarehousePendingQueryError(query.error) ? (
+          <div className="my-3">
+            <ManagedWarehouseNoEventsCallout />
+          </div>
+        ) : (
+          <Callout status="error" my="3">
+            <pre className="m-0 p-0" style={{ whiteSpace: "pre-wrap" }}>
+              {query.error}
+            </pre>
+          </Callout>
+        ))}
       {query.status === "succeeded" && (
         <>
           {query.rawResult?.[0] ? (
-            <div style={{ maxHeight: 300, overflowY: "auto" }}>
-              <table className="table table-bordered table-sm">
-                <thead>
-                  <tr
-                    style={{ position: "sticky", top: 0 }}
-                    className="bg-light"
-                  >
-                    <th></th>
-                    {Object.keys(query.rawResult[0]).map((k) => {
-                      return <th key={k}>{k}</th>;
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {query.rawResult.map((row, i) => {
-                    return (
-                      <tr key={i}>
-                        <th>{i}</th>
-                        {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                        {Object.keys(query.rawResult[0]).map((k) => {
-                          const val = row[k];
-                          if (typeof val === "string" && isFactMetricId(val)) {
-                            const factMetric = getFactMetricById(val);
-                            if (factMetric) {
-                              return (
-                                <td key={k}>
-                                  <span
-                                    className="badge badge-secondary"
-                                    title={val}
-                                  >
-                                    {factMetric?.name || val}
-                                  </span>
-                                </td>
-                              );
-                            }
-                          }
-
-                          return (
-                            <td key={k}>
-                              {JSON.stringify(row[k]) ?? (
-                                <em className="text-muted">null</em>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
+            <QueryResultTable
+              rows={query.rawResult}
+              renderValue={renderResultValue}
+              getCellText={getResultCellText}
+            />
+          ) : query.query.startsWith("SELECT") ? (
             <Callout status="warning" my="3">
               No rows returned
             </Callout>
-          )}
+          ) : null}
         </>
       )}
       {query.status === "succeeded" && (
@@ -159,7 +158,7 @@ const ExpandableQuery: FC<{
                 <strong>
                   {formatDistanceStrict(
                     getValidDate(query.startedAt),
-                    getValidDate(query.finishedAt)
+                    getValidDate(query.finishedAt),
                   )}
                 </strong>
               </div>
@@ -168,7 +167,7 @@ const ExpandableQuery: FC<{
                 <strong>
                   {formatDistanceStrict(
                     getValidDate(query.createdAt),
-                    getValidDate(query.startedAt)
+                    getValidDate(query.startedAt),
                   )}
                 </strong>
               </div>
@@ -187,7 +186,7 @@ const ExpandableQuery: FC<{
               Was queued for{" "}
               {formatDistanceStrict(
                 getValidDate(query.createdAt),
-                getValidDate(query.startedAt)
+                getValidDate(query.startedAt),
               )}
             </HelperText>
           ) : null}

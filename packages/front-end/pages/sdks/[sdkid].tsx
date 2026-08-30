@@ -1,12 +1,15 @@
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import {
+  getConnectionSDKCapabilities,
+  getSDKCapabilityVersion,
+} from "shared/sdk-versioning";
 import { useRouter } from "next/router";
 import React, { useState } from "react";
 import { FaInfoCircle } from "react-icons/fa";
-import { BsLightningFill } from "react-icons/bs";
+import { BsLightningFill, BsThreeDotsVertical } from "react-icons/bs";
+import { PiArrowSquareOut, PiPencilSimpleFill } from "react-icons/pi";
+import { Flex, IconButton } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBEdit } from "@/components/Icons";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import SDKConnectionForm from "@/components/Features/SDKConnections/SDKConnectionForm";
 import CodeSnippetModal from "@/components/Features/CodeSnippetModal";
@@ -14,9 +17,23 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PageHead from "@/components/Layout/PageHead";
-import SdkWebhooks from "@/pages/sdks/SdkWebhooks";
+import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ConnectionDiagram from "@/components/Features/SDKConnections/ConnectionDiagram";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
+import { capitalizeFirstLetter } from "@/services/utils";
+import Text from "@/ui/Text";
+import Link from "@/ui/Link";
+import { docUrl } from "@/components/DocLink";
+import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 
 export default function SDKConnectionPage() {
   const router = useRouter();
@@ -29,28 +46,51 @@ export default function SDKConnectionPage() {
     mode: "edit" | "create" | "closed";
     initialValue?: SDKConnectionInterface;
   }>({ mode: "closed" });
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const permissionsUtil = usePermissionsUtil();
 
-  const connection:
-    | SDKConnectionInterface
-    | undefined = data?.connections?.find((conn) => conn.id === sdkid);
+  const connection: SDKConnectionInterface | undefined =
+    data?.connections?.find((conn) => conn.id === sdkid);
 
   const hasProxy = connection?.proxy?.enabled;
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return (
+      <div className="contents container pagecontents">
+        <Callout status="error">{error.message}</Callout>
+      </div>
+    );
   }
   if (!data) {
     return <LoadingOverlay />;
   }
   if (!connection) {
-    return <div className="alert alert-danger">Invalid SDK Connection id</div>;
+    return (
+      <div className="contents container pagecontents">
+        <Callout status="error">Invalid SDK Connection id</Callout>
+      </div>
+    );
   }
+
+  const supportsBucketingV2 =
+    getConnectionSDKCapabilities(connection).includes("bucketingV2");
+
+  const bucketingV2IntroducedVersion = getSDKCapabilityVersion(
+    connection.languages?.[0],
+    "bucketingV2",
+  );
+
+  const sdkLanguage = connection.languages?.[0];
+  const sdkDocSection = sdkLanguage
+    ? languageMapping[sdkLanguage]?.docs
+    : undefined;
 
   const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);
   const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
-  const canDelete = permissionsUtil.canDeleteSDKConnection(connection);
+  const canDelete =
+    permissionsUtil.canDeleteSDKConnection(connection) &&
+    !connection.managedBy?.type;
 
   return (
     <div className="contents container pagecontents">
@@ -70,63 +110,93 @@ export default function SDKConnectionPage() {
         ]}
       />
 
-      <div className="row align-items-center mb-2">
-        <h1 className="col-auto mb-0">{connection.name}</h1>
-        {canDelete || canUpdate || canDuplicate ? (
-          <>
-            {canUpdate ? (
-              <div className="col-auto ml-auto">
-                <a
-                  role="button"
-                  className="btn btn-outline-primary"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setModalState({
-                      mode: "edit",
-                      initialValue: connection,
-                    });
-                  }}
-                >
-                  <GBEdit /> Edit
-                </a>
-              </div>
-            ) : null}
-            <div className="col-auto">
-              <MoreMenu>
-                {canDuplicate ? (
-                  <button
-                    className="dropdown-item"
-                    onClick={(e) => {
-                      e.preventDefault();
+      {connection.managedBy?.type ? (
+        <div className="mb-2">
+          <Badge
+            label={`Managed by ${capitalizeFirstLetter(
+              connection.managedBy.type,
+            )}`}
+          />
+        </div>
+      ) : null}
+
+      <Flex align="start" justify="between" gap="2" mb="2">
+        <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
+          <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
+            {connection.name}
+          </Heading>
+        </Flex>
+        {(canDelete || canUpdate || canDuplicate) && (
+          <Flex align="center" gap="4" pr="2">
+            {canUpdate && (
+              <Button
+                icon={<PiPencilSimpleFill />}
+                onClick={() =>
+                  setModalState({ mode: "edit", initialValue: connection })
+                }
+              >
+                Edit Connection
+              </Button>
+            )}
+            {(canDuplicate || canDelete) && (
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="2"
+                    highContrast
+                  >
+                    <BsThreeDotsVertical size={16} />
+                  </IconButton>
+                }
+                menuPlacement="end"
+                open={dropdownOpen}
+                onOpenChange={setDropdownOpen}
+              >
+                {canDuplicate && (
+                  <DropdownMenuItem
+                    onClick={() => {
                       setModalState({
                         mode: "create",
                         initialValue: connection,
                       });
+                      setDropdownOpen(false);
                     }}
                   >
                     Duplicate
-                  </button>
-                ) : null}
-                {canDelete ? (
-                  <DeleteButton
-                    className="dropdown-item text-danger"
-                    displayName="SDK Connection"
-                    text="Delete"
-                    useIcon={false}
-                    onClick={async () => {
-                      await apiCall(`/sdk-connections/${connection.id}`, {
-                        method: "DELETE",
-                      });
-                      mutate();
-                      router.push(`/sdks`);
-                    }}
-                  />
-                ) : null}
-              </MoreMenu>
-            </div>
-          </>
-        ) : null}
-      </div>
+                  </DropdownMenuItem>
+                )}
+                {canDelete && (
+                  <>
+                    {canDuplicate && <DropdownMenuSeparator />}
+                    <DropdownMenuItem
+                      color="red"
+                      confirmation={{
+                        confirmationTitle: "Delete SDK Connection",
+                        cta: "Delete",
+                        getConfirmationContent: async () =>
+                          "Are you sure? This will permanently delete the SDK connection and any associated session recordings will no longer be accessible.",
+                        submit: async () => {
+                          await apiCall(`/sdk-connections/${connection.id}`, {
+                            method: "DELETE",
+                          });
+                          mutate();
+                          router.push(`/sdks`);
+                        },
+                        closeDropdown: () => setDropdownOpen(false),
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenu>
+            )}
+          </Flex>
+        )}
+      </Flex>
 
       <ConnectionDiagram
         connection={connection}
@@ -163,6 +233,22 @@ export default function SDKConnectionPage() {
           </Tooltip>
         </div>
       </div>
+      {!supportsBucketingV2 && (
+        <Callout status="warning" mb="3">
+          <Text weight="semibold">
+            Upgrade to {bucketingV2IntroducedVersion}+ for V2 hashing.
+          </Text>{" "}
+          Until then, new experiments in this connection&apos;s projects fall
+          back to V1.{" "}
+          <Link
+            href={docUrl(sdkDocSection ?? "sdks")}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View docs <PiArrowSquareOut size={15} />
+          </Link>
+        </Callout>
+      )}
       <SdkWebhooks connection={connection} />
       <div className="mt-4">
         <CodeSnippetModal

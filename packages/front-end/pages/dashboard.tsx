@@ -1,10 +1,10 @@
 import React from "react";
-import Head from "next/head";
 import { useExperiments } from "@/hooks/useExperiments";
 import Dashboard from "@/components/HomePage/Dashboard";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentsGetStarted from "@/components/HomePage/ExperimentsGetStarted";
+import Callout from "@/ui/Callout";
 
 export default function Analysis(): React.ReactElement {
   const { ready, error: definitionsError, project } = useDefinitions();
@@ -17,9 +17,9 @@ export default function Analysis(): React.ReactElement {
 
   if (experimentsError || definitionsError) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         An error occurred: {experimentsError?.message || definitionsError}
-      </div>
+      </Callout>
     );
   }
 
@@ -32,11 +32,6 @@ export default function Analysis(): React.ReactElement {
 
   return (
     <>
-      <Head>
-        <title>GrowthBook</title>
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-
       <div className="container pagecontents position-relative">
         {hasExperiments ? (
           <Dashboard experiments={experiments} />

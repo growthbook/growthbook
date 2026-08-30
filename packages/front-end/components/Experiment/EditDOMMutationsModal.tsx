@@ -1,12 +1,13 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { DOMMutation, VisualChange } from "back-end/types/visual-changeset";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { DOMMutation, VisualChange } from "shared/types/visual-changeset";
 import React, { FC, useCallback, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 
 const actionValues = ["append", "set", "remove"];
 
@@ -16,13 +17,12 @@ const EditDOMMutationsModal: FC<{
   close: () => void;
   onSave: (newVisualChange: VisualChange) => void;
 }> = ({ experiment, close, visualChange, onSave }) => {
-  const [newVisualChange, setNewVisualChange] = useState<VisualChange>(
-    visualChange
-  );
+  const [newVisualChange, setNewVisualChange] =
+    useState<VisualChange>(visualChange);
   const [useAdvanced, setUseAdvanced] = useState(false);
 
   const [newDOMMutationErrors, setNewDOMMutationErrors] = useState<string[]>(
-    []
+    [],
   );
 
   const deleteCustomJS = useCallback(() => {
@@ -44,11 +44,11 @@ const EditDOMMutationsModal: FC<{
       setNewVisualChange({
         ...newVisualChange,
         domMutations: newVisualChange.domMutations.filter(
-          (_m, i) => i !== index
+          (_m, i) => i !== index,
         ),
       });
     },
-    [newVisualChange, setNewVisualChange]
+    [newVisualChange, setNewVisualChange],
   );
 
   const setDOMMutation = useCallback(
@@ -56,11 +56,11 @@ const EditDOMMutationsModal: FC<{
       setNewVisualChange((prevVisualChange) => ({
         ...prevVisualChange,
         domMutations: prevVisualChange.domMutations.map((m, i) =>
-          i === index ? updates : m
+          i === index ? updates : m,
         ),
       }));
     },
-    [setNewVisualChange]
+    [setNewVisualChange],
   );
 
   const addDOMMutation = useCallback(
@@ -70,7 +70,7 @@ const EditDOMMutationsModal: FC<{
         domMutations: [...prevVisualChange.domMutations, updates],
       }));
     },
-    [setNewVisualChange]
+    [setNewVisualChange],
   );
 
   const setDOMMutationErrors = useCallback(
@@ -81,7 +81,7 @@ const EditDOMMutationsModal: FC<{
         return newErrors;
       });
     },
-    [setNewDOMMutationErrors]
+    [setNewDOMMutationErrors],
   );
 
   const validateDOMMutations = useCallback(
@@ -134,7 +134,7 @@ const EditDOMMutationsModal: FC<{
         return false;
       }
     },
-    [setDOMMutation, setDOMMutationErrors]
+    [setDOMMutation, setDOMMutationErrors],
   );
 
   const checkValidDOMMutations = useCallback(() => {
@@ -157,6 +157,7 @@ const EditDOMMutationsModal: FC<{
                 <Flex justify="start" gap="6">
                   <Box flexBasis="50%">
                     <Field
+                      size="legacy"
                       label="Selector"
                       labelClassName="mb-1"
                       helpText="CSS selector for the element to modify"
@@ -172,6 +173,7 @@ const EditDOMMutationsModal: FC<{
                   </Box>
                   <Box flexBasis="25%">
                     <SelectField
+                      size="legacy"
                       label="Action"
                       labelClassName="mb-1"
                       options={[
@@ -191,6 +193,7 @@ const EditDOMMutationsModal: FC<{
                   </Box>
                   <Box flexBasis="25%">
                     <Field
+                      size="legacy"
                       label="Attribute"
                       labelClassName="mb-1"
                       value={domChanges?.attribute}
@@ -211,6 +214,7 @@ const EditDOMMutationsModal: FC<{
                   </Box>
                 </Flex>
                 <Field
+                  size="legacy"
                   label="Value"
                   labelClassName="mb-1"
                   textarea
@@ -245,6 +249,7 @@ const EditDOMMutationsModal: FC<{
                   <Flex gap="6">
                     <Box flexBasis="50%">
                       <Field
+                        size="legacy"
                         label="Insert Before Selector"
                         labelClassName="mb-1"
                         value={domChanges?.insertBeforeSelector || ""}
@@ -268,6 +273,7 @@ const EditDOMMutationsModal: FC<{
                     </Box>
                     <Box flexBasis="50%">
                       <Field
+                        size="legacy"
                         label="Parent Selector"
                         labelClassName="mb-1"
                         value={domChanges?.parentSelector || ""}
@@ -318,7 +324,7 @@ const EditDOMMutationsModal: FC<{
         );
       }
     },
-    [deleteDOMMutation, newDOMMutationErrors, setDOMMutation, useAdvanced]
+    [deleteDOMMutation, newDOMMutationErrors, setDOMMutation, useAdvanced],
   );
 
   const onSubmit = () => {
@@ -331,6 +337,7 @@ const EditDOMMutationsModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open
       close={close}
@@ -347,11 +354,11 @@ const EditDOMMutationsModal: FC<{
     >
       <div>
         {experiment.status === "running" && (
-          <div className="alert alert-warning">
+          <Callout status="warning">
             <strong>Warning:</strong> This experiment is currently running. Any
             changes made here may introduce unpredictable effects in your
             experiment results.
-          </div>
+          </Callout>
         )}
         <div className="mb-4">
           <h4>
@@ -366,6 +373,7 @@ const EditDOMMutationsModal: FC<{
           </h4>
 
           <Field
+            size="legacy"
             textarea
             minRows={5}
             value={newVisualChange.css}
@@ -391,6 +399,7 @@ const EditDOMMutationsModal: FC<{
           </h4>
 
           <Field
+            size="legacy"
             textarea
             minRows={5}
             value={newVisualChange.js}

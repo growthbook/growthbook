@@ -26,9 +26,9 @@ const mockCallback = (options: Options) => {
 
 const mockAsyncCallback = (options: Options) => {
   const onExperimentViewed = jest.fn();
-  options.trackingCallback = async (experiment, result) => {
+  options.trackingCallback = async (experiment, result, user) => {
     await sleep(500);
-    onExperimentViewed(experiment, result);
+    onExperimentViewed(experiment, result, user);
   };
   return onExperimentViewed.mock;
 };
@@ -60,9 +60,21 @@ describe("experiments", () => {
     const res5 = growthbook.run(exp2);
 
     expect(mock.calls.length).toEqual(3);
-    expect(mock.calls[0]).toEqual([exp1, res1]);
-    expect(mock.calls[1]).toEqual([exp2, res4]);
-    expect(mock.calls[2]).toEqual([exp2, res5]);
+    expect(mock.calls[0]).toEqual([
+      exp1,
+      res1,
+      { attributes: { id: "1" }, url: "" },
+    ]);
+    expect(mock.calls[1]).toEqual([
+      exp2,
+      res4,
+      { attributes: { id: "1" }, url: "" },
+    ]);
+    expect(mock.calls[2]).toEqual([
+      exp2,
+      res5,
+      { attributes: { id: "2" }, url: "" },
+    ]);
 
     growthbook.destroy();
   });
@@ -92,9 +104,21 @@ describe("experiments", () => {
 
     await sleep(1000);
     expect(mock.calls.length).toEqual(3);
-    expect(mock.calls[0]).toEqual([exp1, res1]);
-    expect(mock.calls[1]).toEqual([exp2, res4]);
-    expect(mock.calls[2]).toEqual([exp2, res5]);
+    expect(mock.calls[0]).toEqual([
+      exp1,
+      res1,
+      { attributes: { id: "1" }, url: "" },
+    ]);
+    expect(mock.calls[1]).toEqual([
+      exp2,
+      res4,
+      { attributes: { id: "1" }, url: "" },
+    ]);
+    expect(mock.calls[2]).toEqual([
+      exp2,
+      res5,
+      { attributes: { id: "2" }, url: "" },
+    ]);
 
     growthbook.destroy();
   });
@@ -111,7 +135,7 @@ describe("experiments", () => {
         include: () => {
           throw new Error("Blah");
         },
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(false);
 
     // Should fail gracefully
@@ -119,14 +143,14 @@ describe("experiments", () => {
       throw new Error("Blah");
     };
     expect(
-      growthbook.run({ key: "my-test", variations: [0, 1] }).value
+      growthbook.run({ key: "my-test", variations: [0, 1] }).value,
     ).toEqual(1);
 
     growthbook.subscribe(() => {
       throw new Error("Blah");
     });
     expect(
-      growthbook.run({ key: "my-new-test", variations: [0, 1] }).value
+      growthbook.run({ key: "my-new-test", variations: [0, 1] }).value,
     ).toEqual(0);
 
     spy.mockRestore();
@@ -171,14 +195,14 @@ describe("experiments", () => {
         key: "my-test",
         variations: [0, 1],
         url: /^\/path/,
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(true);
     expect(
       growthbook.run({
         key: "my-test",
         variations: [0, 1],
         url: /^\/bath/,
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(false);
 
     growthbook.destroy();
@@ -285,7 +309,7 @@ describe("experiments", () => {
       growthbook.run({
         key: "my-test",
         variations: [0, 1],
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(false);
 
     growthbook.destroy();
@@ -307,7 +331,7 @@ describe("experiments", () => {
         key: "my-test",
         variations: [0, 1],
         groups: ["internal", "qa"],
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(false);
 
     expect(
@@ -315,14 +339,14 @@ describe("experiments", () => {
         key: "my-test",
         variations: [0, 1],
         groups: ["internal", "qa", "beta"],
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(true);
 
     expect(
       growthbook.run({
         key: "my-test",
         variations: [0, 1],
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(true);
 
     growthbook.destroy();
@@ -350,7 +374,7 @@ describe("experiments", () => {
         key: "my-test",
         variations: [0, 1],
         include: () => false,
-      }).inExperiment
+      }).inExperiment,
     ).toEqual(false);
 
     growthbook.destroy();
@@ -433,7 +457,7 @@ describe("experiments", () => {
       growthbook.run({
         key: "my-test",
         variations: [0, 1],
-      }).value
+      }).value,
     ).toEqual(1);
 
     spy.mockRestore();
@@ -812,12 +836,16 @@ describe("experiments", () => {
       {
         experiment: exp,
         result,
+        user: { attributes: { id: "1" }, url: "" },
       },
     ]);
     expect(gb.getCompletedChangeIds()).toEqual(["123"]);
     gb.setTrackingCallback(trackingCallback);
     expect(trackingCallback).toHaveBeenCalledTimes(1);
-    expect(trackingCallback).toHaveBeenCalledWith(exp, result);
+    expect(trackingCallback).toHaveBeenCalledWith(exp, result, {
+      attributes: { id: "1" },
+      url: "",
+    });
 
     // Does not call trackingCallback again for the same experiment
     gb.run(exp);
@@ -829,9 +857,9 @@ describe("experiments", () => {
     const trackingCallback2 = jest.fn();
     const gb2 = new GrowthBook({ trackingCallback: trackingCallback2 });
     gb2.setDeferredTrackingCalls([
-      ({
+      {
         invalid: true,
-      } as unknown) as TrackingData,
+      } as unknown as TrackingData,
       {
         experiment: exp,
         result,
@@ -840,7 +868,9 @@ describe("experiments", () => {
     expect(trackingCallback2).toHaveBeenCalledTimes(0);
     gb2.fireDeferredTrackingCalls();
     expect(trackingCallback2).toHaveBeenCalledTimes(1);
-    expect(trackingCallback2).toHaveBeenCalledWith(exp, result);
+    // These deferred calls were set manually without a user field, so
+    // the callback receives `undefined` for the optional user arg.
+    expect(trackingCallback2).toHaveBeenCalledWith(exp, result, undefined);
     expect(gb2.getDeferredTrackingCalls()).toEqual([]);
 
     gb2.destroy();
@@ -861,9 +891,9 @@ describe("experiments", () => {
     const trackingCallback = jest.fn();
     const gb2 = new GrowthBook();
     gb2.setDeferredTrackingCalls([
-      ({
+      {
         invalid: true,
-      } as unknown) as TrackingData,
+      } as unknown as TrackingData,
       {
         experiment: exp,
         result,
@@ -874,7 +904,7 @@ describe("experiments", () => {
 
     gb2.setTrackingCallback(trackingCallback);
     expect(trackingCallback).toHaveBeenCalledTimes(1);
-    expect(trackingCallback).toHaveBeenCalledWith(exp, result);
+    expect(trackingCallback).toHaveBeenCalledWith(exp, result, undefined);
     expect(gb2.getDeferredTrackingCalls()).toEqual([]);
 
     gb2.destroy();

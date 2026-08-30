@@ -1,34 +1,36 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
-import { FaChevronRight, FaPlus } from "react-icons/fa";
+import { PiCaretRight, PiPlus } from "react-icons/pi";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   IdentityJoinQuery,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { AddEditIdentityJoinModal } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/AddEditIdentityJoinModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 
-type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
+type DataSourceInlineEditIdentityJoinsProps =
+  DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJoinsProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-  canEdit = true,
-}) => {
+export const DataSourceInlineEditIdentityJoins: FC<
+  DataSourceInlineEditIdentityJoinsProps
+> = ({ dataSource, onSave, onCancel, canEdit = true }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
-  const [openIndexes, setOpenIndexes] = useState<boolean[]>([]);
+  const [openIndexes, setOpenIndexes] = useState<boolean[]>(
+    Array.from(
+      Array(dataSource?.settings?.queries?.identityJoins?.length || 0),
+    ).fill(true),
+  );
 
   const handleCancel = useCallback(() => {
     setUiMode("view");
@@ -44,16 +46,17 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
 
       setOpenIndexes(updatedOpenIndexes);
     },
-    [openIndexes]
+    [openIndexes],
   );
 
-  const userIdTypes = useMemo(() => dataSource.settings?.userIdTypes || [], [
-    dataSource.settings?.userIdTypes,
-  ]);
+  const userIdTypes = useMemo(
+    () => dataSource.settings?.userIdTypes || [],
+    [dataSource.settings?.userIdTypes],
+  );
   const addIsDisabled = userIdTypes.length < 2;
   const identityJoins = useMemo(
     () => dataSource?.settings?.queries?.identityJoins || [],
-    [dataSource?.settings?.queries?.identityJoins]
+    [dataSource?.settings?.queries?.identityJoins],
   );
 
   const handleAdd = useCallback(() => {
@@ -66,7 +69,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
       setEditingIndex(idx);
       setUiMode("edit");
     },
-    []
+    [],
   );
 
   const handleActionDeleteClicked = useCallback(
@@ -78,7 +81,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
 
       await onSave(copy);
     },
-    [onSave, dataSource]
+    [onSave, dataSource],
   );
 
   const handleSave = useCallback(
@@ -88,7 +91,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
       copy.settings.queries.identityJoins[idx] = identityJoin;
       await onSave(copy);
     },
-    [dataSource, onSave]
+    [dataSource, onSave],
   );
 
   if (!dataSource) {
@@ -118,8 +121,9 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
                   variant="solid"
                   onClick={handleAdd}
                   disabled={addIsDisabled}
+                  icon={<PiPlus />}
                 >
-                  <FaPlus className="mr-1" /> Add
+                  Add
                 </Button>
               </Box>
             )}
@@ -150,10 +154,9 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
                       <>
                         <DeleteButton
                           onClick={handleActionDeleteClicked(idx)}
-                          useRadix={true}
                           displayName={identityJoin.ids.join(" ↔ ")}
                           deleteMessage={`Are you sure you want to delete identifier join ${identityJoin.ids.join(
-                            " ↔ "
+                            " ↔ ",
                           )}?`}
                           title="Delete"
                           text="Delete"
@@ -171,8 +174,10 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
                       variant="ghost"
                       color="violet"
                       onClick={handleExpandCollapseForIndex(idx)}
+                      aria-label={`${isOpen ? "Collapse" : "Expand"} identity join ${identityJoin.ids.join(" and ")}`}
+                      aria-expanded={isOpen}
                     >
-                      <FaChevronRight
+                      <PiCaretRight
                         style={{
                           transform: `rotate(${isOpen ? "90deg" : "0deg"})`,
                         }}
@@ -187,6 +192,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
                         language="sql"
                         code={identityJoin.query}
                         containerClassName="mb-0"
+                        expandable
                       />
                     </Box>
                   )}

@@ -1,6 +1,6 @@
 import React, { FC, useState } from "react";
-import { ArchetypeInterface } from "back-end/types/archetype";
-import Link from "next/link";
+import { ArchetypeInterface } from "shared/types/archetype";
+import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -10,22 +10,22 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributesModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import Badge from "@/ui/Badge";
+import Callout from "@/ui/Callout";
 
 export const ArchetypeList: FC<{
   archetypes: ArchetypeInterface[];
   archetypeErrors: Error | undefined;
   mutate: () => void;
 }> = ({ archetypes, archetypeErrors, mutate }) => {
-  const [
-    editArchetype,
-    setEditArchetype,
-  ] = useState<Partial<ArchetypeInterface> | null>(null);
+  const [editArchetype, setEditArchetype] =
+    useState<Partial<ArchetypeInterface> | null>(null);
   const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
-  const { getUserDisplay, hasCommercialFeature } = useUser();
+  const { getOwnerDisplay, hasCommercialFeature } = useUser();
 
   const hasArchetypeFeature = hasCommercialFeature("archetypes");
   const canCreateGlobal = permissionsUtil.canCreateArchetype({
@@ -35,9 +35,9 @@ export const ArchetypeList: FC<{
 
   if (archetypeErrors) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         An error occurred fetching the lists of archetypes.
-      </div>
+      </Callout>
     );
   }
 
@@ -48,7 +48,6 @@ export const ArchetypeList: FC<{
           title="Create Reusable Archetypes"
           description="Archetypes are named sets of attributes that help you test your features."
           commercialFeature="archetypes"
-          reason="Archetypes landing page no access"
           learnMoreLink="https://docs.growthbook.io/features/rules#archetype"
         />
       </div>
@@ -84,6 +83,7 @@ export const ArchetypeList: FC<{
               <tr>
                 <th>Archetype</th>
                 <th>Projects</th>
+                <th>Environments</th>
                 <th>Owner</th>
                 <th>Public</th>
                 <th style={{ width: "40px" }}></th>
@@ -92,7 +92,7 @@ export const ArchetypeList: FC<{
             <tbody>
               {archetypes.length === 0 ? (
                 <tr>
-                  <td colSpan={3}>
+                  <td colSpan={6}>
                     <div className="text-center p-3 ">
                       No archetypes created. Click the &ldquo;Add
                       Archetype&rdquo; button to create one.
@@ -110,7 +110,7 @@ export const ArchetypeList: FC<{
               {archetypes.map((archetype: ArchetypeInterface) => {
                 const canEdit = permissionsUtil.canUpdateArchetype(
                   archetype,
-                  {}
+                  {},
                 );
                 let parsedAttributes = {};
                 try {
@@ -118,7 +118,7 @@ export const ArchetypeList: FC<{
                 } catch {
                   console.error(
                     "Failed to parse attributes. Invalid JSON string: " +
-                      archetype.attributes
+                      archetype.attributes,
                   );
                 }
                 const canDelete = permissionsUtil.canDeleteArchetype(archetype);
@@ -165,7 +165,22 @@ export const ArchetypeList: FC<{
                         <></>
                       )}
                     </td>
-                    <td>{getUserDisplay(archetype.owner)}</td>
+                    <td>
+                      {archetype.environments &&
+                      archetype.environments.length > 0 ? (
+                        archetype.environments.map((env, i) => (
+                          <Badge
+                            key={env}
+                            label={env}
+                            color="gray"
+                            ml={i === 0 ? "0" : "2"}
+                          />
+                        ))
+                      ) : (
+                        <Badge label="All environments" color="gray" />
+                      )}
+                    </td>
+                    <td>{getOwnerDisplay(archetype.owner)}</td>
                     <td>
                       {archetype.isPublic ? (
                         <span className="text-muted">Yes</span>
@@ -174,7 +189,7 @@ export const ArchetypeList: FC<{
                       )}
                     </td>
                     <td className={styles.showOnHover}>
-                      <MoreMenu>
+                      <MoreMenu useRadix={false}>
                         {canEdit ? (
                           <button
                             className="dropdown-item"
@@ -187,6 +202,7 @@ export const ArchetypeList: FC<{
                         ) : null}
                         {canDelete ? (
                           <DeleteButton
+                            useRadix={false}
                             className="dropdown-item"
                             displayName="Archetype"
                             text="Delete"

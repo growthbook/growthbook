@@ -1,23 +1,38 @@
 import { FC, Fragment, useMemo, useState } from "react";
-import { QueryInterface } from "back-end/types/query";
+import { QueryInterface } from "shared/types/query";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { SavedQuery } from "shared/validators";
+import { isManagedWarehousePendingQueryError } from "shared/util";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Code from "@/components/SyntaxHighlighting/Code";
+import ExpandableSavedQuery from "@/components/SavedQueries/ExpandableSavedQuery";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import Callout from "@/ui/Callout";
 import ExpandableQuery from "./ExpandableQuery";
 import QueryStatsRow from "./QueryStatsRow";
 
 const AsyncQueriesModal: FC<{
   queries: string[];
+  savedQueries: string[];
   close: () => void;
   error?: string;
   inline?: boolean;
-}> = ({ queries, close, error: _error, inline }) => {
+}> = ({ queries, savedQueries, close, error: _error, inline }) => {
   const { data, error: apiError } = useApi<{ queries: QueryInterface[] }>(
-    `/queries/${queries.join(",")}`
+    `/queries/${queries.join(",")}`,
+    {
+      shouldRun: () => queries.length > 0,
+    },
   );
+  const shouldFetchSavedQueries = () => savedQueries.length > 0;
+  const { data: savedQueryData, error: savedQueryError } = useApi<{
+    savedQueries: SavedQuery[];
+  }>(`/saved-queries/lookup-ids/${savedQueries.join(",")}`, {
+    shouldRun: shouldFetchSavedQueries,
+  });
 
   const [showStats, setShowStats] = useState(false);
   const hasStats = data?.queries?.some((q) => q.statistics !== undefined);
@@ -55,37 +70,42 @@ const AsyncQueriesModal: FC<{
 
   const contents = (
     <>
-      {error && (
-        <div className="alert alert-danger">
-          <div>
-            <strong>Error Processing Query Results</strong>
+      {error &&
+        (isManagedWarehousePendingQueryError(_error) ? (
+          <div className="mb-3">
+            <ManagedWarehouseNoEventsCallout />
           </div>
-          {error}
-          {traceback ? (
-            <Code
-              language="python"
-              filename="Python stack trace"
-              code={traceback.trim()}
-              showLineNumbers={false}
-              style={{ maxHeight: 500 }}
-            />
-          ) : null}
-        </div>
-      )}{" "}
+        ) : (
+          <Callout status="error">
+            <div>
+              <strong>Error Processing Query Results</strong>
+            </div>
+            {error}
+            {traceback ? (
+              <Code
+                language="python"
+                filename="Python stack trace"
+                code={traceback.trim()}
+                showLineNumbers={false}
+                style={{ maxHeight: 500 }}
+              />
+            ) : null}
+          </Callout>
+        ))}{" "}
       {data && data.queries.filter((q) => q === null).length > 0 && (
-        <div className="alert alert-danger">
+        <Callout status="error">
           Could not fetch information about one or more of these queries. Try
           running them again.
-        </div>
+        </Callout>
       )}
       {data &&
         data.queries.filter((q) => q?.status === "queued").length > 0 &&
         datasourceId && (
-          <div className="alert alert-warning">
+          <Callout status="warning">
             One or more of these queries is waiting to run. Click{" "}
             <a href={`/datasources/queries/${datasourceId}`}>here</a> to see the
             status of all your queries
-          </div>
+          </Callout>
         )}
       {hasStats ? (
         <div className="mb-4">
@@ -116,16 +136,48 @@ const AsyncQueriesModal: FC<{
             <ExpandableQuery
               query={query}
               i={i}
-              total={data.queries.length}
+              total={
+                data.queries.length +
+                (savedQueryData?.savedQueries ?? []).length
+              }
+              key={i}
+            />
+          ))
+          .concat(
+            (savedQueryData?.savedQueries ?? []).map((savedQuery, i) => (
+              <ExpandableSavedQuery
+                savedQuery={savedQuery}
+                i={data.queries.length + i}
+                total={
+                  data.queries.length +
+                  (savedQueryData?.savedQueries ?? []).length
+                }
+                key={data.queries.length + i}
+              />
+            )),
+          )}
+      {/* Product analytics dashboards might not contain any "data", but they may contain saved queries. */}
+      {!data && savedQueryData && savedQueryData.savedQueries.length > 0 && (
+        <div className="p-3">
+          {savedQueryData.savedQueries.map((savedQuery, i) => (
+            <ExpandableSavedQuery
+              savedQuery={savedQuery}
+              i={i}
+              total={savedQueryData.savedQueries.length}
               key={i}
             />
           ))}
+        </div>
+      )}
     </>
   );
 
   if (inline) {
     if (apiError) {
-      return <div className="alert alert-danger">{apiError.message}</div>;
+      return <Callout status="error">{apiError.message}</Callout>;
+    }
+    if (savedQueryError) {
+      return <Callout status="error">{savedQueryError.message}</Callout>;
     }
     if (!data) {
       return <LoadingSpinner />;
@@ -136,6 +188,7 @@ const AsyncQueriesModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="async-queries"
       close={close}
       header="Queries"
@@ -143,8 +196,14 @@ const AsyncQueriesModal: FC<{
       size="max"
       closeCta="Close"
     >
-      {!data && !apiError && <LoadingOverlay />}
-      {apiError && <div className="alert alert-danger">{apiError.message}</div>}
+      {((!data && !apiError && queries.length > 0) ||
+        (shouldFetchSavedQueries() && !savedQueryData && !savedQueryError)) && (
+        <LoadingOverlay />
+      )}
+      {apiError && <Callout status="error">{apiError.message}</Callout>}
+      {savedQueryError && (
+        <Callout status="error">{savedQueryError.message}</Callout>
+      )}
       {contents}
     </Modal>
   );

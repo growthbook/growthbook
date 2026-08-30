@@ -1,36 +1,84 @@
 import React, { useState, FC } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
-import { ProjectInterface } from "back-end/types/project";
-import { useRouter } from "next/router";
+import { ProjectInterface } from "shared/types/project";
 import Link from "next/link";
-import { date } from "shared/dates";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { ago } from "shared/dates";
+import { Box } from "@radix-ui/themes";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgLimits from "@/hooks/useOrgLimits";
+import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
+import { capitalizeFirstLetter } from "@/services/utils";
+import { useSearch } from "@/services/search";
+import Field from "@/components/Forms/Field";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import ProjectRowMenu from "@/components/Projects/ProjectRowMenu";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
-  const router = useRouter();
 
   const { apiCall } = useAuth();
+  const { organization } = useUser();
 
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
-    null
+    null,
   );
-
-  const { data: sdkConnectionsData } = useSDKConnections();
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   const permissionsUtil = usePermissionsUtil();
   const canCreateProjects = permissionsUtil.canCreateProjects();
 
+  const { getMaxProjects } = useOrgLimits();
+  const maxProjects = getMaxProjects();
+  const nonDemoProjectCount = projects.filter(
+    (p) =>
+      !isDemoDatasourceProject({
+        projectId: p.id,
+        organizationId: organization?.id,
+      }),
+  ).length;
+  const atProjectLimit =
+    maxProjects !== null && nonDemoProjectCount >= maxProjects;
+
+  const [deleteProjectResources, setDeleteProjectResources] =
+    useState<boolean>(true);
+
+  // Enhance projects with computed publicId for sorting
+  const projectsWithComputedPublicId = projects.map((p) => ({
+    ...p,
+    computedPublicId: p.publicId || p.id,
+  }));
+
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTableColumnHeader,
+    pagination,
+  } = useSearch({
+    items: projectsWithComputedPublicId,
+    localStorageKey: "projects",
+    defaultSortField: "dateCreated",
+    defaultSortDir: -1,
+    searchFields: ["name^3", "description^2", "computedPublicId"],
+    pageSize: 50,
+    updateSearchQueryOnChange: true,
+  });
+
   return (
-    <div className="container-fluid  pagecontents">
+    <div className="container-fluid pagecontents">
       {modalOpen && (
         <ProjectModal
           existing={modalOpen}
@@ -38,129 +86,185 @@ const ProjectsPage: FC = () => {
           onSuccess={() => mutateDefinitions()}
         />
       )}
+      {upgradeModalOpen && (
+        <UpgradeModal
+          close={() => setUpgradeModalOpen(false)}
+          source="project limit"
+          commercialFeature={null}
+        />
+      )}
 
-      <div className="filters md-form row mb-1 align-items-center">
-        <div className="col-auto d-flex">
-          <h1 className="mb-0">Projects</h1>
-        </div>
-        <div style={{ flex: 1 }} />
-        <div className="col-auto">
-          <Tooltip
-            body="You don't have permission to create projects"
-            shouldDisplay={!canCreateProjects}
-          >
-            <Button
-              disabled={!canCreateProjects}
-              onClick={() => setModalOpen({})}
+      <Box mt="4" mb="5">
+        <div className="row align-items-center mb-1">
+          <div className="col-auto">
+            <h2 className="mb-0">Projects</h2>
+          </div>
+          <div className="flex-1" />
+          <div className="col-auto">
+            <Tooltip
+              body={
+                !canCreateProjects
+                  ? "You don't have permission to create projects"
+                  : atProjectLimit
+                    ? `Your plan only supports ${maxProjects} project${
+                        maxProjects === 1 ? "" : "s"
+                      }. Upgrade your plan to create more.`
+                    : undefined
+              }
+              shouldDisplay={!canCreateProjects || atProjectLimit}
             >
-              Create Project
-            </Button>
-          </Tooltip>
+              <Button
+                disabled={!canCreateProjects}
+                onClick={() =>
+                  atProjectLimit ? setUpgradeModalOpen(true) : setModalOpen({})
+                }
+              >
+                Create Project
+              </Button>
+            </Tooltip>
+          </div>
         </div>
-      </div>
+        <p className="text-gray mb-4">
+          Group your ideas and experiments into <strong>Projects</strong> to
+          keep things organized and easy to manage.
+        </p>
 
-      <p className="text-gray mb-3">
-        Group your ideas and experiments into <strong>Projects</strong> to keep
-        things organized and easy to manage.
-      </p>
-      {projects.length > 0 ? (
-        <table className="table appbox gbtable table-hover">
-          <thead>
-            <tr>
-              <th className="col-3">Project Name</th>
-              <th className="col-3">Description</th>
-              <th className="col-2">Id</th>
-              <th className="col-2">Date Created</th>
-              <th className="col-2">Date Updated</th>
-              <th className="w-50"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {projects.map((p) => {
-              const canEdit = permissionsUtil.canUpdateProject(p.id);
-              const canDelete = permissionsUtil.canDeleteProject(p.id);
-              return (
-                <tr
-                  key={p.id}
-                  onClick={
-                    canEdit
-                      ? () => {
-                          router.push(`/project/${p.id}`);
-                        }
-                      : undefined
-                  }
-                  style={canEdit ? { cursor: "pointer" } : {}}
-                >
-                  <td>
-                    {canEdit ? (
-                      <Link
-                        href={`/project/${p.id}`}
-                        className="font-weight-bold"
-                      >
-                        {p.name}
-                      </Link>
-                    ) : (
-                      <span className="font-weight-bold">{p.name}</span>
-                    )}
-                  </td>
-                  <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
-                    {p.description}
-                  </td>
-                  <td>{p.id}</td>
-                  <td>{date(p.dateCreated)}</td>
-                  <td>{date(p.dateUpdated)}</td>
-                  <td
-                    style={{ cursor: "initial" }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
+        {projects.length > 0 ? (
+          <>
+            <Box width="250px" mb="3">
+              <Field
+                placeholder="Search..."
+                type="search"
+                containerClassName="mb-0"
+                {...searchInputProps}
+              />
+            </Box>
+            <Table variant="surface" layout="fixed">
+              <TableHeader>
+                <TableRow>
+                  <SortableTableColumnHeader
+                    field="name"
+                    style={{ width: "20%" }}
                   >
-                    <MoreMenu>
-                      {canEdit ? (
-                        <button
-                          className="btn dropdown-item"
-                          onClick={() => {
-                            setModalOpen(p);
-                          }}
-                        >
-                          Edit
-                        </button>
-                      ) : null}
-                      {canDelete ? (
-                        <DeleteButton
-                          className="dropdown-item text-danger"
-                          displayName="project"
-                          text="Delete"
-                          useIcon={false}
-                          onClick={async () => {
-                            await apiCall(`/projects/${p.id}`, {
-                              method: "DELETE",
-                            });
+                    Project Name
+                  </SortableTableColumnHeader>
+                  <SortableTableColumnHeader
+                    field="computedPublicId"
+                    style={{ width: "20%" }}
+                  >
+                    Public ID
+                  </SortableTableColumnHeader>
+                  <TableColumnHeader width="30%">Description</TableColumnHeader>
+                  <SortableTableColumnHeader
+                    field="dateCreated"
+                    style={{ width: "15%" }}
+                  >
+                    Date Created
+                  </SortableTableColumnHeader>
+                  <SortableTableColumnHeader
+                    field="dateUpdated"
+                    style={{ width: "15%" }}
+                  >
+                    Date Updated
+                  </SortableTableColumnHeader>
+                  <TableColumnHeader width="50px" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((p) => {
+                  const canEdit = permissionsUtil.canUpdateProject(p.id);
+                  const canDelete =
+                    // If the project has the `managedBy` property, we block deletion.
+                    permissionsUtil.canDeleteProject(p.id) &&
+                    !p.managedBy?.type;
+                  const isDemoProject = isDemoDatasourceProject({
+                    projectId: p.id,
+                    organizationId: organization?.id,
+                  });
+                  return (
+                    <TableRow key={p.id}>
+                      <TableCell>
+                        {canEdit ? (
+                          <Link
+                            className="link-purple"
+                            href={`/project/${p.id}`}
+                          >
+                            {p.name}
+                          </Link>
+                        ) : (
+                          <span>{p.name}</span>
+                        )}
+                        {p.managedBy?.type ? (
+                          <div>
+                            <Badge
+                              label={`Managed by ${capitalizeFirstLetter(
+                                p.managedBy.type,
+                              )}`}
+                            />
+                          </div>
+                        ) : null}
+                      </TableCell>
+                      <TableCell>
+                        <code className="small">{p.publicId || p.id}</code>
+                      </TableCell>
+                      <TableCell>
+                        {p.description && p.description.length > 80
+                          ? p.description.substring(0, 80).trim() + "..."
+                          : (p.description ?? "")}
+                      </TableCell>
+                      <TableCell>{ago(p.dateCreated)}</TableCell>
+                      <TableCell>{ago(p.dateUpdated)}</TableCell>
+                      <TableCell>
+                        <ProjectRowMenu
+                          project={p}
+                          canEdit={canEdit}
+                          canDelete={canDelete}
+                          onEdit={() => setModalOpen(p)}
+                          onDelete={async () => {
+                            if (isDemoProject) {
+                              // The Sample Data project has a dedicated
+                              // endpoint that also removes legacy sample
+                              // resources; deleting it like a normal project
+                              // can leave sample data behind in a state
+                              // that's hard to clean up.
+                              await apiCall(`/demo-datasource-project`, {
+                                method: "DELETE",
+                              });
+                            } else {
+                              await apiCall(
+                                `/projects/${p.id}?deleteResources=${deleteProjectResources ? "true" : "false"}`,
+                                {
+                                  method: "DELETE",
+                                },
+                              );
+                            }
                             mutateDefinitions();
                           }}
-                          additionalMessage={
-                            sdkConnectionsData?.connections?.find((c) =>
-                              c.projects.includes(p.id)
-                            ) ? (
-                              <div className="alert alert-danger px-2 py-1">
-                                <FaExclamationTriangle /> This project is in use
-                                by one or more SDK Connections. Deleting it will
-                                cause those connections to stop working.
-                              </div>
-                            ) : null
+                          deleteProjectResources={
+                            // Sample data is always deleted with its project
+                            isDemoProject ? null : deleteProjectResources
                           }
+                          setDeleteProjectResources={setDeleteProjectResources}
                         />
-                      ) : null}
-                    </MoreMenu>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      ) : (
-        <p>Click the button in the top right to create your first project!</p>
-      )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {!items.length && isFiltered && (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      No matching projects
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+            {pagination}
+          </>
+        ) : (
+          <p>Click the button above to create your first project!</p>
+        )}
+      </Box>
     </div>
   );
 };

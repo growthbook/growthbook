@@ -1,12 +1,49 @@
 import { DBSQLClient } from "@databricks/sql";
-import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
+import { QueryResponse } from "shared/types/integrations";
+import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { logger } from "back-end/src/util/logger";
 import { ENVIRONMENT } from "back-end/src/util/secrets";
-import { QueryResponse } from "back-end/src/types/Integration";
+
+type ConnectionOptions = Parameters<DBSQLClient["connect"]>[0];
+
+export function buildDatabricksConnectionOptions(
+  conn: DatabricksConnectionParams,
+): ConnectionOptions {
+  const shared = {
+    host: conn.host,
+    port: conn.port || 443,
+    path: conn.path,
+    userAgentEntry: conn.clientId || "GrowthBook",
+  };
+
+  if (conn.authType === "oauth-m2m") {
+    if (!conn.oauthClientId || !conn.oauthClientSecret) {
+      throw new Error("Databricks OAuth requires both a client ID and secret.");
+    }
+
+    return {
+      ...shared,
+      authType: "databricks-oauth",
+      oauthClientId: conn.oauthClientId,
+      oauthClientSecret: conn.oauthClientSecret,
+    };
+  }
+
+  if (!conn.token) {
+    throw new Error(
+      "Databricks personal access token authentication requires a token.",
+    );
+  }
+
+  return {
+    ...shared,
+    token: conn.token,
+  };
+}
 
 export async function runDatabricksQuery<T>(
   conn: DatabricksConnectionParams,
-  sql: string
+  sql: string,
 ): Promise<QueryResponse<T[]>> {
   // Because of how Databrick's SDK is written, it may reject or resolve multiple times
   // So we have a quick boolean check to make sure we only do it the first time
@@ -34,13 +71,7 @@ export async function runDatabricksQuery<T>(
             reject(error);
           }
         })
-        .connect({
-          token: conn.token,
-          host: conn.host,
-          port: conn.port || 443,
-          path: conn.path,
-          clientId: conn.clientId || "GrowthBook",
-        })
+        .connect(buildDatabricksConnectionOptions(conn))
         .then(async () => {
           const session = await client.openSession();
           const queryOperation = await session.executeStatement(sql, {
@@ -48,9 +79,9 @@ export async function runDatabricksQuery<T>(
             // This is required to have the results returned immediately
             maxRows: 1000,
           });
-          const result = ((await queryOperation.fetchAll({
+          const result = (await queryOperation.fetchAll({
             progress: false,
-          })) as unknown) as Promise<T[]>;
+          })) as unknown as Promise<T[]>;
 
           // As soon as we have the reuslt, return it
           if (!finished) {

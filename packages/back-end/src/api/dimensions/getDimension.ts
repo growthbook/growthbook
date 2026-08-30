@@ -1,23 +1,30 @@
-import { GetDimensionResponse } from "back-end/types/openapi";
+import { getDimensionValidator } from "shared/validators";
 import {
   findDimensionById,
+  hasDimensionDatasourceAccess,
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getDimensionValidator } from "back-end/src/validators/openapi";
 
 export const getDimension = createApiRequestHandler(getDimensionValidator)(
-  async (req): Promise<GetDimensionResponse> => {
+  async (req) => {
     const dimension = await findDimensionById(
       req.params.id,
-      req.organization.id
+      req.organization.id,
     );
-    if (!dimension) {
+    if (
+      !dimension ||
+      !(await hasDimensionDatasourceAccess(req.context, dimension))
+    ) {
       throw new Error("Could not find dimension with that id");
     }
 
     return {
-      dimension: toDimensionApiInterface(dimension),
+      dimension: await resolveOwnerEmail(
+        toDimensionApiInterface(dimension),
+        req.context,
+      ),
     };
-  }
+  },
 );

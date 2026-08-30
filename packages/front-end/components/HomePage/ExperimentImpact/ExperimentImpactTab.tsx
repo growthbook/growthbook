@@ -1,11 +1,14 @@
-import Link from "next/link";
 import React, { ReactElement } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
+import { Box } from "@radix-ui/themes";
 import { date } from "shared/dates";
+import { getLatestPhaseVariations } from "shared/experiments";
+import Link from "@/ui/Link";
+import VariationLabel from "@/ui/VariationLabel";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import Callout from "@/ui/Callout";
 import {
   ExperimentImpactData,
   ExperimentImpactType,
@@ -18,7 +21,7 @@ interface Props {
   experimentImpactType: ExperimentImpactType;
   formatter: (
     value: number,
-    options?: Intl.NumberFormatOptions | undefined
+    options?: Intl.NumberFormatOptions | undefined,
   ) => string;
   formatterOptions: Intl.NumberFormatOptions;
 }
@@ -36,7 +39,7 @@ export default function ExperimentImpactTab({
     const impactsScaled: JSX.Element[] = [];
     const impactsTotal: JSX.Element[] = [];
     if (!e.error) {
-      e.experiment.variations.forEach((v, i) => {
+      getLatestPhaseVariations(e.experiment).forEach((v, i) => {
         if (i === 0) return;
         if (experimentImpactType !== "other" && i !== e.keyVariationId) return;
         const impact = e.variationImpact?.[i - 1];
@@ -44,22 +47,14 @@ export default function ExperimentImpactTab({
           anyNullImpact = true;
         }
         variations.push(
-          <div
-            key={`var-experiment${ei}-variation${i}`}
-            className={`variation variation${i} with-variation-label d-flex my-1`}
-          >
-            <span className="label" style={{ width: 20, height: 20 }}>
-              {i}
-            </span>
-            <span
-              className="d-inline-block text-ellipsis hover"
-              style={{
-                maxWidth: 200,
-              }}
-            >
-              {v.name}
-            </span>
-          </div>
+          <Box key={`var-experiment${ei}-variation${i}`} my="1">
+            <VariationLabel
+              number={i}
+              name={v.name}
+              size="md"
+              maxWidth="220px"
+            />
+          </Box>,
         );
         impactsScaled.push(
           <div
@@ -70,7 +65,7 @@ export default function ExperimentImpactTab({
               formatImpact(
                 impact?.scaledImpact ?? 0,
                 formatter,
-                formatterOptions
+                formatterOptions,
               )
             ) : (
               <span className="text-muted">N/A</span>
@@ -83,12 +78,12 @@ export default function ExperimentImpactTab({
                   maximumFractionDigits: 3,
                 }).format(
                   (impact.scaledImpactAdjusted ?? 0) /
-                    (impact.scaledImpact ?? 0)
+                    (impact.scaledImpact ?? 0),
                 )}{" "}
                 &times; 365{" "}
               </span>
             )}
-          </div>
+          </div>,
         );
         impactsTotal.push(
           <div
@@ -99,7 +94,7 @@ export default function ExperimentImpactTab({
               formatImpact(
                 (impact?.scaledImpactAdjusted ?? 0) * 365,
                 formatter,
-                formatterOptions
+                formatterOptions,
               )
             ) : (
               <span className="text-muted">N/A</span>
@@ -109,7 +104,7 @@ export default function ExperimentImpactTab({
                 ± {formatter(impact.se * 1.96 * 365, formatterOptions)}
               </span>
             )}
-          </div>
+          </div>,
         );
       });
     }
@@ -130,7 +125,7 @@ export default function ExperimentImpactTab({
             {e.experiment.status === "stopped" ? (
               date(
                 e.experiment.phases?.[e.experiment.phases.length - 1]
-                  ?.dateEnded ?? ""
+                  ?.dateEnded ?? "",
               )
             ) : (
               <span className="text-muted">N/A</span>
@@ -155,10 +150,9 @@ export default function ExperimentImpactTab({
         </td>
         {e.error ? (
           <td colSpan={3}>
-            <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
-              <FaExclamationTriangle className="mr-1" />
+            <Callout status="error" mb="1" ml="1" size="sm">
               {e.error}
-            </div>
+            </Callout>
           </td>
         ) : (
           <>
@@ -167,7 +161,7 @@ export default function ExperimentImpactTab({
             <td className="impact-results">{impactsTotal}</td>
           </>
         )}
-      </tr>
+      </tr>,
     );
   });
   return (
@@ -177,16 +171,15 @@ export default function ExperimentImpactTab({
       ) : (
         <>
           {experimentImpactType !== "other" ? (
-            <div
-              className={`mt-2 alert alert-${
-                experimentImpactType === "winner" ? "success" : "info"
-              }`}
+            <Callout
+              status={experimentImpactType === "winner" ? "success" : "info"}
+              mt="2"
             >
               <span style={{ fontSize: "1.2em" }}>
                 {formatImpact(
                   experimentImpactData.totalAdjustedImpact * 365,
                   formatter,
-                  formatterOptions
+                  formatterOptions,
                 )}
                 {` per year is the summed impact ${
                   experimentImpactType === "winner"
@@ -194,7 +187,7 @@ export default function ExperimentImpactTab({
                     : "of not shipping the worst variation."
                 } `}
               </span>
-            </div>
+            </Callout>
           ) : null}
 
           <div className="mt-4" style={{ maxHeight: 500, overflowY: "auto" }}>
@@ -214,8 +207,8 @@ export default function ExperimentImpactTab({
                     {experimentImpactType === "winner"
                       ? "Winning Variation"
                       : experimentImpactType === "loser"
-                      ? "Worst Variation"
-                      : "Variation"}
+                        ? "Worst Variation"
+                        : "Variation"}
                   </th>
                   <th>
                     Scaled Impact{" "}
@@ -257,18 +250,18 @@ export default function ExperimentImpactTab({
                         {formatImpact(
                           experimentImpactData.totalAdjustedImpact * 365,
                           formatter,
-                          formatterOptions
+                          formatterOptions,
                         )}
                         {experimentImpactData.totalAdjustedImpactVariance ? (
                           <span className="plusminus ml-1">
                             ±{" "}
                             {formatter(
                               Math.sqrt(
-                                experimentImpactData.totalAdjustedImpactVariance
+                                experimentImpactData.totalAdjustedImpactVariance,
                               ) *
                                 1.96 *
                                 365,
-                              formatterOptions
+                              formatterOptions,
                             )}
                           </span>
                         ) : null}

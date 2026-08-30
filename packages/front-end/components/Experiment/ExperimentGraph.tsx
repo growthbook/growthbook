@@ -15,6 +15,7 @@ import useApi from "@/hooks/useApi";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Callout from "@/ui/Callout";
 import styles from "./ExperimentGraph.module.scss";
 
 export default function ExperimentGraph({
@@ -97,7 +98,7 @@ export default function ExperimentGraph({
     projects.forEach((p) => {
       pMap.set(p.id, p.name);
     });
-    pMap.set("all", "All projects");
+    pMap.set("all", "All Projects");
     return pMap;
   }, [projects]);
 
@@ -116,7 +117,7 @@ export default function ExperimentGraph({
         if (!projectData) return [];
         const allDates = projectData.all.map((p) => p.date);
         const allProjects = Object.keys(projectData).filter(
-          (pid) => !pid.includes("_demo-datasource-project")
+          (pid) => !pid.includes("_demo-datasource-project"),
         );
         // pretty sure the results won't have any holes in it, but just in case, this zeros out the values, which will be updated later.
         const projectsZerodRow = {};
@@ -178,7 +179,7 @@ export default function ExperimentGraph({
         return monthData;
       }
     },
-    [data, projectMap]
+    [data, projectMap],
   );
 
   const downloadCSV = useCallback(
@@ -202,15 +203,11 @@ export default function ExperimentGraph({
         return "";
       }
     },
-    [parseDataForCSV]
+    [parseDataForCSV],
   );
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -247,7 +244,7 @@ export default function ExperimentGraph({
     data.byProject.all.forEach((d, i) => {
       projects.forEach((p) => {
         const projectData = data.byProject[p.id].find(
-          (pd) => pd.date === d.date
+          (pd) => pd.date === d.date,
         );
         if (projectData) {
           graphData[i][p.id] = projectData.numExp;
@@ -269,7 +266,7 @@ export default function ExperimentGraph({
               {projectMap.has(project) ? "for " + projectMap.get(project) : ""}
             </h4>
           </div>
-          <div>no data to show</div>
+          <div>No data to show</div>
         </div>
       </>
     );
@@ -286,6 +283,7 @@ export default function ExperimentGraph({
         </div>
         <div className="col-auto">
           <SelectField
+            size="legacy"
             containerClassName="d-inline-block ml-2 mb-0"
             options={showSelectOptions}
             value={showBy}
@@ -303,7 +301,7 @@ export default function ExperimentGraph({
           />
         </div>
         <div className="pt-2">
-          <MoreMenu>
+          <MoreMenu useRadix={false}>
             <div className="p-2 px-3">Download data as CSV...</div>
             <a
               href="#"
@@ -355,7 +353,7 @@ export default function ExperimentGraph({
           const yMax = height - margin[0] - margin[2];
           const xMax = width - margin[1] - margin[3];
           const maxYValue = Math.ceil(
-            Math.max(...graphData.map((d) => d.numExp), 1)
+            Math.max(...graphData.map((d) => d.numExp), 1),
           );
 
           const barWidth = 35;
@@ -391,7 +389,7 @@ export default function ExperimentGraph({
               Math.abs((curr?.xcord ?? 0) - xCoord) <
               Math.abs((prev?.xcord ?? 0) - xCoord)
                 ? curr
-                : prev
+                : prev,
             );
 
             let barHeight = yMax - (yScale(closestBar.numExp) ?? 0);
@@ -436,8 +434,8 @@ export default function ExperimentGraph({
                                 {projectMap.has(k)
                                   ? projectMap.get(k)
                                   : k === "all"
-                                  ? "All projects"
-                                  : k}
+                                    ? "All Projects"
+                                    : k}
                               </div>
                               <div className={styles.tooltipValue}>
                                 {tooltipData?.[k] ?? 0}
@@ -615,8 +613,8 @@ export default function ExperimentGraph({
                           {projectMap.has(k)
                             ? projectMap.get(k)
                             : k === "all"
-                            ? "All projects"
-                            : k}
+                              ? "All Projects"
+                              : k}
                         </div>
                       </div>
                     ))}

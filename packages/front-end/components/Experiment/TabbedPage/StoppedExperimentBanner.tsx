@@ -1,8 +1,10 @@
+import { getAllVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
-import { FaClock, FaPencilAlt } from "react-icons/fa";
+} from "shared/types/experiment";
+import { FaPencilAlt } from "react-icons/fa";
+import { PiClock } from "react-icons/pi";
 import {
   experimentHasLinkedChanges,
   includeExperimentInPayload,
@@ -12,6 +14,7 @@ import ConfirmButton from "@/components/Modal/ConfirmButton";
 import { useAuth } from "@/services/auth";
 import Markdown from "@/components/Markdown/Markdown";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -30,23 +33,25 @@ export default function StoppedExperimentBanner({
 
   const hasLiveLinkedChanges = includeExperimentInPayload(
     experiment,
-    linkedFeatures.map((f) => f.feature)
+    linkedFeatures.map((f) => f.feature),
   );
+
+  const isHoldout = experiment.type === "holdout";
 
   if (experiment.status !== "stopped") return null;
 
   const result = experiment.results;
+  const variations = getAllVariations(experiment);
 
   const winningVariation =
     (result === "lost"
-      ? experiment.variations[0]?.name
+      ? variations[0]?.name
       : result === "won"
-      ? experiment.variations[experiment.winner || 1]?.name
-      : "") || "";
+        ? variations[experiment.winner || 1]?.name
+        : "") || "";
 
   const releasedVariation =
-    experiment.variations.find((v) => v.id === experiment.releasedVariationId)
-      ?.name || "";
+    variations.find((v) => v.id === experiment.releasedVariationId)?.name || "";
 
   return (
     <div className="appbox">
@@ -55,7 +60,9 @@ export default function StoppedExperimentBanner({
         style={{ background: "var( --alert-premium-background-gradient-2)" }}
       >
         <div className="mr-2">
-          <h3 className="mb-0">Experiment Stopped</h3>
+          <h3 className="mb-0">
+            {isHoldout ? "Holdout Stopped" : "Experiment Stopped"}
+          </h3>
         </div>
         {experiment.results && (
           <ResultsIndicator results={experiment.results} />
@@ -63,7 +70,8 @@ export default function StoppedExperimentBanner({
         <div className="flex-1"></div>
         {releasedVariation &&
           experimentHasLinkedChanges(experiment) &&
-          hasLiveLinkedChanges && (
+          hasLiveLinkedChanges &&
+          !isHoldout && (
             <div className="ml-3">
               {(result === "won" || result === "lost") &&
               winningVariation !== releasedVariation ? (
@@ -84,7 +92,7 @@ export default function StoppedExperimentBanner({
               was rolled out to 100%
             </div>
           )}
-        {editResult && (
+        {editResult && !isHoldout && (
           <div>
             <a
               href="#"
@@ -100,21 +108,24 @@ export default function StoppedExperimentBanner({
         )}
       </div>
 
-      {hasLiveLinkedChanges && (
-        <div className="alert alert-warning m-3">
+      {hasLiveLinkedChanges && !isHoldout && (
+        <Callout status="warning" m="3" icon={<PiClock />}>
           <div className="d-flex align-items-center">
             <div>
-              <FaClock /> <strong>Temporary Rollout Enabled</strong>
+              <strong>Temporary Rollout Enabled</strong>
               <div className="my-1">
                 This experiment has been stopped, but changes are still being
                 applied to give you time to implement them in code.
               </div>
               When you no longer need this rollout, stop it to improve your site
               performance.{" "}
-              <DocLink docSection="temporaryRollout">Learn more</DocLink>
+              <DocLink useRadix={false} docSection="temporaryRollout">
+                Learn more
+              </DocLink>
             </div>
             <div className="ml-auto pl-2">
               <ConfirmButton
+                isDestructive
                 onClick={async () => {
                   await apiCall(`/experiment/${experiment.id}`, {
                     method: "POST",
@@ -142,7 +153,7 @@ export default function StoppedExperimentBanner({
               </ConfirmButton>
             </div>
           </div>
-        </div>
+        </Callout>
       )}
       {experiment?.analysis && (
         <div className="border-top p-3">

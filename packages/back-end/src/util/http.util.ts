@@ -1,7 +1,7 @@
-import fetch, { RequestInit, Response } from "node-fetch";
+import nodeFetch, { type RequestInit, type Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
 import { logger } from "./logger";
-import { USE_PROXY, WEBHOOK_PROXY } from "./secrets";
+import { API_USER_AGENT, USE_PROXY, WEBHOOK_PROXY } from "./secrets";
 
 let useWebhookProxy = true;
 
@@ -16,21 +16,14 @@ export type CancellableFetchReturn = {
   stringBody: string;
 };
 
-export function getHttpOptions(url?: string) {
-  // if there is a ?proxy argument in the url, use that as the proxy
-  if (url) {
-    // parse the url and extract the proxy argument
-    const urlObj = new URL(url);
-    const proxy = urlObj.searchParams.get("proxy_test");
-    if (proxy) {
-      return {
-        agent: new ProxyAgent({
-          getProxyForUrl: () => proxy,
-        }),
-      };
-    }
-  }
+export function fetch(url: string, init?: RequestInit) {
+  return nodeFetch(url, {
+    ...init,
+    headers: { ...init?.headers, "User-Agent": API_USER_AGENT },
+  });
+}
 
+export function getHttpOptions() {
   if (useWebhookProxy && WEBHOOK_PROXY) {
     logger.debug("using webhook proxy");
     return {
@@ -47,11 +40,10 @@ export function getHttpOptions(url?: string) {
   }
   return {};
 }
-
 export const cancellableFetch = async (
   url: string,
   fetchOptions: RequestInit,
-  abortOptions: CancellableFetchCriteria
+  abortOptions: CancellableFetchCriteria,
 ): Promise<CancellableFetchReturn> => {
   const abortController: AbortController = new AbortController();
 
@@ -82,8 +74,8 @@ export const cancellableFetch = async (
 
   try {
     response = await fetch(url, {
-      signal: abortController.signal,
-      ...getHttpOptions(url),
+      signal: abortController.signal as RequestInit["signal"],
+      ...getHttpOptions(),
       ...fetchOptions,
     });
 
@@ -111,7 +103,7 @@ export const cancellableFetch = async (
       e.name === "FetchError" &&
       e.code === "ECONNREFUSED"
     ) {
-      logger.error("Disabling webhook proxy");
+      logger.error("Proxy connection refused. Disabling webhook proxy");
       useWebhookProxy = false;
     }
 

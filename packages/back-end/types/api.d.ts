@@ -1,13 +1,13 @@
-import {
-  AutoExperiment,
-  FeatureRule as FeatureDefinitionRule,
-} from "@growthbook/growthbook";
-import { EventUser } from "back-end/src/events/event-types";
+import { AuditInterfaceInput } from "shared/types/audit";
+import { EventUser } from "shared/types/events/event-types";
+import { ExperimentStatus } from "shared/types/experiment";
+import { OrganizationInterface } from "shared/types/organization";
+import { FeatureDefinition } from "shared/types/sdk";
+import { UserInterface } from "shared/types/user";
+import { ApiErrorCode, ApiErrorDetails } from "shared/validators";
 import { PermissionFunctions } from "back-end/src/types/AuthRequest";
-import { AuditInterfaceInput } from "./audit";
-import { ExperimentStatus } from "./experiment";
-import { OrganizationInterface, ReqContext } from "./organization";
-import { UserInterface } from "./user";
+import { PublishGate } from "back-end/src/revisions/publishGates";
+import { ReqContext } from "./request";
 
 export interface ExperimentOverride {
   weights?: number[];
@@ -18,19 +18,7 @@ export interface ExperimentOverride {
   url?: string;
 }
 
-export interface FeatureDefinition {
-  // eslint-disable-next-line
-  defaultValue: any;
-  rules?: FeatureDefinitionRule[];
-}
-
-export type FeatureDefinitionWithProject = FeatureDefinition & {
-  project?: string;
-};
-
-export type AutoExperimentWithProject = AutoExperiment & {
-  project?: string;
-};
+export type { FeatureDefinition };
 
 export interface ExperimentOverridesResponse {
   status: 200;
@@ -50,11 +38,34 @@ export type ApiRequestLocals = PermissionFunctions & {
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
   context: ApiReqContext;
+  isJwtAuth?: boolean;
 };
 
-export interface ApiErrorResponse {
+type ApiErrorResponseBase = {
   message: string;
-}
+  code?: undefined;
+  details?: undefined;
+  conflicts?: unknown[];
+  // Populated on 422 soft-warning responses; re-submit with `"ignoreWarnings": true` in the body to proceed.
+  warnings?: string[];
+  // Populated on 422 blocked-publish responses: every blocking gate and the body flag that clears it.
+  gates?: PublishGate[];
+};
+type ApiErrorResponseStructured = {
+  [C in ApiErrorCode]: {
+    message: string;
+    code: C;
+    details: ApiErrorDetails<C>;
+    /** @deprecated Read `details.conflicts` instead. Populated only when code === "conflict" for backwards compatibility. */
+    conflicts?: unknown[];
+    warnings?: string[];
+    gates?: PublishGate[];
+  };
+}[ApiErrorCode];
+
+export type ApiErrorResponse =
+  | ApiErrorResponseBase
+  | ApiErrorResponseStructured;
 
 /**
  * In the private API, there is a convention to add `status: number` to all response types.

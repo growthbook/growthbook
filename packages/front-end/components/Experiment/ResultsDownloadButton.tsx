@@ -1,13 +1,12 @@
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-} from "back-end/types/report";
+} from "shared/types/report";
 import React, { useCallback, useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { Parser } from "json2csv";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ExperimentTableRow, getRiskByVariation } from "@/services/experiments";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { getResultMetricDisplayName } from "@/services/experiments";
 
 type CsvRow = {
   date?: string;
@@ -45,7 +44,6 @@ export default function ResultsDownloadButton({
   noIcon?: boolean;
 }) {
   const { getExperimentMetricById, getDimensionById, ready } = useDefinitions();
-  const { metricDefaults } = useOrganizationMetricDefaults();
 
   const dimensionName = dimension
     ? getDimensionById(dimension)?.name ||
@@ -66,33 +64,21 @@ export default function ResultsDownloadButton({
     }
 
     resultsCopy.forEach((result) => {
-      metrics?.forEach((m) => {
+      metrics?.forEach((metricId) => {
         result.variations.forEach((variation, index) => {
-          const metric = getExperimentMetricById(m);
-          if (!metric) return;
-          const row: ExperimentTableRow = {
-            label: metric.name,
-            metric: metric,
-            metricOverrideFields: [],
-            rowClass: metric?.inverse ? "inverse" : "",
-            variations: result.variations.map((v) => {
-              return v.metrics[m];
-            }),
-            // We don't care what this is set to here, just need something
-            resultGroup: "goal",
-          };
-          const stats = variation.metrics[m];
+          const stats = variation.metrics[metricId];
           if (!stats) return;
-          const { relativeRisk } = getRiskByVariation(
-            index,
-            row,
-            metricDefaults
+
+          const metricName = getResultMetricDisplayName(
+            metricId,
+            getExperimentMetricById,
           );
+
           csvRows.push({
             ...(dimensionName && { [dimensionName]: result.name }),
-            metric: metric?.name,
+            metric: metricName,
             variation: variations[index].name,
-            riskOfChoosing: relativeRisk,
+            riskOfChoosing: 0,
             users: stats.users,
             totalValue: stats.value,
             perUserValue: stats.cr,
@@ -114,7 +100,6 @@ export default function ResultsDownloadButton({
     dimension,
     dimensionName,
     getExperimentMetricById,
-    metricDefaults,
     metrics,
     ready,
     results,

@@ -1,0 +1,196 @@
+.sidebar {
+  padding: var(--space-3);
+}
+
+.sidebarLeft {
+  border-right: 1px solid var(--gray-6);
+}
+
+.section {
+  margin-bottom: var(--space-3);
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.rowWrapper {
+  width: 100%;
+}
+
+.row {
+  position: relative;
+  width: 100%;
+  padding: var(--space-2) var(--space-5) var(--space-2) var(--space-2);
+  border-radius: var(--radius-2);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  box-sizing: border-box;
+
+  .previewButtonWrapper {
+    opacity: 0;
+  }
+
+  &:hover {
+    background-color: var(--violet-2);
+    .previewButtonWrapper {
+      opacity: 1;
+    }
+  }
+}
+
+.rowCaret {
+  position: absolute;
+  right: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+}
+
+.rowSelected {
+  background-color: var(--violet-3);
+
+  &:hover {
+    background-color: var(--violet-4);
+  }
+}
+
+.rowPreviewDraft {
+  background-color: var(--teal-3);
+
+  &:hover {
+    background-color: var(--teal-4);
+  }
+}
+
+.rowLiveInPreview {
+  background-color: var(--gray-3);
+
+  &:hover {
+    background-color: var(--gray-4);
+  }
+}
+
+.previewButtonWrapper {
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  background-color: var(--color-background) !important;
+  border-radius: var(--radius-2);
+  transition: opacity 0.15s ease;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  .previewButton {
+    background-color: var(--color-background) !important;
+    opacity: 0.5;
+
+    &:hover {
+      opacity: 1;
+      background-color: unset !important;
+    }
+  }
+}
+
+.rowSpacer {
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.quickActionsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.revisionsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.backButton {
+  flex-shrink: 0;
+  color: var(--gray-9);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+
+  &:hover {
+    color: var(--violet-9);
+    background-color: var(--violet-a3);
+  }
+}
+
+.expandChevron {
+  flex-shrink: 0;
+  color: var(--gray-9);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  min-width: 24px;
+  min-height: 24px;
+
+  &:hover {
+    color: var(--violet-9);
+    background-color: var(--violet-a3);
+  }
+}
+
+.logSubRows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  margin-bottom: var(--space-2);
+  margin-left: var(--space-3);
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--gray-a4);
+}
+
+.logSubRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  min-width: 0;
+
+  &:hover {
+    background-color: var(--violet-a2);
+  }
+}
+
+.logSubRowActive {
+  background-color: var(--violet-a3);
+
+  &:hover {
+    background-color: var(--violet-a4);
+  }
+}

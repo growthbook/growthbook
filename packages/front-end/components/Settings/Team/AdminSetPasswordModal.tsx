@@ -1,6 +1,6 @@
 import React from "react";
 import { useForm } from "react-hook-form";
-import { ExpandedMember } from "back-end/types/organization";
+import { ExpandedMember } from "shared/types/organization";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
@@ -20,6 +20,7 @@ export default function AdminSetPasswordModal({ member, close }: Props) {
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       close={close}
       header="Change Password"
@@ -38,6 +39,7 @@ export default function AdminSetPasswordModal({ member, close }: Props) {
         Change password for <strong>{member.name}</strong>:
       </p>
       <Field
+        size="legacy"
         placeholder="Enter a new password"
         type="password"
         required

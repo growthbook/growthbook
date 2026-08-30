@@ -2,15 +2,16 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useState } from "react";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import DatePicker from "@/components/DatePicker";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   close: () => void;
@@ -45,9 +46,10 @@ export default function EditPhaseModal({
 
   const isDraft = experiment.status === "draft";
   const isMultiPhase = experiment.phases.length > 1;
+  const isHoldout = experiment.type === "holdout";
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="edit-phase-modal"
       trackingEventModalSource={source}
       open={true}
@@ -63,9 +65,13 @@ export default function EditPhaseModal({
         mutate();
       })}
       size="lg"
-      bodyClassName="px-4 pt-4"
     >
-      <Field label="Phase Name" {...form.register("name")} required />
+      <Field
+        size="legacy"
+        label="Phase Name"
+        {...form.register("name")}
+        required
+      />
       <DatePicker
         label="Start Time (UTC)"
         date={form.watch("dateStarted")}
@@ -102,6 +108,7 @@ export default function EditPhaseModal({
           </div>
           {form.watch("dateEnded") && (
             <Field
+              size="legacy"
               label="Reason for Stopping"
               textarea
               {...form.register("reason")}
@@ -111,8 +118,8 @@ export default function EditPhaseModal({
         </>
       ) : null}
 
-      {!isDraft && (
-        <div className="alert alert-info mt-4">
+      {!isHoldout && !isDraft ? (
+        <Callout status="info" mt="4">
           Trying to change targeting rules, traffic allocation, or start a new
           phase? Use the{" "}
           <a
@@ -126,33 +133,38 @@ export default function EditPhaseModal({
             Make Changes
           </a>{" "}
           button instead.
-        </div>
-      )}
+        </Callout>
+      ) : null}
 
-      {advancedOptionsOpen && (
-        //edit seed
-        <Field
-          label="Seed"
-          type="input"
-          {...form.register("seed")}
-          helpText={
-            <>
-              <strong className="text-danger">Warning:</strong> Changing this
-              will re-randomize experiment traffic.
-            </>
-          }
-        />
-      )}
-      <span
-        className="ml-auto link-purple cursor-pointer"
-        onClick={(e) => {
-          e.preventDefault();
-          setAdvancedOptionsOpen(!advancedOptionsOpen);
-        }}
-      >
-        Advanced Options{" "}
-        {!advancedOptionsOpen ? <PiCaretDown /> : <PiCaretUp />}
-      </span>
-    </Modal>
+      {!isHoldout ? (
+        <>
+          {advancedOptionsOpen && (
+            //edit seed
+            <Field
+              size="legacy"
+              label="Seed"
+              type="input"
+              {...form.register("seed")}
+              helpText={
+                <>
+                  <strong className="text-danger">Warning:</strong> Changing
+                  this will re-randomize experiment traffic.
+                </>
+              }
+            />
+          )}
+          <span
+            className="ml-auto link-purple cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              setAdvancedOptionsOpen(!advancedOptionsOpen);
+            }}
+          >
+            Advanced Options{" "}
+            {!advancedOptionsOpen ? <PiCaretDown /> : <PiCaretUp />}
+          </span>
+        </>
+      ) : null}
+    </ModalStandard>
   );
 }

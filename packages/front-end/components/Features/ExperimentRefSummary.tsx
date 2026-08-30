@@ -1,17 +1,32 @@
-import { ExperimentRefRule, FeatureInterface } from "back-end/types/feature";
-import Link from "next/link";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React from "react";
-import { includeExperimentInPayload } from "shared/util";
+import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
+import NextLink from "next/link";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  includeExperimentInPayload,
+  calculateNamespaceCoverage,
+  getConfigBackingKey,
+  getFeatureBaseConfigKey,
+} from "shared/util";
+import {
+  getLatestPhaseVariations,
+  hasTargetingConfigured,
+} from "shared/experiments";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, Flex } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
+import Badge from "@/ui/Badge";
+import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
+import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import ValueDisplay from "./ValueDisplay";
+import ConfigBackedSummary from "./ConfigBackedSummary";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
+import { AttributeBadge } from "./AttributeBadge";
 import ForceSummary from "./ForceSummary";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -21,7 +36,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export function isExperimentRefRuleSkipped(
   experiment: ExperimentInterfaceStringDates,
-  isDraft: boolean
+  isDraft: boolean,
 ) {
   if (experiment.status === "draft" && !experiment.archived) {
     // Draft experiments are published alongside feature drafts,
@@ -36,16 +51,20 @@ export default function ExperimentRefSummary({
   experiment,
   feature,
   isDraft,
+  environment,
 }: {
   feature: FeatureInterface;
   experiment?: ExperimentInterfaceStringDates;
   rule: ExperimentRefRule;
   isDraft: boolean;
+  // Environment this rule is shown for, so config-backed arm values preview
+  // their matching env flavor. Absent (all-environments view) = base value.
+  environment?: string;
 }) {
   const { variations } = rule;
   const type = feature.valueType;
 
-  const { namespaces } = useOrgSettings();
+  const { namespaces, useStickyBucketing } = useOrgSettings();
 
   const isBandit = experiment?.type === "multi-armed-bandit";
 
@@ -81,7 +100,7 @@ export default function ExperimentRefSummary({
   const releasedValue =
     experiment.status === "stopped" && !experiment.excludeFromPayload
       ? rule.variations.find(
-          (v) => v.variationId === experiment.releasedVariationId
+          (v) => v.variationId === experiment.releasedVariationId,
         )
       : null;
 
@@ -96,15 +115,14 @@ export default function ExperimentRefSummary({
   }
 
   const hasNamespace = phase.namespace && phase.namespace.enabled;
-  const namespaceRange = hasNamespace
-    ? phase.namespace!.range[1] - phase.namespace!.range[0]
-    : 1;
+  // Calculate total namespace allocation
+  const namespaceRange =
+    hasNamespace && phase.namespace
+      ? calculateNamespaceCoverage(phase.namespace)
+      : 1;
   const effectiveCoverage = namespaceRange * (phase.coverage ?? 1);
 
-  const hasCondition =
-    (phase.condition && phase.condition !== "{}") ||
-    !!phase.savedGroups?.length ||
-    !!phase.prerequisites?.length;
+  const hasCondition = hasTargetingConfigured(phase);
 
   return (
     <Box>
@@ -125,10 +143,8 @@ export default function ExperimentRefSummary({
         </Callout>
       )}
       {hasCondition && (
-        <Flex align="start" mb="3" gap="3">
-          <Box>
-            <strong>IF</strong>
-          </Box>
+        <Flex direction="row" gap="2" mb="3">
+          <Text weight="medium">IF</Text>
           <Box>
             <ConditionDisplay
               condition={phase.condition}
@@ -139,154 +155,231 @@ export default function ExperimentRefSummary({
         </Flex>
       )}
 
-      <Flex gap="3" mb="3">
-        <Box>
-          <strong>SPLIT</strong>
-        </Box>
-        <Box>
-          {" "}
-          users by{" "}
-          <span className="mr-1 border px-2 py-1 bg-light rounded">
-            {experiment.hashAttribute || "id"}
-          </span>
-          {hasNamespace && (
-            <>
-              {" "}
-              <span>in the namespace </span>
-              <Link href={`/namespaces`}>
-                <span className="mr-1 border px-2 py-1 bg-light rounded">
-                  {namespaces?.find((n) => n.name === phase.namespace!.name)
-                    ?.label || (
-                    <span
-                      className="italic text-danger"
-                      title="this namespace is not found"
-                    >
-                      <FaExclamationTriangle /> {phase.namespace!.name}
-                    </span>
-                  )}
-                </span>
-              </Link>
-            </>
-          )}
-        </Box>
+      <Flex direction="row" gap="2" mb="3">
+        <Text weight="medium">SPLIT</Text>
+        by
+        <AttributeBadge attributeId={experiment.hashAttribute || "id"} />
+        {hasNamespace && (
+          <>
+            in the namespace
+            <NextLink href={`/namespaces`}>
+              <Badge
+                color="gray"
+                label={
+                  <Text color="text-high">
+                    {namespaces?.find((n) => n.name === phase.namespace!.name)
+                      ?.label || (
+                      <span
+                        className="italic text-danger"
+                        title="this namespace is not found"
+                      >
+                        <FaExclamationTriangle /> {phase.namespace!.name}
+                      </span>
+                    )}
+                  </Text>
+                }
+              />
+            </NextLink>
+          </>
+        )}
       </Flex>
-      <Flex gap="3" mb="3">
-        <Box>
-          <strong>INCLUDE</strong>
-        </Box>
-        <Box>
-          <span className="mr-1 border px-2 py-1 bg-light rounded">
-            {percentFormatter.format(effectiveCoverage)}
-          </span>{" "}
-          of users in the {isBandit ? "Bandit" : "Experiment"}
-          {hasNamespace && (
-            <>
-              <span> (</span>
-              <span className="border px-2 py-1 bg-light rounded">
-                {percentFormatter.format(namespaceRange)}
-              </span>{" "}
-              of the namespace and{" "}
-              <span className="border px-2 py-1 bg-light rounded">
-                {percentFormatter.format(phase?.coverage || 1)}
-              </span>
-              <span> exposure)</span>
-            </>
-          )}
-        </Box>
+      <Flex direction="row" gap="2" mb="3">
+        <Text weight="medium">INCLUDE</Text>
+        <Badge
+          color="gray"
+          label={
+            <Text color="text-high">
+              {percentFormatter.format(effectiveCoverage)}
+            </Text>
+          }
+        />
+        of units in the {isBandit ? "Bandit" : "Experiment"}
+        {hasNamespace && (
+          <>
+            (
+            <Badge
+              color="gray"
+              label={
+                <Text color="text-high">
+                  {percentFormatter.format(namespaceRange)}
+                </Text>
+              }
+            />
+            of the namespace and
+            <Badge
+              color="gray"
+              label={
+                <Text color="text-high">
+                  {percentFormatter.format(phase?.coverage ?? 1)}
+                </Text>
+              }
+            />
+            exposure)
+          </>
+        )}
       </Flex>
       {releasedValue ? (
-        <ForceSummary feature={feature} value={releasedValue.value} />
+        <ForceSummary
+          feature={feature}
+          value={releasedValue.value}
+          sparse={rule.sparse}
+          environment={environment}
+        />
       ) : (
         <>
-          <strong>SERVE</strong>
-          <table className="table mt-1 mb-3 bg-light gbtable">
-            <tbody>
-              {experiment.variations.map((variation, j) => {
-                const value =
-                  variations.find((v) => v.variationId === variation.id)
-                    ?.value ?? "null";
+          <Flex gap="2">
+            <Text weight="medium">SERVE</Text>
+            {useStickyBucketing ? (
+              <Text>
+                (Sticky Bucketing{" "}
+                {experiment.disableStickyBucketing ? "disabled" : "enabled"})
+              </Text>
+            ) : null}
+          </Flex>
 
-                const weight = phase.variationWeights?.[j] || 0;
+          <Box
+            mt="3"
+            px="3"
+            style={{
+              border: "1px solid var(--gray-a5)",
+              borderRadius: "var(--radius-2)",
+            }}
+          >
+            <Table>
+              <TableBody>
+                {getLatestPhaseVariations(experiment).map((variation, j) => {
+                  const variationEntry = variations.find(
+                    (v) => v.variationId === variation.id,
+                  );
+                  const isMissing = variationEntry === undefined;
+                  const value = variationEntry?.value ?? "";
 
-                return (
-                  <tr key={j}>
-                    <td
-                      className="text-muted position-relative"
-                      style={{ fontSize: "0.9em", width: 25 }}
+                  const weight = phase.variationWeights?.[j] || 0;
+
+                  return (
+                    <TableRow
+                      key={j}
+                      style={{ color: "var(--color-text-high)" }}
                     >
-                      <div
-                        style={{
-                          width: "6px",
-                          position: "absolute",
-                          top: 0,
-                          bottom: 0,
-                          left: 0,
-                          backgroundColor: getVariationColor(j, true),
-                        }}
-                      />
-                      {j}.
-                    </td>
-                    <td>
-                      <ValueDisplay value={value} type={type} />
-                      <ValidateValue value={value} feature={feature} />
-                    </td>
-                    <td>{variation.name}</td>
-                    {!isBandit && (
-                      <td>
-                        <div className="d-flex">
-                          <div
+                      <TableCell style={{ whiteSpace: "nowrap" }}>
+                        <Flex align="center" gap="2">
+                          <span
                             style={{
-                              width: "4em",
-                              maxWidth: "4em",
-                              margin: "0 0 0 auto",
+                              color: getVariationColor(j, true),
+                              borderColor: getVariationColor(j, true),
+                              fontSize: "14px",
+                              width: 20,
+                              height: 20,
+                              borderRadius: 20,
+                              borderWidth: 1,
+                              borderStyle: "solid",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
                             }}
                           >
-                            {percentFormatter.format(weight)}
-                          </div>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-              {!isBandit && (
-                <tr>
-                  <td colSpan={4}>
-                    <ExperimentSplitVisual
-                      values={experiment.variations.map((variation, j) => {
-                        return {
-                          name: variation.name,
-                          value:
-                            variations.find(
-                              (v) => v.variationId === variation.id
-                            )?.value ?? "null",
-                          weight: phase.variationWeights?.[j] || 0,
-                        };
-                      })}
-                      coverage={effectiveCoverage}
-                      label="Traffic split"
-                      unallocated="Not included (skips this rule)"
-                      type={type}
-                      showValues={false}
-                      stackLeft={true}
-                      showPercentages={true}
-                    />
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          <Flex align="center" gap="3" mb="3">
-            <Box>
-              <strong>TRACK</strong>
-            </Box>
-            <Box>
-              {" "}
-              the result using the key{" "}
-              <span className="mr-1 border px-2 py-1 bg-light rounded">
-                {experiment.trackingKey}
-              </span>{" "}
-            </Box>
+                            {j}
+                          </span>
+                          <Text weight="medium" whiteSpace="nowrap">
+                            {variation.name}
+                          </Text>
+                        </Flex>
+                      </TableCell>
+                      <TableCell width="100%">
+                        {isMissing ? (
+                          <HelperText status="warning">
+                            Define missing values
+                          </HelperText>
+                        ) : (
+                          (() => {
+                            // Config-backed arms render "SERVE ConfigName with
+                            // overrides" like force rules — never the raw
+                            // `@config:` directive. Only a config-backed
+                            // feature resolves configs.
+                            const baseConfigKey =
+                              getFeatureBaseConfigKey(feature);
+                            const configKey =
+                              baseConfigKey !== null
+                                ? (getConfigBackingKey(value) ?? baseConfigKey)
+                                : null;
+                            if (configKey !== null) {
+                              return (
+                                <ConfigBackedSummary
+                                  value={value}
+                                  configKey={configKey}
+                                  feature={feature}
+                                  sparse={rule.sparse}
+                                  environment={environment}
+                                />
+                              );
+                            }
+                            return (
+                              <>
+                                <ValueDisplay
+                                  value={value}
+                                  type={type}
+                                  showFullscreenButton={true}
+                                  sparse={rule.sparse}
+                                  defaultValue={feature.defaultValue}
+                                />
+                                <ValidateValue
+                                  value={value}
+                                  feature={feature}
+                                />
+                              </>
+                            );
+                          })()
+                        )}
+                      </TableCell>
+                      {!isBandit && (
+                        <TableCell
+                          style={{
+                            color: "var(--color-text-mid)",
+                            textAlign: "right",
+                          }}
+                        >
+                          {percentFormatter.format(weight)}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Box>
+          <Box mt="3">
+            {!isBandit && (
+              <ExperimentSplitVisual
+                values={getLatestPhaseVariations(experiment).map(
+                  (variation, j) => {
+                    return {
+                      name: variation.name,
+                      value:
+                        variations.find((v) => v.variationId === variation.id)
+                          ?.value ?? "",
+                      weight: phase.variationWeights?.[j] || 0,
+                    };
+                  },
+                )}
+                coverage={effectiveCoverage}
+                label="Traffic split"
+                unallocated="Not included (skips this rule)"
+                type={type}
+                showValues={false}
+                stackLeft={true}
+                showPercentages={true}
+              />
+            )}
+          </Box>
+
+          <Flex direction="row" gap="2" mb="3">
+            <Text weight="medium">TRACK</Text>
+            the result using the key
+            <Badge
+              color="gray"
+              label={<Text color="text-high">{experiment.trackingKey}</Text>}
+            />
           </Flex>
         </>
       )}

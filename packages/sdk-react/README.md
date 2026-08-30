@@ -51,20 +51,17 @@ const gb = new GrowthBook({
   subscribeToChanges: true,
   // Only required for A/B testing
   // Called every time a user is put into an experiment
-  trackingCallback: (experiment, result) => {
+  trackingCallback: (experiment, result, user) => {
     console.log("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.key,
+      attributes: user?.attributes,
     });
   },
 });
+gb.init();
 
 export default function App() {
-  useEffect(() => {
-    // Load features from the GrowthBook API
-    gb.loadFeatures();
-  }, []);
-
   useEffect(() => {
     // Set user attributes for targeting (from cookie, auth system, etc.)
     gb.setAttributes({
@@ -170,7 +167,7 @@ const gb = new GrowthBook({
 });
 
 // Wait for features to be downloaded
-await gb.loadFeatures({
+await gb.init({
   // If the network request takes longer than this (in milliseconds), continue
   // Default: `0` (no timeout)
   timeout: 2000,
@@ -211,7 +208,7 @@ const gb = new GrowthBook({
 })
 ```
 
-Note that you don't have to call `gb.loadFeatures()`. There's nothing to load - everything required is already passed in. No network requests are made to GrowthBook at all.
+Note that you don't have to call `gb.init()` or `gb.loadFeatures()`. There's nothing to load - everything required is already passed in. No network requests are made to GrowthBook at all.
 
 You can update features at any time by calling `gb.setFeatures()` with a new JSON object.
 
@@ -246,15 +243,18 @@ In order to run A/B tests, you need to set up a tracking callback function. This
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  trackingCallback: (experiment, result) => {
+  trackingCallback: (experiment, result, user) => {
     // Example using Segment
     analytics.track("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.key,
+      attributes: user?.attributes,
     });
   },
 });
 ```
+
+Starting in version 1.7.0, the callback receives a third `user` argument: a `TrackingUserContext` containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend recording attributes from this argument so exposure events consistently reflect the attributes GrowthBook used for targeting and assignment.
 
 This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
 
@@ -318,7 +318,7 @@ export async function getServerSideProps(context) {
       id: context.req.cookies.DEVICE_ID,
     },
   });
-  await gb.loadFeatures();
+  await gb.init();
 
   return {
     props: {
@@ -378,13 +378,9 @@ const gb = new GrowthBook({
   // Update the instance in realtime as features change in GrowthBook
   subscribeToChanges: true,
 });
+gb.init();
 
 export default function App() {
-  useEffect(() => {
-    // Load features from GrowthBook and initialize the SDK
-    gb.loadFeatures();
-  }, []);
-
   useEffect(() => {
     // Set user attributes for targeting (use the same values as SSR when possible)
     gb.setAttributes({

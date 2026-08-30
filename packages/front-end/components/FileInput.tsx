@@ -1,6 +1,6 @@
 import { Text } from "@radix-ui/themes";
 import { FC, useRef, ChangeEvent, useState, CSSProperties } from "react";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 interface FileInputProps {
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
@@ -50,7 +50,7 @@ const FileInput: FC<FileInputProps> = ({
         <Button
           color="gray"
           variant="outline"
-          size="xs"
+          size="sm"
           mt="-2px"
           mr="1"
           onClick={handleClick}

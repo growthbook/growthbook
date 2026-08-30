@@ -5,6 +5,7 @@ export type {
   ClientOptions,
   TrackingCallbackWithUser,
   TrackingDataWithUser,
+  TrackingUserContext,
   FeatureUsageCallback,
   FeatureUsageCallbackWithUser,
   UserContext,
@@ -14,6 +15,7 @@ export type {
   FeatureApiResponse,
   LoadFeaturesOptions,
   RefreshFeaturesOptions,
+  DestroyOptions,
   FeatureDefinitions,
   FeatureDefinition,
   FeatureRule,
@@ -82,6 +84,7 @@ export {
 
 export {
   StickyBucketService,
+  StickyBucketServiceSync,
   LocalStorageStickyBucketService,
   ExpressCookieStickyBucketService,
   BrowserCookieStickyBucketService,

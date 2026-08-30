@@ -1,16 +1,64 @@
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import { paddedVersionString } from "@growthbook/growthbook";
+import {
+  getSDKCapabilities,
+  getSDKCapabilityVersion,
+} from "shared/sdk-versioning";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import React from "react";
+import { Box } from "@radix-ui/themes";
 import { DocLink } from "@/components/DocLink";
 import Code from "@/components/SyntaxHighlighting/Code";
 import EventTrackerSelector, {
+  backendEventTrackerOptions,
   pluginSupportedTrackers,
 } from "@/components/SyntaxHighlighting/Snippets/EventTrackerSelector";
+import ClickToCopy from "@/components/Settings/ClickToCopy";
+import { getAppOrigin, isCloud } from "@/services/env";
+import { DataRegion, getEventIngestorHost } from "@/services/dataRegions";
+import Callout from "@/ui/Callout";
 
 function indentLines(code: string, indent: number | string = 2) {
   const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
   return code.split("\n").join("\n" + spaces);
+}
+
+function supportsGrowthbookTrackingPlugin(
+  language: SDKLanguage,
+  version?: string,
+): boolean {
+  return getSDKCapabilities(language, version).includes("trackingPlugin");
+}
+
+// Shared by every back-end language's GrowthBook event-tracking plugin setup.
+function getEventIngestorTrackingState(
+  language: SDKLanguage,
+  version: string | undefined,
+  eventTracker: string,
+  eventIngestorRegion: DataRegion | undefined,
+) {
+  const usesGrowthbookPlugin =
+    eventTracker === "growthbook" &&
+    supportsGrowthbookTrackingPlugin(language, version);
+  return {
+    usesGrowthbookPlugin,
+    showUpgradeWarning: eventTracker === "growthbook" && !usesGrowthbookPlugin,
+    eventIngestorHost:
+      eventIngestorRegion && eventIngestorRegion !== "us-east-1"
+        ? getEventIngestorHost(eventIngestorRegion)
+        : undefined,
+  };
+}
+
+function EventIngestorUpgradeWarning({ minVersion }: { minVersion: string }) {
+  return (
+    <Callout status="warning" mt="3">
+      Upgrade this SDK Connection to SDK version {minVersion} or later to send
+      events to GrowthBook, or send events directly with the{" "}
+      <DocLink docSection="managedWarehouseIngestionApi">Ingestion API</DocLink>
+      .
+    </Callout>
+  );
 }
 
 export default function GrowthBookSetupCodeSnippet({
@@ -22,6 +70,7 @@ export default function GrowthBookSetupCodeSnippet({
   remoteEvalEnabled,
   eventTracker = "GA4",
   setEventTracker,
+  eventIngestorRegion,
 }: {
   language: SDKLanguage;
   version?: string;
@@ -31,6 +80,7 @@ export default function GrowthBookSetupCodeSnippet({
   remoteEvalEnabled: boolean;
   eventTracker: string;
   setEventTracker: (value: string) => void;
+  eventIngestorRegion?: DataRegion;
 }) {
   const featuresEndpoint = apiHost + "/api/features/" + apiKey;
   const trackingComment = "TODO: Use your real analytics tracking system";
@@ -38,7 +88,53 @@ export default function GrowthBookSetupCodeSnippet({
   if (language.match(/^nocode/)) {
     return (
       <>
-        {eventTracker === "GA4" ? (
+        {eventTracker.startsWith("growthbook") ? (
+          <div>
+            Flag and experiment exposure events are tracked automatically.
+            <br />
+            <br />
+            You will need to implement additional tracking for other events. See
+            our guide to{" "}
+            <DocLink useRadix={false} docSection="managedWarehouseTracking">
+              custom event tracking with GrowthBook
+            </DocLink>
+            <br />
+            <br />
+            <>
+              To add generic events like page views:
+              <Code
+                language="html"
+                code={`
+<script>
+  // Ensure the global variable exists
+  window.gbEvents = window.gbEvents || [];
+
+  // Simple (no properties)
+  window.gbEvents.push("Page View");
+</script>
+          `.trim()}
+              />
+              or for custom events with properties:
+              <Code
+                language="html"
+                code={`
+<script>
+  // Ensure the global variable exists
+  window.gbEvents = window.gbEvents || [];
+
+  window.gbEvents.push({
+      eventName: "Purchase",
+      properties: {
+        amount: "10.00"
+        product: product_id,
+      }
+    });
+</script>
+          `.trim()}
+              />
+            </>
+          </div>
+        ) : eventTracker === "GA4" ? (
           <div>
             Events are tracked to Google Analytics automatically. No
             configuration needed.
@@ -47,7 +143,7 @@ export default function GrowthBookSetupCodeSnippet({
           <div>
             Create a custom event trigger in Google Tag Manager to track
             experiment events to GA4. See our guide to{" "}
-            <DocLink docSection="gtmCustomTracking">
+            <DocLink useRadix={false} docSection="gtmCustomTracking">
               custom event tracking with GTM
             </DocLink>
             .
@@ -86,7 +182,9 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
           setEventTracker={setEventTracker}
         />
         Create a GrowthBook instance. Read more about our{" "}
-        <DocLink docSection="javascript">Javascript SDK</DocLink>
+        <DocLink useRadix={false} docSection="javascript">
+          Javascript SDK
+        </DocLink>
         <Code
           language="javascript"
           code={getJSCodeSnippet({
@@ -96,9 +194,45 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
             remoteEvalEnabled,
             version,
             eventTracker,
+            eventIngestorRegion,
             includeInit: true,
           })}
         />
+        {eventTracker === "growthbook" &&
+          (supportsGrowthbookTrackingPlugin(language, version) ? (
+            <Box mt="3">
+              If you want to use GrowthBook for experiments (and metrics), you
+              will need to log events you care about. Read more about our{" "}
+              <DocLink useRadix={false} docSection="managedWarehouseTracking">
+                GrowthBook event tracking
+              </DocLink>
+              . Here are some examples:
+              <Code
+                language="javascript"
+                code={`
+// Simple (no properties)
+gb.logEvent("Page View");
+
+// With custom properties
+gb.logEvent("Button Click", {
+  button: "Sign Up",
+});
+              `}
+              />
+            </Box>
+          ) : (
+            <Callout status="warning" mt="3">
+              Upgrade this SDK Connection to SDK version{" "}
+              {getSDKCapabilityVersion(language, "trackingPlugin") ||
+                "a later version"}{" "}
+              or later to send events to GrowthBook, or send events directly
+              with the{" "}
+              <DocLink docSection="managedWarehouseIngestionApi">
+                Ingestion API
+              </DocLink>
+              .
+            </Callout>
+          ))}
       </>
     );
   }
@@ -121,6 +255,7 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
             remoteEvalEnabled,
             version,
             eventTracker,
+            eventIngestorRegion,
             includeInit: false,
           })}
         />
@@ -158,6 +293,41 @@ export default function MyApp() {
         </a>{" "}
         with examples of using GrowthBook with SSR, API routes, static pages,
         and more.
+        {eventTracker === "growthbook" &&
+          (supportsGrowthbookTrackingPlugin(language, version) ? (
+            <Box mt="3">
+              If you want to use GrowthBook for experiments (and metrics), you
+              will need to log events you care about. Read more about our{" "}
+              <DocLink useRadix={false} docSection="managedWarehouseTracking">
+                GrowthBook event tracking
+              </DocLink>
+              . Here are some examples:
+              <Code
+                language="javascript"
+                code={`
+// Simple (no properties)
+gb.logEvent("Page View");
+
+// With custom properties
+gb.logEvent("Button Click", {
+  button: "Sign Up",
+});
+              `}
+              />
+            </Box>
+          ) : (
+            <Callout status="warning" mt="3">
+              Upgrade this SDK Connection to SDK version{" "}
+              {getSDKCapabilityVersion(language, "trackingPlugin") ||
+                "a later version"}{" "}
+              or later to send events to GrowthBook, or send events directly
+              with the{" "}
+              <DocLink docSection="managedWarehouseIngestionApi">
+                Ingestion API
+              </DocLink>
+              .
+            </Callout>
+          ))}
       </>
     );
   }
@@ -168,21 +338,54 @@ export default function MyApp() {
       paddedVersionString(version) >= paddedVersionString("1.3.1");
 
     if (useMultiUser) {
+      const { usesGrowthbookPlugin, showUpgradeWarning, eventIngestorHost } =
+        getEventIngestorTrackingState(
+          language,
+          version,
+          eventTracker,
+          eventIngestorRegion,
+        );
+
       return (
         <>
+          <EventTrackerSelector
+            eventTracker={eventTracker}
+            setEventTracker={setEventTracker}
+            options={backendEventTrackerOptions}
+          />
           Create and initialize a GrowthBook client
           <Code
             language="javascript"
-            code={`
+            code={
+              usesGrowthbookPlugin
+                ? `
+const { GrowthBookClient } = require("@growthbook/growthbook");
+const { growthbookTrackingPlugin } = require("@growthbook/growthbook/plugins");
+
+const client = new GrowthBookClient({
+  apiHost: ${JSON.stringify(apiHost)},
+  clientKey: ${JSON.stringify(apiKey)},${
+    encryptionKey ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},` : ""
+  }
+  plugins: [
+    growthbookTrackingPlugin(${
+      eventIngestorHost
+        ? `{ ingestorHost: ${JSON.stringify(eventIngestorHost)} }`
+        : ""
+    })
+  ],
+});
+
+await client.init({ timeout: 1000 });
+          `.trim()
+                : `
 const { GrowthBookClient } = require("@growthbook/growthbook");
 
 const client = new GrowthBookClient({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-              encryptionKey
-                ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
-                : ""
-            }
+    encryptionKey ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},` : ""
+  }
   trackingCallback: (experiment, result, userContext) => {
     // ${trackingComment}
     console.log("Viewed Experiment", userContext.attributes.id, {
@@ -193,8 +396,12 @@ const client = new GrowthBookClient({
 });
 
 await client.init({ timeout: 1000 });
-          `.trim()}
+          `.trim()
+            }
           />
+          {showUpgradeWarning && (
+            <EventIngestorUpgradeWarning minVersion="1.4.0" />
+          )}
           Use a middleware to create a GrowthBook instance that is scoped to the
           current user/request. Store this in the request object for use in
           other routes.
@@ -207,17 +414,47 @@ app.use((req, res, next) => {
       id: req.user.id
     }
   }
-  
+
   req.growthbook = client.createScopedInstance(userContext);
 });
           `.trim()}
           />
+          {usesGrowthbookPlugin && (
+            <Box mt="3">
+              If you want to use GrowthBook for experiments (and metrics), you
+              will need to log events you care about. Read more about our{" "}
+              <DocLink useRadix={false} docSection="managedWarehouseTracking">
+                GrowthBook event tracking
+              </DocLink>
+              . Here are some examples:
+              <Code
+                language="javascript"
+                code={`
+// Simple (no properties)
+req.growthbook.logEvent("Payment Accepted");
+
+// With custom properties
+req.growthbook.logEvent("Request Completed", {
+  latency: 250,
+});
+              `}
+              />
+            </Box>
+          )}
         </>
       );
     }
 
     return (
       <>
+        <EventTrackerSelector
+          eventTracker={eventTracker}
+          setEventTracker={setEventTracker}
+          options={backendEventTrackerOptions}
+        />
+        {eventTracker === "growthbook" && (
+          <EventIngestorUpgradeWarning minVersion="1.4.0" />
+        )}
         Add some polyfills for missing browser APIs
         <Code
           language="javascript"
@@ -248,10 +485,10 @@ app.use(function(req, res, next) {
   req.growthbook = new GrowthBook({
     apiHost: ${JSON.stringify(apiHost)},
     clientKey: ${JSON.stringify(apiKey)},${
-            encryptionKey
-              ? `\n    decryptionKey: ${JSON.stringify(encryptionKey)},`
-              : ""
-          }
+      encryptionKey
+        ? `\n    decryptionKey: ${JSON.stringify(encryptionKey)},`
+        : ""
+    }
     trackingCallback: (experiment, result) => {
       // ${trackingComment}
       console.log("Viewed Experiment", {
@@ -271,6 +508,114 @@ app.use(function(req, res, next) {
   }
     .then(() => next())
 })
+`.trim()}
+        />
+      </>
+    );
+  }
+  if (language === "nextjs") {
+    return (
+      <>
+        Import the default adapter instance, which is configured by your
+        environment variables.
+        <Code
+          containerClassName="mb-4"
+          language="typescript"
+          code={`
+import { growthbookAdapter } from "@flags-sdk/growthbook";
+  `.trim()}
+        />
+        <div className="h4 mt-4 mb-2">Environment variables</div>
+        <table className="table w-auto gbtable table-sm table-bordered bg-light my-2">
+          <thead>
+            <tr>
+              <th className="px-3 py-2">Environment variable</th>
+              <th className="px-3 py-2" />
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="px-3">
+                <code>GROWTHBOOK_CLIENT_KEY</code>
+              </td>
+              <td className="px-3">
+                <ClickToCopy>{apiKey}</ClickToCopy>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3">
+                <code>GROWTHBOOK_API_HOST</code>
+                {isCloud() && (
+                  <span className="text-muted small ml-2">(optional)</span>
+                )}
+              </td>
+              <td className="px-3">
+                <ClickToCopy>{apiHost}</ClickToCopy>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3">
+                <code>GROWTHBOOK_APP_ORIGIN</code>
+                <span className="text-muted small ml-2">(optional)</span>
+              </td>
+              <td className="px-3">
+                <ClickToCopy>{getAppOrigin()}</ClickToCopy>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3" colSpan={2}>
+                <span className="uppercase-title">Edge Config</span>
+                <span className="text-muted small ml-2">(optional)</span>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3">
+                <div>
+                  <code>GROWTHBOOK_EDGE_CONNECTION_STRING</code>
+                  <span className="ml-2">or</span>
+                </div>
+                <div>
+                  <code>EXPERIMENTATION_CONFIG</code>
+                </div>
+              </td>
+              <td className="px-3">
+                <span className="text-muted">
+                  Edge Config connection string
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3">
+                <code>GROWTHBOOK_EDGE_CONFIG_ITEM_KEY</code>
+                <span className="text-muted small ml-2">(optional)</span>
+              </td>
+              <td className="px-3">
+                <span className="text-muted">
+                  Defaults to your client key if not provided
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div className="h4 mt-4 mb-2">Experiment tracking</div>
+        Define a server-side tracking callback. Note: Client-side tracking is
+        also available but requires additional setup.
+        <Code
+          filename="flags.ts"
+          language="typescript"
+          code={`
+import { growthbookAdapter } from '@flags-sdk/growthbook';
+import { after } from 'next/server';
+ 
+growthbookAdapter.setTrackingCallback((experiment, result) => {
+  // Safely fire and forget async calls (Next.js)
+  after(async () => {
+    console.log('Viewed Experiment', {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  });
+});
 `.trim()}
         />
       </>
@@ -308,8 +653,8 @@ val gb = GBSDKBuilder(
           code={`
 var gb: GrowthBookSDK = GrowthBookBuilder(
   url: "${featuresEndpoint}",${
-            encryptionKey ? `\n  encryptionKey: "${encryptionKey}",` : ""
-          }
+    encryptionKey ? `\n  encryptionKey: "${encryptionKey}",` : ""
+  }
   trackingCallback: { experiment, experimentResult in 
     // ${trackingComment}
     print("Viewed Experiment")
@@ -323,12 +668,61 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
     );
   }
   if (language === "go") {
+    const { usesGrowthbookPlugin, showUpgradeWarning, eventIngestorHost } =
+      getEventIngestorTrackingState(
+        language,
+        version,
+        eventTracker,
+        eventIngestorRegion,
+      );
+
     return (
       <>
+        <EventTrackerSelector
+          eventTracker={eventTracker}
+          setEventTracker={setEventTracker}
+          options={backendEventTrackerOptions}
+        />
         Create GrowthBook client instance
         <Code
           language="go"
-          code={`
+          code={
+            usesGrowthbookPlugin
+              ? `
+package main
+
+import (
+	"context"
+	"log"
+	"time"
+	gb "github.com/growthbook/growthbook-golang"
+)
+
+func main() {
+	client, err := gb.NewClient(context.TODO(),
+		gb.WithClientKey("${apiKey || "MY_SDK_KEY"}"),${
+      encryptionKey ? `\n		gb.WithDecryptionKey("${encryptionKey}"),` : ""
+    }
+		gb.WithApiHost("${apiHost}"),
+		gb.WithPollDataSource(30 * time.Second),
+		gb.WithGrowthBookTracking(gb.TrackingPluginConfig{${
+      eventIngestorHost ? `\n			IngestorHost: "${eventIngestorHost}",` : ""
+    }
+		}),
+	)
+
+	if err != nil {
+		log.Fatal("Client start failed", "error", err)
+		return
+	}
+	defer client.Close()
+
+	if err := client.EnsureLoaded(context.TODO()); err != nil {
+		log.Fatal("Client data load failed", "error", err)
+		return
+	}
+}`.trim()
+              : `
 package main
 
 import (
@@ -343,8 +737,8 @@ import (
 func main() {
 	client, err := gb.NewClient(context.TODO(),
 		gb.WithClientKey("${apiKey || "MY_SDK_KEY"}"),${
-            encryptionKey ? `\n		gb.WithDecryptionKey("${encryptionKey}"),` : ""
-          }
+      encryptionKey ? `\n		gb.WithDecryptionKey("${encryptionKey}"),` : ""
+    }
 		gb.WithApiHost("${apiHost}"),
 		gb.WithPollDataSource(30 * time.Second),
 		// ${trackingComment}
@@ -365,8 +759,22 @@ func main() {
 		log.Fatal("Client data load failed", "error", err)
 		return
 	}
-}`.trim()}
+}`.trim()
+          }
         />
+        {showUpgradeWarning && (
+          <EventIngestorUpgradeWarning minVersion="0.2.8" />
+        )}
+        {usesGrowthbookPlugin && (
+          <Box mt="3">
+            Experiment view and feature usage events are tracked automatically.
+            To track additional custom events, send them directly with the{" "}
+            <DocLink docSection="managedWarehouseIngestionApi">
+              Ingestion API
+            </DocLink>
+            .
+          </Box>
+        )}
       </>
     );
   }
@@ -383,11 +791,11 @@ require 'growthbook'
 # You should cache this in Redis or similar in production
 features_repository = Growthbook::FeatureRepository.new(
   endpoint: '${featuresEndpoint}'${
-            encryptionKey
-              ? `,
+    encryptionKey
+      ? `,
   decryption_key: '${encryptionKey}'`
-              : ""
-          }
+      : ""
+  }
 )
 features = features_repository.fetch
             `.trim()}
@@ -421,12 +829,44 @@ gb = Growthbook::Context.new(
     );
   }
   if (language === "php") {
+    const { usesGrowthbookPlugin, showUpgradeWarning, eventIngestorHost } =
+      getEventIngestorTrackingState(
+        language,
+        version,
+        eventTracker,
+        eventIngestorRegion,
+      );
+
     return (
       <>
+        <EventTrackerSelector
+          eventTracker={eventTracker}
+          setEventTracker={setEventTracker}
+          options={backendEventTrackerOptions}
+        />
         Create a GrowthBook instance
         <Code
           language="php"
-          code={`
+          code={
+            usesGrowthbookPlugin
+              ? `
+use Growthbook\\Growthbook;
+use Growthbook\\GrowthBookTrackingPlugin;${
+                  eventIngestorHost
+                    ? `\nuse Growthbook\\GrowthBookTrackingPluginConfig;`
+                    : ""
+                }
+
+$growthbook = Growthbook::create()
+  ->addPlugin(new GrowthBookTrackingPlugin(${
+    eventIngestorHost
+      ? `
+    new GrowthBookTrackingPluginConfig(ingestorHost: "${eventIngestorHost}")
+  `
+      : ""
+  }));
+            `.trim()
+              : `
 use Growthbook\\Growthbook;
 
 $growthbook = Growthbook::create()
@@ -440,7 +880,8 @@ $growthbook = Growthbook::create()
       ]
     ]);
   });
-            `.trim()}
+            `.trim()
+          }
         />
         Load features from the GrowthBook API
         <Code
@@ -453,51 +894,129 @@ $growthbook->withCache($cache);
 $growthbook->initialize(
   "${apiKey || "MY_SDK_KEY"}", // Client Key
   "${apiHost}"${
-            encryptionKey
-              ? `, // API Host
+    encryptionKey
+      ? `, // API Host
   "${encryptionKey}" // Decryption Key`
-              : " // API Host"
-          }
+      : " // API Host"
+  }
 );
             `.trim()}
         />
+        {showUpgradeWarning && (
+          <EventIngestorUpgradeWarning minVersion="2.4.0" />
+        )}
+        {usesGrowthbookPlugin && (
+          <Box mt="3">
+            Experiment view and feature usage events are tracked automatically.
+            To track additional custom events, send them directly with the{" "}
+            <DocLink docSection="managedWarehouseIngestionApi">
+              Ingestion API
+            </DocLink>
+            .
+          </Box>
+        )}
       </>
     );
   }
   if (language === "python") {
+    const { usesGrowthbookPlugin, showUpgradeWarning, eventIngestorHost } =
+      getEventIngestorTrackingState(
+        language,
+        version,
+        eventTracker,
+        eventIngestorRegion,
+      );
+
     return (
       <>
-        Callback function when a user is put into an experiment
-        <Code
-          language="python"
-          code={`
+        <EventTrackerSelector
+          eventTracker={eventTracker}
+          setEventTracker={setEventTracker}
+          options={backendEventTrackerOptions}
+        />
+        {!usesGrowthbookPlugin && (
+          <>
+            Callback function when a user is put into an experiment
+            <Code
+              language="python"
+              code={`
 def on_experiment_viewed(experiment, result):
   # ${trackingComment}
   print("Viewed Experiment")
   print("Experiment Id: " + experiment.key)
   print("Variation Id: " + result.key)
             `.trim()}
-        />
+            />
+          </>
+        )}
         Create a GrowthBook instance and load features
         <Code
           language="python"
-          code={`
+          code={
+            usesGrowthbookPlugin
+              ? `
+from growthbook import GrowthBook, GrowthBookTrackingPlugin
+
+gb = GrowthBook(
+  api_host = "${apiHost}",
+  client_key = "${apiKey || "MY_SDK_KEY"}",${
+    encryptionKey
+      ? `
+  decryption_key = "${encryptionKey}",`
+      : ""
+  }
+  plugins = [
+    GrowthBookTrackingPlugin(${
+      eventIngestorHost ? `ingestor_host="${eventIngestorHost}"` : ""
+    })
+  ]
+)
+
+gb.load_features()
+            `.trim()
+              : `
 from growthbook import GrowthBook
 
 gb = GrowthBook(
   api_host = "${apiHost}",
   client_key = "${apiKey || "MY_SDK_KEY"}",${
-            encryptionKey
-              ? `
+    encryptionKey
+      ? `
   decryption_key = "${encryptionKey}",`
-              : ""
-          }
+      : ""
+  }
   on_experiment_viewed = on_experiment_viewed
 )
 
 gb.load_features()
-            `.trim()}
+            `.trim()
+          }
         />
+        {showUpgradeWarning && (
+          <EventIngestorUpgradeWarning minVersion="2.2.0" />
+        )}
+        {usesGrowthbookPlugin && (
+          <Box mt="3">
+            If you want to use GrowthBook for experiments (and metrics), you
+            will need to log events you care about. Read more about our{" "}
+            <DocLink useRadix={false} docSection="managedWarehouseTracking">
+              GrowthBook event tracking
+            </DocLink>
+            . Here are some examples:
+            <Code
+              language="python"
+              code={`
+# Simple (no properties)
+gb.log_event("Payment Accepted")
+
+# With custom properties
+gb.log_event("Request Completed", {
+  "latency": 250,
+})
+              `.trim()}
+            />
+          </Box>
+        )}
       </>
     );
   }
@@ -561,12 +1080,39 @@ GrowthBook growthBook = new GrowthBook(context);
     );
   }
   if (language === "flutter") {
+    const { usesGrowthbookPlugin, showUpgradeWarning, eventIngestorHost } =
+      getEventIngestorTrackingState(
+        language,
+        version,
+        eventTracker,
+        eventIngestorRegion,
+      );
+
     return (
       <>
+        <EventTrackerSelector
+          eventTracker={eventTracker}
+          setEventTracker={setEventTracker}
+          options={backendEventTrackerOptions}
+        />
         Create a GrowthBook instance
         <Code
           language="dart"
-          code={`
+          code={
+            usesGrowthbookPlugin
+              ? `
+final GrowthBookSDK gb = GBSDKBuilderApp(
+  hostURL: '${apiHost}/',
+  apiKey: "${apiKey}",
+).addPlugin(GrowthBookTrackingPlugin(${
+                  eventIngestorHost
+                    ? `
+  config: GrowthBookTrackingPluginConfig(ingestorHost: '${eventIngestorHost}'),
+`
+                    : ""
+                })).initialize();
+`.trim()
+              : `
 final GrowthBookSDK gb = GBSDKBuilderApp(
   hostURL: '${apiHost}/',
   apiKey: "${apiKey}",
@@ -577,8 +1123,22 @@ final GrowthBookSDK gb = GBSDKBuilderApp(
     print("Variation Id: " + gbExperimentResult.variationId)
   },
 ).initialize();
-`.trim()}
+`.trim()
+          }
         />
+        {showUpgradeWarning && (
+          <EventIngestorUpgradeWarning minVersion="4.4.0" />
+        )}
+        {usesGrowthbookPlugin && (
+          <Box mt="3">
+            Experiment view and feature usage events are tracked automatically.
+            To track additional custom events, send them directly with the{" "}
+            <DocLink docSection="managedWarehouseIngestionApi">
+              Ingestion API
+            </DocLink>
+            .
+          </Box>
+        )}
       </>
     );
   }
@@ -760,7 +1320,9 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
         </ul>
         <p>
           See the{" "}
-          <DocLink docSection="cloudflare">Cloudflare Workers docs</DocLink>{" "}
+          <DocLink useRadix={false} docSection="cloudflare">
+            Cloudflare Workers docs
+          </DocLink>{" "}
           further instructions.
         </p>
       </>
@@ -913,7 +1475,10 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           </li>
         </ul>
         <p>
-          See the <DocLink docSection="fastly">Fastly Compute docs</DocLink>{" "}
+          See the{" "}
+          <DocLink useRadix={false} docSection="fastly">
+            Fastly Compute docs
+          </DocLink>{" "}
           further instructions.
         </p>
       </>
@@ -946,7 +1511,7 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
         </p>
         <p>
           Note that our Edge App responds directly to a{" "}
-          <code>viewer-request</code> without forwarding to an origin;
+          <code>viewer_request</code> without forwarding to an origin;
           interaction with CloudFront is minimal (Step 2 in the AWS tutorial).
         </p>
 
@@ -981,12 +1546,10 @@ function buildEnv() {
     PROXY_TARGET: "https://internal.mysite.io",
     GROWTHBOOK_API_HOST: ${JSON.stringify(apiHost)},
     GROWTHBOOK_CLIENT_KEY: ${JSON.stringify(apiKey)},${
-            encryptionKey
-              ? `\n    GROWTHBOOK_DECRYPTION_KEY: ${JSON.stringify(
-                  encryptionKey
-                )},`
-              : ""
-          }
+      encryptionKey
+        ? `\n    GROWTHBOOK_DECRYPTION_KEY: ${JSON.stringify(encryptionKey)},`
+        : ""
+    }
   };
 }
           `.trim()}
@@ -1018,7 +1581,10 @@ function buildEnv() {
           </li>
         </ul>
         <p>
-          See the <DocLink docSection="lambda">Lambda@Edge docs</DocLink>{" "}
+          See the{" "}
+          <DocLink useRadix={false} docSection="lambda">
+            Lambda@Edge docs
+          </DocLink>{" "}
           further instructions.
         </p>
       </>
@@ -1117,8 +1683,11 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           </li>
         </ul>
         <p>
-          See the <DocLink docSection="edge">Other Edge docs</DocLink> further
-          instructions.
+          See the{" "}
+          <DocLink useRadix={false} docSection="edge">
+            Other Edge docs
+          </DocLink>{" "}
+          further instructions.
         </p>
       </>
     );
@@ -1128,7 +1697,10 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
     <p>
       We don&apos;t have an SDK for your language yet, but we do have extensive
       documentation if you want to build your own and contribute it back to the
-      community! <DocLink docSection="buildYourOwn">View Documentation</DocLink>
+      community!{" "}
+      <DocLink useRadix={false} docSection="buildYourOwn">
+        View Documentation
+      </DocLink>
     </p>
   );
 }
@@ -1150,22 +1722,22 @@ if (window.gtag) {
   });
 }`
     : eventTracker === "segment"
-    ? `
+      ? `
 analytics.track("Experiment Viewed", {
   experimentId: experiment.key,
   variationId: result.key,
 });
 `
-    : eventTracker === "mixpanel"
-    ? `
+      : eventTracker === "mixpanel"
+        ? `
 mixpanel.track("$experiment_started", {
   "Experiment name": experiment.key,
   "Variant name": result.key,
   $source: "growthbook",
 });
 `
-    : eventTracker === "matomo"
-    ? `
+        : eventTracker === "matomo"
+          ? `
 window["_paq"] = window._paq || [];
 window._paq.push([
   "trackEvent",
@@ -1174,19 +1746,19 @@ window._paq.push([
   "v" + result.key,
 ]);
 `
-    : eventTracker === "amplitude"
-    ? `
+          : eventTracker === "amplitude"
+            ? `
 amplitude.track('Experiment Viewed', {experimentId: experiment.key, variantId: result.key});
 `
-    : eventTracker === "rudderstack"
-    ? `
+            : eventTracker === "rudderstack"
+              ? `
 rudderanalytics.track("Experiment Viewed", {
   experimentId: experiment.key,
   variationId: result.key,
 });
 `
-    : eventTracker === "snowplow"
-    ? `
+              : eventTracker === "snowplow"
+                ? `
 if (window.snowplow) {
   window.snowplow("trackSelfDescribingEvent", {
     event: {
@@ -1201,7 +1773,7 @@ if (window.snowplow) {
   });
 }
 `
-    : `
+                : `
 // This is where you would send an event to your analytics provider
 console.log("Viewed Experiment", {
   experimentId: experiment.key,
@@ -1217,6 +1789,7 @@ const getJSCodeSnippet = ({
   remoteEvalEnabled,
   version,
   eventTracker,
+  eventIngestorRegion,
   includeInit = true,
 }: {
   apiHost: string;
@@ -1225,6 +1798,7 @@ const getJSCodeSnippet = ({
   remoteEvalEnabled: boolean;
   version?: string;
   eventTracker: string;
+  eventIngestorRegion?: DataRegion;
   includeInit?: boolean;
 }) => {
   const useInit = paddedVersionString(version) >= paddedVersionString("1.0.0");
@@ -1240,7 +1814,33 @@ const getJSCodeSnippet = ({
         ? `["ga4", "gtm"]`
         : `["${eventTracker}"]`;
 
-    jsCode = `
+    if (eventTracker === "growthbook") {
+      const ingestorHost =
+        eventIngestorRegion && eventIngestorRegion !== "us-east-1"
+          ? getEventIngestorHost(eventIngestorRegion)
+          : undefined;
+      jsCode = `
+import { GrowthBook } from "@growthbook/growthbook";
+import {
+  autoAttributesPlugin,
+  growthbookTrackingPlugin
+} from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  apiHost: ${JSON.stringify(apiHost)},
+  clientKey: ${JSON.stringify(apiKey)},${
+    encryptionKey ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},` : ""
+  }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
+  enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
+  plugins: [
+    autoAttributesPlugin(),
+    growthbookTrackingPlugin(${
+      ingestorHost ? `{ ingestorHost: ${JSON.stringify(ingestorHost)} }` : ""
+    })
+  ],
+});`;
+    } else {
+      jsCode = `
 import { GrowthBook } from "@growthbook/growthbook";
 import { 
   thirdPartyTrackingPlugin,
@@ -1250,16 +1850,15 @@ import {
 const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-      encryptionKey
-        ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
-        : ""
-    }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
+    encryptionKey ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},` : ""
+  }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
   enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
   plugins: [
     autoAttributesPlugin(),
     thirdPartyTrackingPlugin({ trackers: ${pluginTrackers} }),
   ],
 });`;
+    }
   }
   // Supports plugins, but with a different tracker
   else if (usePlugins) {
@@ -1271,10 +1870,8 @@ import { autoAttributesPlugin } from "@growthbook/growthbook/plugins";
 const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-      encryptionKey
-        ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
-        : ""
-    }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
+    encryptionKey ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},` : ""
+  }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
   enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
   trackingCallback: (experiment, result) => {
     ${indentLines(trackingCallback.trim(), 4)}
@@ -1291,10 +1888,8 @@ const growthbook = new GrowthBook({
 const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-      encryptionKey
-        ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
-        : ""
-    }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
+    encryptionKey ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},` : ""
+  }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
   enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
   trackingCallback: (experiment, result) => {
     ${indentLines(trackingCallback.trim(), 4)}

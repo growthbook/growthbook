@@ -1,7 +1,9 @@
 import { FC, ChangeEventHandler } from "react";
-import { MssqlConnectionParams } from "back-end/types/integrations/mssql";
-import Toggle from "@/components/Forms/Toggle";
+import { Flex } from "@radix-ui/themes";
+import { MssqlConnectionParams } from "shared/types/integrations/mssql";
+import Checkbox from "@/ui/Checkbox";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 import HostWarning from "./HostWarning";
 
 const MssqlForm: FC<{
@@ -76,7 +78,7 @@ const MssqlForm: FC<{
             required={!existing}
             value={params.password || ""}
             onChange={onParamChange}
-            placeholder={existing ? "(Keep existing)" : ""}
+            placeholder={existing ? KEEP_EXISTING_PLACEHOLDER : ""}
           />
         </div>
         <div className="form-group col-md-12">
@@ -109,30 +111,26 @@ const MssqlForm: FC<{
       <div className="row mt-2">
         <div className="col-md-12">
           <div className="form-group">
-            <label htmlFor="trust-server-cert" className="mr-2">
-              Trust server certificate{" "}
-              <Tooltip body="Allows for self-signed certificates"></Tooltip>
-            </label>
-            <Toggle
-              id="trust-server-cert"
-              label="Trust server certificate"
-              value={params.options?.trustServerCertificate === true}
-              setValue={(value) => {
-                const opt = {
-                  ...params.options,
-                  trustServerCertificate: value,
-                };
-                setParams({
-                  options: opt,
-                });
-              }}
-            />
+            <Flex align="center" gap="1">
+              <Checkbox
+                id="trust-server-cert"
+                label="Trust server certificate"
+                value={params.options?.trustServerCertificate === true}
+                setValue={(value) => {
+                  const opt = {
+                    ...params.options,
+                    trustServerCertificate: value,
+                  };
+                  setParams({
+                    options: opt,
+                  });
+                }}
+              />
+              <Tooltip body="Allows for self-signed certificates" />
+            </Flex>
           </div>
           <div className="form-group">
-            <label htmlFor="encryption" className="mr-2">
-              Enable encryption
-            </label>
-            <Toggle
+            <Checkbox
               id="encryption"
               label="Enable encryption"
               value={params.options?.encrypt === true}

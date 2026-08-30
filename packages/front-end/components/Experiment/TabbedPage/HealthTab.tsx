@@ -1,12 +1,15 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
+import { Flex } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import SRMCard from "@/components/HealthTab/SRMCard";
+import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -15,7 +18,7 @@ import track from "@/services/track";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { PowerCard } from "@/components/HealthTab/PowerCard";
 import {
   HealthTabConfigParams,
@@ -42,17 +45,22 @@ export default function HealthTab({
     error,
     dimensionless: snapshot,
     phase,
-    mutateSnapshot,
+    mutate,
     setAnalysisSettings,
   } = useSnapshot();
-  const { runHealthTrafficQuery, decisionFrameworkEnabled } = useOrgSettings();
+
+  const {
+    runHealthTrafficQuery,
+    decisionFrameworkEnabled,
+    useStickyBucketing,
+  } = useOrgSettings();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
 
   const exposureQuery = datasource?.settings.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   );
 
   const hasPermissionToConfigHealthTag =
@@ -62,38 +70,55 @@ export default function HealthTab({
       permissionsUtil.canUpdateDataSourceSettings(datasource)) ||
     false;
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
+  // Cards bubble issues via effects that re-fire on every snapshot reference
+  // change, even when the underlying issue is one we've already counted. The
+  // parent badge counter (`onHealthNotify`) is just an incrementer, so without
+  // a synchronous dedupe it would drift up on every poll/refetch. A Set ref
+  // is the dedupe source of truth.
+  // Ideally we have a separate service that does the health compuatation and it
+  // doesn't happen inside each card. TODO later.
+  const seenIssueValuesRef = useRef<Set<string>>(new Set());
   const [setupModalOpen, setSetupModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
+  const orgStickyBucketing = !!useStickyBucketing;
+
+  const showMultipleExposures =
+    !isBandit ||
+    (isBandit && orgStickyBucketing && !experiment.disableStickyBucketing);
 
   const healthTabConfigParams: HealthTabConfigParams = {
     experiment,
     phase,
     refreshOrganization,
-    mutateSnapshot,
+    mutate,
     setAnalysisSettings,
     setLoading,
     resetResultsSettings,
   };
 
-  // Clean up notification counter & health issues before unmounting
+  // Reset the parent counter, the local issues list, and the dedupe set
+  // together whenever the snapshot identity changes (or we unmount). Keeping
+  // these three in lockstep is what guarantees the badge counts only issues
+  // present in the current snapshot.
   useEffect(() => {
     return () => {
+      seenIssueValuesRef.current = new Set();
       onSnapshotUpdate();
       setHealthIssues([]);
     };
-  }, [experiment, snapshot, onSnapshotUpdate]);
+  }, [experiment.id, snapshot?.id, onSnapshotUpdate]);
 
   const handleHealthNotification = useCallback(
     (issue: IssueValue) => {
-      setHealthIssues((prev) => {
-        const issueSet: Set<IssueValue> = new Set([...prev, issue]);
-        return [...issueSet];
-      });
+      if (seenIssueValuesRef.current.has(issue.value)) return;
+      seenIssueValuesRef.current.add(issue.value);
+      setHealthIssues((prev) => [...prev, issue]);
       onHealthNotify();
     },
-    [onHealthNotify]
+    [onHealthNotify],
   );
 
   // If org has the health tab turned to off and has no data, prompt set up if the
@@ -114,7 +139,7 @@ export default function HealthTab({
     }
     return (
       <Callout status="info" mt="3">
-        <div className="d-flex">
+        <Flex gap="4">
           {runHealthTrafficQuery === undefined
             ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
             : "Health queries are disabled in your Organization Settings. To enable them and set up the health tab, "}
@@ -122,7 +147,8 @@ export default function HealthTab({
             <>
               click the button on the right.
               <Button
-                className="ml-2"
+                color="inherit"
+                ml="2"
                 style={{ width: "200px" }}
                 onClick={async () => {
                   track("Health Tab Onboarding Opened", {
@@ -147,7 +173,7 @@ export default function HealthTab({
           ) : (
             "ask an admin in your organization to navigate to any experiment health tab and follow the onboarding process."
           )}
-        </div>
+        </Flex>
       </Callout>
     );
   }
@@ -203,8 +229,8 @@ export default function HealthTab({
   if (!snapshot?.health?.traffic.dimension?.dim_exposure_date) {
     if (loading) {
       return (
-        <Callout status="info" mt="3">
-          <LoadingSpinner /> Snapshot refreshing, health data loading...
+        <Callout status="info" mt="3" icon={<LoadingSpinner />}>
+          Snapshot refreshing, health data loading...
         </Callout>
       );
     }
@@ -241,16 +267,17 @@ export default function HealthTab({
 
   const totalUsers = snapshot?.health?.traffic?.overall?.variationUnits?.reduce(
     (acc, a) => acc + a,
-    0
+    0,
   );
 
   const traffic = snapshot.health.traffic;
 
   const phaseObj = experiment.phases?.[phase];
 
-  const variations = experiment.variations.map((v, i) => {
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
-      id: v.key || i + "",
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
@@ -279,26 +306,34 @@ export default function HealthTab({
         ) : (
           <BanditSRMCard
             experiment={experiment}
+            snapshot={snapshot}
             phase={phaseObj}
             onNotify={handleHealthNotification}
           />
         )}
       </div>
-
-      <div className="row">
-        <div
-          className={!isBandit ? "col-8" : "col-12"}
-          id="multipleExposures"
-          style={{ scrollMarginTop: "100px" }}
-        >
-          <MultipleExposuresCard
-            totalUsers={totalUsers}
+      {!isBandit && (
+        <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
+          <CovariateImbalanceCard
+            experiment={experiment}
+            variations={variations}
+            snapshot={snapshot}
             onNotify={handleHealthNotification}
           />
         </div>
-      </div>
+      )}
+      {showMultipleExposures && (
+        <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
+          <MultipleExposuresCard
+            totalUsers={totalUsers}
+            onNotify={handleHealthNotification}
+            snapshot={snapshot}
+          />
+        </div>
+      )}
 
       {!isBandit &&
+      !isHoldout &&
       (decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED) ? (
         <PowerCard
           experiment={experiment}

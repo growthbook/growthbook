@@ -18,13 +18,14 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import {
   CHROME_EXTENSION_LINK,
   FIREFOX_EXTENSION_LINK,
+  VISUAL_EDITOR_EXTENSION_LINK,
   getBrowserDevice,
 } from "@/components/OpenVisualEditorLink";
 import styles from "./WorkspaceLinks.module.scss";
 
 export default function WorkspaceLinks() {
   const permissionsUtils = usePermissionsUtil();
-  const { project } = useDefinitions();
+  const { project, projects } = useDefinitions();
 
   const { browser } = useMemo(() => {
     const ua = navigator.userAgent;
@@ -39,6 +40,15 @@ export default function WorkspaceLinks() {
         text="Teams & Permissions"
         disabled={!permissionsUtils.canManageTeam()}
       />
+      <StyledLink
+        Icon={PiGoogleChromeLogo}
+        url={VISUAL_EDITOR_EXTENSION_LINK}
+        text="Install Visual Editor Extension"
+        external
+      />
+      {/* DevTools is still the extension for debugging feature flags,
+          experiments, and SDK health — only its visual editor moved to
+          the standalone extension above. */}
       {browser === "firefox" ? (
         <StyledLink
           Icon={FaFirefoxBrowser}
@@ -71,7 +81,7 @@ export default function WorkspaceLinks() {
         url="/fact-tables"
         text="Configure Metric Library"
         disabled={
-          !permissionsUtils.canViewCreateFactTableModal(project) &&
+          !permissionsUtils.canViewCreateFactTableModal(project, projects) &&
           !permissionsUtils.canCreateFactMetric({
             projects: project ? [project] : [],
           })

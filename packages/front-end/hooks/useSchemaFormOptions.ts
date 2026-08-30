@@ -1,14 +1,14 @@
 import { useState } from "react";
 import {
-  InformationSchemaInterface,
+  InformationSchemaInterfaceWithPaths,
   InformationSchemaTablesInterface,
-} from "back-end/src/types/Integration";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+} from "shared/types/integrations";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 import useApi from "./useApi";
 
 export default function useSchemaFormOptions(
-  datasource: DataSourceInterfaceWithParams
+  datasource: DataSourceInterfaceWithParams,
 ) {
   const [tableId, setTableId] = useState("");
 
@@ -16,7 +16,7 @@ export default function useSchemaFormOptions(
     datasource?.properties?.supportsInformationSchema;
 
   const { data } = useApi<{
-    informationSchema: InformationSchemaInterface;
+    informationSchema: InformationSchemaInterfaceWithPaths;
   }>(`/datasource/${datasource?.id}/schema`, {
     shouldRun: () => !!supportsInformationSchema && !!datasource?.id,
   });

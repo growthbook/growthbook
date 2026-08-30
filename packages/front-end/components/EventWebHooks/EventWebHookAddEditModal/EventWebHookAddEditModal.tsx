@@ -1,15 +1,20 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
-import z from "zod";
+import { z } from "zod";
 import { useForm, UseFormReturn } from "react-hook-form";
-import { NotificationEventName } from "back-end/src/events/base-types";
 import clsx from "clsx";
-import { PiCheckCircleFill, PiXSquare } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiArrowLeft, PiCaretRight, PiCheckCircleFill } from "react-icons/pi";
+import { isEventWebhookWildcard } from "shared/validators";
+import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
+import Button from "@/ui/Button";
+import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import {
   eventWebHookPayloadTypes,
   legacyEventWebHookPayloadTypes,
@@ -18,6 +23,7 @@ import {
   EventWebHookPayloadType,
   EventWebHookEditParams,
   eventWebHookEventOptions,
+  formatWebhookEventOptionLabel,
   EventWebHookModalMode,
   notificationEventNames,
   WebhookIcon,
@@ -25,11 +31,12 @@ import {
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import TagsInput from "@/components/Tags/TagsInput";
+import { DocLink } from "@/components/DocLink";
 
 type EventWebHookAddEditModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: EventWebHookEditParams) => void;
+  onSubmit: (data: EventWebHookEditParams) => Promise<void>;
   mode: EventWebHookModalMode;
   error: string | null;
 };
@@ -95,51 +102,62 @@ const EventWebHookAddConfirm = ({ form }: { form: Form }) => {
   }, [setState, apiCall, form]);
 
   return (
-    <div className="mx-2 mb-5">
-      <p className="mb-0">
+    <Box mx="2" mb="5">
+      <Text as="p" mb="2">
         We recommend testing your connection to ensure your settings are
         correct.
-      </p>
-      <p className="mt-0 text-danger">
-        <b>Important:</b> Do not navigate away from this modal, or your changes
-        will not be saved.
-      </p>
+      </Text>
+      <Callout status="warning" mb="3">
+        <strong>Important:</strong> Do not navigate away from this modal, or
+        your changes will not be saved.
+      </Callout>
 
-      <button
-        className="btn btn-outline-primary mr-2 mb-2"
+      <Button
+        variant="outline"
         disabled={state.type === "sent"}
         onClick={onTestWebhook}
+        icon={state.type === "sent" ? <PiCheckCircleFill /> : undefined}
       >
-        {state.type === "sent" ? (
-          <>
-            <span className="mr-2">
-              <PiCheckCircleFill />
-            </span>{" "}
-            Test Sent
-          </>
-        ) : (
-          "Test Connection"
-        )}
-      </button>
+        {state.type === "sent" ? "Test Sent" : "Test Connection"}
+      </Button>
 
-      <div className="mt-2 d-flex align-items-center">
+      <Box mt="2">
         {state.type === "success" && (
-          <p className="text-success">
-            <PiCheckCircleFill /> Test Sucessful!
-          </p>
+          <Callout status="success">Test Successful!</Callout>
         )}
         {state.type === "error" && (
-          <p className="text-danger">
-            <PiXSquare /> Test Failed: {state.message}
-          </p>
+          <Callout status="error">Test Failed: {state.message}</Callout>
         )}
-        {state.type !== "error" && state.type !== "success" && (
-          <p className="invisible">Placeholder for height</p>
-        )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };
+
+const FilterLabel = ({
+  name,
+  allLabel,
+  isAll,
+  disabled,
+  onSelectAll,
+}: {
+  name: string;
+  allLabel: string;
+  isAll: boolean;
+  disabled: boolean;
+  onSelectAll: () => void;
+}) => (
+  <Flex align="center" justify="between" gap="4" style={{ width: "100%" }}>
+    <Text>{name}</Text>
+    <Checkbox
+      value={isAll}
+      disabled={disabled}
+      setValue={onSelectAll}
+      label={allLabel}
+      weight="regular"
+      size="sm"
+    />
+  </Flex>
+);
 
 const EventWebHookAddEditSettings = ({
   form,
@@ -170,7 +188,8 @@ const EventWebHookAddEditSettings = ({
   return (
     <>
       <SelectField
-        label={<b>Payload Type</b>}
+        size="legacy"
+        label="Payload Type"
         value={form.watch("payloadType")}
         placeholder="Choose payload type"
         disabled={form.watch("payloadType") === "raw"}
@@ -198,9 +217,10 @@ const EventWebHookAddEditSettings = ({
         }}
       />
 
-      <div className="mt-4">
+      <Box mt="4">
         <Field
-          label={<b>Webhook Name</b>}
+          size="legacy"
+          label="Webhook Name"
           placeholder="My Webhook"
           {...form.register("name")}
           onChange={(evt) => {
@@ -208,12 +228,13 @@ const EventWebHookAddEditSettings = ({
             handleFormValidation();
           }}
         />
-      </div>
+      </Box>
 
       {isDetailedWebhook && (
-        <div className="mt-4">
+        <Box mt="4">
           <SelectField
-            label={<b>Method</b>}
+            size="legacy"
+            label="Method"
             value={forcedParams?.method || form.watch("method")}
             placeholder="Choose HTTP method"
             disabled={!!forcedParams}
@@ -226,18 +247,24 @@ const EventWebHookAddEditSettings = ({
               handleFormValidation();
             }}
           />
-        </div>
+        </Box>
       )}
 
-      <div className="mt-4">
+      <Box mt="4">
         <Field
-          label={<b>Endpoint URL</b>}
+          size="legacy"
+          label="Endpoint URL"
           placeholder="https://example.com/growthbook-webhook"
           {...form.register("url")}
           helpText={
             isDetailedWebhook && (
               <>
-                Must accept <code>{form.watch("method")}</code> requests
+                Must accept <code>{form.watch("method")}</code> requests.
+                Supports{" "}
+                <DocLink useRadix={false} docSection="webhookSecrets">
+                  Webhook Secrets
+                </DocLink>
+                .
               </>
             )
           }
@@ -246,16 +273,12 @@ const EventWebHookAddEditSettings = ({
             handleFormValidation();
           }}
         />
-      </div>
+      </Box>
 
       {isDetailedWebhook && (
-        <div className="mt-4">
+        <Box mt="4">
           <CodeTextArea
-            label={
-              <>
-                <b>Headers</b> (JSON)
-              </>
-            }
+            label="Headers (JSON)"
             language="json"
             minLines={forcedParams ? 1 : 3}
             maxLines={6}
@@ -268,65 +291,62 @@ const EventWebHookAddEditSettings = ({
             helpText={
               <>
                 {!validHeaders ? (
-                  <div className="alert alert-danger mr-auto">Invalid JSON</div>
+                  <Callout status="error">Invalid JSON</Callout>
                 ) : (
-                  <div>JSON format for headers.</div>
+                  <Text>
+                    JSON format for headers. Supports{" "}
+                    <DocLink useRadix={false} docSection="webhookSecrets">
+                      Webhook Secrets
+                    </DocLink>
+                    .
+                  </Text>
                 )}
               </>
             }
           />
-        </div>
+        </Box>
       )}
 
-      <div className="mt-4">
+      <Box mt="4">
         <MultiSelectField
-          label={<b>Events</b>}
+          legacyHeight
+          label="Events"
           value={form.watch("events")}
           placeholder="Choose events"
           sort={false}
           disabled={form.watch("payloadType") === "raw"}
-          options={eventWebHookEventOptions.map(({ id }) => ({
-            label: id,
-            value: id,
-          }))}
+          options={eventWebHookEventOptions}
+          formatOptionLabel={(option, meta) =>
+            formatWebhookEventOptionLabel(option, meta)
+          }
           onChange={(value: string[]) => {
-            form.setValue("events", value as NotificationEventName[]);
+            form.setValue("events", value);
             handleFormValidation();
           }}
         />
-      </div>
+      </Box>
 
-      <div className="mt-4 webhook-filters">
-        <b>Apply Filters</b>
+      <Box mt="4" className="webhook-filters">
+        <Text size="sm" weight="medium" mb="2" as="p">
+          Apply Filters
+        </Text>
 
-        <div className="graybox mt-2 border border-rounded">
-          <div
+        <Box p="3" className="bg-highlight rounded">
+          <Box
             className={clsx({
               "select-all": !selectedEnvironments.length,
             })}
           >
             <MultiSelectField
+              legacyHeight
               label={
-                <div className="d-flex align-items-center">
-                  <div>
-                    <b>Environment</b>
-                  </div>
-                  <div className="ml-auto d-flex align-items-center">
-                    <input
-                      type="checkbox"
-                      className="mr-1"
-                      disabled={!selectedEnvironments.length}
-                      checked={!selectedEnvironments.length}
-                      onChange={() =>
-                        selectedEnvironments.length
-                          ? form.setValue("environments", [])
-                          : undefined
-                      }
-                    />
-                    Receive notifications for{" "}
-                    <b className="ml-1">all Environments</b>
-                  </div>
-                </div>
+                <FilterLabel
+                  name="Environment"
+                  allLabel="Receive notifications for all Environments"
+                  isAll={!selectedEnvironments.length}
+                  disabled={!selectedEnvironments.length}
+                  onSelectAll={() => form.setValue("environments", [])}
+                />
               }
               labelClassName="w-100"
               sort={false}
@@ -340,35 +360,23 @@ const EventWebHookAddEditSettings = ({
                 handleFormValidation();
               }}
             />
-          </div>
+          </Box>
 
-          <div
+          <Box
             className={clsx({
               "select-all": !selectedProjects.length,
             })}
           >
             <MultiSelectField
+              legacyHeight
               label={
-                <div className="d-flex align-items-center">
-                  <div>
-                    <b>Projects</b>
-                  </div>
-                  <div className="ml-auto d-flex align-items-center">
-                    <input
-                      type="checkbox"
-                      className="mr-1"
-                      disabled={!selectedProjects.length}
-                      checked={!selectedProjects.length}
-                      onChange={() =>
-                        selectedProjects.length
-                          ? form.setValue("projects", [])
-                          : undefined
-                      }
-                    />
-                    Receive notifications for{" "}
-                    <b className="ml-1">all Projects</b>
-                  </div>
-                </div>
+                <FilterLabel
+                  name="Projects"
+                  allLabel="Receive notifications for all Projects"
+                  isAll={!selectedProjects.length}
+                  disabled={!selectedProjects.length}
+                  onSelectAll={() => form.setValue("projects", [])}
+                />
               }
               labelClassName="w-100"
               sort={false}
@@ -382,50 +390,36 @@ const EventWebHookAddEditSettings = ({
                 handleFormValidation();
               }}
             />
-          </div>
+          </Box>
 
-          <div
+          <Box
             className={clsx("form-group", {
               "select-all": !selectedTags.length,
             })}
           >
-            <label className="d-block w-100">
-              <div className="d-flex align-items-center">
-                <div>
-                  <b>Tags</b>
-                </div>
-                <div className="ml-auto d-flex align-items-center">
-                  <input
-                    type="checkbox"
-                    className="mr-1"
-                    disabled={!selectedTags.length}
-                    checked={!selectedTags.length}
-                    onChange={() =>
-                      selectedTags.length
-                        ? form.setValue("tags", [])
-                        : undefined
-                    }
-                  />
-                  Receive notifications for <b className="ml-1">all Tags</b>
-                </div>
-              </div>
-            </label>
-            <div className="mt-1">
-              <TagsInput
-                tagOptions={tags}
-                value={form.watch("tags")}
-                onChange={(selected: string[]) => {
-                  form.setValue(
-                    "tags",
-                    selected.map((item) => item)
-                  );
-                  handleFormValidation();
-                }}
+            <Box mb="1">
+              <FilterLabel
+                name="Tags"
+                allLabel="Receive notifications for all Tags"
+                isAll={!selectedTags.length}
+                disabled={!selectedTags.length}
+                onSelectAll={() => form.setValue("tags", [])}
               />
-            </div>
-          </div>
-        </div>
-      </div>
+            </Box>
+            <TagsInput
+              tagOptions={tags}
+              value={form.watch("tags")}
+              onChange={(selected: string[]) => {
+                form.setValue(
+                  "tags",
+                  selected.map((item) => item),
+                );
+                handleFormValidation();
+              }}
+            />
+          </Box>
+        </Box>
+      </Box>
     </>
   );
 };
@@ -438,13 +432,18 @@ const buttonText = ({
 }: {
   step: Step;
   payloadType: EventWebHookPayloadType;
-}) => {
+}): React.ReactNode => {
   let invalidStep: never;
 
   switch (step) {
     case "create":
       if (detailedWebhook(payloadType)) return "Create";
-      return "Next >";
+      return (
+        <>
+          Next{" "}
+          <PiCaretRight className="position-relative" style={{ top: -1 }} />
+        </>
+      );
 
     case "confirm":
       return "Create";
@@ -502,7 +501,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
 
   const filteredValues = useCallback(
     (values) => ({ ...values, ...forcedParams }),
-    [forcedParams]
+    [forcedParams],
   );
 
   const handleSubmit = useMemo(() => {
@@ -511,9 +510,10 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
 
     return form.handleSubmit(async (rawValues) => {
       const values = filteredValues(rawValues);
-      onSubmit({ ...values, headers: JSON.parse(values.headers) });
+      await onSubmit({ ...values, headers: JSON.parse(values.headers) });
+      onClose();
     });
-  }, [step, onSubmit, form, filteredValues]);
+  }, [step, onSubmit, onClose, form, filteredValues]);
 
   const modalTitle =
     mode.mode === "edit" ? "Edit Webhook" : "Create New Webhook";
@@ -526,11 +526,21 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       url: z.string().url(),
       name: z.string().trim().min(2),
       enabled: z.boolean(),
-      events: z.array(z.enum(notificationEventNames)).min(1),
+      events: z
+        .array(
+          z
+            .string()
+            .refine(
+              (val) =>
+                (notificationEventNames as string[]).includes(val) ||
+                isEventWebhookWildcard(val),
+            ),
+        )
+        .min(1),
       payloadType: z.enum(
         mode.mode === "edit"
           ? legacyEventWebHookPayloadTypes
-          : eventWebHookPayloadTypes
+          : eventWebHookPayloadTypes,
       ),
       tags: z.array(z.string()),
       projects: z.array(z.string()),
@@ -551,30 +561,25 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       trackingEventModalType=""
       header={modalTitle}
       cta={buttonText({ step, payloadType: form.watch("payloadType") })}
-      includeCloseCta={false}
+      ctaEnabled={submitEnabled}
+      submit={async () => {
+        await handleSubmit();
+      }}
+      autoCloseOnSubmit={false}
+      close={onClose}
       open={isOpen}
       error={error ?? undefined}
-      bodyClassName="mt-2"
       size="lg"
       secondaryCTA={
         step === "confirm" ? (
-          <button className="btn btn-link" onClick={() => setStep("create")}>
-            {"< Back"}
-          </button>
-        ) : (
-          <button className="btn btn-link" onClick={onClose}>
-            Close
-          </button>
-        )
-      }
-      tertiaryCTA={
-        <button
-          disabled={!submitEnabled}
-          onClick={handleSubmit}
-          className="btn btn-primary"
-        >
-          {buttonText({ step, payloadType: form.watch("payloadType") })}
-        </button>
+          <Button
+            variant="ghost"
+            icon={<PiArrowLeft />}
+            onClick={() => setStep("create")}
+          >
+            Back
+          </Button>
+        ) : undefined
       }
     >
       {step === "confirm" ? (

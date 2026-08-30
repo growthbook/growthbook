@@ -5,9 +5,9 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 import { Flex } from "@radix-ui/themes";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useStripeContext } from "@/hooks/useStripeContext";
 
 interface Props {
@@ -34,15 +34,20 @@ export default function AddPaymentMethodModal({
       const { error: submitError } = await elements.submit();
       if (submitError) {
         throw new Error(
-          submitError.message || "Unable to validate payment method inputs"
+          submitError.message || "Unable to validate payment method inputs",
         );
       }
 
-      const { setupIntent } = await stripe.confirmSetup({
-        elements,
-        clientSecret,
-        redirect: "if_required",
-      });
+      const { setupIntent, error: setupIntentError } =
+        await stripe.confirmSetup({
+          elements,
+          clientSecret,
+          redirect: "if_required",
+        });
+
+      if (setupIntentError) {
+        throw new Error(setupIntentError.message);
+      }
 
       if (!setupIntent || !setupIntent.payment_method) {
         throw new Error("Unable to save new payment method");
@@ -64,7 +69,7 @@ export default function AddPaymentMethodModal({
   };
 
   return (
-    <Modal
+    <ModalStandard
       open={true}
       trackingEventModalType="add-edit-payment-method"
       cta="Save Payment Method"
@@ -86,6 +91,6 @@ export default function AddPaymentMethodModal({
           </Flex>
         ) : null}
       </>
-    </Modal>
+    </ModalStandard>
   );
 }

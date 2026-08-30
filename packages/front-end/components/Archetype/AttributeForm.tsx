@@ -1,19 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { SDKAttribute, SDKAttributeSchema } from "back-end/types/organization";
-import { ArchetypeAttributeValues } from "back-end/types/archetype";
-import { datetime } from "shared/dates";
+import { SDKAttribute, SDKAttributeSchema } from "shared/types/organization";
+import { ArchetypeAttributeValues } from "shared/types/archetype";
 import isEqual from "lodash/isEqual";
-import { Switch } from "@radix-ui/themes";
+import format from "date-fns/format";
 import { useAttributeSchema } from "@/services/features";
 import Field from "@/components/Forms/Field";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import styles from "./AttributeForm.module.scss";
 
@@ -24,6 +19,7 @@ export interface Props {
   jsonCTA?: string;
   hideTitle?: boolean;
   useJSONButton?: boolean;
+  headerContent?: React.ReactNode;
 }
 
 export default function AttributeForm({
@@ -33,10 +29,11 @@ export default function AttributeForm({
   jsonCTA = "Test Attributes",
   hideTitle = false,
   useJSONButton = true,
+  headerContent,
 }: Props) {
   const [formValues, setFormValues] = useState({});
   const [jsonAttributes, setJsonAttributes] = useState<string>(
-    JSON.stringify(formValues)
+    JSON.stringify(formValues),
   );
   const [jsonErrors, setJsonErrors] = useState<string | null>();
   const [activeTab, setActiveTab] = useState<"simple" | "adv">("simple");
@@ -48,7 +45,7 @@ export default function AttributeForm({
       ...attributeSchema.filter((o) => !o.archived),
       ...attributeSchema.filter((o) => o.archived),
     ],
-    [attributeSchema]
+    [attributeSchema],
   );
 
   const attributesMap = useMemo(() => {
@@ -57,10 +54,10 @@ export default function AttributeForm({
         const defaultValue = attributeValues[attr.property]
           ? attributeValues[attr.property]
           : attr.datatype === "boolean"
-          ? false
-          : attr.datatype === "string[]" || attr.datatype === "number[]"
-          ? []
-          : undefined;
+            ? false
+            : attr.datatype === "string[]" || attr.datatype === "number[]"
+              ? []
+              : undefined;
         return [
           attr.property,
           {
@@ -69,7 +66,7 @@ export default function AttributeForm({
             value: attributeValues[attr.property] ?? defaultValue,
           },
         ];
-      })
+      }),
     );
   }, [orderedAttributes, attributeValues]);
 
@@ -80,7 +77,7 @@ export default function AttributeForm({
         attributeValues[attr.property] ??
           attributesMap.get(attr.property)?.defaultValue ??
           "",
-      ])
+      ]),
     );
   }, [orderedAttributes, attributeValues, attributesMap]);
 
@@ -116,7 +113,7 @@ export default function AttributeForm({
         onChange(filteredValues);
       }
     },
-    [attributeFormValues, attributesMap, formValues, onChange]
+    [attributeFormValues, attributesMap, formValues, onChange],
   );
 
   useEffect(() => {
@@ -135,9 +132,13 @@ export default function AttributeForm({
     ) {
       // prep for use in MultiSelectField
       if (Array.isArray(value)) {
-        options = value.map((v: string) => ({ value: v, label: v }));
-      } else if (typeof value === "string") {
-        options = [{ value: value, label: value }];
+        options = value.map((v: string | number) => ({
+          value: String(v),
+          label: String(v),
+        }));
+      } else if (typeof value === "string" || typeof value === "number") {
+        const strValue = String(value);
+        options = [{ value: strValue, label: strValue }];
         value = [value];
       }
     } else if (attribute.datatype === "string") {
@@ -156,14 +157,15 @@ export default function AttributeForm({
               <Switch
                 my="1"
                 id={"form-toggle" + attribute.property}
-                checked={!!attributeFormValues.get(attribute.property)}
-                onCheckedChange={(value) => {
+                value={!!attributeFormValues.get(attribute.property)}
+                onChange={(value) => {
                   attributeFormValues.set(attribute.property, value);
                   updateFormValues();
                 }}
               />
             ) : attribute.datatype === "enum" ? (
               <SelectField
+                size="legacy"
                 value={value as string}
                 onChange={(v) => {
                   // on change here does not trigger the form to change
@@ -181,6 +183,7 @@ export default function AttributeForm({
               />
             ) : attribute.datatype === "string[]" ? (
               <MultiSelectField
+                legacyHeight
                 options={options}
                 value={Array.isArray(value) ? value : []}
                 onChange={(value) => {
@@ -189,28 +192,44 @@ export default function AttributeForm({
                 }}
                 creatable={true}
               />
+            ) : attribute.datatype === "number[]" ? (
+              <MultiSelectField
+                legacyHeight
+                options={options}
+                value={Array.isArray(value) ? value.map(String) : []}
+                onChange={(value) => {
+                  const numArray = value.map((v) => {
+                    const num = Number(v);
+                    return isNaN(num) ? v : num;
+                  });
+                  attributeFormValues.set(attribute.property, numArray);
+                  updateFormValues();
+                }}
+                creatable={true}
+              />
             ) : attribute.datatype === "string" ? (
               <>
                 {attribute.format === "date" ? (
                   <DatePicker
-                    precision="date"
+                    precision="datetime"
                     date={dateValue ? new Date(dateValue) : undefined}
                     setDate={(v) => {
                       attributeFormValues.set(
                         attribute.property,
-                        v ? datetime(v) : ""
+                        v ? format(v, "yyyy-MM-dd'T'HH:mm") : "",
                       );
                       updateFormValues();
                     }}
                   />
                 ) : (
                   <Field
+                    size="legacy"
                     className=""
                     value={value as string}
                     onChange={(e) => {
                       attributeFormValues.set(
                         attribute.property,
-                        e.target.value
+                        e.target.value,
                       );
                       updateFormValues();
                     }}
@@ -219,16 +238,20 @@ export default function AttributeForm({
               </>
             ) : attribute.datatype === "number" ? (
               <Field
+                size="legacy"
                 className=""
                 type="number"
                 value={value as string}
                 onChange={(e) => {
-                  attributeFormValues.set(attribute.property, e.target.value);
+                  const numValue =
+                    e.target.value === "" ? "" : Number(e.target.value);
+                  attributeFormValues.set(attribute.property, numValue);
                   updateFormValues();
                 }}
               />
             ) : (
               <Field
+                size="legacy"
                 className=""
                 value={value as string}
                 onChange={(e) => {
@@ -273,6 +296,7 @@ export default function AttributeForm({
             className={`${styles.attributeBox} pb-2 round appbox`}
             style={{ borderTopRightRadius: 0 }}
           >
+            {headerContent && <div className="p-2">{headerContent}</div>}
             <TabsContent value="simple">
               <div className=" form-group ">
                 <div
@@ -287,7 +311,7 @@ export default function AttributeForm({
                 </div>
                 {orderedAttributes.length ? (
                   orderedAttributes.map((attribute, i) =>
-                    attributeInput(attribute, i)
+                    attributeInput(attribute, i),
                   )
                 ) : (
                   <>No attributes defined yet</>
@@ -299,6 +323,7 @@ export default function AttributeForm({
               <div className="p-2">
                 <div className="form-group rounded">
                   <Field
+                    size="legacy"
                     label="JSON Values"
                     value={jsonAttributes}
                     onChange={(e) => {

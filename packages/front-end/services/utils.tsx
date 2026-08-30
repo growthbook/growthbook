@@ -1,39 +1,56 @@
-import { ExperimentPhaseStringDates } from "back-end/types/experiment";
+import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import React, { ReactNode } from "react";
 import qs from "query-string";
 import { getEqualWeights } from "shared/experiments";
 import {
   BrowserCookieStickyBucketService,
   Context,
-  GrowthBook,
 } from "@growthbook/growthbook-react";
+import { GrowthBook } from "@growthbook/growthbook";
 import Cookies from "js-cookie";
+import md5 from "md5";
 import { v4 as uuidv4 } from "uuid";
 import { AccountPlan } from "shared/enterprise";
-import { AppFeatures } from "@/types/app-features";
-import track from "@/services/track";
+import { GB_SDK_ID_DEV, GB_SDK_ID_PROD } from "shared/constants";
+import { AppFeatures } from "shared/types/app-features";
+import track, {
+  getJitsuAnonymousId,
+  getTrackingPageUrl,
+} from "@/services/track";
+import { isTelemetryEnabled } from "./env";
 
 const DEVICE_ID_COOKIE = "gb_device_id";
 const SESSION_ID_COOKIE = "gb_session_id";
 const pageIds: Record<string, string> = {};
 
+const hashAttr = (value: unknown): string | undefined =>
+  typeof value === "string" && value ? md5(value) : undefined;
+
 export const GB_SDK_ID =
-  process.env.NODE_ENV === "production"
-    ? "sdk-ueFMOgZ2daLa0M"
-    : "sdk-UmQ03OkUDAu7Aox";
+  process.env.NODE_ENV === "production" ? GB_SDK_ID_PROD : GB_SDK_ID_DEV;
 
 export const gbContext: Context = {
   apiHost: "https://cdn.growthbook.io",
   clientKey: GB_SDK_ID,
   enableDevMode: true,
-  trackingCallback: (experiment, result) => {
+  trackingCallback: (experiment, result, user) => {
     track(
       "Experiment Viewed",
       {
         experimentId: experiment.key,
         variationId: result.key,
+        userContextAttributes: {
+          attributes: {
+            // hardcoded sublist of attributes without PII
+            accountPlan: user?.attributes?.accountPlan,
+            hash_device_id: hashAttr(user?.attributes?.device_id),
+            page_id: user?.attributes?.page_id,
+            hash_anonymous_id: hashAttr(user?.attributes?.anonymous_id),
+            role: user?.attributes?.role,
+          },
+        },
       },
-      true
+      true,
     );
   },
   stickyBucketService: new BrowserCookieStickyBucketService({
@@ -58,23 +75,51 @@ export function formatTrafficSplit(weights: number[], decimals = 0): string {
     .join(" / ");
 }
 
+// Single source of truth for the holdout traffic breakdown shown in the start
+// summary and the traffic/targeting card.
+export function getHoldoutTrafficBreakdown(
+  phase:
+    | {
+        coverage: number;
+        variationWeights: number[];
+      }
+    | undefined,
+): {
+  inHoldoutPercent: number;
+  forMeasurementPercent: number;
+  notForMeasurementPercent: number;
+} {
+  const coverage = phase?.coverage ?? 0;
+  const weights = phase?.variationWeights ?? [];
+  const inHoldoutWeight = weights[0] ?? 0;
+  const forMeasurementWeight = weights[1] ?? 0;
+
+  return {
+    inHoldoutPercent: Math.floor(coverage * inHoldoutWeight * 100),
+    forMeasurementPercent: Math.floor(coverage * forMeasurementWeight * 100),
+    notForMeasurementPercent: Math.floor(
+      (1 - coverage * (inHoldoutWeight + forMeasurementWeight)) * 100,
+    ),
+  };
+}
+
 // Get the number of decimals +1 needed to differentiate between
 // observed and expected weights
 export function getSRMNeededPrecisionP1(
   observed: number[],
-  expected: number[]
+  expected: number[],
 ): number {
   const observedpct = trafficSplitPercentages(observed);
   const expectedpct = trafficSplitPercentages(expected);
   const maxDiff = Math.max(
-    ...observedpct.map((o, i) => Math.abs(o - expectedpct[i] || 0))
+    ...observedpct.map((o, i) => Math.abs(o - expectedpct[i] || 0)),
   );
   return (maxDiff ? -1 * Math.floor(Math.log10(maxDiff)) : 0) + 1;
 }
 
 export function phaseSummary(
   phase: ExperimentPhaseStringDates,
-  skipWeights: boolean = false
+  skipWeights: boolean = false,
 ): ReactNode {
   if (!phase) {
     return null;
@@ -100,7 +145,7 @@ export function phaseSummary(
 
 export function distributeWeights(
   weights: number[],
-  customSplit: boolean
+  customSplit: boolean,
 ): number[] {
   // Always just use equal weights if we're not customizing them
   if (!customSplit) return getEqualWeights(weights.length);
@@ -124,7 +169,7 @@ export function distributeWeights(
 
 export function percentToDecimalForNumber(
   val: number,
-  precision: number = 4
+  precision: number = 4,
 ): number {
   return parseFloat((val / 100).toFixed(precision));
 }
@@ -145,7 +190,7 @@ export function rebalance(
   weights: number[],
   i: number,
   newValue: number,
-  precision: number = 4
+  precision: number = 4,
 ): number[] {
   // Clamp new value
   if (newValue > 1) newValue = 1;
@@ -158,7 +203,7 @@ export function rebalance(
   // Current sum of weights
   const currentTotal = floatRound(
     weights.reduce((sum, w) => sum + w, 0),
-    precision
+    precision,
   );
   // The sum is too low, increment the next variation's weight
   if (currentTotal < 1) {
@@ -166,7 +211,7 @@ export function rebalance(
     const nextValue = floatRound(weights[nextIndex], precision);
     weights[(i + 1) % weights.length] = floatRound(
       nextValue + (1 - currentTotal),
-      precision
+      precision,
     );
   } else if (currentTotal > 1) {
     // The sum is too high, loop through the other variations and decrement weights
@@ -196,7 +241,7 @@ export function isNullUndefinedOrEmpty(x): boolean {
 
 export function appendQueryParamsToURL(
   url: string,
-  params: Record<string, string | number | undefined>
+  params: Record<string, string | number | undefined>,
 ): string {
   const [_root, hash] = url.split("#");
   const [root, query] = _root.split("?");
@@ -205,7 +250,7 @@ export function appendQueryParamsToURL(
     { ...parsed, ...params },
     {
       sort: false,
-    }
+    },
   );
   return `${root}?${queryParams}${hash ? `#${hash}` : ""}`;
 }
@@ -254,11 +299,38 @@ function getOrGenerateSessionId() {
       now.getDate(),
       now.getHours(),
       now.getMinutes() + 30,
-      now.getSeconds()
+      now.getSeconds(),
     ),
     sameSite: "strict",
   });
   return sessionId;
+}
+
+/** Forward browser GB identity to the API for backend SDK tracking events. */
+export function getGrowthBookTrackingHeaders(
+  pagePath?: string,
+): Record<string, string> {
+  if (typeof window === "undefined" || !isTelemetryEnabled()) {
+    return {};
+  }
+
+  const headers: Record<string, string> = {
+    "X-GB-Session-Id": getOrGenerateSessionId(),
+    "X-GB-Device-Id": getOrGenerateDeviceId(),
+    "X-GB-Page-Id": getOrGeneratePageId(),
+    "X-GB-Page-Url": getTrackingPageUrl(),
+  };
+
+  if (pagePath) {
+    headers["X-GB-Page-Path"] = pagePath;
+  }
+
+  const anonymousId = getJitsuAnonymousId();
+  if (anonymousId) {
+    headers["X-GB-Anonymous-Id"] = anonymousId;
+  }
+
+  return headers;
 }
 
 // Used to describe account plan in text

@@ -1,14 +1,15 @@
 import React, { FC } from "react";
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
+import Link from "@/ui/Link";
 import ProjectBadges from "@/components/ProjectBadges";
 import { hasFileConfig } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 
 const DataSources: FC = () => {
   const router = useRouter();
@@ -16,12 +17,12 @@ const DataSources: FC = () => {
   const { datasources, project, error, ready } = useDefinitions();
   const filteredDatasources = project
     ? datasources.filter((ds) =>
-        isProjectListValidForProject(ds.projects, project)
+        isProjectListValidForProject(ds.projects, project),
       )
     : datasources;
 
   if (error) {
-    return <div className="alert alert-danger">{error}</div>;
+    return <Callout status="error">{error}</Callout>;
   }
   if (!ready) {
     return <LoadingOverlay />;
@@ -41,9 +42,24 @@ const DataSources: FC = () => {
       <tbody>
         {filteredDatasources.map((d, i) => (
           <tr
-            className="nav-item"
+            className="nav-item cursor-pointer"
             key={i}
             onClick={(e) => {
+              // If clicking on a link or button, default to browser behavior
+              if (
+                e.target instanceof HTMLElement &&
+                e.target.closest("a, button")
+              ) {
+                return;
+              }
+
+              // If cmd/ctrl/shift+click, open in new tab
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) {
+                window.open(`/datasources/${d.id}`, "_blank");
+                return;
+              }
+
+              // Otherwise, navigate to the data source
               e.preventDefault();
               router.push(`/datasources/${d.id}`);
             }}

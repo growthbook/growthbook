@@ -1,20 +1,21 @@
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
-import { Box, Flex, Heading, Text, Tooltip } from "@radix-ui/themes";
-import Checkbox from "@/components/Radix/Checkbox";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import Checkbox from "@/ui/Checkbox";
 import { hasFileConfig } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
-import RadioGroup from "@/components/Radix/RadioGroup";
+import RadioGroup from "@/ui/RadioGroup";
 import { GBInfo } from "@/components/Icons";
-import Frame from "@/components/Radix/Frame";
-import { DocLink } from "@/components/DocLink";
+import Frame from "@/ui/Frame";
+import HelperText from "@/ui/HelperText";
 import StatsEngineSettings from "./StatsEngineSettings";
 import StickyBucketingSettings from "./StickyBucketingSettings";
+import DecisionFrameworkSettings from "./DecisionFrameworkSettings";
 
 export default function ExperimentSettings({
   cronString,
@@ -29,7 +30,7 @@ export default function ExperimentSettings({
   const queryParams = new URLSearchParams(window.location.search);
 
   const [editChecklistOpen, setEditChecklistOpen] = useState(
-    () => queryParams.get("editCheckListModal") || false
+    () => queryParams.get("editCheckListModal") || false,
   );
 
   const srmThreshold = form.watch("srmThreshold");
@@ -41,14 +42,14 @@ export default function ExperimentSettings({
     srmThreshold && srmThreshold > 0.01
       ? "Thresholds above 0.01 may lead to many false positives, especially if you refresh results regularly."
       : srmThreshold && srmThreshold < 0.001
-      ? "Thresholds below 0.001 may make it hard to detect imbalances without lots of traffic."
-      : "";
+        ? "Thresholds below 0.001 may make it hard to detect imbalances without lots of traffic."
+        : "";
 
   return (
     <>
       <Frame>
         <Flex gap="4">
-          <Box width="220px" flexShrink="0">
+          <Box width="220px" flexShrink="0" id="experiment-settings">
             <Heading size="4" as="h4">
               Experiment Settings
             </Heading>
@@ -62,7 +63,7 @@ export default function ExperimentSettings({
                 premiumText="Custom pre-launch checklists are available to Enterprise customers"
               >
                 <Text size="3" className="font-weight-semibold">
-                  Experiment Pre-Launch Checklist
+                  Experiment pre-launch checklist
                 </Text>
               </PremiumTooltip>
               <p className="pt-2">
@@ -76,7 +77,7 @@ export default function ExperimentSettings({
                   setEditChecklistOpen(true);
                 }}
               >
-                Edit Checklist
+                Edit checklist
               </Button>
             </Box>
 
@@ -111,17 +112,45 @@ export default function ExperimentSettings({
               </Flex>
             </Box>
 
+            {/* Require unique experiment keys */}
+            <Box mb="6">
+              <Flex align="start" gap="3">
+                <Box>
+                  <Checkbox
+                    value={form.watch("requireUniqueExperimentTrackingKeys")}
+                    setValue={(v) =>
+                      form.setValue("requireUniqueExperimentTrackingKeys", v)
+                    }
+                    id="toggle-requireUniqueExperimentTrackingKeys"
+                    mt="1"
+                  />
+                </Box>
+                <Flex direction="column">
+                  <Text size="3" className="font-weight-semibold">
+                    <label htmlFor="toggle-requireUniqueExperimentTrackingKeys">
+                      Require unique experiment keys
+                    </label>
+                  </Text>
+                  <Text>
+                    Prevent experimenters from setting an experiment tracking
+                    key to one already in use.
+                  </Text>
+                </Flex>
+              </Flex>
+            </Box>
+
             {/* import length */}
             <Box mb="6">
               <Flex mb="2">
                 <label>
                   <Text size="3" className="font-weight-semibold">
-                    Minimum experiment length when importing past experiments
+                    Minimum length for imported experiments
                   </Text>
                 </label>
               </Flex>
               <Box width="150px">
                 <Field
+                  size="legacy"
                   type="number"
                   append="days"
                   step="1"
@@ -135,51 +164,54 @@ export default function ExperimentSettings({
                   })}
                 />
               </Box>
+              <HelperText status="info" size="sm" mt="1">
+                When importing past experiments from a Data Source, GrowthBook
+                skips any that ran for fewer than this many days.
+              </HelperText>
             </Box>
 
-            {/* Fact table optimization */}
+            {/* Pre-computed dimension breakdowns */}
             <Box mb="6">
               <Flex align="start" justify="start" gap="3">
                 <Box>
                   <Checkbox
-                    disabled={!hasCommercialFeature("multi-metric-queries")}
+                    disabled={!hasCommercialFeature("precomputed-dimensions")}
                     value={
-                      hasCommercialFeature("multi-metric-queries") &&
-                      !form.watch("disableMultiMetricQueries")
+                      hasCommercialFeature("precomputed-dimensions") &&
+                      !form.watch("disablePrecomputedDimensions")
                     }
                     setValue={(v) =>
-                      form.setValue("disableMultiMetricQueries", !v)
+                      form.setValue("disablePrecomputedDimensions", !v)
                     }
-                    id="toggle-factoptimization"
+                    id="toggle-precomputed-dimensions"
                     mt="1"
                   />
                 </Box>
                 <Flex direction="column" justify="start">
                   <Box>
                     <label
-                      htmlFor="toggle-factTableQueryOptimization"
+                      htmlFor="toggle-precomputed-dimensions"
                       className="mb-2"
                     >
                       <PremiumTooltip
-                        commercialFeature="multi-metric-queries"
+                        commercialFeature="precomputed-dimensions"
                         body={
                           <>
                             <p>
-                              If multiple metrics from the same Fact Table are
-                              added to an experiment, this will combine them
-                              into a single query, which is much faster and more
-                              efficient.
+                              If your exposure queries have dimension columns,
+                              this will pre-compute the breakdowns for those
+                              dimensions for faster slicing-and-dicing in
+                              experiments.
                             </p>
                             <p>
-                              For data sources with usage-based billing like
-                              BigQuery or SnowFlake, this can result in
-                              substantial cost savings.
+                              This setting will also enable post-stratification,
+                              a forthcoming variance reduction technique.
                             </p>
                           </>
                         }
                       >
                         <Text size="3" className="font-weight-semibold">
-                          Fact Table Query Optimization
+                          Pre-computed dimension breakdowns
                         </Text>{" "}
                         <GBInfo />
                       </PremiumTooltip>
@@ -187,9 +219,13 @@ export default function ExperimentSettings({
                   </Box>
                   <Box>
                     <Text>
-                      Combine multiple metrics from the same Fact Table into a
-                      single query to reduce fees on usage-based data sources,
-                      like BigQuery or Snowflake.
+                      Pre-compute dimension breakdowns using dimension columns
+                      in your exposure queries (does not pre-compute dimension
+                      breakdowns for standalone unit dimensions). This enables
+                      faster dimension slicing-and-dicing without additional
+                      queries or joins at the cost of more aggregation steps in
+                      the main analysis queries. Navigate to your Data Source
+                      page to configure the dimension slices.
                     </Text>
                   </Box>
                 </Flex>
@@ -204,7 +240,7 @@ export default function ExperimentSettings({
                     <AttributionModelTooltip>
                       <Flex gap="2" align="center" mb="4" justify="start">
                         <Text size="3" className="font-weight-semibold">
-                          Default Conversion Window Override
+                          Default conversion window override
                         </Text>{" "}
                         <GBInfo />
                       </Flex>
@@ -213,21 +249,21 @@ export default function ExperimentSettings({
                   <RadioGroup
                     options={[
                       {
-                        label: "Respect Conversion Windows",
+                        label: "Respect conversion windows",
                         value: "firstExposure",
                         description:
-                          "For metrics with conversion windows, build a single conversion window off of each user’s first exposure.",
+                          "For metrics with conversion windows, build a single conversion window off of each user's first exposure.",
                       },
                       {
-                        label: "Ignore Conversion Windows",
+                        label: "Ignore conversion windows",
                         value: "experimentDuration",
                         description:
-                          "Count all metric values from user’s first exposure to the end of the experiment.",
+                          "Count all metric values from user's first exposure to the end of the experiment.",
                       },
                     ]}
                     value={form.watch("attributionModel")}
                     gap="2"
-                    descriptionSize="2"
+                    descriptionSize="md"
                     setValue={(v) => {
                       form.setValue("attributionModel", v);
                     }}
@@ -240,7 +276,7 @@ export default function ExperimentSettings({
             <Box mb="4" width="100%">
               <Box className="appbox p-3">
                 <Heading size="3" className="font-weight-semibold" mb="4">
-                  Experiment auto-update frequency
+                  Experiment Auto-Update Frequency
                 </Heading>
                 <RadioGroup
                   disabled={hasFileConfig()}
@@ -250,6 +286,7 @@ export default function ExperimentSettings({
                       value: "stale",
                       description: (
                         <Field
+                          size="legacy"
                           label="Refresh when"
                           append="hours old"
                           type="number"
@@ -271,9 +308,11 @@ export default function ExperimentSettings({
                       description: (
                         <>
                           <Text mb="2" as="p">
-                            Enter cron string to specify frequency
+                            Enter cron string to specify frequency. Minimum once
+                            an hour.
                           </Text>
                           <Field
+                            size="legacy"
                             disabled={
                               hasFileConfig() ||
                               form.watch("updateSchedule.type") !== "cron"
@@ -301,7 +340,7 @@ export default function ExperimentSettings({
                     },
                   ]}
                   gap="2"
-                  descriptionSize="2"
+                  descriptionSize="md"
                   value={form.watch("updateSchedule.type")}
                   setValue={(v) => {
                     form.setValue("updateSchedule.type", v);
@@ -349,6 +388,7 @@ export default function ExperimentSettings({
                     className="form-inline flex-column align-items-start"
                   >
                     <Field
+                      size="legacy"
                       type="number"
                       step="0.001"
                       style={{
@@ -364,7 +404,7 @@ export default function ExperimentSettings({
                       disabled={hasFileConfig()}
                       helpText={
                         <>
-                          <span className="ml-2">(0.001 is default)</span>
+                          <span className="ml-2">Default is 0.001.</span>
                           <div
                             className="ml-2"
                             style={{
@@ -386,18 +426,16 @@ export default function ExperimentSettings({
                 </Box>
                 <Box>
                   <Text className="font-weight-semibold" size="2">
-                    <label>
-                      Warn when this percent of experiment users are in multiple
-                      variations
-                    </label>
+                    <label>Multiple exposures warning threshold</label>
                   </Text>
                   <Flex>
                     <Field
+                      size="legacy"
                       type="number"
                       step="1"
                       min="0"
                       max="100"
-                      containerClassName="mb-3"
+                      containerClassName="mt-1 mb-1"
                       append="%"
                       style={{
                         width: "62px",
@@ -410,89 +448,17 @@ export default function ExperimentSettings({
                       })}
                     />
                   </Flex>
+                  <HelperText status="info" size="sm">
+                    Warn when at least this percent of experiment users are in
+                    multiple variations.
+                  </HelperText>
                 </Box>
               </Box>
             </Box>
 
+            {/* Decision Framework Settings */}
             <Box mb="4" width="100%">
-              <Box className="appbox p-3">
-                <Heading size="3" className="font-weight-semibold" mb="2">
-                  Experiment Decision Framework
-                  <PremiumTooltip
-                    commercialFeature="decision-framework"
-                    style={{ display: "inline-flex" }}
-                  />
-                </Heading>
-                <Box mb="4">
-                  <Text size="2" style={{ color: "var(--color-text-mid)" }}>
-                    Calculates the estimated duration of your experiment using
-                    target minimum detectable effects and makes shipping
-                    recommendations.{" "}
-                    <DocLink docSection={"experimentDecisionFramework"}>
-                      Learn More
-                    </DocLink>
-                  </Text>
-                </Box>
-                <Flex
-                  display="inline-flex"
-                  gap="3"
-                  mb="4"
-                  align="center"
-                  justify="center"
-                >
-                  <Checkbox
-                    mb="0"
-                    value={
-                      !hasCommercialFeature("decision-framework")
-                        ? false
-                        : form.watch("decisionFrameworkEnabled")
-                    }
-                    setValue={(v) =>
-                      form.setValue("decisionFrameworkEnabled", v)
-                    }
-                    id="toggle-decisionFrameworkEnabled"
-                    disabled={!hasCommercialFeature("decision-framework")}
-                  />
-                  <Box>
-                    <label
-                      htmlFor="toggle-decisionFrameworkEnabled"
-                      className="font-weight-semibold mb-0"
-                    >
-                      Enable experiment decision framework
-                    </label>
-                  </Box>
-                </Flex>
-                <Box mb="4">
-                  <Text size="2">
-                    Minimum experiment runtime
-                    <Tooltip content="Estimated duration and shipping recommendations are not made until an experiment has been running for this many days.">
-                      <Flex
-                        ml="2"
-                        mb="2px"
-                        display="inline-flex"
-                        style={{ verticalAlign: "middle" }}
-                      >
-                        <GBInfo />
-                      </Flex>
-                    </Tooltip>
-                  </Text>
-                  <Box mt="1" width="150px">
-                    <Field
-                      type="number"
-                      append="days"
-                      step="1"
-                      min="0"
-                      disabled={
-                        !form.watch("decisionFrameworkEnabled") ||
-                        !hasCommercialFeature("decision-framework")
-                      }
-                      {...form.register("experimentMinLengthDays", {
-                        valueAsNumber: true,
-                      })}
-                    />
-                  </Box>
-                </Box>
-              </Box>
+              <DecisionFrameworkSettings />
             </Box>
           </Flex>
         </Flex>

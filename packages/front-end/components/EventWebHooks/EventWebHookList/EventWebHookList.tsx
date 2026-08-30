@@ -1,18 +1,19 @@
 import React, { FC, useCallback, useState } from "react";
-import { EventWebHookInterface } from "back-end/types/event-webhook";
+import { EventWebHookInterface } from "shared/types/event-webhook";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
 import { docUrl, DocLink } from "@/components/DocLink";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
 
 type EventWebHookListProps = {
   onCreateModalOpen: () => void;
   onModalClose: () => void;
   isModalOpen: boolean;
-  onAdd: (data: EventWebHookEditParams) => void;
+  onAdd: (data: EventWebHookEditParams) => Promise<void>;
   eventWebHooks: EventWebHookInterface[];
   errorMessage: string | null;
   createError: string | null;
@@ -41,34 +42,26 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
 
       <div className="mb-4">
         <div className="d-flex align-items-center">
-          <h1>Event Webhooks</h1>
-          <span className="mr-auto badge badge-purple text-uppercase ml-2">
-            Beta
-          </span>
-          <div>
+          <h2>Event Webhooks</h2>
+          <div className="ml-auto">
             <Button onClick={onCreateModalOpen}>New Event Webhook</Button>
           </div>
         </div>
         <p>
           Monitor specific events globally accross features and experiments.
           <span className="ml-2">
-            <DocLink docSection={"eventWebhooks"}>
+            <DocLink useRadix={false} docSection={"eventWebhooks"}>
               View Documentation &gt;
             </DocLink>
           </span>
         </p>
-        <div className="alert alert-premium">
-          <h4>Free while in Beta</h4>
-          <p className="mb-0">
-            This feature will be free while we build it out and work out the
-            bugs.
-          </p>
-        </div>
       </div>
 
       {/* Feedback messages */}
       {errorMessage && (
-        <div className="alert alert-danger my-3">{errorMessage}</div>
+        <Callout status="error" my="3">
+          {errorMessage}
+        </Callout>
       )}
 
       {/* Empty state*/}
@@ -118,8 +111,6 @@ export const EventWebHookListContainer = () => {
   const { apiCall } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
-  const [createError, setCreateError] = useState<string | null>(null);
-
   const { data, error, mutate } = useApi<{
     eventWebHooks: EventWebHookInterface[];
   }>("/event-webhooks");
@@ -130,34 +121,21 @@ export const EventWebHookListContainer = () => {
 
   const handleAdd = useCallback(
     async (data: EventWebHookEditParams) => {
-      // Keep the modal open and display error
-      const handleCreateError = (message: string) => {
-        setCreateError(`Failed to create webhook: ${message}`);
-        setIsModalOpen(true);
-      };
+      const response = await apiCall<{
+        error?: string;
+        eventWebHook?: EventWebHookInterface;
+      }>("/event-webhooks", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
 
-      try {
-        const response = await apiCall<{
-          error?: string;
-          eventWebHook?: EventWebHookInterface;
-        }>("/event-webhooks", {
-          method: "POST",
-          body: JSON.stringify(data),
-        });
-
-        if (response.error) {
-          handleCreateError(response.error || "Unknown error");
-        } else {
-          setCreateError(null);
-          setIsModalOpen(false);
-          mutate();
-        }
-      } catch (e) {
-        setIsModalOpen(true);
-        handleCreateError("Unknown error");
+      if (response.error) {
+        throw new Error(response.error);
       }
+
+      mutate();
     },
-    [mutate, apiCall]
+    [mutate, apiCall],
   );
 
   return (
@@ -168,7 +146,7 @@ export const EventWebHookListContainer = () => {
       eventWebHooks={data?.eventWebHooks || []}
       onAdd={handleAdd}
       errorMessage={error?.message || null}
-      createError={createError}
+      createError={null}
     />
   );
 };

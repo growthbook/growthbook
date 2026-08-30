@@ -1,12 +1,13 @@
 import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
+} from "shared/types/experiment";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { includeExperimentInPayload } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -22,9 +23,14 @@ import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
+import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
+import EditNamespaceModal from "@/components/Experiment/EditNamespaceModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
+import { useHoldouts } from "@/hooks/useHoldouts";
+import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 
 const ExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -40,9 +46,13 @@ const ExperimentPage = (): ReactElement => {
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
-  const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
-    number | null
+  const [trafficModalOpen, setTrafficModalOpen] = useState(false);
+  const [trafficFocusVariation, setTrafficFocusVariation] = useState<
+    string | null
   >(null);
+  const [addVariationOnOpen, setAddVariationOnOpen] = useState(false);
+  const [namespaceModalOpen, setNamespaceModalOpen] = useState(false);
+  const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -51,17 +61,37 @@ const ExperimentPage = (): ReactElement => {
     linkedFeatures: LinkedFeatureInfo[];
     envs: string[];
     urlRedirects: URLRedirectInterface[];
+    visualChangesetEnvStates?: LinkedChangeEnvStates;
+    urlRedirectEnvStates?: LinkedChangeEnvStates;
   }>(`/experiment/${eid}`);
+
+  const { getDecisionCriteria, getRunningExperimentResultStatus } =
+    useRunningExperimentStatus();
+
+  const decisionCriteria = getDecisionCriteria(
+    data?.experiment?.decisionFrameworkSettings?.decisionCriteriaId,
+  );
 
   useSwitchOrg(data?.experiment?.organization ?? null);
 
   const { apiCall } = useAuth();
 
+  const { experimentToHoldoutsMap } = useHoldouts();
+
   useEffect(() => {
     if (data?.experiment?.type === "multi-armed-bandit") {
       router.replace(window.location.href.replace("experiment/", "bandit/"));
     }
-  }, [data, router]);
+    if (data?.experiment?.type === "holdout") {
+      const holdoutId = experimentToHoldoutsMap.get(data?.experiment?.id)?.id;
+      let url = window.location.href.replace(
+        /(.*)\/experiment\/.*/,
+        "$1/holdout/",
+      );
+      url += holdoutId;
+      router.replace(url);
+    }
+  }, [data, experimentToHoldoutsMap, router]);
 
   if (error) {
     return <div>There was a problem loading the experiment</div>;
@@ -69,18 +99,20 @@ const ExperimentPage = (): ReactElement => {
   if (!data) {
     return <LoadingOverlay />;
   }
-
   const {
     experiment,
     visualChangesets = [],
     linkedFeatures = [],
     urlRedirects = [],
     envs = [],
+    visualChangesetEnvStates,
+    urlRedirectEnvStates,
   } = data;
 
+  const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
+
   const canEditExperiment =
-    permissionsUtil.canViewExperimentModal(experiment.project) &&
-    !experiment.archived;
+    permissionsUtil.canUpdateExperiment(experiment, {}) && !experiment.archived;
 
   let canRunExperiment = !experiment.archived;
   if (envs.length > 0) {
@@ -108,12 +140,31 @@ const ExperimentPage = (): ReactElement => {
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
     : null;
+  const editTraffic = canRunExperiment
+    ? (variationId?: string) => {
+        setTrafficFocusVariation(variationId ?? null);
+        setTrafficModalOpen(true);
+      }
+    : null;
+  const addVariation = canRunExperiment
+    ? () => {
+        setTrafficFocusVariation(null);
+        setAddVariationOnOpen(true);
+        setTrafficModalOpen(true);
+      }
+    : null;
+  const editNamespace = canRunExperiment
+    ? () => setNamespaceModalOpen(true)
+    : null;
+  const editSchedule = canEditExperiment
+    ? () => setEditScheduleModalOpen(true)
+    : null;
 
   const safeToEdit =
     experiment.status !== "running" ||
     !includeExperimentInPayload(
       experiment,
-      linkedFeatures.map((f) => f.feature)
+      linkedFeatures.map((f) => f.feature),
     );
 
   return (
@@ -131,6 +182,8 @@ const ExperimentPage = (): ReactElement => {
           close={() => setStopModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          runningExperimentStatus={runningExperimentStatus}
+          decisionCriteria={decisionCriteria}
           source="eid"
         />
       )}
@@ -174,6 +227,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setPhaseModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           source="eid"
         />
       )}
@@ -192,6 +246,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setEditPhasesOpen(false)}
           mutateExperiment={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           editTargeting={editTargeting}
           source="eid"
         />
@@ -201,8 +256,40 @@ const ExperimentPage = (): ReactElement => {
           close={() => setTargetingModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
           // source="eid"
+        />
+      )}
+      {trafficModalOpen && (
+        <EditTrafficModal
+          close={() => {
+            setTrafficModalOpen(false);
+            setTrafficFocusVariation(null);
+            setAddVariationOnOpen(false);
+          }}
+          mutate={mutate}
+          experiment={experiment}
+          linkedFeatures={linkedFeatures}
+          safeToEdit={safeToEdit}
+          focusVariationId={trafficFocusVariation}
+          addVariationOnOpen={addVariationOnOpen}
+        />
+      )}
+      {namespaceModalOpen && (
+        <EditNamespaceModal
+          close={() => setNamespaceModalOpen(false)}
+          mutate={mutate}
+          experiment={experiment}
+          linkedFeatures={linkedFeatures}
+          safeToEdit={safeToEdit}
+        />
+      )}
+      {editScheduleModalOpen && (
+        <EditScheduleModal
+          experiment={experiment}
+          close={() => setEditScheduleModalOpen(false)}
+          mutate={mutate}
         />
       )}
 
@@ -233,8 +320,12 @@ const ExperimentPage = (): ReactElement => {
           editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
-          checklistItemsRemaining={checklistItemsRemaining}
-          setChecklistItemsRemaining={setChecklistItemsRemaining}
+          editTraffic={editTraffic}
+          addVariation={addVariation}
+          editNamespace={editNamespace}
+          visualChangesetEnvStates={visualChangesetEnvStates}
+          urlRedirectEnvStates={urlRedirectEnvStates}
+          editSchedule={editSchedule}
         />
       </SnapshotProvider>
     </>

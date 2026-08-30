@@ -31,7 +31,7 @@ describe("getAllEventWebHooksForEvent", () => {
 
       expect(EventWebHookModel.find).toHaveBeenCalledWith({
         enabled: true,
-        events: "feature.created",
+        events: { $in: ["feature.created", "feature.*"] },
         organizationId: "aabb",
       });
       expect(ret).toEqual([
@@ -45,6 +45,28 @@ describe("getAllEventWebHooksForEvent", () => {
           payloadType: "raw",
         },
       ]);
+    });
+  });
+
+  describe("when event is a 3-part name (e.g. feature.revision.created)", () => {
+    it("includes both the 1-part and 2-part wildcard patterns", async () => {
+      jest.spyOn(EventWebHookModel, "find").mockImplementation(() => []);
+
+      await getAllEventWebHooksForEvent({
+        organizationId: "aabb",
+        eventName: "feature.revision.created",
+        enabled: true,
+        tags: [],
+        projects: [],
+      });
+
+      expect(EventWebHookModel.find).toHaveBeenCalledWith({
+        enabled: true,
+        events: {
+          $in: ["feature.revision.created", "feature.*", "feature.revision.*"],
+        },
+        organizationId: "aabb",
+      });
     });
   });
 
@@ -81,7 +103,7 @@ describe("getAllEventWebHooksForEvent", () => {
 
       expect(EventWebHookModel.find).toHaveBeenCalledWith({
         enabled: true,
-        events: "feature.created",
+        events: { $in: ["feature.created", "feature.*"] },
         organizationId: "aabb",
       });
       expect(ret).toEqual([

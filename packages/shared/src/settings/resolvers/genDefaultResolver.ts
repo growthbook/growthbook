@@ -16,7 +16,7 @@ export default function genDefaultResolver(
     | undefined = {},
   options?: {
     bypassEmpty?: boolean;
-  }
+  },
 ): SettingsResolver<Settings[keyof Settings]> {
   const filteredScopes = scopeOrder
     .filter((s) => scopesToApply?.[s])
@@ -29,7 +29,13 @@ export default function genDefaultResolver(
     }));
   return (ctx) => {
     const baseSetting = ctx.baseSettings[baseFieldName]?.value;
-    return filteredScopes.reduce(
+    return filteredScopes.reduce<{
+      value: Settings[keyof Settings];
+      meta: {
+        scopeApplied: keyof ScopeDefinition | "organization";
+        reason: string;
+      };
+    }>(
       (acc, { scope, fieldName }) => {
         let scopedValue = get(ctx.scopes, `${scope}.${fieldName}`);
         if (options?.bypassEmpty && scopedValue === "") {
@@ -50,7 +56,7 @@ export default function genDefaultResolver(
           scopeApplied: "organization",
           reason: "org-level setting applied",
         },
-      }
+      },
     );
   };
 }

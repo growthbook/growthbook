@@ -3,10 +3,11 @@ import isEqual from "lodash/isEqual";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-} from "back-end/types/report";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+} from "shared/types/report";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import FixVariationIds from "@/components/Experiment/FixVariationIds";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 
 const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
   if (!vals.length) {
@@ -88,9 +89,9 @@ const VariationIdWarning: FC<{
     }
     return (
       <div className="px-3">
-        <div className="alert alert-info">
+        <Callout status="info">
           Results are out of date. Update Data to refresh.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -102,13 +103,13 @@ const VariationIdWarning: FC<{
         {idModal && setVariationIds && (
           <FixVariationIds
             close={() => setIdModal(false)}
-            expected={definedVariations}
+            expected={variations.map((v) => v.id)}
             actual={returnedVariations}
             names={variations.map((v) => v.name)}
             setVariationIds={setVariationIds}
           />
         )}
-        <div className="alert alert-warning">
+        <Callout status="warning">
           <strong>Warning:</strong> Expected {variations.length} variation ids (
           <CommaList vals={definedVariations} />
           ), but database returned{" "}
@@ -132,7 +133,7 @@ const VariationIdWarning: FC<{
                 Update Ids
               </button>
             )}
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -141,15 +142,15 @@ const VariationIdWarning: FC<{
   if (definedVariations.length > returnedVariations.length) {
     return (
       <div className="px-3">
-        <div className="alert alert-warning">
+        <Callout status="warning">
           <strong>Warning</strong>: Missing data from the following variation
           ids:{" "}
           <CommaList
             vals={definedVariations.filter(
-              (v) => !returnedVariations.includes(v)
+              (v) => !returnedVariations.includes(v),
             )}
           />
-        </div>
+        </Callout>
       </div>
     );
   }

@@ -1,15 +1,15 @@
 import express from "express";
-import z from "zod";
-import { wrapController } from "back-end/src/routers/wrapController";
-import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawEnvironmentController from "./environment.controller";
+import { z } from "zod";
 import {
   createEnvValidator,
   deleteEnvValidator,
   updateEnvOrderValidator,
   updateEnvValidator,
   updateEnvsValidator,
-} from "./environment.validators";
+} from "shared/validators";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
+import * as rawEnvironmentController from "./environment.controller";
 
 const router = express.Router();
 
@@ -20,7 +20,7 @@ router.put(
   validateRequestMiddleware({
     body: updateEnvsValidator,
   }),
-  environmentController.putEnvironments
+  environmentController.putEnvironments,
 );
 
 router.put(
@@ -28,7 +28,7 @@ router.put(
   validateRequestMiddleware({
     body: updateEnvOrderValidator,
   }),
-  environmentController.putEnvironmentOrder
+  environmentController.putEnvironmentOrder,
 );
 
 router.post(
@@ -36,7 +36,7 @@ router.post(
   validateRequestMiddleware({
     body: createEnvValidator,
   }),
-  environmentController.postEnvironment
+  environmentController.postEnvironment,
 );
 
 router.put(
@@ -49,7 +49,7 @@ router.put(
       })
       .strict(),
   }),
-  environmentController.putEnvironment
+  environmentController.putEnvironment,
 );
 
 router.delete(
@@ -57,7 +57,7 @@ router.delete(
   validateRequestMiddleware({
     params: deleteEnvValidator,
   }),
-  environmentController.deleteEnvironment
+  environmentController.deleteEnvironment,
 );
 
 export { router as environmentRouter };

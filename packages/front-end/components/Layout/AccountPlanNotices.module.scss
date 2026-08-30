@@ -1,0 +1,55 @@
+.warning-notification {
+  background-color: var(--amber-a3);
+  color: var(--amber-a11);
+  padding: var(--space-1) var(--space-2);
+  border-radius: 5px;
+  border: 1px solid var(--amber-a5);
+  gap: var(--space-1);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+
+  a {
+    color: inherit;
+    text-decoration: underline;
+  }
+
+  a:hover {
+    text-decoration: none;
+  }
+}
+
+// For accessability reasons normally we don't have links in tooltips,
+// but as these links are just to be helpful and aren't necessary,
+// we don't highlight the link too much
+.notice-tooltip {
+  a {
+    color: inherit;
+    font-weight: bold;
+  }
+
+  a:hover {
+    text-decoration: none;
+  }
+}
+
+.error-notification {
+  background-color: var(--red-a3);
+  color: var(--red-a11);
+  padding: var(--space-1) var(--space-2);
+  border-radius: 5px;
+  border: 1px solid var(--red-a5);
+  gap: var(--space-1);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+
+  a {
+    color: inherit;
+    text-decoration: underline;
+  }
+
+  a:hover {
+    text-decoration: none;
+  }
+}
