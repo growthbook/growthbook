@@ -177,7 +177,8 @@ jobs:
   # Split out because front-end is over half of the non-back-end test time and
   # everything else used to queue behind it.
   test-front-end:
-    runs-on: depot-ubuntu-24.04
+    # vitest gets one worker per vCPU-1, so 2 vCPU leaves it single-threaded.
+    runs-on: depot-ubuntu-24.04-4
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
