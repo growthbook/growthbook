@@ -11,27 +11,30 @@ import {
   PiCameraPlusLight,
   PiPencilSimpleFill,
   PiPlusCircle,
-  PiUploadSimple,
 } from "react-icons/pi";
+import clsx from "clsx";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import Text from "@/ui/Text";
-import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Metadata from "@/ui/Metadata";
 import VariationLabel from "@/ui/VariationLabel";
 import VariationServedValue from "@/components/Experiment/VariationServedValue";
+import EditVariationDescriptionModal from "@/components/Experiment/EditVariationDescriptionModal";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import styles from "./VariationsTable.module.scss";
 
 export const MAX_VARIATION_WIDTH = 336;
 
-// Floor height for the "no image" placeholder when no variation in the row has
-// a screenshot; otherwise it grows to match the row height.
-const NO_IMAGE_MIN_HEIGHT = 72;
+// The "no image" placeholder is a small fixed marker, not an image-sized
+// frame — an empty variation shouldn't reserve the space a screenshot would.
+const NO_IMAGE_SIZE = 42;
 const MAX_IMAGE_HEIGHT = 150;
 
 // Radix Themes breakpoints (px), mirroring `@radix-ui/themes` `--xs`/`--sm`.
@@ -168,29 +171,42 @@ function AddVariationButton({ onClick }: { onClick: () => void }) {
 }
 
 function NoImageBox({ canEdit }: { canEdit?: boolean }) {
-  return (
+  const box = (
     <Flex
       align="center"
       justify="center"
-      className="appbox mb-0"
-      width="100%"
-      flexGrow="1"
+      className={clsx(
+        "appbox mb-0",
+        styles.noImageBox,
+        canEdit && styles.noImageBoxEditable,
+      )}
+      flexShrink="0"
       style={{
-        backgroundColor: "var(--black-a2)",
-        height: "100%",
-        minHeight: NO_IMAGE_MIN_HEIGHT + "px",
+        // Right-aligns it in the card's column when it stands alone; the drop
+        // target carries its own auto margin when it wraps this.
+        marginLeft: "auto",
+        width: NO_IMAGE_SIZE + "px",
+        height: NO_IMAGE_SIZE + "px",
         color: "var(--slate-8)",
         border: "none",
       }}
     >
-      <Box>
-        {canEdit ? (
-          <PiCameraPlusLight size="32px" />
-        ) : (
-          <PiCameraLight size="32px" />
-        )}
-      </Box>
+      {canEdit ? (
+        <PiCameraPlusLight size="26px" />
+      ) : (
+        <PiCameraLight size="26px" />
+      )}
     </Flex>
+  );
+
+  // Only the upload target earns a tooltip; the read-only placeholder does
+  // nothing on click.
+  return canEdit ? (
+    <Tooltip content="Upload image" side="top">
+      {box}
+    </Tooltip>
+  ) : (
+    box
   );
 }
 
@@ -214,6 +230,7 @@ export function VariationBox({
   shareType = "experiment",
   onEditMetadata,
   onEditTraffic,
+  onEditDescription,
   capWidth = false,
   servedValue,
   servedValueFeature,
@@ -239,6 +256,8 @@ export function VariationBox({
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
   onEditTraffic?: (variationId?: string) => void;
+  /** Opens the description-only modal. Omit to hide the overflow menu. */
+  onEditDescription?: (variationIndex: number) => void;
   capWidth?: boolean;
   /** The value this variation serves, when the sole implementation is a flag. */
   servedValue?: string;
@@ -250,6 +269,17 @@ export function VariationBox({
   const { blockFileUploads } = useOrgSettings();
   const isBandit = experiment.type === "multi-armed-bandit";
   const shouldShowSplit = showSplit ?? !isBandit;
+
+  const descriptionSnippet = !showDescription ? null : v.description ? (
+    v.description
+  ) : (
+    <Text color="text-disabled">No description</Text>
+  );
+  // Beside the placeholder when there is no screenshot, below the carousel when
+  // there is one — so it never sits in the row the placeholder already fills.
+  const showsPlaceholder =
+    allowImages && v.screenshots.length === 0 && showNoImage;
+  const descriptionBelow = !!descriptionSnippet && !showsPlaceholder;
 
   return (
     <Box
@@ -280,23 +310,50 @@ export function VariationBox({
             <Box minWidth="0" flexGrow="1">
               <VariationLabel number={i} name={v.name} size="lg" />
             </Box>
-            {canEdit && onEditMetadata && onEditTraffic ? (
-              <IconButton
-                variant="ghost"
-                size="1"
-                color="violet"
-                onClick={() => {
-                  if (experiment.status === "running") {
-                    onEditMetadata(i);
-                  } else {
-                    onEditTraffic(v.id);
+            {/* Radix ghost buttons carry a negative margin, so the gap alone
+                won't separate them. */}
+            <Flex align="center" gap="1" flexShrink="0">
+              {canEdit && onEditMetadata && onEditTraffic ? (
+                <IconButton
+                  variant="ghost"
+                  size="1"
+                  color="violet"
+                  style={{ margin: 0 }}
+                  onClick={() => {
+                    if (experiment.status === "running") {
+                      onEditMetadata(i);
+                    } else {
+                      onEditTraffic(v.id);
+                    }
+                  }}
+                  aria-label="Edit variation"
+                >
+                  <PiPencilSimpleFill size="15" />
+                </IconButton>
+              ) : null}
+              {canEdit && onEditDescription ? (
+                <DropdownMenu
+                  trigger={
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="1"
+                      highContrast
+                      style={{ margin: 0 }}
+                    >
+                      <BsThreeDotsVertical size={14} />
+                    </IconButton>
                   }
-                }}
-                aria-label="Edit variation"
-              >
-                <PiPencilSimpleFill size="15" />
-              </IconButton>
-            ) : null}
+                  menuPlacement="end"
+                  variant="soft"
+                >
+                  <DropdownMenuItem onClick={() => onEditDescription(i)}>
+                    Edit description
+                  </DropdownMenuItem>
+                </DropdownMenu>
+              ) : null}
+            </Flex>
           </Flex>
         </Box>
         {allowImages && (
@@ -318,23 +375,30 @@ export function VariationBox({
                 shareUid={shareUid}
                 shareType={shareType}
               />
-            ) : !showNoImage ? null : canEdit && !blockFileUploads ? (
-              <ScreenshotUpload
-                variation={i}
-                experiment={experiment.id}
-                onSuccess={() => mutate?.()}
-              >
-                <NoImageBox canEdit={canEdit} />
-              </ScreenshotUpload>
-            ) : (
-              <NoImageBox canEdit={false} />
+            ) : !showNoImage ? null : (
+              // No screenshot: the description shares the row with the
+              // placeholder rather than leaving the space empty.
+              <Flex align="start" gap="3">
+                <Box flexGrow="1" minWidth="0" mt="2">
+                  {descriptionSnippet}
+                </Box>
+                {canEdit && !blockFileUploads ? (
+                  <ScreenshotUpload
+                    variation={i}
+                    experiment={experiment.id}
+                    onSuccess={() => mutate?.()}
+                  >
+                    <NoImageBox canEdit={canEdit} />
+                  </ScreenshotUpload>
+                ) : (
+                  <NoImageBox canEdit={false} />
+                )}
+              </Flex>
             )}
           </Box>
         )}
         <Box mt="2">
-          {showDescription && v.description ? (
-            <Box mb="2">{v.description}</Box>
-          ) : null}
+          {descriptionBelow ? <Box mb="2">{descriptionSnippet}</Box> : null}
           {showIds ? <code className="small">ID: {v.key}</code> : null}
           <Flex align="center" justify="between">
             <Box>
@@ -348,23 +412,6 @@ export function VariationBox({
             </Box>
             {allowImages && (
               <Flex align="center" justify="end" gap="2">
-                {canEdit && !blockFileUploads && (
-                  <ScreenshotUpload
-                    variation={i}
-                    experiment={experiment.id}
-                    onSuccess={() => mutate?.()}
-                    noDrag
-                  >
-                    <Link>
-                      <Flex align="center" gap="1">
-                        <PiUploadSimple size="15" />
-                        <Text size="sm" weight="semibold">
-                          Image
-                        </Text>
-                      </Flex>
-                    </Link>
-                  </ScreenshotUpload>
-                )}
                 {v.screenshots.length > 0 ? (
                   <Text color="text-mid" size="sm" whiteSpace="nowrap">
                     {v.screenshots.length} image
@@ -419,6 +466,9 @@ const VariationsTable: FC<Props> = ({
     variationId: string;
     index: number;
   } | null>(null);
+  const [editDescriptionIndex, setEditDescriptionIndex] = useState<
+    number | null
+  >(null);
 
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
   const someVariationHasImage = variations.some(
@@ -471,6 +521,11 @@ const VariationsTable: FC<Props> = ({
               shareType={shareType}
               onEditMetadata={onEditMetadata}
               onEditTraffic={onEditTraffic}
+              onEditDescription={
+                canEditExperiment && mutate
+                  ? (index) => setEditDescriptionIndex(index)
+                  : undefined
+              }
               servedValue={
                 servedValues?.find((sv) => sv.variationId === v.id)?.value
               }
@@ -509,6 +564,15 @@ const VariationsTable: FC<Props> = ({
           );
         })}
       </Grid>
+      {editDescriptionIndex !== null && (
+        <EditVariationDescriptionModal
+          experiment={experiment}
+          variationIndex={editDescriptionIndex}
+          close={() => setEditDescriptionIndex(null)}
+          mutate={() => mutate?.()}
+          source="variations-table"
+        />
+      )}
       {openCarousel && (
         <ExperimentCarouselModal
           experiment={experiment}

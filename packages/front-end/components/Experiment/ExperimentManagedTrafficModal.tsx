@@ -277,11 +277,16 @@ function ManagedTrafficForm({
     const raw = settings?.requireReviews;
     if (raw === true) return "all";
     if (!Array.isArray(raw)) return "none";
-    const reviewSetting = feature ? getReviewSetting(raw, feature) : undefined;
+    // Adoption has no Feature Flag yet, but the one it creates lands in the
+    // experiment's project, so the rules resolve against that instead.
+    const reviewSetting = getReviewSetting(
+      raw,
+      feature ?? { project: experiment.project },
+    );
     if (!reviewSetting?.requireReviewOn) return "none";
     const envList = reviewSetting.environments ?? [];
     return envList.length === 0 ? "all" : new Set(envList);
-  }, [settings?.requireReviews, feature]);
+  }, [settings?.requireReviews, feature, experiment.project]);
 
   // `draftRevisionVersion` is only set while the experiment is a draft, so a
   // running managed experiment falls back to its pending draft.
@@ -413,19 +418,10 @@ function ManagedTrafficForm({
       JSON.stringify({ valueType, featureValues }) !==
         openedWith.current.values);
 
-  // Whether a value edit needs sign-off before it can serve. Adoption has no
-  // feature yet, so the per-feature rules can't be resolved; fall back to
-  // whether the org requires review at all, which is what the flag it creates
-  // will land under.
-  const orgRequiresReview = (() => {
-    const raw = settings?.requireReviews;
-    if (raw === true) return true;
-    if (!Array.isArray(raw)) return false;
-    return raw.some((r) => r?.requireReviewOn);
-  })();
-  const approvalRequired = feature
-    ? gatedEnvSet === "all" || (gatedEnvSet !== "none" && gatedEnvSet.size > 0)
-    : orgRequiresReview;
+  // Whether a value edit needs sign-off before it can serve. `gatedEnvSet`
+  // already resolves the org's review rules for the project this flag is (or
+  // will be) in, so adoption and editing ask the same question.
+  const approvalRequired = gatedEnvSet !== "none";
 
   const cta =
     !valuesDirty || !approvalRequired
@@ -603,6 +599,15 @@ function ManagedTrafficForm({
 
   return (
     <ModalStandard
+      onOpenAutoFocus={(e) => {
+        // Radix walks to the first tabbable node on open, which here is the
+        // coverage tooltip's trigger — and a Radix tooltip opens on focus. A
+        // field carrying `autoFocus` has already claimed focus by now; if none
+        // did, park it on the dialog itself.
+        const content = e.currentTarget as HTMLElement;
+        e.preventDefault();
+        if (!content.contains(document.activeElement)) content.focus();
+      }}
       trackingEventModalType="edit-traffic-modal"
       open={true}
       close={close}
@@ -807,6 +812,11 @@ function ManagedTrafficForm({
             }
             valueType={valueType}
             feature={feature ?? undefined}
+            // While adopting there is no Feature Flag yet, so scope the
+            // constant picker to the project the flag will be created in.
+            constantContext={
+              feature ? undefined : { project: experiment.project || undefined }
+            }
             sparse={targetFeature?.sparse}
           />
         ) : (

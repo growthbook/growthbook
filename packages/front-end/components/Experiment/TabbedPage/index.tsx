@@ -593,6 +593,7 @@ export default function TabbedPage({
             // approved (or an org that doesn't require approvals) is just info.
             status={managedApprovalBlocking ? "warning" : "info"}
             mt="3"
+            contentAlign="center"
             action={
               <ManagedFlagApproval
                 experiment={experiment}

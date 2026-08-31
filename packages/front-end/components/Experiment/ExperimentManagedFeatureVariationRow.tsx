@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useState } from "react";
+import { ComponentProps, forwardRef, useEffect, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -91,6 +91,9 @@ interface SortableProps {
   hideSplit: boolean;
   valueAsId: boolean;
   feature?: FeatureInterface;
+  // Scopes the "Insert constant" picker while the Feature Flag does not exist
+  // yet (adoption creates it on save), the way the new-flag modal does.
+  constantContext?: ComponentProps<typeof FeatureValueField>["constantContext"];
   showDescription?: boolean;
   // Render the value on its own row beneath the grid, whatever its type.
   stackValue?: boolean;
@@ -132,6 +135,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
       hideSplit,
       setWeight,
       feature,
+      constantContext,
       showDescription,
       stackValue,
       hideFeatureValue,
@@ -328,6 +332,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   setValue={setFeatureValue}
                   valueType={valueType}
                   feature={feature}
+                  constantContext={constantContext}
                   disabled={valueDisabled}
                   renderJSONInline={false}
                   inlineConstantButton
@@ -474,6 +479,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   setValue={setFeatureValue}
                   valueType={valueType}
                   feature={feature}
+                  constantContext={constantContext}
                   disabled={valueDisabled}
                   renderJSONInline={false}
                   useCodeInput={isJson}

@@ -4,6 +4,7 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
 import {
   getLatestPhaseVariations,
   hasAttributeCondition,
@@ -11,6 +12,7 @@ import {
 } from "shared/experiments";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { PiCaretDownBold, PiPencilSimpleFill, PiPlus } from "react-icons/pi";
+import { FaRegFlag } from "react-icons/fa";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
@@ -25,6 +27,7 @@ import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
+import Avatar from "@/ui/Avatar";
 import styles from "./TrafficAllocationFunnel.module.scss";
 
 export interface Props {
@@ -39,6 +42,12 @@ export interface Props {
   setEditVariationIndex?: (index: number) => void;
   /** The sole linked Feature Flag, when the cards can show its values. */
   servedValueFeature?: LinkedFeatureInfo | null;
+  /**
+   * Names the Feature Flag beneath the split. Passed only when nothing else on
+   * the page does — a managed flag that is the whole implementation has no
+   * Linked Changes panel to name it.
+   */
+  namedFeature?: FeatureInterface | null;
   /** Offered when the experiment has no implementation yet; adopts a managed flag. */
   /** Show the unpublished draft's values. Only a managed flag can publish them here. */
   servedValuePreferDraft?: boolean;
@@ -191,6 +200,7 @@ export default function TrafficAllocationFunnel({
   editNamespace,
   addVariation,
   addVariationValues,
+  namedFeature,
   setEditVariationIndex,
   servedValueFeature,
   servedValuePreferDraft,
@@ -407,6 +417,24 @@ export default function TrafficAllocationFunnel({
                 !!servedValuePreferDraft && !!servedValueFeature?.pendingDraft
               }
             />
+            {namedFeature && (
+              <Box mt="5">
+                <Text as="div" color="text-high" weight="semibold" mb="2">
+                  Values implemented via managed Feature Flag
+                </Text>
+                <Flex align="center" gap="3">
+                  <Avatar
+                    radius="small"
+                    color="indigo"
+                    size="sm"
+                    variant="soft"
+                  >
+                    <FaRegFlag />
+                  </Avatar>
+                  <Text weight="medium">{namedFeature.id}</Text>
+                </Flex>
+              </Box>
+            )}
             {addVariationValues && (
               // One offer for the whole set: the values are authored together
               // in the traffic modal, not per variation.

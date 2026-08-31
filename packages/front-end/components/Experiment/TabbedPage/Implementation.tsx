@@ -145,6 +145,12 @@ export default function Implementation({
       ? linkedFeatures[0]
       : null;
 
+  // A managed flag that is the whole implementation has nothing left for the
+  // panel to say: its values are on the variation cards and the traffic modal
+  // owns editing. Managed mode already suppresses the add-implementation
+  // affordances, so the panel is pure duplication here.
+  const managedSoleImplementation = isManaged && !!soleLinkedFeature;
+
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
 
@@ -220,6 +226,9 @@ export default function Implementation({
             mutate={mutate}
             phaseIndex={phases.length - 1}
             servedValueFeature={soleLinkedFeature}
+            namedFeature={
+              managedSoleImplementation ? soleLinkedFeature?.feature : null
+            }
             servedValuePreferDraft={isManaged}
           />
         ) : (
@@ -231,6 +240,7 @@ export default function Implementation({
           />
         )}
         {!isHoldout &&
+        !managedSoleImplementation &&
         (!showTrafficFunnel || hasLinkedChanges || canAddLinkedChanges) ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}

@@ -1,6 +1,7 @@
 import { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import { Box, Flex, Grid, IconButton, Slider } from "@radix-ui/themes";
 import {
+  ComponentProps,
   ReactNode,
   useCallback,
   useEffect,
@@ -73,6 +74,11 @@ export interface Props {
   hideSplits?: boolean;
   label?: string | null;
   feature?: FeatureInterface;
+  // Scopes the "Insert constant" picker while the Feature Flag does not exist
+  // yet (adoption creates it on save).
+  constantContext?: ComponentProps<
+    typeof SortableManagedVariationRow
+  >["constantContext"];
   autoFocusVariationId?: string | null;
   // Appends a variation once on mount and focuses its Name field.
   autoAddVariationOnMount?: boolean;
@@ -101,6 +107,7 @@ export default function ExperimentManagedFeatureVariationEditor({
   hideSplits = false,
   label: _label,
   feature,
+  constantContext,
   autoFocusVariationId,
   autoAddVariationOnMount,
   sparse,
@@ -122,14 +129,12 @@ export default function ExperimentManagedFeatureVariationEditor({
   const exitAdvancedMode = () => {
     setEditingIds(false);
     if (!variations || !setVariations) return;
-    setVariations(
-      variations.map((v, i) => ({ ...v, value: i + "", description: "" })),
-    );
+    setVariations(variations.map((v, i) => ({ ...v, value: i + "" })));
   };
 
-  // JSON needs the room, and advanced mode spends the row's width on the id
-  // and description columns; both put the value on its own row.
-  const stackValue = valueType === "json" || editingIds;
+  // Only a JSON value needs a row of its own. Descriptions moved to the
+  // variation card's own menu, so advanced mode fits on one row again.
+  const stackValue = valueType === "json";
 
   // The reorder gutter only earns its space while rows can actually be moved.
   const showDragHandle = !!setVariations && (variations?.length ?? 0) > 1;
@@ -281,7 +286,6 @@ export default function ExperimentManagedFeatureVariationEditor({
           <Grid
             columns={gridColumns({
               hideValueField: !editingIds,
-              showDescription: editingIds,
               hideSplit: hideSplits,
               stackValue,
               hideFeatureValue,
@@ -347,11 +351,6 @@ export default function ExperimentManagedFeatureVariationEditor({
                       </Tooltip>
                     )}
                   </Flex>
-                </Text>
-              )}
-              {editingIds && (
-                <Text size="md" weight="semibold">
-                  Description
                 </Text>
               )}
               {!hideSplits && (
@@ -456,6 +455,7 @@ export default function ExperimentManagedFeatureVariationEditor({
                     hideValueField={!editingIds}
                     hideSplit={hideSplits}
                     feature={feature}
+                    constantContext={constantContext}
                     stackValue={stackValue}
                     valueLabel={valueLabel}
                     valueDisabled={valueDisabled}
@@ -463,7 +463,6 @@ export default function ExperimentManagedFeatureVariationEditor({
                     valueTooltip={valueTooltip}
                     hideFeatureValue={hideFeatureValue}
                     showDragHandle={showDragHandle}
-                    showDescription={editingIds}
                     autoFocusName={
                       focusVariationId !== null &&
                       variation.id === focusVariationId
