@@ -126,6 +126,7 @@ import {
   LinkedFeatureState,
   Variation,
 } from "shared/types/experiment";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   ExperimentUpdateSchedule,
   Namespaces,
@@ -5203,20 +5204,38 @@ export async function getRefLinkedFeatureInfo({
         ),
       );
 
-      const environmentStates: Record<string, LinkedFeatureEnvState> = {};
-      environments.forEach((env) => (environmentStates[env] = "missing"));
-      matches.forEach((match) => {
-        if (!match.environmentEnabled) {
-          environmentStates[match.environmentId] = "disabled-env";
-        } else if (
-          match.rule.enabled === false &&
-          environmentStates[match.environmentId] !== "active"
-        ) {
-          environmentStates[match.environmentId] = "disabled-rule";
-        } else if (match.rule.enabled !== false) {
-          environmentStates[match.environmentId] = "active";
-        }
-      });
+      // `getMatchingRules` reports the LIVE feature's environment enablement
+      // even when handed a revision, but a revision stages its own — a managed
+      // flag is born disabled everywhere and turned on by its first draft. Pass
+      // the revision whose rules produced `from` so a draft doesn't read as off
+      // in every environment.
+      const buildEnvironmentStates = (
+        from: MatchingRule[],
+        revision?: FeatureRevisionInterface,
+      ) => {
+        const states: Record<string, LinkedFeatureEnvState> = {};
+        environments.forEach((env) => (states[env] = "missing"));
+        from.forEach((match) => {
+          const environmentEnabled =
+            revision?.environmentsEnabled?.[match.environmentId] ??
+            match.environmentEnabled;
+          if (!environmentEnabled) {
+            states[match.environmentId] = "disabled-env";
+          } else if (
+            match.rule.enabled === false &&
+            states[match.environmentId] !== "active"
+          ) {
+            states[match.environmentId] = "disabled-rule";
+          } else if (match.rule.enabled !== false) {
+            states[match.environmentId] = "active";
+          }
+        });
+        return states;
+      };
+      const environmentStates = buildEnvironmentStates(
+        matches,
+        state === "draft" ? matchedDraftRevision : undefined,
+      );
 
       const attributeScopeProjects = getFeatureAttributeScopeWithDrafts(
         feature,
@@ -5236,6 +5255,10 @@ export async function getRefLinkedFeatureInfo({
         liveHasMatchingRule: liveMatches.length > 0,
         ...(liveMatches.length > 0 && {
           liveValues: refRuleValues(liveMatches[0]?.rule),
+          liveSparse: !!(liveMatches[0]?.rule as ExperimentRefRule)?.sparse,
+          // The live rule has no revision staging its enablement, so the
+          // feature's own settings are already the right answer.
+          liveEnvironmentStates: buildEnvironmentStates(liveMatches),
         }),
         ...(hasPendingDraft &&
           matchedDraftRevision && {
@@ -5247,6 +5270,12 @@ export async function getRefLinkedFeatureInfo({
               pendingApproval: reviewRequired,
               hasMergeConflict: draftHasMergeConflict,
               hasUnrelatedDraftChanges: draftHasUnrelatedChanges,
+              // From the draft's own matches, so a running experiment can show
+              // where its unpublished edit would run rather than where it runs now.
+              environmentStates: buildEnvironmentStates(
+                draftMatches,
+                matchedDraftRevision,
+              ),
             },
           }),
         ...(pendingApproval !== undefined && { pendingApproval }),

@@ -229,7 +229,6 @@ export default function Implementation({
             namedFeature={
               managedSoleImplementation ? soleLinkedFeature?.feature : null
             }
-            servedValuePreferDraft={isManaged}
           />
         ) : (
           <TrafficAndTargeting

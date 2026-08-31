@@ -301,6 +301,10 @@ export interface LinkedFeatureInfo {
   liveHasMatchingRule?: boolean;
   /** Live rule's variation values — the "before" side of a pending edit. */
   liveValues?: ExperimentRefVariation[];
+  /** Live rule's sparse flag, alongside `liveValues`. */
+  liveSparse?: boolean;
+  /** Where the live rule runs, keyed the same as `environmentStates`. */
+  liveEnvironmentStates?: Record<string, LinkedFeatureEnvState>;
   /**
    * The unpublished draft of this experiment's rule, when one exists and isn't
    * already identical to live.
@@ -319,6 +323,8 @@ export interface LinkedFeatureInfo {
     pendingApproval: boolean;
     hasMergeConflict: boolean;
     hasUnrelatedDraftChanges: boolean;
+    /** Where the draft would run once published, keyed the same as the live map. */
+    environmentStates: Record<string, LinkedFeatureEnvState>;
   };
   /** True when the matching draft revision requires approval (regardless of whether it's been approved yet). */
   pendingApproval?: boolean;

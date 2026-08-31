@@ -11,7 +11,9 @@ import { isManagedByExperiment } from "shared/util";
 import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
 import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
 import ForceSummary from "@/components/Features/ForceSummary";
-import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import EnvironmentStatesGrid, {
+  getEnvironmentStates,
+} from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import EditFeatureFlagValuesModal from "@/components/Experiment/LinkedChanges/EditFeatureFlagValuesModal";
 import {
   revisionStatusColor,
@@ -140,21 +142,7 @@ export default function LinkedFeatureFlag({
     return info.values.find((v2) => v2.variationId === v.id)?.value || "";
   });
 
-  const environmentStates = Object.entries(info.environmentStates || {}).map(
-    ([env, state]) => ({
-      env,
-      state,
-      isActive: state === "active",
-      tooltip:
-        state === "active"
-          ? "The experiment is active in this environment"
-          : state === "disabled-env"
-            ? "The environment is disabled for this feature, so the experiment is not active"
-            : state === "disabled-rule"
-              ? "The experiment is disabled in this environment and is not active"
-              : "The experiment is not present in this environment",
-    }),
-  );
+  const environmentStates = getEnvironmentStates(info);
 
   // With the values on the variation cards, this only earns space when one of
   // the warnings below has something to say.

@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import clsx from "clsx";
 import {
   ExperimentInterfaceStringDates,
@@ -10,9 +10,20 @@ import {
   hasAttributeCondition,
   hasTargetingConfigured,
 } from "shared/experiments";
+import {
+  filterEnvironmentsByExperiment,
+  isManagedByExperiment,
+} from "shared/util";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
-import { PiCaretDownBold, PiPencilSimpleFill, PiPlus } from "react-icons/pi";
+import {
+  PiCaretDownBold,
+  PiCheckCircleFill,
+  PiPencilSimpleFill,
+  PiPlus,
+  PiXCircleFill,
+} from "react-icons/pi";
 import { FaRegFlag } from "react-icons/fa";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
@@ -22,12 +33,21 @@ import VariationsTable, {
   getVariationGridColumns,
 } from "@/components/Experiment/VariationsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { getEnabledEnvironments, useEnvironments } from "@/services/features";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useAuth } from "@/services/auth";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import Avatar from "@/ui/Avatar";
+import Tooltip from "@/ui/Tooltip";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import SplitButton from "@/ui/SplitButton";
+import Button from "@/ui/Button";
+import { getEnvironmentStates } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import styles from "./TrafficAllocationFunnel.module.scss";
 
 export interface Props {
@@ -49,8 +69,6 @@ export interface Props {
    */
   namedFeature?: FeatureInterface | null;
   /** Offered when the experiment has no implementation yet; adopts a managed flag. */
-  /** Show the unpublished draft's values. Only a managed flag can publish them here. */
-  servedValuePreferDraft?: boolean;
   canEditExperiment?: boolean;
   safeToEdit: boolean;
   mutate?: () => void;
@@ -100,11 +118,12 @@ function FunnelCard({
           <IconButton
             variant="ghost"
             color="violet"
+            radius="full"
             onClick={() => onEdit()}
-            size="1"
+            size="2"
             aria-label={`Edit ${title}`}
           >
-            <PiPencilSimpleFill size="15" />
+            <PiPencilSimpleFill size="16" />
           </IconButton>
         ) : null}
       </Flex>
@@ -203,7 +222,6 @@ export default function TrafficAllocationFunnel({
   namedFeature,
   setEditVariationIndex,
   servedValueFeature,
-  servedValuePreferDraft,
   canEditExperiment = false,
   safeToEdit = false,
   mutate,
@@ -217,10 +235,99 @@ export default function TrafficAllocationFunnel({
     getNamespaceDisplayData(phase?.namespace, namespaces);
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const allEnvironments = useEnvironments();
+  const permissionsUtil = usePermissionsUtil();
+  const { apiCall } = useAuth();
+
+  // A sole linked flag can have an unpublished draft alongside what is live.
+  // The toggle picks which one the box describes; without a draft there is
+  // nothing to switch to, so the widget shows but its draft side is dead.
+  const hasPendingDraft = !!servedValueFeature?.pendingDraft;
+  // Land on the unpublished view; `preferDraft` falls back to live on its own
+  // when there is no draft to show.
+  const [showDraftValues, setShowDraftValues] = useState(true);
+  const preferDraft = hasPendingDraft && showDraftValues;
+
+  // Ejecting hands control of what the experiment serves back to the flag, so
+  // the server takes publish authority — mirror it or the menu offers a 403.
+  // Same check the Linked Changes card used before this became its only home.
+  const managedFeature =
+    servedValueFeature &&
+    isManagedByExperiment(servedValueFeature.feature, experiment.id)
+      ? servedValueFeature.feature
+      : null;
+  const canEject =
+    !!managedFeature &&
+    canEditExperiment &&
+    permissionsUtil.canPublishFeature(
+      managedFeature,
+      getEnabledEnvironments(managedFeature, allEnvironments),
+    );
+  const [ejectConfirm, setEjectConfirm] = useState(false);
+  const [ejecting, setEjecting] = useState(false);
+  const handleEject = async () => {
+    setEjecting(true);
+    try {
+      await apiCall(`/experiment/${experiment.id}/managed-flag/eject`, {
+        method: "POST",
+      });
+      setEjectConfirm(false);
+      mutate?.();
+    } finally {
+      setEjecting(false);
+    }
+  };
+
+  // Same condition as the variation cards' "Serves": only a sole linked flag
+  // can speak for where the experiment runs. Draft first for the same reason
+  // the values are — a pending edit is what publishing will produce.
+  // Each side of the toggle reads its own fields. `info.values` and
+  // `info.environmentStates` follow whichever revision the feature resolved to,
+  // so falling back to them would show draft data under "Live".
+  const liveRule = servedValueFeature?.liveHasMatchingRule
+    ? servedValueFeature
+    : undefined;
+  const servedValueSource = preferDraft
+    ? servedValueFeature?.pendingDraft
+    : liveRule && {
+        values: liveRule.liveValues,
+        sparse: liveRule.liveSparse,
+      };
+  const envStateSource = preferDraft
+    ? servedValueFeature?.pendingDraft
+    : liveRule && { environmentStates: liveRule.liveEnvironmentStates };
+  const environmentStates = getEnvironmentStates(
+    envStateSource || { environmentStates: {} },
+  );
+  const environmentsAreDraft =
+    preferDraft && !!servedValueFeature?.pendingDraft;
+
+  // "Everyone" has to mean everyone. A rule scoped to a subset of the
+  // environments this experiment is allowed to run in is a restriction, even
+  // with no attribute targeting. Project-scoped environments are already
+  // excluded from what's allowed, so covering the rest still counts as all.
+  const allowedEnvironments = filterEnvironmentsByExperiment(
+    allEnvironments,
+    experiment,
+  );
+  const ruleEnvironments = new Set(
+    environmentStates.filter((e) => e.state !== "missing").map((e) => e.env),
+  );
+  const reachesAllEnvironments =
+    !servedValueFeature ||
+    allowedEnvironments.every((e) => ruleEnvironments.has(e.id));
   const isHoldout = experiment.type === "holdout";
   const isRunning = experiment.status === "running";
+  const canAddNamespace =
+    !isHoldout &&
+    !!editNamespace &&
+    safeToEdit &&
+    !hasNamespace &&
+    !!namespaces?.length;
+  const hasMenuActions = canAddNamespace || canEject;
 
   const hasConfiguredTargeting = hasTargetingConfigured(phase);
+  const targetsEveryone = !hasConfiguredTargeting && reachesAllEnvironments;
   const hasCondition = hasAttributeCondition(phase?.condition);
   const hasSavedGroups = !!phase?.savedGroups?.length;
   const hasPrerequisites = !!phase?.prerequisites?.length && !isHoldout;
@@ -242,22 +349,73 @@ export default function TrafficAllocationFunnel({
 
   return (
     <Frame>
+      {ejectConfirm && (
+        <ConfirmDialog
+          title="Switch to manual implementation?"
+          content="This Experiment keeps using the linked Feature Flag, but you'll manage and review it directly from its own page instead of from here."
+          yesText="Switch to manual"
+          onConfirm={handleEject}
+          onCancel={() => setEjectConfirm(false)}
+        />
+      )}
       <Flex justify="between" align="center" mb="4">
         <Heading color="text-high" as="h4" size="sm" mb="0">
           Traffic Allocation
         </Heading>
-        {!isHoldout &&
-          editNamespace &&
-          safeToEdit &&
-          !hasNamespace &&
-          !!namespaces?.length && (
-            <Link onClick={editNamespace}>
-              <Flex align="center" gap="1">
-                <PiPlus size="15" />
-                <Text weight="semibold">Add Namespace</Text>
-              </Flex>
-            </Link>
+        <Flex align="center" gap="3">
+          {servedValueFeature ? (
+            <SplitButton variant="outline">
+              <Button
+                size="md"
+                variant={preferDraft ? "solid" : "outline"}
+                disabled={!hasPendingDraft}
+                onClick={() => setShowDraftValues(true)}
+              >
+                Unpublished
+              </Button>
+              <Button
+                size="md"
+                variant={preferDraft ? "outline" : "solid"}
+                onClick={() => setShowDraftValues(false)}
+              >
+                Live values
+              </Button>
+            </SplitButton>
+          ) : null}
+          {hasMenuActions && (
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  style={{ margin: 0 }}
+                  aria-label="Traffic allocation actions"
+                >
+                  <BsThreeDotsVertical size={16} />
+                </IconButton>
+              }
+              menuPlacement="end"
+              variant="soft"
+            >
+              {canAddNamespace && (
+                <DropdownMenuItem onClick={() => editNamespace?.()}>
+                  Add namespace
+                </DropdownMenuItem>
+              )}
+              {canEject && (
+                <DropdownMenuItem
+                  disabled={ejecting}
+                  onClick={() => setEjectConfirm(true)}
+                >
+                  Convert to unmanaged Feature Flag
+                </DropdownMenuItem>
+              )}
+            </DropdownMenu>
           )}
+        </Flex>
       </Flex>
 
       <Flex direction="column">
@@ -280,14 +438,14 @@ export default function TrafficAllocationFunnel({
 
           <FunnelCard
             title="Targeting"
-            titleColor={!hasConfiguredTargeting ? "text-disabled" : undefined}
+            titleColor={targetsEveryone ? "text-disabled" : undefined}
             onEdit={editTargeting}
             inlineSummary={
-              hasConfiguredTargeting ? undefined : (
+              targetsEveryone ? (
                 <Text size="lg">
                   <em>Everyone</em>
                 </Text>
-              )
+              ) : undefined
             }
             disabled={!safeToEdit}
           >
@@ -322,6 +480,52 @@ export default function TrafficAllocationFunnel({
                     </div>
                   ) : null}
                 </>
+              ) : null}
+              {environmentStates.length > 0 ? (
+                <div>
+                  <Flex align="center" gap="1" mb="2">
+                    {environmentsAreDraft && (
+                      <Tooltip content="Unpublished draft targeting">
+                        <Box
+                          style={{
+                            flexShrink: 0,
+                            width: 8,
+                            height: 8,
+                            borderRadius: "50%",
+                            background: "var(--amber-9)",
+                          }}
+                        />
+                      </Tooltip>
+                    )}
+                    <Text as="div" color="text-high" weight="semibold">
+                      Environments
+                    </Text>
+                  </Flex>
+                  <Flex gap="4" wrap="wrap">
+                    {environmentStates.map(({ env, isActive, tooltip }) => (
+                      <Tooltip key={env} content={tooltip}>
+                        <Flex align="center" gap="1" minWidth="0">
+                          <Box
+                            flexShrink="0"
+                            style={{
+                              display: "flex",
+                              color: isActive
+                                ? "var(--green-11)"
+                                : "var(--slate-9)",
+                            }}
+                          >
+                            {isActive ? (
+                              <PiCheckCircleFill />
+                            ) : (
+                              <PiXCircleFill />
+                            )}
+                          </Box>
+                          <Text weight="medium">{env}</Text>
+                        </Flex>
+                      </Tooltip>
+                    ))}
+                  </Flex>
+                </div>
               ) : null}
             </Flex>
           </FunnelCard>
@@ -402,20 +606,12 @@ export default function TrafficAllocationFunnel({
                   ? addVariation
                   : undefined
               }
-              servedValues={
-                (servedValuePreferDraft
-                  ? servedValueFeature?.pendingDraft?.values
-                  : undefined) ?? servedValueFeature?.values
+              servedValues={servedValueSource?.values}
+              servedValueFeature={
+                servedValueSource ? servedValueFeature?.feature : undefined
               }
-              servedValueFeature={servedValueFeature?.feature}
-              servedValueSparse={
-                (servedValuePreferDraft
-                  ? servedValueFeature?.pendingDraft?.sparse
-                  : undefined) ?? servedValueFeature?.sparse
-              }
-              servedValueIsDraft={
-                !!servedValuePreferDraft && !!servedValueFeature?.pendingDraft
-              }
+              servedValueSparse={servedValueSource?.sparse}
+              servedValueIsDraft={preferDraft}
             />
             {namedFeature && (
               <Box mt="5">

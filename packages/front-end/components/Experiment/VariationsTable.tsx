@@ -26,7 +26,6 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Metadata from "@/ui/Metadata";
 import VariationLabel from "@/ui/VariationLabel";
 import VariationServedValue from "@/components/Experiment/VariationServedValue";
-import EditVariationDescriptionModal from "@/components/Experiment/EditVariationDescriptionModal";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import styles from "./VariationsTable.module.scss";
 
@@ -161,10 +160,11 @@ function AddVariationButton({ onClick }: { onClick: () => void }) {
         variant="ghost"
         color="violet"
         radius="full"
+        size="2"
         onClick={() => onClick()}
         aria-label="Add variation"
       >
-        <PiPlusCircle size="15" />
+        <PiPlusCircle size="16" />
       </IconButton>
     </Tooltip>
   );
@@ -230,7 +230,6 @@ export function VariationBox({
   shareType = "experiment",
   onEditMetadata,
   onEditTraffic,
-  onEditDescription,
   capWidth = false,
   servedValue,
   servedValueFeature,
@@ -256,8 +255,6 @@ export function VariationBox({
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
   onEditTraffic?: (variationId?: string) => void;
-  /** Opens the description-only modal. Omit to hide the overflow menu. */
-  onEditDescription?: (variationIndex: number) => void;
   capWidth?: boolean;
   /** The value this variation serves, when the sole implementation is a flag. */
   servedValue?: string;
@@ -316,8 +313,9 @@ export function VariationBox({
               {canEdit && onEditMetadata && onEditTraffic ? (
                 <IconButton
                   variant="ghost"
-                  size="1"
+                  size="2"
                   color="violet"
+                  radius="full"
                   style={{ margin: 0 }}
                   onClick={() => {
                     if (experiment.status === "running") {
@@ -328,28 +326,28 @@ export function VariationBox({
                   }}
                   aria-label="Edit variation"
                 >
-                  <PiPencilSimpleFill size="15" />
+                  <PiPencilSimpleFill size="16" />
                 </IconButton>
               ) : null}
-              {canEdit && onEditDescription ? (
+              {canEdit && onEditMetadata ? (
                 <DropdownMenu
                   trigger={
                     <IconButton
                       variant="ghost"
                       color="gray"
                       radius="full"
-                      size="1"
+                      size="2"
                       highContrast
                       style={{ margin: 0 }}
                     >
-                      <BsThreeDotsVertical size={14} />
+                      <BsThreeDotsVertical size={16} />
                     </IconButton>
                   }
                   menuPlacement="end"
                   variant="soft"
                 >
-                  <DropdownMenuItem onClick={() => onEditDescription(i)}>
-                    Edit description
+                  <DropdownMenuItem onClick={() => onEditMetadata(i)}>
+                    Edit name and description
                   </DropdownMenuItem>
                 </DropdownMenu>
               ) : null}
@@ -466,9 +464,6 @@ const VariationsTable: FC<Props> = ({
     variationId: string;
     index: number;
   } | null>(null);
-  const [editDescriptionIndex, setEditDescriptionIndex] = useState<
-    number | null
-  >(null);
 
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
   const someVariationHasImage = variations.some(
@@ -521,11 +516,6 @@ const VariationsTable: FC<Props> = ({
               shareType={shareType}
               onEditMetadata={onEditMetadata}
               onEditTraffic={onEditTraffic}
-              onEditDescription={
-                canEditExperiment && mutate
-                  ? (index) => setEditDescriptionIndex(index)
-                  : undefined
-              }
               servedValue={
                 servedValues?.find((sv) => sv.variationId === v.id)?.value
               }
@@ -564,15 +554,6 @@ const VariationsTable: FC<Props> = ({
           );
         })}
       </Grid>
-      {editDescriptionIndex !== null && (
-        <EditVariationDescriptionModal
-          experiment={experiment}
-          variationIndex={editDescriptionIndex}
-          close={() => setEditDescriptionIndex(null)}
-          mutate={() => mutate?.()}
-          source="variations-table"
-        />
-      )}
       {openCarousel && (
         <ExperimentCarouselModal
           experiment={experiment}

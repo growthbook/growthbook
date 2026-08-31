@@ -1,4 +1,5 @@
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import { LinkedFeatureEnvState } from "shared/types/experiment";
 import {
   PiCaretDown,
   PiCaretRight,
@@ -10,12 +11,35 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 
-type EnvironmentState = {
+export type EnvironmentState = {
   env: string;
   state: string;
   isActive: boolean;
   tooltip: string;
 };
+
+/**
+ * Whether the experiment actually serves in each environment: the flag's
+ * environment toggle AND the rule's own presence and enablement. Shared so
+ * every surface explains a given state with the same words.
+ */
+export function getEnvironmentStates(source: {
+  environmentStates?: Record<string, LinkedFeatureEnvState>;
+}): EnvironmentState[] {
+  return Object.entries(source.environmentStates || {}).map(([env, state]) => ({
+    env,
+    state,
+    isActive: state === "active",
+    tooltip:
+      state === "active"
+        ? "The experiment is active in this environment"
+        : state === "disabled-env"
+          ? "The environment is disabled for this feature, so the experiment is not active"
+          : state === "disabled-rule"
+            ? "The experiment is disabled in this environment and is not active"
+            : "The experiment is not present in this environment",
+  }));
+}
 
 type Props = {
   environmentStates: EnvironmentState[];
