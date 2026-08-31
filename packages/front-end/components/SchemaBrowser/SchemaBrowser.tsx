@@ -391,7 +391,7 @@ export default function SchemaBrowser({
                                       >
                                         <SchemaCopyButton
                                           value={tablePath}
-                                          idleTooltip="Copy full table path"
+                                          tooltip="Copy full table path"
                                         />
                                         {updateSqlInput ? (
                                           <SchemaSqlInsertButton

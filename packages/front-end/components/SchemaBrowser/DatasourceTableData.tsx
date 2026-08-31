@@ -293,7 +293,7 @@ export default function DatasourceSchema({
                           <span className={actionStyles.actions}>
                             <SchemaCopyButton
                               value={column.columnName}
-                              idleTooltip="Copy column name"
+                              tooltip="Copy column name"
                             />
                             {updateSqlInput && !column.jsonField ? (
                               <SchemaSqlInsertButton

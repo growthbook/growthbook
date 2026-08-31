@@ -25,23 +25,23 @@ function ActionTooltip({
 
 export function SchemaCopyButton({
   value,
-  idleTooltip,
+  tooltip,
 }: {
   value: string;
-  idleTooltip: string;
+  tooltip: string;
 }) {
   const { copySuccess, performCopy, copySupported } = useCopyToClipboard({
     timeout: 2000,
   });
   if (!copySupported) return null;
   return (
-    <ActionTooltip content={copySuccess ? "Copied" : idleTooltip}>
+    <ActionTooltip content={copySuccess ? "Copied" : tooltip}>
       <Button
         variant="ghost"
         size="sm"
         color="inherit"
         stopPropagation
-        aria-label={idleTooltip}
+        aria-label={tooltip}
         icon={<PiCopy size={14} />}
         onClick={() => performCopy(value)}
       >
