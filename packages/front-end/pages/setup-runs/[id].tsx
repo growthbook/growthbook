@@ -1,5 +1,4 @@
 import { useRouter } from "next/router";
-import { useEffect } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { formatDistanceToNow } from "date-fns";
 import { ApiSetupRun, setupRunMetaString } from "shared/validators";
@@ -22,7 +21,6 @@ import Table, {
 } from "@/ui/Table";
 import Text from "@/ui/Text";
 import useApi from "@/hooks/useApi";
-import { useCelebration } from "@/hooks/useCelebration";
 
 type Artifact = ApiSetupRun["artifacts"][number];
 type ArtifactKind = Artifact["kind"];
@@ -177,13 +175,6 @@ export default function SetupRunPage() {
 
   const run = data?.setupRun;
   const completed = run?.outcome === "completed";
-
-  const startCelebration = useCelebration(1);
-  useEffect(() => {
-    // Only for a run whose checks actually passed. Confetti over a half-done
-    // install is the same dishonesty as a green tick over a failing check.
-    if (completed) startCelebration();
-  }, [completed, startCelebration]);
 
   // Distinguish the three states rather than showing one overlay for all of them.
   // A loading spinner that never resolves is indistinguishable from a blank page,
