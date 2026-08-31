@@ -56,6 +56,8 @@ An ideal decision metric has the following properties:
 - It has a **short conversion window** and can be observed in a relatively short time frame. Short conversion windows allow the bandit to update with accurate information; a metric that takes longer to be observed will slow down Bandit learning. If sticky bucketing is disabled, it is important to use a short conversion window to avoid
 - If it is a proportion metric, the conversion rate should not be super low or super high. These extreme conversion rates can result in Bandits that are very slow to converge as a lot of data is needed to adequately separate the Bandit variations.
 
+Quantile metrics cannot be used as the Decision Metric, and [Funnel](/app/metrics/funnel) metrics cannot be used anywhere on a Bandit.
+
 ### 6. Specify the conversion window length
 
 Ideally your users convert in a window much shorter than your bandit's update cadence. This will help the bandit learn quickly and allocate future traffic to the best performing variations.

@@ -45,6 +45,7 @@ export * from "./types";
 export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
+export * from "./holdouts";
 export * from "./diffFormats";
 export * from "./format-json";
 export * from "./datasource";
@@ -121,6 +122,23 @@ export function getSnapshotAnalysis(
       ? snapshot?.analyses?.find((a) => isEqual(a.settings, analysisSettings))
       : snapshot?.analyses?.[0]) || null
   );
+}
+
+export function findAnalysisComputeFailure(
+  analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis | null,
+): { metricId: string; errorMessage: string | null } | null {
+  for (const dimension of analysis?.results ?? []) {
+    for (const variation of dimension.variations ?? []) {
+      for (const [metricId, metric] of Object.entries(
+        variation.metrics ?? {},
+      )) {
+        if (metric?.computeFailed) {
+          return { metricId, errorMessage: metric.errorMessage ?? null };
+        }
+      }
+    }
+  }
+  return null;
 }
 
 export function getSafeRolloutSnapshotAnalysis(

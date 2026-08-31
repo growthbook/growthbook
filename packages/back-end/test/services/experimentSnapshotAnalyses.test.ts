@@ -252,6 +252,16 @@ describe("toApiResultAnalysis", () => {
     expect(result.effect).toBeNull();
     expect(result.pValue).toBeNull();
     expect(result.mean).toBeNull();
+    expect(result.effectStandardError).toBeNull();
+  });
+
+  it("maps the uplift stddev to effectStandardError", () => {
+    expect(
+      toApiResultAnalysis("frequentist", "relative", {
+        ...data,
+        uplift: { dist: "normal", mean: 0.25, stddev: 0.04 },
+      }).effectStandardError,
+    ).toBe(0.04);
   });
 
   it("passes the stored denominator through unchanged", () => {
@@ -334,6 +344,33 @@ describe("toSnapshotApiInterface (legacy contract)", () => {
 
     expect(analysis.percentChange).toBe(0);
     expect(analysis.pValue).toBe(0);
+    expect(analysis.effectStandardError).toBe(0);
+  });
+
+  it("returns the effect standard error from the stored uplift distribution", () => {
+    const snapshot = makeSnapshot();
+    snapshot.analyses = [
+      makeSuccessAnalysis(
+        makeAnalysisSettings({ dimensions: [""] }),
+        makeOverallResult("met_1", [
+          makeSnapshotMetricData(),
+          makeSnapshotMetricData({
+            uplift: { dist: "normal", mean: 0.1, stddev: 0.02 },
+          }),
+        ]),
+      ),
+    ];
+
+    const result = toSnapshotApiInterface(
+      makeExperiment(),
+      snapshot,
+      new Map(),
+    );
+
+    expect(
+      result.results[0].metrics[0].variations[1].analyses[0]
+        .effectStandardError,
+    ).toBe(0.02);
   });
 });
 

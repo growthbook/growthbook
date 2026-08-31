@@ -453,6 +453,25 @@ describe("findEventForwarderManagedViolation", () => {
     );
   });
 
+  it("allows validation to stamp an error on a managed record", () => {
+    expect(
+      findEventForwarderManagedViolation({
+        before,
+        after: [{ ...before[0], error: "bad query" }, before[1]],
+        identify,
+        label,
+      }),
+    ).toBe(null);
+    expect(
+      findEventForwarderManagedViolation({
+        before: [{ ...before[0], error: "bad query" }],
+        after: [{ ...before[0], error: undefined }],
+        identify,
+        label,
+      }),
+    ).toBe(null);
+  });
+
   it("allows anything when nothing was managed", () => {
     expect(
       findEventForwarderManagedViolation({
