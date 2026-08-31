@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import asyncHandler from "express-async-handler";
 import { getRolePermissions, hasPermission } from "shared/permissions";
+import { isExpired } from "shared/api-key-expiration";
 import {
   EventUserApiKey,
   EventUserLoggedIn,
@@ -212,7 +213,8 @@ function authenticateWithApiKey(
   // Lookup organization by secret key and store in req
   dangerousLookupOrganizationByApiKey(secretKey)
     .then(async (apiKeyDoc) => {
-      const { organization, secret, id, userId, role, disabled } = apiKeyDoc;
+      const { organization, secret, id, userId, role, disabled, expiresAt } =
+        apiKeyDoc;
       if (!secret) {
         throw new Error(
           "Must use a Secret API Key for this request, SDK Endpoint key given instead.",
@@ -227,6 +229,12 @@ function authenticateWithApiKey(
       );
       if (disabled) {
         throw new Error("This API key has been disabled");
+      }
+      // Expiry is derived from the stored date rather than swept, so the doc
+      // survives for audit and `lastUsed` keeps recording attempts after it
+      // lapses — same reasoning as the disabled check above.
+      if (isExpired(expiresAt)) {
+        throw new Error("This API key has expired");
       }
       req.apiKey = id || "";
 
