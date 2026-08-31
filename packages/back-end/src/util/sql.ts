@@ -248,6 +248,66 @@ function getJSONFields(testValues: unknown[]): JSONColumnFields {
   return fields;
 }
 
+export function columnNamesMatch(
+  a: string,
+  b: string,
+  caseSensitive = false,
+): boolean {
+  return caseSensitive ? a === b : a.toLowerCase() === b.toLowerCase();
+}
+
+// Map values are never undefined, so undefined means the key is absent.
+export function getColumnByName<T>(
+  map: Map<string, T>,
+  name: string,
+  caseSensitive = false,
+): T | undefined {
+  const direct = map.get(name);
+  if (direct !== undefined || caseSensitive) {
+    return direct;
+  }
+  const lower = name.toLowerCase();
+  for (const [key, value] of map) {
+    if (key.toLowerCase() === lower) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+export type DetectedJSONFields = {
+  fields: JSONColumnFields;
+  source: "querySchema" | "sampledValues";
+};
+
+/**
+ * Merge freshly-detected JSON sub-fields into the persisted set, preferring the
+ * existing entry when a field is already present. Fields supplied by query
+ * schema metadata follow the integration's SQL identifier casing rules. Fields
+ * inferred from JSON values use exact key matching.
+ */
+export function mergeJsonFields(
+  existing: JSONColumnFields | undefined,
+  incoming: DetectedJSONFields,
+  columnNamesAreCaseSensitive: boolean,
+): { fields: JSONColumnFields; changed: boolean } {
+  const fields: JSONColumnFields = { ...existing };
+  const presentNames = Object.keys(fields);
+  // Keys sampled from JSON values are literally case-sensitive; fields from
+  // schema metadata follow the integration's identifier casing rule.
+  const caseSensitive =
+    incoming.source === "sampledValues" || columnNamesAreCaseSensitive;
+  let changed = false;
+  for (const name of Object.keys(incoming.fields)) {
+    if (!presentNames.some((p) => columnNamesMatch(p, name, caseSensitive))) {
+      fields[name] = incoming.fields[name];
+      presentNames.push(name);
+      changed = true;
+    }
+  }
+  return { fields, changed };
+}
+
 export function determineColumnTypes(
   rows: Record<string, unknown>[],
   typeMap: Map<string, FactTableColumnType>,
