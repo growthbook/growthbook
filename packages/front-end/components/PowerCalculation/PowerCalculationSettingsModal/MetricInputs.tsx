@@ -104,7 +104,23 @@ export const InputField = ({
         )}
       </>
     ),
-    ...(c.type !== "boolean" ? { min: c.minValue, max: c.maxValue } : {}),
+    ...(c.type !== "boolean"
+      ? {
+          // PercentField shows proportion*100; HTML min/max must match the display unit.
+          min:
+            c.minValue !== undefined
+              ? c.type === "percent"
+                ? c.minValue * 100
+                : c.minValue
+              : undefined,
+          max:
+            c.maxValue !== undefined
+              ? c.type === "percent"
+                ? c.maxValue * 100
+                : c.maxValue
+              : undefined,
+        }
+      : {}),
     className: clsx("w-50", isKeyInvalid && "border border-danger"),
     helpText: isKeyInvalid ? (
       <div className="text-danger">{helpText}</div>

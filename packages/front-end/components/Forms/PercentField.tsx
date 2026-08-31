@@ -6,15 +6,12 @@ type Props = {
   onChange: (_: number | undefined) => void;
 } & Omit<FieldProps, "ref" | "value" | "onChange">;
 
-const formatter = new Intl.NumberFormat(undefined, {
-  maximumFractionDigits: 2,
-});
-
 const validateAndFormatValue = (value: number | undefined) => {
   if (value === undefined) return value;
   if (isNaN(value)) return 0;
   if (value < 0 || 1 < value) return 0;
-  return Number(formatter.format(value * 100));
+  // Numeric only — locale-formatted strings become NaN under comma-decimal locales.
+  return Math.round(value * 10000) / 100;
 };
 
 export default function PercentField({
