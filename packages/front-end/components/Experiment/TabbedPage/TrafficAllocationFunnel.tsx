@@ -411,9 +411,7 @@ function AssignmentAttribute({
             Sticky bucketing:
           </Text>
           <Text color="text-mid">
-            <em>
-              {experiment.disableStickyBucketing ? "Disabled" : "Enabled"}
-            </em>
+            {experiment.disableStickyBucketing ? "Disabled" : "Enabled"}
           </Text>
         </Box>
       ) : null}
