@@ -15,8 +15,8 @@ const JOB_NAME = "notifyApiKeyExpiration";
 /**
  * Expiry itself is enforced at authentication from the stored date, so this
  * sweep exists only to announce the two transitions. It records the furthest
- * stage already announced on each key, which makes it idempotent and lets it
- * catch up rather than lose an event after downtime.
+ * stage already announced on each key, so it catches up after downtime and at
+ * worst repeats a notice rather than skipping one.
  */
 const notifyApiKeyExpiration = async () => {
   const now = new Date();
@@ -63,16 +63,7 @@ const notifyApiKeyExpiration = async () => {
           continue;
         }
 
-        // Claim before emitting: the write is what makes the event at-most-once,
-        // so losing the claim means another sweep is already announcing it.
-        const claimed = await ApiKeyModel.dangerousClaimExpirationNotice(
-          key.id || "",
-          organization,
-          notice,
-        );
-        if (!claimed) continue;
-
-        await createEvent({
+        const eventId = await createEvent({
           context,
           object: "apiKey",
           objectId: key.id,
@@ -90,6 +81,17 @@ const notifyApiKeyExpiration = async () => {
           tags: [],
           environments: [],
         });
+
+        // Recorded only once the event exists — `createEvent` swallows its own
+        // failures, so anything else here would mark an event that never
+        // happened as announced. Repeating one beats losing one.
+        if (eventId) {
+          await ApiKeyModel.dangerousRecordExpirationNotice(
+            key.id || "",
+            organization,
+            notice,
+          );
+        }
       }
     } catch (err) {
       // One bad organization must not stop the sweep for the rest.

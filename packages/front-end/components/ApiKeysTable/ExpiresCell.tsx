@@ -3,6 +3,7 @@ import { ago, datetime } from "shared/dates";
 import { ExpiresAt, getExpirationStatus } from "shared/api-key-expiration";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
 
 /**
  * Expired reads as "won't authenticate" just like Disabled, but only one of the
@@ -12,7 +13,7 @@ const ExpiresCell: FC<{ expiresAt: ExpiresAt }> = ({ expiresAt }) => {
   const status = getExpirationStatus(expiresAt);
 
   if (status === "none") {
-    return <span className="text-muted">Never</span>;
+    return <Text color="text-low">Never</Text>;
   }
   if (status === "expired") {
     return (
