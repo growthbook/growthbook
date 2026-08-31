@@ -128,14 +128,11 @@ export const AI_PROVIDER_MODEL_MAP = {
 
 export type AIModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
 
-export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-haiku-4-5-20251001";
-// Sonnet 5 rather than the general default: the visual editor's structured-
-// output + tool-calling workload is the most schema-sensitive thing we run,
-// and schema-adherence failures surface to the user as "the AI couldn't
-// format a valid response". It is also cheaper than the Sonnet 4.5 it
-// replaces.
-export const CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL: AIModel =
-  "claude-sonnet-5";
+export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-sonnet-5";
+// Currently the same as the general default. Kept as its own constant so the
+// visual editor — the most schema-sensitive workload we run — can be moved
+// independently when its needs and the general default's diverge.
+export const CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL: AIModel = "claude-sonnet-5";
 export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image-preview";
 export const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
