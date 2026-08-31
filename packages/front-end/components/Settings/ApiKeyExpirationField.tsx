@@ -4,6 +4,7 @@ import {
   allowedExpirationPresets,
   maxExpirationDate,
   MaxLifetimeDays,
+  violatesExpirationPolicy,
 } from "shared/api-key-expiration";
 import { datetime } from "shared/dates";
 import DatePicker from "@/components/DatePicker";
@@ -12,6 +13,8 @@ import HelperText from "@/ui/HelperText";
 
 const CUSTOM = "custom";
 const NEVER = "never";
+// Nothing selected, which only a policy change can put the field into.
+const UNSET = "";
 
 const presetLabel = (days: number) => {
   if (days === 365) return "1 year";
@@ -38,21 +41,31 @@ const ApiKeyExpirationField: FC<{
   // The select shows a default under a policy, but the parent owns the value, so
   // without this a key created without touching the dropdown submits null.
   useEffect(() => {
-    if (!required || value || selection === CUSTOM) return;
-    // A policy can turn on mid-modal, stranding a selection the select no
-    // longer offers — converting that one gives an invalid date.
+    if (!required) return;
+    // A policy can tighten mid-modal. Clearing rather than clamping keeps Create
+    // from submitting a date the user never saw.
+    if (value && violatesExpirationPolicy(value, maxLifetimeDays)) {
+      setSelection(UNSET);
+      setValue(null);
+      return;
+    }
+    if (value || selection === CUSTOM || selection === UNSET) return;
+    // A policy turning on strands a selection the select no longer offers —
+    // converting that one gives an invalid date.
     const days = selection === NEVER ? longest : Number(selection);
     setSelection(String(days));
     setValue(addDays(new Date(), days));
-  }, [required, value, selection, longest, setValue]);
+  }, [required, value, selection, longest, maxLifetimeDays, setValue]);
 
   const latest = maxExpirationDate(maxLifetimeDays);
+  const cleared = selection === UNSET;
 
   return (
     <>
       <Select
         label="Expiration"
         mb="3"
+        placeholder="Choose an expiration"
         value={selection}
         setValue={(next) => {
           setSelection(next);
@@ -86,8 +99,10 @@ const ApiKeyExpirationField: FC<{
       )}
 
       {required && latest && (
-        <HelperText status="info" mb="3">
-          {`Your organization requires an expiration date, and the latest allowed is ${datetime(latest)}.`}
+        <HelperText status={cleared ? "warning" : "info"} mb="3">
+          {cleared
+            ? `Your organization changed its expiration policy, so the date you chose is no longer allowed. The latest allowed is now ${datetime(latest)}.`
+            : `Your organization requires an expiration date, and the latest allowed is ${datetime(latest)}.`}
         </HelperText>
       )}
     </>
