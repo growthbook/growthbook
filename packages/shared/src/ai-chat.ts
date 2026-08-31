@@ -162,11 +162,35 @@ export type AIChatSystemMessage = {
   content: string;
 };
 
+export type AIChatMentionType = "metric" | "factMetric" | "metricGroup";
+
+/** An @-mentioned metric. The text keeps "@Revenue"; this carries the id. */
+export type AIChatMention = {
+  type: AIChatMentionType;
+  id: string;
+  name: string;
+  /** Set by the server when the metric isn't in this turn's Data Source. */
+  stale?: boolean;
+};
+
+export type SkillKind = "domain" | "leaf";
+
+/** Skill index entry for the `/` menu. Omits the prompt body — the agent loads that. */
+export interface SkillSummary {
+  name: string;
+  description: string;
+  kind: SkillKind;
+  /** Parent domain for leaf skills; same as `name` for domain routers. */
+  group?: string;
+}
+
 export type AIChatUserMessage = {
   role: "user";
   id: string;
   ts: number;
   content: string | AIChatUserContentPart[];
+  mentions?: AIChatMention[];
+  skills?: string[];
   /**
    * URL path (+ search) the user was on when they sent this message.
    * Captured at send time and persisted on the message so per-turn page

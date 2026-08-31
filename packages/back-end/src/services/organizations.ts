@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
@@ -6,7 +7,13 @@ import {
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
+  roleSupportsEnvLimit,
 } from "shared/permissions";
+import {
+  DUPLICATE_PROJECT_ROLES_MESSAGE,
+  hasNoDuplicateProjects,
+} from "shared/validators";
+import { accountFeatures } from "shared/enterprise";
 import {
   DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_MAX_PERCENT_CHANGE,
@@ -110,7 +117,9 @@ import {
 import {
   getAccountPlan,
   getLicense,
+  getLowestPlanPerFeature,
   licenseInit,
+  orgHasPremiumFeature,
 } from "back-end/src/enterprise";
 import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { TeamModel } from "back-end/src/models/TeamModel";
@@ -588,6 +597,114 @@ export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
 }
 
+type RoleRuleInput = {
+  role: string;
+  limitAccessByEnvironment?: boolean;
+  environments?: string[];
+};
+
+// One rule: a valid role the plan allows, with a coherent environment limit.
+function assertRoleRuleValid(
+  organization: OrganizationInterface,
+  { role, limitAccessByEnvironment, environments }: RoleRuleInput,
+) {
+  if (!isRoleValid(role, organization)) {
+    throw new Error(`${role} is not a valid role`);
+  }
+
+  const lowestPlanMap = getLowestPlanPerFeature(accountFeatures);
+
+  if (
+    role === "noaccess" &&
+    !orgHasPremiumFeature(organization, "no-access-role")
+  ) {
+    throw new Error(
+      `Must have a ${lowestPlanMap["no-access-role"]} plan to gain access to the no-access role.`,
+    );
+  }
+
+  if (
+    role === "gbDefault_projectAdmin" &&
+    !orgHasPremiumFeature(organization, "project-admin-role")
+  ) {
+    throw new Error(
+      `Must have a ${lowestPlanMap["project-admin-role"]} plan to gain access to the project admin role.`,
+    );
+  }
+
+  if (limitAccessByEnvironment && environments?.length) {
+    if (!orgHasPremiumFeature(organization, "advanced-permissions")) {
+      throw new Error(
+        `Must have a ${lowestPlanMap["advanced-permissions"]} plan to restrict permissions by environment.`,
+      );
+    }
+
+    if (!roleSupportsEnvLimit(role, organization)) {
+      throw new Error(
+        `${role} does not support restricting access to certain environments.`,
+      );
+    }
+
+    const environmentIds =
+      organization.settings?.environments?.map((e) => e.id) || [];
+    environments.forEach((env) => {
+      if (!environmentIds.includes(env)) {
+        throw new Error(
+          `${env} is not a valid environment ID for this organization.`,
+        );
+      }
+    });
+  }
+}
+
+// The whole shape a member-role writer accepts. Every human-payload writer
+// validates through here, so no rule rides in unchecked on just one path.
+export function assertMemberRoleInfoValid(
+  organization: OrganizationInterface,
+  roleInfo: RoleRuleInput & {
+    additionalRoles?: RoleRuleInput[];
+    projectRoles?: (RoleRuleInput & {
+      project: string;
+      additionalRoles?: RoleRuleInput[];
+    })[];
+  },
+) {
+  const rules = [roleInfo, ...(roleInfo.additionalRoles ?? [])];
+  rules.forEach((rule) =>
+    assertRoleRuleValid(organization, {
+      ...rule,
+      // An extra rule's env list is its limit; there is no unlimited form.
+      limitAccessByEnvironment:
+        rule === roleInfo
+          ? rule.limitAccessByEnvironment
+          : (rule.limitAccessByEnvironment ?? !!rule.environments?.length),
+    }),
+  );
+
+  const projectRoles = roleInfo.projectRoles ?? [];
+  if (!projectRoles.length) return;
+
+  if (!orgHasPremiumFeature(organization, "advanced-permissions")) {
+    throw new Error(
+      "Your plan does not support providing users with project-level permissions.",
+    );
+  }
+  if (!hasNoDuplicateProjects(projectRoles)) {
+    throw new Error(DUPLICATE_PROJECT_ROLES_MESSAGE);
+  }
+  projectRoles.forEach((projectRole) => {
+    [projectRole, ...(projectRole.additionalRoles ?? [])].forEach((rule) =>
+      assertRoleRuleValid(organization, {
+        ...rule,
+        limitAccessByEnvironment:
+          rule === projectRole
+            ? rule.limitAccessByEnvironment
+            : (rule.limitAccessByEnvironment ?? !!rule.environments?.length),
+      }),
+    );
+  });
+}
+
 // Free (role-restricted) plans can only assign the admin global role. Only the
 // global role is checked here.
 export function assertRoleAssignmentAllowed(
@@ -880,6 +997,7 @@ export async function inviteUser({
   limitAccessByEnvironment,
   environments,
   projectRoles,
+  additionalRoles,
   invitedBy,
 }: {
   organization: OrganizationInterface;
@@ -888,7 +1006,14 @@ export async function inviteUser({
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
-  email = email.toLowerCase();
+  email = email
+    .toLowerCase()
+    .replace(/^[\s;,]+/, "")
+    .replace(/[\s;,]+$/, "");
+
+  if (!z.string().email().safeParse(email).success) {
+    throw new Error(`Invalid email address: ${email}`);
+  }
 
   // User is already invited (legacy invites may have been stored with
   // mixed case, so compare case-insensitively).
@@ -931,6 +1056,7 @@ export async function inviteUser({
     limitAccessByEnvironment,
     environments,
     projectRoles,
+    additionalRoles,
     invitedBy,
   };
   const updatedOrganization = await addOrganizationInviteIfSeatAvailable(
@@ -1377,7 +1503,8 @@ export async function addMemberFromSSOConnection(
 
     organization = orgs[0];
   }
-  if (!organization) return null;
+  // Never auto-join users into a disabled organization
+  if (!organization || organization.disabled) return null;
 
   // If the org has explicitly disabled autoApproveMembers, add the user as a pending member
   // This differs from the non-SSO path (`undefined` is auto-approved there) to preserve existing behavior

@@ -387,7 +387,7 @@ export type ScheduleStopAfter = z.infer<typeof scheduleStopAfterValidator>;
 // not just the dedicated scheduled-stop-plan service.
 const forceShipCriteriaHasVariation = (c: {
   mode: string;
-  fallback: string;
+  fallback?: string;
   fallbackVariationId?: string;
 }) =>
   !(
@@ -400,13 +400,27 @@ const forceShipVariationRefine = {
   path: ["fallbackVariationId"] as string[],
 };
 
+// `fallback` is only required when `mode` is "auto-ship" — it specifies what
+// happens when there's no clear winner. Other modes ignore this field.
+const autoShipRequiresFallback = (c: { mode: string; fallback?: string }) =>
+  !(c.mode === "auto-ship" && !c.fallback);
+const autoShipFallbackRefine = {
+  message: 'fallback is required when mode is "auto-ship".',
+  path: ["fallback"] as string[],
+};
+
 export const scheduledStopPlanValidator = z
   .object({
     mode: z.enum(SCHEDULED_STOP_MODES),
     tiebreakerMetricId: z.string().optional(),
-    fallback: z.enum(SCHEDULED_STOP_FALLBACKS),
+    /**
+     * What to do at the scheduled end when there is no clear winner. Required
+     * when `mode` is `"auto-ship"`; ignored for other modes.
+     */
+    fallback: z.enum(SCHEDULED_STOP_FALLBACKS).optional(),
     fallbackVariationId: z.string().optional(),
   })
+  .refine(autoShipRequiresFallback, autoShipFallbackRefine)
   .refine(forceShipCriteriaHasVariation, forceShipVariationRefine);
 export type ScheduledStopPlan = z.infer<typeof scheduledStopPlanValidator>;
 
@@ -480,6 +494,7 @@ export const experimentInterface = z
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
     linkedFeatures: z.array(z.string()).optional(),
+    attributeScopeAllProjects: z.boolean().optional(),
     // Drafts queued for auto-publish on `status -> running`. Each
     // (featureId, revisionVersion) pair is its own row — multiple drafts of
     // the same feature can be queued and are merged sequentially at start.
@@ -747,6 +762,24 @@ const apiExperimentVariation = z.object({
   screenshots: z.array(z.string()),
 });
 
+const apiPhaseSavedGroupTargeting = z
+  .array(
+    z.object({
+      matchType: z.enum(["all", "any", "none"]),
+      savedGroups: z.array(z.string()),
+    }),
+  )
+  .optional();
+
+const phaseSavedGroupInput = {
+  savedGroups: z.array(savedGroupTargeting).optional(),
+  savedGroupTargeting: apiPhaseSavedGroupTargeting
+    .describe(
+      "Deprecated — use `savedGroups`. Accepted so a GET response can be posted back unchanged; `savedGroups` takes precedence if both are sent.",
+    )
+    .meta({ deprecated: true }),
+};
+
 // Phase sub-schema for API responses
 const apiExperimentPhase = z.object({
   name: z.string(),
@@ -779,14 +812,7 @@ const apiExperimentPhase = z.object({
       }),
     )
     .optional(),
-  savedGroupTargeting: z
-    .array(
-      z.object({
-        matchType: z.enum(["all", "any", "none"]),
-        savedGroups: z.array(z.string()),
-      }),
-    )
-    .optional(),
+  savedGroupTargeting: apiPhaseSavedGroupTargeting,
 });
 
 // Result summary sub-schema
@@ -830,9 +856,16 @@ export const apiScheduledStopPlanValidator = namedSchema(
     .object({
       mode: z.enum(SCHEDULED_STOP_MODES),
       tiebreakerMetricId: z.string().optional(),
-      fallback: z.enum(SCHEDULED_STOP_FALLBACKS),
+      fallback: z
+        .enum(SCHEDULED_STOP_FALLBACKS)
+        .describe(
+          "What to do at the scheduled end when there is no clear winner. " +
+            'Required when `mode` is `"auto-ship"`; ignored for other modes.',
+        )
+        .optional(),
       fallbackVariationId: z.string().optional(),
     })
+    .refine(autoShipRequiresFallback, autoShipFallbackRefine)
     .refine(forceShipCriteriaHasVariation, forceShipVariationRefine)
     .describe(
       "What happens at the scheduled end date. `notify` keeps the experiment " +
@@ -940,6 +973,7 @@ const apiExperimentShape = z.object({
   banditConversionWindowValue: z.coerce.number().optional(),
   banditConversionWindowUnit: z.enum(["days", "hours"]).optional(),
   linkedFeatures: z.array(z.string()).optional(),
+  attributeScopeAllProjects: z.boolean().optional(),
   hasVisualChangesets: z.boolean().optional(),
   hasURLRedirects: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
@@ -1044,11 +1078,17 @@ export const apiExperimentResultsValidator = namedSchema(
                       mean: z.coerce.number(),
                       stddev: z.coerce.number(),
                       percentChange: z.coerce.number(),
+                      effectStandardError: z.coerce
+                        .number()
+                        .describe(
+                          "Standard error of the estimated effect (`percentChange`).",
+                        ),
                       ciLow: z.coerce.number(),
                       ciHigh: z.coerce.number(),
                       pValue: z.coerce.number().optional(),
                       risk: z.coerce.number().optional(),
                       chanceToBeatControl: z.coerce.number().optional(),
+                      errorMessage: z.string().optional(),
                     }),
                   ),
                 }),
@@ -1148,10 +1188,15 @@ const apiBulkResultVariation = z.object({
       stddev: z.number().nullable(),
       // Estimated effect expressed according to differenceType.
       effect: z.number().nullable(),
+      effectStandardError: z
+        .number()
+        .nullable()
+        .describe("Standard error of `effect`, on the same scale."),
       ciLow: z.number().nullable(),
       ciHigh: z.number().nullable(),
       pValue: z.number().nullable().optional(),
       chanceToBeatControl: z.number().nullable().optional(),
+      errorMessage: z.string().optional(),
     }),
   ),
 });
@@ -1331,14 +1376,7 @@ const apiPhaseInput = z.object({
     .string()
     .describe("Targeting condition as a JSON string. Mirrors the GET response.")
     .optional(),
-  savedGroupTargeting: z
-    .array(
-      z.object({
-        matchType: z.enum(["all", "any", "none"]),
-        savedGroups: z.array(z.string()),
-      }),
-    )
-    .optional(),
+  ...phaseSavedGroupInput,
   variationWeights: z
     .array(z.number())
     .describe("Deprecated: use `trafficSplit`. Takes precedence if set.")
@@ -1412,6 +1450,12 @@ const postExperimentBody = z
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
+    attributeScopeAllProjects: z
+      .boolean()
+      .describe(
+        "Picker preference: show attributes from all projects in this experiment's targeting UI instead of only those in scope for its project and linked features. Does not loosen enforcement — when the organization requires registered attributes with project scoping, out-of-scope attributes are still rejected.",
+      )
+      .optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     disableStickyBucketing: z.boolean().optional(),
     bucketVersion: z.number().optional(),
@@ -1530,6 +1574,12 @@ const updateExperimentBody = z
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
+    attributeScopeAllProjects: z
+      .boolean()
+      .describe(
+        "Picker preference: show attributes from all projects in this experiment's targeting UI instead of only those in scope for its project and linked features. Does not loosen enforcement — when the organization requires registered attributes with project scoping, out-of-scope attributes are still rejected.",
+      )
+      .optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     disableStickyBucketing: z.boolean().optional(),
     bucketVersion: z.number().optional(),
@@ -1618,14 +1668,7 @@ const updateExperimentBody = z
               "Targeting condition as a JSON string. Mirrors the GET response.",
             )
             .optional(),
-          savedGroupTargeting: z
-            .array(
-              z.object({
-                matchType: z.enum(["all", "any", "none"]),
-                savedGroups: z.array(z.string()),
-              }),
-            )
-            .optional(),
+          ...phaseSavedGroupInput,
           variationWeights: z
             .array(z.number())
             .describe(
@@ -1960,6 +2003,12 @@ const startChecklistItemStatusValidator = z
     status: checklistStatusValidator,
     manual: z.boolean(),
     reason: z.string(),
+    hardBlock: z
+      .boolean()
+      .optional()
+      .describe(
+        "When true, this item cannot be bypassed with `skipChecklist` — the experiment cannot be started until it is resolved.",
+      ),
   })
   .strict();
 
@@ -2223,6 +2272,10 @@ export const postExperimentSnapshotValidator = {
   method: "post" as const,
   path: "/experiments/:id/snapshot",
   exampleRequest: { body: { triggeredBy: "schedule" } } as const,
+  possibleErrors: [
+    "requires_full_refresh",
+    "dimension_already_up_to_date",
+  ] as const,
 };
 
 export const postVariationImageUploadValidator = {

@@ -8,6 +8,7 @@ import {
   getDraftAffectedEnvironments,
   PermissionError,
 } from "shared/util";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   deleteRevisionForFailedLanding,
   createRevision,
@@ -136,7 +137,7 @@ export async function toggleFeatureCore(
     feature,
     baseRevision: liveRevision,
     revision: fakeRevision,
-    allEnvironments: environmentIds,
+    orgEnvironments: getEnvironments(organization),
     settings: organization.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });

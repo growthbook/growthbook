@@ -21,6 +21,7 @@ import {
   SliceLevelsData,
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
+  getFactMetricFactTableIds,
   getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
@@ -205,6 +206,13 @@ export function getSnapshotSettingsFromReportArgs(
     stddev: DEFAULT_PROPER_PRIOR_STDDEV,
   };
 
+  const expandedArgs: LegacyExperimentReportArgs = {
+    ...args,
+    goalMetrics: expandMetricGroups(args.goalMetrics, metricGroups),
+    secondaryMetrics: expandMetricGroups(args.secondaryMetrics, metricGroups),
+    guardrailMetrics: expandMetricGroups(args.guardrailMetrics, metricGroups),
+  };
+
   // Expand derived metrics if factTableMap is provided
   if (factTableMap) {
     // Expand all derived metrics (slices and funnel steps) into the metricMap
@@ -218,10 +226,9 @@ export function getSnapshotSettingsFromReportArgs(
 
   const snapshotSettings: ExperimentSnapshotSettings = {
     metricSettings: getAllExpandedMetricIdsFromExperiment({
-      exp: args,
+      exp: expandedArgs,
       expandedMetricMap: metricMap,
       includeActivationMetric: true,
-      metricGroups: [],
     })
       .map((m) =>
         getMetricForSnapshot({
@@ -253,9 +260,9 @@ export function getSnapshotSettingsFromReportArgs(
     skipPartialData: !!args.skipPartialData,
     defaultMetricPriorSettings: defaultMetricPriorSettings,
     regressionAdjustmentEnabled: !!args.regressionAdjustmentEnabled,
-    goalMetrics: args.goalMetrics,
-    secondaryMetrics: args.secondaryMetrics,
-    guardrailMetrics: args.guardrailMetrics,
+    goalMetrics: expandedArgs.goalMetrics,
+    secondaryMetrics: expandedArgs.secondaryMetrics,
+    guardrailMetrics: expandedArgs.guardrailMetrics,
     dimensions: args.dimension ? [{ id: args.dimension }] : [],
     variations: args.variations.map((v) => ({
       id: v.id,
@@ -263,7 +270,7 @@ export function getSnapshotSettingsFromReportArgs(
     })),
     coverage: args.coverage,
   };
-  const analysisSettings = getAnalysisSettingsFromReportArgs(args);
+  const analysisSettings = getAnalysisSettingsFromReportArgs(expandedArgs);
 
   return { snapshotSettings, analysisSettings };
 }
@@ -730,8 +737,15 @@ export function getReportSnapshotSettings({
           }
         : undefined;
 
+  // Use the scrubbed lists so metricSettings lines up with the goal/secondary/
+  // guardrail lists returned below (a scrubbed metric must not be queried).
   const metricSettings = getAllExpandedMetricIdsFromExperiment({
-    exp: report.experimentAnalysisSettings,
+    exp: {
+      goalMetrics,
+      secondaryMetrics,
+      guardrailMetrics,
+      activationMetric: report.experimentAnalysisSettings.activationMetric,
+    },
     expandedMetricMap: metricMap,
     includeActivationMetric: true,
     metricGroups,
@@ -862,15 +876,9 @@ export async function generateExperimentReportSSRData({
     {},
   );
 
-  let factTableIds: string[] = [];
-  factMetrics.forEach((m) => {
-    const primaryFactTableId = getFactMetricPrimaryFactTableId(m);
-    if (primaryFactTableId) factTableIds.push(primaryFactTableId);
-    if (m?.denominator?.factTableId)
-      factTableIds.push(m.denominator.factTableId);
-  });
-
-  factTableIds = uniq(factTableIds);
+  const factTableIds = uniq(
+    factMetrics.flatMap((m) => getFactMetricFactTableIds(m)),
+  );
 
   const factTables = await getFactTablesByIds(context, factTableIds);
   const factTableMap: Record<string, FactTableInterface> = factTables.reduce(

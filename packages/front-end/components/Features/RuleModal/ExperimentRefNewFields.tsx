@@ -1,4 +1,5 @@
 import { useFormContext } from "react-hook-form";
+import { CustomField } from "shared/types/custom-fields";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   FeatureInterface,
@@ -32,6 +33,7 @@ import {
   getFeatureDefaultValue,
   NewExperimentRefRule,
   useAttributeSchema,
+  resolveAttributeFilter,
 } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
@@ -54,10 +56,6 @@ import { convertTemplateToExperimentRule } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
 import HelperText from "@/ui/HelperText";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
@@ -68,8 +66,8 @@ import RuleProjectScopeField, {
 import { getExposureQuery } from "@/services/datasources";
 import Text from "@/ui/Text";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 
 export default function ExperimentRefNewFields({
@@ -77,6 +75,8 @@ export default function ExperimentRefNewFields({
   source,
   feature,
   project,
+  attributeProjects,
+  attributeSelectIndicator,
   environments,
   defaultValues,
   prerequisiteValue,
@@ -102,6 +102,8 @@ export default function ExperimentRefNewFields({
   hideVariationIds = true,
   startEditingIndexes = false,
   orgStickyBucketing,
+  customFields,
+  customFieldValues,
   setCustomFields,
   isTemplate = false,
   holdoutHashAttribute,
@@ -113,6 +115,8 @@ export default function ExperimentRefNewFields({
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
+  attributeProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
   prerequisiteValue: FeaturePrerequisite[];
@@ -138,6 +142,8 @@ export default function ExperimentRefNewFields({
   hideVariationIds?: boolean;
   startEditingIndexes?: boolean;
   orgStickyBucketing?: boolean;
+  customFields?: CustomField[];
+  customFieldValues?: Record<string, string>;
   setCustomFields?: (customFields: Record<string, string>) => void;
   isTemplate?: boolean;
   holdoutHashAttribute?: string;
@@ -179,7 +185,10 @@ export default function ExperimentRefNewFields({
   const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.getValues("exposureQueryId");
 
-  const attributeSchema = useAttributeSchema(false, project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    resolveAttributeFilter(attributeProjects, project),
+  );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
@@ -276,12 +285,6 @@ export default function ExperimentRefNewFields({
     hasCommercialFeature("templates") &&
     settings.requireExperimentTemplates &&
     availableTemplates.length >= 1;
-
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "experiment",
-    project,
-  );
 
   return (
     <>
@@ -381,16 +384,13 @@ export default function ExperimentRefNewFields({
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
           {projectScope && <RuleProjectScopeField {...projectScope} mb="5" />}
 
-          {hasCommercialFeature("custom-metadata") &&
-            !!customFields?.length && (
-              <CustomFieldInput
-                customFields={customFields}
-                currentCustomFields={form.watch("customFields")}
-                setCustomFields={setCustomFields ? setCustomFields : () => {}}
-                section={"experiment"}
-                project={project}
-              />
-            )}
+          {!!customFields?.length && (
+            <CustomFieldInput
+              fields={customFields}
+              value={customFieldValues ?? {}}
+              onChange={setCustomFields ? setCustomFields : () => {}}
+            />
+          )}
         </>
       ) : null}
 
@@ -408,16 +408,10 @@ export default function ExperimentRefNewFields({
               size="legacy"
               withRadixThemedPortal
               containerClassName="flex-1"
+              extraIndicator={attributeSelectIndicator}
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({
-                  label: s.property,
-                  value: s.property,
-                  description: s.description,
-                  tags: s.tags,
-                  datatype: s.datatype,
-                  hashAttribute: s.hashAttribute,
-                }))}
+                .map(toAttributeOption)}
               value={hashAttribute}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
@@ -426,16 +420,7 @@ export default function ExperimentRefNewFields({
                   form.setValue("exposureQueryId", exposureQueryId);
                 }
               }}
-              formatOptionLabel={(o, meta) => {
-                return (
-                  <AttributeOptionWithTooltip
-                    option={o as AttributeOptionForTooltip}
-                    context={meta.context}
-                  >
-                    {o.label}
-                  </AttributeOptionWithTooltip>
-                );
-              }}
+              formatOptionLabel={formatAttributeOptionLabel}
             />
             {!!holdoutHashAttribute &&
               form.watch("hashAttribute") !== holdoutHashAttribute && (
@@ -447,6 +432,7 @@ export default function ExperimentRefNewFields({
             <FallbackAttributeSelector
               form={form}
               attributeSchema={attributeSchema}
+              extraIndicator={attributeSelectIndicator}
             />
 
             {hasSDKWithNoBucketingV2 && !isTemplate && (
@@ -532,6 +518,8 @@ export default function ExperimentRefNewFields({
         <>
           <TargetingFieldsGroup
             project={project || ""}
+            attributeProjects={attributeProjects}
+            attributeSelectIndicator={attributeSelectIndicator}
             environments={environments ?? []}
             feature={feature}
             savedGroups={savedGroupValue}
