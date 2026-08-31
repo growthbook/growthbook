@@ -250,11 +250,13 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
           autoSnapshots: false,
         },
       });
-
-      await notifyAutoUpdate({ context, experiment, success: false });
     } catch (e) {
       logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
+    }
+    try {
       await notifyAutoUpdate({ context, experiment, success: false });
+    } catch (e) {
+      logger.error(e, "Failed to notify auto-update failure: " + experimentId);
     }
   }
 };
