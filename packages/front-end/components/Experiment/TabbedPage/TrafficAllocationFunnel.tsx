@@ -38,7 +38,6 @@ export interface Props {
   /** The sole linked Feature Flag, when the cards can show its values. */
   servedValueFeature?: LinkedFeatureInfo | null;
   /** Offered when the experiment has no implementation yet; adopts a managed flag. */
-  onAddServedValue?: (variationId: string) => void;
   /** Show the unpublished draft's values. Only a managed flag can publish them here. */
   servedValuePreferDraft?: boolean;
   canEditExperiment?: boolean;
@@ -191,7 +190,6 @@ export default function TrafficAllocationFunnel({
   addVariation,
   setEditVariationIndex,
   servedValueFeature,
-  onAddServedValue,
   servedValuePreferDraft,
   canEditExperiment = false,
   safeToEdit = false,
@@ -405,7 +403,6 @@ export default function TrafficAllocationFunnel({
               servedValueIsDraft={
                 !!servedValuePreferDraft && !!servedValueFeature?.pendingDraft
               }
-              onAddServedValue={onAddServedValue}
             />
           </>
         )}

@@ -22,7 +22,6 @@ import {
   type LinkedChange,
 } from "./constants";
 import AddLinkedChanges from "./AddLinkedChanges";
-import AddManagedFlagOption from "./AddManagedFlagOption";
 
 export default function LinkedChanges({
   linkedFeatures,
@@ -43,7 +42,6 @@ export default function LinkedChanges({
   setEditVariationIndex,
   hideVariations,
   managedMode,
-  onAddManagedFlag,
   valuesShownOnVariations,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
@@ -64,8 +62,6 @@ export default function LinkedChanges({
   setEditVariationIndex?: (index: number) => void;
   /** Withholds the add-a-change surfaces. */
   managedMode?: boolean;
-  /** Offers the promoted managed-flag option above the manual ones. */
-  onAddManagedFlag?: () => void;
   /** The variation cards above are already showing the flag's values. */
   valuesShownOnVariations?: boolean;
   hideVariations?: boolean;
@@ -195,10 +191,6 @@ export default function LinkedChanges({
                 />
               </Flex>
             )}
-          {/* Above the manual options, so the recommended path reads first. */}
-          {!managedMode && onAddManagedFlag && numLinkedChanges === 0 && (
-            <AddManagedFlagOption onClick={onAddManagedFlag} />
-          )}
           {!managedMode &&
             setFeatureModal &&
             setVisualEditorModal &&

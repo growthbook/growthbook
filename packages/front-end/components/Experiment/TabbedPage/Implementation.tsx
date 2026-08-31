@@ -13,7 +13,6 @@ import { getActivePhaseIndex } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
-import AddManagedFlagModal from "@/components/Experiment/LinkedChanges/AddManagedFlagModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
@@ -130,24 +129,6 @@ export default function Implementation({
       ? linkedFeatures[0]
       : null;
 
-  // Adoption: an experiment with nothing wired up yet can take on a managed
-  // flag. Keyed on the resolved implementation count, so a flag deleted out of
-  // band leaves the experiment back in the empty state rather than stuck.
-  const hasNoImplementations =
-    linkedFeatures.length === 0 &&
-    !experiment.hasVisualChangesets &&
-    !experiment.hasURLRedirects;
-  const canAdoptManagedFlag =
-    !isManaged &&
-    hasNoImplementations &&
-    canEditExperiment &&
-    experiment.status === "draft" &&
-    !experiment.archived &&
-    !experiment.nextScheduledStatusUpdate &&
-    permissionsUtil.canViewFeatureModal(experiment.project);
-  const [addManagedOpen, setAddManagedOpen] = useState(false);
-  const [addManagedFocus, setAddManagedFocus] = useState<string | null>(null);
-
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
 
@@ -192,21 +173,6 @@ export default function Implementation({
           mutate={mutate}
         />
       )}
-      {addManagedOpen && (
-        <AddManagedFlagModal
-          experiment={experiment}
-          focusVariationId={addManagedFocus}
-          close={() => {
-            setAddManagedOpen(false);
-            setAddManagedFocus(null);
-          }}
-          mutate={() => {
-            setAddManagedOpen(false);
-            setAddManagedFocus(null);
-            mutate();
-          }}
-        />
-      )}
       {editMetadataIndex !== null && canEditExperiment && (
         <EditVariationMetadataModal
           experiment={experiment}
@@ -234,14 +200,6 @@ export default function Implementation({
             phaseIndex={phases.length - 1}
             servedValueFeature={soleLinkedFeature}
             servedValuePreferDraft={isManaged}
-            onAddServedValue={
-              canAdoptManagedFlag
-                ? (variationId) => {
-                    setAddManagedFocus(variationId);
-                    setAddManagedOpen(true);
-                  }
-                : undefined
-            }
           />
         ) : (
           <TrafficAndTargeting
@@ -252,10 +210,7 @@ export default function Implementation({
           />
         )}
         {!isHoldout &&
-        (!showTrafficFunnel ||
-          hasLinkedChanges ||
-          canAddLinkedChanges ||
-          canAdoptManagedFlag) ? (
+        (!showTrafficFunnel || hasLinkedChanges || canAddLinkedChanges) ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
             experiment={experiment}
@@ -274,9 +229,6 @@ export default function Implementation({
             setEditVariationIndex={setEditMetadataIndex}
             hideVariations={showTrafficFunnel}
             managedMode={managedMode}
-            onAddManagedFlag={
-              canAdoptManagedFlag ? () => setAddManagedOpen(true) : undefined
-            }
             valuesShownOnVariations={!!soleLinkedFeature && showTrafficFunnel}
           />
         ) : null}

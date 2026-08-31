@@ -166,7 +166,7 @@ export default function FeatureValueField({
   // Constant-picker wiring. Only offered in a feature context (where `@const:`
   // references get resolved at payload build time) — not for standalone
   // experiment values. `pickerProject` scopes which constants are offered.
-  const showConstantPicker = !!feature || !!constantContext;
+  const showConstantPicker = (!!feature || !!constantContext) && !disabled;
   const pickerProject = constantContext?.project ?? project ?? feature?.project;
   const pickerExcludeKeys = constantContext?.excludeKeys;
   // Tags for the valid constants referenced in the current value, shown below
@@ -588,7 +588,7 @@ export default function FeatureValueField({
     // Edit/Preview tabs. Offered whenever the caller wires `setSparse` — when the
     // default isn't a plain object (array/null/primitive) there's nothing to
     // merge onto, so the patch simply replaces the value (see the toggle tooltip).
-    const showSparseToggle = !!setSparse;
+    const showSparseToggle = !!setSparse && !disabled;
     const isSparse = !!sparse;
 
     // Cursor-aware insertion targets the Ace editor (the code-editor path, or the
@@ -698,22 +698,23 @@ export default function FeatureValueField({
 
     const formatted = formatJSON(value);
 
-    const codeEditorToggleButton = useCodeInput ? (
-      <a
-        href="#"
-        className="text-purple"
-        onClick={(e) => {
-          e.preventDefault();
-          setCodeEditorToggledOn(!codeEditorToggledOn);
-        }}
-        style={{ whiteSpace: "nowrap" }}
-      >
-        <PiBracketsCurly />{" "}
-        {codeEditorToggledOn ? "Use text editor" : "Use code editor"}
-      </a>
-    ) : null;
+    const codeEditorToggleButton =
+      useCodeInput && !disabled ? (
+        <a
+          href="#"
+          className="text-purple"
+          onClick={(e) => {
+            e.preventDefault();
+            setCodeEditorToggledOn(!codeEditorToggledOn);
+          }}
+          style={{ whiteSpace: "nowrap" }}
+        >
+          <PiBracketsCurly />{" "}
+          {codeEditorToggledOn ? "Use text editor" : "Use code editor"}
+        </a>
+      ) : null;
 
-    const formatJSONButton = (
+    const formatJSONButton = disabled ? null : (
       <a
         href="#"
         className={clsx("text-purple", {

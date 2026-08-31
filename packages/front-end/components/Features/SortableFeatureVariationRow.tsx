@@ -57,8 +57,10 @@ export function gridColumns({
         : "minmax(120px, 1fr)",
     "minmax(160px, 1fr)",
     showDescription ? "minmax(140px, 1fr)" : undefined,
-    hideSplit ? undefined : "80px",
-    "32px",
+    hideSplit ? undefined : "100px",
+    // Wider than the row menu needs: the header's Advanced switch is absolutely
+    // positioned in this column and would otherwise reach the Split label.
+    "48px",
   ]
     .filter(Boolean)
     .join(" ");

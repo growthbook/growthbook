@@ -3,7 +3,12 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { RiDraggable } from "react-icons/ri";
-import { PiCaretDown, PiCaretUp } from "react-icons/pi";
+import {
+  PiCaretDown,
+  PiCaretUp,
+  PiInfo,
+  PiPencilSimpleFill,
+} from "react-icons/pi";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
   ExperimentValue,
@@ -18,6 +23,7 @@ import {
 } from "@/services/utils";
 import { getVariationDefaultName } from "@/services/features";
 import Field from "@/components/Forms/Field";
+import Tooltip from "@/ui/Tooltip";
 import VariationNumber from "@/ui/VariationNumber";
 import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
@@ -36,6 +42,7 @@ export function gridColumns({
   showDescription,
   hideSplit,
   stackValue,
+  hideFeatureValue,
   showDragHandle,
 }: {
   hideValueField?: boolean;
@@ -43,6 +50,8 @@ export function gridColumns({
   hideSplit?: boolean;
   // On its own row below, so it takes no column here.
   stackValue?: boolean;
+  // There is no flag yet, so there is no value to show at all.
+  hideFeatureValue?: boolean;
   // The reorder gutter, present only while the table is editable.
   showDragHandle?: boolean;
 }): string {
@@ -51,10 +60,12 @@ export function gridColumns({
     "16px",
     hideValueField ? undefined : "minmax(80px, 0.4fr)",
     "minmax(160px, 1fr)",
-    stackValue ? undefined : "minmax(180px, 1.2fr)",
+    stackValue || hideFeatureValue ? undefined : "minmax(180px, 1.2fr)",
     showDescription ? "minmax(140px, 1fr)" : undefined,
-    hideSplit ? undefined : "80px",
-    "32px",
+    hideSplit ? undefined : "100px",
+    // Wider than the row menu needs: the header's Advanced switch is absolutely
+    // positioned in this column and would otherwise reach the Split label.
+    "48px",
   ]
     .filter(Boolean)
     .join(" ");
@@ -83,6 +94,16 @@ interface SortableProps {
   showDescription?: boolean;
   // Render the value on its own row beneath the grid, whatever its type.
   stackValue?: boolean;
+  hideFeatureValue?: boolean;
+  // Names the served value; the editor's header uses the same string.
+  valueLabel?: string;
+  // Locks the served value until the caller opts into editing it.
+  valueDisabled?: boolean;
+  // Unlocks it. Rendered beside the stacked label, which repeats per row —
+  // every copy drives the same caller state.
+  onEditValues?: () => void;
+  // Explains where an edit lands. null drops the info icon entirely.
+  valueTooltip?: string | null;
   showDragHandle?: boolean;
   dragging?: boolean;
   autoFocusName?: boolean;
@@ -113,6 +134,11 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
       feature,
       showDescription,
       stackValue,
+      hideFeatureValue,
+      valueLabel = "Value",
+      valueDisabled,
+      onEditValues,
+      valueTooltip,
       showDragHandle,
       dragging,
       autoFocusName,
@@ -155,11 +181,12 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
     // Own picker rather than the shared field's, whose labels are upper case.
     // Width matches the number field in FeatureValueField: two fixed choices
     // shouldn't stretch across a stacked row.
-    const booleanValueField = (label?: string) => (
+    const booleanValueField = (label?: React.ReactNode) => (
       <Box style={{ width: 120 }}>
         <SelectField
           size="md"
           label={label}
+          disabled={valueDisabled}
           value={variation.featureValue === "true" ? "true" : "false"}
           options={[
             { label: "True", value: "true" },
@@ -169,6 +196,37 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
           onChange={setFeatureValue}
         />
       </Box>
+    );
+
+    const stackedValueLabel = (
+      <Flex align="center" gap="1">
+        {valueLabel}
+        {valueTooltip ? (
+          <Tooltip content={valueTooltip} side="top">
+            <Flex align="center" style={{ color: "var(--color-text-low)" }}>
+              <PiInfo />
+            </Flex>
+          </Tooltip>
+        ) : null}
+        {onEditValues && (
+          <Tooltip content="Edit feature values" side="top">
+            <IconButton
+              variant="ghost"
+              color="violet"
+              radius="full"
+              size="1"
+              style={{ margin: 0 }}
+              onClick={(e) => {
+                e.preventDefault();
+                onEditValues();
+              }}
+              aria-label="Edit feature values"
+            >
+              <PiPencilSimpleFill size={14} />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Flex>
     );
 
     const isJson = valueType === "json";
@@ -195,6 +253,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             showDescription,
             hideSplit,
             stackValue: stacked,
+            hideFeatureValue,
             showDragHandle,
           })}
           gapX="4"
@@ -255,6 +314,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
 
           {/* Scalars sit in the row unless the layout stacks them below. */}
           {!stacked &&
+            !hideFeatureValue &&
             (!setVariations ? (
               <span>{variation.featureValue ?? ""}</span>
             ) : valueType === "boolean" ? (
@@ -268,6 +328,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   setValue={setFeatureValue}
                   valueType={valueType}
                   feature={feature}
+                  disabled={valueDisabled}
                   renderJSONInline={false}
                   inlineConstantButton
                   sparse={sparse}
@@ -391,7 +452,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             ) : null}
           </Flex>
 
-          {stacked && (
+          {stacked && !hideFeatureValue && (
             <Box
               className={rowStyles.tightValueCell}
               style={{
@@ -403,16 +464,17 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
               {!setVariations ? (
                 <span>{variation.featureValue ?? ""}</span>
               ) : valueType === "boolean" ? (
-                booleanValueField("Value")
+                booleanValueField(stackedValueLabel)
               ) : (
                 <FeatureValueField
                   size="md"
-                  label="Value"
+                  label={stackedValueLabel}
                   id={`featureValue_${i}`}
                   value={variation.featureValue ?? ""}
                   setValue={setFeatureValue}
                   valueType={valueType}
                   feature={feature}
+                  disabled={valueDisabled}
                   renderJSONInline={false}
                   useCodeInput={isJson}
                   showFullscreenButton={isJson}

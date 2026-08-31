@@ -1,5 +1,5 @@
 import { FeatureInterface, FeatureValueType } from "shared/types/feature";
-import { Box, Flex, Grid, Slider } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton, Slider } from "@radix-ui/themes";
 import {
   ReactNode,
   useCallback,
@@ -11,7 +11,8 @@ import {
 import { getEqualWeights } from "shared/experiments";
 import {
   PiArrowsClockwise,
-  PiLockSimpleFill,
+  PiInfo,
+  PiPencilSimpleFill,
   PiPlusBold,
 } from "react-icons/pi";
 import {
@@ -29,13 +30,14 @@ import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import Switch from "@/ui/Switch";
 import Tooltip from "@/ui/Tooltip";
 import styles from "@/components/Features/VariationsInput.module.scss";
 import ExperimentSplitVisual from "@/components/Features/ExperimentSplitVisual";
 import SortableVariationsList from "@/components/Features/SortableVariationsList";
 import {
-  SortableManagedVariationRow,
   ManagedSortableVariation,
+  SortableManagedVariationRow,
   gridColumns,
 } from "./ExperimentManagedFeatureVariationRow";
 
@@ -54,6 +56,17 @@ export interface Props {
   showPreview?: boolean;
   // Rendered between the coverage widget and the variations table.
   belowCoverage?: ReactNode;
+  // Names the served value column. Defaults to "Value"; a flag the experiment
+  // does not own says "Feature Value", to tie it to the flag named above.
+  valueLabel?: string;
+  // Locks the served value until the caller opts into editing it.
+  valueDisabled?: boolean;
+  // No flag yet: drop the value column until one is being adopted.
+  hideFeatureValue?: boolean;
+  // Unlocks it, from the value column header and each stacked row label.
+  onEditValues?: () => void;
+  // Explains where an edit lands. null drops the info icon entirely.
+  valueTooltip?: string | null;
   hideSplits?: boolean;
   label?: string | null;
   feature?: FeatureInterface;
@@ -76,6 +89,11 @@ export default function ExperimentManagedFeatureVariationEditor({
   valueAsId = false,
   showPreview = true,
   belowCoverage,
+  valueLabel = "Value",
+  valueDisabled,
+  hideFeatureValue,
+  onEditValues,
+  valueTooltip,
   hideSplits = false,
   label: _label,
   feature,
@@ -254,22 +272,6 @@ export default function ExperimentManagedFeatureVariationEditor({
 
       {belowCoverage}
 
-      {!valueAsId && setVariations && (
-        <Box mb="2">
-          <Link
-            onClick={() => {
-              if (editingIds) {
-                exitAdvancedMode();
-              } else {
-                setEditingIds(true);
-              }
-            }}
-          >
-            {editingIds ? "Switch to simple mode" : "Switch to advanced mode"}
-          </Link>
-        </Box>
-      )}
-
       {
         <Box>
           <Grid
@@ -299,9 +301,39 @@ export default function ExperimentManagedFeatureVariationEditor({
               <Text size="md" weight="semibold">
                 Variation Name
               </Text>
-              {!stackValue && (
+              {!stackValue && !hideFeatureValue && (
                 <Text size="md" weight="semibold">
-                  Value
+                  <Flex align="center" gap="1">
+                    <span>{valueLabel}</span>
+                    {valueTooltip ? (
+                      <Tooltip content={valueTooltip} side="top">
+                        <Flex
+                          align="center"
+                          style={{ color: "var(--color-text-low)" }}
+                        >
+                          <PiInfo />
+                        </Flex>
+                      </Tooltip>
+                    ) : null}
+                    {onEditValues && (
+                      <Tooltip content="Edit feature values" side="top">
+                        <IconButton
+                          variant="ghost"
+                          color="violet"
+                          radius="full"
+                          size="1"
+                          style={{ margin: 0 }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            onEditValues();
+                          }}
+                          aria-label="Edit feature values"
+                        >
+                          <PiPencilSimpleFill size={14} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Flex>
                 </Text>
               )}
               {editingIds && (
@@ -315,15 +347,20 @@ export default function ExperimentManagedFeatureVariationEditor({
                     <span>Split</span>
                     {!editingSplits && (
                       <Tooltip content="Customize split" side="top">
-                        <Link
+                        <IconButton
+                          variant="ghost"
+                          color="violet"
+                          radius="full"
+                          size="1"
+                          style={{ margin: 0 }}
                           onClick={(e) => {
                             e.preventDefault();
                             setEditingSplits(true);
                           }}
                           aria-label="Customize split"
                         >
-                          <PiLockSimpleFill size={15} />
-                        </Link>
+                          <PiPencilSimpleFill size={14} />
+                        </IconButton>
                       </Tooltip>
                     )}
                     {editingSplits && !isEqualWeights && !hideSplits && (
@@ -350,7 +387,34 @@ export default function ExperimentManagedFeatureVariationEditor({
                   </Flex>
                 </Text>
               )}
-              <span />
+              {!valueAsId && setVariations ? (
+                <Box position="relative">
+                  <Box
+                    style={{
+                      position: "absolute",
+                      right: -8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <Switch
+                      size="sm"
+                      label="Advanced"
+                      value={editingIds}
+                      onChange={(on) => {
+                        if (on) {
+                          setEditingIds(true);
+                        } else {
+                          exitAdvancedMode();
+                        }
+                      }}
+                    />
+                  </Box>
+                </Box>
+              ) : (
+                <span />
+              )}
             </>
           </Grid>
           <div>
@@ -378,6 +442,11 @@ export default function ExperimentManagedFeatureVariationEditor({
                     hideSplit={hideSplits}
                     feature={feature}
                     stackValue={stackValue}
+                    valueLabel={valueLabel}
+                    valueDisabled={valueDisabled}
+                    onEditValues={onEditValues}
+                    valueTooltip={valueTooltip}
+                    hideFeatureValue={hideFeatureValue}
                     showDragHandle={showDragHandle}
                     showDescription={editingIds}
                     autoFocusName={

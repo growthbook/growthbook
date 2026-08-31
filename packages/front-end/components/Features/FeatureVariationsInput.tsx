@@ -1,10 +1,10 @@
 import { FeatureInterface, FeatureValueType } from "shared/types/feature";
-import { Box, Flex, Grid, Slider } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton, Slider } from "@radix-ui/themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getEqualWeights } from "shared/experiments";
 import {
   PiArrowsClockwise,
-  PiLockSimpleFill,
+  PiPencilSimpleFill,
   PiPlusBold,
 } from "react-icons/pi";
 import {
@@ -22,6 +22,7 @@ import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import Switch from "@/ui/Switch";
 import Tooltip from "@/ui/Tooltip";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
@@ -379,28 +380,6 @@ export default function FeatureVariationsInput({
             </Box>
           ) : null}
 
-          {!hideVariationIds &&
-            !startEditingIndexes &&
-            !valueAsId &&
-            !disableVariations &&
-            setVariations && (
-              <Box mb="2">
-                <Link
-                  onClick={() => {
-                    if (editingIds) {
-                      exitAdvancedMode();
-                    } else {
-                      setEditingIds(true);
-                    }
-                  }}
-                >
-                  {editingIds
-                    ? "Switch to simple mode"
-                    : "Switch to advanced mode"}
-                </Link>
-              </Box>
-            )}
-
           {!hideVariations && (
             <Box>
               <Grid
@@ -448,15 +427,20 @@ export default function FeatureVariationsInput({
                           !editingSplits &&
                           !onlySafeToEditVariationMetadata && (
                             <Tooltip content="Customize split" side="top">
-                              <Link
+                              <IconButton
+                                variant="ghost"
+                                color="violet"
+                                radius="full"
+                                size="1"
+                                style={{ margin: 0 }}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   setEditingSplits(true);
                                 }}
                                 aria-label="Customize split"
                               >
-                                <PiLockSimpleFill size={15} />
-                              </Link>
+                                <PiPencilSimpleFill size={14} />
+                              </IconButton>
                             </Tooltip>
                           )}
                         {editingSplits &&
@@ -486,7 +470,38 @@ export default function FeatureVariationsInput({
                       </Flex>
                     </Text>
                   )}
-                  <span />
+                  {!hideVariationIds &&
+                  !startEditingIndexes &&
+                  !valueAsId &&
+                  !disableVariations &&
+                  setVariations ? (
+                    <Box position="relative">
+                      <Box
+                        style={{
+                          position: "absolute",
+                          right: -8,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <Switch
+                          size="sm"
+                          label="Advanced"
+                          value={editingIds}
+                          onChange={(on) => {
+                            if (on) {
+                              setEditingIds(true);
+                            } else {
+                              exitAdvancedMode();
+                            }
+                          }}
+                        />
+                      </Box>
+                    </Box>
+                  ) : (
+                    <span />
+                  )}
                 </>
               </Grid>
               <div>

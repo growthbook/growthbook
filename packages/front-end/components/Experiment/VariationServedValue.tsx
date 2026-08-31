@@ -1,15 +1,12 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import ValueDisplay from "@/components/Features/ValueDisplay";
-import Link from "@/ui/Link";
 import Metadata from "@/ui/Metadata";
-import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 
 /**
  * The Feature Flag value a variation serves — or, when the experiment has no
- * implementation yet and `onAdd` is given, the prompt to set one up. Only
- * meaningful when the experiment's sole implementation is a Feature Flag;
+ * Only meaningful when the experiment's sole implementation is a Feature Flag;
  * callers decide that.
  */
 export default function VariationServedValue({
@@ -17,28 +14,14 @@ export default function VariationServedValue({
   feature,
   sparse,
   isDraft,
-  onAdd,
 }: {
   value?: string;
   feature?: FeatureInterface;
   sparse?: boolean;
   /** The value shown is an unpublished draft, not what is live. */
   isDraft?: boolean;
-  /** Renders the empty-state prompt instead of a value. */
-  onAdd?: () => void;
 }) {
-  if (!feature) {
-    if (!onAdd) return null;
-    return (
-      <Box mt="3">
-        <Link onClick={onAdd}>
-          <Text size="sm" weight="semibold">
-            Add variation value
-          </Text>
-        </Link>
-      </Box>
-    );
-  }
+  if (!feature) return null;
 
   return (
     <Flex align="center" justify="between" gap="2" mt="3">

@@ -168,7 +168,6 @@ interface Props {
   servedValueSparse?: boolean;
   /** The values shown are an unpublished draft, not what is live. */
   servedValueIsDraft?: boolean;
-  onAddServedValue?: (variationId: string) => void;
 }
 
 function AddVariationButton({ onClick }: { onClick: () => void }) {
@@ -237,7 +236,6 @@ export function VariationBox({
   servedValueFeature,
   servedValueSparse,
   servedValueIsDraft,
-  onAddServedValue,
 }: {
   i: number;
   v: Variation;
@@ -265,7 +263,6 @@ export function VariationBox({
   servedValueSparse?: boolean;
   servedValueIsDraft?: boolean;
   /** Offered instead of a value when there is no Feature Flag yet. */
-  onAddServedValue?: (variationId: string) => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -401,8 +398,6 @@ export function VariationBox({
               sparse={servedValueSparse}
               isDraft={servedValueIsDraft}
             />
-          ) : onAddServedValue ? (
-            <VariationServedValue onAdd={() => onAddServedValue(v.id)} />
           ) : null}
         </Box>
       </Flex>
@@ -428,7 +423,6 @@ const VariationsTable: FC<Props> = ({
   servedValueFeature,
   servedValueSparse,
   servedValueIsDraft,
-  onAddServedValue,
 }) => {
   const { apiCall } = useAuth();
   const variations = getLatestPhaseVariations(experiment);
@@ -503,7 +497,6 @@ const VariationsTable: FC<Props> = ({
               servedValueFeature={servedValueFeature}
               servedValueSparse={servedValueSparse}
               servedValueIsDraft={servedValueIsDraft}
-              onAddServedValue={onAddServedValue}
               showNoImage={
                 experiment.status === "draft" || someVariationHasImage
               }
