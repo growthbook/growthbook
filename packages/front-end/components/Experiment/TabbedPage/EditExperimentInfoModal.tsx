@@ -64,7 +64,9 @@ export default function EditExperimentInfoModal({
         size="legacy"
         autoFocus={focusSelector === "name"}
         label="Experiment Name"
+        autoComplete="off"
         {...form.register("name")}
+        name="experimentTitle"
         required
       />
       <Field

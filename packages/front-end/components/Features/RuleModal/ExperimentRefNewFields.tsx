@@ -351,7 +351,9 @@ export default function ExperimentRefNewFields({
             required={true}
             minLength={2}
             label="Experiment Name"
+            autoComplete="off"
             {...form.register("name")}
+            name="experimentTitle"
           />
 
           <Field

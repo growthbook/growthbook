@@ -480,7 +480,9 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         label="Experiment Name"
         required
         minLength={2}
+        autoComplete="off"
         {...form.register("name")}
+        name="experimentTitle"
       />
 
       {projects.length >= 1 && (

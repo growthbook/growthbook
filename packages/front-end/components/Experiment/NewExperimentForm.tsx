@@ -969,7 +969,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               label={isBandit ? "Bandit Name" : "Experiment Name"}
               required
               minLength={2}
+              autoComplete="off"
               {...nameFieldHandlers}
+              name={isBandit ? "banditTitle" : "experimentTitle"}
               onChange={async (e) => {
                 // Ensure the name field is updated and then sync with trackingKey if possible
                 nameFieldHandlers.onChange(e);

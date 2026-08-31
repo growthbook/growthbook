@@ -160,7 +160,9 @@ export default function BanditRefNewFields({
             required={true}
             minLength={2}
             label="Bandit Name"
+            autoComplete="off"
             {...form.register("name")}
+            name="banditTitle"
           />
 
           <Field
