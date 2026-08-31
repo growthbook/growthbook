@@ -8,6 +8,7 @@ import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Frame from "@/ui/Frame";
 import HelperText from "@/ui/HelperText";
+import MemberPersonalAccessTokens from "./MemberPersonalAccessTokens";
 
 // Org-wide kill switch for user-minted API tokens. Enabling it blocks creation
 // AND rejects existing tokens at authentication, so there is no separate
@@ -62,6 +63,7 @@ const PersonalAccessTokenSettings: FC = () => {
           {error}
         </HelperText>
       )}
+      <MemberPersonalAccessTokens />
       {confirming && (
         <ConfirmDialog
           title="Disable personal access tokens?"
