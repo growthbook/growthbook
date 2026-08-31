@@ -58,6 +58,7 @@ import {
   revokeInvite,
   setLicenseKey,
 } from "back-end/src/services/organizations";
+import { BadRequestError } from "back-end/src/util/errors";
 import { updatePassword } from "back-end/src/services/users";
 import {
   auditDetailsCreate,
@@ -1811,7 +1812,7 @@ export async function putOrganization(
         (value ?? null) !== null &&
         (!Number.isInteger(value) || (value as number) < 1)
       ) {
-        throw new Error(
+        context.throwBadRequestError(
           "Maximum token lifetime must be a whole number of days, at least 1",
         );
       }
@@ -1951,7 +1952,7 @@ function parseExpiresAt(input: string | null | undefined): Date | null {
   if ((input ?? null) === null) return null;
   const date = new Date(input as string);
   if (Number.isNaN(date.getTime())) {
-    throw new Error("Invalid expiration date");
+    throw new BadRequestError("Invalid expiration date");
   }
   return date;
 }
@@ -1967,7 +1968,7 @@ export async function postApplyExpirationPolicy(
   const { kind } = req.body;
 
   if (kind !== "pat" && kind !== "secret") {
-    throw new Error("Invalid key kind");
+    context.throwBadRequestError("Invalid key kind");
   }
   if (!context.permissions.canDeleteApiKey()) {
     context.permissions.throwPermissionError();
