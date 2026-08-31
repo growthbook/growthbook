@@ -2116,6 +2116,7 @@ describe("Organization Migration", () => {
         },
         statsEngine: DEFAULT_STATS_ENGINE,
         restApiBypassesReviews: true,
+        stickyBucketingOnByDefault: true,
         environments: [
           {
             id: "dev",

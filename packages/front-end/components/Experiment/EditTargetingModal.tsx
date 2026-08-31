@@ -13,10 +13,9 @@ import {
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import SelectField from "@/components/Forms/SelectField";
-import Switch from "@/ui/Switch";
+import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import Text from "@/ui/Text";
 import track from "@/services/track";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
@@ -180,27 +179,13 @@ export default function EditTargetingModal({
             }
           />
           {orgStickyBucketing ? (
-            <Switch
+            <StickyBucketingToggle
               my="6"
-              label={
-                <>
-                  <Text weight="medium" color="text-high">
-                    Sticky Bucketing
-                  </Text>{" "}
-                  <Text color="text-high">
-                    (Organization default:{" "}
-                    {settings.stickyBucketingOnByDefault
-                      ? "Enabled"
-                      : "Disabled"}
-                    )
-                  </Text>
-                </>
+              disableStickyBucketing={disableStickyBucketing}
+              setDisableStickyBucketing={(v) =>
+                form.setValue("disableStickyBucketing", v)
               }
               description="Keep users in their assigned variation even when experiment traffic, targeting, or rollout settings change."
-              value={!form.watch("disableStickyBucketing")}
-              onChange={(v) => {
-                form.setValue("disableStickyBucketing", !v);
-              }}
             />
           ) : null}
           {!disableStickyBucketing && (

@@ -74,11 +74,11 @@ export default function StickyBucketingSettings() {
                     htmlFor="toggle-stickyBucketingOnByDefault"
                     className="font-weight-semibold"
                   >
-                    Enable by default for new Experiments
+                    Enable by default for new experiments
                   </label>
                   <p>
-                    When enabled, new Experiments start with Sticky Bucketing
-                    on. You can still turn it off for individual Experiments.
+                    When enabled, new experiments start with Sticky Bucketing
+                    on. You can still turn it off for individual experiments.
                   </p>
                 </Box>
               </Flex>

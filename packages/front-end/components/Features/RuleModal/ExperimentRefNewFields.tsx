@@ -43,7 +43,7 @@ import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
-import Switch from "@/ui/Switch";
+import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -438,27 +438,13 @@ export default function ExperimentRefNewFields({
             )}
 
             {orgStickyBucketing && !isTemplate ? (
-              <Switch
+              <StickyBucketingToggle
                 mt="4"
-                label={
-                  <>
-                    <Text weight="medium" color="text-high">
-                      Sticky Bucketing
-                    </Text>{" "}
-                    <Text color="text-high">
-                      (Organization default:{" "}
-                      {settings.stickyBucketingOnByDefault
-                        ? "Enabled"
-                        : "Disabled"}
-                      )
-                    </Text>
-                  </>
+                disableStickyBucketing={!!form.watch("disableStickyBucketing")}
+                setDisableStickyBucketing={(v) =>
+                  form.setValue("disableStickyBucketing", v)
                 }
                 description="Keep users in their assigned variation even when experiment traffic, targeting, or rollout settings change."
-                value={!form.watch("disableStickyBucketing")}
-                onChange={(v) => {
-                  form.setValue("disableStickyBucketing", !v);
-                }}
               />
             ) : null}
 

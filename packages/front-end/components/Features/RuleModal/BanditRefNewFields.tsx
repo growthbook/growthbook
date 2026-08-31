@@ -41,7 +41,7 @@ import {
   formatAttributeOptionLabel,
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
-import Switch from "@/ui/Switch";
+import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
@@ -364,28 +364,14 @@ export default function BanditRefNewFields({
           </Box>
 
           {settings?.useStickyBucketing && (
-            <Switch
-              label={
-                <>
-                  <Text weight="medium" color="text-high">
-                    Sticky Bucketing
-                  </Text>{" "}
-                  <Text color="text-high">
-                    (Organization default:{" "}
-                    {settings.stickyBucketingOnByDefault
-                      ? "Enabled"
-                      : "Disabled"}
-                    )
-                  </Text>
-                </>
-              }
-              description="Keep users in their assigned variation across future Bandit update periods."
-              value={!form.watch("disableStickyBucketing")}
-              onChange={(v) => {
-                form.setValue("disableStickyBucketing", !v);
-              }}
+            <StickyBucketingToggle
               mb="5"
               mt="5"
+              disableStickyBucketing={!!form.watch("disableStickyBucketing")}
+              setDisableStickyBucketing={(v) =>
+                form.setValue("disableStickyBucketing", v)
+              }
+              description="Keep users in their assigned variation across future Bandit update periods."
             />
           )}
 
