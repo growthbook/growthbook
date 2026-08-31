@@ -1,17 +1,23 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { isEqual } from "lodash";
-import { ApiContextualBanditInterface } from "shared/validators";
+import {
+  ApiContextualBanditInterface,
+  getEffectiveContextualAttributes,
+  getEligibleContextualAttributes,
+} from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useAttributeSchema } from "@/services/features";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
+import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import ContextualBanditDecisionMetricSettings, {
   conversionWindowFormValuesFromMetricWindow,
@@ -118,17 +124,24 @@ export default function ContextualBanditAnalysisMetricsModal({
   );
 
   const isDraft = cb.status === "draft";
-  const queryAttributeColumns = useMemo(
-    () => selectedQuery?.targetingAttributeColumns ?? [],
-    [selectedQuery],
+  const attributeSchema = useAttributeSchema(false);
+  const eligibleAttributes = useMemo(
+    () =>
+      getEligibleContextualAttributes(
+        selectedQuery?.targetingAttributeColumns,
+        attributeSchema,
+      ),
+    [selectedQuery, attributeSchema],
   );
   const watchedContextualAttributes = form.watch("contextualAttributes");
   const selectedContextualAttributes = useMemo(
     () => watchedContextualAttributes ?? [],
     [watchedContextualAttributes],
   );
-  const effectiveContextualAttributes = selectedContextualAttributes.filter(
-    (a) => queryAttributeColumns.includes(a),
+  const effectiveContextualAttributes = getEffectiveContextualAttributes(
+    selectedContextualAttributes,
+    selectedQuery?.targetingAttributeColumns,
+    attributeSchema,
   );
 
   useEffect(() => {
@@ -138,22 +151,15 @@ export default function ContextualBanditAnalysisMetricsModal({
     }
   }, [contextualBanditQueries, watchedQueryId, form]);
 
+  const seededQueryIdRef = useRef<string | undefined>(
+    cb.contextualBanditQueryId,
+  );
   useEffect(() => {
     if (!isDraft || !selectedQuery) return;
-    const valid = selectedContextualAttributes.filter((a) =>
-      queryAttributeColumns.includes(a),
-    );
-    const next = valid.length > 0 ? valid : queryAttributeColumns;
-    if (!isEqual(next, selectedContextualAttributes)) {
-      form.setValue("contextualAttributes", next);
-    }
-  }, [
-    isDraft,
-    selectedQuery,
-    queryAttributeColumns,
-    selectedContextualAttributes,
-    form,
-  ]);
+    if (seededQueryIdRef.current === watchedQueryId) return;
+    seededQueryIdRef.current = watchedQueryId;
+    form.setValue("contextualAttributes", eligibleAttributes);
+  }, [isDraft, selectedQuery, watchedQueryId, eligibleAttributes, form]);
 
   return (
     <FormProvider {...form}>
@@ -169,8 +175,12 @@ export default function ContextualBanditAnalysisMetricsModal({
             (q) => q.id === data.exposureQueryId,
           );
           const queryAttrs = query?.targetingAttributeColumns ?? [];
+          const eligible = getEligibleContextualAttributes(
+            query?.targetingAttributeColumns,
+            attributeSchema,
+          );
           const contextualAttributes = isDraft
-            ? data.contextualAttributes.filter((a) => queryAttrs.includes(a))
+            ? data.contextualAttributes.filter((a) => eligible.includes(a))
             : cb.contextualAttributes;
           if (isDraft && contextualAttributes.length === 0) {
             throw new Error(
@@ -251,21 +261,31 @@ export default function ContextualBanditAnalysisMetricsModal({
 
         {selectedQuery ? (
           isDraft ? (
-            <MultiSelectField
-              label="Contextual Attributes"
-              value={selectedContextualAttributes}
-              onChange={(v) => form.setValue("contextualAttributes", v)}
-              options={queryAttributeColumns.map((a) => ({
-                label: a,
-                value: a,
-              }))}
-              placeholder="Select contextual attributes…"
-              helpText="Attributes this Bandit uses as context. Defaults to all query attributes; select a subset to narrow it."
-            />
+            eligibleAttributes.length > 0 ? (
+              <MultiSelectField
+                label="Contextual Attributes"
+                value={selectedContextualAttributes}
+                onChange={(v) => form.setValue("contextualAttributes", v)}
+                options={eligibleAttributes.map((a) => ({
+                  label: a,
+                  value: a,
+                }))}
+                placeholder="Select contextual attributes…"
+                legacyLabelFormatting={false}
+                helpText="Attributes this Bandit uses as context. Defaults to all query attributes; select a subset to narrow it."
+              />
+            ) : (
+              <HelperText status="warning">
+                The selected query has no targeting attribute columns that are
+                still valid organization attributes.
+              </HelperText>
+            )
           ) : (
-            <div className="form-group">
-              <label className="font-weight-bold">Contextual Attributes</label>
-              <div>
+            <Box mb="3">
+              <Text weight="semibold" size="sm">
+                Contextual Attributes
+              </Text>
+              <Box mt="1">
                 {effectiveContextualAttributes.length > 0 ? (
                   effectiveContextualAttributes.map((attr, i) => (
                     <Fragment key={attr}>
@@ -274,14 +294,14 @@ export default function ContextualBanditAnalysisMetricsModal({
                     </Fragment>
                   ))
                 ) : (
-                  <em className="text-muted">None</em>
+                  <Text color="text-low">None</Text>
                 )}
-              </div>
-              <small className="form-text text-muted">
+              </Box>
+              <HelperText status="info">
                 Contextual attributes can only be changed while the Bandit is a
                 draft.
-              </small>
-            </div>
+              </HelperText>
+            </Box>
           )
         ) : null}
 

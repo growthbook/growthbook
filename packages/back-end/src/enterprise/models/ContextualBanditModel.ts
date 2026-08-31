@@ -8,7 +8,7 @@ import {
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
-  assertExposureQueriesTargetingAttributeColumnsValid,
+  assertContextualAttributesValid,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
   ContextualBanditInterface,
   contextualBanditValidator,
@@ -281,21 +281,20 @@ export class ContextualBanditModel extends BaseClass {
       }
     }
 
-    if ((doc.contextualAttributes?.length ?? 0) === 0) {
-      throw new Error(
-        "A contextual bandit must declare at least one contextual attribute.",
+    if (
+      !previousDoc ||
+      !isEqual(doc.contextualAttributes, previousDoc.contextualAttributes)
+    ) {
+      if ((doc.contextualAttributes?.length ?? 0) === 0) {
+        throw new Error(
+          "A contextual bandit must declare at least one contextual attribute.",
+        );
+      }
+      assertContextualAttributesValid(
+        this.context.org.settings?.attributeSchema,
+        doc,
       );
     }
-    assertExposureQueriesTargetingAttributeColumnsValid(
-      this.context.org.settings?.attributeSchema,
-      [
-        {
-          id: doc.id,
-          name: doc.name,
-          targetingAttributeColumns: doc.contextualAttributes,
-        },
-      ],
-    );
   }
 
   public override async handleApiList(

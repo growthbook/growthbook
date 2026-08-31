@@ -1,9 +1,13 @@
-import { ReactNode, useMemo, useState } from "react";
+import { Fragment, ReactNode, useMemo, useState } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
 import { getMetricLink } from "shared/experiments";
-import { ApiContextualBanditInterface } from "shared/validators";
+import {
+  ApiContextualBanditInterface,
+  getDroppedContextualAttributes,
+  getEffectiveContextualAttributes,
+} from "shared/validators";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -201,17 +205,19 @@ export default function ContextualBanditDetailPage({
   const globalAttributeSchema = useAttributeSchema(false);
   const { effectiveContextualAttributes, droppedContextualAttributes } =
     useMemo(() => {
-      const queryAttrs =
-        contextualBanditQueriesMap.get(cb.contextualBanditQueryId)
-          ?.targetingAttributeColumns ?? [];
-      const querySet = new Set(queryAttrs);
-      const globalSet = new Set(globalAttributeSchema.map((a) => a.property));
+      const queryAttrs = contextualBanditQueriesMap.get(
+        cb.contextualBanditQueryId,
+      )?.targetingAttributeColumns;
       return {
-        effectiveContextualAttributes: cb.contextualAttributes.filter(
-          (a) => querySet.has(a) && globalSet.has(a),
+        effectiveContextualAttributes: getEffectiveContextualAttributes(
+          cb.contextualAttributes,
+          queryAttrs,
+          globalAttributeSchema,
         ),
-        droppedContextualAttributes: cb.contextualAttributes.filter(
-          (a) => !querySet.has(a) || !globalSet.has(a),
+        droppedContextualAttributes: getDroppedContextualAttributes(
+          cb.contextualAttributes,
+          queryAttrs,
+          globalAttributeSchema,
         ),
       };
     }, [
@@ -622,7 +628,12 @@ export default function ContextualBanditDetailPage({
                 </DetailSectionColumn>
                 <DetailSectionColumn label="Contextual Attributes">
                   {effectiveContextualAttributes.length
-                    ? effectiveContextualAttributes.join(", ")
+                    ? effectiveContextualAttributes.map((a, i) => (
+                        <Fragment key={a}>
+                          {i ? ", " : ""}
+                          <code>{a}</code>
+                        </Fragment>
+                      ))
                     : "—"}
                 </DetailSectionColumn>
               </Grid>

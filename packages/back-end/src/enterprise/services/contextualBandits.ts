@@ -19,10 +19,11 @@ import {
   ContextualBanditQueryInterface,
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
-  getAllowedTargetingAttributePropertyNames,
+  getEffectiveContextualAttributes,
   LeafWeight,
   RevisionRampAction,
 } from "shared/validators";
+import type { SDKAttributeSchema } from "shared/types/organization";
 import {
   autoMerge,
   reconcileMergeBaselines,
@@ -867,14 +868,46 @@ export async function runContextualBanditSnapshot(
     scheduleChanges,
   );
 
-  const allowedGlobalAttributes = getAllowedTargetingAttributePropertyNames(
-    context.org.settings?.attributeSchema,
-  );
+  const previousSnapshot =
+    await context.models.contextualBanditSnapshots.getLatestForContextualBandit(
+      updatedCb.id,
+    );
   const snapshotSettings = buildContextualBanditSnapshotSettings(
     updatedCb,
     cbQuery,
-    allowedGlobalAttributes,
+    context.org.settings?.attributeSchema,
   );
+
+  const droppedContextualAttributes = updatedCb.contextualAttributes.filter(
+    (a) => !snapshotSettings.contextualAttributes.includes(a),
+  );
+  if (
+    droppedContextualAttributes.length > 0 &&
+    !isEqual(
+      previousSnapshot?.frozenSettings?.contextualAttributes,
+      snapshotSettings.contextualAttributes,
+    )
+  ) {
+    try {
+      await context.auditLog({
+        event: "contextualBandit.update",
+        entity: {
+          object: "contextualBandit",
+          id: updatedCb.id,
+        },
+        details: auditDetailsUpdate(
+          { contextualAttributes: updatedCb.contextualAttributes },
+          { contextualAttributes: snapshotSettings.contextualAttributes },
+          { droppedContextualAttributes, triggeredBy: opts.triggeredBy },
+        ),
+      });
+    } catch (e) {
+      context.logger.error(
+        e,
+        `Error creating audit log for dropped contextual attributes (${updatedCb.id})`,
+      );
+    }
+  }
 
   const cbs = await context.models.contextualBanditSnapshots.create({
     contextualBandit: updatedCb.id,
@@ -1114,14 +1147,15 @@ export async function persistContextualBanditEvent(
 export function buildContextualBanditSnapshotSettings(
   cb: ContextualBanditInterface,
   cbQuery: ContextualBanditQueryInterface,
-  allowedGlobalAttributes: Set<string>,
+  attributeSchema: SDKAttributeSchema | undefined,
 ): ContextualBanditSnapshotSettings {
   const numVariations = cb.variations?.length || 1;
 
-  const selectedAttributes = new Set(cb.contextualAttributes);
-  const effectiveContextualAttributes = (
-    cbQuery.targetingAttributeColumns ?? []
-  ).filter((a) => selectedAttributes.has(a) && allowedGlobalAttributes.has(a));
+  const effectiveContextualAttributes = getEffectiveContextualAttributes(
+    cb.contextualAttributes,
+    cbQuery.targetingAttributeColumns,
+    attributeSchema,
+  );
   if (effectiveContextualAttributes.length === 0) {
     throw new Error(
       `Contextual bandit ${cb.id} has no usable contextual attributes: none of its selected attributes are on both the query and the attribute schema.`,

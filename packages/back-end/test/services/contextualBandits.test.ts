@@ -1,9 +1,13 @@
 import { ExposureQuery } from "shared/types/datasource";
+import type { SDKAttributeSchema } from "shared/types/organization";
 import {
   ContextualBanditInterface,
   ContextualBanditSnapshotInterface,
   contextualBanditSnapshotSettingsValidator,
 } from "shared/validators";
+
+const schema = (...properties: string[]): SDKAttributeSchema =>
+  properties.map((property) => ({ property })) as SDKAttributeSchema;
 import { ApiReqContext, ReqContext } from "back-end/types/api";
 import {
   buildContextualBanditSnapshotSettings,
@@ -194,7 +198,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const settings = buildContextualBanditSnapshotSettings(
       cb,
       eaq,
-      new Set(["country", "device"]),
+      schema("country", "device"),
     );
 
     expect(settings).not.toHaveProperty("activationMetric");
@@ -219,7 +223,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const settings = buildContextualBanditSnapshotSettings(
       makeCb({ trackingKey: "first_contextual_bandit" }),
       makeExposureQuery(),
-      new Set(["country", "device"]),
+      schema("country", "device"),
     );
 
     expect(settings.experimentId).toBe("cb_1");
@@ -230,7 +234,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const cbSettings = buildContextualBanditSnapshotSettings(
       makeCb({ trackingKey: "first_contextual_bandit" }),
       makeExposureQuery(),
-      new Set(["country", "device"]),
+      schema("country", "device"),
     );
 
     expect(buildSnapshotSettingsForCb(cbSettings).experimentId).toBe(
@@ -247,7 +251,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const settings = buildContextualBanditSnapshotSettings(
       cb,
       eaq,
-      new Set(["country", "device", "plan_tier"]),
+      schema("country", "device", "plan_tier"),
     );
 
     expect(settings.contextualAttributes).toEqual(["country", "device"]);
@@ -260,7 +264,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const settings = buildContextualBanditSnapshotSettings(
       cb,
       eaq,
-      new Set(["country", "device"]),
+      schema("country", "device"),
     );
 
     expect(settings.contextualAttributes).toEqual(["country"]);
@@ -275,7 +279,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const settings = buildContextualBanditSnapshotSettings(
       cb,
       eaq,
-      new Set(["country"]),
+      schema("country"),
     );
 
     expect(settings.contextualAttributes).toEqual(["country"]);
@@ -290,7 +294,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const settings = buildContextualBanditSnapshotSettings(
       cb,
       eaq,
-      new Set(["country", "device"]),
+      schema("country", "device"),
     );
 
     expect(settings.contextualAttributes).toEqual(["country"]);
@@ -304,7 +308,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
       buildContextualBanditSnapshotSettings(
         cb,
         eaq,
-        new Set(["country", "device"]),
+        schema("country", "device"),
       ),
     ).toThrow(/no usable contextual attributes/);
   });
@@ -323,7 +327,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const settings = buildContextualBanditSnapshotSettings(
       cb,
       makeExposureQuery(),
-      new Set(["country", "device"]),
+      schema("country", "device"),
     );
 
     expect(settings.variations).toEqual([
