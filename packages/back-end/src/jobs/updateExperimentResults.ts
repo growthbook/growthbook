@@ -217,7 +217,12 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       });
     }
 
-    await notifyAutoUpdate({ context, experiment, success: true });
+    // Results already succeeded; don't treat a notify failure as a failed refresh.
+    try {
+      await notifyAutoUpdate({ context, experiment, success: true });
+    } catch (e) {
+      logger.error(e, "Failed to notify auto-update success: " + experimentId);
+    }
   } catch (e) {
     // Lock contention is transient so we don't disable auto-updates
     if (e instanceof ConcurrentIncrementalRefreshError) {
