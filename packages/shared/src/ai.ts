@@ -54,6 +54,11 @@ export const AI_PROVIDER_META: Record<
 
 export const AI_PROVIDER_MODEL_MAP = {
   openai: [
+    // GPT-5.6 series. `gpt-5.6` is an alias for sol; we list the explicit
+    // ids so a stored setting can't shift under an org when the alias moves.
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
     // GPT-5 series
     "gpt-5.4-mini",
     "gpt-5.4-nano",
@@ -99,26 +104,22 @@ export const AI_PROVIDER_MODEL_MAP = {
     "claude-3-5-haiku-20241022",
     "claude-3-haiku-20240307",
   ],
-  xai: [
-    "grok-code-fast-1",
-    "grok-4-fast-non-reasoning",
-    "grok-4-fast-reasoning",
-    "grok-4",
-    "grok-3",
-    "grok-3-mini",
-    "grok-3-fast",
-    "grok-3-mini-fast",
-    "grok-2",
-  ],
+  // The grok-4-fast / grok-4-0709 / grok-3 / grok-2 families were retired on
+  // 2026-05-15 — xAI redirects them to grok-4.3 and bills at 4.3 rates, so
+  // keeping them listed only misrepresents what an org is selecting.
+  xai: ["grok-4.6", "grok-4.5", "grok-4.3"],
   mistral: ["mistral-small", "mistral-medium", "pixtral-12b"],
+  // gemini-3-pro-preview was shut down on 2026-03-09 (superseded by
+  // gemini-3.1-pro-preview), and the gemini-2.0 pair is likewise retired.
   google: [
-    "gemini-3-pro-preview",
+    "gemini-3.1-pro-preview",
+    "gemini-3.7-flash",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
     "gemini-3-flash-preview",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
     "gemini-2.5-pro",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
     "gemini-flash-latest",
     "gemini-flash-lite-latest",
     "gemini-pro-latest",

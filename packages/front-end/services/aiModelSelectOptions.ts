@@ -21,6 +21,10 @@ const PROVIDER_DISPLAY_NAMES: Record<AIProvider, string> = {
 
 /** Human-readable display names for all AI models, without vendor prefix. */
 export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
+  // OpenAI GPT-5.6 series
+  "gpt-5.6-sol": "GPT 5.6 Sol",
+  "gpt-5.6-terra": "GPT 5.6 Terra",
+  "gpt-5.6-luna": "GPT 5.6 Luna",
   // OpenAI GPT-5 series
   "gpt-5.4-mini": "GPT 5.4 Mini",
   "gpt-5.4-nano": "GPT 5.4 Nano",
@@ -59,27 +63,22 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   "claude-3-5-haiku-20241022": "Claude 3.5 Haiku (20241022)",
   "claude-3-haiku-20240307": "Claude 3 Haiku (20240307)",
   // xAI Grok
-  "grok-code-fast-1": "Grok Code Fast 1",
-  "grok-4-fast-non-reasoning": "Grok 4 Fast Non-Reasoning",
-  "grok-4-fast-reasoning": "Grok 4 Fast Reasoning",
-  "grok-4": "Grok 4",
-  "grok-3": "Grok 3",
-  "grok-3-mini": "Grok 3 Mini",
-  "grok-3-fast": "Grok 3 Fast",
-  "grok-3-mini-fast": "Grok 3 Mini Fast",
-  "grok-2": "Grok 2",
+  "grok-4.6": "Grok 4.6",
+  "grok-4.5": "Grok 4.5",
+  "grok-4.3": "Grok 4.3",
   // Mistral
   "mistral-small": "Mistral Small",
   "mistral-medium": "Mistral Medium",
   "pixtral-12b": "Pixtral 12B",
   // Google Gemini
-  "gemini-3-pro-preview": "Gemini 3 Pro Preview",
+  "gemini-3.1-pro-preview": "Gemini 3.1 Pro Preview",
+  "gemini-3.7-flash": "Gemini 3.7 Flash",
+  "gemini-3.5-flash": "Gemini 3.5 Flash",
+  "gemini-3.5-flash-lite": "Gemini 3.5 Flash Lite",
   "gemini-3-flash-preview": "Gemini 3 Flash Preview",
   "gemini-2.5-flash": "Gemini 2.5 Flash",
   "gemini-2.5-flash-lite": "Gemini 2.5 Flash Lite",
   "gemini-2.5-pro": "Gemini 2.5 Pro",
-  "gemini-2.0-flash": "Gemini 2.0 Flash",
-  "gemini-2.0-flash-lite": "Gemini 2.0 Flash Lite",
   "gemini-flash-latest": "Gemini Flash Latest",
   "gemini-flash-lite-latest": "Gemini Flash Lite Latest",
   "gemini-pro-latest": "Gemini Pro Latest",
