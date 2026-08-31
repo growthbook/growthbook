@@ -375,12 +375,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
             ? newVal.useStickyBucketing
             : false;
         }
-
-        if (k === "stickyBucketingOnByDefault") {
-          newVal.stickyBucketingOnByDefault = hasStickyBucketFeature
-            ? newVal.stickyBucketingOnByDefault
-            : false;
-        }
       });
       form.reset(newVal);
       setOriginalValue(newVal);
