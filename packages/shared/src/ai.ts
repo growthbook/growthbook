@@ -157,7 +157,7 @@ export const SELF_HOSTED_DEFAULT_AI_MODELS: ReadonlyArray<
   ["mistral", "mistral-medium-latest"],
 ];
 
-export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image-preview";
+export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image";
 export const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
 export function getProviderFromModel(model: AIModel): AIProvider {
@@ -304,10 +304,10 @@ export const AI_IMAGE_MODELS: ReadonlyArray<AIImageModelMeta> = [
     honorsAspectRatio: false,
   },
   {
-    id: "gemini-3-pro-image-preview",
+    id: "gemini-3-pro-image",
     provider: "google",
     kind: "multimodal-text",
-    label: "Gemini 3 Pro Image (preview)",
+    label: "Gemini 3 Pro Image",
     supportsReferenceImage: true,
     supportedAspectRatios: GEMINI_ASPECT_RATIOS,
     honorsAspectRatio: true,
@@ -387,6 +387,8 @@ export const AI_IMAGE_MODELS: ReadonlyArray<AIImageModelMeta> = [
 // keep working without a migration.
 const IMAGE_MODEL_ALIASES: Record<string, string> = {
   "gemini-2.5-flash-image-preview": "gemini-2.5-flash-image",
+  // Retired 2026-06-25; the GA id took over.
+  "gemini-3-pro-image-preview": "gemini-3-pro-image",
 };
 
 export function resolveImageModelIdForSdk(model: string): string {
