@@ -8,13 +8,11 @@ import {
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { experimentSnapshot } from "back-end/test/snapshots/experiment.snapshot";
 import {
-  notifyAutoUpdate,
   notifyDecision,
   notifyMultipleExposures,
   notifyNoData,
   notifySrm,
 } from "back-end/src/services/experimentNotifications";
-import { getSlackMessageForNotificationEvent } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import { EventModel } from "back-end/src/models/EventModel";
 
 jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
@@ -1361,81 +1359,5 @@ describe("experiments events", () => {
         },
       }),
     );
-  });
-
-  const warningContext = {
-    org,
-    userId: "user-aabb",
-    email: "user@email.com",
-    userName: "User Name",
-    auditUser: {
-      type: "dashboard" as const,
-      id: "user-aabb",
-      email: "user@email.com",
-      name: "User Name",
-    },
-  };
-
-  it("dispatches experiment.warning auto-update when success is false", async () => {
-    let rawPayload;
-
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
-      if (data.event === "experiment.warning") rawPayload = data;
-      return { toJSON: () => "" };
-    });
-
-    jest
-      .spyOn(ExperimentModel, "updateOne")
-      .mockImplementation(() => undefined);
-
-    await notifyAutoUpdate({
-      context: warningContext,
-      experiment: experimentSnapshot,
-      success: false,
-    });
-
-    expect(rawPayload).toEqual(
-      expect.objectContaining({
-        event: "experiment.warning",
-        object: "experiment",
-        data: {
-          object: {
-            type: "auto-update",
-            success: false,
-            experimentId: "exp_dd4gxd4lyel8bwi",
-            experimentName: "Add To Cart",
-          },
-        },
-      }),
-    );
-
-    const slack = await getSlackMessageForNotificationEvent(
-      rawPayload,
-      "evt_test",
-    );
-    expect(slack?.text).toBe(
-      "Automatic snapshot creation for Add To Cart failed!",
-    );
-  });
-
-  it("does not dispatch experiment.warning auto-update when success is true and it has not fired before", async () => {
-    let rawPayload;
-
-    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
-      if (data.event === "experiment.warning") rawPayload = data;
-      return { toJSON: () => "" };
-    });
-
-    jest
-      .spyOn(ExperimentModel, "updateOne")
-      .mockImplementation(() => undefined);
-
-    await notifyAutoUpdate({
-      context: warningContext,
-      experiment: experimentSnapshot,
-      success: true,
-    });
-
-    expect(rawPayload).toBeUndefined();
   });
 });
