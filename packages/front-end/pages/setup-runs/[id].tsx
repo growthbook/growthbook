@@ -1,15 +1,25 @@
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { useEffect } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { formatDistanceToNow } from "date-fns";
 import { ApiSetupRun, setupRunMetaString } from "shared/validators";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
+import {
+  ExperimentFeatureCard,
+  FeatureFlagFeatureCard,
+} from "@/components/GetStarted/FeaturedCards";
 import Callout from "@/ui/Callout";
-import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
+import UiLink from "@/ui/Link";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import Text from "@/ui/Text";
 import useApi from "@/hooks/useApi";
 import { useCelebration } from "@/hooks/useCelebration";
@@ -17,128 +27,143 @@ import { useCelebration } from "@/hooks/useCelebration";
 type Artifact = ApiSetupRun["artifacts"][number];
 type ArtifactKind = Artifact["kind"];
 
-// No icon per kind. An icon would be the one thing here that cannot come from the
-// API — it needs a component, so every new artifact type would have to be added to
-// a map in this file before it could render. The label already names the type.
+// Type label and destination per kind. No icon: an icon is the one thing that
+// cannot come from the API, so every new artifact type would need an entry in this
+// file before it could render at all. The Type column already names it.
 const KIND: Record<
   ArtifactKind,
-  { label: string; cta: string; href: (id: string) => string }
+  { label: string; href: (id: string) => string }
 > = {
-  "sdk-connection": {
-    label: "SDK Connection",
-    cta: "Open",
-    href: (id) => `/sdks/${id}`,
-  },
-  feature: {
-    label: "Feature Flag",
-    cta: "Open the Feature Flag",
-    href: (id) => `/features/${id}`,
-  },
-  experiment: {
-    label: "Experiment",
-    cta: "Open",
-    // Singular. /experiments is the list page.
-    href: (id) => `/experiment/${id}`,
-  },
+  "sdk-connection": { label: "SDK Connection", href: (id) => `/sdks/${id}` },
+  feature: { label: "Feature Flag", href: (id) => `/features/${id}` },
+  // Singular. /experiments is the list page.
+  experiment: { label: "Experiment", href: (id) => `/experiment/${id}` },
   attribute: {
     label: "Attribute",
-    cta: "Review",
-    href: () => "/attributes",
+    href: (id) => `/attributes/${encodeURIComponent(id)}`,
   },
   metric: {
     label: "Metric",
-    cta: "Review",
-    // Fact metrics have their own page; /metric is the legacy route.
+    // Fact metrics have their own page; /metric is the legacy SQL-metric route.
     href: (id) =>
       id.startsWith("fact__") ? `/fact-metrics/${id}` : `/metric/${id}`,
   },
-  "fact-table": {
-    label: "Fact Table",
-    cta: "Review",
-    href: (id) => `/fact-tables/${id}`,
-  },
+  "fact-table": { label: "Fact Table", href: (id) => `/fact-tables/${id}` },
 };
 
-function SectionHeading({
+function NameCell({
+  name,
+  subtitle,
+}: {
+  name: string;
+  subtitle?: string | null;
+}) {
+  return (
+    <Box>
+      <Text weight="medium">{name}</Text>
+      {subtitle && (
+        <Text as="p" size="small" color="text-mid">
+          {subtitle}
+        </Text>
+      )}
+    </Box>
+  );
+}
+
+function ReviewCell({ href }: { href: string }) {
+  return (
+    <TableCell style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+      <UiLink href={href}>Review →</UiLink>
+    </TableCell>
+  );
+}
+
+function Section({
   title,
-  eyebrow,
-  count,
+  description,
+  children,
 }: {
   title: string;
-  eyebrow: string;
-  count?: string;
+  description: string;
+  children: React.ReactNode;
 }) {
   return (
-    <Flex align="baseline" gap="3" mb="2">
-      <Heading as="h2" size="medium" mb="0">
+    <Box mb="5">
+      <Heading as="h3" size="large" weight="semibold" mb="2">
         {title}
       </Heading>
-      <Box
-        style={{
-          fontFamily:
-            'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
-          letterSpacing: ".06em",
-        }}
-      >
-        <Text size="small" color="text-low" textTransform="uppercase">
-          {eyebrow}
-        </Text>
-      </Box>
-      {count && (
-        <Box ml="auto">
-          <Text size="small" color="text-low">
-            {count}
-          </Text>
-        </Box>
-      )}
-    </Flex>
+      <Text as="p" color="text-mid" mb="4">
+        {description}
+      </Text>
+      {children}
+    </Box>
   );
 }
 
-function ArtifactRow({
-  artifact,
-  first,
+/** Name | Type | Environment | Review — environment applies to both row types here. */
+function CreatedTable({
+  artifacts,
+  environment,
 }: {
-  artifact: Artifact;
-  first: boolean;
+  artifacts: Artifact[];
+  environment: string | null;
 }) {
-  const kind = KIND[artifact.kind];
   return (
-    <Flex
-      align="start"
-      gap="3"
-      py="3"
-      className={first ? undefined : "border-top"}
-    >
-      <Box style={{ minWidth: 0, flex: 1 }}>
-        <Text weight="semibold" as="div">
-          {kind.label} · {artifact.label}
-        </Text>
-        {artifact.detail && (
-          <Text size="small" color="text-mid" as="div">
-            {artifact.detail}
-          </Text>
-        )}
-      </Box>
-      <Link
-        href={kind.href(artifact.id)}
-        style={{ whiteSpace: "nowrap", flexShrink: 0 }}
-      >
-        {kind.cta} →
-      </Link>
-    </Flex>
+    <Table variant="list">
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader>Name</TableColumnHeader>
+          <TableColumnHeader>Type</TableColumnHeader>
+          <TableColumnHeader>Environment</TableColumnHeader>
+          <TableColumnHeader style={{ width: "1%" }} />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {artifacts.map((a) => (
+          <TableRow key={`${a.kind}:${a.id}`}>
+            <TableCell style={{ verticalAlign: "middle" }}>
+              <NameCell name={a.label} subtitle={a.detail} />
+            </TableCell>
+            <TableCell>
+              <Text color="text-mid">{KIND[a.kind].label}</Text>
+            </TableCell>
+            <TableCell>
+              {environment && <Text color="text-mid">{environment}</Text>}
+            </TableCell>
+            <ReviewCell href={KIND[a.kind].href(a.id)} />
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
-function summarise(artifacts: Artifact[]): string {
-  const counts = new Map<ArtifactKind, number>();
-  artifacts.forEach((a) => counts.set(a.kind, (counts.get(a.kind) || 0) + 1));
-  return [...counts.entries()]
-    .map(
-      ([kind, n]) =>
-        `${n} ${KIND[kind].label.toLowerCase()}${n > 1 ? "s" : ""}`,
-    )
-    .join(" · ");
+/** Type | Name | Review — no environment column; it doesn't apply to these. */
+function SetUpTable({ artifacts }: { artifacts: Artifact[] }) {
+  return (
+    <Table variant="list">
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader>Type</TableColumnHeader>
+          <TableColumnHeader>Name</TableColumnHeader>
+          <TableColumnHeader style={{ width: "1%" }} />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {artifacts.map((a) => (
+          <TableRow key={`${a.kind}:${a.id}`}>
+            <TableCell>
+              <Text color="text-mid">{KIND[a.kind].label}</Text>
+            </TableCell>
+            <TableCell style={{ verticalAlign: "middle" }}>
+              <NameCell name={a.label} subtitle={a.detail} />
+            </TableCell>
+            <ReviewCell href={KIND[a.kind].href(a.id)} />
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
 }
 
 export default function SetupRunPage() {
@@ -187,56 +212,32 @@ export default function SetupRunPage() {
   const byDeveloper = run.artifacts.filter((a) => a.by === "developer");
   const byGrowthBook = run.artifacts.filter((a) => a.by === "growthbook");
   const failing = run.checks.filter((c) => !c.ok && c.required);
-  const appName = setupRunMetaString(run.metadata, "appName") || "your app";
-
+  const appName = setupRunMetaString(run.metadata, "appName");
+  const environment = setupRunMetaString(run.metadata, "environment");
   const when = formatDistanceToNow(new Date(run.dateCreated), {
     addSuffix: true,
   });
   const from = run.agent === "claudecode" ? "Claude Code" : run.agent;
 
-  const flag = byDeveloper.find((a) => a.kind === "feature");
-  const steps = [
-    flag
-      ? {
-          title: "Turn the Feature Flag on",
-          body: `Change the default value of ${flag.id}, then reload your app to see it take effect.`,
-          href: `/features/${flag.id}`,
-          cta: "Open the Feature Flag",
-        }
-      : {
-          title: "Create a Feature Flag",
-          body: "Wrap something in a flag you can turn on and off without a deploy.",
-          href: "/features",
-          cta: "Create a Feature Flag",
-        },
-    {
-      title: "Run an Experiment",
-      body: "Measure which version wins. Your SDK is already wired, so this needs no code changes.",
-      href: "/experiments",
-      cta: "Set up an Experiment",
-    },
-  ];
-  // Lead with what they came for.
-  if (setupRunMetaString(run.metadata, "intent") === "experiment")
-    steps.reverse();
-
   return (
-    <div className="contents container pagecontents">
+    <div className="container pagecontents" style={{ maxWidth: 885 }}>
       <PageHead
         breadcrumb={[{ display: "Get Started", href: "/getstarted" }]}
       />
 
-      <Box mb="5">
+      <Box mt="4" mb="5">
         <Heading as="h1" size="2x-large" mb="2">
-          {completed ? "GrowthBook is live in " : "Almost there in "}
-          <span style={{ color: "var(--violet-11)" }}>{appName}</span>
+          {completed ? "Setup Complete!" : "Almost There"}
+          {appName ? (
+            <>
+              {" "}
+              <span style={{ color: "var(--violet-11)" }}>{appName}</span>
+            </>
+          ) : null}
         </Heading>
-        <Text color="text-mid">
+        <Text as="p" color="text-mid">
           Set up {when}
-          {from ? ` from ${from}` : ""}.{" "}
-          {completed
-            ? "Here's everything that now exists — every item links straight to it."
-            : "A few things still need finishing."}
+          {from ? ` from ${from}` : ""}.
         </Text>
       </Box>
 
@@ -249,7 +250,7 @@ export default function SetupRunPage() {
           </Text>
           <Box mt="1">
             {failing.map((c) => (
-              <Text as="div" key={c.name} size="small">
+              <Text as="div" size="small" key={c.name}>
                 {c.name}
               </Text>
             ))}
@@ -258,57 +259,39 @@ export default function SetupRunPage() {
       )}
 
       {byDeveloper.length > 0 && (
-        <Box mb="5">
-          <SectionHeading title="What You Created" eyebrow="your choices" />
-          <Frame mb="0" py="3">
-            {byDeveloper.map((a, i) => (
-              <ArtifactRow
-                key={`${a.kind}:${a.id}`}
-                artifact={a}
-                first={i === 0}
-              />
-            ))}
-          </Frame>
-        </Box>
+        <Section
+          title="What You Created"
+          description="The SDK connection and feature flag created during setup."
+        >
+          <CreatedTable artifacts={byDeveloper} environment={environment} />
+        </Section>
       )}
 
       {byGrowthBook.length > 0 && (
-        <Box mb="5">
-          <SectionHeading
-            title="What We Set Up for You"
-            eyebrow="from your code"
-            count={summarise(byGrowthBook)}
-          />
-          <Frame mb="0" py="3">
-            {byGrowthBook.map((a, i) => (
-              <ArtifactRow
-                key={`${a.kind}:${a.id}`}
-                artifact={a}
-                first={i === 0}
-              />
-            ))}
-          </Frame>
-        </Box>
+        <Section
+          title="What We Set Up for You"
+          description="A quick preview of what the AI agent found and configured. Take a look and confirm everything looks right."
+        >
+          <SetUpTable artifacts={byGrowthBook} />
+        </Section>
       )}
 
-      <SectionHeading title="What Next" eyebrow="one step at a time" />
-      <Grid columns={{ initial: "1fr", sm: "1fr 1fr" }} gap="3">
-        {steps.map((s, i) => (
-          <Frame key={s.title} mb="0">
-            <Heading as="h3" size="small" mb="1">
-              {s.title}
-            </Heading>
-            <Box mb="3">
-              <Text size="small" color="text-mid" as="div">
-                {s.body}
-              </Text>
-            </Box>
-            <LinkButton href={s.href} variant={i === 0 ? "solid" : "outline"}>
-              {s.cta}
-            </LinkButton>
-          </Frame>
-        ))}
-      </Grid>
+      <Heading as="h3" size="large" weight="semibold" mt="5" mb="3">
+        What do you want to do next?
+      </Heading>
+      {/* Both cards hang a decorative image off their right edge with mr="-9".
+          Clipped here so that negative margin cannot widen the page and push
+          content under the sidebar. */}
+      <Box overflow="hidden">
+        <Grid columns={{ initial: "1fr", xs: "1fr 1fr" }} gap="3" mb="3">
+          <FeatureFlagFeatureCard />
+          <ExperimentFeatureCard />
+        </Grid>
+      </Box>
+
+      <Flex justify="end" mt="4">
+        <LinkButton href="/getstarted">Exit Setup</LinkButton>
+      </Flex>
     </div>
   );
 }
