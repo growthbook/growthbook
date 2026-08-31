@@ -29,19 +29,22 @@ const ApiKeyExpirationField: FC<{
   setValue: (date: Date | null) => void;
 }> = ({ maxLifetimeDays, value, setValue }) => {
   const presets = allowedExpirationPresets(maxLifetimeDays);
+  const longest = presets[presets.length - 1];
   const required = (maxLifetimeDays ?? null) !== null;
   const [selection, setSelection] = useState<string>(() =>
-    value ? CUSTOM : required ? String(presets[presets.length - 1]) : NEVER,
+    value ? CUSTOM : required ? String(longest) : NEVER,
   );
 
-  // The select shows a default under a policy, but the parent owns the value.
-  // Without this, creating a key without touching the dropdown submits null and
-  // the server rejects the date the user can see.
+  // The select shows a default under a policy, but the parent owns the value, so
+  // without this a key created without touching the dropdown submits null.
   useEffect(() => {
-    if (required && !value && selection !== CUSTOM) {
-      setValue(addDays(new Date(), Number(selection)));
-    }
-  }, [required, value, selection, setValue]);
+    if (!required || value || selection === CUSTOM) return;
+    // A policy can turn on mid-modal, stranding a selection the select no
+    // longer offers — converting that one gives an invalid date.
+    const days = selection === NEVER ? longest : Number(selection);
+    setSelection(String(days));
+    setValue(addDays(new Date(), days));
+  }, [required, value, selection, longest, setValue]);
 
   const latest = maxExpirationDate(maxLifetimeDays);
 
