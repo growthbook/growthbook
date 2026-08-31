@@ -291,6 +291,56 @@ describe("computeContextualBanditWeights", () => {
     expect(result.sse_trajectory![0].totalSse).toBeCloseTo(398, 6);
   });
 
+  it("records per-variation SSE that sums to the total SSE at each stage", () => {
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 2),
+      countryObs("CA", 0, 200, 2),
+      countryObs("CA", 1, 200, 1),
+    ];
+
+    const result = computeContextualBanditWeights(input(data));
+
+    expect(result.sse_trajectory!.length).toBeGreaterThan(0);
+    for (const step of result.sse_trajectory!) {
+      expect(step.ssePerVariation).toBeDefined();
+      expect(step.ssePerVariation!).toHaveLength(2);
+      const sum = step.ssePerVariation!.reduce((a, b) => a + b, 0);
+      expect(sum).toBeCloseTo(step.totalSse, 6);
+    }
+  });
+
+  it("computes a BIC statistic per split from the per-variation SSE trajectory", () => {
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 2),
+      countryObs("CA", 0, 200, 2),
+      countryObs("CA", 1, 200, 1),
+    ];
+
+    const result = computeContextualBanditWeights(input(data));
+
+    // One BIC entry per split (the transition between consecutive stages),
+    // aligned to the resulting stage's numSplits.
+    expect(result.bic_trajectory).toBeDefined();
+    expect(result.bic_trajectory!.map((b) => b.numSplits)).toEqual([1]);
+
+    const bic = result.bic_trajectory![0];
+    // The split reduces SSE, so the likelihood ratio is positive.
+    expect(bic.logLikelihoodRatio).toBeGreaterThan(0);
+    // K = 2 variations, N = 800 total users => penalty = 2 * ln(800).
+    expect(bic.penalty).toBeCloseTo(2 * Math.log(800), 6);
+    expect(bic.deltaBic).toBeCloseTo(bic.penalty - bic.logLikelihoodRatio, 6);
+  });
+
+  it("produces no BIC entries when the tree does not split", () => {
+    const data = [countryObs("US", 0, 200, 1), countryObs("US", 1, 200, 2)];
+
+    const result = computeContextualBanditWeights(input(data));
+
+    expect(result.bic_trajectory).toEqual([]);
+  });
+
   it("keeps identical contexts in a single leaf", () => {
     const data = [
       countryObs("US", 0, 200, 1),
