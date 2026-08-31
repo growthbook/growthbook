@@ -26,9 +26,9 @@ import {
   getExperimentViewLink,
   getSlackMessageForNotificationEvent,
   getSlackMessageForLegacyNotificationEvent,
-  renderExperimentCardForEvent,
   SlackMessage,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
+import { renderExperimentNotificationCard } from "back-end/src/services/notificationCards/experimentEventCard";
 import {
   isSlackIncomingWebhookUrl,
   postSlackMessageResult,
@@ -368,7 +368,7 @@ export class EventWebHookNotifier implements Notifier {
     // slack_file image blocks, so the card can't be combined with rich blocks in
     // one message; the card carries the detail, so buttons are dropped here.
     // Non-card events fall back to the rich text/buttons message.
-    const card = await renderExperimentCardForEvent(
+    const card = await renderExperimentNotificationCard(
       event.data,
       organizationId,
       eventWebHook.slackOptions?.experimentCardFormat ?? "compact",

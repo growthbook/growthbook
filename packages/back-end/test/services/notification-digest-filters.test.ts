@@ -1,4 +1,4 @@
-import { digestEventPassesFilters } from "back-end/src/services/slack/scorecardData";
+import { digestEventPassesFilters } from "back-end/src/services/notificationCards/scorecardData";
 
 // The scope filters applied to a digest's source events. Event envelope
 // tags/projects live on `data`; objectId is the experiment/feature id.

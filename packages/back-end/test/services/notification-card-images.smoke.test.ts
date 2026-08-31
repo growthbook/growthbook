@@ -6,8 +6,8 @@ import {
   renderWeeklyScorecard,
   sampleFeatureDigest,
   renderFeatureDigest,
-} from "back-end/src/services/slack/chartImage";
-import { renderExperimentCard } from "back-end/src/services/slack/cards";
+} from "back-end/src/services/notificationCards/cardImages";
+import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
 
 const isPng = (png: Buffer) =>
   png.subarray(0, 8).toString("hex") === "89504e470d0a1a0a";

@@ -16,10 +16,10 @@ import type {
   CardGoalRow,
   CardState,
   ExperimentCardData,
-} from "back-end/src/services/slack/chartImage";
+} from "back-end/src/services/notificationCards/cardImages";
 
-// Maps a GrowthBook experiment + its latest snapshot into the card model the
-// Slack renderer consumes. Numbers come off the snapshot's default analysis;
+// Maps a GrowthBook experiment + its latest snapshot into the shared
+// notification-card model. Numbers come off the snapshot's default analysis;
 // `expected`/`ci` are fractional relative uplift (matching the front-end graph),
 // so we scale to % for the card.
 
@@ -125,9 +125,9 @@ function deriveState(
 }
 
 /**
- * Build the Slack card model for an experiment. Returns null if the experiment
- * doesn't exist. Draft experiments render the "started" layout (hypothesis +
- * metric list); everything else pulls numbers from the latest snapshot.
+ * Build the notification-card model for an experiment. Returns null if the
+ * experiment doesn't exist. Draft experiments render the "started" layout;
+ * everything else pulls numbers from the latest snapshot.
  */
 export async function buildExperimentCardData(
   context: Context,
@@ -195,7 +195,7 @@ export async function buildExperimentCardData(
       phase: experiment.phases.length - 1,
     });
   } catch (e) {
-    logger.warn(e, "Slack card: failed to load snapshot");
+    logger.warn(e, "Notification card: failed to load snapshot");
   }
   const analysis = snapshot ? getSnapshotAnalysis(snapshot) : null;
   const dim = analysis?.results?.[0];

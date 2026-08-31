@@ -1,14 +1,14 @@
 import { EventModel } from "back-end/src/models/EventModel";
 import {
   digestEventPassesFilters,
-  type SlackDigestFilters,
-} from "back-end/src/services/slack/scorecardData";
+  type NotificationDigestFilters,
+} from "back-end/src/services/notificationCards/scorecardData";
 import type {
   FeatureDigestData,
   FeatureDigestReason,
-} from "back-end/src/services/slack/chartImage";
+} from "back-end/src/services/notificationCards/cardImages";
 
-export type { FeatureDigestData } from "back-end/src/services/slack/chartImage";
+export type { FeatureDigestData } from "back-end/src/services/notificationCards/cardImages";
 
 // Feature-flag digest: flag activity over a trailing window (published,
 // reverted, safe-rollout outcomes, stale candidates, reviews). Scoped by the
@@ -56,7 +56,7 @@ export async function buildFeatureDigestData(
   now: Date,
   windowMs: number,
   period: string,
-  filters: SlackDigestFilters,
+  filters: NotificationDigestFilters,
 ): Promise<FeatureDigestData | null> {
   const since = new Date(now.getTime() - windowMs);
 
@@ -159,71 +159,4 @@ export async function buildFeatureDigestData(
       .map((key) => ({ key, reason: attentionReason.get(key) })),
     total: events.length,
   };
-}
-
-type SlackBlock = Record<string, unknown>;
-export interface SlackDigestMessage {
-  text: string;
-  blocks: SlackBlock[];
-}
-
-const flagList = (flags: string[]): string =>
-  flags.map((f) => `\`${f}\``).join(", ");
-
-// Render the feature digest as a plain Slack message (mrkdwn blocks) — a
-// change-log, distinct from the experiment scorecard image.
-export function buildFeatureDigestMessage(
-  data: FeatureDigestData,
-): SlackDigestMessage {
-  const c = data.counts;
-  const summaryParts: string[] = [];
-  if (c.published) summaryParts.push(`*${c.published}* published`);
-  if (c.reverted) summaryParts.push(`*${c.reverted}* reverted`);
-  const srTotal =
-    c.safeRolloutShipped + c.safeRolloutRolledBack + c.safeRolloutUnhealthy;
-  if (srTotal) summaryParts.push(`*${srTotal}* safe-rollout updates`);
-  if (c.reviewRequested) summaryParts.push(`*${c.reviewRequested}* to review`);
-  if (c.stale) summaryParts.push(`*${c.stale}* stale`);
-
-  const lines: string[] = [];
-  if (data.publishedFlags.length) {
-    lines.push(`:rocket: *Published:* ${flagList(data.publishedFlags)}`);
-  }
-  if (data.revertedFlags.length) {
-    lines.push(`:rewind: *Reverted:* ${flagList(data.revertedFlags)}`);
-  }
-  if (data.needsAttentionFlags.length) {
-    lines.push(
-      `:warning: *Needs attention:* ${flagList(
-        data.needsAttentionFlags.map((f) => f.key),
-      )}`,
-    );
-  }
-  if (c.reviewRequested || c.reviewApproved || c.changesRequested) {
-    lines.push(
-      `:eyes: *Reviews:* ${c.reviewRequested} requested · ${c.reviewApproved} approved · ${c.changesRequested} changes requested`,
-    );
-  }
-
-  const headerText = `Feature flag digest · ${data.period}`;
-  const blocks: SlackBlock[] = [
-    {
-      type: "header",
-      text: { type: "plain_text", text: headerText, emoji: true },
-    },
-  ];
-  if (summaryParts.length) {
-    blocks.push({
-      type: "section",
-      text: { type: "mrkdwn", text: summaryParts.join("  ·  ") },
-    });
-  }
-  if (lines.length) {
-    blocks.push({
-      type: "section",
-      text: { type: "mrkdwn", text: lines.join("\n") },
-    });
-  }
-
-  return { text: headerText, blocks };
 }

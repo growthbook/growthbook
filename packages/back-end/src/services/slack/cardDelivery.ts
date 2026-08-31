@@ -14,7 +14,7 @@ import {
  * threaded, with a leading comment). If the upload fails, posts `fallbackText`
  * instead (never a public URL). Returns true if the image was posted.
  */
-export async function postExperimentCardImage({
+export async function postSlackExperimentCardImage({
   token,
   channel,
   png,

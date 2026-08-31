@@ -1,20 +1,19 @@
 import { EventModel } from "back-end/src/models/EventModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
+import { buildExperimentCardData } from "back-end/src/services/notificationCards/experimentCardData";
 import { getFilterDataForNotificationEvent } from "back-end/src/events/handlers/utils";
 import type {
   CardState,
   ScorecardData,
   ScorecardNotable,
-} from "back-end/src/services/slack/chartImage";
+} from "back-end/src/services/notificationCards/cardImages";
 import { logger } from "back-end/src/util/logger";
 
-// The channel's Scope filters, applied to the digest so a scoped channel gets a
-// scoped digest (previously digests were always org-wide). `ids` are experiment
-// ids (scorecard) or feature ids (feature digest). Metric filtering is a
-// live-notification concern and intentionally not applied to periodic digests.
-export type SlackDigestFilters = {
+// Destination-level filters for periodic digests. `ids` are experiment ids
+// (scorecard) or feature ids (feature digest). Metric filtering remains a
+// live-notification concern.
+export type NotificationDigestFilters = {
   projects: string[];
   tags: string[];
   ids: string[];
@@ -23,12 +22,12 @@ export type SlackDigestFilters = {
 const anyMatch = (want: string[], has: string[]) =>
   want.length === 0 || has.some((h) => want.includes(h));
 
-// Whether a digest source event passes the channel's project/tag/id filters.
+// Whether a digest source event passes the destination's project/tag/id filters.
 // Event envelope tags/projects mirror how live delivery filters (event-time
 // values), keeping digest scope consistent with per-event scope.
 export const digestEventPassesFilters = (
   ev: { objectId?: string; data?: unknown },
-  filters: SlackDigestFilters,
+  filters: NotificationDigestFilters,
 ): boolean => {
   if (
     filters.ids.length &&
@@ -122,7 +121,7 @@ export async function buildScorecardData(
   now: Date,
   windowMs: number,
   label: string,
-  filters: SlackDigestFilters,
+  filters: NotificationDigestFilters,
 ): Promise<ScorecardData | null> {
   const context = await getContextForAgendaJobByOrgId(organizationId);
   const since = new Date(now.getTime() - windowMs);

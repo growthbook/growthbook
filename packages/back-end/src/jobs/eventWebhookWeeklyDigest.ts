@@ -19,15 +19,13 @@ import {
   renderWeeklyScorecard,
   renderFeatureDigest,
   ScorecardData,
-} from "back-end/src/services/slack/chartImage";
+} from "back-end/src/services/notificationCards/cardImages";
 import {
   buildScorecardData,
   rangeLabel,
-} from "back-end/src/services/slack/scorecardData";
-import {
-  buildFeatureDigestData,
-  buildFeatureDigestMessage,
-} from "back-end/src/services/slack/featureDigestData";
+} from "back-end/src/services/notificationCards/scorecardData";
+import { buildFeatureDigestData } from "back-end/src/services/notificationCards/featureDigestData";
+import { buildSlackFeatureDigestMessage } from "back-end/src/services/slack/featureDigestMessage";
 import {
   isSlackIncomingWebhookUrl,
   uploadSlackImageFile,
@@ -172,7 +170,7 @@ async function deliverFeatureDigest(
     );
     return;
   }
-  const message = buildFeatureDigestMessage(data);
+  const message = buildSlackFeatureDigestMessage(data);
   await cancellableFetch(
     webhook.url,
     {

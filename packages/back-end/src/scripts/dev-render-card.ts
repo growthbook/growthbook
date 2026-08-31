@@ -11,8 +11,8 @@ import fs from "fs";
 import { init } from "back-end/src/init";
 import { findAllOrganizations } from "back-end/src/models/OrganizationModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
-import { renderExperimentCard } from "back-end/src/services/slack/cards";
+import { buildExperimentCardData } from "back-end/src/services/notificationCards/experimentCardData";
+import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
 
 function parseArgs(argv: string[]): Record<string, string> {
   const out: Record<string, string> = {};

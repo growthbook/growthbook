@@ -30,7 +30,6 @@ import {
   SafeRolloutDecisionNotificationPayload,
   SafeRolloutUnhealthyNotificationPayload,
   RampScheduleStepApprovalRequiredPayload,
-  slackCardKindForEvent,
 } from "shared/validators";
 import {
   DiffResult,
@@ -69,8 +68,6 @@ const getContextForAgendaJobByOrgId = async (
 import { getSlackBotAccessTokenForWebhook } from "back-end/src/models/EventWebhookModel";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
-import { renderExperimentCard } from "back-end/src/services/slack/cards";
-import type { CompactEvent } from "back-end/src/services/slack/chartImage";
 
 // region Filtering
 
@@ -433,104 +430,6 @@ export const getSlackMessageForNotificationEvent = async (
     default:
       invalidEvent = event;
       throw `Invalid event: ${invalidEvent}`;
-  }
-};
-
-// Map a notification event to the compact card's *event* (which drives its hero
-// layout). Returns undefined when it doesn't map cleanly; the card then derives
-// one from the experiment's state.
-//
-// Derived from SLACK_CARD_EVENT_KINDS (shared), which the settings UI also uses
-// to badge card-vs-text events — so the two can't drift. A lookup rather than a
-// switch: the event union is huge and only these few map to a card.
-const compactEventForNotification = (
-  event: NotificationEvent,
-): CompactEvent | undefined => {
-  // A stop is emitted as shipped/rolledback, but the real outcome is in
-  // `results`: a non-ship stop can be inconclusive/dnf, i.e. a neutral
-  // "stopped" rather than a "rolled back / no lift" loss.
-  if (
-    event.event === "experiment.stopped.shipped" ||
-    event.event === "experiment.stopped.rolledback"
-  ) {
-    const results = (event.data?.object as { results?: string } | undefined)
-      ?.results;
-    if (results === "won") return "won";
-    if (results === "lost") return "lost";
-    return "stopped";
-  }
-
-  // Every other card event maps 1:1 to its shared card kind, which is a subset
-  // of CompactEvent (the two extra CompactEvents — won/lost — are resolved from
-  // `results` above).
-  const kind = slackCardKindForEvent(event.event);
-  return kind === "stopped" ? undefined : kind;
-};
-
-// Short, URL-free card caption. Omits the experiment name (which can contain a
-// URL that Slack would unfurl); the card image already shows the name.
-const CARD_CAPTION: Record<CompactEvent, string> = {
-  started: "Experiment started",
-  significance: "Reached significance",
-  won: "Declared a winner",
-  lost: "Rolled back",
-  stopped: "Experiment stopped",
-  warning: "Health alert",
-  decisionShip: "Ship recommended",
-  decisionRollback: "Rollback recommended",
-};
-
-// Render the compact results-card PNG for an experiment event (best-effort).
-// Only card-worthy lifecycle events get one (not metadata changes like
-// experiment.updated); returns the PNG plus a URL-free caption. Never throws.
-export const renderExperimentCardForEvent = async (
-  event: NotificationEvent,
-  organizationId: string,
-  format: "none" | "compact" | "detailed" = "compact",
-): Promise<{
-  png: Buffer;
-  altText: string;
-  caption: string;
-  experimentId: string;
-} | null> => {
-  if (format === "none") return null;
-  const compactEvent = compactEventForNotification(event);
-  if (!compactEvent) return null; // not a card-worthy event
-
-  const object = event.data?.object as
-    | { id?: string; experimentId?: string }
-    | undefined;
-  const experimentId = object?.id || object?.experimentId;
-  if (!experimentId) return null;
-
-  try {
-    const context = await getContextForAgendaJobByOrgId(organizationId);
-    // Imported lazily: experimentCardData reaches ExperimentSnapshotModel →
-    // experimentNotifications → email → UserModel → auth → context, which
-    // closes an import cycle (this module loads from the event notifier at
-    // startup). Only needed when a card is actually rendered.
-    const { buildExperimentCardData } = await import(
-      "back-end/src/services/slack/experimentCardData"
-    );
-    const card = await buildExperimentCardData(context, experimentId);
-    if (!card) return null;
-    card.event = compactEvent;
-    const png = await renderExperimentCard(
-      card,
-      format === "detailed" ? "detailed" : "compact",
-    );
-    return {
-      png,
-      altText: `${card.name} — experiment results`,
-      caption: CARD_CAPTION[compactEvent],
-      experimentId,
-    };
-  } catch (e) {
-    logger.warn(
-      e,
-      `Slack notification: failed to render experiment card for ${experimentId}`,
-    );
-    return null;
   }
 };
 

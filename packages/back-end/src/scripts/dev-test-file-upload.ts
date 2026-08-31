@@ -15,8 +15,8 @@ import {
   EventWebHookModel,
   getSlackBotAccessTokenForWebhook,
 } from "back-end/src/models/EventWebhookModel";
-import { renderExperimentCard } from "back-end/src/services/slack/cards";
-import { sampleCard } from "back-end/src/services/slack/chartImage";
+import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
+import { sampleCard } from "back-end/src/services/notificationCards/cardImages";
 import { uploadSlackImageFile } from "back-end/src/services/slack/slackWebApi";
 
 function arg(name: string): string | undefined {

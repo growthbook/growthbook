@@ -3,8 +3,8 @@ import { DiffResult } from "shared/types/events/diff";
 import { NotificationEvent } from "shared/types/events/notification-events";
 import type { EventUser } from "shared/validators";
 import {
-  slackCardKindForEvent,
-  SlackCardKind,
+  notificationCardKindForEvent,
+  NotificationCardKind,
   SLACK_EVENT_OPTIONS,
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
@@ -24,8 +24,8 @@ import {
   renderWeeklyScorecard,
   sampleFeatureDigest,
   renderFeatureDigest,
-} from "back-end/src/services/slack/chartImage";
-import { renderExperimentCard } from "back-end/src/services/slack/cards";
+} from "back-end/src/services/notificationCards/cardImages";
+import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
 import {
   isSlackIncomingWebhookUrl,
   postSlackMessageResult,
@@ -42,7 +42,7 @@ const friendlyTestEventLabel = (eventName: string): string =>
   SLACK_EVENT_OPTIONS.find((o) => o.events.includes(eventName))?.label ??
   eventName;
 
-const TEST_CARD_STATE: Record<SlackCardKind, CardState> = {
+const TEST_CARD_STATE: Record<NotificationCardKind, CardState> = {
   started: "started",
   significance: "running",
   won: "winner",
@@ -818,7 +818,7 @@ export const sendSlackEventWebhookTestEvent = async ({
   const channelId = eventWebHook.slack?.channelId;
 
   const format = eventWebHook.slackOptions?.experimentCardFormat ?? "compact";
-  const cardKind = slackCardKindForEvent(eventName);
+  const cardKind = notificationCardKindForEvent(eventName);
   // Preamble posted just before the sample, so it's obvious in-channel that
   // the following card/message is a test (only on the test-send path).
   const preamble = `Testing *${friendlyTestEventLabel(

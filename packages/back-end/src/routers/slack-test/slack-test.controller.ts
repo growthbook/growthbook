@@ -23,10 +23,10 @@ import {
   renderWeeklyScorecard,
   sampleFeatureDigest,
   renderFeatureDigest,
-} from "back-end/src/services/slack/chartImage";
-import { renderExperimentCard } from "back-end/src/services/slack/cards";
-import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
-import { postExperimentCardImage } from "back-end/src/services/slack/cardDelivery";
+} from "back-end/src/services/notificationCards/cardImages";
+import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
+import { buildExperimentCardData } from "back-end/src/services/notificationCards/experimentCardData";
+import { postSlackExperimentCardImage } from "back-end/src/services/slack/cardDelivery";
 
 type PostEventWebhookRequest = AuthRequest<{
   eventWebHookId: string;
@@ -215,7 +215,7 @@ export const postChartToSlack = async (
   }
 
   const png = await renderExperimentCard(card);
-  const posted = await postExperimentCardImage({
+  const posted = await postSlackExperimentCardImage({
     token,
     channel: channelId,
     png,

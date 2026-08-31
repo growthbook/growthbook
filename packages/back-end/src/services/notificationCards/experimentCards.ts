@@ -2,7 +2,7 @@ import {
   ExperimentCardData,
   renderDetailedCard,
   renderCompactCard,
-} from "back-end/src/services/slack/chartImage";
+} from "back-end/src/services/notificationCards/cardImages";
 
 // Experiment-card styles. A "card style" is one visual treatment for rendering
 // an ExperimentCardData into a PNG. The data model is intentionally

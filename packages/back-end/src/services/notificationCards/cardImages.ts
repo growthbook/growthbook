@@ -4,8 +4,8 @@ import satori from "satori";
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
 import { logger } from "back-end/src/util/logger";
 
-// Server-side experiment-card rendering for Slack. Pure-WASM pipeline (no native
-// binaries, no external service) so it runs in the Docker image and keeps data
+// Server-side notification-card rendering. Pure-WASM pipeline (no native
+// binaries or external service) so it runs in the Docker image and keeps data
 // on-box:
 //
 //   card model -> satori (JS, flexbox) -> SVG -> @resvg/resvg-wasm -> PNG
@@ -16,7 +16,7 @@ import { logger } from "back-end/src/util/logger";
 // fonts — all text goes through Satori and is emitted as vector paths.
 
 // Assets: fonts (Inter + Roboto Mono) + logo, vendored in ./assets and copied to
-// dist by `build:slack-assets`; resolve from src when running via ts/tests.
+// dist by `build:notification-card-assets`; resolve from src in ts/tests.
 
 function resolveAssetPath(file: string): string {
   const candidates = [
@@ -28,7 +28,7 @@ function resolveAssetPath(file: string): string {
       "..",
       "src",
       "services",
-      "slack",
+      "notificationCards",
       "assets",
       file,
     ),
@@ -36,7 +36,7 @@ function resolveAssetPath(file: string): string {
   const found = candidates.find((p) => fs.existsSync(p));
   if (!found) {
     throw new Error(
-      `Slack card asset not found: ${file} (looked in ${candidates.join(", ")})`,
+      `Notification card asset not found: ${file} (looked in ${candidates.join(", ")})`,
     );
   }
   return found;
@@ -188,10 +188,9 @@ const BADGE: Record<CardState, string> = {
 const VC = ["#3E63DD", "#12A594", "#F76808", "#E93D82"];
 
 const CARD_WIDTH = 1000;
-// Narrower + taller than the detailed card so the aspect ratio isn't extreme —
-// Slack center-crops very wide/short image previews. The min-height keeps short
-// cards from being wide-and-short (hero centers in the leftover space); taller
-// ones just grow.
+// Narrower + taller than the detailed card so image previews do not become
+// extreme. The min-height keeps short cards from being wide and short; taller
+// cards grow naturally.
 const COMPACT_WIDTH = 560;
 const COMPACT_MIN_HEIGHT = 240;
 const RAIL = 6;
@@ -1315,9 +1314,9 @@ function cardShell(hue: Hue, column: El[], width: number = CARD_WIDTH): El {
   );
 }
 
-// Compact card — a glanceable single-hero-stat card for per-event Slack
-// notifications. Reuses the detailed card's violin, badge, and tokens, condensed
-// to banner + name + one hero row + slim footer (no full metrics table).
+// Compact card — a glanceable single-hero-stat card for event notifications.
+// Reuses the detailed card's violin, badge, and tokens, condensed to banner +
+// name + one hero row + slim footer (no full metrics table).
 
 // Markdown -> plain text, collapsed and clamped to one line for compact prose.
 function plainClamp(md: string, max: number): string {
@@ -2435,7 +2434,8 @@ export async function renderDetailedCard(
 
 /**
  * Render the "compact" experiment card — a glanceable single-hero-stat card for
- * per-event Slack notifications. Go through `renderExperimentCard` in `./cards`.
+ * event notifications. Go through `renderExperimentCard` in
+ * `./experimentCards`.
  */
 export async function renderCompactCard(
   exp: ExperimentCardData,
@@ -3177,13 +3177,13 @@ export function sampleFeatureDigest(): FeatureDigestData {
   };
 }
 
-/** Warm the renderer (font + wasm) at startup rather than on first Slack use. */
-export async function warmChartImageRenderer(): Promise<void> {
+/** Warm the renderer (font + wasm) at startup rather than on first use. */
+export async function warmNotificationCardRenderer(): Promise<void> {
   try {
     await ensureWasmInitialized();
     getFonts();
     getLogoDataUri();
   } catch (err) {
-    logger.warn(err, "Slack chart image renderer failed to warm up");
+    logger.warn(err, "Notification card image renderer failed to warm up");
   }
 }

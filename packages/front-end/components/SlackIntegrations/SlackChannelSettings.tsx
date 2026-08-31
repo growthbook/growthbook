@@ -12,11 +12,11 @@ import {
   resolveExperimentDigest,
   resolveFeatureDigest,
   experimentCardFormats,
-  slackCardKindForEvent,
+  notificationCardKindForEvent,
   DEFAULT_SLACK_DIGEST_HOUR_UTC,
   DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
   type SlackDigestFrequency,
-  type SlackCardKind,
+  type NotificationCardKind,
   type ResolvedSlackDigest,
 } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
@@ -107,7 +107,7 @@ const CATEGORY_LABEL: Record<SlackEventCategory, string> = {
 // Card kind → sample chart-preview params (snapshot state + compact event) so
 // the preview renders the right hero for each card event.
 const CARD_KIND_PREVIEW: Record<
-  SlackCardKind,
+  NotificationCardKind,
   { state: string; event: string }
 > = {
   started: { state: "started", event: "started" },
@@ -126,7 +126,7 @@ const CARD_KIND_PREVIEW: Record<
 // (only experiment result/decision/health events do). Marked in the customize
 // list so it's clear which events post an image vs plain text.
 const optionPostsCard = (o: (typeof SLACK_EVENT_OPTIONS)[number]): boolean =>
-  o.events.some((e) => !!slackCardKindForEvent(e));
+  o.events.some((e) => !!notificationCardKindForEvent(e));
 
 const CARD_MARKER = "▪";
 
@@ -173,7 +173,7 @@ const PREVIEW_EVENT_GROUPS: {
     g.items.push({
       value: event,
       label: o.label,
-      tag: slackCardKindForEvent(event) ? "card" : "text",
+      tag: notificationCardKindForEvent(event) ? "card" : "text",
     });
   });
   groups.push({
@@ -415,7 +415,7 @@ function EventPreview({
   const [err, setErr] = useState<string | null>(null);
 
   const digestKind = digestKindForValue(eventName);
-  const cardKind = slackCardKindForEvent(eventName);
+  const cardKind = notificationCardKindForEvent(eventName);
   // The image to fetch, if any. Digests are always images; card events only
   // when a card style is selected. Otherwise there's no image (text preview).
   const imageSrc = digestKind
@@ -931,7 +931,7 @@ export default function SlackChannelSettings({
     if (!res.ok) throw new Error(res.error || "Failed to send test message.");
     const kindWord = digestKind
       ? "digest"
-      : slackCardKindForEvent(testEvent) && cardFormat !== "none"
+      : notificationCardKindForEvent(testEvent) && cardFormat !== "none"
         ? "card"
         : "message";
     setTestResult({
