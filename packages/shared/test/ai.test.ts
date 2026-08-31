@@ -15,7 +15,7 @@ describe("getProviderForAIModel", () => {
     expect(getProviderForAIModel("text", "claude-sonnet-4-6")).toBe(
       "anthropic",
     );
-    expect(getProviderForAIModel("text", "mistral-small-4-0-26-03")).toBe(
+    expect(getProviderForAIModel("text", "mistral-small-latest")).toBe(
       "mistral",
     );
   });

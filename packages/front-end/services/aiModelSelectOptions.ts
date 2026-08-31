@@ -67,9 +67,10 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   "grok-4.5": "Grok 4.5",
   "grok-4.3": "Grok 4.3",
   // Mistral
-  "mistral-large-3-25-12": "Mistral Large 3",
-  "mistral-medium-3-5-26-04": "Mistral Medium 3.5",
-  "mistral-small-4-0-26-03": "Mistral Small 4",
+  "mistral-large-latest": "Mistral Large",
+  "mistral-medium-latest": "Mistral Medium",
+  "mistral-small-latest": "Mistral Small",
+  "pixtral-large-latest": "Pixtral Large",
   // Google Gemini
   "gemini-3.1-pro-preview": "Gemini 3.1 Pro Preview",
   "gemini-3.7-flash": "Gemini 3.7 Flash",
