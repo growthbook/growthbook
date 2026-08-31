@@ -202,9 +202,11 @@ export default function InterleavingDetailPage() {
           </Box>
         </Flex>
         <Flex gap="2" align="center" flexShrink="0">
-          {canEdit && interleaving.status === "draft" && (
+          {canEdit && interleaving.status !== "running" && (
             <Button onClick={() => transition("start")}>
-              Start Interleaving
+              {interleaving.status === "stopped"
+                ? "Restart Interleaving"
+                : "Start Interleaving"}
             </Button>
           )}
           {canEdit && interleaving.status === "running" && (
@@ -231,9 +233,9 @@ export default function InterleavingDetailPage() {
       )}
       {interleaving.status === "draft" && (
         <Callout status="info" mb="3">
-          This interleaving experiment is a draft — its interleave rules are not
-          served. Link a Feature Flag with an interleave rule, then start it to
-          begin serving interleaved lists.
+          This interleaving experiment is a draft and is not being served. Start
+          it to begin serving interleaved lists — no Feature Flag is required,
+          though you can link one to control targeting and ramping.
         </Callout>
       )}
 
@@ -301,8 +303,9 @@ export default function InterleavingDetailPage() {
                       ))
                     ) : (
                       <em>
-                        None — link a Feature Flag to control diversion
-                        (required before starting)
+                        None — while running, a payload-only controller feature
+                        is generated automatically; link a Feature Flag to take
+                        over targeting and ramping
                       </em>
                     )}{" "}
                     {canEdit && (

@@ -9,7 +9,6 @@ import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { discardIfJustCreated } from "back-end/src/api/features/validations";
 import { updateRevision } from "back-end/src/models/FeatureRevisionModel";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -151,41 +150,20 @@ async function refreshInterleavingPayload(
   });
 }
 
-// Feature Flags whose rules reference this interleaving (interleave-ref)
-export async function getInterleavingLinkedFeatureIds(
-  context: Context,
-  interleaving: InterleavingInterface,
-): Promise<string[]> {
-  const features = await getAllFeatures(context);
-  return features
-    .filter((f) =>
-      (f.rules ?? []).some(
-        (r) =>
-          r.type === "interleave-ref" && r.interleavingId === interleaving.id,
-      ),
-    )
-    .map((f) => f.id);
-}
-
 export async function startInterleaving(
   context: Context,
   interleaving: InterleavingInterface,
 ): Promise<InterleavingInterface> {
-  if (interleaving.status !== "draft") {
-    throw new Error("Only draft interleaving experiments can be started");
+  if (interleaving.status === "running") {
+    throw new Error("This interleaving experiment is already running");
   }
-  const linkedFeatureIds = await getInterleavingLinkedFeatureIds(
-    context,
-    interleaving,
-  );
-  if (linkedFeatureIds.length === 0) {
-    throw new Error(
-      "Add an interleave rule to a Feature Flag before starting this interleaving experiment",
-    );
-  }
+  // No linked feature flag is required: unlinked experiments are served by a
+  // synthetic controller feature injected into the SDK payload. Linking a
+  // flag later takes over serving (the synthetic feature is suppressed).
   const updated = await context.models.interleavings.update(interleaving, {
     status: "running",
-    dateStarted: new Date(),
+    // Restarting a stopped experiment keeps the original analysis window
+    dateStarted: interleaving.dateStarted ?? new Date(),
   });
   await refreshInterleavingPayload(context, updated);
   return updated;
