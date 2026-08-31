@@ -108,7 +108,12 @@ export const AI_PROVIDER_MODEL_MAP = {
   // 2026-05-15 — xAI redirects them to grok-4.3 and bills at 4.3 rates, so
   // keeping them listed only misrepresents what an org is selecting.
   xai: ["grok-4.6", "grok-4.5", "grok-4.3"],
-  mistral: ["mistral-small", "mistral-medium", "pixtral-12b"],
+  // pixtral-12b was retired in Dec 2025, and Medium 3/3.1 on 2026-08-31.
+  mistral: [
+    "mistral-large-3-25-12",
+    "mistral-medium-3-5-26-04",
+    "mistral-small-4-0-26-03",
+  ],
   // gemini-3-pro-preview was shut down on 2026-03-09 (superseded by
   // gemini-3.1-pro-preview), and the gemini-2.0 pair is likewise retired.
   google: [
@@ -144,7 +149,7 @@ export const SELF_HOSTED_DEFAULT_AI_MODELS: ReadonlyArray<
   ["anthropic", "claude-sonnet-5"],
   ["google", "gemini-3.5-flash"],
   ["xai", "grok-4.3"],
-  ["mistral", "mistral-medium"],
+  ["mistral", "mistral-medium-3-5-26-04"],
 ];
 
 export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image-preview";
@@ -200,8 +205,8 @@ export function isVisionCapableModel(model: AIModel): boolean {
   if (/^gpt-4o/.test(model)) return true;
   if (/^gpt-4\.1/.test(model)) return true;
   if (/^gpt-5/.test(model)) return true;
-  // Mistral: only the Pixtral vision model.
-  if (model === "pixtral-12b") return true;
+  // Mistral: Large 3 and Medium 3.5 are multimodal; Small 4 is text-only.
+  if (/^mistral-(large-3|medium-3-5)/.test(model)) return true;
   // xAI: the grok-4 family is multimodal; grok-3/grok-2 are not.
   if (/^grok-4/.test(model)) return true;
   return false;
