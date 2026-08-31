@@ -62,61 +62,61 @@ export default function StickyBucketingSettings() {
           </Flex>
 
           {watch("useStickyBucketing") && (
-            <Flex align="start" gap="3" mt="0">
-              <Checkbox
-                value={watch("stickyBucketingOnByDefault")}
-                setValue={(v) => setValue("stickyBucketingOnByDefault", v)}
-                id="toggle-stickyBucketingOnByDefault"
-              />
-              <Box>
-                <label
-                  htmlFor="toggle-stickyBucketingOnByDefault"
-                  className="font-weight-semibold"
-                >
-                  On for new experiments by default
-                </label>
-                <p>
-                  When enabled, new experiments start with Sticky Bucketing on.
-                  You can still turn it off for individual experiments.
-                </p>
-              </Box>
-            </Flex>
-          )}
-
-          {watch("useStickyBucketing") && (
-            <Flex align="start" gap="3" mt="0">
-              <Checkbox
-                value={watch("useFallbackAttributes")}
-                setValue={(v) => setValue("useFallbackAttributes", v)}
-                id="toggle-useFallbackAttributes"
-              />
-              <Box>
-                <label
-                  htmlFor="toggle-useFallbackAttributes"
-                  className="font-weight-semibold"
-                >
-                  <Tooltip
-                    body={
-                      <>
-                        <div className="mb-2">
-                          If the user&apos;s assignment attribute is not
-                          available a fallback attribute may be used instead.
-                          Toggle this to allow selection of a fallback attribute
-                          when creating experiments.
-                        </div>
-                        <div>
-                          While using a fallback attribute can improve the
-                          consistency of the user experience, it can also lead
-                          to statistical biases if not implemented carefully.
-                          See the Sticky Bucketing docs for more information.
-                        </div>
-                      </>
-                    }
+            <Flex direction="column" gap="3" mt="3" ml="5">
+              <Flex align="start" gap="3">
+                <Checkbox
+                  value={watch("stickyBucketingOnByDefault")}
+                  setValue={(v) => setValue("stickyBucketingOnByDefault", v)}
+                  id="toggle-stickyBucketingOnByDefault"
+                />
+                <Box>
+                  <label
+                    htmlFor="toggle-stickyBucketingOnByDefault"
+                    className="font-weight-semibold"
                   >
-                    Enable fallback attributes in Experiments <GBInfo />
-                  </Tooltip>
-                </label>
-              </Box>
+                    On for new experiments by default
+                  </label>
+                  <p>
+                    When enabled, new experiments start with Sticky Bucketing
+                    on. You can still turn it off for individual experiments.
+                  </p>
+                </Box>
+              </Flex>
+
+              <Flex align="start" gap="3">
+                <Checkbox
+                  value={watch("useFallbackAttributes")}
+                  setValue={(v) => setValue("useFallbackAttributes", v)}
+                  id="toggle-useFallbackAttributes"
+                />
+                <Box>
+                  <label
+                    htmlFor="toggle-useFallbackAttributes"
+                    className="font-weight-semibold"
+                  >
+                    <Tooltip
+                      body={
+                        <>
+                          <div className="mb-2">
+                            If the user&apos;s assignment attribute is not
+                            available a fallback attribute may be used instead.
+                            Toggle this to allow selection of a fallback
+                            attribute when creating experiments.
+                          </div>
+                          <div>
+                            While using a fallback attribute can improve the
+                            consistency of the user experience, it can also lead
+                            to statistical biases if not implemented carefully.
+                            See the Sticky Bucketing docs for more information.
+                          </div>
+                        </>
+                      }
+                    >
+                      Enable fallback attributes in Experiments <GBInfo />
+                    </Tooltip>
+                  </label>
+                </Box>
+              </Flex>
             </Flex>
           )}
 
