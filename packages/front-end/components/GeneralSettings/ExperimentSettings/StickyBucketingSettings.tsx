@@ -62,7 +62,7 @@ export default function StickyBucketingSettings() {
           </Flex>
 
           {watch("useStickyBucketing") && (
-            <Flex direction="column" gap="3" mt="3" ml="5">
+            <Flex direction="column" gap="3" mt="3" ml="6">
               <Flex align="start" gap="3">
                 <Checkbox
                   value={watch("stickyBucketingOnByDefault")}
@@ -74,11 +74,11 @@ export default function StickyBucketingSettings() {
                     htmlFor="toggle-stickyBucketingOnByDefault"
                     className="font-weight-semibold"
                   >
-                    On for new experiments by default
+                    Enable by default for new Experiments
                   </label>
                   <p>
-                    When enabled, new experiments start with Sticky Bucketing
-                    on. You can still turn it off for individual experiments.
+                    When enabled, new Experiments start with Sticky Bucketing
+                    on. You can still turn it off for individual Experiments.
                   </p>
                 </Box>
               </Flex>

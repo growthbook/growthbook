@@ -149,11 +149,9 @@ export default function TrafficAndTargeting({
                   <div className="mt-1">
                     <Text color="text-mid">
                       Sticky bucketing:{" "}
-                      <em>
-                        {experiment.disableStickyBucketing
-                          ? "disabled"
-                          : "enabled"}
-                      </em>
+                      {experiment.disableStickyBucketing
+                        ? "Disabled"
+                        : "Enabled"}
                     </Text>
                   </div>
                 ) : null}

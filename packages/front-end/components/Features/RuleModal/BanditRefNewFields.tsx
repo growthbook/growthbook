@@ -210,11 +210,6 @@ export default function BanditRefNewFields({
               }}
               formatOptionLabel={formatAttributeOptionLabel}
             />
-            <FallbackAttributeSelector
-              form={form}
-              attributeSchema={attributeSchema}
-              extraIndicator={attributeSelectIndicator}
-            />
 
             {hasSDKWithNoBucketingV2 && (
               <HashVersionSelector
@@ -370,14 +365,35 @@ export default function BanditRefNewFields({
 
           {settings?.useStickyBucketing && (
             <Switch
-              label="Disable Sticky Bucketing"
-              description="Permit users in low-performing variations to switch variations in future update periods."
-              value={!!form.watch("disableStickyBucketing")}
+              label={
+                <>
+                  <Text weight="medium" color="text-high">
+                    Sticky Bucketing
+                  </Text>{" "}
+                  <Text color="text-high">
+                    (Organization default:{" "}
+                    {settings.stickyBucketingOnByDefault
+                      ? "Enabled"
+                      : "Disabled"}
+                    )
+                  </Text>
+                </>
+              }
+              description="Keep users in their assigned variation across future Bandit update periods."
+              value={!form.watch("disableStickyBucketing")}
               onChange={(v) => {
-                form.setValue("disableStickyBucketing", v);
+                form.setValue("disableStickyBucketing", !v);
               }}
               mb="5"
               mt="5"
+            />
+          )}
+
+          {!form.watch("disableStickyBucketing") && (
+            <FallbackAttributeSelector
+              form={form}
+              attributeSchema={attributeSchema}
+              extraIndicator={attributeSelectIndicator}
             />
           )}
 

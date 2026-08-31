@@ -2179,22 +2179,7 @@ describe("Organization Migration", () => {
     expect(result.settings.restApiBypassesReviews).toBe(false);
   });
 
-  it("backfills stickyBucketingOnByDefault=true for orgs that had sticky bucketing enabled", () => {
-    const testOrg: OrganizationInterface = {
-      id: "org_test",
-      name: "Test",
-      ownerEmail: "test@test.com",
-      url: "",
-      dateCreated: new Date(),
-      invites: [],
-      members: [],
-      settings: { useStickyBucketing: true },
-    };
-    const result = upgradeOrganizationDoc(testOrg);
-    expect(result.settings.stickyBucketingOnByDefault).toBe(true);
-  });
-
-  it("backfills stickyBucketingOnByDefault=false for orgs without sticky bucketing", () => {
+  it("defaults stickyBucketingOnByDefault to true for orgs that predate the setting", () => {
     const testOrg: OrganizationInterface = {
       id: "org_test",
       name: "Test",
@@ -2206,10 +2191,10 @@ describe("Organization Migration", () => {
       settings: {},
     };
     const result = upgradeOrganizationDoc(testOrg);
-    expect(result.settings.stickyBucketingOnByDefault).toBe(false);
+    expect(result.settings.stickyBucketingOnByDefault).toBe(true);
   });
 
-  it("preserves an explicit stickyBucketingOnByDefault=false even when sticky bucketing is enabled", () => {
+  it("preserves an explicit stickyBucketingOnByDefault=false (per-experiment opt-in)", () => {
     const testOrg: OrganizationInterface = {
       id: "org_test",
       name: "Test",
@@ -2225,6 +2210,24 @@ describe("Organization Migration", () => {
     };
     const result = upgradeOrganizationDoc(testOrg);
     expect(result.settings.stickyBucketingOnByDefault).toBe(false);
+  });
+
+  it("preserves an explicit stickyBucketingOnByDefault=true", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {
+        useStickyBucketing: true,
+        stickyBucketingOnByDefault: true,
+      },
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.stickyBucketingOnByDefault).toBe(true);
   });
 
   it("migrate approval flow settings", () => {

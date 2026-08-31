@@ -944,6 +944,12 @@ export default function RuleModal({
     if (existingSeed) {
       (newVal as Record<string, unknown>).seed = existingSeed;
     }
+    // getDefaultRuleValue does not set disableStickyBucketing, so seed it from
+    // the org default here (matching defaultRuleValues) — otherwise switching to
+    // an experiment rule type leaves it undefined and the toggle shows enabled
+    // even when the org has "on by default" unchecked.
+    (newVal as Record<string, unknown>).disableStickyBucketing =
+      !settings.stickyBucketingOnByDefault;
     // Org opt-in: new JSON rules start in sparse mode with a clean-slate value
     // (strip keys equal to the default) so the editor isn't pre-filled with the
     // whole default object. Only for eligible JSON features; new rules only.

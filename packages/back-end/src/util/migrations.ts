@@ -4,6 +4,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
+  DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { v4 as uuidv4 } from "uuid";
@@ -582,12 +583,13 @@ export function upgradeOrganizationDoc(
     org.settings.restApiBypassesReviews = true;
   }
 
-  // Backfill stickyBucketingOnByDefault for orgs created before this field existed.
-  // Orgs that already had sticky bucketing enabled keep defaulting new experiments to ON.
-  // New orgs get an explicit value at settings-save time, so this fallback only ever
-  // applies to orgs whose settings predate this field.
+  // Default stickyBucketingOnByDefault for orgs that predate this field. Unset
+  // means "on by default" so existing orgs keep defaulting new experiments to
+  // sticky bucketing exactly as they did before the setting existed. An explicit
+  // false (per-experiment opt-in) is preserved.
   if (org.settings.stickyBucketingOnByDefault === undefined) {
-    org.settings.stickyBucketingOnByDefault = !!org.settings.useStickyBucketing;
+    org.settings.stickyBucketingOnByDefault =
+      DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT;
   }
 
   // Migrate Arroval Flow Settings
