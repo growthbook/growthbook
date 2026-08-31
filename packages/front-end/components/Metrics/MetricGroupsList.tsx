@@ -31,8 +31,13 @@ const MetricGroupsList: FC = () => {
   const [archiveModal, setArchiveModal] = useState<MetricGroupInterface | null>(
     null,
   );
-  const { metricGroups, mutateDefinitions, getDatasourceById, project } =
-    useDefinitions();
+  const {
+    metricGroups,
+    mutateDefinitions,
+    getDatasourceById,
+    getProjectById,
+    project,
+  } = useDefinitions();
   const { hasCommercialFeature } = useUser();
   const hasGroupsFeature = hasCommercialFeature("metric-groups");
 
@@ -127,7 +132,8 @@ const MetricGroupsList: FC = () => {
             <TableColumnHeader>Metric Group Name</TableColumnHeader>
             <TableColumnHeader>Description</TableColumnHeader>
             <TableColumnHeader>Datasource</TableColumnHeader>
-            <TableColumnHeader>metrics</TableColumnHeader>
+            <TableColumnHeader>Projects</TableColumnHeader>
+            <TableColumnHeader>Metrics</TableColumnHeader>
             <TableColumnHeader>Date Created</TableColumnHeader>
             <TableColumnHeader />
             <TableColumnHeader style={{ width: "50px" }} />
@@ -158,6 +164,13 @@ const MetricGroupsList: FC = () => {
                   {mg.description}
                 </TableCell>
                 <TableCell>{dsName}</TableCell>
+                <TableCell>
+                  {mg.projects.length === 0
+                    ? null
+                    : mg.projects
+                        .map((p) => getProjectById(p)?.name || p)
+                        .join(", ")}
+                </TableCell>
                 <TableCell>{mg.metrics.length}</TableCell>
                 <TableCell>{date(mg.dateCreated)}</TableCell>
                 <TableCell style={{ color: "var(--gray-11)" }}>
