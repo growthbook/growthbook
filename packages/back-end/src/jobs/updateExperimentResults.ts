@@ -201,6 +201,8 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       "Successfully Refreshed Results for experiment " + experimentId,
     );
 
+    await notifyAutoUpdate({ context, experiment, success: true });
+
     if (experiment.type === "multi-armed-bandit") {
       const changes = updateExperimentBanditSettings({
         experiment,
