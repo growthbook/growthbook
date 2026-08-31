@@ -67,6 +67,7 @@ const PersonalAccessTokenSettings: FC = () => {
           title="Disable personal access tokens?"
           content="Every token that acts as a user stops working immediately — personal access tokens, OAuth access tokens, and the Visual Editor. Members won't be able to create new ones. Turning this setting back off restores them."
           yesText="Disable tokens"
+          color="red"
           onConfirm={async () => {
             await save(true);
             setConfirming(false);

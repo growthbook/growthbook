@@ -260,6 +260,7 @@ const MemberPersonalAccessTokens: FC = () => {
               : "Any request using this token will be rejected until it is re-enabled. The member keeps their access to GrowthBook and can still delete or replace the token themselves."
           }
           yesText={pendingToggle.disabled ? "Enable" : "Disable"}
+          color={pendingToggle.disabled ? "violet" : "red"}
           onConfirm={async () => {
             await toggleDisabled(pendingToggle);
             setPendingToggle(null);
