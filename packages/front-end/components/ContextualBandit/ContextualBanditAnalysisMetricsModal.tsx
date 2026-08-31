@@ -174,7 +174,6 @@ export default function ContextualBanditAnalysisMetricsModal({
           const query = contextualBanditQueries.find(
             (q) => q.id === data.exposureQueryId,
           );
-          const queryAttrs = query?.targetingAttributeColumns ?? [];
           const eligible = getEligibleContextualAttributes(
             query?.targetingAttributeColumns,
             attributeSchema,
@@ -192,7 +191,7 @@ export default function ContextualBanditAnalysisMetricsModal({
           if (
             !isDraft &&
             queryChanged &&
-            !contextualAttributes.some((a) => queryAttrs.includes(a))
+            !contextualAttributes.some((a) => eligible.includes(a))
           ) {
             throw new Error(
               `The selected query has no attributes in common with this Bandit's contextual attributes (${contextualAttributes.join(

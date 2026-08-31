@@ -9,6 +9,7 @@ import {
 import {
   ApiContextualBanditInterface,
   ApiCreateContextualBanditBody,
+  getEligibleContextualAttributes,
 } from "shared/validators";
 import { useRouter } from "next/router";
 import { datetime, getValidDate } from "shared/dates";
@@ -395,13 +396,13 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       }
     }
 
-    const queryAttributeColumns =
-      selectedCbQuery.targetingAttributeColumns ?? [];
-    const submitContextualAttributes = (
-      data.contextualAttributes?.length
-        ? data.contextualAttributes
-        : queryAttributeColumns
-    ).filter((a) => queryAttributeColumns.includes(a));
+    const eligibleAttributes = getEligibleContextualAttributes(
+      selectedCbQuery.targetingAttributeColumns,
+      allAttributesSchema,
+    );
+    const submitContextualAttributes = (data.contextualAttributes ?? []).filter(
+      (a) => eligibleAttributes.includes(a),
+    );
     if (submitContextualAttributes.length === 0) {
       setStep(1);
       throw new Error(

@@ -868,10 +868,6 @@ export async function runContextualBanditSnapshot(
     scheduleChanges,
   );
 
-  const previousSnapshot =
-    await context.models.contextualBanditSnapshots.getLatestForContextualBandit(
-      updatedCb.id,
-    );
   const snapshotSettings = buildContextualBanditSnapshotSettings(
     updatedCb,
     cbQuery,
@@ -881,31 +877,36 @@ export async function runContextualBanditSnapshot(
   const droppedContextualAttributes = updatedCb.contextualAttributes.filter(
     (a) => !snapshotSettings.contextualAttributes.includes(a),
   );
-  if (
-    droppedContextualAttributes.length > 0 &&
-    !isEqual(
-      previousSnapshot?.frozenSettings?.contextualAttributes,
-      snapshotSettings.contextualAttributes,
-    )
-  ) {
-    try {
-      await context.auditLog({
-        event: "contextualBandit.update",
-        entity: {
-          object: "contextualBandit",
-          id: updatedCb.id,
-        },
-        details: auditDetailsUpdate(
-          { contextualAttributes: updatedCb.contextualAttributes },
-          { contextualAttributes: snapshotSettings.contextualAttributes },
-          { droppedContextualAttributes, triggeredBy: opts.triggeredBy },
-        ),
-      });
-    } catch (e) {
-      context.logger.error(
-        e,
-        `Error creating audit log for dropped contextual attributes (${updatedCb.id})`,
+  if (droppedContextualAttributes.length > 0) {
+    const previousSnapshot =
+      await context.models.contextualBanditSnapshots.getLatestForContextualBandit(
+        updatedCb.id,
       );
+    if (
+      !isEqual(
+        previousSnapshot?.frozenSettings?.contextualAttributes,
+        snapshotSettings.contextualAttributes,
+      )
+    ) {
+      try {
+        await context.auditLog({
+          event: "contextualBandit.update",
+          entity: {
+            object: "contextualBandit",
+            id: updatedCb.id,
+          },
+          details: auditDetailsUpdate(
+            { contextualAttributes: updatedCb.contextualAttributes },
+            { contextualAttributes: snapshotSettings.contextualAttributes },
+            { droppedContextualAttributes, triggeredBy: opts.triggeredBy },
+          ),
+        });
+      } catch (e) {
+        context.logger.error(
+          e,
+          `Error creating audit log for dropped contextual attributes (${updatedCb.id})`,
+        );
+      }
     }
   }
 
