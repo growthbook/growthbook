@@ -88,14 +88,24 @@ describe("violatesExpirationPolicy", () => {
 
 describe("allowedExpirationPresets", () => {
   it("offers every preset when no policy is set", () => {
-    expect(allowedExpirationPresets(null)).toEqual([7, 30, 60, 90, 180, 365]);
+    expect(allowedExpirationPresets(null)).toEqual([
+      1, 7, 30, 60, 90, 180, 365,
+    ]);
   });
 
   it("caps presets at the policy maximum", () => {
-    expect(allowedExpirationPresets(90)).toEqual([7, 30, 60, 90]);
+    expect(allowedExpirationPresets(90)).toEqual([1, 7, 30, 60, 90]);
   });
 
-  it("falls back to the policy maximum when it undercuts every preset", () => {
+  it("offers the maximum itself when it falls between presets", () => {
+    expect(allowedExpirationPresets(45)).toEqual([1, 7, 30, 45]);
+  });
+
+  it("offers the shortest preset alongside a maximum that undercuts the rest", () => {
+    expect(allowedExpirationPresets(3)).toEqual([1, 3]);
+  });
+
+  it("collapses to a single choice at the shortest possible policy", () => {
     expect(allowedExpirationPresets(1)).toEqual([1]);
   });
 });
