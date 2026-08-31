@@ -153,7 +153,7 @@ export default function ConnectPage() {
       />
 
       <Flex align="start" gap="3" mt="4" mb="1">
-        <Heading as="h1" size="large" weight="semibold" mb="0">
+        <Heading as="h3" mb="0">
           SDK Installation Instructions for {environment} Environment
         </Heading>
         <Box ml="auto" style={{ flexShrink: 0 }}>
@@ -175,7 +175,7 @@ export default function ConnectPage() {
           >
             {OFFERED.map((id) => (
               <SelectItem key={id} value={id}>
-                <SDKLanguageLogo language={id} showLabel size={20} />
+                <SDKLanguageLogo language={id} showLabel size={25} />
               </SelectItem>
             ))}
           </Select>

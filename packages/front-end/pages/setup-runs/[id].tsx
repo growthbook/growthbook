@@ -1,6 +1,5 @@
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { formatDistanceToNow } from "date-fns";
 import { ApiSetupRun, setupRunMetaString } from "shared/validators";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
@@ -71,7 +70,9 @@ function NameCell({
 function ReviewCell({ href }: { href: string }) {
   return (
     <TableCell style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-      <UiLink href={href}>Review →</UiLink>
+      <UiLink href={href} external>
+        Review
+      </UiLink>
     </TableCell>
   );
 }
@@ -203,12 +204,7 @@ export default function SetupRunPage() {
   const byDeveloper = run.artifacts.filter((a) => a.by === "developer");
   const byGrowthBook = run.artifacts.filter((a) => a.by === "growthbook");
   const failing = run.checks.filter((c) => !c.ok && c.required);
-  const appName = setupRunMetaString(run.metadata, "appName");
   const environment = setupRunMetaString(run.metadata, "environment");
-  const when = formatDistanceToNow(new Date(run.dateCreated), {
-    addSuffix: true,
-  });
-  const from = run.agent === "claudecode" ? "Claude Code" : run.agent;
 
   return (
     <div className="container pagecontents" style={{ maxWidth: 885 }}>
@@ -217,19 +213,9 @@ export default function SetupRunPage() {
       />
 
       <Box mt="4" mb="5">
-        <Heading as="h1" size="2x-large" mb="2">
+        <Heading as="h1" size="2x-large" mb="0">
           {completed ? "Setup Complete!" : "Almost There"}
-          {appName ? (
-            <>
-              {" "}
-              <span style={{ color: "var(--violet-11)" }}>{appName}</span>
-            </>
-          ) : null}
         </Heading>
-        <Text as="p" color="text-mid">
-          Set up {when}
-          {from ? ` from ${from}` : ""}.
-        </Text>
       </Box>
 
       {failing.length > 0 && (
@@ -267,7 +253,7 @@ export default function SetupRunPage() {
         </Section>
       )}
 
-      <Heading as="h3" size="large" weight="semibold" mt="5" mb="3">
+      <Heading as="h3" mt="5" mb="2">
         What do you want to do next?
       </Heading>
       {/* Both cards hang a decorative image off their right edge with mr="-9".
