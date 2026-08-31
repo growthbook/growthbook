@@ -45,13 +45,16 @@ describe("isProjectListValidForProjects", () => {
     );
   });
 
-  it("should return true when item is available in all required projects", () => {
+  it("should return true when item is available in any required project", () => {
     expect(isProjectListValidForProjects(["project-a"], ["project-a"])).toBe(
       true,
     );
     expect(
+      isProjectListValidForProjects(["project-a"], ["project-a", "project-b"]),
+    ).toBe(true);
+    expect(
       isProjectListValidForProjects(
-        ["project-a", "project-b"],
+        ["project-a", "project-c"],
         ["project-a", "project-b"],
       ),
     ).toBe(true);
@@ -63,17 +66,14 @@ describe("isProjectListValidForProjects", () => {
     ).toBe(true);
   });
 
-  it("should return false when item is not available in all required projects", () => {
+  it("should return false when item does not overlap any required project", () => {
     expect(isProjectListValidForProjects(["project-a"], ["project-b"])).toBe(
       false,
     );
     expect(
-      isProjectListValidForProjects(["project-a"], ["project-a", "project-b"]),
-    ).toBe(false);
-    expect(
       isProjectListValidForProjects(
         ["project-a", "project-c"],
-        ["project-a", "project-b"],
+        ["project-b", "project-d"],
       ),
     ).toBe(false);
   });

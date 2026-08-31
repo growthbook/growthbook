@@ -556,8 +556,8 @@ export function isProjectListValidForProjects(
   // If the item has no project restrictions, it's valid for all projects
   if (!itemProjects || !itemProjects.length) return true;
 
-  // Otherwise, the item must be available in ALL required projects
-  return requiredProjects.every((p) => itemProjects.includes(p));
+  // Otherwise, the item must be available in at least one required project
+  return requiredProjects.some((p) => itemProjects.includes(p));
 }
 
 export function stringToBoolean(
