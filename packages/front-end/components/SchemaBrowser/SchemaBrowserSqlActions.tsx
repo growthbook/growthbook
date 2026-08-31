@@ -1,8 +1,27 @@
+import { ReactNode } from "react";
 import { PiCodeBlock, PiCopy } from "react-icons/pi";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
-import styles from "./SchemaBrowserSqlActions.module.scss";
+
+function ActionTooltip({
+  content,
+  children,
+}: {
+  content: string;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip content={content} disableHoverableContent>
+      <span
+        onClick={(e) => e.stopPropagation()}
+        style={{ display: "inline-flex" }}
+      >
+        {children}
+      </span>
+    </Tooltip>
+  );
+}
 
 export function SchemaCopyButton({
   value,
@@ -16,21 +35,19 @@ export function SchemaCopyButton({
   });
   if (!copySupported) return null;
   return (
-    <Tooltip
-      content={copySuccess ? "Copied" : idleTooltip}
-      disableHoverableContent
-    >
+    <ActionTooltip content={copySuccess ? "Copied" : idleTooltip}>
       <Button
         variant="ghost"
         size="sm"
         color="inherit"
         stopPropagation
         aria-label={idleTooltip}
+        icon={<PiCopy size={14} />}
         onClick={() => performCopy(value)}
       >
-        <PiCopy size={14} />
+        {null}
       </Button>
-    </Tooltip>
+    </ActionTooltip>
   );
 }
 
@@ -45,26 +62,22 @@ export function SchemaSqlInsertButton({
   disabled?: boolean;
   onClick: () => void;
 }) {
+  const label = disabled && disabledTooltip ? disabledTooltip : tooltip;
   return (
-    <Tooltip
-      content={disabled && disabledTooltip ? disabledTooltip : tooltip}
-      disableHoverableContent
-    >
+    <ActionTooltip content={label}>
       <Button
         variant="ghost"
         size="sm"
         color="inherit"
         stopPropagation
-        aria-label={tooltip}
-        aria-disabled={disabled}
-        className={disabled ? styles.disabledInsert : undefined}
-        onClick={() => {
-          if (disabled) return;
-          onClick();
-        }}
+        disabled={disabled}
+        aria-label={label}
+        icon={<PiCodeBlock size={14} />}
+        style={disabled ? { pointerEvents: "none" } : undefined}
+        onClick={onClick}
       >
-        <PiCodeBlock size={14} />
+        {null}
       </Button>
-    </Tooltip>
+    </ActionTooltip>
   );
 }

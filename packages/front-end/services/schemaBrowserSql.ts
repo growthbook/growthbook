@@ -71,6 +71,15 @@ export function columnInsertDisabledReason(
   return "This query isn't a simple SELECT from this table. Copy the column name instead.";
 }
 
+export function tableInsertDisabledReason(sql: string): string | null {
+  if (!sql.trim()) return null;
+  if (parseSimpleSelectFrom(sql)) return null;
+  if (isComplexSql(sql)) {
+    return "This query is too complex. Copy the table path instead.";
+  }
+  return "This query isn't a simple SELECT. Copy the table path instead.";
+}
+
 export function insertColumnIntoSelect(
   sql: string,
   column: string,

@@ -10,7 +10,8 @@ import {
   useState,
 } from "react";
 import Collapsible from "react-collapsible";
-import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
+import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { PiTable } from "react-icons/pi";
 import clsx from "clsx";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useAuth } from "@/services/auth";
@@ -23,6 +24,7 @@ import {
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
 import Callout from "@/ui/Callout";
+import { tableInsertDisabledReason } from "@/services/schemaBrowserSql";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
@@ -71,6 +73,8 @@ export default function SchemaBrowser({
   const hasQueuedStaleRefreshRef = useRef(false);
 
   const [retryCount, setRetryCount] = useState(1);
+
+  const tableInsertDisabledReasonText = tableInsertDisabledReason(sql);
 
   const normalizedTableFilter = tableFilter.trim().toLowerCase();
   const isFiltering = normalizedTableFilter.length > 0;
@@ -363,13 +367,25 @@ export default function SchemaBrowser({
                                         "pl-3 py-1",
                                       )}
                                       style={{ userSelect: "none" }}
-                                      role="button"
+                                      tabIndex={0}
                                       key={table.id || table.tableName}
                                       onClick={() =>
                                         selectTable(table.id, tablePath)
                                       }
+                                      onKeyDown={(e) => {
+                                        if (e.target !== e.currentTarget) {
+                                          return;
+                                        }
+                                        if (
+                                          e.key === "Enter" ||
+                                          e.key === " "
+                                        ) {
+                                          e.preventDefault();
+                                          selectTable(table.id, tablePath);
+                                        }
+                                      }}
                                     >
-                                      <FaTable />
+                                      <PiTable />
                                       <span className={actionStyles.label}>
                                         {table.tableName}
                                       </span>
@@ -383,6 +399,13 @@ export default function SchemaBrowser({
                                         {updateSqlInput ? (
                                           <SchemaSqlInsertButton
                                             tooltip={`Insert SELECT * FROM ${tablePath} query into editor`}
+                                            disabled={
+                                              !!tableInsertDisabledReasonText
+                                            }
+                                            disabledTooltip={
+                                              tableInsertDisabledReasonText ??
+                                              undefined
+                                            }
                                             onClick={() => {
                                               selectTable(table.id, tablePath);
                                               updateSqlInput(
