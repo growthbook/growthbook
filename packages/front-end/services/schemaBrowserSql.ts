@@ -61,23 +61,11 @@ export function columnInsertDisabledReason(
   const parsed = parseSimpleSelectFrom(sql);
   if (
     parsed &&
-    normalizeRelationPath(parsed.fromPath) === normalizeRelationPath(tablePath)
+    normalizeRelationPath(parsed.fromPath) !== normalizeRelationPath(tablePath)
   ) {
-    return null;
-  }
-  if (parsed) {
     return "This query selects from a different table. Copy the column name instead.";
   }
-  return "This query isn't a simple SELECT from this table. Copy the column name instead.";
-}
-
-export function tableInsertDisabledReason(sql: string): string | null {
-  if (!sql.trim()) return null;
-  if (parseSimpleSelectFrom(sql)) return null;
-  if (isComplexSql(sql)) {
-    return "This query is too complex. Copy the table path instead.";
-  }
-  return "This query isn't a simple SELECT. Copy the table path instead.";
+  return null;
 }
 
 export function insertColumnIntoSelect(
@@ -86,9 +74,10 @@ export function insertColumnIntoSelect(
   tablePath: string,
 ): string {
   if (columnInsertDisabledReason(sql, tablePath)) return sql;
-  if (!sql.trim()) return `SELECT ${column} FROM ${tablePath}`;
   const parsed = parseSimpleSelectFrom(sql);
-  if (!parsed) return sql;
+  if (!parsed) {
+    return `SELECT ${column} FROM ${tablePath}`;
+  }
   if (parsed.selectList === "*") {
     return `SELECT ${column} FROM ${parsed.fromPath}${parsed.limit}`;
   }

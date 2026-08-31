@@ -24,7 +24,6 @@ import {
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
 import Callout from "@/ui/Callout";
-import { tableInsertDisabledReason } from "@/services/schemaBrowserSql";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
@@ -73,8 +72,6 @@ export default function SchemaBrowser({
   const hasQueuedStaleRefreshRef = useRef(false);
 
   const [retryCount, setRetryCount] = useState(1);
-
-  const tableInsertDisabledReasonText = tableInsertDisabledReason(sql);
 
   const normalizedTableFilter = tableFilter.trim().toLowerCase();
   const isFiltering = normalizedTableFilter.length > 0;
@@ -399,13 +396,6 @@ export default function SchemaBrowser({
                                         {updateSqlInput ? (
                                           <SchemaSqlInsertButton
                                             tooltip={`Insert SELECT * FROM ${tablePath} query into editor`}
-                                            disabled={
-                                              !!tableInsertDisabledReasonText
-                                            }
-                                            disabledTooltip={
-                                              tableInsertDisabledReasonText ??
-                                              undefined
-                                            }
                                             onClick={() => {
                                               selectTable(table.id, tablePath);
                                               updateSqlInput(
