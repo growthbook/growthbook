@@ -46,7 +46,12 @@ export class ApiKeyModel extends BaseClass {
   }
   protected canRead(apiKey: ApiKeyInterface): boolean {
     if (apiKey.userId) {
-      return apiKey.userId === this.context.userId;
+      // Admins need an inventory of members' PATs to revoke a compromised one.
+      // `sanitize` still strips the token value, and reveal stays owner-only.
+      return (
+        apiKey.userId === this.context.userId ||
+        this.context.permissions.canDeleteApiKey()
+      );
     } else {
       return this.context.permissions.canReadSingleProjectResource(
         apiKey.project,
@@ -62,6 +67,11 @@ export class ApiKeyModel extends BaseClass {
     // `lastUsed` is written by auth middleware via the dangerous bypass and never hits this path.
     const keys = Object.keys(updates);
     if (keys.length !== 1 || keys[0] !== "disabled") return false;
+    // Admins can revoke another member's PAT without being able to delete it —
+    // the disabled doc keeps `lastUsed` ticking so they can see continued use.
+    if (apiKey.userId && apiKey.userId !== this.context.userId) {
+      return this.context.permissions.canDeleteApiKey();
+    }
     return this.canDelete(apiKey);
   }
   protected canDelete(apiKey: ApiKeyInterface): boolean {
@@ -98,6 +108,8 @@ export class ApiKeyModel extends BaseClass {
     return {
       id: doc.id,
       description: doc.description,
+      // Records whose PAT an admin revoked; absent for org keys.
+      userId: doc.userId,
       role: doc.role,
       limitAccessByEnvironment: doc.limitAccessByEnvironment,
       environments: doc.environments,
@@ -442,6 +454,17 @@ export class ApiKeyModel extends BaseClass {
       { id },
       { bypassSanitization: true },
     )) as SecretApiKey;
+  }
+
+  // Every member's PAT, for the admin revocation list. OAuth access tokens are
+  // excluded: they're short-lived and revoked by disconnecting the app instead.
+  public async getAllPersonalAccessTokens(): Promise<ApiKeyInterface[]> {
+    // `$ne: null` rather than `$exists`: org keys persist an explicit
+    // `userId: null`, which `$exists: true` would match.
+    return await this._find({
+      userId: { $ne: null },
+      oauthClientId: { $exists: false },
+    });
   }
 
   public async dangerousGetAllApiKeysInOrg() {

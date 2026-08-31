@@ -1910,6 +1910,24 @@ export async function getApiKeys(req: AuthRequest, res: Response) {
   });
 }
 
+// Admin-only inventory of every member's PAT, so a compromised token can be
+// revoked without waiting on its owner. Values are stripped by the model's
+// `sanitize`, and `postApiKeyReveal` still refuses another user's token.
+export async function getPersonalAccessTokens(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canDeleteApiKey()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const keys = await context.models.apiKeys.getAllPersonalAccessTokens();
+
+  res.status(200).json({
+    status: 200,
+    keys,
+  });
+}
+
 export async function postApiKey(
   req: AuthRequest<{
     description?: string;
