@@ -145,19 +145,15 @@ jobs:
         env:
           CI: true
 
-  # A 4-vCPU runner gives Jest only 3 workers for 300+ files, so shard instead.
-  # The 2 vCPU base runner drops each shard to one worker, so pay for 4 here.
+  # One box for 300+ files: Jest gets 15 workers instead of 3 per shard, and the
+  # ~20s of workspace setup is paid once rather than four times.
   test-back-end:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: depot-ubuntu-24.04-16
     # A silently killed Jest worker leaves the parent waiting on the 6h default.
     timeout-minutes: 15
     env:
       # mongodb-memory-server's own default, pinned so the cache key is exact.
       MONGOMS_VERSION: 6.0.14
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4]
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -168,10 +164,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: packages/back-end/.jest-cache
-          key: ${{ runner.os }}-jest-back-end-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}
+          key: ${{ runner.os }}-jest-back-end-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}
           restore-keys: |
-            ${{ runner.os }}-jest-back-end-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-
-            ${{ runner.os }}-jest-back-end-${{ matrix.shard }}-
+            ${{ runner.os }}-jest-back-end-${{ hashFiles('pnpm-lock.yaml') }}-
             ${{ runner.os }}-jest-back-end-
 
       # Otherwise Jest workers race for the same mongod and die on its lockfile.
@@ -188,7 +183,7 @@ jobs:
         run: MONGOMS_PREFER_GLOBAL_PATH=true node packages/back-end/node_modules/mongodb-memory-server/postinstall.js
 
       - name: Test
-        run: pnpm --filter back-end test --shard=${{ matrix.shard }}/4
+        run: pnpm --filter back-end test
         env:
           CI: true
 
