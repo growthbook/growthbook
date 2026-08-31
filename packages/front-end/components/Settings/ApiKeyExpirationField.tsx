@@ -7,7 +7,7 @@ import {
 } from "shared/api-key-expiration";
 import { datetime } from "shared/dates";
 import DatePicker from "@/components/DatePicker";
-import { Select, SelectItem } from "@/ui/Select";
+import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import HelperText from "@/ui/HelperText";
 
 const CUSTOM = "custom";
@@ -49,6 +49,7 @@ const ApiKeyExpirationField: FC<{
     <>
       <Select
         label="Expiration"
+        mb="3"
         value={selection}
         setValue={(next) => {
           setSelection(next);
@@ -64,6 +65,7 @@ const ApiKeyExpirationField: FC<{
             {presetLabel(days)}
           </SelectItem>
         ))}
+        <SelectSeparator />
         <SelectItem value={CUSTOM}>Custom</SelectItem>
         {/* Offering "no expiration" under a policy would only ever be rejected. */}
         {!required && <SelectItem value={NEVER}>No expiration</SelectItem>}
@@ -71,12 +73,12 @@ const ApiKeyExpirationField: FC<{
 
       {selection === CUSTOM && (
         <DatePicker
+          label="Expiration date"
           date={value ?? undefined}
           setDate={(d) => setValue(d ?? null)}
           precision="date"
           disableBefore={addDays(new Date(), 1)}
           disableAfter={latest ?? undefined}
-          containerClassName="mb-2"
         />
       )}
 
