@@ -554,7 +554,18 @@ function ManagedTrafficForm({
                   <Button
                     variant="ghost"
                     icon={<PiPlus />}
-                    onClick={() => setAdopting(true)}
+                    onClick={() => {
+                      // Same seed the removed modal used, so what is shown is
+                      // what gets saved.
+                      setFeatureValues((current) => {
+                        const next = { ...current };
+                        (form.watch("variations") ?? []).forEach((v, i) => {
+                          if (!next[v.id]) next[v.id] = v.key || String(i);
+                        });
+                        return next;
+                      });
+                      setAdopting(true);
+                    }}
                   >
                     Add variation values
                   </Button>
@@ -703,7 +714,7 @@ function ManagedTrafficForm({
             }
             valueLabel={isManaged ? undefined : "Feature Value"}
             hideFeatureValue={!valuesShown}
-            valueDisabled={!editingValues}
+            valueDisabled={!editingValues && !adopting}
             valueTooltip={
               // A managed flag publishes from this experiment, so its staging
               // needs no explaining; a shared flag's does.
