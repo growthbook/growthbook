@@ -5,8 +5,12 @@
 /** How far ahead of expiry a key is surfaced as expiring soon. */
 export const EXPIRING_SOON_DAYS = 7;
 
-/** Durations offered in the create modal, before the org policy caps them. */
-export const EXPIRATION_PRESET_DAYS = [7, 30, 60, 90, 180, 365] as const;
+/**
+ * Durations offered in the create modal, before the org policy caps them.
+ * Starts at 1 because that is the shortest lifetime any policy can require, and
+ * the most cautious choice shouldn't be the one that needs a date picker.
+ */
+export const EXPIRATION_PRESET_DAYS = [1, 7, 30, 60, 90, 180, 365] as const;
 
 export type ExpirationStatus = "none" | "active" | "expiring-soon" | "expired";
 
@@ -81,7 +85,11 @@ export function allowedExpirationPresets(
 ): number[] {
   if ((maxLifetimeDays ?? null) === null) return [...EXPIRATION_PRESET_DAYS];
   const max = maxLifetimeDays as number;
-  const allowed = EXPIRATION_PRESET_DAYS.filter((days) => days <= max);
-  // A policy shorter than every preset still needs one choice: its own maximum.
-  return allowed.length ? [...allowed] : [max];
+  const allowed: number[] = EXPIRATION_PRESET_DAYS.filter(
+    (days) => days <= max,
+  );
+  // The maximum is always offered, so "the longest my organization allows" is a
+  // choice rather than something to reconstruct in the date picker.
+  if (allowed[allowed.length - 1] !== max) allowed.push(max);
+  return allowed;
 }

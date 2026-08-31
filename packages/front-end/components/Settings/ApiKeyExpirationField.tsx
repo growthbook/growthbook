@@ -16,7 +16,7 @@ const NEVER = "never";
 const presetLabel = (days: number) => {
   if (days === 365) return "1 year";
   if (days % 30 === 0 && days >= 60) return `${days / 30} months`;
-  return `${days} days`;
+  return `${days} day${days === 1 ? "" : "s"}`;
 };
 
 /**
