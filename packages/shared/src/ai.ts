@@ -133,6 +133,20 @@ export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-sonnet-5";
 // visual editor — the most schema-sensitive workload we run — can be moved
 // independently when its needs and the general default's diverge.
 export const CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL: AIModel = "claude-sonnet-5";
+// Self-hosted has no managed key, so the default has to follow whichever
+// provider the admin actually configured. A fixed OpenAI default told an
+// admin who set only ANTHROPIC_API_KEY that no OpenAI key was configured.
+// OpenAI is first so existing installs keep the model they run today.
+export const SELF_HOSTED_DEFAULT_AI_MODELS: ReadonlyArray<
+  [AIProvider, AIModel]
+> = [
+  ["openai", "gpt-5.4-mini"],
+  ["anthropic", "claude-sonnet-5"],
+  ["google", "gemini-3.5-flash"],
+  ["xai", "grok-4.3"],
+  ["mistral", "mistral-medium"],
+];
+
 export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image-preview";
 export const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
