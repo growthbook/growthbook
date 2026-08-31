@@ -3,10 +3,9 @@ import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 export function getExperimentEndDate(
   settings: Pick<ExperimentSnapshotSettings, "skipPartialData" | "endDate">,
   conversionWindowHours: number,
-  // The point in time the data is known-complete up to. Defaults to now, which
-  // is correct when the query rescans raw event data. The incremental
-  // statistics query passes its cache coverage instead so it never admits a
-  // unit whose conversion window extends past the cached data.
+  // Known-complete data horizon. Defaults to now (rescanning raw
+  // events). Incremental stats pass cache coverage instead so a unit whose
+  // window extends past the cached data is never admitted.
   asOf: Date = new Date(),
 ): Date {
   // Only include users who entered the experiment before this timestamp

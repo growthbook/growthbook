@@ -7,23 +7,26 @@ import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-ho
 export interface ConversionWindowPartition<
   M extends ExperimentMetricInterface,
 > {
-  // Null when skipPartialData is off (mixed windows allowed in one query).
+  /** Null when skipPartialData is off (mixed windows allowed in one query). */
   windowHours: number | null;
-  // Null for the skipPartialData-off partition (un-suffixed query name).
-  // Otherwise an ascending index (0, 1, …) used as `_w${windowOrdinal}` on
-  // DAG node names so they stay unique without putting the window into a
-  // table identifier.
+  /**
+   * Null when skipPartialData is off (un-suffixed query name). Otherwise an
+   * ascending index used as `_w${windowOrdinal}` on DAG node names so they
+   * stay unique without putting the window into a table identifier.
+   */
   windowOrdinal: number | null;
   metrics: M[];
 }
 
-// Same call the stats CTE uses (metric-data.ts) so a partition can never
-// disagree with the read-side homogeneity assertion. This intentionally
-// differs from the standard-path group key in getFactMetricGroup, which keys on
-// getMaxHoursToConvert(false, [metric], null). The two are equal today only
-// because funnel and activation metrics are blocked on the incremental path;
-// keying on the CTE's exact call keeps the partition in lockstep once that
-// support is unblocked.
+/**
+ * Same call the stats CTE uses (`metric-data.ts`) so a partition can never
+ * disagree with the read-side homogeneity assertion. Intentionally differs
+ * from `getFactMetricGroup`, which keys on
+ * `getMaxHoursToConvert(false, [metric], null)`. Those agree today only
+ * because funnel and activation metrics are blocked on the incremental
+ * path; matching the CTE keeps the partition in lockstep once that support
+ * is unblocked.
+ */
 export function getMetricConversionWindowHours(
   metric: ExperimentMetricInterface,
   activationMetric: ExperimentMetricInterface | null,

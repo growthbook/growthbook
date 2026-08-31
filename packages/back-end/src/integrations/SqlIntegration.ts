@@ -1664,8 +1664,8 @@ export default abstract class SqlIntegration
     // Always collect every exposure up to the phase end, even when
     // skipPartialData is on: the units cache must stay complete so units
     // whose conversion window has not elapsed yet are analyzed on a later
-    // refresh. The "full conversion window" cutoff is applied at read time in
-    // getIncrementalRefreshStatisticsQuery instead.
+    // refresh. The cutoff is applied at read time in
+    // getIncrementalRefreshStatisticsQuery.
     const endDate = getExperimentEndDate(settings, 0);
 
     // Segment and SQL filter only check against new exposures
@@ -2363,32 +2363,17 @@ export default abstract class SqlIntegration
       }
     }
 
-    // "Exclude in-progress conversions" (skipPartialData): only analyze units
-    // that have had a full conversion window since their first exposure.
-    // The metric caches already apply each metric's conversion window per
-    // event at insert time, so this is purely a read-time filter on the units
-    // table — the same filter the non-incremental path applies in
-    // experiment-fact-metrics-query.ts. The cutoff is the longest window in
-    // this slice, which matches the standard path because metrics are grouped
-    // by conversion window when skipPartialData is on (see
-    // partitionMetricsByConversionWindow).
-    //
-    // The cutoff is anchored to `cacheCoverageDate` (how far the caches this
-    // query reads are populated), not wall-clock now. The main runner refreshes
-    // the caches to ~now first, but the exploratory runner reads stale caches
-    // between refreshes; anchoring to coverage keeps it from admitting units
-    // whose window extends past the cached data (which would show truncated,
-    // still-in-progress conversions).
+    // skipPartialData is a read-time units filter (caches already apply each
+    // metric's window per event at insert). Cutoff is the longest window in
+    // this slice — valid because partitionMetricsByConversionWindow groups
+    // by window — and is anchored to `cacheCoverageDate`, not now, so an
+    // exploratory run on a stale cache does not admit units whose window
+    // extends past the cached data.
     const maxHoursToConvert = Math.max(
       0,
       ...metricData.map((m) => m.maxHoursToConvert),
     );
-    // A single cutoff is only valid if every metric in this slice shares one
-    // conversion window. That is the contract partitionMetricsByConversionWindow
-    // enforces by grouping on the window, but it is enforced there and consumed
-    // here, so assert it rather than silently applying one metric's window to
-    // another (e.g. if activation-metric support is later unblocked without
-    // updating the grouping).
+    // Fail closed if a caller skipped partitionMetricsByConversionWindow.
     if (params.settings.skipPartialData) {
       const distinctWindows = new Set(
         metricData.map((m) => m.maxHoursToConvert),

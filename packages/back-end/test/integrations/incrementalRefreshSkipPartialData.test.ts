@@ -5,11 +5,6 @@ import { getIncrementalRefreshMetricSources } from "back-end/src/queryRunners/Ex
 import { factTableFactory } from "../factories/FactTable.factory";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 
-// "Exclude in-progress conversions" (skipPartialData) on the incremental
-// refresh path: the cutoff is a read-time filter on the units table in the
-// statistics query. Cache grouping is fact-table-only; per-window splits
-// happen at read time (see partitionMetricsByConversionWindow).
-
 const exposureQuery: ExposureQuery = {
   id: "exposure",
   name: "Exposure",
@@ -32,7 +27,7 @@ const factTable = factTableFactory.build({
 });
 const factTableMap = new Map([["ft_events", factTable]]);
 
-// 1 day delay + 3 day window = 96 hours to convert
+/** 1 day delay + 3 day window = 96 hours to convert */
 const longWindowMetric = factMetricFactory.build({
   id: "fact_long_window",
   metricType: "mean",
@@ -46,7 +41,7 @@ const longWindowMetric = factMetricFactory.build({
   },
 });
 
-// 0 delay + 1 day window = 24 hours to convert
+/** 0 delay + 1 day window = 24 hours to convert */
 const shortWindowMetric = factMetricFactory.build({
   id: "fact_short_window",
   metricType: "mean",
@@ -155,9 +150,6 @@ describe("incremental refresh statistics query with skipPartialData", () => {
   });
 
   it("rejects a mixed-window slice when excluding in-progress conversions", () => {
-    // Grouping guarantees a window-homogeneous slice; if that ever breaks, the
-    // stats query must fail loudly rather than apply one metric's window to
-    // another.
     expect(() =>
       buildSql({ ...baseSettings, skipPartialData: true }, [
         shortWindowMetric,
@@ -167,7 +159,6 @@ describe("incremental refresh statistics query with skipPartialData", () => {
   });
 
   it("allows a mixed-window slice when in-progress conversions are included", () => {
-    // The cutoff is only computed when excluding, so a mixed slice is fine here.
     expect(() =>
       buildSql({ ...baseSettings, skipPartialData: false }, [
         shortWindowMetric,
@@ -189,16 +180,13 @@ describe("incremental refresh statistics query with skipPartialData", () => {
   });
 
   it("anchors the cutoff to cache coverage, not wall-clock now", () => {
-    // A stale cache (exploratory run between refreshes) covers data only up to
-    // an earlier point than now. The cutoff must be coverage - window, so units
-    // whose window extends past the cached data are not analyzed.
     const coverage = new Date("2024-02-08T12:00:00.000Z");
     const sql = buildSql(
       { ...baseSettings, skipPartialData: true },
       [longWindowMetric],
       coverage,
     );
-    // 96 hours before coverage, not before NOW
+    // 96 hours before coverage, not NOW
     const cutoff = integration
       .getSqlDialect()
       .toTimestamp(new Date("2024-02-04T12:00:00.000Z"));
@@ -239,16 +227,13 @@ describe("incremental refresh metric grouping with skipPartialData", () => {
       "fact_long_window",
       "fact_short_window",
     ]);
-    // Window never enters the physical table name this key becomes.
     expect(groups[0].groupId).not.toContain("_cw");
     expect(groups[0].groupId).not.toContain(".");
   });
 
   it("does not encode a sub-hour window in the group key", () => {
-    // The group key becomes a warehouse table identifier, so a fractional
-    // window (a 30-minute window is 0.5 hours) must never leak into it as a
-    // "." or a minutes token. Window splits happen at read time; the key is
-    // fact-table-only.
+    // Group key becomes a warehouse table identifier, so a 30-minute
+    // window (0.5 hours) must not leak a "." or minutes token into it.
     const halfHourMetric = factMetricFactory.build({
       id: "fact_half_hour",
       metricType: "mean",

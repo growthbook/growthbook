@@ -183,12 +183,16 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   interface ExploratoryPipeline {
     group: (typeof metricSourceGroups)[number];
     tableFullName: string;
-    // How far this cache is populated. The skipPartialData cutoff is anchored
-    // to this (not now) because exploratory runs read caches from the last
-    // main refresh without rebuilding them.
+    /**
+     * How far this cache is populated. The skipPartialData cutoff is
+     * anchored here (not now) because exploratory runs read caches from
+     * the last main refresh without rebuilding them.
+     */
     maxTimestamp: Date | null;
-    // Optional covariate cache, populated when at least one metric in the
-    // group is regression-adjusted (same-FT or cross-FT).
+    /**
+     * Optional covariate cache, populated when at least one metric in the
+     * group is regression-adjusted (same-FT or cross-FT).
+     */
     covariateTableFullName?: string;
   }
   const pipelineByGroupId = new Map<string, ExploratoryPipeline>();
@@ -246,8 +250,8 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     // in case same fact table is split across multiple sources
     const sourceName = factTable ? `(${factTable.name})` : "";
 
-    // When skipPartialData is on, the cache is window-heterogeneous and we
-    // emit one stats query per conversion window over the shared table.
+    // One stats query per conversion window over the shared table when
+    // skipPartialData is on (the cache itself stays window-heterogeneous).
     const partitions = partitionMetricsByConversionWindow(
       sameFtMetrics,
       snapshotSettings.skipPartialData,
@@ -282,9 +286,8 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
           unitsSourceTableFullName: unitsTableFullName,
           metrics: partition.metrics,
           lastMaxTimestamp: existingSource?.maxTimestamp || null,
-          // No insert runs here — the cache is only as fresh as the last main
-          // refresh, so the cutoff is anchored to its coverage, not now. A null
-          // (empty cache) anchors to the epoch, which analyzes no units.
+          // No insert here: cache is only as fresh as the last main refresh.
+          // Null (empty cache) anchors to the epoch so no units are analyzed.
           cacheCoverageDate: existingSource.maxTimestamp ?? new Date(0),
         }),
         dependencies: [],
@@ -338,9 +341,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
         unitsSourceTableFullName: unitsTableFullName,
         metrics: subGroup.metrics.map((m) => m.metric),
         lastMaxTimestamp: null,
-        // Both caches are only as fresh as the last main refresh. A unit is
-        // fully covered only when both sides have its window, so anchor the
-        // cutoff to the earlier of the two coverages (null → epoch).
+        // Fully covered only when both sides have the window; null → epoch.
         cacheCoverageDate: new Date(
           Math.min(
             pipelineA.maxTimestamp?.getTime() ?? 0,

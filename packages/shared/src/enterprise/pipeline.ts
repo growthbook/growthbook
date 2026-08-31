@@ -132,8 +132,8 @@ export function isExperimentIncrementalEnabled(
  * The highest-priority reason this experiment can't run in Incremental Pipeline
  * mode, or null when it can. Combines coverage (delegated to
  * `isExperimentIncrementalEnabled`) with the per-experiment support checks
- * (activation metric, metrics, quantile sketches),
- * returning the first reason that applies.
+ * (activation metric, metrics, quantile sketches), returning the first reason
+ * that applies.
  */
 export function getIncrementalPipelineUnsupportedReason(params: {
   datasourceProperties:

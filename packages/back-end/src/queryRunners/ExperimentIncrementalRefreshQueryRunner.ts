@@ -132,12 +132,11 @@ export function getIncrementalRefreshMetricSources({
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
 }): MetricSourceGroups[] {
-  // Apply metric-level overrides once, up front, so the group key, the cache
-  // insert, and the read-time cutoff all reason about the same conversion
-  // window. The query builders re-apply overrides idempotently, so this only
-  // removes the raw-vs-overridden split between new and existing buckets — no
-  // behavior change. (TODO(overrides) tracks hoisting this to the start of
-  // analysis, which would let the query builders stop re-applying.)
+  // Apply overrides once so the group key, cache insert, and read-time
+  // cutoff share the same conversion window. Query builders re-apply
+  // idempotently; this only removes the raw-vs-overridden split between
+  // new and existing buckets. TODO(overrides): hoist to the start of
+  // analysis so query builders can stop re-applying.
   const overriddenMetrics = metrics.map((metric) => {
     const clone = cloneDeep(metric);
     applyMetricOverrides(clone, snapshotSettings);
@@ -147,10 +146,10 @@ export function getIncrementalRefreshMetricSources({
   // Fan-out determines each metric's fact tables; this only chunks their caches.
   const fanOut = planMetricFanOut(overriddenMetrics);
 
-  // Each metric's group key — one cache per fact table, with quantiles in
-  // their own `_qtile` cache, mirroring the packing used when skipPartialData
-  // is off. Conversion-window splits happen at read time (one statistics
-  // query per window over the shared table), not as extra physical caches.
+  /**
+   * One cache per fact table (`_qtile` for quantiles). Conversion-window
+   * splits happen at read time, not as extra physical caches.
+   */
   const getMetricGroupKey = (
     factTableId: string,
     metric: FactMetricInterface,
@@ -1015,9 +1014,8 @@ const startExperimentIncrementalRefreshQueries = async (
     // only host one half of a cross-FT ratio skip this — those metrics'
     // stats are computed in the cross-FT pair pass below.
     //
-    // When skipPartialData is on, the cache is window-heterogeneous (one
-    // insert per FT) and we emit one stats query per conversion window over
-    // the shared table, each with its own units cutoff.
+    // skipPartialData: one stats query per conversion window over the
+    // shared table, each with its own units cutoff.
     if (sameFtMetrics.length > 0) {
       const partitions = partitionMetricsByConversionWindow(
         sameFtMetrics,
@@ -1025,10 +1023,10 @@ const startExperimentIncrementalRefreshQueries = async (
         activationMetric,
       );
       for (const partition of partitions) {
-        // Match standard query runner behavior: quantiles only run overall
-        // stats (no pre-computed dimensions), regardless of requested
-        // dimensions. Recomputed per partition so a mixed quantile/mean
-        // group still disables precomputation only on the quantile slice.
+        // Quantiles only run overall stats (no pre-computed dimensions),
+        // matching the standard query runner. Recomputed per partition so a
+        // mixed quantile/mean group disables precomputation only on the
+        // quantile slice.
         const runOverallQuantileAnalysis =
           partition.metrics.some(quantileMetricType);
         const dimensionsForPrecomputation =
@@ -1048,8 +1046,8 @@ const startExperimentIncrementalRefreshQueries = async (
             unitsSourceTableFullName: unitsTableFullName,
             metrics: partition.metrics,
             lastMaxTimestamp: existingSource?.maxTimestamp || null,
-            // This run's insert (a dependency below) refreshes the cache to
-            // ~now, so the run start time is a safe coverage anchor.
+            // Insert (a dependency) refreshes the cache to ~now, so the run
+            // start is a safe coverage anchor.
             cacheCoverageDate: params.incrementalRefreshStartTime,
             dimensionsForPrecomputation,
             dimensionsForAnalysis: [],
@@ -1132,8 +1130,8 @@ const startExperimentIncrementalRefreshQueries = async (
         // null; the stats query reads whatever each cache holds and the
         // ratio aggregation works regardless of catch-up state.
         lastMaxTimestamp: null,
-        // Both inserts (dependencies below) refresh the caches to ~now, so the
-        // run start time is a safe coverage anchor.
+        // Both inserts refresh the caches to ~now, so the run start is a
+        // safe coverage anchor.
         cacheCoverageDate: params.incrementalRefreshStartTime,
         dimensionsForPrecomputation,
         dimensionsForAnalysis: [],
