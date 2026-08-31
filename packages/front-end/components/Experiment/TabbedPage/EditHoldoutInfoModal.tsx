@@ -4,6 +4,7 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import { isEqual } from "lodash";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import { withHtmlName } from "@/components/Forms/withHtmlName";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsInput from "@/components/Tags/TagsInput";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -73,8 +74,7 @@ export default function EditHoldoutInfoModal({
         autoFocus={focusSelector === "name"}
         label="Experiment Name"
         autoComplete="off"
-        {...form.register("name")}
-        name="experimentTitle"
+        {...withHtmlName(form.register("name"), "experimentTitle")}
         required
       />
       <SelectOwner

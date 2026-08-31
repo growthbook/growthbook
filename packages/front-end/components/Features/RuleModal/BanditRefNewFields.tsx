@@ -11,6 +11,7 @@ import { PiCaretRightFill } from "react-icons/pi";
 import { Box, Separator } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
+import { withHtmlName } from "@/components/Forms/withHtmlName";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
@@ -161,8 +162,7 @@ export default function BanditRefNewFields({
             minLength={2}
             label="Bandit Name"
             autoComplete="off"
-            {...form.register("name")}
-            name="banditTitle"
+            {...withHtmlName(form.register("name"), "banditTitle")}
           />
 
           <Field

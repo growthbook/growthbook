@@ -20,6 +20,7 @@ import {
 import { PiCaretRightFill } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
+import { withHtmlName } from "@/components/Forms/withHtmlName";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField, {
   GroupedValue,
@@ -352,8 +353,7 @@ export default function ExperimentRefNewFields({
             minLength={2}
             label="Experiment Name"
             autoComplete="off"
-            {...form.register("name")}
-            name="experimentTitle"
+            {...withHtmlName(form.register("name"), "experimentTitle")}
           />
 
           <Field
