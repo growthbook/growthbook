@@ -164,6 +164,8 @@ export async function startInterleaving(
     status: "running",
     // Restarting a stopped experiment keeps the original analysis window
     dateStarted: interleaving.dateStarted ?? new Date(),
+    // ...but must reopen its end, or the snapshot query window is inverted
+    dateStopped: undefined,
   });
   await refreshInterleavingPayload(context, updated);
   return updated;

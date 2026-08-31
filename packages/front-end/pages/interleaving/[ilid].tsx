@@ -25,6 +25,7 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
+import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import InterleavingResults from "@/components/Interleaving/InterleavingResults";
 import { useFeaturesList } from "@/services/features";
 import { useInterleaving } from "@/hooks/useInterleavings";
@@ -353,17 +354,28 @@ export default function InterleavingDetailPage() {
                 }
                 showAutoUpdateWidget={false}
               />
-              <RunQueriesButton
-                cta="Update"
-                cancelEndpoint={`/api/v1/interleavings/${ilid}/cancel-refresh`}
-                model={{
-                  queries: snapshot?.queries ?? [],
-                  runStarted: snapshot?.runStarted ?? null,
-                }}
-                mutate={mutateResults}
-                onSubmit={refresh}
-                icon="refresh"
-              />
+              <Flex align="center" gap="2">
+                {snapshot && snapshot.queries.length > 0 && (
+                  <ViewAsyncQueriesButton
+                    queries={snapshot.queries.map((q) => q.query)}
+                    error={snapshot.error}
+                    status={queryStatus}
+                    icon={null}
+                    condensed
+                  />
+                )}
+                <RunQueriesButton
+                  cta="Update"
+                  cancelEndpoint={`/api/v1/interleavings/${ilid}/cancel-refresh`}
+                  model={{
+                    queries: snapshot?.queries ?? [],
+                    runStarted: snapshot?.runStarted ?? null,
+                  }}
+                  mutate={mutateResults}
+                  onSubmit={refresh}
+                  icon="refresh"
+                />
+              </Flex>
             </Flex>
             {refreshError && (
               <Callout status="error" mb="2">
