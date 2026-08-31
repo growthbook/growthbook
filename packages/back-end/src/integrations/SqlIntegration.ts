@@ -2371,14 +2371,44 @@ export default abstract class SqlIntegration
     // experiment-fact-metrics-query.ts. The cutoff is the longest window in
     // this slice, which matches the standard path because metrics are grouped
     // by conversion window when skipPartialData is on (see
-    // getIncrementalRefreshMetricSources).
+    // partitionMetricsByConversionWindow).
+    //
+    // The cutoff is anchored to `cacheCoverageDate` (how far the caches this
+    // query reads are populated), not wall-clock now. The main runner refreshes
+    // the caches to ~now first, but the exploratory runner reads stale caches
+    // between refreshes; anchoring to coverage keeps it from admitting units
+    // whose window extends past the cached data (which would show truncated,
+    // still-in-progress conversions).
     const maxHoursToConvert = Math.max(
       0,
       ...metricData.map((m) => m.maxHoursToConvert),
     );
+    // A single cutoff is only valid if every metric in this slice shares one
+    // conversion window. That is the contract partitionMetricsByConversionWindow
+    // enforces by grouping on the window, but it is enforced there and consumed
+    // here, so assert it rather than silently applying one metric's window to
+    // another (e.g. if activation-metric support is later unblocked without
+    // updating the grouping).
+    if (params.settings.skipPartialData) {
+      const distinctWindows = new Set(
+        metricData.map((m) => m.maxHoursToConvert),
+      );
+      if (distinctWindows.size > 1) {
+        throw new Error(
+          `getIncrementalRefreshStatisticsQuery: "exclude in-progress conversions" needs a window-homogeneous slice, but got conversion windows [${[
+            ...distinctWindows,
+          ]
+            .sort((a, b) => a - b)
+            .join(
+              ", ",
+            )}]h. Metrics must be grouped by conversion window (see partitionMetricsByConversionWindow).`,
+        );
+      }
+    }
     const unitsEndDate = getExperimentEndDate(
       params.settings,
       maxHoursToConvert,
+      params.cacheCoverageDate,
     );
     const unitsWhere = params.settings.skipPartialData
       ? `WHERE e.first_exposure_timestamp <= ${this.getSqlDialect().toTimestamp(unitsEndDate)}`

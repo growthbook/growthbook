@@ -61,11 +61,15 @@ import {
   planMetricFanOut,
 } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
+import {
+  conversionWindowQueryNameSuffix,
+  getMetricConversionWindowHours,
+  partitionMetricsByConversionWindow,
+} from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { resolveCovariateInsertPath } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
-import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
 import {
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
@@ -128,26 +132,29 @@ export function getIncrementalRefreshMetricSources({
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
 }): MetricSourceGroups[] {
-  // Fan-out determines each metric's fact tables; this only chunks their caches.
-  const fanOut = planMetricFanOut(metrics);
+  // Apply metric-level overrides once, up front, so the group key, the cache
+  // insert, and the read-time cutoff all reason about the same conversion
+  // window. The query builders re-apply overrides idempotently, so this only
+  // removes the raw-vs-overridden split between new and existing buckets — no
+  // behavior change. (TODO(overrides) tracks hoisting this to the start of
+  // analysis, which would let the query builders stop re-applying.)
+  const overriddenMetrics = metrics.map((metric) => {
+    const clone = cloneDeep(metric);
+    applyMetricOverrides(clone, snapshotSettings);
+    return clone;
+  });
 
-  // Each metric's group key — quantiles get their own cache, mirroring the
-  // experimentQueries grouping rule. When "exclude in-progress conversions"
-  // (skipPartialData) is on, metrics are also grouped by conversion window
-  // (same as getFactMetricGroup) so every metric in a statistics slice shares
-  // one "full conversion window" cutoff on the units table.
+  // Fan-out determines each metric's fact tables; this only chunks their caches.
+  const fanOut = planMetricFanOut(overriddenMetrics);
+
+  // Each metric's group key — one cache per fact table, with quantiles in
+  // their own `_qtile` cache, mirroring the packing used when skipPartialData
+  // is off. Conversion-window splits happen at read time (one statistics
+  // query per window over the shared table), not as extra physical caches.
   const getMetricGroupKey = (
     factTableId: string,
     metric: FactMetricInterface,
-  ) => {
-    let key = `${factTableId}${quantileMetricType(metric) ? "_qtile" : ""}`;
-    if (snapshotSettings.skipPartialData) {
-      const withOverrides = cloneDeep(metric);
-      applyMetricOverrides(withOverrides, snapshotSettings);
-      key += `_cw${getMaxHoursToConvert(false, [withOverrides], null)}`;
-    }
-    return key;
-  };
+  ) => `${factTableId}${quantileMetricType(metric) ? "_qtile" : ""}`;
 
   // Metrics that map to a pre-existing cache table — keyed by that source's
   // groupId. Matching is done by (factTableId, metric id): a cross-FT ratio
@@ -203,17 +210,12 @@ export function getIncrementalRefreshMetricSources({
   const sourceProps = integration.getSourceProperties();
   newBuckets.forEach((bucket, baseGroupId) => {
     const chunks = chunkMetrics({
-      metrics: bucket.metrics.map((m) => {
-        const metric = cloneDeep(m);
-        // TODO(overrides): refactor overrides to beginning of analysis
-        applyMetricOverrides(metric, snapshotSettings);
-        return {
-          metric,
-          regressionAdjusted:
-            isRegressionAdjusted(metric) &&
-            snapshotSettings.regressionAdjustmentEnabled,
-        };
-      }),
+      metrics: bucket.metrics.map((metric) => ({
+        metric,
+        regressionAdjusted:
+          isRegressionAdjusted(metric) &&
+          snapshotSettings.regressionAdjustmentEnabled,
+      })),
       maxColumnsPerQuery: sourceProps.maxColumns,
       isBandit: !!snapshotSettings.banditSettings,
       efficientQuantileGrid: !!sourceProps.hasArrayQuantileGrid,
@@ -1008,58 +1010,78 @@ const startExperimentIncrementalRefreshQueries = async (
       covariateInsertQuery: insertMetricCovariateDataQuery ?? undefined,
     });
 
-    // Schedule a same-FT statistics query for every metric in this group
+    // Schedule same-FT statistics queries for every metric in this group
     // whose numerator and denominator both live in this FT. Caches that
     // only host one half of a cross-FT ratio skip this — those metrics'
     // stats are computed in the cross-FT pair pass below.
+    //
+    // When skipPartialData is on, the cache is window-heterogeneous (one
+    // insert per FT) and we emit one stats query per conversion window over
+    // the shared table, each with its own units cutoff.
     if (sameFtMetrics.length > 0) {
-      // Match standard query runner behavior: quantiles only run overall
-      // stats (no pre-computed dimensions), regardless of requested
-      // dimensions.
-      const runOverallQuantileAnalysis = sameFtMetrics.some(quantileMetricType);
-      const dimensionsForPrecomputation =
-        org.settings?.disablePrecomputedDimensions || runOverallQuantileAnalysis
-          ? []
-          : eligibleDimensionsWithSlicesUnderMaxCells;
+      const partitions = partitionMetricsByConversionWindow(
+        sameFtMetrics,
+        snapshotSettings.skipPartialData,
+        activationMetric,
+      );
+      for (const partition of partitions) {
+        // Match standard query runner behavior: quantiles only run overall
+        // stats (no pre-computed dimensions), regardless of requested
+        // dimensions. Recomputed per partition so a mixed quantile/mean
+        // group still disables precomputation only on the quantile slice.
+        const runOverallQuantileAnalysis =
+          partition.metrics.some(quantileMetricType);
+        const dimensionsForPrecomputation =
+          org.settings?.disablePrecomputedDimensions ||
+          runOverallQuantileAnalysis
+            ? []
+            : eligibleDimensionsWithSlicesUnderMaxCells;
 
-      const statisticsQuery = await startQuery({
-        name: `statistics_${group.groupId}`,
-        displayTitle: `Compute Statistics ${sourceName}`,
-        query: integration.getIncrementalRefreshStatisticsQuery({
-          settings: snapshotSettings,
-          exposureQuery: resolvedExposureQuery,
-          activationMetric: activationMetric,
-          factTableMap: params.factTableMap,
-          unitsSourceTableFullName: unitsTableFullName,
-          metrics: sameFtMetrics,
-          lastMaxTimestamp: existingSource?.maxTimestamp || null,
-          dimensionsForPrecomputation,
-          dimensionsForAnalysis: [],
-          metricSources: [
-            {
-              factTableId: group.factTableId,
-              tableFullName: metricSourceTableFullName,
-              ...(anyMetricHasCuped && metricSourceCovariateTableFullName
-                ? { covariateTableFullName: metricSourceCovariateTableFullName }
-                : {}),
-            },
+        const statisticsQuery = await startQuery({
+          name: `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.windowOrdinal)}`,
+          displayTitle: `Compute Statistics ${sourceName}`,
+          query: integration.getIncrementalRefreshStatisticsQuery({
+            settings: snapshotSettings,
+            exposureQuery: resolvedExposureQuery,
+            activationMetric: activationMetric,
+            factTableMap: params.factTableMap,
+            unitsSourceTableFullName: unitsTableFullName,
+            metrics: partition.metrics,
+            lastMaxTimestamp: existingSource?.maxTimestamp || null,
+            // This run's insert (a dependency below) refreshes the cache to
+            // ~now, so the run start time is a safe coverage anchor.
+            cacheCoverageDate: params.incrementalRefreshStartTime,
+            dimensionsForPrecomputation,
+            dimensionsForAnalysis: [],
+            metricSources: [
+              {
+                factTableId: group.factTableId,
+                tableFullName: metricSourceTableFullName,
+                ...(anyMetricHasCuped && metricSourceCovariateTableFullName
+                  ? {
+                      covariateTableFullName:
+                        metricSourceCovariateTableFullName,
+                    }
+                  : {}),
+              },
+            ],
+          }),
+          dependencies: [
+            insertMetricsSourceDataQuery.query,
+            ...(insertMetricCovariateDataQuery
+              ? [insertMetricCovariateDataQuery.query]
+              : []),
           ],
-        }),
-        dependencies: [
-          insertMetricsSourceDataQuery.query,
-          ...(insertMetricCovariateDataQuery
-            ? [insertMetricCovariateDataQuery.query]
-            : []),
-        ],
-        run: (query, setExternalId, queryMetadata) =>
-          integration.runIncrementalRefreshStatisticsQuery(
-            query,
-            setExternalId,
-            queryMetadata,
-          ),
-        queryType: "experimentIncrementalRefreshStatistics",
-      });
-      queries.push(statisticsQuery);
+          run: (query, setExternalId, queryMetadata) =>
+            integration.runIncrementalRefreshStatisticsQuery(
+              query,
+              setExternalId,
+              queryMetadata,
+            ),
+          queryType: "experimentIncrementalRefreshStatistics",
+        });
+        queries.push(statisticsQuery);
+      }
     }
   }
 
@@ -1076,6 +1098,10 @@ const startExperimentIncrementalRefreshQueries = async (
     // Main runner: the per-FT pass above must have built every pipeline a
     // cross-FT metric needs. A missing pipeline indicates a fan-out bug.
     onMissingPipeline: "throw",
+    getWindowKey: (m) =>
+      snapshotSettings.skipPartialData
+        ? String(getMetricConversionWindowHours(m.metric, activationMetric))
+        : null,
   });
 
   for (const subGroup of crossFtSubGroups) {
@@ -1092,7 +1118,7 @@ const startExperimentIncrementalRefreshQueries = async (
       : eligibleDimensionsWithSlicesUnderMaxCells;
 
     const crossStatsQuery = await startQuery({
-      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}`,
+      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}${conversionWindowQueryNameSuffix(subGroup.windowOrdinal)}`,
       displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
@@ -1106,6 +1132,9 @@ const startExperimentIncrementalRefreshQueries = async (
         // null; the stats query reads whatever each cache holds and the
         // ratio aggregation works regardless of catch-up state.
         lastMaxTimestamp: null,
+        // Both inserts (dependencies below) refresh the caches to ~now, so the
+        // run start time is a safe coverage anchor.
+        cacheCoverageDate: params.incrementalRefreshStartTime,
         dimensionsForPrecomputation,
         dimensionsForAnalysis: [],
         // Cross-FT CUPED uses one covariate cache per pipeline — the

@@ -523,6 +523,11 @@ export interface IncrementalRefreshStatisticsQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  // The point in time the metric caches this query reads are complete up to.
+  // Used as the "exclude in-progress conversions" cutoff anchor so a stale
+  // cache (exploratory runs between main refreshes) never admits a unit whose
+  // conversion window extends past the cached data.
+  cacheCoverageDate: Date;
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";

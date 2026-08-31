@@ -7,8 +7,8 @@ import { factMetricFactory } from "../factories/FactMetric.factory";
 
 // "Exclude in-progress conversions" (skipPartialData) on the incremental
 // refresh path: the cutoff is a read-time filter on the units table in the
-// statistics query, and metrics are grouped by conversion window so each
-// statistics slice has a single cutoff.
+// statistics query. Cache grouping is fact-table-only; per-window splits
+// happen at read time (see partitionMetricsByConversionWindow).
 
 const exposureQuery: ExposureQuery = {
   id: "exposure",
@@ -117,6 +117,7 @@ describe("incremental refresh statistics query with skipPartialData", () => {
   function buildSql(
     settings: ExperimentSnapshotSettings,
     metrics = [longWindowMetric],
+    cacheCoverageDate = NOW,
   ) {
     return integration.getIncrementalRefreshStatisticsQuery({
       settings,
@@ -131,6 +132,7 @@ describe("incremental refresh statistics query with skipPartialData", () => {
       unitsSourceTableFullName: "proj.ds.units",
       metrics,
       lastMaxTimestamp: null,
+      cacheCoverageDate,
     });
   }
 
@@ -152,15 +154,26 @@ describe("incremental refresh statistics query with skipPartialData", () => {
     );
   });
 
-  it("uses the longest conversion window in the statistics slice", () => {
-    const sql = buildSql({ ...baseSettings, skipPartialData: true }, [
-      shortWindowMetric,
-      longWindowMetric,
-    ]);
-    const cutoff = integration
-      .getSqlDialect()
-      .toTimestamp(new Date("2024-02-06T12:00:00.000Z"));
-    expect(unitsCte(sql)).toContain(`e.first_exposure_timestamp <= ${cutoff}`);
+  it("rejects a mixed-window slice when excluding in-progress conversions", () => {
+    // Grouping guarantees a window-homogeneous slice; if that ever breaks, the
+    // stats query must fail loudly rather than apply one metric's window to
+    // another.
+    expect(() =>
+      buildSql({ ...baseSettings, skipPartialData: true }, [
+        shortWindowMetric,
+        longWindowMetric,
+      ]),
+    ).toThrow(/window-homogeneous/);
+  });
+
+  it("allows a mixed-window slice when in-progress conversions are included", () => {
+    // The cutoff is only computed when excluding, so a mixed slice is fine here.
+    expect(() =>
+      buildSql({ ...baseSettings, skipPartialData: false }, [
+        shortWindowMetric,
+        longWindowMetric,
+      ]),
+    ).not.toThrow();
   });
 
   it("never cuts off after the phase end date", () => {
@@ -172,6 +185,23 @@ describe("incremental refresh statistics query with skipPartialData", () => {
     const cutoff = integration
       .getSqlDialect()
       .toTimestamp(new Date("2024-01-31T00:00:00.000Z"));
+    expect(unitsCte(sql)).toContain(`e.first_exposure_timestamp <= ${cutoff}`);
+  });
+
+  it("anchors the cutoff to cache coverage, not wall-clock now", () => {
+    // A stale cache (exploratory run between refreshes) covers data only up to
+    // an earlier point than now. The cutoff must be coverage - window, so units
+    // whose window extends past the cached data are not analyzed.
+    const coverage = new Date("2024-02-08T12:00:00.000Z");
+    const sql = buildSql(
+      { ...baseSettings, skipPartialData: true },
+      [longWindowMetric],
+      coverage,
+    );
+    // 96 hours before coverage, not before NOW
+    const cutoff = integration
+      .getSqlDialect()
+      .toTimestamp(new Date("2024-02-04T12:00:00.000Z"));
     expect(unitsCte(sql)).toContain(`e.first_exposure_timestamp <= ${cutoff}`);
   });
 });
@@ -197,21 +227,54 @@ describe("incremental refresh metric grouping with skipPartialData", () => {
     ]);
   });
 
-  it("splits metrics by conversion window when excluded", () => {
+  it("keeps metrics with different conversion windows in one cache when excluded", () => {
     const groups = getIncrementalRefreshMetricSources({
       metrics: [shortWindowMetric, longWindowMetric],
       existingMetricSources: [],
       integration: fakeIntegration,
       snapshotSettings: { ...baseSettings, skipPartialData: true },
     });
-    expect(groups).toHaveLength(2);
-    expect(groups.map((g) => g.groupId).sort()).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining("ft_events_cw24_"),
-        expect.stringContaining("ft_events_cw96_"),
-      ]),
-    );
-    groups.forEach((g) => expect(g.metrics).toHaveLength(1));
+    expect(groups).toHaveLength(1);
+    expect(groups[0].metrics.map((m) => m.id).sort()).toEqual([
+      "fact_long_window",
+      "fact_short_window",
+    ]);
+    // Window never enters the physical table name this key becomes.
+    expect(groups[0].groupId).not.toContain("_cw");
+    expect(groups[0].groupId).not.toContain(".");
+  });
+
+  it("does not encode a sub-hour window in the group key", () => {
+    // The group key becomes a warehouse table identifier, so a fractional
+    // window (a 30-minute window is 0.5 hours) must never leak into it as a
+    // "." or a minutes token. Window splits happen at read time; the key is
+    // fact-table-only.
+    const halfHourMetric = factMetricFactory.build({
+      id: "fact_half_hour",
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft_events",
+        column: "amount",
+        aggregation: "sum",
+      },
+      windowSettings: {
+        type: "conversion",
+        delayValue: 0,
+        delayUnit: "minutes",
+        windowValue: 30,
+        windowUnit: "minutes",
+      },
+    });
+    const groups = getIncrementalRefreshMetricSources({
+      metrics: [halfHourMetric],
+      existingMetricSources: [],
+      integration: fakeIntegration,
+      snapshotSettings: { ...baseSettings, skipPartialData: true },
+    });
+    expect(groups).toHaveLength(1);
+    expect(groups[0].groupId).toContain("ft_events_");
+    expect(groups[0].groupId).not.toContain("_cw");
+    expect(groups[0].groupId).not.toContain(".");
   });
 
   it("keeps same-window metrics together when excluded", () => {
@@ -226,6 +289,10 @@ describe("incremental refresh metric grouping with skipPartialData", () => {
       snapshotSettings: { ...baseSettings, skipPartialData: true },
     });
     expect(groups).toHaveLength(1);
-    expect(groups[0].groupId).toContain("ft_events_cw96_");
+    expect(groups[0].metrics.map((m) => m.id).sort()).toEqual([
+      "fact_long_window",
+      "fact_long_window_2",
+    ]);
+    expect(groups[0].groupId).not.toContain("_cw");
   });
 });

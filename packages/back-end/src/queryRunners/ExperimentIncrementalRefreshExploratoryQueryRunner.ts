@@ -27,6 +27,11 @@ import {
   planMetricFanOut,
 } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
+import {
+  conversionWindowQueryNameSuffix,
+  getMetricConversionWindowHours,
+  partitionMetricsByConversionWindow,
+} from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
@@ -178,6 +183,10 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   interface ExploratoryPipeline {
     group: (typeof metricSourceGroups)[number];
     tableFullName: string;
+    // How far this cache is populated. The skipPartialData cutoff is anchored
+    // to this (not now) because exploratory runs read caches from the last
+    // main refresh without rebuilding them.
+    maxTimestamp: Date | null;
     // Optional covariate cache, populated when at least one metric in the
     // group is regression-adjusted (same-FT or cross-FT).
     covariateTableFullName?: string;
@@ -214,6 +223,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     pipelineByGroupId.set(group.groupId, {
       group,
       tableFullName: existingSource.tableFullName,
+      maxTimestamp: existingSource.maxTimestamp,
       covariateTableFullName: anyMetricHasCuped
         ? existingCovariateSource?.tableFullName
         : undefined,
@@ -236,45 +246,59 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     // in case same fact table is split across multiple sources
     const sourceName = factTable ? `(${factTable.name})` : "";
 
-    const statisticsQuery = await startQuery({
-      name: `statistics_${group.groupId}`,
-      displayTitle: `Compute Statistics ${sourceName}`,
-      query: integration.getIncrementalRefreshStatisticsQuery({
-        settings: snapshotSettings,
-        exposureQuery: resolvedExposureQuery,
-        activationMetric: activationMetric,
-        // TODO(incremental-refresh): add post-stratification to exploratory
-        // analysis. Pre-computation is unused here; we lean on
-        // dimensionsForAnalysis to drive breakdowns instead.
-        dimensionsForPrecomputation: [],
-        dimensionsForAnalysis: dimensionObjs,
-        factTableMap: params.factTableMap,
-        metricSources: [
-          {
-            factTableId: group.factTableId,
-            tableFullName: existingSource.tableFullName,
-            ...(anyMetricHasCuped && existingCovariateSource
-              ? {
-                  covariateTableFullName: existingCovariateSource.tableFullName,
-                }
-              : {}),
-          },
-        ],
-        unitsSourceTableFullName: unitsTableFullName,
-        metrics: sameFtMetrics,
-        lastMaxTimestamp: existingSource?.maxTimestamp || null,
-      }),
-      dependencies: [],
-      run: fenced((query, setExternalId, queryMetadata) =>
-        integration.runIncrementalRefreshStatisticsQuery(
-          query,
-          setExternalId,
-          queryMetadata,
+    // When skipPartialData is on, the cache is window-heterogeneous and we
+    // emit one stats query per conversion window over the shared table.
+    const partitions = partitionMetricsByConversionWindow(
+      sameFtMetrics,
+      snapshotSettings.skipPartialData,
+      activationMetric,
+    );
+    for (const partition of partitions) {
+      const statisticsQuery = await startQuery({
+        name: `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.windowOrdinal)}`,
+        displayTitle: `Compute Statistics ${sourceName}`,
+        query: integration.getIncrementalRefreshStatisticsQuery({
+          settings: snapshotSettings,
+          exposureQuery: resolvedExposureQuery,
+          activationMetric: activationMetric,
+          // TODO(incremental-refresh): add post-stratification to exploratory
+          // analysis. Pre-computation is unused here; we lean on
+          // dimensionsForAnalysis to drive breakdowns instead.
+          dimensionsForPrecomputation: [],
+          dimensionsForAnalysis: dimensionObjs,
+          factTableMap: params.factTableMap,
+          metricSources: [
+            {
+              factTableId: group.factTableId,
+              tableFullName: existingSource.tableFullName,
+              ...(anyMetricHasCuped && existingCovariateSource
+                ? {
+                    covariateTableFullName:
+                      existingCovariateSource.tableFullName,
+                  }
+                : {}),
+            },
+          ],
+          unitsSourceTableFullName: unitsTableFullName,
+          metrics: partition.metrics,
+          lastMaxTimestamp: existingSource?.maxTimestamp || null,
+          // No insert runs here — the cache is only as fresh as the last main
+          // refresh, so the cutoff is anchored to its coverage, not now. A null
+          // (empty cache) anchors to the epoch, which analyzes no units.
+          cacheCoverageDate: existingSource.maxTimestamp ?? new Date(0),
+        }),
+        dependencies: [],
+        run: fenced((query, setExternalId, queryMetadata) =>
+          integration.runIncrementalRefreshStatisticsQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
         ),
-      ),
-      queryType: "experimentIncrementalRefreshStatistics",
-    });
-    queries.push(statisticsQuery);
+        queryType: "experimentIncrementalRefreshStatistics",
+      });
+      queries.push(statisticsQuery);
+    }
   }
 
   // Cross-FT pair pass — mirrors the main runner. We re-derive the
@@ -290,6 +314,10 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     metricSourceGroups,
     pipelineByGroupId,
     onMissingPipeline: "skip",
+    getWindowKey: (m) =>
+      snapshotSettings.skipPartialData
+        ? String(getMetricConversionWindowHours(m.metric, activationMetric))
+        : null,
   });
   for (const subGroup of crossFtSubGroups) {
     const [pipelineA, pipelineB] = subGroup.pipelines;
@@ -298,7 +326,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     const sourceName = ftA && ftB ? `(${ftA.name} x ${ftB.name})` : "";
 
     const crossStatsQuery = await startQuery({
-      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}`,
+      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}${conversionWindowQueryNameSuffix(subGroup.windowOrdinal)}`,
       displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
@@ -310,6 +338,15 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
         unitsSourceTableFullName: unitsTableFullName,
         metrics: subGroup.metrics.map((m) => m.metric),
         lastMaxTimestamp: null,
+        // Both caches are only as fresh as the last main refresh. A unit is
+        // fully covered only when both sides have its window, so anchor the
+        // cutoff to the earlier of the two coverages (null → epoch).
+        cacheCoverageDate: new Date(
+          Math.min(
+            pipelineA.maxTimestamp?.getTime() ?? 0,
+            pipelineB.maxTimestamp?.getTime() ?? 0,
+          ),
+        ),
         // Cross-FT CUPED reads each side's covariate cache. Either
         // pipeline may have none (if its metrics aren't RA), and we omit
         // `covariateTableFullName` in that case.
