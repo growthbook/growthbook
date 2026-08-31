@@ -1209,6 +1209,26 @@ const startExperimentIncrementalRefreshQueries = async (
         .join(" x ");
       const sourceName = `(${ftNames})`;
 
+      // Use the earliest maxTimestamp across all involved fact table
+      // caches so every CTE scans only new rows. If any source lacks a
+      // checkpoint (freshly created), fall back to null (full scan).
+      let multiFtLastMaxTimestamp: Date | null = null;
+      for (const p of subGroup.pipelines) {
+        const source = existingSources?.find(
+          (s) => s.groupId === p.group.groupId,
+        );
+        if (!source?.maxTimestamp) {
+          multiFtLastMaxTimestamp = null;
+          break;
+        }
+        if (
+          multiFtLastMaxTimestamp === null ||
+          source.maxTimestamp < multiFtLastMaxTimestamp
+        ) {
+          multiFtLastMaxTimestamp = source.maxTimestamp;
+        }
+      }
+
       const funnelStatsQuery = await startQuery({
         name: `statistics_multi_ft_funnel_${subGroup.factTableIds.sort().join("_")}`,
         displayTitle: `Compute Multi-FT Funnel Statistics ${sourceName}`,
@@ -1219,7 +1239,7 @@ const startExperimentIncrementalRefreshQueries = async (
           factTableMap: params.factTableMap,
           unitsSourceTableFullName: unitsTableFullName,
           metrics: subGroup.metrics,
-          lastMaxTimestamp: null,
+          lastMaxTimestamp: multiFtLastMaxTimestamp,
           dimensionsForPrecomputation: org.settings
             ?.disablePrecomputedDimensions
             ? []

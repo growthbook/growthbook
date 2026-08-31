@@ -2599,7 +2599,8 @@ export default abstract class SqlIntegration
         .filter(
           (data) =>
             data.numeratorSourceIndex === i ||
-            (data.ratioMetric && data.denominatorSourceIndex === i),
+            (data.ratioMetric && data.denominatorSourceIndex === i) ||
+            data.funnelStepSourceIndices.includes(i),
         )
         .map((data) => {
           if (isFactFunnelMetric(data.metric)) {
@@ -2777,7 +2778,9 @@ export default abstract class SqlIntegration
               const numeratorHere = data.numeratorSourceIndex === i;
               const denominatorHere =
                 data.ratioMetric && data.denominatorSourceIndex === i;
-              if (!numeratorHere && !denominatorHere) return "";
+              const funnelStepHere = data.funnelStepSourceIndices.includes(i);
+              if (!numeratorHere && !denominatorHere && !funnelStepHere)
+                return "";
 
               if (isFactFunnelMetric(data.metric)) {
                 const alias = data.alias;
@@ -2935,10 +2938,21 @@ export default abstract class SqlIntegration
               return [{ metric: data.metric, alias: data.alias }];
             });
           const hasFunnel = funnelMetricsForSource.length > 0;
+          // Multi-FT funnels resolve after flattening, but source 0's
+          // __joinedData still needs first_exposure_timestamp for the
+          // resolution chain.
+          const hasMultiFtFunnelStep =
+            isSource0 &&
+            metricData.some(
+              (d) =>
+                isFactFunnelMetric(d.metric) &&
+                [...new Set(getFactMetricFactTableIds(d.metric))].length > 1,
+            );
           const joinedTableName = hasFunnel
             ? `__joinedDataSteps${sourceSuffix(i)}`
             : `__joinedData${sourceSuffix(i)}`;
-          const exposureCol = hasFunnel
+          const needsExposureCol = hasFunnel || hasMultiFtFunnelStep;
+          const exposureCol = needsExposureCol
             ? `, ${this.getSqlDialect().castUserDateCol(
                 "u.first_exposure_timestamp",
               )} AS first_exposure_timestamp`
