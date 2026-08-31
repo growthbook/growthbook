@@ -80,10 +80,15 @@ export const AI_PROVIDER_MODEL_MAP = {
     "o1",
   ],
   anthropic: [
+    // Current generation. These ids are complete as published — Anthropic
+    // stopped issuing dated snapshots for them, so there is nothing to pin.
+    "claude-opus-5",
+    "claude-sonnet-5",
+    "claude-opus-4-8",
     // Intentional rolling alias — Anthropic hasn't published a dated snapshot
     // for Sonnet 4.6 yet, so this tracks the latest build. Pin to a dated id
     // (claude-sonnet-4-6-YYYYMMDD) here once one exists if you need stable
-    // behaviour. The other Claude entries are dated for exactly that reason.
+    // behaviour. The older Claude entries are dated for exactly that reason.
     "claude-sonnet-4-6",
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-5-20250929",
@@ -123,8 +128,13 @@ export const AI_PROVIDER_MODEL_MAP = {
 export type AIModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
 
 export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-haiku-4-5-20251001";
+// Sonnet 5 rather than the general default: the visual editor's structured-
+// output + tool-calling workload is the most schema-sensitive thing we run,
+// and schema-adherence failures surface to the user as "the AI couldn't
+// format a valid response". It is also cheaper than the Sonnet 4.5 it
+// replaces.
 export const CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL: AIModel =
-  "claude-sonnet-4-5-20250929";
+  "claude-sonnet-5";
 export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image-preview";
 export const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
@@ -144,6 +154,23 @@ export function getProviderFromModel(model: AIModel): AIProvider {
 // (gpt-4*, gpt-4o*) and every other provider still accept it.
 export function isReasoningModel(model: AIModel): boolean {
   return /^(o[0-9]|gpt-5)/.test(model);
+}
+
+// Claude models that removed the sampling parameters: sending `temperature`
+// returns a 400 rather than being ignored. Claude 4.6 and older still accept
+// it, so this can't be a version-range check — add new ids here as they ship.
+const CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS: ReadonlySet<string> = new Set([
+  "claude-opus-5",
+  "claude-sonnet-5",
+  "claude-opus-4-8",
+]);
+
+// Whether `temperature` can be sent for this model at all. Callers should
+// omit it entirely when false — passing it is a hard error on the newer
+// Claude models and a silently-dropped no-op on OpenAI reasoning models.
+export function supportsTemperature(model: AIModel): boolean {
+  if (isReasoningModel(model)) return false;
+  return !CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS.has(model);
 }
 
 // Whether a text model can accept image input (vision). The model

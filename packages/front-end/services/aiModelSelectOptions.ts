@@ -46,6 +46,9 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   "o3-mini": "O3 Mini",
   o1: "O1",
   // Anthropic Claude
+  "claude-opus-5": "Claude 5 Opus",
+  "claude-sonnet-5": "Claude 5 Sonnet",
+  "claude-opus-4-8": "Claude 4.8 Opus",
   "claude-sonnet-4-6": "Claude 4.6 Sonnet",
   "claude-haiku-4-5-20251001": "Claude 4.5 Haiku (20251001)",
   "claude-sonnet-4-5-20250929": "Claude 4.5 Sonnet (20250929)",
