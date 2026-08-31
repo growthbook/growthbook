@@ -98,6 +98,10 @@ const ApiKeyExpirationPolicy: FC<{
       </Heading>
       <Text as="p" color="text-mid" mb="3">
         {`Set the longest lifetime a new ${COPY[kind].noun} can be given. Leave it empty to make expiration optional.`}
+        {/* Said here rather than on the field, which sits in a bottom-aligned
+            row that a help message underneath would knock out of line. */}
+        {hasFileConfig() &&
+          " Organization settings are managed by your config.yml file."}
       </Text>
 
       <Flex align="end" gap="3" mb="3">
@@ -116,15 +120,18 @@ const ApiKeyExpirationPolicy: FC<{
       </Flex>
 
       {saved !== null && nonCompliant.length > 0 && (
-        <Callout status="warning" mb="3">
-          {`${nonCompliant.length} existing ${
-            nonCompliant.length === 1 ? COPY[kind].noun : COPY[kind].nounPlural
-          } have no expiration date or expire later than the maximum. New ones follow the policy already.`}
-          <div className="mt-2">
+        <Callout
+          status="warning"
+          mb="3"
+          action={
             <Button color="red" onClick={() => setConfirming(true)}>
               Apply to existing
             </Button>
-          </div>
+          }
+        >
+          {`${nonCompliant.length} existing ${
+            nonCompliant.length === 1 ? COPY[kind].noun : COPY[kind].nounPlural
+          } have no expiration date or expire later than the maximum. New ones follow the policy already.`}
         </Callout>
       )}
 
@@ -142,6 +149,7 @@ const ApiKeyExpirationPolicy: FC<{
           }?`}
           content={`They will stop working on the new expiration date unless they are replaced first. This can't be undone by clearing the policy afterwards — the dates stay once they are set.`}
           yesText="Apply to existing"
+          color="red"
           onConfirm={async () => {
             await applyToExisting();
             setConfirming(false);
