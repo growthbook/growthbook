@@ -47,14 +47,11 @@ const notifyApiKeyExpiration = async () => {
               ? "expiring"
               : null;
 
-        // An expiry pushed back out clears the record so the key can announce
-        // itself again next time it approaches.
         if (!notice) {
           if (key.expirationNotice) {
-            await ApiKeyModel.dangerousSetExpirationNotice(
+            await ApiKeyModel.dangerousClearExpirationNotice(
               key.id || "",
               organization,
-              null,
             );
           }
           continue;
@@ -65,6 +62,15 @@ const notifyApiKeyExpiration = async () => {
         if (notice === "expiring" && key.expirationNotice === "expired") {
           continue;
         }
+
+        // Claim before emitting: the write is what makes the event at-most-once,
+        // so losing the claim means another sweep is already announcing it.
+        const claimed = await ApiKeyModel.dangerousClaimExpirationNotice(
+          key.id || "",
+          organization,
+          notice,
+        );
+        if (!claimed) continue;
 
         await createEvent({
           context,
@@ -84,12 +90,6 @@ const notifyApiKeyExpiration = async () => {
           tags: [],
           environments: [],
         });
-
-        await ApiKeyModel.dangerousSetExpirationNotice(
-          key.id || "",
-          organization,
-          notice,
-        );
       }
     } catch (err) {
       // One bad organization must not stop the sweep for the rest.
