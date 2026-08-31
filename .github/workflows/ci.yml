@@ -128,8 +128,10 @@ jobs:
       - name: Cache tsbuildinfo
         uses: actions/cache@v5
         with:
+          # Explicit paths, not `**`: that glob walks node_modules, ~40s on save.
           path: |
-            **/tsconfig.tsbuildinfo
+            packages/*/tsconfig.tsbuildinfo
+            packages/*/dist/tsconfig.tsbuildinfo
           key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-tsbuildinfo-${{ hashFiles('pnpm-lock.yaml') }}-
@@ -179,6 +181,8 @@ jobs:
   test-front-end:
     # vitest gets one worker per vCPU-1, so 2 vCPU leaves it single-threaded.
     runs-on: depot-ubuntu-24.04-4
+    # A silently killed worker leaves the parent waiting on the 6h default.
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
