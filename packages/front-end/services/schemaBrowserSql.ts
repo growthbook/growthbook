@@ -38,7 +38,7 @@ function selectListHasColumn(selectList: string, column: string): boolean {
     .some((part) => normalizeRelationPath(part) === target);
 }
 
-export function isComplexSql(sql: string): boolean {
+function isComplexSql(sql: string): boolean {
   const stripped = sql
     .trim()
     .replace(/;+\s*$/, "")
@@ -50,19 +50,36 @@ export function isComplexSql(sql: string): boolean {
   return (stripped.match(/\bSELECT\b/gi)?.length ?? 0) > 1;
 }
 
+export function columnInsertDisabledReason(
+  sql: string,
+  tablePath: string,
+): string | null {
+  if (!sql.trim()) return null;
+  if (isComplexSql(sql)) {
+    return "This query is too complex. Copy the column name instead.";
+  }
+  const parsed = parseSimpleSelectFrom(sql);
+  if (
+    parsed &&
+    normalizeRelationPath(parsed.fromPath) === normalizeRelationPath(tablePath)
+  ) {
+    return null;
+  }
+  if (parsed) {
+    return "This query selects from a different table. Copy the column name instead.";
+  }
+  return "This query isn't a simple SELECT from this table. Copy the column name instead.";
+}
+
 export function insertColumnIntoSelect(
   sql: string,
   column: string,
   tablePath: string,
 ): string {
-  if (isComplexSql(sql)) return sql;
+  if (columnInsertDisabledReason(sql, tablePath)) return sql;
+  if (!sql.trim()) return `SELECT ${column} FROM ${tablePath}`;
   const parsed = parseSimpleSelectFrom(sql);
-  if (
-    !parsed ||
-    normalizeRelationPath(parsed.fromPath) !== normalizeRelationPath(tablePath)
-  ) {
-    return `SELECT ${column} FROM ${tablePath}`;
-  }
+  if (!parsed) return sql;
   if (parsed.selectList === "*") {
     return `SELECT ${column} FROM ${parsed.fromPath}${parsed.limit}`;
   }
