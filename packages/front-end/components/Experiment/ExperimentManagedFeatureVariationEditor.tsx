@@ -65,6 +65,9 @@ export interface Props {
   hideFeatureValue?: boolean;
   // Unlocks it, from the value column header and each stacked row label.
   onEditValues?: () => void;
+  // Opts into values for an experiment that has no flag yet. Sits in the
+  // variation name header, since there is no value column to hang it on.
+  onAddValues?: () => void;
   // Explains where an edit lands. null drops the info icon entirely.
   valueTooltip?: string | null;
   hideSplits?: boolean;
@@ -93,6 +96,7 @@ export default function ExperimentManagedFeatureVariationEditor({
   valueDisabled,
   hideFeatureValue,
   onEditValues,
+  onAddValues,
   valueTooltip,
   hideSplits = false,
   label: _label,
@@ -280,6 +284,7 @@ export default function ExperimentManagedFeatureVariationEditor({
               showDescription: editingIds,
               hideSplit: hideSplits,
               stackValue,
+              hideFeatureValue,
               showDragHandle,
             })}
             gap="4"
@@ -299,7 +304,15 @@ export default function ExperimentManagedFeatureVariationEditor({
                 </Text>
               )}
               <Text size="md" weight="semibold">
-                Variation Name
+                <Flex align="center" gap="4">
+                  <span>Variation Name</span>
+                  {onAddValues && (
+                    <Link onClick={onAddValues} weight="medium">
+                      <PiPlusBold className="mr-1" />
+                      Add values
+                    </Link>
+                  )}
+                </Flex>
               </Text>
               {!stackValue && !hideFeatureValue && (
                 <Text size="md" weight="semibold">

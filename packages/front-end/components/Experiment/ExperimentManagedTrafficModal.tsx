@@ -20,7 +20,7 @@ import {
 import { Box, Flex } from "@radix-ui/themes";
 import { FaRegFlag } from "react-icons/fa";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
+import { PiArrowSquareOut } from "react-icons/pi";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ValueTypeField from "@/components/Features/FeatureModal/ValueTypeField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -225,6 +225,19 @@ function ManagedTrafficForm({
   // flag. A managed flag has no such separation.
   const [editingValues, setEditingValues] = useState(isManaged);
   const valuesShown = !!feature || adopting;
+
+  // Seeded from the variation keys, the same way the removed add-flag modal
+  // did, so what is shown is what gets saved.
+  const startAdopting = () => {
+    setFeatureValues((current) => {
+      const next = { ...current };
+      (form.watch("variations") ?? []).forEach((v, i) => {
+        if (!next[v.id]) next[v.id] = v.key || String(i);
+      });
+      return next;
+    });
+    setAdopting(true);
+  };
 
   const settings = useOrgSettings();
   const { data: revisionData } = useApi<FeatureRevisionResponse>(
@@ -549,28 +562,7 @@ function ManagedTrafficForm({
             {...sharedVariationProps}
             coverageTooltip={coverageTooltip}
             belowCoverage={
-              canAdopt && !adopting ? (
-                <Box mb="3">
-                  <Button
-                    variant="ghost"
-                    icon={<PiPlus />}
-                    onClick={() => {
-                      // Same seed the removed modal used, so what is shown is
-                      // what gets saved.
-                      setFeatureValues((current) => {
-                        const next = { ...current };
-                        (form.watch("variations") ?? []).forEach((v, i) => {
-                          if (!next[v.id]) next[v.id] = v.key || String(i);
-                        });
-                        return next;
-                      });
-                      setAdopting(true);
-                    }}
-                  >
-                    Add variation values
-                  </Button>
-                </Box>
-              ) : canAdopt && adopting ? (
+              canAdopt && !adopting ? null : canAdopt && adopting ? (
                 <Box mb="3">
                   <Box mb="3" width="200px">
                     <ValueTypeField
@@ -587,12 +579,16 @@ function ManagedTrafficForm({
                   ) : keyPlan ? (
                     <Box>
                       {keyPlan.derivedIdAvailable ? (
-                        <Metadata
-                          label="Feature Flag key"
-                          value={
-                            <Text weight="semibold">{keyPlan.derivedId}</Text>
-                          }
-                        />
+                        // Only worth stating when it differs from the
+                        // Experiment Key shown above; otherwise it repeats it.
+                        keyPlan.sanitized ? (
+                          <Metadata
+                            label="Feature Flag key"
+                            value={
+                              <Text weight="semibold">{keyPlan.derivedId}</Text>
+                            }
+                          />
+                        ) : null
                       ) : (
                         <Callout status="warning">
                           <Box>
@@ -712,13 +708,14 @@ function ManagedTrafficForm({
                 </Box>
               )
             }
-            valueLabel={isManaged ? undefined : "Feature Value"}
+            valueLabel={isManaged || adopting ? undefined : "Feature Value"}
             hideFeatureValue={!valuesShown}
+            onAddValues={canAdopt && !adopting ? startAdopting : undefined}
             valueDisabled={!editingValues && !adopting}
             valueTooltip={
               // A managed flag publishes from this experiment, so its staging
               // needs no explaining; a shared flag's does.
-              isManaged
+              isManaged || adopting
                 ? null
                 : "Changes to feature values are saved to a draft revision. They are not published until the draft is."
             }
