@@ -503,25 +503,18 @@ export class ApiKeyModel extends BaseClass {
       .toArray();
   }
 
-  /**
-   * Written by the sweep, which has no request context — same raw-$set pattern
-   * as `dangerousRecordUsageByKey`. Conditional on the notice not already being
-   * set, so it doubles as a claim: two overlapping sweeps can't both win it, and
-   * the caller emits only if it did. That makes a delivered event at-most-once
-   * rather than at-least-once, which is the right way round here because a
-   * duplicate webhook fires on every retry while a missed `expiring` is rare and
-   * still followed by `expired`.
-   */
-  public static async dangerousClaimExpirationNotice(
+  // Written by the sweep, which has no request context — same raw-$set pattern
+  // as `dangerousRecordUsageByKey`. Written only after the event exists, so
+  // every way this can go wrong leaves the notice unrecorded and re-announced.
+  public static async dangerousRecordExpirationNotice(
     id: string,
     organization: string,
     notice: "expiring" | "expired",
-  ): Promise<boolean> {
-    const res = await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
-      { id, organization, expirationNotice: { $ne: notice } },
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
+      { id, organization },
       { $set: { expirationNotice: notice } },
     );
-    return res.modifiedCount === 1;
   }
 
   // Clears the record when an expiry is pushed back out, so the key can announce
