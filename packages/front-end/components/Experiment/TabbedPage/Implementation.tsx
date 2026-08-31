@@ -44,6 +44,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editTraffic?: ((variationId?: string) => void) | null;
   addVariation?: (() => void) | null;
+  addVariationValues?: (() => void) | null;
   editNamespace?: (() => void) | null;
   editVariations?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
@@ -66,6 +67,7 @@ export default function Implementation({
   editTargeting,
   editTraffic,
   addVariation,
+  addVariationValues,
   editNamespace,
   editVariations,
   setFeatureModal,
@@ -118,6 +120,20 @@ export default function Implementation({
     linkedFeatures,
   });
   const managedMode = isManaged;
+
+  // Adoption: an experiment with nothing wired up yet can take on a managed
+  // flag from the traffic modal. Keyed on the resolved implementation count, so
+  // a flag deleted out of band leaves it offered rather than stuck.
+  const canAdoptManagedFlag =
+    !isManaged &&
+    linkedFeatures.length === 0 &&
+    !experiment.hasVisualChangesets &&
+    !experiment.hasURLRedirects &&
+    canEditExperiment &&
+    experiment.status === "draft" &&
+    !experiment.archived &&
+    !experiment.nextScheduledStatusUpdate &&
+    permissionsUtil.canViewFeatureModal(experiment.project);
 
   // The variation cards can only name "the" served value when there is one
   // implementation and it is a Feature Flag; with several, or a flag alongside
@@ -193,6 +209,11 @@ export default function Implementation({
             editTargeting={pendingScheduledStart ? null : editTargeting}
             editNamespace={pendingScheduledStart ? null : editNamespace}
             addVariation={pendingScheduledStart ? null : addVariation}
+            addVariationValues={
+              canAdoptManagedFlag && !pendingScheduledStart
+                ? addVariationValues
+                : null
+            }
             setEditVariationIndex={setEditMetadataIndex}
             canEditExperiment={canEditExperiment}
             safeToEdit={safeToEdit}

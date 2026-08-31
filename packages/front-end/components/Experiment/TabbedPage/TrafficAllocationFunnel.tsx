@@ -34,6 +34,8 @@ export interface Props {
   editTraffic?: ((variationId?: string) => void) | null;
   editNamespace?: (() => void) | null;
   addVariation?: (() => void) | null;
+  // Offered only while the experiment can still adopt a managed flag.
+  addVariationValues?: (() => void) | null;
   setEditVariationIndex?: (index: number) => void;
   /** The sole linked Feature Flag, when the cards can show its values. */
   servedValueFeature?: LinkedFeatureInfo | null;
@@ -188,6 +190,7 @@ export default function TrafficAllocationFunnel({
   editTraffic,
   editNamespace,
   addVariation,
+  addVariationValues,
   setEditVariationIndex,
   servedValueFeature,
   servedValuePreferDraft,
@@ -404,6 +407,16 @@ export default function TrafficAllocationFunnel({
                 !!servedValuePreferDraft && !!servedValueFeature?.pendingDraft
               }
             />
+            {addVariationValues && (
+              // One offer for the whole set: the values are authored together
+              // in the traffic modal, not per variation.
+              <Flex justify="center" mt="3">
+                <Link onClick={addVariationValues} weight="medium">
+                  <PiPlus className="mr-1" />
+                  Add variation values
+                </Link>
+              </Flex>
+            )}
           </>
         )}
       </Flex>

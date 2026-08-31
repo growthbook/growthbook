@@ -39,7 +39,6 @@ import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import Avatar from "@/ui/Avatar";
-import Heading from "@/ui/Heading";
 import track from "@/services/track";
 import EditTrafficModal from "./EditTrafficModal";
 import ExperimentManagedFeatureVariationEditor from "./ExperimentManagedFeatureVariationEditor";
@@ -74,6 +73,8 @@ export interface Props {
   safeToEdit: boolean;
   focusVariationId?: string | null;
   addVariationOnOpen?: boolean;
+  // Open straight into adoption, from the overview's "add variation values".
+  adoptOnOpen?: boolean;
 }
 
 // Edit Traffic & Variations for an experiment whose only implementation is a
@@ -88,6 +89,7 @@ export default function ExperimentManagedTrafficModal({
   safeToEdit,
   focusVariationId,
   addVariationOnOpen,
+  adoptOnOpen,
 }: Props) {
   const permissionsUtil = usePermissionsUtil();
   const managedFeature =
@@ -156,6 +158,7 @@ export default function ExperimentManagedTrafficModal({
       canAdopt={canAdopt}
       focusVariationId={focusVariationId}
       addVariationOnOpen={addVariationOnOpen}
+      adoptOnOpen={adoptOnOpen}
     />
   );
 }
@@ -169,6 +172,7 @@ function ManagedTrafficForm({
   canAdopt,
   focusVariationId,
   addVariationOnOpen,
+  adoptOnOpen,
 }: {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
@@ -182,6 +186,7 @@ function ManagedTrafficForm({
   isManaged: boolean;
   focusVariationId?: string | null;
   addVariationOnOpen?: boolean;
+  adoptOnOpen?: boolean;
 }) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -351,6 +356,83 @@ function ManagedTrafficForm({
   // Structural so the shared editor's row type still satisfies it.
   const featureValueOf = (row: { id: string; featureValue?: string }) =>
     row.featureValue ?? "";
+
+  // The CTA has to distinguish a value edit from merely unlocking the fields,
+  // and a value edit from an experiment-only one, so each is compared against
+  // what the modal opened with rather than inferred from form dirtiness (the
+  // rows write both through one setter).
+  const coreOf = (v: {
+    variations?: {
+      id: string;
+      key?: string;
+      name?: string;
+      description?: string;
+    }[];
+    variationWeights?: number[];
+    coverage?: number;
+  }) => ({
+    variations: (v.variations ?? []).map((x) => ({
+      id: x.id,
+      key: x.key,
+      name: x.name,
+      description: x.description,
+    })),
+    weights: v.variationWeights,
+    coverage: v.coverage,
+  });
+
+  const didAutoAdopt = useRef(false);
+  useEffect(() => {
+    if (didAutoAdopt.current || !adoptOnOpen || !canAdopt || adopting) return;
+    didAutoAdopt.current = true;
+    startAdopting();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adoptOnOpen, canAdopt]);
+
+  const openedWith = useRef<{ core: string; values: string } | null>(null);
+  if (openedWith.current === null) {
+    openedWith.current = {
+      core: JSON.stringify(coreOf(form.getValues())),
+      values: JSON.stringify({ valueType, featureValues }),
+    };
+  }
+
+  const experimentDirty =
+    JSON.stringify(
+      coreOf({
+        variations: form.watch("variations"),
+        variationWeights: form.watch("variationWeights"),
+        coverage: form.watch("coverage"),
+      }),
+    ) !== openedWith.current.core;
+  // Only meaningful once there is a flag to value: with no implementation the
+  // rows still rebuild `featureValues`, which would otherwise read as an edit.
+  const valuesDirty =
+    adopting ||
+    (!!feature &&
+      JSON.stringify({ valueType, featureValues }) !==
+        openedWith.current.values);
+
+  // Whether a value edit needs sign-off before it can serve. Adoption has no
+  // feature yet, so the per-feature rules can't be resolved; fall back to
+  // whether the org requires review at all, which is what the flag it creates
+  // will land under.
+  const orgRequiresReview = (() => {
+    const raw = settings?.requireReviews;
+    if (raw === true) return true;
+    if (!Array.isArray(raw)) return false;
+    return raw.some((r) => r?.requireReviewOn);
+  })();
+  const approvalRequired = feature
+    ? gatedEnvSet === "all" || (gatedEnvSet !== "none" && gatedEnvSet.size > 0)
+    : orgRequiresReview;
+
+  const cta =
+    !valuesDirty || !approvalRequired
+      ? "Save"
+      : experimentDirty
+        ? "Save & Request Approval"
+        : "Request Approval";
 
   const coverageTooltip = isManaged
     ? null
@@ -549,6 +631,7 @@ function ManagedTrafficForm({
         )
       }
       submit={submit}
+      cta={cta}
       ctaEnabled={
         !adopting || (!keyBlocker && !keyUnresolved && !keyPlan?.regexError)
       }
@@ -617,10 +700,10 @@ function ManagedTrafficForm({
                                   setRenameTo(null);
                                   setManualKey("");
                                 }}
+                                size="sm"
+                                weight="bold"
                               >
-                                <Text size="sm" weight="semibold">
-                                  Choose a Feature Flag key instead
-                                </Text>
+                                Choose a Feature Flag key instead
                               </Link>
                             )}
                           </Flex>
@@ -695,13 +778,11 @@ function ManagedTrafficForm({
                         href={`/features/${feature.id}`}
                         target="_blank"
                         rel="noreferrer"
+                        size="md"
+                        weight="medium"
                       >
-                        <Heading as="h4" size="xs" weight="medium" mb="0">
-                          <Flex align="center">
-                            {feature.id}
-                            <PiArrowSquareOut className="ml-2" />
-                          </Flex>
-                        </Heading>
+                        {feature.id}
+                        <PiArrowSquareOut className="ml-2" />
                       </Link>
                     </Flex>
                   </Flex>

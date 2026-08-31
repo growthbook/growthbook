@@ -4,7 +4,7 @@ import {
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { FeatureInterface } from "shared/types/feature";
-import { FC, useState, useRef, useCallback, useEffect } from "react";
+import { FC, useState, useRef, useCallback } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
   PiCameraLight,
@@ -20,6 +20,7 @@ import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
+import Tooltip from "@/ui/Tooltip";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Metadata from "@/ui/Metadata";
@@ -34,8 +35,6 @@ const NO_IMAGE_MIN_HEIGHT = 72;
 const MAX_IMAGE_HEIGHT = 150;
 
 // Radix Themes breakpoints (px), mirroring `@radix-ui/themes` `--xs`/`--sm`.
-const XS_BREAKPOINT = 520;
-const SM_BREAKPOINT = 768;
 
 export const getVariationGridColumns = (cols: number) => ({
   initial: `minmax(0, ${MAX_VARIATION_WIDTH}px)`,
@@ -43,24 +42,6 @@ export const getVariationGridColumns = (cols: number) => ({
   sm: `repeat(${cols}, minmax(0, ${MAX_VARIATION_WIDTH}px))`,
   md: `repeat(${cols}, minmax(0, ${MAX_VARIATION_WIDTH}px))`,
 });
-
-function useMaxColsForViewport(): number {
-  const [maxCols, setMaxCols] = useState(3);
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const xs = window.matchMedia(`(min-width: ${XS_BREAKPOINT}px)`);
-    const sm = window.matchMedia(`(min-width: ${SM_BREAKPOINT}px)`);
-    const update = () => setMaxCols(sm.matches ? 3 : xs.matches ? 2 : 1);
-    update();
-    xs.addEventListener("change", update);
-    sm.addEventListener("change", update);
-    return () => {
-      xs.removeEventListener("change", update);
-      sm.removeEventListener("change", update);
-    };
-  }, []);
-  return maxCols;
-}
 
 const imageCache = {};
 
@@ -172,15 +153,17 @@ interface Props {
 
 function AddVariationButton({ onClick }: { onClick: () => void }) {
   return (
-    <IconButton
-      variant="ghost"
-      color="violet"
-      radius="full"
-      onClick={() => onClick()}
-      aria-label="Add variation"
-    >
-      <PiPlusCircle size="15" />
-    </IconButton>
+    <Tooltip content="Add variation" side="top">
+      <IconButton
+        variant="ghost"
+        color="violet"
+        radius="full"
+        onClick={() => onClick()}
+        aria-label="Add variation"
+      >
+        <PiPlusCircle size="15" />
+      </IconButton>
+    </Tooltip>
   );
 }
 
@@ -449,9 +432,6 @@ const VariationsTable: FC<Props> = ({
       : variations.length;
   const gap = "4";
 
-  const maxColsForViewport = useMaxColsForViewport();
-  const fullLastRow =
-    maxColsForViewport > 0 && variations.length % maxColsForViewport === 0;
   const lastIndex = variations.length - 1;
 
   return (
@@ -504,7 +484,7 @@ const VariationsTable: FC<Props> = ({
             />
           );
 
-          if (onAddVariation && !fullLastRow && i === lastIndex) {
+          if (onAddVariation && i === lastIndex) {
             return (
               <Box key={v.id} height="100%" style={{ position: "relative" }}>
                 {box}
@@ -529,11 +509,6 @@ const VariationsTable: FC<Props> = ({
           );
         })}
       </Grid>
-      {onAddVariation && fullLastRow ? (
-        <Flex justify="center" style={{ marginTop: 20 }}>
-          <AddVariationButton onClick={onAddVariation} />
-        </Flex>
-      ) : null}
       {openCarousel && (
         <ExperimentCarouselModal
           experiment={experiment}

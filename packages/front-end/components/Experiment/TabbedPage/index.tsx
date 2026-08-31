@@ -92,6 +92,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editTraffic?: ((variationId?: string) => void) | null;
   addVariation?: (() => void) | null;
+  addVariationValues?: (() => void) | null;
   editNamespace?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
@@ -116,6 +117,7 @@ export default function TabbedPage({
   editTargeting,
   editTraffic,
   addVariation,
+  addVariationValues,
   editNamespace,
   newPhase,
   editPhases,
@@ -692,6 +694,7 @@ export default function TabbedPage({
             editTargeting={editTargeting}
             editTraffic={editTraffic}
             addVariation={addVariation}
+            addVariationValues={addVariationValues}
             editNamespace={editNamespace}
             linkedFeatures={linkedFeatures}
             envs={envs}
