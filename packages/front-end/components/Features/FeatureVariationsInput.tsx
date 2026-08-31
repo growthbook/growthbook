@@ -420,29 +420,31 @@ export default function FeatureVariationsInput({
                   )}
                   {!hideSplits && (
                     <Text size="md" weight="semibold">
-                      <Flex align="center" gap="1">
-                        <span>Split</span>
-                        {!disableVariations &&
-                          !disableCustomSplit &&
-                          !editingSplits &&
-                          !onlySafeToEditVariationMetadata && (
-                            <Tooltip content="Customize split" side="top">
-                              <IconButton
-                                variant="ghost"
-                                color="violet"
-                                radius="full"
-                                size="1"
-                                style={{ margin: 0 }}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setEditingSplits(true);
-                                }}
-                                aria-label="Customize split"
-                              >
-                                <PiPencilSimpleFill size={14} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
+                      <Flex direction="column" gap="1" align="start">
+                        <Flex align="center" gap="1">
+                          <span>Split</span>
+                          {!disableVariations &&
+                            !disableCustomSplit &&
+                            !editingSplits &&
+                            !onlySafeToEditVariationMetadata && (
+                              <Tooltip content="Customize split" side="top">
+                                <IconButton
+                                  variant="ghost"
+                                  color="violet"
+                                  radius="full"
+                                  size="1"
+                                  style={{ margin: 0 }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setEditingSplits(true);
+                                  }}
+                                  aria-label="Customize split"
+                                >
+                                  <PiPencilSimpleFill size={14} />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                        </Flex>
                         {editingSplits &&
                           !isEqualWeights &&
                           !disableCustomSplit &&

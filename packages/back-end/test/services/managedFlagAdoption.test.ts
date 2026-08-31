@@ -1,5 +1,6 @@
 import type { ExperimentInterface } from "shared/validators";
 import {
+  adoptManagedFlagForExperiment,
   clearManagedMarkersForExperiment,
   createManagedFeatureForExperiment,
   managedFlagAdoptionBlocker,
@@ -12,7 +13,10 @@ import {
   getManagedFlagIdsUnfiltered,
   updateFeature,
 } from "back-end/src/models/FeatureModel";
-import { getExperimentByTrackingKey } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentByTrackingKey,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
   featureIdExists: jest.fn(),
@@ -26,6 +30,8 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentById: jest.fn(),
   getExperimentByTrackingKey: jest.fn(),
+  unlinkFeatureFromExperiment: jest.fn(),
+  updateExperiment: jest.fn(),
 }));
 
 const mockExists = featureIdExists as jest.Mock;
@@ -33,6 +39,7 @@ const mockManagedIds = getManagedFlagIdsUnfiltered as jest.Mock;
 const mockGetFeature = getFeature as jest.Mock;
 const mockUpdateFeature = updateFeature as jest.Mock;
 const mockByTrackingKey = getExperimentByTrackingKey as jest.Mock;
+const mockUpdateExperiment = updateExperiment as jest.Mock;
 
 const experiment = (over: Partial<ExperimentInterface> = {}) =>
   ({
@@ -289,5 +296,44 @@ describe("planManagedFlagKey", () => {
     });
     expect(plan.derivedIdAvailable).toBe(false);
     expect(plan.suggestedPair).toBeNull();
+  });
+});
+
+describe("adoptManagedFlagForExperiment refuses before renaming", () => {
+  // The rename is what makes ordering load-bearing: changing an experiment's
+  // tracking key re-buckets its users, so a non-draft experiment must be
+  // refused before `updateExperiment` is ever reached. The blocker's own
+  // behavior is covered above; this pins its position in the sequence.
+  const adopt = (over: Partial<ExperimentInterface>) =>
+    adoptManagedFlagForExperiment({
+      context,
+      experiment: experiment(over),
+      valueType: "string",
+      variations: [
+        { variationId: "v0", value: "0" },
+        { variationId: "v1", value: "1" },
+      ],
+      // A rename is requested, so reaching it would be observable.
+      trackingKey: "renamed-key",
+      eventAudit: {} as never,
+      audit: jest.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+  it.each([
+    ["running", { status: "running" as const }],
+    ["stopped", { status: "stopped" as const }],
+    ["archived", { archived: true }],
+  ])("refuses a %s experiment without renaming it", async (_label, over) => {
+    await expect(adopt(over)).rejects.toThrow();
+    expect(mockUpdateExperiment).not.toHaveBeenCalled();
+  });
+
+  it("refuses an experiment that already has a linked flag, without renaming", async () => {
+    // Staleness is decided by `featureIdExists`: the flag has to look present,
+    // or the blocker treats it as deleted out of band and lets adoption run.
+    taken("other-flag");
+    await expect(adopt({ linkedFeatures: ["other-flag"] })).rejects.toThrow();
+    expect(mockUpdateExperiment).not.toHaveBeenCalled();
   });
 });
