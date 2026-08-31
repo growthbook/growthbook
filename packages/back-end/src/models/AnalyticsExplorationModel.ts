@@ -2,9 +2,6 @@ import { z } from "zod";
 import {
   ExplorationConfig,
   ApiAnalyticsExploration,
-  parseMetricIdsQueryField,
-  PRODUCT_ANALYTICS_COLUMN_VALUES_DEFAULT_LIMIT,
-  PRODUCT_ANALYTICS_SEARCH_DEFAULT_LIMIT,
   ProductAnalyticsExploration,
   productAnalyticsExplorationValidator,
 } from "shared/validators";
@@ -23,24 +20,13 @@ import {
   getProductAnalyticsExplorationUrl,
   runProductAnalyticsExploration,
 } from "back-end/src/enterprise/services/product-analytics";
-import {
-  createProductAnalyticsSearchLoaders,
-  getProductAnalyticsColumnValues,
-  getProductAnalyticsColumns,
-  ProductAnalyticsDiscoveryResult,
-  runProductAnalyticsSearch,
-} from "back-end/src/enterprise/services/product-analytics-discovery";
 import analyticsExplorationApiSpec, {
-  getProductAnalyticsColumnsEndpoint,
-  getProductAnalyticsSearchEndpoint,
   type makeExplorationEndpoint,
-  postProductAnalyticsColumnValuesEndpoint,
   postMetricExplorationEndpoint,
   postFactTableExplorationEndpoint,
   postDataSourceExplorationEndpoint,
   postFunnelExplorationEndpoint,
 } from "back-end/src/api/specs/analytics-exploration.spec";
-import { BadRequestError } from "back-end/src/util/errors";
 import { MakeModelClass } from "./BaseModel";
 
 function toApiInterface(
@@ -58,14 +44,6 @@ function toApiInterface(
     result: exploration.result,
     config: exploration.config,
   };
-}
-
-/** A failed lookup is the client's mistake here, so it becomes a 400. */
-function unwrapDiscoveryResult(
-  result: ProductAnalyticsDiscoveryResult,
-): Record<string, unknown> {
-  if (!result.ok) throw new BadRequestError(result.message);
-  return result.data;
 }
 
 function makeExplorationHandler<
@@ -115,53 +93,6 @@ const BaseClass = MakeModelClass({
     modelKey: "analyticsExplorations",
     openApiSpec: analyticsExplorationApiSpec,
     customHandlers: [
-      defineCustomApiHandler({
-        ...getProductAnalyticsSearchEndpoint,
-        reqHandler: async (req) =>
-          unwrapDiscoveryResult(
-            await runProductAnalyticsSearch(
-              createProductAnalyticsSearchLoaders(
-                req.context,
-                req.query.datasourceId,
-              ),
-              {
-                query: req.query.query ?? "",
-                limit:
-                  req.query.limit ?? PRODUCT_ANALYTICS_SEARCH_DEFAULT_LIMIT,
-                skip: req.query.skip ?? 0,
-              },
-            ),
-          ),
-      }),
-
-      defineCustomApiHandler({
-        ...getProductAnalyticsColumnsEndpoint,
-        reqHandler: async (req) =>
-          unwrapDiscoveryResult(
-            await getProductAnalyticsColumns(req.context, {
-              source: req.query.source,
-              factTableId: req.query.factTableId,
-              metricIds: parseMetricIdsQueryField(req.query.metricIds),
-            }),
-          ),
-      }),
-
-      defineCustomApiHandler({
-        ...postProductAnalyticsColumnValuesEndpoint,
-        reqHandler: async (req) =>
-          unwrapDiscoveryResult(
-            await getProductAnalyticsColumnValues(req.context, {
-              source: req.body.source,
-              factTableId: req.body.factTableId,
-              metricIds: req.body.metricIds,
-              columns: req.body.columns,
-              searchTerm: req.body.searchTerm,
-              limit:
-                req.body.limit ?? PRODUCT_ANALYTICS_COLUMN_VALUES_DEFAULT_LIMIT,
-            }),
-          ),
-      }),
-
       makeExplorationHandler(postMetricExplorationEndpoint),
       makeExplorationHandler(postFactTableExplorationEndpoint),
       makeExplorationHandler(postDataSourceExplorationEndpoint),

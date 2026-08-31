@@ -3,7 +3,6 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { ProductAnalyticsColumnSource } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import {
   getFactTable,
@@ -13,8 +12,12 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { runColumnsTopValuesQuery } from "back-end/src/services/factTableColumns";
 
-// The three lookups before an exploration, shared by the chat tools and the REST
-// endpoints so the two cannot drift.
+// The three lookups before an exploration.
+
+/** Which selection the columns hang off; the chat tools' enum is built from it. */
+export const productAnalyticsColumnSources = ["fact_table", "metric"] as const;
+export type ProductAnalyticsColumnSource =
+  (typeof productAnalyticsColumnSources)[number];
 
 /** Failure is a value, not a throw: the chat tool wants a sentence, REST wants a 4xx. */
 export type ProductAnalyticsDiscoveryResult =

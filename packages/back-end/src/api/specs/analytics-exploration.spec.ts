@@ -1,10 +1,6 @@
 import { z } from "zod";
 import {
   apiAnalyticsExplorationValidator,
-  productAnalyticsColumnValuesBodySchema,
-  productAnalyticsColumnsQuerySchema,
-  productAnalyticsDiscoveryResultSchema,
-  productAnalyticsSearchQuerySchema,
   apiMetricExplorationValidator,
   apiFactTableExplorationValidator,
   apiDataSourceExplorationValidator,
@@ -98,48 +94,6 @@ export const postFunnelExplorationEndpoint = makeExplorationEndpoint(
   },
 );
 
-// The three lookups before an exploration. Column values is a POST only because
-// the column list and search term don't belong in a URL; nothing is written.
-
-export const getProductAnalyticsSearchEndpoint = {
-  pathFragment: "/search",
-  verb: "get" as const,
-  operationId: "searchProductAnalytics",
-  validator: {
-    bodySchema: z.never(),
-    querySchema: productAnalyticsSearchQuerySchema,
-    paramsSchema: z.never(),
-  },
-  zodReturnObject: productAnalyticsDiscoveryResultSchema,
-  summary: "Search Metrics and Fact Tables for product analytics",
-};
-
-export const getProductAnalyticsColumnsEndpoint = {
-  pathFragment: "/columns",
-  verb: "get" as const,
-  operationId: "getProductAnalyticsColumns",
-  validator: {
-    bodySchema: z.never(),
-    querySchema: productAnalyticsColumnsQuerySchema,
-    paramsSchema: z.never(),
-  },
-  zodReturnObject: productAnalyticsDiscoveryResultSchema,
-  summary: "Get the columns available to a product analytics exploration",
-};
-
-export const postProductAnalyticsColumnValuesEndpoint = {
-  pathFragment: "/column-values",
-  verb: "post" as const,
-  operationId: "postProductAnalyticsColumnValues",
-  validator: {
-    bodySchema: productAnalyticsColumnValuesBodySchema,
-    querySchema: z.never(),
-    paramsSchema: z.never(),
-  },
-  zodReturnObject: productAnalyticsDiscoveryResultSchema,
-  summary: "Get the stored values of one or more string columns",
-};
-
 export const analyticsExplorationApiSpec = {
   modelSingular: "analyticsExploration",
   modelPlural: "analyticsExplorations",
@@ -155,9 +109,6 @@ export const analyticsExplorationApiSpec = {
   includeDefaultCrud: false,
   crudActions: [] as const,
   customEndpoints: [
-    getProductAnalyticsSearchEndpoint,
-    getProductAnalyticsColumnsEndpoint,
-    postProductAnalyticsColumnValuesEndpoint,
     postMetricExplorationEndpoint,
     postFactTableExplorationEndpoint,
     postDataSourceExplorationEndpoint,

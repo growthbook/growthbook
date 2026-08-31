@@ -5,16 +5,17 @@ description: Build and edit Analytics dashboards. Use when the user asks to buil
 
 # Dashboards
 
-Domain router for Analytics dashboards. Use `callApi` for all REST calls.
-Dashboard endpoints are `/api/v1/dashboards`; the product analytics lookups a
-dashboard is built from are `/api/v1/product-analytics/*`.
+Domain router for Analytics dashboards. Reading a dashboard goes through
+`callApi` at `/api/v1/dashboards`; everything a dashboard is built from — metrics,
+columns, column values — comes from your own tools, not from REST.
 
 **Workflow:** read this router → `loadSkill('dashboards/references/<leaf>')` for the matching
 sub-skill below → follow that leaf's workflow.
 
 Both leaves end the same way: one `proposeDashboard` call, which runs every
-chart, lays out the grid, and shows the user a live preview with a Save button.
-You never run the charts yourself and you never save the dashboard.
+chart, lays out the grid, and shows the user a live preview. Creating or changing
+a dashboard is something the **user** commits from that preview — you never run
+the charts yourself, and you never write a dashboard through the API.
 
 For a single one-off chart with no dashboard involved, call
 `loadSkill('analytics')` instead.
@@ -25,11 +26,11 @@ Check your tools before doing anything else.
 
 - **You have `proposeDashboard`** — the Product Analytics chat. Follow the leaf's
   workflow.
-- **You don't** — the site-wide assistant panel. There is no preview here.
-  _Building_: restate the request as a brief (metrics, timeframe, name if given),
-  call `openAnalyticsChat`, and stop — don't settle the full brief or run
-  queries first. _Editing_: apply the change directly via the dashboards API;
-  see `<editing_without_a_preview>` in `dashboard-edit`.
+- **You don't** — the site-wide assistant panel, which cannot render a preview.
+  Building and changing both hand off: restate the request as a brief (metrics,
+  timeframe, the dashboard being changed if there is one), call
+  `openAnalyticsChat`, and stop. Do not settle the full brief, run queries, or
+  load a leaf first — the chat on the other side does all of that.
 
 ## Workflows
 
@@ -127,16 +128,16 @@ also the answer when the user says "all of them".
 
 ## Shared conventions
 
-- **Mutations:** non-GET `callApi` calls are gated automatically. Issue the call
-  when ready — do not use `askUser` for write confirmation. Pass a `summary` on
-  every write; it is all the user sees before approving.
+- **Reads only through `callApi`.** The dashboards API is there to read what
+  already exists. Never POST, PUT, or DELETE a dashboard — the preview's button
+  is the only thing that writes one, and the user presses it.
 - **Never run the charts yourself.** `runExploration` renders its own chart card
   per call, so a six-tile dashboard would spray six loose charts into the chat
   before the dashboard appeared. Hand the configs to `proposeDashboard`; it runs
   them and wires up the results.
-- **Never save the dashboard.** The user saves from the preview. Saving for them
-  takes the choice away, and the preview is where they adjust the sharing,
+- **Never save the dashboard.** The user commits from the preview. Saving for
+  them takes the choice away, and the preview is where they adjust the sharing,
   filters, and layout.
 - **Links:** `/product-analytics/dashboards/<id>`.
-- **Never guess a column value.** `POST /api/v1/product-analytics/column-values`
-  first, for row filters and static dimension values alike.
+- **Never guess a column value.** Call `getColumnValues` first, for row filters
+  and static dimension values alike.

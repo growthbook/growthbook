@@ -35,15 +35,8 @@ you.
    the name and project, **at most one more `askUser`**. Sharing and auto-refresh
    are adjustable in the preview, so never ask about those.
 
-4. **Find the metrics.**
-
-   ```json
-   {
-     "method": "GET",
-     "path": "/api/v1/product-analytics/search",
-     "query": { "query": "revenue", "datasourceId": "<ds-id>" }
-   }
-   ```
+4. **Find the metrics** with the `search` tool — the same one you use for a
+   one-off chart, so nothing here is dashboard-specific.
 
    Keep terms short (1–3 words). Prefer `kind: "metric"` over `"fact_table"`, and
    `official: true` over not. If the user `@`-mentioned metrics, the
@@ -51,34 +44,13 @@ you.
    and skip the search for them.
 
 5. **Discover columns, only if you need a breakdown or a filter.**
+   `getAvailableColumns` with `{ source: "metric", metricIds: ["fact__a", "fact__b"] }`
+   returns the intersection of columns across those metrics' fact tables; for a
+   fact table, pass `{ source: "fact_table", factTableId: "ftb_..." }`. Follow the
+   `unitNote` it returns.
 
-   ```json
-   {
-     "method": "GET",
-     "path": "/api/v1/product-analytics/columns",
-     "query": { "source": "metric", "metricIds": "fact__a,fact__b" }
-   }
-   ```
-
-   `metricIds` is comma-separated and returns the intersection of columns across
-   those metrics' fact tables. For a fact table, pass
-   `{ "source": "fact_table", "factTableId": "ftb_..." }`. Follow the `unitNote`
-   it returns.
-
-   Before pinning any specific value, confirm it exists:
-
-   ```json
-   {
-     "method": "POST",
-     "path": "/api/v1/product-analytics/column-values",
-     "body": {
-       "source": "metric",
-       "metricIds": ["fact__a"],
-       "columns": ["platform"],
-       "searchTerm": "ios"
-     }
-   }
-   ```
+   Before pinning any specific value, confirm it exists with `getColumnValues`
+   — `{ source: "metric", metricIds: ["fact__a"], columns: ["platform"], searchTerm: "ios" }`.
 
 6. **Propose the dashboard**, once, with every block:
 
@@ -143,8 +115,11 @@ automatically. Sending them is rejected.
 ### Chart blocks
 
 `metric-exploration`, `fact-table-exploration`, `data-source-exploration`,
-`funnel-exploration` — each carries a `config` matching `<config_schema>
-As `product-analytics` `<config_schema>`, with two additions:
+`funnel-exploration` — each carries a `config`.
+
+<config_schema>
+The same exploration config you would pass to `runExploration`, and the schema
+summary in your system prompt is authoritative for it. Two additions:
 
 - `funnel` dataset: `{ type: "funnel", unit, steps: [{ name, factTableId, rowFilters: [], optional: false }], yAxisScale?: "count"|"percent" }`
 - `"last14Days"` is **not** a valid `predefined` — use
@@ -194,15 +169,16 @@ The `dashboards` skill carries the shared rules. On top of those:
 - If the tool reports `droppedBlocks`, say which tiles are missing and why — do
   not present a partial dashboard as complete.
 
-## Endpoints used
+## Endpoints and tools used
+
+`callApi`, for the two things your tools cannot tell you:
 
 - `GET /api/v1/data-sources` — list datasources
 - `GET /api/v1/projects` — list projects, to settle which one the dashboard is in
-- `GET /api/v1/product-analytics/search` — find metrics and fact tables
-- `GET /api/v1/product-analytics/columns` — columns, userIdTypes, unit guidance
-- `POST /api/v1/product-analytics/column-values` — real values in a string column
 
-Everything else goes through the `proposeDashboard` tool.
+Your own tools for everything else: `search` for metrics and fact tables,
+`getAvailableColumns` for columns and unit guidance, `getColumnValues` for the
+real values in a string column, and `proposeDashboard` to build the thing.
 
 ## Handoffs
 

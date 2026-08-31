@@ -224,12 +224,13 @@ export default function DashboardPreviewBubble({
           globalControls,
           // Explicit rather than omitted: an absent key reads as "leave alone".
           comparison: comparison ?? { enabled: false },
-          enableAutoUpdates: false,
-          // Access is a create-time choice here. Sending it on an update would
-          // push this tile's default over whatever the dashboard already has.
+          // Access and auto-refresh are create-time choices here. Sending them on
+          // an update would push this tile's defaults over what the dashboard
+          // already has — turning off an auto-refresh the user had switched on.
           ...(boundDashboardId
             ? {}
             : {
+                enableAutoUpdates: false,
                 shareLevel,
                 editLevel: "published",
                 experimentId: "",

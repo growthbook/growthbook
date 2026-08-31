@@ -36,6 +36,7 @@ import {
   discoveryResultToToolString,
   getProductAnalyticsColumnValues,
   getProductAnalyticsColumns,
+  productAnalyticsColumnSources,
   runProductAnalyticsSearch,
 } from "back-end/src/enterprise/services/product-analytics-discovery";
 import { aiTool } from "back-end/src/enterprise/services/ai";
@@ -859,11 +860,9 @@ const searchInputSchema = z.object({
     ),
 });
 
-const columnSourceValues = ["fact_table", "metric"] as const;
-
 const columnSourceFields = {
   source: z
-    .enum(columnSourceValues)
+    .enum(productAnalyticsColumnSources)
     .describe("The exploration type — determines which ID field is required"),
   factTableId: z
     .string()

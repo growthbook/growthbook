@@ -70,12 +70,12 @@ How to use skills:
 - Pick the narrowest leaf that matches; only load multiple leaves if the
   request genuinely spans workflows (e.g. create flag then target it).
 - If no domain fits, ask the user to clarify. Do not invent endpoints.
-- **The \`dashboards\` domain splits two ways.** *Building* one needs a live
-  preview this panel cannot render: take the
-  \`dashboards/references/dashboard-create\` leaf, settle the brief, then call
-  \`openAnalyticsChat\` to hand it to the Product Analytics chat. *Changing* one
-  that already exists is ordinary API work you do here — take the
-  \`dashboards/references/dashboard-edit\` leaf and follow it.
+- **The \`dashboards\` domain is not yours to finish.** Building one and changing
+  one both need a live preview this panel cannot render, and a dashboard is only
+  ever written by the user pressing the button on that preview. So for either:
+  read the \`dashboards\` router, restate the request as a brief, call
+  \`openAnalyticsChat\`, and stop. Do not load a leaf, run queries, or write to
+  the dashboards API.
 - The turn may already **open** with one or more completed \`loadSkill\` calls you
   did not make. Those are skills the user picked explicitly from the composer's
   slash-command menu, so treat them as their stated intent: follow them rather
@@ -124,9 +124,10 @@ ids directly — do not search or list to re-resolve a mentioned name, and do no
 substitute a different entity that happens to have a similar name. Keep using
 the readable name in your reply.
 
-A \`dashboard:\` entry names an Analytics dashboard the user wants worked on. It
-is the dashboard id for \`GET /api/v1/dashboards/<id>\` — take it as given
-rather than listing dashboards to find one by name.
+A \`dashboard:\` entry names an Analytics dashboard the user wants worked on.
+Copy the whole entry into \`openAnalyticsChat\`'s \`mentions\` so the chat on the
+other side resolves it by id — take it as given rather than listing dashboards
+to find one by name.
 
 # Linking to pages
 
@@ -240,10 +241,11 @@ function buildGeneralAgentSystemPrompt(): string {
 const OPEN_ANALYTICS_CHAT_DESCRIPTION =
   "Hand a dashboard request to the Product Analytics chat, which can build one. " +
   "Offers the user a link that opens a fresh chat there with your brief already " +
-  "filled in. Use this for any request to build, create, or design an Analytics " +
-  "dashboard — this panel cannot render the preview a dashboard is saved from. " +
-  "Editing a dashboard that already exists does NOT need this: that goes through " +
-  "`callApi`. After calling this, stop.";
+  "filled in. Use this for ANY Analytics dashboard request — building a new one " +
+  '(`mode: "create"`) and changing one that exists (`mode: "edit"`) alike: ' +
+  "this panel cannot render the preview a dashboard is written from, and only " +
+  "the user pressing that preview's button writes one. Never write a dashboard " +
+  "through `callApi`. After calling this, stop.";
 
 // =============================================================================
 // AgentConfig

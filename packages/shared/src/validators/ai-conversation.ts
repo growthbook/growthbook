@@ -60,6 +60,15 @@ export const aiChatMentionValidator = z
 
 /** Both the `openAnalyticsChat` tool input and what the handoff card reads back. */
 export const analyticsHandoffValidator = z.object({
+  // Picks the skill the other chat opens with. Required, not defaulted: guessing
+  // `create` for an edit is how the user ends up with a duplicate dashboard.
+  mode: z
+    .enum(["create", "edit"])
+    .describe(
+      "`create` to build a new dashboard, `edit` to change one that already " +
+        "exists. On `edit`, name that dashboard in `mentions` so the other chat " +
+        "resolves it by id instead of searching.",
+    ),
   prompt: z
     .string()
     .trim()

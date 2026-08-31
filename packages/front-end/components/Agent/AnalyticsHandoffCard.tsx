@@ -27,14 +27,15 @@ export default function AnalyticsHandoffCard({
 }) {
   const router = useRouter();
 
+  const isEdit = handoff.mode === "edit";
+
   const open = () => {
     sessionStorage.setItem(
       PA_AI_CHAT_INITIAL_MESSAGE_KEY,
       JSON.stringify({
         text: handoff.prompt,
         mentions: handoff.mentions ?? [],
-        // Always a build request; an edit never reaches this card.
-        skills: ["dashboard-create"],
+        skills: [isEdit ? "dashboard-edit" : "dashboard-create"],
       }),
     );
     void router.push("/product-analytics/explore/ai-chat");
@@ -44,7 +45,9 @@ export default function AnalyticsHandoffCard({
     <AssistantBubble>
       <Flex direction="column" gap="2" align="start">
         <Text size="sm" weight="medium">
-          Build this in the Analytics chat
+          {isEdit
+            ? "Review this change in the Analytics chat"
+            : "Build this in the Analytics chat"}
         </Text>
         <Text size="sm" color="text-low">
           {handoff.prompt}
