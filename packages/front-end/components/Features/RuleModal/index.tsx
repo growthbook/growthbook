@@ -492,6 +492,9 @@ export default function RuleModal({
     // has a value. getDefaultRuleValue only sets it for ruleType === "rollout";
     // other rule types ignore it at save time via their Zod validators.
     hashVersion: (hasSDKWithNoBucketingV2 ? 1 : 2) as 1 | 2,
+    // Seed sticky bucketing from the org default for new experiment rules. An
+    // existing rule's value overrides this via the convertRuleToFormValues spread.
+    disableStickyBucketing: !settings.stickyBucketingOnByDefault,
   };
 
   const convertRuleToFormValues = (rule: FeatureRule | undefined) => {
@@ -1212,7 +1215,9 @@ export default function RuleModal({
           }),
           hashAttribute: values.hashAttribute,
           fallbackAttribute: values.fallbackAttribute || "",
-          disableStickyBucketing: values.disableStickyBucketing ?? false,
+          disableStickyBucketing:
+            values.disableStickyBucketing ??
+            !settings.stickyBucketingOnByDefault,
           datasource: values.datasource || undefined,
           exposureQueryId: values.exposureQueryId || "",
           goalMetrics: values.goalMetrics || [],

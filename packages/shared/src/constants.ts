@@ -59,6 +59,7 @@ export const DEFAULT_TOP_VALUES_LOOKBACK_UNIT = "days";
 // Query settings
 export const DEFAULT_TEST_QUERY_DAYS = 30;
 export const DEFAULT_USE_STICKY_BUCKETING = false;
+export const DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT = false;
 
 // Dimension name constants:
 export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";

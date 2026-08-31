@@ -2179,6 +2179,54 @@ describe("Organization Migration", () => {
     expect(result.settings.restApiBypassesReviews).toBe(false);
   });
 
+  it("backfills stickyBucketingOnByDefault=true for orgs that had sticky bucketing enabled", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: { useStickyBucketing: true },
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.stickyBucketingOnByDefault).toBe(true);
+  });
+
+  it("backfills stickyBucketingOnByDefault=false for orgs without sticky bucketing", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {},
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.stickyBucketingOnByDefault).toBe(false);
+  });
+
+  it("preserves an explicit stickyBucketingOnByDefault=false even when sticky bucketing is enabled", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {
+        useStickyBucketing: true,
+        stickyBucketingOnByDefault: false,
+      },
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.stickyBucketingOnByDefault).toBe(false);
+  });
+
   it("migrate approval flow settings", () => {
     const testOrg: OrganizationInterface = {
       id: "org_sktwi1id9l7z9xkjb",

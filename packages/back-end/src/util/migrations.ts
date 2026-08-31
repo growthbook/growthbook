@@ -582,6 +582,14 @@ export function upgradeOrganizationDoc(
     org.settings.restApiBypassesReviews = true;
   }
 
+  // Backfill stickyBucketingOnByDefault for orgs created before this field existed.
+  // Orgs that already had sticky bucketing enabled keep defaulting new experiments to ON.
+  // New orgs get an explicit value at settings-save time, so this fallback only ever
+  // applies to orgs whose settings predate this field.
+  if (org.settings.stickyBucketingOnByDefault === undefined) {
+    org.settings.stickyBucketingOnByDefault = !!org.settings.useStickyBucketing;
+  }
+
   // Migrate Arroval Flow Settings
   if (
     org.settings?.requireReviews === true ||

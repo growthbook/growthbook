@@ -171,6 +171,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       disablePrecomputedDimensions:
         settings.disablePrecomputedDimensions ?? true,
       useStickyBucketing: false,
+      stickyBucketingOnByDefault: false,
       useFallbackAttributes: false,
       codeReferencesEnabled: false,
       codeRefsBranchesToFilter: [],
@@ -276,6 +277,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     sparseJSONRulesByDefault: form.watch("sparseJSONRulesByDefault"),
     defaultDataSource: form.watch("defaultDataSource"),
     useStickyBucketing: form.watch("useStickyBucketing"),
+    stickyBucketingOnByDefault: form.watch("stickyBucketingOnByDefault"),
     useFallbackAttributes: form.watch("useFallbackAttributes"),
     codeReferencesEnabled: form.watch("codeReferencesEnabled"),
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
@@ -371,6 +373,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
         if (k === "useStickyBucketing") {
           newVal.useStickyBucketing = hasStickyBucketFeature
             ? newVal.useStickyBucketing
+            : false;
+        }
+
+        if (k === "stickyBucketingOnByDefault") {
+          newVal.stickyBucketingOnByDefault = hasStickyBucketFeature
+            ? newVal.stickyBucketingOnByDefault
             : false;
         }
       });

@@ -187,7 +187,13 @@ export default function EditTargetingModal({
                   <Text weight="medium" color="text-high">
                     Sticky Bucketing
                   </Text>{" "}
-                  <Text color="text-high">(Organization default: Enabled)</Text>
+                  <Text color="text-high">
+                    (Organization default:{" "}
+                    {settings.stickyBucketingOnByDefault
+                      ? "Enabled"
+                      : "Disabled"}
+                    )
+                  </Text>
                 </>
               }
               description="Keep users in their assigned variation even when experiment traffic, targeting, or rollout settings change."

@@ -64,6 +64,28 @@ export default function StickyBucketingSettings() {
           {watch("useStickyBucketing") && (
             <Flex align="start" gap="3" mt="0">
               <Checkbox
+                value={watch("stickyBucketingOnByDefault")}
+                setValue={(v) => setValue("stickyBucketingOnByDefault", v)}
+                id="toggle-stickyBucketingOnByDefault"
+              />
+              <Box>
+                <label
+                  htmlFor="toggle-stickyBucketingOnByDefault"
+                  className="font-weight-semibold"
+                >
+                  On for new experiments by default
+                </label>
+                <p>
+                  When enabled, new experiments start with Sticky Bucketing on.
+                  You can still turn it off for individual experiments.
+                </p>
+              </Box>
+            </Flex>
+          )}
+
+          {watch("useStickyBucketing") && (
+            <Flex align="start" gap="3" mt="0">
+              <Checkbox
                 value={watch("useFallbackAttributes")}
                 setValue={(v) => setValue("useFallbackAttributes", v)}
                 id="toggle-useFallbackAttributes"
