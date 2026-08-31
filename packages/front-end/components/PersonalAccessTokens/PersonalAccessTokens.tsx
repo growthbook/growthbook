@@ -80,8 +80,13 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
 
       <div className="mb-5">
         <Callout status="info">
-          Administrators can also create userless keys for an organization on
-          the <Link href="/settings/keys">API Keys</Link> page.
+          Administrators can create userless keys for an organization on the{" "}
+          <Link href="/settings/keys">API Keys</Link> page, and review or revoke
+          members&apos; tokens under{" "}
+          <Link href="/settings/personal-access-tokens">
+            Personal Access Tokens settings
+          </Link>
+          .
         </Callout>
       </div>
     </div>
