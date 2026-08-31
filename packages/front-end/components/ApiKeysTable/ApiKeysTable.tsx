@@ -45,10 +45,13 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   );
   return (
     <div style={{ overflowX: "auto" }}>
-      <table className="table mb-3 appbox gbtable">
+      <table
+        className="table mb-3 appbox gbtable"
+        style={{ width: "auto", minWidth: "100%" }}
+      >
         <thead>
           <tr>
-            <th style={{ width: 150 }}>Description</th>
+            <th style={{ minWidth: 150 }}>Description</th>
             <th>Key</th>
             <th>Global Role</th>
             <th>Project Roles</th>
