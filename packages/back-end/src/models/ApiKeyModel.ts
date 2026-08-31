@@ -248,11 +248,16 @@ export class ApiKeyModel extends BaseClass {
     const expiresAt = maxExpirationDate(maxDays);
     if (!expiresAt) return { updated: 0, expiresAt: null };
 
-    const docs = await this._find({
-      secret: true,
-      oauthClientId: { $exists: false },
-      userId: kind === "pat" ? { $ne: null } : null,
-    });
+    // Unsanitized: `sanitize` blanks `key`, which is this model's primary key,
+    // so updates built from a sanitized read match no document and no-op.
+    const docs = await this._find(
+      {
+        secret: true,
+        oauthClientId: { $exists: false },
+        userId: kind === "pat" ? { $ne: null } : null,
+      },
+      { bypassSanitization: true },
+    );
 
     let updated = 0;
     for (const doc of docs) {

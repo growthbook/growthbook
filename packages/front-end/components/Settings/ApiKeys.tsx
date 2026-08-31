@@ -7,6 +7,7 @@ import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SecretApiKeys from "./SecretApiKeys";
+import ApiKeyExpirationPolicy from "./ApiKeyExpirationPolicy";
 
 const ApiKeys: FC = () => {
   const { data, error, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
@@ -26,6 +27,12 @@ const ApiKeys: FC = () => {
   return (
     <>
       <SecretApiKeys keys={data.keys} mutate={mutate} />
+
+      <ApiKeyExpirationPolicy
+        kind="secret"
+        keys={data.keys.filter((k) => k.secret && !k.userId)}
+        mutate={mutate}
+      />
 
       {(!settings?.disablePersonalAccessTokens || canManageTokens) && (
         <Callout status="info" mb="4">

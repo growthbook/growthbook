@@ -11,6 +11,7 @@ import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import Callout from "@/ui/Callout";
+import ApiKeyExpirationField from "./ApiKeyExpirationField";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -26,7 +27,12 @@ const ApiKeysModal: FC<{
   existingKey,
 }) => {
   const { apiCall } = useAuth();
-  const { organization } = useUser();
+  const { organization, settings } = useUser();
+
+  const maxLifetimeDays = personalAccessToken
+    ? settings?.maxPatLifetimeDays
+    : settings?.maxApiKeyLifetimeDays;
+  const [expiresAt, setExpiresAt] = useState<Date | null>(null);
 
   // When an existing key is passed in, the modal edits that key in place
   // instead of creating a new one. Only org secret keys can be edited.
@@ -86,11 +92,13 @@ const ApiKeysModal: FC<{
       ? {
           description: value.description,
           type: "user",
+          expiresAt: expiresAt?.toISOString() ?? null,
         }
       : {
           description: value.description,
           type: role,
           ...roleStateData,
+          expiresAt: expiresAt?.toISOString() ?? null,
         };
     await apiCall("/keys", {
       method: "POST",
@@ -118,6 +126,13 @@ const ApiKeysModal: FC<{
         required={true}
         {...form.register("description")}
       />
+      {!editMode && (
+        <ApiKeyExpirationField
+          maxLifetimeDays={maxLifetimeDays}
+          value={expiresAt}
+          setValue={setExpiresAt}
+        />
+      )}
       {!personalAccessToken && (
         <>
           {editMode && (
