@@ -27,26 +27,28 @@ const ApiKeys: FC = () => {
     <>
       <SecretApiKeys keys={data.keys} mutate={mutate} />
 
-      <Callout status="info" mb="4">
-        {!settings?.disablePersonalAccessTokens && (
-          <>
-            You can also create{" "}
-            <Link href="/account/personal-access-tokens">
-              Personal Access Tokens
-            </Link>{" "}
-            for your user account.{" "}
-          </>
-        )}
-        {canManageTokens && (
-          <>
-            Organization-wide token settings live under{" "}
-            <Link href="/settings/personal-access-tokens">
-              Personal Access Tokens
-            </Link>
-            .
-          </>
-        )}
-      </Callout>
+      {(!settings?.disablePersonalAccessTokens || canManageTokens) && (
+        <Callout status="info" mb="4">
+          {!settings?.disablePersonalAccessTokens && (
+            <>
+              You can also create{" "}
+              <Link href="/account/personal-access-tokens">
+                Personal Access Tokens
+              </Link>{" "}
+              for your user account.{" "}
+            </>
+          )}
+          {canManageTokens && (
+            <>
+              Organization-wide token settings live under{" "}
+              <Link href="/settings/personal-access-tokens">
+                Personal Access Tokens
+              </Link>
+              .
+            </>
+          )}
+        </Callout>
+      )}
     </>
   );
 };
