@@ -92,10 +92,10 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
               <>
                 Administrators can create userless keys for an organization on
                 the <Link href="/settings/keys">API Keys</Link> page, and review
-                or revoke
+                or disable
               </>
             ) : (
-              <>Administrators can review or revoke</>
+              <>Administrators can review or disable</>
             )}{" "}
             members&apos; tokens under{" "}
             <Link href="/settings/personal-access-tokens">
