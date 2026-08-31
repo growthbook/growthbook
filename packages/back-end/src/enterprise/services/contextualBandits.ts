@@ -1512,6 +1512,7 @@ export async function getContextualBanditResultsForUi(
         leaf_map: latestEvent.leaf_map,
         leaf_stats: latestEvent.leaf_stats,
         sse_trajectory: latestEvent.sse_trajectory,
+        bic_trajectory: latestEvent.bic_trajectory,
       }
     : null;
 
@@ -1777,6 +1778,7 @@ export async function persistContextualBanditEvent(
     leaf_map: result.leaf_map,
     leaf_stats: result.leaf_stats,
     sse_trajectory: result.sse_trajectory,
+    bic_trajectory: result.bic_trajectory,
     weightsWereUpdated,
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
     // Store the seed for historical tracking

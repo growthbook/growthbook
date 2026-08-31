@@ -527,6 +527,7 @@ export const getContextualBanditResultsValidator = {
           leaf_map: z.array(z.unknown()).optional(),
           leaf_stats: z.array(z.unknown()).optional(),
           sse_trajectory: z.array(z.unknown()).optional(),
+          bic_trajectory: z.array(z.unknown()).optional(),
         })
         .nullable(),
       overallWeights: z
