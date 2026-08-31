@@ -5,6 +5,7 @@ import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { QueryMetadata } from "shared/types/query";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
+import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { getQueryTagString } from "back-end/src/util/integration";
 import { logger } from "back-end/src/util/logger";
 
@@ -276,6 +277,54 @@ export async function cancelSnowflakeQuery(
         e instanceof Error ? e.message : String(e)
       }`,
     );
+  } finally {
+    await destroySnowflakeConnection(connection);
+  }
+}
+
+export function snowflakeStatusToExternalStatus(
+  status: string,
+  { isRunning, isError }: { isRunning: boolean; isError: boolean },
+): ExternalQueryStatus {
+  if (isRunning) return { state: "running" };
+  if (isError) return { state: "failed", error: status };
+  if (status === "SUCCESS") return { state: "succeeded" };
+  // NO_QUERY_DATA means the query id is no longer in Snowflake's monitoring
+  // history (expired), not that the query is still running.
+  if (status === "NO_QUERY_DATA")
+    return { state: "unknown", reason: "expired" };
+  return { state: "unknown", reason: "unreachable" };
+}
+
+export async function getSnowflakeQueryStatus(
+  conn: SnowflakeConnectionParams,
+  queryId: string,
+): Promise<ExternalQueryStatus> {
+  if (!queryId) return { state: "unknown", reason: "unreachable" };
+  const connection = buildSnowflakeConnection(conn);
+  try {
+    await connectSnowflake(connection, 30000);
+    // `getQueryStatus` is async at runtime even though older type
+    // declarations return a bare string; `await` handles both. The published
+    // types also mistype the status inspectors — `isAnError` drops its
+    // argument and `isStillRunning` narrows to a union that excludes runtime
+    // values like NO_QUERY_DATA — so call them via their true signatures.
+    const status = await connection.getQueryStatus(queryId);
+    const inspector = connection as unknown as {
+      isStillRunning(status: string): boolean;
+      isAnError(status: string): boolean;
+    };
+    return snowflakeStatusToExternalStatus(status, {
+      isRunning: inspector.isStillRunning(status),
+      isError: inspector.isAnError(status),
+    });
+  } catch (e) {
+    logger.debug(
+      `Failed to get Snowflake query status ${queryId}: ${
+        e instanceof Error ? e.message : String(e)
+      }`,
+    );
+    return { state: "unknown", reason: "unreachable" };
   } finally {
     await destroySnowflakeConnection(connection);
   }

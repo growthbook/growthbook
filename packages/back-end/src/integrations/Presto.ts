@@ -12,6 +12,7 @@ import {
 import { QueryStatistics, RunQueryMetadata } from "shared/types/query";
 import { PrestoConnectionParams } from "shared/types/integrations/presto";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { getKerberosHeader } from "back-end/src/util/kerberos.util";
 import { getQueryTagString } from "back-end/src/util/integration";
 import { logger } from "back-end/src/util/logger";
@@ -26,6 +27,47 @@ type Row = any;
 const PRESTO_QUERY_TAG_MAX_LENGTH = 2000;
 
 const DEFAULT_PRESTO_REQUEST_TIMEOUT_SEC = 3600;
+
+function extractPrestoFailureMessage(
+  info: Record<string, unknown>,
+): string | undefined {
+  const failureInfo = info.failureInfo;
+  if (
+    failureInfo &&
+    typeof failureInfo === "object" &&
+    "message" in failureInfo
+  ) {
+    const message = (failureInfo as { message?: unknown }).message;
+    if (typeof message === "string" && message.length > 0) return message;
+  }
+  const errorCode = info.errorCode;
+  if (errorCode && typeof errorCode === "object" && "name" in errorCode) {
+    const name = (errorCode as { name?: unknown }).name;
+    if (typeof name === "string" && name.length > 0) return name;
+  }
+  return undefined;
+}
+
+// Maps a Trino/Presto query-info object (from GET /v1/query/{id}) to a status.
+// Only FINISHED and FAILED are terminal; every other reported state is still
+// executing. A missing/blank state means we can't tell, so return unknown
+// rather than assuming the query is alive.
+export function prestoStateToStatus(info: unknown): ExternalQueryStatus {
+  const obj =
+    info && typeof info === "object"
+      ? (info as Record<string, unknown>)
+      : undefined;
+  const state = obj && typeof obj.state === "string" ? obj.state : undefined;
+  if (state === "FINISHED") return { state: "succeeded" };
+  if (state === "FAILED") {
+    return {
+      state: "failed",
+      error: (obj && extractPrestoFailureMessage(obj)) || "Query failed",
+    };
+  }
+  if (state !== undefined && state.length > 0) return { state: "running" };
+  return { state: "unknown", reason: "unreachable" };
+}
 
 export default class Presto extends SqlIntegration {
   params!: PrestoConnectionParams;
@@ -112,6 +154,28 @@ export default class Presto extends SqlIntegration {
           logger.debug(`Cancelled Presto/Trino query ${externalId}`);
           resolve();
         }
+      });
+    });
+  }
+
+  async getExternalQueryStatus(
+    externalId: string,
+  ): Promise<ExternalQueryStatus> {
+    const client = this.createClient();
+    return new Promise<ExternalQueryStatus>((resolve) => {
+      client.query(externalId, (error, data) => {
+        if (error) {
+          // Trino returns 404/410 once a query id has aged out of the
+          // coordinator's memory.
+          const code = error.code;
+          resolve(
+            code === 404 || code === 410
+              ? { state: "unknown", reason: "expired" }
+              : { state: "unknown", reason: "unreachable" },
+          );
+          return;
+        }
+        resolve(prestoStateToStatus(data));
       });
     });
   }

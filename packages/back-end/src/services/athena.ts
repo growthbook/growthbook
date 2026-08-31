@@ -7,6 +7,7 @@ import {
 import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { parseEnvInt, parseOptionalInt } from "shared/util";
+import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
@@ -64,6 +65,51 @@ export async function cancelAthenaQuery(
   await athena.stopQueryExecution({
     QueryExecutionId: id,
   });
+}
+
+export function athenaStateToStatus(
+  state: string | undefined,
+  stateChangeReason: string | undefined,
+): ExternalQueryStatus {
+  switch (state) {
+    case "QUEUED":
+    case "RUNNING":
+      return { state: "running" };
+    case "SUCCEEDED":
+      return { state: "succeeded" };
+    case "FAILED":
+      return { state: "failed", error: stateChangeReason || "Query failed" };
+    case "CANCELLED":
+      return {
+        state: "failed",
+        error: stateChangeReason || "Query was cancelled",
+      };
+    case undefined:
+    default:
+      return { state: "unknown", reason: "unreachable" };
+  }
+}
+
+export async function getAthenaQueryStatus(
+  conn: AthenaConnectionParams,
+  id: string,
+): Promise<ExternalQueryStatus> {
+  try {
+    const athena = await getAthenaInstance(conn);
+    const resp = await athena.getQueryExecution({ QueryExecutionId: id });
+    return athenaStateToStatus(
+      resp.QueryExecution?.Status?.State,
+      resp.QueryExecution?.Status?.StateChangeReason,
+    );
+  } catch (e) {
+    // Athena throws InvalidRequestException when the execution id is
+    // unknown/purged.
+    const message = e instanceof Error ? e.message : String(e);
+    if (/was not found|not found|does not exist/i.test(message)) {
+      return { state: "unknown", reason: "expired" };
+    }
+    return { state: "unknown", reason: "unreachable" };
+  }
 }
 
 export async function runAthenaQuery(

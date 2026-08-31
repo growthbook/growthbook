@@ -4,8 +4,10 @@ import { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
   cancelAthenaQuery,
+  getAthenaQueryStatus,
   runAthenaQuery,
 } from "back-end/src/services/athena";
+import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 import { athenaDialect } from "./dialects/athena";
 
@@ -27,6 +29,9 @@ export default class Athena extends SqlIntegration {
   }
   async cancelQuery(externalId: string): Promise<void> {
     await cancelAthenaQuery(this.params, externalId);
+  }
+  getExternalQueryStatus(externalId: string): Promise<ExternalQueryStatus> {
+    return getAthenaQueryStatus(this.params, externalId);
   }
   getDefaultDatabase() {
     return this.params.catalog || "";
