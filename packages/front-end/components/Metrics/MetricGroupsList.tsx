@@ -1,9 +1,10 @@
-import React, { FC, useState } from "react";
+import React, { FC, useMemo, useState } from "react";
 import { FaArchive, FaExclamationTriangle } from "react-icons/fa";
 import router from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { MetricGroupInterface } from "shared/types/metric-groups";
+import { isProjectListValidForProject } from "shared/util";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -30,10 +31,20 @@ const MetricGroupsList: FC = () => {
   const [archiveModal, setArchiveModal] = useState<MetricGroupInterface | null>(
     null,
   );
-  const { metricGroups, mutateDefinitions, getDatasourceById } =
+  const { metricGroups, mutateDefinitions, getDatasourceById, project } =
     useDefinitions();
   const { hasCommercialFeature } = useUser();
   const hasGroupsFeature = hasCommercialFeature("metric-groups");
+
+  const filteredMetricGroups = useMemo(
+    () =>
+      project
+        ? metricGroups.filter((mg) =>
+            isProjectListValidForProject(mg.projects, project),
+          )
+        : metricGroups,
+    [metricGroups, project],
+  );
 
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canUpdateMetricGroup();
@@ -123,7 +134,7 @@ const MetricGroupsList: FC = () => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {metricGroups.map((mg) => {
+          {filteredMetricGroups.map((mg) => {
             const dsName = getDatasourceById(mg.datasource)?.name || "-";
             return (
               <TableRow
