@@ -80,6 +80,10 @@ import {
   isMergeAggregationMetric,
   REST_API_ONLY_EDIT_MESSAGE,
 } from "@/services/factMetrics";
+import {
+  ReplacedByCallout,
+  ReplacesMetadata,
+} from "@/components/Metrics/MetricReplacement";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -201,12 +205,12 @@ function FunnelStepsDisplay({
 }) {
   const { getFactTableById } = useDefinitions();
 
-  // v1 funnels share one fact table across every step, so show it once up top
-  // rather than repeating the same link inside each step panel.
-  const sharedFactTableId = funnelSettings.steps[0]?.factTableId;
-
-  const getStepItems = (step: FunnelStep): DataListItem[] =>
-    step.rowFilters?.length
+  const getStepItems = (step: FunnelStep): DataListItem[] => [
+    {
+      label: "Fact Table",
+      value: <FactTableLink id={step.factTableId} />,
+    },
+    ...(step.rowFilters?.length
       ? [
           {
             label: "Row Filter",
@@ -218,7 +222,8 @@ function FunnelStepsDisplay({
             ),
           },
         ]
-      : [];
+      : []),
+  ];
 
   const getConversionWindowValue = (
     step: FunnelStep,
@@ -235,23 +240,16 @@ function FunnelStepsDisplay({
       <Heading as="h4" size="sm" mb="2">
         Funnel Steps
       </Heading>
-      <Box mb="3">
-        <Text weight="medium" mr="2">
-          Fact Table
-        </Text>
-        <FactTableLink id={sharedFactTableId} />
-      </Box>
       {funnelSettings.steps.map((step, i) => {
         const items = getStepItems(step);
         const conversionWindowValue = getConversionWindowValue(step, i);
         const hasMetadata = !!conversionWindowValue || !!step.optional;
-        const hasContent = items.length > 0 || hasMetadata;
         return (
           <Box key={i} className="appbox" p="3" mb="2">
             <Heading
               as="h4"
               size="sm"
-              mb={hasContent ? "2" : "0"}
+              mb="2"
             >{`Step ${i + 1}: ${step.name}`}</Heading>
             {items.length ? <DataList data={items} maxColumns={1} /> : null}
             {hasMetadata ? (
@@ -638,6 +636,7 @@ export default function FactMetricPage() {
           experiments.
         </Callout>
       )}
+      <ReplacedByCallout metricId={factMetric.id} />
       <Flex align="start" justify="between" gap="2" mb="2">
         <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
           <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
@@ -811,6 +810,7 @@ export default function FactMetricPage() {
             </Link>
           }
         />
+        <ReplacesMetadata replaces={factMetric.replaces} />
       </Flex>
       <Box mt="3" mb="3">
         <Flex align="center" gap="1">

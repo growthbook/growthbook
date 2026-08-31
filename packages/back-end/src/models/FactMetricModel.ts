@@ -20,6 +20,7 @@ import {
   FunnelFactMetricInterface,
   LegacyColumnRef,
   LegacyFactMetricInterface,
+  RowFilter,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
@@ -32,7 +33,7 @@ import {
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { validateAggregationSpecification } from "back-end/src/services/factMetricAggregationValidation";
 import { healPriorSettings } from "back-end/src/util/priors";
-import { MakeModelClass } from "./BaseModel";
+import { Context, MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
 import { getFactTableMap } from "./FactTableModel";
 
@@ -112,6 +113,16 @@ function validateUserFilter({
       column: numerator.aggregateFilterColumn,
       ignoreInvalid: false,
     });
+  }
+}
+
+// Existence is not checked: the replaced metric is often deleted later, and
+// failing validation then would make the surviving metric un-editable.
+function validateReplaces({ id, replaces }: FactMetricInterface): void {
+  if (!replaces?.length) return;
+
+  if (replaces.includes(id)) {
+    throw new Error("A metric cannot replace itself");
   }
 }
 
@@ -389,14 +400,12 @@ export class FactMetricModel extends BaseClass {
     return this._factTableMap;
   }
 
-  protected async customValidation(
+  static async validateFactMetric(
     data: FactMetricInterface,
-    previousData?: FactMetricInterface,
+    previousData: FactMetricInterface | null,
+    factTableMap: Map<string, FactTableInterface>,
+    context: Context,
   ): Promise<void> {
-    const existingMetric = previousData || null;
-
-    const factTableMap = await this.getFactTableMap();
-
     if (data.metricType === "funnel" && !data.funnelSettings) {
       throw new Error("Funnel settings required for funnel metrics");
     }
@@ -405,16 +414,26 @@ export class FactMetricModel extends BaseClass {
     }
 
     if (isFactFunnelMetric(data)) {
-      if (!this.context.hasPremiumFeature("funnel-metrics")) {
+      if (!context.hasPremiumFeature("funnel-metrics")) {
         throw new Error("Funnel metrics are a premium feature");
       }
-      await this.validateFunnelSettings(data, existingMetric, factTableMap);
+      await FactMetricModel.validateFunnelSettings(
+        data,
+        previousData,
+        factTableMap,
+        context,
+      );
     } else {
-      await this.validateColumnRefs(data, existingMetric, factTableMap);
+      await FactMetricModel.validateColumnRefs(
+        data,
+        previousData,
+        factTableMap,
+        context,
+      );
     }
 
     if (data.metricType === "quantile") {
-      if (!this.context.hasPremiumFeature("quantile-metrics")) {
+      if (!context.hasPremiumFeature("quantile-metrics")) {
         throw new Error("Quantile metrics are a premium feature");
       }
 
@@ -424,7 +443,7 @@ export class FactMetricModel extends BaseClass {
     }
     if (
       data.metricType === "retention" &&
-      !this.context.hasPremiumFeature("retention-metrics") &&
+      !context.hasPremiumFeature("retention-metrics") &&
       data.id !== "fact__demo-d7-purchase-retention" // Allows demo retention metric to be created without premium feature
     ) {
       throw new Error("Retention metrics are a premium feature");
@@ -440,16 +459,31 @@ export class FactMetricModel extends BaseClass {
         `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`,
       );
     }
+
+    validateReplaces(data);
+  }
+
+  protected async customValidation(
+    data: FactMetricInterface,
+    previousData?: FactMetricInterface,
+  ): Promise<void> {
+    await FactMetricModel.validateFactMetric(
+      data,
+      previousData ?? null,
+      await this.getFactTableMap(),
+      this.context,
+    );
   }
 
   /**
    * Funnel metrics describe their events through ordered steps rather than a
    * numerator ColumnRef, so none of the column/aggregation rules apply.
    */
-  private async validateFunnelSettings(
+  private static async validateFunnelSettings(
     data: FunnelFactMetricInterface,
     existingMetric: FactMetricInterface | null,
     factTableMap: Map<string, FactTableInterface>,
+    context: Context,
   ): Promise<void> {
     const { steps, ordering, sessionBased } = data.funnelSettings;
 
@@ -467,16 +501,24 @@ export class FactMetricModel extends BaseClass {
       throw new Error(violation.message);
     }
 
-    const factTableId = steps[0].factTableId;
-    const factTable = factTableMap.get(factTableId);
-    if (!factTable) {
-      throw new Error("Could not find funnel fact table");
-    }
+    // Steps can each read from a different fact table, so everything below is
+    // validated against the step's own table.
+    const stepFactTables = steps.map((step) => {
+      const factTable = factTableMap.get(step.factTableId);
+      if (!factTable) {
+        throw new Error("Could not find funnel fact table");
+      }
+      return factTable;
+    });
 
-    steps.forEach((step) => {
+    steps.forEach((step, i) => {
       validateSavedFilterIds({
-        columnRef: { factTableId, column: "", rowFilters: step.rowFilters },
-        factTable,
+        columnRef: {
+          factTableId: step.factTableId,
+          column: "",
+          rowFilters: step.rowFilters,
+        },
+        factTable: stepFactTables[i],
         filterType: "numerator",
       });
     });
@@ -501,36 +543,52 @@ export class FactMetricModel extends BaseClass {
       existingMetric && isFactFunnelMetric(existingMetric)
         ? existingMetric.funnelSettings.steps
         : [];
-    const rowFiltersToValidate = steps.flatMap((step, index) =>
-      getNetNewSqlExprRowFilters({
+    // One validation query per fact table rather than per step, since each
+    // query round-trips to the warehouse.
+    const rowFiltersByFactTable = new Map<
+      string,
+      { factTable: FactTableInterface; rowFilters: RowFilter[] }
+    >();
+    steps.forEach((step, index) => {
+      const rowFilters = getNetNewSqlExprRowFilters({
         rowFilters: step.rowFilters,
         previousRowFilters: previousSteps[index]?.rowFilters,
         validateAll: previousSteps[index]?.factTableId !== step.factTableId,
-      }),
-    );
-    if (!rowFiltersToValidate.length) return;
+      });
+      if (!rowFilters.length) return;
+      const existing = rowFiltersByFactTable.get(step.factTableId);
+      if (existing) {
+        existing.rowFilters.push(...rowFilters);
+      } else {
+        rowFiltersByFactTable.set(step.factTableId, {
+          factTable: stepFactTables[index],
+          rowFilters: [...rowFilters],
+        });
+      }
+    });
+    if (!rowFiltersByFactTable.size) return;
 
-    const datasource = await getDataSourceById(this.context, data.datasource);
+    const datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
       throw new Error("Could not find datasource");
     }
-    const integration = getSourceIntegrationObject(
-      this.context,
-      datasource,
-      true,
-    );
-    await validateFactMetricRowFilterSql({
-      integration,
-      factTable,
-      rowFilters: rowFiltersToValidate,
-      errorPrefix: "Invalid funnel step row filter SQL: ",
-    });
+    const integration = getSourceIntegrationObject(context, datasource, true);
+
+    for (const { factTable, rowFilters } of rowFiltersByFactTable.values()) {
+      await validateFactMetricRowFilterSql({
+        integration,
+        factTable,
+        rowFilters,
+        errorPrefix: "Invalid funnel step row filter SQL: ",
+      });
+    }
   }
 
-  private async validateColumnRefs(
+  private static async validateColumnRefs(
     data: StandardFactMetricInterface,
     existingMetric: FactMetricInterface | null,
     factTableMap: Map<string, FactTableInterface>,
+    context: Context,
   ): Promise<void> {
     if (data.funnelSettings) {
       throw new Error("funnelSettings is only allowed for funnel metrics");
@@ -655,15 +713,11 @@ export class FactMetricModel extends BaseClass {
       numeratorSqlExprFiltersToValidate.length ||
       denominatorSqlExprFiltersToValidate.length
     ) {
-      const datasource = await getDataSourceById(this.context, data.datasource);
+      const datasource = await getDataSourceById(context, data.datasource);
       if (!datasource) {
         throw new Error("Could not find datasource");
       }
-      const integration = getSourceIntegrationObject(
-        this.context,
-        datasource,
-        true,
-      );
+      const integration = getSourceIntegrationObject(context, datasource, true);
 
       await validateFactMetricRowFilterSql({
         integration,
