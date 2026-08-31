@@ -1,0 +1,56 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+}
+
+.hoverRow {
+  border-radius: var(--radius-2);
+}
+
+.hoverRow:hover {
+  background-color: var(--accent-a3);
+}
+
+.selectedRow {
+  background-color: var(--accent-a4);
+}
+
+.selectedRow:hover {
+  background-color: var(--accent-a5);
+}
+
+.columnTable tbody tr:hover td {
+  background-color: var(--accent-a3);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.actionsEnd {
+  margin-left: auto;
+}
+
+.row:hover .actions,
+.row:has(:focus-visible) .actions,
+.columnTable tbody tr:hover .actions,
+.columnTable tbody tr:has(:focus-visible) .actions {
+  opacity: 1;
+}
+
+.actions :global(button:hover),
+.actions :global(button:active) {
+  background-color: var(--accent-a4);
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
