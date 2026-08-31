@@ -28,7 +28,7 @@ OpenFeature defines a vendor-neutral interface for evaluating feature flags. Usi
 <Tip>
 **When to use the native GrowthBook SDK instead**
 
-The native GrowthBook SDKs expose features that go beyond the OpenFeature interface: Sticky Bucketing, Visual Editor experiments, inline experiment definitions, and real-time SSE streaming. If you need those capabilities, use the [native SDK](/lib) for your language instead.
+The native GrowthBook SDKs expose features that go beyond the OpenFeature interface: Sticky Bucketing, Visual Editor experiments, and inline experiment definitions. If you need those capabilities, use the [native SDK](/lib) for your language instead.
 
 </Tip>
 
@@ -37,14 +37,20 @@ The native GrowthBook SDKs expose features that go beyond the OpenFeature interf
 <Tabs>
 <Tab title="JavaScript">
 
-Use `@openfeature/growthbook-provider` with `@openfeature/server-sdk` in Node.js. Use `@openfeature/growthbook-client-provider` with `@openfeature/web-sdk` in the browser. The two providers are not interchangeable: the web provider throws if you register it with the server SDK.
+Use `@openfeature/growthbook-provider` with `@openfeature/server-sdk` in Node.js. Use `@openfeature/growthbook-client-provider` with `@openfeature/web-sdk` in the browser. The two providers are not interchangeable — either one throws if you register it with the wrong SDK.
+
+<Warning>
+Unlike the Python, .NET, and Java providers, the JavaScript providers pass the evaluation context to GrowthBook unchanged. `targetingKey` is **not** mapped to GrowthBook's `id` attribute, so you must set `id` yourself — see [Evaluation Context](#evaluation-context-targeting-attributes).
+</Warning>
+
+Both packages are published from [open-feature/js-sdk-contrib](https://github.com/open-feature/js-sdk-contrib) and are currently pre-1.0. Report issues there rather than on the GrowthBook repos.
 
 <Tabs>
 <Tab title="Node.js (server)">
 
 **GitHub:** [js-sdk-contrib/providers/growthbook](https://github.com/open-feature/js-sdk-contrib/tree/main/libs/providers/growthbook) &nbsp;|&nbsp; **npm:** [@openfeature/growthbook-provider](https://www.npmjs.com/package/@openfeature/growthbook-provider)
 
-**Requirements:** Node.js 18+
+**Requirements:** Node.js 20+ (set by the current `@openfeature/server-sdk`)
 
 ```bash
 npm install @openfeature/growthbook-provider @openfeature/server-sdk @growthbook/growthbook
@@ -57,12 +63,21 @@ import { GrowthbookProvider } from "@openfeature/growthbook-provider";
 const gbClientOptions = {
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
+  // Only required if you have feature encryption enabled
+  // decryptionKey: "key_abc123",
 };
 
-await OpenFeature.setProviderAndWait(new GrowthbookProvider(gbClientOptions));
+// The second argument is optional. `timeout` bounds how long startup can block
+// on the initial feature fetch; streaming is already enabled by default.
+await OpenFeature.setProviderAndWait(
+  new GrowthbookProvider(gbClientOptions, { timeout: 2000 }),
+  { region: "us-east" }, // optional global attributes, applied to every evaluation
+);
 
 const client = OpenFeature.getClient("my-app");
 ```
+
+The provider reads global attributes once, when it initializes. Pass them as the second argument to `setProviderAndWait` as shown above — calling `OpenFeature.setContext()` later does not update them on the server SDK.
 
 </Tab>
 <Tab title="Web (client)">
@@ -80,9 +95,17 @@ import { GrowthbookClientProvider } from "@openfeature/growthbook-client-provide
 const gbContext = {
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
+  // Only required if you have feature encryption enabled
+  // decryptionKey: "key_abc123",
 };
 
-await OpenFeature.setProviderAndWait(new GrowthbookClientProvider(gbContext));
+await OpenFeature.setProviderAndWait(
+  new GrowthbookClientProvider(gbContext, { timeout: 2000 }),
+);
+
+// Web SDK evaluations read the global context. Await it before evaluating —
+// the provider applies the new attributes inside this call.
+await OpenFeature.setContext({ targetingKey: "user-123", id: "user-123" });
 
 const client = OpenFeature.getClient("my-app");
 ```
@@ -256,15 +279,23 @@ Client client = OpenFeatureAPI.getInstance().getClient();
 
 Pass user attributes to the OpenFeature client via an `EvaluationContext`. These become GrowthBook targeting attributes used for percentage rollouts, feature targeting rules, and experiment bucketing.
 
-The `targetingKey` maps to the user ID in GrowthBook. Additional attributes (e.g. `country`, `plan`, `email`) are matched against your feature flag targeting conditions.
+GrowthBook buckets users on the `id` attribute by default. The Python, .NET, and Java providers map the OpenFeature `targetingKey` to `id` for you. The **JavaScript and Go providers do not** — they pass the context through unchanged, so you must set `id` yourself.
 
-The JavaScript examples use the Node.js server SDK, which accepts an invocation-level context. On the web SDK, call `OpenFeature.setContext(context)` instead of passing context into each evaluation.
+<Warning>
+If `id` is missing, GrowthBook has nothing to hash on: percentage rollouts return their default value and experiments never assign a variation. Nothing raises an error, so the flag simply appears to be off. Set `targetingKey` and `id` to the same value — `id` does the bucketing today, and the pair keeps your code portable to providers that read `targetingKey`.
+</Warning>
+
+Additional attributes (e.g. `country`, `plan`, `email`) are matched against your feature flag targeting conditions.
+
+The JavaScript examples use the Node.js server SDK, which accepts an invocation-level context. On the web SDK, call `await OpenFeature.setContext(context)` instead of passing context into each evaluation.
 
 <CodeGroup>
 
 ```js JavaScript
 const context = {
+  // The JS providers do not map targetingKey — GrowthBook buckets on `id`.
   targetingKey: "user-123",
+  id: "user-123",
   country: "US",
   plan: "premium",
   email: "user@example.com",
@@ -286,6 +317,8 @@ context = EvaluationContext(
 
 ```go Go
 evalCtx := openfeature.NewEvaluationContext("user-123", map[string]interface{}{
+    // The Go provider does not map targetingKey — GrowthBook buckets on `id`.
+    "id":      "user-123",
     "country": "US",
     "plan":    "premium",
     "email":   "user@example.com",
@@ -319,6 +352,17 @@ context.add("email", "user@example.com");
 ## Evaluating Feature Flags
 
 OpenFeature defines five value types. GrowthBook's feature flags map to all of them.
+
+The JavaScript examples below use the Node.js server SDK, where evaluations are asynchronous and take an invocation-level context. On the web SDK the same calls are **synchronous and take no context argument** — they read the global context set via `await OpenFeature.setContext(...)`:
+
+```js
+// Web SDK equivalent
+const enabled = client.getBooleanValue("dark-mode", false);
+```
+
+<Note>
+The JavaScript providers return GrowthBook's own `source` string as the evaluation `reason` (e.g. `experiment`, `force`, `defaultValue`) rather than the standard OpenFeature reasons such as `TARGETING_MATCH` or `STATIC`. Code that branches on `details.reason` is not portable across providers.
+</Note>
 
 ### Boolean
 
@@ -460,9 +504,11 @@ Value config = client.getObjectValue("theme-config", new MutableStructure(), con
 | `api_host` / `apiHost`     |     ✓      |   ✓    |  ✓  |  ✓   |  ✓   | GrowthBook CDN or self-hosted URL                 |
 | `client_key` / `clientKey` |     ✓      |   ✓    |  ✓  |  ✓   |  ✓   | SDK Connection key from GrowthBook                |
 | `decryption_key`           |     ✓      |   ✓    |  —  |  —   |  —   | Key for encrypted SDK endpoint payloads           |
-| `cache_ttl`                |     —      |   ✓    |  ✓  |  —   |  —   | Seconds before re-fetching features (default: 60) |
-| `enabled`                  |     —      |   ✓    |  —  |  ✓   |  —   | Enable/disable the provider entirely              |
-| `qa_mode`                  |     —      |   ✓    |  —  |  —   |  —   | Forces all experiments into the control variation |
+| `cache_ttl`                |    ✓\*     |   ✓    |  ✓  |  —   |  —   | Seconds before re-fetching features (default: 60) |
+| `enabled`                  |     ✓      |   ✓    |  —  |  ✓   |  —   | Enable/disable the provider entirely              |
+| `qa_mode`                  |     ✓      |   ✓    |  —  |  —   |  —   | Forces all experiments into the control variation |
+
+\* In JavaScript, `cache_ttl` lives on the provider's optional second argument as `{ cacheSettings: { staleTTL: 60000 } }` rather than in the client options object. Every other JavaScript option in this table goes in the client options object.
 
 ## Shutdown & Cleanup
 
