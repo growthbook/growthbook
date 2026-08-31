@@ -59,8 +59,7 @@ export const DEFAULT_TOP_VALUES_LOOKBACK_UNIT = "days";
 // Query settings
 export const DEFAULT_TEST_QUERY_DAYS = 30;
 export const DEFAULT_USE_STICKY_BUCKETING = false;
-// On by default so enabling Sticky Bucketing keeps today's behavior (new
-// experiments use it). Orgs that want per-experiment opt-in can uncheck it.
+
 export const DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT = true;
 
 // Dimension name constants:
