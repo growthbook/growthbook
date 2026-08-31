@@ -1,5 +1,6 @@
 import { isEqual } from "lodash";
 import type { Revision } from "shared/enterprise";
+import type { ReviewRequirement } from "shared/util";
 import {
   NO_ENVIRONMENT_BINDING,
   RevisionAction,
@@ -69,10 +70,17 @@ export function revisionActionHooks<TSnapshot extends Record<string, unknown>>({
       context.permissions.canRevisionAction(model, "draft", {
         projects: projectsOf(snapshot),
       }),
-    canReview: (context, snapshot) =>
-      context.permissions.canRevisionAction(model, "review", {
-        projects: projectsOf(snapshot),
-      }),
+    // `environments` is the caller's change-aware footprint; falling back to
+    // envsOf keeps callers that cannot compute one working.
+    canReview: (context, snapshot, environments) =>
+      environments !== undefined
+        ? context.permissions.canRevisionAction(
+            model,
+            "review",
+            { projects: projectsOf(snapshot) },
+            environments,
+          )
+        : scoped("review", context, snapshot),
     canPublishRevision: (context, snapshot) =>
       scoped("publish", context, snapshot),
     canRevert: (context, snapshot) => scoped("revert", context, snapshot),
@@ -151,7 +159,11 @@ export interface EntityRevisionAdapter<
   canManageDrafts?(context: Context, snapshot: TSnapshot): boolean;
 
   /** Approve / request changes / undo a verdict. */
-  canReview?(context: Context, snapshot: TSnapshot): boolean;
+  canReview?(
+    context: Context,
+    snapshot: TSnapshot,
+    environments?: string[] | null,
+  ): boolean;
 
   /** Restore a previously-published revision. */
   canRevert?(context: Context, snapshot: TSnapshot): boolean;
@@ -188,6 +200,13 @@ export interface EntityRevisionAdapter<
   // gate on what changed (e.g. saved-group's `requireMetadataReview`, which
   // lets metadata-only revisions skip review).
   isApprovalRequiredForRevision?(context: Context, revision: Revision): boolean;
+
+  // Same answer as isApprovalRequiredForRevision, plus the rules that demanded
+  // it — what per-rule policy hangs off. Saved groups carry no rules.
+  reviewRequirementForRevision?(
+    context: Context,
+    revision: Revision,
+  ): ReviewRequirement;
 
   /** Whether the current user can bypass the approval requirement. */
   canBypassApproval(context: Context, snapshot: TSnapshot): boolean;

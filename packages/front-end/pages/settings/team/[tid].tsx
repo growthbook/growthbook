@@ -2,14 +2,18 @@ import router from "next/router";
 import React, { FC, useState } from "react";
 import { date, datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Flex, IconButton, Separator } from "@radix-ui/themes";
+import { reviewScopesRequiringTeam } from "shared/util";
 import { useAuth } from "@/services/auth";
 import TeamModal from "@/components/Teams/TeamModal";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
+import { RoleRulesSummary } from "@/components/Settings/Team/RoleRulesSummary";
+import Frame from "@/ui/Frame";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -43,7 +47,11 @@ const TeamPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   const canManageTeam = permissionsUtil.canManageTeam();
 
-  const { teams, refreshOrganization } = useUser();
+  const { teams, refreshOrganization, settings } = useUser();
+
+  // Which review rules demand this team's sign-off, described by their scope, so
+  // the team page answers "what does this team gate?".
+  const approvalScopes = reviewScopesRequiringTeam(tid, settings);
 
   const team = teams?.find((team) => team.id === tid);
   const isEditable = !team?.managedByIdp;
@@ -99,7 +107,7 @@ const TeamPage: FC = () => {
             This team is managed by an idP. To make changes to the{" "}
             <b>team name</b> or <b>team membership</b> please access your idP
             and edit the corresponding group. Team permissions must be edited
-            via the <b>Edit permissions</b> button.
+            via the <b>Edit team permissions</b> button.
           </Callout>
         )}
 
@@ -117,12 +125,6 @@ const TeamPage: FC = () => {
             )}
           </Flex>
           <Flex align="center" gap="4" flexShrink="0">
-            <Button
-              variant="outline"
-              onClick={() => setPermissionModalOpen(true)}
-            >
-              Edit permissions
-            </Button>
             {isEditable && canManageTeam && (
               <DropdownMenu
                 trigger={
@@ -141,7 +143,7 @@ const TeamPage: FC = () => {
               >
                 <DropdownMenuGroup>
                   <DropdownMenuItem onClick={() => setTeamModalOpen(true)}>
-                    Edit team
+                    Edit team settings
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
               </DropdownMenu>
@@ -169,6 +171,67 @@ const TeamPage: FC = () => {
             <Badge label={projectName} />
           )}
         </Flex>
+
+        <Frame px="4" py="4" mb="5">
+          <Flex align="start" justify="between" gap="3">
+            <Flex direction="column" gap="2">
+              <Heading as="h2" size="md" mb="0">
+                Permissions
+              </Heading>
+              <RoleRulesSummary
+                size="md"
+                value={{
+                  role: team.role,
+                  limitAccessByEnvironment: team.limitAccessByEnvironment,
+                  environments: team.environments,
+                  additionalRoles: team.additionalRoles,
+                  projectRoles: team.projectRoles,
+                }}
+              />
+            </Flex>
+            <Button
+              variant="outline"
+              onClick={() => setPermissionModalOpen(true)}
+            >
+              Edit team permissions
+            </Button>
+          </Flex>
+          {approvalScopes.length > 0 && (
+            <>
+              <Separator size="4" my="4" />
+              <Flex direction="column" gap="2">
+                <Heading as="h2" size="md" mb="0">
+                  Required Approver
+                </Heading>
+                {approvalScopes.map((scope) => (
+                  <Flex
+                    key={scope.project ?? "all"}
+                    align="center"
+                    gap="2"
+                    wrap="wrap"
+                  >
+                    {scope.project ? (
+                      <Link href={`/project/${scope.project}`}>
+                        {getProjectById(scope.project)?.name || scope.project}
+                      </Link>
+                    ) : (
+                      <Text>
+                        {approvalScopes.length > 1
+                          ? "All other Projects"
+                          : "All Projects"}
+                      </Text>
+                    )}
+                    {scope.environments.length > 0 && (
+                      <Text color="text-low">
+                        · {scope.environments.join(", ")}
+                      </Text>
+                    )}
+                  </Flex>
+                ))}
+              </Flex>
+            </>
+          )}
+        </Frame>
 
         <Flex align="center" justify="between" gap="3" mb="2">
           <Heading as="h2" size="md" mb="0">

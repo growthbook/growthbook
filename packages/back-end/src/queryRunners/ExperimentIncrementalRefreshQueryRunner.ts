@@ -35,6 +35,7 @@ import {
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  errorSnapshotIfStillRunning,
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -254,6 +255,11 @@ const startExperimentIncrementalRefreshQueries = async (
     segmentObj = await context.models.segments.getById(
       snapshotSettings.segment,
     );
+    if (!segmentObj) {
+      throw new Error(
+        `The experiment's segment (${snapshotSettings.segment}) could not be found. Update the experiment's segment and run a Full Refresh.`,
+      );
+    }
   }
 
   const settings = integration.datasource.settings;
@@ -530,29 +536,31 @@ const startExperimentIncrementalRefreshQueries = async (
         queryMetadata,
       ),
     onSuccess: async (rows) => {
-      const maxTimestamp = new Date(rows[0].max_timestamp as string);
+      // MAX() is NULL on an empty units table; persist null so a prior
+      // watermark cannot survive a full refresh that matched no one.
+      const parsed = rows[0]?.max_timestamp
+        ? new Date(rows[0].max_timestamp as string)
+        : null;
+      const maxTimestamp =
+        parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
 
-      if (maxTimestamp) {
-        const lockHeld =
-          await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+      const lockHeld =
+        await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+          experimentId,
+          executionId,
+          {
+            unitsTableFullName: unitsTableFullName,
+            unitsMaxTimestamp: maxTimestamp,
+            experimentSettingsHash:
+              getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
+            unitsDimensions: eligibleDimensions.map((d) => d.id),
+          },
+        );
+      if (lockHeld !== true) {
+        context.logger.warn(
+          "Incremental refresh execution lock lost for experiment: " +
             experimentId,
-            executionId,
-            {
-              unitsTableFullName: unitsTableFullName,
-              unitsMaxTimestamp: maxTimestamp,
-              experimentSettingsHash:
-                getExperimentSettingsHashForIncrementalRefresh(
-                  snapshotSettings,
-                ),
-              unitsDimensions: eligibleDimensions.map((d) => d.id),
-            },
-          );
-        if (lockHeld !== true) {
-          context.logger.warn(
-            "Incremental refresh execution lock lost for experiment: " +
-              experimentId,
-          );
-        }
+        );
       }
     },
     queryType: "experimentIncrementalRefreshMaxTimestampUnitsTable",
@@ -1395,6 +1403,40 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     if (!obj)
       throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
+  }
+
+  /** True once another finalizer (reaper, cancel) has concluded this snapshot. */
+  protected override isModelTerminal(
+    model: ExperimentSnapshotInterface,
+  ): boolean {
+    return model.status !== "running";
+  }
+
+  /**
+   * Persist error only while still running; release the incremental refresh
+   * lock if the write wins.
+   */
+  protected override async writeErrorIfStillActive(
+    error: string,
+  ): Promise<void> {
+    const wrote = await errorSnapshotIfStillRunning(
+      this.context,
+      this.model.id,
+      {
+        queries: this.model.queries,
+        error,
+      },
+    );
+    if (wrote) {
+      await this.context.models.incrementalRefresh
+        .releaseLock(this.model.experiment, this.model.id)
+        .catch((e) =>
+          this.context.logger.warn(
+            e,
+            "Failed to release incremental refresh lock on shutdown error",
+          ),
+        );
+    }
   }
 
   async updateModel({

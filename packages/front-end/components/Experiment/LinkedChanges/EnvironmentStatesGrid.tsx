@@ -6,7 +6,7 @@ import {
   PiXCircleFill,
 } from "react-icons/pi";
 import { useState } from "react";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 
@@ -56,16 +56,14 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
         >
           {environmentStates.map(({ env, isActive, tooltip }) => (
             <Box key={env} minWidth="0">
-              <Tooltip
-                body={tooltip}
-                tipPosition="top"
-                style={{
-                  display: "block",
-                  width: "fit-content",
-                  maxWidth: "100%",
-                }}
-              >
-                <Flex gap="2" align="center" minWidth="0">
+              <Tooltip content={tooltip} side="top" maxWidth="300px">
+                <Flex
+                  gap="2"
+                  align="center"
+                  minWidth="0"
+                  display="inline-flex"
+                  maxWidth="100%"
+                >
                   <Box
                     flexShrink="0"
                     style={{
