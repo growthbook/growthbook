@@ -69,6 +69,18 @@
     }
   }
 
+  // Roomier segments: a small-size toggle whose labels are words rather than a
+  // chevron needs more room than the size default, and the right segment's
+  // chevron-tightening rule above has to be overridden to match its sibling.
+  &.roomy-segments {
+    .rt-SplitButtonLeft > *,
+    .rt-SplitButtonMiddle > *,
+    .rt-SplitButtonRight > * {
+      padding-left: var(--space-3) !important;
+      padding-right: var(--space-3) !important;
+    }
+  }
+
   // Uniform 3-segment toggle (e.g. the diff-format toggle): all segments share
   // the same horizontal padding. Overrides the chevron-tightening rule above
   // that narrows the right segment for the default button+dropdown use case.

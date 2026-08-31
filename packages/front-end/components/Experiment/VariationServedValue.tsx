@@ -1,8 +1,8 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import Metadata from "@/ui/Metadata";
-import Tooltip from "@/ui/Tooltip";
+import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
 
 /**
  * The Feature Flag value a variation serves — or, when the experiment has no
@@ -26,19 +26,7 @@ export default function VariationServedValue({
   return (
     <Flex align="center" justify="between" gap="2" mt="3">
       <Flex align="center" gap="1" minWidth="0">
-        {isDraft && (
-          <Tooltip content="Unpublished draft value">
-            <Box
-              style={{
-                flexShrink: 0,
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: "var(--amber-9)",
-              }}
-            />
-          </Tooltip>
-        )}
+        {isDraft && <UnpublishedDot tooltip="Unpublished draft value" />}
         <Metadata
           label="Serves"
           size="sm"

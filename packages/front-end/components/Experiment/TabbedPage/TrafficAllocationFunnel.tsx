@@ -37,6 +37,7 @@ import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
@@ -364,17 +365,18 @@ export default function TrafficAllocationFunnel({
         </Heading>
         <Flex align="center" gap="3">
           {servedValueFeature ? (
-            <SplitButton variant="outline">
+            <SplitButton variant="outline" className="roomy-segments">
               <Button
-                size="md"
+                size="sm"
                 variant={preferDraft ? "solid" : "outline"}
                 disabled={!hasPendingDraft}
+                icon={hasPendingDraft ? <UnpublishedDot /> : undefined}
                 onClick={() => setShowDraftValues(true)}
               >
                 Unpublished
               </Button>
               <Button
-                size="md"
+                size="sm"
                 variant={preferDraft ? "outline" : "solid"}
                 onClick={() => setShowDraftValues(false)}
               >
@@ -485,17 +487,7 @@ export default function TrafficAllocationFunnel({
                 <div>
                   <Flex align="center" gap="1" mb="2">
                     {environmentsAreDraft && (
-                      <Tooltip content="Unpublished draft targeting">
-                        <Box
-                          style={{
-                            flexShrink: 0,
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: "var(--amber-9)",
-                          }}
-                        />
-                      </Tooltip>
+                      <UnpublishedDot tooltip="Unpublished draft targeting" />
                     )}
                     <Text as="div" color="text-high" weight="semibold">
                       Environments
