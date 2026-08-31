@@ -63,7 +63,7 @@ import {
 import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
 import {
   conversionWindowQueryNameSuffix,
-  getMetricConversionWindowHours,
+  getOverriddenMetricConversionWindowHours,
   partitionMetricsByConversionWindow,
 } from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { resolveCovariateInsertPath } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
@@ -1098,7 +1098,13 @@ const startExperimentIncrementalRefreshQueries = async (
     onMissingPipeline: "throw",
     getWindowKey: (m) =>
       snapshotSettings.skipPartialData
-        ? String(getMetricConversionWindowHours(m.metric, activationMetric))
+        ? String(
+            getOverriddenMetricConversionWindowHours(
+              m.metric,
+              activationMetric,
+              snapshotSettings,
+            ),
+          )
         : null,
   });
 

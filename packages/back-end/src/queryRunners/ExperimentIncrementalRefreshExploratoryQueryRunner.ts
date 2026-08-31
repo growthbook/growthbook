@@ -29,7 +29,7 @@ import {
 import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
 import {
   conversionWindowQueryNameSuffix,
-  getMetricConversionWindowHours,
+  getOverriddenMetricConversionWindowHours,
   partitionMetricsByConversionWindow,
 } from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
@@ -319,7 +319,13 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     onMissingPipeline: "skip",
     getWindowKey: (m) =>
       snapshotSettings.skipPartialData
-        ? String(getMetricConversionWindowHours(m.metric, activationMetric))
+        ? String(
+            getOverriddenMetricConversionWindowHours(
+              m.metric,
+              activationMetric,
+              snapshotSettings,
+            ),
+          )
         : null,
   });
   for (const subGroup of crossFtSubGroups) {

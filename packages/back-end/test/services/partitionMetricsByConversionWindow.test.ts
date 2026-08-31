@@ -2,10 +2,12 @@ import type {
   FunnelFactMetricInterface,
   MetricFunnelStep,
 } from "shared/types/fact-table";
+import type { MetricForSnapshot } from "shared/types/experiment-snapshot";
 import { isFactFunnelMetric } from "shared/experiments";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
 import {
   getMetricConversionWindowHours,
+  getOverriddenMetricConversionWindowHours,
   partitionMetricsByConversionWindow,
 } from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
@@ -232,5 +234,57 @@ describe("partitionMetricsByConversionWindow", () => {
 
   it("does not emit empty partitions", () => {
     expect(partitionMetricsByConversionWindow([], true, null)).toEqual([]);
+  });
+});
+
+describe("getOverriddenMetricConversionWindowHours", () => {
+  // A metricSettings override shrinking fact_long_window (raw 96h) to a
+  // 24h conversion window, mirroring what the snapshot pipeline persists.
+  const shortWindowOverride: MetricForSnapshot = {
+    id: "fact_long_window",
+    computedSettings: {
+      regressionAdjustmentEnabled: false,
+      regressionAdjustmentAvailable: true,
+      regressionAdjustmentDays: 0,
+      regressionAdjustmentReason: "",
+      properPrior: false,
+      properPriorMean: 0,
+      properPriorStdDev: 0,
+      windowSettings: {
+        type: "conversion",
+        delayValue: 0,
+        delayUnit: "hours",
+        windowValue: 1,
+        windowUnit: "days",
+      },
+    },
+  };
+
+  it("returns the overridden window, matching what the stats CTE asserts on", () => {
+    // Raw window is 96h; the override must win, or the cross-FT grouping key
+    // disagrees with getIncrementalRefreshStatisticsQuery's assertion.
+    expect(getMetricConversionWindowHours(longWindowMetric, null)).toBe(96);
+    expect(
+      getOverriddenMetricConversionWindowHours(longWindowMetric, null, {
+        metricSettings: [shortWindowOverride],
+      }),
+    ).toBe(24);
+  });
+
+  it("falls back to the raw window when no override targets the metric", () => {
+    expect(
+      getOverriddenMetricConversionWindowHours(longWindowMetric, null, {
+        metricSettings: [],
+      }),
+    ).toBe(96);
+  });
+
+  it("does not mutate the input metric", () => {
+    getOverriddenMetricConversionWindowHours(longWindowMetric, null, {
+      metricSettings: [shortWindowOverride],
+    });
+    expect(longWindowMetric.windowSettings.windowValue).toBe(3);
+    expect(longWindowMetric.windowSettings.windowUnit).toBe("days");
+    expect(longWindowMetric.windowSettings.delayValue).toBe(1);
   });
 });

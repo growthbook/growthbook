@@ -1,8 +1,11 @@
+import cloneDeep from "lodash/cloneDeep";
 import {
   ExperimentMetricInterface,
   isFactFunnelMetric,
 } from "shared/experiments";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
+import { applyMetricOverrides } from "back-end/src/util/integration";
 
 export interface ConversionWindowPartition<
   M extends ExperimentMetricInterface,
@@ -36,6 +39,27 @@ export function getMetricConversionWindowHours(
     [metric],
     activationMetric,
   );
+}
+
+/**
+ * Conversion window after metric overrides, matching what
+ * `parseExperimentFactMetricsParams` (and therefore the read-side
+ * homogeneity assertion in `getIncrementalRefreshStatisticsQuery`) computes.
+ * The cross-FT grouping key must use this: it fans out from raw
+ * `planMetricFanOut` metrics, so a per-metric `windowSettings` override would
+ * otherwise leave the raw grouping window disagreeing with the overridden
+ * asserted window and throw spuriously. The same-FT path already partitions
+ * overridden metrics (`getIncrementalRefreshMetricSources` applies overrides
+ * upstream), so it lands on the same window without this.
+ */
+export function getOverriddenMetricConversionWindowHours(
+  metric: ExperimentMetricInterface,
+  activationMetric: ExperimentMetricInterface | null,
+  settings: Pick<ExperimentSnapshotSettings, "metricSettings">,
+): number {
+  const overridden = cloneDeep(metric);
+  applyMetricOverrides(overridden, settings);
+  return getMetricConversionWindowHours(overridden, activationMetric);
 }
 
 export function conversionWindowQueryNameSuffix(
