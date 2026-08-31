@@ -382,7 +382,7 @@ export default function SchemaBrowser({
                                         />
                                         {updateSqlInput ? (
                                           <SchemaSqlInsertButton
-                                            tooltip="Insert SELECT * FROM …"
+                                            tooltip={`Insert SELECT * FROM ${tablePath} query into editor`}
                                             onClick={() => {
                                               selectTable(table.id, tablePath);
                                               updateSqlInput(

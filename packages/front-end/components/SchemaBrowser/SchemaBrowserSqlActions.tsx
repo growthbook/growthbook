@@ -2,6 +2,7 @@ import { PiCodeBlock, PiCopy } from "react-icons/pi";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
+import styles from "./SchemaBrowserSqlActions.module.scss";
 
 export function SchemaCopyButton({
   value,
@@ -35,20 +36,32 @@ export function SchemaCopyButton({
 
 export function SchemaSqlInsertButton({
   tooltip,
+  disabledTooltip,
+  disabled = false,
   onClick,
 }: {
   tooltip: string;
+  disabledTooltip?: string;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   return (
-    <Tooltip content={tooltip} disableHoverableContent>
+    <Tooltip
+      content={disabled && disabledTooltip ? disabledTooltip : tooltip}
+      disableHoverableContent
+    >
       <Button
         variant="ghost"
         size="sm"
         color="inherit"
         stopPropagation
         aria-label={tooltip}
-        onClick={onClick}
+        aria-disabled={disabled}
+        className={disabled ? styles.disabledInsert : undefined}
+        onClick={() => {
+          if (disabled) return;
+          onClick();
+        }}
       >
         <PiCodeBlock size={14} />
       </Button>

@@ -48,6 +48,16 @@
   background-color: var(--accent-a4);
 }
 
+.disabledInsert {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.actions .disabledInsert:hover,
+.actions .disabledInsert:active {
+  background-color: transparent;
+}
+
 .label {
   min-width: 0;
   overflow: hidden;

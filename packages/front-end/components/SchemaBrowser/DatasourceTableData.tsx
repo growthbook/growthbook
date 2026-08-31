@@ -17,7 +17,10 @@ import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
-import { insertColumnIntoSelect } from "@/services/schemaBrowserSql";
+import {
+  insertColumnIntoSelect,
+  isComplexSql,
+} from "@/services/schemaBrowserSql";
 import { AreaWithHeader } from "./SqlExplorerModal";
 import {
   SchemaCopyButton,
@@ -43,6 +46,7 @@ export default function DatasourceSchema({
   updateSqlInput,
 }: Props) {
   const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
+  const columnInsertDisabled = isComplexSql(sql);
 
   const { data, mutate } = useApi<{
     table: InformationSchemaTablesInterface;
@@ -291,6 +295,8 @@ export default function DatasourceSchema({
                             {updateSqlInput && !column.jsonField ? (
                               <SchemaSqlInsertButton
                                 tooltip="Add to SELECT"
+                                disabled={columnInsertDisabled}
+                                disabledTooltip="This query is too complex. Copy the column name instead."
                                 onClick={() => {
                                   updateSqlInput(
                                     insertColumnIntoSelect(

@@ -38,11 +38,24 @@ function selectListHasColumn(selectList: string, column: string): boolean {
     .some((part) => normalizeRelationPath(part) === target);
 }
 
+export function isComplexSql(sql: string): boolean {
+  const stripped = sql
+    .trim()
+    .replace(/;+\s*$/, "")
+    .trim();
+  if (!stripped) return false;
+  if (stripped.includes(";")) return true;
+  if (/^\s*WITH\b/i.test(stripped)) return true;
+  if (/\bUNION\b/i.test(stripped)) return true;
+  return (stripped.match(/\bSELECT\b/gi)?.length ?? 0) > 1;
+}
+
 export function insertColumnIntoSelect(
   sql: string,
   column: string,
   tablePath: string,
 ): string {
+  if (isComplexSql(sql)) return sql;
   const parsed = parseSimpleSelectFrom(sql);
   if (
     !parsed ||
