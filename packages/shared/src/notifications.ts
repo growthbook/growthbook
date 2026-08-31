@@ -599,6 +599,16 @@ export const notificationEventMetadata = {
     label: "User logged in",
     description: "Triggered when a user logs in",
   },
+  "apiKey.expiring": {
+    label: "API key expiring",
+    description:
+      "Triggered once when an API key or personal access token is within a week of expiring",
+  },
+  "apiKey.expired": {
+    label: "API key expired",
+    description:
+      "Triggered once when an API key or personal access token passes its expiration date",
+  },
   "webhook.test": {
     label: "Webhook test",
     description: "Triggered when a webhook is being tested",
