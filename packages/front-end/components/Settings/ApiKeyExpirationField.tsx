@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import {
   addDays,
   allowedExpirationPresets,
@@ -33,6 +33,15 @@ const ApiKeyExpirationField: FC<{
   const [selection, setSelection] = useState<string>(() =>
     value ? CUSTOM : required ? String(presets[presets.length - 1]) : NEVER,
   );
+
+  // The select shows a default under a policy, but the parent owns the value.
+  // Without this, creating a key without touching the dropdown submits null and
+  // the server rejects the date the user can see.
+  useEffect(() => {
+    if (required && !value && selection !== CUSTOM) {
+      setValue(addDays(new Date(), Number(selection)));
+    }
+  }, [required, value, selection, setValue]);
 
   const latest = maxExpirationDate(maxLifetimeDays);
 
