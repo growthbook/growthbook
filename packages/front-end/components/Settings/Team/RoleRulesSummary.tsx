@@ -7,7 +7,13 @@ import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
 
-export function RoleRulesSummary({ value }: { value: MemberRoleWithProjects }) {
+export function RoleRulesSummary({
+  value,
+  size = "sm",
+}: {
+  value: MemberRoleWithProjects;
+  size?: "sm" | "md";
+}) {
   const { organization } = useUser();
 
   const extraRules =
@@ -21,7 +27,7 @@ export function RoleRulesSummary({ value }: { value: MemberRoleWithProjects }) {
 
   return (
     <Flex align="center" gap="2" wrap="wrap">
-      <Text size="sm" weight="medium">
+      <Text size={size} weight="medium">
         {getRoleDisplayName(value.role, organization)} in {environments}
       </Text>
       {extraRules > 0 && (

@@ -346,6 +346,7 @@ export default abstract class SqlIntegration
   requiresDatabase = true;
   requiresSchema = true;
   escapePathCharacter: string | null = null;
+  columnNamesAreCaseSensitive = false;
 
   ensureMaxLimit(sql: string, limit: number): string {
     return ensureLimit(sql, limit);

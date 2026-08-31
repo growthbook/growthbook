@@ -272,14 +272,7 @@
                     "root": "integrations/ai-agents",
                     "pages": [
                       "integrations/mcp",
-                      {
-                        "group": "Agent Skills",
-                        "root": "integrations/ai-agents/agent-skills",
-                        "pages": [
-                          "integrations/ai-agents/agent-skills/feature-flags",
-                          "integrations/ai-agents/agent-skills/experiments"
-                        ]
-                      }
+                      "integrations/ai-agents/agent-skills"
                     ]
                   },
                   "integrations/vercel",
@@ -1059,6 +1052,18 @@
                   "api/Learnings/operation/createLearning",
                   "api/Learnings/operation/searchLearnings"
                 ]
+              },
+              {
+                "group": "Holdouts",
+                "pages": [
+                  "api/Holdouts/operation/getHoldout",
+                  "api/Holdouts/operation/updateHoldout",
+                  "api/Holdouts/operation/listHoldouts",
+                  "api/Holdouts/operation/createHoldout",
+                  "api/Holdouts/operation/startHoldout",
+                  "api/Holdouts/operation/startHoldoutAnalysis",
+                  "api/Holdouts/operation/stopHoldout"
+                ]
               }
             ]
           },
@@ -1131,6 +1136,7 @@
               "api/FeatureV2_model",
               "api/FeatureWithRevisionsV1_model",
               "api/FeatureWithRevisionsV2_model",
+              "api/Holdout_model",
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
               "api/Learning_model",
@@ -1255,6 +1261,14 @@
     {
       "source": "/api",
       "destination": "/api/introduction"
+    },
+    {
+      "source": "/integrations/ai-agents/agent-skills/feature-flags",
+      "destination": "/integrations/ai-agents/agent-skills"
+    },
+    {
+      "source": "/integrations/ai-agents/agent-skills/experiments",
+      "destination": "/integrations/ai-agents/agent-skills"
     }
   ]
 }

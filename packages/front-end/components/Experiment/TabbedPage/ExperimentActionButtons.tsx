@@ -1,5 +1,5 @@
 import { ExperimentResultStatusData } from "shared/types/experiment";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { HoldoutStage } from "shared/util";
 import Button from "@/ui/Button";
 
 export interface Props {
@@ -7,7 +7,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   isBandit?: boolean;
   runningExperimentStatus?: ExperimentResultStatusData;
-  holdout?: HoldoutInterfaceStringDates;
+  holdoutStage?: HoldoutStage;
 }
 
 export default function ExperimentActionButtons({
@@ -15,7 +15,7 @@ export default function ExperimentActionButtons({
   editTargeting,
   isBandit,
   runningExperimentStatus,
-  holdout,
+  holdoutStage,
 }: Props) {
   const runningStatus = runningExperimentStatus?.status;
 
@@ -25,10 +25,10 @@ export default function ExperimentActionButtons({
     runningStatus === "scheduled-end-review" ||
     runningStatus === "rollback-now";
   const displayCTAText = () => {
-    if (holdout) {
-      return !holdout?.analysisStartDate
-        ? "Start Analysis Phase"
-        : "Stop Holdout";
+    if (holdoutStage) {
+      return holdoutStage === "analysis-period"
+        ? "Stop Holdout"
+        : "Start Analysis Phase";
     }
     if (readyForDecision) {
       return "Make Decision";
@@ -40,7 +40,7 @@ export default function ExperimentActionButtons({
   };
   return (
     <div className="d-flex ml-2">
-      {!holdout && (
+      {!holdoutStage && (
         <Button
           variant={readyForDecision ? "outline" : "solid"}
           mr="3"
