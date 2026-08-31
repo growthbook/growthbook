@@ -304,19 +304,10 @@ export async function getSnowflakeQueryStatus(
   const connection = buildSnowflakeConnection(conn);
   try {
     await connectSnowflake(connection, 30000);
-    // `getQueryStatus` is async at runtime even though older type
-    // declarations return a bare string; `await` handles both. The published
-    // types also mistype the status inspectors — `isAnError` drops its
-    // argument and `isStillRunning` narrows to a union that excludes runtime
-    // values like NO_QUERY_DATA — so call them via their true signatures.
     const status = await connection.getQueryStatus(queryId);
-    const inspector = connection as unknown as {
-      isStillRunning(status: string): boolean;
-      isAnError(status: string): boolean;
-    };
     return snowflakeStatusToExternalStatus(status, {
-      isRunning: inspector.isStillRunning(status),
-      isError: inspector.isAnError(status),
+      isRunning: connection.isStillRunning(status),
+      isError: connection.isAnError(status),
     });
   } catch (e) {
     logger.debug(
