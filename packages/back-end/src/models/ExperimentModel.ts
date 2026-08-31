@@ -752,11 +752,13 @@ export async function createExperiment({
     nextSnapshotAttempt: nextUpdate ?? undefined,
   } satisfies Partial<ExperimentInterface> as ExperimentInterface;
 
-  await runValidateExperimentHooks({
-    context,
-    experiment: experimentToCreate,
-    original: null,
-  });
+  if (experimentToCreate.type !== "holdout") {
+    await runValidateExperimentHooks({
+      context,
+      experiment: experimentToCreate,
+      original: null,
+    });
+  }
 
   const exp = await ExperimentModel.create(experimentToCreate);
 
