@@ -7,15 +7,16 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useSearch } from "@/services/search";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Field from "@/components/Forms/Field";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import TextField from "@/ui/TextField";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Tooltip from "@/ui/Tooltip";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import Table, {
   TableBody,
   TableCell,
@@ -61,10 +62,13 @@ const MemberPersonalAccessTokens: FC = () => {
   );
   const [error, setError] = useState<string | null>(null);
 
-  const { data, mutate } = useApi<{ keys: ApiKeyInterface[] }>(
-    "/keys/personal-access-tokens",
-    { shouldRun: () => canManage },
-  );
+  const {
+    data,
+    error: loadError,
+    mutate,
+  } = useApi<{ keys: ApiKeyInterface[] }>("/keys/personal-access-tokens", {
+    shouldRun: () => canManage,
+  });
 
   const rows = useMemo(
     () =>
@@ -119,12 +123,18 @@ const MemberPersonalAccessTokens: FC = () => {
         Member Tokens
       </Heading>
       <Text as="p" color="text-mid" mb="3">
-        Revoke a member&apos;s token without removing them from your
+        Disable a member&apos;s token without removing them from your
         organization. Token values stay visible only to the member who created
         them.
       </Text>
 
-      {rows.length === 0 ? (
+      {loadError ? (
+        <Callout status="error">{loadError.message}</Callout>
+      ) : !data ? (
+        <Text as="p" color="text-mid">
+          <LoadingSpinner /> Loading...
+        </Text>
+      ) : rows.length === 0 ? (
         <Text as="p" color="text-mid">
           No members have created personal access tokens.
         </Text>
@@ -133,17 +143,16 @@ const MemberPersonalAccessTokens: FC = () => {
           {orgTokensDisabled && (
             <Callout status="warning" mb="3">
               Personal access tokens are disabled for this organization, so none
-              of these currently authenticate. Revoking one here still applies
+              of these currently authenticate. Disabling one here still applies
               if that setting is turned back off.
             </Callout>
           )}
           <Flex align="center" gap="3" mb="2">
             <Text weight="medium">{`${rows.length} token${rows.length === 1 ? "" : "s"}`}</Text>
             <Box width="250px" flexShrink="0">
-              <Field
-                placeholder="Search..."
+              <TextField
                 type="search"
-                containerClassName="mb-0"
+                placeholder="Search..."
                 {...searchInputProps}
               />
             </Box>
@@ -160,7 +169,9 @@ const MemberPersonalAccessTokens: FC = () => {
                 <SortableTableColumnHeader field="lastUsedSort">
                   Last used
                 </SortableTableColumnHeader>
-                <TableColumnHeader></TableColumnHeader>
+                <TableColumnHeader>
+                  <span className="sr-only">Actions</span>
+                </TableColumnHeader>
               </TableRow>
             </TableHeader>
             <TableBody>

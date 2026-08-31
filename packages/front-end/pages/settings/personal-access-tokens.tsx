@@ -5,6 +5,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 
 const ManagePersonalAccessTokensPage: FC = () => {
   const permissionsUtils = usePermissionsUtil();
@@ -23,7 +24,9 @@ const ManagePersonalAccessTokensPage: FC = () => {
 
   return (
     <div className="container-fluid pagecontents">
-      <h1>Personal Access Tokens</h1>
+      <Heading as="h1" size="xl" mb="2">
+        Personal Access Tokens
+      </Heading>
       <Text as="p" color="text-mid" mb="4">
         Personal access tokens act as the member who created them and carry
         their full permissions. Manage who can create them and revoke any that
