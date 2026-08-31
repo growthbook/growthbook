@@ -90,6 +90,7 @@ const ContextualBanditPage = (): ReactElement => {
   const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
   const canEdit =
     permissionsUtil.canViewContextualBanditModal(cb.project) && !cb.archived;
+  const canEditVariations = canEdit && cb.status !== "stopped";
   const canRun =
     !cb.archived &&
     permissionsUtil.canRunContextualBandit({ project: cb.project }, envs);
@@ -113,7 +114,7 @@ const ContextualBanditPage = (): ReactElement => {
             canEdit ? () => setAnalysisMetricsModalOpen(true) : undefined
           }
           editVariations={
-            canEdit ? () => setVariationsModalOpen(true) : undefined
+            canEditVariations ? () => setVariationsModalOpen(true) : undefined
           }
           editTrafficTargeting={
             canEdit ? () => setTrafficTargetingModalOpen(true) : undefined
@@ -157,7 +158,11 @@ const ContextualBanditPage = (): ReactElement => {
       {variationsModalOpen && (
         <ContextualBanditVariationsModal
           cb={cb}
-          mutate={mutate}
+          linkedFeatures={linkedFeatures}
+          mutate={() => {
+            mutate();
+            mutateLinkedFeatures();
+          }}
           close={() => setVariationsModalOpen(false)}
         />
       )}

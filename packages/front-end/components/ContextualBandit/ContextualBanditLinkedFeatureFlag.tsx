@@ -48,25 +48,13 @@ export default function ContextualBanditLinkedFeatureFlag({
     canUpdateLinkedFeature &&
     permissionsUtil.canEditFeatureDrafts(info.feature);
 
-  // Removal strips the rule off the feature and publishes, so it needs the same
-  // rights the API enforces, scoped to the environments the rule reaches.
-  const ruleEnvironments = Object.entries(info.environmentStates || {})
-    .filter(([, state]) => state !== "missing")
-    .map(([env]) => env);
-
-  const canRemoveLinkedFeature =
-    canEditFeatureDraft &&
-    permissionsUtil.canPublishFeature(info.feature, ruleEnvironments);
-
-  const handleRemove = async (draftRevisionVersion?: number) => {
+  // Only offered for a discarded linkage (the rule is already absent, so this
+  // just clears the leftover bookkeeping — nothing publishes).
+  const handleRemove = async () => {
     setRemoving(true);
     try {
-      const params = new URLSearchParams({ autoPublish: "true" });
-      if (draftRevisionVersion != null) {
-        params.set("draftVersion", String(draftRevisionVersion));
-      }
       await apiCall(
-        `/api/v1/contextual-bandits/${cb.id}/linked-feature/${info.feature.id}?${params.toString()}`,
+        `/api/v1/contextual-bandits/${cb.id}/linked-feature/${info.feature.id}?autoPublish=true`,
         { method: "DELETE" },
       );
       mutate?.();
@@ -101,10 +89,33 @@ export default function ContextualBanditLinkedFeatureFlag({
     return match?.weight ?? fallback;
   };
 
-  const configuredVariationIds = new Set(info.values.map((v) => v.variationId));
-  const orderedValues = cb.variations.map(
-    (v) => info.values.find((v2) => v2.variationId === v.id)?.value || "",
-  );
+  const stagedDrafts =
+    info.stagedDrafts ?? (info.stagedDraft ? [info.stagedDraft] : []);
+  const variationValueStates = cb.variations.map((v) => {
+    const liveValue = info.values.find((v2) => v2.variationId === v.id)?.value;
+    const staged = stagedDrafts
+      .map((d) => ({
+        version: d.version,
+        value: d.values.find((v2) => v2.variationId === v.id)?.value,
+      }))
+      .find((s) => s.value !== undefined && s.value !== liveValue);
+    return {
+      liveValue,
+      stagedValue: staged?.value,
+      stagedVersion: staged?.version,
+      hasLiveValue: liveValue !== undefined,
+      hasStagedChange: staged !== undefined,
+    };
+  });
+
+  const stagedChangeVersions = [
+    ...new Set(
+      variationValueStates
+        .filter((s) => s.hasStagedChange && s.stagedVersion != null)
+        .map((s) => s.stagedVersion as number),
+    ),
+  ].sort((a, b) => b - a);
+  const stagedChangeVersion = stagedChangeVersions[0];
 
   const environmentStates = Object.entries(info.environmentStates || {}).map(
     ([env, state]) => ({
@@ -122,17 +133,72 @@ export default function ContextualBanditLinkedFeatureFlag({
     }),
   );
 
+  // Values stay editable while the bandit is a draft or running — edits only
+  // ever land on a Feature Flag draft, published separately.
   const showEditButton =
     canEditFeatureDraft &&
-    cb.status === "draft" &&
+    cb.status !== "stopped" &&
     info.state !== "discarded" &&
     info.state !== "locked" &&
     info.state !== "archived";
 
-  const showRemoveButton =
-    canRemoveLinkedFeature &&
-    info.state !== "locked" &&
-    info.state !== "archived";
+  // Messaging for an unpublished draft revision turns on two independent axes,
+  // so build the pieces here rather than nesting ternaries in the JSX:
+  //   1. cb.status — auto-publish only ever fires on the start transition, so
+  //      only a not-yet-started bandit can promise it. On a started bandit,
+  //      info.state === "draft" means no live rule exists at all (see
+  //      getRefLinkedFeatureInfo: refIsDraft is false, so the draft-differs
+  //      branch is skipped and "draft" implies zero live matches).
+  //   2. approval — a draft behind a required review can't be published until
+  //      somebody approves it, so "publish manually" on its own isn't
+  //      actionable advice.
+  const cbNotStarted = cb.status === "draft";
+  const awaitingApproval =
+    !!info.pendingApproval && info.draftRevisionStatus !== "approved";
+  const approvedNotPublished =
+    !!info.pendingApproval && info.draftRevisionStatus === "approved";
+
+  const draftRevisionHref = `/features/${info.feature?.id}${
+    info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""
+  }`;
+
+  const draftRevisionDescription = awaitingApproval ? (
+    <>
+      a <strong>draft</strong> revision pending approval
+    </>
+  ) : approvedNotPublished ? (
+    <>
+      a <strong>draft</strong> revision that has been <strong>approved</strong>
+    </>
+  ) : (
+    <>
+      a <strong>draft</strong> revision
+    </>
+  );
+
+  const draftCalloutBody = cbNotStarted ? (
+    <>
+      Rule changes for this feature are in {draftRevisionDescription}.{" "}
+      {awaitingApproval ? "Once approved, they" : "They"} will be auto-published
+      when this contextual bandit starts, or you can publish manually.
+    </>
+  ) : (
+    <>
+      Rule changes for this feature are in {draftRevisionDescription}, so this
+      contextual bandit is not serving this Feature Flag.{" "}
+      {cb.status === "stopped"
+        ? "This contextual bandit has stopped, so the draft will not be auto-published."
+        : awaitingApproval
+          ? "Drafts are only auto-published when a contextual bandit starts, so this one has to be approved and then published manually."
+          : "Drafts are only auto-published when a contextual bandit starts, so this one has to be published manually."}
+    </>
+  );
+
+  const draftCalloutLinkLabel = awaitingApproval
+    ? "Review and approve draft"
+    : cb.status === "running"
+      ? "Publish draft"
+      : "Review draft";
 
   return (
     <>
@@ -149,13 +215,8 @@ export default function ContextualBanditLinkedFeatureFlag({
         changeType={"flag"}
         heading={info.feature?.id || "Feature"}
         feature={info.feature}
-        canEdit={showEditButton || showRemoveButton}
+        canEdit={showEditButton}
         onEdit={showEditButton ? () => setEditModalOpen(true) : undefined}
-        onDelete={
-          showRemoveButton
-            ? () => handleRemove(info.draftRevisionVersion)
-            : undefined
-        }
         additionalBadge={(() => {
           if (info.state === "archived") {
             return <Badge label="Archived" radius="full" color="gray" />;
@@ -180,6 +241,21 @@ export default function ContextualBanditLinkedFeatureFlag({
           );
         })()}
       >
+        {stagedChangeVersion != null && (
+          <Callout status="info" my="4">
+            There is a new revision with changes to variation values. The values
+            below are live until the changes are published.
+            <Box mt="1">
+              <Link
+                href={`/features/${info.feature?.id}?v=${stagedChangeVersion}`}
+                target="_blank"
+              >
+                Review draft
+                <PiArrowSquareOut className="ml-1" />
+              </Link>
+            </Box>
+          </Callout>
+        )}
         {info.state === "archived" && (
           <Callout status="warning" my="4">
             This Feature Flag has been archived. Unarchive it to make this
@@ -210,10 +286,7 @@ export default function ContextualBanditLinkedFeatureFlag({
           <Callout status="error" my="4" icon={blockedAutoPublishIcon}>
             This feature draft has a <strong>merge conflict</strong> and cannot
             be auto-published.{" "}
-            <Link
-              href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
-              target="_blank"
-            >
+            <Link href={draftRevisionHref} target="_blank">
               Fix conflicts
               <PiArrowSquareOut className="ml-1" />
             </Link>
@@ -227,10 +300,7 @@ export default function ContextualBanditLinkedFeatureFlag({
               <strong>changes beyond this contextual bandit</strong> and cannot
               be auto-published. Either remove the unrelated edits from the
               draft or publish the full draft manually.{" "}
-              <Link
-                href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
-                target="_blank"
-              >
+              <Link href={draftRevisionHref} target="_blank">
                 Review draft
                 <PiArrowSquareOut className="ml-1" />
               </Link>
@@ -240,18 +310,23 @@ export default function ContextualBanditLinkedFeatureFlag({
           !info.hasMergeConflict &&
           !info.hasUnrelatedDraftChanges && (
             <Callout
-              status="info"
+              status={cbNotStarted ? "info" : "warning"}
               my="4"
-              icon={<PiGitMerge style={{ fontSize: "1.2em" }} />}
+              icon={
+                cbNotStarted ? (
+                  <PiGitMerge style={{ fontSize: "1.2em" }} />
+                ) : (
+                  blockedAutoPublishIcon
+                )
+              }
             >
-              Rule changes for this feature are in a <strong>draft</strong>{" "}
-              revision. They will be auto-published when this contextual bandit
-              starts, or you can publish manually from the{" "}
-              <Link href={`/features/${info.feature?.id}`} target="_blank">
-                Feature Flag detail page
-                <PiArrowSquareOut className="ml-1" />
-              </Link>
-              .
+              {draftCalloutBody}
+              <Box mt="1">
+                <Link href={draftRevisionHref} target="_blank">
+                  {draftCalloutLinkLabel}
+                  <PiArrowSquareOut className="ml-1" />
+                </Link>
+              </Box>
             </Callout>
           )}
         {info.state !== "discarded" && info.state !== "archived" && (
@@ -278,17 +353,29 @@ export default function ContextualBanditLinkedFeatureFlag({
                         </Text>
                       </Flex>
                       <Box flexGrow="1">
-                        {!configuredVariationIds.has(v.id) ? (
+                        {!variationValueStates[j].hasLiveValue &&
+                        !variationValueStates[j].hasStagedChange ? (
                           <HelperText status="warning">
                             Define missing values
                           </HelperText>
                         ) : (
-                          <ForceSummary
-                            value={orderedValues[j]}
-                            feature={info.feature}
-                            sparse={info.sparse}
-                            maxHeight={60}
-                          />
+                          <Flex direction="column" gap="1">
+                            {variationValueStates[j].hasLiveValue && (
+                              <ForceSummary
+                                value={variationValueStates[j].liveValue ?? ""}
+                                feature={info.feature}
+                                sparse={info.sparse}
+                                maxHeight={60}
+                              />
+                            )}
+                            {variationValueStates[j].hasStagedChange && (
+                              <HelperText status="warning">
+                                Staged in revision #
+                                {variationValueStates[j].stagedVersion} — not
+                                serving yet
+                              </HelperText>
+                            )}
+                          </Flex>
                         )}
                       </Box>
                     </Flex>

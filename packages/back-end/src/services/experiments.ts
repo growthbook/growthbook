@@ -123,6 +123,7 @@ import {
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
   LinkedFeatureState,
+  StagedRefDraft,
   Variation,
 } from "shared/types/experiment";
 import {
@@ -5043,27 +5044,32 @@ export async function getRefLinkedFeatureInfo({
         .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
         .sort((a, b) => b.version - a.version);
 
-      let matchedDraftRevision: (typeof revisions)[0] | undefined;
-      let draftMatches: MatchingRule[] = [];
-      let draftDiffersFromLive = false;
+      type DraftMatch = {
+        revision: (typeof revisions)[0];
+        matches: MatchingRule[];
+      };
+      const differingDrafts: DraftMatch[] = [];
+      let unchangedDraft: DraftMatch | undefined;
 
       for (const r of activeDrafts) {
         const m = getMatchingRules(feature, matchRule, environments, r);
         if (m.length === 0) continue;
         const draftRefRules = refRulesForEntity(r.rules);
         if (liveRefRules.length > 0 && !isEqual(draftRefRules, liveRefRules)) {
-          matchedDraftRevision = r;
-          draftMatches = m;
-          draftDiffersFromLive = true;
-          break;
+          differingDrafts.push({ revision: r, matches: m });
+          continue;
         }
         // Remember the first draft with matches as a fallback if no draft
         // actually modifies the rule.
-        if (!matchedDraftRevision) {
-          matchedDraftRevision = r;
-          draftMatches = m;
+        if (!unchangedDraft) {
+          unchangedDraft = { revision: r, matches: m };
         }
       }
+
+      const primaryDraft = differingDrafts[0] ?? unchangedDraft;
+      const matchedDraftRevision = primaryDraft?.revision;
+      const draftMatches: MatchingRule[] = primaryDraft?.matches ?? [];
+      const draftDiffersFromLive = differingDrafts.length > 0;
 
       const lockedMatches =
         revisions
@@ -5113,40 +5119,49 @@ export async function getRefLinkedFeatureInfo({
         }
       }
 
-      let hasMergeConflict: boolean | undefined;
-      let hasUnrelatedDraftChanges: boolean | undefined;
-      if (state === "draft" && matchedDraftRevision) {
+      const checkDraftCleanliness = async (
+        revision: (typeof revisions)[0],
+      ): Promise<{
+        hasMergeConflict?: boolean;
+        hasUnrelatedDraftChanges?: boolean;
+      }> => {
         try {
           const { live, base } = await getLiveAndBaseRevisionsForFeature({
             context,
             feature,
-            revision: matchedDraftRevision,
+            revision,
           });
           const filledLive = liveRevisionFromFeature(live, feature);
           const mergeResult = autoMerge(
             filledLive,
             fillRevisionFromFeature(base, feature),
-            matchedDraftRevision,
+            revision,
             environments,
             {},
           );
           if (!mergeResult.success) {
-            hasMergeConflict = true;
-          } else if (
-            draftHasChangesOutsideTargetRef(
-              matchedDraftRevision,
-              filledLive,
-              matchRule,
-            )
-          ) {
-            hasUnrelatedDraftChanges = true;
+            return { hasMergeConflict: true };
           }
+          if (
+            draftHasChangesOutsideTargetRef(revision, filledLive, matchRule)
+          ) {
+            return { hasUnrelatedDraftChanges: true };
+          }
+          return {};
         } catch (e) {
           logger.warn(
             { featureId: feature.id, err: e },
             "[getRefLinkedFeatureInfo] draft cleanliness check failed",
           );
+          return {};
         }
+      };
+
+      let hasMergeConflict: boolean | undefined;
+      let hasUnrelatedDraftChanges: boolean | undefined;
+      if (state === "draft" && matchedDraftRevision) {
+        ({ hasMergeConflict, hasUnrelatedDraftChanges } =
+          await checkDraftCleanliness(matchedDraftRevision));
       }
 
       const refRuleValues = (rule: FeatureRule | undefined) =>
@@ -5178,6 +5193,21 @@ export async function getRefLinkedFeatureInfo({
         }
       });
 
+      const stagedDrafts: StagedRefDraft[] =
+        state === "live"
+          ? differingDrafts.map((d) => ({
+              version: d.revision.version,
+              status: d.revision.status,
+              values: refRuleValues(d.matches[0]?.rule),
+            }))
+          : [];
+      if (stagedDrafts.length > 0) {
+        Object.assign(
+          stagedDrafts[0],
+          await checkDraftCleanliness(differingDrafts[0].revision),
+        );
+      }
+
       const attributeScopeProjects = getFeatureAttributeScopeWithDrafts(
         feature,
         draftMetadataByFeatureId[feature.id] || [],
@@ -5200,6 +5230,12 @@ export async function getRefLinkedFeatureInfo({
             draftRevisionVersion: matchedDraftRevision.version,
             draftRevisionStatus: matchedDraftRevision.status,
           }),
+        // `state` is "live" whenever the live revision has the rule, even if a
+        // draft is changing it, so report that draft separately.
+        ...(stagedDrafts.length > 0 && {
+          stagedDraft: stagedDrafts[0],
+          stagedDrafts,
+        }),
         ...(hasMergeConflict !== undefined && { hasMergeConflict }),
         ...(hasUnrelatedDraftChanges !== undefined && {
           hasUnrelatedDraftChanges,

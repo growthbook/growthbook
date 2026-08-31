@@ -1,4 +1,24 @@
 {
+  "_to_delete/untracked.1786668710/packages/back-end/test/services/assertCanAutoPublish.test.ts": {
+    "import/no-unresolved": {
+      "count": 3
+    }
+  },
+  "_to_delete/untracked.1786668710/packages/back-end/test/services/contextualBanditAddVariationValues.test.ts": {
+    "import/no-unresolved": {
+      "count": 3
+    }
+  },
+  "_to_delete/untracked.1786668710/packages/back-end/test/services/contextualBanditVariationChange.test.ts": {
+    "import/no-unresolved": {
+      "count": 3
+    }
+  },
+  "_to_delete/untracked.1786668710/packages/shared/src/experiments/contextual-bandit-variation-changes.ts": {
+    "import/no-unresolved": {
+      "count": 2
+    }
+  },
   "packages/back-end/src/events/handlers/legacy.ts": {
     "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1

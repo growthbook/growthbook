@@ -4213,6 +4213,12 @@ async function publishRevisionInner({
   // Clean up orphaned ramp schedules (best-effort).
   await cleanupOrphanedRampSchedules(context, feature, updatedFeature);
 
+  if (referencesAnyContextualBandit(updatedFeature.rules)) {
+    await context.models.contextualBandits.activatePendingVariationsForFeature(
+      updatedFeature,
+    );
+  }
+
   return updatedFeature;
 }
 

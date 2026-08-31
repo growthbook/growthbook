@@ -955,6 +955,7 @@
                   "api/ContextualBandits/operation/startContextualBandit",
                   "api/ContextualBandits/operation/stopContextualBandit",
                   "api/ContextualBandits/operation/refreshContextualBandit",
+                  "api/ContextualBandits/operation/updateContextualBanditVariations",
                   "api/ContextualBandits/operation/cancelContextualBandit"
                 ]
               },
