@@ -365,6 +365,8 @@ describe("runContextualBanditSnapshot", () => {
       overrides.update ?? jest.fn().mockImplementation((cb) => cb);
     return {
       hasPremiumFeature: jest.fn().mockReturnValue(true),
+      auditLog: jest.fn().mockResolvedValue(undefined),
+      logger: { error: jest.fn() },
       org: {
         settings: {
           attributeSchema: [{ property: "country" }, { property: "device" }],
@@ -384,6 +386,7 @@ describe("runContextualBanditSnapshot", () => {
           create: jest
             .fn()
             .mockResolvedValue({ id: overrides.cbeSnapshotId ?? "cbs_1" }),
+          getLatestForContextualBandit: jest.fn().mockResolvedValue(null),
         },
       },
     } as unknown as ApiReqContext;
