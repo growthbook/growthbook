@@ -5,6 +5,7 @@ import {
   expandMetricGroups,
   quantileMetricType,
   isFactMetric,
+  isFactFunnelMetric,
   getUserIdTypes,
 } from "shared/experiments";
 import {

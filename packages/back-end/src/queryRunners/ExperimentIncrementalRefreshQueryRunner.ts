@@ -2,10 +2,7 @@ import { tabulateCovariateImbalance } from "shared/health";
 import {
   ExperimentMetricInterface,
   getFactMetricFactTableIds,
-  getFactMetricPrimaryFactTableId,
-  isFactFunnelMetric,
   isFactMetric,
-  isRatioMetric,
   isRegressionAdjusted,
   quantileMetricType,
 } from "shared/experiments";
@@ -649,14 +646,8 @@ const startExperimentIncrementalRefreshQueries = async (
     // FT. Cross-FT ratio metrics and multifact funnels have data spread
     // across caches; their stats are computed in dedicated passes below.
     const sameFtMetrics = group.metrics.filter((m) => {
-      if (isFactFunnelMetric(m)) {
-        const ftIds = [...new Set(getFactMetricFactTableIds(m))];
-        return ftIds.length === 1;
-      }
-      return (
-        getFactMetricPrimaryFactTableId(m) === group.factTableId &&
-        (!isRatioMetric(m) || m.denominator?.factTableId === group.factTableId)
-      );
+      const ftIds = getFactMetricFactTableIds(m);
+      return ftIds.length === 1 && ftIds[0] === group.factTableId;
     });
 
     let createMetricsSourceQuery: QueryPointer | null = null;
