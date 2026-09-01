@@ -40,6 +40,7 @@ import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { AgreementType } from "shared/validators";
 import { AIProvider } from "shared/ai";
+import { NonJsonResponseError } from "shared/util";
 import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
 import {
   getGrowthBookBuild,
@@ -51,11 +52,7 @@ import {
   usingSSO,
 } from "@/services/env";
 import useApi from "@/hooks/useApi";
-import {
-  NonJsonResponseError,
-  useAuth,
-  UserOrganizations,
-} from "@/services/auth";
+import { useAuth, UserOrganizations } from "@/services/auth";
 import { getJitsuClient, trackPageView } from "@/services/track";
 import { getOrGeneratePageId, growthbook } from "@/services/utils";
 
@@ -244,8 +241,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     shouldRun: () => !!orgId,
   });
 
-  // An auth proxy (e.g. Google IAP) with an expired session answers API calls in plain text; only a top-level navigation lets it re-authenticate, so reload once
-  const AUTH_PROXY_RELOAD_FLAG = "gb-auth-proxy-reloaded";
+  // An expired auth proxy session (e.g. Google IAP) answers API calls in plain text; only a top-level navigation can re-authenticate it, so reload, at most once a minute
+  const AUTH_PROXY_RELOAD_KEY = "gb-auth-proxy-reload";
   const proxyAuthError = [error, orgLoadingError].some(
     (e) =>
       e instanceof NonJsonResponseError &&
@@ -254,22 +251,18 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!proxyAuthError) return;
     try {
-      if (window.sessionStorage.getItem(AUTH_PROXY_RELOAD_FLAG)) return;
-      window.sessionStorage.setItem(AUTH_PROXY_RELOAD_FLAG, "1");
+      const lastReload = parseInt(
+        window.sessionStorage.getItem(AUTH_PROXY_RELOAD_KEY) || "0",
+        10,
+      );
+      if (Date.now() - lastReload < 60_000) return;
+      window.sessionStorage.setItem(AUTH_PROXY_RELOAD_KEY, `${Date.now()}`);
     } catch (e) {
       // no guard available; don't risk a reload loop
       return;
     }
     window.location.reload();
   }, [proxyAuthError]);
-  useEffect(() => {
-    if (!data) return;
-    try {
-      window.sessionStorage.removeItem(AUTH_PROXY_RELOAD_FLAG);
-    } catch (e) {
-      // ignore
-    }
-  }, [data]);
 
   const refreshOrganization = useCallback(
     async (options?: RefreshOrganizationOptions) => {
