@@ -15,6 +15,8 @@ const snowflakeEscapeStringLiteral = (value: string) =>
 export const snowflakeDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "snowflake",
+  // Result metadata is lowercased, but unquoted Snowflake identifiers are UPPER.
+  unquotedIdentifierFold: "upper",
   escapeStringLiteral: snowflakeEscapeStringLiteral,
   stringMatch: createLikeStringMatchFn({
     escapeStringLiteral: snowflakeEscapeStringLiteral,

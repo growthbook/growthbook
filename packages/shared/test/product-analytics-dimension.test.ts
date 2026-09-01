@@ -54,7 +54,10 @@ const columns: ColumnInterface[] = [
 
 // generateDimensionExpression only reads `factTableGroup.factTable`, so a
 // minimal group with no metrics/units is enough.
-function makeFactTableGroup(timestampColumn = "event_time") {
+function makeFactTableGroup(
+  timestampColumn = "event_time",
+  quoteTimestampColumn = false,
+) {
   return {
     index: 0,
     factTable: {
@@ -63,7 +66,7 @@ function makeFactTableGroup(timestampColumn = "event_time") {
       filters: [],
       userIdTypes: ["user_id"],
       timestampColumn,
-      quoteTimestampColumn: false,
+      quoteTimestampColumn,
     },
     metrics: [],
     units: [],
@@ -98,6 +101,37 @@ describe("generateDimensionExpression", () => {
         dateRange,
       );
       expect(result).toBe("date_trunc('day', timestamp)");
+    });
+
+    it("quotes SQL-exploration timestamps with the dialect identifier fold", () => {
+      const snowflakeHelpers: SqlDialect = {
+        ...helpers,
+        identifierQuote: '"',
+        unquotedIdentifierFold: "upper",
+      };
+      const result = generateDimensionExpression(
+        { dimensionType: "date", column: null, dateGranularity: "day" },
+        0,
+        makeFactTableGroup("timestamp", true),
+        snowflakeHelpers,
+        dateRange,
+      );
+      expect(result).toBe("date_trunc('day', \"TIMESTAMP\")");
+    });
+
+    it("quotes SQL-exploration timestamps as stored when the dialect does not fold", () => {
+      const quotedHelpers: SqlDialect = {
+        ...helpers,
+        identifierQuote: '"',
+      };
+      const result = generateDimensionExpression(
+        { dimensionType: "date", column: null, dateGranularity: "day" },
+        0,
+        makeFactTableGroup("timestamp", true),
+        quotedHelpers,
+        dateRange,
+      );
+      expect(result).toBe("date_trunc('day', \"timestamp\")");
     });
   });
 

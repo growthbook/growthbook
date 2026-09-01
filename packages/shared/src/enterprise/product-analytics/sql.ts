@@ -77,11 +77,19 @@ function getTimestampColumnExpression(
   }
   if (!factTable.quoteTimestampColumn) return factTable.timestampColumn;
 
+  return quoteSqlIdentifier(factTable.timestampColumn, helpers);
+}
+
+function quoteSqlIdentifier(name: string, helpers: SqlDialect): string {
   const quote = helpers.identifierQuote;
-  const escapedColumn = factTable.timestampColumn
-    .split(quote)
-    .join(`${quote}${quote}`);
-  return `${quote}${escapedColumn}${quote}`;
+  const folded =
+    helpers.unquotedIdentifierFold === "upper"
+      ? name.toUpperCase()
+      : helpers.unquotedIdentifierFold === "lower"
+        ? name.toLowerCase()
+        : name;
+  const escaped = folded.split(quote).join(`${quote}${quote}`);
+  return `${quote}${escaped}${quote}`;
 }
 
 // Funnel fact metrics are excluded: product-analytics explorations describe
