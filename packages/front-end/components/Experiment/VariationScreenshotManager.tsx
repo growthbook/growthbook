@@ -53,12 +53,12 @@ function ScreenshotTile({
     transition,
     isDragging,
   } = useSortable({ id: screenshot.path });
-  const [hovered, setHovered] = useState(false);
 
   return (
     <Box
       ref={setNodeRef}
       position="relative"
+      className={styles.tile}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
@@ -72,8 +72,6 @@ function ScreenshotTile({
         border: "1px solid var(--slate-a4)",
         background: "var(--black-a1)",
       }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       onClick={onOpen}
       {...attributes}
       {...listeners}
@@ -88,29 +86,29 @@ function ScreenshotTile({
           display: "block",
         }}
       />
-      {hovered ? (
-        <Box position="absolute" top="2" right="2">
-          <Tooltip content="Remove image" side="top">
-            <IconButton
-              type="button"
-              size="2"
-              color="red"
-              variant="solid"
-              radius="full"
-              className={styles.deleteButton}
-              aria-label="Remove image"
-              // The tile itself is the drag handle, so the button has to opt out.
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-            >
-              <PiTrash size={16} />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      ) : null}
+      {/* Always mounted, revealed by CSS on hover or focus: unmounting it left
+          touch and keyboard users with no way to remove a screenshot. */}
+      <Box position="absolute" top="2" right="2" className={styles.deleteSlot}>
+        <Tooltip content="Remove image" side="top">
+          <IconButton
+            type="button"
+            size="2"
+            color="red"
+            variant="solid"
+            radius="full"
+            className={styles.deleteButton}
+            aria-label="Remove image"
+            // The tile itself is the drag handle, so the button has to opt out.
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+          >
+            <PiTrash size={16} />
+          </IconButton>
+        </Tooltip>
+      </Box>
     </Box>
   );
 }

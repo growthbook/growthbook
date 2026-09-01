@@ -659,7 +659,8 @@ export default function FeaturesOverview({
               experiment
             </Link>
             . Its values, review and publishing are handled there, so it is read
-            only here. Eject it from the experiment to edit it directly.
+            only here. Convert it to an unmanaged Feature Flag from the
+            experiment to edit it directly.
           </Callout>
         )}
         {(() => {

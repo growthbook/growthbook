@@ -7,6 +7,24 @@
 }
 
 // Radix's solid hover is one step (red-9 -> red-10), too subtle over a photo.
+.tile {
+  position: relative;
+}
+
+// Reveal-on-hover, but reachable: the button stays mounted so focus can land
+// on it. Absolutely positioned, so opacity costs no layout.
+.deleteSlot {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 100ms ease;
+
+  .tile:hover &,
+  .tile:focus-within & {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 .deleteButton {
   transition: background-color 100ms ease;
 
