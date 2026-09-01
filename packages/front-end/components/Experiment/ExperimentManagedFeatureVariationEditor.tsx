@@ -29,6 +29,7 @@ import {
 import { GBInfo } from "@/components/Icons";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Switch from "@/ui/Switch";
@@ -133,6 +134,10 @@ export default function ExperimentManagedFeatureVariationEditor({
     if (!variations || !setVariations) return;
     setVariations(variations.map((v, i) => ({ ...v, value: i + "" })));
   };
+
+  // Mirrors the Advanced switch's own condition: no warning about a control
+  // that isn't there.
+  const canToggleAdvanced = !valueAsId && !!setVariations && !lockStructure;
 
   // Only a JSON value needs a row of its own.
   const stackValue = valueType === "json";
@@ -285,6 +290,18 @@ export default function ExperimentManagedFeatureVariationEditor({
 
       {belowCoverage}
 
+      {/* Only when the reset would actually change something: with ids
+          already at their position, leaving advanced mode is a no-op. */}
+      {canToggleAdvanced &&
+        editingIds &&
+        !!variations?.length &&
+        !idsMatchIndexes && (
+          <Callout status="warning" size="sm" mb="3">
+            Turning off Advanced resets variation ids to their position (0, 1,
+            2&hellip;).
+          </Callout>
+        )}
+
       {
         <Box>
           <Grid
@@ -405,7 +422,7 @@ export default function ExperimentManagedFeatureVariationEditor({
                   </Flex>
                 </Text>
               )}
-              {!valueAsId && setVariations && !lockStructure ? (
+              {canToggleAdvanced ? (
                 <Box position="relative">
                   <Box
                     style={{

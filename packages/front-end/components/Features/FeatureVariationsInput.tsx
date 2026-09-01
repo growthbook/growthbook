@@ -20,6 +20,7 @@ import {
 import { GBInfo } from "@/components/Icons";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Switch from "@/ui/Switch";
@@ -135,6 +136,16 @@ export default function FeatureVariationsInput({
     !disableVariations &&
     !onlySafeToEditVariationMetadata &&
     (variations?.length ?? 0) > 1;
+
+  // Mirrors the Advanced switch's own condition: no warning about a control
+  // that isn't there.
+  const canToggleAdvanced =
+    !hideVariationIds &&
+    !startEditingIndexes &&
+    !valueAsId &&
+    !disableVariations &&
+    !onlySafeToEditVariationMetadata &&
+    !!setVariations;
 
   const forceRenormalizeVariationKeysOnSort =
     !valueAsId && !editingIds && !onlySafeToEditVariationMetadata;
@@ -380,6 +391,16 @@ export default function FeatureVariationsInput({
             </Box>
           ) : null}
 
+          {canToggleAdvanced &&
+            editingIds &&
+            !!variations?.length &&
+            !idsMatchIndexes && (
+              <Callout status="warning" size="sm" mb="3">
+                Turning off Advanced resets variation ids to their position (0,
+                1, 2&hellip;).
+              </Callout>
+            )}
+
           {!hideVariations && (
             <Box>
               <Grid
@@ -472,12 +493,7 @@ export default function FeatureVariationsInput({
                       </Flex>
                     </Text>
                   )}
-                  {!hideVariationIds &&
-                  !startEditingIndexes &&
-                  !valueAsId &&
-                  !disableVariations &&
-                  !onlySafeToEditVariationMetadata &&
-                  setVariations ? (
+                  {canToggleAdvanced ? (
                     <Box position="relative">
                       <Box
                         style={{
