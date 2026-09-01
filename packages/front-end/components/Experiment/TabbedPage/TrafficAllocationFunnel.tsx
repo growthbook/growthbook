@@ -15,14 +15,7 @@ import {
   isManagedByExperiment,
 } from "shared/util";
 import { Box, Flex, Grid, IconButton, Separator } from "@radix-ui/themes";
-import {
-  PiCaretDownBold,
-  PiCheckCircleFill,
-  PiPencilSimpleFill,
-  PiPlus,
-  PiXCircleFill,
-} from "react-icons/pi";
-import { FaRegFlag } from "react-icons/fa";
+import { PiCaretDownBold, PiPencilSimpleFill, PiPlus } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
@@ -41,15 +34,17 @@ import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
 import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperimentEnvironmentsModal";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
+import ManagedFlagSummary from "@/components/Experiment/ManagedFlagSummary";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
-import Avatar from "@/ui/Avatar";
-import Tooltip from "@/ui/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import SplitButton from "@/ui/SplitButton";
 import Button from "@/ui/Button";
-import { getEnvironmentStates } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import {
+  EnvironmentStateChips,
+  getEnvironmentStates,
+} from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import {
   environmentStatesDiffer,
   getVariationValueChanges,
@@ -565,30 +560,7 @@ export default function TrafficAllocationFunnel({
                       </IconButton>
                     ) : null}
                   </Flex>
-                  <Flex gap="4" wrap="wrap">
-                    {environmentStates.map(({ env, isActive, tooltip }) => (
-                      <Tooltip key={env} content={tooltip}>
-                        <Flex align="center" gap="1" minWidth="0">
-                          <Box
-                            flexShrink="0"
-                            style={{
-                              display: "flex",
-                              color: isActive
-                                ? "var(--green-11)"
-                                : "var(--slate-9)",
-                            }}
-                          >
-                            {isActive ? (
-                              <PiCheckCircleFill />
-                            ) : (
-                              <PiXCircleFill />
-                            )}
-                          </Box>
-                          <Text weight="medium">{env}</Text>
-                        </Flex>
-                      </Tooltip>
-                    ))}
-                  </Flex>
+                  <EnvironmentStateChips states={environmentStates} />
                 </div>
               ) : null}
             </Flex>
@@ -683,21 +655,11 @@ export default function TrafficAllocationFunnel({
               servedValueDraftNote={draftDetail.note}
             />
             {namedFeature && (
-              <Box mt="5">
-                <Text as="div" color="text-high" weight="semibold" mb="2">
-                  Values implemented via managed Feature Flag
-                </Text>
-                <Flex align="center" gap="3">
-                  <Avatar
-                    radius="small"
-                    color="indigo"
-                    size="sm"
-                    variant="soft"
-                  >
-                    <FaRegFlag />
-                  </Avatar>
-                  <Text weight="medium">{namedFeature.id}</Text>
-                </Flex>
+              <Box mt="7">
+                <ManagedFlagSummary
+                  featureId={namedFeature.id}
+                  tooltip="This experiment owns the Feature Flag: it serves the variation values above, and is edited from here rather than from its own page."
+                />
               </Box>
             )}
             {addVariationValues && (

@@ -45,6 +45,9 @@ import {
 import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 import { trackEventForContext } from "back-end/src/services/growthbook";
 
+// The one hard blocker an admin bypass can waive.
+export const PENDING_APPROVAL_ITEM_PREFIX = "pendingApproval:";
+
 export type StartChecklistItemStatus = {
   key: string;
   required: boolean;
@@ -304,10 +307,14 @@ export async function getExperimentStartChecklistStatus(
     .filter((f) => f.pendingApproval && !f.hasUnrelatedDraftChanges)
     .forEach((f) => {
       items.push({
-        key: `pendingApproval:${f.feature.id}`,
+        key: `${PENDING_APPROVAL_ITEM_PREFIX}${f.feature.id}`,
         required: true,
+        // The publish gate's answer when we have it: an approved draft with an
+        // uncovered environment or unmet team would still fail to publish.
         status:
-          f.draftRevisionStatus === "approved" ? "complete" : "incomplete",
+          (f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved")
+            ? "complete"
+            : "incomplete",
         manual: false,
         hardBlock: true,
         reason: `Approve the draft revision for linked feature ${f.feature.id} before starting.`,
@@ -421,6 +428,7 @@ async function loadAndValidateExperimentForStatusChange(
 export async function executeExperimentStart(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
+  bypassLockdown = false,
 ): Promise<{
   updated: ExperimentInterface;
   publishResult: PendingDraftPublishResult;
@@ -428,6 +436,7 @@ export async function executeExperimentStart(
   const publishResult = await publishPendingFeatureDraftsForExperiment(
     context,
     experiment,
+    bypassLockdown,
   );
   if (publishResult.failed.length > 0) {
     throw new PendingDraftPublishFailedError(
@@ -566,8 +575,9 @@ export async function startExperiment({
   skipChecklist?: boolean;
   /**
    * When true, skip ramp-schedule lockdown enforcement on linked features and
-   * forward the bypass through to pending feature-draft publishing. Caller
-   * must verify admin-bypass permissions before passing true.
+   * forward the bypass through to pending feature-draft publishing, which
+   * re-checks bypass authority per feature. Caller must verify admin-bypass
+   * permissions before passing true.
    */
   bypassLockdown?: boolean;
 }) {
@@ -589,7 +599,15 @@ export async function startExperiment({
     );
   }
 
-  assertNoIncompleteHardBlockers(checklistItems);
+  // The publish path re-checks bypass authority per feature, so waiving the
+  // approval blocker here cannot land a draft the caller could not publish.
+  assertNoIncompleteHardBlockers(
+    bypassLockdown
+      ? checklistItems.filter(
+          (item) => !item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX),
+        )
+      : checklistItems,
+  );
 
   if (status === "notReady" && !skipChecklist) {
     const incompleteRequiredItems = checklistItems.filter(
@@ -607,7 +625,11 @@ export async function startExperiment({
     }
   }
 
-  const { updated } = await executeExperimentStart(context, experiment);
+  const { updated } = await executeExperimentStart(
+    context,
+    experiment,
+    bypassLockdown,
+  );
 
   return { experiment, updated, checklistItems };
 }

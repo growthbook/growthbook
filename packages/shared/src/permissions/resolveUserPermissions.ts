@@ -391,6 +391,30 @@ export function assessRequiredApproverTeams({
   };
 }
 
+// Approvals that satisfy none of the enforced team rules. Rules are summative
+// — different rules can be met by different approvers — so only an approval
+// contributing to no rule is called out.
+export function nonContributingApproverIds({
+  approvedIds,
+  enforcedTeamIds,
+  requiredTeamsSatisfied,
+  org,
+  teams,
+}: {
+  approvedIds: string[];
+  enforcedTeamIds: string[][];
+  requiredTeamsSatisfied: boolean;
+  org: { members?: { id: string; teams?: string[] }[] };
+  teams: { id: string; name: string }[];
+}): string[] {
+  const ruleTeams = enforcedTeamIds.map((ids) => new Set(ids));
+  if (requiredTeamsSatisfied || !ruleTeams.length) return [];
+  return approvedIds.filter((id) => {
+    const mine = teamsForMember(id, org, teams).map((t) => t.id);
+    return !ruleTeams.some((ids) => mine.some((teamId) => ids.has(teamId)));
+  });
+}
+
 // Uses CURRENT rules — an approval is not a snapshot of authority.
 export function assessApprovalCoverage({
   org,

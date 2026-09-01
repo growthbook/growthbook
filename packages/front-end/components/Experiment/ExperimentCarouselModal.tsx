@@ -8,6 +8,7 @@ import Modal from "@/ui/Modal";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import Button from "@/ui/Button";
 import VariationLabel from "@/ui/VariationLabel";
+import VisuallyHidden from "@/ui/VisuallyHidden";
 import styles from "./ExperimentCarouselModal.module.scss";
 
 // Wide enough for the Close button, and reserved on both sides so the
@@ -186,9 +187,9 @@ const ExperimentCarouselModal: FC<{
       trackingEventModalType=""
     >
       {/* Radix labels the dialog by its title; this viewer shows none. */}
-      <div className="sr-only">
+      <VisuallyHidden>
         <Modal.Title>Screenshots</Modal.Title>
-      </div>
+      </VisuallyHidden>
       <Flex direction="column" gap="2" height="100%" width="100%" minHeight="0">
         <Flex
           gap="3"

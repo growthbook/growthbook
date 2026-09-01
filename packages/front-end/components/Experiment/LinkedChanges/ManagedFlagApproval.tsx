@@ -18,16 +18,28 @@ import {
   ReviewerVerdictIcon,
 } from "@/components/Reviews/ReviewPeople";
 import { revisionStatusLabel } from "@/components/Reviews/RevisionStatusBadge";
+import ApprovalStatusBand from "@/components/Reviews/ApprovalStatusBand";
 import { getVariationValueChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
-import { rowVisual } from "@/components/Reviews/RevisionTimeline";
+import {
+  EnvironmentStateChips,
+  getEnvironmentStates,
+} from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import {
+  findActiveVerdict,
+  rowVisual,
+  scanVerdictRetractions,
+} from "@/components/Reviews/RevisionTimeline";
 import MarkdownWithDiffRefs from "@/components/Reviews/DiffCommentMarkdown";
 import CommentCard from "@/components/Comments/CommentCard";
 import Avatar from "@/ui/Avatar";
+import Badge from "@/ui/Badge";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import RadioGroup from "@/ui/RadioGroup";
@@ -72,6 +84,7 @@ export default function ManagedFlagApproval({
   const [open, setOpen] = useState(false);
   const [comment, setComment] = useState("");
   const [decision, setDecision] = useState<ReviewDecision>("Comment");
+  const [adminBypass, setAdminBypass] = useState(false);
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -90,6 +103,11 @@ export default function ManagedFlagApproval({
   );
 
   const status = info.pendingDraft?.status ?? "draft";
+  const approval = info.pendingDraft?.approval;
+  // Approved on paper, blocked in practice — an uncovered environment or a
+  // required team that has not signed.
+  const approvalGated =
+    !!approval && !approval.satisfied && status === "approved";
   // A revision keeps the status it was left in, so a draft opened while
   // approvals were on stays "pending-review" after the org turns them off.
   const requireReviews = !!info.pendingDraft?.pendingApproval;
@@ -98,8 +116,17 @@ export default function ManagedFlagApproval({
 
   // Starting the experiment is the publish, so a draft runs review only.
   const publishIsLaunch = experiment.status === "draft";
+  // Publishing unapproved is an explicit act, not a standing privilege: the
+  // admin opts in per publish, the same way the feature's own panel asks.
+  const adminBypassAvailable =
+    !publishIsLaunch &&
+    requireReviews &&
+    !(approval?.satisfied ?? status === "approved") &&
+    !info.pendingDraft?.hasMergeConflict &&
+    (info.pendingDraft?.hasChanges ?? true) &&
+    permissionsUtil.canBypassFlagApprovalChecks(info.feature, "feature");
 
-  const state = getReviewAndPublishState({
+  const stateInput = {
     requireReviews,
     status,
     // Conflicts are surfaced by the card's callouts; never offer a failing CTA.
@@ -115,10 +142,6 @@ export default function ManagedFlagApproval({
     isContributor: (revision?.contributors ?? []).includes(userId ?? ""),
     isDraftOwner: revision?.createdBy?.id === userId,
     isReviewer,
-    // Nothing lands on a draft experiment, so bypass would just skip review.
-    adminPublish:
-      !publishIsLaunch &&
-      permissionsUtil.canBypassFlagApprovalChecks(info.feature, "feature"),
     // The experiment's own start runs the pre-launch checklist.
     hasSelectedExperiments: false,
     onlyScheduledSelected: false,
@@ -130,7 +153,17 @@ export default function ManagedFlagApproval({
     checklistAcknowledged: true,
     governanceCanPublish: true,
     editsResetStatus: true,
+  };
+  // Two reads of the same machine: the bypass changes the CTA, but the blocker
+  // banners keep describing what is being skipped.
+  const baseState = getReviewAndPublishState({
+    ...stateInput,
+    adminPublish: false,
   });
+  const adminOverride = adminBypassAvailable && adminBypass;
+  const state = adminOverride
+    ? getReviewAndPublishState({ ...stateInput, adminPublish: true })
+    : baseState;
 
   // "any": the precise footprint needs the live and base revisions, which this
   // modal does not load (the full Review & Publish tab falls back the same way
@@ -224,6 +257,36 @@ export default function ManagedFlagApproval({
         }
       : null;
 
+  // The author leads, then anyone who contributed to the draft — the same
+  // list the Review & Publish tab shows.
+  const contributorIds = (() => {
+    const authorId = revision?.createdBy?.id;
+    const ids = revision?.contributors ?? [];
+    if (!authorId) return ids;
+    return ids.includes(authorId) ? ids : [authorId, ...ids];
+  })();
+
+  const contributorRows = contributorIds.map((id) => {
+    const user = users.get(id);
+    return (
+      <PersonRow
+        key={id}
+        id={id}
+        name={user?.name ?? ""}
+        email={user?.email ?? ""}
+      />
+    );
+  });
+
+  // An approval can stand and still not sanction the publish; the icon says so.
+  const insufficientReasons = useMemo(
+    () =>
+      new Map(
+        (approval?.insufficientApprovers ?? []).map((a) => [a.id, a.reason]),
+      ),
+    [approval],
+  );
+
   const reviewerRows = reviews.map((r) => {
     const user = users.get(r.userId);
     const name = user?.name ?? "";
@@ -246,6 +309,7 @@ export default function ManagedFlagApproval({
             name={name || email}
             timestamp={String(r.timestamp)}
             stale={stale}
+            uncoveredReason={insufficientReasons.get(r.userId)}
           />
         }
       />
@@ -258,23 +322,35 @@ export default function ManagedFlagApproval({
     `/feature/${info.feature.id}/${version}/log`,
     { shouldRun: () => open && (version ?? null) !== null },
   );
-  // Comments, plus verdicts still present in `revision.reviews` — a retracted
-  // approval is dropped from that set, so matching against it drops withdrawn
-  // reviews without replaying the log. Lifecycle events are state the status
-  // line already carries.
-  const verdictStatusForAction: Record<string, string> = {
-    Approved: "approved",
-    "Requested Changes": "changes-requested",
-  };
-  const reviewComments = (logData?.log ?? [])
-    .filter((l) => {
-      if (l.action === "Comment") return true;
-      const wanted = verdictStatusForAction[l.action];
-      if (!wanted) return false;
-      return reviews.some(
-        (r) => r.userId === logUserId(l) && r.status.startsWith(wanted),
-      );
-    })
+  // Comments and verdicts. A retracted verdict stays in the thread with a
+  // badge, the way the feature timeline shows it — dropping it made a review
+  // vanish and reappear on re-approval.
+  const sortedLog = useMemo(
+    () =>
+      [...(logData?.log ?? [])].sort((a, b) =>
+        String(a.timestamp).localeCompare(String(b.timestamp)),
+      ),
+    [logData],
+  );
+  const retractions = useMemo(
+    () => scanVerdictRetractions(sortedLog, userId),
+    [sortedLog, userId],
+  );
+  // `undo-review` always acts on the standing verdict, so only that row may
+  // offer to retract — otherwise retracting from an older row silently pulls
+  // back the newer one.
+  const activeVerdict = useMemo(
+    () => findActiveVerdict(sortedLog, userId, retractions),
+    [sortedLog, userId, retractions],
+  );
+  const conversationActions = [
+    "Comment",
+    "Review Requested",
+    "Approved",
+    "Requested Changes",
+  ];
+  const reviewComments = sortedLog
+    .filter((l) => conversationActions.includes(l.action))
     .map((l) => {
       let comment: string | undefined;
       try {
@@ -282,13 +358,19 @@ export default function ManagedFlagApproval({
       } catch {
         // not JSON
       }
-      return { ...l, comment };
+      return {
+        ...l,
+        comment,
+        retraction: retractions.get(l) ?? null,
+        isActiveVerdict: l === activeVerdict,
+      };
     });
 
   const variations = getLatestPhaseVariations(experiment);
-  const enabledEnvs = Object.entries(revision?.environmentsEnabled ?? {})
-    .filter(([, on]) => on)
-    .map(([env]) => env);
+  // The same readout the overview shows, from where the draft would run.
+  const environmentStates = getEnvironmentStates(info.pendingDraft ?? {}, {
+    future: publishIsLaunch ? "started" : "published",
+  });
 
   // Only a value that moved earns the before/after treatment; a first draft has
   // no live rule to compare against, and an unchanged one reads as "Δ x → x".
@@ -304,8 +386,13 @@ export default function ManagedFlagApproval({
   const hasValueChanges = variationValues.some((r) => r.changed);
 
   const changesColumn = (
-    <Flex direction="column" gap="3" width="50%" minWidth="0">
-      <Text size="md" weight="semibold" color="text-high">
+    <Flex
+      direction="column"
+      gap="3"
+      width={requireReviews ? "50%" : "100%"}
+      minWidth="0"
+    >
+      <Text size="lg" weight="semibold" color="text-high">
         Changes
       </Text>
       {variationValues.map(({ v, i, before, after, changed }) => (
@@ -330,54 +417,113 @@ export default function ManagedFlagApproval({
           </Box>
         </Box>
       ))}
-      {enabledEnvs.length > 0 && (
-        <Text size="sm" color="text-low">
-          Enables {enabledEnvs.join(", ")}
-        </Text>
+      {environmentStates.length > 0 && (
+        <Box>
+          <Text as="div" size="md" weight="semibold" color="text-high" mb="2">
+            Environments
+          </Text>
+          <EnvironmentStateChips states={environmentStates} />
+        </Box>
       )}
     </Flex>
   );
 
+  // Approval is the first gate, so say so — otherwise the notice reads as
+  // though starting the experiment is all that stands in the way.
+  const awaitingApproval =
+    requireReviews && !(approval?.satisfied ?? status === "approved");
+  // Approved-but-gated needs its own wording: "once approved" reads as a
+  // contradiction next to an "Approved" label.
+  const unblocks = approvalGated
+    ? "Once the requirements above are met"
+    : "Once approved";
+  const publishNotice = publishIsLaunch
+    ? awaitingApproval
+      ? `${unblocks}, publishes when you start the experiment.`
+      : "Publishes when you start the experiment."
+    : awaitingApproval
+      ? `${unblocks}, you can publish to make these values live.`
+      : "Publish to make these values live.";
+
   const reviewColumn = (
     <Flex direction="column" gap="3" width="50%" minWidth="0">
-      <Text size="md" weight="semibold" color="text-high">
-        Review
-      </Text>
-      <Text size="sm" color="text-low">
-        {/* A stale review status means nothing once approvals are off. */}
-        {requireReviews ? `${revisionStatusLabel(status)}. ` : null}
-        {publishIsLaunch
-          ? "Publishes when you start the experiment."
-          : "Publish to make these values live."}
-      </Text>
+      {contributorRows.length > 0 && (
+        <Box>
+          <Flex align="center" justify="between" gap="2" mb="2">
+            <Text size="lg" weight="medium" color="text-high" as="div">
+              Contributors
+            </Text>
+            {state.canRecallReview && (
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="2"
+                    highContrast
+                    aria-label="Review actions"
+                  >
+                    <BsThreeDotsVertical size={16} />
+                  </IconButton>
+                }
+                menuPlacement="end"
+                variant="soft"
+              >
+                <DropdownMenuItem
+                  disabled={submitting}
+                  onClick={() => post("recall-review")}
+                >
+                  Return to draft
+                </DropdownMenuItem>
+              </DropdownMenu>
+            )}
+          </Flex>
+          <Flex direction="column" gap="2">
+            {contributorRows}
+          </Flex>
+        </Box>
+      )}
 
       {reviewerRows.length > 0 && (
-        <Flex direction="column" gap="2">
-          {reviewerRows}
+        <Box>
+          <Text size="lg" weight="medium" color="text-high" as="div" mb="2">
+            Reviewers
+          </Text>
+          <Flex direction="column" gap="2">
+            {reviewerRows}
+          </Flex>
+        </Box>
+      )}
+
+      {/* One block: the verdict and its note belong together, and the column's
+          own gap would otherwise push them apart. The comment shows only when
+          something will carry it — the footer CTA needs authority this viewer
+          may not have. */}
+      {(canReview ||
+        (!!primaryAction && submitAction === "request-review")) && (
+        <Flex direction="column" gap="2" mt="2">
+          {canReview && (
+            <RadioGroup
+              gap="0"
+              value={decision}
+              setValue={(v) => setDecision(v as ReviewDecision)}
+              options={[
+                { value: "Comment", label: "Comment" },
+                { value: "Requested Changes", label: "Request changes" },
+                { value: "Approved", label: "Approve" },
+              ]}
+            />
+          )}
+          <Field
+            size="md"
+            textarea
+            minRows={2}
+            placeholder="Add a comment (optional)"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+          />
         </Flex>
-      )}
-
-      {canReview && (
-        <RadioGroup
-          value={decision}
-          setValue={(v) => setDecision(v as ReviewDecision)}
-          options={[
-            { value: "Comment", label: "Comment" },
-            { value: "Requested Changes", label: "Request changes" },
-            { value: "Approved", label: "Approve" },
-          ]}
-        />
-      )}
-
-      {(canReview || submitAction === "request-review") && (
-        <Field
-          size="sm"
-          textarea
-          minRows={2}
-          placeholder="Add a comment (optional)"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-        />
       )}
 
       {error && (
@@ -386,10 +532,45 @@ export default function ManagedFlagApproval({
         </Callout>
       )}
 
-      {!primaryAction && state.waitingForReview && (
-        <Text size="sm" color="text-low">
-          Waiting for another reviewer to approve.
-        </Text>
+      {(adminOverride || !primaryAction) && baseState.waitingForReview && (
+        // The same band the Review & Publish tab shows for this phase.
+        <ApprovalStatusBand
+          phase="waiting"
+          footprint={approval?.footprint}
+          unmet={approval?.unmetTeams ?? []}
+          subtle
+        />
+      )}
+
+      {approvalGated && (
+        // Approved, but the server would still refuse: name what is missing
+        // rather than letting the start fail with a bare error.
+        <ApprovalStatusBand
+          phase="gated"
+          footprint={approval.footprint}
+          unmet={approval.unmetTeams}
+          coverageMessage={
+            approval.unmetTeams.length === 0
+              ? "The approvals on this draft do not cover every environment it changes."
+              : null
+          }
+          subtle
+        />
+      )}
+
+      {adminBypassAvailable && (
+        <Box>
+          <Checkbox
+            label={
+              <span style={{ color: "var(--red-11)" }}>
+                Admin: bypass approval and publish now
+              </span>
+            }
+            weight="regular"
+            value={adminBypass}
+            setValue={(val) => setAdminBypass(!!val)}
+          />
+        </Box>
       )}
 
       {reviewComments.length > 0 && (
@@ -407,12 +588,23 @@ export default function ManagedFlagApproval({
                     ? "red"
                     : null;
               const isOwn = !!logUserId(l) && logUserId(l) === userId;
-              const isActiveVerdict = !!verdictColor;
               return (
                 <CommentCard
                   key={l.id ?? i}
                   user={l.user}
-                  metadata={`${visual.verb} on ${datetime(l.timestamp)}`}
+                  // Colon, not "on": this column is half a modal wide and the
+                  // phrase has to hold one line.
+                  metadata={`${visual.verb}: ${datetime(l.timestamp)}`}
+                  metadataExtra={
+                    l.retraction ? (
+                      <Badge
+                        color="gray"
+                        variant="solid"
+                        label={l.retraction.label}
+                        size="xs"
+                      />
+                    ) : undefined
+                  }
                   stripeColor={visual.color}
                   leading={
                     verdictColor ? (
@@ -424,7 +616,7 @@ export default function ManagedFlagApproval({
                   avatarSize="sm"
                   compact
                   actions={
-                    isOwn && (l.id || isActiveVerdict) ? (
+                    isOwn && (l.id || l.isActiveVerdict) ? (
                       <DropdownMenu
                         trigger={
                           <IconButton
@@ -449,7 +641,7 @@ export default function ManagedFlagApproval({
                             Edit
                           </DropdownMenuItem>
                         )}
-                        {isActiveVerdict && state.canUndoReview && (
+                        {l.isActiveVerdict && state.canUndoReview && (
                           <DropdownMenuItem
                             color="red"
                             onClick={() => post("undo-review")}
@@ -527,22 +719,41 @@ export default function ManagedFlagApproval({
         trackingEventModalType="managed-flag-approval"
         trackingEventModalSource="experiment-overview"
         header={hasValueChanges ? "Review Value Changes" : "Review Values"}
+        hideHeader
+        bodyMb="0"
         size="lg"
         close={() => setOpen(false)}
         closeCta={primaryAction ? "Cancel" : "Close"}
+        // Beside the CTAs, where it reads as a note on the action rather than
+        // a line of the content.
+        secondaryAction={
+          <HelperText status="info">
+            {requireReviews
+              ? `${revisionStatusLabel(status)}. ${publishNotice}`
+              : publishNotice}
+          </HelperText>
+        }
         cta={primaryAction?.label}
         ctaEnabled={!!primaryAction?.enabled}
         submit={primaryAction ? primaryAction.run : undefined}
       >
-        <Flex gap="4" width="100%">
-          {changesColumn}
-          {/* Radix vertical separators collapse without an explicit stretch. */}
-          <Separator
-            orientation="vertical"
-            style={{ alignSelf: "stretch", height: "auto" }}
-          />
-          {reviewColumn}
-        </Flex>
+        {requireReviews ? (
+          <Flex gap="4" width="100%">
+            {changesColumn}
+            {/* Radix vertical separators collapse without an explicit stretch. */}
+            <Separator
+              orientation="vertical"
+              style={{ alignSelf: "stretch", height: "auto" }}
+            />
+            {reviewColumn}
+          </Flex>
+        ) : (
+          // Nothing to review, so the column would be a status line and a lot
+          // of empty space; the notice sits under the changes instead.
+          <Flex direction="column" width="100%">
+            {changesColumn}
+          </Flex>
+        )}
       </ModalStandard>
     </>
   );

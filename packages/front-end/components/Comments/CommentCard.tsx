@@ -70,7 +70,15 @@ export default function CommentCard({
           <EventUser user={user} display="avatar" size={avatarSize} />
         )}
       </Box>
-      <Card size="1" style={{ overflow: "hidden", flexGrow: 1 }}>
+      <Card
+        size="1"
+        style={{
+          overflow: "hidden",
+          flexGrow: 1,
+          // Radix's own card padding is generous for a card this small.
+          ...(compact ? { padding: "var(--space-2)" } : {}),
+        }}
+      >
         <div
           style={{
             position: "absolute",
@@ -87,10 +95,17 @@ export default function CommentCard({
           <Flex
             justify="between"
             align={compact ? "start" : "center"}
-            mb={body ? "2" : "0"}
+            mb={body ? (compact ? "1" : "2") : "0"}
             gap="2"
           >
-            <Flex align="center" gap="2" wrap="wrap">
+            {/* Row gap only when there is room: `gap` applies to the wrapped
+                line too, which pads the header out in a narrow column. */}
+            <Flex
+              align="center"
+              gapX="2"
+              gapY={compact ? "0" : "2"}
+              wrap="wrap"
+            >
               <EventUser
                 user={user}
                 display={compact ? "name" : "name-email"}

@@ -268,8 +268,11 @@ export function getChecklistItems({
         )
         .forEach((f) => {
           items.push({
+            key: `pendingApproval:${f.feature.id}`,
             status:
-              f.draftRevisionStatus === "approved" ? "complete" : "incomplete",
+              (f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved")
+                ? "complete"
+                : "incomplete",
             type: "auto",
             required: true,
             hardBlock: true,

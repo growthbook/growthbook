@@ -324,7 +324,7 @@ export default function ExperimentHeader({
     setDropdownOpen(false);
   }
 
-  async function startExperiment() {
+  async function startExperiment(opts?: { bypassApproval?: boolean }) {
     if (!experiment.phases?.length) {
       if (newPhase) {
         newPhase();
@@ -350,6 +350,7 @@ export default function ExperimentHeader({
           method: "POST",
           body: JSON.stringify({
             status: "running",
+            bypassLockdown: !!opts?.bypassApproval,
           }),
         },
         (responseData) => {

@@ -15,6 +15,7 @@ import { FaChartBar } from "react-icons/fa";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
 import {
   getAvailableMetricsFilters,
   getAvailableMetricTags,
@@ -157,17 +158,30 @@ export default function TabbedPage({
   const managedFlagWithDraft = managedFeature?.pendingDraft
     ? managedFeature
     : null;
+  const managedDraft = managedFlagWithDraft?.pendingDraft;
+  // The publish gate's own answer: an approved draft can still be short of a
+  // required approver team or an environment.
   const managedApprovalBlocking =
-    !!managedFlagWithDraft?.pendingDraft?.pendingApproval &&
-    managedFlagWithDraft.pendingDraft.status !== "approved";
+    !!managedDraft?.pendingApproval &&
+    !(managedDraft.approval?.satisfied ?? managedDraft.status === "approved");
+  // Auto-publish refuses these outright, so they outrank the approval state.
+  const managedDraftBlocked = managedDraft?.hasMergeConflict
+    ? "conflict"
+    : managedDraft?.hasUnrelatedDraftChanges
+      ? "unrelated"
+      : null;
   // Both gates together: approval alone publishes nothing on a draft.
-  const managedNextStep = managedApprovalBlocking
-    ? experiment.status === "draft"
-      ? "They need approval, then go live when the experiment starts."
-      : "They need approval before they go live."
-    : experiment.status === "draft"
-      ? "They go live when the experiment starts."
-      : "Publish them to go live.";
+  const managedNextStep = managedDraftBlocked
+    ? managedDraftBlocked === "conflict"
+      ? "The draft has a merge conflict and cannot publish until it is resolved."
+      : "The draft also changes things beyond this experiment, so it has to be published from the feature page."
+    : managedApprovalBlocking
+      ? experiment.status === "draft"
+        ? "They need approval, then go live when the experiment starts."
+        : "They need approval before they go live."
+      : experiment.status === "draft"
+        ? "They go live when the experiment starts."
+        : "Publish them to go live.";
   const [urlRedirectModal, setUrlRedirectModal] = useState(false);
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
   const [showDashboardView, setShowDashboardView] = useState(
@@ -586,7 +600,13 @@ export default function TabbedPage({
         {managedFlagWithDraft && (
           <Callout
             // Warning only while approval is holding the publish back.
-            status={managedApprovalBlocking ? "warning" : "info"}
+            status={
+              managedDraftBlocked
+                ? "error"
+                : managedApprovalBlocking
+                  ? "warning"
+                  : "info"
+            }
             mt="3"
             contentAlign="center"
             action={
@@ -605,16 +625,23 @@ export default function TabbedPage({
             <Flex align="center" gap="2">
               This experiment has unpublished variation values.{" "}
               {managedNextStep}
-              {managedFlagWithDraft.pendingDraft?.pendingApproval && (
+              {managedDraft?.pendingApproval && !managedDraftBlocked && (
                 <Badge
-                  label={revisionStatusLabel(
-                    managedFlagWithDraft.pendingDraft.status,
-                  )}
-                  color={revisionStatusColor(
-                    managedFlagWithDraft.pendingDraft.status,
-                  )}
+                  label={revisionStatusLabel(managedDraft.status)}
+                  color={revisionStatusColor(managedDraft.status)}
                   radius="full"
                 />
+              )}
+              {managedDraftBlocked && (
+                <Link
+                  href={`/features/${managedFlagWithDraft.feature.id}?v=${managedDraft?.version}`}
+                  target="_blank"
+                >
+                  {managedDraftBlocked === "conflict"
+                    ? "Fix conflicts"
+                    : "Review draft"}
+                  <PiArrowSquareOut className="ml-1" />
+                </Link>
               )}
             </Flex>
           </Callout>

@@ -64,6 +64,35 @@ export function getEnvironmentStates(
   }));
 }
 
+// The inline row: every environment with its state, wherever there is room to
+// show them all at once.
+export function EnvironmentStateChips({
+  states,
+}: {
+  states: EnvironmentState[];
+}) {
+  return (
+    <Flex gap="4" wrap="wrap">
+      {states.map(({ env, isActive, tooltip }) => (
+        <Tooltip key={env} content={tooltip} side="top">
+          <Flex align="center" gap="1" minWidth="0">
+            <Box
+              flexShrink="0"
+              style={{
+                display: "flex",
+                color: isActive ? "var(--green-11)" : "var(--slate-9)",
+              }}
+            >
+              {isActive ? <PiCheckCircleFill /> : <PiXCircleFill />}
+            </Box>
+            <Text weight="medium">{env}</Text>
+          </Flex>
+        </Tooltip>
+      ))}
+    </Flex>
+  );
+}
+
 type Props = {
   environmentStates: EnvironmentState[];
 };

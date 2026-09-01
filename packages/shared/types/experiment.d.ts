@@ -10,6 +10,7 @@ import {
   HoldoutInterface,
   RevisionStatus,
 } from "shared/validators";
+import type { ReviewAuthorityFootprint } from "shared/util";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
 
 export {
@@ -327,6 +328,19 @@ export interface LinkedFeatureInfo {
     values: ExperimentRefVariation[];
     sparse: boolean;
     pendingApproval: boolean;
+    /**
+     * The publish gate's own answer, present when review is required. A draft
+     * can read "approved" and still be blocked by an uncovered environment or
+     * an unmet required-approver team.
+     */
+    approval?: {
+      satisfied: boolean;
+      footprint: ReviewAuthorityFootprint;
+      /** One entry per rule; any team in an entry satisfies that rule. */
+      unmetTeams: { id: string; name: string }[][];
+      /** Approvals that stand but cannot sanction the publish, and why. */
+      insufficientApprovers: { id: string; reason: string }[];
+    };
     hasMergeConflict: boolean;
     hasUnrelatedDraftChanges: boolean;
     /** Where the draft would run once published, keyed the same as the live map. */
@@ -338,6 +352,8 @@ export interface LinkedFeatureInfo {
   draftRevisionVersion?: number;
   /** Status of the matching draft revision (present when state === "draft"). */
   draftRevisionStatus?: RevisionStatus;
+  /** Whether that draft actually clears the publish gate, not just its status. */
+  draftApprovalSatisfied?: boolean;
   /** True when the draft cannot be auto-merged into live due to conflicting changes. */
   hasMergeConflict?: boolean;
   /**

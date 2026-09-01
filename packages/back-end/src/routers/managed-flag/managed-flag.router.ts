@@ -34,6 +34,11 @@ router.post(
   resolveManagedFlagParams,
   featuresController.postFeatureUndoReview,
 );
+router.post(
+  "/recall-review",
+  resolveManagedFlagParams,
+  featuresController.postFeatureRecallReview,
+);
 // Not postFeaturePublish: it wants a mergeResultSerialized this surface has no
 // diff view to compute, so this merges server-side instead.
 router.post("/publish", experimentsController.postExperimentManagedFlagPublish);

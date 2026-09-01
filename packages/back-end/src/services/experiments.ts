@@ -189,6 +189,8 @@ import {
 } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { assessRevisionApprovalForAutoPublish } from "back-end/src/services/experiment-feature";
+import type { RevisionApprovalState } from "back-end/src/services/featurePublishGates";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
@@ -5149,6 +5151,9 @@ export async function getRefLinkedFeatureInfo({
 
       let draftHasMergeConflict = false;
       let draftHasUnrelatedChanges = false;
+      // The publish gate's own answer, not `revision.status`: an approved draft
+      // still cannot publish while a required team or environment is uncovered.
+      let draftApproval: RevisionApprovalState | undefined;
       // The same test the publish gate uses, so a CTA can't offer a publish
       // that would change nothing.
       let draftHasChanges = true;
@@ -5168,6 +5173,16 @@ export async function getRefLinkedFeatureInfo({
             {},
           );
           draftHasChanges = mergeResultHasChanges(mergeResult);
+          if (reviewRequired) {
+            draftApproval = await assessRevisionApprovalForAutoPublish(
+              context,
+              feature,
+              matchedDraftRevision,
+              live,
+              base,
+              mergeResult,
+            );
+          }
           if (!mergeResult.success) {
             draftHasMergeConflict = true;
           } else if (
@@ -5295,6 +5310,14 @@ export async function getRefLinkedFeatureInfo({
               title: matchedDraftRevision.title,
               otherDraftCount,
               pendingApproval: reviewRequired,
+              ...(draftApproval && {
+                approval: {
+                  satisfied: draftApproval.satisfied,
+                  footprint: draftApproval.footprint,
+                  unmetTeams: draftApproval.requiredApproverTeams.unmet,
+                  insufficientApprovers: draftApproval.insufficientApprovers,
+                },
+              }),
               hasChanges: draftHasChanges,
               hasMergeConflict: draftHasMergeConflict,
               hasUnrelatedDraftChanges: draftHasUnrelatedChanges,
@@ -5311,6 +5334,9 @@ export async function getRefLinkedFeatureInfo({
           state === "draft" && {
             draftRevisionVersion: matchedDraftRevision.version,
             draftRevisionStatus: matchedDraftRevision.status,
+            ...(draftApproval && {
+              draftApprovalSatisfied: draftApproval.satisfied,
+            }),
           }),
         ...(state === "draft" &&
           draftHasMergeConflict && { hasMergeConflict: true }),

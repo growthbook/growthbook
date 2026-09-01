@@ -1,6 +1,7 @@
 import { ReactNode, ComponentProps } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
+import VisuallyHidden from "@/ui/VisuallyHidden";
 import Modal, { Padding, Size, TrackingEventModalProps } from "@/ui/Modal";
 import ModalForm, { useModalForm } from "../ModalForm";
 
@@ -29,6 +30,11 @@ function SubmitButton({
 export type Props = TrackingEventModalProps & {
   open: boolean;
   header: string;
+  // Keeps the title as the dialog's accessible name while dropping the visible
+  // heading row. Takes `headerAction` with it.
+  hideHeader?: boolean;
+  /** Space between the body and the footer's separator. */
+  bodyMb?: "0" | "3";
   headerAction?: ReactNode;
   subheader?: ReactNode;
   cta?: string;
@@ -59,6 +65,8 @@ export type Props = TrackingEventModalProps & {
 export default function ModalStandard({
   open,
   header,
+  hideHeader = false,
+  bodyMb,
   headerAction,
   subheader,
   cta = "Save",
@@ -81,13 +89,25 @@ export default function ModalStandard({
 }: Props) {
   const content = (
     <>
-      <Modal.Header>
-        <Modal.Title>{header}</Modal.Title>
-        {headerAction ? <Box>{headerAction}</Box> : null}
-      </Modal.Header>
+      {hideHeader ? (
+        <VisuallyHidden>
+          <Modal.Title>{header}</Modal.Title>
+        </VisuallyHidden>
+      ) : (
+        <Modal.Header>
+          <Modal.Title>{header}</Modal.Title>
+          {headerAction ? <Box>{headerAction}</Box> : null}
+        </Modal.Header>
+      )}
       {subheader && <Modal.Description>{subheader}</Modal.Description>}
-      <Modal.Body>{children}</Modal.Body>
-      <Modal.Footer justify={secondaryAction ? "between" : "end"}>
+      <Modal.Body mt={hideHeader ? "0" : "5"} mb={bodyMb}>
+        {children}
+      </Modal.Body>
+      <Modal.Footer
+        justify={secondaryAction ? "between" : "end"}
+        // Only with a secondary slot: buttons alone look the same either way.
+        align={secondaryAction ? "center" : undefined}
+      >
         {secondaryAction ? <Box>{secondaryAction}</Box> : null}
         <Flex gap="3" align="center">
           <Modal.Close>

@@ -300,13 +300,23 @@ function Description({ children }: { children: ReactNode }) {
 // so ModalForm consumers get error handling for free.
 // ---------------------------------------------------------------------------
 
-function Body({ children }: { children: ReactNode }) {
+function Body({
+  children,
+  // The default clears the header; a modal without one starts at the top.
+  mt = "5",
+  // Space before the footer's separator.
+  mb = "3",
+}: {
+  children: ReactNode;
+  mt?: "0" | "5";
+  mb?: "0" | "3";
+}) {
   const { bodyRef, error } = useModalContext();
   return (
     <ScrollArea
       type="auto"
-      mt="5"
-      mb="3"
+      mt={mt}
+      mb={mb}
       ml="-1"
       ref={bodyRef}
       scrollbars="vertical"

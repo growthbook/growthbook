@@ -658,7 +658,7 @@ type ResolvedDraft = { featureId: string; revisionVersion: number };
 // approval went stale) — true conflicts are reported via `mergeResult`.
 // The live revision is both the merge baseline and the review baseline; any
 // ramp actions on the draft are judged by the shared assessment like any other.
-async function assessRevisionApprovalForAutoPublish(
+export async function assessRevisionApprovalForAutoPublish(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
@@ -793,6 +793,11 @@ export async function publishPendingFeatureDraftsForExperiment(
       live,
       base,
     );
+    // Re-derived per feature: the caller's opt-in is not authority on its own,
+    // and a feature can sit in a project the caller cannot bypass.
+    const bypassApproval =
+      bypassLockdown &&
+      context.permissions.canBypassFlagApprovalChecks(feature, "feature");
     // The same question the publish button and the REST endpoint ask, so an
     // autostart can never land a draft either of those would refuse.
     const approval = await assessRevisionApprovalForAutoPublish(
@@ -803,7 +808,7 @@ export async function publishPendingFeatureDraftsForExperiment(
       base,
       mergeResult,
     );
-    if (!approval.satisfied) {
+    if (!approval.satisfied && !bypassApproval) {
       logger.warn(
         {
           experimentId: experiment.id,
