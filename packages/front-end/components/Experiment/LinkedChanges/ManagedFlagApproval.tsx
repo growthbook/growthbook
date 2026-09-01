@@ -1,7 +1,11 @@
 import { useMemo, useState } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { datetime } from "shared/dates";
-import { ANY_REVIEW_FOOTPRINT } from "shared/util";
+import {
+  ANY_REVIEW_FOOTPRINT,
+  evaluatePublishGovernance,
+  getReviewSetting,
+} from "shared/util";
 import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
@@ -19,6 +23,7 @@ import {
 } from "@/components/Reviews/ReviewPeople";
 import { revisionStatusLabel } from "@/components/Reviews/RevisionStatusBadge";
 import ApprovalStatusBand from "@/components/Reviews/ApprovalStatusBand";
+import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 import { getVariationValueChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import {
   EnvironmentStateChips,
@@ -52,6 +57,7 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import useApi from "@/hooks/useApi";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 type ReviewDecision = "Comment" | "Requested Changes" | "Approved";
 
@@ -80,6 +86,7 @@ export default function ManagedFlagApproval({
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const settings = useOrgSettings();
   const allEnvironments = useEnvironments();
   const [open, setOpen] = useState(false);
   const [comment, setComment] = useState("");
@@ -115,6 +122,28 @@ export default function ManagedFlagApproval({
 
   // Starting the experiment is the publish, so a draft runs review only.
   const publishIsLaunch = experiment.status === "draft";
+  // The same inputs the auto-publish path feeds the gate, so the notice and the
+  // refusal agree on whether live has moved past this draft.
+  const governance = revision
+    ? evaluatePublishGovernance({
+        revisionStatus: revision.status,
+        baseVersion: revision.baseVersion,
+        liveVersion: info.feature.version,
+        mergeSuccess: !info.pendingDraft?.hasMergeConflict,
+        liveChanges: [],
+        approvedBaseVersion: revision.approvedBaseVersion ?? null,
+        requireRebaseBeforePublish: !!settings?.requireRebaseBeforePublish,
+      })
+    : null;
+  // Contributors can't approve their own draft when the org says so, which is
+  // not self-evident from a missing radio.
+  const reviewSetting = Array.isArray(settings?.requireReviews)
+    ? getReviewSetting(settings.requireReviews, info.feature)
+    : undefined;
+  const isBlockedContributor =
+    !!reviewSetting?.blockSelfApproval &&
+    (revision?.contributors ?? []).some((id) => id === userId);
+
   // An explicit per-publish opt-in, not a standing privilege.
   const adminBypassAvailable =
     !publishIsLaunch &&
@@ -534,6 +563,7 @@ export default function ManagedFlagApproval({
           phase="waiting"
           footprint={approval?.footprint}
           unmet={approval?.unmetTeams ?? []}
+          showSelfApprovalNote={isBlockedContributor}
           subtle
         />
       )}
@@ -550,6 +580,15 @@ export default function ManagedFlagApproval({
               : null
           }
           subtle
+        />
+      )}
+
+      {governance && (
+        <DivergenceNotice
+          subtle
+          governance={governance}
+          liveVersion={info.feature.version}
+          baseVersion={revision?.baseVersion ?? info.feature.version}
         />
       )}
 

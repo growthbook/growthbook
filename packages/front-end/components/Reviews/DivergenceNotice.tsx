@@ -23,6 +23,8 @@ export interface DivergenceNoticeProps {
   // legacy approvals that predate the tracking.
   approvedAt?: string | Date | null;
   revisionsSinceApproval?: number | null;
+  // Passed through to NoticeBanner; see its own note.
+  subtle?: boolean;
 }
 
 // Surfaces governance signals in the publish/review flow. Three distinct
@@ -43,6 +45,7 @@ export default function DivergenceNotice({
   onResolveConflicts,
   approvedAt = null,
   revisionsSinceApproval = null,
+  subtle,
 }: DivergenceNoticeProps) {
   const { divergence, staleApproval, rebaseRequired } = governance;
 
@@ -54,6 +57,7 @@ export default function DivergenceNotice({
   if (divergence === "conflict") {
     return (
       <NoticeBanner
+        subtle={subtle}
         icon={<PiWarningOctagonBold />}
         iconColor="red"
         title="Draft has conflicts with live"
@@ -100,6 +104,7 @@ export default function DivergenceNotice({
 
   return (
     <NoticeBanner
+      subtle={subtle}
       icon={<PiGitMergeBold />}
       iconColor={rebaseRequired || staleApproval ? "amber" : "gray"}
       title={title}
