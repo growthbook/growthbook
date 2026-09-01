@@ -1,5 +1,5 @@
 import React from "react";
-import { date, datetime } from "shared/dates";
+import { date } from "shared/dates";
 import { COMBO_DIMENSION_LENGTH } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import DatePicker from "@/components/DatePicker";
@@ -13,6 +13,33 @@ export type CustomDimensionDraft = {
   cutoff?: Date;
   constituentIds: string[];
 };
+
+// DatePicker renders a `datetime-local` input, which always displays local
+// wall-clock time. These convert between the true instant and a display Date
+// whose *local* components read as the instant's *UTC* components, so the user
+// picks directly in UTC. Component-based rather than offset arithmetic so the
+// two stay exact inverses.
+export function utcInstantToPickerDate(instant: Date): Date {
+  return new Date(
+    instant.getUTCFullYear(),
+    instant.getUTCMonth(),
+    instant.getUTCDate(),
+    instant.getUTCHours(),
+    instant.getUTCMinutes(),
+  );
+}
+
+export function pickerDateToUtcInstant(picked: Date): Date {
+  return new Date(
+    Date.UTC(
+      picked.getFullYear(),
+      picked.getMonth(),
+      picked.getDate(),
+      picked.getHours(),
+      picked.getMinutes(),
+    ),
+  );
+}
 
 export function isCutoffWithinBounds(
   cutoff: Date,
@@ -61,28 +88,28 @@ export default function CustomDimensionFields({
     return (
       <div>
         <DatePicker
-          label="First exposure cutoff"
-          date={draft.cutoff}
-          setDate={(d) => setDraft({ ...draft, cutoff: d })}
-          precision="datetime"
-          disableBefore={cutoffMin}
-          disableAfter={cutoffMax}
-          // The input is a local-time picker, but results are labeled in UTC,
-          // so show the resolved UTC instant to remove the ambiguity
-          helpText={
-            draft.cutoff
-              ? `Splits units by whether they were first exposed before or after this time. Results are labeled in UTC: ${datetime(
-                  draft.cutoff,
-                  "UTC",
-                )} (UTC).`
-              : "Splits units by whether they were first exposed before or after this time. Entered in your local time; results are labeled in UTC."
+          label="First exposure cutoff (UTC)"
+          date={draft.cutoff ? utcInstantToPickerDate(draft.cutoff) : undefined}
+          setDate={(d) =>
+            setDraft({
+              ...draft,
+              cutoff: d ? pickerDateToUtcInstant(d) : undefined,
+            })
           }
+          precision="datetime"
+          disableBefore={
+            cutoffMin ? utcInstantToPickerDate(cutoffMin) : undefined
+          }
+          disableAfter={
+            cutoffMax ? utcInstantToPickerDate(cutoffMax) : undefined
+          }
+          helpText="Splits units by whether they were first exposed before or after this time, in UTC"
         />
         {outOfBounds && (
           <HelperText status="error">
             {`Cutoff must be within the experiment window (${
-              cutoffMin ? date(cutoffMin) : "start"
-            } – ${cutoffMax ? date(cutoffMax) : "now"}).`}
+              cutoffMin ? date(cutoffMin, "UTC") : "start"
+            } – ${cutoffMax ? date(cutoffMax, "UTC") : "now"}).`}
           </HelperText>
         )}
       </div>
