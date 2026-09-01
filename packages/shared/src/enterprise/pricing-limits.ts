@@ -2,8 +2,10 @@ import { z } from "zod";
 import { OrgLimits } from "./license-consts";
 import { FREE_ORG_LIMITS } from "./entitlements";
 
-// Value shape: { "enabled": true, ...OrgLimits }. Per-plan values can be
-// served later with targeting rules on the accountPlan attribute.
+// Value shape: { "enabled": true, ...OrgLimits }. Per-plan values are served
+// with targeting rules on the accountPlan attribute: the base value holds the
+// free tier's limits (also used for the creation-time stamp), and a rule
+// matching accountPlan in [pro, pro_sso] serves the pro tier's.
 export const PRICING_PHASE_1_FLAG_KEY = "pricing-phase-1-limits";
 
 export function isLimitsFlagDisabled(raw: unknown): boolean {
@@ -18,33 +20,41 @@ export function isLimitsFlagDisabled(raw: unknown): boolean {
 const maxProjectsSchema = z.number().int().nonnegative().nullable();
 const flagBoolSchema = z.boolean();
 
-// Per-field fallback to FREE_ORG_LIMITS so the stamp is always complete.
-export function resolveOrgLimitsConfig(raw: unknown): OrgLimits {
+// Per-field fallback so the resolved config is always complete. Pass the tier's
+// defaults as `fallback` when reading limits for a plan other than free.
+export function resolveOrgLimitsConfig(
+  raw: unknown,
+  fallback: OrgLimits = FREE_ORG_LIMITS,
+): OrgLimits {
   const obj =
     raw && typeof raw === "object" && !Array.isArray(raw)
       ? (raw as Record<string, unknown>)
       : {};
 
-  const pick = <T>(schema: z.ZodType<T>, value: unknown, fallback: T): T => {
+  const pick = <T>(
+    schema: z.ZodType<T>,
+    value: unknown,
+    defaultValue: T,
+  ): T => {
     const parsed = schema.safeParse(value);
-    return parsed.success ? parsed.data : fallback;
+    return parsed.success ? parsed.data : defaultValue;
   };
 
   return {
     maxProjects: pick(
       maxProjectsSchema,
       obj.maxProjects,
-      FREE_ORG_LIMITS.maxProjects ?? null,
+      fallback.maxProjects ?? null,
     ),
     customEnvironments: pick(
       flagBoolSchema,
       obj.customEnvironments,
-      FREE_ORG_LIMITS.customEnvironments ?? false,
+      fallback.customEnvironments ?? false,
     ),
     roleManagement: pick(
       flagBoolSchema,
       obj.roleManagement,
-      FREE_ORG_LIMITS.roleManagement ?? false,
+      fallback.roleManagement ?? false,
     ),
   };
 }

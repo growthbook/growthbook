@@ -1,5 +1,10 @@
 import { DEFAULT_ENVIRONMENT_IDS } from "../util";
-import { AccountPlan, OrgLimits } from "./license-consts";
+import {
+  AccountPlan,
+  CommercialFeature,
+  OrgLimits,
+  accountFeatures,
+} from "./license-consts";
 
 export const FREE_ORG_LIMITS: OrgLimits = {
   maxProjects: 1,
@@ -7,29 +12,78 @@ export const FREE_ORG_LIMITS: OrgLimits = {
   roleManagement: false,
 };
 
-type LimitsInput = {
-  effectivePlan: AccountPlan;
-  orgLimits?: OrgLimits;
-  licenseLimits?: OrgLimits;
+export const PRO_ORG_LIMITS: OrgLimits = {
+  maxProjects: 3,
+  customEnvironments: false,
+  roleManagement: true,
 };
 
-// Free plans read the org's own snapshot; paid plans read the license's.
+// The tiers that carry plan limits. Enterprise is absent on purpose: it is
+// never subject to them (see planTierFor).
+export type LimitedPlanTier = "free" | "pro";
+
+export const DEFAULT_ORG_LIMITS: Record<LimitedPlanTier, OrgLimits> = {
+  free: FREE_ORG_LIMITS,
+  pro: PRO_ORG_LIMITS,
+};
+
+export function planTierFor(plan: AccountPlan): LimitedPlanTier | null {
+  if (plan === "oss" || plan === "starter") return "free";
+  if (plan === "pro" || plan === "pro_sso") return "pro";
+  return null;
+}
+
+type LimitsInput = {
+  effectivePlan: AccountPlan;
+  // Stamped at org creation. Its absence is the grandfathering signal: orgs
+  // created before pricing limits shipped have no stamp and stay unlimited.
+  orgLimits?: OrgLimits;
+  licenseLimits?: OrgLimits;
+  // Live per-plan config (flag-resolved) for tiers whose limits can't be
+  // stamped at creation because the plan is bought later. Falls back to
+  // DEFAULT_ORG_LIMITS.
+  planLimits?: OrgLimits;
+};
+
+function planAllows(
+  { effectivePlan }: LimitsInput,
+  feature: CommercialFeature,
+): boolean {
+  return accountFeatures[effectivePlan]?.has(feature) ?? false;
+}
+
 function resolve({
   effectivePlan,
   orgLimits,
   licenseLimits,
+  planLimits,
 }: LimitsInput): OrgLimits | null {
+  // Free plans read their own snapshot; it is both the stamp and the limit.
   if (effectivePlan === "oss" || effectivePlan === "starter") {
     return orgLimits ?? null;
   }
-  return licenseLimits ?? null;
+
+  // A license that carries an explicit snapshot always wins on paid plans.
+  if (licenseLimits) return licenseLimits;
+
+  // Grandfathered: never stamped, so never limited on any plan.
+  if (!orgLimits) return null;
+
+  const tier = planTierFor(effectivePlan);
+  if (!tier) return null;
+
+  // The stamp holds free-tier values, so a stamped org that upgraded reads its
+  // new tier's limits rather than the ones frozen at creation.
+  return planLimits ?? DEFAULT_ORG_LIMITS[tier];
 }
 
 function getMaxProjects(input: LimitsInput): number | null {
+  if (planAllows(input, "unlimited-projects")) return null;
   return resolve(input)?.maxProjects ?? null;
 }
 
 function supportsCustomEnvironments(input: LimitsInput): boolean {
+  if (planAllows(input, "custom-environments")) return true;
   const limits = resolve(input);
   if (!limits) return true;
   return limits.customEnvironments !== false;
@@ -41,6 +95,7 @@ function isEnvironmentIdAllowed(input: LimitsInput, envId: string): boolean {
 }
 
 function orgSupportsRoles(input: LimitsInput): boolean {
+  if (planAllows(input, "role-management")) return true;
   const limits = resolve(input);
   if (!limits) return true;
   return limits.roleManagement !== false;

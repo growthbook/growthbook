@@ -17,7 +17,10 @@ import {
   LicenseMetaData,
   LicenseUserCodes,
   makeOrgLimits,
+  DEFAULT_ORG_LIMITS,
+  OrgLimits,
   OrgLimitsAccessor,
+  planTierFor,
   SubscriptionInfo,
 } from "shared/enterprise";
 import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
@@ -1061,15 +1064,21 @@ export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
 }
 
 // Raw plan limits only — does NOT honor the pricing-limits flag's kill switch.
-// Enforcement paths must use getEffectiveOrgLimits (services/plan-limits.ts).
+// Enforcement paths must use getEffectiveOrgLimits (services/plan-limits.ts),
+// which passes the flag-resolved config as `planLimitsOverride`.
 export function getOrgLimits(
   org: MinimalOrganization & Pick<OrganizationInterface, "limits">,
+  planLimitsOverride?: OrgLimits,
 ): OrgLimitsAccessor {
+  const effectivePlan = getEffectiveAccountPlan(org);
+  const tier = planTierFor(effectivePlan);
   return makeOrgLimits({
-    effectivePlan: getEffectiveAccountPlan(org),
+    effectivePlan,
     orgLimits: org.limits,
     licenseLimits: getLicense(org.licenseKey || process.env.LICENSE_KEY)
       ?.limits,
+    planLimits:
+      planLimitsOverride ?? (tier ? DEFAULT_ORG_LIMITS[tier] : undefined),
   });
 }
 
