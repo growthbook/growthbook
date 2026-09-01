@@ -12,15 +12,20 @@ import {
 } from "shared/types/feature-revision";
 import {
   castFeatureValue,
+  expandSparseToFull,
+  getFeatureBaseConfigKey,
   getReviewSetting,
   isManagedByExperiment,
   naiveFlattenV1Rules,
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
   validateFeatureValue,
 } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { useEffect, useMemo, useRef, useState } from "react";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ValueTypeField from "@/components/Features/FeatureModal/ValueTypeField";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -204,6 +209,16 @@ function ManagedTrafficForm({
   // Formatted at seed time, not on save: a value stored compact opens in the
   // multiline editor already expanded, and the dirty baseline is captured from
   // this same state, so formatting alone never reads as an edit.
+  // Sparse patch mode for this feature's experiment-ref rule, mirroring the
+  // linked-feature editor: eligible only while the flag stays JSON with a plain
+  // object default, and forced on for a config-backed flag, whose arm values
+  // always merge onto the resolved config.
+  const isConfigBacked = !!feature && getFeatureBaseConfigKey(feature) !== null;
+  const [sparse, setSparse] = useState(
+    (targetFeature?.pendingDraft?.sparse ?? !!targetFeature?.sparse) ||
+      (!!feature && isConfigBacked),
+  );
+
   const [featureValues, setFeatureValues] = useState<Record<string, string>>(
     () =>
       Object.fromEntries(
@@ -323,6 +338,11 @@ function ManagedTrafficForm({
     targetFeature.draftRevisionVersion != null;
 
   const typeChanged = !!feature && valueType !== feature.valueType;
+  const sparseEligible =
+    !!feature &&
+    feature.valueType === "json" &&
+    valueType === "json" &&
+    parsePlainJSONObject(feature.defaultValue ?? "") !== null;
 
   // Re-express what is already there rather than clearing it.
   const handleValueTypeChange = (next: FeatureValueType) => {
@@ -400,7 +420,7 @@ function ManagedTrafficForm({
   if (openedWith.current === null) {
     openedWith.current = {
       core: JSON.stringify(coreOf(form.getValues())),
-      values: JSON.stringify({ valueType, featureValues }),
+      values: JSON.stringify({ valueType, sparse, featureValues }),
     };
   }
 
@@ -416,7 +436,7 @@ function ManagedTrafficForm({
   const valuesDirty =
     adopting ||
     (!!feature &&
-      JSON.stringify({ valueType, featureValues }) !==
+      JSON.stringify({ valueType, sparse, featureValues }) !==
         openedWith.current.values);
 
   // `gatedEnvSet` resolves the review rules for the project this flag is (or
@@ -429,6 +449,33 @@ function ManagedTrafficForm({
       : experimentDirty
         ? "Save & Request Approval"
         : "Request Approval";
+
+  // Toggling rewrites every value so the editor is never left with a
+  // default-laden patch (on) or a bare patch shown as a whole value (off) —
+  // the same conversion the Feature Flag rule editors run.
+  const sparseToggle =
+    sparseEligible && !isConfigBacked && canEditValues ? (
+      <Flex mt="3">
+        <SparsePatchToggle
+          checked={sparse}
+          disabled={!editingValues && !adopting}
+          onChange={(checked) => {
+            const def = feature?.defaultValue ?? "";
+            setFeatureValues((prev) =>
+              Object.fromEntries(
+                Object.entries(prev).map(([id, v]) => [
+                  id,
+                  checked
+                    ? stripDefaultsForSparse(v, def)
+                    : expandSparseToFull(v, def),
+                ]),
+              ),
+            );
+            setSparse(checked);
+          }}
+        />
+      </Flex>
+    ) : null;
 
   const coverageTooltip = isManaged
     ? null
@@ -544,6 +591,7 @@ function ManagedTrafficForm({
                 index: i,
               }),
           })),
+          ...(sparse ? { sparse: true } : {}),
           ...(manualKey ? { featureId: manualKey } : {}),
           ...(renameTo && !manualKey ? { trackingKey: renameTo } : {}),
         }),
@@ -578,6 +626,7 @@ function ManagedTrafficForm({
           features: {
             [feature.id]: {
               variations: values,
+              ...(sparseEligible && { sparse }),
               ...(typeChanged && { valueType }),
               revisionOptions:
                 mode === "existing" && selectedDraft != null
@@ -759,22 +808,26 @@ function ManagedTrafficForm({
                   ) : null}
                 </Box>
               ) : isManaged || !feature ? (
-                <Box mb="3" width="200px">
-                  <ValueTypeField
-                    size="md"
-                    value={valueType}
-                    order={VALUE_TYPE_ORDER}
-                    onChange={(v) => {
-                      if (v !== "config" && canEditValues)
-                        handleValueTypeChange(v);
-                    }}
-                  />
+                <Box mb="3">
+                  <Box width="200px">
+                    <ValueTypeField
+                      size="md"
+                      value={valueType}
+                      order={VALUE_TYPE_ORDER}
+                      onChange={(v) => {
+                        if (v !== "config" && canEditValues)
+                          handleValueTypeChange(v);
+                      }}
+                    />
+                  </Box>
+                  {sparseToggle}
                 </Box>
               ) : (
                 // A flag the experiment doesn't own: name it, since the values
                 // below belong to it rather than to this experiment.
                 <Box mb="3">
                   <LinkedFeatureLabel featureId={feature.id} />
+                  {sparseToggle}
                 </Box>
               )
             }
@@ -803,7 +856,7 @@ function ManagedTrafficForm({
             constantContext={
               feature ? undefined : { project: experiment.project || undefined }
             }
-            sparse={targetFeature?.sparse}
+            sparse={sparse}
           />
         ) : (
           <FeatureVariationsInput {...sharedVariationProps} />
