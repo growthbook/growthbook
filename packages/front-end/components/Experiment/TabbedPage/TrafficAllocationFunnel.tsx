@@ -14,7 +14,7 @@ import {
   filterEnvironmentsByExperiment,
   isManagedByExperiment,
 } from "shared/util";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton, Separator } from "@radix-ui/themes";
 import {
   PiCaretDownBold,
   PiCheckCircleFill,
@@ -38,6 +38,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
+import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperimentEnvironmentsModal";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
@@ -257,6 +258,12 @@ export default function TrafficAllocationFunnel({
     isManagedByExperiment(servedValueFeature.feature, experiment.id)
       ? servedValueFeature.feature
       : null;
+  // Staging the change is edit-class; the server re-checks it.
+  const canEditEnvironments =
+    !!servedValueFeature &&
+    safeToEdit &&
+    canEditExperiment &&
+    permissionsUtil.canEditFeatureDrafts(servedValueFeature.feature);
   const canEject =
     !!managedFeature &&
     canEditExperiment &&
@@ -264,6 +271,7 @@ export default function TrafficAllocationFunnel({
       managedFeature,
       getEnabledEnvironments(managedFeature, allEnvironments),
     );
+  const [editEnvironments, setEditEnvironments] = useState(false);
   const [ejectConfirm, setEjectConfirm] = useState(false);
   const [ejecting, setEjecting] = useState(false);
   const handleEject = async () => {
@@ -297,11 +305,12 @@ export default function TrafficAllocationFunnel({
   const envStateSource = preferDraft
     ? servedValueFeature?.pendingDraft
     : liveRule && { environmentStates: liveRule.liveEnvironmentStates };
-  const environmentStates = getEnvironmentStates(
-    envStateSource || { environmentStates: {} },
-  );
   const environmentsAreDraft =
     preferDraft && !!servedValueFeature?.pendingDraft;
+  const environmentStates = getEnvironmentStates(
+    envStateSource || { environmentStates: {} },
+    { future: environmentsAreDraft },
+  );
 
   // "Everyone" has to mean everyone. A rule scoped to a subset of the
   // environments this experiment is allowed to run in is a restriction, even
@@ -350,6 +359,14 @@ export default function TrafficAllocationFunnel({
 
   return (
     <Frame>
+      {editEnvironments && servedValueFeature && (
+        <EditExperimentEnvironmentsModal
+          experiment={experiment}
+          info={servedValueFeature}
+          close={() => setEditEnvironments(false)}
+          mutate={() => mutate?.()}
+        />
+      )}
       {ejectConfirm && (
         <ConfirmDialog
           title="Switch to manual implementation?"
@@ -485,6 +502,11 @@ export default function TrafficAllocationFunnel({
               ) : null}
               {environmentStates.length > 0 ? (
                 <div>
+                  <Separator
+                    size="4"
+                    mb="3"
+                    style={{ background: "var(--slate-a3)" }}
+                  />
                   <Flex align="center" gap="1" mb="2">
                     {environmentsAreDraft && (
                       <UnpublishedDot tooltip="Unpublished draft targeting" />
@@ -492,6 +514,19 @@ export default function TrafficAllocationFunnel({
                     <Text as="div" color="text-high" weight="semibold">
                       Environments
                     </Text>
+                    <Box flexGrow="1" />
+                    {canEditEnvironments ? (
+                      <IconButton
+                        variant="ghost"
+                        color="violet"
+                        radius="full"
+                        size="2"
+                        onClick={() => setEditEnvironments(true)}
+                        aria-label="Edit environments"
+                      >
+                        <PiPencilSimpleFill size="16" />
+                      </IconButton>
+                    ) : null}
                   </Flex>
                   <Flex gap="4" wrap="wrap">
                     {environmentStates.map(({ env, isActive, tooltip }) => (

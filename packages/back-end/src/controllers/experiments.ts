@@ -194,6 +194,7 @@ import {
 import {
   ExperimentLinkedFeatureValueUpdate,
   updateExperimentRefVariations,
+  updateExperimentRuleEnvironments,
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
 } from "back-end/src/services/experiment-feature";
@@ -4640,6 +4641,51 @@ export async function postExperimentFeatureValues(
     status: 200,
     experiment: experimentForResponse,
   });
+}
+
+export async function postExperimentLinkedFeatureEnvironments(
+  req: AuthRequest<
+    {
+      allEnvironments: boolean;
+      environments?: string[];
+      targetVersion?: number;
+    },
+    { id: string; featureId: string }
+  >,
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
+) {
+  const context = getContextFromReq(req);
+  const { id, featureId } = req.params;
+  const { allEnvironments, environments = [], targetVersion } = req.body;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  const feature = await getFeature(context, featureId);
+  if (!feature) {
+    throw new NotFoundError("Feature not found");
+  }
+
+  // Nothing reaches the payload until the draft publishes, so this is
+  // edit-class. `updateExperimentRuleEnvironments` re-checks feature-side draft
+  // rights itself.
+  const { version } = await updateExperimentRuleEnvironments({
+    context,
+    experiment,
+    feature,
+    allEnvironments,
+    environments,
+    targetVersion,
+    eventAudit: res.locals.eventAudit,
+  });
+
+  res.status(200).json({ status: 200, version });
 }
 
 export async function deleteExperimentLinkedFeature(

@@ -18,14 +18,13 @@ import {
   validateFeatureValue,
 } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
-import { FaRegFlag } from "react-icons/fa";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PiArrowSquareOut } from "react-icons/pi";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ValueTypeField from "@/components/Features/FeatureModal/ValueTypeField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import LinkedFeatureLabel from "@/components/Experiment/LinkedFeatureLabel";
 import DraftSelectorDropdown, {
   DraftMode,
 } from "@/components/Features/DraftSelectorDropdown";
@@ -38,7 +37,6 @@ import Callout from "@/ui/Callout";
 import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
-import Avatar from "@/ui/Avatar";
 import track from "@/services/track";
 import EditTrafficModal from "./EditTrafficModal";
 import ExperimentManagedFeatureVariationEditor from "./ExperimentManagedFeatureVariationEditor";
@@ -769,28 +767,7 @@ function ManagedTrafficForm({
                 // A flag the experiment doesn't own: name it, since the values
                 // below belong to it rather than to this experiment.
                 <Box mb="3">
-                  <Flex align="center" justify="between" gap="3">
-                    <Flex align="center" gap="3">
-                      <Avatar
-                        radius="small"
-                        color="indigo"
-                        size="sm"
-                        variant="soft"
-                      >
-                        <FaRegFlag />
-                      </Avatar>
-                      <Link
-                        href={`/features/${feature.id}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        size="md"
-                        weight="medium"
-                      >
-                        {feature.id}
-                        <PiArrowSquareOut className="ml-2" />
-                      </Link>
-                    </Flex>
-                  </Flex>
+                  <LinkedFeatureLabel featureId={feature.id} />
                 </Box>
               )
             }

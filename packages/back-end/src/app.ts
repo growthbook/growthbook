@@ -1029,6 +1029,10 @@ app.delete(
   "/experiment/:id/linked-feature/:featureId",
   experimentsController.deleteExperimentLinkedFeature,
 );
+app.post(
+  "/experiment/:id/linked-feature/:featureId/environments",
+  experimentsController.postExperimentLinkedFeatureEnvironments,
+);
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/title", featuresController.putRevisionTitle);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);

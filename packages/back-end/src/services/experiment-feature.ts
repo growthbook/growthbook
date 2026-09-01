@@ -41,6 +41,7 @@ import {
 } from "back-end/src/models/FeatureModel";
 import {
   discardRevision,
+  getActiveDraft,
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -1150,4 +1151,120 @@ export async function publishPendingFeatureDraftsForContextualBandit(
   }
 
   return { published, failed };
+}
+
+/**
+ * Re-scopes this experiment's rule on a linked flag, staged on the flag's draft.
+ *
+ * Enablement follows the scope one way, exactly as linking does: an environment
+ * entering the rule's footprint is switched on if it was off, but one leaving
+ * the footprint only loses the rule — the flag stays enabled wherever it already
+ * was, because other rules may depend on it.
+ */
+export async function updateExperimentRuleEnvironments({
+  context,
+  experiment,
+  feature,
+  allEnvironments,
+  environments: selected,
+  targetVersion,
+  eventAudit,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  feature: FeatureInterface;
+  allEnvironments: boolean;
+  environments: string[];
+  /** Draft to stage onto. Omit to use the open draft, or start a new one. */
+  targetVersion?: number;
+  eventAudit: EventUser;
+}): Promise<{ version: number }> {
+  const { org, environments } = context;
+
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const scopedEnvironments = allEnvironments
+    ? environments
+    : selected.filter((e) => environments.includes(e));
+
+  // `getDraftRevision` branches on the live version to start a fresh draft, so
+  // it covers both "this named draft" and "a new one" without a second path.
+  const revision =
+    targetVersion !== undefined
+      ? await getDraftRevision(context, feature, targetVersion)
+      : ((await getActiveDraft(context, feature)) ??
+        (await getDraftRevision(context, feature, feature.version)));
+
+  let matched = false;
+  const nextRules = cloneDeep(revision.rules ?? []).map((rule) => {
+    if (rule.type !== "experiment-ref" || rule.experimentId !== experiment.id) {
+      return rule;
+    }
+    matched = true;
+    // allEnvironments:true strips any stale environments[], mirroring how the
+    // rule is scoped when it is first linked.
+    return allEnvironments
+      ? { ...omit(rule, ["environments"]), allEnvironments: true }
+      : { ...rule, allEnvironments: false, environments: scopedEnvironments };
+  });
+
+  if (!matched) {
+    throw new Error(
+      `No experiment rule found on "${feature.id}" to re-scope. It may have been removed.`,
+    );
+  }
+
+  const baseEnvEnabled: Record<string, boolean> = {
+    ...Object.fromEntries(
+      environments.map((e) => [
+        e,
+        feature.environmentSettings?.[e]?.enabled ?? false,
+      ]),
+    ),
+    ...(revision.environmentsEnabled ?? {}),
+  };
+  const envToggles: Record<string, boolean> = {};
+  for (const envId of scopedEnvironments) {
+    if (!baseEnvEnabled[envId]) envToggles[envId] = true;
+  }
+
+  const changes: Partial<FeatureRevisionInterface> = { rules: nextRules };
+  if (Object.keys(envToggles).length > 0) {
+    changes.environmentsEnabled = {
+      ...(revision.environmentsEnabled ?? {}),
+      ...envToggles,
+    };
+  }
+
+  const updated = await updateRevision(
+    context,
+    feature,
+    revision,
+    changes,
+    {
+      user: eventAudit,
+      action: "update experiment environments",
+      subject: allEnvironments
+        ? "to all environments"
+        : `to ${scopedEnvironments.join(", ") || "no environments"}`,
+      value: JSON.stringify({
+        allEnvironments,
+        environments: scopedEnvironments,
+      }),
+    },
+    resetReviewOnChange({
+      feature,
+      changedEnvironments: scopedEnvironments,
+      defaultValueChanged: false,
+      settings: org?.settings,
+    }),
+  );
+
+  if (!updated) {
+    throw new Error(`Could not stage environment changes on "${feature.id}"`);
+  }
+
+  return { version: updated.version };
 }

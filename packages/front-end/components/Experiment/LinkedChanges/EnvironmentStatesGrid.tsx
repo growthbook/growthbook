@@ -23,21 +23,34 @@ export type EnvironmentState = {
  * environment toggle AND the rule's own presence and enablement. Shared so
  * every surface explains a given state with the same words.
  */
-export function getEnvironmentStates(source: {
-  environmentStates?: Record<string, LinkedFeatureEnvState>;
-}): EnvironmentState[] {
+export function getEnvironmentStates(
+  source: {
+    environmentStates?: Record<string, LinkedFeatureEnvState>;
+  },
+  // Describing an unpublished draft: nothing here has happened yet, so the copy
+  // has to say what publishing would do rather than what is true now.
+  { future = false }: { future?: boolean } = {},
+): EnvironmentState[] {
   return Object.entries(source.environmentStates || {}).map(([env, state]) => ({
     env,
     state,
     isActive: state === "active",
     tooltip:
       state === "active"
-        ? "The experiment is active in this environment"
+        ? future
+          ? "The experiment will be active in this environment"
+          : "The experiment is active in this environment"
         : state === "disabled-env"
-          ? "The environment is disabled for this feature, so the experiment is not active"
+          ? future
+            ? "The environment will be disabled for this feature, so the experiment will not be active"
+            : "The environment is disabled for this feature, so the experiment is not active"
           : state === "disabled-rule"
-            ? "The experiment is disabled in this environment and is not active"
-            : "The experiment is not present in this environment",
+            ? future
+              ? "The experiment will be disabled in this environment and will not be active"
+              : "The experiment is disabled in this environment and is not active"
+            : future
+              ? "The experiment will not be present in this environment"
+              : "The experiment is not present in this environment",
   }));
 }
 
