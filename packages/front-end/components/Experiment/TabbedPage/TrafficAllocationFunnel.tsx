@@ -666,7 +666,7 @@ export default function TrafficAllocationFunnel({
               // One offer for the whole set; values are authored together.
               <Flex justify="center" mt="3">
                 <Link onClick={addVariationValues} weight="medium">
-                  <PiPlus className="mr-1" />
+                  <PiPlus style={{ marginRight: "var(--space-1)" }} />
                   Add variation values
                 </Link>
               </Flex>

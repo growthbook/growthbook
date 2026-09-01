@@ -677,7 +677,7 @@ function ManagedTrafficForm({
                           <Box>
                             A Feature Flag named{" "}
                             <strong>{keyPlan.derivedId}</strong> already exists,
-                            so it can&apos;t match this Experiment&apos;s key.
+                            so it can&apos;t match this experiment&apos;s key.
                           </Box>
                           <Flex align="center" gap="3" mt="2" wrap="wrap">
                             {keyPlan.suggestedPair && (
@@ -768,7 +768,9 @@ function ManagedTrafficForm({
                 </Box>
               )
             }
-            valueLabel={isManaged || adopting ? undefined : "Feature Value"}
+            valueLabel={
+              isManaged || adopting ? undefined : "Feature Flag value"
+            }
             hideFeatureValue={!valuesShown}
             onAddValues={canAdopt && !adopting ? startAdopting : undefined}
             valueDisabled={!editingValues && !adopting}
