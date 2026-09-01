@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
@@ -121,6 +121,11 @@ function ScreenshotTile({
  * Grid of a variation's screenshots: reorder by dragging, remove on hover, and
  * add more. Uploads land immediately (they are file writes); order and removals
  * ride along with the form's own save.
+ *
+ * That asymmetry is deliberate rather than perfect: cancelling the form will
+ * not undo an upload, and a removed screenshot's file is left in storage. Both
+ * match how uploads already behaved elsewhere, and neither is worth the
+ * bookkeeping to tidy up here.
  */
 export default function VariationScreenshotManager({
   experiment,
@@ -142,16 +147,20 @@ export default function VariationScreenshotManager({
     }),
     useSensor(KeyboardSensor, {}),
   );
-  // The viewer reads the experiment's saved screenshots, so it is addressed by
-  // index into those rather than into this component's staged list.
+  // The viewer derives its list from the experiment, which still holds what was
+  // saved. Hand it the staged screenshots instead, so a reorder, a removal or a
+  // just-uploaded image is what actually opens.
   const variation = experiment.variations[variationIndex];
+  const stagedExperiment = useMemo(
+    () => ({
+      ...experiment,
+      variations: experiment.variations.map((v, i) =>
+        i === variationIndex ? { ...v, screenshots } : v,
+      ),
+    }),
+    [experiment, variationIndex, screenshots],
+  );
   const [lightbox, setLightbox] = useState<number | null>(null);
-  const openLightbox = (screenshot: Screenshot) => {
-    const i = (variation?.screenshots ?? []).findIndex(
-      (s) => s.path === screenshot.path,
-    );
-    setLightbox(Math.max(0, i));
-  };
 
   return (
     <Box>
@@ -199,11 +208,11 @@ export default function VariationScreenshotManager({
                 <span className={styles.uploadHint}>Upload image</span>
               </Flex>
             </ScreenshotUpload>
-            {screenshots.map((s) => (
+            {screenshots.map((s, i) => (
               <ScreenshotTile
                 key={s.path}
                 screenshot={s}
-                onOpen={() => openLightbox(s)}
+                onOpen={() => setLightbox(i)}
                 onDelete={() =>
                   setScreenshots(
                     screenshots.filter((other) => other.path !== s.path),
@@ -216,7 +225,7 @@ export default function VariationScreenshotManager({
       </DndContext>
       {lightbox !== null && variation ? (
         <ExperimentCarouselModal
-          experiment={experiment}
+          experiment={stagedExperiment}
           currentVariation={variation.id}
           currentScreenshot={lightbox}
           imageCache={imageCache}

@@ -808,10 +808,6 @@ app.put(
   "/experiment/:id/variation/:variation/screenshot",
   experimentsController.addScreenshot,
 );
-app.delete(
-  "/experiment/:id/variation/:variation/screenshot",
-  experimentsController.deleteScreenshot,
-);
 app.post(
   "/experiment/:id/archive",
   experimentsController.postExperimentArchive,

@@ -3832,81 +3832,11 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   return;
 }
 
-export async function deleteScreenshot(
-  req: AuthRequest<{ url: string }, { id: string; variation: number }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const { org } = context;
-  const { id, variation } = req.params;
-  const { url } = req.body;
-  const changes: Changeset = {};
-
-  const experiment = await getExperimentById(context, id);
-
-  if (!experiment) {
-    res.status(403).json({
-      status: 404,
-      message: "Experiment not found",
-    });
-    return;
-  }
-
-  if (experiment.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
-    });
-    return;
-  }
-
-  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
-    context.permissions.throwPermissionError();
-  }
-
-  if (!experiment.variations[variation]) {
-    res.status(404).json({
-      status: 404,
-      message: "Unknown variation " + variation,
-    });
-    return;
-  }
-
-  changes.variations = cloneDeep(experiment.variations);
-
-  // TODO: delete from s3 as well?
-  changes.variations[variation].screenshots = changes.variations[
-    variation
-  ].screenshots.filter((s) => s.path !== url);
-  await validateExperimentChange({ context, experiment, changes });
-  const updated = await updateExperiment({
-    context,
-    experiment,
-    changes,
-  });
-
-  await req.audit({
-    event: "experiment.screenshot.delete",
-    entity: {
-      object: "experiment",
-      id: experiment.id,
-    },
-    details: auditDetailsUpdate(
-      experiment.variations[variation].screenshots,
-      updated?.variations[variation].screenshots,
-      { variation },
-    ),
-  });
-
-  res.status(200).json({
-    status: 200,
-  });
-}
-
 type AddScreenshotRequestBody = {
   url: string;
   description?: string;
 };
+
 export async function addScreenshot(
   req: AuthRequest<AddScreenshotRequestBody, { id: string; variation: number }>,
   res: Response,

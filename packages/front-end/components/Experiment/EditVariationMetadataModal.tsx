@@ -69,6 +69,10 @@ const EditVariationMetadataModal: FC<Props> = ({
             : v,
         );
 
+        // Last write wins on the whole variations array, so a screenshot added
+        // elsewhere while this modal was open is dropped. Deliberately not
+        // guarded: this is one person editing one variation's metadata, and a
+        // merge here would cost more than the race is worth.
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify({ variations: updatedVariations }),

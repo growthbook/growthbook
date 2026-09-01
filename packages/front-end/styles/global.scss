@@ -2589,23 +2589,36 @@ li.metrics a span img {
   object-position: 50% 50%;
 }
 .carousel {
+  // Bootstrap's controls, restyled to sit with the Radix surfaces around them:
+  // a translucent slate chip that darkens on hover, rather than a flat gray
+  // circle at fixed opacity.
   .carousel-control-next,
   .carousel-control-prev {
     background-color: transparent !important;
-    opacity: 0.6;
+    opacity: 1;
   }
   .carousel-control-next-icon,
   .carousel-control-prev-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 50px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
     background-image: none;
-    background-color: colors.$gray-600;
-    color: #fff;
-    font-size: 18px;
+    background-color: var(--slate-a5);
+    color: var(--slate-12);
+    font-size: 16px;
+    transition:
+      background-color 100ms ease,
+      color 100ms ease;
+  }
+  .carousel-control-next:hover,
+  .carousel-control-prev:hover {
+    .carousel-control-next-icon,
+    .carousel-control-prev-icon {
+      background-color: var(--slate-a7);
+    }
   }
   .carousel-inner {
     overflow: visible;
