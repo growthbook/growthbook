@@ -1,6 +1,7 @@
 import { NULL_DIMENSION_VALUE } from "shared/constants";
 import type { Dimension, DimensionColumnData } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
+import { concatSql } from "back-end/src/integrations/sql/primitives/concat";
 
 export function getDimensionCol(
   dialect: SqlDialect,
@@ -48,7 +49,9 @@ export function getDimensionCol(
     // The alias must not start with "dim_exp_", which gbstats treats as
     // post-stratification strata columns
     case "combo": {
-      const parts = dimension.dimensions.map((constituent) => {
+      const parts: string[] = [];
+      for (const constituent of dimension.dimensions) {
+        if (parts.length) parts.push(`' & '`);
         const name =
           constituent.type === "experiment"
             ? constituent.id
@@ -57,10 +60,10 @@ export function getDimensionCol(
         const col = `COALESCE(${dialect.castToString(
           getDimensionCol(dialect, constituent).alias,
         )}, '${NULL_DIMENSION_VALUE}')`;
-        return `'${dialect.escapeStringLiteral(name)}: ', ${col}`;
-      });
+        parts.push(`'${dialect.escapeStringLiteral(name)}: '`, col);
+      }
       return {
-        value: `CONCAT(${parts.join(", ' & ', ")})`,
+        value: concatSql(...parts),
         alias: "dim_combo",
       };
     }

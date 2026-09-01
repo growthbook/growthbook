@@ -1970,8 +1970,10 @@ describe("custom dimensions (cutoff & combo) - bigquery", () => {
     expect(sql).toContain("dim_exp_country");
     expect(sql).toContain("__dim_unit_dim_u1");
 
-    // The analysis column is the labeled concat, not the constituents
+    // The analysis column is the labeled concat, not the constituents.
+    // Nested binary CONCAT — Redshift/Vertica/Presto reject 3+ arguments.
     expect(sql).toContain("AS dim_combo");
+    expect(sql).toMatch(/CONCAT\(\s*CONCAT\(/);
     expect(sql).toMatch(/CONCAT\(\s*'country: ',\s*COALESCE\(/);
     expect(sql).toContain("' & '");
     expect(sql).toContain("'Browser: '");
