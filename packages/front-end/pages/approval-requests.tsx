@@ -1,8 +1,15 @@
+import { ANY_REVIEW_FOOTPRINT } from "shared/util";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { datetime } from "shared/dates";
-import { Revision, RevisionStatus } from "shared/enterprise";
+import {
+  Revision,
+  RevisionStatus,
+  getRevisionKey,
+  isInReviewCycle,
+} from "shared/enterprise";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { FeatureMetaInfo } from "shared/types/feature";
 import Link from "next/link";
@@ -95,6 +102,7 @@ type ScopeValue = "needs-my-review" | "my-requests" | "all";
 function getEntityTypeLabel(entityType: string): string {
   const labels: Record<string, string> = {
     "saved-group": "Saved Group",
+    constant: "Constant",
     feature: "Feature",
     "sdk-connection": "SDK Connection",
   };
@@ -159,21 +167,32 @@ function renderApprovalStatus(status: RevisionStatus) {
 }
 
 function revisionToRow(revision: Revision): ApprovalRow {
-  let entityName: string;
-  let projects: string[];
-  let url: string;
+  const entityName =
+    revision.target.type === "saved-group"
+      ? revision.target.snapshot?.groupName || revision.target.id
+      : revision.target.type === "sdk-connection"
+        ? revision.target.snapshot?.sdkConnection?.name || revision.target.id
+        : revision.target.id;
 
-  if (revision.target.type === "saved-group") {
-    entityName = revision.target.snapshot?.groupName || revision.target.id;
-    projects = revision.target.snapshot?.projects ?? [];
-    url = buildSavedGroupRevisionUrl(revision.target.id, revision);
-  } else {
-    // sdk-connection (and any future entity types added to the union)
-    entityName =
-      revision.target.snapshot?.sdkConnection?.name || revision.target.id;
-    projects = revision.target.snapshot?.sdkConnection?.projects ?? [];
-    url = buildSDKConnectionRevisionUrl(revision.target.id, revision);
-  }
+  // Saved Groups carry `projects[]`; Configs and Constants a scalar `project`;
+  // SDK connections nest theirs under the composite snapshot's `sdkConnection`.
+  // Reading only the array left the scalar entities with no project, so a
+  // project-filtered "needs my review" view dropped them entirely.
+  const snapshot = revision.target.snapshot as
+    | {
+        projects?: string[];
+        project?: string;
+        sdkConnection?: { projects?: string[] };
+      }
+    | undefined;
+  const projects =
+    revision.target.type === "saved-group"
+      ? (snapshot?.projects ?? [])
+      : revision.target.type === "sdk-connection"
+        ? (snapshot?.sdkConnection?.projects ?? [])
+        : snapshot?.project
+          ? [snapshot.project]
+          : [];
 
   return {
     id: revision.id,
@@ -185,9 +204,27 @@ function revisionToRow(revision: Revision): ApprovalRow {
     authorDisplay: "",
     status: revision.status,
     dateCreated: new Date(revision.dateCreated).getTime(),
-    url,
+    url: buildRevisionUrl(revision),
     projects,
   };
+}
+
+// Build the detail-page URL for a revision based on its entity type. The
+// revision key doubles as the route segment (saved-group → /saved-groups,
+// constant → /constants).
+function buildRevisionUrl(revision: Revision): string {
+  if (revision.target.type === "saved-group") {
+    return buildSavedGroupRevisionUrl(revision.target.id, revision);
+  }
+  // SDK connections live at /sdks/:id, not at the generic entity-key route.
+  if (revision.target.type === "sdk-connection") {
+    return buildSDKConnectionRevisionUrl(revision.target.id, revision);
+  }
+  const key = getRevisionKey(revision.target.type);
+  const base = `/${key ?? revision.target.type}/${revision.target.id}`;
+  return (revision.version ?? null) !== null
+    ? `${base}?v=${revision.version}`
+    : base;
 }
 
 function featureRevisionToRow(
@@ -351,22 +388,30 @@ const ApprovalRequests: FC = () => {
     return items.filter((item) => allowed.has(item.status));
   }, [items, hasExplicitStatusFilter]);
 
-  // Per-row "can I act on this as a reviewer?" check. Mirrors the rules used
-  // elsewhere: `canReview` permission on the feature's project for feature
-  // revisions, and "can edit = can review" (canUpdateSavedGroup) for
-  // saved-group revisions — matching canUserReviewEntity in
-  // shared/src/revisions/helpers.ts.
+  // Per-row "can I act on this as a reviewer?" check. Reviewing is its own
+  // authority for every model, so each row asks the same question of its own
+  // family's review atom. Constants and Configs previously fell through to
+  // `false`, hiding their rows from every reviewer.
   const canReviewRow = useCallback(
     (row: ApprovalRow): boolean => {
       if (row.entityType === "feature") {
-        return permissionsUtil.canReviewFeatureDrafts({
-          project: row.projects[0] ?? "",
-        });
+        // "any" on purpose: this gates visibility, not approval. Hiding a draft
+        // is worse than showing one you cannot fully approve.
+        return permissionsUtil.canReviewFeatureDrafts(
+          { project: row.projects[0] ?? "" },
+          ANY_REVIEW_FOOTPRINT,
+        );
       }
-      if (row.entityType === "saved-group") {
-        return permissionsUtil.canUpdateSavedGroup(
+      if (
+        row.entityType === "saved-group" ||
+        row.entityType === "constant" ||
+        row.entityType === "config"
+      ) {
+        return permissionsUtil.canRevisionAction(
+          row.entityType,
+          "review",
           { projects: row.projects },
-          { projects: row.projects },
+          NO_ENVIRONMENT_BINDING,
         );
       }
       if (row.entityType === "sdk-connection") {
@@ -386,7 +431,8 @@ const ApprovalRequests: FC = () => {
 
   // Scope-level filter applied on top of the status/search filtering.
   // - "needs-my-review": rows I'm allowed to review, that I didn't author,
-  //   and that are in an actionable state (pending-review, changes-requested).
+  //   and that still accept a verdict — "approved" included, since an approval
+  //   that doesn't cover the change still needs one that does.
   // - "my-requests": rows I authored (any status).
   // - "all": no additional filtering.
   const effectiveItems = useMemo(() => {
@@ -399,8 +445,7 @@ const ApprovalRequests: FC = () => {
     // scope === "needs-my-review"
     return statusFilteredItems.filter(
       (row) =>
-        (row.status === "pending-review" ||
-          row.status === "changes-requested") &&
+        isInReviewCycle(row.status) &&
         row.authorId !== userId &&
         canReviewRow(row),
     );
@@ -535,12 +580,14 @@ const ApprovalRequests: FC = () => {
   return (
     <Box p="4" pr="7" width="100%" maxWidth="1340px" mx="auto">
       <Box mb="5">
-        <Heading as="h1" size="large" mb="2">
+        <Heading as="h1" size="lg" mb="2">
           Approval Requests
         </Heading>
         <Text color="text-low">
           Review changes across your organization that require approval.{" "}
-          <DocLink docSection="publishingAndApprovalFlows">View Docs</DocLink>
+          <DocLink useRadix={false} docSection="publishingAndApprovalFlows">
+            View Docs
+          </DocLink>
         </Text>
       </Box>
 

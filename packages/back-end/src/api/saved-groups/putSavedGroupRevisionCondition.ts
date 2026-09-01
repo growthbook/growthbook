@@ -6,6 +6,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import {
   assertConditionGroup,
   discardIfJustCreated,
@@ -31,7 +32,13 @@ export const putSavedGroupRevisionCondition = createApiRequestHandler(
 
   const { condition } = req.body;
 
-  if (!req.context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
+  if (
+    !req.context.permissions.canRevisionAction(
+      "saved-group",
+      "draft",
+      savedGroup,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -72,6 +79,17 @@ export const putSavedGroupRevisionCondition = createApiRequestHandler(
       patchOps,
       { revisionId: revision.id },
     );
+
+    if (created) {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "created",
+      });
+    } else {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "updated",
+        change: "condition",
+      });
+    }
 
     return {
       revision: await toApiSavedGroupRevision(updated, req.context),

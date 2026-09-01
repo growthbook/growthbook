@@ -1,3 +1,4 @@
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   logExperimentCreated,
   logExperimentUpdated,
@@ -9,6 +10,7 @@ import { experimentSnapshot } from "back-end/test/snapshots/experiment.snapshot"
 import {
   notifyDecision,
   notifyMultipleExposures,
+  notifyNoData,
   notifySrm,
 } from "back-end/src/services/experimentNotifications";
 import { EventModel } from "back-end/src/models/EventModel";
@@ -997,6 +999,104 @@ describe("experiments events", () => {
     });
   });
 
+  it("dispatches experiment.warning event when a snapshot returns no data", async () => {
+    let rawPayload;
+
+    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+      if (data.event === "experiment.warning") rawPayload = data;
+      return { toJSON: () => "" };
+    });
+
+    jest
+      .spyOn(ExperimentModel, "updateOne")
+      .mockImplementation(() => undefined);
+
+    const noDataSnapshot = {
+      status: "success",
+      analyses: [{ results: [{ variations: [] }] }],
+    } as unknown as ExperimentSnapshotInterface;
+
+    await notifyNoData({
+      context: {
+        org,
+        userId: "user-aabb",
+        email: "user@email.com",
+        userName: "User Name",
+        auditUser: {
+          type: "dashboard",
+          id: "user-aabb",
+          email: "user@email.com",
+          name: "User Name",
+        },
+      },
+      experiment: experimentSnapshot,
+      snapshot: noDataSnapshot,
+    });
+
+    expect(rawPayload).toEqual(
+      expect.objectContaining({
+        api_version: expect.any(String),
+        containsSecrets: false,
+        created: expect.any(Number),
+        environments: [],
+        event: "experiment.warning",
+        object: "experiment",
+        projects: [],
+        tags: [],
+        data: {
+          object: {
+            experimentId: "exp_dd4gxd4lyel8bwi",
+            experimentName: "Add To Cart",
+            type: "no-data",
+          },
+        },
+        user: {
+          email: "user@email.com",
+          id: "user-aabb",
+          name: "User Name",
+          type: "dashboard",
+        },
+      }),
+    );
+  });
+
+  it("does not dispatch experiment.warning no-data event when the snapshot has data", async () => {
+    let rawPayload;
+
+    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+      if (data.event === "experiment.warning") rawPayload = data;
+      return { toJSON: () => "" };
+    });
+
+    jest
+      .spyOn(ExperimentModel, "updateOne")
+      .mockImplementation(() => undefined);
+
+    const hasDataSnapshot = {
+      status: "success",
+      analyses: [{ results: [{ variations: [{}, {}] }] }],
+    } as unknown as ExperimentSnapshotInterface;
+
+    await notifyNoData({
+      context: {
+        org,
+        userId: "user-aabb",
+        email: "user@email.com",
+        userName: "User Name",
+        auditUser: {
+          type: "dashboard",
+          id: "user-aabb",
+          email: "user@email.com",
+          name: "User Name",
+        },
+      },
+      experiment: experimentSnapshot,
+      snapshot: hasDataSnapshot,
+    });
+
+    expect(rawPayload).toEqual(undefined);
+  });
+
   it("dispatches decision update when decision to ship", async () => {
     let rawPayload;
 
@@ -1026,6 +1126,7 @@ describe("experiments events", () => {
       },
       experiment: experimentSnapshot,
       currentStatus: { status: "ship-now", tooltip: tooltip },
+      source: "analysis",
     });
 
     expect(rawPayload).toEqual(
@@ -1043,6 +1144,7 @@ describe("experiments events", () => {
             experimentId: "exp_dd4gxd4lyel8bwi",
             experimentName: "Add To Cart",
             decisionDescription: tooltip,
+            source: "analysis",
           },
         },
         user: {
@@ -1084,6 +1186,7 @@ describe("experiments events", () => {
       },
       experiment: experimentSnapshot,
       currentStatus: { status: "rollback-now", tooltip: tooltip },
+      source: "analysis",
     });
 
     expect(rawPayload).toEqual(
@@ -1101,6 +1204,7 @@ describe("experiments events", () => {
             experimentId: "exp_dd4gxd4lyel8bwi",
             experimentName: "Add To Cart",
             decisionDescription: tooltip,
+            source: "analysis",
           },
         },
         user: {
@@ -1142,6 +1246,7 @@ describe("experiments events", () => {
       },
       experiment: experimentSnapshot,
       currentStatus: { status: "ready-for-review", tooltip: tooltip },
+      source: "analysis",
     });
 
     expect(rawPayload).toEqual(
@@ -1159,6 +1264,7 @@ describe("experiments events", () => {
             experimentId: "exp_dd4gxd4lyel8bwi",
             experimentName: "Add To Cart",
             decisionDescription: tooltip,
+            source: "analysis",
           },
         },
         user: {
@@ -1200,6 +1306,7 @@ describe("experiments events", () => {
       experiment: experimentSnapshot,
       currentStatus: { status: "ready-for-review" },
       lastStatus: { status: "ready-for-review" },
+      source: "analysis",
     });
 
     expect(rawPayload).toEqual(undefined);
@@ -1223,6 +1330,7 @@ describe("experiments events", () => {
       experiment: experimentSnapshot,
       currentStatus: { status: "ready-for-review", tooltip: tooltip },
       lastStatus: { status: "rollback-now" },
+      source: "analysis",
     });
 
     expect(rawPayload).toEqual(
@@ -1240,6 +1348,7 @@ describe("experiments events", () => {
             experimentId: "exp_dd4gxd4lyel8bwi",
             experimentName: "Add To Cart",
             decisionDescription: tooltip,
+            source: "analysis",
           },
         },
         user: {

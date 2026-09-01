@@ -27,7 +27,7 @@ function Toggle({ on }: { on: boolean }) {
           width: 7,
           height: 7,
           borderRadius: "50%",
-          background: on ? "var(--teal-11)" : "var(--gray-8)",
+          background: on ? "var(--blue-11)" : "var(--gray-8)",
           flexShrink: 0,
         }}
       />
@@ -52,7 +52,7 @@ function SettingsCard({
   return (
     <Frame mb="0">
       <Flex align="center" justify="between" gap="2" mb="4">
-        <Heading size="small" as="h3" mb="0">
+        <Heading size="sm" as="h3" mb="0">
           {title}
         </Heading>
         {canUpdate && onEdit ? <Link onClick={onEdit}>Edit</Link> : null}
@@ -103,7 +103,13 @@ export default function SDKConnectionSettingsCards({
         </Flex>
         <Metadata
           label="Payload security"
-          value={connection.encryptPayload ? "Ciphered" : "Plain text"}
+          // Ciphered covers either half, matching the edit modal and the full
+          // form — hashing alone still means the payload isn't plain text.
+          value={
+            connection.encryptPayload || connection.hashSecureAttributes
+              ? "Ciphered"
+              : "Plain text"
+          }
         />
         <Metadata
           label="Secure attribute hashing"

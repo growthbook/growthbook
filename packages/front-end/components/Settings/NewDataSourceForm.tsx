@@ -6,12 +6,16 @@ import {
   useCallback,
   ReactNode,
 } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   DataSourceInterfaceWithParams,
   SchemaFormat,
 } from "shared/types/datasource";
 import { useForm } from "react-hook-form";
-import { isDemoDatasourceProject } from "shared/demo-datasource";
+import {
+  getDefaultProjectsForNewResource,
+  isDemoDatasourceProject,
+} from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
@@ -26,7 +30,7 @@ import {
   dataSourceConnections,
   eventSchema,
 } from "@/services/eventSchema";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
@@ -102,7 +106,10 @@ const NewDataSourceForm: FC<{
   >({
     name: "My Datasource",
     settings: {},
-    projects: project ? [project] : [],
+    projects: getDefaultProjectsForNewResource({
+      project,
+      organizationId: orgId || undefined,
+    }),
     ...initial,
   });
 
@@ -339,7 +346,10 @@ const NewDataSourceForm: FC<{
       return;
     }
 
-    const resources = getInitialDatasourceResources({ datasource: ds });
+    const resources = getInitialDatasourceResources({
+      datasource: ds,
+      attributeSchema: settings.attributeSchema,
+    });
     if (!resources.factTables.length) {
       setCreatingResources(false);
       return;
@@ -477,7 +487,7 @@ const NewDataSourceForm: FC<{
             <Callout status="info" mt="3">
               Don&apos;t have a data warehouse yet? We recommend using BigQuery
               with Google Analytics.{" "}
-              <DocLink docSection="ga4BigQuery">
+              <DocLink useRadix={false} docSection="ga4BigQuery">
                 Learn more <FaExternalLinkAlt />
               </DocLink>
             </Callout>
@@ -579,7 +589,7 @@ const NewDataSourceForm: FC<{
                 or{" "}
               </>
             ) : null}
-            <DocLink docSection={datasourceInfo.docs}>
+            <DocLink useRadix={false} docSection={datasourceInfo.docs}>
               {datasourceInfo.display} to GrowthBook <FaExternalLinkAlt />
             </DocLink>{" "}
           </Callout>
@@ -599,8 +609,10 @@ const NewDataSourceForm: FC<{
         </div>
         <div className="form-group">
           <label>Description</label>
-          <textarea
-            className="form-control"
+          <Field
+            textarea
+            minRows={1}
+            maxLength={MAX_DESCRIPTION_LENGTH}
             name="description"
             onChange={onChange}
             value={connectionInfo.description}
@@ -609,6 +621,7 @@ const NewDataSourceForm: FC<{
         {projects?.length > 0 && (
           <div className="form-group">
             <MultiSelectField
+              legacyHeight
               label={
                 <>
                   Projects{" "}
@@ -617,7 +630,7 @@ const NewDataSourceForm: FC<{
                   />
                 </>
               }
-              placeholder="All projects"
+              placeholder="All Projects"
               value={connectionInfo.projects || []}
               options={projectOptions}
               onChange={(v) => onManualChange("projects", v)}
@@ -667,6 +680,7 @@ const NewDataSourceForm: FC<{
           {selectedSchema?.options?.map(({ name, label, type, helpText }) => (
             <div key={name} className="form-group">
               <Field
+                size="legacy"
                 label={label}
                 name={name}
                 value={schemaOptionsForm.watch(name)}
@@ -742,6 +756,7 @@ const NewDataSourceForm: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header={"Add Data Source"}

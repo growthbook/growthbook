@@ -28,6 +28,8 @@ const incrementalRefresh = z
   .object({
     // Refs
     experimentId: z.string(),
+    // Legacy documents gain a phase when they next refresh.
+    phase: z.number().optional(),
 
     // Unit Source Settings
     unitsTableFullName: z.string().nullable(),
@@ -36,6 +38,9 @@ const incrementalRefresh = z
 
     // Experiment Settings Hash
     experimentSettingsHash: z.string().nullable(),
+
+    // Snapshot whose run materialized the current tables
+    materializedBySnapshotId: z.string().optional(),
 
     // Metrics
     metricSources: z.array(incrementalRefreshMetricSourceValidator),

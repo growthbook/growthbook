@@ -59,7 +59,9 @@ export default function AdvancedFeaturesCard({
     <Box width="100%" height="100%">
       <AspectRatio ratio={16 / 9}>
         {docSection ? (
-          <DocLink docSection={docSection}>{card}</DocLink>
+          <DocLink useRadix={false} docSection={docSection}>
+            {card}
+          </DocLink>
         ) : (
           <Link href={href}>{card}</Link>
         )}

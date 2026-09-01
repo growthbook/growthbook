@@ -6,12 +6,12 @@ import {
   TdHTMLAttributes,
 } from "react";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   isFactMetric,
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { FactTableInterface } from "shared/types/fact-table";
+import { FactTableDefinition } from "shared/types/fact-table";
 import {
   getColumnRefFormatter,
   getExperimentMetricFormatter,
@@ -24,12 +24,45 @@ const numberFormatter = Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
+/**
+ * Stats engine sometimes omits or zeroes `cr` while `value` / user counts are
+ * populated (e.g. safe-rollout snapshots). Derive a per-user rate for display.
+ */
+function effectiveCrForDisplay(
+  metric: ExperimentMetricDefinition,
+  stats: SnapshotMetric,
+): number {
+  const cr = stats.cr;
+  const value = stats.value ?? 0;
+  const brokenCr =
+    cr === 0 ||
+    cr === undefined ||
+    (typeof cr === "number" && Number.isNaN(cr));
+
+  if (!isFactMetric(metric) || !brokenCr || value === 0) {
+    return cr;
+  }
+
+  if (metric.metricType === "ratio" && metric.denominator) {
+    const denom = stats.denominator ?? stats.users;
+    if (denom) {
+      return value / denom;
+    }
+  }
+
+  if (stats.users > 0) {
+    return value / stats.users;
+  }
+
+  return cr ?? 0;
+}
+
 interface Props
   extends DetailedHTMLProps<
     TdHTMLAttributes<HTMLTableCellElement>,
     HTMLTableCellElement
   > {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   stats: SnapshotMetric;
   users: number;
   className?: string;
@@ -38,8 +71,8 @@ interface Props
   showRatio?: boolean;
   noDataMessage?: ReactElement | string;
   displayCurrency: string;
-  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
-  getFactTableById: (id: string) => null | FactTableInterface;
+  getExperimentMetricById: (id: string) => null | ExperimentMetricDefinition;
+  getFactTableById: (id: string) => null | FactTableDefinition;
   asTd?: boolean;
 }
 
@@ -60,8 +93,10 @@ export default function MetricValueColumn({
 }: Props) {
   const formatterOptions = { currency: displayCurrency };
 
+  const crForDisplay = effectiveCrForDisplay(metric, stats);
+
   const overall = getExperimentMetricFormatter(metric, getFactTableById)(
-    stats.cr,
+    crForDisplay,
     formatterOptions,
   );
 

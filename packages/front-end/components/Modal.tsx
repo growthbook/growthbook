@@ -15,6 +15,7 @@ import track, { TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import ErrorDisplay from "@/ui/ErrorDisplay";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -48,7 +49,7 @@ type ModalProps = {
   docSection?: DocSection;
   error?: string;
   loading?: boolean;
-  size?: "md" | "lg" | "max" | "fill";
+  size?: "md" | "lg" | "xl" | "max" | "fill";
   sizeY?: "max" | "fill";
   inline?: boolean;
   overflowAuto?: boolean;
@@ -122,7 +123,7 @@ const Modal: FC<ModalProps> = ({
   allowlistedTrackingEventProps = {},
   modalUuid: _modalUuid,
   trackOnSubmit = true,
-  useRadixButton,
+  useRadixButton = true,
   aboveBodyContent = null,
   borderlessHeader = false,
   backgroundlessHeader = false,
@@ -209,7 +210,7 @@ const Modal: FC<ModalProps> = ({
                 header
               )}
               {docSection && (
-                <DocLink docSection={docSection}>
+                <DocLink useRadix={false} docSection={docSection}>
                   <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
                 </DocLink>
               )}
@@ -276,7 +277,7 @@ const Modal: FC<ModalProps> = ({
         }}
       >
         {isSuccess ? (
-          <div className="alert alert-success">{successMessage}</div>
+          <Callout status="success">{successMessage}</Callout>
         ) : (
           <>
             {aboveBodyContent}
@@ -458,9 +459,11 @@ const Modal: FC<ModalProps> = ({
         style={
           size === "max"
             ? { width: "95vw", maxWidth: 1400, margin: "2vh auto" }
-            : size === "fill"
-              ? { width: "100%", maxWidth: "100%" }
-              : {}
+            : size === "xl"
+              ? { width: "95vw", maxWidth: 1100 }
+              : size === "fill"
+                ? { width: "100%", maxWidth: "100%" }
+                : {}
         }
       >
         {submit && !isSuccess ? (

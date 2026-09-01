@@ -1,14 +1,20 @@
-import React, { useEffect, useMemo, useState } from "react";
+import {
+  NO_ENVIRONMENT_BINDING,
+  canCreateInSelectedScope,
+} from "shared/permissions";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { useFeature } from "@growthbook/growthbook-react";
+import { useFeature, useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { AppFeatures } from "shared/types/app-features";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import FeatureModal from "@/components/Features/FeatureModal";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import track from "@/services/track";
@@ -19,14 +25,14 @@ import {
   useFeatureSearch,
 } from "@/services/features";
 import { tagFilterOnClick, tagLinkProps } from "@/services/search";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/ui/Pagination";
 import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import StaleFeatureIcon from "@/components/StaleFeatureIcon";
+import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
+import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -37,11 +43,19 @@ import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import EmptyState from "@/components/EmptyState";
 import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
-import { useAuth } from "@/services/auth";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
+import {
+  draftStatusDots,
+  draftStatusTooltip,
+} from "@/components/Reviews/RevisionStatusBadge";
+import { useFeatureContentSearch } from "@/hooks/useFeatureContentSearch";
+import type { ContentSearchParams } from "@/hooks/useFeatureContentSearch";
+import { useFeatureRampStates } from "@/hooks/useFeatureRampStates";
+import { useFeatureDependencyIndex } from "@/hooks/useFeatureDependencyIndex";
+import { useFeatureExperimentStates } from "@/hooks/useFeatureExperimentStates";
 import ProjectBadges from "@/components/ProjectBadges";
 import Table, {
   TableHeader,
@@ -50,31 +64,45 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
-import { TruncateMiddleWithTooltip } from "@/ui/TruncateMiddleWithTooltip";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
 
+const CONTENT_SEARCH_PREFIXES: {
+  prefix: string;
+  paramKey: keyof ContentSearchParams;
+}[] = [
+  { prefix: "value:", paramKey: "valueContains" },
+  { prefix: "attribute:", paramKey: "attribute" },
+  { prefix: "saved-group:", paramKey: "savedGroup" },
+  { prefix: "experiment:", paramKey: "experiment" },
+  { prefix: "bandit:", paramKey: "bandit" },
+];
+const CONTENT_SEARCH_PREFIX_STRINGS = CONTENT_SEARCH_PREFIXES.map(
+  (p) => p.prefix,
+);
+
+function extractContentSearchParams(searchStr: string): ContentSearchParams {
+  const params: ContentSearchParams = {};
+  for (const token of searchStr.split(/\s+/)) {
+    if (!token.startsWith("has:")) continue;
+    const val = token.slice(4);
+    for (const { prefix, paramKey } of CONTENT_SEARCH_PREFIXES) {
+      if (val.startsWith(prefix)) {
+        params[paramKey] = decodeURIComponent(val.slice(prefix.length));
+      }
+    }
+  }
+  return params;
+}
+
 // Feature table column widths (shared by header and body for alignment)
 const FEATURE_TABLE_COLUMN_WIDTH = {
   WATCHING: 40,
-  FEATURE_KEY_MAX: 200,
   TAGS: 160,
   DATA_TYPE_MIN: 80,
   RECENT_USAGE: 170,
 } as const;
-
-function valueTypeLabel(
-  valueType: "boolean" | "string" | "number" | "json",
-): string {
-  const labels: Record<string, string> = {
-    boolean: "Boolean",
-    string: "String",
-    number: "Number",
-    json: "JSON",
-  };
-  return labels[valueType] ?? valueType;
-}
 
 export default function FeaturesPage() {
   const router = useRouter();
@@ -85,8 +113,6 @@ export default function FeaturesPage() {
   const [featureToDuplicate, setFeatureToDuplicate] =
     useState<FeatureInterface | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const { apiCall } = useAuth();
-
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
   const { project, projects } = useDefinitions();
@@ -114,10 +140,24 @@ export default function FeaturesPage() {
   const statusHook = useFeaturesStatus();
   const draftHook = useFeatureDraftStates();
   const staleHook = useFeatureStaleStates();
+  const rampHook = useFeatureRampStates();
+  const dependencyHook = useFeatureDependencyIndex();
+  const experimentHook = useFeatureExperimentStates();
+
+  const archivedFilter = useMemo(
+    () =>
+      showArchived
+        ? undefined
+        : (items: FeatureInterface[]) => items.filter((f) => !f.archived),
+    [showArchived],
+  );
+
+  const gb = useGrowthBook<AppFeatures>();
+  gb?.isOn("teresa-cb-feature");
 
   const {
     searchInputProps,
-    items,
+    items: searchItems,
     SortableTableColumnHeader,
     setSearchValue,
     syntaxFilters,
@@ -127,10 +167,24 @@ export default function FeaturesPage() {
     environmentStatus: statusHook.environmentStatus,
     draftStates: draftHook.draftStates,
     staleStates: staleHook.staleStates,
-    filterResults: !showArchived
-      ? (items) => items.filter((f) => !f.archived)
-      : undefined,
+    rampStates: rampHook.rampStates,
+    dependencyIndex: dependencyHook.dependencyIndex,
+    experimentStates: experimentHook.experimentStates,
+    filterResults: archivedFilter,
+    contentSearchPrefixes: CONTENT_SEARCH_PREFIX_STRINGS,
   });
+
+  const contentSearchParams = useMemo(
+    () => extractContentSearchParams(searchInputProps.value),
+    [searchInputProps.value],
+  );
+  const contentSearch = useFeatureContentSearch(contentSearchParams);
+
+  const items = useMemo(() => {
+    if (!contentSearch.matchingIds) return searchItems;
+    const ids = contentSearch.matchingIds;
+    return searchItems.filter((f) => ids.has(f.id));
+  }, [searchItems, contentSearch.matchingIds]);
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -178,6 +232,23 @@ export default function FeaturesPage() {
       (f.field === "is" && f.values.includes("stale")) ||
       (f.field === "has" && f.values.includes("stale-env")),
   );
+  const hasRampFilter = syntaxFilters.some(
+    (f) => f.field === "has" && f.values.includes("ramp-schedule"),
+  );
+  const hasDependentsFilter = syntaxFilters.some(
+    (f) => f.field === "has" && f.values.includes("dependents"),
+  );
+  const hasExperimentStateFilter = syntaxFilters.some(
+    (f) =>
+      f.field === "has" &&
+      f.values.some(
+        (v) =>
+          v === "experiments" ||
+          v === "temp-rollout" ||
+          v.startsWith("experiment:") ||
+          v.startsWith("bandit:"),
+      ),
+  );
 
   useEffect(() => {
     if (hasEnvFilter) statusHook.fetchAll();
@@ -194,6 +265,21 @@ export default function FeaturesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasStaleFilter]);
 
+  useEffect(() => {
+    if (hasRampFilter) rampHook.fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasRampFilter]);
+
+  useEffect(() => {
+    if (hasDependentsFilter) dependencyHook.fetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasDependentsFilter]);
+
+  useEffect(() => {
+    if (hasExperimentStateFilter) experimentHook.fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasExperimentStateFilter]);
+
   // fetchSome for visible features when no bulk filter is active
   useEffect(() => {
     const ids = visibleIdsKey ? visibleIdsKey.split(",") : [];
@@ -204,19 +290,36 @@ export default function FeaturesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleIdsKey]);
 
+  const searchLoading = !!(
+    statusHook.loading ||
+    draftHook.loading ||
+    staleHook.loading ||
+    rampHook.loading ||
+    dependencyHook.loading ||
+    experimentHook.loading ||
+    contentSearch.loading
+  );
+
   const renderFeaturesTable = () => {
     return (
       allFeatures.length > 0 && (
         <Box>
           <Box mb="2">
             <Flex justify="between" mb="3" gap="3" align="center">
-              <Box width="40%" style={{ position: "relative" }}>
-                <Field
-                  placeholder="Search..."
-                  type="search"
-                  {...searchInputProps}
-                />
-              </Box>
+              <Flex align="center" gap="1" width="40%">
+                <Box flexGrow="1" style={{ position: "relative" }}>
+                  <Field
+                    size="legacy"
+                    placeholder="Search..."
+                    type="search"
+                    containerClassName="mb-0"
+                    {...searchInputProps}
+                  />
+                </Box>
+                <Box style={{ width: 20, flexShrink: 0 }}>
+                  {searchLoading ? <LoadingSpinner /> : null}
+                </Box>
+              </Flex>
               <FeatureSearchFilters
                 features={allFeatures}
                 searchInputProps={searchInputProps}
@@ -233,12 +336,7 @@ export default function FeaturesPage() {
                 <TableColumnHeader
                   style={{ width: FEATURE_TABLE_COLUMN_WIDTH.WATCHING }}
                 />
-                <SortableTableColumnHeader
-                  field="id"
-                  style={{
-                    maxWidth: FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX,
-                  }}
-                >
+                <SortableTableColumnHeader field="id" style={{ width: "20%" }}>
                   Feature Key
                 </SortableTableColumnHeader>
                 {showProjectColumn && (
@@ -258,7 +356,9 @@ export default function FeaturesPage() {
                   </TableColumnHeader>
                 ))}
                 <TableColumnHeader>Data Type</TableColumnHeader>
-                <TableColumnHeader>Changes</TableColumnHeader>
+                <TableColumnHeader style={{ textAlign: "center" }}>
+                  Draft Status
+                </TableColumnHeader>
                 <SortableTableColumnHeader field="dateUpdated">
                   Last Modified
                 </SortableTableColumnHeader>
@@ -271,8 +371,7 @@ export default function FeaturesPage() {
                     />
                   </TableColumnHeader>
                 )}
-                <TableColumnHeader>Stale</TableColumnHeader>
-                <TableColumnHeader style={{ width: 30 }} />
+                <TableColumnHeader>Status</TableColumnHeader>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -296,7 +395,6 @@ export default function FeaturesPage() {
                     <TableCell
                       style={{
                         padding: "var(--space-0)",
-                        maxWidth: FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX,
                       }}
                     >
                       <Link
@@ -310,12 +408,7 @@ export default function FeaturesPage() {
                             : undefined,
                         }}
                       >
-                        <TruncateMiddleWithTooltip
-                          text={feature.id}
-                          maxChars={23}
-                          maxWidth={FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX}
-                          flipTheme={false}
-                        />
+                        {feature.id}
                       </Link>
                     </TableCell>
                     {showProjectColumn && (
@@ -404,29 +497,56 @@ export default function FeaturesPage() {
                         minWidth: FEATURE_TABLE_COLUMN_WIDTH.DATA_TYPE_MIN,
                       }}
                     >
-                      {valueTypeLabel(feature.valueType)}
+                      <Box style={{ marginRight: -40 }}>
+                        <FeatureValueTypeDisplay
+                          valueType={feature.valueType}
+                          configBackingKey={
+                            (feature as unknown as FeatureMetaInfo)
+                              .configBackingKey
+                          }
+                          link={false}
+                          maxWidth={120}
+                        />
+                      </Box>
                     </TableCell>
-                    <TableCell
-                      style={{ textAlign: "center", verticalAlign: "middle" }}
-                    >
-                      {draftEntry ? (
-                        <Tooltip
-                          flipTheme={false}
-                          body="This feature has an active draft that has not been published yet"
-                        >
-                          <span
-                            style={{
-                              display: "inline-block",
-                              width: 8,
-                              height: 8,
-                              borderRadius: "50%",
-                              background: "var(--red-9)",
-                              flexShrink: 0,
-                            }}
-                            aria-hidden
-                          />
-                        </Tooltip>
-                      ) : null}
+                    <TableCell>
+                      {draftEntry
+                        ? (() => {
+                            const dots = draftStatusDots(draftEntry);
+                            if (!dots.length) return null;
+                            return (
+                              <Tooltip
+                                flipTheme={false}
+                                body={draftStatusTooltip(draftEntry)}
+                              >
+                                <Flex
+                                  align="center"
+                                  justify="center"
+                                  gap="1"
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    padding: "0 4px",
+                                  }}
+                                >
+                                  {dots.map((bg) => (
+                                    <span
+                                      key={bg}
+                                      style={{
+                                        display: "block",
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: "50%",
+                                        flexShrink: 0,
+                                        background: bg,
+                                      }}
+                                    />
+                                  ))}
+                                </Flex>
+                              </Tooltip>
+                            );
+                          })()
+                        : null}
                     </TableCell>
                     <TableCell title={datetime(feature.dateUpdated)}>
                       {date(feature.dateUpdated)}
@@ -446,40 +566,16 @@ export default function FeaturesPage() {
                       </TableCell>
                     )}
                     <TableCell style={{ textAlign: "left" }}>
-                      {!feature.archived && (
-                        <StaleFeatureIcon
-                          context="list"
-                          neverStale={feature.neverStale}
-                          valueType={feature.valueType}
-                          staleData={staleHook.getStaleState(feature.id)}
-                          fetchStaleData={async () => {
-                            staleHook.invalidate([feature.id]);
-                            await staleHook.fetchSome([feature.id]);
-                          }}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell style={{ width: 30 }}>
-                      <MoreMenu>
-                        {permissionsUtil.canCreateFeature(feature) &&
-                        permissionsUtil.canManageFeatureDrafts({
-                          project: feature.project,
-                        }) ? (
-                          <button
-                            className="dropdown-item"
-                            type="button"
-                            onClick={async () => {
-                              const res = await apiCall<{
-                                feature: FeatureInterface;
-                              }>(`/feature/${feature.id}`);
-                              setFeatureToDuplicate(res.feature);
-                              setModalOpen(true);
-                            }}
-                          >
-                            Duplicate
-                          </button>
-                        ) : null}
-                      </MoreMenu>
+                      <FeatureStatusBadge
+                        feature={feature}
+                        envStatus={statusHook.environmentStatus[feature.id]}
+                        context="list"
+                        staleData={staleHook.getStaleState(feature.id)}
+                        fetchStaleData={async () => {
+                          staleHook.invalidate([feature.id]);
+                          await staleHook.fetchSome([feature.id]);
+                        }}
+                      />
                     </TableCell>
                   </TableRow>
                 );
@@ -488,7 +584,7 @@ export default function FeaturesPage() {
                 <TableRow>
                   <TableCell
                     colSpan={
-                      8 +
+                      7 +
                       (showProjectColumn ? 1 : 0) +
                       toggleEnvs.length +
                       (showGraphs ? 1 : 0)
@@ -520,26 +616,17 @@ export default function FeaturesPage() {
     projects,
   );
 
-  const canCreateFeatures = useMemo(() => {
-    // If a specific project is selected, check permissions for that project
-    if (project) {
-      return permissionsUtil.canManageFeatureDrafts({ project });
-    }
-    if (projects?.length) {
-      // If "All Projects" is selected, check if user has permissions for at least one project
-
-      return projects.some(
-        (p) =>
-          permissionsUtil.canCreateFeature({ project: p.id }) &&
-          permissionsUtil.canManageFeatureDrafts({ project: p.id }),
-      );
-    }
-    // No projects - fall back to global permission check (e.g. admin in new org)
-    return (
-      permissionsUtil.canCreateFeature({ project: "" }) &&
-      permissionsUtil.canManageFeatureDrafts({ project: "" })
-    );
-  }, [project, projects, permissionsUtil]);
+  // Create authority alone, matching the endpoint: a create-only role can create a
+  // flag even though it can't draft changes to one afterwards.
+  const canCreateFeatures = canCreateInSelectedScope({
+    project,
+    projectIds: (projects ?? []).map((p) => p.id),
+    canCreateIn: (p) =>
+      permissionsUtil.canCreateFeature(
+        { project: p ?? "" },
+        NO_ENVIRONMENT_BINDING,
+      ),
+  });
 
   if (error) {
     return <Callout status="error">An error occurred: {error.message}</Callout>;
@@ -551,12 +638,16 @@ export default function FeaturesPage() {
   // If "All Projects" is selected and some features are in a project, show the project column
   const showProjectColumn = !project && allFeatures.some((f) => f.project);
 
-  // Ignore the demo datasource
-  const hasFeatures = allFeatures.some(
-    (f) =>
-      f.project !==
-      getDemoDatasourceProjectIdForOrganization(organization.id || ""),
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    organization.id || "",
   );
+  const isDemoProject = !!project && project === demoProjectId;
+
+  // When viewing the demo project explicitly, show its features. Otherwise
+  // ignore demo-project features when deciding whether to show the empty state.
+  const hasFeatures = isDemoProject
+    ? allFeatures.length > 0
+    : allFeatures.some((f) => f.project !== demoProjectId);
 
   const canUseSetupFlow =
     permissionsUtil.canCreateSDKConnection({
@@ -596,22 +687,28 @@ export default function FeaturesPage() {
           }}
         />
       )}
-      <Flex align="center" justify="between" gap="3" my="3">
+      <Flex align="center" justify="between" gap="3" mt="4" mb="2">
         <Box style={{ flex: 1 }}>
-          <h1>Features</h1>
+          <h1>Feature Flags</h1>
         </Box>
-        {!showSetUpFlow && canViewFeatureModal && canCreateFeatures && (
+        {!showSetUpFlow && (
           <Box>
-            <Button
-              onClick={() => {
-                setModalOpen(true);
-                track("Viewed Feature Modal", {
-                  source: "feature-list",
-                });
-              }}
+            <Tooltip
+              body="You don't have permission to add features in this project."
+              shouldDisplay={!canViewFeatureModal || !canCreateFeatures}
             >
-              Add Feature
-            </Button>
+              <Button
+                disabled={!canViewFeatureModal || !canCreateFeatures}
+                onClick={() => {
+                  setModalOpen(true);
+                  track("Viewed Feature Modal", {
+                    source: "feature-list",
+                  });
+                }}
+              >
+                Add Feature
+              </Button>
+            </Tooltip>
           </Box>
         )}
       </Flex>
@@ -638,9 +735,12 @@ export default function FeaturesPage() {
                   Connect your SDK
                 </LinkButton>
               ) : (
-                canViewFeatureModal &&
-                canCreateFeatures && (
+                <Tooltip
+                  body="You don't have permission to add features in this project."
+                  shouldDisplay={!canViewFeatureModal || !canCreateFeatures}
+                >
                   <Button
+                    disabled={!canViewFeatureModal || !canCreateFeatures}
                     onClick={() => {
                       setModalOpen(true);
                       track("Viewed Feature Modal", {
@@ -650,7 +750,7 @@ export default function FeaturesPage() {
                   >
                     Add Feature
                   </Button>
-                )
+                </Tooltip>
               )
             }
           />
@@ -666,10 +766,12 @@ export default function FeaturesPage() {
 
           <TabsContent value="all-features">
             {renderFeaturesTable()}
-            <Callout status="info" mt="5" mb="3">
-              Test what values these features will return for your users from
-              the <Link href="/archetypes#simulate">Simulate</Link> page.
-            </Callout>
+            {!isDemoProject && (
+              <Callout status="info" mt="5" mb="3">
+                Test what values these features will return for your users from
+                the <Link href="/archetypes#simulate">Simulate</Link> page.
+              </Callout>
+            )}
           </TabsContent>
 
           <TabsContent value="drafts">

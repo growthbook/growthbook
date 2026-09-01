@@ -1,5 +1,8 @@
 import { Response } from "express";
-import { isFactMetricId } from "shared/experiments";
+import {
+  isFactMetricId,
+  getFactMetricPrimaryFactTableId,
+} from "shared/experiments";
 import { daysBetween } from "shared/dates";
 import { isDefined } from "shared/util";
 import { IdeaInterface } from "shared/types/idea";
@@ -20,12 +23,17 @@ import {
 import {
   _getSnapshots,
   createMetric,
+  getExperimentMetricById,
   refreshMetric,
 } from "back-end/src/services/experiments";
 import {
   getExperimentsByMetric,
   getExperimentsUsingMetric,
 } from "back-end/src/models/ExperimentModel";
+import {
+  getFilteredExperimentsUsingMetric,
+  splitCsv,
+} from "back-end/src/services/experimentFilters";
 import {
   getAISettingsForOrg,
   getContextFromReq,
@@ -50,7 +58,8 @@ import { getFactTable } from "back-end/src/models/FactTableModel";
 import {
   cosineSimilarity,
   generateEmbeddings,
-  secondsUntilAICanBeUsedAgain,
+  secondsUntilAICanBeUsedAgainForEmbeddings,
+  secondsUntilAICanBeUsedAgainForPrompt,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 
@@ -121,9 +130,14 @@ export async function deleteMetric(
   });
 }
 
-export async function getMetrics(req: AuthRequest, res: Response) {
+export async function getMetrics(
+  req: AuthRequest<null, null, { includeArchived?: string }>,
+  res: Response,
+) {
   const context = getContextFromReq(req);
-  const metrics = await getMetricsByOrganization(context);
+  // Default to excluding archived metrics; the general case doesn't want them.
+  const includeArchived = req.query.includeArchived === "true";
+  const metrics = await getMetricsByOrganization(context, { includeArchived });
   res.status(200).json({
     status: 200,
     metrics,
@@ -526,18 +540,65 @@ export async function putMetric(
 }
 
 export const getMetricExperimentResults = async (
-  req: AuthRequest<{ startDate?: string; endDate?: string }, { id: string }>,
+  req: AuthRequest<
+    never,
+    { id: string },
+    {
+      q?: string;
+      projects?: string;
+      bandits?: string;
+      startDate?: string;
+      endDate?: string;
+      startedAfter?: string;
+      startedBefore?: string;
+    }
+  >,
   res: Response<{ status: 200; data: ExperimentWithSnapshot[] }>,
 ) => {
   const context = getContextFromReq(req);
 
-  const experiments = await getExperimentsUsingMetric({
+  // Resolve and authorize the metric before fetching experiments or snapshots.
+  // Experiment read access and metric readData access can differ by project, so
+  // this prevents exposing metric snapshot values to a user who can read the
+  // experiment but not the metric. Returns null when it isn't readable.
+  const metric = await getExperimentMetricById(context, req.params.id);
+  if (!metric) {
+    throw new Error("Could not find metric with that id");
+  }
+
+  const parseDate = (v?: string) => (v ? new Date(v) : undefined);
+  // End-date window (phase end date).
+  const startDate = parseDate(req.query.startDate);
+  const endDate = parseDate(req.query.endDate);
+  // Start-date window (phase start date; includes running experiments).
+  const startedAfter = parseDate(req.query.startedAfter);
+  const startedBefore = parseDate(req.query.startedBefore);
+  const bandits =
+    req.query.bandits === "true"
+      ? true
+      : req.query.bandits === "false"
+        ? false
+        : undefined;
+
+  const experiments = await getFilteredExperimentsUsingMetric({
     context,
     metricId: req.params.id,
-    limit: 500,
+    searchString: req.query.q,
+    filters: { projects: splitCsv(req.query.projects) },
+    bandits,
+    startDate,
+    endDate,
+    startedAfter,
+    startedBefore,
+    // Filters are applied in-memory after this fetch, so match the public
+    // endpoint's candidate cap (and the getExperimentsUsingMetric hard cap) so
+    // matches beyond the newest 500 aren't silently dropped.
+    limit: 1000,
   });
 
-  const snapshots = await _getSnapshots(context, experiments);
+  const snapshots = await _getSnapshots(context, experiments, undefined, true, [
+    req.params.id,
+  ]);
 
   // TODO simplify data for front-end?
   const data = experiments.map((e) => ({
@@ -559,31 +620,14 @@ export const getMetricExperimentResults = async (
       ? {
           ...e.statusUpdateSchedule,
           startAt: e.statusUpdateSchedule.startAt?.toISOString(),
+          stopAt: e.statusUpdateSchedule.stopAt?.toISOString(),
         }
       : e.statusUpdateSchedule,
     snapshot: snapshots.find((s) => s.experiment === e.id),
   }));
 
-  // if startDate or endDate are provided, filter the experiments to experiments that have an end phase within that date range:
-  if (req.body.startDate || req.body.endDate) {
-    const startDate = req.body.startDate
-      ? new Date(req.body.startDate)
-      : new Date(0);
-    const endDate = req.body.endDate ? new Date(req.body.endDate) : new Date();
-
-    const filteredData = data.filter((e) => {
-      return e.phases.some((p) => {
-        if (!p.dateEnded) return false;
-        const endDatePhase = new Date(p.dateEnded);
-        return endDatePhase >= startDate && endDatePhase <= endDate;
-      });
-    });
-
-    return res.status(200).json({
-      status: 200,
-      data: filteredData,
-    });
-  }
+  // Date-range filtering (and any search filters) are applied upstream in
+  // getFilteredExperimentsUsingMetric, so `data` is already scoped here.
   res.status(200).json({
     status: 200,
     data,
@@ -676,6 +720,7 @@ export const getMetricNorthstarData = async (
       ? {
           ...e.statusUpdateSchedule,
           startAt: e.statusUpdateSchedule.startAt?.toISOString(),
+          stopAt: e.statusUpdateSchedule.stopAt?.toISOString(),
         }
       : e.statusUpdateSchedule,
   }));
@@ -706,7 +751,7 @@ export const getGeneratedDescription = async (
 ) => {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!aiEnabled) {
     return res.status(404).json({
@@ -714,7 +759,10 @@ export const getGeneratedDescription = async (
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgainForPrompt(
+    context,
+    "metric-description",
+  );
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -740,7 +788,7 @@ export const getGeneratedDescription = async (
     // get the fact table:
     const factTable = await getFactTable(
       context,
-      factMetric.numerator.factTableId,
+      getFactMetricPrimaryFactTableId(factMetric),
     );
 
     const factTableSQL = factTable?.sql ?? "";
@@ -995,7 +1043,7 @@ export async function postSimilarMetrics(
 ) {
   const context = getContextFromReq(req);
   const { name, description, full } = req.body;
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!aiEnabled) {
     return res.status(404).json({
@@ -1003,7 +1051,8 @@ export async function postSimilarMetrics(
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset =
+    await secondsUntilAICanBeUsedAgainForEmbeddings(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -1106,7 +1155,7 @@ export async function postRegenerateEmbeddings(
 ) {
   const context = getContextFromReq(req);
 
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!aiEnabled) {
     return res.status(404).json({
@@ -1114,7 +1163,8 @@ export async function postRegenerateEmbeddings(
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset =
+    await secondsUntilAICanBeUsedAgainForEmbeddings(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,

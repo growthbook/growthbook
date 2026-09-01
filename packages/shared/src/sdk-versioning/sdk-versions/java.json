@@ -1,8 +1,30 @@
 {
   "versions": [
     {
+      "version": "0.10.10"
+    },
+    {
+      "version": "0.10.9",
+      "capabilities": ["caseInsensitiveMembership"]
+    },
+    {
+      "version": "0.10.8"
+    },
+    {
+      "version": "0.10.7"
+    },
+    {
       "version": "0.10.6",
       "capabilities": ["caseInsensitiveRegex"]
+    },
+    {
+      "version": "0.10.5"
+    },
+    {
+      "version": "0.10.4"
+    },
+    {
+      "version": "0.10.3"
     },
     {
       "version": "0.10.2"
@@ -11,7 +33,7 @@
       "version": "0.10.1"
     },
     {
-      "version": "v0.10.0"
+      "version": "0.10.0"
     },
     {
       "version": "0.9.96"
@@ -27,10 +49,16 @@
     },
     {
       "version": "0.9.92",
-      "capabilities": ["remoteEvaluation"]
+      "capabilities": ["remoteEval"]
     },
     {
       "version": "0.9.91"
+    },
+    {
+      "version": "0.9.9"
+    },
+    {
+      "version": "0.9.8"
     },
     {
       "version": "0.9.7"
@@ -40,6 +68,9 @@
     },
     {
       "version": "0.9.5"
+    },
+    {
+      "version": "0.9.4"
     },
     {
       "version": "0.9.3",
@@ -56,6 +87,15 @@
       "capabilities": ["streaming"]
     },
     {
+      "version": "0.8.1"
+    },
+    {
+      "version": "0.8.0"
+    },
+    {
+      "version": "0.7.1"
+    },
+    {
       "version": "0.7.0",
       "capabilities": ["semverTargeting"]
     },
@@ -64,8 +104,32 @@
       "capabilities": ["bucketingV2"]
     },
     {
+      "version": "0.5.0"
+    },
+    {
+      "version": "0.4.0"
+    },
+    {
       "version": "0.3.0",
       "capabilities": ["encryption"]
+    },
+    {
+      "version": "0.2.2"
+    },
+    {
+      "version": "0.2.1"
+    },
+    {
+      "version": "0.1.1"
+    },
+    {
+      "version": "0.1.0"
+    },
+    {
+      "version": "0.0.2"
+    },
+    {
+      "version": "0.0.1"
     },
     {
       "version": "0.0.0",

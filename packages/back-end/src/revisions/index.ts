@@ -4,6 +4,8 @@ import type { ReqContext } from "back-end/types/request";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
 import { savedGroupAdapter } from "back-end/src/revisions/adapters/saved-group.adapter";
+import { constantAdapter } from "back-end/src/revisions/adapters/constant.adapter";
+import { configAdapter } from "back-end/src/revisions/adapters/config.adapter";
 import { sdkConnectionAdapter } from "back-end/src/revisions/adapters/sdk-connection.adapter";
 
 // Registry mapping entity types to their adapter implementations.
@@ -12,6 +14,8 @@ import { sdkConnectionAdapter } from "back-end/src/revisions/adapters/sdk-connec
 //   2. Add it to this registry
 const registry: Record<RevisionTargetType, EntityRevisionAdapter> = {
   "saved-group": savedGroupAdapter as EntityRevisionAdapter,
+  constant: constantAdapter as EntityRevisionAdapter,
+  config: configAdapter as EntityRevisionAdapter,
   "sdk-connection": sdkConnectionAdapter as EntityRevisionAdapter,
 };
 

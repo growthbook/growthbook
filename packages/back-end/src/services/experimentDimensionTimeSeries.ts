@@ -1,7 +1,7 @@
 import { isEqual } from "lodash";
 import {
-  expandAllSliceMetricsInMap,
-  isPrecomputedDimension,
+  expandDerivedMetricsInMap,
+  isDimensionPrecomputed,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import {
@@ -24,8 +24,6 @@ export function isDimensionTimeSeriesCompatibleAnalysisSettings({
   dimensionId?: string;
 }): boolean {
   if ((settings.baselineVariationIndex ?? 0) !== 0) return false;
-  // TODO: Add support for non-precomputed dimensions
-  if (dimensionId && !isPrecomputedDimension(dimensionId)) return false;
 
   const expectedDimensions = dimensionId ? [dimensionId] : [];
   return isEqual(settings.dimensions, expectedDimensions);
@@ -38,10 +36,6 @@ export function getTimeSeriesAnalysisSettings({
   baseSettings: ExperimentSnapshotAnalysisSettings;
   dimensionId?: string;
 }): ExperimentSnapshotAnalysisSettings[] {
-  if (dimensionId && !isPrecomputedDimension(dimensionId)) {
-    throw new Error(`Cannot create time series for dimension: ${dimensionId}`);
-  }
-
   return (["relative", "absolute", "scaled"] as const).map(
     (differenceType) => ({
       ...baseSettings,
@@ -92,6 +86,10 @@ export function getTimeSeriesAnalyses({
     .filter(isDefined);
 }
 
+/**
+ * Returns the relative/absolute/scaled time series analyses for `dimensionId`,
+ * handling both precomputed dimensions and precomputed unit dimensions.
+ */
 export async function getOrCreatePrecomputedDimensionTimeSeriesAnalyses(
   context: ReqContext | ApiReqContext,
   {
@@ -104,7 +102,12 @@ export async function getOrCreatePrecomputedDimensionTimeSeriesAnalyses(
     dimensionId: string;
   },
 ): Promise<ExperimentSnapshotAnalysis[]> {
-  if (!isPrecomputedDimension(dimensionId)) {
+  if (
+    !isDimensionPrecomputed(
+      dimensionId,
+      snapshot.settings.precomputedUnitDimensionIds ?? [],
+    )
+  ) {
     throw new Error("Dimension is not precomputed");
   }
 
@@ -140,7 +143,7 @@ export async function getOrCreatePrecomputedDimensionTimeSeriesAnalyses(
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  expandAllSliceMetricsInMap({
+  expandDerivedMetricsInMap({
     metricMap,
     factTableMap,
     experiment,

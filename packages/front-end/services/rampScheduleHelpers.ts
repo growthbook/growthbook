@@ -1,6 +1,8 @@
 import {
   RampScheduleInterface,
   RampScheduleForDisplay,
+  ACTIVE_DRAFT_STATUSES,
+  resolveStartApproval,
 } from "shared/validators";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 
@@ -43,8 +45,69 @@ export function buildRuleRampScheduleMap({
 
   // Synthetic "pending" schedules from queued draft create actions so the rule
   // card can display a "pending publish" badge before the schedule is persisted.
-  if (draftRevision?.rampActions) {
+  const hasActiveDraft =
+    !!draftRevision &&
+    (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(draftRevision.status);
+
+  if (hasActiveDraft && draftRevision.rampActions) {
     for (const action of draftRevision.rampActions) {
+      if (action.mode === "update") {
+        const current = map.get(action.ruleId);
+        const base =
+          current ??
+          (rampSchedules ?? []).find((rs) => rs.id === action.rampScheduleId);
+        if (!base) continue;
+
+        const updated: RampScheduleInterface = {
+          ...base,
+          ...(action.name !== undefined ? { name: action.name } : {}),
+          ...(action.startActions !== undefined
+            ? {
+                startActions:
+                  action.startActions as RampScheduleInterface["startActions"],
+              }
+            : {}),
+          ...(action.steps !== undefined
+            ? { steps: action.steps as RampScheduleInterface["steps"] }
+            : {}),
+          ...(action.endActions !== undefined
+            ? {
+                endActions:
+                  action.endActions as RampScheduleInterface["endActions"],
+              }
+            : {}),
+          ...(action.startDate !== undefined
+            ? {
+                startDate: action.startDate ? new Date(action.startDate) : null,
+              }
+            : {}),
+          ...(action.cutoffDate !== undefined
+            ? {
+                cutoffDate: action.cutoffDate
+                  ? new Date(action.cutoffDate)
+                  : null,
+              }
+            : {}),
+          ...(action.monitoringConfig !== undefined
+            ? { monitoringConfig: action.monitoringConfig }
+            : {}),
+          ...(action.lockdownConfig !== undefined
+            ? { lockdownConfig: action.lockdownConfig }
+            : {}),
+          requiresStartApproval: resolveStartApproval(
+            action.requiresStartApproval,
+            base.requiresStartApproval,
+          ),
+          // A draft that toggles the gate re-arms it, so don't show the live
+          // schedule's stale approval on the preview.
+          ...(action.requiresStartApproval !== undefined &&
+          !!action.requiresStartApproval !== !!base.requiresStartApproval
+            ? { startApprovedAt: null }
+            : {}),
+        };
+        map.set(action.ruleId, updated);
+        continue;
+      }
       if (action.mode !== "create") continue;
       if (
         environment &&
@@ -68,19 +131,16 @@ export function buildRuleRampScheduleMap({
             status: "active",
           },
         ],
+        startActions:
+          action.startActions as RampScheduleForDisplay["startActions"],
         steps: action.steps as RampScheduleForDisplay["steps"],
         endActions: action.endActions as RampScheduleForDisplay["endActions"],
         startDate: action.startDate ? new Date(action.startDate) : undefined,
-        endCondition:
-          action.endCondition?.trigger?.type === "scheduled"
-            ? {
-                trigger: {
-                  type: "scheduled",
-                  at: new Date(action.endCondition.trigger.at),
-                },
-              }
-            : undefined,
+        cutoffDate: action.cutoffDate ? new Date(action.cutoffDate) : undefined,
+        lockdownConfig: action.lockdownConfig,
+        requiresStartApproval: !!action.requiresStartApproval,
         status: "pending",
+        currentStepIndex: -1,
         dateCreated: new Date(),
         dateUpdated: new Date(),
       };

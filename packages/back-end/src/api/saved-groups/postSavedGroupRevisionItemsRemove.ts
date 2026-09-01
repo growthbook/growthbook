@@ -6,6 +6,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import {
   applyRevisionToSnapshot,
   assertListGroup,
@@ -31,7 +32,13 @@ export const postSavedGroupRevisionItemsRemove = createApiRequestHandler(
   assertListGroup(savedGroup);
   assertValidListAttributeKey(req.context, savedGroup);
 
-  if (!req.context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
+  if (
+    !req.context.permissions.canRevisionAction(
+      "saved-group",
+      "draft",
+      savedGroup,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -79,6 +86,17 @@ export const postSavedGroupRevisionItemsRemove = createApiRequestHandler(
       patchOps,
       { revisionId: revision.id },
     );
+
+    if (created) {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "created",
+      });
+    } else {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "updated",
+        change: "values",
+      });
+    }
 
     return {
       revision: await toApiSavedGroupRevision(updated, req.context),

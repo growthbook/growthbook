@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { SegmentInterface } from "shared/types/segment";
 import { GBArrowLeft } from "@/components/Icons";
@@ -7,7 +8,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -164,6 +165,7 @@ export default function FactSegmentForm({
           </div>
         ) : null}
         <Field
+          size="legacy"
           label="Name"
           required
           {...form.register("name")}
@@ -175,12 +177,15 @@ export default function FactSegmentForm({
           onChange={(v) => form.setValue("owner", v)}
         />
         <Field
+          size="legacy"
           label="Description"
+          maxLength={MAX_DESCRIPTION_LENGTH}
           {...form.register("description")}
           textarea
           disabled={isReadOnly}
         />
         <SelectField
+          size="legacy"
           label="Data Source"
           required
           value={form.watch("datasource")}
@@ -202,6 +207,7 @@ export default function FactSegmentForm({
         {projects?.length > 0 && (
           <div className="form-group">
             <MultiSelectField
+              legacyHeight
               label={
                 <>
                   Projects{" "}
@@ -212,7 +218,7 @@ export default function FactSegmentForm({
                   />
                 </>
               }
-              placeholder="All projects"
+              placeholder="All Projects"
               value={form.watch("projects")}
               options={projectOptions}
               disabled={isReadOnly}
@@ -226,6 +232,7 @@ export default function FactSegmentForm({
           <div className="row align-items-center">
             <div className="col-auto">
               <SelectField
+                size="legacy"
                 label={"Fact Table"}
                 disabled={isReadOnly}
                 value={form.watch("factTableId")}
@@ -260,6 +267,7 @@ export default function FactSegmentForm({
             {factTable && factTable.filters.length > 0 ? (
               <div className="col-auto">
                 <MultiSelectField
+                  legacyHeight
                   label={
                     <>
                       Included Rows{" "}
@@ -298,6 +306,7 @@ export default function FactSegmentForm({
           </div>
         </div>
         <SelectField
+          size="legacy"
           label="Identifier"
           required
           disabled={isReadOnly}

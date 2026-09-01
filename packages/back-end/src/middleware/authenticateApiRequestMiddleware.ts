@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import asyncHandler from "express-async-handler";
-import { hasPermission } from "shared/permissions";
+import { getRolePermissions, hasPermission } from "shared/permissions";
 import {
   EventUserApiKey,
   EventUserLoggedIn,
@@ -19,10 +19,7 @@ import {
   isApiKeyForUserInOrganization,
   dangerousLookupOrganizationByApiKey,
 } from "back-end/src/util/api-key.util";
-import {
-  getUserPermissions,
-  getRolePermissions,
-} from "back-end/src/util/organization.util";
+import { getUserPermissions } from "back-end/src/util/organization.util";
 import { getUserById } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
@@ -266,6 +263,21 @@ function authenticateWithApiKey(
         }
       }
       req.organization = org;
+
+      // Turning the org setting on revokes every user-attributed token
+      // immediately, without touching the stored docs.
+      if (userId && org.settings?.disablePersonalAccessTokens) {
+        throw new Error(
+          "Personal access tokens are disabled for this organization",
+        );
+      }
+
+      if (org.suspended && !req.user?.superAdmin) {
+        return res.status(403).json({
+          message:
+            "This account has been suspended. Please contact support@growthbook.io for assistance.",
+        });
+      }
 
       // If it's a user API key, verify that the user is part of the organization
       // This is important to check in the event that a user leaves an organization, the member list is updated, and the user's API keys are orphaned

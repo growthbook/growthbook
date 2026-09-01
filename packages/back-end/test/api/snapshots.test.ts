@@ -2,8 +2,16 @@ import request from "supertest";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
-import { createExperimentSnapshot } from "back-end/src/services/experiments";
+import {
+  findSnapshotById,
+  getLatestSuccessfulSnapshot,
+} from "back-end/src/models/ExperimentSnapshotModel";
+import {
+  createExperimentSnapshot,
+  createExperimentSnapshotFromPlan,
+  planExperimentSnapshot,
+} from "back-end/src/services/experiments";
+import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 import { setupApp } from "./api.setup";
 
@@ -21,10 +29,13 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   findSnapshotById: jest.fn(),
+  getLatestSuccessfulSnapshot: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/experiments", () => ({
   createExperimentSnapshot: jest.fn(),
+  createExperimentSnapshotFromPlan: jest.fn(),
+  planExperimentSnapshot: jest.fn(),
 }));
 
 describe("snapshots API", () => {
@@ -35,6 +46,13 @@ describe("snapshots API", () => {
   });
 
   const org = { id: "org" };
+
+  // Spelled out rather than imported: this copy is part of the 409 contract,
+  // so changing it should fail here.
+  const REQUIRES_FULL_REFRESH_GUIDANCE =
+    'Send "dimension": "" to rebuild Overall Results, wait for that snapshot to finish, then resubmit this request unchanged.';
+  const DIMENSION_ALREADY_UP_TO_DATE_GUIDANCE =
+    'Send "dimension": "" to update Overall Results, wait for that snapshot to finish, then resubmit this request.';
 
   it("can get a snapshot", async () => {
     setReqContext({
@@ -140,7 +158,7 @@ describe("snapshots API", () => {
     });
   });
 
-  it("passes dimension and zero-based phase when posting a snapshot", async () => {
+  it("passes triggeredBy and zero-based phase when posting a snapshot", async () => {
     setReqContext({
       org,
       permissions: {
@@ -161,7 +179,6 @@ describe("snapshots API", () => {
 
     getExperimentById.mockReturnValueOnce(experiment);
     getDataSourceById.mockReturnValueOnce(datasource);
-    findDimensionById.mockResolvedValueOnce({ id: "dim_123" });
     createExperimentSnapshot.mockResolvedValueOnce({
       snapshot,
       queryRunner: {},
@@ -172,7 +189,6 @@ describe("snapshots API", () => {
       .set("Authorization", "Bearer foo")
       .send({
         triggeredBy: "schedule",
-        dimension: "dim_123",
         phase: 0,
       });
 
@@ -190,7 +206,7 @@ describe("snapshots API", () => {
       datasource,
       triggeredBy: "schedule",
       phase: 0,
-      dimension: "dim_123",
+      dimension: undefined,
       useCache: true,
     });
   });
@@ -364,7 +380,11 @@ describe("snapshots API", () => {
 
     getExperimentById.mockReturnValueOnce(experiment);
     getDataSourceById.mockReturnValueOnce(datasource);
-    createExperimentSnapshot.mockResolvedValueOnce({
+    planExperimentSnapshot.mockResolvedValueOnce({
+      runnerKind: "incremental-exploratory",
+    });
+    getLatestSuccessfulSnapshot.mockResolvedValueOnce(null);
+    createExperimentSnapshotFromPlan.mockResolvedValueOnce({
       snapshot,
       queryRunner: {},
     });
@@ -376,9 +396,10 @@ describe("snapshots API", () => {
 
     expect(response.status).toBe(200);
     expect(findDimensionById).not.toHaveBeenCalled();
-    expect(createExperimentSnapshot).toHaveBeenCalledWith(
+    expect(planExperimentSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({ dimension: "exp:country" }),
     );
+    expect(createExperimentSnapshotFromPlan).toHaveBeenCalledTimes(1);
   });
 
   it("rejects an out-of-range phase index", async () => {
@@ -412,6 +433,329 @@ describe("snapshots API", () => {
     expect(createExperimentSnapshot).not.toHaveBeenCalled();
   });
 
+  it("auto-promotes a non-forced request when a full refresh is required", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canCreateExperimentSnapshot: () => true,
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const snapshot = snapshotFactory.build({
+      organization: org.id,
+    });
+    const experiment = {
+      id: snapshot.experiment,
+      datasource: "ds_123",
+      phases: [{}],
+    };
+    const staleConfigMessage =
+      "The experiment configuration is outdated. Please run a Full Refresh.";
+
+    getExperimentById.mockReturnValueOnce(experiment);
+    getDataSourceById.mockReturnValueOnce({ id: "ds_123" });
+    createExperimentSnapshot
+      .mockRejectedValueOnce(
+        new ExperimentIncrementalPipelineRequiresFullRefreshError(
+          staleConfigMessage,
+        ),
+      )
+      .mockResolvedValueOnce({ snapshot, queryRunner: {} });
+
+    const response = await request(app)
+      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(createExperimentSnapshot).toHaveBeenCalledTimes(2);
+    expect(createExperimentSnapshot).toHaveBeenLastCalledWith(
+      expect.objectContaining({ useCache: false }),
+    );
+  });
+
+  const incrementalDatasource = {
+    id: "ds_123",
+    settings: {
+      pipelineSettings: {
+        allowWriting: true,
+        mode: "incremental" as const,
+      },
+      queries: {
+        exposure: [{ id: "eq_1", dimensions: ["country"] }],
+      },
+    },
+  };
+
+  it.each([
+    [
+      "Overall Results are missing",
+      "Overall Results have not been computed yet, so there is no units table for a dimension breakdown to read.",
+    ],
+    [
+      "Overall Results are stale",
+      "Overall Results require a full refresh before Dimension Results can be updated.",
+    ],
+  ])(
+    "returns 409 requires_full_refresh when %s",
+    async (_, dimensionFullRefreshMessage) => {
+      setReqContext({
+        org,
+        permissions: {
+          canCreateExperimentSnapshot: () => true,
+          canReadSingleProjectResource: () => true,
+        },
+      });
+
+      const snapshot = snapshotFactory.build({
+        organization: org.id,
+      });
+      const experiment = {
+        id: snapshot.experiment,
+        datasource: "ds_123",
+        exposureQueryId: "eq_1",
+        phases: [{}],
+      };
+
+      getExperimentById.mockReturnValueOnce(experiment);
+      getDataSourceById.mockReturnValueOnce(incrementalDatasource);
+      planExperimentSnapshot.mockRejectedValueOnce(
+        new ExperimentIncrementalPipelineRequiresFullRefreshError(
+          dimensionFullRefreshMessage,
+        ),
+      );
+      const response = await request(app)
+        .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
+        .set("Authorization", "Bearer foo")
+        .send({ dimension: "exp:country" });
+
+      const guidedMessage = `${dimensionFullRefreshMessage} ${REQUIRES_FULL_REFRESH_GUIDANCE}`;
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({
+        message: guidedMessage,
+        code: "requires_full_refresh",
+        details: {
+          reason: guidedMessage,
+        },
+      });
+      // The request path forces the full-refresh contract regardless of the
+      // triggeredBy the caller sent, so a "schedule" caller cannot opt out.
+      expect(planExperimentSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({ throwIfRequiresFullRefresh: true }),
+      );
+      expect(createExperimentSnapshotFromPlan).not.toHaveBeenCalled();
+      expect(createExperimentSnapshot).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ["manual", undefined],
+    ["scheduled", "schedule" as const],
+  ])(
+    "returns 409 dimension_already_up_to_date for a %s dimension request already computed from the latest Overall Results",
+    async (_, triggeredBy) => {
+      setReqContext({
+        org,
+        permissions: {
+          canCreateExperimentSnapshot: () => true,
+          canReadSingleProjectResource: () => true,
+        },
+      });
+
+      const snapshot = snapshotFactory.build({ organization: org.id });
+      const experiment = {
+        id: snapshot.experiment,
+        datasource: "ds_123",
+        exposureQueryId: "eq_1",
+        phases: [{}],
+      };
+
+      getExperimentById.mockReturnValueOnce(experiment);
+      getDataSourceById.mockReturnValueOnce(incrementalDatasource);
+      const analysisSettings = { differenceType: "relative" as const };
+      const overallResultsAsOf = new Date("2026-08-03T20:11:46.755Z");
+      planExperimentSnapshot.mockResolvedValueOnce({
+        runnerKind: "incremental-exploratory",
+        snapshot: {
+          sourceSnapshotId: "snp_src",
+          sourceSnapshotDateCreated: overallResultsAsOf,
+          analyses: [{ settings: analysisSettings }],
+        },
+      });
+      getLatestSuccessfulSnapshot.mockResolvedValueOnce({
+        id: "snp_dim",
+        sourceSnapshotId: "snp_src",
+        analyses: [{ status: "success", settings: analysisSettings }],
+      });
+
+      const response = await request(app)
+        .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
+        .set("Authorization", "Bearer foo")
+        .send({ dimension: "exp:country", triggeredBy });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({
+        message: `These results were computed from Overall Results as of ${overallResultsAsOf.toISOString()}. ${DIMENSION_ALREADY_UP_TO_DATE_GUIDANCE}`,
+        code: "dimension_already_up_to_date",
+        details: { overallResultsAsOf: overallResultsAsOf.toISOString() },
+      });
+      expect(planExperimentSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({ triggeredBy }),
+      );
+      expect(getLatestSuccessfulSnapshot).toHaveBeenCalledTimes(1);
+      expect(getLatestSuccessfulSnapshot).toHaveBeenCalledWith({
+        context: expect.objectContaining({ org }),
+        experiment: experiment.id,
+        phase: 0,
+        dimension: "exp:country",
+      });
+      expect(createExperimentSnapshotFromPlan).not.toHaveBeenCalled();
+    },
+  );
+
+  it("recomputes a dimension from the same Overall Results when its analysis settings changed", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canCreateExperimentSnapshot: () => true,
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const snapshot = snapshotFactory.build({ organization: org.id });
+    const experiment = {
+      id: snapshot.experiment,
+      datasource: "ds_123",
+      exposureQueryId: "eq_1",
+      phases: [{}],
+    };
+
+    getExperimentById.mockReturnValueOnce(experiment);
+    getDataSourceById.mockReturnValueOnce(incrementalDatasource);
+    planExperimentSnapshot.mockResolvedValueOnce({
+      runnerKind: "incremental-exploratory",
+      snapshot: {
+        sourceSnapshotId: "snp_src",
+        analyses: [
+          {
+            settings: {
+              differenceType: "relative",
+              pValueThreshold: 0.05,
+            },
+          },
+        ],
+      },
+    });
+    getLatestSuccessfulSnapshot.mockResolvedValueOnce({
+      id: "snp_dim",
+      sourceSnapshotId: "snp_src",
+      analyses: [
+        {
+          status: "success",
+          settings: {
+            differenceType: "relative",
+            pValueThreshold: 0.01,
+          },
+        },
+      ],
+    });
+    createExperimentSnapshotFromPlan.mockResolvedValueOnce({
+      snapshot,
+      queryRunner: {},
+    });
+
+    const response = await request(app)
+      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
+      .set("Authorization", "Bearer foo")
+      .send({ dimension: "exp:country" });
+
+    expect(response.status).toBe(200);
+    expect(createExperimentSnapshotFromPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs the dimension snapshot when the plan reads a different Overall Results run than the last breakdown did", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canCreateExperimentSnapshot: () => true,
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const snapshot = snapshotFactory.build({ organization: org.id });
+    const experiment = {
+      id: snapshot.experiment,
+      datasource: "ds_123",
+      exposureQueryId: "eq_1",
+      phases: [{}],
+    };
+
+    getExperimentById.mockReturnValueOnce(experiment);
+    getDataSourceById.mockReturnValueOnce(incrementalDatasource);
+    planExperimentSnapshot.mockResolvedValueOnce({
+      runnerKind: "incremental-exploratory",
+      snapshot: { sourceSnapshotId: "snp_src_new" },
+    });
+    getLatestSuccessfulSnapshot.mockResolvedValueOnce({
+      id: "snp_dim",
+      sourceSnapshotId: "snp_src_old",
+    });
+    createExperimentSnapshotFromPlan.mockResolvedValueOnce({
+      snapshot,
+      queryRunner: {},
+    });
+
+    const response = await request(app)
+      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
+      .set("Authorization", "Bearer foo")
+      .send({ dimension: "exp:country" });
+
+    expect(response.status).toBe(200);
+    expect(createExperimentSnapshotFromPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs the dimension snapshot when the plan is not incremental, even if a prior breakdown recorded a source", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canCreateExperimentSnapshot: () => true,
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const snapshot = snapshotFactory.build({ organization: org.id });
+    const experiment = {
+      id: snapshot.experiment,
+      datasource: "ds_123",
+      exposureQueryId: "eq_1",
+      phases: [{}],
+    };
+
+    getExperimentById.mockReturnValueOnce(experiment);
+    getDataSourceById.mockReturnValueOnce(incrementalDatasource);
+    planExperimentSnapshot.mockResolvedValueOnce({
+      runnerKind: "results",
+      snapshot: {},
+    });
+    getLatestSuccessfulSnapshot.mockResolvedValueOnce({
+      id: "snp_dim",
+      sourceSnapshotId: "snp_src",
+    });
+    createExperimentSnapshotFromPlan.mockResolvedValueOnce({
+      snapshot,
+      queryRunner: {},
+    });
+
+    const response = await request(app)
+      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
+      .set("Authorization", "Bearer foo")
+      .send({ dimension: "exp:country" });
+
+    expect(response.status).toBe(200);
+    expect(createExperimentSnapshotFromPlan).toHaveBeenCalledTimes(1);
+  });
+
   it("post fails without datasource permission", async () => {
     setReqContext({
       org,
@@ -439,5 +783,6 @@ describe("snapshots API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ message: "permission error" });
+    expect(createExperimentSnapshot).not.toHaveBeenCalled();
   });
 });

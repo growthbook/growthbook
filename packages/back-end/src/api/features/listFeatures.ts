@@ -14,6 +14,7 @@ import {
 } from "back-end/src/services/features";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
+import { getReferenceIdsInFeatures } from "back-end/src/util/features";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -44,6 +45,7 @@ export async function loadFeaturesPage(
   query: {
     projectId?: string;
     clientKey?: string;
+    archived?: string | boolean;
     skipPagination?: string | boolean;
     limit?: number;
     offset?: number;
@@ -71,6 +73,9 @@ export async function loadFeaturesPage(
     }
 > {
   const projectId = query.projectId;
+  // Mirrors the internal `includeArchived` option: false (default) excludes
+  // archived features; true includes them alongside non-archived ones.
+  const includeArchived = stringToBoolean(query.archived?.toString()) ?? false;
   const skipPagination = stringToBoolean(query.skipPagination?.toString());
   if (skipPagination && !API_ALLOW_SKIP_PAGINATION) {
     throw new Error(
@@ -102,10 +107,7 @@ export async function loadFeaturesPage(
   }
 
   const experimentScope = projectId ? [projectId] : (projectIds ?? undefined);
-  const [groupMap, experimentMap] = await Promise.all([
-    getSavedGroupMap(context),
-    getAllPayloadExperiments(context, experimentScope),
-  ]);
+  const groupMap = await getSavedGroupMap(context);
 
   let filtered: Awaited<ReturnType<typeof getFeaturesPage>>;
   let total: number;
@@ -114,7 +116,7 @@ export async function loadFeaturesPage(
     // clientKey: filter by SDK payload, then paginate in memory (or skip)
     const features = await getAllFeatures(context, {
       projects: projectId ? [projectId] : undefined,
-      includeArchived: true,
+      includeArchived,
     });
     const sdkConnection = await findSDKConnectionByKey(query.clientKey);
     if (!sdkConnection || sdkConnection.organization !== organizationId) {
@@ -143,7 +145,7 @@ export async function loadFeaturesPage(
     if (skipPagination) {
       const features = await getAllFeatures(context, {
         projects: [projectId],
-        includeArchived: true,
+        includeArchived,
       });
       const sorted = features.sort(
         (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime(),
@@ -153,13 +155,13 @@ export async function loadFeaturesPage(
     } else {
       filtered = await getFeaturesPage(context, {
         project: projectId,
-        includeArchived: true,
+        includeArchived,
         limit,
         offset,
       });
       total = await countFeatures(context, {
         project: projectId,
-        includeArchived: true,
+        includeArchived,
       });
     }
   } else {
@@ -167,7 +169,7 @@ export async function loadFeaturesPage(
     if (skipPagination) {
       const features = await getAllFeatures(context, {
         projects: projectsFilter,
-        includeArchived: true,
+        includeArchived,
       });
       const sorted = features.sort(
         (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime(),
@@ -177,13 +179,13 @@ export async function loadFeaturesPage(
     } else {
       filtered = await getFeaturesPage(context, {
         projectIds: projectsFilter,
-        includeArchived: true,
+        includeArchived,
         limit,
         offset,
       });
       total = await countFeatures(context, {
         projectIds: projectsFilter,
-        includeArchived: true,
+        includeArchived,
       });
     }
   }
@@ -194,6 +196,13 @@ export async function loadFeaturesPage(
   );
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
+
+  // Loaded after the page resolves so the experiments it references come too.
+  const experimentMap = await getAllPayloadExperiments(
+    context,
+    experimentScope,
+    getReferenceIdsInFeatures(filtered, "experiment-ref"),
+  );
 
   const hasMore = skipPagination ? false : offset + limit < total;
   const nextOffset = hasMore ? offset + limit : null;
@@ -220,7 +229,7 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
     const r = await loadFeaturesPage(
       req.context,
       req.organization.id,
-      req.query,
+      { ...req.query, archived: true }, // v1 always included archived features
     );
     if (r.empty) return r.response;
     return {

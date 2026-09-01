@@ -1,4 +1,5 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FormProvider, useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useRouter } from "next/router";
@@ -53,7 +54,7 @@ import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -106,22 +107,17 @@ export function getNewExperimentDatasourceDefaults(
 
 export const genEnvironmentSettings = ({
   environments,
-  permissions,
-  project,
 }: {
   environments: ReturnType<typeof useEnvironments>;
-  permissions: ReturnType<typeof usePermissionsUtil>;
-  project: string;
 }): Record<string, FeatureEnvironment> => {
   const envSettings: Record<string, FeatureEnvironment> = {};
 
   environments.forEach((e) => {
-    // How should we handle a holdout having multiple projects here?
-    const canPublish = permissions.canPublishFeature({ project }, [e.id]);
-    const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
-    const enabled = canPublish ? defaultEnabled : false;
-
-    envSettings[e.id] = { enabled };
+    // The environment's own default state, nothing else: the holdout endpoints
+    // authorize via the Holdout permissions, project-scoped, so keying defaults
+    // on Feature Publish silently pre-disabled environments for holdout users
+    // who hold no feature permissions at all.
+    envSettings[e.id] = { enabled: e.defaultState ?? true };
   });
 
   return envSettings;
@@ -227,11 +223,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         scopedSettings.regressionAdjustmentEnabled.value,
       environmentSettings:
         initialHoldout?.environmentSettings ||
-        genEnvironmentSettings({
-          environments,
-          permissions: permissionsUtils,
-          project,
-        }),
+        genEnvironmentSettings({ environments }),
     },
   });
 
@@ -376,6 +368,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   return (
     <FormProvider {...form}>
       <PagedModal
+        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         trackingEventModalSource={source}
         header={header}
@@ -400,20 +393,19 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       >
         <Page display="Overview">
           <div className="px-2">
-            {msg && <div className="alert alert-info">{msg}</div>}
+            {msg && <Callout status="info">{msg}</Callout>}
 
             {currentProjectIsDemo && (
-              <div className="alert alert-warning">
-                You are creating a holdout under the demo datasource project.
-                This experiment will be deleted when the demo datasource project
-                is deleted.
-              </div>
+              <Callout status="warning">
+                You are creating a holdout in the Sample Data Project.
+              </Callout>
             )}
 
             {prerequisiteAlert}
             {remoteEvalAlert}
 
             <Field
+              size="legacy"
               label={"Holdout Name"}
               required
               minLength={2}
@@ -442,6 +434,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
             {projects?.length > 0 && (
               <div className="form-group">
                 <MultiSelectField
+                  legacyHeight
                   label={
                     <>
                       Projects{" "}
@@ -454,7 +447,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   }
                   placeholder={
                     canCreateWithoutProject
-                      ? "All projects"
+                      ? "All Projects"
                       : "Select projects..."
                   }
                   value={form.watch("projects") || []}
@@ -468,9 +461,11 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
             {includeDescription && (
               <Field
+                size="legacy"
                 label="Description"
                 textarea
                 minRows={1}
+                maxLength={MAX_DESCRIPTION_LENGTH}
                 {...form.register("description")}
                 placeholder={"Short human-readable description of the Holdout"}
               />
@@ -483,11 +478,16 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               />
             </div>
             <EnvironmentSelect
+              // No per-environment rule: the create endpoint authorizes via
+              // canCreateHoldout, project-scoped — requiring Feature Publish
+              // here blocked holdout users who hold no feature permissions.
               environmentSettings={environmentSettings}
               environments={environments}
               setValue={(env, on) => {
-                environmentSettings[env.id].enabled = on;
-                form.setValue("environmentSettings", environmentSettings);
+                form.setValue("environmentSettings", {
+                  ...environmentSettings,
+                  [env.id]: { ...environmentSettings[env.id], enabled: on },
+                });
               }}
             />
             {/* {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
@@ -517,6 +517,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 variation to assign
               </Text>
               <SelectField
+                size="legacy"
                 withRadixThemedPortal
                 containerClassName="flex-1"
                 options={attributeSchema
@@ -559,6 +560,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 style={{ width: 110 }}
               >
                 <Field
+                  size="legacy"
                   style={{ width: 95 }}
                   value={
                     isNaN(form.watch("phases.0.coverage") ?? 0)
@@ -611,6 +613,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
             <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
               <SelectField
+                size="legacy"
                 label="Data Source"
                 labelClassName="font-weight-bold"
                 value={form.watch("datasource") ?? ""}
@@ -645,6 +648,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
               {datasource?.properties?.exposureQueries && exposureQueries ? (
                 <SelectField
+                  size="legacy"
                   label={
                     <>
                       Experiment Assignment Table{" "}
@@ -699,6 +703,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               collapseSecondary={true}
               goalMetricsDescription="The primary metrics you are trying to improve within this holdout. "
               filterConversionWindowMetrics={true}
+              experimentType="holdout"
             />
 
             <hr className="mt-4" />

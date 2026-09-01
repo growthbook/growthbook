@@ -16,6 +16,7 @@ import {
   isDraftStatus,
   resolveOrCreateRevision,
 } from "./validations";
+import { assertValidHoldout } from "./v2Shared";
 
 export async function setRevisionHoldout(
   context: ApiReqContext,
@@ -30,19 +31,11 @@ export async function setRevisionHoldout(
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
-  if (body.holdout) {
-    const holdout = await context.models.holdout.getById(body.holdout.id);
-    if (!holdout) {
-      throw new NotFoundError(`Could not find holdout "${body.holdout.id}"`);
-    }
-  }
+  await assertValidHoldout(body.holdout, context, feature.project);
 
   const { revision, created } = await resolveOrCreateRevision(
     context,

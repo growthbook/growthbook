@@ -50,6 +50,21 @@ export const aiChatToolResultPartValidator = z
   })
   .passthrough();
 
+export const aiChatMentionValidator = z
+  .object({
+    type: z.enum(["metric", "factMetric", "metricGroup"]),
+    id: z.string().min(1).max(64),
+    name: z.string().min(1).max(200),
+  })
+  .strict();
+
+/** Stored form. `stale` is server-set — the client cannot assert it. */
+export const aiChatStoredMentionValidator = aiChatMentionValidator.extend({
+  stale: z.boolean().optional(),
+});
+
+export const aiChatSkillsValidator = z.array(z.string().min(1).max(64));
+
 // ---------------------------------------------------------------------------
 // Message validators (discriminated on role)
 // ---------------------------------------------------------------------------
@@ -78,6 +93,10 @@ const aiChatUserMessageValidator = z
         ]),
       ),
     ]),
+    currentPage: z.string().max(2048).optional(),
+    datasourceHint: z.string().max(256).optional(),
+    mentions: aiChatStoredMentionValidator.array().optional(),
+    skills: aiChatSkillsValidator.optional(),
   })
   .passthrough();
 
@@ -118,6 +137,31 @@ export const aiChatMessageValidator = z.discriminatedUnion("role", [
 ]);
 
 export type PersistedAIChatMessage = z.infer<typeof aiChatMessageValidator>;
+
+// ---------------------------------------------------------------------------
+// Pending agent action (deterministic mutation-confirmation gate)
+// ---------------------------------------------------------------------------
+
+/**
+ * A mutating REST API call the agent has requested but that the harness has
+ * parked pending explicit user confirmation. Stored on the conversation so
+ * the exact call can be replayed deterministically when the user confirms on
+ * a later turn — the model is never relied upon to re-issue it.
+ */
+export const aiAgentPendingActionValidator = z.object({
+  id: z.string(),
+  method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
+  path: z.string(),
+  query: z.record(z.string(), z.string()).optional(),
+  body: z.unknown().optional(),
+  /** Short human-readable description shown in the confirmation prompt. */
+  summary: z.string(),
+  createdAt: z.number(),
+});
+
+export type AIAgentPendingAction = z.infer<
+  typeof aiAgentPendingActionValidator
+>;
 
 // ---------------------------------------------------------------------------
 // Feedback validator
@@ -164,6 +208,12 @@ export const aiConversationValidator = z
     preview: z.string(),
     model: z.string().optional(),
     feedback: z.array(aiChatFeedbackEntryValidator).optional(),
+    /**
+     * Set when the agent has requested a mutating API call and is waiting for
+     * the user to confirm. Replayed deterministically by the harness on
+     * confirm; `null`/absent means there is no pending action.
+     */
+    pendingAction: aiAgentPendingActionValidator.nullable().optional(),
   })
   .strict();
 

@@ -3,17 +3,13 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
-import {
-  FaAngleDown,
-  FaAngleRight,
-  FaExclamationCircle,
-  FaExclamationTriangle,
-} from "react-icons/fa";
+import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { FeatureInterface } from "shared/types/feature";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { PiPackage } from "react-icons/pi";
 import Link from "@/ui/Link";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useAttributeSchema } from "@/services/features";
@@ -110,6 +106,7 @@ export default function CodeSnippetModal({
 
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
+  const { ready: definitionsReady, eventIngestorRegion } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
   const canUpdate = currentConnection
@@ -151,7 +148,7 @@ export default function CodeSnippetModal({
     setEventTracker(currentConnection?.eventTracker || "");
   }, [currentConnection]);
 
-  if (!currentConnection) {
+  if (!currentConnection || !definitionsReady) {
     return null;
   }
 
@@ -200,6 +197,7 @@ export default function CodeSnippetModal({
         />
       )}
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         close={close}
         secondaryCTA={secondaryCTA}
@@ -230,6 +228,7 @@ export default function CodeSnippetModal({
             {connections?.length > 1 && allowChangingConnection && (
               <div className="col-auto">
                 <SelectField
+                  size="legacy"
                   label="SDK Connection"
                   labelClassName="font-weight-bold small text-dark"
                   options={connections.map((connection) => ({
@@ -271,6 +270,7 @@ export default function CodeSnippetModal({
                 contribute it back to the community!{" "}
               </p>
               <DocLink
+                useRadix={false}
                 docSection="buildYourOwn"
                 className="btn btn-outline-primary"
               >
@@ -281,8 +281,10 @@ export default function CodeSnippetModal({
             <p>
               Below is some starter code to integrate GrowthBook into your app.
               Read the{" "}
-              <DocLink docSection={docs}>{docLabel || label} docs</DocLink> for
-              more details.
+              <DocLink useRadix={false} docSection={docs}>
+                {docLabel || label} docs
+              </DocLink>{" "}
+              for more details.
             </p>
           )}
           {!language.match(/^nocode/) && (
@@ -410,6 +412,7 @@ export default function CodeSnippetModal({
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
+                    eventIngestorRegion={eventIngestorRegion}
                   />
                   {languageMapping[language]?.packageUrl && (
                     <div className="mt-3">
@@ -457,6 +460,7 @@ export default function CodeSnippetModal({
                     remoteEvalEnabled={remoteEvalEnabled}
                     eventTracker={eventTracker}
                     setEventTracker={updateEventTracker}
+                    eventIngestorRegion={eventIngestorRegion}
                   />
                 </div>
               )}
@@ -487,13 +491,13 @@ export default function CodeSnippetModal({
 
                   {hashSecureAttributes && secureAttributes.length > 0 && (
                     <div className="appbox mt-4">
-                      <div className="alert alert-info mb-0">
+                      <Callout status="info" mb="0">
                         <GBHashLock className="text-blue" /> This connection has{" "}
                         <strong>secure attribute hashing</strong> enabled. You
                         must manually hash all attributes with datatype{" "}
                         <code>secureString</code> or <code>secureString[]</code>{" "}
                         in your SDK implementation code.
-                      </div>
+                      </Callout>
                       <div className="px-3 pb-3">
                         <div className="mt-3">
                           Your organization currently has{" "}
@@ -535,15 +539,15 @@ export default function CodeSnippetModal({
                           Example, using your organization&apos;s secure
                           attribute salt:
                           {secureAttributeSalt === "" && (
-                            <div className="alert alert-warning mt-2 px-2 py-1">
-                              <FaExclamationTriangle /> Your organization has an
-                              empty salt string. Add a salt string in your{" "}
+                            <Callout status="warning" mt="2" size="sm">
+                              Your organization has an empty salt string. Add a
+                              salt string in your{" "}
                               <Link href="/settings">
                                 organization settings
                               </Link>{" "}
                               to improve the security of hashed targeting
                               conditions.
-                            </div>
+                            </Callout>
                           )}
                           <Code
                             filename="pseudocode"
@@ -557,14 +561,13 @@ myAttribute = sha256(salt + myAttribute);
 myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                           />
                         </div>
-                        <div className="alert text-warning-orange mt-3 mb-0 px-2 py-1">
-                          <FaExclamationCircle /> When using an insecure
-                          environment (such as a browser), do not rely
-                          exclusively on hashing as a means of securing highly
-                          sensitive data. Hashing is an obfuscation technique
-                          that makes it very difficult, but not impossible, to
-                          extract sensitive data.
-                        </div>
+                        <Callout status="warning" mt="3" mb="0">
+                          When using an insecure environment (such as a
+                          browser), do not rely exclusively on hashing as a
+                          means of securing highly sensitive data. Hashing is an
+                          obfuscation technique that makes it very difficult,
+                          but not impossible, to extract sensitive data.
+                        </Callout>
                       </div>
                     </div>
                   )}

@@ -10,10 +10,11 @@ import {
   getLatestSDKVersion,
 } from "shared/sdk-versioning";
 import { Box, Flex } from "@radix-ui/themes";
+import { filterProjectsByEnvironment } from "shared/util";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
@@ -28,6 +29,9 @@ import {
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
 import { useEnvironments } from "@/services/features";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { shouldShowPayloadSecurity } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import track from "@/services/track";
@@ -68,7 +72,14 @@ export default function CreateSDKConnectionModal({
   const [selectedProjects, setSelectedProjects] = useState<string[]>(
     project ? [project] : [],
   );
+  const settings = useOrgSettings();
   const [delivery, setDelivery] = useState<DeliveryMode>("plain");
+  const [includeDraftExperimentRefs, setIncludeDraftExperimentRefs] =
+    useState(false);
+  const [
+    includeExperimentScheduleInMetadata,
+    setIncludeExperimentScheduleInMetadata,
+  ] = useState(false);
   // Ciphered sub-settings (mirror the original Cipher Options)
   const [encryptPayload, setEncryptPayload] = useState(false);
   const [hashSecureAttributes, setHashSecureAttributes] = useState(false);
@@ -127,6 +138,25 @@ export default function CreateSDKConnectionModal({
     [languages, sdkVersion],
   );
   const supportsSavedGroups = capabilities.includes("savedGroupReferences");
+  const selectedEnvironment = environments.find((e) => e.id === environment);
+  const environmentHasProjects = !!selectedEnvironment?.projects?.length;
+  const allowedProjectIds = filterProjectsByEnvironment(
+    projects.map((p) => p.id),
+    selectedEnvironment,
+    true,
+  );
+  // On create the org setting always applies — there's no pre-existing scope
+  // to grandfather.
+  const requireProjectSelection = !!settings.requireProjectForSdkConnections;
+  // Same gates the edit modal applies, so a connection can't be created with a
+  // setting its SDK will ignore.
+  const payloadSecurityAllowed = shouldShowPayloadSecurity(languages);
+  const showEncryption =
+    payloadSecurityAllowed && capabilities.includes("encryption");
+  const showRemoteEval =
+    payloadSecurityAllowed && capabilities.includes("remoteEval");
+  const showVisualEditorSettings = capabilities.includes("visualEditor");
+  const showRedirectSettings = capabilities.includes("redirects");
 
   // Switching delivery mode seeds sensible defaults for its sub-settings,
   // mirroring the original form's tab behavior.
@@ -142,11 +172,12 @@ export default function CreateSDKConnectionModal({
     }
   };
 
-  const deliveryOptions: {
+  type DeliveryOption = {
     label: string | JSX.Element;
     value: DeliveryMode;
     disabled?: boolean;
-  }[] = [
+  };
+  const allDeliveryOptions: DeliveryOption[] = [
     { label: "Plain Text", value: "plain" },
     {
       label: (
@@ -167,6 +198,12 @@ export default function CreateSDKConnectionModal({
       value: "remote",
     },
   ];
+  // Only offer the modes this SDK supports, matching the edit modal.
+  const deliveryOptions: DeliveryOption[] = allDeliveryOptions.filter(
+    (opt) =>
+      (opt.value !== "ciphered" || showEncryption) &&
+      (opt.value !== "remote" || showRemoteEval),
+  );
 
   return (
     <ModalStandard
@@ -183,10 +220,18 @@ export default function CreateSDKConnectionModal({
         }
         setLanguageError(null);
 
-        const isCiphered = delivery === "ciphered";
-        const remoteEvalEnabled = delivery === "remote";
-        const finalEncryptPayload = isCiphered && encryptPayload;
-        const finalHashSecureAttributes = isCiphered && hashSecureAttributes;
+        // Plain Text is the only mode that implies no encryption — Remote Eval
+        // and encryption are independent settings.
+        const remoteEvalEnabled = showRemoteEval && delivery === "remote";
+        const finalEncryptPayload =
+          delivery === "plain" ? false : encryptPayload;
+        const finalHashSecureAttributes =
+          delivery === "plain" ? false : hashSecureAttributes;
+        // Never persist an option this SDK can't use.
+        const finalVisual =
+          showVisualEditorSettings && includeVisualExperiments;
+        const finalRedirect =
+          showRedirectSettings && includeRedirectExperiments;
 
         const body = {
           name,
@@ -198,9 +243,12 @@ export default function CreateSDKConnectionModal({
           hashSecureAttributes: finalHashSecureAttributes,
           remoteEvalEnabled,
           includeRuleIds,
-          includeVisualExperiments,
-          includeRedirectExperiments,
-          includeDraftExperiments,
+          includeVisualExperiments: finalVisual,
+          includeRedirectExperiments: finalRedirect,
+          includeDraftExperiments:
+            finalVisual || finalRedirect ? includeDraftExperiments : false,
+          includeDraftExperimentRefs,
+          includeExperimentScheduleInMetadata,
           includeExperimentNames,
           includeTagsInMetadata,
           includeProjectIdInMetadata,
@@ -281,10 +329,24 @@ export default function CreateSDKConnectionModal({
 
         <MultiSelectField
           label="Project"
-          placeholder="All projects"
+          placeholder={
+            environmentHasProjects ? "All Environment Projects" : "All Projects"
+          }
           value={selectedProjects}
           onChange={(p) => setSelectedProjects(p as string[])}
           options={projects.map((p) => ({ label: p.name, value: p.id }))}
+          required={requireProjectSelection}
+          // Flag projects the chosen environment excludes — they'd be dropped
+          // from the payload without warning otherwise.
+          formatOptionLabel={({ value, label }) =>
+            !allowedProjectIds.includes(value) ? (
+              <Tooltip body="This project is not allowed in the selected environment and will not be included in the SDK payload.">
+                <span className="text-danger">{label}</span>
+              </Tooltip>
+            ) : (
+              label
+            )
+          }
           helpText="Leave empty to serve every project allowed in the selected environment."
           sort={false}
           closeMenuOnSelect={true}
@@ -298,7 +360,7 @@ export default function CreateSDKConnectionModal({
             options={deliveryOptions}
           />
           <Box mt="2">
-            <Text size="small" color="text-mid">
+            <Text size="sm" color="text-mid">
               {DELIVERY_DESCRIPTIONS[delivery]}
             </Text>
           </Box>
@@ -398,11 +460,11 @@ export default function CreateSDKConnectionModal({
             }}
           >
             <Flex align="center" gap="2">
-              <Text size="medium" weight="medium">
+              <Text size="md" weight="medium">
                 Advanced settings
               </Text>
               {!advancedOpen && (
-                <Text size="small" color="text-mid">
+                <Text size="sm" color="text-mid">
                   Features &amp; Experiments · Payload Metadata · Proxy
                 </Text>
               )}
@@ -426,20 +488,36 @@ export default function CreateSDKConnectionModal({
                     value={includeRuleIds}
                     onChange={setIncludeRuleIds}
                   />
-                  <Switch
-                    label="Visual Editor"
-                    value={includeVisualExperiments}
-                    onChange={setIncludeVisualExperiments}
-                  />
-                  <Switch
-                    label="URL Redirects"
-                    value={includeRedirectExperiments}
-                    onChange={setIncludeRedirectExperiments}
-                  />
+                  {showVisualEditorSettings && (
+                    <Switch
+                      label="Visual Editor"
+                      value={includeVisualExperiments}
+                      onChange={setIncludeVisualExperiments}
+                    />
+                  )}
+                  {showRedirectSettings && (
+                    <Switch
+                      label="URL Redirects"
+                      value={includeRedirectExperiments}
+                      onChange={setIncludeRedirectExperiments}
+                    />
+                  )}
                   <Switch
                     label="Draft Experiments"
                     value={includeDraftExperiments}
                     onChange={setIncludeDraftExperiments}
+                  />
+                  <Switch
+                    label="Draft Experiment Rules"
+                    description="Include draft Experiment rules in feature definitions."
+                    value={includeDraftExperimentRefs}
+                    onChange={setIncludeDraftExperimentRefs}
+                  />
+                  <Switch
+                    label="Experiment Schedule Dates"
+                    description="Include experiment schedule dates in the SDK payload."
+                    value={includeExperimentScheduleInMetadata}
+                    onChange={setIncludeExperimentScheduleInMetadata}
                   />
                 </AdvancedGroup>
 

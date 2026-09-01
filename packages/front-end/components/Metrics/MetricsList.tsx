@@ -542,23 +542,37 @@ const MetricsList = (): React.ReactElement => {
       >
         <Flex align="center" gap="2">
           <div>
-            Define what constitutes success and failure for your business.
+            Define what constitutes success and failure for your organization.
           </div>
-          <DocLink docSection="metrics" className="align-self-center pb-1">
+          <DocLink
+            useRadix={false}
+            docSection="metrics"
+            className="align-self-center pb-1"
+          >
             View Docs
           </DocLink>
         </Flex>
         <Box style={{ flex: 1 }} />
-        {permissionsUtil.canCreateMetric({ projects: [project] }) &&
-        envAllowsCreatingMetrics() &&
-        !showCreateFactTableButton ? (
+        {envAllowsCreatingMetrics() && !showCreateFactTableButton ? (
           <Flex gap="2">
             <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
             />
-            <Button onClick={() => setModalData({ mode: "new" })}>
-              Add Metric
-            </Button>
+            <Tooltip
+              content="You don't have permission to add metrics in this project."
+              enabled={
+                !permissionsUtil.canCreateMetric({ projects: [project] })
+              }
+            >
+              <Button
+                disabled={
+                  !permissionsUtil.canCreateMetric({ projects: [project] })
+                }
+                onClick={() => setModalData({ mode: "new" })}
+              >
+                Add Metric
+              </Button>
+            </Tooltip>
           </Flex>
         ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
           <Box>
@@ -571,7 +585,12 @@ const MetricsList = (): React.ReactElement => {
       </Box>
       <Flex justify="between" mb="3" gap="3" align="center">
         <Box className="relative" width="40%">
-          <Field placeholder="Search..." type="search" {...searchInputProps} />
+          <Field
+            size="legacy"
+            placeholder="Search..."
+            type="search"
+            {...searchInputProps}
+          />
         </Box>
         <MetricSearchFilters
           combinedMetrics={combinedMetrics}
@@ -583,7 +602,7 @@ const MetricsList = (): React.ReactElement => {
       {metrics.length > 4 && !metricGroups.length ? (
         <PremiumCallout
           commercialFeature="metric-groups"
-          dismissable={true}
+          dismissible={true}
           id="metrics-list-metric-group-promo"
           docSection="metricGroups"
           mb="2"

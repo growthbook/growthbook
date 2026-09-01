@@ -12,6 +12,10 @@ import { VisualChange } from "shared/types/visual-changeset";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentStatus,
+  SCHEDULE_STOP_AFTER_UNITS,
+  SCHEDULED_STATUS_UPDATE_TYPES,
+  SCHEDULED_STOP_MODES,
+  SCHEDULED_STOP_FALLBACKS,
 } from "shared/validators";
 import {
   Changeset,
@@ -30,6 +34,7 @@ import {
 } from "back-end/src/services/experiments";
 import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
+import { validateMetricOverrides } from "back-end/src/util/priors";
 import {
   queueSDKPayloadRefresh,
   URLRedirectExperiment,
@@ -53,7 +58,13 @@ import {
   generateEmbeddings,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
+import {
+  shouldNotifyLicenseServer,
+  notifyLicenseServerEvent,
+} from "back-end/src/enterprise/licenseUtil";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { runValidateExperimentHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { CasConflictError } from "./BaseModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -188,10 +199,22 @@ const experimentSchema = new mongoose.Schema({
     _id: false,
     startAt: Date,
     stopAt: Date,
+    stopAfter: {
+      _id: false,
+      value: Number,
+      unit: { type: String, enum: [...SCHEDULE_STOP_AFTER_UNITS] },
+    },
+    scheduledStopPlan: {
+      _id: false,
+      mode: { type: String, enum: [...SCHEDULED_STOP_MODES] },
+      tiebreakerMetricId: String,
+      fallback: { type: String, enum: [...SCHEDULED_STOP_FALLBACKS] },
+      fallbackVariationId: String,
+    },
   },
   nextScheduledStatusUpdate: {
     _id: false,
-    type: { type: String },
+    type: { type: String, enum: [...SCHEDULED_STATUS_UPDATE_TYPES] },
     date: Date,
     failedAttempts: Number,
   },
@@ -373,6 +396,7 @@ const experimentSchema = new mongoose.Schema({
       ],
     },
   ],
+  precomputedUnitDimensionIds: [String],
 });
 
 // Compound indexes for API list filtering
@@ -423,6 +447,26 @@ async function findExperiments(
   );
 }
 
+export async function findVisualExperimentsByName(
+  context: ReqContext | ApiReqContext,
+  name: string,
+  limit: number,
+): Promise<ExperimentInterface[]> {
+  // Escape regex metacharacters so a user's literal text isn't treated as a
+  // pattern (and can't inject an expensive/malformed regex).
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return findExperiments(
+    context,
+    {
+      organization: context.org.id,
+      name: { $regex: escaped, $options: "i" },
+      hasVisualChangesets: true,
+    },
+    limit,
+    { dateUpdated: -1 },
+  );
+}
+
 export async function getExperimentById(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -456,19 +500,28 @@ export async function getAllExperiments(
   {
     project,
     includeArchived = false,
+    archived,
     type,
     datasourceId,
     trackingKey,
     status,
     sortBy,
+    limit,
   }: {
     project?: string;
     includeArchived?: boolean;
+    // Tri-state archived filter: true = archived only, false = exclude
+    // archived, undefined = fall back to `includeArchived`.
+    archived?: boolean;
     type?: ExperimentType;
     datasourceId?: string;
     trackingKey?: string;
     status?: ExperimentStatus;
     sortBy?: SortFilter;
+    // Mongo-cursor-level cap; pair with `sortBy` to get top-N. Without
+    // it, large orgs materialize the full result set (each row carries
+    // a potentially large analysis blob).
+    limit?: number;
   } = {},
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
@@ -487,7 +540,9 @@ export async function getAllExperiments(
     query.trackingKey = trackingKey;
   }
 
-  if (!includeArchived) {
+  if (archived !== undefined) {
+    query.archived = archived ? true : { $ne: true };
+  } else if (!includeArchived) {
     query.archived = { $ne: true };
   }
 
@@ -505,7 +560,83 @@ export async function getAllExperiments(
     query.type = { $ne: "holdout" };
   }
 
-  return await findExperiments(context, query, undefined, sortBy);
+  return await findExperiments(context, query, limit, sortBy);
+}
+
+/**
+ * Lightweight sibling of {@link getAllExperiments} for the feature
+ * stale-detection and dependents graph. Projects only the fields that
+ * `buildExperimentDependencyIndex`, `getDependentExperiments`,
+ * `includeExperimentInPayload`, and the temp-rollout scan in
+ * `getFeatureExperimentStates` read, and skips `upgradeExperimentDoc`. Of
+ * the projected fields, only `releasedVariationId` is derived by that
+ * migration, so the same backfill is applied inline below. Same permission
+ * filter as `getAllExperiments`.
+ *
+ * NOTE: the return type is `ExperimentInterface[]` for drop-in use by
+ * `buildFeatureLookups`, but only the projected fields are populated at
+ * runtime. Reach for `getAllExperiments` if you need a complete experiment.
+ */
+export async function getAllExperimentsForStaleGraph(
+  context: ReqContext | ApiReqContext,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+): Promise<ExperimentInterface[]> {
+  const query: FilterQuery<ExperimentDocument> = {
+    organization: context.org.id,
+    type: { $ne: "holdout" },
+  };
+  if (!includeArchived) {
+    query.archived = { $ne: true };
+  }
+
+  const docs = await getCollection(COLLECTION)
+    .find(query, {
+      projection: {
+        _id: 0,
+        id: 1,
+        name: 1,
+        project: 1,
+        archived: 1,
+        status: 1,
+        type: 1,
+        hasVisualChangesets: 1,
+        hasURLRedirects: 1,
+        linkedFeatures: 1,
+        excludeFromPayload: 1,
+        releasedVariationId: 1,
+        results: 1,
+        winner: 1,
+        "variations.id": 1,
+        "phases.prerequisites": 1,
+      },
+    })
+    .toArray();
+
+  const experiments = docs as unknown as LegacyExperimentInterface[];
+  for (const exp of experiments) {
+    // Mirror upgradeExperimentDoc's releasedVariationId backfill — the only
+    // projected field that migration derives. Keep in sync if that changes.
+    if (!("releasedVariationId" in exp)) {
+      // upgradeExperimentDoc backfills missing variation ids to their index
+      // before deriving releasedVariationId, so do the same here — otherwise a
+      // legacy doc without stored variation ids yields "" and is wrongly
+      // dropped from the payload by includeExperimentInPayload.
+      exp.variations?.forEach((v, i) => {
+        if (!v.id) v.id = i + "";
+      });
+      if (exp.status === "stopped" && exp.results === "lost") {
+        exp.releasedVariationId = exp.variations?.[0]?.id || "";
+      } else if (exp.status === "stopped" && exp.results === "won") {
+        exp.releasedVariationId = exp.variations?.[exp.winner ?? 1]?.id || "";
+      } else {
+        exp.releasedVariationId = "";
+      }
+    }
+  }
+
+  return (experiments as unknown as ExperimentInterface[]).filter((exp) =>
+    context.permissions.canReadSingleProjectResource(exp.project),
+  );
 }
 
 export async function hasArchivedExperiments(
@@ -597,7 +728,9 @@ export async function createExperiment({
     context.org.settings?.updateSchedule || null,
   );
 
-  const exp = await ExperimentModel.create({
+  validateMetricOverrides(data.metricOverrides);
+
+  const experimentToCreate = {
     id: uniqid("exp_"),
     uid: uuidv4().replace(/-/g, ""),
     // If this is a sample experiment, we'll override the id with data.id
@@ -615,8 +748,16 @@ export async function createExperiment({
     dateUpdated: new Date(),
     autoSnapshots: nextUpdate !== null,
     lastSnapshotAttempt: new Date(),
-    nextSnapshotAttempt: nextUpdate,
+    nextSnapshotAttempt: nextUpdate ?? undefined,
+  } satisfies Partial<ExperimentInterface> as ExperimentInterface;
+
+  await runValidateExperimentHooks({
+    context,
+    experiment: experimentToCreate,
+    original: null,
   });
+
+  const exp = await ExperimentModel.create(experimentToCreate);
 
   const experiment = toInterface(exp);
 
@@ -648,11 +789,17 @@ export async function updateExperiment({
   experiment,
   changes,
   bypassWebhooks = false,
+  guard,
 }: {
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
   changes: Changeset;
   bypassWebhooks?: boolean;
+  // Compare-and-swap clause folded into the write filter, so the decision and the
+  // write are one operation. `updateFeature`'s `ifUnchangedSince` is the same shape.
+  // A non-match throws `CasConflictError`: the caller computed from a value that is
+  // no longer there.
+  guard?: Record<string, unknown>;
 }): Promise<ExperimentInterface> {
   // If no actual changes, return the experiment as-is
   if (!hasActualChanges(experiment, changes)) {
@@ -666,15 +813,21 @@ export async function updateExperiment({
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
 
-  await ExperimentModel.updateOne(
+  validateMetricOverrides(allChanges.metricOverrides);
+
+  const writeResult = await ExperimentModel.updateOne(
     {
       id: experiment.id,
       organization: context.org.id,
+      ...(guard ?? {}),
     },
     {
       $set: allChanges,
     },
   );
+  if (guard && writeResult.matchedCount === 0) {
+    throw new CasConflictError();
+  }
 
   const updated = { ...experiment, ...allChanges };
 
@@ -1237,6 +1390,20 @@ export async function deleteExperimentByIdForOrganization(
  * @param projectId
  * @param organization
  */
+export async function projectHasExperiments(
+  context: ReqContext | ApiReqContext,
+  projectId: string,
+): Promise<boolean> {
+  const experiment = await getCollection(COLLECTION).findOne(
+    {
+      organization: context.org.id,
+      project: projectId,
+    },
+    { projection: { _id: 1 } },
+  );
+  return !!experiment;
+}
+
 export async function deleteAllExperimentsForAProject({
   projectId,
   context,
@@ -1716,17 +1883,25 @@ export async function getExperimentMapForFeature(
 export async function getAllPayloadExperiments(
   context: ReqContext | ApiReqContext,
   projects?: string[],
+  // Experiments a delivered feature references, wanted whatever project they are in.
+  alsoIncludeIds: string[] = [],
 ): Promise<Map<string, ExperimentInterface>> {
-  const projectFilter =
+  const scoped =
     !projects || !projects.length
-      ? {}
+      ? undefined
       : projects.length === 1
         ? { project: projects[0] }
         : { project: { $in: projects } };
 
+  const scopeFilter = !scoped
+    ? {}
+    : alsoIncludeIds.length
+      ? { $and: [{ $or: [scoped, { id: { $in: alsoIncludeIds } }] }] }
+      : scoped;
+
   const experiments = await findExperiments(context, {
     organization: context.org.id,
-    ...projectFilter,
+    ...scopeFilter,
     archived: { $ne: true },
     $or: [
       {
@@ -1743,7 +1918,8 @@ export async function getAllPayloadExperiments(
 
   return new Map(
     experiments
-      .filter((e) => includeExperimentInPayload(e))
+      // Keep drafts; getFeatureDefinition filters them per connection
+      .filter((e) => includeExperimentInPayload(e, [], { includeDrafts: true }))
       .map((e) => [e.id, e]),
   );
 }
@@ -1913,9 +2089,16 @@ export function getPayloadKeys(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   linkedFeatures?: FeatureInterface[],
+  // Every org project id — only consulted for linked features that target all projects.
+  allProjectIds: string[] = [],
 ): SDKPayloadKey[] {
-  // If experiment is not included in the SDK payload
-  if (!includeExperimentInPayload(experiment, linkedFeatures)) {
+  // If experiment is not included in the SDK payload. Drafts count so their
+  // edits refresh the payloads serving includeDraftExperimentRefs connections.
+  if (
+    !includeExperimentInPayload(experiment, linkedFeatures, {
+      includeDrafts: true,
+    })
+  ) {
     return [];
   }
 
@@ -1945,6 +2128,7 @@ export function getPayloadKeys(
         rule.type === "experiment-ref" &&
         rule.experimentId === experiment.id &&
         rule.enabled !== false,
+      allProjectIds,
     );
   }
 
@@ -1969,6 +2153,9 @@ const getExperimentChanges = (
     "excludeFromPayload",
     "autoAssign",
     "phases",
+    // Schedule dates are emitted into experiment metadata (opt-in per SDK
+    // connection), so a schedule-only edit must invalidate the SDK payload.
+    "statusUpdateSchedule",
   ];
 
   return {
@@ -1985,8 +2172,8 @@ const hasChangesForSDKPayloadRefresh = (
 ): boolean => {
   // Skip experiments that don't have linked changes
   if (
-    !includeExperimentInPayload(oldExperiment) &&
-    !includeExperimentInPayload(newExperiment)
+    !includeExperimentInPayload(oldExperiment, [], { includeDrafts: true }) &&
+    !includeExperimentInPayload(newExperiment, [], { includeDrafts: true })
   ) {
     return false;
   }
@@ -2043,14 +2230,16 @@ const onExperimentUpdate = async ({
     if (featureIds.size > 0) {
       linkedFeatures = await getFeaturesByIds(context, [...featureIds]);
     }
+    const allProjectIds = await context.getAllProjectIds();
 
     const oldPayloadKeys = oldExperiment
-      ? getPayloadKeys(context, oldExperiment, linkedFeatures)
+      ? getPayloadKeys(context, oldExperiment, linkedFeatures, allProjectIds)
       : [];
     const newPayloadKeys = getPayloadKeys(
       context,
       newExperiment,
       linkedFeatures,
+      allProjectIds,
     );
     const payloadKeys = uniqWith(
       [...oldPayloadKeys, ...newPayloadKeys],
@@ -2073,6 +2262,21 @@ const onExperimentUpdate = async ({
       experiment: newExperiment,
       organization: context.org,
     });
+
+  const licenseKey = context.org.licenseKey || process.env.LICENSE_KEY;
+
+  if (
+    oldExperiment.status !== "running" &&
+    newExperiment.status === "running" &&
+    shouldNotifyLicenseServer(licenseKey)
+  ) {
+    notifyLicenseServerEvent({
+      licenseKey,
+      eventName: "experiment_started",
+      uniqueId: newExperiment.id,
+      metadata: { experiment_id: newExperiment.id },
+    });
+  }
 };
 
 const onExperimentDelete = async (
@@ -2087,7 +2291,13 @@ const onExperimentDelete = async (
     linkedFeatures = await getFeaturesByIds(context, featureIds);
   }
 
-  const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
+  const allProjectIds = await context.getAllProjectIds();
+  const payloadKeys = getPayloadKeys(
+    context,
+    experiment,
+    linkedFeatures,
+    allProjectIds,
+  );
   queueSDKPayloadRefresh({
     context,
     payloadKeys,

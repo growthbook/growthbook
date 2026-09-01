@@ -32,6 +32,7 @@ interface ExperimentsListTableProps {
   project?: string | null;
   searchValue: string;
   setSearchValue: (value: string) => void;
+  hrefBase?: string;
 }
 
 const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
@@ -42,6 +43,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   project,
   searchValue,
   setSearchValue,
+  hrefBase = "/experiment",
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const NUM_PER_PAGE = 20;
@@ -111,15 +113,26 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
               <TableCell className="watching">
                 <WatchButton item={e.id} itemType="experiment" type="icon" />
               </TableCell>
-              <TableCell className="p-0">
-                <Link href={`/experiment/${e.id}`} className="d-block p-2">
-                  <div className="d-flex flex-column">
-                    <div className="d-flex align-items-center">
+              <TableCell style={{ padding: "var(--space-0)" }}>
+                <Link
+                  href={`${hrefBase}/${e.id}`}
+                  style={{
+                    display: "block",
+                    padding: "var(--space-3)",
+                    color: "var(--gray-12)",
+                  }}
+                >
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <div style={{ display: "flex", alignItems: "center" }}>
                       <span className="testname">{e.name}</span>
                       {e.hasVisualChangesets ? (
                         <Tooltip
                           flipTheme={false}
-                          className="d-flex align-items-center ml-2"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginLeft: "var(--space-2)",
+                          }}
                           body="Visual experiment"
                         >
                           <RxDesktop className="text-blue" />
@@ -128,7 +141,11 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                       {(e.linkedFeatures || []).length > 0 ? (
                         <Tooltip
                           flipTheme={false}
-                          className="d-flex align-items-center ml-2"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginLeft: "var(--space-2)",
+                          }}
                           body="Linked Feature Flag"
                         >
                           <BsFlag className="text-blue" />
@@ -137,21 +154,31 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                       {e.hasURLRedirects ? (
                         <Tooltip
                           flipTheme={false}
-                          className="d-flex align-items-center ml-2"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginLeft: "var(--space-2)",
+                          }}
                           body="URL Redirect experiment"
                         >
                           <PiShuffle className="text-blue" />
                         </Tooltip>
                       ) : null}
                     </div>
-                    {isFiltered && e.trackingKey && (
-                      <span
-                        className="testid text-muted small"
-                        title="Experiment Id"
-                      >
-                        {e.trackingKey}
-                      </span>
-                    )}
+                    {isFiltered &&
+                      e.trackingKey &&
+                      e.trackingKey !== e.name && (
+                        <span
+                          className="testid"
+                          title="Experiment Id"
+                          style={{
+                            fontSize: "var(--font-size-1)",
+                            color: "var(--gray-10)",
+                          }}
+                        >
+                          {e.trackingKey}
+                        </span>
+                      )}
                   </div>
                 </Link>
               </TableCell>

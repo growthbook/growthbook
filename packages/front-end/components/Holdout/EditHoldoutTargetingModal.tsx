@@ -39,13 +39,13 @@ export default function EditHoldoutTargetingModal({
   const { apiCall } = useAuth();
   const [conditionKey, forceConditionRender] = useIncrementer();
 
-  const lastPhase: ExperimentPhaseStringDates | undefined =
-    experiment.phases[experiment.phases.length - 1];
+  const mainPhase: ExperimentPhaseStringDates | undefined =
+    experiment.phases[0];
 
   const defaultValues = {
-    condition: lastPhase?.condition ?? "",
-    savedGroups: lastPhase?.savedGroups ?? [],
-    coverage: lastPhase?.coverage ?? 1,
+    condition: mainPhase?.condition ?? "",
+    savedGroups: mainPhase?.savedGroups ?? [],
+    coverage: mainPhase?.coverage ?? 1,
     hashAttribute: experiment.hashAttribute || "id",
   };
 
@@ -163,6 +163,7 @@ function TargetingForm({
             style={{ width: 110 }}
           >
             <Field
+              size="legacy"
               style={{ width: 105 }}
               value={
                 isNaN(form.watch("coverage") ?? 0)

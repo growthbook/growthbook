@@ -3,9 +3,10 @@ import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   getMetricLink,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   ExperimentSortBy,
-  isPrecomputedDimension,
+  isDimensionPrecomputed,
+  isFactFunnelMetric,
 } from "shared/experiments";
 import {
   DifferenceType,
@@ -25,7 +26,10 @@ import {
   MetricSnapshotSettings,
 } from "shared/types/report";
 import Modal from "@/components/Modal";
-import { ExperimentTableRow } from "@/services/experiments";
+import {
+  ExperimentTableRow,
+  getHonoredPrecomputedUnitDimensionIds,
+} from "@/services/experiments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import MetricName from "@/components/Metrics/MetricName";
@@ -33,6 +37,7 @@ import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
@@ -44,6 +49,7 @@ import styles from "./MetricDrilldownModal.module.scss";
 import MetricDrilldownOverview from "./MetricDrilldownOverview";
 import MetricDrilldownSlices from "./MetricDrilldownSlices";
 import MetricDrilldownDebug from "./MetricDrilldownDebug";
+import ExperimentFunnelChart from "./ExperimentFunnelChart";
 import {
   MetricDrilldownContext,
   type MetricDrilldownTab,
@@ -119,7 +125,7 @@ interface MetricDrilldownModalProps {
  */
 interface MetricDrilldownContentProps {
   row: ExperimentTableRow;
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   initialResults: ExperimentReportResultDimension;
   goalMetrics: string[];
   secondaryMetrics: string[];
@@ -198,7 +204,9 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   isReportContext,
 }) => {
   const { isAuthenticated } = useAuth();
-  const { analysis } = useSnapshot();
+  const { hasCommercialFeature } = useUser();
+  const { getDatasourceById } = useDefinitions();
+  const { analysis, experiment } = useSnapshot();
 
   const liveResults = useMemo(() => {
     if (!dimensionInfo) {
@@ -250,9 +258,19 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
     initialSliceSearchTerm || "",
   );
-  const hideTimeSeries =
-    isReportContext ||
-    (!!dimensionInfo && !isPrecomputedDimension(dimensionInfo.id));
+  const hasDimensionTimeSeries =
+    !dimensionInfo ||
+    isDimensionPrecomputed(
+      dimensionInfo.id,
+      getHonoredPrecomputedUnitDimensionIds(
+        experiment?.precomputedUnitDimensionIds,
+        experiment?.datasource
+          ? getDatasourceById(experiment.datasource)
+          : undefined,
+        hasCommercialFeature("pipeline-mode"),
+      ),
+    );
+  const hideTimeSeries = isReportContext || !hasDimensionTimeSeries;
   const [visibleSliceTimeSeriesRowIds, setVisibleSliceTimeSeriesRowIds] =
     useState<string[]>(() => {
       if (
@@ -312,6 +330,8 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     }
   }, [localBaselineRow, visibleSliceTimeSeriesRowIds.length]);
 
+  const isFunnelMetric = isFactFunnelMetric(metric);
+
   return (
     <>
       <TabsContent value="overview">
@@ -341,47 +361,68 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           timeSeriesMessage={
             isReportContext
               ? "Time series data is not available for custom reports."
-              : dimensionInfo && !isPrecomputedDimension(dimensionInfo.id)
-                ? "Time series is not available for unit dimension breakdowns."
+              : !hasDimensionTimeSeries
+                ? "Configure 'Always computed unit-dimensions' in Analysis Settings to generate time series for this dimension."
                 : undefined
           }
           dimensionInfo={dimensionInfo}
         />
       </TabsContent>
-      <TabsContent value="slices">
-        <MetricDrilldownSlices
-          metric={metric}
-          rows={allRows}
-          variationNames={variations.map((v) => v.name)}
-          differenceType={localDifferenceType}
-          setDifferenceType={setLocalDifferenceType}
-          statsEngine={statsEngine}
-          baselineRow={localBaselineRow}
-          setBaselineRow={setLocalBaselineRow}
-          variationFilter={localVariationFilter}
-          setVariationFilter={setLocalVariationFilter}
-          experimentId={experimentId}
-          significanceThresholds={significanceThresholds}
-          phase={phase}
-          variations={variations}
-          startDate={startDate}
-          endDate={endDate}
-          reportDate={reportDate}
-          isLatestPhase={isLatestPhase}
-          pValueCorrection={pValueCorrection}
-          sequentialTestingEnabled={sequentialTestingEnabled}
-          experimentStatus={experimentStatus}
-          initialSortBy={localSortBy}
-          initialSortDirection={localSortDirection}
-          searchTerm={sliceSearchTerm}
-          setSearchTerm={setSliceSearchTerm}
-          visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
-          setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
-          ssrPolyfills={ssrPolyfills}
-          hideTimeSeries={hideTimeSeries}
-          dimensionInfo={dimensionInfo}
-        />
-      </TabsContent>
+      {isFunnelMetric ? (
+        <TabsContent value="funnel">
+          <Box
+            style={{
+              // Cap the chart on tall screens but shrink with the viewport so
+              // the modal's 95vh body never scrolls the x-axis step labels
+              // below the fold.
+              height: "min(440px, 55vh)",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <ExperimentFunnelChart
+              metric={metric}
+              results={results}
+              variations={variations}
+            />
+          </Box>
+        </TabsContent>
+      ) : (
+        <TabsContent value="slices">
+          <MetricDrilldownSlices
+            metric={metric}
+            rows={allRows}
+            variationNames={variations.map((v) => v.name)}
+            differenceType={localDifferenceType}
+            setDifferenceType={setLocalDifferenceType}
+            statsEngine={statsEngine}
+            baselineRow={localBaselineRow}
+            setBaselineRow={setLocalBaselineRow}
+            variationFilter={localVariationFilter}
+            setVariationFilter={setLocalVariationFilter}
+            experimentId={experimentId}
+            significanceThresholds={significanceThresholds}
+            phase={phase}
+            variations={variations}
+            startDate={startDate}
+            endDate={endDate}
+            reportDate={reportDate}
+            isLatestPhase={isLatestPhase}
+            pValueCorrection={pValueCorrection}
+            sequentialTestingEnabled={sequentialTestingEnabled}
+            experimentStatus={experimentStatus}
+            initialSortBy={localSortBy}
+            initialSortDirection={localSortDirection}
+            searchTerm={sliceSearchTerm}
+            setSearchTerm={setSliceSearchTerm}
+            visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
+            setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
+            ssrPolyfills={ssrPolyfills}
+            hideTimeSeries={hideTimeSeries}
+            dimensionInfo={dimensionInfo}
+          />
+        </TabsContent>
+      )}
       <TabsContent value="debug">
         <MetricDrilldownDebug
           row={mainMetricRow}
@@ -456,6 +497,7 @@ const MetricDrilldownModal = ({
 }: MetricDrilldownModalProps) => {
   useBodyScrollLock(true);
   const { metric } = row;
+  const isFunnelMetric = isFactFunnelMetric(metric);
   const { hasCommercialFeature } = useUser();
 
   // Check if the owning org has the feature (via SSR data), falling back to the current user's org
@@ -531,8 +573,13 @@ const MetricDrilldownModal = ({
   };
 
   return (
-    <Tabs defaultValue={initialTab}>
+    <Tabs
+      defaultValue={
+        isFunnelMetric && initialTab === "slices" ? "funnel" : initialTab
+      }
+    >
       <Modal
+        useRadixButton={false}
         open={true}
         close={close}
         borderlessHeader={true}
@@ -596,17 +643,21 @@ const MetricDrilldownModal = ({
 
             <TabsList mt="5">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="slices">
-                <Flex align="center" gap="1">
-                  Slices
-                  {!ownerHasMetricSlices && (
-                    <PaidFeatureBadge
-                      commercialFeature="metric-slices"
-                      useTip={false}
-                    />
-                  )}
-                </Flex>
-              </TabsTrigger>
+              {isFunnelMetric ? (
+                <TabsTrigger value="funnel">Funnel</TabsTrigger>
+              ) : (
+                <TabsTrigger value="slices">
+                  <Flex align="center" gap="1">
+                    Slices
+                    {!ownerHasMetricSlices && (
+                      <PaidFeatureBadge
+                        commercialFeature="metric-slices"
+                        useTip={false}
+                      />
+                    )}
+                  </Flex>
+                </TabsTrigger>
+              )}
               <TabsTrigger value="debug">Debug</TabsTrigger>
             </TabsList>
           </Box>

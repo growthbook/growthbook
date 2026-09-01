@@ -64,6 +64,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   hashSecureAttributes: Boolean,
   includeVisualExperiments: Boolean,
   includeDraftExperiments: Boolean,
+  includeDraftExperimentRefs: Boolean,
   includeExperimentNames: Boolean,
   includeRedirectExperiments: Boolean,
   includeRuleIds: Boolean,
@@ -71,6 +72,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeCustomFieldsInMetadata: Boolean,
   allowedCustomFieldsInMetadata: [String],
   includeTagsInMetadata: Boolean,
+  includeExperimentScheduleInMetadata: Boolean,
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
@@ -184,9 +186,21 @@ export async function findSDKConnectionsByIds(
   return docs.map(toInterface);
 }
 
-export async function findSDKConnectionByKey(key: string) {
+/**
+ * Client-key lookup used by every payload-serving path. Archived connections are
+ * excluded: archiving is presented to the user as "it will no longer serve
+ * feature flags to your application", so the key must stop resolving here.
+ * Pass `includeArchived` only for management reads that must still see them.
+ */
+export async function findSDKConnectionByKey(
+  key: string,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+) {
   const doc = await SDKConnectionModel.findOne({ key });
-  return doc ? toInterface(doc) : null;
+  if (!doc) return null;
+  const connection = toInterface(doc);
+  if (!includeArchived && connection.archived) return null;
+  return connection;
 }
 
 export const createSDKConnectionValidator = z
@@ -201,6 +215,7 @@ export const createSDKConnectionValidator = z
     hashSecureAttributes: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
+    includeDraftExperimentRefs: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
@@ -208,6 +223,7 @@ export const createSDKConnectionValidator = z
     includeCustomFieldsInMetadata: z.boolean().optional(),
     allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
     includeTagsInMetadata: z.boolean().optional(),
+    includeExperimentScheduleInMetadata: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
@@ -309,6 +325,7 @@ export const editSDKConnectionValidator = z
     hashSecureAttributes: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
+    includeDraftExperimentRefs: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
@@ -316,6 +333,7 @@ export const editSDKConnectionValidator = z
     includeCustomFieldsInMetadata: z.boolean().optional(),
     allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
     includeTagsInMetadata: z.boolean().optional(),
+    includeExperimentScheduleInMetadata: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
     eventTracker: z.string().optional(),
@@ -380,6 +398,7 @@ export async function editSDKConnection(
     "remoteEvalEnabled",
     "includeVisualExperiments",
     "includeDraftExperiments",
+    "includeDraftExperimentRefs",
     "includeExperimentNames",
     "includeRedirectExperiments",
     "includeRuleIds",
@@ -387,6 +406,7 @@ export async function editSDKConnection(
     "includeCustomFieldsInMetadata",
     "allowedCustomFieldsInMetadata",
     "includeTagsInMetadata",
+    "includeExperimentScheduleInMetadata",
     "savedGroupReferencesEnabled",
     "archived",
   ] as const;
@@ -635,6 +655,7 @@ export function toApiSDKConnectionInterface(
     hashSecureAttributes: connection.hashSecureAttributes,
     includeVisualExperiments: connection.includeVisualExperiments,
     includeDraftExperiments: connection.includeDraftExperiments,
+    includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
     includeExperimentNames: connection.includeExperimentNames,
     includeRedirectExperiments: connection.includeRedirectExperiments,
     includeRuleIds: connection.includeRuleIds,
@@ -642,6 +663,8 @@ export function toApiSDKConnectionInterface(
     includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata: connection.allowedCustomFieldsInMetadata,
     includeTagsInMetadata: connection.includeTagsInMetadata,
+    includeExperimentScheduleInMetadata:
+      connection.includeExperimentScheduleInMetadata,
     key: connection.key,
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,

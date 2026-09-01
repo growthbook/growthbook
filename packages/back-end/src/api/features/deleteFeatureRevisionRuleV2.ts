@@ -23,10 +23,7 @@ export const deleteFeatureRevisionRuleV2 = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -59,7 +56,7 @@ export const deleteFeatureRevisionRuleV2 = createApiRequestHandler(
     const changes: RevisionChanges = { rules: newFlat };
     const existingActions = revision.rampActions ?? [];
     const filteredActions = existingActions.filter(
-      (a) => a.ruleId !== req.params.ruleId,
+      (a) => !("ruleId" in a) || a.ruleId !== req.params.ruleId,
     );
     if (filteredActions.length !== existingActions.length) {
       changes.rampActions = filteredActions;

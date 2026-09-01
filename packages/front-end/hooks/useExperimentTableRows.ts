@@ -7,12 +7,14 @@ import { MetricOverride } from "shared/types/experiment";
 import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import {
   FactMetricInterface,
-  FactTableInterface,
+  FactTableDefinition,
 } from "shared/types/fact-table";
 import {
   expandMetricGroups,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   ExperimentSortBy,
+  funnelStepMetricId,
+  isFactFunnelMetric,
   createCustomSliceDataForMetric,
   createAutoSliceDataForMetric,
   setAdjustedCIs,
@@ -38,6 +40,7 @@ const METRIC_SELECTOR_IDS = [
 import {
   applyMetricOverrides,
   ExperimentTableRow,
+  NO_DATA_ERROR_MESSAGE,
 } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useTableSorting } from "@/hooks/useTableSorting";
@@ -148,6 +151,18 @@ export function useExperimentTableRows({
         hasGuardrailSelector ||
         (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
 
+      const allowedMetricIds = new Set<string>();
+      actualMetricFilter.forEach((id) => {
+        if (isMetricGroupId(id)) {
+          const group = allMetricGroups.find((g) => g.id === id);
+          if (group) {
+            group.metrics.forEach((metricId) => allowedMetricIds.add(metricId));
+          }
+        } else {
+          allowedMetricIds.add(id);
+        }
+      });
+
       // Filter by metric groups if filter is active
       let filteredGoalMetrics: string[] = [];
       let filteredSecondaryMetrics: string[] = [];
@@ -159,21 +174,6 @@ export function useExperimentTableRows({
         hasSecondarySelector ||
         hasGuardrailSelector
       ) {
-        // Create a set of allowed metric IDs from expanded groups and individual metrics
-        const allowedMetricIds = new Set<string>();
-        actualMetricFilter.forEach((id) => {
-          if (isMetricGroupId(id)) {
-            const group = allMetricGroups.find((g) => g.id === id);
-            if (group) {
-              group.metrics.forEach((metricId) =>
-                allowedMetricIds.add(metricId),
-              );
-            }
-          } else {
-            allowedMetricIds.add(id);
-          }
-        });
-
         // Filter metrics by group or allowed metric IDs
         // Only include categories that are selected via selector IDs
         if (includeGoals) {
@@ -246,21 +246,38 @@ export function useExperimentTableRows({
         allMetricGroups,
       );
 
+      // allowedMetricIds is the set of metrics that are explicitly selected
+      // by the user either directly or via the group. This code will drop
+      // metrics in groups that are not explicitly selected via the group or
+      // themselves.
+      const finalExpandedGoals =
+        actualMetricFilter.length > 0
+          ? expandedGoals.filter((id) => allowedMetricIds.has(id))
+          : expandedGoals;
+      const finalExpandedSecondaries =
+        actualMetricFilter.length > 0
+          ? expandedSecondaries.filter((id) => allowedMetricIds.has(id))
+          : expandedSecondaries;
+      const finalExpandedGuardrails =
+        actualMetricFilter.length > 0
+          ? expandedGuardrails.filter((id) => allowedMetricIds.has(id))
+          : expandedGuardrails;
+
       // Dedup metric rows to prevent rendering the same metric multiple times
       const dedupedGoals: string[] = [];
-      expandedGoals.forEach((metricId) => {
+      finalExpandedGoals.forEach((metricId) => {
         if (!dedupedGoals.includes(metricId)) {
           dedupedGoals.push(metricId);
         }
       });
       const dedupedSecondaries: string[] = [];
-      expandedSecondaries.forEach((metricId) => {
+      finalExpandedSecondaries.forEach((metricId) => {
         if (!dedupedSecondaries.includes(metricId)) {
           dedupedSecondaries.push(metricId);
         }
       });
       const dedupedGuardrails: string[] = [];
-      expandedGuardrails.forEach((metricId) => {
+      finalExpandedGuardrails.forEach((metricId) => {
         if (!dedupedGuardrails.includes(metricId)) {
           dedupedGuardrails.push(metricId);
         }
@@ -482,8 +499,8 @@ export function generateRowsForMetric({
     }>;
   }>;
   expandedMetrics?: Record<string, boolean>;
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
-  getFactTableById: (id: string) => FactTableInterface | null;
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
+  getFactTableById: (id: string) => FactTableDefinition | null;
   sliceTagsFilter?: string[];
 }): ExperimentTableRow[] {
   const resultsArray = Array.isArray(results) ? results : [results];
@@ -547,6 +564,10 @@ export function generateRowsForMetric({
     numSlices > 0 &&
     !sliceTagsFilter.includes("overall");
 
+  const funnelSteps = isFactFunnelMetric(metric)
+    ? metric.funnelSettings.steps
+    : [];
+
   const parentRow: ExperimentTableRow = {
     label: newMetric?.name,
     metric: newMetric,
@@ -557,7 +578,7 @@ export function generateRowsForMetric({
           users: 0,
           value: 0,
           cr: 0,
-          errorMessage: "No data",
+          errorMessage: NO_DATA_ERROR_MESSAGE,
         }))
       : resultsArray[0].variations.map((v) => {
           return (
@@ -565,13 +586,13 @@ export function generateRowsForMetric({
               users: 0,
               value: 0,
               cr: 0,
-              errorMessage: "No data",
+              errorMessage: NO_DATA_ERROR_MESSAGE,
             }
           );
         }),
     metricSnapshotSettings,
     resultGroup,
-    numSlices,
+    numChildren: numSlices,
     labelOnly: isLabelOnly,
   };
 
@@ -655,7 +676,7 @@ export function generateRowsForMetric({
           name: slice.name,
         },
         metricOverrideFields: overrideFields,
-        rowClass: `${newMetric?.inverse ? "inverse" : ""} slice-row`,
+        rowClass: newMetric?.inverse ? "inverse" : "",
         sliceId: slice.id,
         variations: resultsArray[0].variations.map((v) => {
           // Use the slice metric's data instead of the parent metric's data
@@ -664,14 +685,16 @@ export function generateRowsForMetric({
               users: 0,
               value: 0,
               cr: 0,
-              errorMessage: "No data",
+              errorMessage: NO_DATA_ERROR_MESSAGE,
             }
           );
         }),
         metricSnapshotSettings,
         resultGroup,
-        numSlices: 0,
+        numChildren: 0,
         isSliceRow: true,
+        isChildRow: true,
+        childRowType: "slice",
         parentRowId: metricId,
         sliceLevels: slice.sliceLevels.map((dl) => ({
           column: dl.column,
@@ -706,6 +729,37 @@ export function generateRowsForMetric({
     }
   }
 
+  if (funnelSteps.length) {
+    parentRow.numChildren = funnelSteps.length;
+    funnelSteps.forEach((step, stepIndex) => {
+      const stepMetricId = funnelStepMetricId(metricId, stepIndex);
+      rows.push({
+        label: step.name,
+        metric: newMetric,
+        metricOverrideFields: overrideFields,
+        rowClass: newMetric?.inverse ? "inverse" : "",
+        variations: resultsArray[0].variations.map(
+          (v) =>
+            v.metrics?.[stepMetricId] || {
+              users: 0,
+              value: 0,
+              cr: 0,
+              errorMessage: NO_DATA_ERROR_MESSAGE,
+            },
+        ),
+        metricSnapshotSettings,
+        resultGroup,
+        numChildren: 0,
+        isChildRow: true,
+        childRowType: "funnelStep",
+        funnelStepIndex: stepIndex,
+        funnelStepOptional: step.optional,
+        parentRowId: metricId,
+        isHiddenByFilter: false,
+      });
+    });
+  }
+
   // Add parent row only if we should show it
   rows.unshift(parentRow);
 
@@ -713,7 +767,7 @@ export function generateRowsForMetric({
 }
 
 export function sortMetricsByCustomOrder(
-  metrics: ExperimentMetricInterface[],
+  metrics: ExperimentMetricDefinition[],
   customOrder: string[],
   metricGroups?: MetricGroupInterface[],
 ): string[] {
@@ -755,7 +809,7 @@ export function sortMetricsByCustomOrder(
 }
 
 export function sortMetricsByTags(
-  metrics: ExperimentMetricInterface[],
+  metrics: ExperimentMetricDefinition[],
   metricTagFilter: string[],
   metricGroups: MetricGroupInterface[],
 ): string[] {
@@ -796,7 +850,7 @@ export function sortMetricsByTags(
 }
 
 export function filterMetricsByTags(
-  metrics: ExperimentMetricInterface[],
+  metrics: ExperimentMetricDefinition[],
   tagFilter?: string[],
 ): string[] {
   // If no filter, return all metrics

@@ -1,6 +1,17 @@
 import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
-import { ApprovalFlowConfigurations } from "shared/types/organization";
+import {
+  ApprovalFlowConfigurations,
+  LearningStatus,
+} from "shared/types/organization";
+
+// The object property that carries a JSON constant's `$extends` reference list.
+// Single source of truth shared by the resolver (sdk-versioning/resolveConstants)
+// and the reference detector (validators/constant) so they can't drift.
+export const CONSTANT_EXTENDS_KEY = "$extends";
+
+export const GB_SDK_ID_DEV = "sdk-UmQ03OkUDAu7Aox";
+export const GB_SDK_ID_PROD = "sdk-ueFMOgZ2daLa0M";
 
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
@@ -42,6 +53,8 @@ export const DEFAULT_POST_STRATIFICATION_ENABLED = true;
 // Lookback Override:
 export const DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT = "days";
 export const DEFAULT_LOOKBACK_OVERRIDE_VALUE_DAYS = 14;
+export const DEFAULT_TOP_VALUES_LOOKBACK_VALUE = 14;
+export const DEFAULT_TOP_VALUES_LOOKBACK_UNIT = "days";
 
 // Query settings
 export const DEFAULT_TEST_QUERY_DAYS = 30;
@@ -50,11 +63,23 @@ export const DEFAULT_USE_STICKY_BUCKETING = false;
 // Dimension name constants:
 export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";
 export const BANDIT_SRM_DIMENSION_NAME = "gb_internal_bandit_srm";
+
+/** SQL column prefix for contextual bandit attributes after bucketing. */
+export const ATTR_CB_PREFIX = "attr_cb_";
+/** SQL column prefix for first-exposure raw contextual bandit attributes (pre-bucketing). */
+export const ATTR_CB_RAW_PREFIX = "attr_cb_raw_";
+/** Bucket value for low-traffic / merged contextual bandit attribute slices. */
+export const CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE = "Combined";
 export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
+export const NULL_ATTRIBUTE_VALUE = "__NULL_ATTRIBUTE";
 export const NULL_DIMENSION_VALUE = "__NULL_DIMENSION";
 export const NULL_VARIATION_VALUE = "__NULL_VARIATION";
 export const NULL_DIMENSION_DISPLAY = "NULL (unset)";
 export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
+export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 3;
+
+// Max length for entity description fields (features, experiments, metrics, etc.)
+export const MAX_DESCRIPTION_LENGTH = 10000;
 // Colors:
 // export const variant_null = "#999";
 // export const variant_0 = "#4f69ff";
@@ -76,6 +101,7 @@ export const OWNER_JOB_TITLES = {
 export const USAGE_INTENTS = {
   featureFlags: "Feature Flags",
   experiments: "Experiments",
+  productAnalytics: "Product Analytics",
 } as const;
 
 // Health
@@ -87,6 +113,16 @@ export const DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION = 5;
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
 export const DEFAULT_DECISION_FRAMEWORK_ENABLED = false;
+
+// Default statuses for saved learnings (insights). Orgs can customize the
+// list in General Settings → Experiment Settings. Status IDs are persisted
+// on each saved learning, so they must remain stable across renames.
+export const DEFAULT_LEARNING_STATUSES: LearningStatus[] = [
+  { id: "emerging", label: "Emerging", color: "blue" },
+  { id: "supported", label: "Supported", color: "amber" },
+  { id: "confirmed", label: "Confirmed", color: "green" },
+  { id: "rejected", label: "Rejected", color: "red" },
+];
 
 // Power
 export const DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS = 3;
@@ -126,6 +162,7 @@ export const SAFE_ROLLOUT_VARIATIONS = [
 
 export const UNSUPPORTED_METRIC_EXPLORER_TYPES: readonly FactMetricType[] = [
   "quantile",
+  "funnel",
 ] as const;
 
 export const MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID = "ch_events";
@@ -171,12 +208,23 @@ export const attributeDataTypes = [
   "secureString[]",
 ] as const;
 
+// Runtime allow-list for discussion parents. Kept here (rather than only as a
+// type) so request handlers can validate an incoming parentType.
+export const DISCUSSION_PARENT_TYPES = [
+  "experiment",
+  "idea",
+  "metric",
+  "feature",
+  "learning",
+] as const;
+
 // for audits
 export const entityEvents = {
   agreement: ["create", "update", "delete"],
   approvalFlow: ["create", "update", "delete"],
   revision: ["create", "update", "delete"],
   aiPrompt: ["create", "update", "delete"],
+  aiCredential: ["create", "update", "delete"],
   attribute: ["create", "update", "delete"],
   experiment: [
     "create",
@@ -219,6 +267,7 @@ export const entityEvents = {
     "revision.requestChanges",
     "revision.comment",
     "revision.discard",
+    "revision.reopen",
     "revision.rebase",
   ],
   featureRevisionLog: ["create", "update", "delete"],
@@ -232,8 +281,14 @@ export const entityEvents = {
   "sdk-connection": ["create", "update", "delete"],
   user: ["create", "update", "delete", "invite"],
   organization: ["create", "update", "delete", "disable", "enable"],
+  apiKey: ["create", "update", "delete", "disable", "enable"],
+  oauthAuthCode: ["create", "update", "delete"],
+  oauthGrant: ["create", "update", "delete"],
+  oauthRefreshToken: ["create", "update", "delete"],
   installation: ["update"],
   savedGroup: ["created", "deleted", "updated"],
+  constant: ["created", "updated", "deleted"],
+  config: ["created", "updated", "deleted"],
   segment: ["create", "delete", "update"],
   archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],
@@ -250,11 +305,21 @@ export const entityEvents = {
   dashboardTemplate: ["create", "update", "delete"],
   incrementalRefresh: ["create", "update", "delete"],
   vector: ["create", "update", "delete"],
-  customHook: ["create", "update", "delete"],
+  customHook: ["create", "update", "delete", "revert"],
   ssoConnection: ["create", "update", "delete"],
   sqlResultChunk: ["create", "update", "delete"],
-  rampSchedule: ["create", "update", "delete"],
+  rampSchedule: [
+    "create",
+    "update",
+    "delete",
+    "step-approved",
+    "approval-bypassed",
+    "start-approved",
+  ],
   rampScheduleTemplate: ["create", "update", "delete"],
+  learning: ["create", "update", "delete"],
+  contextualBandit: ["create", "update", "delete", "start", "stop"],
+  eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];

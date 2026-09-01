@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "shared/enterprise";
+import { ExpressCookieStickyBucketService } from "@growthbook/growthbook";
 import { userHasPermission } from "shared/permissions";
 import { AuditInterface } from "shared/types/audit";
 import { Permission } from "shared/types/organization";
@@ -26,17 +27,26 @@ import {
 } from "back-end/src/models/OrganizationModel";
 import {
   IdTokenCookie,
-  AuthChecksCookie,
+  AuthSecretCookie,
+  PendingSSOConnectionCookie,
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
+import { getBuild } from "back-end/src/util/build";
+import { usingFileConfig } from "back-end/src/init/config";
 import { getUserPermissions } from "back-end/src/util/organization.util";
 import { insertAudit } from "back-end/src/models/AuditModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { licenseInit } from "back-end/src/enterprise";
+import { licenseInit, getEffectiveAccountPlan } from "back-end/src/enterprise";
+import {
+  getGrowthBookClient,
+  getGrowthBookRequestUrl,
+  getGrowthBookTrackingAttributes,
+  hashOrganizationId,
+} from "back-end/src/services/growthbook";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
@@ -189,6 +199,19 @@ export async function processJWT(
         undefined;
 
       if (req.organization) {
+        if (req.organization.suspended && !req.superAdmin) {
+          const allowedPaths = new Set(["GET /organization", "GET /user"]);
+          const currentPath = `${req.method} ${req.path}`;
+          if (!allowedPaths.has(currentPath)) {
+            res.status(403).json({
+              status: 403,
+              message:
+                "Account Suspended. Please contact support@growthbook.io for assistance.",
+            });
+            return;
+          }
+        }
+
         if (
           !req.superAdmin &&
           !req.organization.members.filter((m) => m.id === req.userId).length
@@ -283,6 +306,76 @@ export async function processJWT(
         dateCreated: new Date(),
       });
     };
+
+    const gbClient = getGrowthBookClient();
+
+    if (gbClient) {
+      const build = getBuild();
+      const org = req.organization;
+      const orgId = org?.id || "";
+      const hashedOrganizationId = hashOrganizationId(orgId);
+
+      // Create sticky bucket service for Express
+      const stickyBucketService = new ExpressCookieStickyBucketService({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        req: req as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        res: res as any,
+      });
+
+      const trackingAttributes = getGrowthBookTrackingAttributes(req);
+
+      // Define user attributes
+      // Note: cloud and multiOrg are set as globalAttributes in growthbook.ts
+      const attributes = {
+        id: user.id,
+        user_id: user.id,
+        request_path: req.path,
+        freeSeats: org?.freeSeats,
+        discountCode: org?.discountCode,
+        organizationId: hashedOrganizationId,
+        cloudOrgId: IS_CLOUD ? orgId : "",
+        accountPlan: org ? getEffectiveAccountPlan(org) : "loading",
+        superAdmin: user.superAdmin,
+        orgDateCreated: org?.dateCreated
+          ? new Date(org.dateCreated).toISOString()
+          : "",
+        userDateCreated: user.dateCreated
+          ? new Date(user.dateCreated).toISOString()
+          : "",
+        ...trackingAttributes,
+        role: org?.members.find((m) => m.id === user.id)?.role,
+        hasLicenseKey: org?.licenseKey ? true : false,
+        configFile: usingFileConfig(),
+        usingSSO: usingOpenId(),
+        buildSHA: build.sha,
+        buildDate: build.date,
+        buildVersion: build.lastVersion,
+        orgOwnerJobTitle: org?.demographicData?.ownerJobTitle,
+        orgOwnerUsageIntents: org?.demographicData?.ownerUsageIntents,
+      };
+
+      try {
+        // Apply sticky bucketing and get user context
+        const userContext = await gbClient.applyStickyBuckets(
+          {
+            attributes,
+            url: getGrowthBookRequestUrl(req),
+            enableDevMode: true,
+          },
+          stickyBucketService,
+        );
+
+        // Create scoped instance for this request (reuses singleton)
+        req.gb = gbClient.createScopedInstance(userContext);
+      } catch (error) {
+        logger.error("Failed to create GrowthBook scoped instance", {
+          error,
+          userId: user.id,
+        });
+        // Continue without feature flags rather than failing request
+      }
+    }
   } else {
     req.audit = async () => {
       throw new Error("No user in request");
@@ -296,7 +389,8 @@ export function deleteAuthCookies(req: Request, res: Response) {
   RefreshTokenCookie.setValue("", req, res);
   IdTokenCookie.setValue("", req, res);
   SSOConnectionIdCookie.setValue("", req, res);
-  AuthChecksCookie.setValue("", req, res);
+  AuthSecretCookie.setValue("", req, res);
+  PendingSSOConnectionCookie.setValue("", req, res);
 }
 
 export function validatePasswordFormat(password?: string): string {

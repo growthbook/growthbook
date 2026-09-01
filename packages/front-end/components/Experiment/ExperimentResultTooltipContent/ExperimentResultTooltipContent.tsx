@@ -5,7 +5,7 @@ import { PiWarningCircle } from "react-icons/pi";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -18,9 +18,18 @@ import {
 } from "@/services/metrics";
 import styles from "./ExperimentResultTooltipContent.module.scss";
 
+export interface StatusLabels {
+  won?: string;
+  lost?: string;
+  draw?: string;
+  insignificant?: string;
+  notEnoughData?: string;
+  badgeColor?: string;
+}
+
 interface ExperimentResultTooltipContentProps {
   stats: SnapshotMetric;
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   pValueThreshold: number;
   significant: boolean;
   resultsStatus: RowResults["resultsStatus"];
@@ -35,6 +44,7 @@ interface ExperimentResultTooltipContentProps {
   currentMetricTotal: number;
   timeRemainingMs?: number;
   pValueAdjustmentEnabled?: boolean;
+  statusLabels?: StatusLabels;
 }
 
 const numberFormatter = Intl.NumberFormat(undefined, {
@@ -63,6 +73,7 @@ export default function ExperimentResultTooltipContent({
   currentMetricTotal,
   timeRemainingMs,
   pValueAdjustmentEnabled,
+  statusLabels,
 }: ExperimentResultTooltipContentProps) {
   const _displayCurrency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
@@ -106,19 +117,19 @@ export default function ExperimentResultTooltipContent({
     notEnoughData || suspiciousChange || resultsStatus === "draw";
 
   const getBadgeText = () => {
-    if (notEnoughData) return "Not enough data";
+    if (notEnoughData) return statusLabels?.notEnoughData ?? "Not enough data";
     if (significant) {
-      if (resultsStatus === "won") return "Won";
-      if (resultsStatus === "lost") return "Lost";
-      if (resultsStatus === "draw") return "Draw";
+      if (resultsStatus === "won") return statusLabels?.won ?? "Won";
+      if (resultsStatus === "lost") return statusLabels?.lost ?? "Lost";
+      if (resultsStatus === "draw") return statusLabels?.draw ?? "Draw";
     }
-    return "Insignificant";
+    return statusLabels?.insignificant ?? "Insignificant";
   };
 
   const renderBadge = () => (
     <Flex
       className={clsx(styles.badge, {
-        [styles.badgeWon]: isWon,
+        [styles.badgeWon]: isWon && !statusLabels?.badgeColor,
         [styles.badgeLost]: isLost,
       })}
       px="4"
@@ -126,6 +137,11 @@ export default function ExperimentResultTooltipContent({
       align="center"
       justify="between"
       gap="1"
+      style={
+        !isLost && statusLabels?.badgeColor
+          ? { backgroundColor: statusLabels.badgeColor }
+          : undefined
+      }
     >
       <Text size="1" weight="bold">
         {getBadgeText()}

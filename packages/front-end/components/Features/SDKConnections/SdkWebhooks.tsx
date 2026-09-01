@@ -7,7 +7,7 @@ import {
 import { FaCheck, FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { Revision } from "shared/enterprise";
+import { Revision, patchOpsToPartial } from "shared/enterprise";
 import {
   sdkWebhookSnapshotValidator,
   SDKWebhookRevisionSnapshot,
@@ -113,11 +113,29 @@ export default function SdkWebhooks({
     await mutate();
   }
 
+  // The base for a draft edit is the DRAFT's webhooks, not the live list. The
+  // live list still shows `[]` while a draft adds its first webhook, so
+  // rebuilding from it made each save replace the previous one — adding two
+  // webhooks to a draft published only the second.
+  const currentWebhookSnapshots = (): SDKWebhookRevisionSnapshot[] => {
+    if (selectedRevision) {
+      const proposed = patchOpsToPartial(
+        selectedRevision.target.proposedChanges,
+      ) as { sdkWebhooks?: SDKWebhookRevisionSnapshot[] };
+      if (proposed.sdkWebhooks) return proposed.sdkWebhooks;
+      const baseline = selectedRevision.target.snapshot as {
+        sdkWebhooks?: SDKWebhookRevisionSnapshot[];
+      };
+      if (baseline?.sdkWebhooks) return baseline.sdkWebhooks;
+    }
+    return (data?.webhooks ?? []).map(toSnapshot);
+  };
+
   // Override for CreateSDKWebhookModal when approvals are enabled.
   const handleCreateViaRevision = async (
     formData: CreateSdkWebhookProps,
   ): Promise<void> => {
-    const currentSnapshots = (data?.webhooks ?? []).map(toSnapshot);
+    const currentSnapshots = currentWebhookSnapshots();
     const tempId = `temp_${Date.now()}`;
     const newSnapshot: SDKWebhookRevisionSnapshot = {
       id: tempId,
@@ -140,7 +158,7 @@ export default function SdkWebhooks({
     formData: UpdateSdkWebhookProps,
     id: string | undefined,
   ): Promise<void> => {
-    const currentSnapshots = (data?.webhooks ?? []).map(toSnapshot);
+    const currentSnapshots = currentWebhookSnapshots();
     if (!id) {
       // No id — treat as a new webhook
       await handleCreateViaRevision(formData as CreateSdkWebhookProps);
@@ -170,7 +188,7 @@ export default function SdkWebhooks({
 
   // Delete via revision — removes the webhook from the snapshot array.
   const handleDeleteViaRevision = async (webhookId: string): Promise<void> => {
-    const currentSnapshots = (data?.webhooks ?? []).map(toSnapshot);
+    const currentSnapshots = currentWebhookSnapshots();
     await submitWebhookRevision(
       currentSnapshots.filter((s) => s.id !== webhookId),
     );
@@ -304,7 +322,7 @@ export default function SdkWebhooks({
         <TableCell>
           {!webhook.managedBy?.type ? (
             <div className="col-auto mr-1">
-              <MoreMenu>
+              <MoreMenu useRadix={false}>
                 {canUpdateWebhook ? (
                   <button
                     className="dropdown-item"
@@ -331,6 +349,7 @@ export default function SdkWebhooks({
                 ) : null}
                 {canDeleteWebhook ? (
                   <DeleteButton
+                    useRadix={false}
                     className="dropdown-item"
                     displayName="SDK Connection"
                     text="Delete"
@@ -357,7 +376,10 @@ export default function SdkWebhooks({
   const renderAddWebhookButton = () => (
     <>
       <div className="text-muted mb-3">
-        Refer to the <DocLink docSection="sdkWebhooks">documentation</DocLink>{" "}
+        Refer to the{" "}
+        <DocLink useRadix={false} docSection="sdkWebhooks">
+          documentation
+        </DocLink>{" "}
         for setup instructions
       </div>
       {canCreateWebhooks ? (

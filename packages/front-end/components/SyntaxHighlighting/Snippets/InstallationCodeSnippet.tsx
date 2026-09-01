@@ -4,6 +4,7 @@ import { Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { DocLink } from "@/components/DocLink";
 import EventTrackerSelector from "@/components/SyntaxHighlighting/Snippets/EventTrackerSelector";
+import { DataRegion, getEventIngestorHost } from "@/services/dataRegions";
 
 export default function InstallationCodeSnippet({
   language,
@@ -13,6 +14,7 @@ export default function InstallationCodeSnippet({
   remoteEvalEnabled,
   eventTracker,
   setEventTracker,
+  eventIngestorRegion,
 }: {
   language: SDKLanguage;
   apiKey: string;
@@ -21,7 +23,14 @@ export default function InstallationCodeSnippet({
   remoteEvalEnabled: boolean;
   eventTracker: string;
   setEventTracker: (value: string) => void;
+  eventIngestorRegion?: DataRegion;
 }) {
+  const eventIngestorHost =
+    eventTracker === "growthbook" &&
+    eventIngestorRegion &&
+    eventIngestorRegion !== "us-east-1"
+      ? getEventIngestorHost(eventIngestorRegion)
+      : undefined;
   const nocodeSnippet =
     eventTracker && eventTracker === "GTM"
       ? `
@@ -41,7 +50,11 @@ export default function InstallationCodeSnippet({
       `.trim()
       : `
 <script async
-  data-api-host=${JSON.stringify(apiHost)}${eventTracker === "growthbook" ? `\n  data-tracking="growthbook"` : ""}
+  data-api-host=${JSON.stringify(apiHost)}${eventTracker === "growthbook" ? `\n  data-tracking="growthbook"` : ""}${
+    eventIngestorHost
+      ? `\n  data-event-ingestor-host=${JSON.stringify(eventIngestorHost)}`
+      : ""
+  }
   data-client-key=${JSON.stringify(apiKey)}${
     encryptionKey
       ? `\n  data-decryption-key=${JSON.stringify(encryptionKey)}`
@@ -68,7 +81,9 @@ export default function InstallationCodeSnippet({
           <>
             Add the GrowthBook snippet to your Google Tag Manager as a Custom
             HTML tag.{" "}
-            <DocLink docSection="gtmSetup">View Documentation</DocLink>
+            <DocLink useRadix={false} docSection="gtmSetup">
+              View Documentation
+            </DocLink>
             <Code language="html" code={nocodeSnippet} />
           </>
         );

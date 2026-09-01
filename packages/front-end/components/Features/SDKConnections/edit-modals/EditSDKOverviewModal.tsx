@@ -5,15 +5,16 @@ import {
 import { getLatestSDKVersion, getSDKVersions } from "shared/sdk-versioning";
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { filterProjectsByEnvironment } from "shared/util";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Switch from "@/ui/Switch";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
 import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
 import { LanguageFilter } from "@/components/Features/SDKConnections/SDKLanguageLogo";
-import { isCloud } from "@/services/env";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import {
@@ -24,7 +25,7 @@ import {
 function GroupLabel({ children }: { children: React.ReactNode }) {
   return (
     <Text
-      size="small"
+      size="sm"
       weight="semibold"
       color="text-mid"
       textTransform="uppercase"
@@ -67,9 +68,31 @@ export default function EditSDKOverviewModal({
   const [selectedProjects, setSelectedProjects] = useState<string[]>(
     connection.projects ?? [],
   );
-  const [proxyEnabled, setProxyEnabled] = useState(!!connection.proxy?.enabled);
-  const [proxyHost, setProxyHost] = useState(connection.proxy?.host ?? "");
 
+  const settings = useOrgSettings();
+  // Vercel-managed connections own their scope, so those fields are read-only.
+  const isExternallyManaged = connection.managedBy?.type === "vercel";
+  const selectedEnvironment = environments.find((e) => e.id === environment);
+  const environmentHasProjects = !!selectedEnvironment?.projects?.length;
+  // Externally managed connections may only sit in environments that allow
+  // their projects, matching the full form.
+  const filteredEnvironments = isExternallyManaged
+    ? environments.filter(
+        (e) =>
+          !e.projects?.length ||
+          (connection.projects ?? []).some((p) => e.projects?.includes(p)),
+      )
+    : environments;
+  const allowedProjectIds = filterProjectsByEnvironment(
+    projects.map((p) => p.id),
+    selectedEnvironment,
+    true,
+  );
+  // An org can mandate a project; on edit only when one was already set, so
+  // existing unscoped connections aren't blocked from unrelated edits.
+  const requireProjectSelection =
+    !!settings.requireProjectForSdkConnections &&
+    (connection.projects?.length ?? 0) > 0;
   const singleLanguage = languages.length === 1 ? languages[0] : undefined;
   const showVersionPicker =
     !!singleLanguage && !/^(other|nocode-.*)$/.test(singleLanguage);
@@ -82,14 +105,17 @@ export default function EditSDKOverviewModal({
       header="Edit Connection"
       size="lg"
       submit={async () => {
+        // Every capability lookup reads languages[0], so a connection without
+        // one breaks downstream. The full form blocks this too.
+        if (!languages.length) {
+          throw new Error("Please select an SDK language");
+        }
         await save({
           name,
           languages,
           sdkVersion,
           environment,
           projects: selectedProjects,
-          proxyEnabled,
-          proxyHost,
         });
       }}
       cta="Save"
@@ -147,47 +173,40 @@ export default function EditSDKOverviewModal({
           label="Environment"
           value={environment}
           onChange={setEnvironment}
-          options={environments.map((env) => ({
+          options={filteredEnvironments.map((env) => ({
             label: env.id,
             value: env.id,
           }))}
+          disabled={isExternallyManaged}
           required
           sort={false}
         />
 
         <MultiSelectField
           label="Projects"
-          placeholder="All projects"
+          placeholder={
+            environmentHasProjects ? "All Environment Projects" : "All Projects"
+          }
           value={selectedProjects}
           onChange={(p) => setSelectedProjects(p as string[])}
           options={projects.map((p) => ({ label: p.name, value: p.id }))}
+          disabled={isExternallyManaged}
+          required={requireProjectSelection}
+          // Flag projects the chosen environment excludes, as the full form does:
+          // they'd be silently dropped from the SDK payload otherwise.
+          formatOptionLabel={({ value, label }) =>
+            !allowedProjectIds.includes(value) ? (
+              <Tooltip body="This project is not allowed in the selected environment and will not be included in the SDK payload.">
+                <span className="text-danger">{label}</span>
+              </Tooltip>
+            ) : (
+              label
+            )
+          }
           helpText="Leave empty to serve every project allowed in the selected environment."
           sort={false}
           closeMenuOnSelect={true}
         />
-
-        {isCloud() && (
-          <Box>
-            <GroupLabel>GrowthBook Proxy</GroupLabel>
-            <Flex direction="column" gap="3">
-              <Switch
-                label="Use GrowthBook Proxy"
-                description="Route SDK requests through a self-hosted proxy."
-                value={proxyEnabled}
-                onChange={setProxyEnabled}
-              />
-              {proxyEnabled && (
-                <Field
-                  label="Proxy Host URL"
-                  placeholder="https://"
-                  value={proxyHost}
-                  onChange={(e) => setProxyHost(e.target.value)}
-                  helpText="Optional. Public URL of your proxy — lets GrowthBook push updates whenever feature definitions change."
-                />
-              )}
-            </Flex>
-          </Box>
-        )}
       </Flex>
     </ModalStandard>
   );

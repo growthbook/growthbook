@@ -19,10 +19,14 @@ import {
   sdkConnectionUpdatableFieldsSchema,
 } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
-import { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
+import {
+  ApplyChangesResult,
+  EntityRevisionAdapter,
+} from "back-end/src/revisions/EntityRevisionAdapter";
 import {
   editSDKConnection,
   findSDKConnectionById,
+  findSDKConnectionsByIds,
 } from "back-end/src/models/SdkConnectionModel";
 
 // Whitelist of keys allowed in the settings portion of the snapshot, derived
@@ -107,7 +111,7 @@ function canBypassAcrossProjects(
     ? snapshot.sdkConnection.projects
     : [""];
   return projects.every((project) =>
-    context.permissions.canBypassApprovalChecks({ project }),
+    context.permissions.canBypassSDKConnectionApprovalChecks({ project }),
   );
 }
 
@@ -131,6 +135,17 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
   {
     getModel(context: Context) {
       return {
+        // Read-filtered batch fetch used by revision listings to decide
+        // visibility from the live connection rather than a stale snapshot.
+        // Callers only read `id`, so the raw connections stand in for the
+        // composite snapshot shape here.
+        getReadScopesByIds: async (ids: string[]) => {
+          if (!ids.length) return [];
+          const connections = await findSDKConnectionsByIds(context, ids);
+          return connections.filter((conn) =>
+            context.permissions.canReadMultiProjectResource(conn.projects),
+          ) as unknown as SDKConnectionRevisionSnapshot[];
+        },
         getById: async (id: string) => {
           const conn = await findSDKConnectionById(context, id);
           if (!conn) return null;
@@ -256,7 +271,17 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       context: Context,
       entity: SDKConnectionRevisionSnapshot,
       changes: Record<string, unknown>,
-    ): Promise<void> {
+      options?: {
+        isRevert?: boolean;
+        guarded?: boolean;
+        onPersisted?: (result: ApplyChangesResult) => void;
+      },
+    ): Promise<ApplyChangesResult> {
+      // Keys this apply actually persisted on the connection. Compensation
+      // restores only these, so it must reflect the write, not the request.
+      let persistedKeys: string[] = [];
+      let written: Record<string, unknown> | null = null;
+      const report = () => options?.onPersisted?.({ persistedKeys, written });
       const newSettings = changes.sdkConnection as
         | SDKConnectionSettingsRevisionSnapshot
         | undefined;
@@ -283,16 +308,56 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
             entity.sdkConnection.id,
           );
           if (!connection) throw new Error("Could not find SDK Connection");
+          // A draft can relocate a connection's projects/environment, and the
+          // generic move guards read a root-level `projects` this composite
+          // snapshot doesn't have — so the DESTINATION is authorized nowhere
+          // else. Passing the updates makes the check cover both ends.
+          if (
+            !context.permissions.canUpdateSDKConnection(connection, {
+              ...(filteredChanges.projects !== undefined && {
+                projects: filteredChanges.projects as string[],
+              }),
+              ...(filteredChanges.environment !== undefined && {
+                environment: filteredChanges.environment as string,
+              }),
+            })
+          ) {
+            context.permissions.throwPermissionError();
+          }
           await editSDKConnection(
             context,
             connection,
             filteredChanges as EditSDKConnectionParams,
           );
+          persistedKeys = Object.keys(filteredChanges);
+          written = {
+            ...(connection as unknown as Record<string, unknown>),
+            ...filteredChanges,
+          };
+          // Reported the moment the entity write lands, before webhooks: a
+          // webhook failure after this point still leaves the settings change
+          // live, and compensation has to know that.
+          report();
         }
       }
 
       // Apply webhook changes
       if (newWebhooks && !isEqual(newWebhooks, entity.sdkWebhooks)) {
+        // The model's own hooks gate on the GLOBAL manageEventWebhooks, not the
+        // env-scoped manageSDKWebhooks the direct webhook routes enforce — so
+        // without this a revision is a way around SDK-webhook permissions.
+        const scope = {
+          projects: entity.sdkConnection.projects,
+          environment: entity.sdkConnection.environment,
+        };
+        if (
+          !context.permissions.canCreateSDKWebhook(scope) ||
+          !context.permissions.canUpdateSDKWebhook(scope) ||
+          !context.permissions.canDeleteSDKWebhook(scope)
+        ) {
+          context.permissions.throwPermissionError();
+        }
+
         const oldById = new Map(entity.sdkWebhooks.map((w) => [w.id, w]));
         const newById = new Map(newWebhooks.map((w) => [w.id, w]));
 
@@ -303,6 +368,11 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
               ...context.models.sdkWebhooks.getDefaultCreateProps(
                 entity.sdkConnection.id,
               ),
+              // Keep the snapshot's id so the merged revision records the id
+              // that actually exists, and a retry sees the webhook as already
+              // created instead of making a duplicate. Client-side draft ids
+              // are prefixed `temp_`, so let the model mint those.
+              ...(wh.id && !wh.id.startsWith("temp_") ? { id: wh.id } : {}),
               name: wh.name,
               endpoint: wh.endpoint,
               httpMethod: wh.httpMethod,
@@ -349,5 +419,10 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
           }
         }
       }
+
+      // A no-op apply must still report: `written: null` means "ran and wrote
+      // nothing", which compensation has to tell apart from "never reported".
+      if (written === null) report();
+      return { persistedKeys, written };
     },
   };

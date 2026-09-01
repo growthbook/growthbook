@@ -1,7 +1,7 @@
 import { postSavedGroupRevisionRequestReviewValidator } from "shared/validators";
+import { requestRevisionReview } from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { getAdapter } from "back-end/src/revisions";
+import { NotFoundError } from "back-end/src/util/errors";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -24,28 +24,13 @@ export const postSavedGroupRevisionRequestReview = createApiRequestHandler(
   // Anyone with edit permission on the saved group can submit the draft for
   // review (matches the internal `submitForReview` controller). Saved groups
   // don't have a separate "manage drafts" permission like features do.
-  if (
-    !getAdapter("saved-group").canUpdate(
-      req.context,
-      savedGroup as Record<string, unknown>,
-    )
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  // Allow both `draft` and `changes-requested` so an author can re-submit a
-  // revision after a reviewer requested changes (changes-requested →
-  // pending-review). Without this, a changes-requested revision is stuck.
-  if (revision.status !== "draft" && revision.status !== "changes-requested") {
-    throw new BadRequestError(
-      `Can only request review on a draft or changes-requested revision (status is "${revision.status}")`,
-    );
-  }
-
-  const updated = await req.context.models.revisions.submitForReview(
-    revision.id,
-    req.context.userId,
-  );
+  const updated = await requestRevisionReview({
+    context: req.context,
+    entityType: "saved-group",
+    entity: savedGroup as unknown as Record<string, unknown>,
+    revision,
+    autoPublishOnApproval: req.body.autoPublishOnApproval,
+  });
 
   return {
     revision: await toApiSavedGroupRevision(updated, req.context),

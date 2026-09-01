@@ -37,7 +37,7 @@ export function TargetingConditionsCard({
       <Flex direction="column" gap="4">
         {children}
       </Flex>
-      {addButton != null && (
+      {!!addButton && (
         <Box
           style={{ alignSelf: "flex-start" }}
           pt={slimMode ? "1" : "2"}
@@ -53,8 +53,10 @@ export function TargetingConditionsCard({
     return (
       <Box
         className={clsx("gb-condition-group-card", className)}
-        p="2"
+        py="2"
         style={{
+          paddingLeft: 5,
+          paddingRight: 5,
           border: "1px solid var(--gray-a3)",
           borderRadius: "var(--radius-2)",
         }}
@@ -109,7 +111,7 @@ export function ConditionGroupHeader({
       align="center"
       justify="between"
     >
-      <Text size="medium" weight="medium" color="text-mid">
+      <Text size="md" weight="medium" color="text-mid">
         {label}
       </Text>
       {advancedToggle && <Box>{advancedToggle}</Box>}
@@ -141,14 +143,14 @@ export function ConditionRow({
         <Flex gap="3" align="start">
           {prefixSlot !== undefined && (
             <Box flexShrink="0" style={{ width: 35 }}>
-              <Flex align="center" style={{ height: 38 }}>
+              <Flex align="center" style={{ height: 36 }}>
                 {prefixSlot}
               </Flex>
             </Box>
           )}
           <Box style={{ flex: "1 1 0", minWidth: 0 }}>{attributeSlot}</Box>
           {removeSlot != undefined && (
-            <Box flexShrink="0" pt="3">
+            <Box flexShrink="0" className="field-row-action">
               {removeSlot}
             </Box>
           )}
@@ -177,7 +179,7 @@ export function ConditionRow({
     <Flex gap="3" align="start" className="gb-condition-row">
       {prefixSlot !== undefined && (
         <Box flexShrink="0" style={{ width: 35 }}>
-          <Flex align="center" style={{ height: 38 }}>
+          <Flex align="center" style={{ height: 36 }}>
             {prefixSlot}
           </Flex>
         </Box>
@@ -213,7 +215,7 @@ export function ConditionRow({
         </Box>
       </Flex>
       {removeSlot !== undefined && (
-        <Box flexShrink="0" pt="3">
+        <Box flexShrink="0" className="field-row-action">
           {removeSlot}
         </Box>
       )}
@@ -223,7 +225,7 @@ export function ConditionRow({
 
 export function ConditionRowLabel({ label }: { label: string }) {
   return (
-    <Text size="medium" weight="medium" color="text-mid">
+    <Text size="md" weight="medium" color="text-mid">
       {label}
     </Text>
   );
@@ -244,7 +246,7 @@ export function ConditionRowHeader({
       mb="2"
       style={{ minHeight: 24 }}
     >
-      <Text size="medium" weight="medium" color="text-mid">
+      <Text size="md" weight="medium" color="text-mid">
         {label}
       </Text>
       {advancedToggle && <Box>{advancedToggle}</Box>}
@@ -261,7 +263,7 @@ export function OrSeparator({ slimMode }: { slimMode?: boolean }) {
       className="gb-or-separator"
     >
       <Separator style={{ flexGrow: 1 }} />
-      <Text size="medium" weight="medium">
+      <Text size="md" weight="medium">
         OR
       </Text>
       <Separator style={{ flexGrow: 1 }} />
@@ -272,12 +274,10 @@ export function OrSeparator({ slimMode }: { slimMode?: boolean }) {
 export function AddConditionButton({
   onClick,
   children,
-  slimMode,
   disabled,
 }: {
   onClick: () => void;
   children?: React.ReactNode;
-  slimMode?: boolean;
   disabled?: boolean;
 }) {
   return (
@@ -292,10 +292,7 @@ export function AddConditionButton({
         cursor: disabled ? "not-allowed" : "pointer",
       }}
     >
-      <Text
-        weight={slimMode ? "regular" : "semibold"}
-        size={slimMode ? "small" : "medium"}
-      >
+      <Text weight="semibold" size="md">
         <PiPlusBold className="mr-1" />
         {children ?? "Add condition"}
       </Text>
@@ -325,10 +322,7 @@ export function AddOrGroupButton({
           cursor: disabled ? "not-allowed" : "pointer",
         }}
       >
-        <Text
-          weight={slimMode ? "regular" : "semibold"}
-          size={slimMode ? "small" : "medium"}
-        >
+        <Text weight="semibold" size="md">
           <PiPlusBold className="mr-1" />
           Add OR group
         </Text>

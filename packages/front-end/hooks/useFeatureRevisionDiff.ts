@@ -15,6 +15,7 @@ import {
   prerequisiteChangeBadges,
   renderFeatureHoldoutSection,
   getFeatureHoldoutBadges,
+  renderFeatureArchived,
 } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import { useEnvironments } from "@/services/features";
@@ -33,8 +34,53 @@ export function normalizeRevisionMetadata(
     owner: m.owner ?? "",
     project: m.project ?? "",
     tags: m.tags ?? [],
+    targetingProjects: m.targetingProjects ?? [],
+    targetingAllProjects: m.targetingAllProjects ?? false,
   };
 }
+
+// Bookkeeping fields the snapshot records but that aren't user-editable revision
+// settings and aren't rendered by the human diff — including them in the raw
+// JSON diff only produces phantom churn when an older snapshot predates them.
+const NON_SETTING_METADATA_FIELDS = new Set(["valueType", "baseConfig"]);
+
+// Canonical JSON for the raw "Feature Settings" diff: keys sorted (so a differing
+// snapshot key order doesn't read as churn) and bookkeeping fields dropped, so
+// the raw view reflects the same real changes as the formatted view.
+function metadataDiffJson(m: RevisionMetadata | undefined): string {
+  if (!m) return "";
+  const canonical: Record<string, unknown> = {};
+  Object.keys(m)
+    .filter((k) => !NON_SETTING_METADATA_FIELDS.has(k))
+    .sort()
+    .forEach((k) => {
+      canonical[k] = (m as Record<string, unknown>)[k];
+    });
+  return JSON.stringify(canonical, null, 2);
+}
+
+// Backfill envelope fields from `fallback` (typically the parent feature's
+// current state) when the revision doesn't store them. Pre-snapshot legacy
+// revisions only persisted defaultValue/rules; comparing one against a freshly
+// created draft (which now snapshots the full envelope) would otherwise
+// produce phantom "added" diffs for metadata, env toggles, prerequisites, and
+// holdout. Used by surfaces that diff a raw revision against the live feature
+// (compare modal, review-and-publish conflict fallback).
+export const revisionToFeatureRevisionDiffInput = (
+  r: FeatureRevisionInterface,
+  fallback?: FeatureRevisionDiffInput,
+): FeatureRevisionDiffInput => {
+  return {
+    defaultValue: r.defaultValue,
+    rules: Array.isArray(r.rules) ? r.rules : [],
+    environmentsEnabled: r.environmentsEnabled ?? fallback?.environmentsEnabled,
+    prerequisites: r.prerequisites ?? fallback?.prerequisites,
+    archived: r.archived ?? fallback?.archived,
+    holdout: r.holdout !== undefined ? r.holdout : (fallback?.holdout ?? null),
+    metadata: normalizeRevisionMetadata(r.metadata) ?? fallback?.metadata,
+    rampActions: r.rampActions ?? undefined,
+  };
+};
 
 export const featureToFeatureRevisionDiffInput = (
   feature: FeatureInterface,
@@ -51,6 +97,7 @@ export const featureToFeatureRevisionDiffInput = (
     rules: feature.rules ?? [],
     environmentsEnabled,
     prerequisites: feature.prerequisites,
+    archived: feature.archived ?? false,
     holdout: feature.holdout ?? null,
     rampActions: undefined,
     metadata: normalizeRevisionMetadata({
@@ -58,6 +105,8 @@ export const featureToFeatureRevisionDiffInput = (
       owner: feature.owner,
       project: feature.project,
       tags: feature.tags,
+      targetingProjects: feature.targetingProjects,
+      targetingAllProjects: feature.targetingAllProjects,
       neverStale: feature.neverStale,
       customFields: feature.customFields,
       jsonSchema: feature.jsonSchema,
@@ -90,6 +139,7 @@ export type FeatureRevisionDiffInput = Pick<
   | "rules"
   | "environmentsEnabled"
   | "prerequisites"
+  | "archived"
   | "metadata"
   | "holdout"
 > & {
@@ -100,6 +150,12 @@ export type FeatureRevisionDiffInput = Pick<
 
 export type FeatureRevisionDiff = {
   title: string;
+  // Stable machine identity for this section, independent of the display
+  // title. Uses the same vocabulary as granular merge-conflict keys
+  // (`rules`, `defaultValue`, `environmentsEnabled.<env>`, ...) plus
+  // `rampAction.<id>` / `rampSchedule.<id>` for supplemental entities.
+  // Used by diff comment references (see diffCommentRefs.ts).
+  key?: string;
   a: string;
   b: string;
   customRender?: ReactNode;
@@ -107,6 +163,16 @@ export type FeatureRevisionDiff = {
   // (e.g. a "[pending publish]" badge for ramp-schedule diffs).
   titleSuffix?: ReactNode;
   badges?: DiffBadge[];
+  // Marks a diff that represents a separate top-level entity (e.g. a ramp
+  // schedule / ramp action) rather than a field of the feature revision itself.
+  // In the "Raw JSON" view these render as their own per-entity diffs alongside
+  // the single whole-revision blob.
+  supplemental?: boolean;
+  // For supplemental diffs: the underlying entity's own name and kind (e.g.
+  // "Spring rollout" / "ramp-schedule"). Used by the JSON copy formats, which
+  // emit a { name, type } pair per entity — `title` is a display label.
+  entityName?: string;
+  entityType?: string;
 };
 
 // Mirrors backend `applyEnvironmentInheritance`: fill missing env entries by
@@ -147,6 +213,30 @@ export function useFeatureRevisionDiff({
   const { holdoutsMap } = useHoldouts();
   return useMemo(() => {
     const diffs: FeatureRevisionDiff[] = [];
+
+    // 0. Archive status — a top-level revision field (not part of the metadata
+    // envelope), so it needs its own section. renderFeatureArchived returns null
+    // when unchanged (treating undefined as false), so it doubles as the guard —
+    // no separate change check needed.
+    const archivedRender = renderFeatureArchived(
+      current.archived,
+      draft.archived,
+    );
+    if (archivedRender) {
+      diffs.push({
+        key: "archived",
+        title: "Archive status",
+        a: (current.archived ?? false) ? "archived" : "active",
+        b: draft.archived ? "archived" : "active",
+        customRender: archivedRender,
+        badges: [
+          {
+            label: draft.archived ? "Archived" : "Unarchived",
+            action: "archive",
+          },
+        ],
+      });
+    }
 
     // 1. Settings (metadata)
     if (draft.metadata) {
@@ -197,9 +287,10 @@ export function useFeatureRevisionDiff({
             action: "edit json schema",
           });
         diffs.push({
+          key: "metadata",
           title: "Feature Settings",
-          a: JSON.stringify(current.metadata, null, 2),
-          b: JSON.stringify(draft.metadata, null, 2),
+          a: metadataDiffJson(current.metadata),
+          b: metadataDiffJson(draft.metadata),
           customRender: metadataRender,
           badges:
             metaBadges.length > 0
@@ -227,10 +318,11 @@ export function useFeatureRevisionDiff({
       if (currentVal !== draftVal) {
         const direction = draftVal ? "on" : "off";
         diffs.push({
+          key: `environmentsEnabled.${envId}`,
           title: `Environment Toggle - ${envId}`,
           a: String(currentVal),
           b: String(draftVal),
-          customRender: renderEnvironmentsEnabled(envId, currentVal, draftVal),
+          customRender: renderEnvironmentsEnabled(currentVal, draftVal),
           badges: [
             {
               label: `Toggled ${envId} ${direction}`,
@@ -247,6 +339,7 @@ export function useFeatureRevisionDiff({
       const draftPrereqs = draft.prerequisites;
       if (!isEqual(currentPrereqs, draftPrereqs)) {
         diffs.push({
+          key: "prerequisites",
           title: "Feature Prerequisites",
           a: JSON.stringify(currentPrereqs, null, 2),
           b: JSON.stringify(draftPrereqs, null, 2),
@@ -268,6 +361,7 @@ export function useFeatureRevisionDiff({
         const pre = { holdout: currentHoldout ?? undefined };
         const post = { holdout: draftHoldout ?? undefined };
         diffs.push({
+          key: "holdout",
           title: "Holdout",
           a: JSON.stringify(currentHoldout, null, 2),
           b: JSON.stringify(draftHoldout, null, 2),
@@ -284,6 +378,7 @@ export function useFeatureRevisionDiff({
     const bValue = parseDefaultValue(draftDefault);
     if (!isEqual(aValue, bValue)) {
       diffs.push({
+        key: "defaultValue",
         title: "Default Value",
         a:
           typeof aValue === "string" ? aValue : JSON.stringify(aValue, null, 2),
@@ -325,6 +420,7 @@ export function useFeatureRevisionDiff({
       hasPendingRampOnUnchangedRule
     ) {
       diffs.push({
+        key: "rules",
         title: "Rules",
         a: JSON.stringify(normalizeFeatureRules(currentRulesArr), null, 2),
         b: JSON.stringify(normalizeFeatureRules(draftRulesArr), null, 2),
@@ -365,6 +461,7 @@ export function mergeResultToDiffInput(
     ...(result.prerequisites !== undefined
       ? { prerequisites: result.prerequisites }
       : {}),
+    ...(result.archived !== undefined ? { archived: result.archived } : {}),
     ...("holdout" in result ? { holdout: result.holdout } : {}),
     ...(result.metadata !== undefined
       ? {

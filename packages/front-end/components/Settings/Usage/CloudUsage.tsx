@@ -141,6 +141,7 @@ export default function CloudUsage() {
         <h2 className="mr-4 mb-0">CDN Usage</h2>
         <div className="ml-auto">
           <SelectField
+            size="legacy"
             options={monthOptions}
             value={monthsAgo + ""}
             onChange={(value) => setMonthsAgo(parseInt(value))}

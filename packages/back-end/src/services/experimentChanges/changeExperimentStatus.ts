@@ -1,5 +1,5 @@
 import { getLatestPhaseVariations, getAllVariations } from "shared/experiments";
-import { getValidDate } from "shared/dates";
+import { getValidDate, resolveScheduledStop } from "shared/dates";
 import {
   ExperimentInterface,
   LinkedFeatureInfo,
@@ -15,6 +15,10 @@ import {
   experimentHasLiveLinkedChanges,
 } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import {
+  customHooksActive,
+  runValidateExperimentHooks,
+} from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { getExperimentLaunchChecklist } from "back-end/src/models/ExperimentLaunchChecklistModel";
 import {
   getExperimentById,
@@ -30,10 +34,16 @@ import {
 } from "back-end/src/services/experiments";
 import {
   formatPendingDraftFailureMessage,
-  PendingDraftFailure,
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
+import {
+  ChecklistIncompleteError,
+  InvalidStatusError,
+  PendingDraftPublishFailedError,
+} from "back-end/src/util/errors";
+import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
+import { trackEventForContext } from "back-end/src/services/growthbook";
 
 export type StartChecklistItemStatus = {
   key: string;
@@ -41,6 +51,7 @@ export type StartChecklistItemStatus = {
   status: ChecklistStatus;
   manual: boolean;
   reason: string;
+  hardBlock?: boolean;
 };
 
 export type ExperimentStartChecklistResult = {
@@ -48,6 +59,35 @@ export type ExperimentStartChecklistResult = {
   checklistItems: StartChecklistItemStatus[];
   status: ExperimentStartChecklistStatus;
 };
+
+/** User-initiated experiment writes only. Start/schedule-start paths validate the would-be running state. */
+export async function validateExperimentChange({
+  context,
+  experiment,
+  changes,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  changes: Changeset;
+}): Promise<void> {
+  if (!customHooksActive(context)) return;
+
+  const merged = { ...experiment, ...changes };
+  const willRun =
+    merged.status === "running" ||
+    merged.nextScheduledStatusUpdate?.type === "start";
+
+  const effectiveChanges =
+    willRun && experiment.status !== "running"
+      ? { ...changes, ...(await getChangesToStartExperiment(context, merged)) }
+      : changes;
+
+  await runValidateExperimentHooks({
+    context,
+    experiment: { ...experiment, ...effectiveChanges },
+    original: experiment,
+  });
+}
 
 export async function completeExperimentStartChecklistItems({
   context,
@@ -98,10 +138,12 @@ export async function completeExperimentStartChecklistItems({
     ([key, status]) => ({ key, status }),
   );
 
+  const changes: Changeset = { manualLaunchChecklist };
+  await validateExperimentChange({ context, experiment, changes });
   return await updateExperiment({
     context,
     experiment,
-    changes: { manualLaunchChecklist },
+    changes,
   });
 }
 
@@ -224,6 +266,72 @@ export async function getExperimentStartChecklistStatus(
     reason: "Add an SDK connection before starting.",
   });
 
+  const latestVariations = getLatestPhaseVariations(experiment);
+  linkedFeatures
+    .filter((f) => f.state !== "discarded" && f.state !== "archived")
+    .forEach((f) => {
+      const configuredVariationIds = new Set(
+        f.values.map((v) => v.variationId),
+      );
+      const hasMissingValues = latestVariations.some(
+        (v) => !configuredVariationIds.has(v.id),
+      );
+      if (hasMissingValues) {
+        items.push({
+          key: `missingVariationValues:${f.feature.id}`,
+          required: true,
+          status: "incomplete",
+          manual: false,
+          reason: `Fill in missing variation values for linked feature ${f.feature.id} before starting.`,
+        });
+      }
+    });
+
+  linkedFeatures
+    .filter((f) => f.state === "draft" && f.hasMergeConflict)
+    .forEach((f) => {
+      items.push({
+        key: `mergeConflict:${f.feature.id}`,
+        required: true,
+        status: "incomplete",
+        manual: false,
+        hardBlock: true,
+        reason: `Resolve the merge conflict in linked feature ${f.feature.id} before starting.`,
+      });
+    });
+
+  linkedFeatures
+    .filter((f) => f.pendingApproval && !f.hasUnrelatedDraftChanges)
+    .forEach((f) => {
+      items.push({
+        key: `pendingApproval:${f.feature.id}`,
+        required: true,
+        status:
+          f.draftRevisionStatus === "approved" ? "complete" : "incomplete",
+        manual: false,
+        hardBlock: true,
+        reason: `Approve the draft revision for linked feature ${f.feature.id} before starting.`,
+      });
+    });
+
+  linkedFeatures
+    .filter(
+      (f) =>
+        f.state === "draft" &&
+        f.hasUnrelatedDraftChanges &&
+        !f.hasMergeConflict,
+    )
+    .forEach((f) => {
+      items.push({
+        key: `unrelatedDraftChanges:${f.feature.id}`,
+        required: true,
+        status: "incomplete",
+        manual: false,
+        hardBlock: true,
+        reason: `Remove unrelated changes to the experiment in linked feature ${f.feature.id} to auto-publish or manually publish the draft.`,
+      });
+    });
+
   if (orgHasPremiumFeature(context.org, "custom-launch-checklist")) {
     const checklist =
       (experiment.project &&
@@ -322,11 +430,10 @@ export async function executeExperimentStart(
     experiment,
   );
   if (publishResult.failed.length > 0) {
-    const err = new Error(
+    throw new PendingDraftPublishFailedError(
       formatPendingDraftFailureMessage(publishResult.failed),
-    ) as Error & { failedFeatureDrafts?: PendingDraftFailure[] };
-    err.failedFeatureDrafts = publishResult.failed;
-    throw err;
+      publishResult.failed,
+    );
   }
 
   // Build a default phase if the experiment has none so getChangesToStartExperiment
@@ -370,11 +477,45 @@ export async function executeExperimentStart(
     changes.phases = startExperimentTarget.phases;
   }
 
+  // Starting consumes any staged start. Resolve the scheduled end now that we
+  // know the real start time: an absolute stopAt is used directly; a deferred
+  // relative stopAfter is resolved to a concrete stopAt (start + offset) and
+  // written back. If there's a future stop, stage it so the 1-minute job stops
+  // (and applies shipping) at the cutoff; otherwise clear the staged update.
+  const startedAt = new Date();
+  const sched = experiment.statusUpdateSchedule;
+  const { stopAt, stagedStop: nextScheduledStatusUpdate } =
+    resolveScheduledStop({
+      stopAt: sched?.stopAt,
+      stopAfter: sched?.stopAfter,
+      base: startedAt,
+      active: true,
+      now: startedAt,
+    });
+  // Persist the resolved concrete stop and drop the now-consumed relative
+  // offset, so the stored schedule reflects the actual end going forward.
+  if (sched?.stopAfter) {
+    changes.statusUpdateSchedule = {
+      ...(sched.startAt ? { startAt: sched.startAt } : {}),
+      ...(stopAt ? { stopAt } : {}),
+      ...(sched.scheduledStopPlan
+        ? { scheduledStopPlan: sched.scheduledStopPlan }
+        : {}),
+    };
+  }
+
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: { nextScheduledStatusUpdate: null, ...changes },
+    changes: { ...changes, nextScheduledStatusUpdate },
   });
+
+  trackEventForContext(context, "Experiment Started", {
+    source: context.auditUser?.type ?? "agenda-job",
+    hasDatasource: !!updated.datasource,
+    hasExperimentAssignmentQuery: !!updated.exposureQueryId,
+  });
+
   return { updated, publishResult };
 }
 
@@ -400,37 +541,70 @@ export async function getExperimentStartChecklist({
   };
 }
 
+function assertNoIncompleteHardBlockers(
+  checklistItems: StartChecklistItemStatus[],
+): void {
+  const incompleteHardBlockers = checklistItems.filter(
+    (item) => item.hardBlock && item.status === "incomplete",
+  );
+  if (incompleteHardBlockers.length > 0) {
+    throw new ChecklistIncompleteError(
+      "Experiment cannot be started: linked feature draft issues must be resolved and cannot be bypassed",
+      incompleteHardBlockers,
+    );
+  }
+}
+
 export async function startExperiment({
   context,
   experimentId,
   skipChecklist = false,
+  bypassLockdown = false,
 }: {
   context: ReqContext;
   experimentId: string;
   skipChecklist?: boolean;
+  /**
+   * When true, skip ramp-schedule lockdown enforcement on linked features and
+   * forward the bypass through to pending feature-draft publishing. Caller
+   * must verify admin-bypass permissions before passing true.
+   */
+  bypassLockdown?: boolean;
 }) {
-  const experiment = await loadAndValidateExperimentForStatusChange(
+  const loadedExperiment = await loadAndValidateExperimentForStatusChange(
     context,
     experimentId,
   );
+  const { checklistItems, status } = await getExperimentStartChecklist({
+    context,
+    experiment: loadedExperiment,
+  });
 
+  const experiment = loadedExperiment;
   if (experiment.status !== "draft") {
-    throw new Error("invalid_status: Experiment must be in draft status");
+    throw new InvalidStatusError(
+      "Experiment must be in draft status",
+      experiment.status,
+      ["draft"],
+    );
   }
 
-  const checklistItems = await getExperimentStartChecklistStatus(
-    context,
-    experiment,
-  );
-  const incompleteRequiredItems = checklistItems.filter(
-    (item) => item.required && item.status === "incomplete",
-  );
-  if (incompleteRequiredItems.length > 0 && !skipChecklist) {
-    throw new Error(
-      `checklist_incomplete: ${incompleteRequiredItems
-        .map((i) => i.key)
-        .join(", ")}`,
+  assertNoIncompleteHardBlockers(checklistItems);
+
+  if (status === "notReady" && !skipChecklist) {
+    const incompleteRequiredItems = checklistItems.filter(
+      (item) => item.required && item.status === "incomplete",
     );
+    throw new ChecklistIncompleteError(
+      "Experiment cannot be started: required checklist items are incomplete",
+      incompleteRequiredItems,
+    );
+  }
+
+  if (!bypassLockdown) {
+    for (const fid of experiment.linkedFeatures ?? []) {
+      await assertFeatureNotLockedByRamp(context, fid);
+    }
   }
 
   const { updated } = await executeExperimentStart(context, experiment);
@@ -460,8 +634,10 @@ export async function approveScheduledExperimentStart({
   );
 
   if (experiment.status !== "draft") {
-    throw new Error(
-      "invalid_status: Experiment must be in draft status to approve a scheduled start",
+    throw new InvalidStatusError(
+      "Experiment must be in draft status to approve a scheduled start",
+      experiment.status,
+      ["draft"],
     );
   }
 
@@ -474,30 +650,36 @@ export async function approveScheduledExperimentStart({
     );
   }
 
+  const checklistItems = await getExperimentStartChecklistStatus(
+    context,
+    experiment,
+  );
+
+  assertNoIncompleteHardBlockers(checklistItems);
+
   if (!skipChecklist) {
-    const checklistItems = await getExperimentStartChecklistStatus(
-      context,
-      experiment,
-    );
     const incompleteRequired = checklistItems.filter(
       (item) => item.required && item.status === "incomplete",
     );
     if (incompleteRequired.length > 0) {
-      throw new Error(
-        `checklist_incomplete: ${incompleteRequired.map((i) => i.key).join(", ")}`,
+      throw new ChecklistIncompleteError(
+        "Experiment cannot be started: required checklist items are incomplete",
+        incompleteRequired,
       );
     }
   }
 
+  const changes: Changeset = {
+    nextScheduledStatusUpdate: {
+      type: "start",
+      date: startAt,
+    },
+  };
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: {
-      nextScheduledStatusUpdate: {
-        type: "start",
-        date: startAt,
-      },
-    },
+    changes,
   });
 
   return { experiment, updated };
@@ -531,12 +713,14 @@ export async function unapproveScheduledExperimentStart({
     return { experiment, updated: experiment };
   }
 
+  const changes: Changeset = {
+    nextScheduledStatusUpdate: null,
+  };
+
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: {
-      nextScheduledStatusUpdate: null,
-    },
+    changes,
   });
 
   return { experiment, updated };
@@ -556,12 +740,14 @@ export async function stopExperiment({
     input.experimentId,
   );
 
-  if (
-    experiment.status !== "running" &&
-    !(allowAlreadyStopped && experiment.status === "stopped")
-  ) {
-    throw new Error(
-      "invalid_status: Can only stop an experiment in running status",
+  const expectedStopStatuses = allowAlreadyStopped
+    ? ["running", "stopped"]
+    : ["running"];
+  if (!expectedStopStatuses.includes(experiment.status)) {
+    throw new InvalidStatusError(
+      `Can only stop an experiment in ${expectedStopStatuses.join(" or ")} status`,
+      experiment.status,
+      expectedStopStatuses,
     );
   }
   if (input.dateEnded && Number.isNaN(new Date(input.dateEnded).getTime())) {
@@ -660,16 +846,29 @@ export async function stopExperiment({
     isEnding = true;
   }
 
+  if (experiment.nextScheduledStatusUpdate) {
+    changes.nextScheduledStatusUpdate = null;
+  }
+
   if (experiment.type === "multi-armed-bandit") {
     changes.banditStage = "paused";
     changes.banditStageDateStarted = new Date();
   }
 
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
     context,
     experiment,
     changes,
   });
+
+  // Only track true stop events; ignore results edits to already-stopped experiments.
+  if (isEnding) {
+    trackEventForContext(context, "Experiment Stopped", {
+      source: context.auditUser?.type ?? "agenda-job",
+      result: updated.results,
+    });
+  }
 
   return { experiment, updated, isEnding };
 }
@@ -686,8 +885,10 @@ export async function modifyTemporaryRollout({
     input.experimentId,
   );
   if (experiment.status !== "stopped") {
-    throw new Error(
-      "invalid_status: Can only modify temporary rollout for stopped experiments",
+    throw new InvalidStatusError(
+      "Can only modify temporary rollout for stopped experiments",
+      experiment.status,
+      ["stopped"],
     );
   }
 
@@ -725,6 +926,7 @@ export async function modifyTemporaryRollout({
     }
   }
 
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
     context,
     experiment,

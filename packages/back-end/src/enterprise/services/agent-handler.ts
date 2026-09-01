@@ -2,18 +2,25 @@ import { randomUUID } from "crypto";
 import type { Response } from "express";
 import type { ToolSet, TextStreamPart } from "ai";
 import type { AIModel, AIPromptType } from "shared/ai";
-import type { AIChatMessage } from "shared/ai-chat";
+import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
+import { stringifyToolResultForStorage } from "shared/ai-chat";
+import type { AIAgentPendingAction } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
+import type { AIConversationModel } from "back-end/src/models/AIConversationModel";
+import {
+  dispatchInternal,
+  type DispatchInput,
+} from "back-end/src/agent/dispatcher";
 import {
   getContextFromReq,
   getAISettingsForOrg,
+  getAllowedAIModel,
 } from "back-end/src/services/organizations";
 import {
   streamingChatCompletion,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
-import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   type ConversationBuffer,
   loadOrInitConversation,
@@ -22,12 +29,14 @@ import {
 import { toModelMessages } from "back-end/src/enterprise/services/ai-chat-to-model";
 import { logger } from "back-end/src/util/logger";
 import {
-  runAccessGates,
+  runAIEnabledGates,
+  enforceAIUsageCap,
   buildSystemPromptForRequest,
 } from "back-end/src/enterprise/services/ai-access";
 import {
   setSseHeaders,
   createEmit,
+  serializeUnknownForSSE,
 } from "back-end/src/enterprise/services/sse-utils";
 import {
   StreamProcessor,
@@ -47,6 +56,13 @@ export {
 // Public types
 // =============================================================================
 
+export interface SkillLoadResult {
+  status: "ok";
+  name: string;
+  description: string;
+  body: string;
+}
+
 export interface AgentConfig<TParams = unknown> {
   /** Unique key that scopes conversations to this agent (e.g. "product-analytics"). */
   agentType: string;
@@ -57,6 +73,16 @@ export interface AgentConfig<TParams = unknown> {
 
   /** Build the system prompt for the current request */
   buildSystemPrompt: (ctx: ReqContext, params: TParams) => Promise<string>;
+
+  /**
+   * When true, a `datasourceId` on the request body is persisted on the user
+   * message as a soft `datasourceHint` and surfaced to the LLM via an
+   * `[Active product-analytics datasource: …]` prefix (see `toModelMessages`).
+   * Kept off the static system prompt so the prompt stays cache-friendly.
+   * Agents that scope themselves to a datasource via params (e.g. PA chat)
+   * leave this off and use the param directly instead.
+   */
+  injectDatasourceHint?: boolean;
 
   /**
    * Build the tool set for the current request.
@@ -72,6 +98,22 @@ export interface AgentConfig<TParams = unknown> {
     params: TParams,
     emit?: AgentEmit,
   ) => ToolSet;
+
+  /**
+   * Slash-command resolver. Seeded calls use the same shape as a real
+   * `loadSkill` result. Unset (PA chat) makes any `skill` on the body a no-op.
+   */
+  resolveSkill?: (name: string) => SkillLoadResult | undefined;
+
+  /**
+   * Annotate @-mentions with `stale` when they're out of scope for this turn.
+   * Stale mentions still reach the model so it can say they're unavailable.
+   */
+  resolveMentions?: (
+    ctx: ReqContext,
+    mentions: AIChatMention[],
+    params: TParams,
+  ) => Promise<AIChatMention[]>;
 
   temperature?: number;
   maxSteps?: number;
@@ -112,6 +154,22 @@ type AgentRequestBody = {
   message: string;
   conversationId: string;
   model: AIModel;
+  /**
+   * Optional URL the user was on when they sent this message. Persisted
+   * on the resulting `AIChatUserMessage` and surfaced to the LLM via a
+   * `[Page context: …]` prefix in `toModelMessages`. Per-agent routers
+   * decide whether to accept this field on the wire — agents that don't
+   * need page awareness (e.g. PA chat) just won't pass it through.
+   */
+  currentPage?: string;
+  /**
+   * Optional product-analytics datasource the client had selected. When the
+   * agent config sets `injectDatasourceHint`, this is persisted on the user
+   * message as a soft `datasourceHint` (see `AIChatUserMessage`).
+   */
+  datasourceId?: string;
+  mentions?: AIChatMention[];
+  skills?: string[];
 } & Record<string, unknown>;
 
 type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
@@ -121,6 +179,64 @@ type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
 // =============================================================================
 
 const activeStreamControllers = new Map<string, AbortController>();
+
+const SSE_KEEPALIVE_MS = 15_000;
+// Keep this below the client's 60-second stale-stream threshold.
+const DB_HEARTBEAT_MS = 30_000;
+
+// SSE pings keep the connection open; Mongo updates support reloads and
+// cancellation handled by another server instance.
+function startStreamHeartbeats({
+  conversations,
+  conversationId,
+  emit,
+  onCancelled,
+}: {
+  conversations: AIConversationModel;
+  conversationId: string;
+  emit: AgentEmit;
+  onCancelled: () => void;
+}) {
+  const sseKeepalive = setInterval(
+    () => emit("keepalive", {}),
+    SSE_KEEPALIVE_MS,
+  );
+
+  let bumpInFlight = false;
+  const dbHeartbeat = setInterval(() => {
+    if (bumpInFlight) return;
+    bumpInFlight = true;
+    void conversations
+      .touchStreamedAt(conversationId)
+      .then((doc) => {
+        if (doc && !doc.isStreaming) {
+          stopSseKeepalive();
+          stopDbHeartbeat();
+          onCancelled();
+        }
+      })
+      .catch((err) => {
+        logger.debug(
+          `Keepalive bump failed for conversation ${conversationId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      })
+      .finally(() => {
+        bumpInFlight = false;
+      });
+  }, DB_HEARTBEAT_MS);
+
+  const stopSseKeepalive = (): void => {
+    clearInterval(sseKeepalive);
+  };
+
+  const stopDbHeartbeat = (): void => {
+    clearInterval(dbHeartbeat);
+  };
+
+  return { stopSseKeepalive, stopDbHeartbeat };
+}
 
 /**
  * Abort the active LLM stream for a conversation. Called from the cancel
@@ -150,7 +266,7 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 
     config.onStreamStart?.(conversationId);
 
-    if (!(await runAccessGates(context, res))) {
+    if (!(await runAIEnabledGates(context, res))) {
       return;
     }
 
@@ -169,37 +285,111 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 
     const storedModel = buffer.getModel() as AIModel | undefined;
 
-    // Resolve the model override. `undefined` falls through to the org's
-    // `defaultAIModel` below — which on Cloud is always the hardcoded model.
-    //
-    // Cloud: continued conversations keep their stored model; new ones fall
-    // through to the hardcoded default. `body.model` and `dbOverrideModel`
-    // are deliberately ignored — Cloud users cannot pick a model.
-    //
-    // Self-hosted: continued conversations keep their stored model; on the
-    // first turn we honor the user's per-request choice, else the org-level
-    // prompt override, else the org default. The model selector is disabled
-    // in the UI after the first turn, so `body.model` won't be set on
-    // follow-ups in normal usage.
-    const overrideModel: AIModel | undefined = IS_CLOUD
-      ? storedModel
-      : storedModel || body.model || dbOverrideModel;
+    // Stored model, else the user's per-request choice, else the org-level
+    // prompt override, else the org default. Each candidate is filtered through
+    // the org's key state, so on Cloud a managed org stays pinned to
+    // GrowthBook's model while a BYOK org gets the one it picked — silently
+    // discarding those picks was the bug. Also catches a stored model
+    // disallowed mid-conversation by a downgrade.
+    const { keySource, defaultAIModel } = await getAISettingsForOrg(
+      context,
+      false,
+    );
+    const overrideModel: AIModel | undefined =
+      getAllowedAIModel("text", storedModel, keySource) ||
+      getAllowedAIModel("text", body.model, keySource) ||
+      getAllowedAIModel("text", dbOverrideModel, keySource);
 
-    const { defaultAIModel } = getAISettingsForOrg(context, false);
     const resolvedModel = overrideModel || defaultAIModel;
+
+    // Waits until here because the BYOK exemption is per provider, so it needs
+    // the resolved model. Must stay above setSseHeaders: a 429 is JSON.
+    if (!(await enforceAIUsageCap(context, res, resolvedModel))) {
+      return;
+    }
+
     buffer.setModel(resolvedModel);
 
-    const { messages: messagesForLLM, isFirstMessage } =
-      prepareConversationMessages(buffer, message);
     setSseHeaders(res);
     const emit = createEmit(res, buffer);
     const tools = config.buildTools(context, buffer, params, emit);
 
+    const isFirstMessage = buffer.getMessages().length === 0;
+
+    // Deterministic mutation-confirmation gate. If a prior turn parked a
+    // pending mutation, act on the user's explicit decision before running
+    // the model — the model is never relied upon to confirm or replay it.
+    const pendingAction = buffer.getPendingAction();
+    const decision =
+      typeof body.confirmDecision === "string"
+        ? body.confirmDecision
+        : undefined;
+    const actionId =
+      typeof body.confirmActionId === "string"
+        ? body.confirmActionId
+        : undefined;
+    const isConfirm =
+      !!pendingAction &&
+      decision === "confirm" &&
+      actionId === pendingAction.id;
+    const isCancel =
+      !!pendingAction &&
+      decision === "cancel" &&
+      (!actionId || actionId === pendingAction.id);
+
+    // Resolve a parked mutation, if any, BEFORE appending a superseding user
+    // message — the replayed call/result pair must directly follow the prior
+    // assistant turn. On confirm we dispatch the real call; on cancel or any
+    // other message (a supersede) we record a "rejected" result. Either way
+    // the model sees an ordinary tool result and continues, agnostic of the
+    // gate. A cancel/supersede with a follow-up message lets the model react
+    // to the rejection plus the new instruction in the same turn.
+    if (pendingAction) {
+      await resolvePendingAction(
+        context,
+        buffer,
+        pendingAction,
+        emit,
+        isConfirm,
+      );
+      buffer.setPendingAction(undefined);
+    }
+
+    // A confirm/cancel decision is a control signal, not a chat message — we
+    // don't persist a visible "Confirm"/"Cancel" user bubble for it. Any other
+    // message (including one that supersedes a pending action) is a normal
+    // user turn, appended after the parked action has been resolved.
+    if (!isConfirm && !isCancel) {
+      const datasourceHint =
+        config.injectDatasourceHint && typeof body.datasourceId === "string"
+          ? body.datasourceId
+          : undefined;
+      const skills = Array.from(new Set(body.skills ?? []));
+      const mentions =
+        config.resolveMentions && body.mentions?.length
+          ? await config.resolveMentions(context, body.mentions, params)
+          : body.mentions;
+      appendUserMessage(
+        buffer,
+        message,
+        body.currentPage,
+        datasourceHint,
+        mentions,
+        skills,
+      );
+      if (config.resolveSkill) {
+        for (const name of skills) {
+          seedSkillLoad(buffer, emit, name, config.resolveSkill);
+        }
+      }
+    }
     buffer.setStreaming(true);
 
     persistConversation(context.models.aiConversations, buffer).catch((err) => {
       logger.error(err, "Failed to persist user message");
     });
+
+    const messagesForLLM = toModelMessages(buffer.getMessages());
 
     const titlePromise: Promise<void> = isFirstMessage
       ? generateTitle(context, config, message, overrideModel, buffer, emit)
@@ -209,16 +399,30 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     activeStreamControllers.set(conversationId, abortController);
     let cancelledExternally = false;
 
+    const markCancelledExternally = (): void => {
+      cancelledExternally = true;
+      abortController.abort();
+    };
+
     const checkCancellation = async (): Promise<boolean> => {
       if (cancelledExternally) return true;
       const doc = await context.models.aiConversations.getById(conversationId);
       if (doc && !doc.isStreaming) {
-        cancelledExternally = true;
-        abortController.abort();
+        markCancelledExternally();
         return true;
       }
       return false;
     };
+
+    const heartbeats = startStreamHeartbeats({
+      conversations: context.models.aiConversations,
+      conversationId,
+      emit,
+      onCancelled: markCancelledExternally,
+    });
+
+    // Continue the DB heartbeat so the result survives a disconnected client.
+    res.on("close", heartbeats.stopSseKeepalive);
 
     try {
       const stream = await streamingChatCompletion({
@@ -234,26 +438,45 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         abortSignal: abortController.signal,
       });
 
-      await processStream(stream, config, buffer, emit, abortController, () => {
-        void (async () => {
-          if (await checkCancellation()) return;
-          await persistConversation(context.models.aiConversations, buffer);
-        })().catch((err) => {
-          logger.error(
-            err,
-            "Failed to persist intermediate conversation state",
-          );
-        });
-      });
-
       try {
-        await stream.response;
-      } catch {
-        // Provider errors after stream close — already handled
+        await processStream(
+          stream.result,
+          config,
+          buffer,
+          emit,
+          abortController,
+          () => {
+            // A tool just parked a mutation for confirmation: stop the turn
+            // deterministically so the model can't continue past the gate. The
+            // pending state is persisted below and acted on next turn.
+            if (buffer.getPendingAction()) {
+              abortController.abort();
+            }
+            void (async () => {
+              if (await checkCancellation()) return;
+              await persistConversation(context.models.aiConversations, buffer);
+            })().catch((err) => {
+              logger.error(
+                err,
+                "Failed to persist intermediate conversation state",
+              );
+            });
+          },
+        );
+
+        try {
+          await stream.result.response;
+        } catch {
+          // Provider errors after stream close — already handled
+        }
+      } finally {
+        await stream.completeAccounting();
       }
 
       await titlePromise;
     } finally {
+      heartbeats.stopSseKeepalive();
+      heartbeats.stopDbHeartbeat();
       activeStreamControllers.delete(conversationId);
 
       try {
@@ -263,20 +486,25 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       }
 
       buffer.setStreaming(false);
-      if (!res.writableFinished && !res.destroyed) {
-        emit("done", {});
-        res.end();
-      }
 
       if (!cancelledExternally) {
         await checkCancellation();
       }
+
+      // Persist the final assistant/tool turn BEFORE closing the stream. The
+      // client kicks off syncMessagesFromServer() the instant it sees the SSE
+      // stream close, so MongoDB must already hold the final state. If we
+      // persisted fire-and-forget after res.end() (as before), that GET could
+      // race ahead of the write and return stale messages missing the just-
+      // streamed reply — which then visibly disappeared until the next refresh.
+      // persistConversation swallows its own errors, so this never throws.
       if (!cancelledExternally) {
-        persistConversation(context.models.aiConversations, buffer).catch(
-          (err) => {
-            logger.error(err, "Failed to persist conversation at stream end");
-          },
-        );
+        await persistConversation(context.models.aiConversations, buffer);
+      }
+
+      if (!res.writableFinished && !res.destroyed) {
+        emit("done", {});
+        res.end();
       }
     }
   };
@@ -286,24 +514,170 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 // Helpers
 // =============================================================================
 
-function prepareConversationMessages(
+function appendUserMessage(
   buffer: ConversationBuffer,
   message: string,
-): { messages: ReturnType<typeof toModelMessages>; isFirstMessage: boolean } {
-  const history = buffer.getMessages();
-  const isFirstMessage = history.length === 0;
-
+  currentPage?: string,
+  datasourceHint?: string,
+  mentions?: AIChatMention[],
+  skills?: string[],
+): void {
   const userMessage: AIChatMessage = {
     role: "user",
     id: randomUUID(),
     content: message,
     ts: Date.now(),
+    // Trim and drop empties so we never persist whitespace-only context.
+    ...(currentPage && currentPage.trim()
+      ? { currentPage: currentPage.trim() }
+      : {}),
+    ...(datasourceHint && datasourceHint.trim()
+      ? { datasourceHint: datasourceHint.trim() }
+      : {}),
+    ...(mentions && mentions.length ? { mentions } : {}),
+    ...(skills && skills.length ? { skills } : {}),
   };
   buffer.appendMessages([userMessage]);
-  return {
-    messages: toModelMessages(buffer.getMessages()),
-    isFirstMessage,
+}
+
+function seedSkillLoad(
+  buffer: ConversationBuffer,
+  emit: AgentEmit,
+  name: string,
+  resolveSkill: (name: string) => SkillLoadResult | undefined,
+): void {
+  const result = resolveSkill(name);
+  if (!result) {
+    logger.warn(`Ignoring unknown slash-command skill "${name}"`);
+    return;
+  }
+
+  const toolCallId = randomUUID();
+  const args = { name };
+
+  emit("tool-call-input", {
+    toolCallId,
+    toolName: "loadSkill",
+    input: serializeUnknownForSSE(args),
+  });
+  emit("tool-call-end", {
+    toolName: "loadSkill",
+    toolCallId,
+    input: serializeUnknownForSSE(args),
+    output: serializeUnknownForSSE(result),
+  });
+
+  buffer.appendMessages([
+    {
+      role: "assistant",
+      id: randomUUID(),
+      ts: Date.now(),
+      content: [{ type: "tool-call", toolCallId, toolName: "loadSkill", args }],
+    },
+    {
+      role: "tool",
+      id: randomUUID(),
+      ts: Date.now(),
+      content: [
+        {
+          type: "tool-result",
+          toolCallId,
+          toolName: "loadSkill",
+          result: stringifyToolResultForStorage(result),
+        },
+      ],
+    },
+  ]);
+}
+
+/**
+ * Resolve a parked mutation into a real tool-call/result pair, then leave the
+ * model to continue from it. The parked call was dropped from the transcript
+ * when it was gated, so this is the only place the call ever lands in history.
+ *
+ * - `confirmed`: dispatch the exact stored call (no model involvement) and use
+ *   the genuine API response as the tool result.
+ * - otherwise (cancel, or a superseding message): record a "rejected" result
+ *   so the model sees the user declined and can respond / adapt.
+ *
+ * In both cases we stream the call/result to the UI as a tool step and append
+ * a synthetic assistant tool-call + tool-result pair, so the persisted
+ * transcript stays valid and the model reads an ordinary tool result on the
+ * turn that follows.
+ */
+async function resolvePendingAction(
+  context: ReqContext,
+  buffer: ConversationBuffer,
+  pendingAction: AIAgentPendingAction,
+  emit: AgentEmit,
+  confirmed: boolean,
+): Promise<void> {
+  const toolCallId = randomUUID();
+  const args: Record<string, unknown> = {
+    method: pendingAction.method,
+    path: pendingAction.path,
+    ...(pendingAction.query ? { query: pendingAction.query } : {}),
+    ...(pendingAction.body !== undefined ? { body: pendingAction.body } : {}),
   };
+
+  emit("tool-call-input", {
+    toolCallId,
+    toolName: "callApi",
+    input: serializeUnknownForSSE(args),
+  });
+
+  let result: unknown;
+  let isError = false;
+  if (confirmed) {
+    const dispatchInput: DispatchInput = {
+      method: pendingAction.method,
+      path: pendingAction.path,
+      query: pendingAction.query,
+      body: pendingAction.body,
+    };
+    const dispatched = await dispatchInternal(context, dispatchInput);
+    result = dispatched;
+    isError = !(dispatched.status >= 200 && dispatched.status < 300);
+  } else {
+    // Not a tool error — a deliberate user decision. Phrased so the model
+    // treats it as a stop signal rather than something to retry.
+    result = {
+      status: "rejected",
+      message:
+        "The user reviewed this change and chose not to run it. Do not retry " +
+        "it; acknowledge and wait for their next instruction.",
+    };
+  }
+
+  emit("tool-call-end", {
+    toolName: "callApi",
+    toolCallId,
+    input: serializeUnknownForSSE(args),
+    output: serializeUnknownForSSE(result),
+  });
+
+  buffer.appendMessages([
+    {
+      role: "assistant",
+      id: randomUUID(),
+      ts: Date.now(),
+      content: [{ type: "tool-call", toolCallId, toolName: "callApi", args }],
+    },
+    {
+      role: "tool",
+      id: randomUUID(),
+      ts: Date.now(),
+      content: [
+        {
+          type: "tool-result",
+          toolCallId,
+          toolName: "callApi",
+          result: stringifyToolResultForStorage(result),
+          ...(isError ? { isError: true } : {}),
+        },
+      ],
+    },
+  ]);
 }
 
 async function generateTitle<TParams>(
@@ -357,7 +731,7 @@ function debugNonTextPart(
 }
 
 async function processStream<TParams>(
-  stream: Awaited<ReturnType<typeof streamingChatCompletion>>,
+  stream: Awaited<ReturnType<typeof streamingChatCompletion>>["result"],
   config: AgentConfig<TParams>,
   buffer: ConversationBuffer,
   emit: AgentEmit,
@@ -408,6 +782,21 @@ async function processStream<TParams>(
           processor.setError(errorMsg);
           break;
         }
+        case "file":
+        case "tool-approval-request":
+        case "source":
+        case "text-start":
+        case "text-end":
+        case "reasoning-start":
+        case "reasoning-end":
+        case "tool-input-end":
+        case "finish":
+        case "raw":
+        case "tool-output-denied":
+        case "start-step":
+        case "finish-step":
+        case "start":
+        case "abort":
         default:
           break;
       }

@@ -261,11 +261,15 @@ export const putSDKConnection = async (
     }
   }
 
-  // Treat a null/undefined incoming value as "not changed" (the form omits
-  // untouched fields), otherwise use deep equality.
+  // Treat an absent incoming value as "not changed" (the form omits untouched
+  // fields), otherwise use deep equality. Strict comparisons per AGENTS.md:
+  // `== null` also swallowed a deliberate `null`, and treating an absent old
+  // value as changed reported `proxyHost: ""` against `undefined` as a change,
+  // so every idempotent save minted a revision.
+  const isAbsent = (v: unknown) => v === undefined || v === null;
   const hasChanged = (newVal: unknown, oldVal: unknown): boolean => {
-    if (newVal == null) return false;
-    if (oldVal == null) return true;
+    if (isAbsent(newVal)) return false;
+    if (isAbsent(oldVal)) return newVal !== "" && !isEqual(newVal, []);
     return !isEqual(newVal, oldVal);
   };
 
@@ -289,15 +293,28 @@ export const putSDKConnection = async (
   const wantsDraft = !!revisionId || forceCreateRevision;
   const wantsMerge = bypassApproval || autoPublish || !wantsDraft;
 
-  // Convert live webhooks to snapshot shape for comparison.
+  // Convert live webhooks to snapshot shape for comparison. `httpMethod` is
+  // optional on the webhook schema and absent on rows predating it, while the
+  // snapshot schema requires it — so default before parsing rather than
+  // throwing and leaving the connection uneditable.
   const liveWebhookSnapshots = liveWebhooks.map((wh) =>
-    sdkWebhookSnapshotValidator.parse(wh),
+    sdkWebhookSnapshotValidator.parse({
+      ...wh,
+      httpMethod: wh.httpMethod ?? "POST",
+    }),
   );
 
+  // The request body is untrusted: validate it against the same schema instead
+  // of casting, so a malformed webhook can't be written straight to Mongo.
+  const parseIncomingWebhooks = (
+    value: unknown,
+  ): SDKWebhookRevisionSnapshot[] | null => {
+    if (!Array.isArray(value)) return null;
+    return value.map((wh) => sdkWebhookSnapshotValidator.parse(wh));
+  };
+
   // Determine if webhook changes are being requested in this call.
-  const incomingWebhooks = Array.isArray(req.body.sdkWebhooks)
-    ? (req.body.sdkWebhooks as SDKWebhookRevisionSnapshot[])
-    : null;
+  const incomingWebhooks = parseIncomingWebhooks(req.body.sdkWebhooks);
   const hasWebhookChanges =
     incomingWebhooks !== null &&
     !isEqual(incomingWebhooks, liveWebhookSnapshots);
@@ -316,8 +333,13 @@ export const putSDKConnection = async (
   // settings object atomically. This keeps `checkMergeConflicts` working
   // correctly (it extracts top-level field names from paths).
   const currentSettingsSnapshot = buildSettingsSnapshotValue(currentState);
+  // The op REPLACES the whole settings object, so it must be layered on the
+  // state this request is editing — the draft's patched state when updating a
+  // draft, not the live connection. Building it from `currentState` silently
+  // reverted every field the draft had already changed and this request didn't
+  // re-send, with no conflict and no diff entry.
   const proposedSettingsSnapshot = buildSettingsSnapshotValue({
-    ...currentState,
+    ...settingsComparisonBase,
     ...fieldsToUpdate,
   });
 

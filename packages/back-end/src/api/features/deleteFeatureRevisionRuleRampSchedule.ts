@@ -1,7 +1,7 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import type { RevisionRampDetachAction } from "shared/validators";
 import { deleteFeatureRevisionRuleRampScheduleValidator } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
+import { getApplicableEnvIds, resetReviewOnChange } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -13,7 +13,6 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
-  getApplicableEnvIds,
   resolveRampTarget,
   ruleFootprint,
 } from "back-end/src/util/flattenRules";
@@ -38,10 +37,7 @@ export async function clearRuleRampSchedule(
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -101,7 +97,9 @@ export async function clearRuleRampSchedule(
     }
 
     const filtered = existing.filter(
-      (a) => a.ruleId !== canonicalRuleId && a.ruleId !== ruleId,
+      (a) =>
+        !("ruleId" in a) ||
+        (a.ruleId !== canonicalRuleId && a.ruleId !== ruleId),
     );
 
     // Queue a detach action if a live schedule exists.
@@ -120,7 +118,7 @@ export async function clearRuleRampSchedule(
     // across applicable envs (falls back to all applicable envs if the rule
     // isn't present on live or draft).
     const orgEnvs = getEnvironments(organization);
-    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
     const changedEnvironments = environment
       ? [environment]
       : resolvedRule

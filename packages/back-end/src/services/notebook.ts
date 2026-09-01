@@ -3,7 +3,7 @@ import { PythonShell } from "python-shell";
 import { getSnapshotAnalysis } from "shared/util";
 import { hoursBetween } from "shared/dates";
 import {
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { Queries } from "shared/types/query";
@@ -174,9 +174,9 @@ export async function generateNotebook({
     );
   }
 
-  // Expand slice metrics if we have experiment data
+  // Expand derived metrics if we have experiment data
   if (experiment) {
-    expandAllSliceMetricsInMap({
+    expandDerivedMetricsInMap({
       metricMap,
       factTableMap,
       experiment,

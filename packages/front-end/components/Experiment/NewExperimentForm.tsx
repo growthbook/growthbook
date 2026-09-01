@@ -31,10 +31,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import {
   generateVariationId,
   useAttributeSchema,
@@ -325,7 +322,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           ? [
               {
                 ...initialValue.phases[lastPhase],
-                coverage: initialValue.phases?.[lastPhase]?.coverage || 1,
+                coverage: initialValue.phases?.[lastPhase]?.coverage ?? 1,
                 dateStarted: getValidDate(
                   initialValue.phases?.[lastPhase]?.dateStarted ?? "",
                 )
@@ -384,11 +381,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     selectedProject,
   );
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "experiment",
-    selectedProject,
-  );
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "experiment",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -829,6 +828,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   return (
     <FormProvider {...form}>
       <PagedModal
+        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         trackingEventModalSource={source}
         header={header}
@@ -853,16 +853,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       >
         <Page display="Overview">
           <div className="px-2">
-            {msg && <div className="alert alert-info">{msg}</div>}
+            {msg && <Callout status="info">{msg}</Callout>}
 
             {currentProjectIsDemo && (
-              <div className="alert alert-warning">
-                You are creating an experiment under the demo datasource
-                project. This experiment will be deleted when the demo
-                datasource project is deleted.
-              </div>
+              <Callout status="warning">
+                You are creating an experiment in the Sample Data Project.
+              </Callout>
             )}
-            {availableTemplates.length >= 1 &&
+            {hasCommercialFeature("templates") &&
+              availableTemplates.length >= 1 &&
               !isBandit &&
               !isImport &&
               !duplicate && (
@@ -871,6 +870,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <label>Select Template</label>
                   </PremiumTooltip>
                   <SelectField
+                    size="legacy"
                     value={form.watch("templateId") ?? ""}
                     onChange={(t) => {
                       if (t === "") {
@@ -898,7 +898,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       return (
                         <Flex as="div" align="baseline">
                           <Text>{value.label}</Text>
-                          <Text size="small" color="text-mid" ml="auto">
+                          <Text size="sm" color="text-mid" ml="auto">
                             Created {date(t.dateCreated)}
                           </Text>
                         </Flex>
@@ -919,6 +919,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <div className="form-group">
                 <label>Project</label>
                 <SelectField
+                  size="legacy"
                   value={form.watch("project") ?? ""}
                   onChange={(p) => {
                     form.setValue("project", p);
@@ -943,6 +944,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </>
 
             <Field
+              size="legacy"
               label={isBandit ? "Bandit Name" : "Experiment Name"}
               required
               minLength={2}
@@ -980,6 +982,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 }, used to track impressions and analyze results`}
               </Text>
               <Field
+                size="legacy"
                 {...trackingKeyFieldHandlers}
                 onChange={(e) => {
                   trackingKeyFieldHandlers.onChange(e);
@@ -1004,6 +1007,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
             {!isBandit && (
               <Field
+                size="legacy"
                 label="Hypothesis"
                 textarea
                 minRows={2}
@@ -1022,6 +1026,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
             {includeDescription && (
               <Field
+                size="legacy"
                 label="Description"
                 textarea
                 minRows={2}
@@ -1151,7 +1156,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                                       </span>
                                     </Flex>
                                     <Flex gap="3" align="center">
-                                      <Text size="small" color="text-mid">
+                                      <Text size="sm" color="text-mid">
                                         {date(s.experiment.dateCreated)}
                                       </Text>
                                       <ExperimentStatusIndicator
@@ -1194,6 +1199,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {!isNewExperiment && (
               <>
                 <SelectField
+                  size="legacy"
                   label="Status"
                   options={[
                     { label: "draft", value: "draft" },
@@ -1236,18 +1242,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 )}
               </>
             )}
-            {hasCommercialFeature("custom-metadata") &&
-              !!customFields?.length && (
-                <CustomFieldInput
-                  customFields={customFields}
-                  currentCustomFields={form.watch("customFields") || {}}
-                  setCustomFields={(value) => {
-                    form.setValue("customFields", value);
-                  }}
-                  section={"experiment"}
-                  project={selectedProject}
-                />
-              )}
+            {customFields.length > 0 && (
+              <CustomFieldInput
+                fields={customFields}
+                value={customFieldValues}
+                onChange={(value) => form.setValue("customFields", value)}
+              />
+            )}
           </div>
         </Page>
 
@@ -1374,6 +1375,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         determine which variation to assign
                       </Text>
                       <SelectField
+                        size="legacy"
                         withRadixThemedPortal
                         options={attributeSchema
                           .filter((s) => !hasHashAttributes || s.hashAttribute)
@@ -1493,6 +1495,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <div style={{ minHeight: 350 }}>
               {(!isImport || fromFeature) && (
                 <SelectField
+                  size="legacy"
                   label="Data Source"
                   labelClassName="font-weight-bold"
                   value={form.watch("datasource") ?? ""}
@@ -1513,6 +1516,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               )}
               {datasource?.properties?.exposureQueries && (
                 <SelectField
+                  size="legacy"
                   label={
                     <>
                       Experiment Assignment Table{" "}
@@ -1569,6 +1573,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   form.setValue("guardrailMetrics", guardrailMetrics)
                 }
                 experimentId={initialValue?.id}
+                experimentType={type}
               />
             </div>
 

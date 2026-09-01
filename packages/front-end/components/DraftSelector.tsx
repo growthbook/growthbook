@@ -26,6 +26,13 @@ export default function DraftSelector({
   existingDraftLabel,
   revisionDropdown,
   metadataOnly = false,
+  singleOption = false,
+  canDraft = true,
+  newDraftDisabled = false,
+  newDraftDisabledReason,
+  recommendExisting = false,
+  alert,
+  alertActive = true,
 }: {
   hasActiveDrafts: boolean;
   mode: DraftMode;
@@ -47,8 +54,26 @@ export default function DraftSelector({
    * lines up with the page-level controls.
    */
   metadataOnly?: boolean;
+  /** When true (only one mode is available) the edit CTA and expand behaviour
+   *  are suppressed entirely. The caller is responsible for ensuring `mode` is
+   *  already set to the correct value. */
+  singleOption?: boolean;
+  /** Whether the user may author drafts at all. Without it the draft options are
+   *  not offered — publishing is the only way their change can land. */
+  canDraft?: boolean;
+  /** Disable the "create a new draft" option — e.g. the org's soft draft cap is
+   *  reached and the caller may not exceed it. */
+  newDraftDisabled?: boolean;
+  newDraftDisabledReason?: ReactNode;
+  /** Flag "add to existing draft" as the recommended choice (soft cap reached). */
+  recommendExisting?: boolean;
+  alert?: ReactNode;
+  alertActive?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
+
+  const hasAlert = !!alert;
+  const showsConflict = hasAlert && alertActive;
 
   const newOptionLabel = metadataOnly
     ? "Add to a new revision"
@@ -99,17 +124,35 @@ export default function DraftSelector({
   ) : null;
 
   const options = [
-    ...(hasActiveDrafts
+    ...(hasActiveDrafts && canDraft
       ? [
           {
             value: "existing",
-            label: existingOptionLabel,
+            label: recommendExisting ? (
+              <>
+                {existingOptionLabel}{" "}
+                <span style={{ color: "var(--violet-11)" }}>(Recommended)</span>
+              </>
+            ) : (
+              existingOptionLabel
+            ),
             renderOnSelect: existingDraftDisclosure ?? undefined,
             renderOutsideItem: true,
           },
         ]
       : []),
-    { value: "new", label: newOptionLabel },
+    ...(canDraft
+      ? [
+          {
+            value: "new",
+            label: newOptionLabel,
+            disabled: newDraftDisabled,
+            disabledReason: newDraftDisabled
+              ? newDraftDisabledReason
+              : undefined,
+          },
+        ]
+      : []),
     ...(canAutoPublish
       ? [
           {
@@ -128,16 +171,19 @@ export default function DraftSelector({
 
   const trigger = (
     <Flex
-      align="center"
+      align={hasAlert ? "start" : "center"}
       justify="between"
       gap="3"
       px="3"
-      py="4"
-      style={{ cursor: "pointer", userSelect: "none" }}
-      className="draft-selector-collapsible-trigger"
+      py={hasAlert ? "3" : "4"}
+      style={{
+        cursor: singleOption ? "default" : "pointer",
+        userSelect: "none",
+      }}
+      className={`draft-selector-collapsible-trigger${singleOption ? " no-hover" : ""}${showsConflict ? " has-conflict" : ""}`}
     >
-      <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-        <HelperText status="info">
+      <Box style={{ flex: 1, minWidth: 0 }}>
+        <HelperText status={showsConflict ? "warning" : "info"}>
           <div
             className="ml-1"
             style={{
@@ -150,25 +196,32 @@ export default function DraftSelector({
             {triggerLabel}
           </div>
         </HelperText>
+        {alert && (
+          <Box mt="1" ml="1">
+            {alert}
+          </Box>
+        )}
       </Box>
-      <Button
-        variant="ghost"
-        size="xs"
-        onClick={async (e) => {
-          e?.stopPropagation();
-          setIsOpen((v) => !v);
-        }}
-        style={{ marginLeft: -5 }}
-      >
-        <Flex align="center" gap="1">
-          {!isOpen && <span style={{ marginRight: 4 }}>edit</span>}
-          <PiCaretRightBold
-            className="chevron-right"
-            size={14}
-            style={{ margin: "0 -4px" }}
-          />
-        </Flex>
-      </Button>
+      {!singleOption && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={async (e) => {
+            e?.stopPropagation();
+            setIsOpen((v) => !v);
+          }}
+          style={{ marginLeft: -5 }}
+        >
+          <Flex align="center" gap="1">
+            {!isOpen && <span style={{ marginRight: 4 }}>edit</span>}
+            <PiCaretRightBold
+              className="chevron-right"
+              size={14}
+              style={{ margin: "0 -4px" }}
+            />
+          </Flex>
+        </Button>
+      )}
     </Flex>
   );
 
@@ -179,9 +232,19 @@ export default function DraftSelector({
         transitionTime={75}
         contentInnerClassName="draft-selector-collapsible-content"
         open={isOpen}
-        handleTriggerClick={() => setIsOpen((v) => !v)}
+        handleTriggerClick={() => {
+          if (!singleOption) setIsOpen((v) => !v);
+        }}
       >
-        <Box px="3" py="3" style={{ backgroundColor: "var(--violet-a3)" }}>
+        <Box
+          px="3"
+          py="3"
+          style={{
+            backgroundColor: showsConflict
+              ? "var(--amber-a3)"
+              : "var(--violet-a3)",
+          }}
+        >
           <RadioGroup
             options={options}
             value={mode}

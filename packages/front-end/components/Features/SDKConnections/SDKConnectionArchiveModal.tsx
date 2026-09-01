@@ -37,9 +37,9 @@ export default function SDKConnectionArchiveModal({
 
   const canBypass = connection.projects?.length
     ? connection.projects.every((p) =>
-        permissionsUtil.canBypassApprovalChecks({ project: p || "" }),
+        permissionsUtil.canBypassSDKConnectionApprovalChecks({ project: p || "" }),
       )
-    : permissionsUtil.canBypassApprovalChecks({ project: "" });
+    : permissionsUtil.canBypassSDKConnectionApprovalChecks({ project: "" });
 
   const matchedRule = hasCommercialFeature("require-approvals")
     ? getSdkConnectionApprovalRule(settings.approvalFlows, {

@@ -3,6 +3,10 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  ignoreWarningsBodyField,
+  bypassApprovalPublishBodyField,
+  publishBypassedGatesField,
+  revisionScheduleResponseFields,
 } from "./shared";
 import { apiSavedGroupValidator } from "./saved-group";
 import {
@@ -113,6 +117,8 @@ export const apiSavedGroupRevisionValidator = namedSchema(
       revertedFrom: z.string().optional(),
       reviews: z.array(apiReviewValidator),
       activityLog: z.array(apiActivityLogEntryValidator),
+      // Deferred-publish state, shared across every revisioned entity.
+      ...revisionScheduleResponseFields,
       resolution: z
         .object({
           action: z.enum(["merged", "discarded"]),
@@ -333,12 +339,19 @@ export const postSavedGroupRevisionPublishValidator = {
   operationId: "postSavedGroupRevisionPublish",
   summary: "Publish a draft revision",
   description:
-    "Publishes a draft revision, making it the live state of the saved group. Blocked if the org requires approvals and the revision is not approved (callers with the bypass-approval permission may still publish).",
+    "Publishes the draft and applies its changes to the live Saved Group. The caller needs Publish access in every assigned Project. When approval is required, the draft must be approved unless the caller has Bypass draft approvals access. If the organization requires rebasing, an out-of-date draft must be rebased first; an authorized caller can instead send `ignoreWarnings: true` to force-publish it. A 422 response lists every blocking gate and the available resolution.",
   tags: ["saved-group-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z
+    .object({
+      bypassApproval: bypassApprovalPublishBodyField,
+      ignoreWarnings: ignoreWarningsBodyField,
+    })
+    .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const postSavedGroupRevisionRevertValidator = {
@@ -347,18 +360,30 @@ export const postSavedGroupRevisionRevertValidator = {
   operationId: "postSavedGroupRevisionRevert",
   summary: "Revert the saved group to a prior revision",
   description:
-    "Creates a new draft (or immediately publishes) whose content matches the specified historical revision.",
+    "Creates a new draft (or immediately publishes) whose content matches the specified historical revision. Defaults to creating a draft; when the org enables 'reverts bypass approval' it defaults to publishing immediately. Pass `strategy` to override.",
   tags: ["saved-group-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      strategy: z.enum(["draft", "publish"]).optional(),
+      strategy: z
+        .enum(["draft", "publish"])
+        .optional()
+        .describe(
+          "Whether to stage the revert as a draft or publish it immediately. Defaults to `draft`, or to `publish` when the org enables 'reverts bypass approval'.",
+        ),
       title: z.string().optional(),
       comment: z.string().optional(),
+      // `ignoreWarnings` ALONE on every Saved Group body: the dependents guard
+      // soft-warns and asks for this acknowledgment, and a strict body must
+      // accept the retry. Saved Groups have no schema or validation hooks, so
+      // the other override fields would document no-ops.
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const postSavedGroupRevisionRebaseValidator = {
@@ -395,10 +420,15 @@ export const postSavedGroupRevisionRequestReviewValidator = {
   operationId: "postSavedGroupRevisionRequestReview",
   summary: "Request review for a draft revision",
   description:
-    "Moves the draft from `draft` into `pending-review`. Notifies reviewers per the org's approval-flow settings.",
+    "Moves the draft from `draft` into `pending-review`. Notifies reviewers per the org's approval-flow settings.\n\nSet `autoPublishOnApproval` to `true` to publish the revision automatically the moment it is approved (GitHub auto-merge model). This requires the org to have auto-publish-on-approval enabled and the caller to have publish permission on the saved group; the auto-publish then executes with the caller's authority.",
   tags: ["saved-group-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z
+    .object({
+      autoPublishOnApproval: z.boolean().optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -409,17 +439,20 @@ export const postSavedGroupRevisionSubmitReviewValidator = {
   operationId: "postSavedGroupRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description:
-    "Submits an `approve`, `request-changes`, or `comment` review on the revision. Authors and contributors cannot submit `approve` reviews on their own drafts when the org has `blockSelfApproval` enabled.",
+    "Submits an `approve`, `request-changes`, or `comment` review on the revision. Submitting `approve` or `request-changes` needs Review access. A `comment` is participation rather than a verdict, so it is also open to the Comments permission or draft authority on the entity. Authors and contributors cannot submit `approve` reviews on their own drafts when the org has `blockSelfApproval` enabled.\n\nWhen `decision` is `approve` and the revision has `autoPublishOnApproval` enabled, the revision is automatically published after approval. The response includes `autoPublished: true` when this happens. Pass `skipAutoPublish: true` to approve without triggering auto-publish.",
   tags: ["saved-group-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
       decision: z.enum(reviewDecision),
       comment: z.string().optional(),
+      skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    autoPublished: z.boolean().optional(),
+  }),
 };
 
 // ---- Field-edit endpoint validators ----
@@ -499,6 +532,7 @@ export const putSavedGroupRevisionArchiveValidator = {
     .object({
       ...newDraftMetadataFields,
       archived: z.boolean(),
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -561,3 +595,72 @@ export type SavedGroupRevisionArchiveBody = z.infer<
 export type SavedGroupRevisionItemsBody = z.infer<
   typeof postSavedGroupRevisionItemsAddValidator.bodySchema
 >;
+
+export const postSavedGroupRevisionSchedulePublishValidator = {
+  method: "post" as const,
+  path: "/saved-groups-revisions/:savedGroupId/:version/schedule-publish",
+  operationId: "postSavedGroupRevisionSchedulePublish",
+  summary: "Schedule (or cancel) a deferred publish",
+  description:
+    "Arms a revision to publish automatically at a future time. Pass `scheduledPublishAt` as an RFC3339 timestamp in the future to arm, or `null` to cancel a pending schedule. Requires the `scheduled-revisions` commercial feature and publish permission on the Saved Group. A draft that still requires approval must request review first (or be armed with `bypassApproval` by a caller who can bypass).",
+  tags: ["saved-group-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z
+    .object({
+      // Accept RFC3339 numeric offsets for backward compatibility.
+      scheduledPublishAt: z
+        .union([z.iso.datetime({ offset: true }), z.null()])
+        .describe(
+          "When to publish, as an RFC3339 timestamp (e.g. `2026-01-31T09:00:00Z` or `2026-01-31T02:00:00-07:00`), or `null` to cancel a pending schedule.",
+        ),
+      lockEdits: z.boolean().optional(),
+      lockOthers: z.boolean().optional(),
+      bypassApproval: z.boolean().optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
+    })
+    .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postSavedGroupRevisionReopenValidator = {
+  method: "post" as const,
+  path: "/saved-groups-revisions/:savedGroupId/:version/reopen",
+  operationId: "postSavedGroupRevisionReopen",
+  summary: "Reopen a discarded revision",
+  description:
+    "Returns a previously discarded revision to `draft` status so it can be edited and published again. Only discarded revisions can be reopened.",
+  tags: ["saved-group-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postSavedGroupRevisionRecallReviewValidator = {
+  method: "post" as const,
+  path: "/saved-groups-revisions/:savedGroupId/:version/recall-review",
+  operationId: "postSavedGroupRevisionRecallReview",
+  summary: "Recall a review request",
+  description:
+    "Pulls a revision in review (`pending-review`, `changes-requested`, or `approved`) back to `draft`, clearing existing reviews and disarming any auto-publish-on-approval.",
+  tags: ["saved-group-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postSavedGroupRevisionUndoReviewValidator = {
+  method: "post" as const,
+  path: "/saved-groups-revisions/:savedGroupId/:version/undo-review",
+  operationId: "postSavedGroupRevisionUndoReview",
+  summary: "Retract your own review verdict",
+  description:
+    "Retracts the calling user's own active `approve` or `request-changes` verdict, returning the revision to `pending-review`. Review comments stay in the log. Retracting a `request-changes` can leave the revision approved by someone else, in which case an armed auto-publish fires.",
+  tags: ["saved-group-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};

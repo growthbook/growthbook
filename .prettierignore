@@ -10,3 +10,10 @@ docs/build
 dist
 *.hbs
 packages/back-end/src/templates/javascript.js
+packages/shared/types/*.js
+docs/reo.js
+eslint-suppressions.json
+
+# Agent skills: don't format the checkout or assembled output.
+skills-src/
+packages/back-end/generated/agent-skills/

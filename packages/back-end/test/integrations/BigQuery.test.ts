@@ -1,7 +1,9 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
+import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
+import { getQuantileSketchGridColumns } from "back-end/src/integrations/sql/columns/quantile-sketch-grid-columns";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 import { getFactTableTypeFromBigQueryType } from "back-end/src/services/bigquery";
 import { factTableFactory } from "../factories/FactTable.factory";
@@ -190,42 +192,48 @@ describe("BigQuery KLL quantile sketch methods", () => {
     integration = new BigQuery("", {});
   });
 
-  it("reports KLL support", () => {
-    expect(integration.hasQuantileKLL()).toBe(true);
+  it("reports quantile sketch support", () => {
+    expect(integration.hasQuantileSketch()).toBe(true);
   });
 
-  it("maps kll data type to BYTES", () => {
-    expect(integration.getSqlDialect().getDataType("kll")).toBe("BYTES");
+  it("maps quantileSketch data type to BYTES", () => {
+    expect(integration.getSqlDialect().getDataType("quantileSketch")).toBe(
+      "BYTES",
+    );
   });
 
-  it("generates KLL INIT with hardcoded precision 1000", () => {
-    expect(integration.getSqlDialect().kllInit("m.value")).toBe(
+  it("generates quantile sketch INIT with hardcoded precision 1000", () => {
+    expect(integration.getSqlDialect().quantileSketchInit("m.value")).toBe(
       "KLL_QUANTILES.INIT_FLOAT64(m.value, 1000)",
     );
   });
 
-  it("generates KLL MERGE_PARTIAL", () => {
-    expect(integration.getSqlDialect().kllMergePartial("sketch_col")).toBe(
-      "KLL_QUANTILES.MERGE_PARTIAL(sketch_col)",
-    );
+  it("generates quantile sketch MERGE_PARTIAL", () => {
+    expect(
+      integration.getSqlDialect().quantileSketchMergePartial("sketch_col"),
+    ).toBe("KLL_QUANTILES.MERGE_PARTIAL(sketch_col)");
   });
 
-  it("generates KLL EXTRACT_POINT", () => {
+  it("generates quantile sketch EXTRACT_POINT", () => {
     expect(
-      integration.getSqlDialect().kllExtractPoint("sketch_col", 0.95),
+      integration
+        .getSqlDialect()
+        .quantileSketchExtractPoint("sketch_col", 0.95),
     ).toBe("KLL_QUANTILES.EXTRACT_POINT_FLOAT64(sketch_col, 0.95)");
   });
 
-  it("generates KLL EXTRACT (quantile array)", () => {
+  it("generates quantile sketch EXTRACT (quantile array)", () => {
     expect(
-      integration.getSqlDialect().kllExtractQuantiles("sketch_col", 100),
+      integration
+        .getSqlDialect()
+        .quantileSketchExtractQuantiles("sketch_col", 100),
     ).toBe("KLL_QUANTILES.EXTRACT_FLOAT64(sketch_col, 100)");
   });
 
   it("generates rank approximation via CDF counting", () => {
     const sql = integration
       .getSqlDialect()
-      .kllRankApprox("m.sketch", "qm.q_hat", "m.n_events", 100);
+      .quantileSketchRankApprox("m.sketch", "qm.q_hat", "m.n_events", 100);
     // 100 quantiles → 101 points at levels {0, 1/100, ..., 1}.
     // count of points strictly below percentile p is ≈100p, so divide by 100
     // (not 101) for an unbiased estimate.
@@ -235,8 +243,16 @@ describe("BigQuery KLL quantile sketch methods", () => {
     expect(sql).toContain("COALESCE(");
   });
 
-  it("generates quantile grid columns from a KLL sketch", () => {
-    const grid = integration.getKllQuantileGridColumns(
+  it("expands a quantile sketch into scalar grid columns when the dialect does not pack arrays", () => {
+    // Quantile sketches are BigQuery-only and the BigQuery dialect packs the
+    // grid into a single array, so exercise the scalar branch with a dialect
+    // that opts out.
+    const scalarDialect = {
+      ...integration.getSqlDialect(),
+      hasArrayQuantileGrid: () => false,
+    };
+    const grid = getQuantileSketchGridColumns(
+      scalarDialect,
       { type: "event", quantile: 0.9, ignoreZeros: false },
       "m0_sketch",
       "m0_",
@@ -257,6 +273,28 @@ describe("BigQuery KLL quantile sketch methods", () => {
     expect(extractCount).toBe(1 + N_STAR_VALUES.length * 2);
   });
 
+  it("packs quantile sketch grid columns into a single array (BigQuery dialect)", () => {
+    const grid = integration.getQuantileSketchGridColumns(
+      { type: "event", quantile: 0.9, ignoreZeros: false },
+      "m0_sketch",
+      "m0_",
+    );
+
+    expect(grid).toContain(
+      "KLL_QUANTILES.EXTRACT_POINT_FLOAT64(m0_sketch, 0.9) AS m0_quantile",
+    );
+    expect(grid).toContain("AS m0_quantile_grid");
+    expect(grid).not.toMatch(/m0_quantile_lower_\d+/);
+    expect(grid).not.toMatch(/m0_quantile_upper_\d+/);
+
+    const extractCount = (
+      grid.match(/KLL_QUANTILES\.EXTRACT_POINT_FLOAT64\(m0_sketch,/g) || []
+    ).length;
+    // 1 central point + 20 × 2 bounds, plus the first bound referenced once more
+    // in the IF(... IS NULL) guard that collapses the grid to NULL when empty.
+    expect(extractCount).toBe(1 + N_STAR_VALUES.length * 2 + 1);
+  });
+
   it("returns kll intermediate data type for event quantile metrics", () => {
     const metric = factMetricFactory.build({
       metricType: "quantile",
@@ -267,7 +305,7 @@ describe("BigQuery KLL quantile sketch methods", () => {
       metric,
       useDenominator: false,
     });
-    expect(metadata.intermediateDataType).toBe("kll");
+    expect(metadata.intermediateDataType).toBe("quantileSketch");
     expect(metadata.partialAggregationFunction("col")).toBe(
       "KLL_QUANTILES.INIT_FLOAT64(col, 1000)",
     );
@@ -345,7 +383,7 @@ describe("BigQuery pre-built sketch column aggregations (hll merge / kll merge)"
       metric,
       useDenominator: false,
     });
-    expect(metadata.intermediateDataType).toBe("kll");
+    expect(metadata.intermediateDataType).toBe("quantileSketch");
     // Partial step must MERGE_PARTIAL the existing sketch, never INIT.
     expect(metadata.partialAggregationFunction("col")).toBe(
       "KLL_QUANTILES.MERGE_PARTIAL(col)",
@@ -386,6 +424,11 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     query: "*",
     userIdType: "user_id",
     dimensions: [],
+  };
+
+  const resolvedExposureQuery = {
+    query: exposureQuery.query,
+    userIdType: exposureQuery.userIdType,
   };
 
   const factTable = factTableFactory.build({
@@ -451,6 +494,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
   it("getCreateMetricSourceTableQuery emits BYTES sketch + INT64 n_events columns", () => {
     const sql = integration.getCreateMetricSourceTableQuery({
       settings,
+      exposureQuery: resolvedExposureQuery,
       factTableId: "ft_events",
       metrics: [eventQuantileMetric],
       factTableMap,
@@ -465,6 +509,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
   it("getInsertMetricSourceDataQuery emits KLL INIT and COUNT for n_events", () => {
     const sql = integration.getInsertMetricSourceDataQuery({
       settings,
+      exposureQuery: resolvedExposureQuery,
       activationMetric: null,
       factTableMap,
       factTableId: "ft_events",
@@ -492,6 +537,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     });
     const sql = integration.getInsertMetricSourceDataQuery({
       settings,
+      exposureQuery: resolvedExposureQuery,
       activationMetric: null,
       factTableMap,
       factTableId: "ft_events",
@@ -518,6 +564,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     });
     const sql = integration.getInsertMetricSourceDataQuery({
       settings,
+      exposureQuery: resolvedExposureQuery,
       activationMetric: null,
       factTableMap,
       factTableId: "ft_events",
@@ -557,6 +604,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     });
     const sql = integration.getInsertMetricSourceDataQuery({
       settings,
+      exposureQuery: resolvedExposureQuery,
       activationMetric: null,
       factTableMap,
       factTableId: "ft_events",
@@ -577,6 +625,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
   it("getIncrementalRefreshStatisticsQuery emits two-pass KLL rank recovery CTEs", () => {
     const sql = integration.getIncrementalRefreshStatisticsQuery({
       settings,
+      exposureQuery: resolvedExposureQuery,
       activationMetric: null,
       dimensionsForPrecomputation: [],
       dimensionsForAnalysis: [],
@@ -593,12 +642,18 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(sql).toContain("__eventQuantileSketch");
     expect(sql).toContain("KLL_QUANTILES.MERGE_PARTIAL");
 
-    // Grid extraction: 1 point estimate + 20 × 2 bounds = 41 EXTRACT_POINT calls
+    // Grid extraction still computes 1 point estimate + 20 × 2 bounds, but the
+    // bound grid is packed into one array column for BigQuery.
     expect(sql).toContain("__eventQuantileMetric");
+    expect(sql).toContain("_quantile_grid");
+    expect(sql).not.toMatch(/_quantile_lower_\d+/);
+    expect(sql).not.toMatch(/_quantile_upper_\d+/);
     const extractPointCount = (
       sql.match(/KLL_QUANTILES\.EXTRACT_POINT_FLOAT64/g) || []
     ).length;
-    expect(extractPointCount).toBe(1 + N_STAR_VALUES.length * 2);
+    // 1 central point + 20 × 2 bounds, plus the first bound referenced once more
+    // in the IF(... IS NULL) guard that collapses the grid to NULL when empty.
+    expect(extractPointCount).toBe(1 + N_STAR_VALUES.length * 2 + 1);
 
     // Pass 2: per-user rank recovery via CDF counting
     expect(sql).toContain("KLL_QUANTILES.EXTRACT_FLOAT64");
@@ -633,6 +688,10 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       factTableMap,
       metrics: [prebuiltSketchMetric],
       unitsSource: "exposureQuery",
+      unitsSettings: buildUnitsQuerySettingsFromSnapshot(
+        settings,
+        resolvedExposureQuery,
+      ),
     });
 
     // __eventQuantileMetric must extract the quantile grid from a merged
@@ -653,6 +712,9 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     // tell-tale sign of kllRankApprox.
     expect(sql).toContain("__userMetricAggBase");
     expect(sql).toContain("KLL_QUANTILES.EXTRACT_FLOAT64");
+    expect(sql).toContain("_quantile_grid");
+    expect(sql).not.toMatch(/_quantile_lower_\d+/);
+    expect(sql).not.toMatch(/_quantile_upper_\d+/);
     expect(flat).toMatch(
       /FROM\s+__userMetricAggBase\s+base\s+LEFT\s+JOIN\s+__eventQuantileMetric/i,
     );
@@ -678,11 +740,18 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       factTableMap,
       metrics: [eventQuantileMetric],
       unitsSource: "exposureQuery",
+      unitsSettings: buildUnitsQuerySettingsFromSnapshot(
+        settings,
+        resolvedExposureQuery,
+      ),
     });
 
     // Raw event quantile uses APPROX_QUANTILES on the per-event values, no
     // KLL extraction or rank-recovery wrapper.
     expect(sql).toContain("APPROX_QUANTILES");
+    expect(sql).toContain("_quantile_grid");
+    expect(sql).not.toMatch(/_quantile_lower_\d+/);
+    expect(sql).not.toMatch(/_quantile_upper_\d+/);
     expect(sql).not.toContain("KLL_QUANTILES.EXTRACT_FLOAT64");
     // No KLL merge metrics → the per-user aggregation goes directly into
     // __userMetricAgg without the __userMetricAggBase wrapper.
@@ -722,6 +791,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     it("getCreateMetricSourceTableQuery emits only numerator columns for the numerator FT", () => {
       const sql = integration.getCreateMetricSourceTableQuery({
         settings,
+        exposureQuery: resolvedExposureQuery,
         factTableId: "ft_events",
         metrics: [crossFtMetric],
         factTableMap: crossFactTableMap,
@@ -736,6 +806,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     it("getCreateMetricSourceTableQuery emits only denominator column for the denominator FT", () => {
       const sql = integration.getCreateMetricSourceTableQuery({
         settings,
+        exposureQuery: resolvedExposureQuery,
         factTableId: "ft_subscriptions",
         metrics: [crossFtMetric],
         factTableMap: crossFactTableMap,
@@ -750,6 +821,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     it("getInsertMetricSourceDataQuery for the numerator side reads from the numerator FT and projects only the numerator side", () => {
       const sql = integration.getInsertMetricSourceDataQuery({
         settings,
+        exposureQuery: resolvedExposureQuery,
         activationMetric: null,
         factTableMap: crossFactTableMap,
         factTableId: "ft_events",
@@ -766,6 +838,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     it("getInsertMetricSourceDataQuery for the denominator side reads from the denominator FT and projects only the denominator side", () => {
       const sql = integration.getInsertMetricSourceDataQuery({
         settings,
+        exposureQuery: resolvedExposureQuery,
         activationMetric: null,
         factTableMap: crossFactTableMap,
         factTableId: "ft_subscriptions",
@@ -782,6 +855,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     it("getIncrementalRefreshStatisticsQuery joins both caches and aliases columns by source index", () => {
       const sql = integration.getIncrementalRefreshStatisticsQuery({
         settings,
+        exposureQuery: resolvedExposureQuery,
         activationMetric: null,
         dimensionsForPrecomputation: [],
         dimensionsForAnalysis: [],
@@ -854,6 +928,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       });
       const sql = integration.getIncrementalRefreshStatisticsQuery({
         settings,
+        exposureQuery: resolvedExposureQuery,
         activationMetric: null,
         dimensionsForPrecomputation: [],
         dimensionsForAnalysis: [],
@@ -912,6 +987,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       // Numerator FT's covariate schema/insert holds only `_value`.
       const numCreate = integration.getCreateMetricSourceCovariateTableQuery({
         settings: { ...settings, regressionAdjustmentEnabled: true },
+        exposureQuery: resolvedExposureQuery,
         factTableId: "ft_events",
         metrics: [raCrossFt],
         metricSourceCovariateTableFullName: "proj.ds.cov_events",
@@ -921,6 +997,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
 
       const numInsert = integration.getInsertMetricSourceCovariateDataQuery({
         settings: { ...settings, regressionAdjustmentEnabled: true },
+        exposureQuery: resolvedExposureQuery,
         activationMetric: null,
         factTableMap: crossFactTableMap,
         factTableId: "ft_events",
@@ -935,6 +1012,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       // Denominator FT's covariate schema/insert holds only `_denominator_value`.
       const denomCreate = integration.getCreateMetricSourceCovariateTableQuery({
         settings: { ...settings, regressionAdjustmentEnabled: true },
+        exposureQuery: resolvedExposureQuery,
         factTableId: "ft_subscriptions",
         metrics: [raCrossFt],
         metricSourceCovariateTableFullName: "proj.ds.cov_subs",
@@ -944,6 +1022,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
 
       const denomInsert = integration.getInsertMetricSourceCovariateDataQuery({
         settings: { ...settings, regressionAdjustmentEnabled: true },
+        exposureQuery: resolvedExposureQuery,
         activationMetric: null,
         factTableMap: crossFactTableMap,
         factTableId: "ft_subscriptions",
@@ -987,6 +1066,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
 
       const sql = integration.getIncrementalRefreshStatisticsQuery({
         settings: { ...settings, regressionAdjustmentEnabled: true },
+        exposureQuery: resolvedExposureQuery,
         activationMetric: null,
         dimensionsForPrecomputation: [],
         dimensionsForAnalysis: [],
@@ -1064,6 +1144,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       // covariate cache.
       const perFtSql = integration.getIncrementalRefreshStatisticsQuery({
         settings: { ...settings, regressionAdjustmentEnabled: true },
+        exposureQuery: resolvedExposureQuery,
         activationMetric: null,
         dimensionsForPrecomputation: [],
         dimensionsForAnalysis: [],
@@ -1093,6 +1174,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       // this query.
       const crossSql = integration.getIncrementalRefreshStatisticsQuery({
         settings: { ...settings, regressionAdjustmentEnabled: true },
+        exposureQuery: resolvedExposureQuery,
         activationMetric: null,
         dimensionsForPrecomputation: [],
         dimensionsForAnalysis: [],
@@ -1143,6 +1225,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       expect(() =>
         integration.getIncrementalRefreshStatisticsQuery({
           settings: { ...settings, regressionAdjustmentEnabled: true },
+          exposureQuery: resolvedExposureQuery,
           activationMetric: null,
           dimensionsForPrecomputation: [],
           dimensionsForAnalysis: [],
@@ -1172,9 +1255,8 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       // Hub pipeline: two cross-FT ratios share ft_events as their
       // numerator side, with denominators on two different FTs. The
       // ft_events group ends up holding both metrics, so its data/covariate
-      // inserts see metrics that collectively reference 3 FTs. Without
-      // scoping FT discovery to the target FT, this would blow up on the
-      // 2-FT cap inside `getFactTablesForMetrics`.
+      // inserts see metrics that collectively reference 3 FTs. Scoping FT
+      // discovery to the target FT keeps each insert writing one cache.
       const paymentsFactTable = factTableFactory.build({
         id: "ft_payments",
         name: "Payments",
@@ -1227,6 +1309,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       // populated by their own per-FT calls).
       const hubInsertSql = integration.getInsertMetricSourceDataQuery({
         settings,
+        exposureQuery: resolvedExposureQuery,
         activationMetric: null,
         factTableMap: hubFactTableMap,
         factTableId: "ft_events",
@@ -1248,6 +1331,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       const hubCovariateSql =
         integration.getInsertMetricSourceCovariateDataQuery({
           settings: { ...settings, regressionAdjustmentEnabled: true },
+          exposureQuery: resolvedExposureQuery,
           activationMetric: null,
           factTableMap: hubFactTableMap,
           factTableId: "ft_events",
@@ -1268,6 +1352,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       // SQL layer's job now.)
       const subsInsertSql = integration.getInsertMetricSourceDataQuery({
         settings,
+        exposureQuery: resolvedExposureQuery,
         activationMetric: null,
         factTableMap: hubFactTableMap,
         factTableId: "ft_subscriptions",
@@ -1282,5 +1367,48 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       // No numerator columns for either metric land on the FT_subs cache.
       expect(subsInsertSql).not.toMatch(/fact_ratio_a_b_value[^_]/);
     });
+  });
+
+  it("getExperimentFactMetricsQuery packs the unit-quantile n_star grid into a single ARRAY column", () => {
+    // Unit quantiles previously emitted 1 + N_STAR_VALUES.length*2 = 41 scalar
+    // columns per metric, which capped chunkMetrics at ~18 metrics/query and
+    // caused the BQ job fan-out reported by customers. The array packing keeps
+    // the same statistical content (same percentile values, same selection in
+    // getQuantileBoundsFromQueryResponse) but emits 2 columns per metric, so
+    // many more quantile metrics fit per query.
+    const unitQuantileMetric = factMetricFactory.build({
+      id: "fact_uq1",
+      metricType: "quantile",
+      quantileSettings: { type: "unit", quantile: 0.9, ignoreZeros: false },
+      numerator: {
+        factTableId: "ft_events",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const sql = integration.getExperimentFactMetricsQuery({
+      settings,
+      activationMetric: null,
+      dimensions: [],
+      segment: null,
+      factTableMap,
+      metrics: [unitQuantileMetric],
+      unitsSource: "exposureQuery",
+      unitsSettings: buildUnitsQuerySettingsFromSnapshot(
+        settings,
+        resolvedExposureQuery,
+      ),
+    });
+
+    const flat = sql.replace(/\s+/g, " ");
+    expect(flat).toMatch(/AS\s+m0_quantile_grid/);
+    // The legacy per-nstar scalar columns must not appear when the grid is
+    // packed into an array.
+    expect(sql).not.toMatch(/m0_quantile_lower_\d+/);
+    expect(sql).not.toMatch(/m0_quantile_upper_\d+/);
+    // Central quantile and quantile_n are still required by the read-side
+    // selection logic.
+    expect(sql).toContain("m0_quantile");
+    expect(sql).toContain("m0_quantile_n");
   });
 });

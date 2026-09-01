@@ -1,22 +1,29 @@
 import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
 import NextLink from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import React from "react";
 import {
   includeExperimentInPayload,
   calculateNamespaceCoverage,
+  getConfigBackingKey,
+  getFeatureBaseConfigKey,
 } from "shared/util";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getLatestPhaseVariations,
+  hasTargetingConfigured,
+} from "shared/experiments";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
+import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import ValueDisplay from "./ValueDisplay";
+import ConfigBackedSummary from "./ConfigBackedSummary";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
 import { AttributeBadge } from "./AttributeBadge";
@@ -44,11 +51,15 @@ export default function ExperimentRefSummary({
   experiment,
   feature,
   isDraft,
+  environment,
 }: {
   feature: FeatureInterface;
   experiment?: ExperimentInterfaceStringDates;
   rule: ExperimentRefRule;
   isDraft: boolean;
+  // Environment this rule is shown for, so config-backed arm values preview
+  // their matching env flavor. Absent (all-environments view) = base value.
+  environment?: string;
 }) {
   const { variations } = rule;
   const type = feature.valueType;
@@ -111,10 +122,7 @@ export default function ExperimentRefSummary({
       : 1;
   const effectiveCoverage = namespaceRange * (phase.coverage ?? 1);
 
-  const hasCondition =
-    (phase.condition && phase.condition !== "{}") ||
-    !!phase.savedGroups?.length ||
-    !!phase.prerequisites?.length;
+  const hasCondition = hasTargetingConfigured(phase);
 
   return (
     <Box>
@@ -158,7 +166,7 @@ export default function ExperimentRefSummary({
               <Badge
                 color="gray"
                 label={
-                  <Text style={{ color: "var(--slate-12)" }}>
+                  <Text color="text-high">
                     {namespaces?.find((n) => n.name === phase.namespace!.name)
                       ?.label || (
                       <span
@@ -180,7 +188,7 @@ export default function ExperimentRefSummary({
         <Badge
           color="gray"
           label={
-            <Text style={{ color: "var(--slate-12)" }}>
+            <Text color="text-high">
               {percentFormatter.format(effectiveCoverage)}
             </Text>
           }
@@ -192,7 +200,7 @@ export default function ExperimentRefSummary({
             <Badge
               color="gray"
               label={
-                <Text style={{ color: "var(--slate-12)" }}>
+                <Text color="text-high">
                   {percentFormatter.format(namespaceRange)}
                 </Text>
               }
@@ -201,8 +209,8 @@ export default function ExperimentRefSummary({
             <Badge
               color="gray"
               label={
-                <Text style={{ color: "var(--slate-12)" }}>
-                  {percentFormatter.format(phase?.coverage || 1)}
+                <Text color="text-high">
+                  {percentFormatter.format(phase?.coverage ?? 1)}
                 </Text>
               }
             />
@@ -211,7 +219,12 @@ export default function ExperimentRefSummary({
         )}
       </Flex>
       {releasedValue ? (
-        <ForceSummary feature={feature} value={releasedValue.value} />
+        <ForceSummary
+          feature={feature}
+          value={releasedValue.value}
+          sparse={rule.sparse}
+          environment={environment}
+        />
       ) : (
         <>
           <Flex gap="2">
@@ -235,9 +248,11 @@ export default function ExperimentRefSummary({
             <Table>
               <TableBody>
                 {getLatestPhaseVariations(experiment).map((variation, j) => {
-                  const value =
-                    variations.find((v) => v.variationId === variation.id)
-                      ?.value ?? "null";
+                  const variationEntry = variations.find(
+                    (v) => v.variationId === variation.id,
+                  );
+                  const isMissing = variationEntry === undefined;
+                  const value = variationEntry?.value ?? "";
 
                   const weight = phase.variationWeights?.[j] || 0;
 
@@ -266,16 +281,56 @@ export default function ExperimentRefSummary({
                           >
                             {j}
                           </span>
-                          <Text weight="medium">{variation.name}</Text>
+                          <Text weight="medium" whiteSpace="nowrap">
+                            {variation.name}
+                          </Text>
                         </Flex>
                       </TableCell>
                       <TableCell width="100%">
-                        <ValueDisplay
-                          value={value}
-                          type={type}
-                          showFullscreenButton={true}
-                        />
-                        <ValidateValue value={value} feature={feature} />
+                        {isMissing ? (
+                          <HelperText status="warning">
+                            Define missing values
+                          </HelperText>
+                        ) : (
+                          (() => {
+                            // Config-backed arms render "SERVE ConfigName with
+                            // overrides" like force rules — never the raw
+                            // `@config:` directive. Only a config-backed
+                            // feature resolves configs.
+                            const baseConfigKey =
+                              getFeatureBaseConfigKey(feature);
+                            const configKey =
+                              baseConfigKey !== null
+                                ? (getConfigBackingKey(value) ?? baseConfigKey)
+                                : null;
+                            if (configKey !== null) {
+                              return (
+                                <ConfigBackedSummary
+                                  value={value}
+                                  configKey={configKey}
+                                  feature={feature}
+                                  sparse={rule.sparse}
+                                  environment={environment}
+                                />
+                              );
+                            }
+                            return (
+                              <>
+                                <ValueDisplay
+                                  value={value}
+                                  type={type}
+                                  showFullscreenButton={true}
+                                  sparse={rule.sparse}
+                                  defaultValue={feature.defaultValue}
+                                />
+                                <ValidateValue
+                                  value={value}
+                                  feature={feature}
+                                />
+                              </>
+                            );
+                          })()
+                        )}
                       </TableCell>
                       {!isBandit && (
                         <TableCell
@@ -302,7 +357,7 @@ export default function ExperimentRefSummary({
                       name: variation.name,
                       value:
                         variations.find((v) => v.variationId === variation.id)
-                          ?.value ?? "null",
+                          ?.value ?? "",
                       weight: phase.variationWeights?.[j] || 0,
                     };
                   },
@@ -323,11 +378,7 @@ export default function ExperimentRefSummary({
             the result using the key
             <Badge
               color="gray"
-              label={
-                <Text style={{ color: "var(--slate-12)" }}>
-                  {experiment.trackingKey}
-                </Text>
-              }
+              label={<Text color="text-high">{experiment.trackingKey}</Text>}
             />
           </Flex>
         </>

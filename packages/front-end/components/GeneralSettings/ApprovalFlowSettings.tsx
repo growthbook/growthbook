@@ -1,632 +1,377 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiPlus } from "react-icons/pi";
+import { PiPlus, PiTrash } from "react-icons/pi";
+import {
+  ApprovalFlowConfiguration,
+  RequireReview,
+} from "shared/types/organization";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
-import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Link from "@/ui/Link";
+import Button from "@/ui/Button";
+import MultiSelectField from "@/ui/MultiSelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@/ui/DropdownMenu";
+import {
+  ALL_PROJECTS_SCOPE,
+  overrideScopes,
+  clonedFlagRule,
+  clonedSavedGroupRule,
+  differsFromBase,
+  flagRulesFromSettings,
+  ruleForScope,
+  scopeKey,
+  inheritedFlagRule,
+  inheritedSavedGroupRule,
+  scopeProjects,
+  withRuleForScope,
+  withoutScope,
+} from "./approvalScopes";
+import { ApprovalScopeSections } from "./ApprovalScopeFields";
 
 export default function ApprovalFlowSettings() {
   const form = useFormContext<OrganizationSettingsWithMetricDefaults>();
   const { hasCommercialFeature } = useUser();
-  const environments = useEnvironments();
   const { projects } = useDefinitions();
 
   const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
-  const rawRequireReviews = form.watch("requireReviews");
-  const featureRequireReviews = Array.isArray(rawRequireReviews)
-    ? rawRequireReviews
-    : [];
+  // Radix treats "" as no value, so the base tab needs a real id of its own.
+  const ALL_PROJECTS_TAB = "all-projects";
 
-  const [showProjectScope, setShowProjectScope] = useState<
-    Record<number, boolean>
-  >(() => {
-    const raw = form.getValues("requireReviews");
-    const rules: { projects?: string[]; environments?: string[] }[] =
-      Array.isArray(raw) ? raw : [];
-    return Object.fromEntries(
-      rules.map((r, i) => [i, !!(r.projects?.length ?? 0)]),
-    );
-  });
-
-  const [showEnvScope, setShowEnvScope] = useState<Record<number, boolean>>(
-    () => {
-      const raw = form.getValues("requireReviews");
-      const rules: { environments?: string[] }[] = Array.isArray(raw)
-        ? raw
-        : [];
-      return Object.fromEntries(
-        rules.map((r, i) => [i, !!(r.environments?.length ?? 0)]),
-      );
-    },
+  const flagRules: RequireReview[] = flagRulesFromSettings(
+    form.watch("requireReviews"),
   );
+  const savedGroupRules: ApprovalFlowConfiguration[] =
+    form.watch("approvalFlows.savedGroups") ?? [];
 
-  // Auto-expand scope views when form values are loaded asynchronously
-  // (the form initializes with defaults before settings load via useEffect+reset).
-  const requireReviewsWatched = form.watch("requireReviews");
+  // Tabs carry their own id, so editing their projects does not remount them.
+  const [tabs, setTabs] = useState<{ id: string; scope: string }[]>([]);
+  const nextTabId = useRef(0);
+  const newTabId = () => `override-${nextTabId.current++}`;
+  const [activeTab, setActiveTab] = useState(ALL_PROJECTS_TAB);
+
+  // Settings load after mount, so stored overrides get a tab when they arrive.
+  const storedScopeKey = overrideScopes([flagRules, savedGroupRules]).join("|");
   useEffect(() => {
-    if (!Array.isArray(requireReviewsWatched)) return;
-    setShowEnvScope((prev) => {
-      const next = { ...prev };
-      requireReviewsWatched.forEach((r, i) => {
-        if ((r.environments?.length ?? 0) > 0) next[i] = true;
-      });
-      return next;
+    const stored = storedScopeKey ? storedScopeKey.split("|") : [];
+    setTabs((prev) => {
+      const known = new Set(prev.map((t) => t.scope));
+      const missing = stored.filter((scope) => !known.has(scope));
+      return missing.length
+        ? [...prev, ...missing.map((scope) => ({ id: newTabId(), scope }))]
+        : prev;
     });
-    setShowProjectScope((prev) => {
-      const next = { ...prev };
-      requireReviewsWatched.forEach((r, i) => {
-        if ((r.projects?.length ?? 0) > 0) next[i] = true;
-      });
-      return next;
-    });
-  }, [requireReviewsWatched]);
+  }, [storedScopeKey]);
 
-  // SDK Connections scope state
-  const [showSdkProjectScope, setShowSdkProjectScope] = useState<
-    Record<number, boolean>
-  >(() => {
-    const raw = form.getValues("approvalFlows.sdkConnections");
-    const rules: { projects?: string[]; environments?: string[] }[] =
-      Array.isArray(raw) ? raw : [];
-    return Object.fromEntries(
-      rules.map((r, i) => [i, !!(r.projects?.length ?? 0)]),
+  const allTabs = [
+    { id: ALL_PROJECTS_TAB, scope: ALL_PROJECTS_SCOPE },
+    ...tabs,
+  ];
+
+  const scopeName = (scope: string) =>
+    scope
+      ? scopeProjects(scope)
+          .map((id) => projects.find((p) => p.id === id)?.name ?? id)
+          .join(" + ")
+      : "All Projects";
+
+  const setFlagRule = (scope: string, next: RequireReview) =>
+    form.setValue("requireReviews", withRuleForScope(flagRules, scope, next));
+
+  const setSavedGroupRule = (scope: string, next: ApprovalFlowConfiguration) =>
+    form.setValue(
+      "approvalFlows.savedGroups",
+      withRuleForScope(savedGroupRules, scope, next),
     );
-  });
 
-  const [showSdkEnvScope, setShowSdkEnvScope] = useState<
-    Record<number, boolean>
-  >(() => {
-    const raw = form.getValues("approvalFlows.sdkConnections");
-    const rules: { environments?: string[] }[] = Array.isArray(raw) ? raw : [];
-    return Object.fromEntries(
-      rules.map((r, i) => [i, !!(r.environments?.length ?? 0)]),
+  const addOverride = (project: string) => {
+    const id = newTabId();
+    setTabs((prev) => [...prev, { id, scope: project }]);
+    setActiveTab(id);
+    setFlagRule(project, clonedFlagRule(flagRules, project));
+    setSavedGroupRule(project, clonedSavedGroupRule(savedGroupRules, project));
+  };
+
+  // Re-points both families' rules so a group of projects can share one rule.
+  const retargetTab = (tab: { id: string; scope: string }, next: string[]) => {
+    const nextScope = scopeKey(next);
+    if (!next.length || nextScope === tab.scope) return;
+    const flagOwn = ruleForScope(flagRules, tab.scope);
+    if (flagOwn) {
+      form.setValue(
+        "requireReviews",
+        withRuleForScope(flagRules, tab.scope, { ...flagOwn, projects: next }),
+      );
+    }
+    const savedGroupOwn = ruleForScope(savedGroupRules, tab.scope);
+    if (savedGroupOwn) {
+      form.setValue(
+        "approvalFlows.savedGroups",
+        withRuleForScope(savedGroupRules, tab.scope, {
+          ...savedGroupOwn,
+          projects: next,
+        }),
+      );
+    }
+    setTabs((prev) =>
+      prev.map((t) => (t.id === tab.id ? { ...t, scope: nextScope } : t)),
     );
-  });
+  };
 
-  const sdkConnectionsWatched = form.watch("approvalFlows.sdkConnections");
-  useEffect(() => {
-    if (!Array.isArray(sdkConnectionsWatched)) return;
-    setShowSdkEnvScope((prev) => {
-      const next = { ...prev };
-      sdkConnectionsWatched.forEach((r, i) => {
-        if ((r.environments?.length ?? 0) > 0) next[i] = true;
-      });
-      return next;
-    });
-    setShowSdkProjectScope((prev) => {
-      const next = { ...prev };
-      sdkConnectionsWatched.forEach((r, i) => {
-        if ((r.projects?.length ?? 0) > 0) next[i] = true;
-      });
-      return next;
-    });
-  }, [sdkConnectionsWatched]);
+  const removeOverride = (tab: { id: string; scope: string }) => {
+    form.setValue("requireReviews", withoutScope(flagRules, tab.scope));
+    form.setValue(
+      "approvalFlows.savedGroups",
+      withoutScope(savedGroupRules, tab.scope),
+    );
+    setTabs((prev) => prev.filter((t) => t.id !== tab.id));
+    setActiveTab(ALL_PROJECTS_TAB);
+  };
 
-  const rawSdkRules = form.watch("approvalFlows.sdkConnections");
-  const sdkRules = Array.isArray(rawSdkRules) ? rawSdkRules : [];
+  const availableProjects = projects.filter(
+    (p) => !allTabs.some((t) => scopeProjects(t.scope).includes(p.id)),
+  );
 
   return (
     <Frame>
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
-          <Heading size="medium" as="h4">
+          <Heading size="md" as="h4">
             Approval Flows
           </Heading>
         </Box>
       </Flex>
 
       <Flex align="start" direction="column" gap="4" mt="7">
-        <Box width="100%">
-          <Frame p="3" mb="0">
-            <Heading as="h4" size="small" weight="semibold" mb="4">
-              Features
-            </Heading>
-
-            <Text as="p" size="medium" mb="4" color="text-low">
-              All changes to features are tracked as revisions. Requiring
-              approvals adds a review step before any change goes live. Kill
-              switch changes always prompt a confirmation regardless of approval
-              settings.
+        {hasRequireApprovals && (
+          <Box width="100%">
+            <Text as="p" size="md" mb="3" color="text-low">
+              Approval requirements apply per Project. Everything inside the
+              panel below belongs to the selected Project scope.
             </Text>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <Flex align="center" justify="between" gap="3" wrap="wrap">
+                <TabsList>
+                  {allTabs.map((tab) => (
+                    <TabsTrigger key={tab.id} value={tab.id}>
+                      <Tooltip
+                        body={scopeName(tab.scope)}
+                        shouldDisplay={!!tab.scope}
+                      >
+                        <span
+                          style={{
+                            display: "block",
+                            maxWidth: "160px",
+                            overflow: "hidden",
+                            whiteSpace: "nowrap",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {scopeName(tab.scope)}
+                        </span>
+                      </Tooltip>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                {availableProjects.length > 0 && (
+                  <DropdownMenu
+                    menuPlacement="end"
+                    trigger={
+                      <Button variant="ghost" size="sm">
+                        <PiPlus /> Project override
+                      </Button>
+                    }
+                  >
+                    <DropdownMenuGroup>
+                      {availableProjects.map((p) => (
+                        <DropdownMenuItem
+                          key={p.id}
+                          onClick={() => addOverride(p.id)}
+                        >
+                          {p.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuGroup>
+                  </DropdownMenu>
+                )}
+              </Flex>
 
-            {hasRequireApprovals && (
-              <>
-                {featureRequireReviews.map((_, i) => (
-                  <Box key={`approval-flow-${i}`}>
-                    <Checkbox
-                      id={`toggle-require-reviews-${i}`}
-                      label="Require approval to publish changes"
-                      value={
-                        !!form.watch(`requireReviews.${i}.requireReviewOn`)
-                      }
-                      setValue={(value) =>
-                        form.setValue(
-                          `requireReviews.${i}.requireReviewOn`,
-                          value,
-                        )
-                      }
-                    />
-                    {!!form.watch(`requireReviews.${i}.requireReviewOn`) && (
-                      <Flex direction="column" gap="3" mt="2" ml="5">
-                        <Flex direction="column" gap="3" mb="3">
-                          {showProjectScope[i] ? (
-                            <MultiSelectField
-                              id={`projects-${i}`}
-                              label="Projects"
-                              labelClassName="font-weight-semibold"
-                              containerClassName="mb-0"
-                              value={
-                                form.watch(`requireReviews.${i}.projects`) || []
-                              }
-                              onChange={(v) =>
-                                form.setValue(`requireReviews.${i}.projects`, v)
-                              }
-                              options={projects.map((e) => ({
-                                value: e.id,
-                                label: e.name,
-                              }))}
-                              placeholder="All Projects"
-                            />
-                          ) : (
-                            <Link
-                              onClick={() =>
-                                setShowProjectScope((prev) => ({
-                                  ...prev,
-                                  [i]: true,
-                                }))
-                              }
-                            >
-                              <PiPlus /> For specific projects
-                            </Link>
-                          )}
-                          {showEnvScope[i] ? (
-                            <MultiSelectField
-                              id={`environments-${i}`}
-                              label="Specific environments"
-                              labelClassName="font-weight-semibold"
-                              containerClassName="mb-0"
-                              value={
-                                form.watch(
-                                  `requireReviews.${i}.environments`,
-                                ) || []
-                              }
-                              onChange={(v) =>
-                                form.setValue(
-                                  `requireReviews.${i}.environments`,
-                                  v,
-                                )
-                              }
-                              options={environments.map((e) => ({
-                                value: e.id,
-                                label: e.id,
-                              }))}
-                              placeholder="All environments (leave blank to gate all)"
-                            />
-                          ) : (
-                            <Link
-                              onClick={() =>
-                                setShowEnvScope((prev) => ({
-                                  ...prev,
-                                  [i]: true,
-                                }))
-                              }
-                            >
-                              <PiPlus /> For specific environments
-                            </Link>
-                          )}
-                        </Flex>
-                        <Checkbox
-                          id={`toggle-reset-review-on-change-${i}`}
-                          label="Reset review on changes"
-                          description="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
-                          value={
-                            !!form.watch(
-                              `requireReviews.${i}.resetReviewOnChange`,
-                            )
-                          }
-                          setValue={(v) =>
-                            form.setValue(
-                              `requireReviews.${i}.resetReviewOnChange`,
-                              v,
-                            )
-                          }
-                        />
-                        <Checkbox
-                          id={`toggle-block-self-approval-${i}`}
-                          label="Block contributors from self-approving"
-                          description="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
-                          value={
-                            !!form.watch(
-                              `requireReviews.${i}.blockSelfApproval`,
-                            )
-                          }
-                          setValue={(v) =>
-                            form.setValue(
-                              `requireReviews.${i}.blockSelfApproval`,
-                              v,
-                            )
-                          }
-                        />
-                        <Box mt="2">
-                          <Text
-                            as="label"
-                            size="medium"
-                            weight="semibold"
-                            mb="2"
+              {allTabs.map((tab) => {
+                const scope = tab.scope;
+                return (
+                  <TabsContent key={tab.id} value={tab.id}>
+                    <Frame p="4" mt="3" mb="0">
+                      <Flex align="start" justify="between" gap="3" mb="4">
+                        <Text size="sm" color="text-low">
+                          {scope
+                            ? 'These settings override the base settings in the "All Projects" tab. Each Project belongs to a single override.'
+                            : "Applies to every Project without an override of its own."}
+                        </Text>
+                        {scope ? (
+                          <Button
+                            variant="ghost"
+                            color="red"
+                            size="sm"
+                            onClick={() => removeOverride(tab)}
                           >
-                            Require approval for
-                          </Text>
-                          <Flex direction="column" gap="2" align="start">
-                            <Checkbox
-                              id={`toggle-rules-values-${i}`}
-                              label="Rules, values, and prerequisites"
-                              value={true}
-                              disabled={true}
-                              setValue={() => undefined}
-                            />
-                            <Checkbox
-                              id={`toggle-env-review-${i}`}
-                              label="Enabled environment changes (kill switches)"
-                              value={
-                                form.watch(
-                                  `requireReviews.${i}.featureRequireEnvironmentReview`,
-                                ) !== false
-                              }
-                              setValue={(v) =>
-                                form.setValue(
-                                  `requireReviews.${i}.featureRequireEnvironmentReview`,
-                                  v,
-                                )
-                              }
-                            />
-                            <Checkbox
-                              id={`toggle-metadata-review-${i}`}
-                              label="Metadata changes (description, owner, project, tags, etc.)"
-                              value={
-                                form.watch(
-                                  `requireReviews.${i}.featureRequireMetadataReview`,
-                                ) !== false
-                              }
-                              setValue={(v) =>
-                                form.setValue(
-                                  `requireReviews.${i}.featureRequireMetadataReview`,
-                                  v,
-                                )
-                              }
-                            />
-                          </Flex>
-                        </Box>
-                        {/* REST API bypass — global, shown after the last rule's options */}
-                        {i === featureRequireReviews.length - 1 && (
-                          <Box mt="2">
-                            <Checkbox
-                              id="toggle-restApiBypassesReviews"
-                              label="REST API always bypasses approval requirements"
-                              description="When enabled, all API calls bypass approval requirements. When disabled, API calls are blocked unless the caller's role grants bypassApprovalChecks on the feature's project."
-                              value={
-                                form.watch("restApiBypassesReviews") !== false
-                              }
-                              setValue={(v) =>
-                                form.setValue("restApiBypassesReviews", v)
-                              }
-                            />
-                          </Box>
-                        )}
+                            <PiTrash /> Remove override
+                          </Button>
+                        ) : null}
                       </Flex>
-                    )}
-                  </Box>
-                ))}
-              </>
-            )}
-          </Frame>
-        </Box>
 
-        <Box width="100%">
-          <Frame p="3" mb="0">
-            <Heading as="h4" size="small" weight="semibold" mb="4">
-              Saved Groups
-            </Heading>
+                      {scope ? (
+                        <Box mb="4">
+                          <Text as="label" size="md" weight="semibold">
+                            Projects
+                          </Text>
+                          <MultiSelectField
+                            legacyHeight
+                            id={`approval-scope-projects-${tab.id}`}
+                            containerClassName="mb-0"
+                            value={scopeProjects(scope)}
+                            onChange={(next) => retargetTab(tab, next)}
+                            options={projects
+                              .filter(
+                                (p) =>
+                                  scopeProjects(scope).includes(p.id) ||
+                                  !allTabs.some((other) =>
+                                    scopeProjects(other.scope).includes(p.id),
+                                  ),
+                              )
+                              .map((p) => ({ value: p.id, label: p.name }))}
+                          />
+                        </Box>
+                      ) : null}
 
-            <Text as="p" size="medium" mb="4" color="text-low">
-              All changes to saved groups are tracked as revisions. Requiring
-              approvals adds a review step before any change goes live.
-            </Text>
+                      <ApprovalScopeSections
+                        idPrefix={tab.id}
+                        flagRule={clonedFlagRule(flagRules, scope)}
+                        onFlagChange={(next) => setFlagRule(scope, next)}
+                        onFlagReset={
+                          differsFromBase(
+                            clonedFlagRule(flagRules, scope),
+                            inheritedFlagRule(flagRules, scope),
+                          )
+                            ? () =>
+                                setFlagRule(
+                                  scope,
+                                  clonedFlagRule(
+                                    withoutScope(flagRules, scope),
+                                    scope,
+                                  ),
+                                )
+                            : undefined
+                        }
+                        savedGroupRule={clonedSavedGroupRule(
+                          savedGroupRules,
+                          scope,
+                        )}
+                        onSavedGroupChange={(next) =>
+                          setSavedGroupRule(scope, next)
+                        }
+                        onSavedGroupReset={
+                          differsFromBase(
+                            clonedSavedGroupRule(savedGroupRules, scope),
+                            inheritedSavedGroupRule(savedGroupRules, scope),
+                          )
+                            ? () =>
+                                setSavedGroupRule(
+                                  scope,
+                                  clonedSavedGroupRule(
+                                    withoutScope(savedGroupRules, scope),
+                                    scope,
+                                  ),
+                                )
+                            : undefined
+                        }
+                      />
+                    </Frame>
+                  </TabsContent>
+                );
+              })}
+            </Tabs>
+          </Box>
+        )}
 
-            {hasRequireApprovals && (
-              <>
+        {hasRequireApprovals && (
+          <Box width="100%">
+            <Frame p="3" mb="0">
+              <Heading as="h4" size="sm" weight="semibold" mb="4">
+                Global
+              </Heading>
+
+              <Text as="p" size="md" mb="4" color="text-low">
+                These settings apply to every approval flow (Feature Flags,
+                Configs, Constants and Saved Groups).
+              </Text>
+
+              <Flex direction="column" gap="3" align="start">
                 <Checkbox
-                  id="toggle-require-approvals-saved-groups"
-                  label="Require approval to modify Saved Groups"
-                  description="When enabled, all changes to Saved Groups must be reviewed and approved by another person before going live."
-                  value={!!form.watch("approvalFlows.savedGroups.0.required")}
+                  id="toggle-targeting-review-mode"
+                  label="Apply approval requirements from Targeting Projects"
+                  description="When a Feature Flag is delivered into Targeting Projects, its changes must also satisfy those Projects' approval requirements before publishing. When off, only the primary Project governs approvals."
+                  value={targetingStrict(form)}
+                  setValue={(v) => setTargetingMode(form, v)}
+                />
+                <Checkbox
+                  id="toggle-restApiBypassesReviews"
+                  label="REST API always bypasses approval requirements"
+                  description="Applies to Feature Flags, Configs, Constants and Saved Groups. When enabled, all API calls bypass approval requirements. When disabled, API calls are blocked unless the caller's role grants FlagsBypassApprovals — or SavedGroupsBypassApprovals — on that resource's Project."
+                  value={form.watch("restApiBypassesReviews") !== false}
+                  setValue={(v) => form.setValue("restApiBypassesReviews", v)}
+                />
+                <Checkbox
+                  id="toggle-requireRebaseBeforePublish"
+                  label="Require drafts to be rebased with live before publishing"
+                  description="Drafts based on an older version — or with a stale approval — must be rebased with live before they can be published."
+                  value={form.watch("requireRebaseBeforePublish") === true}
                   setValue={(v) =>
-                    form.setValue("approvalFlows.savedGroups.0.required", v)
+                    form.setValue("requireRebaseBeforePublish", v)
                   }
                 />
-                {!!form.watch("approvalFlows.savedGroups.0.required") && (
-                  <Flex direction="column" gap="3" mt="2" ml="5">
-                    <Box mt="2">
-                      <Text as="label" size="medium" weight="semibold" mb="2">
-                        Require approval for
-                      </Text>
-                      <Flex direction="column" gap="2" align="start">
-                        <Checkbox
-                          id="toggle-saved-group-values-conditions"
-                          label="Values and conditions"
-                          value={true}
-                          disabled={true}
-                          setValue={() => undefined}
-                        />
-                        <Checkbox
-                          id="toggle-saved-group-metadata-review"
-                          label="Metadata changes (description, owner, project, tags, etc.)"
-                          value={
-                            form.watch(
-                              `approvalFlows.savedGroups.0.requireMetadataReview`,
-                            ) !== false
-                          }
-                          setValue={(v) =>
-                            form.setValue(
-                              `approvalFlows.savedGroups.0.requireMetadataReview`,
-                              v,
-                            )
-                          }
-                        />
-                      </Flex>
-                    </Box>
-                    <Checkbox
-                      id="toggle-saved-group-reset-review-on-change"
-                      label="Reset review on changes"
-                      description="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
-                      value={
-                        !!form.watch(
-                          `approvalFlows.savedGroups.0.resetReviewOnChange`,
-                        )
-                      }
-                      setValue={(v) =>
-                        form.setValue(
-                          `approvalFlows.savedGroups.0.resetReviewOnChange`,
-                          v,
-                        )
-                      }
-                    />
-                    <Checkbox
-                      id="toggle-saved-group-block-self-approval"
-                      label="Require approval from a non-editor"
-                      description="Anyone who edited the draft is blocked from approving it. A separate reviewer must approve before publishing."
-                      value={
-                        !!form.watch(
-                          `approvalFlows.savedGroups.0.blockSelfApproval`,
-                        )
-                      }
-                      setValue={(v) =>
-                        form.setValue(
-                          `approvalFlows.savedGroups.0.blockSelfApproval`,
-                          v,
-                        )
-                      }
-                    />
-                  </Flex>
-                )}
-              </>
-            )}
-          </Frame>
-        </Box>
-
-        <Box width="100%">
-          <Frame p="3" mb="0">
-            <Heading as="h4" size="small" weight="semibold" mb="4">
-              SDK Connections
-            </Heading>
-
-            <Text as="p" size="medium" mb="4" color="text-low">
-              All changes to SDK Connections are tracked as revisions. Requiring
-              approvals adds a review step before any change goes live. Scope a
-              rule to specific projects or environments to require approval only
-              for matching connections.
-            </Text>
-
-            {hasRequireApprovals && (
-              <>
-                {sdkRules.map((_, i) => (
-                  <Box key={`sdk-connection-approval-flow-${i}`} mb="3">
-                    <Checkbox
-                      id={`sdk-connections-require-${i}`}
-                      label="Require approval to modify SDK Connections"
-                      value={
-                        !!form.watch(
-                          `approvalFlows.sdkConnections.${i}.required`,
-                        )
-                      }
-                      setValue={(v) =>
-                        form.setValue(
-                          `approvalFlows.sdkConnections.${i}.required`,
-                          v,
-                        )
-                      }
-                    />
-                    {!!form.watch(
-                      `approvalFlows.sdkConnections.${i}.required`,
-                    ) && (
-                      <Flex direction="column" gap="3" mt="2" ml="5">
-                        <Flex direction="column" gap="3" mb="3">
-                          {showSdkProjectScope[i] ? (
-                            <MultiSelectField
-                              id={`sdk-projects-${i}`}
-                              label="Projects"
-                              labelClassName="font-weight-semibold"
-                              containerClassName="mb-0"
-                              value={
-                                form.watch(
-                                  `approvalFlows.sdkConnections.${i}.projects`,
-                                ) || []
-                              }
-                              onChange={(v) =>
-                                form.setValue(
-                                  `approvalFlows.sdkConnections.${i}.projects`,
-                                  v,
-                                )
-                              }
-                              options={projects.map((p) => ({
-                                value: p.id,
-                                label: p.name,
-                              }))}
-                              placeholder="All Projects"
-                            />
-                          ) : (
-                            <Link
-                              onClick={() =>
-                                setShowSdkProjectScope((prev) => ({
-                                  ...prev,
-                                  [i]: true,
-                                }))
-                              }
-                            >
-                              <PiPlus /> For specific projects
-                            </Link>
-                          )}
-                          {showSdkEnvScope[i] ? (
-                            <MultiSelectField
-                              id={`sdk-environments-${i}`}
-                              label="Specific environments"
-                              labelClassName="font-weight-semibold"
-                              containerClassName="mb-0"
-                              value={
-                                form.watch(
-                                  `approvalFlows.sdkConnections.${i}.environments`,
-                                ) || []
-                              }
-                              onChange={(v) =>
-                                form.setValue(
-                                  `approvalFlows.sdkConnections.${i}.environments`,
-                                  v,
-                                )
-                              }
-                              options={environments.map((e) => ({
-                                value: e.id,
-                                label: e.id,
-                              }))}
-                              placeholder="All environments (leave blank to gate all)"
-                            />
-                          ) : (
-                            <Link
-                              onClick={() =>
-                                setShowSdkEnvScope((prev) => ({
-                                  ...prev,
-                                  [i]: true,
-                                }))
-                              }
-                            >
-                              <PiPlus /> For specific environments
-                            </Link>
-                          )}
-                        </Flex>
-                        <Box mt="2">
-                          <Text
-                            as="label"
-                            size="medium"
-                            weight="semibold"
-                            mb="2"
-                          >
-                            Require approval for
-                          </Text>
-                          <Flex direction="column" gap="2" align="start">
-                            <Checkbox
-                              id={`sdk-connections-values-config-${i}`}
-                              label="Values and configuration"
-                              value={true}
-                              disabled={true}
-                              setValue={() => undefined}
-                            />
-                            <Checkbox
-                              id={`sdk-connections-metadata-review-${i}`}
-                              label="Name changes only"
-                              value={
-                                form.watch(
-                                  `approvalFlows.sdkConnections.${i}.requireMetadataReview`,
-                                ) !== false
-                              }
-                              setValue={(v) =>
-                                form.setValue(
-                                  `approvalFlows.sdkConnections.${i}.requireMetadataReview`,
-                                  v,
-                                )
-                              }
-                            />
-                          </Flex>
-                        </Box>
-                        <Checkbox
-                          id={`sdk-connections-reset-review-on-change-${i}`}
-                          label="Reset review on changes"
-                          description="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
-                          value={
-                            !!form.watch(
-                              `approvalFlows.sdkConnections.${i}.resetReviewOnChange`,
-                            )
-                          }
-                          setValue={(v) =>
-                            form.setValue(
-                              `approvalFlows.sdkConnections.${i}.resetReviewOnChange`,
-                              v,
-                            )
-                          }
-                        />
-                        <Checkbox
-                          id={`sdk-connections-block-self-approval-${i}`}
-                          label="Require approval from a non-editor"
-                          description="Anyone who edited the draft is blocked from approving it. A separate reviewer must approve before publishing."
-                          value={
-                            !!form.watch(
-                              `approvalFlows.sdkConnections.${i}.blockSelfApproval`,
-                            )
-                          }
-                          setValue={(v) =>
-                            form.setValue(
-                              `approvalFlows.sdkConnections.${i}.blockSelfApproval`,
-                              v,
-                            )
-                          }
-                        />
-                      </Flex>
-                    )}
-                    <Box mt="2">
-                      <Link
-                        color="red"
-                        onClick={() => {
-                          const next = [...sdkRules];
-                          next.splice(i, 1);
-                          form.setValue("approvalFlows.sdkConnections", next);
-                        }}
-                      >
-                        Remove rule
-                      </Link>
-                    </Box>
-                  </Box>
-                ))}
-                <Link
-                  onClick={() =>
-                    form.setValue("approvalFlows.sdkConnections", [
-                      ...sdkRules,
-                      { required: true, requireMetadataReview: true },
-                    ])
-                  }
-                >
-                  <PiPlus /> Add approval rule
-                </Link>
-              </>
-            )}
-          </Frame>
-        </Box>
+                <Checkbox
+                  id="toggle-reverts-bypass-approval"
+                  label="Allow reverts without approval"
+                  description="Anyone with the revert permission can revert to a past revision and publish it immediately, even when approvals are required."
+                  value={!!form.watch("revertsBypassApproval")}
+                  setValue={(v) => form.setValue("revertsBypassApproval", v)}
+                />
+              </Flex>
+            </Frame>
+          </Box>
+        )}
       </Flex>
     </Frame>
   );
+}
+
+type SettingsForm = ReturnType<
+  typeof useFormContext<OrganizationSettingsWithMetricDefaults>
+>;
+
+// The UI edits the all-projects rule; per-project overrides (API-only for now)
+// are preserved.
+function targetingStrict(form: SettingsForm): boolean {
+  const rules = form.watch("targetingReviewMode") || [];
+  const orgWide = rules.find((r) => (r.projects?.length ?? 0) === 0);
+  return orgWide ? orgWide.mode === "strict" : true;
+}
+
+function setTargetingMode(form: SettingsForm, strict: boolean) {
+  const rules = form.watch("targetingReviewMode") || [];
+  form.setValue("targetingReviewMode", [
+    ...rules.filter((r) => (r.projects?.length ?? 0) > 0),
+    { projects: [], mode: strict ? "strict" : "loose" },
+  ]);
 }

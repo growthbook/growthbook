@@ -48,7 +48,12 @@ export function buildFilterUrl(
 
 // Props for <SortedTags> to link each tag to `/${entity}?q=tag:"..."`.
 export function tagLinkProps(
-  entity: "features" | "experiments" | "metrics" | "bandits",
+  entity:
+    | "features"
+    | "experiments"
+    | "metrics"
+    | "bandits"
+    | "contextual-bandits",
 ) {
   return {
     getTagHref: (tag: string) => buildFilterUrl(`/${entity}`, "tag", tag),
@@ -78,6 +83,36 @@ export function tagFilterOnClick(
       .trim();
     setSearchValue(stripped ? `${stripped} tag:"${safe}"` : `tag:"${safe}"`);
   };
+}
+
+// Whitespace separates distinct words; punctuation (incl. _ and -) separates
+// sub-tokens within a word.
+const wordBoundary = /[\n\r\p{Z}]+/u;
+const tokenSeparators = /\p{P}+/u;
+
+// Suffix expansion is O(parts²) in string data, so it's only safe for
+// identifier-like words (a handful of underscore/hyphen-separated parts).
+// Above this threshold a "word" is almost certainly free text or JSON without
+// whitespace (e.g. a saved-group condition), where joining suffixes is both
+// meaningless and can produce hundreds of MB of strings — index the individual
+// parts instead.
+const maxPartsForSuffixExpansion = 16;
+
+// Split a string into normalized words. MiniSearch can only match terms by
+// prefix/fuzzy (no substring search), so for indexing we emit every
+// "boundary suffix" of each word — e.g. "search_test_key" -> ["search_test_key",
+// "test_key", "key"] — which turns a prefix query into a substring-at-word-
+// boundary match. For queries we keep each word whole (one normalized term), so
+// "test_key" / "test-key" both prefix-match the "test_key" suffix of
+// "search_test_key" but never match "test-my-key".
+function tokenizeFields(text: string, expandSuffixes: boolean): string[] {
+  return text.split(wordBoundary).flatMap((word) => {
+    const parts = word.split(tokenSeparators).filter(Boolean);
+    if (!expandSuffixes) return parts.length ? [parts.join("_")] : [];
+    return parts.length > maxPartsForSuffixExpansion
+      ? parts
+      : parts.map((_, i) => parts.slice(i).join("_"));
+  });
 }
 
 const searchTermOperators = [">", "<", "^", "=", "~", ""] as const;
@@ -117,13 +152,28 @@ export interface SearchProps<T extends { id: string }> {
       | (Date | null | undefined)[];
   };
   filterResults?: (items: T[]) => T[];
+  // Return true for (field, value) pairs that should always pass client-side
+  // syntax filtering. Useful when a search token is handled externally (e.g.
+  // via a server-side content search + filterResults) and shouldn't be
+  // double-filtered on the client.
+  syntaxFilterPassthrough?: (field: string, value: string) => boolean;
   updateSearchQueryOnChange?: boolean;
   // When true, the hook will not initialize its search term from the URL `q`
   // param. Use this when an enclosing useSearch instance owns the `q` param
   // (e.g. a sort-only inner table inside a search-filtered page) so the inner
   // hook doesn't latch onto the outer hook's filter string.
   disableUrlSearchTerm?: boolean;
+  // When provided, the search term is fully controlled by the caller: internal
+  // state, URL init, and URL sync are all bypassed. Use this to drive filtering
+  // from stored config (e.g. a dashboard block's saved filter string) rather
+  // than from a user-typed input.
+  controlledSearchValue?: string;
   pageSize?: number;
+  // Extra values that `searchTermFilters` closes over but that change
+  // asynchronously (e.g. lazily-fetched indexes). Including them here lets the
+  // filtered-results memo recompute when that data arrives instead of going
+  // stale. Must be a fixed-length array across renders.
+  searchTermFilterDeps?: unknown[];
 }
 
 export interface SearchReturn<T> {
@@ -167,9 +217,12 @@ export function useSearch<T extends { id: string }>({
   undefinedLast,
   defaultMappings = {},
   searchTermFilters,
+  syntaxFilterPassthrough,
   updateSearchQueryOnChange,
   disableUrlSearchTerm,
+  controlledSearchValue,
   pageSize,
+  searchTermFilterDeps = [],
 }: SearchProps<T>): SearchReturn<T> {
   const defaultSort = { field: defaultSortField, dir: defaultSortDir || 1 };
   const persistedSort = useLocalStorage(
@@ -181,12 +234,16 @@ export function useSearch<T extends { id: string }>({
 
   const router = useRouter();
   const { q } = router.query;
-  const initialSearchTerm = disableUrlSearchTerm
-    ? ""
-    : Array.isArray(q)
-      ? q.join(" ")
-      : q;
-  const [value, setValue] = useState(initialSearchTerm ?? "");
+  const isControlled = controlledSearchValue !== undefined;
+  const initialSearchTerm =
+    disableUrlSearchTerm || isControlled
+      ? ""
+      : Array.isArray(q)
+        ? q.join(" ")
+        : q;
+  const [internalValue, setValue] = useState(initialSearchTerm ?? "");
+  // When controlled, the caller owns the search term; otherwise use internal state.
+  const value = isControlled ? controlledSearchValue : internalValue;
   const [disableRelevanceSort, setDisableRelevanceSort] = useState(false);
 
   const [page, setPage] = useState(1);
@@ -221,10 +278,12 @@ export function useSearch<T extends { id: string }>({
     const miniSearchInstance = new MiniSearch({
       idField: internalSearchIdField,
       fields,
+      tokenize: (text) => tokenizeFields(text, true),
       searchOptions: {
         boost: keys,
         fuzzy: true,
         prefix: true,
+        tokenize: (text) => tokenizeFields(text, false),
       },
     });
 
@@ -251,7 +310,7 @@ export function useSearch<T extends { id: string }>({
         .map((result) => itemMap.get(result.id + ""))
         .filter((item): item is T => !!item);
     }
-    if (updateSearchQueryOnChange) {
+    if (updateSearchQueryOnChange && !isControlled) {
       const searchParams = new URLSearchParams(window.location.search);
       const currentQ = searchParams.has("q") ? searchParams.get("q") : null;
 
@@ -287,6 +346,8 @@ export function useSearch<T extends { id: string }>({
         syntaxFilters.every((filter) => {
           // If a filter has multiple values, at least one has to match
           const res = filter.values.some((searchValue) => {
+            if (syntaxFilterPassthrough?.(filter.field, searchValue))
+              return true;
             const itemValue = searchTermFilters?.[filter.field]?.(item) ?? null;
             return filterSearchTerm(itemValue, filter.operator, searchValue);
           });
@@ -301,7 +362,15 @@ export function useSearch<T extends { id: string }>({
       filtered = filterResults(filtered);
     }
     return { filtered, syntaxFilters, searchTerm };
-  }, [value, miniSearch, filterResults, transformQuery]);
+  }, [
+    value,
+    miniSearch,
+    filterResults,
+    syntaxFilterPassthrough,
+    transformQuery,
+    // Recompute when async filter data (e.g. the dependents index) loads.
+    ...searchTermFilterDeps,
+  ]);
 
   const previousSearchTerm = useRef(searchTerm);
   const hasSearchTerm = searchTerm.length > 0;
@@ -566,7 +635,12 @@ export function parseQuery(query: string, regex: RegExp) {
   const matches = query.matchAll(regex);
   for (const match of matches) {
     if (match && match.length >= 3) {
-      const field = match[2];
+      // The regex matches field names case-insensitively, but downstream
+      // lookups (searchTermFilters keys, filter UIs) are all lowercase — so
+      // normalize the field here or `Status:running` becomes an invisible
+      // always-false filter. Values keep their case (matching happens
+      // case-insensitively in filterSearchTerm).
+      const field = match[2].toLowerCase();
       const negated = !!match[3];
       const operator = match[4] as SearchTermFilterOperator;
       const rawValue = match[5];

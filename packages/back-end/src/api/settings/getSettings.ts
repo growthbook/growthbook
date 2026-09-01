@@ -1,6 +1,10 @@
 import { getScopedSettings } from "shared/settings";
 import { getSettingsValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import {
+  toApiRequireReviews,
+  toApiSavedGroupApprovals,
+} from "./approvalRuleShapes";
 
 export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
   req,
@@ -21,8 +25,18 @@ export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
   const settings = {
     ...filteredSettings,
     requireReviews: Array.isArray(filteredSettings.requireReviews)
-      ? filteredSettings.requireReviews
+      ? toApiRequireReviews(filteredSettings.requireReviews)
       : [],
+    // Not a scoped setting, so read it straight off the org.
+    approvalFlows: {
+      savedGroups: toApiSavedGroupApprovals(
+        req.context.org.settings?.approvalFlows?.savedGroups ?? [],
+      ),
+      // Read back what the PUT accepts, so a round-trip doesn't drop rules.
+      sdkConnections: toApiSavedGroupApprovals(
+        req.context.org.settings?.approvalFlows?.sdkConnections ?? [],
+      ),
+    },
     experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
     preferredEnvironment:
       req.context.org.settings?.preferredEnvironment ?? null,

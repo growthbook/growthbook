@@ -1,136 +1,48 @@
-import { FC, useEffect, useMemo, useState } from "react";
-import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
+import { FC } from "react";
+import { CustomField } from "shared/types/custom-fields";
 import { Flex, Box } from "@radix-ui/themes";
-import { filterCustomFieldsForSectionAndProject } from "@/hooks/useCustomFields";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import Link from "@/ui/Link";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
+import {
+  isCustomFieldBooleanTrue,
+  toCustomFieldBooleanString,
+} from "@/services/customFields";
 
 const CustomFieldInput: FC<{
-  customFields: CustomField[];
-  currentCustomFields: Record<string, string>;
-  section: CustomFieldSection;
-  setCustomFields: (customFields: Record<string, string>) => void;
-  project: string | undefined;
+  fields: CustomField[];
+  value: Record<string, string>;
+  onChange: (customFields: Record<string, string>) => void;
   className?: string;
-}> = ({
-  customFields,
-  currentCustomFields = {},
-  project,
-  className,
-  section,
-  setCustomFields,
-}) => {
-  const availableFields = filterCustomFieldsForSectionAndProject(
-    customFields,
-    section,
-    project,
-  );
-  const [loadedDefaults, setLoadedDefaults] = useState(false);
-  const normalizedCustomFields = useMemo<Record<string, string>>(() => {
-    // todo: investigate further: sometimes custom fields are incorrectly provided as strings (e.g. duplicate exp)
-    if (typeof currentCustomFields === "string") {
-      try {
-        return JSON.parse(currentCustomFields);
-      } catch (e) {
-        return {};
-      }
-    }
-
-    return currentCustomFields;
-  }, [currentCustomFields]);
-
-  useEffect(() => {
-    if (!loadedDefaults) {
-      // here we are setting the default values in the form, otherwise
-      // boolean/toggles or inputs with default values will not be saved.
-      if (availableFields) {
-        const nextCustomFields = { ...normalizedCustomFields };
-        availableFields.forEach((v) => {
-          const currentValue = nextCustomFields?.[v.id];
-          const missingCurrentValue =
-            currentValue === undefined ||
-            currentValue === null ||
-            currentValue === "";
-          const hasDefaultValue =
-            v.defaultValue !== undefined &&
-            v.defaultValue !== null &&
-            (Array.isArray(v.defaultValue)
-              ? v.defaultValue.length > 0
-              : v.defaultValue !== "");
-
-          if (missingCurrentValue && hasDefaultValue) {
-            if (v.type === "multiselect") {
-              nextCustomFields[v.id] = Array.isArray(v.defaultValue)
-                ? JSON.stringify(v.defaultValue)
-                : JSON.stringify([v.defaultValue]);
-            } else if (v.type === "boolean") {
-              const normalizedDefault =
-                typeof v.defaultValue === "boolean"
-                  ? v.defaultValue
-                  : String(v.defaultValue).toLowerCase() === "true";
-              nextCustomFields[v.id] = String(normalizedDefault);
-            } else {
-              nextCustomFields[v.id] = String(v.defaultValue);
-            }
-          }
-        });
-        setCustomFields(nextCustomFields);
-        setLoadedDefaults(true);
-      }
-    }
-  }, [
-    availableFields,
-    loadedDefaults,
-    normalizedCustomFields,
-    setCustomFields,
-  ]);
-
-  // Clear previously set fields if they change so we don't send
-  // fields that are not accepted when changing projects for example
-  useEffect(() => {
-    if (!availableFields) return;
-
-    const allowedFields = new Set(availableFields.map((v) => v.id));
-    const currentEntries = Object.entries(normalizedCustomFields);
-    const filteredEntries = currentEntries.filter(([key]) =>
-      allowedFields.has(key),
-    );
-
-    // Only update when we actually need to remove disallowed keys.
-    if (filteredEntries.length !== currentEntries.length) {
-      setCustomFields(Object.fromEntries(filteredEntries));
-    }
-  }, [availableFields, normalizedCustomFields, setCustomFields]);
-
-  const updateCustomField = (name, value) => {
-    setCustomFields({ ...normalizedCustomFields, [name]: value });
+}> = ({ fields, value, onChange, className }) => {
+  const updateCustomField = (name: string, fieldValue: string) => {
+    onChange({ ...value, [name]: fieldValue });
   };
 
-  const getMultiSelectValue = (value) => {
-    if (value) {
+  const getMultiSelectValue = (raw: string) => {
+    if (raw) {
       try {
-        return JSON.parse(value);
+        return JSON.parse(raw);
       } catch (e) {
         return [];
       }
     }
-    return value;
+    return raw;
   };
 
   return (
-    <Flex direction="column" gap="6" my="2" className={className}>
-      {!availableFields?.length ? (
+    <Flex direction="column" gap="4" mt="4" className={className}>
+      {!fields.length ? (
         <Text align="center" color="text-low">
           No fields available for this experiment or project
         </Text>
       ) : (
         <>
-          {availableFields.map((v, i) => {
+          {fields.map((v, i) => {
             return (
               <Box key={i}>
                 {v.type === "boolean" ? (
@@ -138,17 +50,17 @@ const CustomFieldInput: FC<{
                     id={`bool-${v.id}`}
                     label={v.name}
                     description={v.description}
-                    value={
-                      normalizedCustomFields?.[v.id]
-                        ? normalizedCustomFields[v.id] === "true"
-                        : false
-                    }
-                    setValue={(t) => {
-                      updateCustomField(v.id, "" + JSON.stringify(t));
+                    value={isCustomFieldBooleanTrue(value[v.id])}
+                    setValue={(checked) => {
+                      updateCustomField(
+                        v.id,
+                        toCustomFieldBooleanString(checked),
+                      );
                     }}
                   />
                 ) : v.type === "enum" ? (
                   <SelectField
+                    size="legacy"
                     label={
                       <>
                         {v.name}
@@ -157,9 +69,7 @@ const CustomFieldInput: FC<{
                         )}
                       </>
                     }
-                    value={
-                      normalizedCustomFields?.[v.id] ?? v?.defaultValue ?? ""
-                    }
+                    value={value[v.id] ?? v.defaultValue ?? ""}
                     options={
                       v.values
                         ? v.values
@@ -177,6 +87,7 @@ const CustomFieldInput: FC<{
                   />
                 ) : v.type === "multiselect" ? (
                   <MultiSelectField
+                    legacyHeight
                     label={
                       <>
                         {v.name}
@@ -185,11 +96,7 @@ const CustomFieldInput: FC<{
                         )}
                       </>
                     }
-                    value={
-                      normalizedCustomFields?.[v.id]
-                        ? getMultiSelectValue(normalizedCustomFields[v.id])
-                        : []
-                    }
+                    value={value[v.id] ? getMultiSelectValue(value[v.id]) : []}
                     options={
                       v.values
                         ? v.values
@@ -207,10 +114,11 @@ const CustomFieldInput: FC<{
                   />
                 ) : v.type === "textarea" ? (
                   <Field
+                    size="legacy"
                     textarea
                     minRows={2}
                     maxRows={6}
-                    value={normalizedCustomFields?.[v.id] ?? ""}
+                    value={value[v.id] ?? ""}
                     label={
                       <>
                         {v.name}
@@ -230,7 +138,7 @@ const CustomFieldInput: FC<{
                 ) : v.type === "date" || v.type === "datetime" ? (
                   <Box>
                     <DatePicker
-                      date={normalizedCustomFields?.[v.id] || undefined}
+                      date={value[v.id] || undefined}
                       setDate={(d) => {
                         updateCustomField(v.id, d?.toISOString() ?? "");
                       }}
@@ -245,21 +153,20 @@ const CustomFieldInput: FC<{
                       precision={v.type === "datetime" ? "datetime" : "date"}
                       containerClassName="mb-0"
                     />
-                    {(v.description ||
-                      (!v.required && normalizedCustomFields?.[v.id])) && (
+                    {(v.description || (!v.required && value[v.id])) && (
                       <Flex justify="between" align="start" mt="1">
                         {v.description ? (
-                          <Text size="small" color="text-low">
+                          <Text size="sm" color="text-low">
                             {v.description}
                           </Text>
                         ) : (
                           <Box />
                         )}
-                        {!v.required && normalizedCustomFields?.[v.id] && (
+                        {!v.required && value[v.id] && (
                           <Link
                             onClick={() => updateCustomField(v.id, "")}
                             color="gray"
-                            size="1"
+                            size="sm"
                           >
                             Clear
                           </Link>
@@ -269,7 +176,8 @@ const CustomFieldInput: FC<{
                   </Box>
                 ) : (
                   <Field
-                    value={normalizedCustomFields?.[v.id] ?? ""}
+                    size="legacy"
+                    value={value[v.id] ?? ""}
                     label={
                       <>
                         {v.name}
@@ -280,7 +188,7 @@ const CustomFieldInput: FC<{
                     }
                     type={v.type}
                     required={v.required}
-                    placeholder={v?.placeholder ?? ""}
+                    placeholder={v.placeholder ?? ""}
                     onChange={(e) => {
                       updateCustomField(v.id, e.target.value);
                     }}

@@ -2,9 +2,8 @@ import { Box } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Environment } from "shared/types/organization";
 import RadioGroup from "@/ui/RadioGroup";
-import Callout from "@/ui/Callout";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Text from "@/ui/Text";
+import HelperText from "@/ui/HelperText";
+import MultiSelectField from "@/ui/MultiSelectField";
 
 // Rule-level environment scope editor. Sits under the Description field in
 // every rule-type modal. `selectedEnvironments: []` with `allEnvironments: false`
@@ -15,6 +14,7 @@ export type EnvScopeProps = {
   setAllEnvironments: (v: boolean) => void;
   selectedEnvironments: string[];
   setSelectedEnvironments: (v: string[]) => void;
+  disabledEnvironmentIds?: string[];
   label?: string;
 } & MarginProps;
 
@@ -24,22 +24,60 @@ export default function RuleEnvironmentScopeField({
   setAllEnvironments,
   selectedEnvironments,
   setSelectedEnvironments,
+  disabledEnvironmentIds = [],
   label = "Rule Environments",
   ...marginProps
 }: EnvScopeProps) {
   const options = environments.map((e) => ({ label: e.id, value: e.id }));
 
+  const disabledSet = new Set(disabledEnvironmentIds);
+  const allEnvsDisabled =
+    environments.length > 0 &&
+    disabledEnvironmentIds.length === environments.length;
+  const affectedEnvIds = allEnvironments
+    ? disabledEnvironmentIds
+    : selectedEnvironments.filter((e) => disabledSet.has(e));
+  const showPartialDisabledWarning =
+    !allEnvsDisabled &&
+    affectedEnvIds.length > 0 &&
+    disabledEnvironmentIds.length < environments.length;
+
+  const disabledWarning = allEnvsDisabled ? (
+    <HelperText status="warning" size="sm" mt="2">
+      This feature is not enabled in any environment. This rule will have no
+      effect until at least one environment is enabled.
+    </HelperText>
+  ) : showPartialDisabledWarning ? (
+    <HelperText status="warning" size="sm" mt="2">
+      {affectedEnvIds.length === 1 ? (
+        <>
+          <strong>{affectedEnvIds[0]}</strong> is not enabled for this feature.
+          This rule will have no effect there until the feature is enabled in
+          that environment.
+        </>
+      ) : (
+        <>
+          <strong>{affectedEnvIds.join(", ")}</strong> are not enabled for this
+          feature. This rule will have no effect there until the feature is
+          enabled in those environments.
+        </>
+      )}
+    </HelperText>
+  ) : null;
+
   return (
     <Box {...marginProps}>
-      <Text as="div" weight="semibold" mb="3">
-        {label}
-      </Text>
+      {label ? (
+        <Box mb="3">
+          <label className="mb-0" style={{ fontWeight: 600 }}>
+            {label}
+          </label>
+        </Box>
+      ) : null}
       <RadioGroup
         value={allEnvironments ? "all" : "specific"}
         setValue={(v) => {
-          const next = v === "all";
-          setAllEnvironments(next);
-          if (next) setSelectedEnvironments([]);
+          setAllEnvironments(v === "all");
         }}
         gap="0"
         options={[
@@ -47,9 +85,11 @@ export default function RuleEnvironmentScopeField({
           { value: "specific", label: "Specific Environments" },
         ]}
       />
+      {allEnvironments && disabledWarning}
       {!allEnvironments && (
         <Box pl="5">
           <MultiSelectField
+            legacyHeight
             value={selectedEnvironments}
             onChange={(vals) => setSelectedEnvironments(vals)}
             options={options}
@@ -58,12 +98,13 @@ export default function RuleEnvironmentScopeField({
             showCopyButton={false}
             containerClassName="w-full"
           />
-          {selectedEnvironments.length === 0 && (
-            <Callout status="warning" size="sm" mt="2">
+          {selectedEnvironments.length === 0 && !disabledWarning && (
+            <HelperText status="warning" size="sm" mt="2">
               This rule will not apply in any environment until at least one is
               selected.
-            </Callout>
+            </HelperText>
           )}
+          {disabledWarning}
         </Box>
       )}
     </Box>

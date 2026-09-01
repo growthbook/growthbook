@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import { ruleAppliesToEnv, resetReviewOnChange } from "shared/util";
 import {
   RevisionRampCreateAction,
+  RevisionRampUpdateAction,
   ExperimentRefRule,
   RolloutRule,
   ForceRule,
@@ -12,7 +13,11 @@ import {
 } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { updateRuleAtEnvIndex } from "back-end/src/util/revisionRuleOps";
-import { toApiRevision } from "back-end/src/services/features";
+import {
+  addIdsToFlatRules,
+  assertFeatureValuesValid,
+  toApiRevision,
+} from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -81,6 +86,7 @@ export function applyPatch(
         experimentId: patch.experimentId,
       }),
       ...(patch.variations !== undefined && { variations: patch.variations }),
+      ...(patch.sparse !== undefined && { sparse: patch.sparse }),
     };
     return updated;
   }
@@ -152,6 +158,10 @@ export function applyPatch(
         coverage: effectiveCoverage,
         hashAttribute: effectiveHashAttr,
         ...(patch.seed !== undefined && { seed: patch.seed }),
+        ...(patch.hashVersion !== undefined && {
+          hashVersion: patch.hashVersion,
+        }),
+        ...(patch.sparse !== undefined && { sparse: patch.sparse }),
       };
       return updated;
     } else {
@@ -167,6 +177,7 @@ export function applyPatch(
           hashAttribute: effectiveHashAttr,
         }),
         ...(patch.seed !== undefined && { seed: patch.seed }),
+        ...(patch.sparse !== undefined && { sparse: patch.sparse }),
       };
       return updated;
     }
@@ -181,10 +192,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -267,20 +275,27 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       Boolean(inlineRampSchedule) ||
       (!inlineRampSchedule &&
         (Boolean(schedule?.startDate) || Boolean(schedule?.endDate)));
+    let liveSchedulesForRule: Awaited<
+      ReturnType<typeof req.context.models.rampSchedules.findByTargetRule>
+    > = [];
     if (wantsNewSchedule) {
-      const liveSchedules =
+      liveSchedulesForRule =
         await req.context.models.rampSchedules.findByTargetRule(
           req.params.ruleId,
           environment,
         );
-      if (liveSchedules.length > 0) {
-        throw new BadRequestError(
-          `Rule "${req.params.ruleId}" already has a live ramp schedule.` +
-            ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`,
-        );
-      }
     }
     const updatedRule = applyPatch(oldRule, patch);
+
+    // A coverage patch can convert a force rule to a rollout, which arrives
+    // seedless. Existing rollouts already carry a seed and are left untouched.
+    addIdsToFlatRules([updatedRule as FeatureRule], feature.id);
+
+    // Enforce the feature's JSON schema on the patched rule values (no-op for
+    // config-backed values). Opt out with ?skipSchemaValidation=true.
+    assertFeatureValuesValid(req.context, feature, {
+      rules: [updatedRule as FeatureRule],
+    });
 
     // Only validate fields in the patch, so edits don't break on stale refs
     // elsewhere in the rule (e.g. since-deleted saved groups).
@@ -365,9 +380,21 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       const existing = revision.rampActions ?? [];
       const filtered = existing.filter(
         (a) =>
+          !("ruleId" in a) ||
           a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
       );
-      changes.rampActions = [...filtered, resolvedRampAction];
+      const nextRampActions = [...filtered];
+      const existingLiveSchedule = liveSchedulesForRule[0];
+      if (existingLiveSchedule) {
+        nextRampActions.push({
+          ...(resolvedRampAction as RevisionRampCreateAction),
+          mode: "update",
+          rampScheduleId: existingLiveSchedule.id,
+        } as RevisionRampUpdateAction);
+      } else {
+        nextRampActions.push(resolvedRampAction);
+      }
+      changes.rampActions = nextRampActions;
     }
 
     await updateRevision(

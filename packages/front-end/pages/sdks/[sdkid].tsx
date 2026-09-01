@@ -1,4 +1,5 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { WebhookInterface } from "shared/types/webhook";
 import {
   getConnectionSDKCapabilities,
   getSDKCapabilityVersion,
@@ -8,13 +9,12 @@ import {
   SDKConnectionSettingsRevisionSnapshot,
 } from "shared/validators";
 import { useRouter } from "next/router";
-import React, { useEffect, useMemo, useState } from "react";
-import { PiGitDiff, PiDotsThreeVertical } from "react-icons/pi";
+import React, { useMemo, useState } from "react";
+import { PiDotsThreeVertical } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   Revision,
   applyTopLevelPatchOps,
-  patchOpsToPartial,
   getSdkConnectionApprovalRule,
   isSdkConnectionRevisionMetadataOnly,
 } from "shared/enterprise";
@@ -22,9 +22,10 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
 import SDKConnectionForm from "@/components/Features/SDKConnections/SDKConnectionForm";
 import SDKConnectionArchiveModal from "@/components/Features/SDKConnections/SDKConnectionArchiveModal";
-import CompareSDKConnectionRevisionsModal from "@/components/Features/SDKConnections/CompareSDKConnectionRevisionsModal";
+import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
 import CodeSnippetModal from "@/components/Features/CodeSnippetModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import useApi from "@/hooks/useApi";
 import { useSDKConnectionRevision } from "@/hooks/useSDKConnectionRevision";
 import PageHead from "@/components/Layout/PageHead";
 import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
@@ -39,14 +40,14 @@ import EditSDKSettingsModal, {
   SDKConnectionEditSection,
 } from "@/components/Features/SDKConnections/edit-modals/EditSDKSettingsModal";
 import Badge from "@/ui/Badge";
-import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
 import Modal from "@/components/Modal";
 import RevisionDropdown from "@/components/Revision/RevisionDropdown";
-import RevisionDetail from "@/components/Revision/RevisionDetail";
-import RevisionStatusPanel from "@/components/Revision/RevisionStatusPanel";
+import RevisionSummaryCard from "@/components/Revision/RevisionSummaryCard";
+import ReviewAndPublishTab from "@/components/Revision/ReviewAndPublishTab";
 import { REVISION_SDK_CONNECTION_DIFF_CONFIG } from "@/components/Features/SDKConnections/SDKConnectionDiffRenders";
 import {
   DropdownMenu,
@@ -59,11 +60,12 @@ import { docUrl } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import { capitalizeFirstLetter } from "@/services/utils";
 
-// Build the revision snapshot for a live connection (no webhooks — the live
-// snapshot is used only as the baseline for diff rendering; webhooks are
-// fetched separately and not needed here).
+// Build the revision snapshot for a live connection. The webhooks are passed in
+// because the live snapshot is the merge target for conflict detection: an empty
+// array here reads as "every webhook was added" and flags a false conflict.
 function flattenConnection(
   connection: SDKConnectionInterface,
+  webhooks: WebhookInterface[] = [],
 ): SDKConnectionRevisionSnapshot {
   const settings: SDKConnectionSettingsRevisionSnapshot = {
     id: connection.id,
@@ -122,11 +124,34 @@ function flattenConnection(
     ...(connection.savedGroupReferencesEnabled !== undefined && {
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
     }),
-    proxyEnabled: connection.proxy?.enabled,
-    proxyHost: connection.proxy?.host,
+    // Emitted only when set: an explicit `undefined` is not equal to an absent
+    // key under lodash isEqual, which would show as a permanent phantom diff
+    // against a snapshot that simply omitted them.
+    ...(connection.proxy?.enabled !== undefined && {
+      proxyEnabled: connection.proxy.enabled,
+    }),
+    ...(connection.proxy?.host !== undefined && {
+      proxyHost: connection.proxy.host,
+    }),
     ...(connection.archived !== undefined && { archived: connection.archived }),
   };
-  return { sdkConnection: settings, sdkWebhooks: [] };
+  // Mirrors the adapter's toWebhookSnapshot: runtime/secret fields are omitted
+  // so the two sides of a diff line up.
+  return {
+    sdkConnection: settings,
+    sdkWebhooks: webhooks.map((wh) => ({
+      id: wh.id,
+      name: wh.name,
+      endpoint: wh.endpoint,
+      httpMethod: wh.httpMethod ?? "POST",
+      ...(wh.headers !== undefined && { headers: wh.headers }),
+      ...(wh.payloadFormat !== undefined && {
+        payloadFormat: wh.payloadFormat,
+      }),
+      ...(wh.payloadKey !== undefined && { payloadKey: wh.payloadKey }),
+      ...(wh.disabled !== undefined && { disabled: wh.disabled }),
+    })) as SDKConnectionRevisionSnapshot["sdkWebhooks"],
+  };
 }
 
 // Overlay a flattened snapshot-shaped object onto a live connection. Flattened
@@ -154,24 +179,6 @@ function overlayFlattenedOnConnection(
   return next;
 }
 
-// Build the edit form's initialValue from the live connection overlaid with a
-// draft's proposed (flattened) changes. Patches target /sdkConnection as a
-// coarse-replacement op, so we extract the sdkConnection portion.
-function buildEditInitialValue(
-  connection: SDKConnectionInterface,
-  revision: Revision | null,
-): Partial<SDKConnectionInterface> {
-  if (!revision) return connection;
-  const proposedPartial = patchOpsToPartial(
-    revision.target.proposedChanges,
-  ) as Partial<SDKConnectionRevisionSnapshot>;
-  const settings = proposedPartial.sdkConnection ?? {};
-  return overlayFlattenedOnConnection(
-    connection,
-    settings as Record<string, unknown>,
-  );
-}
-
 // Build the connection shape that represents the revision's effective state
 // (snapshot + proposed changes), overlaid on the live connection so secret /
 // system fields excluded from the snapshot (key, encryptionKey, connected,
@@ -196,6 +203,12 @@ export default function SDKConnectionPage() {
   const { sdkid } = router.query;
 
   const { data, mutate, error } = useSDKConnections();
+  // The live webhooks are part of the revision snapshot, so the page needs them
+  // to build an accurate merge target for diffing and conflict detection.
+  const { data: webhookData } = useApi<{ webhooks?: WebhookInterface[] }>(
+    `/sdk-connections/${sdkid}/webhooks`,
+    { shouldRun: () => !!sdkid },
+  );
 
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -207,7 +220,6 @@ export default function SDKConnectionPage() {
     initialValue?: Partial<SDKConnectionInterface>;
   }>({ mode: "closed" });
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [showChangesModal, setShowChangesModal] = useState(false);
   const [confirmNewDraft, setConfirmNewDraft] = useState(false);
   const [creatingDraft, setCreatingDraft] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
@@ -251,18 +263,8 @@ export default function SDKConnectionPage() {
     handlePublish,
     handleReopen,
     mutateApprovalFlows: mutateRevisions,
-    userOpenFlow: userOpenRevision,
   } = revisionState;
 
-  const isDraft =
-    selectedRevision &&
-    (selectedRevision.status === "draft" ||
-      selectedRevision.status === "pending-review" ||
-      selectedRevision.status === "changes-requested" ||
-      selectedRevision.status === "approved");
-  const isDiscarded =
-    selectedRevision && selectedRevision.status === "discarded";
-  const isLive = !selectedRevision;
   const hasRevisions = allRevisions.length > 0;
 
   // Per-revision approval gate: a metadata-only revision (name only) can be
@@ -272,8 +274,13 @@ export default function SDKConnectionPage() {
     !!selectedRevision &&
     approvalRequired &&
     (metadataReviewRequired ||
+      // The baseline is required: without it the helper conservatively
+      // returns false, which made this constantly `approvalRequired` and left
+      // `requireMetadataReview: false` with no observable effect in the UI
+      // even though the server honoured it.
       !isSdkConnectionRevisionMetadataOnly(
         selectedRevision.target.proposedChanges,
+        selectedRevision.target.snapshot as Record<string, unknown>,
       ));
 
   const canAdminPublish =
@@ -282,15 +289,14 @@ export default function SDKConnectionPage() {
     (user?.role === "admin" ||
       (connection.projects.length
         ? connection.projects.every((p) =>
-            permissionsUtil.canBypassApprovalChecks({ project: p || "" }),
+            permissionsUtil.canBypassSDKConnectionApprovalChecks({
+              project: p || "",
+            }),
           )
-        : permissionsUtil.canBypassApprovalChecks({ project: "" })));
+        : permissionsUtil.canBypassSDKConnectionApprovalChecks({
+            project: "",
+          })));
   const canAutoPublish = !approvalRequired || canAdminPublish;
-
-  // Close the changes modal when the selected revision is deselected.
-  useEffect(() => {
-    if (!selectedRevision) setShowChangesModal(false);
-  }, [selectedRevision]);
 
   const displayRevision = useMemo(() => {
     if (selectedRevision) return selectedRevision;
@@ -302,21 +308,6 @@ export default function SDKConnectionPage() {
       )[0];
   }, [selectedRevision, allRevisions]);
 
-  const revisionNumber = useMemo(() => {
-    const getNumber = (revision: Revision | undefined) => {
-      if (revision?.version) return revision.version;
-      const sorted = [...allRevisions].sort(
-        (a, b) =>
-          new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
-      );
-      if (revision) return sorted.findIndex((r) => r.id === revision.id) + 1;
-      return sorted.length;
-    };
-    if (selectedRevision) return getNumber(selectedRevision);
-    if (userOpenRevision) return getNumber(userOpenRevision);
-    return getNumber(displayRevision);
-  }, [selectedRevision, userOpenRevision, displayRevision, allRevisions]);
-
   // The connection shape representing the selected revision's effective state
   // (snapshot + proposed changes), overlaid on the live connection so secret
   // fields stay intact. Falls back to the live connection when nothing is
@@ -327,8 +318,11 @@ export default function SDKConnectionPage() {
   }, [connection, selectedRevision]);
 
   const liveSnapshot = useMemo(
-    () => (connection ? flattenConnection(connection) : undefined),
-    [connection],
+    () =>
+      connection
+        ? flattenConnection(connection, webhookData?.webhooks ?? [])
+        : undefined,
+    [connection, webhookData],
   );
 
   const saveRevisionTitle = async (title: string) => {
@@ -360,7 +354,6 @@ export default function SDKConnectionPage() {
 
   const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);
   const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
-  const canReview = canUpdate;
   // Delete is gated on the LIVE archived state — the backend enforces the same
   // rule (archive must be published before delete is allowed).
   const canDelete =
@@ -387,15 +380,6 @@ export default function SDKConnectionPage() {
   // Whether to surface revision/approval UI. Without the feature, edits just
   // auto-publish and the page behaves as before (minus archive-then-delete).
   const showRevisionUI = hasApprovalsFeature && hasRevisions;
-
-  const openEditForm = () => {
-    setModalState({
-      mode: "edit",
-      initialValue: hasApprovalsFeature
-        ? buildEditInitialValue(connection, selectedRevision)
-        : connection,
-    });
-  };
 
   // Per-section edit modal routing. Each section opens its dedicated modal.
   const openEditSection = (section: SDKConnectionEditSection | "overview") => {
@@ -440,42 +424,16 @@ export default function SDKConnectionPage() {
         />
       )}
 
-      {showChangesModal && selectedRevision && liveSnapshot && (
-        <Modal
-          header={selectedRevision.title || `Revision ${revisionNumber}`}
-          trackingEventModalType="sdk-connection-revision-changes"
-          close={() => setShowChangesModal(false)}
-          open={showChangesModal}
-          dismissible
-          size="max"
-          hideCta={true}
-          closeCta="Close"
-          useRadixButton={true}
-        >
-          <RevisionDetail<SDKConnectionRevisionSnapshot>
-            diffConfig={REVISION_SDK_CONNECTION_DIFF_CONFIG}
-            revision={selectedRevision}
-            currentState={liveSnapshot}
-            mutate={async () => {
-              await Promise.all([mutateRevisions(), mutate()]);
-            }}
-            setCurrentRevision={(f) => selectFlow(f)}
-            onPublish={async (revisionId) => {
-              await handlePublish(revisionId);
-            }}
-            onReopen={async (revisionId) => {
-              await handleReopen(revisionId);
-            }}
-            allRevisions={allRevisions}
-            requiresApproval={selectedRevisionRequiresApproval}
-            canReview={canReview}
-            closeModal={() => setShowChangesModal(false)}
-          />
-        </Modal>
-      )}
-
       {showCompareModal && (
-        <CompareSDKConnectionRevisionsModal
+        <CompareRevisionsModal
+          liveEntity={liveSnapshot as Record<string, unknown>}
+          entityId={connection.id}
+          diffConfig={
+            REVISION_SDK_CONNECTION_DIFF_CONFIG as unknown as RevisionDiffConfig<
+              Record<string, unknown>
+            >
+          }
+          currentRevisionId={selectedRevisionId}
           allRevisions={allRevisions}
           onClose={() => setShowCompareModal(false)}
           requiresApproval={approvalRequired}
@@ -536,7 +494,7 @@ export default function SDKConnectionPage() {
 
       <Flex align="start" justify="between" gap="2" mb="2">
         <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
-          <Heading size="x-large" as="h1" mb="0">
+          <Heading size="xl" as="h1" mb="0">
             {displayedName}
           </Heading>
           {connection.connected ? (
@@ -580,7 +538,11 @@ export default function SDKConnectionPage() {
               {canUpdate && (
                 <DropdownMenuItem
                   onClick={() => {
-                    openEditForm();
+                    // The revision-aware modal, not SDKConnectionForm: that
+                    // form PUTs with no revision params, so under approvals it
+                    // returned 202 without writing while the UI reported
+                    // success and minted an orphan draft per save.
+                    openEditSection("overview");
                     setDropdownOpen(false);
                   }}
                 >
@@ -665,89 +627,43 @@ export default function SDKConnectionPage() {
         </Callout>
       )}
 
-      {showRevisionUI && (
-        <RevisionStatusPanel
-          entityNoun="SDK connection"
-          allRevisions={allRevisions}
-          selectedRevision={selectedRevision}
-          displayRevision={displayRevision}
-          revisionNumber={revisionNumber}
-          metadataReviewRequired={metadataReviewRequired}
-          currentUserId={user?.id}
-          fallbackAuthorId=""
-          fallbackCreatedDate={connection.dateCreated}
-          selectFlow={selectFlow}
-          onSaveTitle={saveRevisionTitle}
-          titleRowExtra={
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<PiGitDiff />}
-              onClick={() => setShowCompareModal(true)}
-              style={{ position: "relative", top: -5 }}
-            >
-              Compare revisions
-            </Button>
-          }
-          actions={
-            <>
-              {isLive && canUpdate && (
-                <Button
-                  onClick={() => setConfirmNewDraft(true)}
-                  size="sm"
-                  variant="soft"
-                >
-                  New Draft
-                </Button>
-              )}
-              {isDiscarded && displayRevision && (
-                <Button
-                  onClick={() => handleReopen(displayRevision.id)}
-                  size="sm"
-                >
-                  Reopen
-                </Button>
-              )}
-              {isDraft &&
-                displayRevision &&
-                displayRevision.authorId === user?.id && (
-                  <Button
-                    onClick={async () => {
-                      await handleDiscard(displayRevision.id);
-                    }}
-                    color="red"
-                    variant="ghost"
-                    size="sm"
-                  >
-                    Discard
-                  </Button>
-                )}
-              {isDraft && (
-                <Button onClick={() => setShowChangesModal(true)} size="sm">
-                  {selectedRevisionRequiresApproval
-                    ? selectedRevision?.status === "draft"
-                      ? "Request Approval to Publish"
-                      : selectedRevision?.status === "pending-review"
-                        ? "View Approval Request"
-                        : "View Changes"
-                    : "Review & Publish"}
-                </Button>
-              )}
-            </>
-          }
-        />
-      )}
-
       <Tabs value={activeTab} onValueChange={setActiveTab} mt="4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
           <TabsTrigger value="implementation">Implementation</TabsTrigger>
+          {showRevisionUI && (
+            <TabsTrigger value="review">Review &amp; Publish</TabsTrigger>
+          )}
         </TabsList>
+        {/* The Review & Publish tab renders its own revision header, so the
+            summary card (and its draft banner) would duplicate it there. */}
+        {showRevisionUI && activeTab !== "review" && (
+          <Box mt="4">
+            <RevisionSummaryCard
+              allRevisions={allRevisions}
+              selectedRevision={selectedRevision}
+              entityNoun="SDK Connection"
+              hasRevisions={allRevisions.length > 0}
+              canEditTitle={canUpdate}
+              canEditDescription={canUpdate}
+              // SDK connections have no owner field, so the card falls back to the
+              // connection's own creation date with no author.
+              fallbackOwnerId=""
+              fallbackDateCreated={new Date(connection.dateCreated)}
+              onSelectRevision={selectFlow}
+              onTitleCommit={saveRevisionTitle}
+              onNewDraft={
+                canUpdate ? () => setConfirmNewDraft(true) : undefined
+              }
+              onReviewPublish={() => setActiveTab("review")}
+            />
+          </Box>
+        )}
         <TabsContent value="overview">
           <Box mt="5">
             <Flex align="center" justify="between" gap="2" mb="3">
-              <Heading size="large" as="h2" mb="0">
+              <Heading size="lg" as="h2" mb="0">
                 Connection Details
               </Heading>
               {canUpdate && (
@@ -757,7 +673,7 @@ export default function SDKConnectionPage() {
             <SDKConnectionCredentialsCard connection={displayedConn} />
           </Box>
           <Box mt="5">
-            <Heading size="large" as="h2" mb="3">
+            <Heading size="lg" as="h2" mb="3">
               Settings
             </Heading>
             <SDKConnectionSettingsCards
@@ -777,6 +693,31 @@ export default function SDKConnectionPage() {
             />
           </Box>
         </TabsContent>
+        {showRevisionUI && (
+          <TabsContent value="review">
+            <Box mt="4">
+              <ReviewAndPublishTab<SDKConnectionRevisionSnapshot>
+                revision={selectedRevision ?? displayRevision ?? null}
+                allRevisions={allRevisions}
+                currentState={liveSnapshot as SDKConnectionRevisionSnapshot}
+                diffConfig={REVISION_SDK_CONNECTION_DIFF_CONFIG}
+                entityName={displayedName}
+                entityNoun="SDK Connection"
+                requiresApproval={selectedRevisionRequiresApproval}
+                canEditEntity={canUpdate}
+                canBypassApproval={canAutoPublish}
+                selectRevision={selectFlow}
+                onPublish={handlePublish}
+                onDiscard={handleDiscard}
+                onReopen={handleReopen}
+                onCompareRevisions={() => setShowCompareModal(true)}
+                mutate={async () => {
+                  await Promise.all([mutateRevisions(), mutate()]);
+                }}
+              />
+            </Box>
+          </TabsContent>
+        )}
         <TabsContent value="implementation">
           <Box mt="4">
             <CodeSnippetModal

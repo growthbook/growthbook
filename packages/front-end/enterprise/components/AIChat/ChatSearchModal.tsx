@@ -50,7 +50,7 @@ function SearchResult({
       }}
       onClick={onSelect}
     >
-      <Text size="small" weight="semibold" color="text-high">
+      <Text size="sm" weight="semibold" color="text-high">
         {highlightMatch(conversation.title || "Untitled", query)}
       </Text>
       {conversation.preview && (
@@ -109,6 +109,7 @@ export default function ChatSearchModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       header="Search chats"
       close={onClose}
@@ -177,10 +178,10 @@ export default function ChatSearchModal({
               py="6"
             >
               <PiMagnifyingGlass size={24} color="var(--violet-a11)" />
-              <Text size="medium" weight="semibold" color="text-high">
+              <Text size="md" weight="semibold" color="text-high">
                 Search your chat history
               </Text>
-              <Text size="small" color="text-low">
+              <Text size="sm" color="text-low">
                 Type to find past conversations
               </Text>
             </Flex>
@@ -192,10 +193,10 @@ export default function ChatSearchModal({
               gap="2"
               py="6"
             >
-              <Text size="medium" weight="semibold" color="text-high">
+              <Text size="md" weight="semibold" color="text-high">
                 No results
               </Text>
-              <Text size="small" color="text-low">
+              <Text size="sm" color="text-low">
                 Try a different search term
               </Text>
             </Flex>
