@@ -70,12 +70,19 @@ export default function VariationServedValue({
       {stacked ? (
         <>
           {label}
-          <Box minWidth="0">{rendered}</Box>
+          <Box width="100%" minWidth="0">
+            {rendered}
+          </Box>
         </>
       ) : (
-        <Flex align="start" gap="1" minWidth="0">
+        // Centred, not start-aligned: a one-line value has no first line to
+        // pin to, and the value fills the row so its copy button — positioned
+        // to the block's right edge — lands at the edge of the card.
+        <Flex align="center" gap="1" minWidth="0">
           {label}
-          <Box minWidth="0">{rendered}</Box>
+          <Box flexGrow="1" minWidth="0">
+            {rendered}
+          </Box>
         </Flex>
       )}
     </Flex>
