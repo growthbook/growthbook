@@ -82,20 +82,24 @@ say which one you picked. Only ask when two or more are genuinely plausible.
 
 ## Page context
 
-When the user message starts with `[Page context: <path>]`:
+`[Page context: <path>]` only ever reaches the site-wide panel — the Product
+Analytics chat does not send one. So it is a handoff-time signal, not something
+to route on:
 
+- `/product-analytics/dashboards/<id>` → the user means that dashboard. A path
+  is not a mention and does not survive the handoff on its own, so read the
+  title (`GET /api/v1/dashboards/<id>`) and pass both across as a
+  `(dashboard: <id>)` entry in `openAnalyticsChat`'s `mentions`, with
+  `mode: "edit"`.
 - `/product-analytics/dashboards` → browsing; no specific dashboard.
-- `/product-analytics/dashboards/<id>` → that dashboard
-  (`GET /api/v1/dashboards/<id>`). "Add a chart to this" means this one — route
-  to `dashboard-edit`.
-- `/product-analytics/explore/...` → the user is mid-exploration; they likely
-  want that chart saved onto a dashboard.
+- `/product-analytics/explore/...` → mid-exploration; they likely want that
+  chart saved onto a dashboard.
 
 Prefer a named entity in the user's message over page context when they conflict.
 
-A `[Active product-analytics datasource: <id>]` line is the datasource the user
-currently has selected. Treat it as the answer to "which datasource" without
-asking.
+`[Active product-analytics datasource: <id>]` runs the other way — only the
+Product Analytics chat receives it. Treat it as the answer to "which datasource"
+without asking.
 
 ## Ask budget
 
@@ -135,9 +139,8 @@ also the answer when the user says "all of them".
   per call, so a six-tile dashboard would spray six loose charts into the chat
   before the dashboard appeared. Hand the configs to `proposeDashboard`; it runs
   them and wires up the results.
-- **Never save the dashboard.** The user commits from the preview. Saving for
-  them takes the choice away, and the preview is where they adjust the sharing,
-  filters, and layout.
+- **Never save the dashboard.** The user commits from the preview, which is also
+  where they adjust the sharing, filters, and layout.
 - **Links:** `/product-analytics/dashboards/<id>`.
 - **Never guess a column value.** Call `getColumnValues` first, for row filters
   and static dimension values alike.

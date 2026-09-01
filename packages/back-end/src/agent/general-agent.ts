@@ -75,7 +75,10 @@ How to use skills:
   ever written by the user pressing the button on that preview. So for either:
   read the \`dashboards\` router, restate the request as a brief, call
   \`openAnalyticsChat\`, and stop. Do not load a leaf, run queries, or write to
-  the dashboards API.
+  the dashboards API. The one read worth making first: when page context is
+  \`/product-analytics/dashboards/<id>\` and the user has not @-mentioned it,
+  \`GET /api/v1/dashboards/<id>\` for the title so you can pass the dashboard
+  across in \`mentions\` — a bare path does not survive the handoff.
 - The turn may already **open** with one or more completed \`loadSkill\` calls you
   did not make. Those are skills the user picked explicitly from the composer's
   slash-command menu, so treat them as their stated intent: follow them rather

@@ -165,6 +165,8 @@ interface Props {
   isEditing: boolean;
   /** Rearrange the grid without edit mode's add/edit/delete. For the AI preview. */
   allowLayoutEditing?: boolean;
+  /** Offer Delete on each block without edit mode. For the AI preview. */
+  allowBlockDeletion?: boolean;
   projects: string[];
   enableAutoUpdates: boolean;
   updateSchedule: DashboardUpdateSchedule | undefined;
@@ -208,6 +210,7 @@ function DashboardEditor({
   globalControlBlocks,
   isEditing,
   allowLayoutEditing,
+  allowBlockDeletion,
   enableAutoUpdates,
   updateSchedule,
   globalControls,
@@ -311,6 +314,7 @@ function DashboardEditor({
         blockIndex={i}
         isEditing={isEditing}
         allowLayoutEditing={allowLayoutEditing}
+        allowBlockDeletion={allowBlockDeletion}
         isFocused={isFocused}
         editingBlock={isEditingBlock}
         canMoveBlock={

@@ -113,6 +113,8 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   isEditing: boolean;
   /** Drag and resize without edit mode — see the same prop on DashboardEditor. */
   allowLayoutEditing?: boolean;
+  /** Offer Delete without edit mode — see the same prop on DashboardEditor. */
+  allowBlockDeletion?: boolean;
   editingBlock: boolean;
   canMoveBlock: boolean;
   disableBlock: "full" | "partial" | "none";
@@ -161,6 +163,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   blockIndex,
   isEditing,
   allowLayoutEditing,
+  allowBlockDeletion,
   isFocused,
   editingBlock,
   canMoveBlock,
@@ -571,7 +574,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </>
         )}
 
-        {isEditing ? (
+        {isEditing || allowBlockDeletion ? (
           <div>
             {!editingBlock && (
               <DropdownMenu
@@ -590,47 +593,55 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                   </IconButton>
                 }
               >
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    editBlock();
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    duplicateBlock();
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Duplicate
-                </DropdownMenuItem>
-                {disableBlock === "none" && addBlockBefore && addBlockAfter && (
+                {/* Delete-only outside edit mode: everything here needs the edit
+                    sidebar, which the AI preview has no room for. */}
+                {isEditing && (
                   <>
-                    <DropdownSubMenu trigger="Add block before">
-                      <DashboardBlockTypeMenuItems
-                        isGeneralDashboard={isGeneralDashboard}
-                        onSelect={(bType) => {
-                          addBlockBefore(bType);
-                          setDropdownOpen(false);
-                        }}
-                      />
-                    </DropdownSubMenu>
-                    <DropdownSubMenu trigger="Add block after">
-                      <DashboardBlockTypeMenuItems
-                        isGeneralDashboard={isGeneralDashboard}
-                        onSelect={(bType) => {
-                          addBlockAfter(bType);
-                          setDropdownOpen(false);
-                        }}
-                      />
-                    </DropdownSubMenu>
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        editBlock();
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        duplicateBlock();
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Duplicate
+                    </DropdownMenuItem>
+                    {disableBlock === "none" &&
+                      addBlockBefore &&
+                      addBlockAfter && (
+                        <>
+                          <DropdownSubMenu trigger="Add block before">
+                            <DashboardBlockTypeMenuItems
+                              isGeneralDashboard={isGeneralDashboard}
+                              onSelect={(bType) => {
+                                addBlockBefore(bType);
+                                setDropdownOpen(false);
+                              }}
+                            />
+                          </DropdownSubMenu>
+                          <DropdownSubMenu trigger="Add block after">
+                            <DashboardBlockTypeMenuItems
+                              isGeneralDashboard={isGeneralDashboard}
+                              onSelect={(bType) => {
+                                addBlockAfter(bType);
+                                setDropdownOpen(false);
+                              }}
+                            />
+                          </DropdownSubMenu>
+                        </>
+                      )}
+                    <DropdownMenuSeparator />
                   </>
                 )}
-                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();

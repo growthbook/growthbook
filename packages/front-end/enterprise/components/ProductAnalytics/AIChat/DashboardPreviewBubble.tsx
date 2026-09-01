@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import clsx from "clsx";
 import {
   blockUsesDashboardDateControl,
   DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
@@ -51,6 +52,13 @@ export function dashboardDraftFromToolResult(result: unknown): {
   };
 }
 
+/** A kept tile is still on the dashboard, just showing what it showed before. */
+function describeDroppedBlock({ title, reason, kept }: DroppedDashboardBlock) {
+  return kept
+    ? `"${title}" still shows its previous result — ${reason}.`
+    : `"${title}" was left off — ${reason}.`;
+}
+
 interface Props {
   draft: DashboardDraft;
   droppedBlocks?: DroppedDashboardBlock[];
@@ -61,6 +69,8 @@ interface Props {
   toolTransparency?: React.ReactNode;
   /** Re-opened conversation: the stored analysis ids may have aged out, so re-query once. */
   refreshOnMount?: boolean;
+  /** A newer proposal has replaced this one. */
+  superseded?: boolean;
 }
 
 export default function DashboardPreviewBubble({
@@ -70,6 +80,7 @@ export default function DashboardPreviewBubble({
   onSaved,
   toolTransparency,
   refreshOnMount = false,
+  superseded = false,
 }: Props) {
   const { apiCall } = useAuth();
   const { userId, hasCommercialFeature } = useUser();
@@ -101,6 +112,9 @@ export default function DashboardPreviewBubble({
   // The dashboard this tile writes to: the one the agent is revising, or the
   // one a previous save created. Bound means update — never create a second.
   const boundDashboardId = savedId ?? draft.dashboardId ?? null;
+
+  // Committed or replaced: either way the next write starts from a fresh read.
+  const readOnly = superseded || savedId !== null;
 
   // The agent's answer wins; the app's selection only stands in when it had
   // none. An explicit `[]` means "every project", not "unset".
@@ -196,7 +210,7 @@ export default function DashboardPreviewBubble({
   // changes identity the moment it succeeds, which without the guard loops.
   const didRefreshOnMount = useRef(false);
   useEffect(() => {
-    if (!refreshOnMount || didRefreshOnMount.current) return;
+    if (!refreshOnMount || readOnly || didRefreshOnMount.current) return;
     didRefreshOnMount.current = true;
     void refreshBlocks(globalControls, comparison, "preferred").catch(() => {
       // The tiles keep rendering whatever their stored analysis ids still
@@ -207,7 +221,7 @@ export default function DashboardPreviewBubble({
           "or nothing at all. Change a filter and click Update to try again.",
       );
     });
-  }, [refreshOnMount, refreshBlocks, globalControls, comparison]);
+  }, [refreshOnMount, readOnly, refreshBlocks, globalControls, comparison]);
 
   const save = useCallback(async () => {
     setSaving(true);
@@ -283,6 +297,7 @@ export default function DashboardPreviewBubble({
             </Flex>
           )}
           {boundDashboardId ? (
+            // Outlives the write controls — it is the way to what was just saved.
             <LinkButton
               href={`/product-analytics/dashboards/${boundDashboardId}`}
               variant="ghost"
@@ -291,7 +306,7 @@ export default function DashboardPreviewBubble({
             >
               Open dashboard
             </LinkButton>
-          ) : (
+          ) : readOnly ? null : (
             // Only on the create path: an existing dashboard keeps the access
             // it already has, changed from the dashboard's own share settings.
             <Select
@@ -312,14 +327,18 @@ export default function DashboardPreviewBubble({
             size="sm"
             loading={saving}
             onClick={save}
-            disabled={!title.trim()}
+            disabled={readOnly || !title.trim()}
           >
-            {boundDashboardId ? "Update dashboard" : "Save dashboard"}
+            {readOnly
+              ? "Expired"
+              : boundDashboardId
+                ? "Update dashboard"
+                : "Save dashboard"}
           </Button>
         </Flex>
       </Flex>
 
-      {!boundDashboardId && !hasSharing && (
+      {!boundDashboardId && !readOnly && !hasSharing && (
         <Box mb="3">
           <Callout status="warning" size="sm">
             Your organization&apos;s plan does not support sharing dashboards,
@@ -332,21 +351,29 @@ export default function DashboardPreviewBubble({
         <Box mb="3">
           <Callout status="warning" size="sm">
             {droppedBlocks.length === 1 ? (
-              `"${droppedBlocks[0].title}" was left off — ${droppedBlocks[0].reason}.`
+              describeDroppedBlock(droppedBlocks[0])
             ) : (
               // Per-tile reasons: three tiles lost to three different causes
               // read as one vague failure without them.
               <>
-                {droppedBlocks.length} tiles were left off:
+                {droppedBlocks.length} tiles did not update:
                 <ul className={styles.droppedList}>
                   {droppedBlocks.map((block) => (
-                    <li key={block.title}>
-                      {`"${block.title}" — ${block.reason}.`}
-                    </li>
+                    <li key={block.title}>{describeDroppedBlock(block)}</li>
                   ))}
                 </ul>
               </>
             )}
+          </Callout>
+        </Box>
+      )}
+
+      {readOnly && (
+        <Box mb="3">
+          <Callout status="info" size="sm">
+            {savedId
+              ? "Ask for another change to get a fresh preview of the saved dashboard."
+              : "A newer version of this dashboard is further down the conversation."}
           </Callout>
         </Box>
       )}
@@ -367,81 +394,93 @@ export default function DashboardPreviewBubble({
         </Box>
       )}
 
-      <DashboardSnapshotProvider
-        dashboard={previewDashboard}
-        mutateDefinitions={mutateDefinitions}
-      >
-        <DashboardEditor
-          isTabActive
-          id={previewDashboard.id}
-          title={title}
-          blocks={blocks}
-          // Read-only contents, arrangeable layout: the user drags tiles here
-          // and changes what's on them by asking the agent.
-          isEditing={false}
-          allowLayoutEditing
-          setBlock={undefined}
-          projects={previewDashboard.projects ?? []}
-          enableAutoUpdates={false}
-          updateSchedule={undefined}
-          globalControls={globalControls}
-          dashboardComparison={comparison}
-          onDashboardComparisonChange={async (next) => {
-            // `{ enabled: false }` rather than undefined so "off" is explicit
-            // and survives the save body.
-            setComparison(next ?? { enabled: false });
-          }}
-          onGlobalControlsChange={async (next) => {
-            // Store only — the controls bar decides whether to re-query now or
-            // mark tiles stale, so refreshing here too runs every query twice.
-            setGlobalControls(next ?? DEFAULT_DASHBOARD_GLOBAL_CONTROLS);
-          }}
-          updateTemporaryDashboardResults={async (controls) =>
-            refreshBlocks(controls ?? globalControls, comparison)
-          }
-          ownerId={previewDashboard.userId}
-          dashboardOwnerId={previewDashboard.userId}
-          initialEditLevel="published"
-          initialShareLevel={shareLevel}
-          nextUpdate={undefined}
-          isGeneralDashboard
-          mutate={() => {}}
-          editBlockProps={{
-            scrollAreaRef: null,
-            editSidebarDirty: false,
-            focusedBlockIndex: undefined,
-            stagedBlockIndex: undefined,
-            isAddingBlock: false,
-            addBlockType: () => {},
-            editBlock: () => {},
-            duplicateBlock: () => {},
-            deleteBlock: () => {},
-            updateLayout: (layout) => {
-              setBlocks((prev) =>
-                prev.map((block, i) => {
-                  // Match on the same key the grid renders with. A proposed
-                  // block has no id yet, so this is a synthetic per-index key —
-                  // guessing at `block.id` here would silently drop every drag.
-                  const next = layout.find(
-                    (l) => l.i === getGridKeyForBlock(block, i),
-                  );
-                  return next
-                    ? {
-                        ...block,
-                        layout: {
-                          x: next.x,
-                          y: next.y,
-                          w: next.w,
-                          h: next.h,
-                        },
-                      }
-                    : block;
-                }),
-              );
-            },
-          }}
-        />
-      </DashboardSnapshotProvider>
+      <div className={clsx({ "dashboard-disabled": readOnly })}>
+        <DashboardSnapshotProvider
+          dashboard={previewDashboard}
+          mutateDefinitions={mutateDefinitions}
+        >
+          <DashboardEditor
+            isTabActive
+            id={previewDashboard.id}
+            title={title}
+            blocks={blocks}
+            // Read-only contents, arrangeable layout: the user drags tiles here
+            // and changes what's on them by asking the agent.
+            isEditing={false}
+            allowLayoutEditing={!readOnly}
+            // Never the last one — an empty dashboard is not worth saving.
+            allowBlockDeletion={!readOnly && blocks.length > 1}
+            setBlock={undefined}
+            projects={previewDashboard.projects ?? []}
+            enableAutoUpdates={false}
+            updateSchedule={undefined}
+            globalControls={globalControls}
+            dashboardComparison={comparison}
+            // `{ enabled: false }` rather than undefined so "off" survives the save body.
+            onDashboardComparisonChange={
+              readOnly
+                ? undefined
+                : async (next) => setComparison(next ?? { enabled: false })
+            }
+            // Store only — the controls bar decides when to re-query.
+            onGlobalControlsChange={
+              readOnly
+                ? undefined
+                : async (next) =>
+                    setGlobalControls(next ?? DEFAULT_DASHBOARD_GLOBAL_CONTROLS)
+            }
+            updateTemporaryDashboardResults={
+              readOnly
+                ? undefined
+                : async (controls) =>
+                    refreshBlocks(controls ?? globalControls, comparison)
+            }
+            ownerId={previewDashboard.userId}
+            dashboardOwnerId={previewDashboard.userId}
+            initialEditLevel="published"
+            initialShareLevel={shareLevel}
+            nextUpdate={undefined}
+            isGeneralDashboard
+            mutate={() => {}}
+            editBlockProps={{
+              scrollAreaRef: null,
+              editSidebarDirty: false,
+              focusedBlockIndex: undefined,
+              stagedBlockIndex: undefined,
+              isAddingBlock: false,
+              addBlockType: () => {},
+              editBlock: () => {},
+              duplicateBlock: () => {},
+              // Local only; the deletion sticks once saved and read back next turn.
+              deleteBlock: (index) =>
+                setBlocks((prev) => prev.filter((_, i) => i !== index)),
+              updateLayout: (layout) => {
+                setBlocks((prev) =>
+                  prev.map((block, i) => {
+                    // Match on the same key the grid renders with. A proposed
+                    // block has no id yet, so this is a synthetic per-index key —
+                    // guessing at `block.id` here would silently drop every drag.
+                    const next = layout.find(
+                      (l) => l.i === getGridKeyForBlock(block, i),
+                    );
+                    return next
+                      ? {
+                          ...block,
+                          layout: {
+                            x: next.x,
+                            y: next.y,
+                            w: next.w,
+                            h: next.h,
+                          },
+                        }
+                      : block;
+                  }),
+                );
+              },
+            }}
+          />
+        </DashboardSnapshotProvider>
+      </div>
 
       {toolTransparency ? (
         <Box mt="2" pt="2" style={{ borderTop: "1px solid var(--gray-a5)" }}>

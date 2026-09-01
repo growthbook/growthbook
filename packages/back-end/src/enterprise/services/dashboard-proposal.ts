@@ -1,7 +1,11 @@
 import {
   BlockComparison,
+  BlockLayout,
+  BlockToPack,
   buildComparisonExplorationConfig,
-  CreateDashboardBlockInterface,
+  DashboardBlockInterface,
+  DashboardBlockInterfaceOrData,
+  DashboardInterface,
   DashboardBlockSizeHint,
   DashboardDraftOf,
   DroppedDashboardBlock,
@@ -19,15 +23,25 @@ import { logger } from "back-end/src/util/logger";
 // Runs each proposed chart for its analysis id, then packs the grid — the agent
 // threading N ids back is the step most likely to go wrong.
 
-/** What the tool result carries: blocks the dashboards API can be handed. */
-export type DashboardDraft = DashboardDraftOf<CreateDashboardBlockInterface>;
+/** Ids optional: a loaded dashboard keeps the ones it has, a new block gets them on save. */
+type DraftBlock = DashboardBlockInterfaceOrData<DashboardBlockInterface>;
 
-/** The same shape the model proposed, before the server ran anything. */
-export type BuildDashboardDraftInput = DashboardDraftOf<ProposeDashboardBlock>;
+export type DashboardDraft = DashboardDraftOf<DraftBlock>;
+
+type DashboardDraftMeta = Omit<DashboardDraftOf<unknown>, "blocks" | "title">;
+
+/** Blocks to propose, or a `dashboardId` to load as-is. */
+export type BuildDashboardDraftInput = DashboardDraftMeta &
+  (
+    | { title: string; blocks: ProposeDashboardBlock[] }
+    | { dashboardId: string; title?: string; blocks?: undefined }
+  );
 
 export interface BuildDashboardDraftResult {
   draft: DashboardDraft;
   droppedBlocks: DroppedDashboardBlock[];
+  /** Set when no draft could be built at all; the tool reports it verbatim. */
+  error?: string;
 }
 
 /** Narrowed to what `getEffectiveExplorationConfig` reads; a proposal has no ids. */
@@ -83,22 +97,149 @@ async function runBlockExplorations(
   }
 }
 
+const noDraft = (error: string): BuildDashboardDraftResult => ({
+  draft: { title: "", blocks: [] },
+  droppedBlocks: [],
+  error,
+});
+
+/** Blocks verbatim — ids, layout, analysis ids — so nothing re-packs and nothing re-queries. */
+async function loadSavedDashboardDraft(
+  context: ReqContext,
+  dashboardId: string,
+  overrides: DashboardDraftMeta & { title?: string },
+): Promise<BuildDashboardDraftResult> {
+  const dashboard = await context.models.dashboards.getById(dashboardId);
+  if (!dashboard) {
+    return noDraft(
+      `No dashboard with id "${dashboardId}" — check the id, or list dashboards to find it.`,
+    );
+  }
+  if (dashboard.experimentId) {
+    return noDraft(
+      `"${dashboard.title}" belongs to an experiment, and experiment dashboards are edited on the experiment's own page.`,
+    );
+  }
+  if (!dashboard.blocks.length) {
+    return noDraft(
+      `"${dashboard.title}" has no blocks yet, so there is nothing to show. Propose the blocks it should have instead.`,
+    );
+  }
+
+  const globalControls = overrides.globalControls ?? dashboard.globalControls;
+  const comparison = overrides.comparison ?? dashboard.comparison;
+  return {
+    draft: {
+      dashboardId: dashboard.id,
+      title: overrides.title ?? dashboard.title,
+      // Always set: `[]` is "every project", not "fall back to the client default".
+      projects: overrides.projects ?? dashboard.projects ?? [],
+      ...(globalControls ? { globalControls } : {}),
+      ...(comparison ? { comparison } : {}),
+      blocks: dashboard.blocks,
+    },
+    droppedBlocks: [],
+  };
+}
+
+/** Null for missing, unreadable, or unresolvable — the caller refuses either way. */
+async function readRevisionBase(
+  context: ReqContext,
+  dashboardId: string,
+): Promise<DashboardInterface | null> {
+  try {
+    return await context.models.dashboards.getById(dashboardId);
+  } catch (err) {
+    logger.warn(
+      { err, dashboardId },
+      "dashboard proposal: could not read the dashboard being revised",
+    );
+    return null;
+  }
+}
+
+/** Pairs on type+title, the only stable key the model can send. Single-use per saved block. */
+function createSavedBlockMatcher(saved: DashboardBlockInterface[]) {
+  const unclaimed = [...saved];
+  return (proposed: { type: string; title: string }) => {
+    const i = unclaimed.findIndex(
+      (b) => b.type === proposed.type && b.title === proposed.title,
+    );
+    return i === -1 ? undefined : unclaimed.splice(i, 1)[0];
+  };
+}
+
+/** Carried blocks keep their coordinates; new ones pack below, so nothing overlaps. */
+function packAroundCarriedLayout(
+  entries: BlockToPack<DraftBlock>[],
+): (DraftBlock & { layout: BlockLayout })[] {
+  const bottoms = entries.map(({ block: { layout } }) =>
+    layout ? layout.y + layout.h : null,
+  );
+  const carried = bottoms.filter((b): b is number => b !== null);
+  if (!carried.length) return packDashboardBlocks(entries);
+
+  const nextY = Math.max(...carried);
+  const fresh = bottoms.flatMap((b, i) => (b === null ? [i] : []));
+  const out = entries.map(
+    (e) => e.block as DraftBlock & { layout: BlockLayout },
+  );
+  packDashboardBlocks(fresh.map((i) => entries[i])).forEach((block, j) => {
+    out[fresh[j]] = {
+      ...block,
+      layout: { ...block.layout, y: block.layout.y + nextY },
+    };
+  });
+  return out;
+}
+
 export async function buildDashboardDraft(
   context: ReqContext,
   input: BuildDashboardDraftInput,
 ): Promise<BuildDashboardDraftResult> {
+  if (!input.blocks) {
+    return loadSavedDashboardDraft(context, input.dashboardId, input);
+  }
+
   const droppedBlocks: BuildDashboardDraftResult["droppedBlocks"] = [];
+
+  // The stored blocks are the only record of the layout; the model cannot send one.
+  // An id that resolves to nothing must not reach the draft: it binds the preview
+  // to a dashboard that isn't there, so Save becomes Update against a 404.
+  let saved: DashboardInterface | null = null;
+  if (input.dashboardId) {
+    saved = await readRevisionBase(context, input.dashboardId);
+    if (!saved) {
+      return noDraft(
+        `No dashboard with id "${input.dashboardId}". Omit dashboardId to propose a new one, or list dashboards to find the right id.`,
+      );
+    }
+  }
+  const matchSaved = createSavedBlockMatcher(saved?.blocks ?? []);
+  const revised = input.blocks.map(matchSaved);
+
+  // Identity travels with the layout, or every edit churns the block's `uid`.
+  const carriedFrom = (previous: DashboardBlockInterface | undefined) =>
+    previous
+      ? {
+          id: previous.id,
+          uid: previous.uid,
+          organization: previous.organization,
+          ...(previous.layout ? { layout: previous.layout } : {}),
+        }
+      : {};
 
   // Independent, so run them together rather than paying N round-trips.
   const built = await Promise.all(
-    input.blocks.map(async (proposed) => {
+    input.blocks.map(async (proposed, index) => {
       const { sizeHint, ...block } = proposed as ProposeDashboardBlock & {
         sizeHint?: DashboardBlockSizeHint;
       };
+      const carried = carriedFrom(revised[index]);
 
       if (!proposedBlockNeedsExploration(proposed)) {
         return {
-          block: block as CreateDashboardBlockInterface,
+          block: { ...block, ...carried } as DraftBlock,
           sizeHint,
         };
       }
@@ -129,6 +270,18 @@ export async function buildDashboardDraft(
         }) ?? undefined,
       );
       if (!ran) {
+        const previous = revised[index];
+        // Dropping a tile that already exists would PUT a block list without it,
+        // deleting it for good. Keep the saved one, stale result and all.
+        if (previous) {
+          droppedBlocks.push({
+            title: proposed.title,
+            type: proposed.type,
+            reason: "the query could not be re-run",
+            kept: true,
+          });
+          return { block: previous as DraftBlock, sizeHint };
+        }
         droppedBlocks.push({
           title: proposed.title,
           type: proposed.type,
@@ -138,13 +291,13 @@ export async function buildDashboardDraft(
       }
 
       return {
-        block: { ...enrolled, ...ran } as CreateDashboardBlockInterface,
+        block: { ...enrolled, ...ran, ...carried } as DraftBlock,
         sizeHint,
       };
     }),
   );
 
-  const packed = packDashboardBlocks(
+  const packed = packAroundCarriedLayout(
     built.filter((b): b is NonNullable<typeof b> => b !== null),
   );
 

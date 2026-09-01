@@ -28,7 +28,10 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { buildDashboardDraft } from "back-end/src/enterprise/services/dashboard-proposal";
+import {
+  buildDashboardDraft,
+  type BuildDashboardDraftInput,
+} from "back-end/src/enterprise/services/dashboard-proposal";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import {
@@ -965,14 +968,18 @@ const proposeDashboardInputSchema = z.object({
     .string()
     .min(1)
     .max(200)
+    .optional()
     .describe(
-      "The dashboard's name, as the user gave it. Ask for it before calling this if they haven't said.",
+      "The dashboard's name, as the user gave it. Ask for it before calling this if they haven't said. " +
+        "Omit only when loading a saved dashboard, which brings its own.",
     ),
   dashboardId: z
     .string()
     .optional()
     .describe(
-      "Only when revising a dashboard that already exists. Omit for a new one.",
+      "Only when revising a dashboard that is already saved. Omit for a new one — " +
+        "a dashboard you proposed but the user has not saved yet does not have an " +
+        "id, so revising it means calling again with no dashboardId.",
     ),
   projects: z
     .string()
@@ -1000,8 +1007,10 @@ const proposeDashboardInputSchema = z.object({
     .array()
     .min(1)
     .max(20)
+    .optional()
     .describe(
-      "The blocks, in reading order. Chart blocks carry only their `config` — the server runs each query and wires up the result, so do not run the charts yourself first.",
+      "The blocks, in reading order. Chart blocks carry only their `config` — the server runs each query and wires up the result, so do not run the charts yourself first. " +
+        "Omit entirely, with `dashboardId` set, to load a saved dashboard as-is.",
     ),
 });
 
@@ -1010,8 +1019,11 @@ const PROPOSE_DASHBOARD_DESCRIPTION =
   "a Save button. This is the ONLY way to build or revise a dashboard — do not " +
   "run the charts with runExploration first, and do not POST to the dashboards " +
   "API. The server runs every query, arranges the grid, and renders the result. " +
-  "The user can adjust the layout, filters, name, and sharing in the preview, " +
-  "then save. After calling this, stop and let them look at it.";
+  "The user can rearrange, resize, and delete tiles in the preview, then save. " +
+  "To put a dashboard that already exists in front of them unchanged, pass only " +
+  "`dashboardId` and no `blocks`: the server loads it exactly as saved, keeping " +
+  "its layout, and runs nothing. Do that before any edit you were asked to make " +
+  "blind. After calling this, stop and let them look at it.";
 
 const GET_SNAPSHOT_DESCRIPTION =
   "Retrieve configuration and result CSV for a snapshot by snapshotId from conversation history. " +
@@ -1145,16 +1157,43 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
         description: PROPOSE_DASHBOARD_DESCRIPTION,
         inputSchema: proposeDashboardInputSchema,
         execute: async (input) => {
-          const { draft, droppedBlocks } = await buildDashboardDraft(
-            ctx,
-            input,
-          );
-          if (!draft.blocks.length) {
+          const { blocks, dashboardId, title, ...rest } = input;
+          const meta = { ...rest, ...(dashboardId ? { dashboardId } : {}) };
+
+          // Checked here, not in the schema, so a wrong call gets a usable sentence.
+          let draftInput: BuildDashboardDraftInput;
+          if (blocks) {
+            if (!title) {
+              return {
+                status: "error" as const,
+                message:
+                  "`title` is required when proposing blocks. Ask the user what to " +
+                  "call the dashboard, then call again.",
+              };
+            }
+            draftInput = { ...meta, title, blocks };
+          } else if (dashboardId) {
+            draftInput = { ...meta, dashboardId, title };
+          } else {
             return {
               status: "error" as const,
               message:
+                "Pass `blocks` to propose a dashboard, or `dashboardId` on its own to " +
+                "load one that already exists.",
+            };
+          }
+
+          const { draft, droppedBlocks, error } = await buildDashboardDraft(
+            ctx,
+            draftInput,
+          );
+          if (error || !draft.blocks.length) {
+            return {
+              status: "error" as const,
+              message:
+                error ??
                 "None of the proposed blocks could be built. Check the metric ids and " +
-                "date range, then try again — do not present this as a finished dashboard.",
+                  "date range, then try again — do not present this as a finished dashboard.",
               droppedBlocks,
             };
           }

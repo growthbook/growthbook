@@ -193,6 +193,8 @@ export const droppedDashboardBlockValidator = z.object({
   title: z.string(),
   type: z.string(),
   reason: z.string(),
+  /** Kept at its previous result instead of being left off — an edit, not a build. */
+  kept: z.boolean().optional(),
 });
 
 export const dashboardDraftValidator = z.object({

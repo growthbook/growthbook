@@ -164,6 +164,8 @@ The `dashboards` skill carries the shared rules. On top of those:
 
 - **One `proposeDashboard` call per turn**, with the complete block list. To
   revise, call it again with the full revised list — it replaces the proposal.
+  Still no `dashboardId`: nothing exists until the user saves, and sending one
+  binds the preview to a dashboard that isn't there.
 - **Stop at one question** beyond the name-and-project one. Then build, and
   state your assumptions.
 - If the tool reports `droppedBlocks`, say which tiles are missing and why — do

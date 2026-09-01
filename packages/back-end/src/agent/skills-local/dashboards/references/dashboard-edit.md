@@ -1,14 +1,13 @@
 ---
 name: dashboard-edit
-description: Change an Analytics dashboard — add or remove a chart, swap a metric, change the timeframe, rename it. Use when the user asks to "add a chart to this dashboard", "remove that block", "change the dashboard to last 90 days", "rename this dashboard", @-mentions a dashboard by name, or refers to "this dashboard" on a /product-analytics/dashboards/* page. For building one from scratch, use dashboard-create.
+description: Load, change, or tidy an Analytics dashboard that already exists — pull one up to look at, add or remove a chart, swap a metric, change the timeframe, rename it. Use when the user asks to "load my X dashboard", "pull up this dashboard", "add a chart to this dashboard", "remove that block", "change the dashboard to last 90 days", "rename this dashboard", or @-mentions a dashboard by name. For building one from scratch, use dashboard-create.
 ---
 
 # dashboard-edit
 
 Read the dashboard, apply the change, and re-propose the whole thing. The user
-gets a fresh preview with an Update button, exactly as when it was created — and
-nothing reaches the real dashboard until they press it, so a revision they don't
-like is theirs to ignore.
+gets a fresh preview with an Update button; nothing reaches the real dashboard
+until they press it.
 
 Editing goes through you, not the preview: the user can move tiles and change
 filters there, but adding, removing, or reconfiguring a chart is a prompt.
@@ -19,11 +18,14 @@ If you have no `proposeDashboard` tool you are on the site-wide panel, and none
 of this applies — hand off with `openAnalyticsChat` as the `dashboards` router
 says, and stop.
 
+Note the split: **loading** a dashboard is one call and costs nothing, while
+**changing** one re-runs every chart on it. Prefer loading when that is all they
+asked for.
+
 1. **Resolve the dashboard.** In order of authority:
    - An `@`-mention. A `[Referenced by the user: Growth KPIs (dashboard: dash_abc)]`
      line is the user pointing at exactly the dashboard they mean — take that id
      and skip the rest of this step. Do not list or search to second-guess it.
-   - Page context, `/product-analytics/dashboards/<id>`.
    - Otherwise, list them:
 
      ```json
@@ -33,24 +35,41 @@ says, and stop.
      If several match what the user described, `askUser` with one option per
      dashboard.
 
-   Then read it:
+2. **Show it to them first, if they only asked to see it.** "Load my Growth KPIs
+   dashboard", "pull up this dashboard", "let me tidy this up" — one call, no
+   block list:
+
+   ```json
+   { "dashboardId": "dash_abc123" }
+   ```
+
+   The server loads it exactly as saved: same layout, same results, no queries
+   re-run. From there the user can drag, resize, and delete tiles themselves and
+   press Update. Stop after this — do not follow it with an edit they did not
+   ask for.
+
+3. **Read it, when you do have a change to make.**
 
    ```json
    { "method": "GET", "path": "/api/v1/dashboards/<id>" }
    ```
 
-2. **Work out the new block list.** Start from the blocks you just read and apply
-   the change — add, remove, reorder, or edit one. Keep the blocks you are not
-   touching exactly as they are.
+   Start from the blocks you just read and apply the change — add, remove,
+   reorder, or edit one. Keep the blocks you are not touching exactly as they
+   are.
 
    Translating a saved block back into a proposal is mechanical: keep `type`,
    `title`, `description`, and (for chart blocks) `config`; drop
    `explorerAnalysisId`, `layout`, `id`, `uid`, `organization`, `snapshotId`, and
-   `globalControlSettings`. Add a `sizeHint` that matches the width the block
-   currently has — `small` for roughly a third, `medium` for about half, `full`
-   otherwise — so the layout survives the round trip.
+   `globalControlSettings`. The server pairs each proposed block with the saved
+   one of the same `type` and `title` and gives it back its position and its
+   identity, so **keep titles identical for blocks you are not moving** — a
+   retitled block reads as a new one and drops to the bottom of the grid.
 
-3. **Re-propose**, once, passing `dashboardId` so saving updates the existing
+   `sizeHint` therefore only matters for blocks you are **adding**; on a block
+   carried through it is ignored in favour of the size the user gave it.
+
+4. **Re-propose**, once, passing `dashboardId` so saving updates the existing
    dashboard instead of creating a second one:
 
    ```json
@@ -69,7 +88,7 @@ says, and stop.
    as well, so the preview shows where it actually lives; do **not** ask about
    the project on an edit, since the dashboard already has one.
 
-4. **Stop.** One sentence naming what changed. Do not save it yourself.
+5. **Stop.** One sentence naming what changed. Do not save it yourself.
 
 If you need the block shapes, the config schema, or the layout rules,
 `loadSkill('dashboards/references/dashboard-create')` and read its `<blocks>`, `<config_schema>`, and
@@ -84,8 +103,7 @@ If you need the block shapes, the config schema, or the layout rules,
 - **Carry `title`, `projects`, and `globalControls` through** unless the user
   changed them.
 - **Never write the dashboard yourself.** The preview's Update button is the only
-  thing that writes one, and the user presses it — so a revision they don't want
-  costs them nothing.
+  thing that writes one, and the user presses it.
 - **Confirm before removing a block.** Say which tile is going.
 
 ## Endpoints and tools used

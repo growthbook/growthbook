@@ -47,6 +47,38 @@ export const TOOL_STATUS_LABELS: Record<string, string> = {
   proposeDashboard: "Building dashboard...",
 };
 
+/** The one preview still writable; saving from an earlier one pushes stale blocks. */
+function latestProposeToolCallId(
+  messages: AIChatMessage[],
+  activeTurnItems: ActiveTurnItem[],
+): string | undefined {
+  for (let i = activeTurnItems.length - 1; i >= 0; i--) {
+    const item = activeTurnItems[i];
+    if (
+      item.kind === "tool-status" &&
+      item.status === "done" &&
+      item.toolResultData &&
+      dashboardDraftFromToolResult(item.toolResultData)
+    ) {
+      return item.toolCallId;
+    }
+  }
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== "tool") continue;
+    for (let j = msg.content.length - 1; j >= 0; j--) {
+      const part = msg.content[j];
+      if (
+        part.toolName === "proposeDashboard" &&
+        dashboardDraftFromToolResult(part.result)
+      ) {
+        return part.toolCallId;
+      }
+    }
+  }
+  return undefined;
+}
+
 function groupIntoBlocks(
   msgs: AIChatMessage[],
 ): { type: "user" | "assistant"; msgs: AIChatMessage[] }[] {
@@ -165,6 +197,10 @@ export default function ChatMessageList({
 }: ChatMessageListProps) {
   const hasAnyContent = messages.length > 0 || activeTurnItems.length > 0;
   const messageBlocks = groupIntoBlocks(messages);
+  const livePreviewToolCallId = latestProposeToolCallId(
+    messages,
+    activeTurnItems,
+  );
   const lastBlockIsAssistant =
     messageBlocks.length > 0 &&
     messageBlocks[messageBlocks.length - 1].type === "assistant";
@@ -296,6 +332,7 @@ export default function ChatMessageList({
       savedDashboardId={savedDashboardMap[toolCallId]}
       onSaved={(id) => onDashboardSaved(toolCallId, id)}
       refreshOnMount={refreshOnMount}
+      superseded={toolCallId !== livePreviewToolCallId}
       toolTransparency={
         <ToolUsageDetails
           embedded
