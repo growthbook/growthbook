@@ -50,6 +50,7 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import SplitButton from "@/ui/SplitButton";
 import Button from "@/ui/Button";
 import { getEnvironmentStates } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import { revisionLabelText } from "@/components/Reviews/RevisionLabel";
 import styles from "./TrafficAllocationFunnel.module.scss";
 
 export interface Props {
@@ -83,14 +84,12 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 function FunnelCard({
   title,
-  titleColor = "text-high",
   inlineSummary,
   onEdit,
   children,
   disabled = false,
 }: {
   title: string;
-  titleColor?: "text-disabled" | "text-high";
   inlineSummary?: ReactNode;
   onEdit?: (() => void) | null;
   children?: ReactNode;
@@ -107,7 +106,7 @@ function FunnelCard({
     >
       <Flex justify="between" align="center" gap="3">
         <Flex align="baseline" gap="2" wrap="wrap">
-          <Text size="lg" weight="medium" color={titleColor}>
+          <Text size="lg" weight="medium" color="text-high">
             {title}
           </Text>
           {inlineSummary ? (
@@ -259,9 +258,10 @@ export default function TrafficAllocationFunnel({
       ? servedValueFeature.feature
       : null;
   // Staging the change is edit-class; the server re-checks it.
+  // Not gated on `safeToEdit`: that guards traffic biasing, and re-scoping the
+  // rule's environments stages to a draft without re-bucketing anyone.
   const canEditEnvironments =
     !!servedValueFeature &&
-    safeToEdit &&
     canEditExperiment &&
     permissionsUtil.canEditFeatureDrafts(servedValueFeature.feature);
   const canEject =
@@ -307,6 +307,21 @@ export default function TrafficAllocationFunnel({
     : liveRule && { environmentStates: liveRule.liveEnvironmentStates };
   const environmentsAreDraft =
     preferDraft && !!servedValueFeature?.pendingDraft;
+
+  // Which draft a readout is describing. A managed flag has exactly one by
+  // construction, so naming it there is noise; a shared flag may have several,
+  // and the count says how many this readout is NOT showing.
+  const draftDetail = (() => {
+    const draft = servedValueFeature?.pendingDraft;
+    if (!draft || managedFeature) return { name: undefined, note: undefined };
+    const others = draft.otherDraftCount ?? 0;
+    return {
+      name: revisionLabelText(draft.version, draft.title),
+      note: others
+        ? `${others} other unpublished draft${others > 1 ? "s" : ""} affect this value`
+        : undefined,
+    };
+  })();
   const environmentStates = getEnvironmentStates(
     envStateSource || { environmentStates: {} },
     {
@@ -466,7 +481,6 @@ export default function TrafficAllocationFunnel({
 
           <FunnelCard
             title="Targeting"
-            titleColor={targetsEveryone ? "text-disabled" : undefined}
             onEdit={editTargeting}
             inlineSummary={
               targetsEveryone ? (
@@ -518,7 +532,14 @@ export default function TrafficAllocationFunnel({
                   />
                   <Flex align="center" gap="1" mb="2">
                     {environmentsAreDraft && (
-                      <UnpublishedDot tooltip="Unpublished draft targeting" />
+                      <UnpublishedDot
+                        tooltip={
+                          draftDetail.name
+                            ? `Unpublished targeting in ${draftDetail.name}`
+                            : "Unpublished draft targeting"
+                        }
+                        note={draftDetail.note}
+                      />
                     )}
                     <Text as="div" color="text-high" weight="semibold">
                       Environments
@@ -648,6 +669,8 @@ export default function TrafficAllocationFunnel({
               }
               servedValueSparse={servedValueSource?.sparse}
               servedValueIsDraft={preferDraft}
+              servedValueDraftName={draftDetail.name}
+              servedValueDraftNote={draftDetail.note}
             />
             {namedFeature && (
               <Box mt="5">

@@ -72,6 +72,9 @@ export interface Props {
   // Explains where an edit lands. null drops the info icon entirely.
   valueTooltip?: string | null;
   hideSplits?: boolean;
+  // Values stay editable; the variation set, its order and its weights do not.
+  // Used while an experiment is running, where changing those re-buckets users.
+  lockStructure?: boolean;
   label?: string | null;
   feature?: FeatureInterface;
   // Scopes the "Insert constant" picker while the Feature Flag does not exist
@@ -105,6 +108,7 @@ export default function ExperimentManagedFeatureVariationEditor({
   onAddValues,
   valueTooltip,
   hideSplits = false,
+  lockStructure = false,
   label: _label,
   feature,
   constantContext,
@@ -137,7 +141,8 @@ export default function ExperimentManagedFeatureVariationEditor({
   const stackValue = valueType === "json";
 
   // The reorder gutter only earns its space while rows can actually be moved.
-  const showDragHandle = !!setVariations && (variations?.length ?? 0) > 1;
+  const showDragHandle =
+    !!setVariations && !lockStructure && (variations?.length ?? 0) > 1;
 
   // editingIds already encodes the notion of having bespoke IDs, so if it is false
   // it is probably safe to renormalize variation keys on sort
@@ -463,6 +468,7 @@ export default function ExperimentManagedFeatureVariationEditor({
                     valueTooltip={valueTooltip}
                     hideFeatureValue={hideFeatureValue}
                     showDragHandle={showDragHandle}
+                    lockStructure={lockStructure}
                     autoFocusName={
                       focusVariationId !== null &&
                       variation.id === focusVariationId
@@ -477,17 +483,19 @@ export default function ExperimentManagedFeatureVariationEditor({
             {variations && setWeight && (
               <Box my="4">
                 <Box>
-                  {valueType !== "boolean" && setVariations && (
-                    <Button
-                      variant="ghost"
-                      icon={<PiPlusBold />}
-                      onClick={() => {
-                        addVariation();
-                      }}
-                    >
-                      Add variation
-                    </Button>
-                  )}
+                  {valueType !== "boolean" &&
+                    setVariations &&
+                    !lockStructure && (
+                      <Button
+                        variant="ghost"
+                        icon={<PiPlusBold />}
+                        onClick={() => {
+                          addVariation();
+                        }}
+                      >
+                        Add variation
+                      </Button>
+                    )}
                   {valueType === "boolean" && (
                     <Tooltip
                       content="Boolean features can only have two variations. Use a different feature type to add multiple variations."

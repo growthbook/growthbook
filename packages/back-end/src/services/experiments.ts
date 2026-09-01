@@ -5058,10 +5058,27 @@ export async function getRefLinkedFeatureInfo({
       let draftMatches: MatchingRule[] = [];
       let draftDiffersFromLive = false;
 
-      for (const r of activeDrafts) {
-        const m = getMatchingRules(feature, matchRule, environments, r);
-        if (m.length === 0) continue;
-        const draftRefRules = refRulesForEntity(r.rules);
+      // Newest wins, full stop. Two open drafts can carry different edits to
+      // this experiment's rule, and preferring whichever one happens to differ
+      // from live would let an older draft supply the values while a newer one
+      // supplies something else — one readout describing two drafts. Version
+      // order is creation order, so the newest is the one being worked on.
+      const draftsWithMatches = activeDrafts
+        .map((r) => ({
+          revision: r,
+          matches: getMatchingRules(feature, matchRule, environments, r),
+        }))
+        .filter(({ matches }) => matches.length > 0);
+      if (draftsWithMatches[0]) {
+        matchedDraftRevision = draftsWithMatches[0].revision;
+        draftMatches = draftsWithMatches[0].matches;
+      }
+      // Readouts describe one draft; this says how many others a publish here
+      // would leave behind, so a second draft can't hide silently.
+      const otherDraftCount = Math.max(0, draftsWithMatches.length - 1);
+
+      if (matchedDraftRevision) {
+        const draftRefRules = refRulesForEntity(matchedDraftRevision.rules);
         // A managed flag's value type is part of what it serves, so re-typing it
         // is an unpublished change even when every value reads the same under
         // both types ("0"/"1" as strings and as numbers).
@@ -5073,23 +5090,11 @@ export async function getRefLinkedFeatureInfo({
         // keeps one draft per managed flag.
         const draftRetypes =
           isManagedFeature(feature) &&
-          r.metadata?.valueType !== undefined &&
-          r.metadata.valueType !== feature.valueType;
-        if (
+          matchedDraftRevision.metadata?.valueType !== undefined &&
+          matchedDraftRevision.metadata.valueType !== feature.valueType;
+        draftDiffersFromLive =
           liveRefRules.length > 0 &&
-          (draftRetypes || !isEqual(draftRefRules, liveRefRules))
-        ) {
-          matchedDraftRevision = r;
-          draftMatches = m;
-          draftDiffersFromLive = true;
-          break;
-        }
-        // Remember the first draft with matches as a fallback if no draft
-        // actually modifies the rule.
-        if (!matchedDraftRevision) {
-          matchedDraftRevision = r;
-          draftMatches = m;
-        }
+          (draftRetypes || !isEqual(draftRefRules, liveRefRules));
       }
 
       const lockedMatches =
@@ -5299,6 +5304,8 @@ export async function getRefLinkedFeatureInfo({
               status: matchedDraftRevision.status,
               values: refRuleValues(draftMatches[0]?.rule),
               sparse: !!(draftMatches[0]?.rule as ExperimentRefRule)?.sparse,
+              title: matchedDraftRevision.title,
+              otherDraftCount,
               pendingApproval: reviewRequired,
               hasMergeConflict: draftHasMergeConflict,
               hasUnrelatedDraftChanges: draftHasUnrelatedChanges,

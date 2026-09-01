@@ -318,6 +318,10 @@ export interface LinkedFeatureInfo {
   pendingDraft?: {
     version: number;
     status: RevisionStatus;
+    /** The revision's own title, for naming which draft a readout describes. */
+    title?: string;
+    /** Open drafts other than this one that also carry this experiment's rule. */
+    otherDraftCount: number;
     values: ExperimentRefVariation[];
     sparse: boolean;
     pendingApproval: boolean;

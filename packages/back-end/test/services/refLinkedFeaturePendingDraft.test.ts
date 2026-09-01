@@ -184,6 +184,42 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
     expect(info.pendingDraft).toBeUndefined();
   });
 
+  it("ignores an older draft's edit when the newest draft changes nothing", async () => {
+    mockGetFeatures.mockResolvedValue([makeFeature([refRule("live-value")])]);
+    mockGetRevisions.mockResolvedValue({
+      // Deliberately oldest-first, and only the OLDER draft differs from live.
+      // Reporting version 4's edit here would describe a draft nobody is
+      // working on, under a readout the newest draft owns.
+      flag: [
+        makeDraft(4, [refRule("older-edit")]),
+        makeDraft(5, [refRule("live-value")]),
+      ],
+    });
+
+    const [info] = await run(false);
+
+    expect(info.pendingDraft).toBeUndefined();
+    expect(info.state).toBe("live");
+  });
+
+  it("keeps the newest draft when it is the one that differs from live", async () => {
+    mockGetFeatures.mockResolvedValue([makeFeature([refRule("live-value")])]);
+    mockGetRevisions.mockResolvedValue({
+      flag: [
+        makeDraft(4, [refRule("live-value")]),
+        makeDraft(5, [refRule("newer-edit")]),
+      ],
+    });
+
+    const [info] = await run(false);
+
+    expect(info.pendingDraft?.version).toBe(5);
+    expect(info.pendingDraft?.values).toEqual([
+      { variationId: "var_0", value: "control" },
+      { variationId: "var_1", value: "newer-edit" },
+    ]);
+  });
+
   it("reports no pendingDraft when there is no draft at all", async () => {
     mockGetFeatures.mockResolvedValue([makeFeature([refRule("live-value")])]);
     mockGetRevisions.mockResolvedValue({ flag: [] });

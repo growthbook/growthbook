@@ -1,0 +1,63 @@
+// The shared drop target hugs its content and right-aligns for the variation
+// card's small placeholder. In the grid it is a cell like any other.
+.gridUpload {
+  width: 100%;
+  height: 100%;
+  margin-left: 0;
+}
+
+// Radix's solid hover is a single step (red-9 -> red-10), too subtle for a
+// small control sitting over a photograph.
+.deleteButton {
+  transition: background-color 100ms ease;
+
+  &:hover {
+    background-color: var(--red-11);
+  }
+}
+
+.uploadTile {
+  position: relative;
+}
+
+// The hover hint and the drag prompt occupy the same spot and say the same
+// kind of thing, so they share one treatment. The prompt's own class doubles
+// up to outrank the base `.message` rule it overrides.
+.uploadHint,
+.gridUploadMessage.gridUploadMessage {
+  top: 75%;
+  bottom: auto;
+  left: 0;
+  right: 0;
+  padding: 0;
+  text-align: center;
+  align-items: flex-start;
+  justify-content: center;
+  font-size: 1em;
+  line-height: normal;
+  color: var(--violet-11);
+}
+
+// Named on hover rather than always, so the tile stays a quiet placeholder.
+.uploadHint {
+  position: absolute;
+  opacity: 0;
+  transition: opacity 100ms ease;
+  pointer-events: none;
+}
+
+.uploadTile:hover .uploadHint {
+  opacity: 1;
+}
+
+// While a file is over the target, the drag prompt is the only thing that
+// should be saying anything — the hover fill and its label would compete.
+:global(.screenshot-dropping) {
+  .uploadTile {
+    background-color: var(--black-a1) !important;
+  }
+
+  .uploadHint {
+    opacity: 0;
+  }
+}

@@ -1,7 +1,7 @@
 import { ReactNode, ComponentProps } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
-import Modal, { Size, TrackingEventModalProps } from "@/ui/Modal";
+import Modal, { Padding, Size, TrackingEventModalProps } from "@/ui/Modal";
 import ModalForm, { useModalForm } from "../ModalForm";
 
 function SubmitButton({
@@ -35,11 +35,15 @@ export type Props = TrackingEventModalProps & {
   ctaColor?: "red" | "violet";
   ctaEnabled?: boolean;
   size?: Size;
+  /** "even" pads the content box on all sides. See Modal.Root. */
+  padding?: Padding;
   /** Suppress Radix's open-autofocus when the modal places focus itself. */
   onOpenAutoFocus?: ComponentProps<typeof Modal.Root>["onOpenAutoFocus"];
   submit?: () => void | Promise<void>;
   trackOnSubmit?: boolean;
   dismissible?: boolean;
+  /** Adds Radix's corner close alongside the footer's Cancel. */
+  showCloseButton?: boolean;
   // Optional button rendered on the left side of the footer. Use for
   // destructive or out-of-flow actions that shouldn't be the primary CTA.
   secondaryAction?: ReactNode;
@@ -62,6 +66,7 @@ export default function ModalStandard({
   ctaEnabled = true,
   onOpenAutoFocus,
   size = "md",
+  padding,
   submit,
   secondaryAction,
   close,
@@ -72,6 +77,7 @@ export default function ModalStandard({
   allowlistedTrackingEventProps = {},
   trackOnSubmit = true,
   dismissible,
+  showCloseButton,
 }: Props) {
   const content = (
     <>
@@ -108,7 +114,9 @@ export default function ModalStandard({
         if (!nextOpen) close();
       }}
       size={size}
+      padding={padding}
       dismissible={dismissible ?? !submit}
+      showCloseButton={showCloseButton}
       hasDescription={!!subheader}
       onOpenAutoFocus={onOpenAutoFocus}
       trackingEventModalType={trackingEventModalType}

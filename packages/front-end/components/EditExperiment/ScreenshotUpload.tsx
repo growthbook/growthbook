@@ -21,6 +21,12 @@ type props = {
   onSuccess: (variation: number, screenshot: Screenshot) => void;
   children?: ReactNode;
   noDrag?: boolean;
+  /** Appended to the drop target, for callers that size it themselves. */
+  className?: string;
+  /** Appended to the drag prompt, for callers with room to place it. */
+  messageClassName?: string;
+  /** The drag prompt itself. Short by default — the variation card's target is tiny. */
+  message?: ReactNode;
 };
 
 const ScreenshotUpload = ({
@@ -29,6 +35,9 @@ const ScreenshotUpload = ({
   onSuccess,
   children,
   noDrag,
+  className,
+  messageClassName,
+  message = "Drop",
 }: props): ReactElement => {
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(0);
@@ -107,13 +116,20 @@ const ScreenshotUpload = ({
         {...typedRootProps}
         onPaste={noDrag ? undefined : onPaste}
         tabIndex={0}
-        className={clsx(styles.droparea, {
+        className={clsx(styles.droparea, className, {
           [styles.dragging]: isDragActive,
+          // Stable name so a caller's own stylesheet can react to the drag
+          // without reaching into this module's hashed class.
+          "screenshot-dropping": isDragActive,
         })}
       >
         {loading > 0 ? <LoadingOverlay /> : ""}
         <input {...getInputProps()} />
-        {!noDrag && <div className={styles.message}>Drop</div>}
+        {!noDrag && (
+          <div className={clsx(styles.message, messageClassName)}>
+            {message}
+          </div>
+        )}
         {children}
       </div>
     </>

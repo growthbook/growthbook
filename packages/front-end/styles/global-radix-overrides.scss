@@ -94,6 +94,12 @@
   }
 }
 
+// A viewport-filling dialog sizes itself against the viewport, so Radix's own
+// scroll padding around it would overflow and add a second scrollbar.
+.rt-BaseDialogScrollPadding:has(> .rt-DialogContent--max) {
+  padding: 0;
+}
+
 // Icon Button
 .rt-IconButton {
   &:where(.rt-r-size-1) {

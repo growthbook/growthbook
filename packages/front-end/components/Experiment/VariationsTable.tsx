@@ -14,7 +14,6 @@ import {
 } from "react-icons/pi";
 import clsx from "clsx";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
@@ -151,6 +150,10 @@ interface Props {
   servedValueSparse?: boolean;
   /** The values shown are an unpublished draft, not what is live. */
   servedValueIsDraft?: boolean;
+  /** Names the draft the served values come from; omitted for a managed flag. */
+  servedValueDraftName?: string;
+  /** Other drafts this readout is not showing. */
+  servedValueDraftNote?: string;
 }
 
 function AddVariationButton({ onClick }: { onClick: () => void }) {
@@ -235,6 +238,8 @@ export function VariationBox({
   servedValueFeature,
   servedValueSparse,
   servedValueIsDraft,
+  servedValueDraftName,
+  servedValueDraftNote,
 }: {
   i: number;
   v: Variation;
@@ -261,6 +266,10 @@ export function VariationBox({
   servedValueFeature?: FeatureInterface;
   servedValueSparse?: boolean;
   servedValueIsDraft?: boolean;
+  /** Names the draft the served values come from; omitted for a managed flag. */
+  servedValueDraftName?: string;
+  /** Other drafts this readout is not showing. */
+  servedValueDraftNote?: string;
   /** Offered instead of a value when there is no Feature Flag yet. */
 }) {
   const { blockFileUploads } = useOrgSettings();
@@ -269,9 +278,9 @@ export function VariationBox({
 
   const descriptionSnippet = !showDescription ? null : v.description ? (
     v.description
-  ) : (
+  ) : experiment.status === "draft" ? (
     <Text color="text-disabled">No description</Text>
-  );
+  ) : null;
   // Beside the placeholder when there is no screenshot, below the carousel when
   // there is one — so it never sits in the row the placeholder already fills.
   const showsPlaceholder =
@@ -309,7 +318,7 @@ export function VariationBox({
             </Box>
             {/* Radix ghost buttons carry a negative margin, so the gap alone
                 won't separate them. */}
-            <Flex align="center" gap="1" flexShrink="0">
+            <Flex align="center" gap="1" flexShrink="0" mr="-1">
               {canEdit && onEditMetadata && onEditTraffic ? (
                 <IconButton
                   variant="ghost"
@@ -347,8 +356,13 @@ export function VariationBox({
                   variant="soft"
                 >
                   <DropdownMenuItem onClick={() => onEditMetadata(i)}>
-                    Edit name and description
+                    Edit metadata
                   </DropdownMenuItem>
+                  {onEditTraffic ? (
+                    <DropdownMenuItem onClick={() => onEditTraffic(v.id)}>
+                      Edit variation
+                    </DropdownMenuItem>
+                  ) : null}
                 </DropdownMenu>
               ) : null}
             </Flex>
@@ -401,11 +415,7 @@ export function VariationBox({
           <Flex align="center" justify="between">
             <Box>
               {shouldShowSplit && percent !== undefined ? (
-                <Metadata
-                  label="Split"
-                  value={`${percent.toFixed(0)}%`}
-                  size="sm"
-                />
+                <Metadata label="Split" value={`${percent.toFixed(0)}%`} />
               ) : null}
             </Box>
             {allowImages && (
@@ -425,6 +435,8 @@ export function VariationBox({
               feature={servedValueFeature}
               sparse={servedValueSparse}
               isDraft={servedValueIsDraft}
+              draftName={servedValueDraftName}
+              draftNote={servedValueDraftNote}
             />
           ) : null}
         </Box>
@@ -451,8 +463,9 @@ const VariationsTable: FC<Props> = ({
   servedValueFeature,
   servedValueSparse,
   servedValueIsDraft,
+  servedValueDraftName,
+  servedValueDraftNote,
 }) => {
-  const { apiCall } = useAuth();
   const variations = getLatestPhaseVariations(experiment);
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -522,6 +535,8 @@ const VariationsTable: FC<Props> = ({
               servedValueFeature={servedValueFeature}
               servedValueSparse={servedValueSparse}
               servedValueIsDraft={servedValueIsDraft}
+              servedValueDraftName={servedValueDraftName}
+              servedValueDraftNote={servedValueDraftNote}
               showNoImage={
                 experiment.status === "draft" || someVariationHasImage
               }
@@ -563,33 +578,6 @@ const VariationsTable: FC<Props> = ({
           close={() => {
             setOpenCarousel(null);
           }}
-          mutate={mutate}
-          deleteImage={
-            !canEditExperiment
-              ? undefined
-              : async (variantIndex, screenshotPath) => {
-                  const { status, message } = await apiCall<{
-                    status: number;
-                    message?: string;
-                  }>(
-                    `/experiment/${experiment.id}/variation/${variantIndex}/screenshot`,
-                    {
-                      method: "DELETE",
-                      body: JSON.stringify({
-                        url: screenshotPath,
-                      }),
-                    },
-                  );
-
-                  if (status >= 400) {
-                    throw new Error(
-                      message || "There was an error deleting the image",
-                    );
-                  }
-
-                  mutate?.();
-                }
-          }
         />
       )}
     </Box>

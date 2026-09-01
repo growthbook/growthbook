@@ -14,22 +14,36 @@ export default function VariationServedValue({
   feature,
   sparse,
   isDraft,
+  draftName,
+  draftNote,
 }: {
   value?: string;
   feature?: FeatureInterface;
   sparse?: boolean;
   /** The value shown is an unpublished draft, not what is live. */
   isDraft?: boolean;
+  /** Names the draft it comes from. Omitted for a managed flag, which has one. */
+  draftName?: string;
+  /** Other drafts this readout is not showing. */
+  draftNote?: string;
 }) {
   if (!feature) return null;
 
   return (
     <Flex align="center" justify="between" gap="2" mt="3">
       <Flex align="center" gap="1" minWidth="0">
-        {isDraft && <UnpublishedDot tooltip="Unpublished draft value" />}
+        {isDraft && (
+          <UnpublishedDot
+            tooltip={
+              draftName
+                ? `Unpublished value in ${draftName}`
+                : "Unpublished draft value"
+            }
+            note={draftNote}
+          />
+        )}
         <Metadata
           label="Serves"
-          size="sm"
           value={
             // Not ForceSummary — its "SERVE" prefix would double the label.
             <ValueDisplay

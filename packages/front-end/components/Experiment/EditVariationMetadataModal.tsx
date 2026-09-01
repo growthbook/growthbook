@@ -1,13 +1,16 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import FieldAlignedVariationNumber from "@/components/Experiment/FieldAlignedVariationNumber";
+import FieldAlignedVariationNumber, {
+  VARIATION_NUMBER_WIDTH,
+} from "@/components/Experiment/FieldAlignedVariationNumber";
+import VariationScreenshotManager from "@/components/Experiment/VariationScreenshotManager";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -40,6 +43,9 @@ const EditVariationMetadataModal: FC<Props> = ({
       description: variation?.description ?? "",
     },
   });
+  // Uploads write straight through; order and removals are staged here and
+  // saved with the rest of the form.
+  const [screenshots, setScreenshots] = useState(variation?.screenshots ?? []);
 
   if (!variation) return null;
 
@@ -47,7 +53,7 @@ const EditVariationMetadataModal: FC<Props> = ({
     <ModalStandard
       trackingEventModalType="edit-variation-metadata"
       trackingEventModalSource={source}
-      header="Edit Variation"
+      header="Edit Variation Metadata"
       open={true}
       close={close}
       size="lg"
@@ -58,6 +64,7 @@ const EditVariationMetadataModal: FC<Props> = ({
                 ...v,
                 name: value.name,
                 description: value.description,
+                screenshots,
               }
             : v,
         );
@@ -86,7 +93,16 @@ const EditVariationMetadataModal: FC<Props> = ({
             containerClassName="mb-0"
             {...form.register("description")}
           />
+          <VariationScreenshotManager
+            experiment={experiment}
+            variationIndex={variationIndex}
+            screenshots={screenshots}
+            setScreenshots={setScreenshots}
+          />
         </Flex>
+        {/* Mirrors the badge's gutter so the fields sit centred in the modal
+            rather than pushed right by it. */}
+        <Box width={VARIATION_NUMBER_WIDTH} flexShrink="0" />
       </Flex>
     </ModalStandard>
   );

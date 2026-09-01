@@ -108,6 +108,9 @@ interface SortableProps {
   // Explains where an edit lands. null drops the info icon entirely.
   valueTooltip?: string | null;
   showDragHandle?: boolean;
+  // Values stay editable; reordering, adding and removing do not. Used while an
+  // experiment is running, where those would re-bucket users.
+  lockStructure?: boolean;
   dragging?: boolean;
   autoFocusName?: boolean;
   // JSON features only. Renders the value as a sparse patch (merged onto the
@@ -144,6 +147,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
       onEditValues,
       valueTooltip,
       showDragHandle,
+      lockStructure,
       dragging,
       autoFocusName,
       sparse,
@@ -388,7 +392,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             ))}
 
           <Flex align="center" justify="end" gap="2">
-            {setVariations ? (
+            {setVariations && !lockStructure ? (
               <DropdownMenu
                 trigger={
                   <IconButton

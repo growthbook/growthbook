@@ -132,7 +132,7 @@ export default function ExperimentManagedTrafficModal({
     !experiment.nextScheduledStatusUpdate &&
     permissionsUtil.canViewFeatureModal(experiment.project);
 
-  if ((!targetFeature && !canAdopt) || !safeToEdit) {
+  if (!targetFeature && !canAdopt) {
     return (
       <EditTrafficModal
         close={close}
@@ -154,6 +154,7 @@ export default function ExperimentManagedTrafficModal({
       targetFeature={targetFeature}
       isManaged={!!managedFeature}
       canAdopt={canAdopt}
+      safeToEdit={safeToEdit}
       focusVariationId={focusVariationId}
       addVariationOnOpen={addVariationOnOpen}
       adoptOnOpen={adoptOnOpen}
@@ -168,6 +169,7 @@ function ManagedTrafficForm({
   targetFeature,
   isManaged,
   canAdopt,
+  safeToEdit,
   focusVariationId,
   addVariationOnOpen,
   adoptOnOpen,
@@ -182,6 +184,9 @@ function ManagedTrafficForm({
   // A flag this experiment manages: it may be re-typed here, and its rule is
   // the flag's only one.
   isManaged: boolean;
+  // False once the experiment runs against a live rule: values stay editable,
+  // the variation set, its order and its weights do not.
+  safeToEdit: boolean;
   focusVariationId?: string | null;
   addVariationOnOpen?: boolean;
   adoptOnOpen?: boolean;
@@ -435,7 +440,8 @@ function ManagedTrafficForm({
   const sharedVariationProps = {
     label: null,
     valueAsId: isBandit,
-    hideSplits: isBandit,
+    lockStructure: !safeToEdit,
+    hideSplits: isBandit || !safeToEdit,
     coverage: form.watch("coverage"),
     setCoverage: (coverage: number) => form.setValue("coverage", coverage),
     setWeight: (i: number, weight: number) =>
@@ -514,10 +520,15 @@ function ManagedTrafficForm({
 
     // Experiment state first, then the flag's values. The second call re-sends
     // the variations so the server cross-checks that each one has a value.
-    await apiCall(`/experiment/${experiment.id}`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
+    // A locked structure has nothing to send here — coverage, weights and the
+    // variation set are all read-only, so posting them would only re-assert the
+    // traffic a running experiment is already serving.
+    if (safeToEdit) {
+      await apiCall(`/experiment/${experiment.id}`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    }
 
     if (adopting) {
       // Same endpoint, body and server-side gates as the removed add-flag
