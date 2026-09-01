@@ -455,6 +455,17 @@ function ManagedTrafficForm({
         ? "Save & Request Approval"
         : "Request Approval";
 
+  // What a patch is measured against. A managed flag's default IS its control
+  // value (the server stores values[0] as the default), so while editing, the
+  // control in the form is truer than anything already saved.
+  const controlVariationId = form.watch("variations")?.[0]?.id;
+  const sparseBase =
+    (isManaged && controlVariationId
+      ? featureValues[controlVariationId]
+      : undefined) ??
+    draftDefaultValue ??
+    "";
+
   // Toggling rewrites every value so the editor is never left with a
   // default-laden patch (on) or a bare patch shown as a whole value (off) —
   // the same conversion the Feature Flag rule editors run.
@@ -466,15 +477,21 @@ function ManagedTrafficForm({
           checked={sparse}
           disabled={!editingValues && !adopting}
           onChange={(checked) => {
-            const def = feature?.defaultValue ?? "";
+            const def = sparseBase;
             setFeatureValues((prev) =>
               Object.fromEntries(
-                Object.entries(prev).map(([id, v]) => [
-                  id,
-                  checked
-                    ? stripDefaultsForSparse(v, def)
-                    : expandSparseToFull(v, def),
-                ]),
+                Object.entries(prev).map(([id, v]) => {
+                  // A managed flag's control IS the default the others patch
+                  // onto, so it always states the whole value. Stripping it
+                  // against itself would leave {} and take the default with it.
+                  if (isManaged && id === controlVariationId) return [id, v];
+                  return [
+                    id,
+                    checked
+                      ? stripDefaultsForSparse(v, def)
+                      : expandSparseToFull(v, def),
+                  ];
+                }),
               ),
             );
             setSparse(checked);
@@ -859,13 +876,20 @@ function ManagedTrafficForm({
                 : undefined
             }
             valueType={valueType}
-            feature={feature ?? undefined}
+            // Carries the base a patch is measured against, so the sparse
+            // Preview tab expands onto the same value the toggle stripped.
+            feature={
+              feature
+                ? { ...feature, valueType, defaultValue: sparseBase }
+                : undefined
+            }
             // While adopting there is no Feature Flag yet, so scope the
             // constant picker to the project the flag will be created in.
             constantContext={
               feature ? undefined : { project: experiment.project || undefined }
             }
             sparse={sparse}
+            controlIsDefault={isManaged}
           />
         ) : (
           <FeatureVariationsInput {...sharedVariationProps} />

@@ -87,6 +87,9 @@ export interface Props {
   // JSON only: render each value as a sparse patch onto the feature default.
   // Callers own the toggle, since it's a rule-level flag.
   sparse?: boolean;
+  // The first variation's value IS the feature default (a managed flag stores
+  // it as such), so it states the whole value and is never a patch.
+  controlIsDefault?: boolean;
 }
 
 export default function ExperimentManagedFeatureVariationEditor({
@@ -115,6 +118,7 @@ export default function ExperimentManagedFeatureVariationEditor({
   autoFocusVariationId,
   autoAddVariationOnMount,
   sparse,
+  controlIsDefault = false,
 }: Props) {
   const weights = useMemo(
     () => variations?.map((v) => v.weight) || [],
@@ -489,7 +493,7 @@ export default function ExperimentManagedFeatureVariationEditor({
                       focusVariationId !== null &&
                       variation.id === focusVariationId
                     }
-                    sparse={sparse}
+                    sparse={sparse && !(controlIsDefault && i === 0)}
                   />
                 ))}
               </SortableVariationsList>
