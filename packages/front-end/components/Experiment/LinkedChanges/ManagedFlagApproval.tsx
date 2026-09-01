@@ -470,6 +470,23 @@ export default function ManagedFlagApproval({
       ? `${unblocks}, you can publish to make these values live.`
       : "Publish to make these values live.";
 
+  // The Review & Publish tab's own band logic, so both surfaces explain a
+  // blocked publish at the same point in the cycle and in the same words.
+  const approvalGateUnmet = requireReviews && !!approval && !approval.satisfied;
+  const showApprovalBand =
+    requireReviews &&
+    // baseState, not state: an armed admin override must not hide the gate it
+    // is skipping.
+    baseState.submitAction !== "publish" &&
+    !!info.pendingDraft &&
+    (status !== "approved" || approvalGateUnmet);
+  const coverageBlockMessage =
+    approval &&
+    !approval.unmetTeams.length &&
+    approval.insufficientApprovers.length
+      ? "None of this draft's approvals cover everything it changes."
+      : null;
+
   const reviewColumn = (
     <Flex direction="column" gap="3" width="50%" minWidth="0">
       {contributorRows.length > 0 && (
@@ -557,28 +574,21 @@ export default function ManagedFlagApproval({
         </Callout>
       )}
 
-      {(adminOverride || !primaryAction) && baseState.waitingForReview && (
-        // The same band the Review & Publish tab shows for this phase.
+      {showApprovalBand && (
         <ApprovalStatusBand
-          phase="waiting"
+          phase={
+            status === "approved"
+              ? "gated"
+              : baseState.waitingForReview &&
+                  !canReview &&
+                  !adminBypassAvailable
+                ? "waiting"
+                : "draft"
+          }
           footprint={approval?.footprint}
           unmet={approval?.unmetTeams ?? []}
-          showSelfApprovalNote={isBlockedContributor}
-          subtle
-        />
-      )}
-
-      {approvalGated && (
-        // Name what is missing rather than failing the start with a bare error.
-        <ApprovalStatusBand
-          phase="gated"
-          footprint={approval.footprint}
-          unmet={approval.unmetTeams}
-          coverageMessage={
-            approval.unmetTeams.length === 0
-              ? "The approvals on this draft do not cover every environment it changes."
-              : null
-          }
+          coverageMessage={coverageBlockMessage}
+          showSelfApprovalNote={isBlockedContributor && canReview}
           subtle
         />
       )}
