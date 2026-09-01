@@ -96,9 +96,13 @@ const BaseClass = MakeModelClass({
             req.context,
             cb,
           );
-          if (linkedFeatures.length === 0) {
+          if (
+            linkedFeatures.length === 0 &&
+            !cb.hasVisualChangesets &&
+            !cb.hasURLRedirects
+          ) {
             throw new Error(
-              "Link at least one Feature Flag before starting this contextual bandit",
+              "Link at least one Feature Flag or Visual Editor change before starting this contextual bandit",
             );
           }
           const { updated } = await executeContextualBanditStart(

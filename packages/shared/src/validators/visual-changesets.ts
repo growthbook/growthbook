@@ -42,7 +42,8 @@ export const apiVisualChangesetValidator = namedSchema(
         }),
       ),
       editorUrl: z.string(),
-      experiment: z.string(),
+      experiment: z.string().optional(),
+      contextualBandit: z.string().optional(),
       visualChanges: z.array(
         z.object({
           description: z.string().optional(),
@@ -62,7 +63,12 @@ export const apiVisualChangesetValidator = namedSchema(
         }),
       ),
     })
-    .strict(),
+    .strict()
+    .refine((v) => !!v.experiment !== !!v.contextualBandit, {
+      message:
+        "VisualChangeset must have exactly one of `experiment` or `contextualBandit`",
+      path: ["experiment"],
+    }),
 );
 
 export type ApiVisualChangeset = z.infer<typeof apiVisualChangesetValidator>;

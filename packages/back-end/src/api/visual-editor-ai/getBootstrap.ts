@@ -87,7 +87,13 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
       req.organization.id,
       CANDIDATE_CHANGESET_CAP,
     );
-    const expIds = Array.from(new Set(changesets.map((cs) => cs.experiment)));
+    const expIds = Array.from(
+      new Set(
+        changesets
+          .map((cs) => cs.experiment)
+          .filter((id): id is string => !!id),
+      ),
+    );
     experiments = await getExperimentsByIds(context, expIds);
   }
   const experimentById = new Map(experiments.map((e) => [e.id, e]));
@@ -118,6 +124,7 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
     updatedAt: string;
   }> = [];
   for (const cs of changesets) {
+    if (!cs.experiment) continue;
     const exp = experimentById.get(cs.experiment);
     // Skip changesets whose experiment we can't read (deleted or no
     // permission) — an orphan row the user can't open is a dead end.

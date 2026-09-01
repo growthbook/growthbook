@@ -16,6 +16,7 @@ export type SDKCapability =
   | "caseInsensitiveMembership"
   | "namespacesV2"
   | "contextualBandits"
+  | "contextualBanditsAuto"
   | "trackingPlugin";
 
 export type CapabilityStrategy =

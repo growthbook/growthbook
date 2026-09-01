@@ -73,6 +73,8 @@ export const contextualBanditValidator = baseSchema
     banditModelVersion: z.number().int().nonnegative(),
 
     linkedFeatures: z.array(z.string()).optional(),
+    hasVisualChangesets: z.boolean().optional(),
+    hasURLRedirects: z.boolean().optional(),
 
     pendingFeatureDrafts: z
       .array(
@@ -146,6 +148,8 @@ export const apiContextualBanditValidator = namedSchema(
     maxLeaves: z.number().int().positive(),
     holdoutPercent: z.number().min(0).max(0.5),
     banditModelVersion: z.number().int().nonnegative(),
+    hasVisualChangesets: z.boolean().optional(),
+    hasURLRedirects: z.boolean().optional(),
     scheduleValue: z.number().optional(),
     scheduleUnit: z.enum(["days", "hours"]).optional(),
     burnInValue: z.number().optional(),

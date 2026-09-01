@@ -33,7 +33,7 @@ const BaseClass = MakeModelClass({
     deleteEvent: "urlRedirect.delete",
   },
   globallyUniquePrimaryKeys: false,
-  readonlyFields: ["experiment"],
+  readonlyFields: ["experiment", "contextualBandit"],
 });
 
 export class UrlRedirectModel extends BaseClass<WriteOptions> {
@@ -139,6 +139,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
   protected async afterDelete(doc: URLRedirectInterface) {
     const { experiment } = this.getForeignRefs(doc);
     if (!experiment) return;
+    if (!doc.experiment) return;
 
     const remaining = await this.findByExperiment(doc.experiment);
     if (remaining.length === 0) {

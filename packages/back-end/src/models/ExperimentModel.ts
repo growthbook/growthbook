@@ -8,7 +8,10 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
-import { VisualChange } from "shared/types/visual-changeset";
+import {
+  VisualChange,
+  VisualChangesetInterface,
+} from "shared/types/visual-changeset";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentStatus,
@@ -470,8 +473,9 @@ export async function findVisualExperimentsByName(
 
 export async function getExperimentById(
   context: ReqContext | ApiReqContext,
-  id: string,
+  id: string | undefined | null,
 ): Promise<ExperimentInterface | null> {
+  if (!id) return null;
   const doc = await getCollection(COLLECTION).findOne({
     organization: context.org.id,
     id,
@@ -1938,6 +1942,7 @@ export const getAllVisualExperiments = async (
   const visualChangesByExperimentId = visualChangesets.reduce<
     Record<string, Array<VisualChange>>
   >((acc, c) => {
+    if (!c.experiment) return acc;
     if (!acc[c.experiment]) acc[c.experiment] = [];
     acc[c.experiment] = acc[c.experiment].concat(c.visualChanges);
     return acc;
@@ -1955,6 +1960,10 @@ export const getAllVisualExperiments = async (
   };
 
   return visualChangesets
+    .filter(
+      (c): c is VisualChangesetInterface & { experiment: string } =>
+        !!c.experiment,
+    )
     .map<VisualExperiment>((c) => ({
       experiment: experimentMap.get(c.experiment) as ExperimentInterface,
       visualChangeset: c,
@@ -1990,6 +1999,7 @@ export const getAllURLRedirectExperiments = async (
   const exps: URLRedirectExperiment[] = [];
 
   redirects.forEach((r) => {
+    if (!r.experiment) return;
     const experiment = experimentMap.get(r.experiment);
     if (!experiment) return;
 

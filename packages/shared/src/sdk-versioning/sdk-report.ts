@@ -28,6 +28,7 @@ const allCapabilities: Record<SDKCapability, boolean> = {
   caseInsensitiveMembership: true,
   namespacesV2: true,
   contextualBandits: true,
+  contextualBanditsAuto: true,
   trackingPlugin: true,
 };
 

@@ -12,9 +12,15 @@ import {
 } from "shared/types/visual-changeset";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { ExperimentInterface, Variation } from "shared/types/experiment";
-import { ApiVisualChangeset } from "shared/validators";
+import {
+  ApiVisualChangeset,
+  ContextualBanditInterface,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import {
+  CbVisualExperiment,
+  queueSDKPayloadRefresh,
+} from "back-end/src/services/features";
 import { visualChangesetsHaveChanges } from "back-end/src/services/experiments";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -68,7 +74,10 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
   experiment: {
     type: String,
     index: true,
-    required: true,
+  },
+  contextualBandit: {
+    type: String,
+    index: true,
   },
   // VisualChanges are associated with one of the variations of the experiment
   // associated with the VisualChangeset
@@ -131,6 +140,7 @@ export function toVisualChangesetApiInterface(
     urlPatterns: visualChangeset.urlPatterns,
     editorUrl: visualChangeset.editorUrl,
     experiment: visualChangeset.experiment,
+    contextualBandit: visualChangeset.contextualBandit,
     visualChanges: visualChangeset.visualChanges.map((c) => ({
       id: c.id,
       description: c.description,
@@ -191,6 +201,56 @@ export async function findVisualChangesets(
     query = query.sort({ _id: -1 }).limit(limit);
   }
   return (await query).map(toInterface);
+}
+
+export async function findVisualChangesetsByContextualBandit(
+  contextualBanditId: string,
+  organization: string,
+): Promise<VisualChangesetInterface[]> {
+  const changesets = await VisualChangesetModel.find({
+    organization,
+    contextualBandit: contextualBanditId,
+  });
+  return changesets.map(toInterface);
+}
+
+export async function getAllCbVisualExperiments(
+  context: ReqContext | ApiReqContext,
+): Promise<CbVisualExperiment[]> {
+  const changesets = (
+    await VisualChangesetModel.find({
+      organization: context.org.id,
+      contextualBandit: { $exists: true, $ne: null },
+    })
+  ).map(toInterface);
+
+  if (!changesets.length) return [];
+
+  const cbIds = Array.from(
+    new Set(changesets.map((c) => c.contextualBandit).filter(isDefinedString)),
+  );
+
+  const cbs = await Promise.all(
+    cbIds.map((id) => context.models.contextualBandits.getById(id)),
+  );
+  const cbById = new Map<string, ContextualBanditInterface>();
+  cbs.forEach((cb) => {
+    if (cb) cbById.set(cb.id, cb);
+  });
+
+  const out: CbVisualExperiment[] = [];
+  for (const c of changesets) {
+    if (!c.contextualBandit) continue;
+    const cb = cbById.get(c.contextualBandit);
+    if (!cb) continue;
+    if (cb.archived) continue;
+    out.push({ type: "cb-visual", contextualBandit: cb, visualChangeset: c });
+  }
+  return out;
+}
+
+function isDefinedString(v: string | undefined | null): v is string {
+  return typeof v === "string" && v.length > 0;
 }
 
 export async function createVisualChange(
@@ -565,19 +625,21 @@ export const deleteVisualChangesetById = async ({
     organization: context.org.id,
   });
 
-  // if experiment has no more visual changesets, update experiment
-  const remainingVisualChangesets = await findVisualChangesetsByExperiment(
-    visualChangeset.experiment,
-    context.org.id,
-  );
-  if (remainingVisualChangesets.length === 0) {
-    if (experiment && experiment.hasVisualChangesets) {
-      await updateExperiment({
-        context,
-        experiment,
-        changes: { hasVisualChangesets: false },
-        bypassWebhooks: true,
-      });
+  if (visualChangeset.experiment) {
+    // if experiment has no more visual changesets, update experiment
+    const remainingVisualChangesets = await findVisualChangesetsByExperiment(
+      visualChangeset.experiment,
+      context.org.id,
+    );
+    if (remainingVisualChangesets.length === 0) {
+      if (experiment && experiment.hasVisualChangesets) {
+        await updateExperiment({
+          context,
+          experiment,
+          changes: { hasVisualChangesets: false },
+          bypassWebhooks: true,
+        });
+      }
     }
   }
 
