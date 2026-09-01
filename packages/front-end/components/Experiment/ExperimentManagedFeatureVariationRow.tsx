@@ -37,6 +37,15 @@ import Text from "@/ui/Text";
 import rowStyles from "./ExperimentManagedFeatureVariationRow.module.scss";
 
 // The one column template the header row and every variation row share.
+// Short cells centre against the first line of a field rather than the top of
+// a row a tall value has stretched. `input.form-control` is 36px, so the name
+// field's centre is the line everything else lines up with.
+const FIRST_LINE_CELL = {
+  minHeight: 36,
+  display: "flex",
+  alignItems: "center",
+} as const;
+
 export function gridColumns({
   hideValueField,
   showDescription,
@@ -270,8 +279,8 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
               {...handle}
               title="Drag and drop to re-order variations"
               style={{
+                ...FIRST_LINE_CELL,
                 cursor: "grab",
-                display: "flex",
                 color: "var(--color-text-low)",
               }}
             >
@@ -279,7 +288,9 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             </Box>
           )}
 
-          <VariationNumber number={i} />
+          <Box style={FIRST_LINE_CELL}>
+            <VariationNumber number={i} />
+          </Box>
 
           {!hideValueField &&
             (setVariations && !lockStructure ? (
@@ -388,10 +399,12 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
                 <Text as="span">%</Text>
               </Box>
             ) : (
-              <span>{decimalToPercent(weights[i])}%</span>
+              <Box style={FIRST_LINE_CELL}>
+                <span>{decimalToPercent(weights[i])}%</span>
+              </Box>
             ))}
 
-          <Flex align="center" justify="end" gap="2">
+          <Flex align="center" justify="end" gap="2" style={FIRST_LINE_CELL}>
             {setVariations && !lockStructure ? (
               <DropdownMenu
                 trigger={
