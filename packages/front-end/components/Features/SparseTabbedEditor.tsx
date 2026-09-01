@@ -29,6 +29,7 @@ export default function SparseTabbedEditor({
   defaultHeight,
   showInlineLabel = true,
   condensed = false,
+  fontSize,
   onEditorLoad,
   usedConstantTags,
 }: {
@@ -47,6 +48,9 @@ export default function SparseTabbedEditor({
   // Tighter layout for embedded contexts like ramp step editors: smaller tabs
   // and a shorter default editor height.
   condensed?: boolean;
+  // Editor type size, so the Edit tab matches the plain code editor this
+  // replaces and the Preview tab matches the Edit tab.
+  fontSize?: string;
   // Exposes the Edit-tab Ace editor so a parent's constant picker can insert at
   // the cursor (the Edit tab is force-mounted so this stays valid on Preview).
   onEditorLoad?: (editor: Ace.Editor) => void;
@@ -163,6 +167,8 @@ export default function SparseTabbedEditor({
             resizable={!fullscreen}
             fullHeight={fullscreen}
             defaultHeight={sparseDefaultHeight}
+            fontSize={fontSize}
+            slimGutter
             showCopyButton={true}
             showFullscreenButton={!fullscreen}
             onRequestFullscreen={() => setFullscreen(true)}
@@ -176,6 +182,7 @@ export default function SparseTabbedEditor({
             sparse={true}
             defaultValue={defaultValue}
             full={true}
+            fontSize={fontSize}
             fullStyle={
               fullscreen
                 ? { minHeight: 300, maxWidth: "100%" }
