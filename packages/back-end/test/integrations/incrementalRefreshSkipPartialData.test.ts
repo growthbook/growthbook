@@ -112,7 +112,7 @@ describe("incremental refresh statistics query with skipPartialData", () => {
   function buildSql(
     settings: ExperimentSnapshotSettings,
     metrics = [longWindowMetric],
-    cacheCoverageDate = NOW,
+    asOf?: Date,
   ) {
     return integration.getIncrementalRefreshStatisticsQuery({
       settings,
@@ -127,7 +127,7 @@ describe("incremental refresh statistics query with skipPartialData", () => {
       unitsSourceTableFullName: "proj.ds.units",
       metrics,
       lastMaxTimestamp: null,
-      cacheCoverageDate,
+      asOf,
     });
   }
 
@@ -149,13 +149,42 @@ describe("incremental refresh statistics query with skipPartialData", () => {
     );
   });
 
-  it("rejects a mixed-window slice when excluding in-progress conversions", () => {
-    expect(() =>
-      buildSql({ ...baseSettings, skipPartialData: true }, [
-        shortWindowMetric,
-        longWindowMetric,
-      ]),
-    ).toThrow(/window-homogeneous/);
+  it("uses the longest window when a mixed-window slice excludes in-progress conversions", () => {
+    const sql = buildSql({ ...baseSettings, skipPartialData: true }, [
+      shortWindowMetric,
+      longWindowMetric,
+    ]);
+    // 96 hours before NOW (long window), not 24
+    const cutoff = integration
+      .getSqlDialect()
+      .toTimestamp(new Date("2024-02-06T12:00:00.000Z"));
+    expect(unitsCte(sql)).toContain(`e.first_exposure_timestamp <= ${cutoff}`);
+  });
+
+  it("subtracts a sub-hour window in elapsed time, not truncated hours", () => {
+    const halfHourMetric = factMetricFactory.build({
+      id: "fact_half_hour",
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft_events",
+        column: "amount",
+        aggregation: "sum",
+      },
+      windowSettings: {
+        type: "conversion",
+        delayValue: 0,
+        delayUnit: "minutes",
+        windowValue: 30,
+        windowUnit: "minutes",
+      },
+    });
+    const sql = buildSql({ ...baseSettings, skipPartialData: true }, [
+      halfHourMetric,
+    ]);
+    const cutoff = integration
+      .getSqlDialect()
+      .toTimestamp(new Date("2024-02-10T11:30:00.000Z"));
+    expect(unitsCte(sql)).toContain(`e.first_exposure_timestamp <= ${cutoff}`);
   });
 
   it("allows a mixed-window slice when in-progress conversions are included", () => {

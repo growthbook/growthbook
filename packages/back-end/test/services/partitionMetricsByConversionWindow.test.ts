@@ -6,6 +6,8 @@ import type { MetricForSnapshot } from "shared/types/experiment-snapshot";
 import { isFactFunnelMetric } from "shared/experiments";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
 import {
+  conversionWindowMinutesKey,
+  conversionWindowQueryNameSuffix,
   getMetricConversionWindowHours,
   getOverriddenMetricConversionWindowHours,
   partitionMetricsByConversionWindow,
@@ -95,6 +97,15 @@ function buildFunnelMetric({
   };
 }
 
+describe("conversionWindowMinutesKey", () => {
+  it("encodes hours as an integer minutes token", () => {
+    expect(conversionWindowMinutesKey(0.5)).toBe("30m");
+    expect(conversionWindowMinutesKey(24)).toBe("1440m");
+    expect(conversionWindowQueryNameSuffix(null)).toBe("");
+    expect(conversionWindowQueryNameSuffix("30m")).toBe("_cw30m");
+  });
+});
+
 describe("partitionMetricsByConversionWindow", () => {
   it("returns a single null partition with all metrics when skipPartialData is off", () => {
     const partitions = partitionMetricsByConversionWindow(
@@ -104,7 +115,7 @@ describe("partitionMetricsByConversionWindow", () => {
     );
     expect(partitions).toHaveLength(1);
     expect(partitions[0].windowHours).toBeNull();
-    expect(partitions[0].windowOrdinal).toBeNull();
+    expect(partitions[0].windowKey).toBeNull();
     expect(partitions[0].metrics.map((m) => m.id)).toEqual([
       "fact_short_window",
       "fact_long_window",
@@ -120,7 +131,7 @@ describe("partitionMetricsByConversionWindow", () => {
     );
     expect(partitions).toHaveLength(2);
     expect(partitions.map((p) => p.windowHours)).toEqual([24, 96]);
-    expect(partitions.map((p) => p.windowOrdinal)).toEqual([0, 1]);
+    expect(partitions.map((p) => p.windowKey)).toEqual(["1440m", "5760m"]);
     expect(partitions[0].metrics.map((m) => m.id)).toEqual([
       "fact_short_window",
     ]);
@@ -141,14 +152,14 @@ describe("partitionMetricsByConversionWindow", () => {
     );
     expect(partitions).toHaveLength(1);
     expect(partitions[0].windowHours).toBe(96);
-    expect(partitions[0].windowOrdinal).toBe(0);
+    expect(partitions[0].windowKey).toBe("5760m");
     expect(partitions[0].metrics.map((m) => m.id).sort()).toEqual([
       "fact_long_window",
       "fact_long_window_2",
     ]);
   });
 
-  it("keys sub-hour windows by fractional hours, not a rounded minutes token", () => {
+  it("keys sub-hour windows in minutes", () => {
     const partitions = partitionMetricsByConversionWindow(
       [halfHourMetric, shortWindowMetric],
       true,
@@ -156,10 +167,10 @@ describe("partitionMetricsByConversionWindow", () => {
     );
     expect(partitions).toHaveLength(2);
     expect(partitions[0].windowHours).toBe(0.5);
-    expect(partitions[0].windowOrdinal).toBe(0);
+    expect(partitions[0].windowKey).toBe("30m");
     expect(partitions[0].metrics.map((m) => m.id)).toEqual(["fact_half_hour"]);
     expect(partitions[1].windowHours).toBe(24);
-    expect(partitions[1].windowOrdinal).toBe(1);
+    expect(partitions[1].windowKey).toBe("1440m");
   });
 
   it("matches the stats CTE window for a funnel metric", () => {
@@ -214,7 +225,7 @@ describe("partitionMetricsByConversionWindow", () => {
     );
   });
 
-  it("assigns unique, stable ordinals regardless of input order", () => {
+  it("assigns unique, stable minute keys regardless of input order", () => {
     const forward = partitionMetricsByConversionWindow(
       [longWindowMetric, shortWindowMetric, halfHourMetric],
       true,
@@ -227,9 +238,9 @@ describe("partitionMetricsByConversionWindow", () => {
     );
     expect(forward.map((p) => p.windowHours)).toEqual([0.5, 24, 96]);
     expect(reverse.map((p) => p.windowHours)).toEqual([0.5, 24, 96]);
-    expect(forward.map((p) => p.windowOrdinal)).toEqual([0, 1, 2]);
-    expect(reverse.map((p) => p.windowOrdinal)).toEqual([0, 1, 2]);
-    expect(new Set(forward.map((p) => p.windowOrdinal)).size).toBe(3);
+    expect(forward.map((p) => p.windowKey)).toEqual(["30m", "1440m", "5760m"]);
+    expect(reverse.map((p) => p.windowKey)).toEqual(["30m", "1440m", "5760m"]);
+    expect(new Set(forward.map((p) => p.windowKey)).size).toBe(3);
   });
 
   it("does not emit empty partitions", () => {

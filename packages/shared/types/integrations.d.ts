@@ -526,11 +526,12 @@ export interface IncrementalRefreshStatisticsQueryParams {
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
   /**
-   * How far the metric caches this query reads are populated. Anchors the
-   * skipPartialData cutoff so a stale cache never admits a unit whose
-   * conversion window extends past the cached data.
+   * Known-complete data horizon for skipPartialData. Defaults to now
+   * inside getExperimentEndDate. Exploratory passes the last overall
+   * snapshot's dateCreated (sourceSnapshotDateCreated) so a stale cache
+   * does not admit units whose window extends past cached data.
    */
-  cacheCoverageDate: Date;
+  asOf?: Date;
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";

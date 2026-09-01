@@ -4,7 +4,10 @@ import type {
   CrossFtMetricSourceGroupRef,
 } from "back-end/src/services/experimentQueries/crossFtSubGroups";
 import type { CrossFtRatioMetric } from "back-end/src/services/experimentQueries/planMetricFanOut";
-import { getMetricConversionWindowHours } from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
+import {
+  conversionWindowMinutesKey,
+  getMetricConversionWindowHours,
+} from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
 
 const pipelineA: CrossFtPipelineRef = {
@@ -65,7 +68,9 @@ const mixedWindowPairs = [
 ];
 
 function windowKeyFn(m: CrossFtRatioMetric): string | null {
-  return String(getMetricConversionWindowHours(m.metric, null));
+  return conversionWindowMinutesKey(
+    getMetricConversionWindowHours(m.metric, null),
+  );
 }
 
 describe("buildCrossFtSubGroups window key", () => {
@@ -81,7 +86,7 @@ describe("buildCrossFtSubGroups window key", () => {
       "m_long",
       "m_short",
     ]);
-    expect(without[0].windowOrdinal).toBeNull();
+    expect(without[0].windowKey).toBeNull();
   });
 
   it("is byte-identical without getWindowKey to a null-returning callback's grouping", () => {
@@ -101,8 +106,8 @@ describe("buildCrossFtSubGroups window key", () => {
     expect(withNullFn.map((sg) => sg.metrics.map((m) => m.metric.id))).toEqual(
       without.map((sg) => sg.metrics.map((m) => m.metric.id)),
     );
-    expect(withNullFn.map((sg) => sg.windowOrdinal)).toEqual(
-      without.map((sg) => sg.windowOrdinal),
+    expect(withNullFn.map((sg) => sg.windowKey)).toEqual(
+      without.map((sg) => sg.windowKey),
     );
     expect(withNullFn[0].pipelines).toEqual(without[0].pipelines);
   });
@@ -116,9 +121,15 @@ describe("buildCrossFtSubGroups window key", () => {
       getWindowKey: windowKeyFn,
     });
     expect(subGroups).toHaveLength(2);
-    expect(subGroups.map((sg) => sg.windowOrdinal)).toEqual([0, 1]);
-    expect(subGroups[0].metrics.map((m) => m.metric.id)).toEqual(["m_short"]);
-    expect(subGroups[1].metrics.map((m) => m.metric.id)).toEqual(["m_long"]);
+    expect(subGroups.map((sg) => sg.windowKey).sort()).toEqual([
+      "1440m",
+      "5760m",
+    ]);
+    const byKey = Object.fromEntries(
+      subGroups.map((sg) => [sg.windowKey, sg.metrics.map((m) => m.metric.id)]),
+    );
+    expect(byKey["1440m"]).toEqual(["m_short"]);
+    expect(byKey["5760m"]).toEqual(["m_long"]);
     expect(subGroups[0].pipelines).toEqual(subGroups[1].pipelines);
   });
 
@@ -136,7 +147,7 @@ describe("buildCrossFtSubGroups window key", () => {
       getWindowKey: windowKeyFn,
     });
     expect(subGroups).toHaveLength(1);
-    expect(subGroups[0].windowOrdinal).toBe(0);
+    expect(subGroups[0].windowKey).toBe("1440m");
     expect(subGroups[0].metrics.map((m) => m.metric.id).sort()).toEqual([
       "m_short",
       "m_short_2",

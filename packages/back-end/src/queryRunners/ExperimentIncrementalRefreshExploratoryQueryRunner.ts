@@ -29,6 +29,7 @@ import {
 } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
 import {
+  conversionWindowMinutesKey,
   conversionWindowQueryNameSuffix,
   getOverriddenMetricConversionWindowHours,
   partitionMetricsByConversionWindow,
@@ -40,6 +41,7 @@ import { updateReport } from "back-end/src/models/ReportModel";
 import { parseDimension } from "back-end/src/services/experiments";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/services/data-pipeline";
+import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   QueryRunner,
@@ -61,6 +63,11 @@ export type ExperimentIncrementalRefreshExploratoryQueryParams = {
   queryParentId: string;
   // Incremental Refresh specific
   incrementalRefreshStartTime: Date;
+  /**
+   * Last overall snapshot dateCreated. Anchors skipPartialData so a stale
+   * cache does not admit units whose window extends past cached data.
+   */
+  asOf?: Date;
 };
 
 export const startExperimentIncrementalRefreshExploratoryQueries = async (
@@ -141,6 +148,13 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     );
   }
 
+  const asOf = params.asOf;
+  if (snapshotSettings.skipPartialData && !asOf) {
+    throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+      "Overall Results require a full refresh before Dimension Results can exclude in-progress conversions.",
+    );
+  }
+
   const executionId = params.queryParentId;
 
   // Dependencies can delay a query until another snapshot takes over the lock.
@@ -185,12 +199,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     group: (typeof metricSourceGroups)[number];
     tableFullName: string;
     /**
-     * How far this cache is populated. The skipPartialData cutoff is
-     * anchored here (not now) because exploratory runs read caches from
-     * the last main refresh without rebuilding them.
-     */
-    maxTimestamp: Date | null;
-    /**
      * Optional covariate cache, populated when at least one metric in the
      * group is regression-adjusted (same-FT or cross-FT).
      */
@@ -228,7 +236,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     pipelineByGroupId.set(group.groupId, {
       group,
       tableFullName: existingSource.tableFullName,
-      maxTimestamp: existingSource.maxTimestamp,
       covariateTableFullName: anyMetricHasCuped
         ? existingCovariateSource?.tableFullName
         : undefined,
@@ -260,7 +267,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     );
     for (const partition of partitions) {
       const statisticsQuery = await startQuery({
-        name: `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.windowOrdinal)}`,
+        name: `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.windowKey)}`,
         displayTitle: `Compute Statistics ${sourceName}`,
         query: integration.getIncrementalRefreshStatisticsQuery({
           settings: snapshotSettings,
@@ -287,9 +294,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
           unitsSourceTableFullName: unitsTableFullName,
           metrics: partition.metrics,
           lastMaxTimestamp: existingSource?.maxTimestamp || null,
-          // No insert here: cache is only as fresh as the last main refresh.
-          // Null (empty cache) anchors to the epoch so no units are analyzed.
-          cacheCoverageDate: existingSource.maxTimestamp ?? new Date(0),
+          asOf,
         }),
         dependencies: [],
         run: fenced((query, setExternalId, queryMetadata) =>
@@ -320,7 +325,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     onMissingPipeline: "skip",
     getWindowKey: (m) =>
       snapshotSettings.skipPartialData
-        ? String(
+        ? conversionWindowMinutesKey(
             getOverriddenMetricConversionWindowHours(
               m.metric,
               activationMetric,
@@ -336,7 +341,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     const sourceName = ftA && ftB ? `(${ftA.name} x ${ftB.name})` : "";
 
     const crossStatsQuery = await startQuery({
-      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}${conversionWindowQueryNameSuffix(subGroup.windowOrdinal)}`,
+      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`,
       displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
@@ -348,13 +353,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
         unitsSourceTableFullName: unitsTableFullName,
         metrics: subGroup.metrics.map((m) => m.metric),
         lastMaxTimestamp: null,
-        // Fully covered only when both sides have the window; null → epoch.
-        cacheCoverageDate: new Date(
-          Math.min(
-            pipelineA.maxTimestamp?.getTime() ?? 0,
-            pipelineB.maxTimestamp?.getTime() ?? 0,
-          ),
-        ),
+        asOf,
         // Cross-FT CUPED reads each side's covariate cache. Either
         // pipeline may have none (if its metrics aren't RA), and we omit
         // `covariateTableFullName` in that case.
@@ -453,7 +452,10 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
 
     return startExperimentIncrementalRefreshExploratoryQueries(
       this.context,
-      params,
+      {
+        ...params,
+        asOf: this.model.sourceSnapshotDateCreated,
+      },
       this.integration,
       this.startQuery.bind(this),
     );

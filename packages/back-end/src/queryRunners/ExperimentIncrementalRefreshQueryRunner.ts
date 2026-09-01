@@ -63,6 +63,7 @@ import {
 } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
 import {
+  conversionWindowMinutesKey,
   conversionWindowQueryNameSuffix,
   getOverriddenMetricConversionWindowHours,
   partitionMetricsByConversionWindow,
@@ -1044,7 +1045,7 @@ const startExperimentIncrementalRefreshQueries = async (
             : eligibleDimensionsWithSlicesUnderMaxCells;
 
         const statisticsQuery = await startQuery({
-          name: `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.windowOrdinal)}`,
+          name: `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.windowKey)}`,
           displayTitle: `Compute Statistics ${sourceName}`,
           query: integration.getIncrementalRefreshStatisticsQuery({
             settings: snapshotSettings,
@@ -1054,9 +1055,6 @@ const startExperimentIncrementalRefreshQueries = async (
             unitsSourceTableFullName: unitsTableFullName,
             metrics: partition.metrics,
             lastMaxTimestamp: existingSource?.maxTimestamp || null,
-            // Insert (a dependency) refreshes the cache to ~now, so the run
-            // start is a safe coverage anchor.
-            cacheCoverageDate: params.incrementalRefreshStartTime,
             dimensionsForPrecomputation,
             dimensionsForAnalysis: [],
             metricSources: [
@@ -1106,7 +1104,7 @@ const startExperimentIncrementalRefreshQueries = async (
     onMissingPipeline: "throw",
     getWindowKey: (m) =>
       snapshotSettings.skipPartialData
-        ? String(
+        ? conversionWindowMinutesKey(
             getOverriddenMetricConversionWindowHours(
               m.metric,
               activationMetric,
@@ -1130,7 +1128,7 @@ const startExperimentIncrementalRefreshQueries = async (
       : eligibleDimensionsWithSlicesUnderMaxCells;
 
     const crossStatsQuery = await startQuery({
-      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}${conversionWindowQueryNameSuffix(subGroup.windowOrdinal)}`,
+      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`,
       displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
@@ -1144,9 +1142,6 @@ const startExperimentIncrementalRefreshQueries = async (
         // null; the stats query reads whatever each cache holds and the
         // ratio aggregation works regardless of catch-up state.
         lastMaxTimestamp: null,
-        // Both inserts refresh the caches to ~now, so the run start is a
-        // safe coverage anchor.
-        cacheCoverageDate: params.incrementalRefreshStartTime,
         dimensionsForPrecomputation,
         dimensionsForAnalysis: [],
         // Cross-FT CUPED uses one covariate cache per pipeline — the

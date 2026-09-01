@@ -1662,11 +1662,9 @@ export default abstract class SqlIntegration
     const lastMaxTimestampBinds =
       params.lastMaxTimestamp && params.lastMaxTimestamp > settings.startDate;
 
-    // Always collect every exposure up to the phase end, even when
-    // skipPartialData is on: the units cache must stay complete so units
-    // whose conversion window has not elapsed yet are analyzed on a later
-    // refresh. The cutoff is applied at read time in
-    // getIncrementalRefreshStatisticsQuery.
+    // Always collect every exposure up to the phase end
+    // For conversion window / skipPartialData we apply it during
+    // read time in the statistics query
     const endDate = getExperimentEndDate(settings, 0);
 
     return format(
@@ -2375,35 +2373,17 @@ export default abstract class SqlIntegration
 
     // skipPartialData is a read-time units filter (caches already apply each
     // metric's window per event at insert). Cutoff is the longest window in
-    // this slice — valid because partitionMetricsByConversionWindow groups
-    // by window — and is anchored to `cacheCoverageDate`, not now, so an
-    // exploratory run on a stale cache does not admit units whose window
-    // extends past the cached data.
+    // this slice — callers group by window via
+    // partitionMetricsByConversionWindow — and is anchored to `asOf`
+    // (default now) so exploratory can pass the last overall refresh time.
     const maxHoursToConvert = Math.max(
       0,
       ...metricData.map((m) => m.maxHoursToConvert),
     );
-    // Fail closed if a caller skipped partitionMetricsByConversionWindow.
-    if (params.settings.skipPartialData) {
-      const distinctWindows = new Set(
-        metricData.map((m) => m.maxHoursToConvert),
-      );
-      if (distinctWindows.size > 1) {
-        throw new Error(
-          `getIncrementalRefreshStatisticsQuery: "exclude in-progress conversions" needs a window-homogeneous slice, but got conversion windows [${[
-            ...distinctWindows,
-          ]
-            .sort((a, b) => a - b)
-            .join(
-              ", ",
-            )}]h. Metrics must be grouped by conversion window (see partitionMetricsByConversionWindow).`,
-        );
-      }
-    }
     const unitsEndDate = getExperimentEndDate(
       params.settings,
       maxHoursToConvert,
-      params.cacheCoverageDate,
+      params.asOf,
     );
     const unitsWhere = params.settings.skipPartialData
       ? `WHERE e.first_exposure_timestamp <= ${this.getSqlDialect().toTimestamp(unitsEndDate)}`

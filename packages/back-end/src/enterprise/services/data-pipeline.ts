@@ -524,6 +524,15 @@ export function exploratoryOverallRequiresFullRefresh({
   if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
     return true;
   }
+  // skipPartialData exploratory needs sourceSnapshotDateCreated (the
+  // materializer's dateCreated) as asOf. Legacy IR docs never stored a
+  // materializer, so Overall Results must full-refresh first.
+  if (
+    snapshotSettings.skipPartialData &&
+    !incrementalRefreshModel.materializedBySnapshotId
+  ) {
+    return true;
+  }
   return overallResultsBuiltWithoutIncrementalPipeline({
     unitsTableFullName: incrementalRefreshModel.unitsTableFullName,
     materializedBySnapshotId: incrementalRefreshModel.materializedBySnapshotId,

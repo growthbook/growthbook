@@ -24,11 +24,11 @@ export interface CrossFtSubGroup<P> {
   pipelines: [P, P];
   metrics: CrossFtRatioMetric[];
   /**
-   * Null when `getWindowKey` is absent or returns null. Otherwise an
-   * ascending index used as `_w${windowOrdinal}` on the stats query name so
+   * Null when `getWindowKey` is absent or returns null. Otherwise the
+   * minutes key (`"90m"`) used as `_cw90m` on the stats query name so
    * mixed-window pairs over the same two caches stay unique.
    */
-  windowOrdinal: number | null;
+  windowKey: string | null;
 }
 
 /**
@@ -67,8 +67,7 @@ export function buildCrossFtSubGroups<P extends CrossFtPipelineRef>({
   onMissingPipeline: "throw" | "skip";
   getWindowKey?: (m: CrossFtRatioMetric) => string | null;
 }): CrossFtSubGroup<P>[] {
-  type Draft = CrossFtSubGroup<P> & { windowKey: string | null };
-  const subGroupMap = new Map<string, Draft>();
+  const subGroupMap = new Map<string, CrossFtSubGroup<P>>();
 
   for (const pair of crossFtPairs) {
     for (const crossFt of pair.metrics) {
@@ -113,53 +112,11 @@ export function buildCrossFtSubGroups<P extends CrossFtPipelineRef>({
         subGroupMap.set(subGroupKey, {
           pipelines: sortedPipelines,
           metrics: [crossFt],
-          windowOrdinal: null,
           windowKey,
         });
       }
     }
   }
 
-  const drafts = Array.from(subGroupMap.values());
-  if (!getWindowKey) {
-    return drafts.map((d) => ({
-      pipelines: d.pipelines,
-      metrics: d.metrics,
-      windowOrdinal: d.windowOrdinal,
-    }));
-  }
-
-  // Assign ascending window ordinals per pipeline pair so query names stay
-  // unique and deterministic without putting window hours into the name.
-  const byPair = new Map<string, Draft[]>();
-  for (const draft of drafts) {
-    const pairKey = `${draft.pipelines[0].group.groupId}__${draft.pipelines[1].group.groupId}`;
-    const list = byPair.get(pairKey) ?? [];
-    list.push(draft);
-    byPair.set(pairKey, list);
-  }
-
-  const result: CrossFtSubGroup<P>[] = [];
-  for (const list of byPair.values()) {
-    const allNull = list.every((d) => d.windowKey === null);
-    if (allNull) {
-      for (const d of list) {
-        result.push({
-          pipelines: d.pipelines,
-          metrics: d.metrics,
-          windowOrdinal: null,
-        });
-      }
-      continue;
-    }
-    list.sort((a, b) => Number(a.windowKey) - Number(b.windowKey));
-    list.forEach((d, i) => {
-      result.push({
-        pipelines: d.pipelines,
-        metrics: d.metrics,
-        windowOrdinal: i,
-      });
-    });
-  }
-  return result;
+  return Array.from(subGroupMap.values());
 }
