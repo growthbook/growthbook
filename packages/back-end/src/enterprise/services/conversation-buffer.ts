@@ -41,6 +41,8 @@ export interface ConversationBuffer {
   getMessages(): AIChatMessage[];
   getLatestToolResult(toolName: string): AIChatToolResultPart | undefined;
   getModel(): string | undefined;
+  /** Previews the user has committed; written by its own endpoint, read-only here. */
+  getSavedDashboards(): AIChatSavedDashboard[];
 
   getPendingAction(): AIAgentPendingAction | undefined;
 
@@ -69,6 +71,7 @@ export class LocalConversationBuffer implements ConversationBuffer {
   private modelValue: string | undefined;
   private readonly agentTypeValue: string;
   private pendingActionValue: AIAgentPendingAction | null;
+  private readonly savedDashboardsValue: AIChatSavedDashboard[];
 
   constructor(
     public readonly conversationId: string,
@@ -80,6 +83,7 @@ export class LocalConversationBuffer implements ConversationBuffer {
       agentType: string;
       model?: string;
       pendingAction?: AIAgentPendingAction | null;
+      savedDashboards?: AIChatSavedDashboard[];
     },
   ) {
     this.messages = init.messages;
@@ -90,6 +94,11 @@ export class LocalConversationBuffer implements ConversationBuffer {
     this.agentTypeValue = init.agentType;
     this.modelValue = init.model;
     this.pendingActionValue = init.pendingAction ?? null;
+    this.savedDashboardsValue = init.savedDashboards ?? [];
+  }
+
+  getSavedDashboards(): AIChatSavedDashboard[] {
+    return this.savedDashboardsValue;
   }
 
   getMessages(): AIChatMessage[] {
@@ -214,6 +223,7 @@ export async function loadOrInitConversation(
       agentType: existing.agentType,
       model: existing.model,
       pendingAction: existing.pendingAction ?? null,
+      savedDashboards: existing.savedDashboards ?? [],
     });
   }
 

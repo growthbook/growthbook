@@ -34,10 +34,46 @@ Check your tools before doing anything else.
 
 ## Workflows
 
-| Workflow                         | Use when                         |
-| -------------------------------- | -------------------------------- |
-| `references/dashboard-create.md` | Building a new dashboard         |
-| `references/dashboard-edit.md`   | Changing a dashboard that exists |
+Route on one question: **does the dashboard have a `dashboardId`?**
+
+| Workflow                         | Use when                                                   |
+| -------------------------------- | ---------------------------------------------------------- |
+| `references/dashboard-create.md` | No id yet — building one, or revising an unsaved preview   |
+| `references/dashboard-edit.md`   | It has an id — the user saved, loaded, or `@`-mentioned it |
+
+## The revision round
+
+Both workflows end in a preview and then go round: "drop that tile", "make it 90
+days", "add revenue", as many times as it takes before the user presses the
+button. Every round is the same move on either side.
+
+- **One `proposeDashboard` call, carrying the complete block list.** A proposal
+  replaces the previous one whole, so what you send is the dashboard the user
+  gets — every block being kept, not just the one that changed.
+- **No questions.** Name, project, datasource and timeframe were settled on the
+  first proposal, and someone asking to change one tile is not asking to revisit
+  any of them.
+- **The newest draft is the current state.** Take the blocks, and the
+  `globalControls` and `comparison` the user has set, from your most recent
+  `proposeDashboard` call — not from the first one.
+- **Only the newest preview is live.** Proposing again expires the one before
+  it: that tile goes read-only and its button stops working. So a round that
+  leaves a block out has removed it as far as the user can act on it.
+
+The `dashboardId` is the only thing that differs:
+
+|                                                              | Unsaved preview (create) | Saved dashboard (edit) |
+| ------------------------------------------------------------ | ------------------------ | ---------------------- |
+| `dashboardId`                                                | omit — there is no id    | pass it, every round   |
+| The preview's button                                         | **Save dashboard**       | **Update dashboard**   |
+| Omitting `title`, `projects`, `globalControls`, `comparison` | **reverts** them         | keeps the saved value  |
+
+**Once the user presses Save the dashboard has an id, and every round after that
+is an edit.** You are told when that happens: the `proposeDashboard` result they
+saved comes back carrying
+`[The user saved this preview as dashboard <id> …]`. Take the id from there,
+switch to `dashboard-edit`, and never ask which dashboard they mean or what it
+is called.
 
 ## Scope
 
@@ -125,12 +161,11 @@ it.
 Never ask a question whose answer would not change a block — build something
 reasonable and state your assumptions instead.
 
-**This budget is for creating. On an edit it is zero.** A dashboard already in
-play answers every row above by itself: it has a name, a project, a datasource
-and a timeframe, and the user asking to change one tile is not asking to revisit
-any of the others. Do not ask which dashboard they mean, whether to update it or
-create a new one, or for confirmation of a change they just described — make it
-and show them the preview, which is where they say no.
+**This budget covers the first proposal only. Every round after it is zero** —
+saved or not; see **The revision round** above. Make the change and show them the
+preview, which is where they say no. Questions worth skipping there: which
+dashboard they mean, whether to update it or create a new one, and whether they
+meant the change they just described.
 
 Projects: `GET /api/v1/projects`. Skip the question when the org has none or one
 — pass `[]` or that single id. `[]` means visible in every project, which is

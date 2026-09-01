@@ -389,7 +389,10 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       logger.error(err, "Failed to persist user message");
     });
 
-    const messagesForLLM = toModelMessages(buffer.getMessages());
+    const messagesForLLM = toModelMessages(
+      buffer.getMessages(),
+      buffer.getSavedDashboards(),
+    );
 
     const titlePromise: Promise<void> = isFirstMessage
       ? generateTitle(context, config, message, overrideModel, buffer, emit)

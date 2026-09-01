@@ -150,11 +150,6 @@ export const apiCreateDashboardBody = z
       )
       .optional(),
     globalControls: dashboardGlobalControlsValidator.optional(),
-    comparison: blockComparisonValidator
-      .optional()
-      .describe(
-        'Dashboard-wide compare-to-previous-period, e.g. { "enabled": true, "mode": "previousPeriod" }. Overrides any per-block comparison.',
-      ),
     blocks: z.array(apiCreateDashboardBlockInterface),
   })
   .strict();

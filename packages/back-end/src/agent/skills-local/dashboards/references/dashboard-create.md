@@ -5,6 +5,21 @@ description: Build a new Analytics dashboard from a goal or a set of metrics —
 
 # dashboard-create
 
+**Scope: a dashboard with no `dashboardId` yet** — nothing proposed yet, or a
+preview the user has not saved. Both live here.
+
+Revising an unsaved preview stays here however many rounds it takes: skip to
+step 6 (name, project, datasource and metrics are already settled) and follow
+the router's **revision round** rules. The one that bites on this side: with no
+id there is nothing saved to fall back to, so `title`, `projects`,
+`globalControls` and `comparison` all revert if you leave them out — copy all
+four, plus every block being kept, from your newest `proposeDashboard` call.
+
+The moment it has an id — the user saved it, loaded one, or `@`-mentioned one —
+`dashboard-edit` governs and its rules win over everything below. This file
+stays in your context after you have used it, so check which you are in before
+following it.
+
 Settle the brief, find the metrics, then hand the whole thing to
 `proposeDashboard` in one call. It runs every query, lays out the grid, and shows
 the user a live preview with a Save button.
@@ -32,7 +47,8 @@ Running the charts and saving the dashboard are both handled for you.
    for the archetype table and the ask budget) and fill the slots. Everything
    else has a default: take it, and say what you assumed in your reply. Beyond
    the name and project, **at most one more `askUser`**. Leave sharing and
-   auto-refresh at their defaults — both are adjustable in the preview.
+   auto-refresh alone: sharing is a dropdown on the preview, and auto-refresh is
+   off until they turn it on from the saved dashboard.
 
 4. **Find the metrics** with the `search` tool — the same one you use for a
    one-off chart, so nothing here is dashboard-specific.
@@ -184,13 +200,13 @@ preview, so aim for a sensible default rather than a perfect one.
 
 The `dashboards` skill carries the shared rules. On top of those:
 
-- **One `proposeDashboard` call per turn**, with the complete block list. To
-  revise, call it again with the full revised list — it replaces the proposal.
+- **One `proposeDashboard` call per turn**, with the complete block list — see
+  the router's **revision round**.
 - **Omit `dashboardId` here.** Nothing exists until the user saves, so an id
   would bind the preview to a dashboard that is not there. `dashboard-edit`
   is where ids belong.
-- **Stop at one question** beyond the name-and-project one. Then build, and
-  state your assumptions.
+- **Stop at one question** beyond the name-and-project one, and ask none at all
+  on a revision round. Then build, and state your assumptions.
 - When the tool reports `droppedBlocks`, name the missing tiles and say why, so
   what the user sees is described as the partial dashboard it is.
 

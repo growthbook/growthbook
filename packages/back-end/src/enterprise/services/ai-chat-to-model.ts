@@ -1,4 +1,5 @@
 import type { ModelMessage, ToolResultPart } from "ai";
+import type { AIChatSavedDashboard } from "shared/validators";
 import {
   toolResultSnapshotId,
   type AIChatAssistantContentPart,
@@ -106,17 +107,37 @@ function compactToolOutput(result: string): string {
   return `[Result compacted${hint} — use getSnapshot to retrieve full data]`;
 }
 
+/**
+ * The user pressing Save on a preview is the one thing the transcript cannot
+ * show: the dashboard gets an id the agent proposed without. Re-stated every
+ * turn rather than written into the stored result, so it survives compaction —
+ * without it the next revision proposes with no `dashboardId` and Save creates
+ * a second dashboard, and the agent asks which dashboard the user means.
+ */
+function savedDashboardNote(dashboardId: string): string {
+  return (
+    `\n\n[The user saved this preview as dashboard ${dashboardId}. That dashboard ` +
+    `now exists, so every further change to it is an edit: pass dashboardId ` +
+    `"${dashboardId}" to proposeDashboard, and do not ask the user for its name, ` +
+    `its project, or which dashboard they mean.]`
+  );
+}
+
 function mapToolResult(
   part: { toolCallId: string; toolName: string; result: string },
   compact: boolean,
+  savedDashboardId?: string,
 ): ToolResultPart {
+  const value = compact ? compactToolOutput(part.result) : part.result;
   return {
     type: "tool-result",
     toolCallId: part.toolCallId,
     toolName: part.toolName,
     output: {
       type: "text",
-      value: compact ? compactToolOutput(part.result) : part.result,
+      value: savedDashboardId
+        ? `${value}${savedDashboardNote(savedDashboardId)}`
+        : value,
     },
   };
 }
@@ -135,7 +156,13 @@ const NEVER_COMPACT_TOOLS = new Set(["loadSkill"]);
  * Older tool-result payloads (before the last assistant turn) are compacted
  * to save tokens, preserving snapshotId for prompt-cache stability.
  */
-export function toModelMessages(messages: AIChatMessage[]): ModelMessage[] {
+export function toModelMessages(
+  messages: AIChatMessage[],
+  savedDashboards: AIChatSavedDashboard[] = [],
+): ModelMessage[] {
+  const savedByToolCall = new Map(
+    savedDashboards.map((d) => [d.toolCallId, d.dashboardId]),
+  );
   let lastAssistantIdx = -1;
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i]!.role === "assistant") {
@@ -170,6 +197,7 @@ export function toModelMessages(messages: AIChatMessage[]): ModelMessage[] {
             mapToolResult(
               p,
               idx < lastAssistantIdx && !NEVER_COMPACT_TOOLS.has(p.toolName),
+              savedByToolCall.get(p.toolCallId),
             ),
           ),
         };

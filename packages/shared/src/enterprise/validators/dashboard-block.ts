@@ -667,7 +667,6 @@ export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
   metricExplorationBlockInterface.omit(createOmits),
   factTableExplorationBlockInterface.omit(createOmits),
   dataSourceExplorationBlockInterface.omit(createOmits),
-  funnelExplorationBlockInterface.omit(createOmits),
 ]);
 export type CreateDashboardBlockInterface = z.infer<
   typeof createDashboardBlockInterface

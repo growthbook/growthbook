@@ -5,6 +5,22 @@ description: Load, change, or tidy an Analytics dashboard that already exists �
 
 # dashboard-edit
 
+**Scope: a dashboard that has a `dashboardId`.** The id is the whole test, because
+every step below needs one — to read the dashboard, and to make Update land on it
+rather than create a second copy. It reaches you three ways: an `@`-mention, a
+dashboard you loaded, or the `[The user saved this preview as dashboard <id> …]`
+note on a preview the user has just committed.
+
+A preview not yet saved has no id, so revising that belongs to
+`dashboard-create`. From the save onwards this file governs, including when
+`dashboard-create` is also in your context from earlier in the conversation — its
+steps for settling a name and a project have stopped applying.
+
+Rounds of "drop that tile, make it 90 days" follow the router's **revision
+round** rules. On this side that means passing `dashboardId` every round, and
+omitting `title`, `projects`, `globalControls` or `comparison` keeps the saved
+value rather than reverting it.
+
 Read the dashboard, apply the change, and re-propose the whole thing. The user
 gets a fresh preview with an Update button; nothing reaches the real dashboard
 until they press it.
@@ -30,9 +46,11 @@ asked for.
      outranks everything below, because a fresh mention means they switched.
    - **The one already in play.** Once this conversation has loaded, proposed, or
      edited a dashboard, every follow-up is about that one: take its id from the
-     newest `proposeDashboard` draft. "Remove the Scaled Impact tile" and "make
-     it 90 days" are about the dashboard on screen, so you already know which
-     dashboard it is and whether it is an update.
+     newest `proposeDashboard` draft, or from the `[The user saved this preview
+as dashboard <id> …]` note if they saved a preview that had none. "Remove
+     the Scaled Impact tile" and "make it 90 days" are about the dashboard on
+     screen, so you already know which dashboard it is and whether it is an
+     update.
    - **A list, when the conversation has neither.**
 
      ```json

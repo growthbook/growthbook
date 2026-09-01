@@ -110,3 +110,58 @@ describe("toModelMessages context prefix", () => {
     expect(text).toBe("how is it doing?");
   });
 });
+
+describe("toModelMessages saved-dashboard binding", () => {
+  const transcript: AIChatMessage[] = [
+    userMessage({ content: "build me a dashboard" }),
+    {
+      role: "assistant",
+      id: "m2",
+      ts: 0,
+      content: [
+        {
+          type: "tool-call",
+          toolCallId: "call_1",
+          toolName: "proposeDashboard",
+          args: {},
+        },
+      ],
+    },
+    {
+      role: "tool",
+      id: "m3",
+      ts: 0,
+      content: [
+        {
+          toolCallId: "call_1",
+          toolName: "proposeDashboard",
+          result: '{"status":"shown"}',
+        },
+      ],
+    },
+    { role: "assistant", id: "m4", ts: 0, content: "Here it is." },
+    userMessage({ id: "m5", content: "make it 90 days" }),
+  ] as AIChatMessage[];
+
+  /** The text the model receives for the proposeDashboard tool result. */
+  function toolText(saved: { toolCallId: string; dashboardId: string }[]) {
+    const mapped = toModelMessages(transcript, saved)[2];
+    const part = (mapped.content as { output: { value: string } }[])[0];
+    return part.output.value;
+  }
+
+  it("tells the agent the id the user saved under, even once compacted", () => {
+    const text = toolText([{ toolCallId: "call_1", dashboardId: "dash_abc" }]);
+    // Compacted — it sits before the last assistant turn.
+    expect(text).toContain("[Result compacted");
+    expect(text).toContain("saved this preview as dashboard dash_abc");
+    expect(text).toContain('pass dashboardId "dash_abc"');
+  });
+
+  it("leaves an unsaved preview alone, so revising it stays a create", () => {
+    expect(toolText([])).not.toContain("saved this preview");
+    expect(
+      toolText([{ toolCallId: "other_call", dashboardId: "dash_abc" }]),
+    ).not.toContain("saved this preview");
+  });
+});
