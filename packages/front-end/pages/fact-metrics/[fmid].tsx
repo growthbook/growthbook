@@ -80,6 +80,10 @@ import {
   isMergeAggregationMetric,
   REST_API_ONLY_EDIT_MESSAGE,
 } from "@/services/factMetrics";
+import {
+  ReplacedByCallout,
+  ReplacesMetadata,
+} from "@/components/Metrics/MetricReplacement";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -632,6 +636,7 @@ export default function FactMetricPage() {
           experiments.
         </Callout>
       )}
+      <ReplacedByCallout metricId={factMetric.id} />
       <Flex align="start" justify="between" gap="2" mb="2">
         <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
           <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
@@ -805,6 +810,7 @@ export default function FactMetricPage() {
             </Link>
           }
         />
+        <ReplacesMetadata replaces={factMetric.replaces} />
       </Flex>
       <Box mt="3" mb="3">
         <Flex align="center" gap="1">

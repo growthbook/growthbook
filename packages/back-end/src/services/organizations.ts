@@ -34,6 +34,7 @@ import {
   AIProvider,
   AI_PROVIDERS,
   CLOUD_MANAGED_AI_MODEL,
+  SELF_HOSTED_DEFAULT_AI_MODELS,
   CLOUD_MANAGED_IMAGE_MODEL,
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
   DEFAULT_EMBEDDING_MODEL,
@@ -344,8 +345,13 @@ export async function getAISettingsForOrg(
       context.org.settings?.openAIDefaultModel,
     keySource,
   );
+  const selfHostedDefaultAIModel: AIModel =
+    SELF_HOSTED_DEFAULT_AI_MODELS.find(
+      ([provider]) => keySource[provider] !== "none",
+    )?.[1] ?? SELF_HOSTED_DEFAULT_AI_MODELS[0][1];
   const defaultAIModel: AIModel =
-    orgDefaultAIModel || (IS_CLOUD ? CLOUD_MANAGED_AI_MODEL : "gpt-5.4-mini");
+    orgDefaultAIModel ||
+    (IS_CLOUD ? CLOUD_MANAGED_AI_MODEL : selfHostedDefaultAIModel);
 
   // Cloud stays on Sonnet unless the Visual Editor's own setting overrides it:
   // its structured-output + vision workload fails schema adherence on Haiku.

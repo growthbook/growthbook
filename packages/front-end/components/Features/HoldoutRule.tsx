@@ -6,7 +6,10 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { filterEnvironmentsByFeature } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  getEnabledHoldoutEnvironments,
+} from "shared/util";
 import { hasTargetingConfigured } from "shared/experiments";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -86,11 +89,9 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
 
     // Holdout env scope lives on the holdout itself (not the feature link).
     // Show envs where the holdout is enabled as active, the rest as inactive.
-    const activeHoldoutEnvIds = Object.entries(
-      holdout.environmentSettings ?? {},
-    )
-      .filter(([, s]) => s?.enabled)
-      .map(([id]) => id);
+    const activeHoldoutEnvIds = getEnabledHoldoutEnvironments(
+      holdout.environmentSettings,
+    );
 
     const hasCondition = hasTargetingConfigured(holdoutExperiment.phases[0]);
 

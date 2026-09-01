@@ -95,6 +95,7 @@ export type OpenApiEndpointSpec = {
   validator: RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
   zodReturnObject: z.ZodTypeAny;
   summary: string;
+  description?: string;
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
 };
@@ -297,6 +298,7 @@ export function getOpenApiRoutesForApiConfig(
       verb,
       operationId,
       summary,
+      description,
       zodReturnObject,
       possibleErrors,
     }) => {
@@ -306,6 +308,7 @@ export function getOpenApiRoutesForApiConfig(
         path: getFullPath(apiConfig.openApiSpec.pathBase, pathFragment),
         operationId,
         summary,
+        description,
         tags: [tag],
         responseSchema: zodReturnObject,
         possibleErrors,

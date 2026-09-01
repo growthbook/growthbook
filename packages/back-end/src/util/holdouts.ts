@@ -1,22 +1,7 @@
+import { getEnabledHoldoutEnvironments } from "shared/util";
 import { HoldoutInterface } from "shared/validators";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { getSDKPayloadKeys } from "./features";
-
-export function getEnabledEnvironments(
-  holdout: HoldoutInterface,
-  allowedEnvs: string[],
-): Set<string> {
-  const environments = new Set<string>();
-
-  const settings = holdout.environmentSettings || {};
-
-  Object.keys(settings)
-    .filter((e) => allowedEnvs.includes(e))
-    .filter((e) => settings[e].enabled)
-    .forEach((e) => environments.add(e));
-
-  return environments;
-}
 
 export function getAffectedSDKPayloadKeys(
   holdout: HoldoutInterface,
@@ -24,7 +9,9 @@ export function getAffectedSDKPayloadKeys(
 ): SDKPayloadKey[] {
   const keys: SDKPayloadKey[] = [];
 
-  const environments = getEnabledEnvironments(holdout, allowedEnvs);
+  const environments = new Set(
+    getEnabledHoldoutEnvironments(holdout.environmentSettings, allowedEnvs),
+  );
 
   const projects = new Set(
     holdout.projects.length > 0 ? holdout.projects : [""],
