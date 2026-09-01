@@ -1,51 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { PiCaretDown } from "react-icons/pi";
-import {
-  SDKConnectionInterface,
-  SDKLanguage,
-} from "shared/types/sdk-connection";
-import {
-  getConnectionSDKCapabilities,
-  getLatestSDKVersion,
-} from "shared/sdk-versioning";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { Box, Flex } from "@radix-ui/themes";
 import { filterProjectsByEnvironment } from "shared/util";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
-import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
-import HelperText from "@/ui/HelperText";
-import Callout from "@/ui/Callout";
-import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
-import {
-  LanguageFilter,
-  getConnectionLanguageFilter,
-} from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import SDKConnectionFields, {
+  SDKConnectionFieldsValue,
+} from "@/components/Features/SDKConnections/SDKConnectionFields";
+import { getConnectionLanguageFilter } from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import type { LanguageFilter } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
 import { useEnvironments } from "@/services/features";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { shouldShowPayloadSecurity } from "@/components/Features/SDKConnections/sdkConnectionRules";
+import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import track from "@/services/track";
-
-type DeliveryMode = "plain" | "ciphered" | "remote";
-
-const DELIVERY_DESCRIPTIONS: Record<DeliveryMode, string> = {
-  plain:
-    "Full feature definitions are viewable by anyone with the client key. Highly cacheable.",
-  ciphered:
-    "Payload encrypted (AES) and secure attributes hashed. Adds obfuscation while staying cacheable.",
-  remote:
-    "Evaluate features server-side; the SDK fetches results only. Best protection, no caching.",
-};
 
 export default function CreateSDKConnectionModal({
   close,
@@ -59,39 +36,41 @@ export default function CreateSDKConnectionModal({
   const environments = useEnvironments();
   const { projects, project } = useDefinitions();
   const customFields = useCustomFields();
+  const settings = useOrgSettings();
+  const { hasCommercialFeature } = useUser();
+  const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
 
-  // Primary fields
-  const [name, setName] = useState("");
-  const [languages, setLanguages] = useState<SDKLanguage[]>([]);
-  const [sdkVersion, setSdkVersion] = useState<string | undefined>(undefined);
+  // The fields shared with the edit modal, so the two stay identical.
+  const [value, setValue] = useState<SDKConnectionFieldsValue>({
+    name: "",
+    languages: [],
+    sdkVersion: undefined,
+    environment: environments[0]?.id ?? "",
+    projects: project ? [project] : [],
+    delivery: "plain",
+    encryptPayload: false,
+    includeExperimentNames: true,
+    hashSecureAttributes: false,
+    includeRuleIds: true,
+    includeVisualExperiments: false,
+    includeRedirectExperiments: false,
+  });
+  const onChange = (patch: Partial<SDKConnectionFieldsValue>) =>
+    setValue((v) => ({ ...v, ...patch }));
+
   const [languageError, setLanguageError] = useState<string | null>(null);
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
     getConnectionLanguageFilter([]),
   );
-  const [environment, setEnvironment] = useState(environments[0]?.id ?? "");
-  const [selectedProjects, setSelectedProjects] = useState<string[]>(
-    project ? [project] : [],
-  );
-  const settings = useOrgSettings();
-  const [delivery, setDelivery] = useState<DeliveryMode>("plain");
+
+  // Settings the design doesn't surface, kept reachable at creation.
+  const [includeDraftExperiments, setIncludeDraftExperiments] = useState(false);
   const [includeDraftExperimentRefs, setIncludeDraftExperimentRefs] =
     useState(false);
   const [
     includeExperimentScheduleInMetadata,
     setIncludeExperimentScheduleInMetadata,
   ] = useState(false);
-  // Ciphered sub-settings (mirror the original Cipher Options)
-  const [encryptPayload, setEncryptPayload] = useState(false);
-  const [hashSecureAttributes, setHashSecureAttributes] = useState(false);
-
-  // Advanced
-  const [includeRuleIds, setIncludeRuleIds] = useState(true);
-  const [includeVisualExperiments, setIncludeVisualExperiments] =
-    useState(false);
-  const [includeRedirectExperiments, setIncludeRedirectExperiments] =
-    useState(false);
-  const [includeDraftExperiments, setIncludeDraftExperiments] = useState(false);
-  const [includeExperimentNames, setIncludeExperimentNames] = useState(true);
   const [includeTagsInMetadata, setIncludeTagsInMetadata] = useState(false);
   const [includeProjectIdInMetadata, setIncludeProjectIdInMetadata] =
     useState(false);
@@ -105,105 +84,68 @@ export default function CreateSDKConnectionModal({
   const [proxyHost, setProxyHost] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
-  // Scroll newly-expanded content to the top of the modal body so it's easy to
-  // read without manual scrolling.
+  // Matches the full form's create branch: a new connection opts into visual
+  // editor and redirect experiments whenever the chosen SDK supports them,
+  // rather than starting everything off.
+  useEffect(() => {
+    const caps = getConnectionSDKCapabilities(
+      { languages: value.languages, sdkVersion: value.sdkVersion },
+      "max-ver-intersection",
+    );
+    const visual = caps.includes("visualEditor");
+    const redirect = caps.includes("redirects");
+    setValue((v) => ({
+      ...v,
+      includeVisualExperiments: visual,
+      includeRedirectExperiments: redirect,
+    }));
+    setIncludeDraftExperiments(visual);
+    // Only when the language selection changes.
+  }, [value.languages, value.sdkVersion]);
+
+  // Parity with the full form's create analytics.
+  useEffect(() => {
+    track("View SDK Connection Form");
+  }, []);
+
+  // Scroll newly-expanded content to the top of the modal body.
   const advancedRef = useRef<HTMLDivElement>(null);
-  const deliveryRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (advancedOpen) {
       advancedRef.current?.scrollIntoView({
         behavior: "smooth",
-        block: "start",
-      });
-    }
-  }, [advancedOpen]);
-  useEffect(() => {
-    if (delivery === "ciphered" || delivery === "remote") {
-      deliveryRef.current?.scrollIntoView({
-        behavior: "smooth",
         block: "nearest",
       });
     }
-  }, [delivery]);
+  }, [advancedOpen]);
 
-  // Capabilities only drive which advanced settings are relevant. Delivery
-  // modes are always selectable — Ciphered surfaces a Paid badge as an upgrade
-  // nudge rather than being hard-disabled.
-  const capabilities = useMemo(
-    () =>
-      getConnectionSDKCapabilities(
-        { languages, sdkVersion },
-        "max-ver-intersection",
-      ),
-    [languages, sdkVersion],
+  // Capabilities are meaningless until a language is picked, so gate only after
+  // one is chosen; `submit` still sanitises against the chosen SDK.
+  const capabilities = getConnectionSDKCapabilities(
+    { languages: value.languages, sdkVersion: value.sdkVersion },
+    "min-ver-intersection",
   );
-  const supportsSavedGroups = capabilities.includes("savedGroupReferences");
-  const selectedEnvironment = environments.find((e) => e.id === environment);
-  const environmentHasProjects = !!selectedEnvironment?.projects?.length;
+  // "max-ver-intersection" matches the full form.
+  const latestCapabilities = getConnectionSDKCapabilities(
+    { languages: value.languages, sdkVersion: value.sdkVersion },
+    "max-ver-intersection",
+  );
+  const languageChosen = value.languages.length > 0;
+  const supports = (capability: string) =>
+    !languageChosen || capabilities.includes(capability as never);
+  const supportsSavedGroups = supports("savedGroupReferences");
+
+  const selectedEnvironment = environments.find(
+    (e) => e.id === value.environment,
+  );
   const allowedProjectIds = filterProjectsByEnvironment(
     projects.map((p) => p.id),
     selectedEnvironment,
     true,
   );
-  // On create the org setting always applies — there's no pre-existing scope
-  // to grandfather.
+  // On create the org setting always applies — there's no existing scope to
+  // grandfather.
   const requireProjectSelection = !!settings.requireProjectForSdkConnections;
-  // Same gates the edit modal applies, so a connection can't be created with a
-  // setting its SDK will ignore.
-  const payloadSecurityAllowed = shouldShowPayloadSecurity(languages);
-  const showEncryption =
-    payloadSecurityAllowed && capabilities.includes("encryption");
-  const showRemoteEval =
-    payloadSecurityAllowed && capabilities.includes("remoteEval");
-  const showVisualEditorSettings = capabilities.includes("visualEditor");
-  const showRedirectSettings = capabilities.includes("redirects");
-
-  // Switching delivery mode seeds sensible defaults for its sub-settings,
-  // mirroring the original form's tab behavior.
-  const handleDeliveryChange = (mode: DeliveryMode) => {
-    setDelivery(mode);
-    if (mode === "ciphered") {
-      setEncryptPayload(true);
-      setHashSecureAttributes(true);
-      setIncludeExperimentNames(false);
-    } else {
-      setEncryptPayload(false);
-      setHashSecureAttributes(false);
-    }
-  };
-
-  type DeliveryOption = {
-    label: string | JSX.Element;
-    value: DeliveryMode;
-    disabled?: boolean;
-  };
-  const allDeliveryOptions: DeliveryOption[] = [
-    { label: "Plain Text", value: "plain" },
-    {
-      label: (
-        <Flex as="span" align="center" gap="2">
-          Ciphered
-          <PaidFeatureBadge commercialFeature="encrypt-features-endpoint" />
-        </Flex>
-      ),
-      value: "ciphered",
-    },
-    {
-      label: (
-        <Flex as="span" align="center" gap="2">
-          Remote Eval
-          <PaidFeatureBadge commercialFeature="remote-evaluation" />
-        </Flex>
-      ),
-      value: "remote",
-    },
-  ];
-  // Only offer the modes this SDK supports, matching the edit modal.
-  const deliveryOptions: DeliveryOption[] = allDeliveryOptions.filter(
-    (opt) =>
-      (opt.value !== "ciphered" || showEncryption) &&
-      (opt.value !== "remote" || showRemoteEval),
-  );
 
   return (
     <ModalStandard
@@ -211,55 +153,57 @@ export default function CreateSDKConnectionModal({
       open={true}
       close={close}
       header="New SDK Connection"
-      cta="Create"
       size="lg"
+      cta="Create"
       submit={async () => {
-        if (languages.length === 0) {
+        if (!value.languages.length) {
           setLanguageError("Please select an SDK language");
           throw new Error("Please select an SDK language");
         }
         setLanguageError(null);
-
-        // Plain Text is the only mode that implies no encryption — Remote Eval
-        // and encryption are independent settings.
-        const remoteEvalEnabled = showRemoteEval && delivery === "remote";
-        const finalEncryptPayload =
-          delivery === "plain" ? false : encryptPayload;
-        const finalHashSecureAttributes =
-          delivery === "plain" ? false : hashSecureAttributes;
-        // Never persist an option this SDK can't use.
-        const finalVisual =
-          showVisualEditorSettings && includeVisualExperiments;
-        const finalRedirect =
-          showRedirectSettings && includeRedirectExperiments;
+        const remote =
+          value.delivery === "remote" &&
+          latestCapabilities.includes("remoteEval") &&
+          hasCommercialFeature("remote-evaluation");
+        const visual =
+          latestCapabilities.includes("visualEditor") &&
+          value.includeVisualExperiments;
+        const redirect =
+          latestCapabilities.includes("redirects") &&
+          value.includeRedirectExperiments;
 
         const body = {
-          name,
-          languages,
-          sdkVersion,
-          environment,
-          projects: selectedProjects,
-          encryptPayload: finalEncryptPayload,
-          hashSecureAttributes: finalHashSecureAttributes,
-          remoteEvalEnabled,
-          includeRuleIds,
-          includeVisualExperiments: finalVisual,
-          includeRedirectExperiments: finalRedirect,
+          name: value.name,
+          languages: value.languages,
+          sdkVersion: value.sdkVersion,
+          environment: value.environment,
+          projects: value.projects,
+          // Plain Text is the only mode that implies no encryption.
+          encryptPayload:
+            value.delivery === "plain" ? false : value.encryptPayload,
+          hashSecureAttributes:
+            value.delivery === "plain" ? false : value.hashSecureAttributes,
+          remoteEvalEnabled: remote,
+          includeExperimentNames: value.includeExperimentNames,
+          includeRuleIds: value.includeRuleIds,
+          includeVisualExperiments: visual,
+          includeRedirectExperiments: redirect,
           includeDraftExperiments:
-            finalVisual || finalRedirect ? includeDraftExperiments : false,
+            visual || redirect ? includeDraftExperiments : false,
           includeDraftExperimentRefs,
           includeExperimentScheduleInMetadata,
-          includeExperimentNames,
           includeTagsInMetadata,
           includeProjectIdInMetadata,
           savedGroupReferencesEnabled:
-            supportsSavedGroups && savedGroupReferencesEnabled,
+            supportsSavedGroups &&
+            hasLargeSavedGroupFeature &&
+            savedGroupReferencesEnabled,
           includeCustomFieldsInMetadata,
           allowedCustomFieldsInMetadata: includeCustomFieldsInMetadata
             ? allowedCustomFieldsInMetadata
             : [],
           proxyEnabled,
-          proxyHost,
+          proxyHost: proxyEnabled ? proxyHost : "",
         };
 
         const res = await apiCall<{ connection: SDKConnectionInterface }>(
@@ -268,163 +212,51 @@ export default function CreateSDKConnectionModal({
         );
         track("Create SDK Connection", {
           source: "CreateSDKConnectionModal",
-          languages,
-          encryptPayload: finalEncryptPayload,
-          hashSecureAttributes: finalHashSecureAttributes,
-          remoteEvalEnabled,
+          languages: value.languages,
+          encryptPayload: body.encryptPayload,
+          hashSecureAttributes: body.hashSecureAttributes,
+          remoteEvalEnabled: body.remoteEvalEnabled,
           proxyEnabled,
         });
         mutate();
         await router.push(`/sdks/${res.connection.id}`);
       }}
     >
-      <Flex direction="column" gap="4" style={{ minWidth: 0, width: "100%" }}>
-        <Field
-          label="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Production Web"
-          required
+      <Flex direction="column" gap="4">
+        <SDKConnectionFields
+          value={value}
+          onChange={onChange}
+          languageFilter={languageFilter}
+          setLanguageFilter={setLanguageFilter}
+          languageError={languageError}
+          requireProjectSelection={requireProjectSelection}
         />
 
-        <Box>
-          <label
-            style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}
-            className="d-block"
-          >
-            SDK Language
-          </label>
-          <SDKLanguageSelector
-            value={languages}
-            setValue={(langs) => {
-              setLanguages(langs);
-              if (langs.length) setLanguageError(null);
-              setSdkVersion(
-                langs.length === 1 ? getLatestSDKVersion(langs[0]) : undefined,
-              );
-            }}
-            multiple={languages.length > 1}
-            includeOther={true}
-            skipLabel={languages.length <= 1}
-            hideShowAllLanguages={true}
-            languageFilter={languageFilter}
-            setLanguageFilter={setLanguageFilter}
-          />
-          {languageError && (
-            <HelperText status="error">{languageError}</HelperText>
-          )}
-        </Box>
+        {value.projects.some((p) => !allowedProjectIds.includes(p)) && (
+          <Text size="sm" color="text-mid">
+            Some selected projects aren&apos;t allowed in this environment and
+            won&apos;t be included in the SDK payload.
+          </Text>
+        )}
 
-        <SelectField
-          label="Environment"
-          value={environment}
-          onChange={setEnvironment}
-          options={environments.map((env) => ({
-            label: env.id,
-            value: env.id,
-          }))}
-          required
-          sort={false}
-        />
-
-        <MultiSelectField
-          label="Project"
-          placeholder={
-            environmentHasProjects ? "All Environment Projects" : "All Projects"
-          }
-          value={selectedProjects}
-          onChange={(p) => setSelectedProjects(p as string[])}
-          options={projects.map((p) => ({ label: p.name, value: p.id }))}
-          required={requireProjectSelection}
-          // Flag projects the chosen environment excludes — they'd be dropped
-          // from the payload without warning otherwise.
-          formatOptionLabel={({ value, label }) =>
-            !allowedProjectIds.includes(value) ? (
-              <Tooltip body="This project is not allowed in the selected environment and will not be included in the SDK payload.">
-                <span className="text-danger">{label}</span>
-              </Tooltip>
-            ) : (
-              label
-            )
-          }
-          helpText="Leave empty to serve every project allowed in the selected environment."
-          sort={false}
-          closeMenuOnSelect={true}
-        />
-
-        <Box ref={deliveryRef}>
-          <ButtonSelectField<DeliveryMode>
-            label="Delivery method"
-            value={delivery}
-            setValue={handleDeliveryChange}
-            options={deliveryOptions}
-          />
-          <Box mt="2">
-            <Text size="sm" color="text-mid">
-              {DELIVERY_DESCRIPTIONS[delivery]}
-            </Text>
-          </Box>
-
-          {delivery === "ciphered" && (
-            <Box
-              mt="3"
-              p="3"
-              style={{
-                background: "var(--gray-a2)",
-                borderRadius: 8,
-              }}
-            >
-              <Flex direction="column" gap="3">
-                <Switch
-                  label={
-                    <Flex as="span" align="center" gap="2">
-                      Encrypt payload
-                      <PaidFeatureBadge commercialFeature="encrypt-features-endpoint" />
-                    </Flex>
-                  }
-                  description="Encrypt the SDK payload with AES so feature definitions aren't readable by anyone with the client key."
-                  value={encryptPayload}
-                  onChange={setEncryptPayload}
-                />
-                <Switch
-                  label={
-                    <Flex as="span" align="center" gap="2">
-                      Hash secure attributes
-                      <PaidFeatureBadge commercialFeature="hash-secure-attributes" />
-                    </Flex>
-                  }
-                  description="Anonymize secureString targeting attributes via SHA-256 hashing."
-                  value={hashSecureAttributes}
-                  onChange={setHashSecureAttributes}
-                />
-                <Switch
-                  label="Hide experiment and variation names"
-                  description="Strip human-readable experiment and variation names from the payload."
-                  value={!includeExperimentNames}
-                  onChange={(v) => setIncludeExperimentNames(!v)}
-                />
-              </Flex>
-            </Box>
-          )}
-
-          {delivery === "remote" && (
-            <Box mt="3">
-              <Callout status="info" size="sm">
-                Remote evaluation requires a self-hosted evaluation service such
-                as{" "}
-                <a
-                  href="https://github.com/growthbook/growthbook-proxy"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  GrowthBook Proxy
-                </a>{" "}
-                or a CDN edge worker
-                {isCloud() ? " (required for Cloud accounts)." : "."}
-              </Callout>
-            </Box>
-          )}
-        </Box>
+        {isCloud() && (
+          <AdvancedGroup title="GrowthBook Proxy">
+            <Switch
+              label="Use GrowthBook Proxy"
+              description="Route SDK requests through a self-hosted proxy."
+              value={proxyEnabled}
+              onChange={setProxyEnabled}
+            />
+            {proxyEnabled && (
+              <Field
+                label="Proxy Host URL"
+                placeholder="https://"
+                value={proxyHost}
+                onChange={(e) => setProxyHost(e.target.value)}
+              />
+            )}
+          </AdvancedGroup>
+        )}
 
         <Box
           ref={advancedRef}
@@ -465,7 +297,7 @@ export default function CreateSDKConnectionModal({
               </Text>
               {!advancedOpen && (
                 <Text size="sm" color="text-mid">
-                  Features &amp; Experiments · Payload Metadata · Proxy
+                  Experiments · Payload Metadata
                 </Text>
               )}
             </Flex>
@@ -481,29 +313,36 @@ export default function CreateSDKConnectionModal({
           {advancedOpen && (
             <Box p="3">
               <Flex direction="column" gap="4">
-                <AdvancedGroup title="Features & Experiments">
+                <AdvancedGroup title="Experiments">
                   <Switch
                     label="Rule IDs"
-                    description="Include feature rule IDs in the payload."
-                    value={includeRuleIds}
-                    onChange={setIncludeRuleIds}
+                    description="Include feature rule IDs in the SDK payload."
+                    value={value.includeRuleIds}
+                    onChange={(v) => onChange({ includeRuleIds: v })}
                   />
-                  {showVisualEditorSettings && (
+                  {latestCapabilities.includes("visualEditor") && (
                     <Switch
                       label="Visual Editor"
-                      value={includeVisualExperiments}
-                      onChange={setIncludeVisualExperiments}
+                      description="Include visual editor experiments in the SDK payload."
+                      value={value.includeVisualExperiments}
+                      onChange={(v) =>
+                        onChange({ includeVisualExperiments: v })
+                      }
                     />
                   )}
-                  {showRedirectSettings && (
+                  {latestCapabilities.includes("redirects") && (
                     <Switch
                       label="URL Redirects"
-                      value={includeRedirectExperiments}
-                      onChange={setIncludeRedirectExperiments}
+                      description="Include URL redirect experiments in the SDK payload."
+                      value={value.includeRedirectExperiments}
+                      onChange={(v) =>
+                        onChange({ includeRedirectExperiments: v })
+                      }
                     />
                   )}
                   <Switch
                     label="Draft Experiments"
+                    description="Include draft Visual Editor and URL Redirect experiments."
                     value={includeDraftExperiments}
                     onChange={setIncludeDraftExperiments}
                   />
@@ -535,7 +374,11 @@ export default function CreateSDKConnectionModal({
                   {supportsSavedGroups && (
                     <Switch
                       label="Saved Group References"
+                      description="Move ID List Saved Groups to a separate key in the payload, so re-using one across features no longer inflates its size."
                       value={savedGroupReferencesEnabled}
+                      // Premium, as in the full form: without the entitlement
+                      // this must not be settable.
+                      disabled={!hasLargeSavedGroupFeature}
                       onChange={setSavedGroupReferencesEnabled}
                     />
                   )}
@@ -564,25 +407,6 @@ export default function CreateSDKConnectionModal({
                     />
                   )}
                 </AdvancedGroup>
-
-                {isCloud() && (
-                  <AdvancedGroup title="GrowthBook Proxy">
-                    <Switch
-                      label="Use GrowthBook Proxy"
-                      description="Route SDK requests through a self-hosted proxy."
-                      value={proxyEnabled}
-                      onChange={setProxyEnabled}
-                    />
-                    {proxyEnabled && (
-                      <Field
-                        label="Proxy Host URL"
-                        placeholder="https://"
-                        value={proxyHost}
-                        onChange={(e) => setProxyHost(e.target.value)}
-                      />
-                    )}
-                  </AdvancedGroup>
-                )}
               </Flex>
             </Box>
           )}
@@ -613,7 +437,7 @@ function AdvancedGroup({
       >
         {title}
       </Box>
-      <Flex direction="column" gap="2">
+      <Flex direction="column" gap="3">
         {children}
       </Flex>
     </Box>

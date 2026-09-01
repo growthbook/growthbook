@@ -97,7 +97,15 @@ export default function EditSDKSettingsModal({
     connection,
     "min-ver-intersection",
   );
-  const latestSdkCapabilities = getConnectionSDKCapabilities(connection);
+  // "max-ver-intersection", as the full form uses: Visual Editor and URL
+  // Redirects are offered on what the SDK supports at its LATEST version, not
+  // the version this connection is pinned to. Using the pinned version hid them
+  // for older SDKs and — because submit sanitises against this — silently
+  // cleared the stored value on save.
+  const latestSdkCapabilities = getConnectionSDKCapabilities(
+    connection,
+    "max-ver-intersection",
+  );
   // Next.js is plain-text only, so it suppresses both secured modes.
   const payloadSecurityAllowed = shouldShowPayloadSecurity(
     connection.languages,
@@ -358,15 +366,24 @@ export default function EditSDKSettingsModal({
                     }
                     onChange={setHashSecureAttributes}
                   />
-                  {delivery === "ciphered" && (
-                    <Switch
-                      label="Hide experiment and variation names"
-                      description="Strip human-readable experiment and variation names from the payload."
-                      value={!includeExperimentNames}
-                      onChange={(v) => setIncludeExperimentNames(!v)}
-                    />
-                  )}
+                  <Switch
+                    label="Hide experiment and variation names"
+                    description="Strip human-readable experiment and variation names from the payload."
+                    value={!includeExperimentNames}
+                    onChange={(v) => setIncludeExperimentNames(!v)}
+                  />
                 </Flex>
+              </Box>
+            )}
+
+            {!payloadSecurityAllowed && (
+              <Box mt="3">
+                <Switch
+                  label="Hide experiment and variation names"
+                  description="Strip human-readable experiment and variation names from the payload."
+                  value={!includeExperimentNames}
+                  onChange={(v) => setIncludeExperimentNames(!v)}
+                />
               </Box>
             )}
 
