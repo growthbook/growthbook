@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { SDKLanguage } from "shared/types/sdk-connection";
@@ -27,6 +27,48 @@ import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 
 const PACKAGE = "growthbook-install";
+
+/**
+ * Runs that already existed when this page loaded. Anything that appears afterwards
+ * is this setup.
+ *
+ * Matching on `createdBy` alone is not enough: an org that has been set up before
+ * has runs by this user already, so the check would report success against whichever
+ * one came back first and send them to a report from last week.
+ *
+ * Snapshotted as a set of ids rather than a timestamp — comparing browser time to a
+ * server-generated `dateCreated` invites clock skew, while ids need no comparison at
+ * all. Kept in sessionStorage so reloading mid-setup does not re-baseline the very
+ * run we are waiting for and then never find it.
+ */
+const BASELINE_KEY = "connect:runs-before";
+
+function readBaseline(): string[] | null {
+  try {
+    const raw = sessionStorage.getItem(BASELINE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    // Private mode, or storage disabled. Falling back to no baseline is the safe
+    // direction: nothing is treated as new, so we never claim a false success.
+    return null;
+  }
+}
+
+function writeBaseline(ids: string[]) {
+  try {
+    sessionStorage.setItem(BASELINE_KEY, JSON.stringify(ids));
+  } catch {
+    /* nothing to do — see readBaseline */
+  }
+}
+
+function clearBaseline() {
+  try {
+    sessionStorage.removeItem(BASELINE_KEY);
+  } catch {
+    /* nothing to do */
+  }
+}
 
 // The wizard installs a package and then proves it landed. For a script tag or a
 // hand-copied BrightScript file there is nothing to install and nothing to verify,
@@ -63,18 +105,47 @@ export default function ConnectPage() {
     "/setup-runs",
     { shouldRun: () => step === 2 },
   );
-  const latestRun = useMemo(
-    () =>
-      (runsData?.setupRuns || []).find((r) => r.createdBy === userId) || null,
-    [runsData, userId],
+
+  const [baseline, setBaseline] = useState<string[] | null>(() =>
+    typeof window === "undefined" ? null : readBaseline(),
+  );
+
+  // Set from the first fetch that actually returned, never on mount: baselining an
+  // empty list before the data arrives would make every pre-existing run look new.
+  useEffect(() => {
+    if (baseline !== null || !runsData) return;
+    const ids = runsData.setupRuns.map((r) => r.id);
+    writeBaseline(ids);
+    setBaseline(ids);
+  }, [baseline, runsData]);
+
+  const findNewRun = useCallback(
+    (runs: ApiSetupRun[] | undefined) => {
+      if (!runs || baseline === null) return null;
+      return (
+        runs.find((r) => r.createdBy === userId && !baseline.includes(r.id)) ||
+        null
+      );
+    },
+    [baseline, userId],
+  );
+
+  const newRun = useMemo(
+    () => findNewRun(runsData?.setupRuns),
+    [findNewRun, runsData],
   );
 
   const checkConnection = useCallback(async () => {
     setChecked(true);
     const fresh = await mutate();
-    const run = (fresh?.setupRuns || []).find((r) => r.createdBy === userId);
-    if (run) router.push(`/setup-runs/${run.id}`);
-  }, [mutate, router, userId]);
+    const run = findNewRun(fresh?.setupRuns);
+    if (run) {
+      // Done with this visit's baseline. Leaving it behind would make the same run
+      // look new again if they came back to this page in the same tab.
+      clearBaseline();
+      router.push(`/setup-runs/${run.id}`);
+    }
+  }, [mutate, router, findNewRun]);
 
   return (
     <div className="container pagecontents" style={{ maxWidth: 885 }}>
@@ -161,11 +232,11 @@ export default function ConnectPage() {
                 />
               </Box>
 
-              {latestRun ? (
+              {newRun ? (
                 <Box mt="4">
                   <Callout status="success">
                     Your app connected.{" "}
-                    <Link href={`/setup-runs/${latestRun.id}`}>
+                    <Link href={`/setup-runs/${newRun.id}`}>
                       See what the setup built →
                     </Link>
                   </Callout>
