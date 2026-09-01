@@ -231,7 +231,11 @@ export default function EditFeatureFlagValuesModal({
   const form = useForm<FormValues>({
     defaultValues: {
       variations: initialVariations,
-      valueType: feature.valueType,
+      // The draft's staged type, not the live one: a draft that re-typed the
+      // flag has not published yet, so `feature.valueType` still reads as the
+      // old type and the editor would reopen in the wrong mode over the new
+      // values.
+      valueType: linkedFeatureInfo.pendingDraft?.valueType ?? feature.valueType,
     },
   });
   const { fields, append, remove } = useFieldArray({
@@ -262,7 +266,15 @@ export default function EditFeatureFlagValuesModal({
 
   // Managed flags only: other rules would hold values of a type that went away.
   const valueType = form.watch("valueType");
+  // What this draft already stages, vs what is live. A draft that re-typed the
+  // flag carries its own type and default until it publishes.
+  const draftValueType =
+    linkedFeatureInfo.pendingDraft?.valueType ?? feature.valueType;
+  const draftDefaultValue =
+    linkedFeatureInfo.pendingDraft?.defaultValue ?? feature.defaultValue;
   const typeChanged = valueType !== feature.valueType;
+  // Narrower: the cast happened in this session, so the values need a look.
+  const typeChangedHere = valueType !== draftValueType;
 
   function handleValueTypeChange(next: FeatureValueType) {
     if (next === valueType) return;
@@ -479,11 +491,11 @@ export default function EditFeatureFlagValuesModal({
       key: "",
       screenshots: [],
       weight: 0,
-      // Through the type being edited: the live default may still read as the
-      // type this draft is replacing.
+      // From what the draft holds, not what is live: a re-typed draft's default
+      // already reads as the new type, and casting the live one would wrap it.
       value: castFeatureValue({
-        value: getDefaultVariationValue(feature.defaultValue ?? ""),
-        from: feature.valueType,
+        value: getDefaultVariationValue(draftDefaultValue ?? ""),
+        from: draftValueType,
         to: valueType,
         index: fields.length,
       }),
@@ -648,8 +660,10 @@ export default function EditFeatureFlagValuesModal({
                 {typeChanged && (
                   <Callout status="info" size="sm">
                     The Feature Flag changes to {valueType} when this draft
-                    publishes. Values were carried over where they still make
-                    sense — check them before saving.
+                    publishes.
+                    {typeChangedHere
+                      ? " Values were carried over where they still make sense — check them before saving."
+                      : ""}
                   </Callout>
                 )}
               </Box>
