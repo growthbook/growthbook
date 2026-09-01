@@ -30,6 +30,7 @@ import DraftSelectorDropdown, {
 } from "@/components/Features/DraftSelectorDropdown";
 import { useAuth } from "@/services/auth";
 import { distributeWeights } from "@/services/utils";
+import { formatJSON } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Link from "@/ui/Link";
 import Button from "@/ui/Button";
@@ -197,13 +198,19 @@ function ManagedTrafficForm({
   // The draft's staged type, not the live one: a draft that re-typed the flag
   // has not published yet, so `feature.valueType` still reads as the old type
   // and the editor would reopen in the wrong mode over the new values.
-  const [valueType, setValueType] = useState<FeatureValueType>(
-    targetFeature?.pendingDraft?.valueType ?? feature?.valueType ?? "string",
-  );
+  const seedValueType =
+    targetFeature?.pendingDraft?.valueType ?? feature?.valueType ?? "string";
+  const [valueType, setValueType] = useState<FeatureValueType>(seedValueType);
+  // Formatted at seed time, not on save: a value stored compact opens in the
+  // multiline editor already expanded, and the dirty baseline is captured from
+  // this same state, so formatting alone never reads as an edit.
   const [featureValues, setFeatureValues] = useState<Record<string, string>>(
     () =>
       Object.fromEntries(
-        (targetFeature?.values ?? []).map((v) => [v.variationId, v.value]),
+        (targetFeature?.values ?? []).map((v) => [
+          v.variationId,
+          seedValueType === "json" ? (formatJSON(v.value) ?? v.value) : v.value,
+        ]),
       ),
   );
 

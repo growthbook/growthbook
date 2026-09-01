@@ -61,7 +61,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
-import { getDefaultVariationValue } from "@/services/features";
+import { formatJSON, getDefaultVariationValue } from "@/services/features";
 import Button from "@/ui/Button";
 import track from "@/services/track";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
@@ -212,20 +212,32 @@ export default function EditFeatureFlagValuesModal({
     [experiment],
   );
 
+  const seedValueType =
+    linkedFeatureInfo.pendingDraft?.valueType ?? feature.valueType;
   const initialVariations = useMemo<VariationRow[]>(
     () =>
-      phaseVariations.map((v, i) => ({
-        id: v.id,
-        name: v.name,
-        description: v.description,
-        key: v.key,
-        screenshots: v.screenshots,
-        weight: latestPhase?.variationWeights?.[i] ?? 0,
-        value:
+      phaseVariations.map((v, i) => {
+        const stored =
           linkedFeatureInfo.values.find((x) => x.variationId === v.id)?.value ??
-          "",
-      })),
-    [phaseVariations, latestPhase?.variationWeights, linkedFeatureInfo.values],
+          "";
+        return {
+          id: v.id,
+          name: v.name,
+          description: v.description,
+          key: v.key,
+          screenshots: v.screenshots,
+          weight: latestPhase?.variationWeights?.[i] ?? 0,
+          // A value stored compact opens expanded in the multiline editor.
+          value:
+            seedValueType === "json" ? (formatJSON(stored) ?? stored) : stored,
+        };
+      }),
+    [
+      phaseVariations,
+      latestPhase?.variationWeights,
+      linkedFeatureInfo.values,
+      seedValueType,
+    ],
   );
 
   const form = useForm<FormValues>({
@@ -235,7 +247,7 @@ export default function EditFeatureFlagValuesModal({
       // flag has not published yet, so `feature.valueType` still reads as the
       // old type and the editor would reopen in the wrong mode over the new
       // values.
-      valueType: linkedFeatureInfo.pendingDraft?.valueType ?? feature.valueType,
+      valueType: seedValueType,
     },
   });
   const { fields, append, remove } = useFieldArray({
