@@ -234,8 +234,9 @@ export function getDimensionOptions({
 
   const onDemandDimensions = [...builtInDimensions, ...unitDimensions];
 
+  const customDimensionOptions: SingleValue[] = [];
   if (includeCustomDimensions) {
-    onDemandDimensions.push({
+    customDimensionOptions.push({
       label: "First Exposed After...",
       value: CUSTOM_CUTOFF_OPTION,
     });
@@ -247,7 +248,7 @@ export function getDimensionOptions({
       userIdType,
     });
     if (constituentOptions.length >= COMBO_DIMENSION_LENGTH) {
-      onDemandDimensions.push({
+      customDimensionOptions.push({
         label: "Combination of Dimensions...",
         value: CUSTOM_COMBO_OPTION,
       });
@@ -268,6 +269,14 @@ export function getDimensionOptions({
           {
             label: "On-demand",
             options: onDemandDimensions,
+          },
+        ]
+      : []),
+    ...(customDimensionOptions.length > 0
+      ? [
+          {
+            label: "Custom",
+            options: customDimensionOptions,
           },
         ]
       : []),

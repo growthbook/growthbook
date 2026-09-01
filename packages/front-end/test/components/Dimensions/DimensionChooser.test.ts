@@ -109,7 +109,7 @@ describe("getDimensionOptions custom dimensions", () => {
     expect(values).not.toContain(CUSTOM_COMBO_OPTION);
   });
 
-  it("appends custom options to the on-demand group when enabled", () => {
+  it("puts custom options in their own group when enabled", () => {
     const options = getDimensionOptions({
       incrementalRefresh: null,
       datasource: buildDatasource(),
@@ -118,10 +118,16 @@ describe("getDimensionOptions custom dimensions", () => {
       userIdType: "user_id",
       includeCustomDimensions: true,
     });
+    const custom = options.find((group) => group.label === "Custom");
+    const values = custom?.options?.map((option) => option.value) ?? [];
+    expect(values).toEqual([CUSTOM_CUTOFF_OPTION, CUSTOM_COMBO_OPTION]);
+
+    // They must not leak into the on-demand group
     const onDemand = options.find((group) => group.label === "On-demand");
-    const values = onDemand?.options?.map((option) => option.value) ?? [];
-    expect(values).toContain(CUSTOM_CUTOFF_OPTION);
-    expect(values).toContain(CUSTOM_COMBO_OPTION);
+    const onDemandValues =
+      onDemand?.options?.map((option) => option.value) ?? [];
+    expect(onDemandValues).not.toContain(CUSTOM_CUTOFF_OPTION);
+    expect(onDemandValues).not.toContain(CUSTOM_COMBO_OPTION);
   });
 
   it("omits the combination option when fewer than two constituents exist", () => {

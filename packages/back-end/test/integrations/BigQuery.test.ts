@@ -1511,8 +1511,8 @@ describe("BigQuery incremental refresh statistics query with custom dimensions",
     ]);
 
     expect(sql).toContain("AS dim_cutoff");
-    expect(sql).toContain("'Exposed before 2024-01-15T00:12Z'");
-    expect(sql).toContain("'Exposed after 2024-01-15T00:12Z'");
+    expect(sql).toContain("'Before 2024-01-15T00:12Z'");
+    expect(sql).toContain("'After 2024-01-15T00:12Z'");
     // No wrapper CTE needed; the CASE reads first_exposure_timestamp directly
     expect(sql).not.toContain("__experimentUnitsFinal");
   });

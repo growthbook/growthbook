@@ -39,8 +39,8 @@ export function getDimensionCol(
       return {
         value: dialect.ifElse(
           `first_exposure_timestamp < ${dialect.toTimestamp(dimension.cutoff)}`,
-          `'Exposed before ${label}'`,
-          `'Exposed after ${label}'`,
+          `'Before ${label}'`,
+          `'After ${label}'`,
         ),
         alias: "dim_cutoff",
       };
