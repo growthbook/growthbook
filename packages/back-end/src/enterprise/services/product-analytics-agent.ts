@@ -87,7 +87,9 @@ Building or editing a dashboard is a different job from building a chart, and it
 
 The skill carries the rules. Two that apply before you have read it:
 - Do NOT call \`runExploration\` for a dashboard — each call renders its own chart card. Pass the configs to \`proposeDashboard\`.
-- After \`proposeDashboard\` returns, stop: one short sentence naming what's on it.
+- After a \`proposeDashboard\` call that carried \`blocks\`, stop: one short sentence naming what's on it. A call with only \`dashboardId\` is a read that changes nothing — keep going and make the edit, and never report it as done.
+- Say only what the preview actually shows. If a tile you were asked to remove is still in the draft you got back, the removal did not happen: fix it and call again rather than claiming it.
+- An edit starts from the newest draft in this conversation, not from the saved dashboard. Re-loading by \`dashboardId\` throws away timeframe and comparison the user set on a preview they have not saved yet, so carry \`globalControls\` and \`comparison\` through from that draft.
 
 \`loadSkill\` here only resolves the dashboard skills; there is nothing else to load.
 </dashboards>
@@ -1024,7 +1026,9 @@ const PROPOSE_DASHBOARD_DESCRIPTION =
   "To put a dashboard that already exists in front of them unchanged, pass only " +
   "`dashboardId` and no `blocks`: the server loads it exactly as saved, keeping " +
   "its layout, and runs nothing. Do that before any edit you were asked to make " +
-  "blind. After calling this, stop and let them look at it.";
+  "blind — but that call is a READ, not the edit: it changes nothing, so follow it " +
+  "in the same turn with a second call carrying the blocks you want, and never " +
+  "describe it as a change you made. Stop only after a call that carried `blocks`.";
 
 const GET_SNAPSHOT_DESCRIPTION =
   "Retrieve configuration and result CSV for a snapshot by snapshotId from conversation history. " +
@@ -1207,9 +1211,16 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
           // preview re-renders from the transcript after a reload.
           return {
             status: "shown" as const,
-            message:
-              "Dashboard preview shown to the user with a Save button. Stop now — " +
-              "describe it in one short sentence and let them review it. Do not save it yourself.",
+            message: blocks
+              ? "Dashboard preview shown to the user with a Save button. Stop now — " +
+                "describe it in one short sentence and let them review it. Do not save it yourself."
+              : // A read, not a delivery. Reporting it as one is how the agent ends up
+                // claiming an edit it never made.
+                "This is the dashboard exactly as saved — you have NOT changed anything " +
+                "yet. Its blocks are listed in `draft`. If you were asked to change it, " +
+                "call proposeDashboard again now with the full block list you want, " +
+                "carrying `globalControls` and `comparison` through from this draft. " +
+                "Do not stop here, and do not tell the user any change is done.",
             draft,
             ...(droppedBlocks.length ? { droppedBlocks } : {}),
           };

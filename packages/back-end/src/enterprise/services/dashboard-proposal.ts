@@ -324,15 +324,21 @@ export async function buildDashboardDraft(
     built.filter((b): b is NonNullable<typeof b> => b !== null),
   );
 
+  // An edit keeps what it already had unless the model explicitly changes it.
+  // Omitting a field must not silently revert the dashboard's name, projects,
+  // date range or comparison — the same fallback the load path already does.
+  const projects = input.projects ?? saved?.projects;
+  const globalControls = input.globalControls ?? saved?.globalControls;
+  const comparison = input.comparison ?? saved?.comparison;
+
   return {
     draft: {
       ...(input.dashboardId ? { dashboardId: input.dashboardId } : {}),
-      // An edit keeps the saved name unless the model explicitly renames it.
       title: input.title ?? saved?.title ?? "",
       // Absent and `[]` ("every project") mean different things to the preview.
-      ...(input.projects ? { projects: input.projects } : {}),
-      ...(input.globalControls ? { globalControls: input.globalControls } : {}),
-      ...(input.comparison ? { comparison: input.comparison } : {}),
+      ...(projects ? { projects } : {}),
+      ...(globalControls ? { globalControls } : {}),
+      ...(comparison ? { comparison } : {}),
       blocks: packed,
     },
     droppedBlocks,

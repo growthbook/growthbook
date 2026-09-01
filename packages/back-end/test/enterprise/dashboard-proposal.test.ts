@@ -612,6 +612,32 @@ describe("buildDashboardDraft — revising a saved dashboard", () => {
     expect(draft.title).toBe("Growth KPIs");
   });
 
+  // Omitting these used to blank them, so an edit silently reverted the date
+  // range and comparison the user had set.
+  it("keeps the saved globalControls and comparison when the edit omits them", async () => {
+    const ctx = ctxWith([savedBlock("Revenue", { x: 0, y: 0, w: 24, h: 8 })]);
+    (ctx.models.dashboards.getById as jest.Mock).mockResolvedValue({
+      id: "dash_abc",
+      title: "Growth KPIs",
+      blocks: [savedBlock("Revenue", { x: 0, y: 0, w: 24, h: 8 })],
+      globalControls: { dateRange: { type: "last", days: 60 } },
+      comparison: { enabled: true, mode: "previousPeriod" },
+    });
+
+    const { draft } = await buildDashboardDraft(
+      ctx,
+      input([chartBlock("Revenue")], {
+        dashboardId: "dash_abc",
+        title: undefined,
+      }),
+    );
+
+    expect(draft.globalControls).toEqual({
+      dateRange: { type: "last", days: 60 },
+    });
+    expect(draft.comparison).toEqual({ enabled: true, mode: "previousPeriod" });
+  });
+
   it("still renames when the edit carries a title", async () => {
     const ctx = ctxWith([savedBlock("Revenue", { x: 0, y: 0, w: 24, h: 8 })]);
 
