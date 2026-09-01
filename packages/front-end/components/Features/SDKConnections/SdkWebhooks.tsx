@@ -5,6 +5,7 @@ import {
   UpdateSdkWebhookProps,
 } from "shared/types/webhook";
 import { FaCheck, FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
+import { IconButton } from "@radix-ui/themes";
 import { ago } from "shared/dates";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { Revision, patchOpsToPartial } from "shared/enterprise";
@@ -12,16 +13,16 @@ import {
   sdkWebhookSnapshotValidator,
   SDKWebhookRevisionSnapshot,
 } from "shared/validators";
+import { PiDotsThreeVertical } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import EditSDKWebhooksModal, {
   CreateSDKWebhookModal,
 } from "@/components/Settings/WebhooksModal";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
@@ -321,40 +322,45 @@ export default function SdkWebhooks({
         </TableCell>
         <TableCell>
           {!webhook.managedBy?.type ? (
-            <div className="col-auto mr-1">
-              <MoreMenu useRadix={false}>
-                {canUpdateWebhook ? (
-                  <button
-                    className="dropdown-item"
-                    onClick={async () => {
-                      await apiCall(`/sdk-webhooks/${webhook.id}/test`, {
-                        method: "post",
-                      });
-                      mutate();
-                    }}
-                  >
-                    Test
-                  </button>
-                ) : null}
-                {canUpdateWebhook ? (
-                  <button
-                    className="dropdown-item"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEditWebhookData(webhook);
-                    }}
-                  >
-                    Edit
-                  </button>
-                ) : null}
-                {canDeleteWebhook ? (
-                  <DeleteButton
-                    useRadix={false}
-                    className="dropdown-item"
-                    displayName="SDK Connection"
-                    text="Delete"
-                    useIcon={false}
-                    onClick={async () => {
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                >
+                  <PiDotsThreeVertical size={16} />
+                </IconButton>
+              }
+              menuPlacement="end"
+            >
+              {canUpdateWebhook ? (
+                <DropdownMenuItem
+                  onClick={async () => {
+                    await apiCall(`/sdk-webhooks/${webhook.id}/test`, {
+                      method: "post",
+                    });
+                    mutate();
+                  }}
+                >
+                  Test
+                </DropdownMenuItem>
+              ) : null}
+              {canUpdateWebhook ? (
+                <DropdownMenuItem onClick={() => setEditWebhookData(webhook)}>
+                  Edit
+                </DropdownMenuItem>
+              ) : null}
+              {canDeleteWebhook ? (
+                <DropdownMenuItem
+                  color="red"
+                  confirmation={{
+                    confirmationTitle: "Delete SDK Webhook",
+                    cta: "Delete",
+                    ctaColor: "red",
+                    submit: async () => {
                       if (approvalRequired) {
                         await handleDeleteViaRevision(webhook.id);
                       } else {
@@ -363,11 +369,13 @@ export default function SdkWebhooks({
                         });
                         mutate();
                       }
-                    }}
-                  />
-                ) : null}
-              </MoreMenu>
-            </div>
+                    },
+                  }}
+                >
+                  Delete
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenu>
           ) : null}
         </TableCell>
       </TableRow>

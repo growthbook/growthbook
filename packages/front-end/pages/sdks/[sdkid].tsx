@@ -20,7 +20,7 @@ import {
 } from "shared/enterprise";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
-import SDKConnectionForm from "@/components/Features/SDKConnections/SDKConnectionForm";
+import CreateSDKConnectionModal from "@/components/Features/SDKConnections/CreateSDKConnectionModal";
 import SDKConnectionArchiveModal from "@/components/Features/SDKConnections/SDKConnectionArchiveModal";
 import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
 import CodeSnippetModal from "@/components/Features/CodeSnippetModal";
@@ -44,7 +44,7 @@ import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
-import Modal from "@/components/Modal";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import RevisionDropdown from "@/components/Revision/RevisionDropdown";
 import RevisionSummaryCard from "@/components/Revision/RevisionSummaryCard";
 import ReviewAndPublishTab from "@/components/Revision/ReviewAndPublishTab";
@@ -215,13 +215,11 @@ export default function SDKConnectionPage() {
   const { user, hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
 
-  const [modalState, setModalState] = useState<{
-    mode: "edit" | "create" | "closed";
-    initialValue?: Partial<SDKConnectionInterface>;
-  }>({ mode: "closed" });
+  // Duplicate opens the create modal seeded from this connection.
+  const [duplicateSource, setDuplicateSource] =
+    useState<SDKConnectionInterface | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [confirmNewDraft, setConfirmNewDraft] = useState(false);
-  const [creatingDraft, setCreatingDraft] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("overview");
@@ -389,24 +387,11 @@ export default function SDKConnectionPage() {
 
   return (
     <div className="contents container pagecontents">
-      {modalState.mode !== "closed" && (
-        <SDKConnectionForm
-          close={() => setModalState({ mode: "closed" })}
+      {duplicateSource && (
+        <CreateSDKConnectionModal
+          close={() => setDuplicateSource(null)}
           mutate={mutate}
-          initialValue={modalState.initialValue}
-          edit={modalState.mode === "edit"}
-          {...(modalState.mode === "edit" && hasApprovalsFeature
-            ? {
-                onRevisionCreated,
-                openRevisions,
-                allRevisions,
-                selectedRevision,
-                onSelectRevision: selectFlow,
-                approvalRequired,
-                canAutoPublish,
-                metadataReviewRequired,
-              }
-            : {})}
+          initialValue={duplicateSource}
         />
       )}
 
@@ -441,38 +426,27 @@ export default function SDKConnectionPage() {
       )}
 
       {confirmNewDraft && (
-        <Modal
-          trackingEventModalType="create-new-sdk-connection-draft"
-          open={true}
-          close={() => setConfirmNewDraft(false)}
-          header="Create New Draft"
-          cta="Create Draft"
-          loading={creatingDraft}
-          useRadixButton={true}
-          submit={async () => {
-            setCreatingDraft(true);
-            try {
-              const res = await apiCall<{
-                status: number;
-                requiresApproval?: boolean;
-                revision?: Revision;
-              }>(`/sdk-connections/${connection.id}?forceCreateRevision=1`, {
-                method: "PUT",
-                body: JSON.stringify({}),
-              });
-              if (res?.revision) {
-                await Promise.all([mutateRevisions(), mutate()]);
-                selectFlow(res.revision);
-              }
-              setConfirmNewDraft(false);
-            } finally {
-              setCreatingDraft(false);
+        <ConfirmDialog
+          title="Create New Draft"
+          content="Create a new draft to make changes to this SDK connection. The live version stays unchanged until the draft is published."
+          yesText="Create Draft"
+          onCancel={() => setConfirmNewDraft(false)}
+          onConfirm={async () => {
+            const res = await apiCall<{
+              status: number;
+              requiresApproval?: boolean;
+              revision?: Revision;
+            }>(`/sdk-connections/${connection.id}?forceCreateRevision=1`, {
+              method: "PUT",
+              body: JSON.stringify({}),
+            });
+            if (res?.revision) {
+              await Promise.all([mutateRevisions(), mutate()]);
+              selectFlow(res.revision);
             }
+            setConfirmNewDraft(false);
           }}
-        >
-          Create a new draft to make changes to this SDK connection. The live
-          version stays unchanged until the draft is published.
-        </Modal>
+        />
       )}
 
       <PageHead
@@ -554,10 +528,7 @@ export default function SDKConnectionPage() {
                   {canUpdate && <DropdownMenuSeparator />}
                   <DropdownMenuItem
                     onClick={() => {
-                      setModalState({
-                        mode: "create",
-                        initialValue: connection,
-                      });
+                      setDuplicateSource(connection);
                       setDropdownOpen(false);
                     }}
                   >

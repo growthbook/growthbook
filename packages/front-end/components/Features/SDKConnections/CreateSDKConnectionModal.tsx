@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { PiCaretDown } from "react-icons/pi";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
@@ -6,7 +6,8 @@ import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { Box, Flex } from "@radix-ui/themes";
 import { filterProjectsByEnvironment } from "shared/util";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import Field from "@/components/Forms/Field";
+import Checkbox from "@/ui/Checkbox";
+import TextField from "@/ui/TextField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
@@ -14,6 +15,7 @@ import SDKConnectionFields, {
   SDKConnectionFieldsValue,
 } from "@/components/Features/SDKConnections/SDKConnectionFields";
 import { getConnectionLanguageFilter } from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import { deliveryModeFromConnection } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import type { LanguageFilter } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
@@ -27,9 +29,12 @@ import track from "@/services/track";
 export default function CreateSDKConnectionModal({
   close,
   mutate,
+  initialValue,
 }: {
   close: () => void;
   mutate: () => void;
+  /** Duplicate seeds the form from an existing connection. */
+  initialValue?: Partial<SDKConnectionInterface>;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -41,48 +46,57 @@ export default function CreateSDKConnectionModal({
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
 
   // The fields shared with the edit modal, so the two stay identical.
-  const [value, setValue] = useState<SDKConnectionFieldsValue>({
-    name: "",
-    languages: [],
-    sdkVersion: undefined,
-    environment: environments[0]?.id ?? "",
-    projects: project ? [project] : [],
-    delivery: "plain",
-    encryptPayload: false,
-    includeExperimentNames: true,
-    hashSecureAttributes: false,
-    includeRuleIds: true,
-    includeVisualExperiments: false,
-    includeRedirectExperiments: false,
-  });
+  const [value, setValue] = useState<SDKConnectionFieldsValue>(() => ({
+    name: initialValue?.name ?? "",
+    languages: initialValue?.languages ?? [],
+    sdkVersion: initialValue?.sdkVersion,
+    environment: initialValue?.environment ?? environments[0]?.id ?? "",
+    projects: initialValue?.projects ?? (project ? [project] : []),
+    delivery: initialValue ? deliveryModeFromConnection(initialValue) : "plain",
+    encryptPayload: !!initialValue?.encryptPayload,
+    includeExperimentNames: initialValue?.includeExperimentNames ?? true,
+    hashSecureAttributes: !!initialValue?.hashSecureAttributes,
+    includeRuleIds: initialValue?.includeRuleIds ?? true,
+    includeVisualExperiments: !!initialValue?.includeVisualExperiments,
+    includeRedirectExperiments: !!initialValue?.includeRedirectExperiments,
+  }));
   const onChange = (patch: Partial<SDKConnectionFieldsValue>) =>
     setValue((v) => ({ ...v, ...patch }));
 
   const [languageError, setLanguageError] = useState<string | null>(null);
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
-    getConnectionLanguageFilter([]),
+    getConnectionLanguageFilter(initialValue?.languages ?? []),
   );
 
   // Settings the design doesn't surface, kept reachable at creation.
-  const [includeDraftExperiments, setIncludeDraftExperiments] = useState(false);
-  const [includeDraftExperimentRefs, setIncludeDraftExperimentRefs] =
-    useState(false);
+  const [includeDraftExperiments, setIncludeDraftExperiments] = useState(
+    !!initialValue?.includeDraftExperiments,
+  );
+  const [includeDraftExperimentRefs, setIncludeDraftExperimentRefs] = useState(
+    !!initialValue?.includeDraftExperimentRefs,
+  );
   const [
     includeExperimentScheduleInMetadata,
     setIncludeExperimentScheduleInMetadata,
-  ] = useState(false);
-  const [includeTagsInMetadata, setIncludeTagsInMetadata] = useState(false);
-  const [includeProjectIdInMetadata, setIncludeProjectIdInMetadata] =
-    useState(false);
+  ] = useState(!!initialValue?.includeExperimentScheduleInMetadata);
+  const [includeTagsInMetadata, setIncludeTagsInMetadata] = useState(
+    !!initialValue?.includeTagsInMetadata,
+  );
+  const [includeProjectIdInMetadata, setIncludeProjectIdInMetadata] = useState(
+    !!initialValue?.includeProjectIdInMetadata,
+  );
   const [savedGroupReferencesEnabled, setSavedGroupReferencesEnabled] =
-    useState(false);
+    useState(!!initialValue?.savedGroupReferencesEnabled);
   const [includeCustomFieldsInMetadata, setIncludeCustomFieldsInMetadata] =
-    useState(false);
+    useState(!!initialValue?.includeCustomFieldsInMetadata);
   const [allowedCustomFieldsInMetadata, setAllowedCustomFieldsInMetadata] =
-    useState<string[]>([]);
-  const [proxyEnabled, setProxyEnabled] = useState(false);
-  const [proxyHost, setProxyHost] = useState("");
+    useState<string[]>(initialValue?.allowedCustomFieldsInMetadata ?? []);
+  const [proxyEnabled, setProxyEnabled] = useState(
+    !!initialValue?.proxy?.enabled,
+  );
+  const [proxyHost, setProxyHost] = useState(initialValue?.proxy?.host ?? "");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const advancedPanelId = useId();
 
   // Matches the full form's create branch: a new connection opts into visual
   // editor and redirect experiments whenever the chosen SDK supports them,
@@ -248,7 +262,7 @@ export default function CreateSDKConnectionModal({
               onChange={setProxyEnabled}
             />
             {proxyEnabled && (
-              <Field
+              <TextField
                 label="Proxy Host URL"
                 placeholder="https://"
                 value={proxyHost}
@@ -275,6 +289,8 @@ export default function CreateSDKConnectionModal({
             py="3"
             onClick={() => setAdvancedOpen((v) => !v)}
             role="button"
+            aria-expanded={advancedOpen}
+            aria-controls={advancedPanelId}
             tabIndex={0}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -310,106 +326,102 @@ export default function CreateSDKConnectionModal({
               }}
             />
           </Flex>
-          {advancedOpen && (
-            <Box p="3">
-              <Flex direction="column" gap="4">
-                <AdvancedGroup title="Experiments">
-                  <Switch
-                    label="Rule IDs"
-                    description="Include feature rule IDs in the SDK payload."
-                    value={value.includeRuleIds}
-                    onChange={(v) => onChange({ includeRuleIds: v })}
+          <Box id={advancedPanelId} p="3" hidden={!advancedOpen}>
+            <Flex direction="column" gap="4">
+              <AdvancedGroup title="Experiments">
+                <Checkbox
+                  label="Rule IDs"
+                  description="Include feature rule IDs in the SDK payload."
+                  value={value.includeRuleIds}
+                  setValue={(v) => onChange({ includeRuleIds: v })}
+                />
+                {latestCapabilities.includes("visualEditor") && (
+                  <Checkbox
+                    label="Visual editor"
+                    description="Include visual editor experiments in the SDK payload."
+                    value={value.includeVisualExperiments}
+                    setValue={(v) => onChange({ includeVisualExperiments: v })}
                   />
-                  {latestCapabilities.includes("visualEditor") && (
-                    <Switch
-                      label="Visual Editor"
-                      description="Include visual editor experiments in the SDK payload."
-                      value={value.includeVisualExperiments}
-                      onChange={(v) =>
-                        onChange({ includeVisualExperiments: v })
-                      }
-                    />
-                  )}
-                  {latestCapabilities.includes("redirects") && (
-                    <Switch
-                      label="URL Redirects"
-                      description="Include URL redirect experiments in the SDK payload."
-                      value={value.includeRedirectExperiments}
-                      onChange={(v) =>
-                        onChange({ includeRedirectExperiments: v })
-                      }
-                    />
-                  )}
-                  <Switch
-                    label="Draft Experiments"
-                    description="Include draft Visual Editor and URL Redirect experiments."
-                    value={includeDraftExperiments}
-                    onChange={setIncludeDraftExperiments}
+                )}
+                {latestCapabilities.includes("redirects") && (
+                  <Checkbox
+                    label="URL redirects"
+                    description="Include URL redirect experiments in the SDK payload."
+                    value={value.includeRedirectExperiments}
+                    setValue={(v) =>
+                      onChange({ includeRedirectExperiments: v })
+                    }
                   />
-                  <Switch
-                    label="Draft Experiment Rules"
-                    description="Include draft Experiment rules in feature definitions."
-                    value={includeDraftExperimentRefs}
-                    onChange={setIncludeDraftExperimentRefs}
-                  />
-                  <Switch
-                    label="Experiment Schedule Dates"
-                    description="Include experiment schedule dates in the SDK payload."
-                    value={includeExperimentScheduleInMetadata}
-                    onChange={setIncludeExperimentScheduleInMetadata}
-                  />
-                </AdvancedGroup>
+                )}
+                <Checkbox
+                  label="Draft experiments"
+                  description="Include draft Visual Editor and URL Redirect experiments."
+                  value={includeDraftExperiments}
+                  setValue={setIncludeDraftExperiments}
+                />
+                <Checkbox
+                  label="Draft experiment rules"
+                  description="Include draft Experiment rules in feature definitions."
+                  value={includeDraftExperimentRefs}
+                  setValue={setIncludeDraftExperimentRefs}
+                />
+                <Checkbox
+                  label="Experiment schedule dates"
+                  description="Include experiment schedule dates in the SDK payload."
+                  value={includeExperimentScheduleInMetadata}
+                  setValue={setIncludeExperimentScheduleInMetadata}
+                />
+              </AdvancedGroup>
 
-                <AdvancedGroup title="Payload Metadata">
-                  <Switch
-                    label="Tags in Metadata"
-                    value={includeTagsInMetadata}
-                    onChange={setIncludeTagsInMetadata}
+              <AdvancedGroup title="Payload Metadata">
+                <Checkbox
+                  label="Tags in metadata"
+                  value={includeTagsInMetadata}
+                  setValue={setIncludeTagsInMetadata}
+                />
+                <Checkbox
+                  label="Project IDs in metadata"
+                  value={includeProjectIdInMetadata}
+                  setValue={setIncludeProjectIdInMetadata}
+                />
+                {supportsSavedGroups && (
+                  <Checkbox
+                    label="Saved group references"
+                    description="Move ID List Saved Groups to a separate key in the payload, so re-using one across features no longer inflates its size."
+                    value={savedGroupReferencesEnabled}
+                    // Premium, as in the full form: without the entitlement
+                    // this must not be settable.
+                    disabled={!hasLargeSavedGroupFeature}
+                    setValue={setSavedGroupReferencesEnabled}
                   />
-                  <Switch
-                    label="Project IDs in Metadata"
-                    value={includeProjectIdInMetadata}
-                    onChange={setIncludeProjectIdInMetadata}
+                )}
+                <Switch
+                  label="Custom fields"
+                  value={includeCustomFieldsInMetadata}
+                  onChange={(v) => {
+                    setIncludeCustomFieldsInMetadata(v);
+                    if (!v) setAllowedCustomFieldsInMetadata([]);
+                  }}
+                />
+                {includeCustomFieldsInMetadata && (
+                  <MultiSelectField
+                    label="Allowed custom fields"
+                    placeholder="No fields included"
+                    value={allowedCustomFieldsInMetadata}
+                    onChange={(fields) =>
+                      setAllowedCustomFieldsInMetadata(fields as string[])
+                    }
+                    options={(customFields || []).map((cf) => ({
+                      label: cf.name,
+                      value: cf.id,
+                    }))}
+                    sort={false}
+                    closeMenuOnSelect={true}
                   />
-                  {supportsSavedGroups && (
-                    <Switch
-                      label="Saved Group References"
-                      description="Move ID List Saved Groups to a separate key in the payload, so re-using one across features no longer inflates its size."
-                      value={savedGroupReferencesEnabled}
-                      // Premium, as in the full form: without the entitlement
-                      // this must not be settable.
-                      disabled={!hasLargeSavedGroupFeature}
-                      onChange={setSavedGroupReferencesEnabled}
-                    />
-                  )}
-                  <Switch
-                    label="Custom Fields"
-                    value={includeCustomFieldsInMetadata}
-                    onChange={(v) => {
-                      setIncludeCustomFieldsInMetadata(v);
-                      if (!v) setAllowedCustomFieldsInMetadata([]);
-                    }}
-                  />
-                  {includeCustomFieldsInMetadata && (
-                    <MultiSelectField
-                      label="Allowed custom fields"
-                      placeholder="No fields included"
-                      value={allowedCustomFieldsInMetadata}
-                      onChange={(fields) =>
-                        setAllowedCustomFieldsInMetadata(fields as string[])
-                      }
-                      options={(customFields || []).map((cf) => ({
-                        label: cf.name,
-                        value: cf.id,
-                      }))}
-                      sort={false}
-                      closeMenuOnSelect={true}
-                    />
-                  )}
-                </AdvancedGroup>
-              </Flex>
-            </Box>
-          )}
+                )}
+              </AdvancedGroup>
+            </Flex>
+          </Box>
         </Box>
       </Flex>
     </ModalStandard>

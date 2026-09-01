@@ -174,6 +174,7 @@ const VerifyConnectionPage = ({
             }
             goToNextStep();
           }}
+          mutate={mutate}
           showModalClose
         />
       )}

@@ -176,6 +176,7 @@ export default function CodeSnippetModal({
           setShowTestModal(false);
         }}
         connection={currentConnection}
+        mutate={mutateConnections}
         goToNextStep={submit}
         cta={"Finish"}
         showModalClose={false}
@@ -192,6 +193,7 @@ export default function CodeSnippetModal({
             setShowTestModal(false);
           }}
           connection={currentConnection}
+          mutate={mutateConnections}
           goToNextStep={submit}
           showModalClose={true}
         />

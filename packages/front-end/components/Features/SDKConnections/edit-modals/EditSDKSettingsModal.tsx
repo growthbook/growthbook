@@ -2,15 +2,16 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { shouldShowPayloadSecurity } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import ButtonSelectField from "@/components/Forms/ButtonSelectField";
-import Field from "@/components/Forms/Field";
+import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
-import Callout from "@/ui/Callout";
-import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import TextField from "@/ui/TextField";
+import PayloadSecurityField, {
+  PayloadSecurityValue,
+} from "@/components/Features/SDKConnections/PayloadSecurityField";
+import { deliveryModeFromConnection } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import { useCustomFields } from "@/hooks/useCustomFields";
@@ -18,23 +19,6 @@ import {
   SdkConnectionRevisionProps,
   useSdkConnectionRevisionFlow,
 } from "./useSdkConnectionRevisionFlow";
-
-type DeliveryMode = "plain" | "ciphered" | "remote";
-
-const DELIVERY_DESCRIPTIONS: Record<DeliveryMode, string> = {
-  plain:
-    "Full feature definitions are viewable by anyone with the client key. Highly cacheable.",
-  ciphered:
-    "Payload encrypted (AES) and secure attributes hashed. Adds obfuscation while staying cacheable.",
-  remote:
-    "Evaluate features server-side; the SDK fetches results only. Best protection, no caching.",
-};
-
-function modeFromConnection(c: SDKConnectionInterface): DeliveryMode {
-  if (c.remoteEvalEnabled) return "remote";
-  if (c.encryptPayload || c.hashSecureAttributes) return "ciphered";
-  return "plain";
-}
 
 export type SDKConnectionEditSection =
   | "connection"
@@ -80,14 +64,6 @@ export default function EditSDKSettingsModal({
 } & SdkConnectionRevisionProps) {
   const customFields = useCustomFields();
   const { hasCommercialFeature } = useUser();
-  // Same entitlement gates the full connection form applies, so a section modal
-  // can't enable a paid option the org doesn't have.
-  const hasEncryptionFeature = hasCommercialFeature(
-    "encrypt-features-endpoint",
-  );
-  const hasSecureAttributesFeature = hasCommercialFeature(
-    "hash-secure-attributes",
-  );
   const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
 
   // Capability gates, mirroring SDKConnectionForm: an option is only offered
@@ -106,14 +82,6 @@ export default function EditSDKSettingsModal({
     connection,
     "max-ver-intersection",
   );
-  // Next.js is plain-text only, so it suppresses both secured modes.
-  const payloadSecurityAllowed = shouldShowPayloadSecurity(
-    connection.languages,
-  );
-  const showEncryption =
-    payloadSecurityAllowed && currentSdkCapabilities.includes("encryption");
-  const showRemoteEval =
-    payloadSecurityAllowed && currentSdkCapabilities.includes("remoteEval");
   const showSavedGroupSettings = currentSdkCapabilities.includes(
     "savedGroupReferences",
   );
@@ -130,18 +98,12 @@ export default function EditSDKSettingsModal({
   });
 
   // Delivery & Security
-  const [delivery, setDelivery] = useState<DeliveryMode>(
-    modeFromConnection(connection),
-  );
-  const [encryptPayload, setEncryptPayload] = useState(
-    !!connection.encryptPayload,
-  );
-  const [hashSecureAttributes, setHashSecureAttributes] = useState(
-    !!connection.hashSecureAttributes,
-  );
-  const [includeExperimentNames, setIncludeExperimentNames] = useState(
-    connection.includeExperimentNames ?? true,
-  );
+  const [security, setSecurity] = useState<PayloadSecurityValue>({
+    delivery: deliveryModeFromConnection(connection),
+    encryptPayload: !!connection.encryptPayload,
+    hashSecureAttributes: !!connection.hashSecureAttributes,
+    includeExperimentNames: connection.includeExperimentNames ?? true,
+  });
 
   // Features & Experiments
   const [includeRuleIds, setIncludeRuleIds] = useState(
@@ -182,57 +144,6 @@ export default function EditSDKSettingsModal({
   const [allowedCustomFieldsInMetadata, setAllowedCustomFieldsInMetadata] =
     useState<string[]>(connection.allowedCustomFieldsInMetadata ?? []);
 
-  const handleDeliveryChange = (mode: DeliveryMode) => {
-    if (mode === "remote" && !hasRemoteEvaluationFeature) return;
-    if (
-      mode === "ciphered" &&
-      !hasEncryptionFeature &&
-      !hasSecureAttributesFeature
-    )
-      return;
-    setDelivery(mode);
-    if (mode === "ciphered") {
-      // Only turn on the halves the org is entitled to, as the full form does.
-      setEncryptPayload(hasEncryptionFeature);
-      setHashSecureAttributes(hasSecureAttributesFeature);
-      setIncludeExperimentNames(false);
-    } else if (mode === "plain") {
-      setEncryptPayload(false);
-      setHashSecureAttributes(false);
-    }
-    // Remote Eval leaves encryption alone: the two are independent, and a
-    // remote-eval payload can still be encrypted.
-  };
-
-  type DeliveryOption = { label: string | JSX.Element; value: DeliveryMode };
-  const allDeliveryOptions: DeliveryOption[] = [
-    { label: "Plain Text", value: "plain" },
-    {
-      label: (
-        <Flex as="span" align="center" gap="2">
-          Ciphered
-          <PaidFeatureBadge commercialFeature="encrypt-features-endpoint" />
-        </Flex>
-      ),
-      value: "ciphered",
-    },
-    {
-      label: (
-        <Flex as="span" align="center" gap="2">
-          Remote Eval
-          <PaidFeatureBadge commercialFeature="remote-evaluation" />
-        </Flex>
-      ),
-      value: "remote",
-    },
-  ];
-  // Only offer the modes this SDK supports, as the full form does.
-  const deliveryOptions: DeliveryOption[] = allDeliveryOptions.filter(
-    (opt) =>
-      (opt.value !== "ciphered" || showEncryption) &&
-      (opt.value !== "remote" || showRemoteEval),
-  );
-
   return (
     <ModalStandard
       trackingEventModalType="edit-sdk-settings"
@@ -249,14 +160,19 @@ export default function EditSDKSettingsModal({
           return;
         }
         if (section === "delivery") {
+          const plain = security.delivery === "plain";
           await save({
             // Plain Text is the only mode that implies no encryption; Remote
             // Eval keeps whatever the connection had.
-            encryptPayload: delivery === "plain" ? false : encryptPayload,
-            hashSecureAttributes:
-              delivery === "plain" ? false : hashSecureAttributes,
-            remoteEvalEnabled: showRemoteEval && delivery === "remote",
-            includeExperimentNames,
+            encryptPayload: plain ? false : security.encryptPayload,
+            hashSecureAttributes: plain ? false : security.hashSecureAttributes,
+            // As the full form: never persist Remote Eval the SDK can't run at
+            // its latest version, or that the plan doesn't include.
+            remoteEvalEnabled:
+              security.delivery === "remote" &&
+              latestSdkCapabilities.includes("remoteEval") &&
+              hasRemoteEvaluationFeature,
+            includeExperimentNames: security.includeExperimentNames,
           });
           return;
         }
@@ -305,7 +221,7 @@ export default function EditSDKSettingsModal({
                 onChange={setProxyEnabled}
               />
               {proxyEnabled && (
-                <Field
+                <TextField
                   label="Proxy Host"
                   placeholder="https://"
                   value={proxyHost}
@@ -317,96 +233,17 @@ export default function EditSDKSettingsModal({
         )}
 
         {section === "delivery" && (
-          /* Delivery & Security */
           <Box>
             <GroupLabel>Delivery &amp; Security</GroupLabel>
-            <ButtonSelectField<DeliveryMode>
-              label="Payload Security"
-              value={delivery}
-              setValue={handleDeliveryChange}
-              options={deliveryOptions}
+            <PayloadSecurityField
+              value={security}
+              onChange={(patch) => setSecurity((s) => ({ ...s, ...patch }))}
+              languages={connection.languages}
+              sdkVersion={connection.sdkVersion}
+              disabled={isExternallyManaged}
             />
-            <Box mt="2">
-              <Text size="sm" color="text-mid">
-                {DELIVERY_DESCRIPTIONS[delivery]}
-              </Text>
-            </Box>
-
-            {(delivery === "ciphered" ||
-              (delivery === "remote" && showEncryption)) && (
-              <Box
-                mt="3"
-                p="3"
-                style={{ background: "var(--gray-a2)", borderRadius: 8 }}
-              >
-                <Flex direction="column" gap="3">
-                  <Switch
-                    label={
-                      <Flex as="span" align="center" gap="2">
-                        Encrypt payload
-                        <PaidFeatureBadge commercialFeature="encrypt-features-endpoint" />
-                      </Flex>
-                    }
-                    description="Encrypt the SDK payload with AES so feature definitions aren't readable by anyone with the client key."
-                    value={encryptPayload}
-                    disabled={!hasEncryptionFeature || isExternallyManaged}
-                    onChange={setEncryptPayload}
-                  />
-                  <Switch
-                    label={
-                      <Flex as="span" align="center" gap="2">
-                        Hash secure attributes
-                        <PaidFeatureBadge commercialFeature="hash-secure-attributes" />
-                      </Flex>
-                    }
-                    description="Anonymize secureString targeting attributes via SHA-256 hashing."
-                    value={hashSecureAttributes}
-                    disabled={
-                      !hasSecureAttributesFeature || isExternallyManaged
-                    }
-                    onChange={setHashSecureAttributes}
-                  />
-                  <Switch
-                    label="Hide experiment and variation names"
-                    description="Strip human-readable experiment and variation names from the payload."
-                    value={!includeExperimentNames}
-                    onChange={(v) => setIncludeExperimentNames(!v)}
-                  />
-                </Flex>
-              </Box>
-            )}
-
-            {!payloadSecurityAllowed && (
+            {canStream && security.delivery !== "ciphered" && (
               <Box mt="3">
-                <Switch
-                  label="Hide experiment and variation names"
-                  description="Strip human-readable experiment and variation names from the payload."
-                  value={!includeExperimentNames}
-                  onChange={(v) => setIncludeExperimentNames(!v)}
-                />
-              </Box>
-            )}
-
-            {delivery === "remote" && (
-              <Box mt="3">
-                <Callout status="info" size="sm">
-                  Remote evaluation requires a self-hosted evaluation service
-                  such as{" "}
-                  <a
-                    href="https://github.com/growthbook/growthbook-proxy"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    GrowthBook Proxy
-                  </a>{" "}
-                  or a CDN edge worker
-                  {isCloud() ? " (required for Cloud accounts)." : "."}
-                </Callout>
-              </Box>
-            )}
-
-            {canStream && delivery !== "ciphered" && (
-              <Box mt="2">
                 <Text size="sm" color="text-mid">
                   Streaming updates are enabled — feature changes are pushed to
                   subscribed SDKs in real time.
@@ -417,81 +254,79 @@ export default function EditSDKSettingsModal({
         )}
 
         {section === "experiments" && (
-          /* Features & Experiments */
           <Box>
             <GroupLabel>Features &amp; Experiments</GroupLabel>
             <Flex direction="column" gap="3">
-              <Switch
+              <Checkbox
                 label="Rule IDs"
                 description="Include feature rule IDs in the SDK payload."
                 value={includeRuleIds}
-                onChange={setIncludeRuleIds}
+                setValue={setIncludeRuleIds}
               />
               {showVisualEditorSettings && (
-                <Switch
-                  label="Visual Editor"
+                <Checkbox
+                  label="Visual editor"
                   description="Include visual editor experiments in the SDK payload."
                   value={includeVisualExperiments}
-                  onChange={setIncludeVisualExperiments}
+                  setValue={setIncludeVisualExperiments}
                 />
               )}
               {showRedirectSettings && (
-                <Switch
-                  label="URL Redirects"
+                <Checkbox
+                  label="URL redirects"
                   description="Include URL redirect experiments in the SDK payload."
                   value={includeRedirectExperiments}
-                  onChange={setIncludeRedirectExperiments}
+                  setValue={setIncludeRedirectExperiments}
                 />
               )}
-              <Switch
-                label="Draft Experiments"
+              <Checkbox
+                label="Draft experiments"
                 description="Include draft Visual Editor and URL Redirect experiments."
                 value={includeDraftExperiments}
-                onChange={setIncludeDraftExperiments}
+                setValue={setIncludeDraftExperiments}
               />
-              <Switch
-                label="Draft Experiment Rules"
+              <Checkbox
+                label="Draft experiment rules"
                 description="Include draft Experiment rules in feature definitions."
                 value={includeDraftExperimentRefs}
-                onChange={setIncludeDraftExperimentRefs}
+                setValue={setIncludeDraftExperimentRefs}
               />
-              <Switch
-                label="Experiment Schedule Dates"
+              <Checkbox
+                label="Experiment schedule dates"
                 description="Include experiment schedule dates in the SDK payload."
                 value={includeExperimentScheduleInMetadata}
-                onChange={setIncludeExperimentScheduleInMetadata}
+                setValue={setIncludeExperimentScheduleInMetadata}
               />
             </Flex>
           </Box>
         )}
 
         {section === "metadata" && (
-          /* Payload Metadata */
           <Box>
             <GroupLabel>Payload Metadata</GroupLabel>
             <Flex direction="column" gap="3">
-              <Switch
-                label="Tags in Metadata"
+              <Checkbox
+                label="Tags in metadata"
                 description="Include feature tags."
                 value={includeTagsInMetadata}
-                onChange={setIncludeTagsInMetadata}
+                setValue={setIncludeTagsInMetadata}
               />
-              <Switch
-                label="Project IDs in Metadata"
+              <Checkbox
+                label="Project IDs in metadata"
                 description="Include project IDs alongside features."
                 value={includeProjectIdInMetadata}
-                onChange={setIncludeProjectIdInMetadata}
+                setValue={setIncludeProjectIdInMetadata}
               />
               {showSavedGroupSettings && (
-                <Switch
-                  label="Saved Group References"
+                <Checkbox
+                  label="Saved group references"
                   description="Send saved group references instead of inlined values."
                   value={savedGroupReferencesEnabled}
-                  onChange={setSavedGroupReferencesEnabled}
+                  setValue={setSavedGroupReferencesEnabled}
                 />
               )}
               <Switch
-                label="Custom Fields"
+                label="Custom fields"
                 description="Include selected custom fields in the payload."
                 value={includeCustomFieldsInMetadata}
                 onChange={(v) => {

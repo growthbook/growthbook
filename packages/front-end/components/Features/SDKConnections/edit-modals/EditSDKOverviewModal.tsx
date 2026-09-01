@@ -3,9 +3,9 @@ import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { useState } from "react";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SDKConnectionFields, {
-  DeliveryMode,
   SDKConnectionFieldsValue,
 } from "@/components/Features/SDKConnections/SDKConnectionFields";
+import { deliveryModeFromConnection } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import {
   getConnectionLanguageFilter,
   LanguageFilter,
@@ -16,12 +16,6 @@ import {
   SdkConnectionRevisionProps,
   useSdkConnectionRevisionFlow,
 } from "./useSdkConnectionRevisionFlow";
-
-function modeFromConnection(c: SDKConnectionInterface): DeliveryMode {
-  if (c.remoteEvalEnabled) return "remote";
-  if (c.encryptPayload || c.hashSecureAttributes) return "ciphered";
-  return "plain";
-}
 
 export default function EditSDKOverviewModal({
   connection,
@@ -47,7 +41,7 @@ export default function EditSDKOverviewModal({
     sdkVersion: connection.sdkVersion,
     environment: connection.environment,
     projects: connection.projects ?? [],
-    delivery: modeFromConnection(connection),
+    delivery: deliveryModeFromConnection(connection),
     encryptPayload: !!connection.encryptPayload,
     includeExperimentNames: connection.includeExperimentNames ?? true,
     hashSecureAttributes: !!connection.hashSecureAttributes,

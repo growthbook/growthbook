@@ -6,6 +6,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 type Props = {
   close: () => void;
   connection: SDKConnectionInterface;
+  mutate: () => Promise<unknown>;
   goToNextStep?: () => void;
   cta?: string;
   showModalClose?: boolean;
@@ -14,6 +15,7 @@ type Props = {
 export default function CheckSDKConnectionModal({
   close,
   connection,
+  mutate,
   goToNextStep,
   cta,
   showModalClose,
@@ -22,6 +24,7 @@ export default function CheckSDKConnectionModal({
   const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={showModalClose ? close : undefined}
@@ -31,7 +34,11 @@ export default function CheckSDKConnectionModal({
       header={"Check SDK Connection"}
       submit={async () => goToNextStep?.()}
     >
-      <ConnectionDiagram connection={connection} canUpdate={canUpdate} />
+      <ConnectionDiagram
+        connection={connection}
+        mutate={mutate}
+        canUpdate={canUpdate}
+      />
     </Modal>
   );
 }

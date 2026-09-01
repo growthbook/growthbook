@@ -1,4 +1,7 @@
-import { SDKLanguage } from "shared/types/sdk-connection";
+import {
+  SDKConnectionInterface,
+  SDKLanguage,
+} from "shared/types/sdk-connection";
 
 /**
  * Payload security rules shared by the create and edit surfaces, mirroring
@@ -14,4 +17,23 @@ export function shouldShowPayloadSecurity(
   languages: SDKLanguage[] | undefined,
 ): boolean {
   return !(languages ?? []).includes("nextjs");
+}
+
+export type DeliveryMode = "plain" | "ciphered" | "remote";
+
+/**
+ * The Payload Security mode a stored connection is in, as the full form
+ * derives it: Remote Eval wins, then either cipher option, else plain text.
+ */
+export function deliveryModeFromConnection(
+  c: Partial<
+    Pick<
+      SDKConnectionInterface,
+      "remoteEvalEnabled" | "encryptPayload" | "hashSecureAttributes"
+    >
+  >,
+): DeliveryMode {
+  if (c.remoteEvalEnabled) return "remote";
+  if (c.encryptPayload || c.hashSecureAttributes) return "ciphered";
+  return "plain";
 }
