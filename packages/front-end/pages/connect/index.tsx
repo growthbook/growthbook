@@ -1,146 +1,67 @@
 import { useCallback, useMemo, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { useRouter } from "next/router";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { SDKLanguage } from "shared/types/sdk-connection";
 import { ApiSetupRun } from "shared/validators";
 import {
-  PiArrowRight,
-  PiCaretDownBold,
+  PiCaretLeftBold,
+  PiCaretRightBold,
+  PiInfo,
   PiPaperPlaneTiltFill,
 } from "react-icons/pi";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
-import { DocLink } from "@/components/DocLink";
-import SDKLanguageLogo, {
-  languageMapping,
-} from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
+import { LanguageFilter } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import PageHead from "@/components/Layout/PageHead";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import LinkButton from "@/ui/LinkButton";
-import { Select, SelectItem } from "@/ui/Select";
-import SplitButton from "@/ui/SplitButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import useApi from "@/hooks/useApi";
-import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
-
-// The languages worth offering up front. The wizard supports every target
-// GrowthBook has and detects whichever the project actually is, so this list is a
-// shortcut rather than a limit.
-// Every language the wizard drives. Webflow, WordPress, Shopify, the plain script
-// tag, Roku and "other" are deliberately absent: they have nothing to install and
-// nothing to verify from a project directory, so the docs are the better route.
-const OFFERED: SDKLanguage[] = [
-  "react",
-  "nextjs",
-  "nodejs",
-  "javascript",
-  "python",
-  "ruby",
-  "php",
-  "go",
-  "csharp",
-  "rust",
-  "java",
-  "elixir",
-  "android",
-  "ios",
-  "flutter",
-  "edge-cloudflare",
-  "edge-fastly",
-  "edge-lambda",
-  "edge-other",
-];
 
 const PACKAGE = "growthbook-install";
 
-/**
- * Where the command can be handed to an agent.
- *
- * The prefilled text is the bare command, not the `!` shell form. A leading `!`
- * only enters shell mode when a person types it; prefilled into a composer it stays
- * literal and Enter would send it as a prompt. Copy/paste is the other way round —
- * you are typing when you paste — so the clipboard gets the `!` form.
- */
-type Target = {
-  id: string;
-  label: string;
-  detail: string;
-  group: "Claude" | "Other agents";
-  href?: (command: string) => string;
-};
-
-const TARGETS: Target[] = [
-  {
-    id: "claude-code",
-    label: "Claude Code",
-    detail: "Opens the CLI",
-    group: "Claude",
-    href: (c) => `claude-cli://open?q=${encodeURIComponent(c)}`,
-  },
-  {
-    id: "claude-desktop",
-    label: "Claude Desktop",
-    detail: "Opens the desktop app",
-    group: "Claude",
-    href: (c) => `claude://new?q=${encodeURIComponent(c)}`,
-  },
-  {
-    id: "claude-web",
-    label: "claude.ai",
-    detail: "Opens in your browser",
-    group: "Claude",
-    href: (c) => `https://claude.ai/new?q=${encodeURIComponent(c)}`,
-  },
-  {
-    id: "cursor",
-    label: "Cursor",
-    detail: "Opens Cursor",
-    group: "Other agents",
-    href: () => "cursor://",
-  },
-  {
-    id: "codex",
-    label: "Codex",
-    detail: "Copy it and paste into Codex",
-    group: "Other agents",
-  },
-];
+// The wizard installs a package and then proves it landed. For a script tag or a
+// hand-copied BrightScript file there is nothing to install and nothing to verify,
+// so those languages get the manual instructions only — the AI-Assisted tab would be
+// offering to run a command that cannot do anything.
+const NO_WIZARD: ReadonlySet<string> = new Set([
+  "nocode-webflow",
+  "nocode-wordpress",
+  "nocode-shopify",
+  "nocode-other",
+  "roku",
+  "other",
+]);
 
 export default function ConnectPage() {
+  const router = useRouter();
   const { userId } = useUser();
-  const environments = useEnvironments();
+  const [step, setStep] = useState<1 | 2>(1);
   const [language, setLanguage] = useState<SDKLanguage>("react");
-  const [openedVia, setOpenedVia] = useState("");
-  // InstallationCodeSnippet owns the GTM/GrowthBook tracker choice for its nocode
-  // paths; inert for the languages offered here, but the props are required.
+  const [languageFilter, setLanguageFilter] =
+    useState<LanguageFilter>("popular");
+  const [checked, setChecked] = useState(false);
+  // InstallationCodeSnippet owns the GTM/GrowthBook tracker choice for its script-tag
+  // paths; the props are required even where that choice does not apply.
   const [eventTracker, setEventTracker] = useState("");
-  // No connection yet, so this resolves to the org's default SDK host.
+
   const apiHost = getApiBaseUrl();
-
-  // No connection exists yet — the command creates it — so the environment shown
-  // is the one this org would default to, not one read off a connection.
-  const environment = environments[0]?.id || "dev";
-  const docs = languageMapping[language]?.docs;
-
-  const command = useMemo(
-    () => `npx ${PACKAGE} --language ${language}`,
-    [language],
-  );
+  const wizardable = !NO_WIZARD.has(language);
+  const command = `npx ${PACKAGE} --language ${language}`;
 
   // The wizard opens a setup run as soon as it has something to report, so a run by
-  // this user is the signal the command actually started.
-  const { data: runsData } = useApi<{ setupRuns: ApiSetupRun[] }>(
+  // this user is the signal the command actually ran.
+  const { data: runsData, mutate } = useApi<{ setupRuns: ApiSetupRun[] }>(
     "/setup-runs",
-    {
-      refreshInterval: 5000,
-    },
+    { shouldRun: () => step === 2 },
   );
   const latestRun = useMemo(
     () =>
@@ -148,15 +69,12 @@ export default function ConnectPage() {
     [runsData, userId],
   );
 
-  const openTarget = useCallback(
-    (target: Target) => {
-      setOpenedVia(target.label);
-      if (target.href) window.location.href = target.href(command);
-    },
-    [command],
-  );
-
-  const primary = TARGETS[0];
+  const checkConnection = useCallback(async () => {
+    setChecked(true);
+    const fresh = await mutate();
+    const run = (fresh?.setupRuns || []).find((r) => r.createdBy === userId);
+    if (run) router.push(`/setup-runs/${run.id}`);
+  }, [mutate, router, userId]);
 
   return (
     <div className="container pagecontents" style={{ maxWidth: 885 }}>
@@ -164,158 +82,124 @@ export default function ConnectPage() {
         breadcrumb={[{ display: "Get Started", href: "/getstarted" }]}
       />
 
-      <Flex align="start" gap="3" mt="4" mb="1">
-        <Heading as="h3" mb="0">
-          SDK Installation Instructions for {environment} Environment
-        </Heading>
-        <Box ml="auto" style={{ flexShrink: 0 }}>
-          <LinkButton
-            href="/settings/team"
-            variant="ghost"
-            icon={<PiPaperPlaneTiltFill />}
-          >
-            Invite your developer
-          </LinkButton>
+      <Flex align="start" gap="3" mt="4" mb="5">
+        <Box>
+          <Heading as="h1" size="2x-large" mb="1">
+            Connect Your SDK
+          </Heading>
+          <Text as="p" color="text-mid">
+            {step === 1
+              ? "Select your SDK language."
+              : "Install the GrowthBook SDK in your app to start running feature flags and experiments."}
+          </Text>
         </Box>
-      </Flex>
-
-      <Flex align="center" gap="4" mt="3">
-        <Box width="260px">
-          <Select
-            value={language}
-            setValue={(v) => setLanguage(v as SDKLanguage)}
-          >
-            {OFFERED.map((id) => (
-              <SelectItem key={id} value={id}>
-                <SDKLanguageLogo language={id} showLabel size={25} />
-              </SelectItem>
-            ))}
-          </Select>
-        </Box>
-        {docs && (
-          <DocLink useRadix={false} docSection={docs}>
-            View documentation <PiArrowRight />
-          </DocLink>
+        {step === 2 && (
+          <Box ml="auto" style={{ flexShrink: 0 }}>
+            <LinkButton
+              href="/settings/team"
+              variant="ghost"
+              icon={<PiPaperPlaneTiltFill />}
+            >
+              Invite a teammate
+            </LinkButton>
+          </Box>
         )}
       </Flex>
 
-      <Tabs defaultValue="ai-assisted">
-        <Box mt="4" mb="5">
-          <TabsList>
-            <TabsTrigger value="ai-assisted">AI-Assisted</TabsTrigger>
-            <TabsTrigger value="manual">Manual Setup</TabsTrigger>
-          </TabsList>
-        </Box>
-
-        <TabsContent value="ai-assisted">
-          <Box mb="3">
-            <Heading as="h4" size="medium" weight="semibold" mb="1">
-              AI-Assisted Setup
-            </Heading>
-            <Text as="p" color="text-mid" mb="3">
-              It signs you in, creates a new SDK connection, and can
-              automatically detect attributes, fact tables, and metrics from
-              your codebase.
-            </Text>
-
-            <Frame>
-              <Text as="p" color="text-mid" mb="3">
-                Run this command inside an AI coding agent like Claude Code or
-                Cursor. This page updates on its own once it connects.
-              </Text>
-
-              <Code
-                language="bash"
-                code={`!${command}`}
-                showLineNumbers={false}
-              />
-
-              <Flex align="center" gap="4" mt="3" wrap="wrap">
-                <SplitButton
-                  menu={
-                    <DropdownMenu
-                      trigger={
-                        <Button aria-label="Choose where to open it">
-                          <PiCaretDownBold />
-                        </Button>
-                      }
-                      menuPlacement="end"
-                    >
-                      {(["Claude", "Other agents"] as const).map((group) => (
-                        <Box key={group}>
-                          <Box px="2" pt="2" pb="1">
-                            <Text
-                              size="small"
-                              color="text-low"
-                              textTransform="uppercase"
-                            >
-                              {group}
-                            </Text>
-                          </Box>
-                          {TARGETS.filter((t) => t.group === group).map((t) => (
-                            <DropdownMenuItem
-                              key={t.id}
-                              onClick={() => openTarget(t)}
-                            >
-                              <Flex direction="column">
-                                <Text weight="medium">{t.label}</Text>
-                                <Text size="small" color="text-low">
-                                  {t.detail}
-                                </Text>
-                              </Flex>
-                            </DropdownMenuItem>
-                          ))}
-                        </Box>
-                      ))}
-                    </DropdownMenu>
-                  }
-                >
-                  <Button onClick={() => openTarget(primary)}>
-                    Open in {primary.label}
-                  </Button>
-                </SplitButton>
-                <Text size="small" color="text-low">
-                  Already have an agent open? Just paste the command.
-                </Text>
-              </Flex>
-            </Frame>
-
-            {openedVia && (
-              <Box mt="3">
-                <Callout status="info">
-                  Sent to {openedVia}. If nothing opened, copy the command above
-                  and paste it into your agent.
-                </Callout>
-              </Box>
-            )}
-
-            {latestRun && (
-              <Box mt="4">
-                <Callout status="success">
-                  Your app connected.{" "}
-                  <Link href={`/setup-runs/${latestRun.id}`}>
-                    See what the setup built →
-                  </Link>
-                </Callout>
-              </Box>
-            )}
+      {step === 1 ? (
+        <SDKLanguageSelector
+          value={[language]}
+          setValue={([selected]) => setLanguage(selected)}
+          multiple={false}
+          includeOther={false}
+          languageFilter={languageFilter}
+          setLanguageFilter={setLanguageFilter}
+        />
+      ) : (
+        <Tabs defaultValue={wizardable ? "ai-assisted" : "manual"}>
+          <Box mb="5">
+            <TabsList>
+              {wizardable && (
+                <TabsTrigger value="ai-assisted">AI-Assisted</TabsTrigger>
+              )}
+              <TabsTrigger value="manual">Manual Setup</TabsTrigger>
+            </TabsList>
           </Box>
-        </TabsContent>
 
-        <TabsContent value="manual">
-          <Box mb="3">
-            <Heading as="h4" size="medium" weight="semibold" mb="1">
-              Manual Setup
-            </Heading>
-            <Text as="p" color="text-mid" mb="3">
-              Install the SDK yourself and paste the client key in by hand.
-            </Text>
+          {wizardable && (
+            <TabsContent value="ai-assisted">
+              <Flex align="center" gap="2" mb="3">
+                <Heading as="h4" size="medium" weight="semibold" mb="0">
+                  AI-Assisted Setup
+                </Heading>
+                <Tooltip content="It signs you in, creates a new SDK connection, and can automatically detect attributes, fact tables, and metrics from your codebase.">
+                  <Box style={{ color: "var(--slate-9)", display: "flex" }}>
+                    <PiInfo size={16} />
+                  </Box>
+                </Tooltip>
+              </Flex>
 
-            <Frame>
-              {/* apiKey is only read by this component's script-tag branch, and
-                  /connect does not offer the nocode languages, so there is no key to
-                  supply here and nothing is faked by leaving it empty. The snippets
-                  that do embed a key live on the connection page. */}
+              <Box
+                p="4"
+                style={{
+                  background: "var(--violet-a2)",
+                  borderRadius: "var(--radius-3)",
+                }}
+              >
+                <Text as="p" color="text-mid" mb="3">
+                  Run this command inside an AI coding agent like Claude Code or
+                  Cursor.
+                  <br />
+                  Once you&apos;re done, click &quot;Check SDK Connection&quot;
+                  below.
+                </Text>
+                <Code
+                  language="bash"
+                  code={command}
+                  showLineNumbers={false}
+                  filename="Terminal"
+                />
+              </Box>
+
+              {latestRun ? (
+                <Box mt="4">
+                  <Callout status="success">
+                    Your app connected.{" "}
+                    <Link href={`/setup-runs/${latestRun.id}`}>
+                      See what the setup built →
+                    </Link>
+                  </Callout>
+                </Box>
+              ) : checked ? (
+                <Box mt="4">
+                  <Callout status="warning">
+                    No connection yet. Run the command above, then check again.
+                  </Callout>
+                </Box>
+              ) : null}
+            </TabsContent>
+          )}
+
+          <TabsContent value="manual">
+            {!wizardable && (
+              <Box mb="3">
+                <Callout status="info">
+                  This one is set up by hand — there is no package to install,
+                  so the AI-assisted path does not apply.
+                </Callout>
+              </Box>
+            )}
+            <Box
+              p="4"
+              style={{
+                background: "var(--violet-a2)",
+                borderRadius: "var(--radius-3)",
+              }}
+            >
+              {/* apiKey is read only by this component's script-tag branch. Where it
+                  matters the key is public by design; elsewhere it is unused, so an
+                  empty value invents nothing. The snippets that embed a real key
+                  live on the SDK connection itself. */}
               <InstallationCodeSnippet
                 language={language}
                 apiKey=""
@@ -324,8 +208,7 @@ export default function ConnectPage() {
                 eventTracker={eventTracker}
                 setEventTracker={setEventTracker}
               />
-            </Frame>
-
+            </Box>
             <Box mt="3">
               <Text as="p" color="text-mid" mb="3">
                 That installs the SDK. Initialising it needs your client key,
@@ -336,9 +219,35 @@ export default function ConnectPage() {
                 Create an SDK Connection
               </LinkButton>
             </Box>
-          </Box>
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+        </Tabs>
+      )}
+
+      <Separator size="4" my="6" />
+
+      <Flex align="center" gap="3">
+        {step === 2 && (
+          <Button variant="ghost" onClick={() => setStep(1)}>
+            <PiCaretLeftBold /> Back
+          </Button>
+        )}
+        <Box ml="auto">
+          <Flex align="center" gap="4">
+            <LinkButton href="/getstarted" variant="ghost">
+              Skip
+            </LinkButton>
+            {step === 1 ? (
+              <Button onClick={() => setStep(2)}>
+                Next <PiCaretRightBold />
+              </Button>
+            ) : (
+              wizardable && (
+                <Button onClick={checkConnection}>Check SDK Connection</Button>
+              )
+            )}
+          </Flex>
+        </Box>
+      </Flex>
     </div>
   );
 }
