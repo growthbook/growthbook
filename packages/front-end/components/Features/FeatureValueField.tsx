@@ -615,43 +615,49 @@ export default function FeatureValueField({
         />
       ) : null;
 
-    const sparseHeader = showSparseToggle ? (
-      <Flex
-        align="center"
-        justify="between"
-        gap="3"
-        mb="1"
-        width="100%"
-        style={{ minHeight: "var(--space-6)" }}
-      >
-        {label !== undefined ? (
-          <Text as="label" weight="semibold" mb="0">
-            {label}
-          </Text>
-        ) : (
-          <Box />
-        )}
-        <Flex align="center" gap="3" flexShrink="0">
-          {insertConstantButton}
-          <SparsePatchToggle
-            checked={!!sparse}
-            onChange={(checked) => {
-              // Switching modes rewrites the value so the editor isn't left with
-              // a default-laden patch (on) or a bare patch shown as the full
-              // value (off). See stripDefaultsForSparse / expandSparseToFull.
-              const def = feature?.defaultValue ?? "";
-              setValue(
-                checked
-                  ? stripDefaultsForSparse(value, def)
-                  : expandSparseToFull(value, def),
-              );
-              setSparse?.(checked);
-            }}
-            disabled={disabled}
-          />
+    // The row carries the label, the constant picker and — only where sparse is
+    // a per-value choice — the toggle. A caller that owns `sparse` at the rule
+    // level wires no setter, and the picker still has to reach the editor.
+    const sparseHeader =
+      showSparseToggle || insertConstantButton ? (
+        <Flex
+          align="center"
+          justify="between"
+          gap="3"
+          mb="1"
+          width="100%"
+          style={{ minHeight: "var(--space-6)" }}
+        >
+          {label !== undefined ? (
+            <Text as="label" weight="semibold" mb="0">
+              {label}
+            </Text>
+          ) : (
+            <Box />
+          )}
+          <Flex align="center" gap="3" flexShrink="0">
+            {insertConstantButton}
+            {showSparseToggle && (
+              <SparsePatchToggle
+                checked={!!sparse}
+                onChange={(checked) => {
+                  // Switching modes rewrites the value so the editor isn't left with
+                  // a default-laden patch (on) or a bare patch shown as the full
+                  // value (off). See stripDefaultsForSparse / expandSparseToFull.
+                  const def = feature?.defaultValue ?? "";
+                  setValue(
+                    checked
+                      ? stripDefaultsForSparse(value, def)
+                      : expandSparseToFull(value, def),
+                  );
+                  setSparse?.(checked);
+                }}
+                disabled={disabled}
+              />
+            )}
+          </Flex>
         </Flex>
-      </Flex>
-    ) : null;
+      ) : null;
 
     if (isSparse) {
       return (
@@ -667,7 +673,8 @@ export default function FeatureValueField({
             placeholder={placeholder}
             disabled={disabled}
             defaultHeight={codeInputDefaultHeight}
-            showInlineLabel={!showSparseToggle}
+            // The header above owns the label whenever it renders at all.
+            showInlineLabel={!sparseHeader}
             condensed={condensed}
             onEditorLoad={(e) => (jsonEditorRef.current = e)}
             usedConstantTags={usedConstantTags}
