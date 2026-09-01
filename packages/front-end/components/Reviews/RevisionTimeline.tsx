@@ -14,6 +14,7 @@ import {
   PiPlusMinusBold,
   PiProhibitFill,
   PiRocketLaunch,
+  PiXCircleFill,
   PiSpinnerGap,
 } from "react-icons/pi";
 import { date, datetime } from "shared/dates";
@@ -221,7 +222,7 @@ export function rowVisual(action: string): RowVisual {
       return {
         color: "gray",
         verb: "discarded this revision",
-        icon: <PiProhibitFill />,
+        icon: <PiXCircleFill />,
         showCommentBody: false,
         showAuditDetails: false,
       };
@@ -271,6 +272,45 @@ export type VerdictRetraction = {
   // "Discarded by Bryce").
   label: string;
 };
+
+// Verdict tags: why an approval doesn't count, and whether it was retracted.
+// One row so they never crowd the header line.
+function VerdictTags({
+  uncoveredReason,
+  retraction,
+  mb,
+}: {
+  uncoveredReason?: string;
+  retraction?: VerdictRetraction | null;
+  mb?: "2";
+}) {
+  if (!uncoveredReason && !retraction) return null;
+  return (
+    <Flex align="center" gap="2" mb={mb}>
+      {uncoveredReason && (
+        <Tooltip
+          usePortal
+          body={`This approval does not let the draft publish: ${uncoveredReason}.`}
+        >
+          <Badge
+            color="gray"
+            variant="soft"
+            label="Not a qualifying approval"
+            size="xs"
+          />
+        </Tooltip>
+      )}
+      {retraction && (
+        <Badge
+          color="gray"
+          variant="solid"
+          label={retraction.label}
+          size="xs"
+        />
+      )}
+    </Flex>
+  );
+}
 
 export function RevisionLogRow({
   log,
@@ -395,27 +435,6 @@ export function RevisionLogRow({
           stripeColor={visual.color}
           leading={verdictLeading}
           avatarSize="md"
-          metadataExtra={
-            <>
-              {uncoveredReason && (
-                <Tooltip
-                  body={`This approval does not let the draft publish: ${uncoveredReason}.`}
-                >
-                  <Text size="sm" color="text-low">
-                    — not a qualifying approval
-                  </Text>
-                </Tooltip>
-              )}
-              {retraction && (
-                <Badge
-                  color="gray"
-                  variant="solid"
-                  label={retraction.label}
-                  size="xs"
-                />
-              )}
-            </>
-          }
           actions={
             canEdit || canDelete || canRetractVerdict ? (
               <DropdownMenu
@@ -465,9 +484,16 @@ export function RevisionLogRow({
             ) : undefined
           }
           body={
-            <MarkdownWithDiffRefs className="speech-bubble" highlightCode>
-              {comment ?? ""}
-            </MarkdownWithDiffRefs>
+            <>
+              <VerdictTags
+                uncoveredReason={uncoveredReason}
+                retraction={retraction}
+                mb="2"
+              />
+              <MarkdownWithDiffRefs className="speech-bubble" highlightCode>
+                {comment ?? ""}
+              </MarkdownWithDiffRefs>
+            </>
           }
         />
       </Box>
@@ -508,25 +534,12 @@ export function RevisionLogRow({
           <Text size="inherit" color="text-low">
             on {datetime(log.timestamp)}
           </Text>
-          {uncoveredReason && (
-            <Tooltip
-              body={`This approval does not let the draft publish: ${uncoveredReason}.`}
-            >
-              <Text size="inherit" color="text-low">
-                {" "}
-                — not a qualifying approval
-              </Text>
-            </Tooltip>
-          )}
         </Text>
-        {retraction && (
-          <Badge
-            color="gray"
-            variant="solid"
-            label={retraction.label}
-            size="xs"
-          />
-        )}
+
+        <VerdictTags
+          uncoveredReason={uncoveredReason}
+          retraction={retraction}
+        />
         {showDetails && (
           <Button
             variant="ghost"

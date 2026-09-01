@@ -17,6 +17,7 @@ import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorat
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { LearningModel } from "back-end/src/models/LearningModel";
+import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -73,6 +74,7 @@ const API_MODELS: ModelClass[] = [
   RampScheduleTemplateModel,
   RampScheduleModel,
   LearningModel,
+  HoldoutModel,
 ];
 
 const router = Router();

@@ -309,7 +309,16 @@ export default function TrafficAllocationFunnel({
     preferDraft && !!servedValueFeature?.pendingDraft;
   const environmentStates = getEnvironmentStates(
     envStateSource || { environmentStates: {} },
-    { future: environmentsAreDraft },
+    {
+      // A draft experiment publishes its flag when it starts; a running one
+      // publishes the draft on its own.
+      future:
+        experiment.status !== "running"
+          ? "started"
+          : environmentsAreDraft
+            ? "published"
+            : false,
+    },
   );
 
   // "Everyone" has to mean everyone. A rule scoped to a subset of the

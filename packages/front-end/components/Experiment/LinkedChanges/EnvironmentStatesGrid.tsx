@@ -7,7 +7,7 @@ import {
   PiXCircleFill,
 } from "react-icons/pi";
 import { useState } from "react";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 
@@ -23,34 +23,48 @@ export type EnvironmentState = {
  * environment toggle AND the rule's own presence and enablement. Shared so
  * every surface explains a given state with the same words.
  */
+/** Why a state is not yet true: the experiment hasn't started, or the change
+ * shown is an unpublished draft. Both need future tense, for different reasons. */
+export type EnvironmentStateTense = false | "started" | "published";
+
+function environmentStateTooltip(
+  state: LinkedFeatureEnvState,
+  future: EnvironmentStateTense,
+): string {
+  const once = future === "started" ? " once started" : " once published";
+  switch (state) {
+    case "active":
+      return future
+        ? `The experiment will be active in this environment${once}`
+        : "The experiment is active in this environment";
+    case "disabled-env":
+      return future
+        ? `The environment is disabled for this feature, so the experiment will not be active${once}`
+        : "The environment is disabled for this feature, so the experiment is not active";
+    case "disabled-rule":
+      return future
+        ? `The experiment is disabled in this environment and will not be active${once}`
+        : "The experiment is disabled in this environment and is not active";
+    case "missing":
+      return "The experiment is not present in this environment";
+    default: {
+      const _exhaustiveCheck: never = state;
+      return _exhaustiveCheck;
+    }
+  }
+}
+
 export function getEnvironmentStates(
   source: {
     environmentStates?: Record<string, LinkedFeatureEnvState>;
   },
-  // Describing an unpublished draft: nothing here has happened yet, so the copy
-  // has to say what publishing would do rather than what is true now.
-  { future = false }: { future?: boolean } = {},
+  { future = false }: { future?: EnvironmentStateTense } = {},
 ): EnvironmentState[] {
   return Object.entries(source.environmentStates || {}).map(([env, state]) => ({
     env,
     state,
     isActive: state === "active",
-    tooltip:
-      state === "active"
-        ? future
-          ? "The experiment will be active in this environment"
-          : "The experiment is active in this environment"
-        : state === "disabled-env"
-          ? future
-            ? "The environment will be disabled for this feature, so the experiment will not be active"
-            : "The environment is disabled for this feature, so the experiment is not active"
-          : state === "disabled-rule"
-            ? future
-              ? "The experiment will be disabled in this environment and will not be active"
-              : "The experiment is disabled in this environment and is not active"
-            : future
-              ? "The experiment will not be present in this environment"
-              : "The experiment is not present in this environment",
+    tooltip: environmentStateTooltip(state, future),
   }));
 }
 
@@ -93,16 +107,14 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
         >
           {environmentStates.map(({ env, isActive, tooltip }) => (
             <Box key={env} minWidth="0">
-              <Tooltip
-                body={tooltip}
-                tipPosition="top"
-                style={{
-                  display: "block",
-                  width: "fit-content",
-                  maxWidth: "100%",
-                }}
-              >
-                <Flex gap="2" align="center" minWidth="0">
+              <Tooltip content={tooltip} side="top" maxWidth="300px">
+                <Flex
+                  gap="2"
+                  align="center"
+                  minWidth="0"
+                  display="inline-flex"
+                  maxWidth="100%"
+                >
                   <Box
                     flexShrink="0"
                     style={{

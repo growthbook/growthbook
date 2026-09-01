@@ -142,7 +142,9 @@ export default function LinkedFeatureFlag({
     return info.values.find((v2) => v2.variationId === v.id)?.value || "";
   });
 
-  const environmentStates = getEnvironmentStates(info);
+  const environmentStates = getEnvironmentStates(info, {
+    future: experiment.status === "draft" ? "started" : false,
+  });
 
   // With the values on the variation cards, this only earns space when one of
   // the warnings below has something to say.

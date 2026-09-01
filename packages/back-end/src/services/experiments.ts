@@ -4997,13 +4997,22 @@ export async function getRefLinkedFeatureInfo({
   linkedFeatureIds,
   refIsDraft,
   matchRule,
+  pendingFeatureDrafts,
 }: {
   context: ReqContext | ApiReqContext;
   linkedFeatureIds: string[];
   refIsDraft: boolean;
   matchRule: (rule: FeatureRule) => boolean;
+  pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
 }): Promise<LinkedFeatureInfo[]> {
   if (!linkedFeatureIds.length) return [];
+
+  const pendingVersionsByFeatureId = new Map<string, Set<number>>();
+  (pendingFeatureDrafts ?? []).forEach(({ featureId, revisionVersion }) => {
+    const versions = pendingVersionsByFeatureId.get(featureId) ?? new Set();
+    versions.add(revisionVersion);
+    pendingVersionsByFeatureId.set(featureId, versions);
+  });
 
   const features = await getFeaturesByIds(context, linkedFeatureIds);
 
@@ -5206,9 +5215,14 @@ export async function getRefLinkedFeatureInfo({
 
       // `getMatchingRules` reports the LIVE feature's environment enablement
       // even when handed a revision, but a revision stages its own — a managed
-      // flag is born disabled everywhere and turned on by its first draft. Pass
-      // the revision whose rules produced `from` so a draft doesn't read as off
-      // in every environment.
+      // flag is born disabled everywhere and turned on by its first draft.
+      const envEnabledIn = (
+        environmentId: string,
+        revision?: FeatureRevisionInterface,
+      ): boolean =>
+        revision?.environmentsEnabled?.[environmentId] ??
+        !!feature.environmentSettings?.[environmentId]?.enabled;
+
       const buildEnvironmentStates = (
         from: MatchingRule[],
         revision?: FeatureRevisionInterface,
@@ -5216,10 +5230,7 @@ export async function getRefLinkedFeatureInfo({
         const states: Record<string, LinkedFeatureEnvState> = {};
         environments.forEach((env) => (states[env] = "missing"));
         from.forEach((match) => {
-          const environmentEnabled =
-            revision?.environmentsEnabled?.[match.environmentId] ??
-            match.environmentEnabled;
-          if (!environmentEnabled) {
+          if (!envEnabledIn(match.environmentId, revision)) {
             states[match.environmentId] = "disabled-env";
           } else if (
             match.rule.enabled === false &&
@@ -5232,10 +5243,31 @@ export async function getRefLinkedFeatureInfo({
         });
         return states;
       };
-      const environmentStates = buildEnvironmentStates(
-        matches,
-        state === "draft" ? matchedDraftRevision : undefined,
-      );
+      // Only a draft the feature actually resolved to stages its own enablement.
+      const statesRevision =
+        state === "draft" ? matchedDraftRevision : undefined;
+      const environmentStates = buildEnvironmentStates(matches, statesRevision);
+
+      // Envs the pending draft will turn on when it's auto-published on start.
+      let environmentsToEnable: string[] | undefined;
+      if (
+        state === "draft" &&
+        matchedDraftRevision &&
+        pendingVersionsByFeatureId
+          .get(feature.id)
+          ?.has(matchedDraftRevision.version)
+      ) {
+        const enabled = new Set<string>();
+        matches.forEach((match) => {
+          if (
+            envEnabledIn(match.environmentId, statesRevision) &&
+            !feature.environmentSettings?.[match.environmentId]?.enabled
+          ) {
+            enabled.add(match.environmentId);
+          }
+        });
+        if (enabled.size > 0) environmentsToEnable = [...enabled];
+      }
 
       const attributeScopeProjects = getFeatureAttributeScopeWithDrafts(
         feature,
@@ -5288,6 +5320,7 @@ export async function getRefLinkedFeatureInfo({
           draftHasMergeConflict && { hasMergeConflict: true }),
         ...(state === "draft" &&
           draftHasUnrelatedChanges && { hasUnrelatedDraftChanges: true }),
+        ...(environmentsToEnable !== undefined && { environmentsToEnable }),
       };
 
       return info;
@@ -5307,6 +5340,7 @@ export async function getLinkedFeatureInfo(
     refIsDraft: experiment.status === "draft",
     matchRule: (rule) =>
       rule.type === "experiment-ref" && rule.experimentId === experiment.id,
+    pendingFeatureDrafts: experiment.pendingFeatureDrafts,
   });
 }
 
