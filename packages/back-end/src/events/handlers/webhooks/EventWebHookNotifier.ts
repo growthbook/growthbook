@@ -57,7 +57,7 @@ type EventWebHookCoalesceFlushJobData = JobAttributesData & {
   eventIds?: string[];
 };
 
-let jobDefined = false;
+const agendasWithEventWebHookJobs = new WeakSet<Agenda>();
 
 interface Notifier {
   enqueue(): void;
@@ -78,17 +78,21 @@ export class EventWebHookNotifier implements Notifier {
     private options: EventWebHookNotificationHandlerOptions,
     private agenda: Agenda = getAgendaInstance(),
   ) {
-    if (jobDefined) return;
+    EventWebHookNotifier.registerAgendaJobs(this.agenda);
+  }
 
-    this.agenda.define<EventWebHookJobData>(
+  static registerAgendaJobs(agenda: Agenda): void {
+    if (agendasWithEventWebHookJobs.has(agenda)) return;
+
+    agenda.define<EventWebHookJobData>(
       "eventWebHook",
       EventWebHookNotifier.handleAgendaJob,
     );
-    this.agenda.define<EventWebHookCoalesceFlushJobData>(
+    agenda.define<EventWebHookCoalesceFlushJobData>(
       EVENT_WEBHOOK_COALESCE_FLUSH_JOB,
       EventWebHookNotifier.handleCoalesceFlushJob,
     );
-    jobDefined = true;
+    agendasWithEventWebHookJobs.add(agenda);
   }
 
   /**

@@ -3,6 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
 
 // Preview of the "text only" notification: renders the real message the app
 // would post (fetched from the event-webhook previews) in a Slack-message mockup.
@@ -59,7 +60,7 @@ function renderLine(line: string, keyBase: string): ReactNode[] {
     const url = m[1] ?? m[3] ?? "";
     const label = m[2] ?? m[3] ?? url;
     nodes.push(
-      <a
+      <Link
         key={`${keyBase}-l${i}`}
         href={url}
         target="_blank"
@@ -67,7 +68,7 @@ function renderLine(line: string, keyBase: string): ReactNode[] {
         style={{ color: "var(--accent-11)" }}
       >
         {label}
-      </a>,
+      </Link>,
     );
     last = re.lastIndex;
     i++;

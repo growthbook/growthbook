@@ -71,7 +71,7 @@ const useChannelScopeSummary = () => {
   return useCallback(
     (i: SlackOAuthIntegrationInterface): string => {
       const projectPart = !i.projects?.length
-        ? "All projects"
+        ? "All Projects"
         : i.projects.length === 1
           ? `${
               projects.find((p) => p.id === i.projects[0])?.name ||

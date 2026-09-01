@@ -35,7 +35,6 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import HelperText from "@/ui/HelperText";
-import Switch from "@/ui/Switch";
 import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -88,12 +87,12 @@ const SUBJECT_META: Record<
       "A rolled-up summary of experiment activity. Weekly and longer post the experimentation scorecard.",
   },
   feature: {
-    heading: "Feature flags",
+    heading: "Feature Flags",
     description:
-      "What this channel hears about feature flags, plus an optional rolled-up digest.",
+      "What this channel hears about Feature Flags, plus an optional rolled-up digest.",
     events: "Published versions, safe rollouts, drafts, and reviews.",
     digest:
-      "A recap of feature-flag activity — versions published/reverted, safe-rollout outcomes, stale candidates, and reviews.",
+      "A recap of Feature Flag activity — versions published/reverted, safe-rollout outcomes, stale candidates, and reviews.",
   },
 };
 
@@ -101,7 +100,7 @@ const CATALOG_EVENTS = new Set(SLACK_EVENT_OPTIONS.flatMap((o) => o.events));
 
 const CATEGORY_LABEL: Record<SlackEventCategory, string> = {
   experiment: "Experiments",
-  feature: "Feature flags",
+  feature: "Feature Flags",
 };
 
 // Card kind → sample chart-preview params (snapshot state + compact event) so
@@ -255,9 +254,7 @@ const groupsForCategory = (category: SlackEventCategory): string[] => {
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
-// Left indent that aligns content under a Switch's label — the switch track
-// (~28px) plus the Switch's gapX ("space-2", 8px).
-const SWITCH_LABEL_INDENT = "calc(28px + var(--space-2))";
+const CHECKBOX_LABEL_INDENT = "calc(16px + var(--space-2))";
 
 const OFF_DIGEST_STATE: ResolvedSlackDigest = {
   frequency: "off",
@@ -281,17 +278,21 @@ function DigestSubSection({
   const enabled = value.frequency !== "off";
   return (
     <Box mt="4" pt="4" style={{ borderTop: "1px solid var(--gray-a4)" }}>
-      <Switch
+      <Checkbox
         label="Scheduled digest"
         description={description}
         value={enabled}
-        onChange={(v) =>
+        setValue={(v) =>
           onChange({ ...value, frequency: v ? "weekly" : "off" })
         }
+        weight="medium"
       />
 
       {enabled && (
-        <Box mt="4" style={{ maxWidth: 560, paddingLeft: SWITCH_LABEL_INDENT }}>
+        <Box
+          mt="4"
+          style={{ maxWidth: 560, paddingLeft: CHECKBOX_LABEL_INDENT }}
+        >
           {/* Frequency + (day/interval) + time laid out in columns: 3 when a
               day/interval select is present, 2 for daily. */}
           <Grid
@@ -713,7 +714,7 @@ export default function SlackChannelSettings({
     return (
       <Box>
         <Flex justify="between" align="start" gap="3">
-          <Switch
+          <Checkbox
             label={
               <Flex asChild align="center" gap="2">
                 <span>
@@ -731,7 +732,8 @@ export default function SlackChannelSettings({
             }
             description={SUBJECT_META[category].events}
             value={catEnabled}
-            onChange={(v) => setCategoryEnabled(category, v)}
+            setValue={(v) => setCategoryEnabled(category, v)}
+            weight="medium"
           />
           <Flex align="center" gap="2" style={{ flexShrink: 0 }}>
             {isCustom && (
@@ -756,7 +758,7 @@ export default function SlackChannelSettings({
         </Flex>
 
         {advancedOpen && (
-          <Box mt="4" style={{ paddingLeft: SWITCH_LABEL_INDENT }}>
+          <Box mt="4" style={{ paddingLeft: CHECKBOX_LABEL_INDENT }}>
             <Flex direction="column" gap="4">
               {groupsForCategory(category).map((group) => (
                 <Box key={group}>
@@ -1008,13 +1010,14 @@ export default function SlackChannelSettings({
             </Text>
           </Box>
           <Flex gap="3" align="center" style={{ flexShrink: 0 }}>
-            <Switch
+            <Checkbox
               label="Enabled"
               value={enabled}
-              onChange={(v) => {
+              setValue={(v) => {
                 setEnabled(v);
                 markDirty();
               }}
+              weight="medium"
             />
             <Box
               style={{
@@ -1091,7 +1094,7 @@ export default function SlackChannelSettings({
             <Grid columns={{ initial: "1", sm: "2" }} gapX="4" gapY="4">
               <MultiSelectField
                 label="Projects"
-                placeholder="All projects"
+                placeholder="All Projects"
                 value={filterProjects}
                 options={projects.map(({ id: pid, name }) => ({
                   label: name,
@@ -1105,7 +1108,7 @@ export default function SlackChannelSettings({
 
               <MultiSelectField
                 label="Environments"
-                placeholder="All environments"
+                placeholder="All Environments"
                 value={filterEnvironments}
                 options={environments.map((env) => ({
                   label: env,
@@ -1169,7 +1172,7 @@ export default function SlackChannelSettings({
 
                   <MultiSelectField
                     label="Features"
-                    placeholder="All feature flags"
+                    placeholder="All Feature Flags"
                     value={filterFeatures}
                     options={featureOptions}
                     onChange={(v) => {

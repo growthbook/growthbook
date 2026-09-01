@@ -8,6 +8,7 @@ import useApi from "@/hooks/useApi";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
+import Link from "@/ui/Link";
 import SelectField from "@/components/Forms/SelectField";
 
 type SlackTextObject = {
@@ -174,11 +175,11 @@ const renderMrkdwn = (text: string) => {
 
     const token = match[0];
     if (token.startsWith("<")) {
-      const [href, label] = token.slice(1, -1).split("|");
+      const [href = "", label] = token.slice(1, -1).split("|");
       nodes.push(
-        <a key={nodes.length} href={href} target="_blank" rel="noreferrer">
+        <Link key={nodes.length} href={href} target="_blank" rel="noreferrer">
           {label || href}
-        </a>,
+        </Link>,
       );
     } else if (token.startsWith("`")) {
       nodes.push(<code key={nodes.length}>{token.slice(1, -1)}</code>);
@@ -434,13 +435,13 @@ const SlackTestPage: NextPage = () => {
               <code>{result.eventWebHookId}</code>. Event:{" "}
               <code>{result.eventId}</code>
               <br />
-              <a
+              <Link
                 href={getBlockKitBuilderUrl(result.slackMessage)}
                 target="_blank"
                 rel="noreferrer"
               >
                 Open preview in Block Kit Builder
-              </a>
+              </Link>
             </Callout>
           )}
           {result && !result.ok && (
