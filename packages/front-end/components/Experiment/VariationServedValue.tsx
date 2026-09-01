@@ -26,37 +26,54 @@ export default function VariationServedValue({
 }) {
   if (!feature) return null;
 
+  // A block value needs the full width of the card; a short scalar reads
+  // better on the label's own line.
+  const stacked = feature.valueType === "json" || (value ?? "").includes("\n");
+
+  const label = (
+    // The dot belongs to the label, so it centres against "Serves:" while the
+    // pair as a whole sits at the top of a tall value.
+    <Flex align="center" gap="1" flexShrink="0">
+      {isDraft && (
+        <UnpublishedDot
+          tooltip={
+            draftName
+              ? `Unpublished value in ${draftName}`
+              : "Unpublished draft value"
+          }
+          note={draftNote}
+        />
+      )}
+      <Text weight="medium" color="text-high">
+        Serves:
+      </Text>
+    </Flex>
+  );
+
+  // The same renderer the Feature Flag rules use — config-backed values,
+  // sparse patches and JSON all read the same way there.
+  const rendered = (
+    <ForceSummary
+      label={null}
+      value={value ?? ""}
+      feature={feature}
+      sparse={sparse}
+    />
+  );
+
   return (
-    <Flex align="start" justify="between" gap="2" mt="3">
-      {/* The dot belongs to the label, so it centres against "Serves:" while
-          the pair as a whole sits at the top of a tall value. */}
-      <Flex align="start" gap="1" minWidth="0">
-        <Flex align="center" gap="1" flexShrink="0">
-          {isDraft && (
-            <UnpublishedDot
-              tooltip={
-                draftName
-                  ? `Unpublished value in ${draftName}`
-                  : "Unpublished draft value"
-              }
-              note={draftNote}
-            />
-          )}
-          <Text weight="medium" color="text-high">
-            Serves:
-          </Text>
+    <Flex direction="column" gap="1" mt="3" minWidth="0">
+      {stacked ? (
+        <>
+          {label}
+          <Box minWidth="0">{rendered}</Box>
+        </>
+      ) : (
+        <Flex align="start" gap="1" minWidth="0">
+          {label}
+          <Box minWidth="0">{rendered}</Box>
         </Flex>
-        <Box minWidth="0">
-          {/* The same renderer the Feature Flag rules use — config-backed
-              values, sparse patches and JSON all read the same way there. */}
-          <ForceSummary
-            label={null}
-            value={value ?? ""}
-            feature={feature}
-            sparse={sparse}
-          />
-        </Box>
-      </Flex>
+      )}
     </Flex>
   );
 }
