@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import clsx from "clsx";
 import {
   ExperimentInterfaceStringDates,
@@ -50,6 +50,10 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import SplitButton from "@/ui/SplitButton";
 import Button from "@/ui/Button";
 import { getEnvironmentStates } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import {
+  environmentStatesDiffer,
+  getVariationValueChanges,
+} from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import { revisionLabelText } from "@/components/Reviews/RevisionLabel";
 import styles from "./TrafficAllocationFunnel.module.scss";
 
@@ -65,11 +69,7 @@ export interface Props {
   setEditVariationIndex?: (index: number) => void;
   /** The sole linked Feature Flag, when the cards can show its values. */
   servedValueFeature?: LinkedFeatureInfo | null;
-  /**
-   * Names the Feature Flag beneath the split. Passed only when nothing else on
-   * the page does — a managed flag that is the whole implementation has no
-   * Linked Changes panel to name it.
-   */
+  // Names the flag beneath the split, when no Linked Changes panel does.
   namedFeature?: FeatureInterface | null;
   /** Offered when the experiment has no implementation yet; adopts a managed flag. */
   canEditExperiment?: boolean;
@@ -240,30 +240,49 @@ export default function TrafficAllocationFunnel({
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
 
-  // A sole linked flag can have an unpublished draft alongside what is live.
-  // The toggle picks which one the box describes; without a draft there is
-  // nothing to switch to, so the widget shows but its draft side is dead.
-  const hasPendingDraft = !!servedValueFeature?.pendingDraft;
-  // Land on the unpublished view; `preferDraft` falls back to live on its own
-  // when there is no draft to show.
-  const [showDraftValues, setShowDraftValues] = useState(true);
-  const preferDraft = hasPendingDraft && showDraftValues;
+  // A draft differs from live across its whole rule, so each readout asks about
+  // itself rather than trusting that a draft exists.
+  const liveRule = servedValueFeature?.liveHasMatchingRule
+    ? servedValueFeature
+    : undefined;
+  const pendingDraft = servedValueFeature?.pendingDraft;
+  const draftValueIds = useMemo(() => {
+    if (!servedValueFeature || !pendingDraft) return null;
+    return new Set(
+      getVariationValueChanges(
+        servedValueFeature,
+        (pendingDraft.values ?? []).map((v) => v.variationId),
+      )
+        .filter((c) => c.unpublished)
+        .map((c) => c.variationId),
+    );
+  }, [servedValueFeature, pendingDraft]);
+  const environmentsDiffer = servedValueFeature
+    ? environmentStatesDiffer(servedValueFeature)
+    : false;
 
-  // Ejecting hands control of what the experiment serves back to the flag, so
-  // the server takes publish authority — mirror it or the menu offers a 403.
-  // Same check the Linked Changes card used before this became its only home.
+  // The toggle offers a draft only when something it shows actually moved.
+  const hasDraftChanges =
+    !!draftValueIds && (draftValueIds.size > 0 || environmentsDiffer);
+  const [showDraftValues, setShowDraftValues] = useState(true);
+  const preferDraft = hasDraftChanges && showDraftValues;
+
+  // The server takes publish authority on eject; mirror it or the menu 403s.
   const managedFeature =
     servedValueFeature &&
     isManagedByExperiment(servedValueFeature.feature, experiment.id)
       ? servedValueFeature.feature
       : null;
-  // Staging the change is edit-class; the server re-checks it.
-  // Not gated on `safeToEdit`: that guards traffic biasing, and re-scoping the
-  // rule's environments stages to a draft without re-bucketing anyone.
+  // Not gated on `safeToEdit`: that guards traffic biasing, and re-scoping
+  // environments stages to a draft without re-bucketing anyone.
   const canEditEnvironments =
     !!servedValueFeature &&
     canEditExperiment &&
     permissionsUtil.canEditFeatureDrafts(servedValueFeature.feature);
+  // The card's pencil opens the variation editor. Without one of these the
+  // traffic modal falls through to the make-changes flow, which isn't one.
+  const canEditVariations =
+    safeToEdit || !!managedFeature || !!addVariationValues;
   const canEject =
     !!managedFeature &&
     canEditExperiment &&
@@ -287,15 +306,8 @@ export default function TrafficAllocationFunnel({
     }
   };
 
-  // Same condition as the variation cards' "Serves": only a sole linked flag
-  // can speak for where the experiment runs. Draft first for the same reason
-  // the values are — a pending edit is what publishing will produce.
-  // Each side of the toggle reads its own fields. `info.values` and
-  // `info.environmentStates` follow whichever revision the feature resolved to,
-  // so falling back to them would show draft data under "Live".
-  const liveRule = servedValueFeature?.liveHasMatchingRule
-    ? servedValueFeature
-    : undefined;
+  // Each side reads its own fields: `info.values` and `info.environmentStates`
+  // follow whichever revision resolved, so falling back shows draft under Live.
   const servedValueSource = preferDraft
     ? servedValueFeature?.pendingDraft
     : liveRule && {
@@ -305,12 +317,10 @@ export default function TrafficAllocationFunnel({
   const envStateSource = preferDraft
     ? servedValueFeature?.pendingDraft
     : liveRule && { environmentStates: liveRule.liveEnvironmentStates };
-  const environmentsAreDraft =
-    preferDraft && !!servedValueFeature?.pendingDraft;
+  const environmentsAreDraft = preferDraft && environmentsDiffer;
 
-  // Which draft a readout is describing. A managed flag has exactly one by
-  // construction, so naming it there is noise; a shared flag may have several,
-  // and the count says how many this readout is NOT showing.
+  // A managed flag has exactly one draft, so naming it there is noise. The
+  // count says how many others this readout is not showing.
   const draftDetail = (() => {
     const draft = servedValueFeature?.pendingDraft;
     if (!draft || managedFeature) return { name: undefined, note: undefined };
@@ -325,8 +335,7 @@ export default function TrafficAllocationFunnel({
   const environmentStates = getEnvironmentStates(
     envStateSource || { environmentStates: {} },
     {
-      // A draft experiment publishes its flag when it starts; a running one
-      // publishes the draft on its own.
+      // A draft experiment publishes its flag when it starts.
       future:
         experiment.status !== "running"
           ? "started"
@@ -336,10 +345,8 @@ export default function TrafficAllocationFunnel({
     },
   );
 
-  // "Everyone" has to mean everyone. A rule scoped to a subset of the
-  // environments this experiment is allowed to run in is a restriction, even
-  // with no attribute targeting. Project-scoped environments are already
-  // excluded from what's allowed, so covering the rest still counts as all.
+  // A rule scoped to a subset of the allowed environments is a restriction,
+  // even with no attribute targeting. Project-scoped ones are already excluded.
   const allowedEnvironments = filterEnvironmentsByExperiment(
     allEnvironments,
     experiment,
@@ -410,8 +417,8 @@ export default function TrafficAllocationFunnel({
               <Button
                 size="sm"
                 variant={preferDraft ? "solid" : "outline"}
-                disabled={!hasPendingDraft}
-                icon={hasPendingDraft ? <UnpublishedDot /> : undefined}
+                disabled={!hasDraftChanges}
+                icon={hasDraftChanges ? <UnpublishedDot /> : undefined}
                 onClick={() => setShowDraftValues(true)}
               >
                 Unpublished
@@ -656,7 +663,9 @@ export default function TrafficAllocationFunnel({
                   : undefined
               }
               onEditTraffic={
-                canEditExperiment && editTraffic ? editTraffic : undefined
+                canEditExperiment && editTraffic && canEditVariations
+                  ? editTraffic
+                  : undefined
               }
               onAddVariation={
                 canEditExperiment && !isRunning && addVariation
@@ -669,6 +678,7 @@ export default function TrafficAllocationFunnel({
               }
               servedValueSparse={servedValueSource?.sparse}
               servedValueIsDraft={preferDraft}
+              servedValueDraftIds={draftValueIds}
               servedValueDraftName={draftDetail.name}
               servedValueDraftNote={draftDetail.note}
             />
@@ -691,8 +701,7 @@ export default function TrafficAllocationFunnel({
               </Box>
             )}
             {addVariationValues && (
-              // One offer for the whole set: the values are authored together
-              // in the traffic modal, not per variation.
+              // One offer for the whole set; values are authored together.
               <Flex justify="center" mt="3">
                 <Link onClick={addVariationValues} weight="medium">
                   <PiPlus className="mr-1" />

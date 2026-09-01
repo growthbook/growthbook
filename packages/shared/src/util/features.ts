@@ -295,11 +295,8 @@ export function validateJSONFeatureValue(
   }
 }
 
-/**
- * Unwraps the `{ "value": X }` envelope `castFeatureValue` writes when moving a
- * value into JSON, so a round trip through JSON returns what went in. Anything
- * else is left alone.
- */
+// Unwraps the `{ "value": X }` envelope `castFeatureValue` writes, so a round
+// trip through JSON returns what went in.
 function unwrapCastEnvelope(value: string): string {
   try {
     const parsed = JSON.parse(value);
@@ -333,15 +330,9 @@ function asJsonLiteral(plain: string, from: FeatureValueType): string {
   }
 }
 
-/**
- * Re-expresses one serialized feature value under a different value type,
- * keeping what the old value meant wherever that is possible.
- *
- * `index` is the variation's position, used only when nothing about the old
- * value survives the move: booleans then fall back to control-off/rest-on,
- * because mapping every variation to the same value would stop the flag being
- * an experiment at all.
- */
+// Re-expresses a value under a different type. `index` is used only when
+// nothing survives the move: booleans fall back to control-off/rest-on, since
+// one value for every variation would stop it being an experiment.
 export function castFeatureValue({
   value,
   from,
@@ -369,9 +360,8 @@ export function castFeatureValue({
       const trimmed = plain.trim();
       const n = Number(trimmed);
       const candidate = String(n);
-      // Judged by the same shape `validateFeatureValue` accepts, so a reading
-      // JavaScript allows but the field rejects — "" as 0, or a magnitude that
-      // stringifies to exponential notation — falls back to the position.
+      // Judged by the shape `validateFeatureValue` accepts, so a reading it
+      // rejects falls back to the position.
       return trimmed !== "" &&
         Number.isFinite(n) &&
         NUMBER_VALUE_PATTERN.test(candidate)

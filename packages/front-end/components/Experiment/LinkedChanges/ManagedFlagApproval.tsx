@@ -7,7 +7,6 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { ExperimentRefVariation } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
@@ -19,6 +18,7 @@ import {
   ReviewerVerdictIcon,
 } from "@/components/Reviews/ReviewPeople";
 import { revisionStatusLabel } from "@/components/Reviews/RevisionStatusBadge";
+import { getVariationValueChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import { rowVisual } from "@/components/Reviews/RevisionTimeline";
 import MarkdownWithDiffRefs from "@/components/Reviews/DiffCommentMarkdown";
 import CommentCard from "@/components/Comments/CommentCard";
@@ -56,12 +56,8 @@ type Props = {
   triggerColor?: "inherit";
 };
 
-/**
- * CTA + reviewers, nothing else: a managed flag has one rule and one draft, so
- * the Review & Publish tab's deferral, scheduling and diff machinery has
- * nothing to act on. The CTA comes from `getReviewAndPublishState` so it can't
- * drift from it.
- */
+// CTA + reviewers only: a managed flag has one rule and one draft, so the
+// Review & Publish tab's deferral and diff machinery has nothing to act on.
 export default function ManagedFlagApproval({
   experiment,
   info,
@@ -94,16 +90,13 @@ export default function ManagedFlagApproval({
   );
 
   const status = info.pendingDraft?.status ?? "draft";
-  // Whether approvals are required for this draft right now. A revision keeps
-  // the status it was left in, so one opened while approvals were on stays
-  // "pending-review" after the org turns them off — every review affordance
-  // below has to ask this rather than trust the stored status.
+  // A revision keeps the status it was left in, so a draft opened while
+  // approvals were on stays "pending-review" after the org turns them off.
   const requireReviews = !!info.pendingDraft?.pendingApproval;
   const reviews = revision?.reviews ?? [];
   const isReviewer = reviews.some((r) => r.userId === userId);
 
-  // Starting the experiment is the publish event, so a draft experiment runs the
-  // review cycle only. Publishing on its own returns once the experiment is live.
+  // Starting the experiment is the publish, so a draft runs review only.
   const publishIsLaunch = experiment.status === "draft";
 
   const state = getReviewAndPublishState({
@@ -111,7 +104,8 @@ export default function ManagedFlagApproval({
     status,
     // Conflicts are surfaced by the card's callouts; never offer a failing CTA.
     mergeSuccess: !info.pendingDraft?.hasMergeConflict,
-    hasChanges: true,
+    // The publish gate's own test, so the CTA can't offer a no-op publish.
+    hasChanges: info.pendingDraft?.hasChanges ?? true,
     hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(
       info.feature,
       ANY_REVIEW_FOOTPRINT,
@@ -121,8 +115,7 @@ export default function ManagedFlagApproval({
     isContributor: (revision?.contributors ?? []).includes(userId ?? ""),
     isDraftOwner: revision?.createdBy?.id === userId,
     isReviewer,
-    // Bypass is about landing, and nothing lands here on a draft experiment —
-    // passing it through would skip the review cycle entirely for admins.
+    // Nothing lands on a draft experiment, so bypass would just skip review.
     adminPublish:
       !publishIsLaunch &&
       permissionsUtil.canBypassFlagApprovalChecks(info.feature, "feature"),
@@ -297,27 +290,17 @@ export default function ManagedFlagApproval({
     .filter(([, on]) => on)
     .map(([env]) => env);
 
-  const draftValues = info.pendingDraft?.values ?? info.values;
-  const valueFor = (
-    values: ExperimentRefVariation[] | undefined,
-    variationId: string,
-  ) => values?.find((sv) => sv.variationId === variationId)?.value;
-
-  // Only a value that actually moved earns the before/after treatment; the
-  // first draft has no live rule to compare against, and unchanged variations
-  // would read as "Δ x → x". Derived once so the header can't disagree with
-  // what the column renders.
-  const variationValues = variations.map((v, i) => {
-    const after = valueFor(draftValues, v.id) ?? "";
-    const before = valueFor(info.liveValues, v.id);
-    return {
-      v,
-      i,
-      after,
-      before,
-      changed: before !== undefined && before !== after,
-    };
-  });
+  // Only a value that moved earns the before/after treatment; a first draft has
+  // no live rule to compare against, and an unchanged one reads as "Δ x → x".
+  const valueChanges = getVariationValueChanges(
+    info,
+    variations.map((v) => v.id),
+  );
+  const variationValues = variations.map((v, i) => ({
+    v,
+    i,
+    ...valueChanges[i],
+  }));
   const hasValueChanges = variationValues.some((r) => r.changed);
 
   const changesColumn = (

@@ -33,8 +33,7 @@ import styles from "./VariationScreenshotManager.module.scss";
 // Square, so a row of thumbnails reads as a grid rather than a filmstrip.
 const TILE_ASPECT = "1 / 1";
 
-// Signed URLs are fetched per image; sharing one cache across the grid keeps a
-// reorder from re-requesting every tile.
+// Shared so a reorder doesn't re-request every signed URL.
 const imageCache = {};
 
 function ScreenshotTile({
@@ -63,8 +62,7 @@ function ScreenshotTile({
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
-        // Above the tiles it is being dragged across, which are painted later
-        // in DOM order once it moves past them.
+        // Above the tiles it is dragged across, which paint later in DOM order.
         zIndex: isDragging ? 1 : undefined,
         opacity: isDragging ? 0.5 : undefined,
         cursor: "grab",
@@ -117,16 +115,8 @@ function ScreenshotTile({
   );
 }
 
-/**
- * Grid of a variation's screenshots: reorder by dragging, remove on hover, and
- * add more. Uploads land immediately (they are file writes); order and removals
- * ride along with the form's own save.
- *
- * That asymmetry is deliberate rather than perfect: cancelling the form will
- * not undo an upload, and a removed screenshot's file is left in storage. Both
- * match how uploads already behaved elsewhere, and neither is worth the
- * bookkeeping to tidy up here.
- */
+// Uploads land immediately; order and removals ride along with the form's save.
+// So cancelling won't undo an upload, and a removed file stays in storage.
 export default function VariationScreenshotManager({
   experiment,
   variationIndex,
@@ -138,8 +128,7 @@ export default function VariationScreenshotManager({
   screenshots: Screenshot[];
   setScreenshots: (screenshots: Screenshot[]) => void;
 }) {
-  // The tile is its own drag handle, so a drag only starts once the pointer
-  // actually moves — otherwise a plain click never reaches the tile.
+  // The tile is its own drag handle, so a click needs movement to become a drag.
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, {
@@ -147,9 +136,8 @@ export default function VariationScreenshotManager({
     }),
     useSensor(KeyboardSensor, {}),
   );
-  // The viewer derives its list from the experiment, which still holds what was
-  // saved. Hand it the staged screenshots instead, so a reorder, a removal or a
-  // just-uploaded image is what actually opens.
+  // The viewer reads its list off the experiment, which still holds what was
+  // saved; hand it the staged screenshots so the right image opens.
   const variation = experiment.variations[variationIndex];
   const stagedExperiment = useMemo(
     () => ({

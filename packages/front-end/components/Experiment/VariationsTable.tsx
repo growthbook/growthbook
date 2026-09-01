@@ -30,8 +30,7 @@ import styles from "./VariationsTable.module.scss";
 
 export const MAX_VARIATION_WIDTH = 336;
 
-// The "no image" placeholder is a small fixed marker, not an image-sized
-// frame — an empty variation shouldn't reserve the space a screenshot would.
+// A small marker, so an empty variation doesn't reserve screenshot-sized space.
 const NO_IMAGE_SIZE = 42;
 const MAX_IMAGE_HEIGHT = 150;
 
@@ -150,6 +149,8 @@ interface Props {
   servedValueSparse?: boolean;
   /** The values shown are an unpublished draft, not what is live. */
   servedValueIsDraft?: boolean;
+  /** Variations whose draft value differs from live; null when not shown. */
+  servedValueDraftIds?: Set<string> | null;
   /** Names the draft the served values come from; omitted for a managed flag. */
   servedValueDraftName?: string;
   /** Other drafts this readout is not showing. */
@@ -185,8 +186,7 @@ function NoImageBox({ canEdit }: { canEdit?: boolean }) {
       )}
       flexShrink="0"
       style={{
-        // Right-aligns it in the card's column when it stands alone; the drop
-        // target carries its own auto margin when it wraps this.
+        // Right-aligns it when it stands alone; the drop target has its own.
         marginLeft: "auto",
         width: NO_IMAGE_SIZE + "px",
         height: NO_IMAGE_SIZE + "px",
@@ -202,8 +202,7 @@ function NoImageBox({ canEdit }: { canEdit?: boolean }) {
     </Flex>
   );
 
-  // Only the upload target earns a tooltip; the read-only placeholder does
-  // nothing on click.
+  // Only the upload target earns a tooltip.
   return canEdit ? (
     <Tooltip content="Upload image" side="top">
       {box}
@@ -238,6 +237,7 @@ export function VariationBox({
   servedValueFeature,
   servedValueSparse,
   servedValueIsDraft,
+  servedValueDraftIds,
   servedValueDraftName,
   servedValueDraftNote,
 }: {
@@ -266,6 +266,8 @@ export function VariationBox({
   servedValueFeature?: FeatureInterface;
   servedValueSparse?: boolean;
   servedValueIsDraft?: boolean;
+  /** Variations whose draft value differs from live; null when not shown. */
+  servedValueDraftIds?: Set<string> | null;
   /** Names the draft the served values come from; omitted for a managed flag. */
   servedValueDraftName?: string;
   /** Other drafts this readout is not showing. */
@@ -281,8 +283,7 @@ export function VariationBox({
   ) : experiment.status === "draft" ? (
     <Text color="text-disabled">No description</Text>
   ) : null;
-  // Beside the placeholder when there is no screenshot, below the carousel when
-  // there is one — so it never sits in the row the placeholder already fills.
+  // Beside the placeholder without a screenshot, below the carousel with one.
   const showsPlaceholder =
     allowImages && v.screenshots.length === 0 && showNoImage;
   const descriptionBelow = !!descriptionSnippet && !showsPlaceholder;
@@ -319,20 +320,14 @@ export function VariationBox({
             {/* Radix ghost buttons carry a negative margin, so the gap alone
                 won't separate them. */}
             <Flex align="center" gap="1" flexShrink="0" mr="-1">
-              {canEdit && onEditMetadata && onEditTraffic ? (
+              {canEdit && onEditTraffic ? (
                 <IconButton
                   variant="ghost"
                   size="2"
                   color="violet"
                   radius="full"
                   style={{ margin: 0 }}
-                  onClick={() => {
-                    if (experiment.status === "running") {
-                      onEditMetadata(i);
-                    } else {
-                      onEditTraffic(v.id);
-                    }
-                  }}
+                  onClick={() => onEditTraffic(v.id)}
                   aria-label="Edit variation"
                 >
                   <PiPencilSimpleFill size="16" />
@@ -358,11 +353,6 @@ export function VariationBox({
                   <DropdownMenuItem onClick={() => onEditMetadata(i)}>
                     Edit metadata
                   </DropdownMenuItem>
-                  {onEditTraffic ? (
-                    <DropdownMenuItem onClick={() => onEditTraffic(v.id)}>
-                      Edit variation
-                    </DropdownMenuItem>
-                  ) : null}
                 </DropdownMenu>
               ) : null}
             </Flex>
@@ -434,7 +424,10 @@ export function VariationBox({
               value={servedValue ?? ""}
               feature={servedValueFeature}
               sparse={servedValueSparse}
-              isDraft={servedValueIsDraft}
+              isDraft={
+                servedValueIsDraft &&
+                (!servedValueDraftIds || servedValueDraftIds.has(v.id))
+              }
               draftName={servedValueDraftName}
               draftNote={servedValueDraftNote}
             />
@@ -463,6 +456,7 @@ const VariationsTable: FC<Props> = ({
   servedValueFeature,
   servedValueSparse,
   servedValueIsDraft,
+  servedValueDraftIds,
   servedValueDraftName,
   servedValueDraftNote,
 }) => {
@@ -535,6 +529,7 @@ const VariationsTable: FC<Props> = ({
               servedValueFeature={servedValueFeature}
               servedValueSparse={servedValueSparse}
               servedValueIsDraft={servedValueIsDraft}
+              servedValueDraftIds={servedValueDraftIds}
               servedValueDraftName={servedValueDraftName}
               servedValueDraftNote={servedValueDraftNote}
               showNoImage={

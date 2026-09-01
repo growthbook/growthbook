@@ -189,8 +189,7 @@ describe("updateManagedVariationValues value handling", () => {
       ],
     });
 
-    // validateFeatureValue REPAIRS booleans rather than rejecting them, so the
-    // repaired value is what must reach the rule.
+    // validateFeatureValue repairs booleans, so the repaired value must land.
     expect(staged()).toEqual([
       { variationId: "v0", value: "true" },
       { variationId: "v1", value: "false" },
@@ -240,8 +239,7 @@ describe("updateManagedVariationValues value type", () => {
   const staged = () => mockUpdateRevision.mock.calls[0][3];
 
   it("stages the default value when control moves", async () => {
-    // A managed flag exists to serve this experiment, so control is its
-    // baseline — the default must not keep serving a value control left behind.
+    // Control is the baseline, so the default must not lag behind it.
     await update({ valueType: "string" });
     expect(staged()).toEqual({ defaultValue: "a" });
   });

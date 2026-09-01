@@ -86,10 +86,7 @@ type ExperimentFeatureLinkOptions = {
   forceNewDraft?: boolean;
 };
 
-/**
- * Stage (or land) an experiment-ref rule on a feature. Mirrors
- * `linkFeatureToContextualBandit`.
- */
+// Stage (or land) an experiment-ref rule. Mirrors `linkFeatureToContextualBandit`.
 export async function linkFeatureToExperiment({
   context,
   experiment,
@@ -122,9 +119,8 @@ export async function linkFeatureToExperiment({
     context.permissions.throwPermissionError();
   }
 
-  // allEnvironments:true strips any stale environments[]; false passes the
-  // explicit list through. Legacy callers that send neither default to every
-  // applicable org env.
+  // allEnvironments:true strips any stale environments[]; neither field set
+  // defaults to every applicable org env.
   let scopedRule: FeatureRule;
   if (rule.allEnvironments === true) {
     scopedRule = {
@@ -157,9 +153,7 @@ export async function linkFeatureToExperiment({
     context.permissions.throwPermissionError();
   }
 
-  // Experiment/MAB-served values must satisfy the backing Config's schema +
-  // invariants, the same as a REST publish. No-op unless the feature is
-  // config-backed JSON.
+  // Same schema + invariants as a REST publish; no-op unless config-backed JSON.
   await assertConfigBackedFeatureValuesValid(context, feature, {
     rules: [scopedRule],
   });
@@ -183,8 +177,7 @@ export async function linkFeatureToExperiment({
     effectiveHoldout,
   });
 
-  // One-way: any rule-footprint env that's currently off flips on. We never
-  // turn envs off here.
+  // One-way: a footprint env that is off flips on; we never turn one off.
   const baseEnvEnabled: Record<string, boolean> = {
     ...Object.fromEntries(
       environments.map((e) => [
@@ -339,11 +332,8 @@ export type ExperimentLinkedFeatureValueUpdate = {
   // sparse flag (the variation values are partial objects merged onto the
   // feature default). Omitted = leave the rule's existing sparse flag untouched.
   sparse?: boolean;
-  /**
-   * Re-types the Feature Flag. Only a flag managed by this experiment may be
-   * re-typed here: on a shared flag every other rule's values would be left
-   * reading as the type that went away.
-   */
+  // Managed flags only: on a shared flag every other rule's values would be
+  // left reading as the type that went away.
   valueType?: FeatureValueType;
   revisionOptions: ExperimentFeatureValueRevisionOptions;
 };
@@ -560,9 +550,8 @@ export async function validateExperimentFeatureUpdates({
       return !isEqual(m.rule.variations, updatedVariationValues);
     });
 
-    // A type change is a change even when every value reads the same under both
-    // types ("0"/"1" as strings and as numbers), so it must not be skipped here
-    // — the caller stages the type on the plan's revision.
+    // A type change counts even when every value reads the same under both
+    // ("0"/"1" as strings and numbers), so it must not be skipped.
     const typeChanging =
       !!entry.valueType && entry.valueType !== feature.valueType;
     if (!featureNeedsUpdate && !typeChanging) continue;
@@ -1153,14 +1142,9 @@ export async function publishPendingFeatureDraftsForContextualBandit(
   return { published, failed };
 }
 
-/**
- * Re-scopes this experiment's rule on a linked flag, staged on the flag's draft.
- *
- * Enablement follows the scope one way, exactly as linking does: an environment
- * entering the rule's footprint is switched on if it was off, but one leaving
- * the footprint only loses the rule — the flag stays enabled wherever it already
- * was, because other rules may depend on it.
- */
+// Re-scopes this experiment's rule, staged on the flag's draft. Enablement
+// follows one way, as linking does: an environment entering the footprint is
+// switched on, one leaving it only loses the rule.
 export async function updateExperimentRuleEnvironments({
   context,
   experiment,
@@ -1189,8 +1173,8 @@ export async function updateExperimentRuleEnvironments({
     ? environments
     : selected.filter((e) => environments.includes(e));
 
-  // `getDraftRevision` branches on the live version to start a fresh draft, so
-  // it covers both "this named draft" and "a new one" without a second path.
+  // `getDraftRevision` branches on the live version, covering both a named
+  // draft and a fresh one.
   const revision =
     targetVersion !== undefined
       ? await getDraftRevision(context, feature, targetVersion)
@@ -1203,8 +1187,7 @@ export async function updateExperimentRuleEnvironments({
       return rule;
     }
     matched = true;
-    // allEnvironments:true strips any stale environments[], mirroring how the
-    // rule is scoped when it is first linked.
+    // Strips any stale environments[], as linking does.
     return allEnvironments
       ? { ...omit(rule, ["environments"]), allEnvironments: true }
       : { ...rule, allEnvironments: false, environments: scopedEnvironments };

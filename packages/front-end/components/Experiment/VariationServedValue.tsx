@@ -4,11 +4,8 @@ import ValueDisplay from "@/components/Features/ValueDisplay";
 import Metadata from "@/ui/Metadata";
 import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
 
-/**
- * The Feature Flag value a variation serves — or, when the experiment has no
- * Only meaningful when the experiment's sole implementation is a Feature Flag;
- * callers decide that.
- */
+// The value a variation serves. Only meaningful when the experiment's sole
+// implementation is a Feature Flag; callers decide that.
 export default function VariationServedValue({
   value,
   feature,

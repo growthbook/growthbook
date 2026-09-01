@@ -36,8 +36,8 @@ export default forwardRef<
     style?: React.CSSProperties;
     icon?: ReactNode | null;
     action?: ReactNode;
-    // "center" vertically centers the icon, body and action against each
-    // other instead of pinning the icon and action to the first text line.
+    // "center" centres icon, body and action against each other rather than
+    // pinning them to the first text line.
     contentAlign?: "start" | "center";
     role?: string;
   } & (DismissibleProps | UndismissibleProps) &
@@ -103,8 +103,7 @@ export default forwardRef<
       variant="soft"
     >
       {renderedIcon ? (
-        // Centered: the icon shrinks to its glyph so flexbox can centre it.
-        // Otherwise it keeps a first-line-tall box and sits at the top.
+        // Centred: shrink to the glyph so flexbox can centre it.
         <RadixCallout.Icon
           style={
             contentAlign === "center"

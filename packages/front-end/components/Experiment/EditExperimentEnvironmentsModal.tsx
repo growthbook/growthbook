@@ -26,10 +26,7 @@ import DraftSelectorDropdown, {
 } from "@/components/Features/DraftSelectorDropdown";
 import LinkedFeatureLabel from "@/components/Experiment/LinkedFeatureLabel";
 
-/**
- * Re-scopes the experiment's rule on its linked flag. Saving stages the change
- * on the flag's draft — nothing serves differently until that publishes.
- */
+// Saving stages the re-scope on the flag's draft; nothing serves until publish.
 export default function EditExperimentEnvironmentsModal({
   experiment,
   info,
@@ -44,17 +41,14 @@ export default function EditExperimentEnvironmentsModal({
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
 
-  // A managed flag has exactly one draft and the experiment owns it, so there
-  // is nothing to choose. Any other flag may have several, and the caller has
-  // to say which one this lands on.
+  // A managed flag has exactly one draft; any other may have several.
   const isManaged = isManagedByExperiment(info.feature, experiment.id);
   const { data: revisionData } = useApi<{
     revisionList: MinimalFeatureRevisionInterface[];
     revisions: FeatureRevisionInterface[];
   }>(`/feature/${info.feature.id}`, { shouldRun: () => !isManaged });
 
-  // Mirror the back end: only a draft that already carries this experiment's
-  // rule can be re-scoped, otherwise the save fails with an opaque error.
+  // Mirrors the back end: only a draft already carrying this rule can be re-scoped.
   const eligibleDraftVersions = useMemo(() => {
     const set = new Set<number>();
     for (const r of revisionData?.revisions ?? []) {
@@ -90,8 +84,7 @@ export default function EditExperimentEnvironmentsModal({
     experiment,
   );
 
-  // "missing" is the one state that means the rule doesn't cover the
-  // environment; the others all describe a rule that is present.
+  // "missing" is the only state meaning the rule doesn't cover the environment.
   const scoped = Object.entries(
     info.pendingDraft?.environmentStates ?? info.environmentStates ?? {},
   )
@@ -135,8 +128,7 @@ export default function EditExperimentEnvironmentsModal({
             body: JSON.stringify({
               allEnvironments,
               environments: allEnvironments ? [] : selectedEnvironments,
-              // Managed flags keep their single draft; otherwise honour the
-              // picker, where "new" means start one from live.
+              // Managed flags keep their one draft; otherwise honour the picker.
               ...(isManaged || mode !== "existing" || selectedDraft === null
                 ? {}
                 : { targetVersion: selectedDraft }),

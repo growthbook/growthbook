@@ -146,9 +146,8 @@ describe("createManagedFeatureForExperiment variation validation", () => {
   } as any;
 
   it("accepts a valid value for every variation", async () => {
-    // Regression: validateFeatureValue RETURNS the normalized value and throws
-    // on invalid input, so testing its result for truthiness rejected every
-    // valid value — including the string "false".
+    // Regression: validateFeatureValue returns the normalized value and throws
+    // on invalid input, so a truthiness test rejected "false".
     await expect(
       createManagedFeatureForExperiment({
         ...base,
@@ -187,8 +186,7 @@ describe("createManagedFeatureForExperiment variation validation", () => {
 
 describe("clearManagedMarkersForExperiment", () => {
   it("releases every flag the experiment owns, resolved without the read filter", async () => {
-    // A flag whose project the deleter cannot read must still be released, or
-    // it survives pointing at a deleted experiment and can never be written.
+    // An unreadable flag must still be released, or it can never be written.
     mockManagedIds.mockResolvedValue(["flag-a", "flag-b"]);
     mockGetFeature.mockImplementation(async (_c, id: string) =>
       id === "flag-a" ? { id, managedBy: { type: "experiment" } } : null,

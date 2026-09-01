@@ -322,6 +322,8 @@ export interface LinkedFeatureInfo {
     title?: string;
     /** Open drafts other than this one that also carry this experiment's rule. */
     otherDraftCount: number;
+    /** Whether publishing would change anything, by the publish gate's own test. */
+    hasChanges: boolean;
     values: ExperimentRefVariation[];
     sparse: boolean;
     pendingApproval: boolean;

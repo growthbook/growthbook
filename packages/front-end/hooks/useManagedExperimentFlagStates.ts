@@ -22,14 +22,8 @@ interface UseManagedExperimentFlagStatesReturn {
 const ManagedFlagsContext =
   createContext<UseManagedExperimentFlagStatesReturn | null>(null);
 
-/**
- * Ownership lives on the Feature Flag, so a list row cannot tell whether it
- * manages one without asking. Follows `FeatureStaleStatesProvider`: the caller
- * passes the rows on screen, so a long list costs no more than a short one.
- *
- * No TTL refresh — managed mode only changes on adopt or eject, which happen on
- * the experiment page and remount this.
- */
+// Ownership lives on the flag, so a list row must ask. Follows
+// `FeatureStaleStatesProvider`: the caller passes the rows on screen.
 export function ManagedExperimentFlagsProvider({
   children,
 }: {
@@ -54,14 +48,11 @@ export function ManagedExperimentFlagsProvider({
         const res = await apiCall<{ managed: ManagedFlagMap }>(
           `/experiments/managed?ids=${encodeURIComponent(toFetch.join(","))}`,
         );
-        // Every requested id is resolved, including the ones with no managed
-        // flag — otherwise they would be re-fetched on every scroll.
+        // Resolve every requested id, or the empty ones refetch on every scroll.
         toFetch.forEach((id) => resolvedIds.current.add(id));
         setManaged((prev) => ({ ...prev, ...(res.managed ?? {}) }));
       } catch (e) {
-        // Swallowed on purpose: this only decorates an icon, and the ids stay
-        // unresolved so the next visible-row change retries. Rethrowing would
-        // surface an unhandled rejection from the effect that calls this.
+        // Swallowed: this decorates an icon, and the next row change retries.
         console.error("Could not resolve managed experiments", e);
       } finally {
         inflightKey.current = null;

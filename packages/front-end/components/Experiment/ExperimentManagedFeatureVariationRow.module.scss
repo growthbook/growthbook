@@ -6,18 +6,15 @@
     overflow-y: auto;
   }
 
-  // Field always renders its helper-text <small>, and Bootstrap's .form-text
-  // margin-top applies even with nothing in it (React leaves an empty text node
-  // behind, so :empty misses) — 4px of dead space under the control that leaves
-  // the value sitting above the fields either side of it.
+  // Field always renders its helper <small>, and .form-text's margin applies
+  // even when empty (React leaves a text node, so :empty misses).
   :global(small.form-text) {
     margin-top: 0;
   }
 }
 
-// The shared percent wrapper sizes its input at a fixed 7em and pins the "%" to
-// a 36px field's baseline. Both overflow an md field in a fixed-width column,
-// putting the input under the drag handle, so this row owns the styling.
+// The shared percent wrapper's 7em input and 36px baseline both overflow an md
+// field in a fixed-width column, so this row owns the styling.
 .percentInputWrap {
   input {
     width: 100%;
@@ -32,9 +29,8 @@
   }
 }
 
-// The stacked value cell: the row's own padding separates it from the next row,
-// so the field's trailing margin (Bootstrap's .form-group, or the code editor's
-// wrapper) just pads the row out.
+// The row's own padding separates it from the next, so the field's trailing
+// margin just pads it out.
 .tightValueCell {
   > :global(.rt-Box),
   :global(.form-group) {

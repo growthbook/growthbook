@@ -18,13 +18,9 @@ export type EnvironmentState = {
   tooltip: string;
 };
 
-/**
- * Whether the experiment actually serves in each environment: the flag's
- * environment toggle AND the rule's own presence and enablement. Shared so
- * every surface explains a given state with the same words.
- */
-/** Why a state is not yet true: the experiment hasn't started, or the change
- * shown is an unpublished draft. Both need future tense, for different reasons. */
+// The flag's environment toggle AND the rule's presence and enablement.
+// Shared so every surface explains a state with the same words.
+// Why a state is not yet true: not started, or shown from an unpublished draft.
 export type EnvironmentStateTense = false | "started" | "published";
 
 function environmentStateTooltip(

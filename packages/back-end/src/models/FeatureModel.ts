@@ -232,9 +232,8 @@ const featureSchema = new mongoose.Schema({
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
 featureSchema.index({ organization: 1, targetingProjects: 1 });
-// Partial, so it holds only the flags an experiment manages — a handful per
-// org. Lets a list resolve which experiments manage a flag without scanning
-// features.
+// Partial: holds only managed flags, so a list can resolve ownership without
+// scanning features.
 featureSchema.index(
   { organization: 1, "managedBy.experimentId": 1 },
   { partialFilterExpression: { "managedBy.type": "experiment" } },
@@ -704,11 +703,8 @@ export async function getFeature(
     : null;
 }
 
-/**
- * Existence only, and deliberately NOT permission-filtered: the unique index is
- * org-wide, so a key held by a feature the caller cannot read is still taken.
- * `getFeature` would report it free and the insert would then fail.
- */
+// Not permission-filtered: the unique index is org-wide, so a key held by an
+// unreadable feature is still taken.
 export async function featureIdExists(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -2008,9 +2004,8 @@ export function computeRevisionMergeChanges(
       changes.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;
     if (m.baseConfig !== undefined) changes.baseConfig = m.baseConfig;
-    // Staged by a revert restoring an older type, and by a managed flag's own
-    // type change. Both stage every value alongside it, so the values landing
-    // here already read as the type landing with them.
+    // Staged by a revert or a managed flag's type change; both stage every
+    // value alongside it.
     if (m.valueType !== undefined) changes.valueType = m.valueType;
     hasChanges = true;
   }
@@ -4558,11 +4553,8 @@ export async function getFeatureMetaInfoByIds(
     }));
 }
 
-/**
- * Ids of the flags an experiment manages, deliberately NOT read-filtered:
- * ownership has to be answerable even for a flag the caller cannot read, or its
- * marker can never be cleared. Callers must not leak the ids themselves.
- */
+// Not read-filtered: ownership must be answerable for a flag the caller cannot
+// read, or its marker can never be cleared. Callers must not leak the ids.
 export async function getManagedFlagIdsUnfiltered(
   context: ReqContext | ApiReqContext,
   experimentId: string,

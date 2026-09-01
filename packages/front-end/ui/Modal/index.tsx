@@ -27,16 +27,11 @@ import { Size as SharedSize } from "@/ui/sizes";
 import ErrorDisplay from "../ErrorDisplay";
 import styles from "./Modal.module.scss";
 
-// "max" is not a step on the t-shirt scale: it fills the viewport, for content
-// that is sized by the image or canvas inside it rather than by a text column.
+// "max" is not a step on the t-shirt scale; it fills the viewport.
 export type Size = SharedSize<"md" | "lg" | "xl"> | "max";
 
-/**
- * "gutter" (the default) leaves the right edge unpadded so Modal.Body's
- * scrollbar sits in it, and the header, body and footer each add the padding
- * back themselves. "even" pads the content box on all four sides instead —
- * for a modal that frames its content rather than scrolling a text column.
- */
+// "gutter" leaves the right edge unpadded for Modal.Body's scrollbar, and each
+// section adds it back. "even" pads the content box on all four sides.
 export type Padding = "gutter" | "even";
 
 // Modal does not use the shared Radix map. Radix Dialog's size drives padding
@@ -118,10 +113,7 @@ type RootProps = TrackingEventModalProps & {
   size?: Size;
   padding?: Padding;
   dismissible?: boolean;
-  /**
-   * Radix's corner close. Independent of `size`: it earns its place when the
-   * composition has no other way out — e.g. no Modal.Footer to hold a Cancel.
-   */
+  // Radix's corner close, for a composition with no other way out.
   showCloseButton?: boolean;
   hasDescription?: boolean;
   /**
@@ -213,15 +205,13 @@ function Root({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content
         ref={contentRef}
-        // Radix wraps content in a scrolling, padded container. At this height
-        // that padding pushes past the viewport and adds a second scrollbar,
-        // so the override in global-radix-overrides drops it.
+        // Radix's scrolling wrapper is padded; at this height that overflows
+        // the viewport, so global-radix-overrides drops it.
         className={size === "max" ? "rt-DialogContent--max" : undefined}
         size={getRadixSize(size)}
         width={size === "max" ? "95vw" : undefined}
         maxWidth={getMaxWidth(size)}
-        // "max" claims the height too, so its body can size an image against
-        // the viewport instead of against its own content.
+        // Claim the height too, so the body sizes against the viewport.
         height={size === "max" ? "95vh" : undefined}
         maxHeight={size === "max" ? "95vh" : "85vh"}
         {...ariaDescribedBy}
@@ -255,8 +245,7 @@ function Root({
                 size="3"
                 highContrast
                 aria-label="Close"
-                // Dialog.Close is asChild, but the close is driven explicitly
-                // so it works the same way the footer's Cancel does.
+                // Driven explicitly, like the footer's Cancel.
                 onClick={() => onOpenChange(false)}
               >
                 <PiX size={20} />

@@ -57,8 +57,7 @@ export interface Props {
   showPreview?: boolean;
   // Rendered between the coverage widget and the variations table.
   belowCoverage?: ReactNode;
-  // Names the served value column. Defaults to "Value"; a flag the experiment
-  // does not own says "Feature Value", to tie it to the flag named above.
+  // Column name: "Value", or "Feature Value" for a flag the experiment doesn't own.
   valueLabel?: string;
   // Locks the served value until the caller opts into editing it.
   valueDisabled?: boolean;
@@ -66,19 +65,16 @@ export interface Props {
   hideFeatureValue?: boolean;
   // Unlocks it, from the value column header and each stacked row label.
   onEditValues?: () => void;
-  // Opts into values for an experiment that has no flag yet. Sits in the
-  // variation name header, since there is no value column to hang it on.
+  // Opts into values before there is a flag; sits in the name header.
   onAddValues?: () => void;
   // Explains where an edit lands. null drops the info icon entirely.
   valueTooltip?: string | null;
   hideSplits?: boolean;
-  // Values stay editable; the variation set, its order and its weights do not.
-  // Used while an experiment is running, where changing those re-buckets users.
+  // Values stay editable; changing the variation set or weights re-buckets.
   lockStructure?: boolean;
   label?: string | null;
   feature?: FeatureInterface;
-  // Scopes the "Insert constant" picker while the Feature Flag does not exist
-  // yet (adoption creates it on save).
+  // Scopes the "Insert constant" picker before the flag exists.
   constantContext?: ComponentProps<
     typeof SortableManagedVariationRow
   >["constantContext"];
@@ -128,16 +124,14 @@ export default function ExperimentManagedFeatureVariationEditor({
 
   const [editingSplits, setEditingSplits] = useState(false);
   const [editingIds, setEditingIds] = useState(!idsMatchIndexes);
-  // Leaving advanced mode drops what only it can author: bespoke ids fall back
-  // to the index, and descriptions are cleared.
+  // Leaving advanced mode drops what only it can author: bespoke ids.
   const exitAdvancedMode = () => {
     setEditingIds(false);
     if (!variations || !setVariations) return;
     setVariations(variations.map((v, i) => ({ ...v, value: i + "" })));
   };
 
-  // Only a JSON value needs a row of its own. Descriptions moved to the
-  // variation card's own menu, so advanced mode fits on one row again.
+  // Only a JSON value needs a row of its own.
   const stackValue = valueType === "json";
 
   // The reorder gutter only earns its space while rows can actually be moved.

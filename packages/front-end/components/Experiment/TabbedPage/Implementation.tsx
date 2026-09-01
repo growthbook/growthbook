@@ -111,19 +111,16 @@ export default function Implementation({
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
 
-  // Keyed on the flag existing, not on the org default: a managed flag is only
-  // created at experiment creation, so an experiment without one chose manual.
-  // Suppressing the chooser there left it with no implementation and no way to
-  // add one.
+  // Keyed on the flag existing, not the org default: an experiment without one
+  // chose manual, and suppressing the chooser would strand it.
   const { isManaged } = useManagedExperimentFlags({
     experiment,
     linkedFeatures,
   });
   const managedMode = isManaged;
 
-  // Adoption: an experiment with nothing wired up yet can take on a managed
-  // flag from the traffic modal. Keyed on the resolved implementation count, so
-  // a flag deleted out of band leaves it offered rather than stuck.
+  // Keyed on the resolved implementation count, so a flag deleted out of band
+  // leaves adoption offered rather than stuck.
   const canAdoptManagedFlag =
     !isManaged &&
     linkedFeatures.length === 0 &&
@@ -135,9 +132,7 @@ export default function Implementation({
     !experiment.nextScheduledStatusUpdate &&
     permissionsUtil.canViewFeatureModal(experiment.project);
 
-  // The variation cards can only name "the" served value when there is one
-  // implementation and it is a Feature Flag; with several, or a flag alongside
-  // visual changes or a redirect, they'd be stating one arbitrarily.
+  // The cards can only name "the" served value with exactly one implementation.
   const soleLinkedFeature =
     linkedFeatures.length === 1 &&
     !experiment.hasVisualChangesets &&
@@ -145,10 +140,8 @@ export default function Implementation({
       ? linkedFeatures[0]
       : null;
 
-  // A managed flag that is the whole implementation has nothing left for the
-  // panel to say: its values are on the variation cards and the traffic modal
-  // owns editing. Managed mode already suppresses the add-implementation
-  // affordances, so the panel is pure duplication here.
+  // Nothing left for the panel to say: the values are on the variation cards,
+  // the traffic modal owns editing, and managed mode hides the add affordances.
   const managedSoleImplementation = isManaged && !!soleLinkedFeature;
 
   const holdoutHasLinkedExpOrFeatures =

@@ -61,8 +61,7 @@ export default function LinkedFeatureFlag({
   const canUpdateLinkedFeature =
     canEditExperiment && permissionsUtil.canEditFeatureDrafts(info.feature);
 
-  // Eject hands back control of what a running experiment serves, so the
-  // server takes publish authority — mirror it or the menu offers a 403.
+  // The server takes publish authority on eject; mirror it or the menu 403s.
   const canEject =
     canEditExperiment &&
     permissionsUtil.canPublishFeature(
@@ -146,13 +145,11 @@ export default function LinkedFeatureFlag({
     future: experiment.status === "draft" ? "started" : false,
   });
 
-  // With the values on the variation cards, this only earns space when one of
-  // the warnings below has something to say.
+  // With values on the variation cards, this only earns space for a warning.
   const hasValueWarnings =
     (info.state === "live" || info.state === "draft") &&
     (info.inconsistentValues || info.rulesAbove);
-  // A managed flag never renders the value rows here, so without a warning to
-  // show the section would be an empty padded band.
+  // A managed flag renders no value rows, so it would otherwise be empty.
   const showValueSection = isManaged
     ? hasValueWarnings
     : !valuesShownOnVariations || hasValueWarnings;
@@ -199,8 +196,7 @@ export default function LinkedFeatureFlag({
         }
         actions={
           isManaged ? (
-            // Always set when managed, even if empty: falling back to the
-            // default cluster would offer Edit and Remove on a managed flag.
+            // Set even when empty, or the default cluster offers Edit/Remove.
             <>
               {canEject && (
                 <DropdownMenu
@@ -232,8 +228,7 @@ export default function LinkedFeatureFlag({
           if (info.state === "archived") {
             return <Badge label="Archived" radius="full" color="gray" />;
           }
-          // Show the review status: the flag's live/draft state is implied by
-          // the experiment, and "Draft" would disagree with the approval CTA.
+          // Review status: live/draft is implied, and would fight the CTA.
           const revisionStatus =
             isManaged && info.pendingDraft
               ? info.pendingDraft.status

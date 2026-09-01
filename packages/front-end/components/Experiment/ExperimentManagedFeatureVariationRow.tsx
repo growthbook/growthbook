@@ -91,8 +91,7 @@ interface SortableProps {
   hideSplit: boolean;
   valueAsId: boolean;
   feature?: FeatureInterface;
-  // Scopes the "Insert constant" picker while the Feature Flag does not exist
-  // yet (adoption creates it on save), the way the new-flag modal does.
+  // Scopes the "Insert constant" picker before the flag exists.
   constantContext?: ComponentProps<typeof FeatureValueField>["constantContext"];
   showDescription?: boolean;
   // Render the value on its own row beneath the grid, whatever its type.
@@ -102,19 +101,16 @@ interface SortableProps {
   valueLabel?: string;
   // Locks the served value until the caller opts into editing it.
   valueDisabled?: boolean;
-  // Unlocks it. Rendered beside the stacked label, which repeats per row —
-  // every copy drives the same caller state.
+  // Unlocks it. Repeats per stacked row; every copy drives the same state.
   onEditValues?: () => void;
   // Explains where an edit lands. null drops the info icon entirely.
   valueTooltip?: string | null;
   showDragHandle?: boolean;
-  // Values stay editable; reordering, adding and removing do not. Used while an
-  // experiment is running, where those would re-bucket users.
+  // Values stay editable; reordering, adding and removing would re-bucket.
   lockStructure?: boolean;
   dragging?: boolean;
   autoFocusName?: boolean;
-  // JSON features only. Renders the value as a sparse patch (merged onto the
-  // feature default) in the value editor.
+  // JSON only: render the value as a sparse patch onto the feature default.
   sparse?: boolean;
 }
 
@@ -187,8 +183,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
     };
 
     // Own picker rather than the shared field's, whose labels are upper case.
-    // Width matches the number field in FeatureValueField: two fixed choices
-    // shouldn't stretch across a stacked row.
+    // Matches FeatureValueField's number field; two choices shouldn't stretch.
     const booleanValueField = (label?: React.ReactNode) => (
       <Box style={{ width: 120 }}>
         <SelectField

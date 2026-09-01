@@ -31,11 +31,8 @@ export function managedByExperimentId(
     : null;
 }
 
-/**
- * A candidate id, not a reservation: uniqueness belongs to the
- * `{id, organization}` index, so callers bump `attempt` on duplicate-key errors
- * rather than probing for a free id and racing.
- */
+// A candidate, not a reservation: callers bump `attempt` on duplicate-key
+// errors rather than probing for a free id and racing.
 export function managedFeatureKeyCandidate({
   trackingKey,
   experimentId,
@@ -64,11 +61,8 @@ export function seedManagedVariationValues(
   }));
 }
 
-/**
- * A starting value the flag's field will accept for the chosen type. Boolean
- * seeds control off and everything else on — a truthiness test on the variation
- * key would make every value true and serve one value to everyone.
- */
+// Boolean seeds control off and the rest on; a truthiness test on the key
+// would make every value true.
 function seedValueForType(
   valueType: FeatureValueType,
   key: string | undefined,
@@ -86,10 +80,8 @@ function seedValueForType(
   }
 }
 
-/**
- * By position, not by variation id — a duplicate gets fresh ids, so an id match
- * would fall back to the seed for every variation. Uncovered positions seed.
- */
+// By position, not id: a duplicate gets fresh ids, so an id match would seed
+// every variation.
 export function copyManagedVariationValues({
   sourceValues,
   sourceVariations,

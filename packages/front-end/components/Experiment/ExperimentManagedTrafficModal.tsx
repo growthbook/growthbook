@@ -75,10 +75,8 @@ export interface Props {
   adoptOnOpen?: boolean;
 }
 
-// Edit Traffic & Variations for an experiment whose only implementation is a
-// Feature Flag: the table gains a Value column, and saving stages the flag's
-// values alongside the experiment change. A fork of `EditTrafficModal` rather
-// than a branch inside it; anything else is delegated straight back.
+// Edit Traffic & Variations when the only implementation is a Feature Flag.
+// A fork of `EditTrafficModal`; anything else is delegated straight back.
 export default function ExperimentManagedTrafficModal({
   close,
   experiment,
@@ -95,8 +93,7 @@ export default function ExperimentManagedTrafficModal({
       isManagedByExperiment(f.feature, experiment.id),
     ) ?? null;
 
-  // A Value column can only name "the" flag when there is exactly one
-  // implementation; with several it would be editing one arbitrarily.
+  // A Value column can only name "the" flag when there is exactly one.
   const soleFeature =
     (linkedFeatures ?? []).length === 1 &&
     !experiment.hasVisualChangesets &&
@@ -118,8 +115,7 @@ export default function ExperimentManagedTrafficModal({
 
   const targetFeature = managedFeature ?? editableSoleFeature;
 
-  // Nothing wired up yet: this modal can adopt a managed flag inline, which is
-  // the only route to one now that the separate add-flag modal is gone.
+  // Nothing wired up yet: this modal is the only route to adopting one.
   const hasNoImplementations =
     (linkedFeatures ?? []).length === 0 &&
     !experiment.hasVisualChangesets &&
@@ -181,11 +177,9 @@ function ManagedTrafficForm({
   targetFeature: LinkedFeatureInfo | null;
   // The experiment may take on a managed flag from this modal.
   canAdopt: boolean;
-  // A flag this experiment manages: it may be re-typed here, and its rule is
-  // the flag's only one.
+  // Managed here: it may be re-typed, and its rule is the flag's only one.
   isManaged: boolean;
-  // False once the experiment runs against a live rule: values stay editable,
-  // the variation set, its order and its weights do not.
+  // False once running against a live rule: values stay editable, structure not.
   safeToEdit: boolean;
   focusVariationId?: string | null;
   addVariationOnOpen?: boolean;
@@ -228,14 +222,12 @@ function ManagedTrafficForm({
     !renameTo &&
     (manualKey === null || manualKey.trim() === "");
 
-  // A flag the experiment doesn't own stays read-only until the user asks to
-  // edit it, so changing traffic alone never opens a draft on someone else's
-  // flag. A managed flag has no such separation.
+  // A flag the experiment doesn't own stays read-only until asked, so changing
+  // traffic alone never opens a draft on someone else's flag.
   const [editingValues, setEditingValues] = useState(isManaged);
   const valuesShown = !!feature || adopting;
 
-  // Seeded from the variation keys, the same way the removed add-flag modal
-  // did, so what is shown is what gets saved.
+  // Seeded from the variation keys, so what is shown is what gets saved.
   const startAdopting = () => {
     setFeatureValues((current) => {
       const next = { ...current };
@@ -254,9 +246,8 @@ function ManagedTrafficForm({
   );
   const revisionList = revisionData?.revisionList ?? [];
 
-  // Mirror the back-end eligibility check: a draft is selectable only if it
-  // already contains an experiment-ref rule for this experiment, otherwise the
-  // submit fails with an opaque server-side error.
+  // Mirrors the back end: a draft is selectable only if it already carries this
+  // experiment's rule, otherwise the submit fails opaquely.
   const eligibleDraftVersions = useMemo(() => {
     const set = new Set<number>();
     for (const r of revisionData?.revisions ?? []) {
@@ -365,10 +356,8 @@ function ManagedTrafficForm({
   const featureValueOf = (row: { id: string; featureValue?: string }) =>
     row.featureValue ?? "";
 
-  // The CTA has to distinguish a value edit from merely unlocking the fields,
-  // and a value edit from an experiment-only one, so each is compared against
-  // what the modal opened with rather than inferred from form dirtiness (the
-  // rows write both through one setter).
+  // Compared against what the modal opened with, not form dirtiness: the rows
+  // write values and experiment changes through one setter.
   const coreOf = (v: {
     variations?: {
       id: string;
@@ -413,16 +402,14 @@ function ManagedTrafficForm({
         coverage: form.watch("coverage"),
       }),
     ) !== openedWith.current.core;
-  // Only meaningful once there is a flag to value: with no implementation the
-  // rows still rebuild `featureValues`, which would otherwise read as an edit.
+  // With no flag the rows still rebuild `featureValues`, which would read as an edit.
   const valuesDirty =
     adopting ||
     (!!feature &&
       JSON.stringify({ valueType, featureValues }) !==
         openedWith.current.values);
 
-  // Whether a value edit needs sign-off before it can serve. `gatedEnvSet`
-  // already resolves the org's review rules for the project this flag is (or
+  // `gatedEnvSet` resolves the review rules for the project this flag is (or
   // will be) in, so adoption and editing ask the same question.
   const approvalRequired = gatedEnvSet !== "none";
 
@@ -518,11 +505,9 @@ function ManagedTrafficForm({
       }
     }
 
-    // Experiment state first, then the flag's values. The second call re-sends
-    // the variations so the server cross-checks that each one has a value.
-    // A locked structure has nothing to send here — coverage, weights and the
-    // variation set are all read-only, so posting them would only re-assert the
-    // traffic a running experiment is already serving.
+    // Experiment state first, then values; the second call re-sends the
+    // variations so the server checks each has one. A locked structure has
+    // nothing to send here — everything it would post is read-only.
     if (safeToEdit) {
       await apiCall(`/experiment/${experiment.id}`, {
         method: "POST",
@@ -531,8 +516,7 @@ function ManagedTrafficForm({
     }
 
     if (adopting) {
-      // Same endpoint, body and server-side gates as the removed add-flag
-      // modal; only the entry point moved.
+      // Same endpoint and server-side gates as the old add-flag modal.
       await apiCall(`/experiment/${experiment.id}/managed-flag`, {
         method: "POST",
         body: JSON.stringify({

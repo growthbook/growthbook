@@ -260,16 +260,14 @@ export default function EditFeatureFlagValuesModal({
   // don't contain the rule. Lock the dropdown to the one draft that does.
   const isManaged = isManagedByExperiment(feature, experiment.id);
 
-  // Only a managed flag's type is editable: a shared flag's other rules would
-  // be left holding values that no longer read as its type.
+  // Managed flags only: other rules would hold values of a type that went away.
   const valueType = form.watch("valueType");
   const typeChanged = valueType !== feature.valueType;
 
   function handleValueTypeChange(next: FeatureValueType) {
     if (next === valueType) return;
     form.setValue("valueType", next);
-    // Re-express what is already there rather than clearing it, so switching
-    // types by mistake is not destructive.
+    // Re-express rather than clear, so a mistaken switch isn't destructive.
     form.getValues("variations").forEach((v, i) => {
       form.setValue(
         `variations.${i}.value`,
@@ -288,9 +286,8 @@ export default function EditFeatureFlagValuesModal({
     linkedFeatureInfo.liveHasMatchingRule === false &&
     linkedFeatureInfo.draftRevisionVersion != null;
 
-  // `draftRevisionVersion` is only set while the EXPERIMENT is a draft, so a
-  // running managed experiment would otherwise open a second draft alongside
-  // its pending edit.
+  // `draftRevisionVersion` is only set while the experiment is a draft, so a
+  // running one would otherwise open a second draft.
   const targetDraftVersion =
     linkedFeatureInfo.draftRevisionVersion ??
     (isManaged ? (linkedFeatureInfo.pendingDraft?.version ?? null) : null);
@@ -305,9 +302,7 @@ export default function EditFeatureFlagValuesModal({
   );
   const [isEditingVariations, setIsEditingVariations] = useState(false);
 
-  // Focus the variation whose Edit link was clicked. The field mounts behind
-  // two async boundaries — the body waits on `data`, and JSON values render in
-  // a dynamically imported editor — so poll for it.
+  // The field mounts behind two async boundaries, so poll for it.
   useEffect(() => {
     if (!focusVariationId || !data) return;
     let timer: ReturnType<typeof setTimeout>;
@@ -321,9 +316,7 @@ export default function EditFeatureFlagValuesModal({
       );
       if (field) {
         if (document.activeElement === field) return;
-        // Radix re-targets focus while the dialog mounts, so one call gets
-        // dropped. Re-apply until a control inside the dialog holds focus —
-        // anything else means the user has not chosen yet.
+        // Radix re-targets focus while mounting, so re-apply until it holds.
         const active = document.activeElement as HTMLElement | null;
         const dialog = row?.closest("[role='dialog']");
         const userMovedFocus =
@@ -382,8 +375,7 @@ export default function EditFeatureFlagValuesModal({
   // JSON features whose default is a plain object. The toggle rewrites every
   // variation value (strip keys equal to the default ⇄ expand onto the default)
   // and the new flag is persisted alongside the values on save.
-  // Only while the flag STAYS a JSON flag: a draft that re-types it would
-  // otherwise carry `sparse` onto a rule whose values are no longer patches.
+  // Only while it stays JSON, or `sparse` lands on values that aren't patches.
   const sparseEligible =
     feature.valueType === "json" &&
     valueType === "json" &&

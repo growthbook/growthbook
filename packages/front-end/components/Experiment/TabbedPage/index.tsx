@@ -147,24 +147,20 @@ export default function TabbedPage({
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
 
-  // Review and publish for a managed flag is a page-level action, not something
-  // buried in the implementation card.
+  // Page-level, not buried in the implementation card.
   const { managedFeature } = useManagedExperimentFlags({
     experiment,
     linkedFeatures,
   });
-  // Keyed on `pendingDraft`, not `state`: a running experiment with an
-  // unpublished edit still reports state "live", and gating on "draft" left
-  // that case with no way to review or publish at all.
+  // Keyed on `pendingDraft`, not `state`: a running experiment's unpublished
+  // edit still reports "live".
   const managedFlagWithDraft = managedFeature?.pendingDraft
     ? managedFeature
     : null;
   const managedApprovalBlocking =
     !!managedFlagWithDraft?.pendingDraft?.pendingApproval &&
     managedFlagWithDraft.pendingDraft.status !== "approved";
-  // Both gates have to appear together: on a draft experiment approval alone
-  // doesn't publish anything, so naming only approval would leave someone
-  // waiting for a launch that needs a separate action.
+  // Both gates together: approval alone publishes nothing on a draft.
   const managedNextStep = managedApprovalBlocking
     ? experiment.status === "draft"
       ? "They need approval, then go live when the experiment starts."
@@ -589,8 +585,7 @@ export default function TabbedPage({
           )}
         {managedFlagWithDraft && (
           <Callout
-            // Warning only while approval is actually holding the publish back;
-            // approved (or an org that doesn't require approvals) is just info.
+            // Warning only while approval is holding the publish back.
             status={managedApprovalBlocking ? "warning" : "info"}
             mt="3"
             contentAlign="center"
@@ -599,9 +594,7 @@ export default function TabbedPage({
                 experiment={experiment}
                 info={managedFlagWithDraft}
                 mutate={mutate}
-                // Starting the experiment is what publishes the draft, so
-                // before launch this is review only — same as the pre-launch
-                // checklist.
+                // Starting the experiment publishes it, so this is review only.
                 ctaLabel={
                   experiment.status === "draft" ? "Review" : "Review & Publish"
                 }

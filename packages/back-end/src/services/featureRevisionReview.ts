@@ -15,11 +15,8 @@ import { getFeatureReviewFootprint } from "back-end/src/services/features";
 import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisionEvents";
 import { maybeAutoPublishFeatureRevision } from "back-end/src/api/features/autoPublishOnApproval";
 
-/**
- * Records a verdict or a comment on a feature revision. Extracted so the
- * internal route and the experiment's managed-flag route share one set of rules
- * — the self-approval block and the review-cycle CAS in particular.
- */
+// Extracted so the internal route and the managed-flag route share one set of
+// rules, the self-approval block and review-cycle CAS in particular.
 export async function submitFeatureRevisionReview({
   context,
   feature,
@@ -36,14 +33,8 @@ export async function submitFeatureRevisionReview({
   eventAudit: EventUser;
 }): Promise<void> {
   // A verdict is the review atom; a plain comment is participation, so the
-  // comment atom carries it — review implies it but must not gate it. Uses the
-  // shared predicate so all four entities answer identically, narrowed to the
-  // primary project to match `canReviewFeatureDrafts`.
-  //
-  // Known structural divergence: the other three engines judge this on
-  // `revision.target.snapshot`; feature revisions carry no origin snapshot
-  // (`metadata.project` is the DESTINATION a draft stages), so this engine can
-  // only ask about live.
+  // comment atom carries it. Judged on live: feature revisions carry no origin
+  // snapshot, unlike the other three engines.
   const canCommentHere = canCommentOnRevisionEntity(
     context.permissions,
     "feature",
@@ -90,10 +81,8 @@ export async function submitFeatureRevisionReview({
     throw new Error("Comment cannot be empty");
   }
 
-  // Author separation. `mayBeRevisionAuthor` rather than an id comparison so an
-  // identityless principal — an API key reaching this through the experiment's
-  // variation-values routes — cannot approve an authorless draft it may have
-  // created itself. Identical to an id comparison whenever both sides have one.
+  // `mayBeRevisionAuthor` rather than an id comparison, so an identityless
+  // principal cannot approve an authorless draft it may have created itself.
   const creatorId =
     revision.createdBy != null && "id" in revision.createdBy
       ? revision.createdBy.id
@@ -110,8 +99,8 @@ export async function submitFeatureRevisionReview({
   const blockSelfApproval = Array.isArray(requireReviews)
     ? !!getReviewSetting(requireReviews, feature)?.blockSelfApproval
     : false;
-  // The early, clear refusal. Re-applied inside the verdict's CAS against the row it
-  // writes, because this reads a copy the contributor list can outrun.
+  // Re-applied inside the verdict's CAS: this reads a copy the contributor
+  // list can outrun.
   if (review === "Approved" && blockSelfApproval) {
     const isSelfApproval = (revision.contributors ?? []).some(
       (id) => id === context.userId,

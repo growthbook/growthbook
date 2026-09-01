@@ -207,11 +207,7 @@ import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-ava
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
-/**
- * Which of the requested experiments manage a Feature Flag. Ownership lives on
- * the flag, so a list row cannot answer this from its own document; callers
- * pass the ids they are rendering rather than the whole list.
- */
+// Ownership lives on the flag, so a list row cannot answer this itself.
 export async function getManagedExperiments(
   req: AuthRequest<unknown, unknown, { ids?: string }>,
   res: Response<{ status: 200; managed: Record<string, string> }>,
@@ -3398,9 +3394,8 @@ export async function deleteExperiment(
     context.permissions.throwPermissionError();
   }
 
-  // Release the managed flag first. Without this it survives pointing at a
-  // deleted experiment, and every write path refuses it while the only eject
-  // route 404s — an unrecoverable state outside direct database access.
+  // Release the flag first, or it survives pointing at a deleted experiment
+  // with every write path refusing it and the eject route 404ing.
   await clearManagedMarkersForExperiment(context, experiment.id);
 
   const promises = [
@@ -4335,10 +4330,8 @@ export async function postExperimentFeatureValues(
 
   const featureObjects = await getFeaturesByIds(context, Object.keys(features));
 
-  // A managed flag is read only on the Feature Flag page, so the message below
-  // has nowhere to send its caller — this route is the only way to change its
-  // values, and review and publish are available from the experiment at any
-  // time. Every other update still stops at draft.
+  // A managed flag is read-only on the Feature Flag page, so the message below
+  // has nowhere to send its caller. Every other update still stops at draft.
   const allManaged =
     featureObjects.length > 0 &&
     featureObjects.every((f) => isManagedByExperiment(f, experiment.id));
@@ -4467,8 +4460,7 @@ export async function postExperimentFeatureValues(
       ? existingRevision
       : await getDraftRevision(context, feature, feature.version);
 
-    // Staged before the values so both land on the same draft and publish
-    // together — the values below are already expressed in the new type.
+    // Staged before the values so both land on one draft and publish together.
     const requestedType = features[feature.id].valueType;
     const managedHere = isManagedByExperiment(feature, experiment.id);
     if (requestedType && requestedType !== feature.valueType && !managedHere) {
@@ -4477,9 +4469,8 @@ export async function postExperimentFeatureValues(
       );
     }
     if (managedHere) {
-      // Control drives a managed flag's default value, so it is staged whenever
-      // either that or the type moves. A shared flag's default belongs to the
-      // flag, not to this experiment, so it is left alone.
+      // Control drives a managed flag's default. A shared flag's belongs to the
+      // flag, so it is left alone.
       revision = await stageManagedFeatureFields({
         context,
         feature,
@@ -4602,9 +4593,8 @@ export async function postExperimentLinkedFeatureEnvironments(
     throw new NotFoundError("Feature not found");
   }
 
-  // Nothing reaches the payload until the draft publishes, so this is
-  // edit-class. `updateExperimentRuleEnvironments` re-checks feature-side draft
-  // rights itself.
+  // Edit-class: nothing reaches the payload until the draft publishes, and the
+  // service re-checks feature-side draft rights itself.
   const { version } = await updateExperimentRuleEnvironments({
     context,
     experiment,

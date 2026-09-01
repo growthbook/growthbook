@@ -68,9 +68,8 @@ import {
   validateExperimentFeatureUpdates,
 } from "back-end/src/services/experiment-feature";
 
-// Guards live at the request entry points (Express routes and the agent
-// dispatcher), not the model layer: the model can't tell a direct user edit from
-// the experiment's own start/stop/holdout/ramp writes, which must keep working.
+// Guarded at the request entry points, not the model: the model can't tell a
+// user edit from the experiment's own start/stop/holdout/ramp writes.
 
 export function assertLoadedFeatureNotManaged(feature: FeatureInterface): void {
   if (!isManagedFeature(feature)) return;
@@ -92,11 +91,8 @@ export async function assertFeatureNotManaged(
 
 const MAX_KEY_ATTEMPTS = 10;
 
-/**
- * Best-effort removal of a flag that was inserted but never became usable.
- * Swallows its own failure — the caller is unwinding a create and the original
- * error is the one worth reporting.
- */
+// Best-effort cleanup of a half-created flag. Swallows its own failure: the
+// caller is unwinding a create, and that error is the one worth reporting.
 async function discardOrphanedManagedFlag(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -116,17 +112,8 @@ function isDuplicateKeyError(e: unknown): boolean {
   return (e as { code?: number } | null)?.code === 11000;
 }
 
-/**
- * Checks the value set a managed flag's single rule must carry and returns it
- * normalized. Its rule is locked afterwards, so a short or mismatched set is not
- * repairable except through the experiment — both create and update go through
- * here before writing anything.
- *
- * The return value matters: `validateFeatureValue` REPAIRS rather than rejects
- * for two of the four types — any non-`true`/`false` string becomes a boolean,
- * and malformed JSON is re-parsed leniently — so discarding it would store a
- * value the SDK reads differently than the caller meant.
- */
+// Use the return value: `validateFeatureValue` repairs rather than rejects for
+// booleans and JSON, so discarding it stores something the SDK reads differently.
 function normalizeManagedVariationValues({
   experiment,
   valueType,
@@ -167,12 +154,8 @@ type CreateManagedFeatureInput = {
   /** One value per experiment variation, in variation order. */
   variations: ExperimentRefVariation[];
   sparse?: boolean;
-  /**
-   * Create the flag under exactly this id instead of deriving one from the
-   * tracking key. A collision surfaces as a conflict instead of being suffixed
-   * away: the caller that passes this (adding a managed flag to an existing
-   * experiment) has UI to resolve it, whereas experiment creation has none.
-   */
+  // Exact id instead of one derived from the tracking key. Collisions conflict
+  // rather than being suffixed away — this caller has UI to resolve them.
   featureId?: string;
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
@@ -181,11 +164,8 @@ type CreateManagedFeatureInput = {
 /** Mirrors the charset `postFeatures` enforces, for ids a user typed. */
 const FEATURE_KEY_PATTERN = /^[a-zA-Z0-9_.:|-]+$/;
 
-/**
- * Ids in `linkedFeatures` that no longer resolve to a feature — left behind when
- * a flag is deleted out of band. Unfiltered on purpose: a feature the caller
- * cannot read still exists and is still linked.
- */
+// Linked ids that no longer resolve. Unfiltered on purpose: a feature the
+// caller cannot read still exists and is still linked.
 export async function staleLinkedFeatureIds(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -198,15 +178,8 @@ export async function staleLinkedFeatureIds(
   return stale;
 }
 
-/**
- * Whether this experiment can still adopt a managed flag. Managed mode owns the
- * experiment's whole delivery, so it can only be taken on while nothing else is
- * wired up and nothing is live yet.
- *
- * Counts linked features that actually exist rather than trusting the array: a
- * flag deleted out of band leaves its id behind, and that must not permanently
- * bar the experiment from adopting a new one.
- */
+// Managed mode owns the experiment's whole delivery, so it can only be adopted
+// while nothing else is wired up. Counts features that still exist, not ids.
 export async function managedFlagAdoptionBlocker(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -237,11 +210,8 @@ export type ManagedFlagKeyPlan = {
   derivedIdAvailable: boolean;
   /** True when sanitizing changed the key, so the two cannot match exactly. */
   sanitized: boolean;
-  /**
-   * A free key/id pair, offered only when `derivedId` is taken. Adopting it
-   * renames the experiment's tracking key so the two match character for
-   * character.
-   */
+  // Offered only when `derivedId` is taken; adopting it renames the tracking
+  // key so the two match exactly.
   suggestedPair: { trackingKey: string; featureId: string } | null;
   /** Set when the org's feature key format rejects `derivedId`. */
   regexError: string | null;
@@ -249,12 +219,8 @@ export type ManagedFlagKeyPlan = {
 
 const MAX_PAIR_SUGGESTIONS = 25;
 
-/**
- * What the adoption modal needs to describe the key situation before any write.
- * Availability is authoritative for the feature id (unique index) but advisory
- * for the tracking key: its uniqueness is not indexed and the lookup is
- * read-scoped, so a key held in a project the caller cannot see reads as free.
- */
+// Authoritative for the feature id (unique index) but advisory for the tracking
+// key, whose uniqueness is not indexed and whose lookup is read-scoped.
 export async function planManagedFlagKey({
   context,
   experiment,
@@ -305,11 +271,8 @@ export async function planManagedFlagKey({
   };
 }
 
-/**
- * Creates the flag disabled everywhere and stages its experiment-ref rule as a
- * draft; `linkFeatureToExperiment` puts the env toggles in that same draft, so
- * nothing serves until the experiment starts and publishes it.
- */
+// Creates the flag inert — disabled everywhere, rule and env toggles staged on
+// a draft — so nothing serves until the experiment starts and publishes it.
 export async function createManagedFeatureForExperiment({
   context,
   experiment,
@@ -370,11 +333,8 @@ export async function createManagedFeatureForExperiment({
     managedBy: { type: "experiment", experimentId: experiment.id },
   };
 
-  // Create alone: the flag is born inert (no rules, disabled everywhere), so
-  // nothing here reaches a payload. The rule, values and environment enablement
-  // land on the first draft; only a publish makes them serve. Seeded values are
-  // derived from variation keys, not authored — so this is create's own initial
-  // content, not an unchecked draft edit.
+  // Create authority alone: the flag is born inert, so nothing here reaches a
+  // payload and the seeded values are derived rather than authored.
   if (
     !context.permissions.canCreateFeature(
       baseFeature,
@@ -497,10 +457,7 @@ export async function createManagedFeatureForExperiment({
 
 const MAX_SOURCE_READ_ATTEMPTS = 3;
 
-/**
- * Null when there is nothing safe to copy — no managed source, or the source
- * kept changing while we read it. Callers seed a fresh flag instead of failing.
- */
+// Null when there is nothing safe to copy; callers seed a fresh flag instead.
 async function readManagedValuesForDuplicate({
   context,
   sourceExperiment,
@@ -521,8 +478,7 @@ async function readManagedValuesForDuplicate({
     );
     if (!before) return null;
 
-    // CAS on the REVISION, not the feature: getLinkedFeatureInfo reads values out
-    // of the revision, and updateRevision stamps only that document — comparing
+    // CAS on the revision, not the feature: only that document is stamped, so
     // feature.dateUpdated cannot see the edit this guard exists to catch.
     const draftBefore = await getActiveDraft(context, before);
 
@@ -556,11 +512,8 @@ async function readManagedValuesForDuplicate({
   return null;
 }
 
-/**
- * A managed draft goes straight into review — there is no separate "request
- * review" step to click. No-op when approvals aren't required for this flag, so
- * orgs without review land in plain `draft` and publish at experiment start.
- */
+// A managed draft goes straight into review; there is no separate request step.
+// No-op when approvals aren't required, so those land in plain `draft`.
 export async function requestReviewForManagedDraft({
   context,
   feature,
@@ -614,12 +567,8 @@ export async function requestReviewForManagedDraft({
   );
 }
 
-/**
- * Create the managed flag for a newly created experiment, copying the source's
- * type and values when it was duplicated from a managed one. A copy can fail
- * where a fresh flag won't (a value the schema now rejects), so it falls back
- * to seeded values rather than failing the create outright.
- */
+// Copies the source's type and values when duplicated from a managed experiment,
+// falling back to seeded values rather than failing the create outright.
 export async function createManagedFlagForNewExperiment({
   context,
   experiment,
@@ -694,11 +643,8 @@ export type ManagedFlagState = {
   } | null;
 };
 
-/**
- * The whole managed-flag picture in one read: what serves now, what is waiting,
- * and whether it can go live. Every action returns this so a caller never has
- * to stitch two requests together.
- */
+// The whole managed-flag picture in one read. Every action returns it, so a
+// caller never has to stitch two requests together.
 export async function getManagedFlagState(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -750,10 +696,8 @@ export async function getManagedFlagState(
           valueType: pendingValueType,
           status: pendingDraft.status,
           approvalRequired: pendingDraft.pendingApproval,
-          // Answers for THIS caller, bypass authority included — an admin who
-          // can publish an unapproved draft must not be told they cannot.
-          // Conflicts and rebases are deliberately out of scope for this
-          // surface, so they read as not publishable rather than offering a fix.
+          // Answers for THIS caller, bypass authority included. Conflicts and
+          // rebases are out of scope here, so they read as not publishable.
           canPublish:
             !pendingDraft.hasMergeConflict &&
             !pendingDraft.hasUnrelatedDraftChanges &&
@@ -769,11 +713,8 @@ export async function getManagedFlagState(
   };
 }
 
-/**
- * Takes on a managed flag for an experiment that has no implementation yet.
- * Shared by the internal route and the REST surface so the rename ordering and
- * its rollback stay in one place.
- */
+// Shared by the internal route and the REST surface, so the rename ordering and
+// its rollback stay in one place.
 export async function adoptManagedFlagForExperiment({
   context,
   experiment: startingExperiment,
@@ -874,37 +815,12 @@ export async function adoptManagedFlagForExperiment({
   return created;
 }
 
-/**
- * Stages new variation values on the managed flag. Appends to the open draft
- * when there is one and starts a fresh one otherwise, so a caller never has to
- * know whether an unpublished change is already waiting.
- *
- * No experiment-status gate, unlike `postExperimentFeatureValues`: that route
- * sends a running experiment to the Feature Flag page to edit values, which is
- * exactly what a managed flag forbids. Review and publish are available from the
- * experiment at any time, so staging is too.
- */
-/**
- * Stages the flag-level fields a managed flag's variation values imply, on the
- * same draft as the values themselves.
- *
- * The value type, when it moves: publishing it together with values expressed in
- * it is what stops a live flag briefly holding values that no longer read as its
- * type.
- *
- * The default value, which tracks CONTROL. A managed flag exists only to serve
- * this experiment, so control is its baseline: `createManagedFeatureForExperiment`
- * already seeds the default from control, and without this it would keep the
- * original value while control moved on — leaving whatever serves when the rule
- * does not match stale, and leaving sparse variation patches merging onto a
- * baseline nobody chose.
- *
- * A managed flag never carries a JSON schema or a backing Config — it is created
- * without either and locked against the routes that would add one — so there is
- * nothing type-specific left behind to clear.
- *
- * Returns the revision unchanged when neither field moved.
- */
+// Appends to the open draft or starts one. No experiment-status gate, unlike
+// `postExperimentFeatureValues`: a managed flag has no Feature Flag page to
+// send a running experiment to.
+// Stages the flag-level fields the values imply, on the same draft: the value
+// type when it moves, and the default value, which tracks control so sparse
+// patches never merge onto a baseline nobody chose.
 export async function stageManagedFeatureFields({
   context,
   feature,
@@ -1061,12 +977,8 @@ export async function updateManagedVariationValues({
   return { feature, version: revision.version };
 }
 
-/**
- * Publish the managed flag's open draft, merging server-side.
- * `postFeaturePublish` expects a caller-supplied `mergeResultSerialized`
- * computed from its diff view; the managed surface has none, so reusing that
- * controller made every publish fail its "something changed" check.
- */
+// Merges server-side: `postFeaturePublish` wants a caller-supplied merge result
+// from its diff view, which this surface has none of.
 export async function publishManagedDraft({
   context,
   experiment,
@@ -1154,11 +1066,8 @@ export async function ejectManagedFeature({
   return clearManagedMarker(context, feature);
 }
 
-/**
- * Clears the marker on every flag this experiment owns, including ones the
- * caller cannot read: experiment deletion must never leave a flag pointing at
- * an experiment that no longer exists.
- */
+// Includes flags the caller cannot read: deletion must never leave one pointing
+// at an experiment that no longer exists.
 export async function clearManagedMarkersForExperiment(
   context: ReqContext | ApiReqContext,
   experimentId: string,
@@ -1179,11 +1088,7 @@ export async function clearManagedMarkersForExperiment(
   }
 }
 
-/**
- * The marker write with no authority check. Callers that already established
- * their own authority use this — notably experiment deletion, which must never
- * be blocked into leaving an unrecoverable flag behind.
- */
+// No authority check; for callers that established their own, notably deletion.
 async function clearManagedMarker(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1196,10 +1101,7 @@ function isMutatingMethod(method: string): boolean {
   return !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
 }
 
-/**
- * POSTs that compute a response without touching the flag. Blocking these would
- * break the flag's own page (the value simulator) while protecting nothing.
- */
+// POSTs that compute a response without touching the flag.
 const READ_ONLY_POST_PATHS = [/\/eval$/];
 
 /** Mounted ahead of the route table so later feature routes are covered too. */
@@ -1227,18 +1129,9 @@ export async function getManagedFeatureForExperiment(
   return null;
 }
 
-/**
- * Rewrites `/experiment/:id/managed-flag/<action>` into the `(id, version)` the
- * feature controllers already take, so they're reused verbatim.
- *
- * The ownership re-check is load-bearing: without it this route would drive any
- * feature around the lockdown.
- *
- * `allowExplicitVersion` lets a route address a specific revision by body
- * `version` instead of the active draft. Only the comment route uses it: a
- * conversation stays editable after its draft publishes, whereas a review action
- * must always land on the draft under review.
- */
+// Rewrites the managed-flag path into the `(id, version)` the feature
+// controllers take. The ownership re-check is load-bearing: without it this
+// route would drive any feature around the lockdown.
 function makeResolveManagedFlagParams({
   allowExplicitVersion = false,
 }: { allowExplicitVersion?: boolean } = {}): RequestHandler {
@@ -1294,11 +1187,7 @@ export const resolveManagedFlagCommentParams = makeResolveManagedFlagParams({
   allowExplicitVersion: true,
 });
 
-/**
- * Guards both ways a route can be invoked: the Express `handler` and the agent
- * dispatcher's `rawHandler`. Middleware alone would miss the dispatcher, which
- * never runs it.
- */
+// Guards both entry points; middleware alone would miss the agent dispatcher.
 export function guardManagedFeatureRoutes(
   routes: OpenApiRoute[],
 ): OpenApiRoute[] {
