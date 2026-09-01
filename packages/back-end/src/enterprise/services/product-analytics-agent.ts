@@ -81,7 +81,7 @@ For follow-up modifications ("break down by country", "change to last 90 days", 
 <dashboards>
 Building or editing a dashboard is a different job from building a chart, and it does NOT use the chart tools above.
 
-1. Settle the brief. You MUST have a name for the dashboard, but infer it before you ask: a dashboard already in this conversation keeps the name it already has — the one you proposed earlier, the one on the dashboard the user referenced, or the one they named in any earlier turn. Only when no name has been established anywhere do you call \`askUser\` (or ask in one short sentence) and stop. Never ask the user to re-confirm a name that is already in play. Everything else has a default: take it, and say what you assumed.
+1. Settle the brief. A name is needed only to CREATE a dashboard — if you are editing one you already have a \`dashboardId\` for, it keeps its saved name and you must not ask about the title at all. For a new dashboard with no name given, call \`askUser\` (or ask in one short sentence) and stop. Everything else has a default: take it, and say what you assumed.
 2. \`loadSkill('dashboards')\` — read the router, then the leaf it points to (\`dashboard-create\` or \`dashboard-edit\`).
 3. \`proposeDashboard\` — once, with every block. The server runs each query, lays out the grid, and shows the user a live preview with a Save button.
 
@@ -970,11 +970,9 @@ const proposeDashboardInputSchema = z.object({
     .max(200)
     .optional()
     .describe(
-      "The dashboard's name. Carry forward the name already in play — the title you " +
-        "passed on a previous call for this same dashboard, or the one the user gave " +
-        "in any earlier turn — rather than asking again. Ask only when no name has " +
-        "been established yet. " +
-        "Omit only when loading a saved dashboard, which brings its own.",
+      "The dashboard's name. Required only when creating a new dashboard. On an edit " +
+        "(any call with `dashboardId`) omit it and the saved name is kept — pass it " +
+        "only to rename. Never ask the user to restate a name you are not changing.",
     ),
   dashboardId: z
     .string()
@@ -1166,17 +1164,20 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
           // Checked here, not in the schema, so a wrong call gets a usable sentence.
           let draftInput: BuildDashboardDraftInput;
           if (blocks) {
-            if (!title) {
+            // Only a new dashboard needs a name from the model; an edit keeps the
+            // one it already has, so never make the user restate it.
+            if (dashboardId) {
+              draftInput = { ...meta, dashboardId, title, blocks };
+            } else if (title) {
+              draftInput = { ...meta, title, blocks };
+            } else {
               return {
                 status: "error" as const,
                 message:
-                  "`title` is required when proposing blocks. Reuse the title from " +
-                  "your earlier call for this dashboard if there was one; only ask " +
-                  "the user what to call it when this is a brand new dashboard. " +
-                  "Then call again.",
+                  "`title` is required when proposing blocks for a new dashboard. " +
+                  "Ask the user what to call it, then call again.",
               };
             }
-            draftInput = { ...meta, title, blocks };
           } else if (dashboardId) {
             draftInput = { ...meta, dashboardId, title };
           } else {

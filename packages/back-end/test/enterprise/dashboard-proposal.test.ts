@@ -595,6 +595,36 @@ describe("buildDashboardDraft — revising a saved dashboard", () => {
     expect(draft.blocks[0]["layout"]).toMatchObject({ x: 0, y: 0 });
     expect(draft.blocks[1]["layout"]).toMatchObject({ x: 8, y: 0 });
   });
+
+  // Requiring a title on an edit made the agent interrogate the user for a name
+  // it could not see, having only the id.
+  it("keeps the saved name when the edit does not carry one", async () => {
+    const ctx = ctxWith([savedBlock("Revenue", { x: 0, y: 0, w: 24, h: 8 })]);
+
+    const { draft } = await buildDashboardDraft(
+      ctx,
+      input([chartBlock("Revenue")], {
+        dashboardId: "dash_abc",
+        title: undefined,
+      }),
+    );
+
+    expect(draft.title).toBe("Growth KPIs");
+  });
+
+  it("still renames when the edit carries a title", async () => {
+    const ctx = ctxWith([savedBlock("Revenue", { x: 0, y: 0, w: 24, h: 8 })]);
+
+    const { draft } = await buildDashboardDraft(
+      ctx,
+      input([chartBlock("Revenue")], {
+        dashboardId: "dash_abc",
+        title: "Renamed",
+      }),
+    );
+
+    expect(draft.title).toBe("Renamed");
+  });
 });
 
 // An id that resolves to nothing used to reach the draft, binding the preview to

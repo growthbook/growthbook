@@ -30,10 +30,15 @@ export type DashboardDraft = DashboardDraftOf<DraftBlock>;
 
 type DashboardDraftMeta = Omit<DashboardDraftOf<unknown>, "blocks" | "title">;
 
-/** Blocks to propose, or a `dashboardId` to load as-is. */
+/**
+ * Blocks to propose, or a `dashboardId` to load as-is. `title` is required only
+ * for a new dashboard: an edit already has one saved, so asking the model to
+ * repeat it back just makes it interrogate the user for a name it can't see.
+ */
 export type BuildDashboardDraftInput = DashboardDraftMeta &
   (
     | { title: string; blocks: ProposeDashboardBlock[] }
+    | { dashboardId: string; title?: string; blocks: ProposeDashboardBlock[] }
     | { dashboardId: string; title?: string; blocks?: undefined }
   );
 
@@ -322,7 +327,8 @@ export async function buildDashboardDraft(
   return {
     draft: {
       ...(input.dashboardId ? { dashboardId: input.dashboardId } : {}),
-      title: input.title,
+      // An edit keeps the saved name unless the model explicitly renames it.
+      title: input.title ?? saved?.title ?? "",
       // Absent and `[]` ("every project") mean different things to the preview.
       ...(input.projects ? { projects: input.projects } : {}),
       ...(input.globalControls ? { globalControls: input.globalControls } : {}),
