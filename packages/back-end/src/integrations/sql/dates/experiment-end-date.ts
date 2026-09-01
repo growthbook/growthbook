@@ -3,17 +3,15 @@ import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 export function getExperimentEndDate(
   settings: Pick<ExperimentSnapshotSettings, "skipPartialData" | "endDate">,
   conversionWindowHours: number,
-  // Known-complete data horizon. Defaults to now (rescanning raw
-  // events). Incremental exploratory passes the last overall snapshot's
-  // dateCreated so a unit whose window extends past the cached data is
-  // never admitted.
+  // For Incremental Exploratory queries, we need to know when the last update
+  // for the incremental tables happened, so we ensure that we use the same cutoff
+  // data as the overall results did.
+  // Otherwise the exploratory could include more units than the overall result
   asOf: Date = new Date(),
 ): Date {
   // Only include users who entered the experiment before this timestamp
   // If we need to wait until users have had a chance to fully convert
   if (settings.skipPartialData) {
-    // Elapsed time, not setHours: sub-hour windows (1 minute, 30 minutes)
-    // are first-class in the UI and API, and setHours integer-truncates.
     const conversionWindowEndDate = new Date(
       asOf.getTime() - conversionWindowHours * 3600 * 1000,
     );

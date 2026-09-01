@@ -134,11 +134,9 @@ export function getIncrementalRefreshMetricSources({
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
 }): MetricSourceGroups[] {
-  // Apply overrides once so the group key, cache insert, and read-time
-  // cutoff share the same conversion window. Query builders re-apply
-  // idempotently; this only removes the raw-vs-overridden split between
-  // new and existing buckets. TODO(overrides): hoist to the start of
-  // analysis so query builders can stop re-applying.
+  // Apply overrides once so grouping, cache insert, and the read-time cutoff
+  // all use the same values.
+  // TODO(overrides): hoist to the start of analysis so query builders can stop re-applying.
   const overriddenMetrics = metrics.map((metric) => {
     const clone = cloneDeep(metric);
     applyMetricOverrides(clone, snapshotSettings);
@@ -148,10 +146,8 @@ export function getIncrementalRefreshMetricSources({
   // Fan-out determines each metric's fact tables; this only chunks their caches.
   const fanOut = planMetricFanOut(overriddenMetrics);
 
-  /**
-   * One cache per fact table (`_qtile` for quantiles). Conversion-window
-   * splits happen at read time, not as extra physical caches.
-   */
+  // One cache per table (except quantiles which have their own cache).
+  // Mirrors experimentQueries grouping rules
   const getMetricGroupKey = (
     factTableId: string,
     metric: FactMetricInterface,
@@ -1018,13 +1014,11 @@ const startExperimentIncrementalRefreshQueries = async (
       covariateInsertQuery: insertMetricCovariateDataQuery ?? undefined,
     });
 
-    // Schedule same-FT statistics queries for every metric in this group
+    // Schedule a same-FT statistics query for every metric in this group
     // whose numerator and denominator both live in this FT. Caches that
     // only host one half of a cross-FT ratio skip this — those metrics'
     // stats are computed in the cross-FT pair pass below.
-    //
-    // skipPartialData: one stats query per conversion window over the
-    // shared table, each with its own units cutoff.
+    // skipPartialData: one stats query per conversion window over the shared table.
     if (sameFtMetrics.length > 0) {
       const partitions = partitionMetricsByConversionWindow(
         sameFtMetrics,
@@ -1032,10 +1026,8 @@ const startExperimentIncrementalRefreshQueries = async (
         activationMetric,
       );
       for (const partition of partitions) {
-        // Quantiles only run overall stats (no pre-computed dimensions),
-        // matching the standard query runner. Recomputed per partition so a
-        // mixed quantile/mean group disables precomputation only on the
-        // quantile slice.
+        // Quantiles only run overall stats. Recheck per partition so a mixed
+        // quantile/mean group only disables precomputation on the quantile slice.
         const runOverallQuantileAnalysis =
           partition.metrics.some(quantileMetricType);
         const dimensionsForPrecomputation =
@@ -1045,7 +1037,7 @@ const startExperimentIncrementalRefreshQueries = async (
             : eligibleDimensionsWithSlicesUnderMaxCells;
 
         const statisticsQuery = await startQuery({
-          name: `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.windowKey)}`,
+          name: `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.window?.key)}`,
           displayTitle: `Compute Statistics ${sourceName}`,
           query: integration.getIncrementalRefreshStatisticsQuery({
             settings: snapshotSettings,

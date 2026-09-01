@@ -525,12 +525,8 @@ export interface IncrementalRefreshStatisticsQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
-  /**
-   * Known-complete data horizon for skipPartialData. Defaults to now
-   * inside getExperimentEndDate. Exploratory passes the last overall
-   * snapshot's dateCreated (sourceSnapshotDateCreated) so a stale cache
-   * does not admit units whose window extends past cached data.
-   */
+  // skipPartialData cutoff is relative to this (defaults to now). Important for Incremental Exploratory
+  // which passes the last overall snapshot's dateCreated.
   asOf?: Date;
 }
 

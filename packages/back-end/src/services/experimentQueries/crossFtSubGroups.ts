@@ -1,21 +1,17 @@
 import type { CrossFtRatioMetric, MetricFanOut } from "./planMetricFanOut";
 
-/**
- * Minimal shape of a metric source group needed to resolve a cross-FT metric
- * to its host groups. We accept a small structural type rather than importing
- * `MetricSourceGroups` to keep this helper agnostic of the runner module.
- */
+// Minimal shape of a metric source group needed to resolve a cross-FT metric
+// to its host groups. We accept a small structural type rather than importing
+// `MetricSourceGroups` to keep this helper agnostic of the runner module.
 export interface CrossFtMetricSourceGroupRef {
   groupId: string;
   factTableId: string;
   metrics: { id: string }[];
 }
 
-/**
- * A pipeline is a per-group runner-side object. We only need to read the
- * group id and fact table id to canonicalize the cross-FT pair; downstream
- * orchestration uses the pipeline value as opaque.
- */
+// A pipeline is a per-group runner-side object. We only need to read the
+// group id and fact table id to canonicalize the cross-FT pair; downstream
+// orchestration uses the pipeline value as opaque.
 export interface CrossFtPipelineRef {
   group: { groupId: string; factTableId: string };
 }
@@ -23,37 +19,29 @@ export interface CrossFtPipelineRef {
 export interface CrossFtSubGroup<P> {
   pipelines: [P, P];
   metrics: CrossFtRatioMetric[];
-  /**
-   * Null when `getWindowKey` is absent or returns null. Otherwise the
-   * minutes key (`"90m"`) used as `_cw90m` on the stats query name so
-   * mixed-window pairs over the same two caches stay unique.
-   */
   windowKey: string | null;
 }
 
-/**
- * Build the set of cross-FT sub-groups for a fan-out. Each sub-group is keyed
- * on the unordered pair of cache pipelines and collects every cross-FT ratio
- * metric that needs those two caches joined — regardless of which side is
- * numerator vs denominator. This lets `A/B` and `B/A` ratio metrics share a
- * single joined stats query.
- *
- * When `getWindowKey` returns a non-null value, the key is extended with that
- * window so mixed-window metrics sharing the same two caches split into one
- * stats query per window. Absent or null is the pair-only key.
- *
- * Source-0 privilege (CUPED / event-quantile threshold) is irrelevant for
- * cross-FT ratio metrics, so collapsing orientations is safe. The metric's
- * own column refs carry orientation into the stats SQL.
- *
- * `onMissingPipeline` controls behavior when a metric's numerator or
- * denominator cache hasn't been built yet:
- *   - `"throw"` — main runner: the fan-out and per-FT pass both materialize
- *     these caches, so a missing pipeline is a bug.
- *   - `"skip"` — exploratory runner: we may be asked to analyze a cross-FT
- *     metric whose first main run hasn't completed yet; soft-skip and let
- *     the next main run catch up.
- */
+// Build the set of cross-FT sub-groups for a fan-out. Each sub-group is keyed
+// on the unordered pair of cache pipelines and collects every cross-FT ratio
+// metric that needs those two caches joined — regardless of which side is
+// numerator vs denominator. This lets `A/B` and `B/A` ratio metrics share a
+// single joined stats query.
+//
+// When getWindowKey is set, mixed-window metrics over the same two caches
+// split into one stats query per window.
+//
+// Source-0 privilege (CUPED / event-quantile threshold) is irrelevant for
+// cross-FT ratio metrics, so collapsing orientations is safe. The metric's
+// own column refs carry orientation into the stats SQL.
+//
+// `onMissingPipeline` controls behavior when a metric's numerator or
+// denominator cache hasn't been built yet:
+//   - `"throw"` — main runner: the fan-out and per-FT pass both materialize
+//     these caches, so a missing pipeline is a bug.
+//   - `"skip"` — exploratory runner: we may be asked to analyze a cross-FT
+//     metric whose first main run hasn't completed yet; soft-skip and let
+//     the next main run catch up.
 export function buildCrossFtSubGroups<P extends CrossFtPipelineRef>({
   crossFtPairs,
   metricSourceGroups,

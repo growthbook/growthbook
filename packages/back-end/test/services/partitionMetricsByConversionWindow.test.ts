@@ -114,8 +114,7 @@ describe("partitionMetricsByConversionWindow", () => {
       null,
     );
     expect(partitions).toHaveLength(1);
-    expect(partitions[0].windowHours).toBeNull();
-    expect(partitions[0].windowKey).toBeNull();
+    expect(partitions[0].window).toBeNull();
     expect(partitions[0].metrics.map((m) => m.id)).toEqual([
       "fact_short_window",
       "fact_long_window",
@@ -130,8 +129,10 @@ describe("partitionMetricsByConversionWindow", () => {
       null,
     );
     expect(partitions).toHaveLength(2);
-    expect(partitions.map((p) => p.windowHours)).toEqual([24, 96]);
-    expect(partitions.map((p) => p.windowKey)).toEqual(["1440m", "5760m"]);
+    expect(partitions.map((p) => p.window)).toEqual([
+      { hours: 24, key: "1440m" },
+      { hours: 96, key: "5760m" },
+    ]);
     expect(partitions[0].metrics.map((m) => m.id)).toEqual([
       "fact_short_window",
     ]);
@@ -151,8 +152,7 @@ describe("partitionMetricsByConversionWindow", () => {
       null,
     );
     expect(partitions).toHaveLength(1);
-    expect(partitions[0].windowHours).toBe(96);
-    expect(partitions[0].windowKey).toBe("5760m");
+    expect(partitions[0].window).toEqual({ hours: 96, key: "5760m" });
     expect(partitions[0].metrics.map((m) => m.id).sort()).toEqual([
       "fact_long_window",
       "fact_long_window_2",
@@ -166,11 +166,9 @@ describe("partitionMetricsByConversionWindow", () => {
       null,
     );
     expect(partitions).toHaveLength(2);
-    expect(partitions[0].windowHours).toBe(0.5);
-    expect(partitions[0].windowKey).toBe("30m");
+    expect(partitions[0].window).toEqual({ hours: 0.5, key: "30m" });
     expect(partitions[0].metrics.map((m) => m.id)).toEqual(["fact_half_hour"]);
-    expect(partitions[1].windowHours).toBe(24);
-    expect(partitions[1].windowKey).toBe("1440m");
+    expect(partitions[1].window).toEqual({ hours: 24, key: "1440m" });
   });
 
   it("matches the stats CTE window for a funnel metric", () => {
@@ -190,7 +188,7 @@ describe("partitionMetricsByConversionWindow", () => {
     expect(expected).toBe(2);
     const partitions = partitionMetricsByConversionWindow([funnel], true, null);
     expect(partitions).toHaveLength(1);
-    expect(partitions[0].windowHours).toBe(expected);
+    expect(partitions[0].window?.hours).toBe(expected);
     expect(getMetricConversionWindowHours(funnel, null)).toBe(expected);
   });
 
@@ -216,11 +214,11 @@ describe("partitionMetricsByConversionWindow", () => {
       true,
       activation,
     );
-    expect(partitions.map((p) => p.windowHours)).toEqual([26, 98]);
-    expect(partitions[0].windowHours).toBe(
+    expect(partitions.map((p) => p.window?.hours)).toEqual([26, 98]);
+    expect(partitions[0].window?.hours).toBe(
       getMaxHoursToConvert(false, [shortWindowMetric], activation),
     );
-    expect(partitions[1].windowHours).toBe(
+    expect(partitions[1].window?.hours).toBe(
       getMaxHoursToConvert(false, [longWindowMetric], activation),
     );
   });
@@ -236,11 +234,13 @@ describe("partitionMetricsByConversionWindow", () => {
       true,
       null,
     );
-    expect(forward.map((p) => p.windowHours)).toEqual([0.5, 24, 96]);
-    expect(reverse.map((p) => p.windowHours)).toEqual([0.5, 24, 96]);
-    expect(forward.map((p) => p.windowKey)).toEqual(["30m", "1440m", "5760m"]);
-    expect(reverse.map((p) => p.windowKey)).toEqual(["30m", "1440m", "5760m"]);
-    expect(new Set(forward.map((p) => p.windowKey)).size).toBe(3);
+    expect(forward.map((p) => p.window)).toEqual([
+      { hours: 0.5, key: "30m" },
+      { hours: 24, key: "1440m" },
+      { hours: 96, key: "5760m" },
+    ]);
+    expect(reverse.map((p) => p.window)).toEqual(forward.map((p) => p.window));
+    expect(new Set(forward.map((p) => p.window?.key)).size).toBe(3);
   });
 
   it("does not emit empty partitions", () => {
@@ -249,8 +249,7 @@ describe("partitionMetricsByConversionWindow", () => {
 });
 
 describe("getOverriddenMetricConversionWindowHours", () => {
-  // A metricSettings override shrinking fact_long_window (raw 96h) to a
-  // 24h conversion window, mirroring what the snapshot pipeline persists.
+  // Shrink fact_long_window from 96h to 24h via metricSettings.
   const shortWindowOverride: MetricForSnapshot = {
     id: "fact_long_window",
     computedSettings: {
@@ -272,8 +271,6 @@ describe("getOverriddenMetricConversionWindowHours", () => {
   };
 
   it("returns the overridden window, matching what the stats CTE asserts on", () => {
-    // Raw window is 96h; the override must win, or the cross-FT grouping key
-    // disagrees with getIncrementalRefreshStatisticsQuery's assertion.
     expect(getMetricConversionWindowHours(longWindowMetric, null)).toBe(96);
     expect(
       getOverriddenMetricConversionWindowHours(longWindowMetric, null, {

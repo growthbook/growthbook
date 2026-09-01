@@ -1662,9 +1662,8 @@ export default abstract class SqlIntegration
     const lastMaxTimestampBinds =
       params.lastMaxTimestamp && params.lastMaxTimestamp > settings.startDate;
 
-    // Always collect every exposure up to the phase end
-    // For conversion window / skipPartialData we apply it during
-    // read time in the statistics query
+    // For the units table, we collect every exposure up to the phase end.
+    // conversionWindow / skipPartialData is applied at read time in the statistics query.
     const endDate = getExperimentEndDate(settings, 0);
 
     return format(
@@ -2371,11 +2370,8 @@ export default abstract class SqlIntegration
       }
     }
 
-    // skipPartialData is a read-time units filter (caches already apply each
-    // metric's window per event at insert). Cutoff is the longest window in
-    // this slice — callers group by window via
-    // partitionMetricsByConversionWindow — and is anchored to `asOf`
-    // (default now) so exploratory can pass the last overall refresh time.
+    // Filter units whose conversion window is still open. Callers partition
+    // by window so this is the longest cutoff in the slice.
     const maxHoursToConvert = Math.max(
       0,
       ...metricData.map((m) => m.maxHoursToConvert),

@@ -261,8 +261,6 @@ describe("incremental refresh metric grouping with skipPartialData", () => {
   });
 
   it("does not encode a sub-hour window in the group key", () => {
-    // Group key becomes a warehouse table identifier, so a 30-minute
-    // window (0.5 hours) must not leak a "." or minutes token into it.
     const halfHourMetric = factMetricFactory.build({
       id: "fact_half_hour",
       metricType: "mean",

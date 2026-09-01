@@ -61,12 +61,9 @@ export type ExperimentIncrementalRefreshExploratoryQueryParams = {
   experimentId: string;
   experimentQueryMetadata: ExperimentQueryMetadata | null;
   queryParentId: string;
-  // Incremental Refresh specific
+  /** When the incremental refresh started. */
   incrementalRefreshStartTime: Date;
-  /**
-   * Last overall snapshot dateCreated. Anchors skipPartialData so a stale
-   * cache does not admit units whose window extends past cached data.
-   */
+  /** The date to use for units date so we don't include units past the last overall update. Needed for exploratory incremental. */
   asOf?: Date;
 };
 
@@ -198,10 +195,8 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   interface ExploratoryPipeline {
     group: (typeof metricSourceGroups)[number];
     tableFullName: string;
-    /**
-     * Optional covariate cache, populated when at least one metric in the
-     * group is regression-adjusted (same-FT or cross-FT).
-     */
+    // Optional covariate cache, populated when at least one metric in the
+    // group is regression-adjusted (same-FT or cross-FT).
     covariateTableFullName?: string;
   }
   const pipelineByGroupId = new Map<string, ExploratoryPipeline>();
@@ -258,8 +253,8 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     // in case same fact table is split across multiple sources
     const sourceName = factTable ? `(${factTable.name})` : "";
 
-    // One stats query per conversion window over the shared table when
-    // skipPartialData is on (the cache itself stays window-heterogeneous).
+    // Mainly for skipPartialData / conversionWindow
+    // We partition the stats query by conversion window over the same shared table.
     const partitions = partitionMetricsByConversionWindow(
       sameFtMetrics,
       snapshotSettings.skipPartialData,
@@ -267,7 +262,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     );
     for (const partition of partitions) {
       const statisticsQuery = await startQuery({
-        name: `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.windowKey)}`,
+        name: `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.window?.key)}`,
         displayTitle: `Compute Statistics ${sourceName}`,
         query: integration.getIncrementalRefreshStatisticsQuery({
           settings: snapshotSettings,
