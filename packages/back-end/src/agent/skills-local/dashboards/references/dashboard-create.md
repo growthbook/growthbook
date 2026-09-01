@@ -9,8 +9,7 @@ Settle the brief, find the metrics, then hand the whole thing to
 `proposeDashboard` in one call. It runs every query, lays out the grid, and shows
 the user a live preview with a Save button.
 
-You do not run the charts and you do not save the dashboard. Both are handled for
-you.
+Running the charts and saving the dashboard are both handled for you.
 
 ## Workflow
 
@@ -20,8 +19,8 @@ you.
    a `projects` array. These are the two things the user cannot fix from the
    preview — a saved dashboard has to be edited by hand to be renamed or moved —
    so settle them before you build.
-   - **Name:** if the user hasn't given one, ask. Do not invent one and do not
-     guess one from the metrics.
+   - **Name:** use the user's own words for it, and ask when they have given
+     none.
    - **Project:** `GET /api/v1/projects`. None or one → pass `[]` or that id
      without asking. Two or more and the user hasn't named one → ask. `[]` means
      every project.
@@ -32,8 +31,8 @@ you.
 3. **Settle the rest of the brief.** Pick an archetype (`loadSkill('dashboards')`
    for the archetype table and the ask budget) and fill the slots. Everything
    else has a default: take it, and say what you assumed in your reply. Beyond
-   the name and project, **at most one more `askUser`**. Sharing and auto-refresh
-   are adjustable in the preview, so never ask about those.
+   the name and project, **at most one more `askUser`**. Leave sharing and
+   auto-refresh at their defaults — both are adjustable in the preview.
 
 4. **Find the metrics** with the `search` tool — the same one you use for a
    one-off chart, so nothing here is dashboard-specific.
@@ -82,8 +81,8 @@ you.
    ```
 
 7. **Stop.** One short sentence naming what is on the dashboard, plus any
-   assumption you made and any block the tool reported as dropped. Do not
-   describe the layout tile by tile — the user is looking at it.
+   assumption you made and any block the tool reported as dropped. The user is
+   looking at the layout, so that sentence is all they need.
 
 <datasource_selection>
 A datasource scopes which metrics and fact tables are visible. Pick one before
@@ -95,7 +94,7 @@ line, use that id — it is the user's current selection. Otherwise:
 1. `GET /api/v1/data-sources`
 2. Decide:
    - 0 → tell the user no datasource is configured and stop.
-   - 1 → use it, and mention which one. Do not ask.
+   - 1 → use it and mention which one, no question needed.
    - 2+ and the user named one → use that one.
    - 2+ and ambiguous → `askUser` with one option per datasource (`id` =
      datasource id, `label` = its name), then end the turn.
@@ -123,15 +122,15 @@ warranted:
 }
 ```
 
-One opening line on what the dashboard is for, then one bullet per chart naming
-it and saying what to read from it. Keep each bullet to a line. Do not restate
-the timeframe per bullet — the filter bar already shows it — and do not add
-section headings, dividers, or a second block for a later group of charts.
+The whole legend is one opening line on what the dashboard is for, then one
+bullet per chart naming it and saying what to read from it — one line each, and
+the filter bar already shows the timeframe.
 
-Do **not** send `explorerAnalysisId`, `layout`, `snapshotId`, or
-`globalControlSettings`. The analysis ids come from running the queries, the
-layout comes from the packer, and blocks are enrolled in the dashboard filter bar
-automatically. Sending them is rejected.
+Send exactly these fields on a block: `type`, `title`, `description`, `sizeHint`,
+and (for chart blocks) `config`. The server supplies the rest —
+`explorerAnalysisId` from running the queries, `layout` from the packer,
+`snapshotId`, and `globalControlSettings` from enrolling the block in the filter
+bar — and rejects a block that carries them.
 
 ### Chart blocks
 
@@ -143,25 +142,27 @@ The same exploration config you would pass to `runExploration`, and the schema
 summary in your system prompt is authoritative for it. Two additions:
 
 - `funnel` dataset: `{ type: "funnel", unit, steps: [{ name, factTableId, rowFilters: [], optional: false }], yAxisScale?: "count"|"percent" }`
-- `"last14Days"` is **not** a valid `predefined` — use
-  `{ predefined: "customLookback", lookbackValue: 14, lookbackUnit: "day" }`.
+- `predefined` accepts exactly `today`, `yesterday`, `last7Days`, `last30Days`,
+  `last90Days`, `last12Months`, `lastCalendarYear`, `customLookback`, and
+  `customDateRange`. Any other window goes through `customLookback`, e.g. 14 days
+  is `{ predefined: "customLookback", lookbackValue: 14, lookbackUnit: "day" }`.
+  `lookbackUnit` is `hour`, `day`, `week`, or `month`.
   </config_schema>
 
 <chart_rules>
 
-- `bigNumber` takes exactly 1 value and 0 dimensions. On a dashboard it is the
-  right choice for a KPI tile — unlike a one-off chart request, where you would
-  avoid it.
+- `bigNumber` takes exactly 1 value and 0 dimensions, and is the right choice for
+  a KPI tile on a dashboard.
 - Default to `line` for trends and `bar` for breakdowns.
 - Max 2 dimensions per chart, including the date dimension. If a dataset has more
   than one value, max 1 dimension.
-- Do not add a breakdown dimension unless the user asked to split by something.
+- Add a breakdown dimension when the user asks to split by something.
 - Follow the `unitNote` from the columns endpoint: for metrics, set `unit` to
   `userIdTypes[0]` for mean/proportion/retention/dailyParticipation metrics and
   `null` for ratio/quantile; `denominatorUnit` is always `null`. For fact tables,
   `unit_count` takes a unit and `count`/`sum` take `null`.
-- The one-chart-per-turn rule does **not** apply here. A dashboard has one chart
-  per tile and `proposeDashboard` runs them all in one call.
+- A dashboard has one chart per tile, and `proposeDashboard` runs every one of
+  them in a single call. The one-chart-per-turn rule is for one-off charts.
   </chart_rules>
 
 <layout>
@@ -185,12 +186,13 @@ The `dashboards` skill carries the shared rules. On top of those:
 
 - **One `proposeDashboard` call per turn**, with the complete block list. To
   revise, call it again with the full revised list — it replaces the proposal.
-  Still no `dashboardId`: nothing exists until the user saves, and sending one
-  binds the preview to a dashboard that isn't there.
+- **Omit `dashboardId` here.** Nothing exists until the user saves, so an id
+  would bind the preview to a dashboard that is not there. `dashboard-edit`
+  is where ids belong.
 - **Stop at one question** beyond the name-and-project one. Then build, and
   state your assumptions.
-- If the tool reports `droppedBlocks`, say which tiles are missing and why — do
-  not present a partial dashboard as complete.
+- When the tool reports `droppedBlocks`, name the missing tiles and say why, so
+  what the user sees is described as the partial dashboard it is.
 
 ## Endpoints and tools used
 

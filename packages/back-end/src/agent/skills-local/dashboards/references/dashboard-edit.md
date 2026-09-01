@@ -14,28 +14,34 @@ filters there, but adding, removing, or reconfiguring a chart is a prompt.
 
 ## Workflow
 
-If you have no `proposeDashboard` tool you are on the site-wide panel, and none
-of this applies — hand off with `openAnalyticsChat` as the `dashboards` router
-says, and stop.
+Check for the `proposeDashboard` tool first. Its absence means you are on the
+site-wide panel, where the rest of this file does not apply: hand off with
+`openAnalyticsChat` as the `dashboards` router says, and stop.
 
 Note the split: **loading** a dashboard is one call and costs nothing, while
 **changing** one re-runs every chart on it. Prefer loading when that is all they
 asked for.
 
-1. **Resolve the dashboard.** In order of authority:
-   - An `@`-mention. A `[Referenced by the user: Growth KPIs (dashboard: dash_abc)]`
-     line is the user pointing at exactly the dashboard they mean — take that id
-     and skip the rest of this step. Do not list or search to second-guess it.
-   - Otherwise, list them:
+1. **Resolve the dashboard.** Take the first of these that applies and move on to
+   step 2:
+   - **An `@`-mention in the latest message.** A
+     `[Referenced by the user: Growth KPIs (dashboard: dash_abc)]` line is the
+     user pointing at exactly the dashboard they mean. Use that id as given; it
+     outranks everything below, because a fresh mention means they switched.
+   - **The one already in play.** Once this conversation has loaded, proposed, or
+     edited a dashboard, every follow-up is about that one: take its id from the
+     newest `proposeDashboard` draft. "Remove the Scaled Impact tile" and "make
+     it 90 days" are about the dashboard on screen, so you already know which
+     dashboard it is and whether it is an update.
+   - **A list, when the conversation has neither.**
 
      ```json
      { "method": "GET", "path": "/api/v1/dashboards" }
      ```
 
-     If several match what the user described, `askUser` with one option per
-     dashboard.
+     One clear match → use it. Several → `askUser` with one option per dashboard.
 
-2. **Show it to them first, if they only asked to see it.** "Load my Growth KPIs
+2. **Show it, when showing is the whole request.** "Load my Growth KPIs
    dashboard", "pull up this dashboard", "let me tidy this up" — one call, no
    block list:
 
@@ -45,8 +51,7 @@ asked for.
 
    The server loads it exactly as saved: same layout, same results, no queries
    re-run. From there the user can drag, resize, and delete tiles themselves and
-   press Update. Stop after this — do not follow it with an edit they did not
-   ask for.
+   press Update. Stop after this call — showing it was the whole request.
 
 3. **Read it, when you do have a change to make.**
 
@@ -58,17 +63,16 @@ asked for.
    reorder, or edit one. Keep the blocks you are not touching exactly as they
    are.
 
-   **`markdown` blocks on a saved dashboard are the user's.** Carry every one
-   through untouched — do not merge them, reword them, reorder them, or drop one
-   because the dashboard has more than the single legend a new dashboard gets.
+   **`markdown` blocks on a saved dashboard are the user's words.** Carry every
+   one through verbatim and in place, however many there are — a saved dashboard
+   is free to have more than the single legend a new one starts with.
 
-   **Never add a `markdown` block on an edit, not even a legend.** A dashboard
-   with none either never had one or had it removed on purpose, and you cannot
-   tell those apart — so adding one overrides a decision the user already made.
-   Add one only if they ask, and rewrite an existing one only if they ask.
+   **Add or reword a `markdown` block only when the user asks for it.** A
+   dashboard with none may well have had one removed on purpose, and the saved
+   blocks alone cannot tell you.
 
    If your change leaves a legend describing a chart that is gone, say so in your
-   reply and offer to update it rather than editing their words for them.
+   reply and offer to update it, leaving their words as they are.
 
    Translating a saved block back into a proposal is mechanical: keep `type`,
    `title`, `description`, and (for chart blocks) `config`; drop
@@ -94,29 +98,33 @@ asked for.
    }
    ```
 
-   `title` and `globalControls` are required on every call — carry the existing
-   values through unless the user asked to change them, or you will silently
-   revert them. Carry `projects` through from the dashboard you read in step 1
-   as well, so the preview shows where it actually lives; do **not** ask about
-   the project on an edit, since the dashboard already has one.
+   `title`, `projects`, `globalControls` and `comparison` are optional here: omit
+   one and the saved dashboard's value is kept. Pass one in these two cases:
+   - The user asked to change it.
+   - The user set it on a preview they have not saved yet. The server falls back
+     to the **saved** value, so a timeframe or comparison that exists only on the
+     newest draft has to be carried through from that draft to survive.
 
-5. **Stop.** One sentence naming what changed. Do not save it yourself.
+   The dashboard already has a project, so an edit needs no question about it.
 
-If you need the block shapes, the config schema, or the layout rules,
-`loadSkill('dashboards/references/dashboard-create')` and read its `<blocks>`, `<config_schema>`, and
-`<layout>` sections rather than guessing.
+5. **Stop.** One sentence naming what changed. The user presses Update.
+
+For the block shapes, the config schema, or the layout rules, read the `<blocks>`,
+`<config_schema>` and `<layout>` sections of
+`loadSkill('dashboards/references/dashboard-create')`.
 
 ## Guardrails
 
-- **Always pass the full block list.** A proposal replaces the dashboard's
-  blocks; sending only the new one drops the rest.
-- **Always pass `dashboardId`.** Without it the preview's button creates a second
-  dashboard instead of updating this one.
-- **Carry `title`, `projects`, and `globalControls` through** unless the user
-  changed them.
-- **Never write the dashboard yourself.** The preview's Update button is the only
-  thing that writes one, and the user presses it.
-- **Confirm before removing a block.** Say which tile is going.
+- **Pass the full block list.** A proposal replaces the dashboard's blocks, so
+  the list you send is the dashboard the user gets.
+- **Pass `dashboardId`.** It is what makes the preview's button update this
+  dashboard rather than create a second one.
+- **The preview's Update button is the only thing that writes a dashboard**, and
+  the user presses it.
+- **Remove the tiles the user asked you to remove, then name them.** The removal
+  goes straight into the proposal — the preview is where they confirm it, and
+  Update is the only thing that writes. Naming the tiles afterwards lets them see
+  it matched what they meant.
 
 ## Endpoints and tools used
 

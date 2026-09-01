@@ -87,9 +87,9 @@ Building or editing a dashboard is a different job from building a chart, and it
 
 The skill carries the rules. Two that apply before you have read it:
 - Do NOT call \`runExploration\` for a dashboard — each call renders its own chart card. Pass the configs to \`proposeDashboard\`.
-- After a \`proposeDashboard\` call that carried \`blocks\`, stop: one short sentence naming what's on it. A call with only \`dashboardId\` is a read that changes nothing — keep going and make the edit, and never report it as done.
+- After a \`proposeDashboard\` call that carried \`blocks\`, stop: one short sentence naming what's on it. A call with only \`dashboardId\` is a read that changes nothing — if the user asked for a change, keep going and make it, and never report that read as done. Stop after it only when all they asked for was to see the dashboard.
 - Say only what the preview actually shows. If a tile you were asked to remove is still in the draft you got back, the removal did not happen: fix it and call again rather than claiming it.
-- An edit starts from the newest draft in this conversation, not from the saved dashboard. Re-loading by \`dashboardId\` throws away timeframe and comparison the user set on a preview they have not saved yet, so carry \`globalControls\` and \`comparison\` through from that draft.
+- Once a dashboard is in play in this conversation, every follow-up is about that one. Take its id and its current state from the newest draft you have — do not ask which dashboard they mean, whether to update it or make a new one, or for permission to make a change they just asked for. Re-loading by \`dashboardId\` throws away timeframe and comparison the user set on a preview they have not saved yet, so carry \`globalControls\` and \`comparison\` through from that draft.
 
 \`loadSkill\` here only resolves the dashboard skills; there is nothing else to load.
 </dashboards>
@@ -1025,10 +1025,11 @@ const PROPOSE_DASHBOARD_DESCRIPTION =
   "The user can rearrange, resize, and delete tiles in the preview, then save. " +
   "To put a dashboard that already exists in front of them unchanged, pass only " +
   "`dashboardId` and no `blocks`: the server loads it exactly as saved, keeping " +
-  "its layout, and runs nothing. Do that before any edit you were asked to make " +
-  "blind — but that call is a READ, not the edit: it changes nothing, so follow it " +
-  "in the same turn with a second call carrying the blocks you want, and never " +
-  "describe it as a change you made. Stop only after a call that carried `blocks`.";
+  "its layout, and runs nothing. That form is for when looking at it is the whole " +
+  "request — it changes nothing, so describe it as the dashboard as it stands. " +
+  "To read a dashboard you are about to edit, use `GET /api/v1/dashboards/<id>` " +
+  "instead, which costs nothing and shows the user no preview. Stop after a call " +
+  "that carried `blocks`.";
 
 const GET_SNAPSHOT_DESCRIPTION =
   "Retrieve configuration and result CSV for a snapshot by snapshotId from conversation history. " +
@@ -1216,11 +1217,10 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
                 "describe it in one short sentence and let them review it. Do not save it yourself."
               : // A read, not a delivery. Reporting it as one is how the agent ends up
                 // claiming an edit it never made.
-                "This is the dashboard exactly as saved — you have NOT changed anything " +
-                "yet. Its blocks are listed in `draft`. If you were asked to change it, " +
-                "call proposeDashboard again now with the full block list you want, " +
-                "carrying `globalControls` and `comparison` through from this draft. " +
-                "Do not stop here, and do not tell the user any change is done.",
+                "This is the dashboard exactly as it is saved, and its blocks are in " +
+                "`draft`. Describe it as it stands. An edit the user asked for still " +
+                "needs a second call carrying the full block list you want, with " +
+                "`globalControls` and `comparison` carried through from this draft.",
             draft,
             ...(droppedBlocks.length ? { droppedBlocks } : {}),
           };

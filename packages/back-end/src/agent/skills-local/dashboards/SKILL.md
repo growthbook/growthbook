@@ -125,6 +125,13 @@ it.
 Never ask a question whose answer would not change a block — build something
 reasonable and state your assumptions instead.
 
+**This budget is for creating. On an edit it is zero.** A dashboard already in
+play answers every row above by itself: it has a name, a project, a datasource
+and a timeframe, and the user asking to change one tile is not asking to revisit
+any of the others. Do not ask which dashboard they mean, whether to update it or
+create a new one, or for confirmation of a change they just described — make it
+and show them the preview, which is where they say no.
+
 Projects: `GET /api/v1/projects`. Skip the question when the org has none or one
 — pass `[]` or that single id. `[]` means visible in every project, which is
 also the answer when the user says "all of them".
