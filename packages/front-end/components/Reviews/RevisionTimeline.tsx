@@ -275,7 +275,7 @@ export type VerdictRetraction = {
 
 // Verdict tags: why an approval doesn't count, and whether it was retracted.
 // One row so they never crowd the header line.
-function VerdictTags({
+export function VerdictTags({
   uncoveredReason,
   retraction,
   mb,

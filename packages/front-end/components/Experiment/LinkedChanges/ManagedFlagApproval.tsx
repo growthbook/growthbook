@@ -35,11 +35,11 @@ import {
   findActiveVerdict,
   rowVisual,
   scanVerdictRetractions,
+  VerdictTags,
 } from "@/components/Reviews/RevisionTimeline";
 import MarkdownWithDiffRefs from "@/components/Reviews/DiffCommentMarkdown";
 import CommentCard from "@/components/Comments/CommentCard";
 import Avatar from "@/ui/Avatar";
-import Badge from "@/ui/Badge";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
@@ -647,6 +647,12 @@ export default function ManagedFlagApproval({
                     ? "red"
                     : null;
               const isOwn = !!logUserId(l) && logUserId(l) === userId;
+              // An approval that cannot sanction the publish reads as one here
+              // too, so the thread and the Reviewers list agree.
+              const uncoveredReason =
+                l.action === "Approved" && logUserId(l)
+                  ? insufficientReasons.get(logUserId(l) as string)
+                  : undefined;
               return (
                 <CommentCard
                   key={l.id ?? i}
@@ -655,19 +661,20 @@ export default function ManagedFlagApproval({
                   // phrase has to hold one line.
                   metadata={`${visual.verb}: ${datetime(l.timestamp)}`}
                   metadataExtra={
-                    l.retraction ? (
-                      <Badge
-                        color="gray"
-                        variant="solid"
-                        label={l.retraction.label}
-                        size="xs"
-                      />
-                    ) : undefined
+                    <VerdictTags
+                      uncoveredReason={uncoveredReason}
+                      retraction={l.retraction}
+                    />
                   }
                   stripeColor={visual.color}
                   leading={
                     verdictColor ? (
-                      <Avatar size="sm" color={verdictColor} variant="solid">
+                      <Avatar
+                        size="sm"
+                        color={verdictColor}
+                        variant={uncoveredReason ? "soft" : "solid"}
+                        ring={!!uncoveredReason}
+                      >
                         <>{visual.icon}</>
                       </Avatar>
                     ) : undefined
