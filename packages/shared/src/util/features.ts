@@ -319,6 +319,23 @@ function unwrapCastEnvelope(value: string): string {
 /** The value shape `validateFeatureValue` accepts for a number. */
 const NUMBER_VALUE_PATTERN = /^-?[0-9]+(\.[0-9]+)?$/;
 
+/**
+ * The text as a JSON document, when it already reads as an object or array.
+ * Null for anything else — a bare scalar is ambiguous enough that the envelope
+ * stays the safer reading.
+ */
+function asJsonDocument(plain: string): string | null {
+  const trimmed = plain.trim();
+  if (!/^[[{]/.test(trimmed)) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed === null || typeof parsed !== "object") return null;
+    return JSON.stringify(parsed, null, 2);
+  } catch (e) {
+    return null;
+  }
+}
+
 /** A JSON literal for `value`, quoting whatever would not parse on its own. */
 function asJsonLiteral(plain: string, from: FeatureValueType): string {
   if (from === "string") return JSON.stringify(plain);
@@ -369,9 +386,14 @@ export function castFeatureValue({
         : String(index);
     }
     case "json": {
-      // Booleans and numbers are already JSON literals; anything else is
-      // quoted, including a literal that turns out not to parse.
-      return `{\n  "value": ${asJsonLiteral(plain, from)}\n}`;
+      // Text that already reads as a JSON object or array IS the value —
+      // wrapping it would encode it a second time, and switching types back and
+      // forth would keep nesting it. Everything else keeps the envelope:
+      // booleans and numbers are already JSON literals, anything else is quoted.
+      return (
+        asJsonDocument(plain) ??
+        `{\n  "value": ${asJsonLiteral(plain, from)}\n}`
+      );
     }
     case "string":
       return plain;

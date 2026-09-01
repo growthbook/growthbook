@@ -115,6 +115,37 @@ describe("castFeatureValue", () => {
     });
   });
 
+  describe("text that already reads as JSON", () => {
+    it("uses an object as the value rather than encoding it again", () => {
+      expect(
+        JSON.parse(cast('{"foo": 1, "bar": 2}', "string", "json")),
+      ).toEqual({ foo: 1, bar: 2 });
+    });
+
+    it("uses an array as the value", () => {
+      expect(JSON.parse(cast("[1, 2]", "string", "json"))).toEqual([1, 2]);
+    });
+
+    it("survives switching types back and forth", () => {
+      const original = '{"foo": 1}';
+      let value = original;
+      for (let i = 0; i < 3; i++) {
+        value = cast(cast(value, "string", "json"), "json", "string");
+      }
+      expect(JSON.parse(value)).toEqual({ foo: 1 });
+    });
+
+    it("keeps the envelope for a scalar or unparseable text", () => {
+      expect(JSON.parse(cast("hello", "string", "json"))).toEqual({
+        value: "hello",
+      });
+      expect(JSON.parse(cast("{not json", "string", "json"))).toEqual({
+        value: "{not json",
+      });
+      expect(JSON.parse(cast("7", "string", "json"))).toEqual({ value: "7" });
+    });
+  });
+
   describe("round trips", () => {
     it("returns a string unchanged through JSON", () => {
       const original = 'control "A"';
