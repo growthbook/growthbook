@@ -167,7 +167,7 @@ function EditTrafficForm({
           // to whatever the flag serves next.
           coverageTooltip={
             experiment.linkedFeatures?.length
-              ? "Users not included in this Experiment will flow through to subsequent feature flag rules"
+              ? "Users not included in this experiment will flow through to subsequent feature flag rules"
               : undefined
           }
           valueAsId={isBandit}

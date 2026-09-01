@@ -166,9 +166,9 @@ export default function LinkedFeatureFlag({
     <>
       {ejectConfirm && (
         <ConfirmDialog
-          title="Switch to manual implementation?"
-          content="This Experiment keeps using the linked Feature Flag, but you'll manage and review it directly from its own page instead of from here."
-          yesText="Switch to manual"
+          title="Convert to unmanaged Feature Flag?"
+          content="This experiment keeps using the linked Feature Flag, but you'll manage and review it directly from its own page instead of from here."
+          yesText="Convert"
           onConfirm={handleEject}
           onCancel={() => setEjectConfirm(false)}
         />
@@ -191,7 +191,7 @@ export default function LinkedFeatureFlag({
         onEdit={showEditButton ? () => setEditModalOpen(true) : undefined}
         managedBadge={
           isManaged ? (
-            <Badge label="Managed by Experiment" radius="full" color="violet" />
+            <Badge label="Managed by experiment" radius="full" color="violet" />
           ) : undefined
         }
         actions={
@@ -217,7 +217,7 @@ export default function LinkedFeatureFlag({
                     disabled={ejecting}
                     onClick={() => setEjectConfirm(true)}
                   >
-                    Switch to manual implementation
+                    Convert to unmanaged Feature Flag
                   </DropdownMenuItem>
                 </DropdownMenu>
               )}

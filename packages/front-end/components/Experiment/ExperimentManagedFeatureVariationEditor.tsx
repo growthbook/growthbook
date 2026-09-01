@@ -42,7 +42,7 @@ import {
   gridColumns,
 } from "./ExperimentManagedFeatureVariationRow";
 
-const COVERAGE_LABEL = "Traffic included in this Experiment";
+const COVERAGE_LABEL = "Traffic included in this experiment";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -95,7 +95,7 @@ export default function ExperimentManagedFeatureVariationEditor({
   coverage,
   setCoverage,
   valueType,
-  coverageTooltip = "Users not included in the Experiment will skip this rule",
+  coverageTooltip = "Users not included in the experiment will skip this rule",
   hideCoverage = false,
   valueAsId = false,
   showPreview = true,

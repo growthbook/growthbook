@@ -1,11 +1,15 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { FaRegFlag } from "react-icons/fa";
 import { PiInfo } from "react-icons/pi";
 import { ReactNode } from "react";
 import Heading from "@/ui/Heading";
 import Avatar from "@/ui/Avatar";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import { ICON_PROPERTIES } from "@/components/Experiment/LinkedChanges/constants";
+
+// The shared Linked Change icon, so a Feature Flag looks the same everywhere.
+const { component: FlagIcon, radixColor: FLAG_COLOR } =
+  ICON_PROPERTIES["feature-flag"];
 
 // Not a link: the flag is edited from the experiment, not from its own page.
 export function ManagedFlagName({
@@ -17,8 +21,8 @@ export function ManagedFlagName({
 }) {
   return (
     <Flex align="center" gap="3">
-      <Avatar radius="small" color="indigo" size="sm" variant="soft">
-        <FaRegFlag />
+      <Avatar radius="small" color={FLAG_COLOR} size="sm" variant="soft">
+        <FlagIcon />
       </Avatar>
       <Text weight="medium">{featureId}</Text>
       {children}
