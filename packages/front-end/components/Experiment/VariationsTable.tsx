@@ -361,7 +361,11 @@ export function VariationBox({
         {allowImages && (
           <Box
             mt={showNoImage ? "2" : "0"}
-            flexGrow="1"
+            // Only a carousel earns the leftover height. With just the
+            // placeholder, growing here pushed the rows below it down by
+            // whatever slack a neighbouring card's taller value left behind,
+            // so adjacent cards disagreed on where "Split" started.
+            flexGrow={v.screenshots.length > 0 ? "1" : "0"}
             style={{ display: "flex", flexDirection: "column", minHeight: 0 }}
           >
             {v.screenshots.length > 0 ? (

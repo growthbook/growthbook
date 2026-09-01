@@ -58,6 +58,10 @@ export default function VariationServedValue({
       value={value ?? ""}
       feature={feature}
       sparse={sparse}
+      // Denser than the rules page: the card is a third of its width, and
+      // ValueDisplay caps the block at 150px with its own scrollbar.
+      fontSize="0.75rem"
+      lineHeight={1.35}
     />
   );
 
