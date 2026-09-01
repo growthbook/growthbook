@@ -116,10 +116,17 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     )
   ).filter((d): d is Dimension => d !== null);
 
-  const missingExperimentDimensions = dimensionObjs.filter(
-    (d) =>
-      d.type === "experiment" &&
-      !incrementalRefreshModel.unitsDimensions.includes(d.id),
+  // Experiment dimensions must be materialized on the incremental units
+  // table, including any inside a combo; other types compute at query time
+  const requiredExperimentDimensionIds = dimensionObjs.flatMap((d) =>
+    d.type === "experiment"
+      ? [d.id]
+      : d.type === "combo"
+        ? d.dimensions.flatMap((c) => (c.type === "experiment" ? [c.id] : []))
+        : [],
+  );
+  const missingExperimentDimensions = requiredExperimentDimensionIds.filter(
+    (id) => !incrementalRefreshModel.unitsDimensions.includes(id),
   );
 
   if (missingExperimentDimensions.length) {

@@ -2421,13 +2421,18 @@ export default abstract class SqlIntegration
     );
 
     // exploratory dimensions
-    const { experimentDimensions, unitDimensions, dateDimension } =
-      processDimensions(
-        this.getSqlDialect(),
-        params.dimensionsForAnalysis,
-        params.settings,
-        params.activationMetric,
-      );
+    const {
+      experimentDimensions,
+      unitDimensions,
+      dateDimension,
+      dateCutoffDimension,
+      comboDimension,
+    } = processDimensions(
+      this.getSqlDialect(),
+      params.dimensionsForAnalysis,
+      params.settings,
+      params.activationMetric,
+    );
 
     const idTypeObjects = [
       [exposureQuery.userIdType],
@@ -2473,13 +2478,30 @@ export default abstract class SqlIntegration
     const dateDimensionCol = dateDimension
       ? getDimensionCol(this.getSqlDialect(), dateDimension)
       : undefined;
+    const dateCutoffDimensionCol = dateCutoffDimension
+      ? getDimensionCol(this.getSqlDialect(), dateCutoffDimension)
+      : undefined;
+    // References constituent aliases, so it must be computed in a wrapper CTE
+    // on top of __experimentUnits rather than alongside them
+    const comboDimensionCol = comboDimension
+      ? getDimensionCol(this.getSqlDialect(), comboDimension)
+      : undefined;
 
     const nonUnitDimensionCols = [
       ...experimentDimensionCols,
       ...(dateDimensionCol ? [dateDimensionCol] : []),
+      ...(dateCutoffDimensionCol ? [dateCutoffDimensionCol] : []),
       ...precomputedDimensionCols,
     ];
     const allDimensionCols = [...nonUnitDimensionCols, ...unitDimensionCols];
+    // When analyzing a combo, its constituents exist only to be materialized
+    // in __experimentUnits; the analysis groups by the combined column alone
+    const analysisDimensionCols = comboDimensionCol
+      ? [{ value: comboDimensionCol.alias, alias: comboDimensionCol.alias }]
+      : allDimensionCols;
+    const unitsCteName = comboDimensionCol
+      ? "__experimentUnitsFinal"
+      : "__experimentUnits";
 
     // Source-index → alias suffix conventions: source 0 is "" (so its table
     // alias is `m` and CTE name is `__metricSourceData`/`__metricDataAggregated`),
@@ -2575,6 +2597,16 @@ export default abstract class SqlIntegration
           ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
         FROM ${params.unitsSourceTableFullName} e`
       })
+      ${
+        comboDimensionCol
+          ? `, __experimentUnitsFinal AS (
+        SELECT
+          u.*
+          , ${comboDimensionCol.value} AS ${comboDimensionCol.alias}
+        FROM __experimentUnits u
+      )`
+          : ""
+      }
       ${sources
         .map(
           (_, i) => `, __metricDataAggregated${sourceSuffix(i)} AS (
@@ -2602,7 +2634,7 @@ export default abstract class SqlIntegration
       , __eventQuantileSketch AS (
         SELECT
           u.variation AS variation
-          ${allDimensionCols.map((c) => `, u.${c.alias} AS ${c.alias}`).join("")}
+          ${analysisDimensionCols.map((c) => `, u.${c.alias} AS ${c.alias}`).join("")}
           ${metricData
             .filter((d) => d.quantileMetric === "event")
             .map(
@@ -2610,7 +2642,7 @@ export default abstract class SqlIntegration
                 `, ${this.getSqlDialect().quantileSketchMergePartial(`${tableAliasForSource(d.numeratorSourceIndex)}.${encodeMetricIdForColumnName(d.metric.id)}_value`)} AS ${d.alias}_sketch`,
             )
             .join("\n")}
-        FROM __experimentUnits u
+        FROM ${unitsCteName} u
         ${sources
           .map(
             (_, i) =>
@@ -2619,12 +2651,12 @@ export default abstract class SqlIntegration
           .join("\n")}
         GROUP BY
           u.variation
-          ${allDimensionCols.map((c) => `, u.${c.alias}`).join("")}
+          ${analysisDimensionCols.map((c) => `, u.${c.alias}`).join("")}
       )
       , __eventQuantileMetric AS (
         SELECT
           variation
-          ${allDimensionCols.map((c) => `, ${c.alias}`).join("")}
+          ${analysisDimensionCols.map((c) => `, ${c.alias}`).join("")}
           ${metricData
             .filter((d) => d.quantileMetric === "event")
             .map((d) =>
@@ -2782,7 +2814,7 @@ export default abstract class SqlIntegration
             isSource0 && eventQuantileData.length > 0
               ? `LEFT JOIN __eventQuantileMetric qm ON (
                     qm.variation = u.variation
-                    ${allDimensionCols.map((c) => `AND qm.${c.alias} = u.${c.alias}`).join("\n")}
+                    ${analysisDimensionCols.map((c) => `AND qm.${c.alias} = u.${c.alias}`).join("\n")}
                   )`
               : "";
 
@@ -2792,13 +2824,13 @@ export default abstract class SqlIntegration
               u.${baseIdType}
               ${
                 isSource0
-                  ? `${allDimensionCols.map((d) => `, u.${d.alias} AS ${d.alias}`).join("")}
+                  ? `${analysisDimensionCols.map((d) => `, u.${d.alias} AS ${d.alias}`).join("")}
               , u.variation`
                   : ""
               }
               ${metricColumns}
               ${covariateColumns}
-            FROM __experimentUnits u
+            FROM ${unitsCteName} u
             LEFT JOIN ${aggregatedTable} ${localAlias} ON u.${baseIdType} = ${localAlias}.${baseIdType}
             ${covariateJoin}
             ${eventQuantileJoin}
@@ -2819,7 +2851,7 @@ export default abstract class SqlIntegration
         )
         .join("")}
       ${getExperimentFactMetricStatisticsCTE(this.getSqlDialect(), {
-        dimensionCols: allDimensionCols,
+        dimensionCols: analysisDimensionCols,
         metricData,
         eventQuantileData,
         baseIdType,

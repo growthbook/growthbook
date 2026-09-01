@@ -1,3 +1,4 @@
+import { NULL_DIMENSION_VALUE } from "shared/constants";
 import type { Dimension, DimensionColumnData } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 
@@ -32,5 +33,36 @@ export function getDimensionCol(
         ),
         alias: "dim_activation",
       };
+    case "datecutoff": {
+      // Minute-precision UTC label; the full ISO string lives in the dimension id
+      const label = dimension.cutoff.toISOString().substring(0, 16) + "Z";
+      return {
+        value: dialect.ifElse(
+          `first_exposure_timestamp < ${dialect.toTimestamp(dimension.cutoff)}`,
+          `'Exposed before ${label}'`,
+          `'Exposed after ${label}'`,
+        ),
+        alias: "dim_cutoff",
+      };
+    }
+    // The alias must not start with "dim_exp_", which gbstats treats as
+    // post-stratification strata columns
+    case "combo": {
+      const parts = dimension.dimensions.map((constituent) => {
+        const name =
+          constituent.type === "experiment"
+            ? constituent.id
+            : constituent.dimension.name;
+        // COALESCE per constituent: CONCAT NULL-poisons on some engines
+        const col = `COALESCE(${dialect.castToString(
+          getDimensionCol(dialect, constituent).alias,
+        )}, '${NULL_DIMENSION_VALUE}')`;
+        return `'${dialect.escapeStringLiteral(name)}: ', ${col}`;
+      });
+      return {
+        value: `CONCAT(${parts.join(", ' & ', ")})`,
+        alias: "dim_combo",
+      };
+    }
   }
 }

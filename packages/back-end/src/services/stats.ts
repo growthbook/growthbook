@@ -17,6 +17,7 @@ import {
   isFactFunnelMetric,
   isRatioMetric,
   isRegressionAdjusted,
+  parseDimensionId,
   quantileMetricType,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
@@ -109,7 +110,7 @@ export function getAnalysisSettingsForStatsEngine(
     phase_length_days: phaseLengthDays,
     alpha: pValueThresholdNumber,
     max_dimensions:
-      settings.dimensions[0]?.substring(0, 8) === "pre:date"
+      parseDimensionId(settings.dimensions[0] || "").kind === "date"
         ? 9999
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,

@@ -32,6 +32,7 @@ import { NULL_DIMENSION_VALUE } from "shared/constants";
 import { FaCaretRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getDimensionDisplayName } from "@/components/Dimensions/DimensionChooser";
 import { ExperimentTableRow } from "@/services/experiments";
 import ResultsTable, {
   RESULTS_TABLE_COLUMNS,
@@ -179,10 +180,13 @@ const BreakDownResults: FC<{
   };
 
   const dimension =
-    ssrPolyfills?.getDimensionById?.(dimensionId)?.name ||
-    getDimensionById(dimensionId)?.name ||
-    dimensionId?.split(":")?.[1] ||
-    "Dimension";
+    getDimensionDisplayName(
+      dimensionId,
+      (id) =>
+        ssrPolyfills?.getDimensionById?.(id)?.name ||
+        getDimensionById(id)?.name ||
+        undefined,
+    ) || "Dimension";
 
   const { tables } = useExperimentDimensionRows({
     results,

@@ -1,5 +1,7 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
+import { DimensionInterface } from "shared/types/dimension";
+import { Dimension } from "shared/types/integrations";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
@@ -1410,5 +1412,145 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     // selection logic.
     expect(sql).toContain("m0_quantile");
     expect(sql).toContain("m0_quantile_n");
+  });
+});
+
+describe("BigQuery incremental refresh statistics query with special dimensions", () => {
+  let integration: BigQuery;
+
+  const exposureQuery: ExposureQuery = {
+    id: "exposure",
+    name: "Exposure",
+    description: "",
+    query: "*",
+    userIdType: "user_id",
+    dimensions: ["country"],
+  };
+
+  const resolvedExposureQuery = {
+    query: exposureQuery.query,
+    userIdType: exposureQuery.userIdType,
+  };
+
+  const factTable = factTableFactory.build({
+    id: "ft_events",
+    name: "Events",
+    sql: "SELECT * FROM events",
+    userIdTypes: ["user_id"],
+  });
+
+  const meanMetric = factMetricFactory.build({
+    id: "fact_mean1",
+    metricType: "mean",
+    numerator: {
+      factTableId: "ft_events",
+      column: "amount",
+      aggregation: "sum",
+    },
+  });
+
+  const factTableMap = new Map([["ft_events", factTable]]);
+
+  const settings: ExperimentSnapshotSettings = {
+    manual: false,
+    dimensions: [],
+    metricSettings: [],
+    goalMetrics: [],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
+    activationMetric: null,
+    defaultMetricPriorSettings: {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: 0,
+    },
+    regressionAdjustmentEnabled: false,
+    attributionModel: "firstExposure",
+    experimentId: "exp_1",
+    queryFilter: "",
+    segment: "",
+    skipPartialData: false,
+    datasourceId: "ds_1",
+    exposureQueryId: "exposure",
+    startDate: new Date("2024-01-01"),
+    endDate: new Date("2024-01-31"),
+    variations: [],
+  };
+
+  beforeEach(() => {
+    // @ts-expect-error -- context not needed for this unit test
+    integration = new BigQuery("", {
+      settings: {
+        queries: {
+          exposure: [exposureQuery],
+        },
+      },
+    });
+  });
+
+  const buildSql = (dimensionsForAnalysis: Dimension[]): string =>
+    integration.getIncrementalRefreshStatisticsQuery({
+      settings,
+      exposureQuery: resolvedExposureQuery,
+      activationMetric: null,
+      dimensionsForPrecomputation: [],
+      dimensionsForAnalysis,
+      factTableMap,
+      metricSources: [
+        { factTableId: "ft_events", tableFullName: "proj.ds.metric_source" },
+      ],
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [meanMetric],
+      lastMaxTimestamp: null,
+    });
+
+  it("computes a datecutoff dimension from the units table timestamp", () => {
+    const sql = buildSql([
+      { type: "datecutoff", cutoff: new Date("2024-01-15T00:12:00.000Z") },
+    ]);
+
+    expect(sql).toContain("AS dim_cutoff");
+    expect(sql).toContain("'Exposed before 2024-01-15T00:12Z'");
+    expect(sql).toContain("'Exposed after 2024-01-15T00:12Z'");
+    // No wrapper CTE needed; the CASE reads first_exposure_timestamp directly
+    expect(sql).not.toContain("__experimentUnitsFinal");
+  });
+
+  it("computes a combo dimension in a wrapper CTE and analyzes only the combined column", () => {
+    const userDimension: DimensionInterface = {
+      id: "dim_u1",
+      organization: "org1",
+      owner: "",
+      datasource: "ds_1",
+      userIdType: "user_id",
+      name: "Browser",
+      sql: "SELECT user_id, browser AS value FROM users",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const sql = buildSql([
+      {
+        type: "combo",
+        dimensions: [
+          { type: "experiment", id: "country" },
+          { type: "user", dimension: userDimension },
+        ],
+      },
+    ]);
+
+    // Constituents materialize inside __experimentUnits
+    expect(sql).toContain("dim_exp_country");
+    expect(sql).toContain("__dim_unit_dim_u1");
+
+    // The concat lives in a wrapper CTE that downstream CTEs read from
+    expect(sql).toContain("__experimentUnitsFinal");
+    expect(sql).toContain("AS dim_combo");
+    expect(sql).toMatch(/FROM\s+__experimentUnitsFinal\s+u/);
+
+    // Only the combined column reaches the statistics grouping
+    const statsSection = sql.substring(sql.indexOf("__joinedData"));
+    expect(statsSection).toContain("dim_combo");
+    expect(statsSection).not.toContain("dim_exp_country");
   });
 });
