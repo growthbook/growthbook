@@ -9,6 +9,7 @@ import {
 } from "back-end/src/models/VisualChangesetModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { toVisualEditorCbExperimentStub } from "back-end/src/services/visualEditorCbStub";
 
 export const getVisualChangeset = createApiRequestHandler(
   getVisualChangesetValidator,
@@ -23,6 +24,26 @@ export const getVisualChangeset = createApiRequestHandler(
 
   if (!visualChangeset) {
     throw new Error("Could not find visualChangeset with given ID");
+  }
+
+  if (visualChangeset.contextualBandit) {
+    if (includeExperiment <= 0) {
+      return {
+        visualChangeset: toVisualChangesetApiInterface(visualChangeset),
+      };
+    }
+    const cb = await req.context.models.contextualBandits.getById(
+      visualChangeset.contextualBandit,
+    );
+    if (!cb) {
+      return {
+        visualChangeset: toVisualChangesetApiInterface(visualChangeset),
+      };
+    }
+    return {
+      visualChangeset: toVisualChangesetApiInterface(visualChangeset),
+      experiment: toVisualEditorCbExperimentStub(cb),
+    };
   }
 
   const experiment =

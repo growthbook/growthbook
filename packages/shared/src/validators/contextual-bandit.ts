@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import { banditStageType, variation } from "./experiments";
 import { namedSchema } from "./openapi-helpers";
+import { apiVisualChangesetValidator } from "./visual-changesets";
 import { apiRuleConfigField } from "./features-v2";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import {
@@ -148,8 +149,6 @@ export const apiContextualBanditValidator = namedSchema(
     maxLeaves: z.number().int().positive(),
     holdoutPercent: z.number().min(0).max(0.5),
     banditModelVersion: z.number().int().nonnegative(),
-    hasVisualChangesets: z.boolean().optional(),
-    hasURLRedirects: z.boolean().optional(),
     scheduleValue: z.number().optional(),
     scheduleUnit: z.enum(["days", "hours"]).optional(),
     burnInValue: z.number().optional(),
@@ -160,6 +159,8 @@ export const apiContextualBanditValidator = namedSchema(
     stageDateStarted: z.iso.datetime().optional(),
     autoSnapshots: z.boolean().optional(),
     nextSnapshotAttempt: z.iso.datetime().optional(),
+    hasVisualChangesets: z.boolean().optional(),
+    hasURLRedirects: z.boolean().optional(),
   }),
 );
 
@@ -345,6 +346,35 @@ export const apiContextualBanditCancelReturn = z
     status: z.number(),
   })
   .describe("Contextual Bandit snapshot refresh canceled");
+
+export const apiContextualBanditPostVisualChangesetsValidator = {
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
+  bodySchema: z
+    .object({
+      editorUrl: z
+        .string()
+        .describe(
+          "URL of the page opened in the visual editor when creating this changeset",
+        ),
+      urlPatterns: z.array(
+        z
+          .object({
+            include: z.boolean().optional(),
+            type: z.enum(["simple", "regex"]),
+            pattern: z.string(),
+          })
+          .passthrough(),
+      ),
+    })
+    .passthrough(),
+  querySchema: z.never(),
+};
+
+export const apiContextualBanditPostVisualChangesetsReturn = z.object({
+  visualChangeset: apiVisualChangesetValidator,
+});
 
 const contextualBanditIdAndSnapshotParam = z
   .object({

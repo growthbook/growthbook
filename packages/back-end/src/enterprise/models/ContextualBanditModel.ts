@@ -24,10 +24,20 @@ import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   cancelContextualBanditEndpoint,
   contextualBanditApiSpec,
+  postContextualBanditVisualChangesetsEndpoint,
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
 } from "back-end/src/api/specs/contextual-bandit.spec";
+import {
+  apiContextualBanditPostVisualChangesetsReturn,
+} from "shared/validators";
+import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
+import {
+  createVisualChangesetForCb,
+  toVisualChangesetApiInterface,
+} from "back-end/src/models/VisualChangesetModel";
+import { requireCbEditable } from "back-end/src/api/visual-editor-ai/requireCbEditable";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   executeContextualBanditStart,
@@ -177,6 +187,43 @@ const BaseClass = MakeModelClass({
           return { status: 200 };
         },
       }),
+      defineCustomApiHandler({
+        ...postContextualBanditVisualChangesetsEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<
+          z.infer<typeof apiContextualBanditPostVisualChangesetsReturn>
+        > => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
+            req.context.permissions.throwPermissionError();
+          }
+          requireCbEditable(req.context, cb);
+
+          const urlPatterns: VisualChangesetURLPattern[] =
+            req.body.urlPatterns.map((p) => ({
+              type: p.type,
+              pattern: p.pattern,
+              include: p.include ?? true,
+            }));
+
+          const visualChangeset = await createVisualChangesetForCb({
+            contextualBandit: cb,
+            urlPatterns,
+            editorUrl: req.body.editorUrl,
+            context: req.context,
+          });
+
+          return {
+            visualChangeset: toVisualChangesetApiInterface(visualChangeset),
+          };
+        },
+      }),
     ],
   },
 });
@@ -231,6 +278,8 @@ export function toApiContextualBandit(
     stageDateStarted: doc.stageDateStarted?.toISOString(),
     autoSnapshots: doc.autoSnapshots,
     nextSnapshotAttempt: doc.nextSnapshotAttempt?.toISOString(),
+    hasVisualChangesets: doc.hasVisualChangesets,
+    hasURLRedirects: doc.hasURLRedirects,
   };
 }
 

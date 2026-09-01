@@ -37,6 +37,12 @@ const ExperimentPage = (): ReactElement => {
   const router = useRouter();
   const { eid } = router.query;
 
+  useEffect(() => {
+    if (typeof eid === "string" && eid.startsWith("cb_")) {
+      router.replace(`/contextual-bandit/${eid}`);
+    }
+  }, [eid, router]);
+
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [variationsModalOpen, setVariationsModalOpen] = useState(false);

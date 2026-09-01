@@ -21,6 +21,7 @@ import {
   CbVisualExperiment,
   queueSDKPayloadRefresh,
 } from "back-end/src/services/features";
+import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
 import { visualChangesetsHaveChanges } from "back-end/src/services/experiments";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -381,6 +382,54 @@ export const createVisualChangeset = async ({
   return visualChangeset;
 };
 
+export const createVisualChangesetForCb = async ({
+  contextualBandit,
+  context,
+  urlPatterns,
+  editorUrl,
+  visualChanges,
+}: {
+  contextualBandit: ContextualBanditInterface;
+  context: ReqContext | ApiReqContext;
+  urlPatterns: VisualChangesetURLPattern[];
+  editorUrl: VisualChangesetInterface["editorUrl"];
+  visualChanges?: VisualChange[];
+}): Promise<VisualChangesetInterface> => {
+  const visualChangeset = toInterface(
+    await VisualChangesetModel.create({
+      id: uniqid("vcs_"),
+      contextualBandit: contextualBandit.id,
+      organization: context.org.id,
+      urlPatterns,
+      editorUrl,
+      visualChanges:
+        visualChanges ||
+        contextualBandit.variations.map((v) => ({
+          id: uniqid("vc_"),
+          variation: v.id,
+          description: "",
+          css: "",
+          domMutations: [],
+        })),
+    }),
+  );
+
+  let updatedCb = contextualBandit;
+  if (!contextualBandit.hasVisualChangesets) {
+    updatedCb = await context.models.contextualBandits.update(contextualBandit, {
+      hasVisualChangesets: true,
+    });
+  }
+
+  await refreshLinkedFeaturePayloads(
+    context,
+    updatedCb,
+    "contextualBandit.refresh",
+  );
+
+  return visualChangeset;
+};
+
 type VisualChangeUpdate = Partial<VisualChange> &
   Pick<VisualChange, "variation">;
 
@@ -531,6 +580,19 @@ const onVisualChangesetUpdate = async ({
   if (!visualChangesetsHaveChanges({ oldVisualChangeset, newVisualChangeset }))
     return;
 
+  if (newVisualChangeset.contextualBandit) {
+    const cb = await context.models.contextualBandits.getById(
+      newVisualChangeset.contextualBandit,
+    );
+    if (!cb) return;
+    await refreshLinkedFeaturePayloads(
+      context,
+      cb,
+      "contextualBandit.refresh",
+    );
+    return;
+  }
+
   const experiment = await getExperimentById(
     context,
     newVisualChangeset.experiment,
@@ -560,6 +622,19 @@ const onVisualChangesetDelete = async ({
 }) => {
   // if there were no visual changes before deleting, return early
   if (!hasVisualChanges(visualChangeset.visualChanges)) return;
+
+  if (visualChangeset.contextualBandit) {
+    const cb = await context.models.contextualBandits.getById(
+      visualChangeset.contextualBandit,
+    );
+    if (!cb) return;
+    await refreshLinkedFeaturePayloads(
+      context,
+      cb,
+      "contextualBandit.refresh",
+    );
+    return;
+  }
 
   // get payload keys
   const experiment = await getExperimentById(
@@ -638,6 +713,21 @@ export const deleteVisualChangesetById = async ({
           experiment,
           changes: { hasVisualChangesets: false },
           bypassWebhooks: true,
+        });
+      }
+    }
+  } else if (visualChangeset.contextualBandit) {
+    const remaining = await findVisualChangesetsByContextualBandit(
+      visualChangeset.contextualBandit,
+      context.org.id,
+    );
+    if (remaining.length === 0) {
+      const cb = await context.models.contextualBandits.getById(
+        visualChangeset.contextualBandit,
+      );
+      if (cb && cb.hasVisualChangesets) {
+        await context.models.contextualBandits.update(cb, {
+          hasVisualChangesets: false,
         });
       }
     }

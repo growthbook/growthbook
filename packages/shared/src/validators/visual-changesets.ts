@@ -3,6 +3,30 @@ import { apiExperimentValidator } from "./experiments";
 
 import { namedSchema } from "./openapi-helpers";
 
+export const apiVisualEditorCbExperimentStubValidator = namedSchema(
+  "VisualEditorCbExperimentStub",
+  z
+    .object({
+      id: z.string(),
+      trackingKey: z.string(),
+      name: z.string(),
+      status: z.string(),
+      project: z.string(),
+      hashAttribute: z.string(),
+      hashVersion: z.union([z.literal(1), z.literal(2)]),
+      type: z.literal("contextual-bandit"),
+      variations: z.array(
+        z.object({
+          variationId: z.string(),
+          key: z.string(),
+          name: z.string(),
+          description: z.string(),
+        }),
+      ),
+    })
+    .strict(),
+);
+
 // Corresponds to schemas/VisualChange.yaml
 export const apiVisualChangeValidator = namedSchema(
   "VisualChange",
@@ -164,7 +188,12 @@ export const getVisualChangesetValidator = {
   responseSchema: z
     .object({
       visualChangeset: apiVisualChangesetValidator,
-      experiment: apiExperimentValidator.optional(),
+      experiment: z
+        .union([
+          apiExperimentValidator,
+          apiVisualEditorCbExperimentStubValidator,
+        ])
+        .optional(),
     })
     .strict(),
   summary: "Get a single visual changeset",
