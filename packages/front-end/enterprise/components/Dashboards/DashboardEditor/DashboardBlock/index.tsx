@@ -12,11 +12,7 @@ import {
   experimentBlockOptedOutOfGlobalFilters,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
-import {
-  PiDotsSixVertical,
-  PiPencilSimpleFill,
-  PiTrashSimpleFill,
-} from "react-icons/pi";
+import { PiDotsSixVertical, PiPencilSimpleFill } from "react-icons/pi";
 import clsx from "clsx";
 import { isNumber, isString, isDefined } from "shared/util";
 import {
@@ -651,21 +647,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
               </DropdownMenu>
             )}
           </div>
-        ) : allowBlockDeletion ? (
-          <IconButton
-            variant="ghost"
-            radius="full"
-            size="1"
-            color="red"
-            aria-label="Delete block"
-            onClick={(e) => {
-              e.stopPropagation();
-              deleteBlock();
-            }}
-          >
-            <PiTrashSimpleFill />
-          </IconButton>
-        ) : canEdit && setIsEditing ? (
+        ) : allowBlockDeletion || (canEdit && setIsEditing) ? (
           <div>
             <DropdownMenu
               open={dropdownOpen}
@@ -683,19 +665,39 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 </IconButton>
               }
             >
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (typeof blockIndex === "number" && enterEditModeForBlock) {
-                    enterEditModeForBlock(blockIndex);
-                  } else {
-                    setIsEditing(true);
-                  }
-                  setDropdownOpen(false);
-                }}
-              >
-                Edit
-              </DropdownMenuItem>
+              {canEdit && setIsEditing && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (
+                      typeof blockIndex === "number" &&
+                      enterEditModeForBlock
+                    ) {
+                      enterEditModeForBlock(blockIndex);
+                    } else {
+                      setIsEditing(true);
+                    }
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {allowBlockDeletion && (
+                <>
+                  {canEdit && setIsEditing && <DropdownMenuSeparator />}
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteBlock();
+                      setDropdownOpen(false);
+                    }}
+                    color="red"
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenu>
           </div>
         ) : null}

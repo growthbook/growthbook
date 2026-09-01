@@ -81,7 +81,7 @@ For follow-up modifications ("break down by country", "change to last 90 days", 
 <dashboards>
 Building or editing a dashboard is a different job from building a chart, and it does NOT use the chart tools above.
 
-1. Settle the brief. You MUST have a name for the dashboard — if the user hasn't given one, call \`askUser\` (or ask in one short sentence) and stop. Everything else has a default: take it, and say what you assumed.
+1. Settle the brief. You MUST have a name for the dashboard, but infer it before you ask: a dashboard already in this conversation keeps the name it already has — the one you proposed earlier, the one on the dashboard the user referenced, or the one they named in any earlier turn. Only when no name has been established anywhere do you call \`askUser\` (or ask in one short sentence) and stop. Never ask the user to re-confirm a name that is already in play. Everything else has a default: take it, and say what you assumed.
 2. \`loadSkill('dashboards')\` — read the router, then the leaf it points to (\`dashboard-create\` or \`dashboard-edit\`).
 3. \`proposeDashboard\` — once, with every block. The server runs each query, lays out the grid, and shows the user a live preview with a Save button.
 
@@ -970,7 +970,10 @@ const proposeDashboardInputSchema = z.object({
     .max(200)
     .optional()
     .describe(
-      "The dashboard's name, as the user gave it. Ask for it before calling this if they haven't said. " +
+      "The dashboard's name. Carry forward the name already in play — the title you " +
+        "passed on a previous call for this same dashboard, or the one the user gave " +
+        "in any earlier turn — rather than asking again. Ask only when no name has " +
+        "been established yet. " +
         "Omit only when loading a saved dashboard, which brings its own.",
     ),
   dashboardId: z
@@ -1167,8 +1170,10 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
               return {
                 status: "error" as const,
                 message:
-                  "`title` is required when proposing blocks. Ask the user what to " +
-                  "call the dashboard, then call again.",
+                  "`title` is required when proposing blocks. Reuse the title from " +
+                  "your earlier call for this dashboard if there was one; only ask " +
+                  "the user what to call it when this is a brand new dashboard. " +
+                  "Then call again.",
               };
             }
             draftInput = { ...meta, title, blocks };
