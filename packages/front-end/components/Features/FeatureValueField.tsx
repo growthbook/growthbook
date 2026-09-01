@@ -957,13 +957,24 @@ export default function FeatureValueField({
     />
   );
 
-  // Inline layout: the picker rides to the right of the field, centred on it
-  // unless the caller pins it to the top.
+  // Inline layout: the picker rides to the right of the field, centred on it.
+  // Pinned, it centres on the field's first line instead. The inline layout is
+  // only used at size="md", whose control height is 32px.
+  const pinned = inlineConstantButtonAlign === "start";
   if (inlineConstantButton && stringInsertButton) {
     return (
-      <Flex align={inlineConstantButtonAlign} gap="2" width="100%">
+      <Flex align={pinned ? "start" : "center"} gap="2" width="100%">
         <Box style={{ flex: 1, minWidth: 0 }}>{field}</Box>
-        <Box style={{ flexShrink: 0 }}>{stringInsertButton}</Box>
+        <Box
+          style={{
+            flexShrink: 0,
+            ...(pinned
+              ? { minHeight: 32, display: "flex", alignItems: "center" }
+              : {}),
+          }}
+        >
+          {stringInsertButton}
+        </Box>
       </Flex>
     );
   }

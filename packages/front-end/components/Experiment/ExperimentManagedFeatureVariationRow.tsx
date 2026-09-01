@@ -38,10 +38,11 @@ import rowStyles from "./ExperimentManagedFeatureVariationRow.module.scss";
 
 // The one column template the header row and every variation row share.
 // Short cells centre against the first line of a field rather than the top of
-// a row a tall value has stretched. `input.form-control` is 36px, so the name
-// field's centre is the line everything else lines up with.
+// a row a tall value has stretched. These rows use size="md", which is 32px
+// (`input.form-control--md`) — the unsized `.form-control` default of 36px sits
+// four pixels lower and reads as everything drooping.
 const FIRST_LINE_CELL = {
-  minHeight: 36,
+  minHeight: 32,
   display: "flex",
   alignItems: "center",
 } as const;
