@@ -5,6 +5,7 @@ import { Box, Separator } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema } from "@/services/features";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
@@ -183,10 +184,15 @@ export default function ContextualBanditAnalysisFields({
                     helpText="Attributes this Bandit uses as context. Defaults to all query attributes; select a subset to narrow it."
                   />
                 ) : (
-                  <HelperText status="warning">
-                    The selected query has no targeting attribute columns that
-                    are still valid organization attributes.
-                  </HelperText>
+                  <>
+                    <Text weight="semibold" size="md">
+                      Contextual Attributes
+                    </Text>
+                    <HelperText status="warning">
+                      The selected query has no targeting attribute columns that
+                      are still valid organization attributes.
+                    </HelperText>
+                  </>
                 )}
               </Box>
             ) : null}

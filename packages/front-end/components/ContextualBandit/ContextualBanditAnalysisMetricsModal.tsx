@@ -274,14 +274,19 @@ export default function ContextualBanditAnalysisMetricsModal({
                 helpText="Attributes this Bandit uses as context. Defaults to all query attributes; select a subset to narrow it."
               />
             ) : (
-              <HelperText status="warning">
-                The selected query has no targeting attribute columns that are
-                still valid organization attributes.
-              </HelperText>
+              <Box mb="3">
+                <Text weight="semibold" size="md">
+                  Contextual Attributes
+                </Text>
+                <HelperText status="warning">
+                  The selected query has no targeting attribute columns that are
+                  still valid organization attributes.
+                </HelperText>
+              </Box>
             )
           ) : (
             <Box mb="3">
-              <Text weight="semibold" size="m">
+              <Text weight="semibold" size="md">
                 Contextual Attributes
               </Text>
               <Box mt="1">
