@@ -104,8 +104,7 @@ export default function ManagedFlagApproval({
 
   const status = info.pendingDraft?.status ?? "draft";
   const approval = info.pendingDraft?.approval;
-  // Approved on paper, blocked in practice — an uncovered environment or a
-  // required team that has not signed.
+  // Approved on paper, blocked in practice.
   const approvalGated =
     !!approval && !approval.satisfied && status === "approved";
   // A revision keeps the status it was left in, so a draft opened while
@@ -116,8 +115,7 @@ export default function ManagedFlagApproval({
 
   // Starting the experiment is the publish, so a draft runs review only.
   const publishIsLaunch = experiment.status === "draft";
-  // Publishing unapproved is an explicit act, not a standing privilege: the
-  // admin opts in per publish, the same way the feature's own panel asks.
+  // An explicit per-publish opt-in, not a standing privilege.
   const adminBypassAvailable =
     !publishIsLaunch &&
     requireReviews &&
@@ -154,8 +152,7 @@ export default function ManagedFlagApproval({
     governanceCanPublish: true,
     editsResetStatus: true,
   };
-  // Two reads of the same machine: the bypass changes the CTA, but the blocker
-  // banners keep describing what is being skipped.
+  // Two reads: the bypass changes the CTA, the banners still say what it skips.
   const baseState = getReviewAndPublishState({
     ...stateInput,
     adminPublish: false,
@@ -432,8 +429,7 @@ export default function ManagedFlagApproval({
   // though starting the experiment is all that stands in the way.
   const awaitingApproval =
     requireReviews && !(approval?.satisfied ?? status === "approved");
-  // Approved-but-gated needs its own wording: "once approved" reads as a
-  // contradiction next to an "Approved" label.
+  // "Once approved" contradicts an "Approved" label.
   const unblocks = approvalGated
     ? "Once the requirements above are met"
     : "Once approved";
@@ -543,8 +539,7 @@ export default function ManagedFlagApproval({
       )}
 
       {approvalGated && (
-        // Approved, but the server would still refuse: name what is missing
-        // rather than letting the start fail with a bare error.
+        // Name what is missing rather than failing the start with a bare error.
         <ApprovalStatusBand
           phase="gated"
           footprint={approval.footprint}
@@ -722,7 +717,11 @@ export default function ManagedFlagApproval({
         hideHeader
         bodyMb="0"
         size="lg"
-        close={() => setOpen(false)}
+        close={() => {
+          // The override is per publish, so it must not survive the modal.
+          setAdminBypass(false);
+          setOpen(false);
+        }}
         closeCta={primaryAction ? "Cancel" : "Close"}
         // Beside the CTAs, where it reads as a note on the action rather than
         // a line of the content.

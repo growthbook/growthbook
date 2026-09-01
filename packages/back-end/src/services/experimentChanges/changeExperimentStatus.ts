@@ -309,8 +309,6 @@ export async function getExperimentStartChecklistStatus(
       items.push({
         key: `${PENDING_APPROVAL_ITEM_PREFIX}${f.feature.id}`,
         required: true,
-        // The publish gate's answer when we have it: an approved draft with an
-        // uncovered environment or unmet team would still fail to publish.
         status:
           (f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved")
             ? "complete"
@@ -599,8 +597,7 @@ export async function startExperiment({
     );
   }
 
-  // The publish path re-checks bypass authority per feature, so waiving the
-  // approval blocker here cannot land a draft the caller could not publish.
+  // Safe to waive here: the publish path re-checks bypass authority per feature.
   assertNoIncompleteHardBlockers(
     bypassLockdown
       ? checklistItems.filter(

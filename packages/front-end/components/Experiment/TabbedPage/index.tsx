@@ -159,8 +159,7 @@ export default function TabbedPage({
     ? managedFeature
     : null;
   const managedDraft = managedFlagWithDraft?.pendingDraft;
-  // The publish gate's own answer: an approved draft can still be short of a
-  // required approver team or an environment.
+  // Not the revision status: approved can still be short of a team or an env.
   const managedApprovalBlocking =
     !!managedDraft?.pendingApproval &&
     !(managedDraft.approval?.satisfied ?? managedDraft.status === "approved");

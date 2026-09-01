@@ -47,6 +47,8 @@ import {
 import { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
 import { ManagedFlagName } from "@/components/Experiment/ManagedFlagSummary";
 
+const PENDING_APPROVAL_ITEM_PREFIX = "pendingApproval:";
+
 export type PendingDraftFailure =
   ApiErrorDetails<"pending_draft_publish_failed">["failedFeatureDrafts"][number];
 
@@ -262,8 +264,7 @@ export default function StartExperimentModal({
   // Hard blockers (merge conflicts, missing approvals, unrelated draft edits)
   // can't be bypassed via "Start Anyway" — the auto-publish at start either
   // rejects them outright or would silently publish unreviewed changes.
-  // Mirrors the checklist's approval blocker. Only an opt-in: the server
-  // re-checks bypass authority per feature before publishing anything.
+  // Mirrors the checklist's approval blocker; the server re-checks per feature.
   const approvalBlockedFeatures = linkedFeatures.filter(
     (f) =>
       f.pendingApproval &&
@@ -276,16 +277,24 @@ export default function StartExperimentModal({
       permissionsUtil.canBypassFlagApprovalChecks(f.feature, "feature"),
     );
   const bypassingApproval = adminBypassAvailable && adminBypass;
-  const bypassedCount = bypassingApproval ? approvalBlockedFeatures.length : 0;
-  const hasHardBlockers = checklistHardBlockerCount - bypassedCount > 0;
+  // Counted off the items themselves, not the features: the checklist skips
+  // its own approval row in cases this list does not.
+  const bypassedItems = bypassingApproval
+    ? incompleteChecklistItems.filter((item) =>
+        item.key?.startsWith(PENDING_APPROVAL_ITEM_PREFIX),
+      )
+    : [];
+  const hasHardBlockers =
+    checklistHardBlockerCount -
+      bypassedItems.filter((i) => i.hardBlock).length >
+    0;
   const hardBlockerItems = incompleteChecklistItems.filter(
-    (item) =>
-      item.hardBlock &&
-      !(bypassingApproval && item.key?.startsWith("pendingApproval:")),
+    (item) => item.hardBlock && !bypassedItems.includes(item),
   );
-  const checklistIncomplete = checklistItemsRemaining - bypassedCount > 0;
+  const checklistIncomplete =
+    checklistItemsRemaining - bypassedItems.length > 0;
   const softBlockerItems = incompleteChecklistItems.filter(
-    (item) => !item.hardBlock && item.required,
+    (item) => !item.hardBlock && item.required && !bypassedItems.includes(item),
   );
   // Only group when we actually have hard-blocker items in the rendered list,
   // not just a non-zero count from props, so we never render an empty section.

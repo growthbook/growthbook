@@ -5151,8 +5151,8 @@ export async function getRefLinkedFeatureInfo({
 
       let draftHasMergeConflict = false;
       let draftHasUnrelatedChanges = false;
-      // The publish gate's own answer, not `revision.status`: an approved draft
-      // still cannot publish while a required team or environment is uncovered.
+      // Not `revision.status`: an approved draft can still be short of a
+      // required team or an environment.
       let draftApproval: RevisionApprovalState | undefined;
       // The same test the publish gate uses, so a CTA can't offer a publish
       // that would change nothing.
@@ -5173,16 +5173,6 @@ export async function getRefLinkedFeatureInfo({
             {},
           );
           draftHasChanges = mergeResultHasChanges(mergeResult);
-          if (reviewRequired) {
-            draftApproval = await assessRevisionApprovalForAutoPublish(
-              context,
-              feature,
-              matchedDraftRevision,
-              live,
-              base,
-              mergeResult,
-            );
-          }
           if (!mergeResult.success) {
             draftHasMergeConflict = true;
           } else if (
@@ -5198,6 +5188,18 @@ export async function getRefLinkedFeatureInfo({
             )
           ) {
             draftHasUnrelatedChanges = true;
+          }
+          // Last: a failure here must not cost the conflict flags above, which
+          // are hard blockers. Callers fall back to the revision's own status.
+          if (reviewRequired) {
+            draftApproval = await assessRevisionApprovalForAutoPublish(
+              context,
+              feature,
+              matchedDraftRevision,
+              live,
+              base,
+              mergeResult,
+            );
           }
         } catch (e) {
           logger.warn(

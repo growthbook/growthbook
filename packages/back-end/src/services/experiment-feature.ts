@@ -793,8 +793,7 @@ export async function publishPendingFeatureDraftsForExperiment(
       live,
       base,
     );
-    // Re-derived per feature: the caller's opt-in is not authority on its own,
-    // and a feature can sit in a project the caller cannot bypass.
+    // Re-derived per feature: the caller's opt-in is not authority on its own.
     const bypassApproval =
       bypassLockdown &&
       context.permissions.canBypassFlagApprovalChecks(feature, "feature");
