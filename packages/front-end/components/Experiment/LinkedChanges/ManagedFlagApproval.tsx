@@ -15,6 +15,8 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
+import { findPublishLockingScheduledRevision } from "shared/enterprise";
+import { RampScheduleInterface } from "shared/validators";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { getReviewAndPublishState } from "@/components/Reviews/reviewAndPublishState";
 import {
@@ -101,6 +103,7 @@ export default function ManagedFlagApproval({
   // Not gated on `open`: the trigger's label depends on who authored the draft.
   const { data, mutate: mutateRevisions } = useApi<{
     revisions: FeatureRevisionInterface[];
+    rampSchedules?: RampScheduleInterface[];
   }>(`/feature/${info.feature.id}`, {
     shouldRun: () => (version ?? null) !== null,
   });
@@ -153,6 +156,16 @@ export default function ManagedFlagApproval({
     (info.pendingDraft?.hasChanges ?? true) &&
     permissionsUtil.canBypassFlagApprovalChecks(info.feature, "feature");
 
+  // Both locks refuse a publish server-side, so the CTA must know about them.
+  const featureLockedByRamp =
+    data?.rampSchedules?.some(
+      (rs) => rs.lockdownConfig?.mode === "locked" && rs.status === "running",
+    ) ?? false;
+  const featureLockedBySchedule = !!findPublishLockingScheduledRevision(
+    data?.revisions ?? [],
+    version,
+  );
+
   const stateInput = {
     requireReviews,
     status,
@@ -173,12 +186,12 @@ export default function ManagedFlagApproval({
     hasSelectedExperiments: false,
     onlyScheduledSelected: false,
     experimentsStep: false,
-    featureLockedByRamp: false,
-    featureLockedBySchedule: false,
+    featureLockedByRamp,
+    featureLockedBySchedule,
     checklistIncomplete: false,
     checklistBlocked: false,
     checklistAcknowledged: true,
-    governanceCanPublish: true,
+    governanceCanPublish: governance ? governance.canPublish : true,
     editsResetStatus: true,
   };
   // Two reads: the bypass changes the CTA, the banners still say what it skips.
@@ -475,11 +488,13 @@ export default function ManagedFlagApproval({
   const approvalGateUnmet = requireReviews && !!approval && !approval.satisfied;
   const showApprovalBand =
     requireReviews &&
-    // baseState, not state: an armed admin override must not hide the gate it
-    // is skipping.
-    baseState.submitAction !== "publish" &&
     !!info.pendingDraft &&
-    (status !== "approved" || approvalGateUnmet);
+    (status !== "approved" || approvalGateUnmet) &&
+    // The tab suppresses the band beside a working Publish CTA. Ours is not
+    // working while a gate is unmet — the state machine is not told about team
+    // or footprint coverage, so it offers a publish the server would refuse.
+    // baseState, not state: an armed admin override still shows what it skips.
+    (approvalGateUnmet || baseState.submitAction !== "publish");
   const coverageBlockMessage =
     approval &&
     !approval.unmetTeams.length &&
