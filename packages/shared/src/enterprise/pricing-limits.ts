@@ -2,9 +2,8 @@ import { z } from "zod";
 import { OrgLimits } from "./license-consts";
 import { FREE_ORG_LIMITS } from "./entitlements";
 
-// Value shape: { "enabled": true, ...OrgLimits }. The base value holds the free
-// tier's limits; per-plan values are served with targeting rules on the
-// accountPlan attribute.
+// Value shape: { "enabled": true, ...OrgLimits }. Per-plan values are served
+// with targeting rules on the accountPlan attribute.
 export const PRICING_PHASE_1_FLAG_KEY = "pricing-phase-1-limits";
 
 export function isLimitsFlagDisabled(raw: unknown): boolean {

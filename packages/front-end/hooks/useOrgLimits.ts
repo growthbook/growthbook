@@ -15,7 +15,7 @@ import { isCloud } from "@/services/env";
 export default function useOrgLimits(): OrgLimitsAccessor {
   const { organization, license, effectiveAccountPlan } = useUser();
 
-  // Display-side mirror of the server's flag read (cloud only).
+  // Display-side mirror of the server's flag on/off check (cloud only).
   const flagValue = useFeatureValue(PRICING_PHASE_1_FLAG_KEY, null);
   const limitsDisabled = isCloud() && isLimitsFlagDisabled(flagValue);
 
@@ -24,7 +24,6 @@ export default function useOrgLimits(): OrgLimitsAccessor {
       return makeOrgLimits({ effectivePlan: effectiveAccountPlan || "oss" });
     }
 
-    // Free limits come from the org's stamp; paid tiers resolve live.
     const tier = planTierFor(effectiveAccountPlan || "oss");
     const planLimits =
       tier && tier !== "free"

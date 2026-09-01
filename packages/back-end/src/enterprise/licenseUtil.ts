@@ -1064,8 +1064,7 @@ export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
 }
 
 // Raw plan limits only — does NOT honor the pricing-limits flag's kill switch.
-// Enforcement paths must use getEffectiveOrgLimits (services/plan-limits.ts),
-// which passes the flag-resolved config as `planLimitsOverride`.
+// Enforcement paths must use getEffectiveOrgLimits (services/plan-limits.ts).
 export function getOrgLimits(
   org: MinimalOrganization & Pick<OrganizationInterface, "limits">,
   planLimitsOverride?: OrgLimits,

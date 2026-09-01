@@ -19,8 +19,7 @@ import {
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 // Limits stamped onto a newly created org. Cloud reads the flag; self-hosted
-// always uses the hardcoded defaults. Every org is created free, so the stamp
-// holds free values; its presence is what marks the org as non-grandfathered.
+// always uses the hardcoded defaults.
 export async function getStampedOrgLimits(): Promise<OrgLimits> {
   if (!IS_CLOUD) return { ...FREE_ORG_LIMITS };
 
@@ -33,8 +32,6 @@ export async function getStampedOrgLimits(): Promise<OrgLimits> {
   return resolveOrgLimitsConfig(raw);
 }
 
-// Trusted server-derived attributes only — no request context, so the SDK's
-// query-string override cannot influence enforcement.
 function evalLimitsFlagForOrg(org: OrganizationInterface): unknown {
   if (!IS_CLOUD) return undefined;
   return getGrowthBookClient()?.evalFeature(PRICING_PHASE_1_FLAG_KEY, {
@@ -43,9 +40,7 @@ function evalLimitsFlagForOrg(org: OrganizationInterface): unknown {
 }
 
 // getOrgLimits, plus the flag's on/off switch: `enabled: false` (base value or
-// a per-org targeting rule) lifts all limits for the evaluated org. The served
-// limit fields are the org's live per-plan config, which paid tiers need
-// because their stamp is frozen at creation time on the free tier.
+// a per-org targeting rule) lifts all limits for the evaluated org.
 export function getEffectiveOrgLimits(
   org: OrganizationInterface,
 ): OrgLimitsAccessor {
@@ -56,7 +51,6 @@ export function getEffectiveOrgLimits(
     return makeOrgLimits({ effectivePlan });
   }
 
-  // Free limits come from the stamp, so only paid tiers read the flag here.
   const tier = planTierFor(effectivePlan);
   const planLimitsOverride =
     IS_CLOUD && tier && tier !== "free"

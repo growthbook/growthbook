@@ -92,8 +92,6 @@ describe("makeOrgLimits", () => {
     it.each<AccountPlan>(["pro", "pro_sso"])(
       "upgrades a stamped org to the pro tier's limits on plan=%s",
       (effectivePlan) => {
-        // The stamp holds free values (every org is created free), so a pro org
-        // must not be held to maxProjects: 1.
         const limits = accessorFor({ effectivePlan, orgLimits: FREE_LIMITS });
         expect(limits.getMaxProjects()).toBe(3);
         expect(limits.isEnvironmentIdAllowed("production")).toBe(true);
@@ -123,8 +121,6 @@ describe("makeOrgLimits", () => {
     });
 
     it("keeps role management even if a license snapshot revokes it", () => {
-      // Pro has the role-management commercial feature, so roles are never
-      // gated by a limits snapshot on that plan.
       const limits = accessorFor({
         effectivePlan: "pro",
         orgLimits: FREE_LIMITS,

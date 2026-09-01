@@ -37,7 +37,6 @@ type LimitsInput = {
   // Stamped at org creation. Its absence means the org is grandfathered.
   orgLimits?: OrgLimits;
   licenseLimits?: OrgLimits;
-  // Live per-plan config, for tiers whose limits can't be stamped at creation.
   planLimits?: OrgLimits;
 };
 
@@ -62,14 +61,12 @@ function resolve({
 
   if (licenseLimits) return licenseLimits;
 
-  // Never stamped, so never limited on any plan.
   if (!orgLimits) return null;
 
   const tier = planTierFor(effectivePlan);
   if (!tier) return null;
 
-  // The stamp holds free values, so an org that upgraded reads its new tier's
-  // limits instead of the ones frozen at creation.
+  // The stamp holds free values, so an upgraded org reads its new tier's.
   return planLimits ?? DEFAULT_ORG_LIMITS[tier];
 }
 
