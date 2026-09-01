@@ -29,7 +29,7 @@ import {
   getProviderFromModel,
   getProviderFromEmbeddingModel,
   getProviderForAIModel,
-  isReasoningModel,
+  supportsTemperature,
 } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
@@ -317,11 +317,11 @@ export const simpleCompletion = async ({
 
   const messages = constructMessages(prompt, instructions);
 
-  // Reasoning models reject `temperature`; omit it rather than let the
-  // provider warn and drop it.
-  const effectiveTemperature = isReasoningModel(model)
-    ? undefined
-    : temperature;
+  // Some models reject `temperature` outright (400) and others silently drop
+  // it; omit it entirely for both.
+  const effectiveTemperature = supportsTemperature(model)
+    ? temperature
+    : undefined;
 
   const generateOptions = {
     model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
@@ -425,11 +425,11 @@ export const streamingChatCompletion = async ({
     throw new Error("AI provider not enabled or key not set");
   }
 
-  // Reasoning models reject `temperature`; omit it rather than let the
-  // provider warn and drop it.
-  const effectiveTemperature = isReasoningModel(model)
-    ? undefined
-    : temperature;
+  // Some models reject `temperature` outright (400) and others silently drop
+  // it; omit it entirely for both.
+  const effectiveTemperature = supportsTemperature(model)
+    ? temperature
+    : undefined;
 
   const recordUsage = async ({
     inputTokens,
@@ -649,11 +649,11 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     }
   }
 
-  // Reasoning models reject `temperature`; omit it rather than let the
-  // provider warn and drop it.
-  const effectiveTemperature = isReasoningModel(model)
-    ? undefined
-    : temperature;
+  // Some models reject `temperature` outright (400) and others silently drop
+  // it; omit it entirely for both.
+  const effectiveTemperature = supportsTemperature(model)
+    ? temperature
+    : undefined;
 
   const generateOnce = async () => {
     const result = await generateText({
