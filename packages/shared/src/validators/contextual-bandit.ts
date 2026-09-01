@@ -376,6 +376,18 @@ export const apiContextualBanditPostVisualChangesetsReturn = z.object({
   visualChangeset: apiVisualChangesetValidator,
 });
 
+export const apiContextualBanditListVisualChangesetsValidator = {
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
+  bodySchema: z.never(),
+  querySchema: z.never(),
+};
+
+export const apiContextualBanditListVisualChangesetsReturn = z.object({
+  visualChangesets: z.array(apiVisualChangesetValidator),
+});
+
 const contextualBanditIdAndSnapshotParam = z
   .object({
     id: z.string().describe("The Contextual Bandit id"),

@@ -4,6 +4,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
 import { getMetricLink } from "shared/experiments";
 import { ApiContextualBanditInterface } from "shared/validators";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -40,6 +41,7 @@ import { DetailSectionColumn } from "@/components/DetailSectionBox";
 import ContextualBanditResultsTable from "@/components/ContextualBandit/ContextualBanditResultsTable";
 import { VariationBox } from "@/components/Experiment/VariationsTable";
 import ContextualBanditLinkedFeatures from "@/components/ContextualBandit/ContextualBanditLinkedFeatures";
+import ContextualBanditVisualChangesets from "@/components/ContextualBandit/ContextualBanditVisualChangesets";
 import StartContextualBanditModal from "@/components/ContextualBandit/StartContextualBanditModal";
 import CompareContextualBanditEventsModal from "@/components/ContextualBandit/CompareContextualBanditEventsModal";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
@@ -96,6 +98,10 @@ export default function ContextualBanditDetailPage({
   linkedFeaturesMutate,
   setFeatureModal,
   canAddFeature = false,
+  visualChangesets = [],
+  visualChangesetsMutate,
+  setVisualChangesetModal,
+  canAddVisualChangeset = false,
 }: {
   cb: ApiContextualBanditInterface;
   mutate: () => void;
@@ -112,6 +118,10 @@ export default function ContextualBanditDetailPage({
   linkedFeaturesMutate?: () => void;
   setFeatureModal?: (open: boolean) => void;
   canAddFeature?: boolean;
+  visualChangesets?: VisualChangesetInterface[];
+  visualChangesetsMutate?: () => void;
+  setVisualChangesetModal?: (open: boolean) => void;
+  canAddVisualChangeset?: boolean;
 }) {
   const { getDatasourceById, getExperimentMetricById, projects } =
     useDefinitions();
@@ -512,6 +522,14 @@ export default function ContextualBanditDetailPage({
               canAddFeature={canAddFeature}
               setFeatureModal={setFeatureModal}
               mutate={linkedFeaturesMutate}
+            />
+
+            <ContextualBanditVisualChangesets
+              cb={cb}
+              visualChangesets={visualChangesets}
+              canEdit={canAddVisualChangeset}
+              setVisualChangesetModal={setVisualChangesetModal}
+              mutate={visualChangesetsMutate}
             />
 
             <OverviewSection

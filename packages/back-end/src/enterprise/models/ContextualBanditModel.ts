@@ -24,17 +24,20 @@ import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   cancelContextualBanditEndpoint,
   contextualBanditApiSpec,
+  listContextualBanditVisualChangesetsEndpoint,
   postContextualBanditVisualChangesetsEndpoint,
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
 } from "back-end/src/api/specs/contextual-bandit.spec";
 import {
+  apiContextualBanditListVisualChangesetsReturn,
   apiContextualBanditPostVisualChangesetsReturn,
 } from "shared/validators";
 import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
 import {
   createVisualChangesetForCb,
+  findVisualChangesetsByContextualBandit,
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
 import { requireCbEditable } from "back-end/src/api/visual-editor-ai/requireCbEditable";
@@ -221,6 +224,30 @@ const BaseClass = MakeModelClass({
 
           return {
             visualChangeset: toVisualChangesetApiInterface(visualChangeset),
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...listContextualBanditVisualChangesetsEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<
+          z.infer<typeof apiContextualBanditListVisualChangesetsReturn>
+        > => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          const changesets = await findVisualChangesetsByContextualBandit(
+            cb.id,
+            req.context.org.id,
+          );
+          return {
+            visualChangesets: changesets.map((vc) =>
+              toVisualChangesetApiInterface(vc),
+            ),
           };
         },
       }),

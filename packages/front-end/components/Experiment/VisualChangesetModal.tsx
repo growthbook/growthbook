@@ -16,8 +16,9 @@ const defaultType = "simple";
 
 const VisualChangesetModal: FC<{
   mode: "add" | "edit";
-  experiment: ExperimentInterfaceStringDates;
+  experiment?: ExperimentInterfaceStringDates;
   visualChangeset?: VisualChangesetInterface;
+  createUrl?: string;
   mutate: () => void;
   close: () => void;
   onCreate?: (vc: VisualChangesetInterface) => void;
@@ -27,6 +28,7 @@ const VisualChangesetModal: FC<{
   mode,
   experiment,
   visualChangeset,
+  createUrl,
   mutate,
   close,
   onCreate,
@@ -76,8 +78,10 @@ const VisualChangesetModal: FC<{
       ];
     }
     if (mode === "add") {
+      const createPath =
+        createUrl ?? `/experiments/${experiment?.id}/visual-changeset`;
       const res = await apiCall<{ visualChangeset: VisualChangesetInterface }>(
-        `/experiments/${experiment.id}/visual-changeset`,
+        createPath,
         {
           method: "POST",
           body: JSON.stringify(payload),

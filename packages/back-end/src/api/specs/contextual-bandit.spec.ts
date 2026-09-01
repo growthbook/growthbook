@@ -2,6 +2,8 @@ import {
   apiContextualBanditCancelReturn,
   apiContextualBanditCancelValidator,
   apiContextualBanditLifecycleReturn,
+  apiContextualBanditListVisualChangesetsReturn,
+  apiContextualBanditListVisualChangesetsValidator,
   apiContextualBanditPostVisualChangesetsReturn,
   apiContextualBanditPostVisualChangesetsValidator,
   apiContextualBanditRefreshReturn,
@@ -62,6 +64,15 @@ export const postContextualBanditVisualChangesetsEndpoint = {
   summary: "Create a visual changeset for a Contextual Bandit",
 };
 
+export const listContextualBanditVisualChangesetsEndpoint = {
+  pathFragment: "/:id/visual-changesets",
+  verb: "get" as const,
+  operationId: "listContextualBanditVisualChangesets",
+  validator: apiContextualBanditListVisualChangesetsValidator,
+  zodReturnObject: apiContextualBanditListVisualChangesetsReturn,
+  summary: "List visual changesets for a Contextual Bandit",
+};
+
 export const contextualBanditApiSpec = {
   modelSingular: "contextualBandit",
   modelPlural: "contextualBandits",
@@ -81,6 +92,7 @@ export const contextualBanditApiSpec = {
     refreshContextualBanditEndpoint,
     cancelContextualBanditEndpoint,
     postContextualBanditVisualChangesetsEndpoint,
+    listContextualBanditVisualChangesetsEndpoint,
   ],
   navAfterTag: "experiments",
 } satisfies OpenApiModelSpec;
