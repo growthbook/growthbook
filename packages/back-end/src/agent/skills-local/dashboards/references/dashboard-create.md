@@ -107,6 +107,27 @@ Every block needs `type`, `title`, and `description` (`""` is fine for the
 description, but always give a chart a real title — it is the tile's heading).
 `sizeHint` is optional and defaults to `full`.
 
+### The legend
+
+Exactly one `markdown` block, first in the list. It explains the whole dashboard
+in one place, so no other block needs prose and no second `markdown` is ever
+warranted:
+
+```json
+{
+  "type": "markdown",
+  "title": "About this dashboard",
+  "description": "",
+  "sizeHint": "full",
+  "content": "How revenue efficiency and retention are tracking over the last 30 days.\n\n- **Revenue per User** — total revenue divided by active users.\n- **D7 Purchase Retention** — share of users who buy again within 7 days.\n- **Signups over time** — daily new accounts; watch for step changes."
+}
+```
+
+One opening line on what the dashboard is for, then one bullet per chart naming
+it and saying what to read from it. Keep each bullet to a line. Do not restate
+the timeframe per bullet — the filter bar already shows it — and do not add
+section headings, dividers, or a second block for a later group of charts.
+
 Do **not** send `explorerAnalysisId`, `layout`, `snapshotId`, or
 `globalControlSettings`. The analysis ids come from running the queries, the
 layout comes from the packer, and blocks are enrolled in the dashboard filter bar
@@ -151,10 +172,10 @@ Set `sizeHint` per block and let the packer place them on the 24-column grid:
 | KPI tile (`bigNumber`)    | `small`    | three across       |
 | Paired chart              | `medium`   | two across         |
 | Full-width chart or table | `full`     | one per row        |
-| Markdown heading          | `full`     | one per row, short |
+| The legend `markdown`     | `full`     | one per row, first |
 
-Order the blocks the way they should read top to bottom: KPI tiles first, then
-their trends, then breakdowns and tables. The user can rearrange the grid in the
+Order the blocks the way they should read top to bottom: the legend first, then
+KPI tiles, then their trends, then breakdowns and tables. The user can rearrange the grid in the
 preview, so aim for a sensible default rather than a perfect one.
 </layout>
 

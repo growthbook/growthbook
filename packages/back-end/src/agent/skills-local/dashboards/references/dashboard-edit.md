@@ -58,6 +58,18 @@ asked for.
    reorder, or edit one. Keep the blocks you are not touching exactly as they
    are.
 
+   **`markdown` blocks on a saved dashboard are the user's.** Carry every one
+   through untouched — do not merge them, reword them, reorder them, or drop one
+   because the dashboard has more than the single legend a new dashboard gets.
+
+   **Never add a `markdown` block on an edit, not even a legend.** A dashboard
+   with none either never had one or had it removed on purpose, and you cannot
+   tell those apart — so adding one overrides a decision the user already made.
+   Add one only if they ask, and rewrite an existing one only if they ask.
+
+   If your change leaves a legend describing a chart that is gone, say so in your
+   reply and offer to update it rather than editing their words for them.
+
    Translating a saved block back into a proposal is mechanical: keep `type`,
    `title`, `description`, and (for chart blocks) `config`; drop
    `explorerAnalysisId`, `layout`, `id`, `uid`, `organization`, `snapshotId`, and

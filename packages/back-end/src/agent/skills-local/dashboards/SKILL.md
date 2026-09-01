@@ -48,7 +48,7 @@ You build **general** (Analytics) dashboards — no `experimentId`. They live at
   `data-source-exploration`, `funnel-exploration`
 - **Experimentation:** `experiments-status`, `experiments-win-rate`,
   `metric-experiments`, `experiments-scaled-impact`
-- **Other:** `markdown`, `sql-explorer`
+- **Other:** `markdown` (exactly one, the legend — see below), `sql-explorer`
 
 Anything else — in particular the per-experiment result blocks
 (`experiment-metric`, `experiment-dimension`, `experiment-time-series`,
@@ -73,8 +73,7 @@ replaces half a dozen field-by-field questions.
 | **Experiment program review** | `experiments-status` + `experiments-win-rate` (`medium` each), then `metric-experiments` + `experiments-scaled-impact` (`full` each)     |
 
 Archetypes compose. "Signup funnel plus how our tests are doing" is the funnel
-set followed by the experiment-program set, with a `markdown` heading between
-them.
+set followed by the experiment-program set — still one legend, covering both.
 
 If the request clearly implies an archetype — "funnel health", "how are our
 experiments doing", "dashboard for the revenue metric" — pick it silently and
@@ -135,6 +134,13 @@ also the answer when the user says "all of them".
 - **Reads only through `callApi`.** The dashboards API is there to read what
   already exists. Never POST, PUT, or DELETE a dashboard — the preview's button
   is the only thing that writes one, and the user presses it.
+- **Add exactly one `markdown` block**, first in the list, and its only job is to
+  be the legend: one line on what the dashboard is for, then one line per chart
+  saying what to read from it. Never add a second — no section headings, no
+  dividers, no per-group captions. A chart's own `title` is how it labels itself.
+  This is a new-dashboard rule only. On a saved dashboard every `markdown` block
+  belongs to the user: leave them exactly as they are, and never add one — its
+  absence is a choice they already made.
 - **Never run the charts yourself.** `runExploration` renders its own chart card
   per call, so a six-tile dashboard would spray six loose charts into the chat
   before the dashboard appeared. Hand the configs to `proposeDashboard`; it runs

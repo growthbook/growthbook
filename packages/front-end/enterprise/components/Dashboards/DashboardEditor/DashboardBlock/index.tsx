@@ -12,7 +12,11 @@ import {
   experimentBlockOptedOutOfGlobalFilters,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
-import { PiDotsSixVertical, PiPencilSimpleFill } from "react-icons/pi";
+import {
+  PiDotsSixVertical,
+  PiPencilSimpleFill,
+  PiTrashSimpleFill,
+} from "react-icons/pi";
 import clsx from "clsx";
 import { isNumber, isString, isDefined } from "shared/util";
 import {
@@ -574,7 +578,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </>
         )}
 
-        {isEditing || allowBlockDeletion ? (
+        {isEditing ? (
           <div>
             {!editingBlock && (
               <DropdownMenu
@@ -593,55 +597,47 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                   </IconButton>
                 }
               >
-                {/* Delete-only outside edit mode: everything here needs the edit
-                    sidebar, which the AI preview has no room for. */}
-                {isEditing && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    editBlock();
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    duplicateBlock();
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Duplicate
+                </DropdownMenuItem>
+                {disableBlock === "none" && addBlockBefore && addBlockAfter && (
                   <>
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        editBlock();
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        duplicateBlock();
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Duplicate
-                    </DropdownMenuItem>
-                    {disableBlock === "none" &&
-                      addBlockBefore &&
-                      addBlockAfter && (
-                        <>
-                          <DropdownSubMenu trigger="Add block before">
-                            <DashboardBlockTypeMenuItems
-                              isGeneralDashboard={isGeneralDashboard}
-                              onSelect={(bType) => {
-                                addBlockBefore(bType);
-                                setDropdownOpen(false);
-                              }}
-                            />
-                          </DropdownSubMenu>
-                          <DropdownSubMenu trigger="Add block after">
-                            <DashboardBlockTypeMenuItems
-                              isGeneralDashboard={isGeneralDashboard}
-                              onSelect={(bType) => {
-                                addBlockAfter(bType);
-                                setDropdownOpen(false);
-                              }}
-                            />
-                          </DropdownSubMenu>
-                        </>
-                      )}
-                    <DropdownMenuSeparator />
+                    <DropdownSubMenu trigger="Add block before">
+                      <DashboardBlockTypeMenuItems
+                        isGeneralDashboard={isGeneralDashboard}
+                        onSelect={(bType) => {
+                          addBlockBefore(bType);
+                          setDropdownOpen(false);
+                        }}
+                      />
+                    </DropdownSubMenu>
+                    <DropdownSubMenu trigger="Add block after">
+                      <DashboardBlockTypeMenuItems
+                        isGeneralDashboard={isGeneralDashboard}
+                        onSelect={(bType) => {
+                          addBlockAfter(bType);
+                          setDropdownOpen(false);
+                        }}
+                      />
+                    </DropdownSubMenu>
                   </>
                 )}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
@@ -655,6 +651,20 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
               </DropdownMenu>
             )}
           </div>
+        ) : allowBlockDeletion ? (
+          <IconButton
+            variant="ghost"
+            radius="full"
+            size="1"
+            color="red"
+            aria-label="Delete block"
+            onClick={(e) => {
+              e.stopPropagation();
+              deleteBlock();
+            }}
+          >
+            <PiTrashSimpleFill />
+          </IconButton>
         ) : canEdit && setIsEditing ? (
           <div>
             <DropdownMenu

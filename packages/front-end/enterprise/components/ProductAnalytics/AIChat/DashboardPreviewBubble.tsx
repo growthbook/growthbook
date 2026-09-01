@@ -323,18 +323,22 @@ export default function DashboardPreviewBubble({
               <SelectItem value="private">Only me</SelectItem>
             </Select>
           )}
-          <Button
-            size="sm"
-            loading={saving}
-            onClick={save}
-            disabled={readOnly || !title.trim()}
-          >
-            {readOnly
-              ? "Expired"
-              : boundDashboardId
-                ? "Update dashboard"
-                : "Save dashboard"}
-          </Button>
+          {/* Committed and superseded both freeze this preview, but they do not
+              read alike: "Expired" next to a green Saved looks like a failure. */}
+          {savedId ? null : superseded ? (
+            <Button size="sm" disabled>
+              Expired
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              loading={saving}
+              onClick={save}
+              disabled={!title.trim()}
+            >
+              {boundDashboardId ? "Update dashboard" : "Save dashboard"}
+            </Button>
+          )}
         </Flex>
       </Flex>
 

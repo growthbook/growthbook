@@ -161,11 +161,15 @@ async function readRevisionBase(
 /** Pairs on type+title, the only stable key the model can send. Single-use per saved block. */
 function createSavedBlockMatcher(saved: DashboardBlockInterface[]) {
   const unclaimed = [...saved];
-  return (proposed: { type: string; title: string }) => {
-    const i = unclaimed.findIndex(
-      (b) => b.type === proposed.type && b.title === proposed.title,
-    );
-    return i === -1 ? undefined : unclaimed.splice(i, 1)[0];
+  return {
+    match: (proposed: { type: string; title: string }) => {
+      const i = unclaimed.findIndex(
+        (b) => b.type === proposed.type && b.title === proposed.title,
+      );
+      return i === -1 ? undefined : unclaimed.splice(i, 1)[0];
+    },
+    /** Saved tiles nothing claimed — a rename could be hiding among them. */
+    unclaimedCount: () => unclaimed.length,
   };
 }
 
@@ -215,8 +219,11 @@ export async function buildDashboardDraft(
       );
     }
   }
-  const matchSaved = createSavedBlockMatcher(saved?.blocks ?? []);
-  const revised = input.blocks.map(matchSaved);
+  const matcher = createSavedBlockMatcher(saved?.blocks ?? []);
+  const revised = input.blocks.map(matcher.match);
+  // A failed tile we cannot trace back to a saved one: dropping it is a deletion
+  // if it was really a rename, and the proposal alone cannot tell us which.
+  const untraceable: string[] = [];
 
   // Identity travels with the layout, or every edit churns the block's `uid`.
   const carriedFrom = (previous: DashboardBlockInterface | undefined) =>
@@ -282,6 +289,7 @@ export async function buildDashboardDraft(
           });
           return { block: previous as DraftBlock, sizeHint };
         }
+        if (saved) untraceable.push(proposed.title);
         droppedBlocks.push({
           title: proposed.title,
           type: proposed.type,
@@ -296,6 +304,16 @@ export async function buildDashboardDraft(
       };
     }),
   );
+
+  // Only ambiguous while a saved tile is unaccounted for; with every one claimed,
+  // a failed unmatched block is genuinely new and drops without losing anything.
+  if (untraceable.length && matcher.unclaimedCount() > 0) {
+    return noDraft(
+      `Could not run ${untraceable.map((t) => `"${t}"`).join(", ")}, and on an existing dashboard ` +
+        "leaving a tile out deletes it. Nothing was changed. Keep the titles of the tiles you are " +
+        "not renaming identical to the saved ones, fix the failing config, and call again.",
+    );
+  }
 
   const packed = packAroundCarriedLayout(
     built.filter((b): b is NonNullable<typeof b> => b !== null),

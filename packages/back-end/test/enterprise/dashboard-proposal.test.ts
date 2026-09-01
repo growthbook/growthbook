@@ -683,16 +683,63 @@ describe("buildDashboardDraft — a failed re-run on an existing tile", () => {
       },
     ]);
   });
+});
 
-  it("still drops a brand-new tile, which has nothing to lose", async () => {
+// A rename plus a failed re-run is indistinguishable from a brand-new tile, and
+// guessing wrong deletes the original.
+describe("buildDashboardDraft — a failed tile that cannot be traced back", () => {
+  const saved = {
+    id: "blk_rev",
+    uid: "uid_rev",
+    organization: "org_1",
+    type: "metric-exploration" as const,
+    title: "Revenue",
+    description: "",
+    layout: { x: 0, y: 0, w: 24, h: 8 },
+    explorerAnalysisId: "expl_old",
+    config: metricConfig,
+  };
+
+  const ctxWith = (blocks: unknown[]) =>
+    ({
+      models: {
+        dashboards: {
+          getById: jest.fn().mockResolvedValue({ id: "dash_abc", blocks }),
+        },
+      },
+    }) as unknown as ReqContext;
+
+  beforeEach(() => {
+    mockRunExploration.mockReset();
+  });
+
+  it("refuses while a saved tile is unaccounted for", async () => {
     mockRunExploration.mockRejectedValue(new Error("warehouse down"));
 
-    const { draft, droppedBlocks } = await buildDashboardDraft(
+    const { error } = await buildDashboardDraft(
       ctxWith([saved]),
-      input([chartBlock("Signups")], { dashboardId: "dash_abc" }),
+      input([chartBlock("Revenue renamed")], { dashboardId: "dash_abc" }),
     );
 
-    expect(draft.blocks).toEqual([]);
-    expect(droppedBlocks[0].kept).toBeUndefined();
+    expect(error).toContain("Revenue renamed");
+    expect(error).toContain("deletes it");
+  });
+
+  it("drops it once every saved tile is claimed", async () => {
+    // "Revenue" claims the saved tile and runs; only the new one fails.
+    mockRunExploration
+      .mockResolvedValueOnce({ id: "expl_new" })
+      .mockRejectedValue(new Error("warehouse down"));
+
+    const { draft, droppedBlocks, error } = await buildDashboardDraft(
+      ctxWith([saved]),
+      input([chartBlock("Revenue"), chartBlock("Signups")], {
+        dashboardId: "dash_abc",
+      }),
+    );
+
+    expect(error).toBeUndefined();
+    expect(draft.blocks).toHaveLength(1);
+    expect(droppedBlocks[0].title).toBe("Signups");
   });
 });
