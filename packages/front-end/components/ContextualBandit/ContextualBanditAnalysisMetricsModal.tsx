@@ -281,7 +281,7 @@ export default function ContextualBanditAnalysisMetricsModal({
             )
           ) : (
             <Box mb="3">
-              <Text weight="semibold" size="sm">
+              <Text weight="semibold" size="m">
                 Contextual Attributes
               </Text>
               <Box mt="1">
