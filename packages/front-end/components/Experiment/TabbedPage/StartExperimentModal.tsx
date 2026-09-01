@@ -25,12 +25,17 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Avatar from "@/ui/Avatar";
+import Badge from "@/ui/Badge";
+import Tooltip from "@/ui/Tooltip";
+import Frame from "@/ui/Frame";
 import {
   formatTrafficSplit,
   getHoldoutTrafficBreakdown,
 } from "@/services/utils";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
+import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   ICON_PROPERTIES,
   LINKED_CHANGE_CONTAINER_PROPERTIES,
@@ -72,6 +77,11 @@ const PENDING_DRAFT_FAILURE_LABELS: Record<
   "needs-approval": "Awaiting approval",
   "publish-error": "Publish failed unexpectedly",
 };
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
 
 function SubmitButton({ cta, disabled }: { cta: string; disabled: boolean }) {
   const { loading } = useModalForm();
@@ -138,6 +148,38 @@ function LinkedChangeSection({
   );
 }
 
+const MAX_VISIBLE_ENV_BADGES = 2;
+
+function EnvironmentBadges({ environments }: { environments: string[] }) {
+  const visible = environments.slice(0, MAX_VISIBLE_ENV_BADGES);
+  const hidden = environments.slice(MAX_VISIBLE_ENV_BADGES);
+  return (
+    <Flex gap="2" align="center" flexShrink="0">
+      {visible.map((env) => (
+        <Badge
+          key={env}
+          color="amber"
+          variant="soft"
+          radius="full"
+          size="xs"
+          label={`+ ${env}`}
+        />
+      ))}
+      {hidden.length > 0 && (
+        <Tooltip content={hidden.join(", ")} side="top">
+          <Badge
+            color="amber"
+            variant="soft"
+            radius="full"
+            size="xs"
+            label={`+ ${hidden.length}`}
+          />
+        </Tooltip>
+      )}
+    </Flex>
+  );
+}
+
 function SecondaryActionButton({
   label,
   action,
@@ -184,10 +226,14 @@ export default function StartExperimentModal({
   const hasAttributeTargeting = hasAttributeCondition(latestPhase?.condition);
   const hasSavedGroupTargeting = !!latestPhase?.savedGroups?.length;
   const hasPrerequisites = !!latestPhase?.prerequisites?.length && !isHoldout;
+  const hasNamespace = !!latestPhase?.namespace?.enabled;
   const hasLinkedChanges =
     linkedFeatures.length > 0 ||
     visualChangesets.length > 0 ||
     urlRedirects.length > 0;
+  const featuresEnablingEnvsCount = linkedFeatures.filter(
+    (f) => !!f.environmentsToEnable?.length,
+  ).length;
   const parsedScheduledDate = experiment.statusUpdateSchedule?.startAt
     ? new Date(experiment.statusUpdateSchedule.startAt)
     : null;
@@ -216,6 +262,10 @@ export default function StartExperimentModal({
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   const { hasCommercialFeature } = useUser();
+  const { namespaces } = useOrgSettings();
+
+  const { coverage: namespaceCoverage, name: namespaceName } =
+    getNamespaceDisplayData(latestPhase?.namespace, namespaces);
 
   const needsVisualEditorUpgrade =
     experiment.hasVisualChangesets && !hasCommercialFeature("visual-editor");
@@ -473,6 +523,14 @@ export default function StartExperimentModal({
                 }}
               >
                 <Flex direction="column" gap="4">
+                  {hasNamespace && (
+                    <SummaryRow label="Namespace" inline>
+                      <Text>
+                        {percentFormatter.format(namespaceCoverage)} of{" "}
+                        {namespaceName}
+                      </Text>
+                    </SummaryRow>
+                  )}
                   <SummaryRow label="Traffic" inline={!isHoldout}>
                     {isHoldout ? (
                       <Flex direction="column" gap="1">
@@ -564,17 +622,44 @@ export default function StartExperimentModal({
                     type="feature-flag"
                     count={linkedFeatures.length}
                   >
-                    <Flex wrap="wrap" gap="3">
+                    {featuresEnablingEnvsCount > 0 && (
+                      <Callout size="sm" status="warning" mb="3">
+                        Starting this experiment will enable{" "}
+                        {featuresEnablingEnvsCount} Feature Flag
+                        {featuresEnablingEnvsCount === 1 ? "" : "s"} in
+                        environments where{" "}
+                        {featuresEnablingEnvsCount === 1 ? "it is" : "they are"}{" "}
+                        currently off.
+                      </Callout>
+                    )}
+                    <Flex direction="column" gap="2">
                       {linkedFeatures.map((info) =>
                         info.feature?.id ? (
-                          <Link
-                            key={info.feature.id}
-                            href={`/features/${info.feature.id}`}
-                            target="_blank"
-                          >
-                            <Text weight="semibold">{info.feature.id}</Text>
-                            <PiArrowSquareOut className="ml-1" />
-                          </Link>
+                          <Frame key={info.feature.id} px="3" py="3" mb="0">
+                            <Flex align="center" justify="between" gap="3">
+                              <Link
+                                href={`/features/${info.feature.id}`}
+                                target="_blank"
+                                style={{ minWidth: 0 }}
+                              >
+                                <Flex align="center" gap="1" minWidth="0">
+                                  <Text
+                                    weight="semibold"
+                                    truncate
+                                    title={info.feature.id}
+                                  >
+                                    {info.feature.id}
+                                  </Text>
+                                  <PiArrowSquareOut style={{ flexShrink: 0 }} />
+                                </Flex>
+                              </Link>
+                              {!!info.environmentsToEnable?.length && (
+                                <EnvironmentBadges
+                                  environments={info.environmentsToEnable}
+                                />
+                              )}
+                            </Flex>
+                          </Frame>
                         ) : null,
                       )}
                     </Flex>
