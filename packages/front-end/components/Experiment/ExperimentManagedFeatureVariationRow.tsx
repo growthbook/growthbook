@@ -37,10 +37,8 @@ import Text from "@/ui/Text";
 import rowStyles from "./ExperimentManagedFeatureVariationRow.module.scss";
 
 // The one column template the header row and every variation row share.
-// Short cells centre against the first line of a field rather than the top of
-// a row a tall value has stretched. These rows use size="md", which is 32px
-// (`input.form-control--md`) — the unsized `.form-control` default of 36px sits
-// four pixels lower and reads as everything drooping.
+// Short cells centre on the field's first line, not the top of a row a tall
+// value stretched. 32px is size="md"'s control height.
 const FIRST_LINE_CELL = {
   minHeight: 32,
   display: "flex",
@@ -271,8 +269,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
           })}
           gapX="4"
           gapY="2"
-          // A multiline value makes the row tall; centring every other cell
-          // against it leaves the ids and names floating in the middle.
+          // A tall value would otherwise centre every other cell against it.
           align="start"
         >
           {showDragHandle && (
@@ -349,8 +346,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   disabled={valueDisabled}
                   renderJSONInline={false}
                   inlineConstantButton
-                  // The value can be a tall multiline block, and the row is
-                  // top-aligned; a centred button would float beside it.
+                  // The row is top-aligned; a centred button floats beside it.
                   inlineConstantButtonAlign="start"
                   sparse={sparse}
                 />

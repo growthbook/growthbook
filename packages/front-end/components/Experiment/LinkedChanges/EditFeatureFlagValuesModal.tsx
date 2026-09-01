@@ -243,10 +243,8 @@ export default function EditFeatureFlagValuesModal({
   const form = useForm<FormValues>({
     defaultValues: {
       variations: initialVariations,
-      // The draft's staged type, not the live one: a draft that re-typed the
-      // flag has not published yet, so `feature.valueType` still reads as the
-      // old type and the editor would reopen in the wrong mode over the new
-      // values.
+      // The draft's staged type: the live one would reopen the editor in the
+      // wrong mode over a re-typed draft's values.
       valueType: seedValueType,
     },
   });

@@ -386,10 +386,8 @@ export function castFeatureValue({
         : String(index);
     }
     case "json": {
-      // Text that already reads as a JSON object or array IS the value —
-      // wrapping it would encode it a second time, and switching types back and
-      // forth would keep nesting it. Everything else keeps the envelope:
-      // booleans and numbers are already JSON literals, anything else is quoted.
+      // Text that already reads as an object or array IS the value; wrapping
+      // would encode it twice. Everything else keeps the envelope.
       return (
         asJsonDocument(plain) ??
         `{\n  "value": ${asJsonLiteral(plain, from)}\n}`

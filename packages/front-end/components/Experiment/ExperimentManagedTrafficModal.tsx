@@ -200,19 +200,15 @@ function ManagedTrafficForm({
   const canEditValues =
     !!feature && permissionsUtil.canEditFeatureDrafts(feature);
 
-  // The draft's staged type, not the live one: a draft that re-typed the flag
-  // has not published yet, so `feature.valueType` still reads as the old type
-  // and the editor would reopen in the wrong mode over the new values.
+  // The draft's staged type, not the live one: a re-typed draft has not
+  // published, so the live type would reopen the editor in the wrong mode.
   const seedValueType =
     targetFeature?.pendingDraft?.valueType ?? feature?.valueType ?? "string";
   const [valueType, setValueType] = useState<FeatureValueType>(seedValueType);
-  // Formatted at seed time, not on save: a value stored compact opens in the
-  // multiline editor already expanded, and the dirty baseline is captured from
-  // this same state, so formatting alone never reads as an edit.
-  // Sparse patch mode for this feature's experiment-ref rule, mirroring the
-  // linked-feature editor: eligible only while the flag stays JSON with a plain
-  // object default, and forced on for a config-backed flag, whose arm values
-  // always merge onto the resolved config.
+  // Formatted at seed time, so a compact value opens expanded. The dirty
+  // baseline reads the same state, so formatting alone is not an edit.
+  // Mirrors the linked-feature editor: JSON with a plain object default, and
+  // forced on for a config-backed flag, whose values merge onto the config.
   const isConfigBacked = !!feature && getFeatureBaseConfigKey(feature) !== null;
   const [sparse, setSparse] = useState(
     (targetFeature?.pendingDraft?.sparse ?? !!targetFeature?.sparse) ||
@@ -338,9 +334,8 @@ function ManagedTrafficForm({
     targetFeature.draftRevisionVersion != null;
 
   const typeChanged = !!feature && valueType !== feature.valueType;
-  // Judged against what the draft leaves behind, not what is live: a draft that
-  // re-typed the flag to JSON has a JSON default staged, while the live feature
-  // still reads as the old type and would rule sparse out.
+  // Judged on what the draft leaves behind: a re-typed draft stages the JSON
+  // default that the live feature does not have yet.
   const draftDefaultValue =
     targetFeature?.pendingDraft?.defaultValue ?? feature?.defaultValue;
   // Re-express what is already there rather than clearing it.
@@ -449,10 +444,8 @@ function ManagedTrafficForm({
         ? "Save & Request Approval"
         : "Request Approval";
 
-  // What a patch is measured against. A managed flag's default IS its control
-  // value (the server stores values[0] as the default), so while editing — or
-  // while creating the flag — the control in the form is truer than anything
-  // already saved.
+  // What a patch is measured against. A managed flag stores values[0] as its
+  // default, so the control in the form beats anything already saved.
   const controlVariationId = form.watch("variations")?.[0]?.id;
   const sparseBase =
     ((isManaged || adopting) && controlVariationId
@@ -468,12 +461,10 @@ function ManagedTrafficForm({
     (adopting || seedValueType === "json") &&
     parsePlainJSONObject(sparseBase) !== null;
 
-  // Toggling rewrites every value so the editor is never left with a
-  // default-laden patch (on) or a bare patch shown as a whole value (off) —
-  // the same conversion the Feature Flag rule editors run.
+  // Rewrites every value, the same conversion the rule editors run, so nothing
+  // is left as a default-laden patch (on) or a bare patch shown whole (off).
   const sparseToggle =
-    // No feature exists yet while adopting, so `canEditValues` is false there
-    // even though authoring the flag is exactly what is happening.
+    // Adoption has no feature yet, so `canEditValues` is false while authoring.
     sparseEligible && !isConfigBacked && (canEditValues || adopting) ? (
       // 32px is the select's height, so the switch sits on its centre line.
       <Flex align="center" style={{ minHeight: 32 }}>
@@ -485,9 +476,8 @@ function ManagedTrafficForm({
             setFeatureValues((prev) =>
               Object.fromEntries(
                 Object.entries(prev).map(([id, v]) => {
-                  // A managed flag's control IS the default the others patch
-                  // onto, so it always states the whole value. Stripping it
-                  // against itself would leave {} and take the default with it.
+                  // The control is the default the others patch onto. Stripped
+                  // against itself it would leave {} and take the default too.
                   if (isManaged && id === controlVariationId) return [id, v];
                   return [
                     id,

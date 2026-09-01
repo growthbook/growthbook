@@ -604,9 +604,7 @@ export function scanVerdictRetractions(
     for (let j = i + 1; j < sorted.length; j++) {
       const next = sorted[j];
       if (next.action === "Review Requested") {
-        // New review cycle started; previous verdicts are historical but
-        // not marked retracted/discarded by this scan — only events
-        // between i and the recall/undo count.
+        // A new cycle: earlier verdicts are historical, not retracted.
         break;
       }
       if (next.action === "Recall Review") {

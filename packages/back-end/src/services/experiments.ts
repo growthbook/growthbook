@@ -5189,8 +5189,7 @@ export async function getRefLinkedFeatureInfo({
           ) {
             draftHasUnrelatedChanges = true;
           }
-          // Last: a failure here must not cost the conflict flags above, which
-          // are hard blockers. Callers fall back to the revision's own status.
+          // Last: a failure here must not cost the conflict flags above.
           if (reviewRequired) {
             draftApproval = await assessRevisionApprovalForAutoPublish(
               context,
@@ -5312,8 +5311,8 @@ export async function getRefLinkedFeatureInfo({
               title: matchedDraftRevision.title,
               otherDraftCount,
               pendingApproval: reviewRequired,
-              // A draft can re-type the flag and restate the default; readouts
-              // must render its values against those, not the live feature's.
+              // A re-typed draft restates the default; readouts render
+              // against those, not the live feature's.
               valueType:
                 matchedDraftRevision.metadata?.valueType ?? feature.valueType,
               defaultValue: matchedDraftRevision.defaultValue,
