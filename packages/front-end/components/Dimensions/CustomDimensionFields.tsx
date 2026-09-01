@@ -103,7 +103,7 @@ export default function CustomDimensionFields({
           disableAfter={
             cutoffMax ? utcInstantToPickerDate(cutoffMax) : undefined
           }
-          helpText="Splits units by whether they were first exposed before or after this time, in UTC"
+          helpText="Splits units by whether they were first exposed before or after this time"
         />
         {outOfBounds && (
           <HelperText status="error">

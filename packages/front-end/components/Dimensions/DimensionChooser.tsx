@@ -323,7 +323,7 @@ export function draftFromDimensionId(
   return null;
 }
 
-function buildCustomDimensionId(draft: CustomDimensionDraft): string {
+export function buildCustomDimensionId(draft: CustomDimensionDraft): string {
   return draft.kind === "cutoff" && draft.cutoff
     ? buildDateCutoffDimensionId(draft.cutoff)
     : buildComboDimensionId(draft.constituentIds);
