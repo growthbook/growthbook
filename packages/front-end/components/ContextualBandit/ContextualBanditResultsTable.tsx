@@ -26,7 +26,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useContextualBanditResults } from "@/hooks/useContextualBandits";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
-import ContextualBanditSseChart from "@/components/ContextualBandit/ContextualBanditSseChart";
 import ContextualBanditAttributeTable from "@/components/ContextualBandit/ContextualBanditAttributeTable";
 import ContextualBanditOverviewTable from "@/components/ContextualBandit/ContextualBanditOverviewTable";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
@@ -490,16 +489,6 @@ export default function ContextualBanditResultsTable({
             stickyHeader
             formatValue={(value) => formatModeValue(value, mode)}
           />
-
-          {sseTrajectory.length >= 2 ? (
-            <Box mt="5">
-              <SectionHeading
-                title="Total Error by Number of Leaves"
-                description="How much within-context error the tree removes as it adds leaves. Hover a point to see the leaf it split and how."
-              />
-              <ContextualBanditSseChart steps={sseTrajectory} />
-            </Box>
-          ) : null}
         </>
       ) : null}
 

@@ -99,8 +99,8 @@ function DataBarCell({
  * Compact tabular view combining the overall variation means and weights, one
  * row per variation. Each numeric cell carries an inline data bar so the
  * magnitude comparison of the separate bar charts is preserved in a single,
- * aligned view. Rows are sorted by mean descending, with variations missing a
- * mean listed last.
+ * aligned view. Rows are sorted by weight descending, with variations missing a
+ * weight listed last.
  */
 export default function ContextualBanditOverviewTable({
   variations,
@@ -136,7 +136,7 @@ export default function ContextualBanditOverviewTable({
           weight: weights[index] ?? null,
           units: units[index] ?? 0,
         }))
-        .sort((a, b) => (b.mean ?? -Infinity) - (a.mean ?? -Infinity)),
+        .sort((a, b) => (b.weight ?? -Infinity) - (a.weight ?? -Infinity)),
     [variations, means, weights, units],
   );
 
