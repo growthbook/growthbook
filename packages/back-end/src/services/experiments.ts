@@ -5312,6 +5312,11 @@ export async function getRefLinkedFeatureInfo({
               title: matchedDraftRevision.title,
               otherDraftCount,
               pendingApproval: reviewRequired,
+              // A draft can re-type the flag and restate the default; readouts
+              // must render its values against those, not the live feature's.
+              valueType:
+                matchedDraftRevision.metadata?.valueType ?? feature.valueType,
+              defaultValue: matchedDraftRevision.defaultValue,
               ...(draftApproval && {
                 approval: {
                   satisfied: draftApproval.satisfied,

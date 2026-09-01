@@ -4,6 +4,7 @@ import { datetime } from "shared/dates";
 import {
   ANY_REVIEW_FOOTPRINT,
   evaluatePublishGovernance,
+  featureAsOfRevision,
   getReviewSetting,
 } from "shared/util";
 import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
@@ -51,7 +52,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import RadioGroup from "@/ui/RadioGroup";
 import VariationLabel from "@/ui/VariationLabel";
-import ValueDisplay from "@/components/Features/ValueDisplay";
+import ForceSummary from "@/components/Features/ForceSummary";
 import { formatValue } from "@/components/Features/FeatureDiffRenders";
 import { TextChangedField } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
 import { useAuth } from "@/services/auth";
@@ -114,6 +115,11 @@ export default function ManagedFlagApproval({
 
   const status = info.pendingDraft?.status ?? "draft";
   const approval = info.pendingDraft?.approval;
+  // A draft can re-type the flag; the live feature still carries the old type.
+  const draftFeature = useMemo(
+    () => featureAsOfRevision(info.feature, revision),
+    [info.feature, revision],
+  );
   // Approved on paper, blocked in practice.
   const approvalGated =
     !!approval && !approval.satisfied && status === "approved";
@@ -444,13 +450,13 @@ export default function ManagedFlagApproval({
                 post={formatValue(after)}
               />
             ) : (
-              <ValueDisplay
+              // The rule renderer, so a value reads the same here as on the
+              // Feature Flag page.
+              <ForceSummary
+                label={null}
                 value={after}
-                type={info.feature.valueType}
+                feature={draftFeature}
                 sparse={info.pendingDraft?.sparse ?? info.sparse}
-                defaultValue={info.feature.defaultValue}
-                showCopyButton={false}
-                fullStyle={{ maxHeight: 60, overflowY: "auto" }}
               />
             )}
           </Box>

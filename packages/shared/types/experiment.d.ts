@@ -11,7 +11,11 @@ import {
   RevisionStatus,
 } from "shared/validators";
 import type { ReviewAuthorityFootprint } from "shared/util";
-import { ExperimentRefVariation, FeatureInterface } from "./feature";
+import {
+  ExperimentRefVariation,
+  FeatureInterface,
+  FeatureValueType,
+} from "./feature";
 
 export {
   AttributionModel,
@@ -328,6 +332,10 @@ export interface LinkedFeatureInfo {
     values: ExperimentRefVariation[];
     sparse: boolean;
     pendingApproval: boolean;
+    /** The type the draft would leave the flag as — it may re-type it. */
+    valueType: FeatureValueType;
+    /** The default value as of the draft, for expanding a sparse patch. */
+    defaultValue: string;
     /**
      * The publish gate's own answer, present when review is required. A draft
      * can read "approved" and still be blocked by an uncovered environment or

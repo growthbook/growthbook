@@ -309,6 +309,20 @@ export default function TrafficAllocationFunnel({
         values: liveRule.liveValues,
         sparse: liveRule.liveSparse,
       };
+  // Rendered against the draft's own type and default: a draft can re-type the
+  // flag, and the live feature still carries the old type until it publishes.
+  const servedValueDisplayFeature = useMemo(() => {
+    const feature = servedValueFeature?.feature;
+    if (!feature) return undefined;
+    const draft = servedValueFeature?.pendingDraft;
+    if (!preferDraft || !draft) return feature;
+    return {
+      ...feature,
+      valueType: draft.valueType,
+      defaultValue: draft.defaultValue,
+    };
+  }, [servedValueFeature, preferDraft]);
+
   const envStateSource = preferDraft
     ? servedValueFeature?.pendingDraft
     : liveRule && { environmentStates: liveRule.liveEnvironmentStates };
@@ -646,7 +660,7 @@ export default function TrafficAllocationFunnel({
               }
               servedValues={servedValueSource?.values}
               servedValueFeature={
-                servedValueSource ? servedValueFeature?.feature : undefined
+                servedValueSource ? servedValueDisplayFeature : undefined
               }
               servedValueSparse={servedValueSource?.sparse}
               servedValueIsDraft={preferDraft}
