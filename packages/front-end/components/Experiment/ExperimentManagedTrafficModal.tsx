@@ -194,8 +194,11 @@ function ManagedTrafficForm({
   const canEditValues =
     !!feature && permissionsUtil.canEditFeatureDrafts(feature);
 
+  // The draft's staged type, not the live one: a draft that re-typed the flag
+  // has not published yet, so `feature.valueType` still reads as the old type
+  // and the editor would reopen in the wrong mode over the new values.
   const [valueType, setValueType] = useState<FeatureValueType>(
-    feature?.valueType ?? "string",
+    targetFeature?.pendingDraft?.valueType ?? feature?.valueType ?? "string",
   );
   const [featureValues, setFeatureValues] = useState<Record<string, string>>(
     () =>

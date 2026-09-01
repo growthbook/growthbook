@@ -429,6 +429,7 @@ export default function ManagedFlagApproval({
     ...valueChanges[i],
   }));
   const hasValueChanges = variationValues.some((r) => r.changed);
+  const typeChanged = draftFeature.valueType !== info.feature.valueType;
 
   const changesColumn = (
     <Flex
@@ -440,6 +441,20 @@ export default function ManagedFlagApproval({
       <Text size="lg" weight="semibold" color="text-high">
         Changes
       </Text>
+      {typeChanged && (
+        // A re-type changes how every value below is read, so it leads.
+        <Box>
+          <Text size="sm" weight="medium" color="text-high" as="div">
+            Value type
+          </Text>
+          <Box mt="1">
+            <TextChangedField
+              pre={info.feature.valueType}
+              post={draftFeature.valueType}
+            />
+          </Box>
+        </Box>
+      )}
       {variationValues.map(({ v, i, before, after, changed }) => (
         <Box key={v.id}>
           <VariationLabel number={i} name={v.name} size="sm" />

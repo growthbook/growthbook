@@ -261,7 +261,9 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
           })}
           gapX="4"
           gapY="2"
-          align="center"
+          // A multiline value makes the row tall; centring every other cell
+          // against it leaves the ids and names floating in the middle.
+          align="start"
         >
           {showDragHandle && (
             <Box
@@ -335,6 +337,9 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   disabled={valueDisabled}
                   renderJSONInline={false}
                   inlineConstantButton
+                  // The value can be a tall multiline block, and the row is
+                  // top-aligned; a centred button would float beside it.
+                  inlineConstantButtonAlign="start"
                   sparse={sparse}
                 />
               </div>

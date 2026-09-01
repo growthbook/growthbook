@@ -2067,6 +2067,12 @@ export function renderRevisionMetadata(
     }
   };
 
+  // A re-type changes how every value in the draft is read, so it belongs at
+  // the top of the review rather than being implied by the values themselves.
+  if (draft.valueType !== undefined) {
+    stringField("valueType", "Value Type", current?.valueType, draft.valueType);
+  }
+
   if (draft.description !== undefined) {
     stringField(
       "description",

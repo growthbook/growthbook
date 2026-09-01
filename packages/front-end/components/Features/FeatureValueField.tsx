@@ -93,6 +93,9 @@ export interface Props {
   // the field (top-aligned) instead of on a label row above it, and hides the
   // copy button. Used by the inline config field editor.
   inlineConstantButton?: boolean;
+  // Pins the inline constant button to the top of a tall field, where centring
+  // it against a multiline value leaves it floating in the middle.
+  inlineConstantButtonAlign?: "center" | "start";
   /**
    * Size for the inner text fields. Defaults to whatever `Field` defaults to
    * (legacy), so existing callers are unchanged; pass a design-system size
@@ -141,6 +144,7 @@ export default function FeatureValueField({
   codeInputDefaultHeight,
   hideCopyButton = false,
   inlineConstantButton = false,
+  inlineConstantButtonAlign = "center",
   size,
   sparse,
   setSparse,
@@ -953,10 +957,11 @@ export default function FeatureValueField({
     />
   );
 
-  // Inline layout: the picker rides to the right of the field, centred on it.
+  // Inline layout: the picker rides to the right of the field, centred on it
+  // unless the caller pins it to the top.
   if (inlineConstantButton && stringInsertButton) {
     return (
-      <Flex align="center" gap="2" width="100%">
+      <Flex align={inlineConstantButtonAlign} gap="2" width="100%">
         <Box style={{ flex: 1, minWidth: 0 }}>{field}</Box>
         <Box style={{ flexShrink: 0 }}>{stringInsertButton}</Box>
       </Flex>
