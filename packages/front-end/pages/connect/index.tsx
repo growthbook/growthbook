@@ -8,6 +8,8 @@ import {
   PiPaperPlaneTiltFill,
 } from "react-icons/pi";
 import Code from "@/components/SyntaxHighlighting/Code";
+import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
+import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
 import { DocLink } from "@/components/DocLink";
 import SDKLanguageLogo, {
   languageMapping,
@@ -31,21 +33,29 @@ import { useUser } from "@/services/UserContext";
 // The languages worth offering up front. The wizard supports every target
 // GrowthBook has and detects whichever the project actually is, so this list is a
 // shortcut rather than a limit.
+// Every language the wizard drives. Webflow, WordPress, Shopify, the plain script
+// tag, Roku and "other" are deliberately absent: they have nothing to install and
+// nothing to verify from a project directory, so the docs are the better route.
 const OFFERED: SDKLanguage[] = [
   "react",
   "nextjs",
   "nodejs",
   "javascript",
   "python",
-  "go",
   "ruby",
   "php",
+  "go",
   "csharp",
+  "rust",
   "java",
-  "ios",
+  "elixir",
   "android",
+  "ios",
   "flutter",
-  "other",
+  "edge-cloudflare",
+  "edge-fastly",
+  "edge-lambda",
+  "edge-other",
 ];
 
 const PACKAGE = "growthbook-install";
@@ -108,6 +118,11 @@ export default function ConnectPage() {
   const environments = useEnvironments();
   const [language, setLanguage] = useState<SDKLanguage>("react");
   const [openedVia, setOpenedVia] = useState("");
+  // InstallationCodeSnippet owns the GTM/GrowthBook tracker choice for its nocode
+  // paths; inert for the languages offered here, but the props are required.
+  const [eventTracker, setEventTracker] = useState("");
+  // No connection yet, so this resolves to the org's default SDK host.
+  const apiHost = getApiBaseUrl();
 
   // No connection exists yet — the command creates it — so the environment shown
   // is the one this org would default to, not one read off a connection.
@@ -115,10 +130,7 @@ export default function ConnectPage() {
   const docs = languageMapping[language]?.docs;
 
   const command = useMemo(
-    () =>
-      language === "other"
-        ? `npx ${PACKAGE}`
-        : `npx ${PACKAGE} --language ${language}`,
+    () => `npx ${PACKAGE} --language ${language}`,
     [language],
   );
 
@@ -300,14 +312,30 @@ export default function ConnectPage() {
             </Text>
 
             <Frame>
-              <Text as="p" color="text-mid" mb="3">
-                The installation, setup and targeting-attribute snippets are
-                shown on the SDK connection itself, because each one embeds that
-                connection&apos;s client key. Create the connection and they
-                will be there waiting, with your key already filled in.
-              </Text>
-              <LinkButton href="/sdks">Create an SDK Connection</LinkButton>
+              {/* apiKey is only read by this component's script-tag branch, and
+                  /connect does not offer the nocode languages, so there is no key to
+                  supply here and nothing is faked by leaving it empty. The snippets
+                  that do embed a key live on the connection page. */}
+              <InstallationCodeSnippet
+                language={language}
+                apiKey=""
+                apiHost={apiHost}
+                remoteEvalEnabled={false}
+                eventTracker={eventTracker}
+                setEventTracker={setEventTracker}
+              />
             </Frame>
+
+            <Box mt="3">
+              <Text as="p" color="text-mid" mb="3">
+                That installs the SDK. Initialising it needs your client key,
+                which belongs to an SDK connection — create one and its setup
+                snippets arrive with the key already filled in.
+              </Text>
+              <LinkButton href="/sdks" variant="outline">
+                Create an SDK Connection
+              </LinkButton>
+            </Box>
           </Box>
         </TabsContent>
       </Tabs>
