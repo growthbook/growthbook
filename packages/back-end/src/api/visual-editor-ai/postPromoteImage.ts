@@ -4,6 +4,7 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { promoteFile } from "back-end/src/services/files";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { requireUserAuth } from "./requireUserAuth";
+import { rejectAiForCb } from "./rejectForCb";
 
 // Moves an AI-generated image out of the throwaway `gen/` quarantine prefix
 // into its permanent location when the user accepts the proposed mutation.
@@ -61,6 +62,10 @@ export const postPromoteImage = createApiRequestHandler(validation)(async (
   const changeset = await findVisualChangesetById(visualChangesetId, org.id);
   if (!changeset)
     return context.throwNotFoundError("Visual changeset not found");
+
+  if (changeset.contextualBandit) {
+    rejectAiForCb(context);
+  }
   const experiment = await getExperimentById(context, changeset.experiment);
   if (!experiment) return context.throwNotFoundError("Experiment not found");
   if (!context.permissions.canUpdateVisualChange(experiment)) {

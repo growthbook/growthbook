@@ -5,6 +5,7 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getSignedUploadUrl } from "back-end/src/services/files";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { requireUserAuth } from "./requireUserAuth";
+import { rejectAiForCb } from "./rejectForCb";
 
 const MIMETYPES: Record<string, string> = {
   "image/png": "png",
@@ -56,6 +57,10 @@ export const postUploadSignedUrl = createApiRequestHandler(validation)(async (
   const changeset = await findVisualChangesetById(visualChangesetId, org.id);
   if (!changeset)
     return context.throwNotFoundError("Visual changeset not found");
+
+  if (changeset.contextualBandit) {
+    rejectAiForCb(context);
+  }
   const experiment = await getExperimentById(context, changeset.experiment);
   if (!experiment) return context.throwNotFoundError("Experiment not found");
   if (!context.permissions.canUpdateVisualChange(experiment)) {

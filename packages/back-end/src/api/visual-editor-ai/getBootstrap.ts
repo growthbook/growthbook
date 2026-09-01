@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import type { ContextualBanditInterface } from "shared/validators";
 import {
   findVisualChangesets,
   findVisualChangesetsByExperimentIds,
@@ -98,6 +99,23 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
   }
   const experimentById = new Map(experiments.map((e) => [e.id, e]));
 
+  const cbIds = Array.from(
+    new Set(
+      changesets
+        .map((cs) => cs.contextualBandit)
+        .filter((id): id is string => !!id),
+    ),
+  );
+  const cbById = new Map<string, ContextualBanditInterface>();
+  if (cbIds.length > 0) {
+    const cbs = await Promise.all(
+      cbIds.map((id) => context.models.contextualBandits.getById(id)),
+    );
+    for (const cb of cbs) {
+      if (cb) cbById.set(cb.id, cb);
+    }
+  }
+
   // dateUpdated / dateCreated arrive as Date from Mongoose but may be
   // strings in some serialization paths.
   const toIso = (d: unknown): string => {
@@ -106,14 +124,12 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
     return new Date(0).toISOString();
   };
 
-  const recentExperiments: Array<{
+  type RecentRow = {
     experimentId: string;
     experimentName: string;
     visualChangesetId: string;
     primaryUrl: string | null;
     extraPatternCount: number;
-    // Full list so the side panel can match against the active tab URL
-    // and surface "on this page" changesets first.
     urlPatterns: Array<{
       include: boolean;
       type: "simple" | "regex";
@@ -122,8 +138,30 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
     project: string | null;
     status: string;
     updatedAt: string;
-  }> = [];
+    editable: boolean;
+  };
+  const recentExperiments: RecentRow[] = [];
   for (const cs of changesets) {
+    if (cs.contextualBandit) {
+      const cb = cbById.get(cs.contextualBandit);
+      if (!cb) continue;
+      const patterns = cs.urlPatterns ?? [];
+      const includes = patterns.filter((p) => p.include);
+      const primary = includes[0] ?? patterns[0] ?? null;
+      recentExperiments.push({
+        experimentId: cb.id,
+        experimentName: cb.name,
+        visualChangesetId: cs.id,
+        primaryUrl: primary?.pattern ?? null,
+        extraPatternCount: Math.max(0, patterns.length - 1),
+        urlPatterns: patterns,
+        project: cb.project || null,
+        status: cb.status,
+        updatedAt: toIso(cb.dateUpdated ?? cb.dateCreated),
+        editable: !cb.archived && cb.status !== "stopped",
+      });
+      continue;
+    }
     if (!cs.experiment) continue;
     const exp = experimentById.get(cs.experiment);
     // Skip changesets whose experiment we can't read (deleted or no
@@ -143,17 +181,17 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
       project: exp.project || null,
       status: exp.status,
       updatedAt: toIso(exp.dateUpdated ?? exp.dateCreated),
+      editable: !exp.archived && exp.status === "draft",
     });
   }
-  // Default (non-search) list: draft experiments first (they're the ones you
-  // can edit), then by most-recently-updated within each group. Sorting drafts
-  // ahead of the trim means they win the MAX_RECENT slots over older
-  // running/stopped ones.
-  const statusRank = (s: string) => (s === "draft" ? 0 : 1);
+  // Default (non-search) list: editable rows first (draft experiments,
+  // draft or running CBs), then by most-recently-updated within each group.
+  // Sorting these ahead of the trim means they win the MAX_RECENT slots
+  // over older stopped ones.
   recentExperiments.sort((a, b) => {
     if (!search) {
-      const byStatus = statusRank(a.status) - statusRank(b.status);
-      if (byStatus !== 0) return byStatus;
+      const byEditable = (a.editable ? 0 : 1) - (b.editable ? 0 : 1);
+      if (byEditable !== 0) return byEditable;
     }
     return b.updatedAt.localeCompare(a.updatedAt);
   });

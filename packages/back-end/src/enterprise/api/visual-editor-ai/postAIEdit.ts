@@ -10,6 +10,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
+import { rejectAiForCb } from "back-end/src/api/visual-editor-ai/rejectForCb";
 import {
   buildVisualEditorTools,
   VISUAL_EDITOR_MAX_STEPS,
@@ -587,6 +588,10 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   );
   if (!changeset)
     return context.throwNotFoundError("Visual changeset not found");
+
+  if (changeset.contextualBandit) {
+    rejectAiForCb(context);
+  }
 
   const experiment = await getExperimentById(context, changeset.experiment);
   if (!experiment) return context.throwNotFoundError("Experiment not found");

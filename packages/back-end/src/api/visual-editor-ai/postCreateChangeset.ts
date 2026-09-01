@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   createVisualChangeset,
+  createVisualChangesetForCb,
   findVisualChangesetById,
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
@@ -8,6 +9,7 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { requireUserAuth } from "./requireUserAuth";
+import { requireCbEditable } from "./requireCbEditable";
 
 // Creates an additional visual changeset on an existing experiment so a
 // user can make different DOM changes on a different URL within the same
@@ -58,6 +60,40 @@ export const postCreateChangeset = createApiRequestHandler(validation)(async (
   );
   if (!sourceChangeset) {
     return context.throwNotFoundError("Visual changeset not found");
+  }
+
+  if (sourceChangeset.contextualBandit) {
+    const cb = await context.models.contextualBandits.getById(
+      sourceChangeset.contextualBandit,
+    );
+    if (!cb) return context.throwNotFoundError("Contextual bandit not found");
+    if (!context.permissions.canUpdateContextualBandit(cb, cb)) {
+      context.permissions.throwPermissionError();
+    }
+    requireCbEditable(context, cb);
+
+    const changeset = await createVisualChangesetForCb({
+      contextualBandit: cb,
+      context,
+      urlPatterns,
+      editorUrl: pageUrl,
+    });
+
+    logger.info(
+      {
+        contextualBanditId: cb.id,
+        sourceChangesetId: visualChangesetId,
+        newChangesetId: changeset.id,
+        orgId: context.org.id,
+        userId: context.userId,
+      },
+      "[visual-editor-ai] changeset created on existing contextual bandit",
+    );
+
+    return {
+      visualChangeset: toVisualChangesetApiInterface(changeset),
+      editorRedirectUrl: appendChangesetParam(pageUrl, changeset.id),
+    };
   }
 
   const experiment = await getExperimentById(

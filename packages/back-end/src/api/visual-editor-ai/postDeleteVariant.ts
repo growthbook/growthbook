@@ -17,6 +17,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { requireDraftExperiment } from "./requireDraftExperiment";
 import { requireUserAuth } from "./requireUserAuth";
+import { rejectVariantChangeForCb } from "./rejectForCb";
 
 const bodySchema = z
   .object({
@@ -57,6 +58,10 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
   );
   if (!changeset)
     return context.throwNotFoundError("Visual changeset not found");
+
+  if (changeset.contextualBandit) {
+    rejectVariantChangeForCb(context);
+  }
 
   const experiment = await getExperimentById(context, changeset.experiment);
   if (!experiment) return context.throwNotFoundError("Experiment not found");

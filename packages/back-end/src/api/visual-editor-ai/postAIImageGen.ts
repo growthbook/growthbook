@@ -13,6 +13,7 @@ import { trackAIUsage } from "back-end/src/services/growthbook";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { requireUserAuth } from "./requireUserAuth";
+import { rejectAiForCb } from "./rejectForCb";
 
 // Token-equivalent cost per generated image, charged against the org's
 // daily AI budget. Matches Gemini's published ~1290 tokens/image; other
@@ -83,6 +84,10 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
   );
   if (!changeset)
     return context.throwNotFoundError("Visual changeset not found");
+
+  if (changeset.contextualBandit) {
+    rejectAiForCb(context);
+  }
   const experiment = await getExperimentById(context, changeset.experiment);
   if (!experiment) return context.throwNotFoundError("Experiment not found");
   if (!context.permissions.canUpdateVisualChange(experiment)) {

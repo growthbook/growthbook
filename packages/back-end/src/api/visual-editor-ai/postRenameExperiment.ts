@@ -47,6 +47,24 @@ export const postRenameExperiment = createApiRequestHandler(validation)(async (
     return context.throwNotFoundError("Visual changeset not found");
   }
 
+  if (changeset.contextualBandit) {
+    const cb = await context.models.contextualBandits.getById(
+      changeset.contextualBandit,
+    );
+    if (!cb) return context.throwNotFoundError("Contextual bandit not found");
+    if (!context.permissions.canUpdateContextualBandit(cb, cb)) {
+      context.permissions.throwPermissionError();
+    }
+    const trimmed = name.trim();
+    if (trimmed === cb.name) {
+      return { name: cb.name };
+    }
+    const updated = await context.models.contextualBandits.update(cb, {
+      name: trimmed,
+    });
+    return { name: updated.name };
+  }
+
   const experiment = await getExperimentById(context, changeset.experiment);
   if (!experiment) {
     return context.throwNotFoundError("Experiment not found");
