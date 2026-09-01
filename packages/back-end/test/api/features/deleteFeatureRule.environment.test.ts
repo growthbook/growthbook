@@ -58,6 +58,19 @@ const sharedRule = {
   enabled: true,
 };
 
+// A pending ramp create action targeting the shared rule by id. Ramp actions
+// are keyed to a rule (environment is deprecated), so they apply to every env
+// the rule serves. It must survive an env-scoped delete as long as the rule
+// does, and be stripped when the rule's last env is removed.
+const pendingRampAction = {
+  mode: "create",
+  ruleId: RULE_ID,
+  name: "ramp shared",
+  startActions: [],
+  steps: [{ interval: 86400, actions: [] }],
+  endActions: [],
+};
+
 function makeReq(environment: string): AuthRequest {
   const req = {
     params: { id: FEATURE_ID, version: "2" },
@@ -91,7 +104,10 @@ function makeRes() {
   } as never;
 }
 
-async function seedFeatureAndDraft(rules: Array<Record<string, unknown>>) {
+async function seedFeatureAndDraft(
+  rules: Array<Record<string, unknown>>,
+  rampActions?: Array<Record<string, unknown>>,
+) {
   await mongoose.connection.collection("features").insertOne({
     id: FEATURE_ID,
     organization: ORG_ID,
@@ -131,6 +147,7 @@ async function seedFeatureAndDraft(rules: Array<Record<string, unknown>>) {
     defaultValue: "off",
     valueType: "string",
     rules,
+    ...(rampActions !== undefined && { rampActions }),
     environmentsEnabled: { production: true, staging: true },
     log: [],
   });
@@ -141,6 +158,13 @@ async function getDraftRules() {
     .collection("featurerevisions")
     .findOne({ organization: ORG_ID, featureId: FEATURE_ID, version: 2 });
   return (doc?.rules as Array<{ id: string; environments?: string[] }>) ?? [];
+}
+
+async function getDraftRampActions() {
+  const doc = await mongoose.connection
+    .collection("featurerevisions")
+    .findOne({ organization: ORG_ID, featureId: FEATURE_ID, version: 2 });
+  return (doc?.rampActions as Array<{ ruleId?: string }>) ?? [];
 }
 
 describe("deleteFeatureRule env-scoped delete (#6663)", () => {
@@ -173,5 +197,41 @@ describe("deleteFeatureRule env-scoped delete (#6663)", () => {
 
     const rules = await getDraftRules();
     expect(rules).toEqual([]);
+  });
+
+  it("preserves the pending ramp action when a shared rule is narrowed to a surviving env", async () => {
+    await seedFeatureAndDraft([sharedRule], [pendingRampAction]);
+
+    // Delete the shared rule only from production; it survives for staging.
+    await deleteFeatureRule(makeReq("production"), makeRes());
+
+    const rules = await getDraftRules();
+    expect(rules).toHaveLength(1);
+    expect(rules[0].id).toBe(RULE_ID);
+    expect(rules[0].environments).toEqual(["staging"]);
+
+    // The ramp targets the rule by id and applies wherever it serves — it must
+    // NOT be stripped, or staging would silently lose its pending schedule.
+    const rampActions = await getDraftRampActions();
+    expect(rampActions).toHaveLength(1);
+    expect(rampActions[0].ruleId).toBe(RULE_ID);
+  });
+
+  it("strips the pending ramp action when the rule's last applicable env is deleted", async () => {
+    await seedFeatureAndDraft(
+      [{ ...sharedRule, environments: ["production"] }],
+      [pendingRampAction],
+    );
+
+    // Deleting the only env fully removes the rule — its ramp must go too,
+    // otherwise publish would create a schedule for a rule that no longer
+    // exists.
+    await deleteFeatureRule(makeReq("production"), makeRes());
+
+    const rules = await getDraftRules();
+    expect(rules).toEqual([]);
+
+    const rampActions = await getDraftRampActions();
+    expect(rampActions).toEqual([]);
   });
 });

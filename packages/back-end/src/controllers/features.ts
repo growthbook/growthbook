@@ -5418,17 +5418,23 @@ export async function deleteFeatureRule(
         : (rule.environments ?? []);
   }
 
-  // Strip any pending ramp actions for the deleted rule so publish doesn't
-  // create a schedule doc that would be immediately cleaned up as orphaned.
-  // Mirrors the REST handler's behavior.
+  // Pending ramp actions target a rule by id (environment is deprecated); a
+  // ramp applies to every environment the rule serves at publish time. So only
+  // strip them when the rule is fully removed (its last applicable env was
+  // deleted). An env-scoped delete that merely narrows a shared rule — where it
+  // survives in other envs — must keep the ramp so the surviving env's schedule
+  // isn't lost. Mirrors the REST handler's `fullyDeleted` behavior.
   const changes: { rules: FeatureRule[]; rampActions?: RevisionRampAction[] } =
     { rules: nextRules };
-  const existingRampActions = revision.rampActions ?? [];
-  const filteredRampActions = existingRampActions.filter(
-    (a) => a.ruleId !== ruleId,
-  );
-  if (filteredRampActions.length !== existingRampActions.length) {
-    changes.rampActions = filteredRampActions;
+  const ruleFullyRemoved = !nextRules.some((r) => r.id === ruleId);
+  if (ruleFullyRemoved) {
+    const existingRampActions = revision.rampActions ?? [];
+    const filteredRampActions = existingRampActions.filter(
+      (a) => a.ruleId !== ruleId,
+    );
+    if (filteredRampActions.length !== existingRampActions.length) {
+      changes.rampActions = filteredRampActions;
+    }
   }
 
   const resetReview = resetReviewOnChange({
