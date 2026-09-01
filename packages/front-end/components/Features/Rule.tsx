@@ -806,7 +806,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 `/feature/${feature.id}/${targetVersion}/rule`,
                 {
                   method: "DELETE",
-                  body: JSON.stringify({ ruleId: rule.id }),
+                  body: JSON.stringify({
+                    ruleId: rule.id,
+                    ...(!isAllEnvsView && environment ? { environment } : {}),
+                  }),
                 },
               );
               await mutate();

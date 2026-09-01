@@ -179,6 +179,8 @@ import {
   stampRuleForEnvs,
   updateRuleById,
   removeRuleById,
+  projectRulesForEnv,
+  removeRuleAtEnvIndex,
 } from "back-end/src/util/revisionRuleOps";
 import {
   getSDKPayloadCacheLocation,
@@ -5351,13 +5353,16 @@ export async function getDraftandReviewRevisions(
 }
 
 export async function deleteFeatureRule(
-  req: AuthRequest<{ ruleId: string }, { id: string; version: string }>,
+  req: AuthRequest<
+    { ruleId: string; environment?: string },
+    { id: string; version: string }
+  >,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { ruleId } = req.body;
+  const { ruleId, environment } = req.body;
 
   if (!ruleId) {
     throw new Error("Must provide ruleId to identify the rule");
@@ -5379,14 +5384,39 @@ export async function deleteFeatureRule(
   const revision = await getDraftRevision(context, feature, parseInt(version));
   const existingRules = cloneDeep(revision.rules ?? []);
 
-  const { rules: nextRules, removed: rule } = removeRuleById(
-    existingRules,
-    ruleId,
-  );
-  const ruleChangedEnvs: string[] =
-    rule.allEnvironments || rule.environments === undefined
-      ? environmentIds
-      : (rule.environments ?? []);
+  let nextRules: FeatureRule[];
+  let rule: FeatureRule;
+  let ruleChangedEnvs: string[];
+
+  if (environment) {
+    // Env-scoped delete (from the per-environment UI). A shared rule is
+    // narrowed to its remaining applicable envs rather than deleted from
+    // every environment at once (fixes #6663).
+    const ruleIndex = projectRulesForEnv(
+      existingRules,
+      environment,
+    ).envRules.findIndex((r) => r.id === ruleId);
+    if (ruleIndex === -1) {
+      throw new Error("Unknown rule");
+    }
+    const result = removeRuleAtEnvIndex(
+      existingRules,
+      environment,
+      ruleIndex,
+      environmentIds,
+    );
+    nextRules = result.rules;
+    rule = result.removed;
+    ruleChangedEnvs = [environment];
+  } else {
+    const result = removeRuleById(existingRules, ruleId);
+    nextRules = result.rules;
+    rule = result.removed;
+    ruleChangedEnvs =
+      rule.allEnvironments || rule.environments === undefined
+        ? environmentIds
+        : (rule.environments ?? []);
+  }
 
   // Strip any pending ramp actions for the deleted rule so publish doesn't
   // create a schedule doc that would be immediately cleaned up as orphaned.
