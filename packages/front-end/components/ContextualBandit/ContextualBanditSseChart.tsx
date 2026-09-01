@@ -246,7 +246,18 @@ function SseChartInner({
 
   if (innerWidth < 10 || innerHeight < 10) return null;
 
-  const xTickCount = Math.min(maxLeaves - minLeaves + 1, 12);
+  const maxLeafTicks = 12;
+  const leafTickStep = Math.max(
+    1,
+    Math.ceil((maxLeaves - minLeaves + 1) / maxLeafTicks),
+  );
+  const leafTickValues: number[] = [];
+  for (let v = minLeaves; v <= maxLeaves; v += leafTickStep) {
+    leafTickValues.push(v);
+  }
+  if (leafTickValues[leafTickValues.length - 1] !== maxLeaves) {
+    leafTickValues.push(maxLeaves);
+  }
 
   return (
     <div style={{ position: "relative" }}>
@@ -264,6 +275,7 @@ function SseChartInner({
             scale={xScale}
             width={innerWidth}
             height={innerHeight}
+            tickValues={leafTickValues}
             stroke="var(--slate-a5)"
             strokeDasharray="2,2"
             strokeWidth={1}
@@ -289,7 +301,7 @@ function SseChartInner({
             label="Number of leaves"
             labelClassName={styles.label}
             labelOffset={16}
-            numTicks={xTickCount}
+            tickValues={leafTickValues}
             tickFormat={(v) => String(Math.round(Number(v)))}
             tickLabelProps={() => ({
               fill: "var(--text-color-table)",
