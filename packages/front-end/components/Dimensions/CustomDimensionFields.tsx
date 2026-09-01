@@ -1,5 +1,5 @@
 import React from "react";
-import { date } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import { COMBO_DIMENSION_LENGTH } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import DatePicker from "@/components/DatePicker";
@@ -61,13 +61,22 @@ export default function CustomDimensionFields({
     return (
       <div>
         <DatePicker
-          label="First exposure cutoff (UTC)"
+          label="First exposure cutoff"
           date={draft.cutoff}
           setDate={(d) => setDraft({ ...draft, cutoff: d })}
           precision="datetime"
           disableBefore={cutoffMin}
           disableAfter={cutoffMax}
-          helpText="Split units by whether they were first exposed before or after this datetime"
+          // The input is a local-time picker, but results are labeled in UTC,
+          // so show the resolved UTC instant to remove the ambiguity
+          helpText={
+            draft.cutoff
+              ? `Splits units by whether they were first exposed before or after this time. Results are labeled in UTC: ${datetime(
+                  draft.cutoff,
+                  "UTC",
+                )} (UTC).`
+              : "Splits units by whether they were first exposed before or after this time. Entered in your local time; results are labeled in UTC."
+          }
         />
         {outOfBounds && (
           <HelperText status="error">

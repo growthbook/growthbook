@@ -294,7 +294,8 @@ export function getDimensionDisplayName(
   if (dimValue === "pre:activation") return "Activation status";
   const parsed = parseDimensionId(dimValue);
   if (parsed.kind === "datecutoff") {
-    return `First exposed after ${datetime(parsed.cutoff)}`;
+    // Rendered in UTC to match the row values, which SQL labels in UTC
+    return `First exposed after ${datetime(parsed.cutoff, "UTC")} (UTC)`;
   }
   if (parsed.kind === "combo") {
     return parsed.constituentIds

@@ -196,10 +196,16 @@ describe("getDimensionDisplayName", () => {
     expect(getDimensionDisplayName("dim_u1", resolve)).toBe("Plan Type");
   });
 
-  it("formats datecutoff dimensions", () => {
-    expect(
-      getDimensionDisplayName("cutoff:2026-01-15T00:12:00.000Z", resolve),
-    ).toMatch(/^First exposed after /);
+  it("formats datecutoff dimensions in UTC regardless of local timezone", () => {
+    const name = getDimensionDisplayName(
+      "cutoff:2026-01-15T00:12:00.000Z",
+      resolve,
+    );
+    expect(name).toMatch(/^First exposed after /);
+    expect(name).toContain("(UTC)");
+    // Rendered from the UTC instant, not the runner's local time
+    expect(name).toContain("Jan 15, 2026");
+    expect(name).toContain("12:12 AM");
   });
 
   it("formats combo dimensions with resolved constituent names", () => {
