@@ -51,7 +51,11 @@ import {
   usingSSO,
 } from "@/services/env";
 import useApi from "@/hooks/useApi";
-import { useAuth, UserOrganizations } from "@/services/auth";
+import {
+  NonJsonResponseError,
+  useAuth,
+  UserOrganizations,
+} from "@/services/auth";
 import { getJitsuClient, trackPageView } from "@/services/track";
 import { getOrGeneratePageId, growthbook } from "@/services/utils";
 
@@ -239,6 +243,33 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   } = useApi<GetOrganizationResponse>(`/organization`, {
     shouldRun: () => !!orgId,
   });
+
+  // An auth proxy (e.g. Google IAP) with an expired session answers API calls in plain text; only a top-level navigation lets it re-authenticate, so reload once
+  const AUTH_PROXY_RELOAD_FLAG = "gb-auth-proxy-reloaded";
+  const proxyAuthError = [error, orgLoadingError].some(
+    (e) =>
+      e instanceof NonJsonResponseError &&
+      (e.status === 401 || e.status === 403),
+  );
+  useEffect(() => {
+    if (!proxyAuthError) return;
+    try {
+      if (window.sessionStorage.getItem(AUTH_PROXY_RELOAD_FLAG)) return;
+      window.sessionStorage.setItem(AUTH_PROXY_RELOAD_FLAG, "1");
+    } catch (e) {
+      // no guard available; don't risk a reload loop
+      return;
+    }
+    window.location.reload();
+  }, [proxyAuthError]);
+  useEffect(() => {
+    if (!data) return;
+    try {
+      window.sessionStorage.removeItem(AUTH_PROXY_RELOAD_FLAG);
+    } catch (e) {
+      // ignore
+    }
+  }, [data]);
 
   const refreshOrganization = useCallback(
     async (options?: RefreshOrganizationOptions) => {

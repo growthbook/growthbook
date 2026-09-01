@@ -44,6 +44,19 @@ export function isExternalApiPath(url: string): boolean {
   return /^\/api\/v\d/.test(url);
 }
 
+// Thrown when the API answers with something other than JSON, e.g. an auth proxy (Google IAP) responding in plain text after its session expired
+export class NonJsonResponseError extends Error {
+  status: number;
+  constructor(status: number) {
+    super(
+      status === 401 || status === 403
+        ? "Your network sign-in session has expired. Reload the page to continue."
+        : `The API returned an invalid response (HTTP ${status})`,
+    );
+    this.status = status;
+  }
+}
+
 export interface AuthContextValue {
   isAuthenticated: boolean;
   loading: boolean;
@@ -403,7 +416,11 @@ export const AuthProvider: React.FC<{
       if (contentType && contentType.startsWith("image/")) {
         responseData = await response.blob();
       } else {
-        responseData = await response.json();
+        try {
+          responseData = await response.json();
+        } catch (e) {
+          throw new NonJsonResponseError(response.status);
+        }
         if (
           !response.ok &&
           responseData &&
