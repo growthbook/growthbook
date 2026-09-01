@@ -3,8 +3,10 @@ import { date } from "shared/dates";
 import { COMBO_DIMENSION_LENGTH } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import DatePicker from "@/components/DatePicker";
-import SelectField, { SingleValue } from "@/components/Forms/SelectField";
+import type { SingleValue } from "@/components/Forms/SelectField";
 import HelperText from "@/ui/HelperText";
+import { Select, SelectItem } from "@/ui/Select";
+import Text from "@/ui/Text";
 
 export type CustomDimensionKind = "cutoff" | "combo";
 
@@ -51,21 +53,35 @@ export function isCutoffWithinBounds(
   return true;
 }
 
+/** Short reason the draft can't be applied yet, or null when it is valid. */
+export function customDimensionDraftError(
+  draft: CustomDimensionDraft,
+  cutoffMin?: Date,
+  cutoffMax?: Date,
+): string | null {
+  if (draft.kind === "cutoff") {
+    if (!draft.cutoff) return "Choose a cutoff time";
+    if (!isCutoffWithinBounds(draft.cutoff, cutoffMin, cutoffMax)) {
+      return "Choose a cutoff time within the experiment window";
+    }
+    return null;
+  }
+  const ids = draft.constituentIds.filter(Boolean);
+  if (
+    ids.length !== COMBO_DIMENSION_LENGTH ||
+    new Set(ids).size !== COMBO_DIMENSION_LENGTH
+  ) {
+    return "Choose two different dimensions";
+  }
+  return null;
+}
+
 export function isCustomDimensionDraftValid(
   draft: CustomDimensionDraft,
   cutoffMin?: Date,
   cutoffMax?: Date,
 ): boolean {
-  if (draft.kind === "cutoff") {
-    return (
-      !!draft.cutoff && isCutoffWithinBounds(draft.cutoff, cutoffMin, cutoffMax)
-    );
-  }
-  const ids = draft.constituentIds.filter(Boolean);
-  return (
-    ids.length === COMBO_DIMENSION_LENGTH &&
-    new Set(ids).size === COMBO_DIMENSION_LENGTH
-  );
+  return customDimensionDraftError(draft, cutoffMin, cutoffMax) === null;
 }
 
 export default function CustomDimensionFields({
@@ -125,26 +141,42 @@ export default function CustomDimensionFields({
   const duplicate = !!firstId && firstId === secondId;
 
   return (
-    <Flex direction="column" gap="1">
-      <SelectField
+    // Reads like the `country & Plan Type` label we show once it's applied
+    <Flex align="end" gap="2">
+      <Select
         label="First dimension"
-        value={firstId}
-        onChange={(v) => setConstituent(0, v)}
-        options={constituentOptions.filter((o) => o.value !== secondId)}
-        initialOption="Choose dimension..."
-        sort={false}
-      />
-      <SelectField
+        value={firstId || undefined}
+        setValue={(v) => setConstituent(0, v)}
+        placeholder="Choose dimension..."
+        style={{ flex: 1, minWidth: 0 }}
+      >
+        {constituentOptions
+          .filter((o) => o.value !== secondId)
+          .map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+      </Select>
+      <Text color="text-mid" mb="1">
+        &amp;
+      </Text>
+      <Select
         label="Second dimension"
-        value={secondId}
-        onChange={(v) => setConstituent(1, v)}
-        options={constituentOptions.filter((o) => o.value !== firstId)}
-        initialOption="Choose dimension..."
-        sort={false}
-      />
-      {duplicate && (
-        <HelperText status="error">Choose two different dimensions.</HelperText>
-      )}
+        value={secondId || undefined}
+        setValue={(v) => setConstituent(1, v)}
+        placeholder="Choose dimension..."
+        error={duplicate ? "Choose two different dimensions." : undefined}
+        style={{ flex: 1, minWidth: 0 }}
+      >
+        {constituentOptions
+          .filter((o) => o.value !== firstId)
+          .map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+      </Select>
     </Flex>
   );
 }

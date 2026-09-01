@@ -1936,8 +1936,8 @@ describe("custom dimensions (cutoff & combo) - bigquery", () => {
     const sql = buildSql([{ type: "datecutoff", cutoff }]);
 
     expect(sql).toContain("AS dim_cutoff");
-    expect(sql).toContain("'Before 2023-01-15T00:12Z'");
-    expect(sql).toContain("'After 2023-01-15T00:12Z'");
+    expect(sql).toContain("'Before 2023-01-15 00:12 UTC'");
+    expect(sql).toContain("'After 2023-01-15 00:12 UTC'");
     expect(sql).toMatch(/first_exposure_timestamp\s*</);
     // Computed at analysis time from first_exposure_timestamp; the units
     // query must not materialize a cutoff column

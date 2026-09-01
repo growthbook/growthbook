@@ -14,10 +14,11 @@ import {
   COMBO_DIMENSION_LENGTH,
   buildComboDimensionId,
   buildDateCutoffDimensionId,
+  formatDateCutoffLabel,
   isCustomDimensionId,
   parseDimensionId,
 } from "shared/experiments";
-import { datetime, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, {
@@ -77,7 +78,7 @@ export interface Props {
   disabled?: boolean;
   ssrPolyfills?: SSRPolyfills;
   enableCustomDimensions?: boolean;
-  // Valid range for the "First Exposed After..." cutoff. Derived from the
+  // Valid range for the "First exposed after..." cutoff. Derived from the
   // snapshot context's experiment phase when omitted.
   cutoffBounds?: { min?: Date; max?: Date };
 }
@@ -237,7 +238,7 @@ export function getDimensionOptions({
   const customDimensionOptions: SingleValue[] = [];
   if (includeCustomDimensions) {
     customDimensionOptions.push({
-      label: "First Exposed After...",
+      label: "First exposed after...",
       value: CUSTOM_CUTOFF_OPTION,
     });
     const constituentOptions = getCombinationConstituentOptions({
@@ -249,7 +250,7 @@ export function getDimensionOptions({
     });
     if (constituentOptions.length >= COMBO_DIMENSION_LENGTH) {
       customDimensionOptions.push({
-        label: "Combination of Dimensions...",
+        label: "Combination of dimensions...",
         value: CUSTOM_COMBO_OPTION,
       });
     }
@@ -294,8 +295,7 @@ export function getDimensionDisplayName(
   if (dimValue === "pre:activation") return "Activation status";
   const parsed = parseDimensionId(dimValue);
   if (parsed.kind === "datecutoff") {
-    // Rendered in UTC to match the row values, which SQL labels in UTC
-    return `First exposed after ${datetime(parsed.cutoff, "UTC")} (UTC)`;
+    return `First exposed after ${formatDateCutoffLabel(parsed.cutoff)}`;
   }
   if (parsed.kind === "combo") {
     return parsed.constituentIds

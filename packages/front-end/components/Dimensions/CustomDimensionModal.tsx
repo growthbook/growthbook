@@ -4,7 +4,7 @@ import Button from "@/ui/Button";
 import { SingleValue } from "@/components/Forms/SelectField";
 import CustomDimensionFields, {
   CustomDimensionDraft,
-  isCustomDimensionDraftValid,
+  customDimensionDraftError,
 } from "@/components/Dimensions/CustomDimensionFields";
 
 export default function CustomDimensionModal({
@@ -23,7 +23,7 @@ export default function CustomDimensionModal({
   onApply: (draft: CustomDimensionDraft) => void;
 }) {
   const [draft, setDraft] = useState<CustomDimensionDraft>(initialDraft);
-  const valid = isCustomDimensionDraftValid(draft, cutoffMin, cutoffMax);
+  const invalidReason = customDimensionDraftError(draft, cutoffMin, cutoffMax);
 
   return (
     <Modal.Root
@@ -36,8 +36,8 @@ export default function CustomDimensionModal({
       <Modal.Header>
         <Modal.Title>
           {draft.kind === "cutoff"
-            ? "Break Down by First Exposure Time"
-            : "Break Down by Two Dimensions"}
+            ? "First Exposed After"
+            : "Combination of Dimensions"}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
@@ -54,7 +54,8 @@ export default function CustomDimensionModal({
           Cancel
         </Button>
         <Button
-          disabled={!valid}
+          disabled={invalidReason !== null}
+          title={invalidReason ?? undefined}
           onClick={() => {
             onApply(draft);
             close();

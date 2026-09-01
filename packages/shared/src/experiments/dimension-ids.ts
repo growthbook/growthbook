@@ -101,6 +101,15 @@ export function buildDateCutoffDimensionId(cutoff: Date): string {
   return `${DATE_CUTOFF_DIMENSION_PREFIX}${cutoff.toISOString()}`;
 }
 
+/**
+ * Minute-precision UTC label shared by the SQL row values and the dimension
+ * selector, so both surfaces read identically. The full ISO instant lives in
+ * the dimension id.
+ */
+export function formatDateCutoffLabel(cutoff: Date): string {
+  return `${cutoff.toISOString().substring(0, 16).replace("T", " ")} UTC`;
+}
+
 export function buildComboDimensionId(constituentIds: string[]): string {
   const id = `${COMBO_DIMENSION_PREFIX}${constituentIds.join(
     COMBO_DIMENSION_SEPARATOR,

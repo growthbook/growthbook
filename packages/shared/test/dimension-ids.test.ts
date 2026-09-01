@@ -1,6 +1,7 @@
 import {
   buildComboDimensionId,
   buildDateCutoffDimensionId,
+  formatDateCutoffLabel,
   isCustomDimensionId,
   parseDimensionId,
 } from "../src/experiments/dimension-ids";
@@ -83,6 +84,14 @@ describe("buildDateCutoffDimensionId", () => {
     const id = buildDateCutoffDimensionId(cutoff);
     expect(id).toBe("cutoff:2026-01-15T00:12:00.000Z");
     expect(parseDimensionId(id)).toEqual({ kind: "datecutoff", cutoff });
+  });
+});
+
+describe("formatDateCutoffLabel", () => {
+  it("renders a minute-precision UTC instant", () => {
+    expect(formatDateCutoffLabel(new Date("2026-01-15T00:12:34.567Z"))).toBe(
+      "2026-01-15 00:12 UTC",
+    );
   });
 });
 

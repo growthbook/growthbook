@@ -201,11 +201,9 @@ describe("getDimensionDisplayName", () => {
       "cutoff:2026-01-15T00:12:00.000Z",
       resolve,
     );
-    expect(name).toMatch(/^First exposed after /);
-    expect(name).toContain("(UTC)");
-    // Rendered from the UTC instant, not the runner's local time
-    expect(name).toContain("Jan 15, 2026");
-    expect(name).toContain("12:12 AM");
+    // Rendered from the UTC instant, not the runner's local time, and matching
+    // the label SQL emits on the result rows
+    expect(name).toBe("First exposed after 2026-01-15 00:12 UTC");
   });
 
   it("formats combo dimensions with resolved constituent names", () => {

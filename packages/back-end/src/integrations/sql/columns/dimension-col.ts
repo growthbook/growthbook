@@ -1,4 +1,5 @@
 import { NULL_DIMENSION_VALUE } from "shared/constants";
+import { formatDateCutoffLabel } from "shared/experiments";
 import type { Dimension, DimensionColumnData } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { concatSql } from "back-end/src/integrations/sql/primitives/concat";
@@ -35,8 +36,7 @@ export function getDimensionCol(
         alias: "dim_activation",
       };
     case "datecutoff": {
-      // Minute-precision UTC label; the full ISO string lives in the dimension id
-      const label = dimension.cutoff.toISOString().substring(0, 16) + "Z";
+      const label = formatDateCutoffLabel(dimension.cutoff);
       return {
         value: dialect.ifElse(
           `first_exposure_timestamp < ${dialect.toTimestamp(dimension.cutoff)}`,
