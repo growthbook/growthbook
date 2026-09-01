@@ -1,7 +1,7 @@
 import {
   buildComboDimensionId,
   buildDateCutoffDimensionId,
-  isSpecialDimensionId,
+  isCustomDimensionId,
   parseDimensionId,
 } from "../src/experiments/dimension-ids";
 
@@ -103,13 +103,13 @@ describe("buildComboDimensionId", () => {
   });
 });
 
-describe("isSpecialDimensionId", () => {
+describe("isCustomDimensionId", () => {
   it("identifies only the new configurable forms", () => {
-    expect(isSpecialDimensionId("cutoff:2026-01-15T00:12:00.000Z")).toBe(true);
-    expect(isSpecialDimensionId("combo:dim_a::dim_b")).toBe(true);
-    expect(isSpecialDimensionId("pre:date")).toBe(false);
-    expect(isSpecialDimensionId("exp:country")).toBe(false);
-    expect(isSpecialDimensionId("dim_abc123")).toBe(false);
+    expect(isCustomDimensionId("cutoff:2026-01-15T00:12:00.000Z")).toBe(true);
+    expect(isCustomDimensionId("combo:dim_a::dim_b")).toBe(true);
+    expect(isCustomDimensionId("pre:date")).toBe(false);
+    expect(isCustomDimensionId("exp:country")).toBe(false);
+    expect(isCustomDimensionId("dim_abc123")).toBe(false);
   });
 });
 
@@ -117,7 +117,7 @@ describe("isSpecialDimensionId", () => {
 // `dimension.substring(0, 8) === "pre:date"`; the new prefixes must never
 // collide with that check
 describe("pre:date prefix collision", () => {
-  it("no special dimension id starts with pre:date", () => {
+  it("no custom dimension id starts with pre:date", () => {
     const ids = [
       buildDateCutoffDimensionId(new Date("2026-01-15T00:12:00.000Z")),
       buildComboDimensionId(["exp:country", "dim_abc123"]),

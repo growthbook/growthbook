@@ -1415,7 +1415,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
   });
 });
 
-describe("BigQuery incremental refresh statistics query with special dimensions", () => {
+describe("BigQuery incremental refresh statistics query with custom dimensions", () => {
   let integration: BigQuery;
 
   const exposureQuery: ExposureQuery = {

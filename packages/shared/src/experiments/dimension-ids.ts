@@ -26,7 +26,7 @@ function isValidComboConstituentId(id: string): boolean {
  * known prefix before the trailing user-dimension fallback, since user
  * dimension ids are unprefixed.
  *
- * None of the special prefixes may start with "pre:date" — the front-end
+ * None of the custom prefixes may start with "pre:date" — the front-end
  * routes date-cohort results with `dimension.substring(0, 8) === "pre:date"`.
  */
 export function parseDimensionId(id: string): ParsedDimensionId {
@@ -112,7 +112,7 @@ export function buildComboDimensionId(constituentIds: string[]): string {
   return id;
 }
 
-export function isSpecialDimensionId(id: string): boolean {
+export function isCustomDimensionId(id: string): boolean {
   return (
     id.startsWith(DATE_CUTOFF_DIMENSION_PREFIX) ||
     id.startsWith(COMBO_DIMENSION_PREFIX)

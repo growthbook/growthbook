@@ -1415,7 +1415,7 @@ describe("snapshot planning", () => {
     ["cutoff:2020-01-15T00:12:00.000Z"],
     ["combo:exp:country::dim_abc123"],
   ])(
-    "plans an incremental-exploratory snapshot for special dimension %s",
+    "plans an incremental-exploratory snapshot for custom dimension %s",
     async (dimension) => {
       wireIncrementalIntegration(makeIncrementalDatasource());
       assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(

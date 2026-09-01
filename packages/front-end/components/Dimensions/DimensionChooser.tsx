@@ -14,7 +14,7 @@ import {
   COMBO_DIMENSION_LENGTH,
   buildComboDimensionId,
   buildDateCutoffDimensionId,
-  isSpecialDimensionId,
+  isCustomDimensionId,
   parseDimensionId,
 } from "shared/experiments";
 import { datetime, getValidDate } from "shared/dates";
@@ -33,12 +33,12 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import SpecialDimensionFields, {
-  SpecialDimensionDraft,
-  SpecialDimensionKind,
-  isSpecialDimensionDraftValid,
-} from "@/components/Dimensions/SpecialDimensionFields";
-import SpecialDimensionModal from "@/components/Dimensions/SpecialDimensionModal";
+import CustomDimensionFields, {
+  CustomDimensionDraft,
+  CustomDimensionKind,
+  isCustomDimensionDraftValid,
+} from "@/components/Dimensions/CustomDimensionFields";
+import CustomDimensionModal from "@/components/Dimensions/CustomDimensionModal";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -50,8 +50,8 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 
 // UI-only sentinel values for the two configurable dimensions; never persisted
-export const SPECIAL_CUTOFF_OPTION = "special:cutoff";
-export const SPECIAL_COMBO_OPTION = "special:combo";
+export const CUSTOM_CUTOFF_OPTION = "custom:cutoff";
+export const CUSTOM_COMBO_OPTION = "custom:combo";
 
 export interface Props {
   value: string;
@@ -76,7 +76,7 @@ export interface Props {
   ) => void;
   disabled?: boolean;
   ssrPolyfills?: SSRPolyfills;
-  enableSpecialDimensions?: boolean;
+  enableCustomDimensions?: boolean;
   // Valid range for the "First Exposed After..." cutoff. Derived from the
   // snapshot context's experiment phase when omitted.
   cutoffBounds?: { min?: Date; max?: Date };
@@ -131,7 +131,7 @@ export function getDimensionOptions({
   activationMetric,
   exposureQueryId,
   userIdType,
-  includeSpecialDimensions = false,
+  includeCustomDimensions = false,
 }: {
   incrementalRefresh: IncrementalRefreshInterface | null;
   precomputedDimensions?: string[];
@@ -142,7 +142,7 @@ export function getDimensionOptions({
   exposureQueryId?: string;
   userIdType?: string;
   activationMetric?: boolean;
-  includeSpecialDimensions?: boolean;
+  includeCustomDimensions?: boolean;
 }): GroupedValue[] {
   // Include unit dimensions tied to the datasource
   const filteredUnitDimensions = dimensions
@@ -234,10 +234,10 @@ export function getDimensionOptions({
 
   const onDemandDimensions = [...builtInDimensions, ...unitDimensions];
 
-  if (includeSpecialDimensions) {
+  if (includeCustomDimensions) {
     onDemandDimensions.push({
       label: "First Exposed After...",
-      value: SPECIAL_CUTOFF_OPTION,
+      value: CUSTOM_CUTOFF_OPTION,
     });
     const constituentOptions = getCombinationConstituentOptions({
       incrementalRefresh,
@@ -249,7 +249,7 @@ export function getDimensionOptions({
     if (constituentOptions.length >= COMBO_DIMENSION_LENGTH) {
       onDemandDimensions.push({
         label: "Combination of Dimensions...",
-        value: SPECIAL_COMBO_OPTION,
+        value: CUSTOM_COMBO_OPTION,
       });
     }
   }
@@ -302,7 +302,7 @@ export function getDimensionDisplayName(
 
 export function draftFromDimensionId(
   dimValue: string,
-): SpecialDimensionDraft | null {
+): CustomDimensionDraft | null {
   const parsed = parseDimensionId(dimValue);
   if (parsed.kind === "datecutoff") {
     return { kind: "cutoff", cutoff: parsed.cutoff, constituentIds: [] };
@@ -313,7 +313,7 @@ export function draftFromDimensionId(
   return null;
 }
 
-function buildSpecialDimensionId(draft: SpecialDimensionDraft): string {
+function buildCustomDimensionId(draft: CustomDimensionDraft): string {
   return draft.kind === "cutoff" && draft.cutoff
     ? buildDateCutoffDimensionId(draft.cutoff)
     : buildComboDimensionId(draft.constituentIds);
@@ -337,17 +337,18 @@ export default function DimensionChooser({
   setAnalysisSettings,
   disabled,
   ssrPolyfills,
-  enableSpecialDimensions = true,
+  enableCustomDimensions = true,
   cutoffBounds,
 }: Props) {
   const { apiCall } = useAuth();
 
   const [postLoading, setPostLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [specialModalKind, setSpecialModalKind] =
-    useState<SpecialDimensionKind | null>(null);
-  const [draftSpecial, setDraftSpecial] =
-    useState<SpecialDimensionDraft | null>(null);
+  const [customModalKind, setCustomModalKind] =
+    useState<CustomDimensionKind | null>(null);
+  const [draftCustom, setDraftCustom] = useState<CustomDimensionDraft | null>(
+    null,
+  );
   const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
   const {
@@ -401,7 +402,7 @@ export default function DimensionChooser({
     datasource,
     dimensions,
     activationMetric,
-    includeSpecialDimensions: enableSpecialDimensions && !disabled,
+    includeCustomDimensions: enableCustomDimensions && !disabled,
   });
 
   const constituentOptions = useMemo(
@@ -531,18 +532,18 @@ export default function DimensionChooser({
     );
   }
 
-  const sentinelForKind = (kind: SpecialDimensionKind): string =>
-    kind === "cutoff" ? SPECIAL_CUTOFF_OPTION : SPECIAL_COMBO_OPTION;
+  const sentinelForKind = (kind: CustomDimensionKind): string =>
+    kind === "cutoff" ? CUSTOM_CUTOFF_OPTION : CUSTOM_COMBO_OPTION;
   const valueDraft =
-    enableSpecialDimensions && isSpecialDimensionId(value)
+    enableCustomDimensions && isCustomDimensionId(value)
       ? draftFromDimensionId(value)
       : null;
 
   if (!newUi) {
-    // A configured special dimension is not among the standard options, so
+    // A configured custom dimension is not among the standard options, so
     // add it for react-select to render its label
     const selectOptions =
-      valueDraft && !draftSpecial
+      valueDraft && !draftCustom
         ? [
             ...dimensionOptions,
             {
@@ -551,31 +552,29 @@ export default function DimensionChooser({
             },
           ]
         : dimensionOptions;
-    const selectValue = draftSpecial
-      ? sentinelForKind(draftSpecial.kind)
-      : value;
-    const activeDraft = draftSpecial ?? valueDraft;
+    const selectValue = draftCustom ? sentinelForKind(draftCustom.kind) : value;
+    const activeDraft = draftCustom ?? valueDraft;
 
     const handleSelectChange = (v: string) => {
-      if (v === SPECIAL_CUTOFF_OPTION || v === SPECIAL_COMBO_OPTION) {
-        const kind: SpecialDimensionKind =
-          v === SPECIAL_CUTOFF_OPTION ? "cutoff" : "combo";
-        setDraftSpecial(
+      if (v === CUSTOM_CUTOFF_OPTION || v === CUSTOM_COMBO_OPTION) {
+        const kind: CustomDimensionKind =
+          v === CUSTOM_CUTOFF_OPTION ? "cutoff" : "combo";
+        setDraftCustom(
           valueDraft?.kind === kind ? valueDraft : { kind, constituentIds: [] },
         );
         return;
       }
-      setDraftSpecial(null);
+      setDraftCustom(null);
       handleDimensionChange(v);
     };
 
     // Keep invalid drafts local; commit to the form as soon as they are valid
-    const handleDraftChange = (next: SpecialDimensionDraft) => {
-      if (isSpecialDimensionDraftValid(next, cutoffMin, cutoffMax)) {
-        setDraftSpecial(null);
-        handleDimensionChange(buildSpecialDimensionId(next));
+    const handleDraftChange = (next: CustomDimensionDraft) => {
+      if (isCustomDimensionDraftValid(next, cutoffMin, cutoffMax)) {
+        setDraftCustom(null);
+        handleDimensionChange(buildCustomDimensionId(next));
       } else {
-        setDraftSpecial(next);
+        setDraftCustom(next);
       }
     };
 
@@ -601,7 +600,7 @@ export default function DimensionChooser({
           {postLoading && <LoadingSpinner className="ml-1" />}
         </Flex>
         {activeDraft && (
-          <SpecialDimensionFields
+          <CustomDimensionFields
             draft={activeDraft}
             setDraft={handleDraftChange}
             constituentOptions={constituentOptions}
@@ -634,18 +633,18 @@ export default function DimensionChooser({
           </DropdownMenuLabel>,
         );
         group.options.forEach((option) => {
-          const specialKind: SpecialDimensionKind | null =
-            option.value === SPECIAL_CUTOFF_OPTION
+          const customKind: CustomDimensionKind | null =
+            option.value === CUSTOM_CUTOFF_OPTION
               ? "cutoff"
-              : option.value === SPECIAL_COMBO_OPTION
+              : option.value === CUSTOM_COMBO_OPTION
                 ? "combo"
                 : null;
           items.push(
             <DropdownMenuItem
               key={option.value}
               onClick={async () => {
-                if (specialKind) {
-                  setSpecialModalKind(specialKind);
+                if (customKind) {
+                  setCustomModalKind(customKind);
                 } else {
                   handleDimensionChange(option.value);
                 }
@@ -710,19 +709,19 @@ export default function DimensionChooser({
         <DropdownMenuGroup>{renderMenuItems()}</DropdownMenuGroup>
       </DropdownMenu>
       {postLoading && <LoadingSpinner className="ml-1" />}
-      {specialModalKind && (
-        <SpecialDimensionModal
+      {customModalKind && (
+        <CustomDimensionModal
           initialDraft={
-            valueDraft?.kind === specialModalKind
+            valueDraft?.kind === customModalKind
               ? valueDraft
-              : { kind: specialModalKind, constituentIds: [] }
+              : { kind: customModalKind, constituentIds: [] }
           }
           constituentOptions={constituentOptions}
           cutoffMin={cutoffMin}
           cutoffMax={cutoffMax}
-          close={() => setSpecialModalKind(null)}
+          close={() => setCustomModalKind(null)}
           onApply={(draft) =>
-            handleDimensionChange(buildSpecialDimensionId(draft))
+            handleDimensionChange(buildCustomDimensionId(draft))
           }
         />
       )}

@@ -2,12 +2,12 @@ import React, { useState } from "react";
 import Modal from "@/ui/Modal";
 import Button from "@/ui/Button";
 import { SingleValue } from "@/components/Forms/SelectField";
-import SpecialDimensionFields, {
-  SpecialDimensionDraft,
-  isSpecialDimensionDraftValid,
-} from "@/components/Dimensions/SpecialDimensionFields";
+import CustomDimensionFields, {
+  CustomDimensionDraft,
+  isCustomDimensionDraftValid,
+} from "@/components/Dimensions/CustomDimensionFields";
 
-export default function SpecialDimensionModal({
+export default function CustomDimensionModal({
   initialDraft,
   constituentOptions,
   cutoffMin,
@@ -15,19 +15,19 @@ export default function SpecialDimensionModal({
   close,
   onApply,
 }: {
-  initialDraft: SpecialDimensionDraft;
+  initialDraft: CustomDimensionDraft;
   constituentOptions: SingleValue[];
   cutoffMin?: Date;
   cutoffMax?: Date;
   close: () => void;
-  onApply: (draft: SpecialDimensionDraft) => void;
+  onApply: (draft: CustomDimensionDraft) => void;
 }) {
-  const [draft, setDraft] = useState<SpecialDimensionDraft>(initialDraft);
-  const valid = isSpecialDimensionDraftValid(draft, cutoffMin, cutoffMax);
+  const [draft, setDraft] = useState<CustomDimensionDraft>(initialDraft);
+  const valid = isCustomDimensionDraftValid(draft, cutoffMin, cutoffMax);
 
   return (
     <Modal.Root
-      trackingEventModalType="special-dimension-config"
+      trackingEventModalType="custom-dimension-config"
       open={true}
       onOpenChange={(open) => {
         if (!open) close();
@@ -41,7 +41,7 @@ export default function SpecialDimensionModal({
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <SpecialDimensionFields
+        <CustomDimensionFields
           draft={draft}
           setDraft={setDraft}
           constituentOptions={constituentOptions}

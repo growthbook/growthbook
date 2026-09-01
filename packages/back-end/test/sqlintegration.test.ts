@@ -1850,7 +1850,7 @@ describe("getFeatureEvalDiagnosticsQuery", () => {
   });
 });
 
-describe("special dimensions (cutoff & combo) - bigquery", () => {
+describe("custom dimensions (cutoff & combo) - bigquery", () => {
   const testExposureQuery: ExposureQuery = {
     id: "anonymous_id",
     name: "Exposure",
@@ -1873,7 +1873,7 @@ describe("special dimensions (cutoff & combo) - bigquery", () => {
   });
 
   const metric = factMetricFactory.build({
-    id: "fact_special_dim",
+    id: "fact_custom_dim",
     metricType: "mean",
     numerator: {
       factTableId: "orders",

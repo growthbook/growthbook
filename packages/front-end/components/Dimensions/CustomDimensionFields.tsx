@@ -6,10 +6,10 @@ import DatePicker from "@/components/DatePicker";
 import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import HelperText from "@/ui/HelperText";
 
-export type SpecialDimensionKind = "cutoff" | "combo";
+export type CustomDimensionKind = "cutoff" | "combo";
 
-export type SpecialDimensionDraft = {
-  kind: SpecialDimensionKind;
+export type CustomDimensionDraft = {
+  kind: CustomDimensionKind;
   cutoff?: Date;
   constituentIds: string[];
 };
@@ -24,8 +24,8 @@ export function isCutoffWithinBounds(
   return true;
 }
 
-export function isSpecialDimensionDraftValid(
-  draft: SpecialDimensionDraft,
+export function isCustomDimensionDraftValid(
+  draft: CustomDimensionDraft,
   cutoffMin?: Date,
   cutoffMax?: Date,
 ): boolean {
@@ -41,15 +41,15 @@ export function isSpecialDimensionDraftValid(
   );
 }
 
-export default function SpecialDimensionFields({
+export default function CustomDimensionFields({
   draft,
   setDraft,
   constituentOptions,
   cutoffMin,
   cutoffMax,
 }: {
-  draft: SpecialDimensionDraft;
-  setDraft: (draft: SpecialDimensionDraft) => void;
+  draft: CustomDimensionDraft;
+  setDraft: (draft: CustomDimensionDraft) => void;
   constituentOptions: SingleValue[];
   cutoffMin?: Date;
   cutoffMax?: Date;

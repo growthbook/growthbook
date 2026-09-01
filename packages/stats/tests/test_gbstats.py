@@ -565,7 +565,7 @@ class TestGetDimensionColumnName(TestCase):
         self.assertEqual(get_dimension_column_name("dim_abc"), "dim_unit_dim_abc")
         self.assertEqual(get_dimension_column_name(""), "dimension")
 
-    def test_special_dimension_column_names(self):
+    def test_custom_dimension_column_names(self):
         # Neither may map into the dim_exp_ namespace (post-stratification
         # treats those as strata columns)
         self.assertEqual(

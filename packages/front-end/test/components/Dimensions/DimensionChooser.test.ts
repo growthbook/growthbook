@@ -2,8 +2,8 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
 import { IncrementalRefreshInterface } from "shared/validators";
 import {
-  SPECIAL_COMBO_OPTION,
-  SPECIAL_CUTOFF_OPTION,
+  CUSTOM_COMBO_OPTION,
+  CUSTOM_CUTOFF_OPTION,
   getCombinationConstituentOptions,
   getDimensionDisplayName,
   getDimensionOptions,
@@ -93,8 +93,8 @@ const unitDimensions = [
   },
 ] as DimensionInterface[];
 
-describe("getDimensionOptions special dimensions", () => {
-  it("omits special options by default", () => {
+describe("getDimensionOptions custom dimensions", () => {
+  it("omits custom options by default", () => {
     const options = getDimensionOptions({
       incrementalRefresh: null,
       datasource: buildDatasource(),
@@ -105,23 +105,23 @@ describe("getDimensionOptions special dimensions", () => {
     const values = options.flatMap((group) =>
       group.options?.map((option) => option.value),
     );
-    expect(values).not.toContain(SPECIAL_CUTOFF_OPTION);
-    expect(values).not.toContain(SPECIAL_COMBO_OPTION);
+    expect(values).not.toContain(CUSTOM_CUTOFF_OPTION);
+    expect(values).not.toContain(CUSTOM_COMBO_OPTION);
   });
 
-  it("appends special options to the on-demand group when enabled", () => {
+  it("appends custom options to the on-demand group when enabled", () => {
     const options = getDimensionOptions({
       incrementalRefresh: null,
       datasource: buildDatasource(),
       dimensions: unitDimensions,
       exposureQueryId: "eq_1",
       userIdType: "user_id",
-      includeSpecialDimensions: true,
+      includeCustomDimensions: true,
     });
     const onDemand = options.find((group) => group.label === "On-demand");
     const values = onDemand?.options?.map((option) => option.value) ?? [];
-    expect(values).toContain(SPECIAL_CUTOFF_OPTION);
-    expect(values).toContain(SPECIAL_COMBO_OPTION);
+    expect(values).toContain(CUSTOM_CUTOFF_OPTION);
+    expect(values).toContain(CUSTOM_COMBO_OPTION);
   });
 
   it("omits the combination option when fewer than two constituents exist", () => {
@@ -129,13 +129,13 @@ describe("getDimensionOptions special dimensions", () => {
       incrementalRefresh: null,
       datasource: null,
       dimensions: [],
-      includeSpecialDimensions: true,
+      includeCustomDimensions: true,
     });
     const values = options.flatMap((group) =>
       group.options?.map((option) => option.value),
     );
-    expect(values).toContain(SPECIAL_CUTOFF_OPTION);
-    expect(values).not.toContain(SPECIAL_COMBO_OPTION);
+    expect(values).toContain(CUSTOM_CUTOFF_OPTION);
+    expect(values).not.toContain(CUSTOM_COMBO_OPTION);
   });
 });
 
