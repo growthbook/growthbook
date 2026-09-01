@@ -75,6 +75,10 @@ export type PostFeatureRuleBody = {
   environments: string[];
   safeRolloutFields?: CreateSafeRolloutInterface;
   rampSchedule?: InlineRampScheduleCreate | InlineRampScheduleDetach;
+  // Insert the new rule directly above this rule instead of appending to the
+  // end. Falls back to appending when the id isn't in the revision (e.g. the
+  // anchor rule was deleted in the draft).
+  insertBeforeRuleId?: string;
 };
 
 export type PutFeatureRuleConflict = DraftConflict<FeatureRule>;

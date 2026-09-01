@@ -13,7 +13,9 @@ import {
 } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { Box, Flex, TextField } from "@radix-ui/themes";
-import RuleModal from "@/components/Features/RuleModal/index";
+import RuleModal, {
+  type RampToNewValueSeed,
+} from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
 import {
@@ -159,6 +161,8 @@ export default function FeatureRules({
     ruleId?: string;
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
+    rampToNewValue?: boolean;
+    rampToNewValueSeed?: RampToNewValueSeed;
     detachRampOnSave?: boolean;
   } | null>(null);
   const [holdoutModal, setHoldoutModal] = useState<boolean>(false);
@@ -626,6 +630,9 @@ export default function FeatureRules({
       </Box>
       {ruleModal !== null && (
         <RuleModal
+          // Remounts when the switch-to-ramp escape hatch retargets the open
+          // modal (edit → duplicate) — form and ramp state seed once per mount.
+          key={`${ruleModal.mode}-${ruleModal.ruleId ?? "new"}`}
           feature={feature}
           baseFeature={baseFeature}
           close={() => setRuleModal(null)}
@@ -637,6 +644,18 @@ export default function FeatureRules({
           defaultType={ruleModal.defaultType || ""}
           setVersion={setVersion}
           mode={ruleModal.mode}
+          rampToNewValue={ruleModal.rampToNewValue}
+          rampToNewValueSeed={ruleModal.rampToNewValueSeed}
+          onSwitchToRampToNewValue={(sourceRuleId, seed) =>
+            setRuleModal({
+              i: ruleModal.i,
+              environment: ruleModal.environment,
+              ruleId: sourceRuleId,
+              mode: "duplicate",
+              rampToNewValue: true,
+              rampToNewValueSeed: seed,
+            })
+          }
           revisionList={revisionList}
           rampSchedules={rampSchedules}
           detachRampOnSave={ruleModal.detachRampOnSave}

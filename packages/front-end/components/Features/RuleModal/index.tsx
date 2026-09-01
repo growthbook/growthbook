@@ -23,7 +23,7 @@ import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
-import { cloneDeep, kebabCase } from "lodash";
+import { cloneDeep, kebabCase, pick } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   CreateSafeRolloutInterface,
@@ -177,6 +177,30 @@ function shouldPublishRuleDisabled(
     ("requiresStartApproval" in ramp && !!ramp.requiresStartApproval)
   );
 }
+
+// The form fields that carry into the "Ramp to new value" clone: the value
+// (with `sparse`, which changes what the value means for JSON flags), the
+// description, and the three targeting fields. Everything else — id, seed,
+// coverage, type, release-plan schedule — is owned by the duplicate flow.
+export const RAMP_TO_NEW_VALUE_CARRIED_FIELDS = [
+  "value",
+  "sparse",
+  "description",
+  "condition",
+  "savedGroups",
+  "prerequisites",
+] as const;
+
+// Unsaved edit-modal state carried across the switch into the "Ramp to new
+// value" flow, so the clone starts from what the user typed rather than the
+// source rule's saved state. Env/project scope deliberately does NOT carry:
+// the clone must cover the source's SAVED scope (what is actually live) to
+// take over at 100%, and duplicate mode already derives that from the source.
+export interface RampToNewValueSeed {
+  rule: Record<(typeof RAMP_TO_NEW_VALUE_CARRIED_FIELDS)[number], unknown>;
+  ramp: RampSectionState;
+}
+
 export interface Props {
   close: () => void;
   // Merged feature (base + draft changes). Use baseFeature to check live/published state.
@@ -195,6 +219,17 @@ export interface Props {
   ruleId?: string;
   defaultType?: string;
   mode: "create" | "edit" | "duplicate";
+  // "Ramp to new value" flow: only meaningful with mode "duplicate". Opens the
+  // duplicate with a ramp pre-attached and inserts the clone directly above the
+  // source rule, so the source keeps serving everyone outside the ramp.
+  rampToNewValue?: boolean;
+  // Reopens this modal in the "Ramp to new value" flow for the given source
+  // rule, carrying the user's unsaved edits. Offered as an escape hatch when
+  // someone is about to ramp a live rule (which would drop its traffic).
+  onSwitchToRampToNewValue?: (ruleId: string, seed: RampToNewValueSeed) => void;
+  // The carried edits when this modal was opened via that escape hatch: they
+  // seed the clone instead of the source rule's saved state.
+  rampToNewValueSeed?: RampToNewValueSeed;
   safeRolloutsMap?: Map<string, SafeRolloutInterface>;
   revisionList?: MinimalFeatureRevisionInterface[];
   rampSchedules?: RampScheduleInterface[];
@@ -256,6 +291,9 @@ export default function RuleModal({
   defaultType = "",
   setVersion,
   mode,
+  rampToNewValue = false,
+  onSwitchToRampToNewValue,
+  rampToNewValueSeed,
   safeRolloutsMap,
   revisionList = [],
   rampSchedules = [],
@@ -283,12 +321,15 @@ export default function RuleModal({
   const rule: FeatureRule | undefined = ruleId
     ? flatRules.find((r) => r.id === ruleId)
     : undefined;
-  // True when this rule already exists on the published feature. We use this
-  // (not `defaultValues.id`, which is also set for newly-added draft rules) to
-  // decide whether scheduling against a future date should warn about
-  // overriding an already-live rule's state.
-  const isLiveRule =
-    !!ruleId && (baseFeature.rules ?? []).some((r) => r.id === ruleId);
+  // The published version of the rule being edited, when there is one.
+  // Resolved from baseFeature (draft-added rules aren't live), and never set
+  // for duplicates — they create a brand-new rule even though `ruleId` points
+  // at a published source rule.
+  const liveRule =
+    mode !== "duplicate" && ruleId
+      ? (baseFeature.rules ?? []).find((r) => r.id === ruleId)
+      : undefined;
+  const isLiveRule = !!liveRule;
   const safeRollout =
     rule?.type === "safe-rollout"
       ? safeRolloutsMap?.get(rule?.safeRolloutId)
@@ -397,13 +438,25 @@ export default function RuleModal({
         }
         return defaultRampSectionState(undefined);
       }
+      // Duplicate starts fresh — the source rule's pending ramp action must
+      // not carry over. The "Ramp to new value" flow instead pre-attaches a
+      // ramp, reusing a schedule the user configured before switching.
+      if (mode === "duplicate") {
+        if (rampToNewValue) {
+          if (rampToNewValueSeed && rampToNewValueSeed.ramp.mode !== "off") {
+            return {
+              ...rampToNewValueSeed.ramp,
+              mode: "create",
+              linkedRampId: "",
+            };
+          }
+          return { ...defaultRampSectionState(undefined), mode: "create" };
+        }
+        return defaultRampSectionState(undefined);
+      }
       // If a pending create action exists in the draft (not yet in DB), pre-populate from it
       if (pendingCreateActionTyped) {
         return createActionToSectionState(pendingCreateActionTyped);
-      }
-      // Duplicate starts fresh — no schedule carried over
-      if (mode === "duplicate") {
-        return defaultRampSectionState(undefined);
       }
       // If a pending update action exists (modal re-opened after a prior edit in this draft),
       // merge it on top of the live schedule so the user sees their pending changes.
@@ -513,7 +566,7 @@ export default function RuleModal({
     return rule;
   };
 
-  const defaultValues = {
+  const baseDefaultValues = {
     ...defaultRuleValues,
     ...convertRuleToFormValues(rule),
     // A duplicated rollout starts seedless so it buckets independently; the Seed
@@ -581,6 +634,17 @@ export default function RuleModal({
       return restored;
     })(),
   };
+
+  // Carried "Ramp to new value" edits override the source rule's saved state.
+  // The snapshot came from this same form, so the cast restores the union that
+  // a Record spread would otherwise widen away.
+  const defaultValues =
+    mode === "duplicate" && rampToNewValue && rampToNewValueSeed
+      ? ({
+          ...baseDefaultValues,
+          ...rampToNewValueSeed.rule,
+        } as typeof baseDefaultValues)
+      : baseDefaultValues;
 
   // Overview Page
   const [newRuleOverviewPage, setNewRuleOverviewPage] = useState<boolean>(
@@ -708,7 +772,9 @@ export default function RuleModal({
   const headerText = useMemo(() => {
     let text =
       mode === "duplicate"
-        ? "Duplicate "
+        ? rampToNewValue
+          ? "Ramp to New Value: "
+          : "Duplicate "
         : mode === "create"
           ? "Add "
           : "Edit ";
@@ -750,6 +816,7 @@ export default function RuleModal({
     ruleType,
     experimentType,
     mode,
+    rampToNewValue,
     environment,
     scopeAllEnvs,
     selectedEnvironments,
@@ -1849,6 +1916,10 @@ export default function RuleModal({
                 : selectedEnvironments,
               safeRolloutFields,
               rampSchedule: rampScheduleInline,
+              // Land the ramping clone directly above its source rule so the
+              // source keeps serving users outside the ramp.
+              insertBeforeRuleId:
+                mode === "duplicate" && rampToNewValue ? ruleId : undefined,
             } as PostFeatureRuleBody),
           },
         );
@@ -2329,6 +2400,27 @@ export default function RuleModal({
               ruleId={form.watch("id") as string}
               featureId={feature.id}
               sparse={!!form.watch("sparse")}
+              liveRule={liveRule}
+              onRampToNewValue={
+                // No hatch when the draft already holds a pending ramp for
+                // this rule: switching would leave that action behind and
+                // publish would ramp both the source and the clone.
+                mode === "edit" &&
+                isLiveRule &&
+                !ruleRampSchedule &&
+                !pendingCreateActionTyped &&
+                ruleId &&
+                onSwitchToRampToNewValue
+                  ? () =>
+                      onSwitchToRampToNewValue(ruleId, {
+                        rule: pick(
+                          formValues(),
+                          RAMP_TO_NEW_VALUE_CARRIED_FIELDS,
+                        ),
+                        ramp: rampSectionState,
+                      })
+                  : undefined
+              }
             />
           </Page>
         )}

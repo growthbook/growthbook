@@ -56,6 +56,7 @@ type CommonProps = {
     ruleId?: string;
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
+    rampToNewValue?: boolean;
   }) => void;
   version: number;
   setVersion: (version: number) => void;
@@ -258,6 +259,16 @@ export default function RuleList(props: RuleListProps) {
     draftRevision,
     environment: allEnvsView ? undefined : props.environment,
   });
+  // Unfiltered: gates actions that must not run when the rule is ramping in
+  // ANY environment, not just the viewed one ("Ramp to new value" — a second
+  // ramp would stack on the hidden environment's live one).
+  const anyEnvRampSchedulesMap = allEnvsView
+    ? rampSchedulesMap
+    : buildRuleRampScheduleMap({
+        rampSchedules,
+        draftRevision,
+        environment: undefined,
+      });
 
   // Reachability & targeting-conflict detection.
   //   single-env: per-rule analysis of `items` in evaluation order.
@@ -528,6 +539,9 @@ export default function RuleList(props: RuleListProps) {
                 holdout={holdout}
                 revisionList={revisionList}
                 rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
+                hasAnyEnvRampSchedule={anyEnvRampSchedulesMap.has(
+                  rule.id ?? "",
+                )}
                 liveRampSchedule={liveRampSchedulesMap.get(rule.id ?? "")}
                 liveRule={liveRulesById.get(rule.id ?? "")}
                 draftRevision={draftRevision}
@@ -583,6 +597,9 @@ export default function RuleList(props: RuleListProps) {
               holdout={holdout}
               revisionList={revisionList}
               rampSchedule={rampSchedulesMap.get(activeRule.id ?? "")}
+              hasAnyEnvRampSchedule={anyEnvRampSchedulesMap.has(
+                activeRule.id ?? "",
+              )}
               liveRampSchedule={liveRampSchedulesMap.get(activeRule.id ?? "")}
               liveRule={liveRulesById.get(activeRule.id ?? "")}
               draftRevision={draftRevision}

@@ -218,6 +218,7 @@ interface SortableProps {
     ruleId?: string;
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
+    rampToNewValue?: boolean;
     detachRampOnSave?: boolean;
   }) => void;
   unreachable?: boolean;
@@ -238,6 +239,9 @@ interface SortableProps {
   holdout: HoldoutInterface | undefined;
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedule?: RampScheduleInterface;
+  // True when the rule has a schedule (live or pending) in ANY environment,
+  // not just the viewed one. `rampSchedule` above is env-filtered.
+  hasAnyEnvRampSchedule?: boolean;
   /** Live state used only for runtime-control authority checks. */
   liveRule?: FeatureRule;
   liveRampSchedule?: RampScheduleInterface;
@@ -322,6 +326,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       holdout,
       revisionList,
       rampSchedule,
+      hasAnyEnvRampSchedule,
       liveRule,
       liveRampSchedule,
       draftRevision,
@@ -990,6 +995,24 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             Duplicate rule
                           </DropdownMenuItem>
                         )}
+                        {(rule.type === "force" || rule.type === "rollout") &&
+                          !hasAnyEnvRampSchedule && (
+                            <DropdownMenuItem
+                              tooltip="Inserts a ramp-up rule above this one to gradually replace its value."
+                              onClick={() => {
+                                setRuleModal({
+                                  environment,
+                                  i,
+                                  ruleId: rule.id,
+                                  mode: "duplicate",
+                                  rampToNewValue: true,
+                                });
+                                setDropdownOpen(false);
+                              }}
+                            >
+                              Ramp to new value
+                            </DropdownMenuItem>
+                          )}
                         <DropdownMenuItem
                           onClick={
                             !rule.enabled && getRampEnableDate(rampSchedule)
