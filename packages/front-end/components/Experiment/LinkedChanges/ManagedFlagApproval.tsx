@@ -739,14 +739,16 @@ export default function ManagedFlagApproval({
         color={triggerColor}
         onClick={() => setOpen(true)}
       >
-        {/* Name what the modal actually offers. With no action available — the
-            author can't approve their own draft — it's still worth opening to
-            see the changes and who has reviewed. */}
-        {canReview
-          ? "Review"
-          : showSubmit
-            ? (ctaLabel ?? state.ctaLabel)
-            : "Review changes"}
+        {/* A caller-supplied label wins for everyone, so one callout can't show
+            two different CTAs. Otherwise name what the modal offers this
+            viewer; with no action it is still worth opening to see the changes
+            and who has reviewed. */}
+        {ctaLabel ??
+          (canReview
+            ? "Review"
+            : showSubmit
+              ? state.ctaLabel
+              : "Review changes")}
       </Button>
       <ModalStandard
         open={open}

@@ -613,9 +613,12 @@ export default function TabbedPage({
                 experiment={experiment}
                 info={managedFlagWithDraft}
                 mutate={mutate}
-                // Starting the experiment publishes it, so this is review only.
+                // Starting the experiment publishes it, so a draft offers
+                // review only and everyone gets the same wording. A running
+                // experiment can really publish, so let the CTA name the
+                // action this viewer actually has.
                 ctaLabel={
-                  experiment.status === "draft" ? "Review" : "Review & Publish"
+                  experiment.status === "draft" ? "Review changes" : undefined
                 }
                 triggerColor="inherit"
               />
