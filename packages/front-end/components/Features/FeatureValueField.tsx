@@ -615,49 +615,45 @@ export default function FeatureValueField({
         />
       ) : null;
 
-    // The row carries the label, the constant picker and — only where sparse is
-    // a per-value choice — the toggle. A caller that owns `sparse` at the rule
-    // level wires no setter, and the picker still has to reach the editor.
-    const sparseHeader =
-      showSparseToggle || insertConstantButton ? (
-        <Flex
-          align="center"
-          justify="between"
-          gap="3"
-          mb="1"
-          width="100%"
-          style={{ minHeight: "var(--space-6)" }}
-        >
-          {label !== undefined ? (
-            <Text as="label" weight="semibold" mb="0">
-              {label}
-            </Text>
-          ) : (
-            <Box />
-          )}
-          <Flex align="center" gap="3" flexShrink="0">
-            {insertConstantButton}
-            {showSparseToggle && (
-              <SparsePatchToggle
-                checked={!!sparse}
-                onChange={(checked) => {
-                  // Switching modes rewrites the value so the editor isn't left with
-                  // a default-laden patch (on) or a bare patch shown as the full
-                  // value (off). See stripDefaultsForSparse / expandSparseToFull.
-                  const def = feature?.defaultValue ?? "";
-                  setValue(
-                    checked
-                      ? stripDefaultsForSparse(value, def)
-                      : expandSparseToFull(value, def),
-                  );
-                  setSparse?.(checked);
-                }}
-                disabled={disabled}
-              />
-            )}
-          </Flex>
+    // Only where sparse is a per-value choice. The other branches draw their own
+    // label and picker, so this must stay empty for them without a toggle.
+    const sparseHeader = showSparseToggle ? (
+      <Flex
+        align="center"
+        justify="between"
+        gap="3"
+        mb="1"
+        width="100%"
+        style={{ minHeight: "var(--space-6)" }}
+      >
+        {label !== undefined ? (
+          <Text as="label" weight="semibold" mb="0">
+            {label}
+          </Text>
+        ) : (
+          <Box />
+        )}
+        <Flex align="center" gap="3" flexShrink="0">
+          {insertConstantButton}
+          <SparsePatchToggle
+            checked={!!sparse}
+            onChange={(checked) => {
+              // Switching modes rewrites the value so the editor isn't left with
+              // a default-laden patch (on) or a bare patch shown as the full
+              // value (off). See stripDefaultsForSparse / expandSparseToFull.
+              const def = feature?.defaultValue ?? "";
+              setValue(
+                checked
+                  ? stripDefaultsForSparse(value, def)
+                  : expandSparseToFull(value, def),
+              );
+              setSparse?.(checked);
+            }}
+            disabled={disabled}
+          />
         </Flex>
-      ) : null;
+      </Flex>
+    ) : null;
 
     if (isSparse) {
       return (
@@ -665,6 +661,16 @@ export default function FeatureValueField({
           {sparseHeader}
           <SparseTabbedEditor
             fontSize={CODE_FONT_SIZE}
+            // Label, tabs and picker share the tab row. The toggle keeps its
+            // own row above when the caller owns it per value.
+            headerLeft={
+              !sparseHeader && label !== undefined ? (
+                <Text as="label" weight="semibold" mb="0">
+                  {label}
+                </Text>
+              ) : undefined
+            }
+            headerRight={!sparseHeader ? insertConstantButton : undefined}
             value={value}
             setValue={setValue}
             valueType={valueType}
@@ -673,8 +679,7 @@ export default function FeatureValueField({
             placeholder={placeholder}
             disabled={disabled}
             defaultHeight={codeInputDefaultHeight}
-            // The header above owns the label whenever it renders at all.
-            showInlineLabel={!sparseHeader}
+            showInlineLabel={false}
             condensed={condensed}
             onEditorLoad={(e) => (jsonEditorRef.current = e)}
             usedConstantTags={usedConstantTags}

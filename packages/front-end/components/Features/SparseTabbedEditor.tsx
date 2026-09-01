@@ -30,6 +30,8 @@ export default function SparseTabbedEditor({
   showInlineLabel = true,
   condensed = false,
   fontSize,
+  headerLeft,
+  headerRight,
   onEditorLoad,
   usedConstantTags,
 }: {
@@ -51,6 +53,10 @@ export default function SparseTabbedEditor({
   // Editor type size, so the Edit tab matches the plain code editor this
   // replaces and the Preview tab matches the Edit tab.
   fontSize?: string;
+  // Rendered on the tab row, so a label and a constant picker share it rather
+  // than stacking above the tabs.
+  headerLeft?: ReactNode;
+  headerRight?: ReactNode;
   // Exposes the Edit-tab Ace editor so a parent's constant picker can insert at
   // the cursor (the Edit tab is force-mounted so this stays valid on Preview).
   onEditorLoad?: (editor: Ace.Editor) => void;
@@ -123,11 +129,17 @@ export default function SparseTabbedEditor({
           : undefined
       }
     >
-      <Flex align="center" justify="between">
-        <TabsList size={tabsSize}>
-          <TabsTrigger value="edit">Edit</TabsTrigger>
-          <TabsTrigger value="preview">Preview</TabsTrigger>
-        </TabsList>
+      <Flex align="center" justify="between" gap="3">
+        <Flex align="center" gap="4" minWidth="0">
+          {!fullscreen && headerLeft}
+          <TabsList size={tabsSize}>
+            <TabsTrigger value="edit">Edit</TabsTrigger>
+            <TabsTrigger value="preview">Preview</TabsTrigger>
+          </TabsList>
+        </Flex>
+        {!fullscreen && headerRight ? (
+          <Box flexShrink="0">{headerRight}</Box>
+        ) : null}
         {fullscreen ? (
           <Button
             type="button"
