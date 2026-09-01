@@ -428,6 +428,8 @@ function ManagedTrafficForm({
     label: null,
     valueAsId: isBandit,
     lockStructure: !safeToEdit,
+    // Coverage only reaches the server on the safeToEdit branch of `submit`.
+    hideCoverage: !safeToEdit,
     hideSplits: isBandit || !safeToEdit,
     coverage: form.watch("coverage"),
     setCoverage: (coverage: number) => form.setValue("coverage", coverage),

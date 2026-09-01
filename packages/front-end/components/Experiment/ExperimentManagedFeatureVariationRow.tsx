@@ -280,7 +280,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
           <VariationNumber number={i} />
 
           {!hideValueField &&
-            (setVariations ? (
+            (setVariations && !lockStructure ? (
               <Field
                 size="md"
                 id={`value_${i}`}

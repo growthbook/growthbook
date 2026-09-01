@@ -476,6 +476,7 @@ export default function FeatureVariationsInput({
                   !startEditingIndexes &&
                   !valueAsId &&
                   !disableVariations &&
+                  !onlySafeToEditVariationMetadata &&
                   setVariations ? (
                     <Box position="relative">
                       <Box

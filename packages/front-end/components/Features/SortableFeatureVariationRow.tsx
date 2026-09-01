@@ -197,7 +197,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
           {!hideVariationIds && <VariationNumber number={i} />}
 
           {!hideValueField &&
-            (setVariations ? (
+            (setVariations && !onlySafeToEditVariationMetadata ? (
               <div className={styles.tightValueCell}>
                 <FeatureValueField
                   size="md"

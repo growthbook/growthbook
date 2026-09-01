@@ -53,6 +53,8 @@ export interface Props {
   setCoverage?: (coverage: number) => void;
   // null drops the info icon entirely.
   coverageTooltip?: string | null;
+  // A running experiment cannot move its traffic split from here.
+  hideCoverage?: boolean;
   valueAsId?: boolean;
   showPreview?: boolean;
   // Rendered between the coverage widget and the variations table.
@@ -94,6 +96,7 @@ export default function ExperimentManagedFeatureVariationEditor({
   setCoverage,
   valueType,
   coverageTooltip = "Users not included in the Experiment will skip this rule",
+  hideCoverage = false,
   valueAsId = false,
   showPreview = true,
   belowCoverage,
@@ -208,75 +211,77 @@ export default function ExperimentManagedFeatureVariationEditor({
           {label}
         </Text>
       ) : null}
-      <Box px="4" pt="4" mb="6" className="bg-highlight rounded">
-        <Text as="label" mb="0">
-          {COVERAGE_LABEL}
-          {coverageTooltip ? (
-            <>
-              {" "}
-              <Tooltip content={coverageTooltip} side="top">
-                <Box
-                  as="span"
-                  display="inline-block"
-                  tabIndex={0}
-                  aria-label={`More information about ${COVERAGE_LABEL}`}
-                >
-                  <GBInfo />
-                </Box>
-              </Tooltip>
-            </>
-          ) : null}
-        </Text>
-        <Flex align="center" pb="4" gap="3">
-          <Box flexGrow="1">
-            <Slider
-              value={
-                isNaN(coverage ?? 0) ? [0] : [decimalToPercent(coverage ?? 0)]
-              }
-              min={0}
-              max={100}
-              step={1}
-              onValueChange={(e) => {
-                let decimal = percentToDecimalForNumber(e[0]);
-                if (decimal > 1) decimal = 1;
-                if (decimal < 0) decimal = 0;
-                setCoverage?.(decimal);
-              }}
-            />
-          </Box>
-          <Box>
-            <Box position="relative" className={styles.percentInputWrap}>
-              <Field
-                size="md"
-                style={{ width: 95 }}
+      {hideCoverage ? null : (
+        <Box px="4" pt="4" mb="6" className="bg-highlight rounded">
+          <Text as="label" mb="0">
+            {COVERAGE_LABEL}
+            {coverageTooltip ? (
+              <>
+                {" "}
+                <Tooltip content={coverageTooltip} side="top">
+                  <Box
+                    as="span"
+                    display="inline-block"
+                    tabIndex={0}
+                    aria-label={`More information about ${COVERAGE_LABEL}`}
+                  >
+                    <GBInfo />
+                  </Box>
+                </Tooltip>
+              </>
+            ) : null}
+          </Text>
+          <Flex align="center" pb="4" gap="3">
+            <Box flexGrow="1">
+              <Slider
                 value={
-                  isNaN(coverage ?? 0) ? "" : decimalToPercent(coverage ?? 0)
+                  isNaN(coverage ?? 0) ? [0] : [decimalToPercent(coverage ?? 0)]
                 }
-                onChange={(e) => {
-                  let decimal = percentToDecimal(e.target.value);
+                min={0}
+                max={100}
+                step={1}
+                onValueChange={(e) => {
+                  let decimal = percentToDecimalForNumber(e[0]);
                   if (decimal > 1) decimal = 1;
                   if (decimal < 0) decimal = 0;
                   setCoverage?.(decimal);
                 }}
-                type="number"
-                min={0}
-                max={100}
-                step="1"
               />
-              <Text as="span">%</Text>
             </Box>
-          </Box>
-        </Flex>
-        {showPreview && coverage !== undefined && variations ? (
-          <Box pb="4">
-            <ExperimentSplitVisual
-              coverage={coverage}
-              values={variations}
-              type={valueType ?? "string"}
-            />
-          </Box>
-        ) : null}
-      </Box>
+            <Box>
+              <Box position="relative" className={styles.percentInputWrap}>
+                <Field
+                  size="md"
+                  style={{ width: 95 }}
+                  value={
+                    isNaN(coverage ?? 0) ? "" : decimalToPercent(coverage ?? 0)
+                  }
+                  onChange={(e) => {
+                    let decimal = percentToDecimal(e.target.value);
+                    if (decimal > 1) decimal = 1;
+                    if (decimal < 0) decimal = 0;
+                    setCoverage?.(decimal);
+                  }}
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="1"
+                />
+                <Text as="span">%</Text>
+              </Box>
+            </Box>
+          </Flex>
+          {showPreview && coverage !== undefined && variations ? (
+            <Box pb="4">
+              <ExperimentSplitVisual
+                coverage={coverage}
+                values={variations}
+                type={valueType ?? "string"}
+              />
+            </Box>
+          ) : null}
+        </Box>
+      )}
 
       {belowCoverage}
 
@@ -400,7 +405,7 @@ export default function ExperimentManagedFeatureVariationEditor({
                   </Flex>
                 </Text>
               )}
-              {!valueAsId && setVariations ? (
+              {!valueAsId && setVariations && !lockStructure ? (
                 <Box position="relative">
                   <Box
                     style={{
