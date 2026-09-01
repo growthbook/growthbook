@@ -338,11 +338,16 @@ function ManagedTrafficForm({
     targetFeature.draftRevisionVersion != null;
 
   const typeChanged = !!feature && valueType !== feature.valueType;
+  // Judged against what the draft leaves behind, not what is live: a draft that
+  // re-typed the flag to JSON has a JSON default staged, while the live feature
+  // still reads as the old type and would rule sparse out.
+  const draftDefaultValue =
+    targetFeature?.pendingDraft?.defaultValue ?? feature?.defaultValue;
   const sparseEligible =
     !!feature &&
-    feature.valueType === "json" &&
+    seedValueType === "json" &&
     valueType === "json" &&
-    parsePlainJSONObject(feature.defaultValue ?? "") !== null;
+    parsePlainJSONObject(draftDefaultValue ?? "") !== null;
 
   // Re-express what is already there rather than clearing it.
   const handleValueTypeChange = (next: FeatureValueType) => {
@@ -455,7 +460,8 @@ function ManagedTrafficForm({
   // the same conversion the Feature Flag rule editors run.
   const sparseToggle =
     sparseEligible && !isConfigBacked && canEditValues ? (
-      <Flex mt="3">
+      // 32px is the select's height, so the switch sits on its centre line.
+      <Flex align="center" style={{ minHeight: 32 }}>
         <SparsePatchToggle
           checked={sparse}
           disabled={!editingValues && !adopting}
@@ -808,10 +814,13 @@ function ManagedTrafficForm({
                   ) : null}
                 </Box>
               ) : isManaged || !feature ? (
-                <Box mb="3">
+                <Flex mb="3" gap="5" align="end">
                   <Box width="200px">
                     <ValueTypeField
                       size="md"
+                      // The row owns the spacing; the field's own form-group
+                      // margin would drop the switch beside it.
+                      containerClassName="mb-0"
                       value={valueType}
                       order={VALUE_TYPE_ORDER}
                       onChange={(v) => {
@@ -821,13 +830,13 @@ function ManagedTrafficForm({
                     />
                   </Box>
                   {sparseToggle}
-                </Box>
+                </Flex>
               ) : (
                 // A flag the experiment doesn't own: name it, since the values
                 // below belong to it rather than to this experiment.
                 <Box mb="3">
                   <LinkedFeatureLabel featureId={feature.id} />
-                  {sparseToggle}
+                  {sparseToggle && <Box mt="2">{sparseToggle}</Box>}
                 </Box>
               )
             }

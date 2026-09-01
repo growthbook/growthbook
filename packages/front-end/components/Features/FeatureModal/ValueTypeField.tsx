@@ -31,13 +31,23 @@ const ValueTypeField: FC<{
   order?: FeatureValueType[];
   /** Defaults to the un-migrated `legacy` the feature modals already use. */
   size?: SelectFieldSize;
-}> = ({ onChange, value, allowConfig = false, order, size = "legacy" }) => {
+  /** Class on the form-group wrapper, e.g. "mb-0" when laid out in a row. */
+  containerClassName?: string;
+}> = ({
+  onChange,
+  value,
+  allowConfig = false,
+  order,
+  size = "legacy",
+  containerClassName,
+}) => {
   const { hasCommercialFeature } = useUser();
   const canUseConfig = hasCommercialFeature("feature-configs");
 
   return (
     <SelectField
       size={size}
+      containerClassName={containerClassName}
       label="Value Type"
       value={value}
       onChange={(v) => onChange(v as FeatureAuthoringType)}
