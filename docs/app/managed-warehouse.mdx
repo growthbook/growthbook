@@ -252,6 +252,15 @@ gb.logEvent("Button Click", {
 });
 ```
 
+Feature usage events are enabled by default. Disable them without affecting
+experiment view or custom events:
+
+```js
+growthbookTrackingPlugin({
+  enableFeatureUsageEvents: false,
+});
+```
+
 #### Node.js
 
 Use the `growthbookTrackingPlugin` to enable tracking:

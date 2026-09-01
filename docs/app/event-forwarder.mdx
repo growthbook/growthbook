@@ -145,6 +145,15 @@ gb.logEvent("Button Click", {
 });
 ```
 
+Feature usage events are enabled by default. Disable them without affecting
+experiment view or custom events:
+
+```js
+growthbookTrackingPlugin({
+  enableFeatureUsageEvents: false,
+});
+```
+
 #### Event Delivery on Page Navigation
 
 Events are batched and sent with `fetch` using `keepalive`, and when the page
