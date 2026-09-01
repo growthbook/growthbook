@@ -274,10 +274,6 @@ export default function TrafficAllocationFunnel({
     !!servedValueFeature &&
     canEditExperiment &&
     permissionsUtil.canEditFeatureDrafts(servedValueFeature.feature);
-  // The card's pencil opens the variation editor. Without one of these the
-  // traffic modal falls through to the make-changes flow, which isn't one.
-  const canEditVariations =
-    safeToEdit || !!managedFeature || !!addVariationValues;
   const canEject =
     !!managedFeature &&
     canEditExperiment &&
@@ -648,10 +644,11 @@ export default function TrafficAllocationFunnel({
                   ? (index) => setEditVariationIndex(index)
                   : undefined
               }
+              // The variation editor always has something to save: names and
+              // descriptions at any status, values wherever there is a flag.
+              // A running experiment only loses traffic and ids.
               onEditTraffic={
-                canEditExperiment && editTraffic && canEditVariations
-                  ? editTraffic
-                  : undefined
+                canEditExperiment && editTraffic ? editTraffic : undefined
               }
               onAddVariation={
                 canEditExperiment && !isRunning && addVariation

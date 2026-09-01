@@ -343,12 +343,6 @@ function ManagedTrafficForm({
   // still reads as the old type and would rule sparse out.
   const draftDefaultValue =
     targetFeature?.pendingDraft?.defaultValue ?? feature?.defaultValue;
-  const sparseEligible =
-    !!feature &&
-    seedValueType === "json" &&
-    valueType === "json" &&
-    parsePlainJSONObject(draftDefaultValue ?? "") !== null;
-
   // Re-express what is already there rather than clearing it.
   const handleValueTypeChange = (next: FeatureValueType) => {
     if (next === valueType) return;
@@ -456,21 +450,31 @@ function ManagedTrafficForm({
         : "Request Approval";
 
   // What a patch is measured against. A managed flag's default IS its control
-  // value (the server stores values[0] as the default), so while editing, the
-  // control in the form is truer than anything already saved.
+  // value (the server stores values[0] as the default), so while editing — or
+  // while creating the flag — the control in the form is truer than anything
+  // already saved.
   const controlVariationId = form.watch("variations")?.[0]?.id;
   const sparseBase =
-    (isManaged && controlVariationId
+    ((isManaged || adopting) && controlVariationId
       ? featureValues[controlVariationId]
       : undefined) ??
     draftDefaultValue ??
     "";
 
+  const sparseEligible =
+    valueType === "json" &&
+    // A flag being created has no live type to consult, and its default will be
+    // whatever the control ends up holding.
+    (adopting || seedValueType === "json") &&
+    parsePlainJSONObject(sparseBase) !== null;
+
   // Toggling rewrites every value so the editor is never left with a
   // default-laden patch (on) or a bare patch shown as a whole value (off) —
   // the same conversion the Feature Flag rule editors run.
   const sparseToggle =
-    sparseEligible && !isConfigBacked && canEditValues ? (
+    // No feature exists yet while adopting, so `canEditValues` is false there
+    // even though authoring the flag is exactly what is happening.
+    sparseEligible && !isConfigBacked && (canEditValues || adopting) ? (
       // 32px is the select's height, so the switch sits on its centre line.
       <Flex align="center" style={{ minHeight: 32 }}>
         <SparsePatchToggle
@@ -588,12 +592,18 @@ function ManagedTrafficForm({
     }
 
     // Experiment state first, then values; the second call re-sends the
-    // variations so the server checks each has one. A locked structure has
-    // nothing to send here — everything it would post is read-only.
+    // variations so the server checks each has one. A locked structure still
+    // carries names and descriptions — only traffic and ids are read-only
+    // there — so send the variations alone rather than the whole shape.
     if (safeToEdit) {
       await apiCall(`/experiment/${experiment.id}`, {
         method: "POST",
         body: JSON.stringify(data),
+      });
+    } else if (experimentDirty) {
+      await apiCall(`/experiment/${experiment.id}`, {
+        method: "POST",
+        body: JSON.stringify({ variations: data.variations }),
       });
     }
 
