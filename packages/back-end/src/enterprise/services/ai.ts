@@ -495,7 +495,17 @@ export const streamingChatCompletion = async ({
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
-    ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
+    ...(tools
+      ? {
+          tools,
+          stopWhen: stepCountIs(maxSteps),
+          // Same force-a-final-answer guard parsePrompt uses: a model that
+          // keeps calling tools until it exhausts maxSteps otherwise ends ON
+          // a tool call, and the stream closes having emitted no text at all.
+          prepareStep: ({ stepNumber }: { stepNumber: number }) =>
+            stepNumber >= maxSteps - 1 ? { toolChoice: "none" as const } : {},
+        }
+      : {}),
     ...(abortSignal ? { abortSignal } : {}),
     onFinish: ({ totalUsage }) => {
       // onFinish's `usage` is only the last step; totalUsage covers the run.
