@@ -15,32 +15,36 @@ import { isCloud } from "@/services/env";
 export default function useOrgLimits(): OrgLimitsAccessor {
   const { organization, license, effectiveAccountPlan } = useUser();
 
-  // Display-side mirror of the server's flag read (cloud only). The SDK is
-  // seeded with the org's accountPlan, so per-plan targeting resolves the same
-  // way it does server-side.
+  // Display-side mirror of the server's flag read (cloud only).
   const flagValue = useFeatureValue(PRICING_PHASE_1_FLAG_KEY, null);
+  const limitsDisabled = isCloud() && isLimitsFlagDisabled(flagValue);
 
   return useMemo(() => {
-    const plan = effectiveAccountPlan || "oss";
-
-    if (isCloud() && isLimitsFlagDisabled(flagValue)) {
-      return makeOrgLimits({ effectivePlan: plan });
+    if (limitsDisabled) {
+      return makeOrgLimits({ effectivePlan: effectiveAccountPlan || "oss" });
     }
 
     // Free limits come from the org's stamp; paid tiers resolve live.
-    const tier = planTierFor(plan);
+    const tier = planTierFor(effectiveAccountPlan || "oss");
     const planLimits =
       tier && tier !== "free"
-        ? isCloud()
-          ? resolveOrgLimitsConfig(flagValue, DEFAULT_ORG_LIMITS[tier])
-          : DEFAULT_ORG_LIMITS[tier]
+        ? resolveOrgLimitsConfig(
+            isCloud() ? flagValue : null,
+            DEFAULT_ORG_LIMITS[tier],
+          )
         : undefined;
 
     return makeOrgLimits({
-      effectivePlan: plan,
+      effectivePlan: effectiveAccountPlan || "oss",
       orgLimits: organization?.limits,
       licenseLimits: license?.limits,
       planLimits,
     });
-  }, [effectiveAccountPlan, organization?.limits, license?.limits, flagValue]);
+  }, [
+    effectiveAccountPlan,
+    organization?.limits,
+    license?.limits,
+    limitsDisabled,
+    flagValue,
+  ]);
 }

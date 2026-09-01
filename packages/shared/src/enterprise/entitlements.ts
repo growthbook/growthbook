@@ -18,8 +18,7 @@ export const PRO_ORG_LIMITS: OrgLimits = {
   roleManagement: true,
 };
 
-// The tiers that carry plan limits. Enterprise is absent on purpose: it is
-// never subject to them (see planTierFor).
+// Enterprise is absent on purpose — it is never subject to plan limits.
 export type LimitedPlanTier = "free" | "pro";
 
 export const DEFAULT_ORG_LIMITS: Record<LimitedPlanTier, OrgLimits> = {
@@ -35,13 +34,10 @@ export function planTierFor(plan: AccountPlan): LimitedPlanTier | null {
 
 type LimitsInput = {
   effectivePlan: AccountPlan;
-  // Stamped at org creation. Its absence is the grandfathering signal: orgs
-  // created before pricing limits shipped have no stamp and stay unlimited.
+  // Stamped at org creation. Its absence means the org is grandfathered.
   orgLimits?: OrgLimits;
   licenseLimits?: OrgLimits;
-  // Live per-plan config (flag-resolved) for tiers whose limits can't be
-  // stamped at creation because the plan is bought later. Falls back to
-  // DEFAULT_ORG_LIMITS.
+  // Live per-plan config, for tiers whose limits can't be stamped at creation.
   planLimits?: OrgLimits;
 };
 
@@ -49,31 +45,31 @@ function planAllows(
   { effectivePlan }: LimitsInput,
   feature: CommercialFeature,
 ): boolean {
-  return accountFeatures[effectivePlan]?.has(feature) ?? false;
+  return accountFeatures[effectivePlan].has(feature);
 }
 
+// Free plans read the org's own snapshot; paid plans read the license's, then
+// their tier's.
 function resolve({
   effectivePlan,
   orgLimits,
   licenseLimits,
   planLimits,
 }: LimitsInput): OrgLimits | null {
-  // Free plans read their own snapshot; it is both the stamp and the limit.
   if (effectivePlan === "oss" || effectivePlan === "starter") {
     return orgLimits ?? null;
   }
 
-  // A license that carries an explicit snapshot always wins on paid plans.
   if (licenseLimits) return licenseLimits;
 
-  // Grandfathered: never stamped, so never limited on any plan.
+  // Never stamped, so never limited on any plan.
   if (!orgLimits) return null;
 
   const tier = planTierFor(effectivePlan);
   if (!tier) return null;
 
-  // The stamp holds free-tier values, so a stamped org that upgraded reads its
-  // new tier's limits rather than the ones frozen at creation.
+  // The stamp holds free values, so an org that upgraded reads its new tier's
+  // limits instead of the ones frozen at creation.
   return planLimits ?? DEFAULT_ORG_LIMITS[tier];
 }
 

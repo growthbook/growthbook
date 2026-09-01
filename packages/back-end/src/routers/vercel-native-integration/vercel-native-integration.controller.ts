@@ -6,7 +6,6 @@ import { v4 as uuidv4 } from "uuid";
 import { ManagedBy } from "shared/validators";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { OrganizationInterface } from "shared/types/organization";
-import { FREE_ORG_LIMITS, PRO_ORG_LIMITS, OrgLimits } from "shared/enterprise";
 import {
   findVercelInstallationByInstallationId,
   VercelNativeIntegrationModel,
@@ -64,12 +63,6 @@ import {
   BillingPlan,
 } from "./vercel-native-integration.validators";
 
-// Vercel installations always create a brand new org, so the plan's limits
-// always apply — no grandfathering to account for here.
-function projectLimitLabel({ maxProjects }: OrgLimits): string {
-  return maxProjects == null ? "Unlimited" : `Limit ${maxProjects}`;
-}
-
 const STARTER_BILLING_PLAN: BillingPlan = {
   description: "Basic flags and experiments for solo devs and small teams",
   id: "starter-billing-plan",
@@ -81,7 +74,7 @@ const STARTER_BILLING_PLAN: BillingPlan = {
   details: [
     { label: "Feature Flags & Evaluations", value: "Unlimited" },
     { label: "Experiments", value: "Unlimited" },
-    { label: "Projects", value: projectLimitLabel(FREE_ORG_LIMITS) },
+    { label: "Projects", value: "Limit 1" },
     { label: "Seats", value: "Up to 3" },
   ],
 };
@@ -100,7 +93,7 @@ function getProBillingPlan(perSeatCost: number): BillingPlan {
     details: [
       { label: "Feature Flags & Evaluations", value: "Unlimited" },
       { label: "Experiments", value: "Unlimited" },
-      { label: "Projects", value: projectLimitLabel(PRO_ORG_LIMITS) },
+      { label: "Projects", value: "Limit 3" },
       { label: "Seats", value: `$${perSeatCost}/seat/month` },
       {
         label: "Advanced Flags",
