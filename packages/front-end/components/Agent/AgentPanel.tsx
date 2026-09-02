@@ -63,11 +63,13 @@ const STORAGE_KEY = "growthbook.agent.conversationId";
 const CALL_API_LABEL = "Calling GrowthBook API…";
 const ASK_USER_LABEL = "Asking you a question…";
 const LOAD_SKILL_LABEL = "Loading skill…";
+const WAIT_LABEL = "Waiting…";
 
 const TOOL_STATUS_LABELS: Record<string, string> = {
   callApi: CALL_API_LABEL,
   askUser: ASK_USER_LABEL,
   loadSkill: LOAD_SKILL_LABEL,
+  wait: WAIT_LABEL,
 };
 
 interface AgentPanelProps {

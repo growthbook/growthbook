@@ -23,6 +23,19 @@ describe("extractExplorationResultData", () => {
     ).toEqual(body);
   });
 
+  it("extracts a successful polled exploration response", () => {
+    expect(
+      extractExplorationResultData(
+        "callApi",
+        {
+          method: "GET",
+          path: "/api/v1/product-analytics/explorations/ae_123",
+        },
+        successfulOutput,
+      ),
+    ).toEqual(body);
+  });
+
   it("accepts serialized persisted callApi output", () => {
     expect(
       extractExplorationResultData(

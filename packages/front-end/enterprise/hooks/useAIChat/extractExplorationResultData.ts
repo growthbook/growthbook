@@ -1,5 +1,7 @@
 const EXPLORATION_PATH_RE =
   /^\/api\/v1\/product-analytics\/(metric|fact-table|data-source|funnel)-exploration\/?$/;
+const EXPLORATION_RESULT_PATH_RE =
+  /^\/api\/v1\/product-analytics\/explorations\/[^/]+\/?$/;
 
 function recordFromUnknown(value: unknown): Record<string, unknown> | null {
   if (typeof value === "string") {
@@ -57,9 +59,13 @@ function extractCallApiExplorationResultData(
   const toolInput = recordFromUnknown(input);
   if (
     !toolInput ||
-    toolInput.method !== "POST" ||
     typeof toolInput.path !== "string" ||
-    !EXPLORATION_PATH_RE.test(normalizeApiPath(toolInput.path))
+    !(
+      (toolInput.method === "POST" &&
+        EXPLORATION_PATH_RE.test(normalizeApiPath(toolInput.path))) ||
+      (toolInput.method === "GET" &&
+        EXPLORATION_RESULT_PATH_RE.test(normalizeApiPath(toolInput.path)))
+    )
   ) {
     return undefined;
   }

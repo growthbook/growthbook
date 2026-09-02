@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
+import { setTimeout as delay } from "timers/promises";
 import { z } from "zod";
 import type { AIAgentPendingAction } from "shared/validators";
-import type { ReqContext } from "back-end/types/request";
 import { aiTool } from "back-end/src/enterprise/services/ai";
 import {
   createAgentHandler,
@@ -15,10 +15,6 @@ import {
   type DispatchInput,
   type DispatchResult,
 } from "back-end/src/agent/dispatcher";
-import {
-  isProductAnalyticsExplorationRequest,
-  pollProductAnalyticsExploration,
-} from "back-end/src/agent/product-analytics-exploration";
 import { listDomainSkills, readSkill } from "back-end/src/agent/skills";
 
 // =============================================================================
@@ -40,8 +36,8 @@ How to use the \`callApi\` tool:
   recurs 3+ times, stop and explain to the user.
 - Product Analytics results are the exception: use
   \`body.exploration.status\`, not the HTTP status, to determine whether the
-  query succeeded. The backend waits for ordinary in-progress queries, but a
-  terminal query error or polling timeout can still have an HTTP 2xx status.
+  query succeeded. If an exploration is still running, follow the loaded
+  workflow's bounded \`wait\` and GET polling instructions.
 - If a response is too large, retry with narrower filters, pagination, fewer
   dimensions, or a shorter date range.
 - Never invent endpoints — only call paths documented in a skill you've loaded.
@@ -72,9 +68,9 @@ How to use skills:
 - Canonical skills were originally written for external, shell-capable agents.
   Treat their HTTP methods, paths, bodies, sequencing, and safety guardrails as
   authoritative, but translate every \`gb-call METHOD PATH [body]\` example into
-  a \`callApi\` request. Never run shell commands. Ignore API-key, host,
-  \`gb-setup\`, and credential instructions because this assistant uses the
-  logged-in session.
+  a \`callApi\` request and every polling \`sleep\` into a \`wait\` call. Never
+  run shell commands. Ignore API-key, host, \`gb-setup\`, and credential
+  instructions because this assistant uses the logged-in session.
 - **Two-step workflow** for domain routers that have sub-skills:
   1. \`loadSkill('<domain>')\` — read orientation, shared guardrails, and the
      workflow table (leaf names + when to use each).
@@ -260,7 +256,12 @@ function requiresMutationConfirmation(input: DispatchInput): boolean {
   if (/^\/api\/v[12]\/experiments\/[^/]+\/snapshot\/?$/.test(path)) {
     return false;
   }
-  if (isProductAnalyticsExplorationRequest(input)) {
+  if (
+    input.method === "POST" &&
+    /^\/api\/v1\/product-analytics\/(metric|fact-table|data-source|funnel)-exploration\/?$/.test(
+      path,
+    )
+  ) {
     return false;
   }
   return true;
@@ -312,25 +313,6 @@ function summarizeResult(result: DispatchResult): {
 
 function shapeCallApiResult(result: DispatchResult): DispatchResult {
   return summarizeResult(result);
-}
-
-async function getProductAnalyticsExplorationResult(
-  ctx: ReqContext,
-  id: string,
-): Promise<DispatchResult> {
-  const exploration = await ctx.models.analyticsExplorations.getById(id);
-  if (!exploration) {
-    return {
-      status: 404,
-      body: { message: "Product Analytics exploration not found." },
-    };
-  }
-  return {
-    status: 200,
-    body: {
-      exploration: ctx.models.analyticsExplorations.toApiInterface(exploration),
-    },
-  };
 }
 
 function safeStringify(v: unknown): string {
@@ -459,6 +441,22 @@ const ASK_USER_DESCRIPTION =
   "message. Use only when the request is ambiguous and you cannot pick a " +
   "sensible default. After calling this, end your turn.";
 
+// --- wait ------------------------------------------------------------------
+
+const waitInputSchema = z.object({
+  seconds: z
+    .number()
+    .int()
+    .min(1)
+    .max(30)
+    .describe("Number of seconds to wait before continuing, from 1 to 30."),
+});
+
+const WAIT_DESCRIPTION =
+  "Wait briefly before checking an asynchronous operation again. Use only " +
+  "when a loaded workflow explicitly instructs you to poll, and obey that " +
+  "workflow's attempt limit.";
+
 // =============================================================================
 // AgentConfig
 // =============================================================================
@@ -512,7 +510,7 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
       callApi: aiTool({
         description: CALL_API_DESCRIPTION,
         inputSchema: callApiInputSchema,
-        execute: async (input, { abortSignal }) => {
+        execute: async (input) => {
           const query = stripQueryStrings(input.query);
           const dispatchInput: DispatchInput = {
             method: input.method,
@@ -555,15 +553,23 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
             return AWAITING_CONFIRMATION_RESULT;
           }
 
-          let result = await dispatchInternal(ctx, dispatchInput);
-          if (isProductAnalyticsExplorationRequest(dispatchInput)) {
-            result = await pollProductAnalyticsExploration(
-              result,
-              (id) => getProductAnalyticsExplorationResult(ctx, id),
-              { signal: abortSignal },
-            );
-          }
+          const result = await dispatchInternal(ctx, dispatchInput);
           return shapeCallApiResult(result);
+        },
+      }),
+
+      wait: aiTool({
+        description: WAIT_DESCRIPTION,
+        inputSchema: waitInputSchema,
+        execute: async (input, { abortSignal }) => {
+          await delay(input.seconds * 1000, undefined, {
+            signal: abortSignal,
+            ref: false,
+          });
+          return {
+            status: "completed",
+            waitedSeconds: input.seconds,
+          };
         },
       }),
 
@@ -595,7 +601,7 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
   },
 
   temperature: 0.1,
-  maxSteps: 20,
+  maxSteps: 30,
   maxConsecutiveToolErrors: 5,
 };
 

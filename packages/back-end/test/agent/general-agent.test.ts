@@ -29,9 +29,10 @@ describe("general agent system prompt", () => {
     expect(prompt).toContain(
       "translate every `gb-call METHOD PATH [body]` example into",
     );
-    expect(prompt).toContain("Never run shell commands");
+    expect(prompt).toContain("every polling `sleep` into a `wait` call");
+    expect(prompt).toContain("run shell commands");
     expect(prompt).toMatch(
-      /Ignore API-key, host,\s+`gb-setup`, and credential instructions/,
+      /Ignore API-key, host,.*`gb-setup`, and credential\s+instructions/s,
     );
   });
 });
