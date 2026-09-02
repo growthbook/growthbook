@@ -46,11 +46,7 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
           <div className="d-flex">
             <h3 className="link-purple text-truncate">{name}</h3>
             {enabled && (
-              <div>
-                <span className="badge badge-gray text-uppercase ml-2">
-                  Enabled
-                </span>
-              </div>
+              <Badge label="Enabled" color="gray" variant="soft" ml="2" />
             )}
             {managedInSlack && (
               <Badge

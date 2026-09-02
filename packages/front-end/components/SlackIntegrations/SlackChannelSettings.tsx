@@ -15,6 +15,7 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Heading from "@/ui/Heading";
+import HelperText from "@/ui/HelperText";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
 
@@ -69,6 +70,7 @@ export default function SlackChannelSettings({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
+  const [reconnectError, setReconnectError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const grantedScopes = useMemo(
@@ -117,7 +119,7 @@ export default function SlackChannelSettings({
 
   const reconnect = async () => {
     setReconnecting(true);
-    setSaveError(null);
+    setReconnectError(null);
     try {
       const response = await apiCall<{ url: string }>(
         "/integrations/slack/connect",
@@ -125,7 +127,7 @@ export default function SlackChannelSettings({
       );
       window.location.assign(response.url);
     } catch (error) {
-      setSaveError(
+      setReconnectError(
         error instanceof Error ? error.message : "Failed to start reconnect.",
       );
       setReconnecting(false);
@@ -143,7 +145,7 @@ export default function SlackChannelSettings({
     <>
       {confirmingDelete && (
         <ConfirmDialog
-          title="Delete Slack channel connection?"
+          title="Delete Slack Channel Connection?"
           content={`${getSlackChannelLabel(
             integration,
           )} will stop receiving GrowthBook notifications.`}
@@ -183,17 +185,22 @@ export default function SlackChannelSettings({
         </Flex>
 
         {needsReconnect && (
-          <Callout status="warning">
-            <Flex justify="between" align="center" gap="3" wrap="wrap">
-              <Text>
-                Reconnect this workspace to grant the Slack permissions needed
-                for channel management and notifications.
-              </Text>
-              <Button onClick={reconnect} loading={reconnecting}>
-                Reconnect
-              </Button>
-            </Flex>
-          </Callout>
+          <Flex direction="column" gap="2">
+            <Callout
+              status="warning"
+              action={
+                <Button onClick={reconnect} loading={reconnecting}>
+                  Reconnect
+                </Button>
+              }
+            >
+              Reconnect this workspace to grant the Slack permissions needed for
+              channel management and notifications.
+            </Callout>
+            {reconnectError && (
+              <HelperText status="error">{reconnectError}</HelperText>
+            )}
+          </Flex>
         )}
 
         <Box>
@@ -204,7 +211,6 @@ export default function SlackChannelSettings({
             Choose the existing GrowthBook events sent to this channel.
           </Text>
           <MultiSelectField
-            label="Events"
             value={events}
             placeholder="Choose events"
             sort={false}
@@ -288,8 +294,8 @@ export default function SlackChannelSettings({
           >
             Save settings
           </Button>
-          {saved && <Text color="text-mid">Saved.</Text>}
-          {saveError && <Text color="text-mid">{saveError}</Text>}
+          {saved && <HelperText status="success">Saved.</HelperText>}
+          {saveError && <HelperText status="error">{saveError}</HelperText>}
         </Flex>
       </Flex>
     </>

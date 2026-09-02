@@ -10,7 +10,7 @@ import { useRouter } from "next/router";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaSlack } from "react-icons/fa";
-import { PiPlus, PiPlugsConnected } from "react-icons/pi";
+import { PiPlus, PiPlugs } from "react-icons/pi";
 import SlackChannelSettings, {
   getSlackChannelLabel,
   getSlackWorkspaceLabel,
@@ -25,7 +25,7 @@ import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
-import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
@@ -140,7 +140,7 @@ function AddChannelModal({
     <ModalStandard
       trackingEventModalType="slack-add-channel"
       open={true}
-      header="Add a Slack channel"
+      header="Add a Slack Channel"
       cta="Add channel"
       ctaEnabled={!!selected && !connectedIds.has(selected)}
       submit={async () => {
@@ -342,24 +342,30 @@ const SlackIntegrationsPage: NextPage = () => {
       });
   }, [apiCall, mutate, router]);
 
-  const connectToSlack = useCallback(async () => {
-    setConnecting(true);
-    setConnectError(null);
-    try {
-      const response = await apiCall<{ url: string }>(
-        "/integrations/slack/connect",
-        { method: "POST" },
-      );
-      window.location.assign(response.url);
-    } catch (error) {
-      setConnectError(
-        error instanceof Error
-          ? error.message
-          : "Failed to start the Slack connection.",
-      );
-      setConnecting(false);
-    }
-  }, [apiCall]);
+  const connectToSlack = useCallback(
+    async (teamId?: string) => {
+      setConnecting(true);
+      setConnectError(null);
+      try {
+        const response = await apiCall<{ url: string }>(
+          "/integrations/slack/connect",
+          {
+            method: "POST",
+            body: JSON.stringify(teamId ? { teamId } : {}),
+          },
+        );
+        window.location.assign(response.url);
+      } catch (error) {
+        setConnectError(
+          error instanceof Error
+            ? error.message
+            : "Failed to start the Slack connection.",
+        );
+        setConnecting(false);
+      }
+    },
+    [apiCall],
+  );
 
   const organizationOptions = useMemo(
     () =>
@@ -522,7 +528,7 @@ const SlackIntegrationsPage: NextPage = () => {
       )}
       {disconnectTeamId && (
         <ConfirmDialog
-          title="Disconnect Slack workspace?"
+          title="Disconnect Slack Workspace?"
           content="This removes the workspace and all of its channel connections from GrowthBook."
           yesText="Disconnect"
           onConfirm={disconnectWorkspace}
@@ -546,16 +552,14 @@ const SlackIntegrationsPage: NextPage = () => {
               channel receives.
             </Text>
           </Box>
-          {data?.oauthConfigured && (
+          {data?.oauthConfigured && workspaceGroups.length > 0 && (
             <Button
               icon={<FaSlack />}
-              onClick={connectToSlack}
+              onClick={() => connectToSlack()}
               loading={connecting}
-              variant={workspaceGroups.length ? "outline" : "solid"}
+              variant="outline"
             >
-              {workspaceGroups.length
-                ? "Connect another workspace"
-                : "Connect to Slack"}
+              Connect another workspace
             </Button>
           )}
         </Flex>
@@ -587,14 +591,14 @@ const SlackIntegrationsPage: NextPage = () => {
           <Frame>
             <Flex direction="column" align="center" gap="3" p="5">
               <Heading as="h2" size="sm" mb="0">
-                No Slack workspace connected
+                No Slack Workspace Connected
               </Heading>
               <Text color="text-mid" align="center">
                 Connect a workspace, then add the channels GrowthBook should
                 notify.
               </Text>
               {data?.oauthConfigured && (
-                <Button icon={<FaSlack />} onClick={connectToSlack}>
+                <Button icon={<FaSlack />} onClick={() => connectToSlack()}>
                   Connect to Slack
                 </Button>
               )}
@@ -640,10 +644,10 @@ const SlackIntegrationsPage: NextPage = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          aria-label="Add channel"
+                          icon={<PiPlus />}
                           onClick={() => setAddChannelTeamId(group.teamId)}
                         >
-                          <PiPlus />
+                          Add channel
                         </Button>
                       </Flex>
                     </Flex>
@@ -651,7 +655,7 @@ const SlackIntegrationsPage: NextPage = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={connectToSlack}
+                        onClick={() => connectToSlack(group.teamId)}
                         loading={connecting}
                       >
                         Reconnect
@@ -660,7 +664,7 @@ const SlackIntegrationsPage: NextPage = () => {
                         variant="outline"
                         color="red"
                         size="sm"
-                        icon={<PiPlugsConnected />}
+                        icon={<PiPlugs />}
                         onClick={() => setDisconnectTeamId(group.teamId)}
                       >
                         Disconnect
@@ -670,21 +674,19 @@ const SlackIntegrationsPage: NextPage = () => {
                       {group.channels.map((channel) => {
                         const selected = channel.id === selectedChannel?.id;
                         return (
-                          <Box
+                          <Link
                             key={channel.id}
-                            role="button"
-                            tabIndex={0}
-                            px="3"
-                            py="2"
-                            onClick={() => selectChannel(channel.id)}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" || event.key === " ") {
-                                selectChannel(channel.id);
-                              }
-                            }}
+                            href={`/integrations/slack?channel=${encodeURIComponent(
+                              channel.id,
+                            )}`}
+                            shallow
+                            underline="none"
+                            color="dark"
+                            aria-current={selected ? "page" : undefined}
                             style={{
+                              display: "block",
+                              padding: "var(--space-2) var(--space-3)",
                               borderRadius: 8,
-                              cursor: "pointer",
                               background: selected
                                 ? "var(--violet-a3)"
                                 : undefined,
@@ -708,7 +710,7 @@ const SlackIntegrationsPage: NextPage = () => {
                                 </Box>
                               )}
                             </Flex>
-                          </Box>
+                          </Link>
                         );
                       })}
                       {group.channels.length === 0 && (
@@ -737,7 +739,7 @@ const SlackIntegrationsPage: NextPage = () => {
                 ) : (
                   <Flex direction="column" align="start" gap="3">
                     <Heading as="h2" size="sm" mb="0">
-                      Add a channel
+                      Add a Channel
                     </Heading>
                     <Text color="text-mid">
                       Choose a workspace and add the first channel to start
@@ -760,12 +762,6 @@ const SlackIntegrationsPage: NextPage = () => {
               </Box>
             </Flex>
           </Frame>
-        )}
-
-        {workspaceGroups.length > 0 && (
-          <HelperText status="info">
-            Slack connections created here are managed on this page.
-          </HelperText>
         )}
       </Flex>
     </Box>
