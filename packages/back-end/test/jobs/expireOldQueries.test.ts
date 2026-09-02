@@ -3,7 +3,12 @@ import type {
   SnapshotTriggeredBy,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
-import expireOldQueries from "back-end/src/jobs/expireOldQueries";
+import type { QueryStatus } from "shared/types/query";
+import expireOldQueries, {
+  classifyStalledSnapshot,
+  StalledQueryStatus,
+  StalledSnapshotVerdict,
+} from "back-end/src/jobs/expireOldQueries";
 import {
   dangerousFindStalledRunningSnapshotsFromAllOrgs,
   errorSnapshotIfStillRunning,
@@ -84,6 +89,221 @@ jest.mock("back-end/src/util/logger", () => ({
   },
 }));
 
+describe("classifyStalledSnapshot", () => {
+  const NOW = Date.UTC(2026, 0, 15, 12, 0, 0);
+  const MIN = 60 * 1000;
+  const HOUR = 60 * MIN;
+
+  function row(
+    id: string,
+    status: QueryStatus,
+    {
+      createdAgoMs,
+      heartbeatAgoMs,
+      finishedAgoMs,
+    }: {
+      createdAgoMs: number;
+      heartbeatAgoMs?: number;
+      finishedAgoMs?: number;
+    },
+  ): StalledQueryStatus {
+    const createdAt = new Date(NOW - createdAgoMs);
+    return {
+      id,
+      status,
+      createdAt,
+      heartbeat:
+        heartbeatAgoMs === undefined
+          ? createdAt
+          : new Date(NOW - heartbeatAgoMs),
+      ...(finishedAgoMs === undefined
+        ? {}
+        : { finishedAt: new Date(NOW - finishedAgoMs) }),
+    };
+  }
+
+  const cases: {
+    name: string;
+    ageMs: number;
+    statuses: StalledQueryStatus[];
+    expected: StalledSnapshotVerdict;
+  }[] = [
+    {
+      name: "something is still running",
+      ageMs: 3 * HOUR,
+      statuses: [
+        row("qry_1", "running", { createdAgoMs: 3 * HOUR }),
+        row("qry_2", "queued", {
+          createdAgoMs: 3 * HOUR,
+          heartbeatAgoMs: 6 * MIN,
+        }),
+        row("qry_3", "queued", { createdAgoMs: 3 * HOUR }),
+      ],
+      expected: "active",
+    },
+    {
+      name: "never-heartbeated queued queries on a young snapshot",
+      ageMs: 10 * MIN,
+      statuses: [
+        row("qry_1", "queued", { createdAgoMs: 10 * MIN }),
+        row("qry_2", "queued", { createdAgoMs: 10 * MIN }),
+      ],
+      expected: "active",
+    },
+    {
+      name: "never-heartbeated queued queries past the legacy threshold",
+      ageMs: 71 * MIN,
+      statuses: [
+        row("qry_1", "queued", { createdAgoMs: 71 * MIN }),
+        row("qry_2", "queued", { createdAgoMs: 71 * MIN }),
+      ],
+      expected: "orphaned-unknown",
+    },
+    {
+      name: "fresh beats on an hours-old snapshot",
+      ageMs: 3 * HOUR,
+      statuses: [
+        row("qry_1", "queued", {
+          createdAgoMs: 3 * HOUR,
+          heartbeatAgoMs: 2 * MIN,
+        }),
+        row("qry_2", "queued", {
+          createdAgoMs: 3 * HOUR,
+          heartbeatAgoMs: 3 * MIN,
+        }),
+      ],
+      expected: "active",
+    },
+    {
+      name: "stale beats minutes after the runner died",
+      ageMs: 12 * MIN,
+      statuses: [
+        row("qry_1", "queued", {
+          createdAgoMs: 12 * MIN,
+          heartbeatAgoMs: 6 * MIN,
+        }),
+        row("qry_2", "queued", {
+          createdAgoMs: 12 * MIN,
+          heartbeatAgoMs: 7 * MIN,
+        }),
+      ],
+      expected: "orphaned-dead",
+    },
+    {
+      name: "one fresh beat alongside a never-heartbeated query",
+      ageMs: 3 * HOUR,
+      statuses: [
+        row("qry_1", "queued", {
+          createdAgoMs: 3 * HOUR,
+          heartbeatAgoMs: 1 * MIN,
+        }),
+        row("qry_2", "queued", { createdAgoMs: 3 * HOUR }),
+      ],
+      expected: "active",
+    },
+    {
+      name: "stale beat with one query already succeeded",
+      ageMs: 12 * MIN,
+      statuses: [
+        row("qry_1", "succeeded", {
+          createdAgoMs: 30 * MIN,
+          finishedAgoMs: 20 * MIN,
+        }),
+        row("qry_2", "queued", {
+          createdAgoMs: 12 * MIN,
+          heartbeatAgoMs: 6 * MIN,
+        }),
+      ],
+      expected: "orphaned-dead",
+    },
+    {
+      name: "heartbeat only a millisecond past createdAt is not a real beat",
+      ageMs: 3 * HOUR,
+      statuses: [
+        row("qry_1", "queued", {
+          createdAgoMs: 3 * HOUR,
+          heartbeatAgoMs: 3 * HOUR - 1,
+        }),
+        row("qry_2", "queued", {
+          createdAgoMs: 3 * HOUR,
+          heartbeatAgoMs: 3 * HOUR - 1,
+        }),
+      ],
+      expected: "orphaned-unknown",
+    },
+    {
+      name: "all succeeded on a young snapshot",
+      ageMs: 30 * MIN,
+      statuses: [
+        row("qry_1", "succeeded", {
+          createdAgoMs: 30 * MIN,
+          finishedAgoMs: 25 * MIN,
+        }),
+        row("qry_2", "succeeded", {
+          createdAgoMs: 30 * MIN,
+          finishedAgoMs: 20 * MIN,
+        }),
+      ],
+      expected: "active",
+    },
+    {
+      name: "all succeeded but still inside the finalize grace window",
+      ageMs: 2 * HOUR,
+      statuses: [
+        row("qry_1", "succeeded", {
+          createdAgoMs: 2 * HOUR,
+          finishedAgoMs: 30 * MIN,
+        }),
+        row("qry_2", "succeeded", {
+          createdAgoMs: 2 * HOUR,
+          finishedAgoMs: 3 * MIN,
+        }),
+      ],
+      expected: "active",
+    },
+    {
+      name: "all succeeded and past the finalize grace window",
+      ageMs: 2 * HOUR,
+      statuses: [
+        row("qry_1", "succeeded", {
+          createdAgoMs: 2 * HOUR,
+          finishedAgoMs: 30 * MIN,
+        }),
+        row("qry_2", "succeeded", {
+          createdAgoMs: 2 * HOUR,
+          finishedAgoMs: 20 * MIN,
+        }),
+      ],
+      expected: "stalled-terminal",
+    },
+    {
+      name: "succeeded plus failed, past the finalize grace window",
+      ageMs: 2 * HOUR,
+      statuses: [
+        row("qry_1", "succeeded", {
+          createdAgoMs: 2 * HOUR,
+          finishedAgoMs: 20 * MIN,
+        }),
+        row("qry_2", "failed", {
+          createdAgoMs: 2 * HOUR,
+          finishedAgoMs: 20 * MIN,
+        }),
+      ],
+      expected: "stalled-terminal",
+    },
+  ];
+
+  it.each(cases)("$name -> $expected", ({ ageMs, statuses, expected }) => {
+    expect(
+      classifyStalledSnapshot({
+        statuses,
+        snapshotDateCreated: new Date(NOW - ageMs),
+        now: NOW,
+      }),
+    ).toBe(expected);
+  });
+});
+
 describe("expireOldQueries stalled snapshot reaper", () => {
   const releaseLock = jest.fn().mockResolvedValue(undefined);
   const context = {
@@ -132,8 +352,12 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     type?: SnapshotType;
     triggeredBy?: SnapshotTriggeredBy;
     report?: string;
+    ageMs?: number;
+    statuses?: StalledQueryStatus[];
   }) {
-    const dateCreated = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const dateCreated = new Date(
+      Date.now() - (snapshot.ageMs ?? 2 * 60 * 60 * 1000),
+    );
     (
       dangerousFindStalledRunningSnapshotsFromAllOrgs as jest.Mock
     ).mockResolvedValue([
@@ -156,9 +380,9 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         analyses: [],
       },
     ]);
-    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
-      { id: "qry_1", status: "queued" },
-    ]);
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue(
+      snapshot.statuses ?? [{ id: "qry_1", status: "queued" }],
+    );
   }
 
   it("schedules a retry for orphaned scheduled standard snapshots", async () => {
@@ -205,5 +429,60 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     await runJob();
 
     expect(updateExperiment).not.toHaveBeenCalled();
+  });
+
+  it("concludes an orphaned DAG whose queued heartbeats went stale, minutes after death", async () => {
+    const now = Date.now();
+    mockOrphanedSnapshot({
+      type: "standard",
+      triggeredBy: "manual",
+      ageMs: 12 * 60 * 1000,
+      statuses: [
+        {
+          id: "qry_1",
+          status: "queued",
+          createdAt: new Date(now - 12 * 60 * 1000),
+          heartbeat: new Date(now - 6 * 60 * 1000),
+        },
+      ],
+    });
+
+    await runJob();
+
+    expect(errorSnapshotIfStillRunning).toHaveBeenCalledWith(
+      context,
+      "snp_1",
+      expect.objectContaining({
+        error: expect.stringContaining("queries were never started"),
+      }),
+    );
+    expect(markPendingQueriesAsFailed).toHaveBeenCalledWith(
+      context,
+      ["qry_1"],
+      expect.any(String),
+    );
+    expect(updateExperiment).not.toHaveBeenCalled();
+  });
+
+  it("leaves an orphaned DAG alone while its queued heartbeats are fresh, however old the snapshot is", async () => {
+    const now = Date.now();
+    mockOrphanedSnapshot({
+      type: "standard",
+      triggeredBy: "manual",
+      ageMs: 3 * 60 * 60 * 1000,
+      statuses: [
+        {
+          id: "qry_1",
+          status: "queued",
+          createdAt: new Date(now - 3 * 60 * 60 * 1000),
+          heartbeat: new Date(now - 60 * 1000),
+        },
+      ],
+    });
+
+    await runJob();
+
+    expect(errorSnapshotIfStillRunning).not.toHaveBeenCalled();
+    expect(markPendingQueriesAsFailed).not.toHaveBeenCalled();
   });
 });
