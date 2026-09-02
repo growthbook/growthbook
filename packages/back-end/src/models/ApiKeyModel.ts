@@ -652,6 +652,8 @@ export class ApiKeyModel extends BaseClass {
     );
   }
 
+  // Skips an expired key so the caller mints a replacement. A disabled one is
+  // still returned: an admin switched it off on purpose.
   public async getVisualEditorApiKey(
     userId: string,
   ): Promise<ApiKeyInterface | null> {
@@ -661,6 +663,7 @@ export class ApiKeyModel extends BaseClass {
         role: "visualEditor",
         // A user's own scoped PAT may carry this role; only the auto-created key counts.
         scoped: { $ne: true },
+        $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
       },
       {
         bypassSanitization: true,
