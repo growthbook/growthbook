@@ -9,6 +9,7 @@ import { getAgendaInstance } from "back-end/src/services/queueing";
 import { getEvent } from "back-end/src/models/EventModel";
 import {
   getEventWebHookById,
+  getSlackBotAccessTokenForWebhook,
   updateEventWebHookStatus,
 } from "back-end/src/models/EventWebhookModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
@@ -19,6 +20,10 @@ import {
   getSlackMessageForNotificationEvent,
   getSlackMessageForLegacyNotificationEvent,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
+import {
+  isSlackIncomingWebhookUrl,
+  postSlackMessageResult,
+} from "back-end/src/services/slack/slackWebApi";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { SecretsReplacer } from "back-end/src/util/secrets";
@@ -104,6 +109,14 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
+    if (!eventWebHook.enabled) {
+      logger.info(
+        { eventWebHookId, organizationId: event.organizationId },
+        "EventWebHook: skipping delivery, webhook disabled after it was queued",
+      );
+      return;
+    }
+
     const organization = await findOrganizationById(event.organizationId);
     if (!organization) {
       throw new Error(
@@ -162,6 +175,74 @@ export class EventWebHookNotifier implements Notifier {
     }
 
     const method = eventWebHook.method || "POST";
+    const logPayload = payload as Record<string, unknown>;
+
+    if ((eventWebHook.payloadType || "raw") === "slack") {
+      const botToken = await getSlackBotAccessTokenForWebhook({
+        eventWebHookId,
+        organizationId: organization.id,
+      });
+      const channelId = eventWebHook.slack?.channelId;
+
+      if (botToken && channelId) {
+        const text =
+          typeof logPayload.text === "string" ? logPayload.text : null;
+        if (!text) return;
+
+        const result = await postSlackMessageResult({
+          token: botToken,
+          channel: channelId,
+          text,
+        });
+
+        if (result.ok) {
+          return EventWebHookNotifier.handleWebHookSuccess({
+            job,
+            webHookResult: {
+              result: "success",
+              statusCode: 200,
+              responseBody: result.ts || "ok",
+            },
+            organizationId: organization.id,
+            event: event.event,
+            url: eventWebHook.url,
+            method,
+            payload: logPayload,
+          });
+        }
+
+        return EventWebHookNotifier.handleWebHookError({
+          job,
+          webHookResult: {
+            result: "error",
+            statusCode: null,
+            error: `Slack delivery failed: ${result.error}`,
+          },
+          organizationId: organization.id,
+          event: event.event,
+          url: eventWebHook.url,
+          method,
+          payload: logPayload,
+        });
+      }
+
+      if (!isSlackIncomingWebhookUrl(eventWebHook.url)) {
+        return EventWebHookNotifier.handleWebHookError({
+          job,
+          webHookResult: {
+            result: "error",
+            statusCode: null,
+            error:
+              "Slack delivery failed: no bot token or channel for this connection (reconnect the Slack workspace)",
+          },
+          organizationId: organization.id,
+          event: event.event,
+          url: eventWebHook.url,
+          method,
+          payload: logPayload,
+        });
+      }
+    }
 
     const context = getContextForAgendaJobByOrgObject(organization);
 
@@ -186,7 +267,7 @@ export class EventWebHookNotifier implements Notifier {
           event: event.event,
           url: eventWebHook.url,
           method,
-          payload,
+          payload: logPayload,
         });
 
       case "error":
@@ -197,7 +278,7 @@ export class EventWebHookNotifier implements Notifier {
           event: event.event,
           url: eventWebHook.url,
           method,
-          payload,
+          payload: logPayload,
         });
     }
   }

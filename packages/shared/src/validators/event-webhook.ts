@@ -15,6 +15,23 @@ export const eventWebHookMethods = ["POST", "PUT", "PATCH"] as const;
 
 export type EventWebHookMethod = (typeof eventWebHookMethods)[number];
 
+export const slackEventWebHookMetadata = z
+  .object({
+    appId: z.string().optional(),
+    teamId: z.string().optional(),
+    teamName: z.string().optional(),
+    enterpriseId: z.string().optional(),
+    enterpriseName: z.string().optional(),
+    channelName: z.string().optional(),
+    channelId: z.string().optional(),
+    configurationUrl: z.string().url().optional(),
+    botUserId: z.string().optional(),
+    authedUserId: z.string().optional(),
+    scope: z.string().optional(),
+    isEnterpriseInstall: z.boolean().optional(),
+  })
+  .strict();
+
 // Matches multi-level wildcard patterns like "feature.*", "feature.revision.*",
 // or "savedGroup.revision.*" (resource names may be camelCase).
 export const EVENT_WEBHOOK_WILDCARD_PATTERN = /^[a-zA-Z]+(\.[a-zA-Z]+)*\.\*$/;
@@ -64,6 +81,7 @@ export const eventWebHookInterface = z
     payloadType: z.enum(eventWebHookPayloadTypes),
     method: z.enum(eventWebHookMethods),
     headers: z.record(z.string(), z.string()),
+    slack: slackEventWebHookMetadata.optional(),
     signingKey: z.string().min(2),
     lastRunAt: z.union([z.date(), z.null()]),
     lastState: z.enum(["none", "success", "error"]),
