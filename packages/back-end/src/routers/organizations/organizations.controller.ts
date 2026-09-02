@@ -995,6 +995,7 @@ export async function getOrganization(
     req.currentUser,
     org,
     teams || [],
+    req.restrictedProjects,
   );
   const agreementsAgreed = Array.from(
     new Set(agreements.map((a) => a.agreement as AgreementType)),

@@ -227,6 +227,7 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     },
     teams: req.teams,
     req: req as Request,
+    restrictedProjects: req.restrictedProjects,
   });
 }
 

@@ -18348,6 +18348,13 @@ paths:
                       description: Frequentist p-value threshold (e.g. 0.05).
                       type: number
                   additionalProperties: false
+                restrictAccess:
+                  description: >-
+                    When true, only members with an explicit role on this
+                    project (directly or via a team) can access it. Members with
+                    the manageTeam permission retain access. Requires a Pro or
+                    Enterprise plan.
+                  type: boolean
               required:
                 - name
               additionalProperties: false
@@ -18439,6 +18446,13 @@ paths:
                       description: Frequentist p-value threshold (e.g. 0.05).
                       type: number
                   additionalProperties: false
+                restrictAccess:
+                  description: >-
+                    When true, only members with an explicit role on this
+                    project (directly or via a team) can access it. Members with
+                    the manageTeam permission retain access. Requires a Pro or
+                    Enterprise plan.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -56739,6 +56753,12 @@ components:
             URL-safe slug used in SDK payload metadata. Auto-generated from name
             if not provided.
           type: string
+        restrictAccess:
+          description: >-
+            When true, only members with an explicit role on this project
+            (directly or via a team) can access it. Members with the manageTeam
+            permission retain access.
+          type: boolean
         settings:
           type: object
           properties:

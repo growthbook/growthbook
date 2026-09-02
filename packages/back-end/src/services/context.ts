@@ -406,6 +406,7 @@ export class ReqContextClass {
     apiKey,
     apiKeyData,
     req,
+    restrictedProjects,
   }: {
     org: OrganizationInterface;
     user?: {
@@ -420,6 +421,7 @@ export class ReqContextClass {
     teams?: TeamInterface[];
     auditUser: EventUser;
     req?: Request;
+    restrictedProjects?: string[];
   }) {
     this.org = org;
     this.auditUser = auditUser;
@@ -444,7 +446,12 @@ export class ReqContextClass {
       this.email = user.email;
       this.userName = user.name || "";
       this.superAdmin = user.superAdmin || false;
-      this.userPermissions = getUserPermissions(user, org, teams || []);
+      this.userPermissions = getUserPermissions(
+        user,
+        org,
+        teams || [],
+        restrictedProjects,
+      );
     }
     // If an API key or background job is making this request
     else {
@@ -462,6 +469,7 @@ export class ReqContextClass {
         { ...roleInfo, role },
         org,
         teams || [],
+        restrictedProjects,
       );
     }
 

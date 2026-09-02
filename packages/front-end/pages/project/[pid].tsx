@@ -1,4 +1,5 @@
-import { PiDotsThreeVertical } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiDetective } from "react-icons/pi";
 import React, { FC, useEffect, useState } from "react";
 import router from "next/router";
 import NextLink from "next/link";
@@ -16,6 +17,7 @@ import RadixButton from "@/ui/Button";
 import TempMessage from "@/components/TempMessage";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import ProjectApprovalSettings from "@/components/Projects/ProjectApprovalSettings";
+import ProjectAccessSettings from "@/components/Projects/ProjectAccessSettings";
 import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useUser } from "@/services/UserContext";
@@ -78,9 +80,6 @@ const ProjectPage: FC = () => {
 
   const permissionsUtil = usePermissionsUtil();
   const canEditSettings = permissionsUtil.canUpdateProject(pid);
-
-  // todo: should this also be project scoped?
-  const canManageTeam = permissionsUtil.canManageTeam();
 
   const form = useForm<ProjectSettings>({ mode: "onChange" });
 
@@ -184,9 +183,22 @@ const ProjectPage: FC = () => {
         ) : null}
         <Flex align="center" justify="between" width="100%">
           <Flex align="start" direction="column">
-            <Heading size="xl" as="h1" overflowWrap="anywhere">
-              {p.name}
-            </Heading>
+            <Flex align="center" gap="3" mb="2">
+              <Heading size="xl" as="h1" overflowWrap="anywhere">
+                {p.name}
+              </Heading>
+              {p.restrictAccess ? (
+                <Badge
+                  color="amber"
+                  radius="full"
+                  label={
+                    <>
+                      <PiDetective size={14} /> Restricted access
+                    </>
+                  }
+                />
+              ) : null}
+            </Flex>
             <Flex gap="6" mb="4">
               <Metadata
                 label="Public ID"
@@ -204,10 +216,10 @@ const ProjectPage: FC = () => {
                 variant="ghost"
                 color="gray"
                 radius="full"
-                size="3"
+                size="2"
                 highContrast
               >
-                <PiDotsThreeVertical size={18} />
+                <BsThreeDotsVertical size={18} />
               </IconButton>
             }
             menuPlacement="end"
@@ -241,7 +253,7 @@ const ProjectPage: FC = () => {
         <Box mt="4">
           <Tabs defaultValue="members">
             <TabsList>
-              <TabsTrigger value="members">Project Members</TabsTrigger>
+              <TabsTrigger value="members">Roles & Permissions</TabsTrigger>
               <TabsTrigger value="approvals">Approvals</TabsTrigger>
               <TabsTrigger value="settings">Experiment Settings</TabsTrigger>
             </TabsList>
@@ -442,10 +454,13 @@ const ProjectPage: FC = () => {
                 <ProjectApprovalSettings project={pid} projectName={p.name} />
               </TabsContent>
               <TabsContent value="members">
+                <ProjectAccessSettings project={p} />
                 <MemberList
                   mutate={refreshOrganization}
                   project={pid}
-                  canEditRoles={canManageTeam}
+                  // Scoped controls only: this page assigns roles on THIS
+                  // project, never the global editor or other projects' roles.
+                  canEditRoles={false}
                   canEditProjectRoles={canEditSettings}
                   canDeleteMembers={false}
                   canInviteMembers={false}

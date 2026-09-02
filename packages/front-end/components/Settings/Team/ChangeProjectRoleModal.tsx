@@ -1,7 +1,9 @@
 import React, { FC, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { ProjectMemberRole } from "shared/types/organization";
+import { envScopedPermissionsForRole } from "shared/permissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectField from "@/components/Forms/SelectField";
 import Text from "@/ui/Text";
@@ -23,6 +25,7 @@ const ChangeProjectRoleModal: FC<{
 }> = ({ memberName, projectRole, close, onConfirm }) => {
   const [value, setValue] = useState(projectRole);
   const { getProjectById } = useDefinitions();
+  const { organization } = useUser();
   const roleOptions = useRoleOptions({ includeProjectAdminRole: true });
 
   return (
@@ -63,7 +66,20 @@ const ChangeProjectRoleModal: FC<{
                 <SelectField
                   value={value.role}
                   options={roleOptions}
-                  onChange={(role) => setValue({ ...value, role })}
+                  onChange={(role) =>
+                    setValue(
+                      // A role with nothing environment-scoped cannot keep an
+                      // environment restriction — the server rejects it.
+                      envScopedPermissionsForRole(role, organization).length
+                        ? { ...value, role }
+                        : {
+                            ...value,
+                            role,
+                            limitAccessByEnvironment: false,
+                            environments: [],
+                          },
+                    )
+                  }
                   sort={false}
                   containerClassName="mb-0"
                 />

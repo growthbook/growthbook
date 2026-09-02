@@ -1,4 +1,5 @@
 import React, { useState, FC } from "react";
+import { PiDetective } from "react-icons/pi";
 import { ProjectInterface } from "shared/types/project";
 import Link from "next/link";
 import { ago } from "shared/dates";
@@ -194,6 +195,15 @@ const ProjectsPage: FC = () => {
                         ) : (
                           <span>{p.name}</span>
                         )}
+                        {p.restrictAccess ? (
+                          <Tooltip body="Restricted access: only users with a role on this Project can access it.">
+                            <PiDetective
+                              size={14}
+                              className="ml-1"
+                              style={{ color: "var(--amber-11)" }}
+                            />
+                          </Tooltip>
+                        ) : null}
                         {p.managedBy?.type ? (
                           <div>
                             <Badge

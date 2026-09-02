@@ -260,11 +260,34 @@ function getSingleRolePermission(
   };
 }
 
+// Access-restricted projects deny by default: a principal with no explicit
+// role there gets an empty project entry, which every project-scoped check
+// resolves to instead of falling through to the global role. Principals whose
+// global role grants manageTeam are exempt — they can edit membership and so
+// could grant themselves a project role anyway; denying them is theater.
+function applyProjectAccessRestrictions(
+  permissions: UserPermissions,
+  restrictedProjects: string[] | undefined,
+): void {
+  if (!restrictedProjects?.length) return;
+  if (permissions.global.permissions.manageTeam) return;
+  for (const project of restrictedProjects) {
+    if (!permissions.projects[project]) {
+      permissions.projects[project] = {
+        limitAccessByEnvironment: false,
+        environments: [],
+        permissions: {},
+      };
+    }
+  }
+}
+
 // Used for both org API keys and member records.
 export function getRolePermissions(
   roleInfo: MemberRoleWithProjects,
   org: OrganizationInterface,
   allTeams: RoleSourceTeam[],
+  restrictedProjects?: string[],
 ): UserPermissions {
   const permissions: UserPermissions = {
     global: getUserPermission(roleInfo, org),
@@ -302,6 +325,8 @@ export function getRolePermissions(
       }
     }
   }
+
+  applyProjectAccessRestrictions(permissions, restrictedProjects);
 
   return permissions;
 }

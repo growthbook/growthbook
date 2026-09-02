@@ -1,5 +1,8 @@
 import React, { FC, ReactNode, useEffect, useState } from "react";
-import { ExpandedMember } from "shared/types/organization";
+import {
+  ExpandedMember,
+  OrganizationInterface,
+} from "shared/types/organization";
 import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -8,6 +11,8 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   EffectiveRoleSource,
   getEffectiveRolesForProject,
+  getRolePermissions,
+  Permissions,
 } from "shared/permissions";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -26,6 +31,7 @@ import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRoleModal";
 import Button from "@/ui/Button";
+import { FilterHeading, FilterItem } from "@/components/Search/SearchFilters";
 import Text from "@/ui/Text";
 import Table, {
   TableHeader,
@@ -38,6 +44,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
 } from "@/ui/DropdownMenu";
 
 // Keyed by the rule, not just the role: the same role can apply with different
@@ -149,10 +156,38 @@ const MemberList: FC<{
     ]),
   ];
 
-  const membersList: ExpandedMember[] = members.map(([, member]) => ({
-    ...member,
-    numTeams: member.teams?.length || 0,
-  }));
+  const [scopedRolesOnly, setScopedRolesOnly] = useState(false);
+  const [roleFilterOpen, setRoleFilterOpen] = useState(false);
+
+  const membersList: ExpandedMember[] = members
+    .map(([, member]) => ({
+      ...member,
+      numTeams: member.teams?.length || 0,
+    }))
+    .filter(
+      (member) =>
+        !project ||
+        !scopedRolesOnly ||
+        scopedProjectIds(member).includes(project),
+    );
+
+  // When the project restricts access, a member's fall-through global role no
+  // longer applies there — resolve through the real permission pipeline so the
+  // table shows the denial (and its exemptions) exactly as the server does.
+  const restrictAccess = !!projects.find((p) => p.id === project)
+    ?.restrictAccess;
+  const deniedByRestrictedAccess = (member: ExpandedMember): boolean => {
+    if (!project || !restrictAccess) return false;
+    const resolved = new Permissions(
+      getRolePermissions(
+        member,
+        organization as OrganizationInterface,
+        teams || [],
+        [project],
+      ),
+    );
+    return !resolved.canReadSingleProjectResource(project);
+  };
 
   const {
     items,
@@ -232,7 +267,10 @@ const MemberList: FC<{
       <div className="my-4">
         <Flex align="center" justify="between" gap="3" mt="4" mb="2">
           <Flex align="center" gap="3">
-            <h5 className="mb-0">Active Members{` (${users.size})`}</h5>
+            <h5 className="mb-0">
+              {project ? "Organization Members" : "Active Members"}
+              {` (${users.size})`}
+            </h5>
             <Box width="250px" flexShrink="0">
               <Field
                 placeholder="Search..."
@@ -241,6 +279,30 @@ const MemberList: FC<{
                 {...searchInputProps}
               />
             </Box>
+            {project ? (
+              <DropdownMenu
+                trigger={FilterHeading({
+                  heading: scopedRolesOnly
+                    ? "Project-scoped roles"
+                    : "All members",
+                  open: roleFilterOpen,
+                })}
+                variant="soft"
+                open={roleFilterOpen}
+                onOpenChange={setRoleFilterOpen}
+              >
+                <DropdownMenuLabel>Show</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setScopedRolesOnly(false)}>
+                  <FilterItem item="All members" exists={!scopedRolesOnly} />
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setScopedRolesOnly(true)}>
+                  <FilterItem
+                    item="Project-scoped roles"
+                    exists={scopedRolesOnly}
+                  />
+                </DropdownMenuItem>
+              </DropdownMenu>
+            ) : null}
             {filters}
           </Flex>
           {canInviteMembers && (
@@ -264,13 +326,19 @@ const MemberList: FC<{
               </SortableTableColumnHeader>
               <SortableTableColumnHeader
                 field="dateCreated"
-                style={{ width: MEMBER_COLUMN_WIDTHS.date }}
+                style={{
+                  width: MEMBER_COLUMN_WIDTHS.date,
+                  whiteSpace: "nowrap",
+                }}
               >
                 Date Joined
               </SortableTableColumnHeader>
               <SortableTableColumnHeader
                 field="lastLoginDate"
-                style={{ width: MEMBER_COLUMN_WIDTHS.date }}
+                style={{
+                  width: MEMBER_COLUMN_WIDTHS.date,
+                  whiteSpace: "nowrap",
+                }}
               >
                 Last Login
               </SortableTableColumnHeader>
@@ -303,7 +371,7 @@ const MemberList: FC<{
               return (
                 <TableRow key={member.id}>
                   <TableCell>{member.name}</TableCell>
-                  <TableCell>
+                  <TableCell style={{ overflowWrap: "anywhere" }}>
                     <Flex align="center" gap="2">
                       {member.managedByIdp && (
                         <Tooltip body="This user is managed by an external identity provider.">
@@ -332,10 +400,20 @@ const MemberList: FC<{
                     {member.lastLoginDate && date(member.lastLoginDate)}
                   </TableCell>
                   <TableCell>
-                    <RuleLines
-                      roles={effectiveRoles}
-                      organization={organization}
-                    />
+                    {deniedByRestrictedAccess(member) ? (
+                      <RoleRuleLabel
+                        role="noaccess"
+                        limitAccessByEnvironment={false}
+                        environments={[]}
+                        organization={organization}
+                        sources="Project restricted access"
+                      />
+                    ) : (
+                      <RuleLines
+                        roles={effectiveRoles}
+                        organization={organization}
+                      />
+                    )}
                   </TableCell>
                   {!project && (
                     <TableCell>
