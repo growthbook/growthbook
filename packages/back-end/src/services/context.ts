@@ -406,7 +406,7 @@ export class ReqContextClass {
     apiKey,
     apiKeyData,
     req,
-    restrictedProjects,
+    restrictedProjects = [],
   }: {
     org: OrganizationInterface;
     user?: {
