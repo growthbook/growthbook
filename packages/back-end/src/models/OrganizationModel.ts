@@ -167,6 +167,7 @@ const organizationSchema = new mongoose.Schema({
     maxProjects: Number,
     customEnvironments: Boolean,
     roleManagement: Boolean,
+    dataSources: String,
   },
 });
 
