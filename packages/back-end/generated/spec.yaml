@@ -60426,6 +60426,8 @@ components:
             - type: 'null'
         multipleExposureMinPercent:
           type: number
+        noDataAlertGracePeriodHours:
+          type: number
         defaultRole:
           type: object
           properties:
