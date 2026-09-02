@@ -386,7 +386,6 @@ export class ReqContextClass {
   public userName = "";
   public superAdmin = false;
   public teams: TeamInterface[] = [];
-  public restrictedProjects: string[] = [];
   public role?: string;
   public isApiRequest = false;
   public environments: string[];
@@ -429,7 +428,6 @@ export class ReqContextClass {
     this.teams = teams || [];
 
     this.isApiRequest = auditUser?.type === "api_key";
-    this.restrictedProjects = restrictedProjects;
     this.role = role;
     this.apiKey = apiKey;
     this.req = req;

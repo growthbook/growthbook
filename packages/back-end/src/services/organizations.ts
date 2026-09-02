@@ -1680,6 +1680,13 @@ export async function getContextForAgendaJobByOrgId(
 export async function getContextForUserIdInOrg(
   org: OrganizationInterface,
   userId: string,
+  {
+    // Deferred and scheduled executions err permissive: they run on the
+    // authority the user held when they enabled the action, so a project
+    // restricting access later must not strand them. Live request contexts
+    // (e.g. OAuth) keep the default and apply restrictions.
+    applyProjectRestrictions = true,
+  }: { applyProjectRestrictions?: boolean } = {},
 ): Promise<ApiReqContext | null> {
   const user = await getUserById(userId);
   if (!user) return null;
@@ -1689,7 +1696,9 @@ export async function getContextForUserIdInOrg(
 
   const [teams, restrictedProjects] = await Promise.all([
     TeamModel.dangerousGetTeamsForOrganization(org.id),
-    ProjectModel.dangerousGetRestrictedProjectIds(org.id),
+    applyProjectRestrictions
+      ? ProjectModel.dangerousGetRestrictedProjectIds(org.id)
+      : [],
   ]);
 
   return new ReqContextClass({

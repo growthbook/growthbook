@@ -173,27 +173,29 @@ describe("access-restricted projects", () => {
     ).toBeNull();
   });
 
-  it("does not count a denied member's approval as covering", () => {
-    const approver = {
-      id: "u_1",
-      roleInfo: {
-        role: "experimenter",
-        limitAccessByEnvironment: false,
-        environments: [] as string[],
-      },
-    };
-    const assess = (restrictedProjects?: string[]) =>
+  // Deliberately permissive: an approval from a member who later lost access
+  // via a restricted project still covers — deferred/scheduled actions run on
+  // the authority they were enabled with.
+  it("still counts a restricted-out member's approval as covering", () => {
+    expect(
       assessApprovalCoverage({
         org: testOrg,
         teams: [],
         model: "feature",
         projects: [RESTRICTED],
         footprint: { scope: "unbound" },
-        approvers: [approver],
-        restrictedProjects,
-      }).hasCoveringApproval;
-    expect(assess(undefined)).toBe(true);
-    expect(assess([RESTRICTED])).toBe(false);
+        approvers: [
+          {
+            id: "u_1",
+            roleInfo: {
+              role: "experimenter",
+              limitAccessByEnvironment: false,
+              environments: [] as string[],
+            },
+          },
+        ],
+      }).hasCoveringApproval,
+    ).toBe(true);
   });
 
   it("keeps a restricted project out of multi-project read unions", () => {

@@ -415,7 +415,10 @@ export function assessRequiredApproverTeams({
   };
 }
 
-// Uses CURRENT rules — an approval is not a snapshot of authority.
+// Uses CURRENT rules — an approval is not a snapshot of authority. One
+// deliberate exception: restricted-project denial is NOT applied here, so an
+// approval keeps counting when a project later restricts access and the
+// approver has no role on it. Deferred and scheduled actions err permissive.
 export function assessApprovalCoverage({
   org,
   teams,
@@ -423,7 +426,6 @@ export function assessApprovalCoverage({
   projects,
   footprint,
   approvers,
-  restrictedProjects,
 }: {
   org: OrganizationInterface;
   teams: RoleSourceTeam[];
@@ -432,7 +434,6 @@ export function assessApprovalCoverage({
   projects: string[];
   footprint: ReviewAuthorityFootprint;
   approvers: { id: string; roleInfo: MemberRoleWithProjects | null }[];
-  restrictedProjects?: string[];
 }): { hasCoveringApproval: boolean; uncoveredApprovers: string[] } {
   const uncoveredApprovers: string[] = [];
   let hasCoveringApproval = false;
@@ -441,7 +442,7 @@ export function assessApprovalCoverage({
     const covers =
       !!roleInfo &&
       new Permissions(
-        getRolePermissions(roleInfo, org, teams, restrictedProjects),
+        getRolePermissions(roleInfo, org, teams),
       ).canReviewRevision(model, projects, footprint);
     if (covers) hasCoveringApproval = true;
     else uncoveredApprovers.push(id);
