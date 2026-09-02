@@ -197,7 +197,7 @@ const ProjectsPage: FC = () => {
                           <span>{p.name}</span>
                         )}
                         {p.restrictAccess ? (
-                          <UITooltip content="Restricted access: only users with a role on this Project can access it.">
+                          <UITooltip content="Restricted access: only users with a role on this Project can access it. Admins always keep access.">
                             <span
                               className="ml-1"
                               style={{ color: "var(--amber-11)" }}
