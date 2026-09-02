@@ -17,7 +17,7 @@ import {
   attributeSseReductions,
   SseSplitDetails,
   type AttributeSseReduction,
-} from "@/components/ContextualBandit/ContextualBanditSseChart";
+} from "@/components/ContextualBandit/ContextualBanditSseReductions";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",

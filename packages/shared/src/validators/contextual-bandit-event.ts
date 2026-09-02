@@ -45,7 +45,6 @@ export const contextualSseTrajectoryEntryValidator = z.object({
   numSplits: z.number().int().nonnegative(),
   totalSse: z.number(),
   split: contextualTreeSplitValidator.optional(),
-  ssePerVariation: z.array(z.number()).optional(),
 });
 export type ContextualSseTrajectoryEntryInterface = z.infer<
   typeof contextualSseTrajectoryEntryValidator

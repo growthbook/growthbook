@@ -1166,7 +1166,6 @@ export function computeContextualBanditWeights(
     (ssePerVariation, numSplits) => ({
       numSplits,
       totalSse: ssePerVariation.reduce((total, sse) => total + sse, 0),
-      ssePerVariation,
       // Index 0 is the root (no split); index k is produced by splits[k - 1].
       ...(numSplits > 0 && splits[numSplits - 1]
         ? { split: splits[numSplits - 1] }

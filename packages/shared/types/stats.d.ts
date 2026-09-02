@@ -249,7 +249,6 @@ export type ContextualSseTrajectoryEntry = {
   totalSse: number;
   /** The split that produced this stage; absent on the root (`numSplits === 0`). */
   split?: ContextualTreeSplit;
-  ssePerVariation?: number[];
 };
 
 /**
