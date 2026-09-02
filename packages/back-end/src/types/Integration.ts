@@ -88,13 +88,6 @@ export type ExternalQueryStatus =
   // state we cannot classify.
   | { state: "unknown"; reason: "expired" | "unreachable" | "unrecognized" };
 
-// What a resolved cancelQuery() promises about the warehouse-side query.
-export type CancelQueryOutcome =
-  // The query was terminal when the cancel call returned (Trino/Presto: DELETE returns 204 only after the coordinator fails the query).
-  | "cancelled"
-  // The warehouse accepted the request but the query may still be winding down; confirm via getExternalQueryStatus.
-  | "requested";
-
 type DataSourceByType = {
   [DataSource in DataSourceInterface as DataSource["type"]]: DataSource;
 };
@@ -332,7 +325,7 @@ export interface SourceIntegrationInterface<
   cancelQuery?(
     externalId: string,
     metadata?: Record<string, string>,
-  ): Promise<CancelQueryOutcome>;
+  ): Promise<void>;
   getExternalQueryStatus?(
     externalId: string,
     metadata?: Record<string, string>,

@@ -1,7 +1,4 @@
-import {
-  CancelQueryOutcome,
-  SourceIntegrationInterface,
-} from "back-end/src/types/Integration";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
@@ -19,21 +16,12 @@ export async function cancelExternalQuery(
 ): Promise<void> {
   if (!integration.cancelQuery) return;
 
-  let outcome: CancelQueryOutcome;
   try {
-    outcome = await integration.cancelQuery(externalId, metadata);
+    await integration.cancelQuery(externalId, metadata);
   } catch (e) {
     logger.warn(
       { err: e, externalId, ...logContext },
       `Warehouse rejected cancel request for external query: ${getErrorMessage(e)}`,
-    );
-    return;
-  }
-
-  if (outcome === "cancelled") {
-    logger.debug(
-      { externalId, ...logContext },
-      "Warehouse confirmed external query cancellation",
     );
     return;
   }

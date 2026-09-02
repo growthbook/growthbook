@@ -39,12 +39,15 @@ describe("prestoStateToStatus (status-only mapping)", () => {
     ).toEqual({ state: "failed", error: "SYNTAX_ERROR" });
   });
 
-  it("maps FAILED with no extractable detail to a fallback message", () => {
-    expect(prestoStateToStatus({ state: "FAILED" })).toEqual({
-      state: "failed",
-      error: "Query failed",
-    });
-  });
+  it.each(["FAILED", "FAILING"])(
+    "maps %s with no extractable detail to a fallback message",
+    (state) => {
+      expect(prestoStateToStatus({ state })).toEqual({
+        state: "failed",
+        error: "Query failed",
+      });
+    },
+  );
 
   it.each([{ state: "" }, {}, undefined, null])(
     "maps an unusable query-info payload %j to unknown/unrecognized",

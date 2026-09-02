@@ -13,10 +13,7 @@ import {
 import { QueryStatistics, RunQueryMetadata } from "shared/types/query";
 import { PrestoConnectionParams } from "shared/types/integrations/presto";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import {
-  CancelQueryOutcome,
-  ExternalQueryStatus,
-} from "back-end/src/types/Integration";
+import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { getKerberosHeader } from "back-end/src/util/kerberos.util";
 import { getQueryTagString } from "back-end/src/util/integration";
 import { logger } from "back-end/src/util/logger";
@@ -39,7 +36,8 @@ const prestoQueryInfoSchema = z.object({
   errorCode: z.object({ name: z.string().nullish() }).nullish(),
 });
 
-// Only FINISHED and FAILED are terminal; every other reported state is still
+// FINISHED, FAILED, and FAILING are terminal (FAILING is a failed query whose
+// tasks are still being torn down); every other reported state is still
 // executing. An unparseable payload means we can't tell, so return unknown
 // rather than assuming the query is alive.
 export function prestoStateToStatus(info: unknown): ExternalQueryStatus {
@@ -47,7 +45,7 @@ export function prestoStateToStatus(info: unknown): ExternalQueryStatus {
   if (!parsed.success) return { state: "unknown", reason: "unrecognized" };
   const { state, failureInfo, errorCode } = parsed.data;
   if (state === "FINISHED") return { state: "succeeded" };
-  if (state === "FAILED") {
+  if (state === "FAILED" || state === "FAILING") {
     return {
       state: "failed",
       error: failureInfo?.message || errorCode?.name || "Query failed",
@@ -128,9 +126,9 @@ export default class Presto extends SqlIntegration {
     return new Client(configOptions);
   }
 
-  async cancelQuery(externalId: string): Promise<CancelQueryOutcome> {
+  async cancelQuery(externalId: string): Promise<void> {
     const client = this.createClient();
-    return new Promise<CancelQueryOutcome>((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       client.kill(externalId, (error) => {
         if (error) {
           logger.debug(
@@ -139,7 +137,7 @@ export default class Presto extends SqlIntegration {
           reject(error);
         } else {
           logger.debug(`Cancelled Presto/Trino query ${externalId}`);
-          resolve("cancelled");
+          resolve();
         }
       });
     });

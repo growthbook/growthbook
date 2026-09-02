@@ -70,29 +70,9 @@ describe("cancelExternalQuery", () => {
     expect(getExternalQueryStatus).not.toHaveBeenCalled();
   });
 
-  it("skips confirmation when the warehouse reports the query already cancelled", async () => {
-    jest.useFakeTimers();
-    try {
-      const getExternalQueryStatus = jest.fn();
-      const integration = makeIntegration({
-        cancelQuery: jest.fn().mockResolvedValue("cancelled"),
-        getExternalQueryStatus,
-      });
-
-      await cancelExternalQuery(integration, { externalId: "q1" }, logContext);
-      await flushConfirmation();
-
-      expect(mockedLogger.warn).not.toHaveBeenCalled();
-      expect(getExternalQueryStatus).not.toHaveBeenCalled();
-    } finally {
-      jest.clearAllTimers();
-      jest.useRealTimers();
-    }
-  });
-
   it("skips confirmation when the integration cannot report status", async () => {
     const integration = makeIntegration({
-      cancelQuery: jest.fn().mockResolvedValue("requested"),
+      cancelQuery: jest.fn().mockResolvedValue(undefined),
     });
 
     await cancelExternalQuery(integration, { externalId: "q1" }, logContext);
@@ -105,7 +85,7 @@ describe("cancelExternalQuery", () => {
     jest.useFakeTimers();
     try {
       const integration = makeIntegration({
-        cancelQuery: jest.fn().mockResolvedValue("requested"),
+        cancelQuery: jest.fn().mockResolvedValue(undefined),
         getExternalQueryStatus: jest.fn().mockResolvedValue({
           state: "running",
         }),
@@ -138,7 +118,7 @@ describe("cancelExternalQuery", () => {
     jest.useFakeTimers();
     try {
       const integration = makeIntegration({
-        cancelQuery: jest.fn().mockResolvedValue("requested"),
+        cancelQuery: jest.fn().mockResolvedValue(undefined),
         getExternalQueryStatus: jest.fn().mockResolvedValue(status),
       });
 
@@ -156,7 +136,7 @@ describe("cancelExternalQuery", () => {
     jest.useFakeTimers();
     try {
       const integration = makeIntegration({
-        cancelQuery: jest.fn().mockResolvedValue("requested"),
+        cancelQuery: jest.fn().mockResolvedValue(undefined),
         getExternalQueryStatus: jest.fn().mockResolvedValue({
           state: "unknown",
           reason: "expired",
@@ -187,7 +167,7 @@ describe("cancelExternalQuery", () => {
     process.on("unhandledRejection", unhandled);
     try {
       const integration = makeIntegration({
-        cancelQuery: jest.fn().mockResolvedValue("requested"),
+        cancelQuery: jest.fn().mockResolvedValue(undefined),
         getExternalQueryStatus: jest.fn().mockRejectedValue(new Error("down")),
       });
 

@@ -7,10 +7,7 @@ import {
   getAthenaQueryStatus,
   runAthenaQuery,
 } from "back-end/src/services/athena";
-import {
-  CancelQueryOutcome,
-  ExternalQueryStatus,
-} from "back-end/src/types/Integration";
+import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 import { athenaDialect } from "./dialects/athena";
 
@@ -30,9 +27,8 @@ export default class Athena extends SqlIntegration {
   ): Promise<QueryResponse> {
     return runAthenaQuery(this.params, sql, setExternalId);
   }
-  async cancelQuery(externalId: string): Promise<CancelQueryOutcome> {
+  async cancelQuery(externalId: string): Promise<void> {
     await cancelAthenaQuery(this.params, externalId);
-    return "requested";
   }
   getExternalQueryStatus(externalId: string): Promise<ExternalQueryStatus> {
     return getAthenaQueryStatus(this.params, externalId);
