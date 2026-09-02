@@ -562,6 +562,8 @@ export class ApiKeyModel extends BaseClass {
     );
   }
 
+  // Skips an expired key so the caller mints a replacement. A disabled one is
+  // still returned: an admin switched it off on purpose.
   public async getVisualEditorApiKey(
     userId: string,
   ): Promise<ApiKeyInterface | null> {
@@ -569,6 +571,7 @@ export class ApiKeyModel extends BaseClass {
       {
         userId,
         role: "visualEditor",
+        $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
       },
       {
         bypassSanitization: true,
