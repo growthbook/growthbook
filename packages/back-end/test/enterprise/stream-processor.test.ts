@@ -2,7 +2,7 @@ import { LocalConversationBuffer } from "back-end/src/enterprise/services/conver
 import { StreamProcessor } from "back-end/src/enterprise/services/stream-processor";
 
 describe("StreamProcessor Product Analytics results", () => {
-  it("emits one ordinary full tool-call-end event without chart-result duplication", () => {
+  it("emits one ordinary tool-call-end event without chart-result duplication", () => {
     const buffer = new LocalConversationBuffer("conversation-1", {
       messages: [],
       isStreaming: true,
@@ -24,7 +24,7 @@ describe("StreamProcessor Product Analytics results", () => {
           status: "success",
           config: { type: "metric" },
           result: {
-            rows: [{ dimensions: [], payload: "x".repeat(2_100_000) }],
+            rows: [{ dimensions: [], payload: "chart data" }],
           },
         },
       },

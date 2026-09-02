@@ -117,9 +117,7 @@ function mapToolResult(part: {
 
 /**
  * Converts AIChatMessage[] to ModelMessage[] for the LLM.
- * Tool results remain intact so token usage can be measured against complete
- * conversation history. Individual tools are responsible for bounding their
- * own responses.
+ * Tool results remain intact because callApi bounds them before storage.
  */
 export function toModelMessages(messages: AIChatMessage[]): ModelMessage[] {
   return messages.map((msg): ModelMessage => {

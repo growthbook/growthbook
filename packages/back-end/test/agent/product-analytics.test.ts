@@ -1,7 +1,7 @@
 import {
   isProductAnalyticsExplorationRequest,
   pollProductAnalyticsExploration,
-} from "back-end/src/agent/product-analytics";
+} from "back-end/src/agent/product-analytics-exploration";
 
 const explorationPaths = ["metric", "fact-table", "data-source", "funnel"].map(
   (type) => `/api/v1/product-analytics/${type}-exploration`,

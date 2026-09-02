@@ -8,7 +8,6 @@ import type {
 import { stringifyToolResultForStorage } from "shared/ai-chat";
 import type { ConversationBuffer } from "back-end/src/enterprise/services/conversation-buffer";
 import { serializeUnknownForSSE } from "back-end/src/enterprise/services/sse-utils";
-import { isSuccessfulProductAnalyticsApiResult } from "back-end/src/agent/product-analytics";
 
 // =============================================================================
 // Types
@@ -228,11 +227,7 @@ export class StreamProcessor {
     this.emit("tool-call-end", {
       toolName: part.toolName,
       toolCallId: part.toolCallId,
-      output: serializeUnknownForSSE(part.output, {
-        preserveFull:
-          part.toolName === "callApi" &&
-          isSuccessfulProductAnalyticsApiResult(part.output),
-      }),
+      output: serializeUnknownForSSE(part.output),
       ...(rawInput !== undefined
         ? { input: serializeUnknownForSSE(rawInput) }
         : {}),

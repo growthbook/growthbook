@@ -212,14 +212,32 @@ describe("callApi Product Analytics result shaping", () => {
       },
     };
 
-    expect(
-      _shapeCallApiResult(
-        {
-          method: "POST",
-          path: "/api/v1/product-analytics/metric-exploration",
+    expect(_shapeCallApiResult(result)).toBe(result);
+  });
+
+  it("replaces an oversized result with a retryable message", () => {
+    const result = {
+      status: 200,
+      body: {
+        exploration: {
+          id: "ae_1",
+          status: "success",
+          config: { type: "metric" },
+          result: {
+            rows: Array.from({ length: 100 }, () => ({
+              payload: "x".repeat(1_000),
+            })),
+          },
         },
-        result,
-      ),
-    ).toBe(result);
+      },
+    };
+
+    expect(_shapeCallApiResult(result)).toEqual({
+      status: 200,
+      body: {
+        truncated: true,
+        message: expect.stringContaining("reducing the request scope"),
+      },
+    });
   });
 });

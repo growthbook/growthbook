@@ -34,16 +34,13 @@ export function createEmit(
  */
 export const MAX_SSE_TOOL_JSON_LENGTH = 2 * 1024 * 1024;
 
-export function serializeUnknownForSSE(
-  value: unknown,
-  options: { preserveFull?: boolean } = {},
-): unknown {
+export function serializeUnknownForSSE(value: unknown): unknown {
   if (value === undefined) {
     return undefined;
   }
   try {
     const s = JSON.stringify(value);
-    if (options.preserveFull || s.length <= MAX_SSE_TOOL_JSON_LENGTH) {
+    if (s.length <= MAX_SSE_TOOL_JSON_LENGTH) {
       return JSON.parse(s) as unknown;
     }
     return {

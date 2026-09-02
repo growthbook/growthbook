@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import type { AIAgentPendingAction } from "shared/validators";
+import type { ReqContext } from "back-end/types/request";
 import { aiTool } from "back-end/src/enterprise/services/ai";
 import {
   createAgentHandler,
@@ -17,7 +18,7 @@ import {
 import {
   isProductAnalyticsExplorationRequest,
   pollProductAnalyticsExploration,
-} from "back-end/src/agent/product-analytics";
+} from "back-end/src/agent/product-analytics-exploration";
 import { listDomainSkills, readSkill } from "back-end/src/agent/skills";
 
 // =============================================================================
@@ -37,9 +38,12 @@ How to use the \`callApi\` tool:
 - The response is { status, body }: treat 2xx as success; 4xx/5xx carry an
   error \`message\`. On a non-2xx, fix the request and retry; if the same error
   recurs 3+ times, stop and explain to the user.
-- Product Analytics exploration POSTs are the exception: always inspect
-  \`body.exploration.status\`. A 2xx response can contain a terminal query
-  error or a still-running timeout result.
+- Product Analytics results are the exception: use
+  \`body.exploration.status\`, not the HTTP status, to determine whether the
+  query succeeded. The backend waits for ordinary in-progress queries, but a
+  terminal query error or polling timeout can still have an HTTP 2xx status.
+- If a response is too large, retry with narrower filters, pagination, fewer
+  dimensions, or a shorter date range.
 - Never invent endpoints — only call paths documented in a skill you've loaded.
 - When a write is the right next step, just issue the call. You do NOT need to
   ask the user to confirm writes before making them — issuing the call is how
@@ -116,9 +120,9 @@ without listing or asking unless the user names a different one.
 
 For analytics, produce at most one successful chart per turn. Failed or empty
 runs may be corrected, but stop after the first successful exploration. The UI
-renders the chart automatically from the full response. Use
-\`exploration.result.rows\` for specific numeric insights, and reuse the
-returned \`exploration.config\` when the user asks to modify a previous chart.
+renders the chart automatically from the tool result. Use
+\`exploration.result.rows\` for specific numeric insights, and reuse
+\`exploration.config\` when modifying a previous chart.
 
 One of these lines is authoritative rather than a hint:
 
@@ -284,31 +288,21 @@ function coerceBody(body: unknown): unknown {
   }
 }
 
-/**
- * Trim the response body the agent sees for two reasons: keep token usage
- * sane on big list endpoints, and keep the agent focused on actionable parts
- * (status, message, the relevant top-level fields).
- *
- * Successful Product Analytics explorations intentionally bypass this cap:
- * the model needs their complete rows for numeric reasoning, and the same
- * value is persisted and rendered by the chart UI.
- */
-const MAX_BODY_CHARS = 16_000;
+/** Bound every callApi result before it reaches the model, SSE, or storage. */
+const MAX_BODY_CHARS = 64_000;
 
 function summarizeResult(result: DispatchResult): {
   status: number;
   body: unknown;
 } {
-  // Fall-through: cap body size as a guardrail against runaway responses.
-  const serialized = safeStringify(result.body);
+  const serialized = safeStringify(result);
   if (serialized.length > MAX_BODY_CHARS) {
     return {
       status: result.status,
       body: {
         truncated: true,
         message:
-          "Response was too large to include in full. Re-call with narrower filters or pagination params.",
-        preview: serialized.slice(0, MAX_BODY_CHARS),
+          "Response was too large to return. Try reducing the request scope with narrower filters, pagination, fewer dimensions, or a shorter date range.",
       },
     };
   }
@@ -316,13 +310,27 @@ function summarizeResult(result: DispatchResult): {
   return result;
 }
 
-function shapeCallApiResult(
-  input: Pick<DispatchInput, "method" | "path">,
-  result: DispatchResult,
-): DispatchResult {
-  return isProductAnalyticsExplorationRequest(input)
-    ? result
-    : summarizeResult(result);
+function shapeCallApiResult(result: DispatchResult): DispatchResult {
+  return summarizeResult(result);
+}
+
+async function getProductAnalyticsExplorationResult(
+  ctx: ReqContext,
+  id: string,
+): Promise<DispatchResult> {
+  const exploration = await ctx.models.analyticsExplorations.getById(id);
+  if (!exploration) {
+    return {
+      status: 404,
+      body: { message: "Product Analytics exploration not found." },
+    };
+  }
+  return {
+    status: 200,
+    body: {
+      exploration: ctx.models.analyticsExplorations.toApiInterface(exploration),
+    },
+  };
 }
 
 function safeStringify(v: unknown): string {
@@ -551,31 +559,11 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
           if (isProductAnalyticsExplorationRequest(dispatchInput)) {
             result = await pollProductAnalyticsExploration(
               result,
-              async (id) => {
-                const exploration =
-                  await ctx.models.analyticsExplorations.getById(id);
-                if (!exploration) {
-                  return {
-                    status: 404,
-                    body: {
-                      message: "Product Analytics exploration not found.",
-                    },
-                  };
-                }
-                return {
-                  status: 200,
-                  body: {
-                    exploration:
-                      ctx.models.analyticsExplorations.toApiInterface(
-                        exploration,
-                      ),
-                  },
-                };
-              },
+              (id) => getProductAnalyticsExplorationResult(ctx, id),
               { signal: abortSignal },
             );
           }
-          return shapeCallApiResult(dispatchInput, result);
+          return shapeCallApiResult(result);
         },
       }),
 

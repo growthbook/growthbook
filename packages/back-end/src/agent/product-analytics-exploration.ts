@@ -29,17 +29,13 @@ function normalizePath(rawPath: string): string {
   return noQuery;
 }
 
-export function isProductAnalyticsExplorationPath(path: string): boolean {
-  return EXPLORATION_PATH_RE.test(normalizePath(path));
-}
-
+/** Recognizes the exploration POSTs that need agent-specific result handling. */
 export function isProductAnalyticsExplorationRequest(
   input: Pick<DispatchInput, "method" | "path">,
 ): boolean {
   return (
     input.method === "POST" &&
-    typeof input.path === "string" &&
-    isProductAnalyticsExplorationPath(input.path)
+    EXPLORATION_PATH_RE.test(normalizePath(input.path))
   );
 }
 
@@ -61,15 +57,6 @@ function explorationFromResult(
     !Array.isArray(exploration)
     ? (exploration as ExplorationRecord)
     : null;
-}
-
-export function isSuccessfulProductAnalyticsApiResult(
-  result: unknown,
-): boolean {
-  if (!result || typeof result !== "object" || Array.isArray(result)) {
-    return false;
-  }
-  return explorationFromResult(result as DispatchResult)?.status === "success";
 }
 
 function explorationPollDelayMs(elapsedMs: number): number {
@@ -107,6 +94,10 @@ async function defaultWait(ms: number, signal?: AbortSignal): Promise<void> {
   await delay(ms, undefined, { signal, ref: false });
 }
 
+/**
+ * Exploration handlers return after five seconds, so the agent continues
+ * polling the stored model until the query reaches a terminal state.
+ */
 export async function pollProductAnalyticsExploration(
   initialResult: DispatchResult,
   getExploration: (id: string) => Promise<DispatchResult>,
