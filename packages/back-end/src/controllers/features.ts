@@ -173,6 +173,7 @@ import {
   isArchiveTransition,
 } from "back-end/src/revisions/archiveTransition";
 import {
+  insertRuleBefore,
   moveFlatRule,
   stampRuleForEnvs,
   updateRuleById,
@@ -3134,6 +3135,7 @@ export async function postFeatureRule(
     rule,
     safeRolloutFields,
     rampSchedule: rampSchedulePayload,
+    insertBeforeRuleId,
   } = req.body;
 
   const feature = await getFeature(context, id);
@@ -3322,7 +3324,7 @@ export async function postFeatureRule(
     await context.models.projects.ensureProjectsExist(ruleScopeProjects);
   }
   const ruleAdditionChanges = {
-    rules: [...existingRules, stampedRule],
+    rules: insertRuleBefore(existingRules, stampedRule, insertBeforeRuleId),
   };
 
   const combinedChanges: Record<string, unknown> = ruleAdditionChanges;

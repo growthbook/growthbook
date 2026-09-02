@@ -4390,7 +4390,9 @@ export function postExperimentApiPayloadToInterface(
       ? { attributeScopeAllProjects: payload.attributeScopeAllProjects }
       : {}),
     hashVersion: payload.hashVersion ?? 2,
-    disableStickyBucketing: payload.disableStickyBucketing ?? false,
+    disableStickyBucketing:
+      payload.disableStickyBucketing ??
+      !organization.settings?.stickyBucketingOnByDefault,
     ...(payload.bucketVersion !== undefined
       ? { bucketVersion: payload.bucketVersion }
       : {}),

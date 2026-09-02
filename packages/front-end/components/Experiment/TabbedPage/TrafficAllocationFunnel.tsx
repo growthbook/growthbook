@@ -695,6 +695,7 @@ function AssignmentAttribute({
   experiment: ExperimentInterfaceStringDates;
 }) {
   const isHoldout = experiment.type === "holdout";
+  const { useStickyBucketing } = useOrgSettings();
   return (
     <Box>
       <Text weight="semibold" color="text-high" mr="2">
@@ -706,13 +707,13 @@ function AssignmentAttribute({
           , <AttributeBadge attributeId={experiment.fallbackAttribute} />
         </>
       ) : null}
-      {!isHoldout && experiment.disableStickyBucketing ? (
+      {!isHoldout && useStickyBucketing ? (
         <Box mt="1">
           <Text weight="semibold" color="text-high" mr="2">
             Sticky bucketing:
           </Text>
           <Text color="text-mid">
-            <em>Disabled</em>
+            {experiment.disableStickyBucketing ? "Disabled" : "Enabled"}
           </Text>
         </Box>
       ) : null}
