@@ -25,6 +25,7 @@ import {
   getAllEventWebHooks,
   getEventWebHookById,
   reconnectSlackEventWebhook,
+  updateEventWebHook,
   updateSlackChannelName,
 } from "back-end/src/models/EventWebhookModel";
 import {
@@ -400,7 +401,8 @@ export const listSlackOAuthConnections = async (
     .filter(
       (eventWebHook) =>
         eventWebHook.payloadType === "slack" &&
-        (eventWebHook.slack?.channelId || !eventWebHook.slack?.teamId),
+        !!eventWebHook.slack?.teamId &&
+        !!eventWebHook.slack.channelId,
     )
     .map(slackEventWebhookToIntegration);
   const connectionsByTeamId = new Map(
@@ -460,9 +462,35 @@ export const getSlackOAuthIntegrationById = async ({
   id: string;
 }): Promise<SlackOAuthIntegrationInterface | null> => {
   const eventWebHook = await getEventWebHookById(id, context.org.id);
-  return eventWebHook?.payloadType === "slack"
+  return eventWebHook?.payloadType === "slack" && eventWebHook.slack?.teamId
     ? slackEventWebhookToIntegration(eventWebHook)
     : null;
+};
+
+export const updateSlackOAuthIntegration = async ({
+  context,
+  id,
+  updates,
+}: {
+  context: ReqContext;
+  id: string;
+  updates: Pick<
+    EventWebHookInterface,
+    "enabled" | "events" | "projects" | "environments" | "tags"
+  >;
+}): Promise<SlackOAuthIntegrationInterface | null> => {
+  const eventWebHook = await getEventWebHookById(id, context.org.id);
+  if (eventWebHook?.payloadType !== "slack" || !eventWebHook.slack?.teamId) {
+    return null;
+  }
+
+  await updateEventWebHook(
+    { eventWebHookId: id, organizationId: context.org.id },
+    updates,
+  );
+
+  const updated = await getEventWebHookById(id, context.org.id);
+  return updated ? slackEventWebhookToIntegration(updated) : null;
 };
 
 /**

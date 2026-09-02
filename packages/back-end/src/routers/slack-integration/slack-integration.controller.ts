@@ -21,6 +21,7 @@ import {
   listSlackOAuthConnections,
   listSlackWorkspaceChannels,
   type SlackChannelOption,
+  updateSlackOAuthIntegration,
 } from "back-end/src/services/slackIntegration";
 
 // region GET /integrations/slack
@@ -106,6 +107,39 @@ export const getSlackOAuthConnection = async (
   const slackIntegration = await getSlackOAuthIntegrationById({
     context,
     id: req.params.id,
+  });
+  if (!slackIntegration) {
+    return res.status(404).json({ message: "Not found" });
+  }
+
+  return res.json({ slackIntegration });
+};
+
+type PutSlackOAuthConnectionRequest = AuthRequest<
+  {
+    enabled: boolean;
+    events: string[];
+    projects: string[];
+    environments: string[];
+    tags: string[];
+  },
+  { id: string }
+>;
+
+export const putSlackOAuthConnection = async (
+  req: PutSlackOAuthConnectionRequest,
+  res: Response<PostSlackOAuthCallbackResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const slackIntegration = await updateSlackOAuthIntegration({
+    context,
+    id: req.params.id,
+    updates: req.body,
   });
   if (!slackIntegration) {
     return res.status(404).json({ message: "Not found" });

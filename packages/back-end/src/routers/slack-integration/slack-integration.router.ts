@@ -1,6 +1,9 @@
 import express from "express";
 import { z } from "zod";
-import { zodNotificationEventNamesEnum } from "shared/validators";
+import {
+  isEventWebhookWildcard,
+  zodNotificationEventNamesEnum,
+} from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawSlackIntegrationController from "./slack-integration.controller";
@@ -10,6 +13,15 @@ const router = express.Router();
 const slackIntegrationController = wrapController(
   rawSlackIntegrationController,
 );
+
+const eventNameOrWildcard = z
+  .string()
+  .refine(
+    (value) =>
+      zodNotificationEventNamesEnum.includes(value as never) ||
+      isEventWebhookWildcard(value),
+    { message: "Must be a valid event name or wildcard pattern" },
+  );
 
 router.get("/", slackIntegrationController.getSlackIntegrations);
 
@@ -21,6 +33,23 @@ router.get(
     params: z.object({ id: z.string() }).strict(),
   }),
   slackIntegrationController.getSlackOAuthConnection,
+);
+
+router.put(
+  "/oauth/:id",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string() }).strict(),
+    body: z
+      .object({
+        enabled: z.boolean(),
+        events: z.array(eventNameOrWildcard).min(1),
+        projects: z.array(z.string()),
+        environments: z.array(z.string()),
+        tags: z.array(z.string()),
+      })
+      .strict(),
+  }),
+  slackIntegrationController.putSlackOAuthConnection,
 );
 
 router.post(
