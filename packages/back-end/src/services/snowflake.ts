@@ -279,7 +279,7 @@ export function snowflakeStatusToExternalStatus(
   // history (expired), not that the query is still running.
   if (status === "NO_QUERY_DATA")
     return { state: "unknown", reason: "expired" };
-  return { state: "unknown", reason: "unreachable" };
+  return { state: "unknown", reason: "unrecognized" };
 }
 
 export async function getSnowflakeQueryStatus(

@@ -83,7 +83,10 @@ export type ExternalQueryStatus =
   | { state: "running" }
   | { state: "succeeded" }
   | { state: "failed"; error: string }
-  | { state: "unknown"; reason: "expired" | "unsupported" | "unreachable" };
+  // expired: the warehouse no longer knows the id. unreachable: the status
+  // call itself failed. unrecognized: the warehouse answered with a payload or
+  // state we cannot classify.
+  | { state: "unknown"; reason: "expired" | "unreachable" | "unrecognized" };
 
 // What a resolved cancelQuery() promises about the warehouse-side query.
 export type CancelQueryOutcome =

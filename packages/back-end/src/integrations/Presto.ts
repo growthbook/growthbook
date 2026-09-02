@@ -44,7 +44,7 @@ const prestoQueryInfoSchema = z.object({
 // rather than assuming the query is alive.
 export function prestoStateToStatus(info: unknown): ExternalQueryStatus {
   const parsed = prestoQueryInfoSchema.safeParse(info);
-  if (!parsed.success) return { state: "unknown", reason: "unreachable" };
+  if (!parsed.success) return { state: "unknown", reason: "unrecognized" };
   const { state, failureInfo, errorCode } = parsed.data;
   if (state === "FINISHED") return { state: "succeeded" };
   if (state === "FAILED") {

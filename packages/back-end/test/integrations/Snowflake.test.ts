@@ -255,13 +255,13 @@ describe("snowflakeStatusToExternalStatus (status-only mapping)", () => {
     ).toEqual({ state: "unknown", reason: "expired" });
   });
 
-  it("maps an unrecognized non-running, non-error status to unknown/unreachable", () => {
+  it("maps an unrecognized non-running, non-error status to unknown/unrecognized", () => {
     expect(
       snowflakeStatusToExternalStatus("SOMETHING_NEW", {
         isRunning: false,
         isError: false,
       }),
-    ).toEqual({ state: "unknown", reason: "unreachable" });
+    ).toEqual({ state: "unknown", reason: "unrecognized" });
   });
 
   it("prioritizes running over error when both flags are set", () => {

@@ -47,11 +47,11 @@ describe("prestoStateToStatus (status-only mapping)", () => {
   });
 
   it.each([{ state: "" }, {}, undefined, null])(
-    "maps an unusable query-info payload %j to unknown/unreachable",
+    "maps an unusable query-info payload %j to unknown/unrecognized",
     (payload) => {
       expect(prestoStateToStatus(payload)).toEqual({
         state: "unknown",
-        reason: "unreachable",
+        reason: "unrecognized",
       });
     },
   );

@@ -49,14 +49,14 @@ describe("athenaStateToStatus (status-only mapping)", () => {
     });
   });
 
-  it("maps an unknown/missing state to unknown/unreachable", () => {
+  it("maps an unknown/missing state to unknown/unrecognized", () => {
     expect(athenaStateToStatus(undefined, undefined)).toEqual({
       state: "unknown",
-      reason: "unreachable",
+      reason: "unrecognized",
     });
     expect(athenaStateToStatus("SOMETHING_NEW", undefined)).toEqual({
       state: "unknown",
-      reason: "unreachable",
+      reason: "unrecognized",
     });
   });
 });

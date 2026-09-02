@@ -87,7 +87,7 @@ export function athenaStateToStatus(
       };
     case undefined:
     default:
-      return { state: "unknown", reason: "unreachable" };
+      return { state: "unknown", reason: "unrecognized" };
   }
 }
 
