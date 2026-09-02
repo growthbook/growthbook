@@ -83,7 +83,7 @@ const ProjectAccessSettings: FC<{
         </ModalStandard>
       )}
       <Frame px="4" py="3" mb="4">
-        <Heading as="h5" size="xs" mb="2">
+        <Heading as="h5" size="sm" mb="1">
           User Access
         </Heading>
         <Flex align="center" justify="between" gap="3">
