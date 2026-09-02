@@ -206,6 +206,13 @@ const MemberPersonalAccessTokens: FC = () => {
                           color="red"
                           variant="soft"
                           label="Disabled"
+                          title={
+                            !token.disabledBy
+                              ? undefined
+                              : token.disabledBy === token.userId
+                                ? "Disabled by the member"
+                                : `Disabled by ${users.get(token.disabledBy)?.name || "an administrator"}`
+                          }
                         />
                       )}
                     </TableCell>

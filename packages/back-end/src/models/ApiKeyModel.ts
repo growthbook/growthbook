@@ -65,12 +65,24 @@ export class ApiKeyModel extends BaseClass {
     // API keys are immutable except for toggling `disabled`.
     // Anything else (key value, role, etc.) must never be edited.
     // `lastUsed` is written by auth middleware via the dangerous bypass and never hits this path.
+    const editable = new Set(["disabled", "disabledBy"]);
     const keys = Object.keys(updates);
-    if (keys.length !== 1 || keys[0] !== "disabled") return false;
-    // Admins can revoke another member's PAT without being able to delete it —
-    // the disabled doc keeps `lastUsed` ticking so they can see continued use.
-    if (apiKey.userId && apiKey.userId !== this.context.userId) {
-      return this.context.permissions.canDeleteApiKey();
+    if (!keys.length || keys.some((k) => !editable.has(k))) return false;
+    if (apiKey.userId) {
+      // Admins can revoke another member's PAT without being able to delete it —
+      // the disabled doc keeps `lastUsed` ticking so they can see continued use.
+      if (apiKey.userId !== this.context.userId) {
+        return this.context.permissions.canDeleteApiKey();
+      }
+      // The owner can undo their own disable but not an admin's. Any write is
+      // blocked, not just enabling, or re-disabling would take over `disabledBy`.
+      if (
+        apiKey.disabled &&
+        apiKey.disabledBy &&
+        apiKey.disabledBy !== this.context.userId
+      ) {
+        return this.context.permissions.canDeleteApiKey();
+      }
     }
     return this.canDelete(apiKey);
   }
@@ -115,6 +127,7 @@ export class ApiKeyModel extends BaseClass {
       environments: doc.environments,
       projectRoles: doc.projectRoles,
       disabled: doc.disabled,
+      disabledBy: doc.disabledBy,
     };
   }
 
@@ -313,7 +326,10 @@ export class ApiKeyModel extends BaseClass {
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
     if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
-    const after = await this.update(doc, { disabled });
+    const after = await this.update(doc, {
+      disabled,
+      disabledBy: disabled ? this.context.userId : null,
+    });
     return { before: doc, after };
   }
 
