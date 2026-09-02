@@ -539,6 +539,9 @@ export interface IncrementalRefreshStatisticsQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  // skipPartialData cutoff is relative to this (defaults to now). Important for Incremental Exploratory
+  // which passes the last overall snapshot's dateCreated.
+  asOf?: Date;
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";

@@ -1465,7 +1465,12 @@ const postExperimentBody = z
       )
       .optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
-    disableStickyBucketing: z.boolean().optional(),
+    disableStickyBucketing: z
+      .boolean()
+      .describe(
+        "When true, disables Sticky Bucketing for this experiment. If omitted, defaults to your organization's Sticky Bucketing setting for new experiments. Sticky Bucketing only takes effect when it is also enabled at the organization level.",
+      )
+      .optional(),
     bucketVersion: z.number().optional(),
     minBucketVersion: z.number().optional(),
     releasedVariationId: z.string().optional(),
