@@ -558,8 +558,6 @@ export default function UpgradeModal({
     if (showEnterpriseTreatment) {
       startEnterprise();
     } else if (trialAndUpgradePreference === "upgrade") {
-      // Usage-based Pro checkout isn't wired yet.
-      if (isCloud()) return;
       await startPro();
       //MKTODO: Clean up this else block and simplify logic to remove trial option
     } else {
@@ -728,14 +726,8 @@ export default function UpgradeModal({
               <PiCaretRight />
             </>
           }
-          disabledMessage={
-            !permissionsUtil.canManageBilling()
-              ? "Contact your admin to upgrade."
-              : "Checkout for this plan is coming soon."
-          }
-          ctaEnabled={
-            permissionsUtil.canManageBilling() && showEnterpriseTreatment
-          }
+          disabledMessage="Contact your admin to upgrade."
+          ctaEnabled={permissionsUtil.canManageBilling()}
           submit={onSubmit}
         >
           <div
