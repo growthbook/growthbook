@@ -82,17 +82,19 @@ function SortableColumnRow({
       </Box>
       {column.alwaysVisible ? (
         <Tooltip content="This column is always shown">
-          {/* A lock, not an eye: an eye here reads as a toggle you can click.
-              asChild borrows IconButton's box so it lines up with the toggles —
-              the ghost variant's negative margin can't be matched by hand. */}
-          <IconButton asChild size="1" variant="ghost" color="gray">
-            <span
-              role="img"
-              aria-label={`${column.label} column is always shown`}
-            >
-              <PiLock size={16} />
-            </span>
-          </IconButton>
+          {/* Not a button: a ghost IconButton shows hover/press states for something inert. 16px is the toggle's layout box. */}
+          <span
+            role="img"
+            aria-label={`${column.label} column is always shown`}
+            style={{
+              display: "inline-flex",
+              width: 16,
+              height: 16,
+              color: "var(--gray-a11)",
+            }}
+          >
+            <PiLock size={16} />
+          </span>
         </Tooltip>
       ) : (
         <Tooltip content={column.visible ? "Hide column" : "Show column"}>
