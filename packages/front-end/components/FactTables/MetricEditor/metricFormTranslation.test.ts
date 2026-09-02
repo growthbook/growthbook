@@ -45,6 +45,11 @@ describe("columnsForShape", () => {
   it("returns [] with no fact table", () => {
     expect(columnsForShape("sum", null)).toEqual([]);
   });
+
+  it("hides distinct when hasCountDistinctHLL is false, leaving other shapes alone", () => {
+    expect(columnsForShape("distinct", factTable, false)).toEqual([]);
+    expect(columnsForShape("sum", factTable, false)).toEqual(["revenue"]);
+  });
 });
 
 describe("fitColumn", () => {
@@ -65,6 +70,10 @@ describe("fitColumn", () => {
 
   it("falls back to empty string when no valid column exists", () => {
     expect(fitColumn("distinct", { columns: [] }, "revenue")).toBe("");
+  });
+
+  it("falls back to empty string for distinct when hasCountDistinctHLL is false", () => {
+    expect(fitColumn("distinct", factTable, "plan", false)).toBe("");
   });
 });
 
@@ -121,6 +130,13 @@ describe("onShapeChange", () => {
     expect(onShapeChange(sumRef, "count", factTable)).toMatchObject({
       column: "$$count",
       aggregation: undefined,
+    });
+  });
+
+  it("can't land on a distinct column when hasCountDistinctHLL is false", () => {
+    expect(onShapeChange(base, "distinct", factTable, false)).toMatchObject({
+      column: "",
+      aggregation: "count distinct",
     });
   });
 });
@@ -355,6 +371,27 @@ describe("formTypeFromStored", () => {
       formTypeFromStored({
         metricType: "quantile",
         numerator: { column: "sketch", aggregation: "kll merge" },
+      }),
+    ).toEqual({ representable: false, reason: "sketch-aggregation" });
+  });
+
+  it("flags sketch aggregations as unrepresentable for proportion, retention, and dailyParticipation too", () => {
+    expect(
+      formTypeFromStored({
+        metricType: "proportion",
+        numerator: { column: "sketch", aggregation: "hll merge" },
+      }),
+    ).toEqual({ representable: false, reason: "sketch-aggregation" });
+    expect(
+      formTypeFromStored({
+        metricType: "retention",
+        numerator: { column: "sketch", aggregation: "kll merge" },
+      }),
+    ).toEqual({ representable: false, reason: "sketch-aggregation" });
+    expect(
+      formTypeFromStored({
+        metricType: "dailyParticipation",
+        numerator: { column: "sketch", aggregation: "hll merge" },
       }),
     ).toEqual({ representable: false, reason: "sketch-aggregation" });
   });
