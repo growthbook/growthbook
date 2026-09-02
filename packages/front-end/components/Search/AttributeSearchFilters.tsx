@@ -12,6 +12,7 @@ import {
 } from "@/components/Search/SearchFilters";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Tag from "@/components/Tags/Tag";
+import { customFieldFilterValue } from "@/components/CustomFields/renderCustomFieldValue";
 
 export type AttributeWithId = SDKAttribute & {
   id: string;
@@ -45,16 +46,22 @@ const AttributeSearchFilters: FC<
     setSearchValue,
   });
 
+  // Every dropdown offers only values some attribute actually carries, and a
+  // dropdown with nothing left to offer is not rendered at all.
   const availableDatatypes = useMemo(() => {
-    const types = new Set<string>();
-    attributes.forEach((attr) => types.add(attr.datatype));
-    return attributeDataTypes.map((dt) => ({
-      name: dt,
-      id: "datatype-" + dt,
-      searchValue: dt,
-      disabled: !types.has(dt),
-    }));
+    const types = new Set(attributes.map((attr) => attr.datatype));
+    return attributeDataTypes
+      .filter((dt) => types.has(dt))
+      .map((dt) => ({ name: dt, id: "datatype-" + dt, searchValue: dt }));
   }, [attributes]);
+
+  const availableProjects = useMemo(
+    () =>
+      projects.filter((p) =>
+        attributes.some((attr) => attr.projects?.includes(p.id)),
+      ),
+    [attributes, projects],
+  );
 
   const availableTags = useMemo(() => {
     const tags: string[] = [];
@@ -66,46 +73,68 @@ const AttributeSearchFilters: FC<
     return tags;
   }, [attributes]);
 
+  const identifierItems = useMemo(
+    () =>
+      [
+        { searchValue: "yes", id: "identifier-yes", name: "Yes" },
+        { searchValue: "no", id: "identifier-no", name: "No" },
+      ].filter(({ searchValue }) =>
+        attributes.some(
+          (attr) => !!attr.hashAttribute === (searchValue === "yes"),
+        ),
+      ),
+    [attributes],
+  );
+
   // Only fields with a known value set make sense as a dropdown; free-text
   // fields are still reachable via `<fieldId>:value` in the search box.
-  const filterableCustomFields = useMemo(
-    () =>
-      customFields.flatMap((f) => {
-        if (f.type === "boolean") {
-          // Display casing matches the Identifier filter on the same bar; the
-          // query value stays lowercase.
-          return [
-            {
-              field: f,
-              values: [
-                { name: "Yes", searchValue: "yes" },
-                { name: "No", searchValue: "no" },
-              ],
-            },
-          ];
-        }
-        if (f.type === "enum" || f.type === "multiselect") {
-          const values = (f.values ?? "")
-            .split(",")
-            .map((v) => v.trim())
-            .filter(Boolean)
-            .map((v) => ({ name: v, searchValue: v }));
-          return values.length ? [{ field: f, values }] : [];
-        }
-        return [];
-      }),
-    [customFields],
-  );
+  const filterableCustomFields = useMemo(() => {
+    const used = new Map<string, Set<string>>();
+    attributes.forEach((attr) => {
+      customFields.forEach((f) => {
+        const values = customFieldFilterValue(
+          f,
+          attr.customFields?.[f.id] ?? "",
+        );
+        const set = used.get(f.id) ?? new Set<string>();
+        (Array.isArray(values) ? values : [values]).forEach((v) => {
+          if (v) set.add(v.toLowerCase());
+        });
+        used.set(f.id, set);
+      });
+    });
+    return customFields.flatMap((f) => {
+      // Display casing matches the Identifier filter on the same bar; the
+      // query value stays lowercase.
+      const candidates =
+        f.type === "boolean"
+          ? [
+              { name: "Yes", searchValue: "yes" },
+              { name: "No", searchValue: "no" },
+            ]
+          : f.type === "enum" || f.type === "multiselect"
+            ? (f.values ?? "")
+                .split(",")
+                .map((v) => v.trim())
+                .filter(Boolean)
+                .map((v) => ({ name: v, searchValue: v }))
+            : [];
+      const values = candidates.filter((v) =>
+        used.get(f.id)?.has(v.searchValue.toLowerCase()),
+      );
+      return values.length ? [{ field: f, values }] : [];
+    });
+  }, [attributes, customFields]);
 
   return (
     <Flex gap="5" align="center" wrap="wrap">
-      {!project && (
+      {!project && availableProjects.length > 0 && (
         <FilterDropdown
           filter="project"
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}
-          items={projects.map((p) => ({
+          items={availableProjects.map((p) => ({
             name: p.name,
             id: p.id,
             searchValue: p.name,
@@ -113,38 +142,42 @@ const AttributeSearchFilters: FC<
           updateQuery={updateQuery}
         />
       )}
-      <FilterDropdown
-        filter="datatype"
-        heading="data type"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={availableDatatypes}
-        updateQuery={updateQuery}
-      />
-      <FilterDropdown
-        filter="tag"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={availableTags.map((t) => ({
-          name: <Tag tag={t} key={t} skipMargin={true} variant="dot" />,
-          id: t,
-          searchValue: t,
-        }))}
-        updateQuery={updateQuery}
-      />
-      <FilterDropdown
-        filter="identifier"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={[
-          { searchValue: "yes", id: "identifier-yes", name: "Yes" },
-          { searchValue: "no", id: "identifier-no", name: "No" },
-        ]}
-        updateQuery={updateQuery}
-      />
+      {availableDatatypes.length > 0 && (
+        <FilterDropdown
+          filter="datatype"
+          heading="data type"
+          syntaxFilters={syntaxFilters}
+          open={dropdownFilterOpen}
+          setOpen={setDropdownFilterOpen}
+          items={availableDatatypes}
+          updateQuery={updateQuery}
+        />
+      )}
+      {availableTags.length > 0 && (
+        <FilterDropdown
+          filter="tag"
+          syntaxFilters={syntaxFilters}
+          open={dropdownFilterOpen}
+          setOpen={setDropdownFilterOpen}
+          items={availableTags.map((t) => ({
+            name: <Tag tag={t} key={t} skipMargin={true} variant="dot" />,
+            id: t,
+            searchValue: t,
+          }))}
+          updateQuery={updateQuery}
+        />
+      )}
+      {identifierItems.length > 0 && (
+        <FilterDropdown
+          filter="identifier"
+          syntaxFilters={syntaxFilters}
+          open={dropdownFilterOpen}
+          setOpen={setDropdownFilterOpen}
+          items={identifierItems}
+          updateQuery={updateQuery}
+          exclusive
+        />
+      )}
       {filterableCustomFields.map(({ field, values }) => (
         <FilterDropdown
           key={field.id}
@@ -159,6 +192,8 @@ const AttributeSearchFilters: FC<
             searchValue,
           }))}
           updateQuery={updateQuery}
+          // A boolean has one answer per row, so yes/no act as radios.
+          exclusive={field.type === "boolean"}
         />
       ))}
       <DropdownMenu
