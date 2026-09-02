@@ -22,7 +22,6 @@ export type AttributeWithId = SDKAttribute & {
 const AttributeSearchFilters: FC<
   BaseSearchFiltersProps & {
     attributes: AttributeWithId[];
-    hasArchived: boolean;
     customFields?: CustomField[];
   }
 > = ({
@@ -30,7 +29,6 @@ const AttributeSearchFilters: FC<
   syntaxFilters,
   attributes,
   setSearchValue,
-  hasArchived,
   customFields = [],
 }) => {
   const {
@@ -196,35 +194,33 @@ const AttributeSearchFilters: FC<
           exclusive={field.type === "boolean"}
         />
       ))}
-      {/* Its only item, so the menu goes with it. */}
-      {hasArchived && (
-        <DropdownMenu
-          trigger={FilterHeading({
-            heading: "more",
-            open: dropdownFilterOpen === "more",
-          })}
-          open={dropdownFilterOpen === "more"}
-          onOpenChange={(o) => {
-            setDropdownFilterOpen(o ? "more" : "");
+      {/* Always offered: with nothing archived it is still the way to undo the filter. */}
+      <DropdownMenu
+        trigger={FilterHeading({
+          heading: "more",
+          open: dropdownFilterOpen === "more",
+        })}
+        open={dropdownFilterOpen === "more"}
+        onOpenChange={(o) => {
+          setDropdownFilterOpen(o ? "more" : "");
+        }}
+      >
+        <DropdownMenuItem
+          onClick={() => {
+            updateQuery({
+              field: "is",
+              values: ["archived"],
+              operator: "",
+              negated: false,
+            });
           }}
         >
-          <DropdownMenuItem
-            onClick={() => {
-              updateQuery({
-                field: "is",
-                values: ["archived"],
-                operator: "",
-                negated: false,
-              });
-            }}
-          >
-            <FilterItem
-              item="Archived attributes"
-              exists={doesFilterExist("is", "archived", "")}
-            />
-          </DropdownMenuItem>
-        </DropdownMenu>
-      )}
+          <FilterItem
+            item="Archived attributes"
+            exists={doesFilterExist("is", "archived", "")}
+          />
+        </DropdownMenuItem>
+      </DropdownMenu>
     </Flex>
   );
 };
