@@ -86,6 +86,10 @@ export default function SlackChannelSettings({
   );
 
   const save = async () => {
+    if (events.length === 0) {
+      setSaveError("Select at least one event.");
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     setSaved(false);
@@ -214,6 +218,11 @@ export default function SlackChannelSettings({
               setSaved(false);
             }}
           />
+          {events.length === 0 && (
+            <Callout status="warning" mt="3">
+              Select at least one event before saving.
+            </Callout>
+          )}
         </Box>
 
         <Box pt="5" style={{ borderTop: "1px solid var(--gray-a4)" }}>
@@ -272,7 +281,11 @@ export default function SlackChannelSettings({
         </Box>
 
         <Flex align="center" gap="3">
-          <Button onClick={save} loading={saving}>
+          <Button
+            onClick={save}
+            loading={saving}
+            disabled={events.length === 0}
+          >
             Save settings
           </Button>
           {saved && <Text color="text-mid">Saved.</Text>}

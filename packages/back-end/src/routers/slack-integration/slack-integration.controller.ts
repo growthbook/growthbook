@@ -151,7 +151,7 @@ export const putSlackOAuthConnection = async (
 // region POST /integrations/slack/connect
 
 type PostSlackOAuthConnectRequest = AuthRequest<
-  Record<string, never>,
+  { teamId?: string },
   Record<string, never>,
   Record<string, never>
 >;
@@ -171,7 +171,7 @@ export const postSlackOAuthConnect = async (
   }
 
   return res.json({
-    url: getSlackOAuthAuthorizeUrl(context),
+    url: getSlackOAuthAuthorizeUrl(context, req.body.teamId),
   });
 };
 

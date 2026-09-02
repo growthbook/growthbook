@@ -5,6 +5,7 @@ import { useAuth } from "@/services/auth";
 import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
 import { docUrl, DocLink } from "@/components/DocLink";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
@@ -28,6 +29,9 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
   errorMessage,
   createError,
 }) => {
+  const permissionsUtils = usePermissionsUtil();
+  const canManageSlack = permissionsUtils.canManageIntegrations();
+
   return (
     <div>
       {isModalOpen ? (
@@ -96,13 +100,16 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
           {eventWebHooks.map((eventWebHook) => {
             const managedInSlack =
               eventWebHook.payloadType === "slack" &&
-              !!eventWebHook.slack?.teamId;
+              !!eventWebHook.slack?.teamId &&
+              canManageSlack;
             const href = managedInSlack
               ? eventWebHook.slack?.channelId
                 ? `/integrations/slack?channel=${encodeURIComponent(
                     eventWebHook.id,
                   )}`
-                : "/integrations/slack"
+                : `/integrations/slack?workspace=${encodeURIComponent(
+                    eventWebHook.slack?.teamId || "",
+                  )}`
               : `/settings/webhooks/event/${eventWebHook.id}`;
 
             return (

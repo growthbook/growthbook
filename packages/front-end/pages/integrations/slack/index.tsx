@@ -49,6 +49,13 @@ type WorkspaceGroup = {
   channels: SlackOAuthIntegrationInterface[];
 };
 
+const REQUIRED_SCOPES = [
+  "chat:write",
+  "channels:read",
+  "groups:read",
+  "channels:join",
+];
+
 const getQueryStringValue = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
@@ -56,6 +63,18 @@ const getSlackAuthorizationError = (error: string) =>
   error === "access_denied"
     ? "Slack authorization was canceled."
     : "Slack authorization failed. Try again.";
+
+const workspaceNeedsReconnect = (
+  integration: SlackOAuthIntegrationInterface,
+) => {
+  const scopes = new Set(
+    (integration.slack?.scope || "")
+      .split(",")
+      .map((scope) => scope.trim())
+      .filter(Boolean),
+  );
+  return REQUIRED_SCOPES.some((scope) => !scopes.has(scope));
+};
 
 function AddChannelModal({
   teamId,
@@ -241,13 +260,21 @@ const SlackIntegrationsPage: NextPage = () => {
   }, [integrations]);
 
   const selectedChannelId = getQueryStringValue(router.query.channel);
+  const selectedWorkspaceId = getQueryStringValue(router.query.workspace);
+  const selectedWorkspaceGroup = useMemo(
+    () =>
+      workspaceGroups.find((group) => group.teamId === selectedWorkspaceId) ||
+      null,
+    [selectedWorkspaceId, workspaceGroups],
+  );
   const selectedChannel = useMemo(() => {
     const channels = workspaceGroups.flatMap((group) => group.channels);
+    const workspaceChannels = selectedWorkspaceGroup?.channels || channels;
     return (
       channels.find((channel) => channel.id === selectedChannelId) ||
-      channels[0]
+      workspaceChannels[0]
     );
-  }, [selectedChannelId, workspaceGroups]);
+  }, [selectedChannelId, selectedWorkspaceGroup, workspaceGroups]);
 
   const selectChannel = useCallback(
     async (channelId: string | null) => {
@@ -279,10 +306,10 @@ const SlackIntegrationsPage: NextPage = () => {
     if (!code) return;
     const state = getQueryStringValue(router.query.state);
     callbackProcessed.current = true;
+    router.replace("/integrations/slack", undefined, { shallow: true });
 
     if (!state) {
       setInstallCode(code);
-      router.replace("/integrations/slack", undefined, { shallow: true });
       return;
     }
 
@@ -312,7 +339,6 @@ const SlackIntegrationsPage: NextPage = () => {
       })
       .finally(() => {
         setConnecting(false);
-        router.replace("/integrations/slack", undefined, { shallow: true });
       });
   }, [apiCall, mutate, router]);
 
@@ -545,8 +571,11 @@ const SlackIntegrationsPage: NextPage = () => {
         )}
         {data && !data.oauthConfigured && (
           <Callout status="warning">
-            Slack OAuth is not configured. Set the Slack client ID and client
-            secret on the GrowthBook API server.
+            Slack OAuth is not configured. Set <code>SLACK_CLIENT_ID</code> and{" "}
+            <code>SLACK_CLIENT_SECRET</code> for an app with the{" "}
+            <code>chat:write</code>, <code>channels:read</code>,{" "}
+            <code>groups:read</code>, and <code>channels:join</code> bot scopes.
+            A Slack signing secret is not required for outgoing notifications.
           </Callout>
         )}
 
@@ -587,9 +616,26 @@ const SlackIntegrationsPage: NextPage = () => {
                 {workspaceGroups.map((group) => (
                   <Box key={group.teamId}>
                     <Flex justify="between" align="center" gap="2" mb="2">
-                      <Text size="sm" weight="semibold" truncate>
-                        {getSlackWorkspaceLabel(group.workspace)}
-                      </Text>
+                      <Box style={{ minWidth: 0 }}>
+                        <Text size="sm" weight="semibold" truncate>
+                          {getSlackWorkspaceLabel(group.workspace)}
+                        </Text>
+                        <Box mt="1">
+                          <Badge
+                            label={
+                              workspaceNeedsReconnect(group.workspace)
+                                ? "Reconnect needed"
+                                : "Connected"
+                            }
+                            color={
+                              workspaceNeedsReconnect(group.workspace)
+                                ? "amber"
+                                : "green"
+                            }
+                            variant="soft"
+                          />
+                        </Box>
+                      </Box>
                       <Flex gap="1">
                         <Button
                           variant="ghost"
@@ -599,16 +645,26 @@ const SlackIntegrationsPage: NextPage = () => {
                         >
                           <PiPlus />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          color="red"
-                          size="sm"
-                          aria-label="Disconnect workspace"
-                          onClick={() => setDisconnectTeamId(group.teamId)}
-                        >
-                          <PiPlugsConnected />
-                        </Button>
                       </Flex>
+                    </Flex>
+                    <Flex gap="2" mb="3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={connectToSlack}
+                        loading={connecting}
+                      >
+                        Reconnect
+                      </Button>
+                      <Button
+                        variant="outline"
+                        color="red"
+                        size="sm"
+                        icon={<PiPlugsConnected />}
+                        onClick={() => setDisconnectTeamId(group.teamId)}
+                      >
+                        Disconnect
+                      </Button>
                     </Flex>
                     <Flex direction="column" gap="1">
                       {group.channels.map((channel) => {
@@ -690,7 +746,11 @@ const SlackIntegrationsPage: NextPage = () => {
                     <Button
                       icon={<PiPlus />}
                       onClick={() =>
-                        setAddChannelTeamId(workspaceGroups[0]?.teamId || null)
+                        setAddChannelTeamId(
+                          selectedWorkspaceGroup?.teamId ||
+                            workspaceGroups[0]?.teamId ||
+                            null,
+                        )
                       }
                     >
                       Add channel

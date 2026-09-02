@@ -54,7 +54,9 @@ router.put(
 
 router.post(
   "/connect",
-  validateRequestMiddleware({}),
+  validateRequestMiddleware({
+    body: z.object({ teamId: z.string().optional() }).strict(),
+  }),
   slackIntegrationController.postSlackOAuthConnect,
 );
 

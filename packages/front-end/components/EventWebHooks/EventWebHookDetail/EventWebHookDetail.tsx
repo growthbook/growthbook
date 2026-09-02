@@ -11,6 +11,7 @@ import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useEventWebhookLogs } from "@/hooks/useEventWebhookLogs";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   EventWebHookEditParams,
   useIconForState,
@@ -58,6 +59,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   editError,
 }) => {
   const { getProjectById } = useDefinitions();
+  const permissionsUtils = usePermissionsUtil();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const {
@@ -145,10 +147,14 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
 
   const loading = state?.type === "loading";
   const slackSettingsUrl =
-    payloadType === "slack" && eventWebHook.slack?.teamId
+    payloadType === "slack" &&
+    eventWebHook.slack?.teamId &&
+    permissionsUtils.canManageIntegrations()
       ? eventWebHook.slack.channelId
         ? `/integrations/slack?channel=${encodeURIComponent(eventWebHook.id)}`
-        : "/integrations/slack"
+        : `/integrations/slack?workspace=${encodeURIComponent(
+            eventWebHook.slack.teamId,
+          )}`
       : null;
 
   return (
