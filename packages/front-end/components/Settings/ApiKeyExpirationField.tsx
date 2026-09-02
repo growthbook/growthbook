@@ -6,7 +6,7 @@ import {
   MaxLifetimeDays,
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
-import { datetime } from "shared/dates";
+import { date, datetimeAt } from "shared/dates";
 import DatePicker from "@/components/DatePicker";
 import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import HelperText from "@/ui/HelperText";
@@ -62,6 +62,15 @@ const ApiKeyExpirationField: FC<{
 
   return (
     <>
+      {/* Day precision to match the picker; the exact moment shows below once chosen. */}
+      {required && latest && (
+        <HelperText status={cleared ? "warning" : "info"} mb="2">
+          {cleared
+            ? `Your organization changed its expiration policy, so the date you chose is no longer allowed. The latest allowed is now ${date(latest)}.`
+            : `Your organization requires an expiration date, and the latest allowed is ${date(latest)}.`}
+        </HelperText>
+      )}
+
       <Select
         label="Expiration"
         mb="3"
@@ -98,11 +107,9 @@ const ApiKeyExpirationField: FC<{
         />
       )}
 
-      {required && latest && (
-        <HelperText status={cleared ? "warning" : "info"} mb="3">
-          {cleared
-            ? `Your organization changed its expiration policy, so the date you chose is no longer allowed. The latest allowed is now ${datetime(latest)}.`
-            : `Your organization requires an expiration date, and the latest allowed is ${datetime(latest)}.`}
+      {value && (
+        <HelperText status="info" mb="3">
+          {`The newly created key will expire on ${datetimeAt(value)}.`}
         </HelperText>
       )}
     </>
