@@ -5,6 +5,7 @@ import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
   DataRegion,
   findEventForwarderManagedViolation,
+  getExposureQueriesWithChangedBaseIdentifier,
   isEventForwarderManaged,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
@@ -42,6 +43,7 @@ import { deleteClickhouseUser } from "back-end/src/services/licenseServerManaged
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarder/datasourceLifecycle";
 import { deleteEventForwarderEventsFactTableForDatasource } from "back-end/src/services/eventForwarder/factTable";
+import { pinLegacyExposureQueryIdentifierType } from "./ExperimentModel";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 import {
   definitionsScope,
@@ -692,6 +694,26 @@ export async function updateDataSource(
   }
   if (!hasActualChanges(datasource, updates)) {
     return;
+  }
+
+  // Before persisting an assignment-query edit, preserve the analysis unit of
+  // experiments configured before multi-identifier support. When a query's first
+  // identifier type changes (removed or reordered), pin dependent legacy
+  // experiments (no stored identifier type) to the pre-edit identifier so they
+  // don't silently repoint to the new first identifier.
+  if (updates.settings?.queries?.exposure) {
+    const repointed = getExposureQueriesWithChangedBaseIdentifier(
+      datasource.settings.queries?.exposure ?? [],
+      updates.settings.queries.exposure,
+    );
+    for (const { id, previousIdentifierType } of repointed) {
+      await pinLegacyExposureQueryIdentifierType({
+        organization: context.org.id,
+        datasource: datasource.id,
+        exposureQueryId: id,
+        identifierType: previousIdentifierType,
+      });
+    }
   }
 
   // Several service callers mutate `settings` without stamping dateUpdated;

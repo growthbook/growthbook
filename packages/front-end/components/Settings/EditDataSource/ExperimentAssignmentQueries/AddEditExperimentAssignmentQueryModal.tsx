@@ -113,6 +113,28 @@ export const AddEditExperimentAssignmentQueryModal: FC<
 
   const saveEnabled = userEnteredUserIdTypes.length >= 1 && !!userEnteredQuery;
 
+  // Warn when editing an existing query removes an identifier type, or changes
+  // which one is first. The first identifier is load-bearing: experiments
+  // configured before multi-identifier support implicitly analyze on it, so
+  // changing it repoints them. On save, such legacy experiments are pinned to
+  // the pre-edit identifier automatically; experiments with an explicit choice
+  // that reference a removed identifier are flagged for review.
+  const savedUserIdTypes =
+    mode === "edit" && exposureQuery
+      ? exposureQuery.userIdTypes?.length
+        ? exposureQuery.userIdTypes
+        : [exposureQuery.userIdType].filter(Boolean)
+      : [];
+  const removedIdentifierTypes = savedUserIdTypes.filter(
+    (idType) => !userEnteredUserIdTypes.includes(idType),
+  );
+  const firstIdentifierChanged =
+    savedUserIdTypes.length > 0 &&
+    userEnteredUserIdTypes.length > 0 &&
+    savedUserIdTypes[0] !== userEnteredUserIdTypes[0];
+  const showIdentifierChangeWarning =
+    removedIdentifierTypes.length > 0 || firstIdentifierChanged;
+
   if (!exposureQuery && mode === "edit") {
     console.error(
       "ImplementationError: exposureQuery is required for Edit mode",
@@ -281,6 +303,20 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                 value={userEnteredUserIdTypes}
                 onChange={(value) => form.setValue("userIdTypes", value)}
               />
+              {showIdentifierChangeWarning && (
+                <Callout status="warning" mb="3">
+                  {removedIdentifierTypes.length > 0
+                    ? `Removing ${removedIdentifierTypes
+                        .map((idType) => `"${idType}"`)
+                        .join(
+                          ", ",
+                        )} changes how existing experiments are analyzed.`
+                    : "Reordering identifier types changes which one is analyzed by default."}{" "}
+                  Experiments set up before this change are repointed to the
+                  pre-edit identifier automatically; those with an explicit
+                  identifier that no longer exists are flagged for review.
+                </Callout>
+              )}
               <div className="form-group">
                 <label className="mr-5">Query</label>
                 {userEnteredQuery === defaultQuery && (

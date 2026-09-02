@@ -1185,6 +1185,45 @@ export async function deleteExperimentSegment(
   });
 }
 
+/**
+ * When an assignment query's first identifier type changes (removed, or
+ * reordered so a different type is first), experiments configured before
+ * multi-identifier support — those with no stored `exposureQueryIdentifierType`,
+ * which implicitly analyze on the query's first identifier — would silently
+ * repoint to the new first identifier. Called at the datasource-edit choke point
+ * (before the change is applied) to pin such experiments to the pre-edit
+ * identifier, preserving their analysis unit. If that identifier was removed,
+ * the drift then surfaces as an `exposureQueryIdentifierType` outdated reason
+ * instead of a silent change. Returns the number of experiments pinned.
+ */
+export async function pinLegacyExposureQueryIdentifierType({
+  organization,
+  datasource,
+  exposureQueryId,
+  identifierType,
+}: {
+  organization: string;
+  datasource: string;
+  exposureQueryId: string;
+  identifierType: string;
+}): Promise<number> {
+  if (!identifierType) return 0;
+  const res = await ExperimentModel.updateMany(
+    {
+      organization,
+      datasource,
+      exposureQueryId,
+      $or: [
+        { exposureQueryIdentifierType: { $exists: false } },
+        { exposureQueryIdentifierType: null },
+        { exposureQueryIdentifierType: "" },
+      ],
+    },
+    { $set: { exposureQueryIdentifierType: identifierType } },
+  );
+  return res.modifiedCount ?? 0;
+}
+
 export async function getExperimentsForActivityFeed(
   context: ReqContext | ApiReqContext,
   ids: string[],
