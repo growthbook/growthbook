@@ -8,7 +8,15 @@ import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useRouter } from "next/router";
 import { curveLinear } from "@visx/curve";
-import { PiArrowSquareOut, PiCaretLeft, PiCaretRight } from "react-icons/pi";
+import { defaultStyles, TooltipWithBounds, useTooltip } from "@visx/tooltip";
+import { localPoint } from "@visx/event";
+import { Parser } from "json2csv";
+import {
+  PiArrowSquareOut,
+  PiCaretLeft,
+  PiCaretRight,
+  PiDownloadSimple,
+} from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
@@ -36,6 +44,27 @@ function formatBytes(bytes: number) {
   const adjusted = bytes / Math.pow(k, i);
 
   return parseFloat(adjusted.toFixed(adjusted > 10 ? 0 : 1)) + " " + sizes[i];
+}
+
+function downloadUsageCsv(usage: DailyUsage[], month: string) {
+  const csv = new Parser().parse(
+    usage.map((u) => ({
+      // Trimmed, not re-parsed: the API sends "YYYY-MM-DD HH:mm:ss", which Date reads as local time
+      date: u.date.substring(0, 10),
+      requests: u.requests,
+      // Raw bytes: the graphs label 1024-based units "GB", unlike a CDN's decimal GB
+      bandwidth_bytes: u.bandwidth,
+      managed_clickhouse_events: u.managedClickhouseEvents,
+    })),
+  );
+
+  const url = window.URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `cdn-usage-${month}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }
 
 export default function CloudUsage() {
@@ -139,7 +168,17 @@ export default function CloudUsage() {
       {!usage.length && <LoadingOverlay />}
       <Flex gap="2" align="center" mb="4">
         <h2 className="mr-4 mb-0">CDN Usage</h2>
-        <div className="ml-auto">
+        <Flex className="ml-auto" gap="3" align="center">
+          <Button
+            variant="ghost"
+            disabled={!usage.length}
+            onClick={() => {
+              downloadUsageCsv(usage, startDate.toISOString().substring(0, 7));
+              track("Exported CDN Usage CSV");
+            }}
+          >
+            <PiDownloadSimple /> Export CSV
+          </Button>
           <SelectField
             size="legacy"
             options={monthOptions}
@@ -147,7 +186,7 @@ export default function CloudUsage() {
             onChange={(value) => setMonthsAgo(parseInt(value))}
             sort={false}
           />
-        </div>
+        </Flex>
       </Flex>
       <Flex gap="5" align="center" mb="4">
         <div>
@@ -196,6 +235,7 @@ export default function CloudUsage() {
           <DailyGraph
             data={usage.map((u) => ({ ts: new Date(u.date), v: u.requests }))}
             formatValue={(v) => requestsFormatter.format(v)}
+            formatTooltipValue={(v) => v.toLocaleString()}
             start={startDate}
             end={endDate}
             limitLine={
@@ -230,6 +270,7 @@ export default function CloudUsage() {
               v: u.managedClickhouseEvents,
             }))}
             formatValue={(v) => requestsFormatter.format(v)}
+            formatTooltipValue={(v) => v.toLocaleString()}
             start={startDate}
             end={endDate}
             limitLine={
@@ -260,11 +301,13 @@ export default function CloudUsage() {
   );
 }
 
-function useCumulativeData(data: { ts: Date; v: number }[]) {
+type CumulativePoint = { ts: Date; v: number; daily: number };
+
+function useCumulativeData(data: { ts: Date; v: number }[]): CumulativePoint[] {
   let sum = 0;
   return data.map((d) => {
     sum += d.v;
-    return { ts: d.ts, v: sum };
+    return { ts: d.ts, v: sum, daily: d.v };
   });
 }
 
@@ -274,6 +317,7 @@ function DailyGraph({
   height = 250,
   limitLine = null,
   formatValue,
+  formatTooltipValue,
   start,
   end,
 }: {
@@ -282,13 +326,26 @@ function DailyGraph({
   height?: number;
   limitLine?: null | number;
   formatValue?: (v: number) => string;
+  // Axis ticks are compact ("9.3M"); a tooltip exists to show the actual number
+  formatTooltipValue?: (v: number) => string;
   start: Date;
   end: Date;
 }) {
-  data = useCumulativeData(data);
+  const points = useCumulativeData(data);
+  const formatTooltip =
+    formatTooltipValue ?? formatValue ?? ((v: number) => v.toLocaleString());
+
+  const {
+    tooltipOpen,
+    tooltipLeft,
+    tooltipTop,
+    tooltipData,
+    showTooltip,
+    hideTooltip,
+  } = useTooltip<CumulativePoint>();
 
   const margin = [15, 15, 30, 60];
-  const yDomain = [0, Math.max(...data.map((d) => d.v), limitLine || 0)];
+  const yDomain = [0, Math.max(...points.map((d) => d.v), limitLine || 0)];
 
   return (
     <div>
@@ -314,12 +371,13 @@ function DailyGraph({
                 className="rounded"
                 style={{
                   border: "1px solid var(--slate-a5)",
+                  position: "relative",
                 }}
               >
                 <svg width={width} height={height}>
                   <Group left={margin[3]} top={margin[0]}>
                     <AreaClosed
-                      data={data}
+                      data={points}
                       x={(d) => xScale(d.ts)}
                       y={(d) => yScale(d.v)}
                       yScale={yScale}
@@ -371,8 +429,87 @@ function DailyGraph({
                         textAnchor: "middle",
                       })}
                     />
+                    {tooltipOpen && tooltipData && (
+                      <g style={{ pointerEvents: "none" }}>
+                        <line
+                          x1={xScale(tooltipData.ts)}
+                          x2={xScale(tooltipData.ts)}
+                          y1={0}
+                          y2={graphHeight}
+                          stroke="var(--slate-a8)"
+                          strokeWidth={1}
+                        />
+                        <circle
+                          cx={xScale(tooltipData.ts)}
+                          cy={yScale(tooltipData.v)}
+                          r={4}
+                          fill="var(--violet-9)"
+                          stroke="var(--slate-1)"
+                          strokeWidth={2}
+                        />
+                      </g>
+                    )}
+                    <rect
+                      x={0}
+                      y={0}
+                      width={Math.max(xMax, 0)}
+                      height={graphHeight}
+                      fill="transparent"
+                      onMouseLeave={() => hideTooltip()}
+                      onMouseMove={(event) => {
+                        const point = localPoint(event);
+                        if (!point || !points.length) return;
+                        const target = xScale
+                          .invert(point.x - margin[3])
+                          .getTime();
+                        const closest = points.reduce((best, p) =>
+                          Math.abs(p.ts.getTime() - target) <
+                          Math.abs(best.ts.getTime() - target)
+                            ? p
+                            : best,
+                        );
+                        showTooltip({
+                          tooltipData: closest,
+                          tooltipLeft: xScale(closest.ts) + margin[3],
+                          tooltipTop: yScale(closest.v) + margin[0],
+                        });
+                      }}
+                    />
                   </Group>
                 </svg>
+                {tooltipOpen && tooltipData && (
+                  <TooltipWithBounds
+                    top={tooltipTop}
+                    left={tooltipLeft}
+                    style={{
+                      ...defaultStyles,
+                      backgroundColor: "var(--slate-2)",
+                      color: "var(--slate-12)",
+                      boxShadow: "var(--shadow-4)",
+                      borderRadius: 4,
+                      padding: 10,
+                      pointerEvents: "none",
+                      zIndex: 1000,
+                    }}
+                  >
+                    <Box className="text-muted" mb="2">
+                      {tooltipData.ts.toLocaleDateString("default", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                        timeZone: "UTC",
+                      })}
+                    </Box>
+                    <Flex justify="between" gap="4">
+                      <span>This day</span>
+                      <strong>{formatTooltip(tooltipData.daily)}</strong>
+                    </Flex>
+                    <Flex justify="between" gap="4">
+                      <span>Month to date</span>
+                      <strong>{formatTooltip(tooltipData.v)}</strong>
+                    </Flex>
+                  </TooltipWithBounds>
+                )}
               </div>
             );
           }}
