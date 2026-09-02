@@ -88,12 +88,8 @@ const ProjectAccessSettings: FC<{
         </Heading>
         <Flex align="center" justify="between" gap="3">
           <Flex align="center" gap="2" wrap="wrap">
-            <Text size="sm" color="text-low">
-              Restrict access
-            </Text>
-            <Text size="sm" weight="medium">
-              {project.restrictAccess ? "On" : "Off"}
-            </Text>
+            <Text color="text-low">Restrict access</Text>
+            <Text weight="medium">{project.restrictAccess ? "On" : "Off"}</Text>
           </Flex>
           <PremiumTooltip commercialFeature="advanced-permissions">
             <Button
