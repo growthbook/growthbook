@@ -122,8 +122,6 @@ export function onFactTableChange(
   };
 }
 
-export const onDenominatorFactTableChange = onFactTableChange;
-
 export function onQuantileScopeChange(
   current: ColumnRef,
   newScope: "unit" | "event",
@@ -131,12 +129,9 @@ export function onQuantileScopeChange(
   hasCountDistinctHLL = true,
 ): ColumnRef {
   if (newScope === "event") {
-    const numericColumns = columnsForShape("sum", factTable);
     return {
       ...current,
-      column: numericColumns.includes(current.column)
-        ? current.column
-        : (numericColumns[0] ?? ""),
+      column: fitColumn("sum", factTable, current.column),
       aggregation: undefined,
     };
   }
