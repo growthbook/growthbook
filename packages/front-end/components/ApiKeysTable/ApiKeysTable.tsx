@@ -185,6 +185,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               : `This key will immediately start accepting requests again.`
           }
           yesText={!pendingToggle.disabled ? "Disable" : "Enable"}
+          color={!pendingToggle.disabled ? "red" : "violet"}
           onConfirm={async () => {
             const target = pendingToggle;
             await onToggleDisabled(target.id, !target.disabled)();
