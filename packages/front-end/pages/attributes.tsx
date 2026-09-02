@@ -196,8 +196,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
     [getProjectById, attributeCustomFields],
   );
 
-  const hasArchived = attributeSchema.some((a) => a.archived);
-
   // Archived rows are hidden until an `archived:` filter asks for them, mirroring
   // the features list. Synced from the parsed query below, as there.
   const [showArchived, setShowArchived] = useState(false);
@@ -546,6 +544,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
       : col.header !== undefined
         ? col.header
         : col.label;
+
   const renderResizeHandle = (col: ResolvedTableColumn<AttributeRow>) => {
     if (col.resizable === false) return null;
     const { min, max } = columnWidthBounds(col);
@@ -610,7 +609,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   searchInputProps={searchInputProps}
                   setSearchValue={setSearchValue}
                   syntaxFilters={syntaxFilters}
-                  hasArchived={hasArchived}
                   customFields={filterableCustomFields}
                 />
               </Flex>
