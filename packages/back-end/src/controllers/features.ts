@@ -175,6 +175,7 @@ import {
   isArchiveTransition,
 } from "back-end/src/revisions/archiveTransition";
 import {
+  insertRuleBefore,
   moveFlatRule,
   stampRuleForEnvs,
   updateRuleById,
@@ -3260,6 +3261,7 @@ export async function postFeatureRule(
     rule,
     safeRolloutFields,
     rampSchedule: rampSchedulePayload,
+    insertBeforeRuleId,
   } = req.body;
 
   const feature = await getFeature(context, id);
@@ -3448,7 +3450,7 @@ export async function postFeatureRule(
     await context.models.projects.ensureProjectsExist(ruleScopeProjects);
   }
   const ruleAdditionChanges = {
-    rules: [...existingRules, stampedRule],
+    rules: insertRuleBefore(existingRules, stampedRule, insertBeforeRuleId),
   };
 
   const combinedChanges: Record<string, unknown> = ruleAdditionChanges;
@@ -5575,6 +5577,7 @@ export async function putFeature(
   ) {
     await validateCustomFieldsForSection({
       customFieldValues: updates.customFields,
+      existingCustomFieldValues: feature.customFields,
       customFieldsModel: context.models.customFields,
       section: "feature",
       project: "project" in updates ? updates.project : feature.project,

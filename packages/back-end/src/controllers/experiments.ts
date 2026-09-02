@@ -1253,7 +1253,8 @@ export async function postExperiments(
     hashAttribute: data.hashAttribute || "",
     fallbackAttribute: data.fallbackAttribute || "",
     hashVersion: data.hashVersion || 2,
-    disableStickyBucketing: data.disableStickyBucketing ?? false,
+    disableStickyBucketing:
+      data.disableStickyBucketing ?? !org.settings?.stickyBucketingOnByDefault,
     autoSnapshots: true,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -1605,6 +1606,7 @@ export async function postExperiment(
   ) {
     await validateCustomFieldsForSection({
       customFieldValues: data.customFields,
+      existingCustomFieldValues: experiment.customFields,
       customFieldsModel: context.models.customFields,
       section: "experiment",
       project: "project" in data ? data.project : experiment.project,
