@@ -800,6 +800,14 @@ export function ExplorerProvider({
     if (needsFetch) {
       if (deferFunnelFetchUntilManualRefresh) {
         setIsStale(true);
+      } else if (
+        cleanedDraftExploreState.type === "sql" &&
+        !isManagedWarehouse
+      ) {
+        // SQL on customer warehouses: apply cached viz results if present,
+        // but don't kick off a new warehouse query (default Count on first
+        // Explore visit, or SQL edits after a visualization exists).
+        doSubmit({ cache: "required" });
       } else {
         doSubmit();
       }

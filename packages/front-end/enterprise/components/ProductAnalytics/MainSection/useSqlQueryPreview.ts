@@ -2,10 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { QueryExecutionResult, type SqlDataset } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import {
-  applySqlPreviewMetadata,
-  isSubmittableConfig,
-} from "@/enterprise/components/ProductAnalytics/util";
+import { applySqlPreviewMetadata } from "@/enterprise/components/ProductAnalytics/util";
 import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 
 export const PREVIEW_ROW_LIMIT = 100;
@@ -32,8 +29,7 @@ export default function useSqlQueryPreview({
   onRun?: () => void;
 }) {
   const { apiCall } = useAuth();
-  const { setDraftExploreState, handleSubmit, draftExploreState } =
-    useExplorerContext();
+  const { setDraftExploreState, draftExploreState } = useExplorerContext();
   const { localSql, setIsQueryRunning, setExploreReady } =
     useSqlEditorContext();
   const [state, setState] = useState<SqlQueryPreviewState>(idleState);
@@ -76,24 +72,16 @@ export default function useSqlQueryPreview({
       inferredTimestamp: string | null,
     ) => {
       if (draftExploreState.dataset.type !== "sql") return;
-      const next = applySqlPreviewMetadata(
-        draftExploreState,
-        sql,
-        columnTypes,
-        inferredTimestamp,
+      setDraftExploreState(
+        applySqlPreviewMetadata(
+          draftExploreState,
+          sql,
+          columnTypes,
+          inferredTimestamp,
+        ),
       );
-      const sqlChanged = draftExploreState.dataset.sql !== sql;
-      const previousTimestamp = draftExploreState.dataset.timestampColumn;
-      const nextTimestamp =
-        next.dataset.type === "sql" ? next.dataset.timestampColumn : null;
-      const timestampChanged = previousTimestamp !== nextTimestamp;
-      if ((sqlChanged || timestampChanged) && isSubmittableConfig(next)) {
-        void handleSubmit({ force: true, config: next, setDraft: true });
-        return;
-      }
-      setDraftExploreState(next);
     },
-    [draftExploreState, handleSubmit, setDraftExploreState],
+    [draftExploreState, setDraftExploreState],
   );
 
   const runQuery = useCallback(
