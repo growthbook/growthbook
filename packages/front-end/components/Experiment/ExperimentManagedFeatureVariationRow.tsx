@@ -39,11 +39,9 @@ import rowStyles from "./ExperimentManagedFeatureVariationRow.module.scss";
 // The one column template the header row and every variation row share.
 // Short cells centre on the field's first line, not the top of a row a tall
 // value stretched. 32px is size="md"'s control height.
-const FIRST_LINE_CELL = {
-  minHeight: 32,
-  display: "flex",
-  alignItems: "center",
-} as const;
+// `input.form-control--md`'s height, so a short cell centres on the field's
+// first line rather than the top of a row a tall value stretched.
+const FIRST_LINE_HEIGHT = "32px";
 
 export function gridColumns({
   hideValueField,
@@ -273,22 +271,23 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
           align="start"
         >
           {showDragHandle && (
-            <Box
+            <Flex
               {...handle}
               title="Drag and drop to re-order variations"
+              align="center"
+              minHeight={FIRST_LINE_HEIGHT}
               style={{
-                ...FIRST_LINE_CELL,
                 cursor: "grab",
                 color: "var(--color-text-low)",
               }}
             >
               <RiDraggable size={16} />
-            </Box>
+            </Flex>
           )}
 
-          <Box style={FIRST_LINE_CELL}>
+          <Flex align="center" minHeight={FIRST_LINE_HEIGHT}>
             <VariationNumber number={i} />
-          </Box>
+          </Flex>
 
           {!hideValueField &&
             (setVariations && !lockStructure ? (
@@ -396,12 +395,17 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
                 <Text as="span">%</Text>
               </Box>
             ) : (
-              <Box style={FIRST_LINE_CELL}>
+              <Flex align="center" minHeight={FIRST_LINE_HEIGHT}>
                 <span>{decimalToPercent(weights[i])}%</span>
-              </Box>
+              </Flex>
             ))}
 
-          <Flex align="center" justify="end" gap="2" style={FIRST_LINE_CELL}>
+          <Flex
+            align="center"
+            justify="end"
+            gap="2"
+            minHeight={FIRST_LINE_HEIGHT}
+          >
             {setVariations && !lockStructure ? (
               <DropdownMenu
                 trigger={

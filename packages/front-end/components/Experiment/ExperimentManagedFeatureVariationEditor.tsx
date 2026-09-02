@@ -337,8 +337,10 @@ export default function ExperimentManagedFeatureVariationEditor({
                   <span>Variation Name</span>
                   {onAddValues && (
                     <Link onClick={onAddValues} weight="medium">
-                      <PiPlusBold className="mr-1" />
-                      Add values
+                      <Flex align="center" gap="1">
+                        <PiPlusBold />
+                        Add variation values
+                      </Flex>
                     </Link>
                   )}
                 </Flex>
