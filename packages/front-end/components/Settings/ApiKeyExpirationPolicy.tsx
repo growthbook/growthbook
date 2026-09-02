@@ -146,7 +146,7 @@ const ApiKeyExpirationPolicy: FC<{
           title={`Apply expiration to ${nonCompliant.length} existing ${
             nonCompliant.length === 1 ? COPY[kind].noun : COPY[kind].nounPlural
           }?`}
-          content={`They will stop working on the new expiration date unless they are replaced first. This can't be undone by clearing the policy afterwards — the dates stay once they are set.`}
+          content={`They will stop working on the new expiration date unless they are replaced first. This can't be undone by clearing the policy afterwards.`}
           yesText="Apply to existing"
           color="red"
           onConfirm={async () => {
