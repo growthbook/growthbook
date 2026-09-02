@@ -196,7 +196,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         label: "Attribute",
         sortField: "property",
         hideable: false,
-        defaultWidth: 220,
+        defaultWidth: 200,
         minWidth: 120,
         cellProps: () => ({ className: "text-gray font-weight-bold" }),
         render: (v, width) => (
@@ -272,7 +272,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
       {
         id: "projects",
         label: "Projects",
-        defaultWidth: 150,
+        defaultWidth: 130,
         render: (v) => (
           <ProjectBadges
             resourceType="attribute"
@@ -283,7 +283,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
       {
         id: "tags",
         label: "Tags",
-        defaultWidth: 150,
+        defaultWidth: 130,
         render: (v) => (
           // The inner div is the flex min-width: 0 fix for SortedTags useFlex;
           // overflow must not go on the <td> (list cells stay visible so
