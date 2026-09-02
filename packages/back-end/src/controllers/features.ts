@@ -5577,6 +5577,7 @@ export async function putFeature(
   ) {
     await validateCustomFieldsForSection({
       customFieldValues: updates.customFields,
+      existingCustomFieldValues: feature.customFields,
       customFieldsModel: context.models.customFields,
       section: "feature",
       project: "project" in updates ? updates.project : feature.project,
