@@ -10,6 +10,11 @@ import Button from "@/ui/Button";
 const getQueryStringValue = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
+const getSlackAuthorizationError = (error: string) =>
+  error === "access_denied"
+    ? "Slack authorization was canceled."
+    : "Slack authorization failed. Try again.";
+
 const SlackIntegrationsPage: NextPage = () => {
   const permissionsUtils = usePermissionsUtil();
   const router = useRouter();
@@ -25,7 +30,7 @@ const SlackIntegrationsPage: NextPage = () => {
     const slackError = getQueryStringValue(router.query.error);
     if (slackError) {
       callbackProcessed.current = true;
-      setConnectError(`Slack authorization failed: ${slackError}`);
+      setConnectError(getSlackAuthorizationError(slackError));
       router.replace("/integrations/slack", undefined, { shallow: true });
       return;
     }

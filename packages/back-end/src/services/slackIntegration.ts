@@ -396,12 +396,23 @@ const attachSlackOAuthCode = async ({
   code: string;
 }) => {
   const slackOAuthResponse = await exchangeSlackOAuthCode(code);
+  const teamId = slackOAuthResponse.team?.id;
+  if (!teamId) {
+    throw new Error(
+      "Slack did not return a workspace id. Install the GrowthBook app into a specific workspace (org-wide enterprise installs are not supported).",
+    );
+  }
 
   // Workspace-level install (current manifest, no incoming-webhook scope):
   // no channel was picked on Slack's consent screen — attach a channel-less
   // workspace connection; channels are added afterward from the GrowthBook UI.
   if (!slackOAuthResponse.incoming_webhook) {
     return attachSlackWorkspaceInstall({ context, slackOAuthResponse });
+  }
+
+  const channelId = slackOAuthResponse.incoming_webhook.channel_id;
+  if (!channelId) {
+    throw new Error("Slack did not return a channel identifier");
   }
 
   // Legacy per-channel install (manifest still has the incoming-webhook
@@ -430,20 +441,33 @@ const attachSlackOAuthCode = async ({
     return slackEventWebhookToIntegration(updated);
   }
 
-  const created = await createEventWebHook({
-    name: getSlackWebhookName(slackOAuthResponse),
-    url: slackOAuthResponse.incoming_webhook.url,
-    organizationId: context.org.id,
-    enabled: true,
-    events: DEFAULT_SLACK_EVENTS,
-    projects: [],
-    tags: [],
-    environments: [],
-    payloadType: "slack",
-    method: "POST",
-    headers: {},
-    slack: getSlackMetadata(slackOAuthResponse),
-  });
+  let created: EventWebHookInterface;
+  try {
+    created = await createEventWebHook({
+      name: getSlackWebhookName(slackOAuthResponse),
+      url: slackOAuthResponse.incoming_webhook.url,
+      organizationId: context.org.id,
+      enabled: true,
+      events: DEFAULT_SLACK_EVENTS,
+      projects: [],
+      tags: [],
+      environments: [],
+      payloadType: "slack",
+      method: "POST",
+      headers: {},
+      slack: getSlackMetadata(slackOAuthResponse),
+    });
+  } catch (error) {
+    if (!isDuplicateKeyError(error)) throw error;
+
+    const concurrent = await findSlackChannelEventWebhook({
+      organizationId: context.org.id,
+      teamId,
+      channelId,
+    });
+    if (!concurrent) throw error;
+    return slackEventWebhookToIntegration(concurrent);
+  }
   await persistSlackBotAccessToken({
     eventWebHookId: created.id,
     organizationId: context.org.id,
