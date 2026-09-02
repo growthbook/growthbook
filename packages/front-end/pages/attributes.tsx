@@ -50,6 +50,16 @@ import {
   renderCustomFieldValue,
 } from "@/components/CustomFields/renderCustomFieldValue";
 
+// Built-in `key:value` filters. A custom field with one of these ids keeps its
+// column and free-text search but can't shadow the built-in filter.
+const RESERVED_FILTER_KEYS = new Set([
+  "is",
+  "datatype",
+  "project",
+  "identifier",
+  "tag",
+]);
+
 // Rough char budget for a column of `width` px. Only settles after a resize
 // commits, which is why it takes the committed width rather than a live one.
 function truncateCharsForWidth(width: number | undefined) {
@@ -147,6 +157,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
       : filterCustomFieldsForSection(allCustomFields, "attribute");
     return fields ?? [];
   }, [allCustomFields, hasCommercialFeature, project]);
+  const filterableCustomFields = useMemo(
+    () =>
+      attributeCustomFields.filter(
+        (f) => !RESERVED_FILTER_KEYS.has(f.id.toLowerCase()),
+      ),
+    [attributeCustomFields],
+  );
 
   const attributesWithComputedFields = useAddComputedFields(
     attributeSchema,
@@ -218,7 +235,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
       tag: (item) => item.tags || [],
       // parseQuery lowercases the field, so the filter keys must match.
       ...Object.fromEntries(
-        attributeCustomFields.map((f) => [
+        filterableCustomFields.map((f) => [
           f.id.toLowerCase(),
           (item: { customFields?: Record<string, string> }) =>
             customFieldFilterValue(f, item.customFields?.[f.id] ?? ""),
@@ -573,7 +590,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   setSearchValue={setSearchValue}
                   syntaxFilters={syntaxFilters}
                   hasArchived={hasArchived}
-                  customFields={attributeCustomFields}
+                  customFields={filterableCustomFields}
                 />
               </Flex>
             </Box>
