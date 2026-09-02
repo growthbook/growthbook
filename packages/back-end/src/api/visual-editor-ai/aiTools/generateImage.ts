@@ -46,6 +46,16 @@ const inputSchema = z.object({
     ),
 });
 
+// `gen/` has a 7-day TTL; the extension promotes out of it when the user
+// accepts. A persisting caller has no accept step, so it writes permanent.
+export function imageFilePath(
+  orgId: string,
+  ext: string,
+  quarantine: boolean,
+): string {
+  return `${quarantine ? "gen/" : ""}${orgId}/visual-editor/img_${uuidv4()}.${ext}`;
+}
+
 export function generateImageTool(toolCtx: GenerateImageToolContext) {
   return aiTool({
     description:
@@ -141,10 +151,11 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
 
         const img = generated[0];
         const optimized = await optimizeAIImage(img);
-        // `gen/` has a 7-day TTL; the extension promotes out of it on accept.
-        const filePath = `${toolCtx.quarantine ? "gen/" : ""}${
-          org.id
-        }/visual-editor/img_${uuidv4()}.${optimized.ext}`;
+        const filePath = imageFilePath(
+          org.id,
+          optimized.ext,
+          toolCtx.quarantine,
+        );
         const url = await uploadFile(
           filePath,
           optimized.contentType,
