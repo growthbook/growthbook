@@ -109,7 +109,7 @@ export default function CreateSDKConnectionModal({
       close={close}
       header="New SDK Connection"
       size="lg"
-      cta="Create"
+      cta="Save"
       submit={async () => {
         if (!value.languages.length) {
           setLanguageError("Please select an SDK language");

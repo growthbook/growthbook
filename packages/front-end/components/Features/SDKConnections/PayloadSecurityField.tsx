@@ -15,6 +15,7 @@ import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import {
   DeliveryMode,
@@ -205,21 +206,49 @@ export default function PayloadSecurityField({
   const options = [
     {
       value: "plain",
-      label: "Plain Text (Default)",
-      description:
-        "Readable by anyone with the client key. Fastest, most cacheable.",
+      label: (
+        <Flex as="span" align="center" gap="1">
+          Plain Text
+          <Tooltip
+            body={
+              <p>
+                Full feature definitions, including targeting conditions and
+                experiment variations, are viewable by anyone with the Client
+                Key.
+              </p>
+            }
+          >
+            <PiInfo />
+          </Tooltip>
+        </Flex>
+      ),
+      description: "Highly cacheable, but may leak sensitive info to users",
     },
     {
       value: "ciphered",
       label: (
         <Flex as="span" align="center" gap="2">
-          Ciphered
+          <Flex as="span" align="center" gap="1">
+            Ciphered
+            <Tooltip
+              body={
+                <p>
+                  Full feature definitions are encrypted and sensitive targeting
+                  conditions are hashed to help avoid leaking business logic to
+                  client-side apps. Not 100% secure, but will stop most prying
+                  eyes.
+                </p>
+              }
+            >
+              <PiInfo />
+            </Tooltip>
+          </Flex>
           {!hasEncryptionFeature && (
             <PaidFeatureBadge commercialFeature="encrypt-features-endpoint" />
           )}
         </Flex>
       ),
-      description: "AES-encrypted payload. Obfuscated, still cacheable.",
+      description: "Adds obfuscation while remaining cacheable",
       renderOnSelect: <Box mt="2">{cipherOptions}</Box>,
     },
     ...(remoteEvalSupported
@@ -228,52 +257,34 @@ export default function PayloadSecurityField({
             value: "remote",
             label: (
               <Flex as="span" align="center" gap="2">
-                <PremiumTooltip
-                  commercialFeature="remote-evaluation"
-                  tipMinWidth="600px"
-                  body={
-                    <>
-                      <div className="mb-2">
-                        <strong>Remote Evaluation</strong> fully secures your
-                        SDK by evaluating feature flags exclusively on a private
-                        server instead of within a front-end environment. This
-                        ensures that any sensitive information within targeting
-                        rules or unused feature variations are never seen by the
-                        client.
-                      </div>
-                      <div className="mb-2">
-                        Remote evaluation provides the same security benefits as
-                        a backend SDK. However, remote evaluation is neither
-                        needed nor supported for backend SDKs.
-                      </div>
-                      <div className="mb-2">
-                        Remote evaluation does come with a few cost
-                        considerations:
-                        <ol className="pl-3 mt-2">
-                          <li className="mb-2">
-                            It will increase network traffic. Evaluated payloads
-                            cannot be shared across different users; therefore
-                            CDN cache misses will increase.
-                          </li>
-                          <li>
-                            Any connections using Streaming Updates will incur a
-                            slight delay. An additional network hop is required
-                            to retrieve the evaluated payload from the server.
-                          </li>
-                        </ol>
-                      </div>
-                    </>
-                  }
-                >
-                  Remote Eval (Strongest protection) <PiInfo />
-                </PremiumTooltip>
+                <Flex as="span" align="center" gap="1">
+                  Remote Evaluated
+                  <Tooltip
+                    body={
+                      <>
+                        <p>
+                          Features and experiments are evaluated on a private
+                          server and only the final assigned values are exposed
+                          to users.
+                        </p>
+                        {isCloud() && (
+                          <HelperText status="warning" size="sm">
+                            Requires a remote evaluation service such as
+                            GrowthBook Proxy or a CDN edge worker.
+                          </HelperText>
+                        )}
+                      </>
+                    }
+                  >
+                    <PiInfo />
+                  </Tooltip>
+                </Flex>
                 {!hasRemoteEvaluationFeature && (
                   <PaidFeatureBadge commercialFeature="remote-evaluation" />
                 )}
               </Flex>
             ),
-            description:
-              "Evaluated server-side. The SDK never receives raw rules. Not cacheable.",
+            description: "Completely hides business logic from users",
             disabled: !hasRemoteEvaluationFeature,
             renderOnSelect: (
               <Flex direction="column" gap="3" mt="2">

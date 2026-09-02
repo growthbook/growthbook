@@ -148,7 +148,7 @@ export default function SDKConnectionFields({
   return (
     <Flex direction="column" gap="4">
       <TextField
-        label="Connection Name"
+        label="Name"
         placeholder="My Application"
         value={value.name}
         onChange={(e) => onChange({ name: e.target.value })}
@@ -156,29 +156,36 @@ export default function SDKConnectionFields({
         markRequired
       />
 
-      <SDKLanguageSelector
-        value={value.languages}
-        setValue={(langs) =>
-          // A single language pins its latest version, as the full form does.
-          onChange(
-            langs.length === 1
-              ? {
-                  languages: langs,
-                  sdkVersion: getLatestSDKVersion(langs[0] as SDKLanguage),
-                }
-              : { languages: langs },
-          )
-        }
-        multiple={value.languages.length > 1}
-        includeOther={true}
-        skipLabel={value.languages.length <= 1}
-        hideShowAllLanguages={true}
-        languageFilter={languageFilter}
-        setLanguageFilter={setLanguageFilter}
-      />
-      {languageError ? (
-        <HelperText status="error">{languageError}</HelperText>
-      ) : null}
+      <Box>
+        <Text as="div" weight="semibold" mb="2">
+          SDK Language
+        </Text>
+        {languageError ? (
+          <HelperText status="error" mb="2">
+            {languageError}
+          </HelperText>
+        ) : null}
+        <SDKLanguageSelector
+          value={value.languages}
+          setValue={(langs) =>
+            // A single language pins its latest version, as the full form does.
+            onChange(
+              langs.length === 1
+                ? {
+                    languages: langs,
+                    sdkVersion: getLatestSDKVersion(langs[0] as SDKLanguage),
+                  }
+                : { languages: langs },
+            )
+          }
+          multiple={value.languages.length > 1}
+          includeOther={true}
+          skipLabel={value.languages.length <= 1}
+          hideShowAllLanguages={true}
+          languageFilter={languageFilter}
+          setLanguageFilter={setLanguageFilter}
+        />
+      </Box>
 
       <Grid
         columns={{ initial: "1", sm: showVersionPicker ? "2" : "1" }}
@@ -189,7 +196,7 @@ export default function SDKConnectionFields({
             {/* Stays on the legacy select: the version list must accept a
                 typed-in version that isn't in the list yet. */}
             <SelectField
-              label="SDK Version"
+              label="SDK version"
               sort={false}
               placeholder="0.0.0"
               options={getSDKVersions(singleLanguage).map((ver) => ({

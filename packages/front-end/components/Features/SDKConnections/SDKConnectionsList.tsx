@@ -54,6 +54,7 @@ export default function SDKConnectionsList() {
     <div>
       {modalOpen && (
         <CreateSDKConnectionModal
+          initialValue={{ languages: [], includeRuleIds: true }}
           close={() => setModalOpen(false)}
           mutate={() => {
             mutate();
