@@ -112,7 +112,6 @@ const ApiKeyExpirationPolicy: FC<{
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           disabled={hasFileConfig()}
-          containerClassName="mb-0"
         />
         <Button onClick={save} disabled={hasFileConfig()}>
           Save

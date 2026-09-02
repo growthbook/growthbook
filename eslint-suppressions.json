@@ -1473,11 +1473,6 @@
       "count": 5
     }
   },
-  "packages/front-end/components/Settings/ApiKeysModal.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/AthenaForm.tsx": {
     "no-restricted-syntax": {
       "count": 2
