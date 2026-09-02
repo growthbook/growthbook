@@ -347,9 +347,13 @@ export function useHoverTooltip({
         }
 
         // Reset the show timer - tooltip only appears after mouse is still
-        if (state === "waiting") {
+        // Also handle idle state so tooltip can re-appear after being dismissed
+        if (state === "waiting" || state === "idle") {
           if (showTimerRef.current) {
             clearTimeout(showTimerRef.current);
+          }
+          if (state === "idle") {
+            setState("waiting");
           }
           showTimerRef.current = setTimeout(() => {
             const success = openTooltip(id);

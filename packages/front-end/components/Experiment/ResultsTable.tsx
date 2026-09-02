@@ -541,6 +541,7 @@ export default function ResultsTable({
   return (
     <DrilldownTooltip enabled={drilldownEnabled}>
       {({
+        onMouseEnter: onRowMouseEnter,
         onMouseMove: onRowMouseMove,
         onMouseLeave: onRowMouseLeave,
         onClick: onRowClick_,
@@ -829,6 +830,7 @@ export default function ResultsTable({
                                   }
                                 : undefined
                             }
+                            onMouseEnter={onRowMouseEnter}
                             onMouseMove={onRowMouseMove}
                             onMouseLeave={onRowMouseLeave}
                           >
