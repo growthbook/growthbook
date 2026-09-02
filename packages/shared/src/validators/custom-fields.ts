@@ -29,7 +29,6 @@ export const customFieldsPropsValidator = z.object({
   defaultValue: z.any().optional(),
   type: customFieldTypes,
   values: z.string().optional(),
-  // Enum and multiselect only: allow users to enter values beyond the predefined list
   creatable: z.boolean().optional(),
   required: z.boolean(),
   creator: z.string().optional(),

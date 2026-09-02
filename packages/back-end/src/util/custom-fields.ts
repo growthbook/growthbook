@@ -87,7 +87,6 @@ function validateSingleCustomFieldValue(
         `Invalid enum value for custom field ${customField.id} (${toStringValue(value)}). Only one value is allowed for enum fields.`,
       );
     }
-    // Creatable fields accept values beyond the predefined list
     if (customField.creatable) {
       return;
     }
