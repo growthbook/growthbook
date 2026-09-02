@@ -83,11 +83,11 @@ const ProjectAccessSettings: FC<{
         </ModalStandard>
       )}
       <Frame px="4" py="3" mb="4">
+        <Heading as="h5" size="xs" mb="2">
+          User Access
+        </Heading>
         <Flex align="center" justify="between" gap="3">
           <Flex align="center" gap="2" wrap="wrap">
-            <Heading as="h5" size="sm" mb="0">
-              User Access
-            </Heading>
             <Text size="sm" color="text-low">
               Restrict access
             </Text>
@@ -98,7 +98,6 @@ const ProjectAccessSettings: FC<{
           <PremiumTooltip commercialFeature="advanced-permissions">
             <Button
               variant="ghost"
-              size="sm"
               disabled={!canEdit || !canRestrictAccess}
               onClick={() => {
                 setRestrictAccess(!!project.restrictAccess);
