@@ -8,12 +8,17 @@ import {
   MetricQuantileSettings,
   MetricWindowSettings,
 } from "shared/types/fact-table";
+import { getFactTableTimestampColumn } from "shared/experiments";
+import { isMergeAggregationMetric } from "@/services/factMetrics";
 
 export const SHAPES = ["count", "sum", "max", "distinct", "days"] as const;
 export type Shape = (typeof SHAPES)[number];
 export type RatioShape = Shape | "users";
 
-// Threshold basis is count or sum only (spec).
+// Threshold basis is count or sum only (spec). This governs the aggregate-
+// filter basis picker only - it has nothing to do with a numerator's own
+// shape (proportion/threshold/retention numerators don't have one; see
+// storedTypeAndNumeratorFor below).
 export const THRESHOLD_SHAPES = ["count", "sum"] as const;
 
 type MinimalColumn = {
@@ -21,7 +26,14 @@ type MinimalColumn = {
   datatype: FactTableColumnType;
   deleted?: boolean;
 };
-type MinimalFactTable = { columns: MinimalColumn[] } | null | undefined;
+type MinimalFactTable =
+  | {
+      columns: MinimalColumn[];
+      userIdTypes?: string[];
+      timestampColumn?: string;
+    }
+  | null
+  | undefined;
 
 // columnsFor(shape, factTable) from the spec. [] means omit the Column field.
 // "distinct" also needs datasource.properties.hasCountDistinctHLL — where
@@ -31,7 +43,7 @@ type MinimalFactTable = { columns: MinimalColumn[] } | null | undefined;
 export function columnsForShape(
   shape: RatioShape,
   factTable: MinimalFactTable,
-  hasCountDistinctHLL = true,
+  hasCountDistinctHLL = false,
 ): string[] {
   if (
     !factTable ||
@@ -42,8 +54,13 @@ export function columnsForShape(
   ) {
     return [];
   }
+  const timestampColumn = getFactTableTimestampColumn(factTable);
+  const userIdTypes = factTable.userIdTypes ?? [];
   const columns = factTable.columns.filter(
-    (c) => !c.deleted && c.column !== "timestamp",
+    (c) =>
+      !c.deleted &&
+      c.column !== timestampColumn &&
+      !userIdTypes.includes(c.column),
   );
   if (shape === "distinct") {
     return columns.filter((c) => c.datatype === "string").map((c) => c.column);
@@ -55,7 +72,7 @@ export function fitColumn(
   shape: RatioShape,
   factTable: MinimalFactTable,
   currentColumn: string,
-  hasCountDistinctHLL = true,
+  hasCountDistinctHLL = false,
 ): string {
   if (shape === "count") return "$$count";
   if (shape === "days") return "$$distinctDates";
@@ -93,7 +110,7 @@ export function onShapeChange(
   current: ColumnRef,
   newShape: RatioShape,
   factTable: MinimalFactTable,
-  hasCountDistinctHLL = true,
+  hasCountDistinctHLL = false,
 ): ColumnRef {
   return {
     ...current,
@@ -109,7 +126,7 @@ export function onFactTableChange(
   current: ColumnRef,
   newFactTableId: string,
   factTable: MinimalFactTable,
-  hasCountDistinctHLL = true,
+  hasCountDistinctHLL = false,
 ): ColumnRef {
   const shape = shapeFromColumnRef(current) ?? "sum";
   return {
@@ -126,7 +143,7 @@ export function onQuantileScopeChange(
   current: ColumnRef,
   newScope: "unit" | "event",
   factTable: MinimalFactTable,
-  hasCountDistinctHLL = true,
+  hasCountDistinctHLL = false,
 ): ColumnRef {
   if (newScope === "event") {
     return {
@@ -251,13 +268,6 @@ function isValidThresholdBasis(
   return col.datatype === "number";
 }
 
-// "aggregation: 'hll merge' or 'kll merge' — sketch columns" (spec) is stated
-// generally, not scoped to one metric type — apply it to every ColumnRef part
-// that carries a real aggregation, including both sides of a ratio.
-function isSketchAggregation(ref: MinimalNumerator | undefined): boolean {
-  return ref?.aggregation === "hll merge" || ref?.aggregation === "kll merge";
-}
-
 export function formTypeFromStored(
   metric: {
     metricType: FactMetricType;
@@ -273,10 +283,10 @@ export function formTypeFromStored(
   const { metricType, numerator, denominator, quantileSettings } = metric;
 
   // "aggregation: 'hll merge' or 'kll merge'" (spec) is stated generally, not
-  // scoped to one metric type. Checked once here rather than per-branch so
-  // every type's numerator/denominator is covered, not just the ones that
-  // happen to be reachable through today's UI.
-  if (isSketchAggregation(numerator) || isSketchAggregation(denominator)) {
+  // scoped to one metric type. isMergeAggregationMetric is the same helper
+  // the metric detail page already uses to lock down API-only metrics, so
+  // this is checked once here rather than reimplemented per branch.
+  if (isMergeAggregationMetric({ numerator, denominator })) {
     return { representable: false, reason: "sketch-aggregation" };
   }
 
@@ -313,7 +323,14 @@ export function formTypeFromStored(
     return { representable: true, type: "quantile" };
   }
 
-  // metricType === "mean"
+  // Every FactMetricType is handled above except "mean". Asserted explicitly
+  // so a future addition to the union fails to compile here instead of
+  // silently falling through and misclassifying as "mean".
+  if (metricType !== "mean") {
+    const exhaustiveCheck: never = metricType;
+    throw new Error(`Unhandled metric type: ${exhaustiveCheck}`);
+  }
+
   if (numerator?.column === "$$distinctUsers") {
     return { representable: false, reason: "mean-on-distinct-users" };
   }
@@ -330,34 +347,70 @@ export function formTypeFromStored(
   return { representable: true, type: "colSum" };
 }
 
-function storedTypeAndShapeFor(formType: FormMetricType): {
+// What a form type dictates about the numerator: no numerator at all
+// (funnel), a fixed sentinel column with no shape concept (proportion/
+// threshold/retention need $$distinctUsers so hasAggregateFilter/
+// isBinomialMetric resolve correctly downstream; dailyParticipation needs
+// $$distinctDates so it aggregates as COUNT(DISTINCT date) rather than
+// COUNT(*) - see FactMetricModel.upgradeFactMetricDoc's auto-heal for the
+// same rule), or the shared five-shape system (Value types, ratio, quantile).
+type NumeratorSpec =
+  | { kind: "none" }
+  | { kind: "fixed"; column: string }
+  | { kind: "shape"; shape: Shape };
+
+function storedTypeAndNumeratorFor(formType: FormMetricType): {
   metricType: FactMetricType;
-  shape: Shape | null;
+  numerator: NumeratorSpec;
 } {
   switch (formType) {
     case "proportion":
     case "threshold":
-      return { metricType: "proportion", shape: "count" };
+      return {
+        metricType: "proportion",
+        numerator: { kind: "fixed", column: "$$distinctUsers" },
+      };
     case "retention":
-      return { metricType: "retention", shape: "count" };
-    case "funnel":
-      return { metricType: "funnel", shape: null };
-    case "rowCount":
-      return { metricType: "mean", shape: "count" };
-    case "colSum":
-      return { metricType: "mean", shape: "sum" };
-    case "colMax":
-      return { metricType: "mean", shape: "max" };
-    case "countDist":
-      return { metricType: "mean", shape: "distinct" };
-    case "activeDays":
-      return { metricType: "mean", shape: "days" };
-    case "ratio":
-      return { metricType: "ratio", shape: "sum" };
-    case "quantile":
-      return { metricType: "quantile", shape: "sum" };
+      return {
+        metricType: "retention",
+        numerator: { kind: "fixed", column: "$$distinctUsers" },
+      };
     case "dailyParticipation":
-      return { metricType: "dailyParticipation", shape: "count" };
+      return {
+        metricType: "dailyParticipation",
+        numerator: { kind: "fixed", column: "$$distinctDates" },
+      };
+    case "funnel":
+      return { metricType: "funnel", numerator: { kind: "none" } };
+    case "rowCount":
+      return {
+        metricType: "mean",
+        numerator: { kind: "shape", shape: "count" },
+      };
+    case "colSum":
+      return { metricType: "mean", numerator: { kind: "shape", shape: "sum" } };
+    case "colMax":
+      return { metricType: "mean", numerator: { kind: "shape", shape: "max" } };
+    case "countDist":
+      return {
+        metricType: "mean",
+        numerator: { kind: "shape", shape: "distinct" },
+      };
+    case "activeDays":
+      return {
+        metricType: "mean",
+        numerator: { kind: "shape", shape: "days" },
+      };
+    case "ratio":
+      return {
+        metricType: "ratio",
+        numerator: { kind: "shape", shape: "sum" },
+      };
+    case "quantile":
+      return {
+        metricType: "quantile",
+        numerator: { kind: "shape", shape: "sum" },
+      };
   }
 }
 
@@ -383,22 +436,25 @@ function defaultFunnelStep(name: string, factTableId: string): FunnelStep {
 
 /**
  * Reset rule: metric type change -> refit the column for the new type's
- * shape. Also initializes the extra fields a type requires to be valid
- * (ratio's denominator, quantile's quantileSettings, funnel's
- * funnelSettings.steps) when they aren't already set, since the schema
- * requires all three for their respective metricType — but never overwrites
- * one that's already there, so switching away and back doesn't lose it.
+ * shape (or set its fixed sentinel column, for types that don't have a
+ * shape - see storedTypeAndNumeratorFor). Also initializes the extra fields
+ * a type requires to be valid (ratio's denominator, quantile's
+ * quantileSettings, funnel's funnelSettings.steps) when they aren't already
+ * set, since the schema requires all three for their respective metricType
+ * — but never overwrites one that's already there, so switching away and
+ * back doesn't lose it.
  */
 export function applyFormType<T extends MetricTypeSwitchState>(
   current: T,
   newFormType: FormMetricType,
   factTable: MinimalFactTable,
-  hasCountDistinctHLL = true,
+  hasCountDistinctHLL = false,
 ): T {
-  const { metricType, shape } = storedTypeAndShapeFor(newFormType);
+  const { metricType, numerator: spec } =
+    storedTypeAndNumeratorFor(newFormType);
   const sourceFactTableId = current.numerator?.factTableId ?? "";
 
-  if (newFormType === "funnel") {
+  if (spec.kind === "none") {
     const funnelSettings =
       current.funnelSettings && current.funnelSettings.steps.length >= 2
         ? current.funnelSettings
@@ -417,16 +473,30 @@ export function applyFormType<T extends MetricTypeSwitchState>(
     rowFilters: [],
   };
 
-  const numerator: ColumnRef = {
-    ...base,
-    column: shape
-      ? fitColumn(shape, factTable, base.column, hasCountDistinctHLL)
-      : base.column,
-    aggregation:
-      shape && shape !== "count" ? aggregationForShape(shape) : undefined,
-    aggregateFilterColumn: undefined,
-    aggregateFilter: undefined,
-  };
+  const numerator: ColumnRef =
+    spec.kind === "fixed"
+      ? {
+          ...base,
+          column: spec.column,
+          aggregation: undefined,
+          aggregateFilterColumn: undefined,
+          aggregateFilter: undefined,
+        }
+      : {
+          ...base,
+          column: fitColumn(
+            spec.shape,
+            factTable,
+            base.column,
+            hasCountDistinctHLL,
+          ),
+          aggregation:
+            spec.shape !== "count"
+              ? aggregationForShape(spec.shape)
+              : undefined,
+          aggregateFilterColumn: undefined,
+          aggregateFilter: undefined,
+        };
 
   return {
     ...current,
