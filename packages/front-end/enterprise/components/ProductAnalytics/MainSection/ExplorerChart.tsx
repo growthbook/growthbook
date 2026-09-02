@@ -863,6 +863,8 @@ export default function ExplorerChart({
         borderRadius: "var(--radius-4)",
         flex: 1,
         minHeight: 0,
+        minWidth: 0,
+        width: "100%",
       }}
     >
       {error ? (
@@ -952,7 +954,10 @@ export default function ExplorerChart({
           </Box>
         </Flex>
       ) : chartConfig ? (
-        <Flex direction="column" style={{ flex: 1, minHeight: 0 }}>
+        <Flex
+          direction="column"
+          style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%" }}
+        >
           {compareReturnedNoData ? (
             <Box px="4" pt="3">
               <Callout status="info">
@@ -973,7 +978,14 @@ export default function ExplorerChart({
           ) : null}
           <Box
             ref={attachChartWrapper}
-            style={{ flex: 1, minHeight: 0, position: "relative" }}
+            style={{
+              flex: 1,
+              minHeight: 0,
+              minWidth: 0,
+              width: "100%",
+              overflow: "hidden",
+              position: "relative",
+            }}
           >
             <EChartsReact
               key={`${submittedExploreState.chartType}:${JSON.stringify(chartConfig)}`}

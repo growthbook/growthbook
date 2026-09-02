@@ -1,6 +1,5 @@
 import type { ModelMessage, ToolResultPart } from "ai";
 import {
-  toolResultSnapshotId,
   type AIChatAssistantContentPart,
   type AIChatFilePart,
   type AIChatImagePart,
@@ -100,51 +99,30 @@ function mapAssistantContent(content: string | AIChatAssistantContentPart[]) {
   });
 }
 
-function compactToolOutput(result: string): string {
-  const snapshotId = toolResultSnapshotId(result);
-  const hint = snapshotId ? ` (snapshotId: ${snapshotId})` : "";
-  return `[Result compacted${hint} — use getSnapshot to retrieve full data]`;
-}
-
-function mapToolResult(
-  part: { toolCallId: string; toolName: string; result: string },
-  compact: boolean,
-): ToolResultPart {
+function mapToolResult(part: {
+  toolCallId: string;
+  toolName: string;
+  result: string;
+}): ToolResultPart {
   return {
     type: "tool-result",
     toolCallId: part.toolCallId,
     toolName: part.toolName,
     output: {
       type: "text",
-      value: compact ? compactToolOutput(part.result) : part.result,
+      value: part.result,
     },
   };
 }
 
 /**
- * Tool results that must never be compacted, because their content is
- * persistent context the agent needs on every later turn (not a one-off
- * payload it can re-fetch). `loadSkill` returns the skill's endpoint docs and
- * workflow — compacting it makes the agent forget how to call the API and
- * start guessing endpoints, so we always keep it in full.
- */
-const NEVER_COMPACT_TOOLS = new Set(["loadSkill"]);
-
-/**
  * Converts AIChatMessage[] to ModelMessage[] for the LLM.
- * Older tool-result payloads (before the last assistant turn) are compacted
- * to save tokens, preserving snapshotId for prompt-cache stability.
+ * Tool results remain intact so token usage can be measured against complete
+ * conversation history. Individual tools are responsible for bounding their
+ * own responses.
  */
 export function toModelMessages(messages: AIChatMessage[]): ModelMessage[] {
-  let lastAssistantIdx = -1;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i]!.role === "assistant") {
-      lastAssistantIdx = i;
-      break;
-    }
-  }
-
-  return messages.map((msg, idx): ModelMessage => {
+  return messages.map((msg): ModelMessage => {
     switch (msg.role) {
       case "system":
         return { role: "system", content: msg.content };
@@ -166,12 +144,7 @@ export function toModelMessages(messages: AIChatMessage[]): ModelMessage[] {
       case "tool":
         return {
           role: "tool",
-          content: msg.content.map((p) =>
-            mapToolResult(
-              p,
-              idx < lastAssistantIdx && !NEVER_COMPACT_TOOLS.has(p.toolName),
-            ),
-          ),
+          content: msg.content.map(mapToolResult),
         };
     }
   });

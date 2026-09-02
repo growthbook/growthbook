@@ -14,6 +14,10 @@ import {
   type DispatchInput,
   type DispatchResult,
 } from "back-end/src/agent/dispatcher";
+import {
+  isProductAnalyticsExplorationRequest,
+  pollProductAnalyticsExploration,
+} from "back-end/src/agent/product-analytics";
 import { listDomainSkills, readSkill } from "back-end/src/agent/skills";
 
 // =============================================================================
@@ -33,6 +37,9 @@ How to use the \`callApi\` tool:
 - The response is { status, body }: treat 2xx as success; 4xx/5xx carry an
   error \`message\`. On a non-2xx, fix the request and retry; if the same error
   recurs 3+ times, stop and explain to the user.
+- Product Analytics exploration POSTs are the exception: always inspect
+  \`body.exploration.status\`. A 2xx response can contain a terminal query
+  error or a still-running timeout result.
 - Never invent endpoints — only call paths documented in a skill you've loaded.
 - When a write is the right next step, just issue the call. You do NOT need to
   ask the user to confirm writes before making them — issuing the call is how
@@ -109,8 +116,9 @@ without listing or asking unless the user names a different one.
 
 For analytics, produce at most one successful chart per turn. Failed or empty
 runs may be corrected, but stop after the first successful exploration. The UI
-renders the chart automatically from the full response; the tool result omits
-raw rows, so do not invent a numeric summary when no numbers are visible.
+renders the chart automatically from the full response. Use
+\`exploration.result.rows\` for specific numeric insights, and reuse the
+returned \`exploration.config\` when the user asks to modify a previous chart.
 
 One of these lines is authoritative rather than a hint:
 
@@ -233,21 +241,10 @@ function buildGeneralAgentSystemPrompt(): string {
 // Path matchers & helpers
 // =============================================================================
 
-const EXPLORATION_PATH_RE =
-  /^\/api\/v[12]\/product-analytics\/(metric|fact-table|data-source|funnel)-exploration\/?$/;
-
-function isExplorationPath(path: string): boolean {
-  // Normalize first so we match the canonical `/api/v1/...` form the
-  // dispatcher routes to, regardless of the prefix shape the LLM sent
-  // (`/api/v1/...`, `/v1/...`, or `/...`). Also strips any query string.
-  return EXPLORATION_PATH_RE.test(normalizePath(path));
-}
-
 /**
  * Deterministic mutation gate. Any non-GET call mutates configuration and is
  * parked for explicit user confirmation, except a small allowlist of
- * read-only POSTs (experiment snapshot refreshes and product-analytics
- * explorations) that compute data without changing configuration.
+ * read-only POSTs that compute data without changing configuration.
  *
  * The path is normalized first (via the dispatcher's `normalizePath`) so the
  * allowlist matches regardless of whether the LLM sends `/api/v1/...`,
@@ -259,7 +256,7 @@ function requiresMutationConfirmation(input: DispatchInput): boolean {
   if (/^\/api\/v[12]\/experiments\/[^/]+\/snapshot\/?$/.test(path)) {
     return false;
   }
-  if (isExplorationPath(path)) {
+  if (isProductAnalyticsExplorationRequest(input)) {
     return false;
   }
   return true;
@@ -292,9 +289,9 @@ function coerceBody(body: unknown): unknown {
  * sane on big list endpoints, and keep the agent focused on actionable parts
  * (status, message, the relevant top-level fields).
  *
- * For successful exploration responses we elide `exploration.result.rows`
- * (which the chart UI uses but the agent doesn't read row-by-row) and
- * surface only summary fields.
+ * Successful Product Analytics explorations intentionally bypass this cap:
+ * the model needs their complete rows for numeric reasoning, and the same
+ * value is persisted and rendered by the chart UI.
  */
 const MAX_BODY_CHARS = 16_000;
 
@@ -302,43 +299,11 @@ function summarizeResult(result: DispatchResult): {
   status: number;
   body: unknown;
 } {
-  const { status, body } = result;
-  if (
-    status >= 200 &&
-    status < 300 &&
-    body &&
-    typeof body === "object" &&
-    !Array.isArray(body)
-  ) {
-    const b = body as Record<string, unknown>;
-    if (b.exploration && typeof b.exploration === "object") {
-      const exp = b.exploration as Record<string, unknown>;
-      const result = exp.result as { rows?: unknown[] } | undefined;
-      const rowCount = Array.isArray(result?.rows) ? result.rows.length : 0;
-      // Keep config but elide row data — the chart UI gets the full body
-      // through the chart-result SSE event.
-      return {
-        status,
-        body: {
-          ...b,
-          exploration: {
-            ...exp,
-            result: {
-              ...(result ?? {}),
-              rows: undefined,
-              rowCount,
-            },
-          },
-        },
-      };
-    }
-  }
-
   // Fall-through: cap body size as a guardrail against runaway responses.
-  const serialized = safeStringify(body);
+  const serialized = safeStringify(result.body);
   if (serialized.length > MAX_BODY_CHARS) {
     return {
-      status,
+      status: result.status,
       body: {
         truncated: true,
         message:
@@ -349,6 +314,15 @@ function summarizeResult(result: DispatchResult): {
   }
 
   return result;
+}
+
+function shapeCallApiResult(
+  input: Pick<DispatchInput, "method" | "path">,
+  result: DispatchResult,
+): DispatchResult {
+  return isProductAnalyticsExplorationRequest(input)
+    ? result
+    : summarizeResult(result);
 }
 
 function safeStringify(v: unknown): string {
@@ -530,7 +504,7 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
       callApi: aiTool({
         description: CALL_API_DESCRIPTION,
         inputSchema: callApiInputSchema,
-        execute: async (input) => {
+        execute: async (input, { abortSignal }) => {
           const query = stripQueryStrings(input.query);
           const dispatchInput: DispatchInput = {
             method: input.method,
@@ -573,23 +547,35 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
             return AWAITING_CONFIRMATION_RESULT;
           }
 
-          const result = await dispatchInternal(ctx, dispatchInput, {
-            onSuccess: (i, res) => {
-              if (
-                emit &&
-                res.status >= 200 &&
-                res.status < 300 &&
-                isExplorationPath(i.path) &&
-                res.body &&
-                typeof res.body === "object" &&
-                "exploration" in (res.body as Record<string, unknown>) &&
-                (res.body as { exploration: unknown }).exploration
-              ) {
-                emit("chart-result", res.body);
-              }
-            },
-          });
-          return summarizeResult(result);
+          let result = await dispatchInternal(ctx, dispatchInput);
+          if (isProductAnalyticsExplorationRequest(dispatchInput)) {
+            result = await pollProductAnalyticsExploration(
+              result,
+              async (id) => {
+                const exploration =
+                  await ctx.models.analyticsExplorations.getById(id);
+                if (!exploration) {
+                  return {
+                    status: 404,
+                    body: {
+                      message: "Product Analytics exploration not found.",
+                    },
+                  };
+                }
+                return {
+                  status: 200,
+                  body: {
+                    exploration:
+                      ctx.models.analyticsExplorations.toApiInterface(
+                        exploration,
+                      ),
+                  },
+                };
+              },
+              { signal: abortSignal },
+            );
+          }
+          return shapeCallApiResult(dispatchInput, result);
         },
       }),
 
@@ -635,3 +621,4 @@ export const postGeneralAgentChat = createAgentHandler(generalAgentConfig);
 export const _buildGeneralAgentSystemPrompt = buildGeneralAgentSystemPrompt;
 export const _coerceBody = coerceBody;
 export const _requiresMutationConfirmation = requiresMutationConfirmation;
+export const _shapeCallApiResult = shapeCallApiResult;

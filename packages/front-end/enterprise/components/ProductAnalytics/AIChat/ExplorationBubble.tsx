@@ -83,7 +83,7 @@ export default function ExplorationBubble({
           exploration={chartData.exploration}
         />
       )}
-      <Flex align="center" gap="2" mb="2">
+      <Flex align="center" gap="2" mb="2" style={{ minWidth: 0 }}>
         <PiSparkle size={12} />
         <Text size="sm" weight="medium">
           {isTable ? "Generated table" : "Generated chart"}
@@ -113,7 +113,15 @@ export default function ExplorationBubble({
           config={chartData.config}
         />
       ) : (
-        <Flex style={{ height: 360, minHeight: 260 }}>
+        <Flex
+          style={{
+            height: 360,
+            minHeight: 260,
+            minWidth: 0,
+            width: "100%",
+            overflow: "hidden",
+          }}
+        >
           <ExplorerChart
             exploration={chartData.exploration}
             error={chartData.exploration?.error ?? null}
