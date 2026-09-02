@@ -105,8 +105,10 @@ const ApiKeyExpirationPolicy: FC<{
       </Text>
 
       <Flex align="end" gap="3" mb="3">
+        {/* Text, not number: a number input reports "" for non-numeric typing,
+            which would read as "clear the policy" instead of failing validation. */}
         <TextField
-          type="number"
+          inputMode="numeric"
           label="Maximum lifetime (days)"
           placeholder="No maximum"
           value={draft}
