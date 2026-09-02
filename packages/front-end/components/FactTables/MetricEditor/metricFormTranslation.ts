@@ -13,6 +13,9 @@ export const SHAPES = ["count", "sum", "max", "distinct", "days"] as const;
 export type Shape = (typeof SHAPES)[number];
 export type RatioShape = Shape | "users";
 
+// Threshold basis is count or sum only (spec).
+export const THRESHOLD_SHAPES = ["count", "sum"] as const;
+
 type MinimalColumn = {
   column: string;
   datatype: FactTableColumnType;
@@ -243,10 +246,18 @@ function isValidThresholdBasis(
   return col.datatype === "number";
 }
 
+// "aggregation: 'hll merge' or 'kll merge' — sketch columns" (spec) is stated
+// generally, not scoped to one metric type — apply it to every ColumnRef part
+// that carries a real aggregation, including both sides of a ratio.
+function isSketchAggregation(ref: MinimalNumerator | undefined): boolean {
+  return ref?.aggregation === "hll merge" || ref?.aggregation === "kll merge";
+}
+
 export function formTypeFromStored(
   metric: {
     metricType: FactMetricType;
     numerator: MinimalNumerator;
+    denominator?: MinimalNumerator;
     quantileSettings?: {
       type: "unit" | "event";
       quantileEventCountColumn?: string;
@@ -254,10 +265,15 @@ export function formTypeFromStored(
   },
   factTable?: MinimalFactTable,
 ): FormTypeResult {
-  const { metricType, numerator, quantileSettings } = metric;
+  const { metricType, numerator, denominator, quantileSettings } = metric;
 
   if (metricType === "funnel") return { representable: true, type: "funnel" };
-  if (metricType === "ratio") return { representable: true, type: "ratio" };
+  if (metricType === "ratio") {
+    if (isSketchAggregation(numerator) || isSketchAggregation(denominator)) {
+      return { representable: false, reason: "sketch-aggregation" };
+    }
+    return { representable: true, type: "ratio" };
+  }
   if (metricType === "dailyParticipation") {
     return { representable: true, type: "dailyParticipation" };
   }
@@ -283,10 +299,7 @@ export function formTypeFromStored(
   }
 
   if (metricType === "quantile") {
-    if (
-      numerator?.aggregation === "hll merge" ||
-      numerator?.aggregation === "kll merge"
-    ) {
+    if (isSketchAggregation(numerator)) {
       return { representable: false, reason: "sketch-aggregation" };
     }
     if (quantileSettings?.quantileEventCountColumn) {
@@ -296,10 +309,7 @@ export function formTypeFromStored(
   }
 
   // metricType === "mean"
-  if (
-    numerator?.aggregation === "hll merge" ||
-    numerator?.aggregation === "kll merge"
-  ) {
+  if (isSketchAggregation(numerator)) {
     return { representable: false, reason: "sketch-aggregation" };
   }
   if (numerator?.column === "$$distinctUsers") {
