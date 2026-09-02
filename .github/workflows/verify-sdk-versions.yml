@@ -1,0 +1,42 @@
+name: Verify sdk-versions
+
+# Required check for any change under sdk-versioning: every capability listed in
+# a sdk-versions/*.json must be a real SDKCapability (from types.ts). This is the
+# guard that keeps a typo'd capability from ever reaching gen-sdk-resources.
+#
+# Note: SDKInfo.ts freshness is NOT gated here. The repo's pre-commit hook
+# regenerates SDKInfo.ts on any sdk-versioning change, and the automation commits
+# it, so it stays in sync without a (build-heavy) CI diff gate. CAPABILITIES.md is
+# intentionally out of scope (it is not part of the pre-commit flow).
+
+on:
+  pull_request:
+    paths:
+      - "packages/shared/src/sdk-versioning/**"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-capabilities:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Every capability must exist in types.ts
+        run: |
+          set -euo pipefail
+          VALID="$(sed -n '/export type SDKCapability =/,/;/p' \
+            packages/shared/src/sdk-versioning/types.ts | grep -oE '"[A-Za-z0-9]+"' | tr -d '"')"
+          bad=""
+          for f in packages/shared/src/sdk-versioning/sdk-versions/*.json; do
+            while IFS= read -r cap; do
+              [ -z "$cap" ] && continue
+              grep -qx "$cap" <<< "$VALID" || bad="${bad}"$'\n'"  $f -> $cap"
+            done < <(jq -r '.versions[].capabilities // [] | .[]' "$f")
+          done
+          if [ -n "$bad" ]; then
+            echo "::error::Unknown capabilities (not in types.ts):$bad"
+            exit 1
+          fi
+          echo "All capabilities are valid SDKCapability values."
