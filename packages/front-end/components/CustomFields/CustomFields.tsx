@@ -35,6 +35,8 @@ import CustomFieldModal from "@/components/CustomFields/CustomFieldModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
 
@@ -130,21 +132,15 @@ function CustomFieldsTable({
           </SortableContext>
         ) : (
           <TableRow>
-            <TableCell colSpan={colSpan} className="text-center text-gray">
-              <em>
-                No custom fields in this view.{" "}
-                {canManage ? (
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      openAddModal();
-                    }}
-                  >
-                    Add custom field
-                  </a>
-                ) : null}
-              </em>
+            <TableCell colSpan={colSpan}>
+              <Text as="div" align="center" color="text-low">
+                <em>
+                  No custom fields in this view.{" "}
+                  {canManage ? (
+                    <Link onClick={openAddModal}>Add custom field</Link>
+                  ) : null}
+                </em>
+              </Text>
             </TableCell>
           </TableRow>
         )}
