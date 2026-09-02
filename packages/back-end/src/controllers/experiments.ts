@@ -1253,7 +1253,8 @@ export async function postExperiments(
     hashAttribute: data.hashAttribute || "",
     fallbackAttribute: data.fallbackAttribute || "",
     hashVersion: data.hashVersion || 2,
-    disableStickyBucketing: data.disableStickyBucketing ?? false,
+    disableStickyBucketing:
+      data.disableStickyBucketing ?? !org.settings?.stickyBucketingOnByDefault,
     autoSnapshots: true,
     dateCreated: new Date(),
     dateUpdated: new Date(),
