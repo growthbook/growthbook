@@ -3034,7 +3034,9 @@ export async function toExperimentApiInterface(
     ),
     phases: experiment.phases.map((p) => ({
       name: p.name,
-      dateStarted: p.dateStarted.toISOString(),
+      // Legacy phases can be stored without a start date; one of them used to
+      // throw and take down the whole page of GET /api/v1/experiments.
+      dateStarted: p.dateStarted ? p.dateStarted.toISOString() : "",
       dateEnded: p.dateEnded ? p.dateEnded.toISOString() : "",
       reasonForStopping: p.reason || "",
       seed: p.seed || experiment.trackingKey,
