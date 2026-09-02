@@ -48,8 +48,7 @@ function truncateCharsForWidth(width: number | undefined) {
 /**
  * Clamped content plus a tooltip that only appears once the text is actually
  * clipped. Measured rather than guessed from a character count: these columns
- * are resizable and one of them absorbs the table's slack, so the same string
- * clips at one width and fits at another.
+ * are resizable, so the same string clips at one width and fits at another.
  */
 const ClampedCell: FC<{
   tooltip: string;
@@ -225,10 +224,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
         ),
       },
       {
-        // The slack absorber: no defaultWidth, so it takes the remaining space.
         id: "description",
         label: "Description",
         sortField: "description",
+        defaultWidth: 240,
         cellProps: () => ({ className: "text-gray" }),
         render: (v) =>
           v.description ? (
@@ -368,9 +367,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
         header: null,
         locked: true,
         resizable: false,
-        // Sized to the control it holds rather than to the shared padding,
-        // which would otherwise take more room than the icon itself.
-        defaultWidth: 40,
+        // No defaultWidth: the one column that absorbs leftover width, so a
+        // resize elsewhere only moves the columns to its right. The kebab hugs
+        // the table's right edge whatever the leftover is.
         minWidth: 40,
         headerProps: { style: { paddingLeft: 4, paddingRight: 4 } },
         cellProps: () => ({ style: { paddingLeft: 4, paddingRight: 4 } }),

@@ -12,11 +12,12 @@ import ColumnResizeHandle from "./ColumnResizeHandle";
 
 const COLUMNS = [
   { id: "name", label: "Name", defaultWidth: 200 },
-  // No default width: absorbs the remaining slack, like Description on
-  // the Attributes table.
-  { id: "description", label: "Description", defaultWidth: undefined },
+  { id: "description", label: "Description", defaultWidth: 240 },
   { id: "status", label: "Status", defaultWidth: 140 },
   { id: "date", label: "Date", defaultWidth: 160 },
+  // No default width: absorbs the leftover, like the row-actions column on the
+  // Attributes table, so a resize only ever moves the columns to its right.
+  { id: "actions", label: "", defaultWidth: undefined },
 ];
 
 const ROWS = [
@@ -70,19 +71,21 @@ function ResizableTable({ scrollX }: { scrollX?: boolean }) {
           {COLUMNS.map((col) => (
             <TableColumnHeader key={col.id}>
               {col.label}
-              <ColumnResizeHandle
-                label={col.label}
-                width={widths[col.id]}
-                minWidth={64}
-                maxWidth={800}
-                onCommit={(w) =>
-                  setWidths((prev) => ({ ...prev, [col.id]: w }))
-                }
-                setLiveWidth={(w) => {
-                  const el = colRefs.current.get(col.id);
-                  if (el) el.style.width = `${w}px`;
-                }}
-              />
+              {col.defaultWidth !== undefined && (
+                <ColumnResizeHandle
+                  label={col.label}
+                  width={widths[col.id]}
+                  minWidth={64}
+                  maxWidth={800}
+                  onCommit={(w) =>
+                    setWidths((prev) => ({ ...prev, [col.id]: w }))
+                  }
+                  setLiveWidth={(w) => {
+                    const el = colRefs.current.get(col.id);
+                    if (el) el.style.width = `${w}px`;
+                  }}
+                />
+              )}
             </TableColumnHeader>
           ))}
         </TableRow>
@@ -108,12 +111,13 @@ export default function ColumnResizeHandleStories() {
       <Flex direction="column" gap="2">
         <Text weight="medium">Drag, double-click and keyboard resize</Text>
         <Text size="sm" color="text-low">
-          The handle sits in the right 8px of each header cell and is invisible
-          until you hover it. Drag to resize; double-click to reset one column;
-          or focus a handle and use Left/Right (Shift for a larger step, Home to
-          reset). A fixed layout and a <code>&lt;colgroup&gt;</code> are what
-          make the widths authoritative — Description declares no width, so it
-          absorbs the slack.
+          The handle is the faint line in the right 8px of each header cell.
+          Drag to resize; double-click to fit a column to its content; or focus
+          a handle and use Left/Right (Shift for a larger step, Home to reset).
+          A fixed layout and a <code>&lt;colgroup&gt;</code> are what make the
+          widths authoritative. Every data column has a width, so a resize only
+          moves the columns to its right; the trailing column absorbs whatever
+          is left over.
         </Text>
         <ResizableTable />
       </Flex>
