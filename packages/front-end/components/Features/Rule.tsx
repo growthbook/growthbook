@@ -1005,7 +1005,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                               tooltip={
                                 <Flex align="center" gap="2">
                                   Inserts a ramp-up rule above this one to
-                                  gradually replace its value
+                                  gradually replace its value.
                                   <PaidFeatureBadge
                                     commercialFeature="ramp-schedules"
                                     useTip={false}
