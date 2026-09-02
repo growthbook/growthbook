@@ -34,6 +34,20 @@ const CustomFieldInput: FC<{
     return raw;
   };
 
+  // Include stored values in the options so custom values entered while a
+  // field was creatable still render after creatable is turned off
+  const getSelectOptions = (field: CustomField, currentValues: string[]) => {
+    const defined = field.values
+      ? field.values
+          .split(",")
+          .map((k) => k.trim())
+          .filter(Boolean)
+      : [];
+    return [...new Set([...defined, ...currentValues.filter(Boolean)])].map(
+      (j) => ({ value: j, label: j }),
+    );
+  };
+
   return (
     <Flex direction="column" gap="4" mt="4" className={className}>
       {!fields.length ? (
@@ -71,14 +85,9 @@ const CustomFieldInput: FC<{
                       </>
                     }
                     value={value[v.id] ?? v.defaultValue ?? ""}
-                    options={
-                      v.values
-                        ? v.values
-                            .split(",")
-                            .map((k) => k.trim())
-                            .map((j) => ({ value: j, label: j }))
-                        : []
-                    }
+                    options={getSelectOptions(v, [
+                      String(value[v.id] ?? v.defaultValue ?? ""),
+                    ])}
                     onChange={(s) => {
                       updateCustomField(v.id, s);
                     }}
@@ -99,14 +108,10 @@ const CustomFieldInput: FC<{
                       </>
                     }
                     value={value[v.id] ? getMultiSelectValue(value[v.id]) : []}
-                    options={
-                      v.values
-                        ? v.values
-                            .split(",")
-                            .map((k) => k.trim())
-                            .map((j) => ({ value: j, label: j }))
-                        : []
-                    }
+                    options={getSelectOptions(
+                      v,
+                      value[v.id] ? getMultiSelectValue(value[v.id]) : [],
+                    )}
                     onChange={(values) => {
                       updateCustomField(v.id, JSON.stringify(values));
                     }}

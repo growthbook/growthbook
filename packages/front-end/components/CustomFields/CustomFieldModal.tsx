@@ -357,6 +357,11 @@ export default function CustomFieldModal({
               <Checkbox
                 id="creatable"
                 label="Allow custom values"
+                description={
+                  existing.creatable && !form.watch("creatable")
+                    ? "Custom values already entered on Feature Flags and experiments are kept."
+                    : undefined
+                }
                 value={!!form.watch("creatable")}
                 setValue={(value) => {
                   form.setValue("creatable", value);
