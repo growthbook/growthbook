@@ -89,7 +89,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
         <Flex direction="column" gap="1">
           <Text weight={weight}>{label}</Text>
           {description && (
-            <Text style={{ color: "var(--color-text-mid)" }}>
+            <Text weight="regular" style={{ color: "var(--color-text-mid)" }}>
               {description}
             </Text>
           )}

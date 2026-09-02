@@ -1606,6 +1606,7 @@ export async function postExperiment(
   ) {
     await validateCustomFieldsForSection({
       customFieldValues: data.customFields,
+      existingCustomFieldValues: experiment.customFields,
       customFieldsModel: context.models.customFields,
       section: "experiment",
       project: "project" in data ? data.project : experiment.project,
