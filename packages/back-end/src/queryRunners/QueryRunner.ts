@@ -16,6 +16,7 @@ import {
   getQueriesByIds,
   getRecentQuery,
   markPendingQueriesAsFailed,
+  touchQueuedQueriesHeartbeat,
   updateQuery,
   updateQueryIfPending,
   updateQueryIfRunning,
@@ -310,7 +311,24 @@ export abstract class QueryRunner<
     if (this.lockHeartbeatTimer) return;
     this.lockHeartbeatTimer = setInterval(() => {
       this.onHeartbeat();
+      this.heartbeatQueuedQueries();
     }, 30000);
+  }
+
+  /**
+   * Lets the stalled-snapshot reaper tell a live runner whose queries are
+   * waiting on the concurrency cap from a runner whose process died.
+   */
+  private heartbeatQueuedQueries(): void {
+    // "running" pointers are included because pointer status lags Mongo; the
+    // model's own "queued" filter decides which docs get the beat.
+    const ids = this.model.queries
+      .filter((q) => q.status === "queued" || q.status === "running")
+      .map((q) => q.query);
+    if (!ids.length) return;
+    touchQueuedQueriesHeartbeat(this.context, ids).catch((e) =>
+      logger.warn(e, `Failed to heartbeat queued queries for ${this.model.id}`),
+    );
   }
 
   private stopLockHeartbeat(): void {

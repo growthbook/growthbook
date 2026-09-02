@@ -258,6 +258,29 @@ export async function markPendingQueriesAsFailed(
   return result.modifiedCount;
 }
 
+/**
+ * Prove the owning runner is still alive for queries it hasn't started yet.
+ * Returns the number affected.
+ */
+export async function touchQueuedQueriesHeartbeat(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<number> {
+  if (!ids.length) return 0;
+  // Filtered on "queued" in Mongo, not on the caller's pointer status, which
+  // lags: a doc already promoted to running must not get a queued-style beat,
+  // and a never-resolved cache-copy doc would otherwise stay alive forever.
+  const result = await QueryModel.updateMany(
+    {
+      organization: context.org.id,
+      id: { $in: ids },
+      status: "queued",
+    },
+    { $set: { heartbeat: new Date() } },
+  );
+  return result.modifiedCount;
+}
+
 export async function getRecentQuery(
   organization: string,
   datasource: string,
