@@ -55,7 +55,7 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
   };
 
   // Scope FT discovery to the target FT so cross-FT ratios sharing a hub
-  // (e.g. `[A/B, A/C]`) don't trip the 2-FT cap in `getFactTablesForMetrics`.
+  // (e.g. `[A/B, A/C]`) only populate the cache this insert is writing.
   const { sources, metricData } = parseExperimentFactMetricsParams(dialect, {
     ...paramsMetricsSorted,
     targetFactTableId: params.factTableId,

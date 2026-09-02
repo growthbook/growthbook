@@ -12,6 +12,7 @@ import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import Link from "@/ui/Link";
+import { AttributeOptionProjectsLabel } from "@/components/Features/AttributeOptionTooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import {
@@ -290,7 +291,16 @@ export default function SavedGroupTargetingField({
                       }}
                       options={options}
                       formatOptionLabel={(o, meta) => {
-                        if (meta.context !== "value") return o.label;
+                        if (meta.context !== "value") {
+                          return (
+                            <Flex align="center" gap="3">
+                              <span>{o.label}</span>
+                              <AttributeOptionProjectsLabel
+                                projects={getSavedGroupById(o.value)?.projects}
+                              />
+                            </Flex>
+                          );
+                        }
                         const group = getSavedGroupById(o.value);
                         if (!group) return o.label;
                         return (

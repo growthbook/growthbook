@@ -15,7 +15,9 @@ describe("getProviderForAIModel", () => {
     expect(getProviderForAIModel("text", "claude-sonnet-4-6")).toBe(
       "anthropic",
     );
-    expect(getProviderForAIModel("text", "mistral-small")).toBe("mistral");
+    expect(getProviderForAIModel("text", "mistral-small-latest")).toBe(
+      "mistral",
+    );
   });
 
   it("resolves embedding models from their own registry", () => {

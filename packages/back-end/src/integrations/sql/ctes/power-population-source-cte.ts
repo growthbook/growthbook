@@ -1,3 +1,4 @@
+import { getFactTableTimestampColumn } from "shared/experiments";
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { SegmentInterface } from "shared/types/segment";
 import type { SqlDialect } from "shared/types/sql";
@@ -50,7 +51,7 @@ export function getPowerPopulationSourceCTE(
           __source AS (
             SELECT
               ${settings.userIdType}
-              , timestamp
+              , ${getFactTableTimestampColumn(factTable)} AS timestamp
             FROM (
               ${sql}
             ) ft

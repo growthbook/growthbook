@@ -3,6 +3,7 @@ import {
   ExperimentMetricInterface,
   getAutoSliceMetrics,
   getFactMetricPrimaryFactTableId,
+  getFactTableTimestampColumn,
   isSliceMetric,
 } from "shared/experiments";
 import {
@@ -71,7 +72,6 @@ export async function assertIncrementalRefreshPrerequisites({
       org,
       "incremental-refresh",
     ),
-    skipPartialData: snapshotSettings.skipPartialData,
     activationMetric: experiment.activationMetric,
     metrics: selectedMetrics,
     experimentType: experiment.type,
@@ -359,8 +359,14 @@ export function getMetricSettingsHashForAggregatedFactTable({
 export function getFactTableSettingsHashForAggregatedFactTable(
   factTable: FactTableInterface,
 ): string {
+  const timestampColumn = getFactTableTimestampColumn(factTable);
   return hashObject({
     sql: factTable.sql,
+    // Omitted when it resolves to the default (JSON.stringify drops undefined),
+    // so hashes stored before this field existed stay byte-identical and a fact
+    // table that spells out "timestamp" doesn't force a restate either.
+    timestampColumn:
+      timestampColumn === "timestamp" ? undefined : timestampColumn,
     eventName: factTable.eventName,
     filters: (factTable.filters ?? [])
       .map((f) => ({ id: f.id, value: f.value }))
@@ -518,6 +524,18 @@ export function exploratoryOverallRequiresFullRefresh({
   if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
     return true;
   }
+
+  // Originally skipPartialData was not supported for Incremental Pipeline,
+  // and also the incremental refresh model did not record materializedBySnapshotId.
+  // For those scenarios, where skipPartialData is true, but incrementalRefreshModel
+  // is outdated, we force a full-refresh.
+  if (
+    snapshotSettings.skipPartialData &&
+    !incrementalRefreshModel.materializedBySnapshotId
+  ) {
+    return true;
+  }
+
   return overallResultsBuiltWithoutIncrementalPipeline({
     unitsTableFullName: incrementalRefreshModel.unitsTableFullName,
     materializedBySnapshotId: incrementalRefreshModel.materializedBySnapshotId,

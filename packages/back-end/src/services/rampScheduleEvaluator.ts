@@ -7,6 +7,10 @@ import { expandMetricGroups } from "shared/experiments";
 import { getHealthSettings } from "shared/enterprise";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import {
+  findAnalysisComputeFailure,
+  getSafeRolloutSnapshotAnalysis,
+} from "shared/util";
+import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
 } from "shared/constants";
@@ -305,6 +309,19 @@ async function evaluateMonitoredStep(
   );
   if (experimentHealthDecision) return experimentHealthDecision;
 
+  // A metric that failed to compute can't be judged safe, so hold rather than
+  // advance. After the rollback checks (rollback beats hold), before the
+  // sample-size gate (more data won't fix a compute error).
+  const computeFailure = findAnalysisComputeFailure(
+    getSafeRolloutSnapshotAnalysis(summarySnapshot),
+  );
+  if (computeFailure) {
+    return {
+      action: "hold",
+      reason: `Guardrail metric ${computeFailure.metricId} failed to compute — holding step until it recovers`,
+    };
+  }
+
   const resultsStatus = summary.resultsStatus;
   if (!resultsStatus) {
     return { action: "hold", reason: "No results status available yet" };
@@ -407,6 +424,7 @@ function checkScheduleGuardrailSignals(
 
   return null;
 }
+
 function checkExperimentHealth(
   ctx: ReqContext | ApiReqContext,
   safeRollout: SafeRolloutInterface,

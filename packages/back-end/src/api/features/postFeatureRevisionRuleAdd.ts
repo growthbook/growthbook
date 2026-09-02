@@ -13,7 +13,11 @@ import type {
   RolloutRule,
   SafeRolloutRule,
 } from "shared/validators";
-import { getEffectiveRevisionHoldout, resetReviewOnChange } from "shared/util";
+import {
+  getAttributeScopeProjectIds,
+  getEffectiveRevisionHoldout,
+  resetReviewOnChange,
+} from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { CreateProps } from "shared/types/base-model";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -226,7 +230,11 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Validate condition JSON and references before any DB writes.
     validateRuleConditions(rule);
-    validateRuleAttributes(rule, req.context, feature.project);
+    validateRuleAttributes(
+      rule,
+      req.context,
+      getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+    );
     await validateRuleReferences(rule, req.context);
 
     // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation

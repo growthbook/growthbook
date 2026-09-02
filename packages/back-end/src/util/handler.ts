@@ -14,6 +14,7 @@ import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
 import { PublishBlockedError } from "back-end/src/revisions/publishGates";
 import {
   ApiError,
+  BulkImportPartialFailureError,
   BulkPublishCommitError,
   MergeConflictError,
   SoftWarningError,
@@ -202,6 +203,9 @@ export async function runApiHandler(
     // which entities compensated cleanly.
     if (e instanceof BulkPublishCommitError) {
       (body as Record<string, unknown>).items = e.items;
+    }
+    if (e instanceof BulkImportPartialFailureError) {
+      Object.assign(body, e.counts, { errors: e.errors });
     }
     // Surface soft warnings so clients can re-submit with ignoreWarnings
     if (e instanceof SoftWarningError) {

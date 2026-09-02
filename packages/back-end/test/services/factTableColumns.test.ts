@@ -410,6 +410,89 @@ describe("runColumnDetectionQuery", () => {
     jest.clearAllMocks();
   });
 
+  it("keeps case-distinct keys in JSON stored as a string", async () => {
+    const columns = await refreshColumns({
+      column: makeCol("payload", {
+        datatype: "json",
+        dataTypeFromWarehouse: "string",
+        jsonFields: { userId: { datatype: "number" } },
+      }),
+      result: {
+        columns: [{ name: "payload", dataType: "string" }],
+        results: [{ payload: '{"userid": 2}' }],
+        duration: 1,
+      },
+    });
+
+    expect(columns[0].jsonFields).toEqual({
+      userId: { datatype: "number" },
+      userid: { datatype: "number" },
+    });
+  });
+
+  it("keeps case-distinct keys in a native JSON column", async () => {
+    const columns = await refreshColumns({
+      column: makeCol("payload", {
+        datatype: "json",
+        dataTypeFromWarehouse: "json",
+        jsonFields: { userId: { datatype: "number" } },
+      }),
+      result: {
+        columns: [{ name: "payload", dataType: "json" }],
+        results: [{ payload: { userid: 2 } }],
+        duration: 1,
+      },
+    });
+
+    expect(columns[0].jsonFields).toEqual({
+      userId: { datatype: "number" },
+      userid: { datatype: "number" },
+    });
+  });
+
+  it("reconciles casing changes in STRUCT fields returned by warehouse schema metadata", async () => {
+    const columns = await refreshColumns({
+      column: makeCol("payload", {
+        datatype: "json",
+        dataTypeFromWarehouse: "json",
+        jsonFields: { userid: { datatype: "number" } },
+      }),
+      result: {
+        columns: [
+          {
+            name: "payload",
+            dataType: "json",
+            fields: [{ name: "userId", dataType: "number" }],
+          },
+        ],
+        results: [{ payload: { userId: 1 } }],
+        duration: 1,
+      },
+    });
+
+    expect(columns[0].jsonFields).toEqual({
+      userid: { datatype: "number" },
+    });
+  });
+
+  it("backfills a missing warehouse datatype from query metadata", async () => {
+    const columns = await refreshColumns({
+      column: makeCol("payload", {
+        datatype: "json",
+      }),
+      result: {
+        columns: [{ name: "payload", dataType: "string" }],
+        results: [{ payload: '{"id": 1}' }],
+        duration: 1,
+      },
+    });
+
+    expect(columns[0]).toMatchObject({
+      datatype: "json",
+      dataTypeFromWarehouse: "string",
+    });
+  });
+
   it("keeps the last warehouse datatype when the query response has no metadata", async () => {
     const columns = await refreshColumns({
       column: makeCol("payload", {

@@ -92,6 +92,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   context: ReqContext;
   datasource: DataSourceInterface;
   decryptionError: boolean;
+  columnNamesAreCaseSensitive = false;
 
   constructor(context: ReqContext, datasource: DataSourceInterface) {
     this.context = context;

@@ -17,6 +17,7 @@ import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllVariations,
+  getActivePhase,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
@@ -56,6 +57,7 @@ import {
   createSnapshotAnalysis,
   determineNextBanditSchedule,
   getLinkedChangeEnvironmentStates,
+  getExperimentAttributeScopeProjects,
   getLinkedFeatureInfo,
   normalizeStatusUpdateScheduleChanges,
   resetExperimentBanditSettings,
@@ -67,7 +69,10 @@ import {
   validateExperimentData,
   fillEmptyVariationKeys,
 } from "back-end/src/services/experiments";
-import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  assertRegisteredAttributesScoped,
+  lazyAttributeScope,
+} from "back-end/src/services/attributes";
 import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import {
   approveScheduledExperimentStart,
@@ -166,7 +171,11 @@ import {
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
 } from "back-end/src/services/experiment-feature";
-import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";
+import {
+  canLinkExperimentToHoldoutFromFeatures,
+  getHoldoutLivePayloadChanges,
+  isHoldoutExperiment,
+} from "back-end/src/services/holdouts";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
@@ -1187,9 +1196,15 @@ export async function postExperiments(
 
   const { metricIds, datasource, invalidMetricIds } = result;
 
-  // Opt-in attribute registration check (org-level setting). Applies before
-  // any DB writes so a typo'd attribute is rejected outright.
-  assertRegisteredAttributes(
+  // Sweeps `data.linkedFeatures` so experiments created from a feature can
+  // use attributes from the feature's targeting projects.
+  const attributeScope = lazyAttributeScope(() =>
+    getExperimentAttributeScopeProjects(context, {
+      project: data.project,
+      linkedFeatures: data.linkedFeatures,
+    }),
+  );
+  await assertRegisteredAttributesScoped(
     context,
     {
       hashAttribute: data.hashAttribute,
@@ -1197,15 +1212,15 @@ export async function postExperiments(
     },
     "experiment",
     undefined,
-    data.project,
+    attributeScope,
   );
   for (const phase of data.phases ?? []) {
-    assertRegisteredAttributes(
+    await assertRegisteredAttributesScoped(
       context,
       { condition: phase.condition },
       "experiment phase",
       undefined,
-      data.project,
+      attributeScope,
     );
   }
 
@@ -1238,7 +1253,8 @@ export async function postExperiments(
     hashAttribute: data.hashAttribute || "",
     fallbackAttribute: data.fallbackAttribute || "",
     hashVersion: data.hashVersion || 2,
-    disableStickyBucketing: data.disableStickyBucketing ?? false,
+    disableStickyBucketing:
+      data.disableStickyBucketing ?? !org.settings?.stickyBucketingOnByDefault,
     autoSnapshots: true,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -1541,24 +1557,41 @@ export async function postExperiment(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check (org-level setting).
-  assertRegisteredAttributes(
+  const attributeScope = lazyAttributeScope(() =>
+    getExperimentAttributeScopeProjects(context, {
+      project: "project" in data ? data.project : experiment.project,
+      linkedFeatures: experiment.linkedFeatures,
+    }),
+  );
+  await assertRegisteredAttributesScoped(
     context,
     {
       hashAttribute: data.hashAttribute,
       fallbackAttribute: data.fallbackAttribute,
     },
     "experiment",
-    undefined,
-    experiment.project,
+    {
+      hashAttribute: experiment.hashAttribute,
+      fallbackAttribute: experiment.fallbackAttribute,
+    },
+    attributeScope,
+  );
+  // Match persisted phases by condition value, not index — reordered or
+  // spliced phase lists must not re-validate grandfathered conditions.
+  const persistedConditions = new Set(
+    (experiment.phases ?? []).map((p) => p.condition),
   );
   for (const phase of data.phases ?? []) {
-    assertRegisteredAttributes(
+    await assertRegisteredAttributesScoped(
       context,
       { condition: phase.condition },
       "experiment phase",
-      undefined,
-      experiment.project,
+      {
+        condition: persistedConditions.has(phase.condition)
+          ? phase.condition
+          : undefined,
+      },
+      attributeScope,
     );
   }
 
@@ -1682,31 +1715,52 @@ export async function postExperiment(
     validateVariationIds(data.variations);
   }
 
-  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
-  const existingKeyById = new Map(
-    experiment.variations.map((v) => [v.id, v.key]),
-  );
-  const variationIdsChanged =
-    !!data.variations &&
-    !isEqual(
-      data.variations.map((v) => v.id),
-      latestPhase?.variations.map((v) => v.id),
+  let changesLivePayload: boolean;
+  let changedPayloadFields: string[];
+  if (isHoldoutExperiment(experiment)) {
+    ({ changesLivePayload, changedFields: changedPayloadFields } =
+      getHoldoutLivePayloadChanges(experiment, data.coverage));
+  } else {
+    const latestPhase = experiment.phases[experiment.phases.length - 1];
+    const existingKeyById = new Map(
+      experiment.variations.map((v) => [v.id, v.key]),
     );
-  // Variation keys are emitted in the SDK payload meta, so key edits also count
-  const variationKeysChanged =
-    !!data.variations &&
-    data.variations.some((v) => v.key !== existingKeyById.get(v.id));
-  const coverageChanged =
-    data.coverage !== undefined && data.coverage !== latestPhase?.coverage;
-  const variationWeightsChanged =
-    data.variationWeights !== undefined &&
-    !isEqual(data.variationWeights, latestPhase?.variationWeights);
+    const variationIdsChanged =
+      !!data.variations &&
+      !isEqual(
+        data.variations.map((v) => v.id),
+        latestPhase?.variations.map((v) => v.id),
+      );
+    // Variation keys are emitted in the SDK payload meta, so key edits also count
+    const variationKeysChanged =
+      !!data.variations &&
+      data.variations.some((v) => v.key !== existingKeyById.get(v.id));
+    const coverageChanged =
+      data.coverage !== undefined && data.coverage !== latestPhase?.coverage;
+    const variationWeightsChanged =
+      data.variationWeights !== undefined &&
+      !isEqual(data.variationWeights, latestPhase?.variationWeights);
 
-  const changesLivePayload =
-    variationIdsChanged ||
-    (variationKeysChanged && !isVariationKeyReconciliation) ||
-    coverageChanged ||
-    variationWeightsChanged;
+    changedPayloadFields = [];
+    if (variationIdsChanged) {
+      changedPayloadFields.push("variation IDs");
+    }
+    if (variationKeysChanged) {
+      changedPayloadFields.push("variation keys");
+    }
+    if (coverageChanged) {
+      changedPayloadFields.push("coverage");
+    }
+    if (variationWeightsChanged) {
+      changedPayloadFields.push("variationWeights");
+    }
+
+    changesLivePayload =
+      variationIdsChanged ||
+      (variationKeysChanged && !isVariationKeyReconciliation) ||
+      coverageChanged ||
+      variationWeightsChanged;
+  }
   if (experiment.status === "running" && changesLivePayload) {
     const linkedFeaturesForPayload = await getFeaturesByIds(
       context,
@@ -1717,22 +1771,9 @@ export async function postExperiment(
       linkedFeaturesForPayload,
     );
     if (inPayload) {
-      const fields = [];
-      if (variationIdsChanged) {
-        fields.push("variation IDs");
-      }
-      if (variationKeysChanged) {
-        fields.push("variation keys");
-      }
-      if (coverageChanged) {
-        fields.push("coverage");
-      }
-      if (variationWeightsChanged) {
-        fields.push("variationWeights");
-      }
       res.status(400).json({
         status: 400,
-        message: `Cannot change: [${fields.join(", ")}] while the experiment is running and live in the SDK payload.`,
+        message: `Cannot change: [${changedPayloadFields.join(", ")}] while the experiment is running and live in the SDK payload.`,
       });
       return;
     }
@@ -2052,35 +2093,43 @@ export async function postExperiment(
     }
   }
 
-  if (data.variationWeights) {
-    changes.phases = applyVariationWeightsToLatestPhase(
-      experiment,
-      data.variationWeights,
-    );
-  }
+  if (experiment.type === "holdout") {
+    // Holdout targeting is handled by postExperimentTargeting, so coverage is
+    // the only payload-affecting field this path handles; apply it to every phase.
+    if (data.coverage !== undefined) {
+      const coverage = data.coverage;
+      const phases = changes.phases || [...experiment.phases];
+      changes.phases = phases.map((phase) => ({ ...phase, coverage }));
+    }
+  } else {
+    if (data.variationWeights) {
+      changes.phases = applyVariationWeightsToLatestPhase(
+        experiment,
+        data.variationWeights,
+      );
+    }
 
-  // Re-order phase variations to match the order of the variations coming in via the request body
-  if (data.variations) {
-    const phases = changes.phases || [...experiment.phases];
-    const lastIndex = phases.length - 1;
-    phases[lastIndex] = {
-      ...phases[lastIndex],
-      variations: data.variations.map((v) => ({
-        id: v.id,
-        status: "active" as const,
-      })),
-    };
-    changes.phases = phases;
-  }
+    // Re-order phase variations to match the order of the variations coming in via the request body
+    if (data.variations) {
+      const phases = changes.phases || [...experiment.phases];
+      const lastIndex = phases.length - 1;
+      phases[lastIndex] = {
+        ...phases[lastIndex],
+        variations: data.variations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        })),
+      };
+      changes.phases = phases;
+    }
 
-  if (data.coverage !== undefined) {
-    const phases = changes.phases || [...experiment.phases];
-    const lastIndex = phases.length - 1;
-    phases[lastIndex] = {
-      ...phases[lastIndex],
-      coverage: data.coverage,
-    };
-    changes.phases = phases;
+    if (data.coverage !== undefined) {
+      const coverage = data.coverage;
+      const phases = changes.phases || [...experiment.phases];
+      const lastIndex = phases.length - 1;
+      phases[lastIndex] = { ...phases[lastIndex], coverage };
+      changes.phases = phases;
+    }
   }
 
   // Only some fields affect production SDK payloads
@@ -2835,13 +2884,13 @@ export async function putExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check (org-level setting).
-  assertRegisteredAttributes(
+  await assertRegisteredAttributesScoped(
     context,
     { condition: phase.condition },
     "experiment phase",
-    undefined,
-    experiment.project,
+    { condition: experiment.phases[i]?.condition },
+    () =>
+      getExperimentAttributeScopeProjects(context, experiment, linkedFeatures),
   );
 
   phase.dateStarted = phase.dateStarted
@@ -2905,6 +2954,7 @@ export async function postExperimentTargeting(
     coverage,
     hashAttribute,
     fallbackAttribute,
+    attributeScopeAllProjects,
     hashVersion,
     disableStickyBucketing,
     bucketVersion,
@@ -2956,13 +3006,8 @@ export async function postExperimentTargeting(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check (org-level setting). The targeting
-  // endpoint always receives the full payload (targeting + assignment), but a
-  // scoped modal only edited a subset. Pass the persisted values as
-  // `existingParts` so unchanged stale attributes don't block an unrelated
-  // save — only newly changed attributes are validated.
-  const lastPersistedPhase = experiment.phases[experiment.phases.length - 1];
-  assertRegisteredAttributes(
+  const activePhase = getActivePhase(experiment);
+  await assertRegisteredAttributesScoped(
     context,
     {
       hashAttribute,
@@ -2973,35 +3018,39 @@ export async function postExperimentTargeting(
     {
       hashAttribute: experiment.hashAttribute || "id",
       fallbackAttribute: experiment.fallbackAttribute,
-      condition: lastPersistedPhase?.condition,
+      condition: activePhase?.condition,
     },
-    experiment.project,
+    () =>
+      getExperimentAttributeScopeProjects(
+        context,
+        {
+          project: experiment.project,
+          linkedFeatures: experiment.linkedFeatures,
+        },
+        linkedFeatures,
+      ),
   );
 
   const phases = [...experiment.phases];
 
-  // Already has phases and we're updating an existing phase
-  if (phases.length && !newPhase) {
-    if (experiment.type !== "holdout") {
-      phases[phases.length - 1] = {
-        ...phases[phases.length - 1],
-        condition,
-        savedGroups,
-        prerequisites,
-        coverage,
-        namespace,
-        variationWeights,
-        variations,
-        seed,
-      };
-    } else {
-      phases[phases.length - 1] = {
-        ...phases[phases.length - 1],
-        condition,
-        savedGroups,
-        coverage,
-      };
-    }
+  if (experiment.type === "holdout" && phases.length) {
+    // Later phases feed analysis settings, so keep them aligned with payload targeting.
+    const holdoutTargeting = { condition, savedGroups, coverage };
+    phases.forEach((phase, i) => {
+      phases[i] = { ...phase, ...holdoutTargeting };
+    });
+  } else if (phases.length && !newPhase) {
+    phases[phases.length - 1] = {
+      ...phases[phases.length - 1],
+      condition,
+      savedGroups,
+      prerequisites,
+      coverage,
+      namespace,
+      variationWeights,
+      variations,
+      seed,
+    };
   } else {
     // If we had a previous phase, mark it as ended
     if (phases.length) {
@@ -3036,6 +3085,9 @@ export async function postExperimentTargeting(
   }
 
   changes.hashAttribute = hashAttribute;
+  if (attributeScopeAllProjects !== undefined) {
+    changes.attributeScopeAllProjects = attributeScopeAllProjects;
+  }
   if (experiment.type !== "holdout") {
     changes.fallbackAttribute = fallbackAttribute;
     changes.hashVersion = hashVersion;
@@ -3129,13 +3181,17 @@ export async function postExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check (org-level setting).
-  assertRegisteredAttributes(
+  // Intentionally loose: a condition carried forward from the previous phase
+  // is never re-validated, even if its attributes are now out of scope.
+  await assertRegisteredAttributesScoped(
     context,
     { condition: data.condition },
     "experiment phase",
-    undefined,
-    experiment.project,
+    {
+      condition: experiment.phases[experiment.phases.length - 1]?.condition,
+    },
+    () =>
+      getExperimentAttributeScopeProjects(context, experiment, linkedFeatures),
   );
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();

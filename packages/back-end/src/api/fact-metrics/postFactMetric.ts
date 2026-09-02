@@ -10,6 +10,7 @@ import {
 } from "shared/constants";
 import {
   getCappingTailState,
+  postFactMetricBodyFields,
   postFactMetricValidator,
 } from "shared/validators";
 import {
@@ -23,7 +24,9 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
 export async function getCreateMetricPropsFromBody(
-  body: z.infer<typeof postFactMetricValidator.bodySchema>,
+  body: z.infer<typeof postFactMetricBodyFields> & {
+    archived?: boolean;
+  },
   organization: OrganizationInterface,
   getFactTable: (id: string) => Promise<FactTableInterface | null>,
 ): Promise<CreateFactMetricProps> {

@@ -27,7 +27,8 @@ import {
 } from "back-end/src/models/OrganizationModel";
 import {
   IdTokenCookie,
-  AuthChecksCookie,
+  AuthSecretCookie,
+  PendingSSOConnectionCookie,
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
@@ -339,6 +340,9 @@ export async function processJWT(
         orgDateCreated: org?.dateCreated
           ? new Date(org.dateCreated).toISOString()
           : "",
+        userDateCreated: user.dateCreated
+          ? new Date(user.dateCreated).toISOString()
+          : "",
         ...trackingAttributes,
         role: org?.members.find((m) => m.id === user.id)?.role,
         hasLicenseKey: org?.licenseKey ? true : false,
@@ -385,7 +389,8 @@ export function deleteAuthCookies(req: Request, res: Response) {
   RefreshTokenCookie.setValue("", req, res);
   IdTokenCookie.setValue("", req, res);
   SSOConnectionIdCookie.setValue("", req, res);
-  AuthChecksCookie.setValue("", req, res);
+  AuthSecretCookie.setValue("", req, res);
+  PendingSSOConnectionCookie.setValue("", req, res);
 }
 
 export function validatePasswordFormat(password?: string): string {

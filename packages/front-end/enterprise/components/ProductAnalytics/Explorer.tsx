@@ -10,7 +10,12 @@ import {
   ExplorationDateRange,
 } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
-import { useQueryState } from "nuqs";
+import { isFactFunnelMetric } from "shared/experiments";
+import {
+  deriveFunnelUnit,
+  funnelSettingsToFunnelDataset,
+} from "shared/funnels";
+import { parseAsString, useQueryState } from "nuqs";
 import { NuqsAdapter } from "nuqs/adapters/next/pages";
 import ShadowedScrollArea from "@/components/ShadowedScrollArea/ShadowedScrollArea";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -18,6 +23,7 @@ import Button from "@/ui/Button";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExplorerSideBar from "./SideBar/ExplorerSideBar";
+import SaveFunnelMetricAction from "./SideBar/SaveFunnelMetricAction";
 import {
   ExplorerProvider,
   useExplorerContext,
@@ -57,6 +63,15 @@ const comparisonModeParser = comparisonModeQueryParser.withOptions({
   throttleMs: 0,
 });
 
+// Which funnel metric the exploration was opened from. Kept as its own param
+// rather than inside `?config=`: the funnel dataset schema is `.strict()` and
+// also validates dashboard blocks and persisted runs, so adding a field there
+// would ripple well beyond the explorer.
+const funnelMetricIdParser = parseAsString.withOptions({
+  shallow: true,
+  throttleMs: 0,
+});
+
 function deriveConfigError(
   urlConfig: ExplorationConfig | null,
   rawParam: string | undefined,
@@ -81,7 +96,9 @@ function deriveConfigError(
 }
 
 function ExplorerContent() {
-  const { managedWarehouseUnavailable } = useExplorerContext();
+  const { managedWarehouseUnavailable, draftExploreState } =
+    useExplorerContext();
+  const isFunnel = draftExploreState.type === "funnel";
 
   return (
     <Flex direction="column" gap="3" height="calc(100vh - 72px)">
@@ -128,13 +145,23 @@ function ExplorerContent() {
 
         {/* Sidebar */}
         <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
-          {/* Let the scroll area fill the panel (which already sizes itself
-              against the parent group's height) instead of a hardcoded
-              `calc(100vh - 160px)` — the latter left ~88px dead space at
-              the bottom and caused unnecessary scrolling. */}
-          <ShadowedScrollArea height="100%">
-            <ExplorerSideBar />
-          </ShadowedScrollArea>
+          <Flex direction="column" height="100%">
+            <Box style={{ flex: 1, minHeight: 0 }}>
+              <ShadowedScrollArea height="100%">
+                <ExplorerSideBar />
+              </ShadowedScrollArea>
+            </Box>
+            {isFunnel && (
+              <Box
+                p="2"
+                style={{
+                  borderTop: "1px solid var(--gray-a3)",
+                }}
+              >
+                <SaveFunnelMetricAction />
+              </Box>
+            )}
+          </Flex>
         </Panel>
       </PanelGroup>
     </Flex>
@@ -156,6 +183,28 @@ function ExplorerUrlSync({
     }
     setUrlConfig(stripExplorerDraftFields(draftExploreState));
   }, [draftExploreState, setUrlConfig]);
+
+  return null;
+}
+
+/** Mirrors the linked funnel metric into `?funnelMetricId=` so a refresh or a
+ *  shared link keeps it. Same shape as the other URL syncs: the first effect
+ *  pass is skipped so mounting doesn't immediately rewrite the URL. */
+function ExplorerFunnelMetricUrlSync({
+  setUrlFunnelMetricId,
+}: {
+  setUrlFunnelMetricId: (value: string | null) => void;
+}) {
+  const { linkedFunnelMetricId } = useExplorerContext();
+  const hasUserModified = useRef(false);
+
+  useEffect(() => {
+    if (!hasUserModified.current) {
+      hasUserModified.current = true;
+      return;
+    }
+    void setUrlFunnelMetricId(linkedFunnelMetricId);
+  }, [linkedFunnelMetricId, setUrlFunnelMetricId]);
 
   return null;
 }
@@ -218,18 +267,26 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     comparisonModeParser,
   );
 
+  const [, setUrlFunnelMetricId] = useQueryState(
+    "funnelMetricId",
+    funnelMetricIdParser,
+  );
+
   const getQueryParam = (value: string | string[] | undefined) =>
     Array.isArray(value) ? value[0] : value;
   const rawParam = getQueryParam(router.query.config);
   const metricId = getQueryParam(router.query.metricId);
   const factTableId = getQueryParam(router.query.factTableId);
   const datasourceId = getQueryParam(router.query.datasourceId);
+  const funnelMetricId = getQueryParam(router.query.funnelMetricId);
   const seedId =
     type === "metric"
       ? metricId
       : type === "fact_table"
         ? factTableId
-        : datasourceId;
+        : type === "funnel"
+          ? funnelMetricId
+          : datasourceId;
 
   const configError = deriveConfigError(urlConfig, rawParam, type);
 
@@ -259,10 +316,35 @@ function ExplorerInner({ type }: { type: DatasetType }) {
   let seededConfig: ExplorerDraftConfig | null = null;
 
   if (!rawParam) {
-    if (type === "metric" && metricId) {
+    if (type === "funnel" && funnelMetricId) {
+      const metric = getFactMetricById(funnelMetricId);
+      if (metric && isFactFunnelMetric(metric)) {
+        seededConfig = {
+          ...defaultDraftState,
+          datasource: metric.datasource,
+          dataset: funnelSettingsToFunnelDataset(
+            metric.funnelSettings,
+            // No prior unit to honour on a fresh load, so take the first that
+            // exists on every step's fact table.
+            deriveFunnelUnit({
+              steps: metric.funnelSettings.steps,
+              getFactTable: (id) => getFactTableById(id) ?? undefined,
+            }),
+          ),
+        } as ExplorerDraftConfig;
+      } else if (ready) {
+        seedError = metric
+          ? "That metric isn't a funnel metric."
+          : "Could not find the requested funnel metric.";
+      }
+    } else if (type === "metric" && metricId) {
       const metric = getFactMetricById(metricId);
       if (metric?.metricType === "funnel") {
-        seedError = "Funnel metrics are not yet supported in the Explorer.";
+        // The metric explorer genuinely can't render a funnel — this guard
+        // stays. Point at the funnel builder rather than dead-ending, since
+        // funnels are now explorable there.
+        seedError =
+          "Funnel metrics open in the Funnel Builder, not the Metric Explorer.";
       } else if (metric) {
         seededConfig = {
           ...defaultDraftState,
@@ -358,9 +440,20 @@ function ExplorerInner({ type }: { type: DatasetType }) {
       <ExplorerProvider
         key={`${type}:${seedId ?? ""}`}
         initialConfig={initialConfig}
+        // Read even when `?config=` wins for the funnel definition: a shared
+        // link must reproduce the sender's steps *and* remember which metric
+        // they came from, so the dirty flag can say whether they were edited.
+        initialLinkedFunnelMetricId={
+          type === "funnel" ? (funnelMetricId ?? null) : null
+        }
         trackingSource="manual-explorer"
       >
         <ExplorerUrlSync setUrlConfig={setUrlConfig} />
+        {type === "funnel" && (
+          <ExplorerFunnelMetricUrlSync
+            setUrlFunnelMetricId={setUrlFunnelMetricId}
+          />
+        )}
         <ExplorerPreviousTimeFrameUrlSync
           setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
           setUrlComparisonMode={setUrlComparisonMode}

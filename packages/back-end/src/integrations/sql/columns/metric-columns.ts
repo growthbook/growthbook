@@ -2,6 +2,7 @@ import {
   ExperimentMetricInterface,
   getAggregateFilters,
   getColumnExpression,
+  getFactTableTimestampColumn,
   getUserIdTypes,
   isBinomialMetric,
   isFactMetric,
@@ -64,7 +65,7 @@ export function getMetricColumns(
 
     return {
       userIds,
-      timestamp: `${alias}.timestamp`,
+      timestamp: `${alias}.${getFactTableTimestampColumn(factTable)}`,
       value,
     };
   }

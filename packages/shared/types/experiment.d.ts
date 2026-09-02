@@ -250,6 +250,7 @@ export type ExperimentTargetingData = Pick<
     ExperimentInterfaceStringDates,
     | "hashAttribute"
     | "fallbackAttribute"
+    | "attributeScopeAllProjects"
     | "hashVersion"
     | "disableStickyBucketing"
     | "bucketVersion"
@@ -288,6 +289,12 @@ export interface LinkedFeatureInfo {
   rulesAbove: boolean;
   environmentStates: Record<string, LinkedFeatureEnvState>;
   /**
+   * Projects whose registered attributes are in scope for targeting through
+   * this feature (primary + targeting projects, current ∪ draft-staged).
+   * null = unscoped (the feature targets all projects).
+   */
+  attributeScopeProjects?: string[] | null;
+  /**
    * True when the live revision has at least one experiment-ref rule for this
    * experiment.
    */
@@ -308,6 +315,13 @@ export interface LinkedFeatureInfo {
    * switches and metadata are excluded (auto-toggled / typically no SDK impact).
    */
   hasUnrelatedDraftChanges?: boolean;
+  /**
+   * Environments currently disabled on the live feature that will be enabled
+   * when the pending draft is auto-published on experiment start. Only set for
+   * drafts queued in `pendingFeatureDrafts` — a draft created directly on the
+   * feature isn't published by the start flow.
+   */
+  environmentsToEnable?: string[];
 }
 
 export type LinkedChangeEnvState = "active" | "no-sdk-connection";

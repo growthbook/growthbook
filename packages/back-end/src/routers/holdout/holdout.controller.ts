@@ -1,42 +1,39 @@
 import type { Response } from "express";
 import isEqual from "lodash/isEqual";
-import { getValidDate } from "shared/dates";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import { v4 as uuidv4 } from "uuid";
-import { generateVariationId, getApplicableEnvIds } from "shared/util";
 import { omit } from "lodash";
 import { UpdateProps } from "shared/types/base-model";
-import {
-  HoldoutInterface,
-  HoldoutNextScheduledStatusUpdate,
-} from "shared/validators";
-import {
-  Changeset,
-  ExperimentInterface,
-  ExperimentInterfaceStringDates,
-  ExperimentPhase,
-} from "shared/types/experiment";
+import { CreateHoldoutInput, HoldoutInterface } from "shared/validators";
+import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import { DataSourceInterface } from "shared/types/datasource";
+import {
+  getApplicableEnvIds,
+  getEnabledHoldoutEnvironments,
+  HoldoutStage,
+  PermissionError,
+} from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextFromReq,
-  getEnvironmentIdsFromOrg,
   getEnvironments,
 } from "back-end/src/services/organizations";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
-  createExperiment,
   getAllExperiments,
   getExperimentById,
   getExperimentsByIds,
   hasArchivedExperiments,
-  updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
+  setHoldoutStage,
+  assertCanRunHoldoutEnvironments,
+  assertCanUpdateHoldout,
   assertHoldoutScopeCoversLinked,
+  assertValidHoldoutEnvironments,
+  createHoldoutWithExperiment,
   deleteHoldoutAndExperiment,
+  normalizeHoldoutScheduleUpdates,
+  refreshHoldoutPayload,
 } from "back-end/src/services/holdouts";
 import {
   assertNoLinkedHoldoutExperiments,
@@ -45,22 +42,10 @@ import {
   removeHoldoutFromFeature,
 } from "back-end/src/models/FeatureModel";
 import { logger } from "back-end/src/util/logger";
-import {
-  createExperimentSnapshot,
-  getChangesToStartExperiment,
-  validateExperimentData,
-  validateVariationIds,
-} from "back-end/src/services/experiments";
+import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import {
-  BadRequestError,
-  InternalServerError,
-  SoftWarningError,
-} from "back-end/src/util/errors";
-import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import { SoftWarningError } from "back-end/src/util/errors";
 import { PrivateApiErrorResponse } from "back-end/types/api";
-import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 /**
  * GET /holdout/:id
@@ -118,9 +103,7 @@ export const getHoldout = async (
     experiment: holdoutExperiment,
     linkedFeatures,
     linkedExperiments,
-    envs: Object.keys(holdout.environmentSettings).filter(
-      (e) => holdout.environmentSettings[e].enabled,
-    ),
+    envs: getEnabledHoldoutEnvironments(holdout.environmentSettings),
   });
 };
 
@@ -130,7 +113,7 @@ export const getHoldout = async (
 
 export const createHoldout = async (
   req: AuthRequest<
-    Partial<ExperimentInterfaceStringDates> & Partial<HoldoutInterface>,
+    CreateHoldoutInput,
     unknown,
     { autoRefreshResults?: boolean }
   >,
@@ -145,10 +128,8 @@ export const createHoldout = async (
   >,
 ) => {
   const context = getContextFromReq(req);
-  const { org, userId } = context;
 
   const data = req.body;
-  data.organization = org.id;
 
   if (
     !context.permissions.canCreateHoldout({ projects: data.projects || [] })
@@ -156,120 +137,9 @@ export const createHoldout = async (
     context.permissions.throwPermissionError();
   }
 
-  let result:
-    | { metricIds: string[]; datasource: DataSourceInterface | null }
-    | undefined;
-
   try {
-    result = await validateExperimentData(context, data);
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
-    return;
-  }
-
-  const { metricIds, datasource } = result;
-  const variations = [
-    {
-      name: "Holdout",
-      description: "",
-      key: "0",
-      screenshots: [],
-      id: generateVariationId(),
-    },
-    {
-      name: "Treatment",
-      description: "",
-      key: "1",
-      screenshots: [],
-      id: generateVariationId(),
-    },
-  ];
-  const obj: Omit<ExperimentInterface, "id" | "uid"> = {
-    organization: data.organization,
-    archived: false,
-    hashAttribute: data.hashAttribute || "",
-    fallbackAttribute: data.fallbackAttribute || "",
-    hashVersion: 2,
-    disableStickyBucketing: true,
-    autoSnapshots: true,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    project: "",
-    owner: data.owner || userId,
-    trackingKey: `holdout-${uuidv4()}`,
-    datasource: data.datasource || "",
-    exposureQueryId: data.exposureQueryId || "",
-    userIdType: data.userIdType || "anonymous",
-    name: data.name || "",
-    phases: data.phases
-      ? data.phases.map(({ dateStarted, dateEnded, ...phase }) => {
-          return {
-            ...phase,
-            dateStarted: dateStarted ? getValidDate(dateStarted) : new Date(),
-            dateEnded: dateEnded ? getValidDate(dateEnded) : undefined,
-          };
-        })
-      : [],
-    tags: data.tags || [],
-    description: data.description || "",
-    hypothesis: "",
-    goalMetrics: data.goalMetrics || [],
-    secondaryMetrics: data.secondaryMetrics || [],
-    guardrailMetrics: [],
-    activationMetric: "",
-    metricOverrides: [],
-    segment: "",
-    queryFilter: "",
-    skipPartialData: false,
-    attributionModel: "firstExposure",
-    variations,
-    implementation: "code",
-    status: "draft",
-    results: undefined,
-    analysis: "",
-    releasedVariationId: "",
-    excludeFromPayload: true,
-    autoAssign: false,
-    previewURL: "",
-    targetURLRegex: "",
-    // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
-    sequentialTestingEnabled: false,
-    sequentialTestingTuningParameter:
-      data.sequentialTestingTuningParameter ??
-      org?.settings?.sequentialTestingTuningParameter ??
-      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-    regressionAdjustmentEnabled: false,
-    statsEngine: data.statsEngine,
-    type: "holdout",
-    customFields: data.customFields || undefined,
-    shareLevel: data.shareLevel || "organization",
-    decisionFrameworkSettings: {},
-  };
-
-  try {
-    validateVariationIds(obj.variations);
-
-    const experiment = await createExperiment({
-      data: obj,
-      context,
-    });
-
-    const holdout = await context.models.holdout.create({
-      experimentId: experiment.id,
-      projects: data.projects || [],
-      name: experiment.name,
-      skipAsDefaultHoldout: data.skipAsDefaultHoldout,
-      environmentSettings: data.environmentSettings || {},
-      linkedFeatures: {},
-      linkedExperiments: {},
-    });
-
-    if (!holdout) {
-      throw new InternalServerError("Failed to create holdout");
-    }
+    const { holdout, experiment, datasource, metricIds } =
+      await createHoldoutWithExperiment(context, data);
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
       try {
@@ -301,7 +171,7 @@ export const createHoldout = async (
       holdout: holdout,
     });
   } catch (e) {
-    if (e instanceof SoftWarningError) throw e;
+    if (e instanceof SoftWarningError || e instanceof PermissionError) throw e;
     res.status(400).json({
       status: 400,
       message: e.message,
@@ -388,94 +258,74 @@ export const updateHoldout = async (
     });
   }
 
-  // Convert string dates to Date objects for statusUpdateSchedule
-  // Only add keys that are present in the request so partial updates preserve existing values
-  const updates = { ...req.body };
+  // Whitelist: experimentId, the linkage maps, analysisStartDate and the computed
+  // schedule pointer are server-managed and must never come from the body.
+  const { name, projects, skipAsDefaultHoldout, environmentSettings } =
+    req.body;
+  const scheduleInput = req.body.statusUpdateSchedule;
 
-  if (updates.statusUpdateSchedule) {
-    const scheduleUpdates = updates.statusUpdateSchedule as {
-      startAt?: string | Date;
-      startAnalysisPeriodAt?: string | Date;
-      stopAt?: string | Date;
-    };
-    const existing = holdout.statusUpdateSchedule ?? {};
-    updates.statusUpdateSchedule = {
-      ...existing,
-      ...(scheduleUpdates.startAt !== undefined && {
-        startAt: scheduleUpdates.startAt
-          ? getValidDate(scheduleUpdates.startAt)
-          : undefined,
-      }),
-      ...(scheduleUpdates.startAnalysisPeriodAt !== undefined && {
-        startAnalysisPeriodAt: scheduleUpdates.startAnalysisPeriodAt
-          ? getValidDate(scheduleUpdates.startAnalysisPeriodAt)
-          : undefined,
-      }),
-      ...(scheduleUpdates.stopAt !== undefined && {
-        stopAt: scheduleUpdates.stopAt
-          ? getValidDate(scheduleUpdates.stopAt)
-          : undefined,
-      }),
-    };
-
-    // Compute next scheduled event: earliest date among startAt, startAnalysisPeriodAt, and stopAt that is in the future
-    const now = new Date();
-    const potentialUpdates: Array<{
-      date: Date;
-      type: HoldoutNextScheduledStatusUpdate["type"];
-    }> = [];
-
-    if (updates.statusUpdateSchedule.startAt && experiment.status === "draft") {
-      potentialUpdates.push({
-        date: updates.statusUpdateSchedule.startAt,
-        type: "start",
-      });
-    }
-    if (
-      updates.statusUpdateSchedule.startAnalysisPeriodAt &&
-      experiment.status === "running" &&
-      !holdout.analysisStartDate
-    ) {
-      potentialUpdates.push({
-        date: updates.statusUpdateSchedule.startAnalysisPeriodAt,
-        type: "startAnalysisPeriod",
-      });
-    }
-    if (
-      updates.statusUpdateSchedule.stopAt &&
-      experiment.status !== "stopped"
-    ) {
-      potentialUpdates.push({
-        date: updates.statusUpdateSchedule.stopAt,
-        type: "stop",
-      });
-    }
-
-    // Filter to only future dates and find the earliest one
-    const futureUpdates = potentialUpdates.filter(
-      (update) => update.date > now,
-    );
-
-    if (futureUpdates.length > 0) {
-      const nextUpdate = futureUpdates.reduce((earliest, current) =>
-        current.date < earliest.date ? current : earliest,
-      );
-      updates.nextScheduledStatusUpdate = {
-        type: nextUpdate.type,
-        date: nextUpdate.date,
-      };
-    } else {
-      updates.nextScheduledStatusUpdate = null;
-    }
+  const updates: UpdateProps<HoldoutInterface> = {};
+  if (name !== undefined) updates.name = name;
+  if (projects !== undefined) updates.projects = projects;
+  if (skipAsDefaultHoldout !== undefined) {
+    updates.skipAsDefaultHoldout = skipAsDefaultHoldout;
+  }
+  if (environmentSettings !== undefined) {
+    updates.environmentSettings = environmentSettings;
   }
 
-  // Only when the scope actually changes — a Holdout already holding a stranded
-  // link (created before this guard existed) must stay editable so it can be fixed.
+  assertValidHoldoutEnvironments(
+    context,
+    environmentSettings,
+    holdout.environmentSettings,
+  );
+
+  if (scheduleInput !== undefined) {
+    const { statusUpdateSchedule, nextScheduledStatusUpdate } =
+      normalizeHoldoutScheduleUpdates({ holdout, experiment, scheduleInput });
+    updates.statusUpdateSchedule = statusUpdateSchedule;
+    updates.nextScheduledStatusUpdate = nextScheduledStatusUpdate;
+  }
+
+  // Shared with the REST update handler. Targeting lives on the companion
+  // experiment and never comes through here, but the gate still takes the flag.
+  assertCanUpdateHoldout(context, {
+    holdout,
+    updatedProjects: updates.projects,
+    requestedEnabledEnvironments: updates.environmentSettings
+      ? getEnabledHoldoutEnvironments(updates.environmentSettings)
+      : undefined,
+    isTargetingChange: false,
+    isScheduleChange: (scheduleInput ?? null) !== null,
+    isArchiveChange: false,
+    isRunning: experiment.status === "running",
+  });
+
+  // Only when the scope actually changes, so a Holdout already holding a
+  // stranded link stays editable to be fixed.
   if (updates.projects && !isEqual(updates.projects, holdout.projects)) {
+    if (updates.projects.length) {
+      await context.models.projects.ensureProjectsExist(updates.projects);
+    }
     await assertHoldoutScopeCoversLinked(context, holdout, updates.projects);
   }
 
   const updatedHoldout = await context.models.holdout.update(holdout, updates);
+
+  // Projects and environments move a running holdout's payload footprint
+  // (mirrors the REST update path).
+  if (
+    experiment.status === "running" &&
+    (updates.environmentSettings !== undefined ||
+      updates.projects !== undefined)
+  ) {
+    refreshHoldoutPayload(context, {
+      holdout: updatedHoldout,
+      previousHoldout: holdout,
+      event: "Holdout updated",
+    });
+  }
+
   return res.status(200).json({ status: 200, holdout: updatedHoldout });
 };
 
@@ -514,164 +364,24 @@ export const editStatus = async (
     context.permissions.throwPermissionError();
   }
 
-  let phases = [...experiment.phases] as ExperimentPhase[];
-  const changes: Changeset = {};
-
-  if (req.body.status === "stopped" && experiment.status !== "stopped") {
-    // put end date on both phases
-    if (phases[0]) {
-      phases[0].dateEnded = new Date();
-    }
-    if (phases[1]) {
-      phases[1].dateEnded = new Date();
-    }
-    Object.assign(changes, { phases, status: "stopped" });
-    await validateExperimentChange({ context, experiment, changes });
-    await updateExperiment({
-      context,
-      experiment,
-      changes,
-    });
-    // Clear next scheduled status update
-    await context.models.holdout.update(holdout, {
-      nextScheduledStatusUpdate: null,
-    });
-
-    queueSDKPayloadRefresh({
-      context,
-      payloadKeys: getAffectedSDKPayloadKeys(
-        holdout,
-        getEnvironmentIdsFromOrg(context.org),
-      ),
-      auditContext: {
-        event: "status changed to stopped",
-        model: "holdout",
-        id: holdout.id,
-      },
-    });
+  let stage: HoldoutStage;
+  if (req.body.status === "stopped" || req.body.status === "draft") {
+    stage = req.body.status;
+  } else if (experiment.status === "draft") {
+    stage = "running";
+  } else {
+    stage = req.body.holdoutRunningStatus ?? "running";
   }
-  // Starting a holdout from draft
-  else if (req.body.status === "running" && experiment.status === "draft") {
-    const additionalChanges: Changeset = await getChangesToStartExperiment(
-      context,
-      experiment,
-    );
-    Object.assign(changes, additionalChanges);
-    await validateExperimentChange({ context, experiment, changes });
-    await updateExperiment({
-      context,
-      experiment,
-      changes,
-    });
-    await context.models.holdout.update(holdout, {
-      analysisStartDate: undefined,
-      nextScheduledStatusUpdate: holdout.statusUpdateSchedule
-        ?.startAnalysisPeriodAt
-        ? {
-            type: "startAnalysisPeriod",
-            date: holdout.statusUpdateSchedule.startAnalysisPeriodAt,
-          }
-        : null,
-    });
 
-    queueSDKPayloadRefresh({
-      context,
-      payloadKeys: getAffectedSDKPayloadKeys(
-        holdout,
-        getEnvironmentIdsFromOrg(context.org),
-      ),
-      auditContext: {
-        event: "status changed to running",
-        model: "holdout",
-        id: holdout.id,
-      },
-    });
-  } else if (req.body.status === "running") {
-    // check to see if already in analysis phase
-    if (!phases[0]) {
-      throw new BadRequestError("Holdout does not have a phase");
-    }
-    if (
-      !phases[1] ||
-      (phases[1] &&
-        phases[1].dateEnded &&
-        req.body.holdoutRunningStatus === "analysis-period")
-    ) {
-      phases[1] = {
-        ...phases[0],
-        lookbackStartDate: new Date(),
-        dateEnded: undefined,
-        name: "Analysis",
-      };
-      await context.models.holdout.update(holdout, {
-        analysisStartDate: new Date(),
-        nextScheduledStatusUpdate: holdout.statusUpdateSchedule?.stopAt
-          ? { type: "stop", date: holdout.statusUpdateSchedule.stopAt }
-          : null,
-      });
-      // check to see if we already are in the running phase
-    } else if (
-      ((phases[0] && !phases[0].dateEnded) || !!phases[1]) &&
-      req.body.holdoutRunningStatus === "running"
-    ) {
-      phases[0] = {
-        ...phases[0],
-        dateEnded: undefined,
-      };
-      if (phases[1]) {
-        phases = [phases[0]];
-      }
-      await context.models.holdout.update(holdout, {
-        analysisStartDate: undefined,
-      });
-    }
-    Object.assign(changes, { phases, status: "running" });
-    await validateExperimentChange({ context, experiment, changes });
-    await updateExperiment({
-      context,
-      experiment,
-      changes,
-    });
+  // Lifecycle transitions change what live SDKs serve.
+  assertCanRunHoldoutEnvironments(context, {
+    enabledEnvironments: getEnabledHoldoutEnvironments(
+      holdout.environmentSettings,
+    ),
+    projects: holdout.projects,
+  });
 
-    queueSDKPayloadRefresh({
-      context,
-      payloadKeys: getAffectedSDKPayloadKeys(
-        holdout,
-        getEnvironmentIdsFromOrg(context.org),
-      ),
-      auditContext: {
-        event: "status changed to running",
-        model: "holdout",
-        id: holdout.id,
-      },
-    });
-  } else if (req.body.status === "draft") {
-    // set the status to draft for the experiment
-    phases[0].dateEnded = undefined;
-    Object.assign(changes, { phases: [phases[0]], status: "draft" });
-    await validateExperimentChange({ context, experiment, changes });
-    await updateExperiment({
-      context,
-      experiment,
-      changes,
-    });
-    await context.models.holdout.update(holdout, {
-      analysisStartDate: undefined,
-    });
-
-    queueSDKPayloadRefresh({
-      context,
-      payloadKeys: getAffectedSDKPayloadKeys(
-        holdout,
-        getEnvironmentIdsFromOrg(context.org),
-      ),
-      auditContext: {
-        event: "status changed to draft",
-        model: "holdout",
-        id: holdout.id,
-      },
-    });
-  }
+  await setHoldoutStage(context, { holdout, experiment, stage });
 
   return res.status(200).json({ status: 200 });
 };
@@ -695,7 +405,7 @@ export const deleteHoldout = async (
   const experiment = await getExperimentById(context, holdout.experimentId);
 
   if (!experiment) {
-    res.status(403).json({
+    res.status(404).json({
       status: 404,
       message: "Holdout experiment not found",
     });

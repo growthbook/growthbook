@@ -2,6 +2,8 @@
 export type DraftConflict<T> = {
   entityId: string;
   current: T | null;
+  // Contested fields whose current value was too large to ship.
+  omittedFields?: string[];
   liveVersion: number;
   draftVersion?: number;
   merge?: {

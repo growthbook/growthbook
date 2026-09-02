@@ -12,9 +12,24 @@ jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
 }));
 
 import {
+  _buildGeneralAgentSystemPrompt,
   _coerceBody,
   _requiresMutationConfirmation,
 } from "back-end/src/agent/general-agent";
+
+describe("general agent system prompt", () => {
+  it("translates canonical skill runtime instructions", () => {
+    const prompt = _buildGeneralAgentSystemPrompt();
+
+    expect(prompt).toContain(
+      "translate every `gb-call METHOD PATH [body]` example into",
+    );
+    expect(prompt).toContain("Never run shell commands");
+    expect(prompt).toMatch(
+      /Ignore API-key, host,\s+`gb-setup`, and credential instructions/,
+    );
+  });
+});
 
 describe("coerceBody (callApi defensive parsing)", () => {
   it("returns objects unchanged", () => {
@@ -150,6 +165,12 @@ describe("requiresMutationConfirmation (deterministic mutation gate)", () => {
       _requiresMutationConfirmation({
         method: "POST",
         path: "/api/v1/product-analytics/data-source-exploration",
+      }),
+    ).toBe(false);
+    expect(
+      _requiresMutationConfirmation({
+        method: "POST",
+        path: "/api/v1/product-analytics/funnel-exploration",
       }),
     ).toBe(false);
   });

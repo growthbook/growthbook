@@ -41,6 +41,7 @@ import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
 import FunnelTabContent from "./FunnelTabContent";
 import GroupBySection from "./GroupBySection";
+import SaveFunnelMetricAction from "./SaveFunnelMetricAction";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
 
@@ -81,6 +82,7 @@ export default function ExplorerSideBar({
     needsFetch,
     error,
     trackingSource,
+    linkedFunnelMetricId,
   } = useExplorerContext();
   const { factTables, getFactMetricById, getFactTableById, project } =
     useDefinitions();
@@ -200,6 +202,7 @@ export default function ExplorerSideBar({
           compareEnabled={compareEnabled}
           previousTimeFrame={draftExploreState.previousTimeFrame ?? null}
           comparisonMode={comparisonMode}
+          linkedFunnelMetricId={linkedFunnelMetricId}
           comparisonExplorationId={comparisonExploration?.id ?? null}
           trackingSource={trackingSource}
         />
@@ -461,6 +464,9 @@ export default function ExplorerSideBar({
           <ShowAsSection />
         )}
       {hasInputs && <GroupBySection />}
+      {activeType === "funnel" && renderingInDashboardSidebar && (
+        <SaveFunnelMetricAction />
+      )}
     </Flex>
   );
 }

@@ -69,6 +69,7 @@ export const safeRolloutSnapshotMetricObject = z.object({
     .optional(),
   chanceToWin: z.number().optional(),
   errorMessage: z.string().optional(),
+  computeFailed: z.boolean().optional(),
   power: metricPowerResponseFromStatsEngineObject.optional(),
 });
 export type SafeRolloutSnapshotMetricInterface = z.infer<

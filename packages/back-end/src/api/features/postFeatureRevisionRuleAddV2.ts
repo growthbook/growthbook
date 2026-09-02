@@ -8,7 +8,11 @@ import {
   SafeRolloutInterface,
 } from "shared/validators";
 import type { FeatureRule, SafeRolloutRule } from "shared/validators";
-import { getEffectiveRevisionHoldout, resetReviewOnChange } from "shared/util";
+import {
+  getAttributeScopeProjectIds,
+  getEffectiveRevisionHoldout,
+  resetReviewOnChange,
+} from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { CreateProps } from "shared/types/base-model";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -216,7 +220,11 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     // Opt-in registered-attribute check before any side effects (safe-rollout
     // create, revision update). New rules have no baseline, so this validates
     // every attribute-bearing field on the incoming rule.
-    validateRuleAttributes(rule, req.context, feature.project);
+    validateRuleAttributes(
+      rule,
+      req.context,
+      getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+    );
     await validateRuleReferences(rule, req.context);
 
     // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation

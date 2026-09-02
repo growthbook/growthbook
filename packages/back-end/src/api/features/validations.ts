@@ -311,7 +311,7 @@ export function validateRuleAttributes(
     fallbackAttribute?: string;
   },
   context: ApiReqContext,
-  project?: string,
+  project?: string | string[],
 ): void {
   assertRegisteredAttributes(
     context,

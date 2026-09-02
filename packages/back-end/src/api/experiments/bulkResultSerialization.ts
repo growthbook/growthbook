@@ -173,10 +173,12 @@ export function toApiResultAnalysis(
     mean: safeFloatOrNull(data?.stats?.mean),
     stddev: safeFloatOrNull(data?.stats?.stddev),
     effect: safeFloatOrNull(data?.expected),
+    effectStandardError: safeFloatOrNull(data?.uplift?.stddev),
     ciLow: safeFloatOrNull(data?.ci?.[0]),
     ciHigh: safeFloatOrNull(data?.ci?.[1]),
     pValue: safeFloatOrNull(data?.pValue),
     chanceToBeatControl: safeFloatOrNull(data?.chanceToWin),
+    ...(data?.errorMessage ? { errorMessage: data.errorMessage } : null),
   };
 }
 

@@ -25,6 +25,9 @@ type ConflictContextValue = {
   claimed: Set<string>;
   claim: (key: string) => void;
   release: (key: string) => void;
+  // Fields whose current value was too large to ship; reload replaces merging.
+  omitted?: string[];
+  reload?: () => void;
 };
 
 const ConflictContext = createContext<ConflictContextValue | null>(null);
@@ -38,6 +41,8 @@ export function ConflictProvider({
   claimed,
   claim,
   release,
+  omitted,
+  reload,
   children,
 }: ConflictContextValue & { children: ReactNode }) {
   const value = useMemo(
@@ -50,6 +55,8 @@ export function ConflictProvider({
       claimed,
       claim,
       release,
+      omitted,
+      reload,
     }),
     [
       contested,
@@ -60,6 +67,8 @@ export function ConflictProvider({
       claimed,
       claim,
       release,
+      omitted,
+      reload,
     ],
   );
 
@@ -79,9 +88,24 @@ export function useContestedChunk(field: string): ContestedChunk | undefined {
   return ctx?.contested.find((c) => c.fields.includes(field));
 }
 
+function chunkOmitted(
+  ctx: ConflictContextValue | null,
+  chunk: ContestedChunk,
+): boolean {
+  return chunk.fields.some((f) => ctx?.omitted?.includes(f));
+}
+
 function ConflictButtons({ chunk }: { chunk: ContestedChunk }) {
   const ctx = useConflict();
   if (!ctx) return null;
+  // Without their value there is nothing to merge; reload is the only move.
+  if (chunkOmitted(ctx, chunk)) {
+    return ctx.reload ? (
+      <Button size="sm" variant="outline" onClick={() => ctx.reload?.()}>
+        Reload
+      </Button>
+    ) : null;
+  }
   const resolution = ctx.resolutions.get(chunk.key);
   const choice = (side: ConflictResolution, label: string) => {
     const active = resolution === side;
@@ -113,6 +137,14 @@ export function ConflictMessage({
 }) {
   const ctx = useConflict();
   if (!ctx) return null;
+  if (chunkOmitted(ctx, chunk)) {
+    return (
+      <Text>
+        <Text weight="semibold">{ctx.labelFor?.(chunk) ?? chunk.key}</Text> was
+        modified while you were editing.
+      </Text>
+    );
+  }
   return (
     <Text>
       <Text weight="semibold">{ctx.labelFor?.(chunk) ?? chunk.key}</Text> was

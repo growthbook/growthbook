@@ -515,6 +515,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       }}
                     />
                   </Frame>
+
+                  {contextualBanditsEnabled &&
+                    hasCommercialFeature("contextual-bandits") && (
+                      <Frame id={CBAQ_ANCHOR_ID}>
+                        <ContextualBanditAssignmentQueries
+                          dataSource={d}
+                          canEdit={canUpdateDataSourceSettings}
+                        />
+                      </Frame>
+                    )}
                 </>
               )
             ) : (

@@ -1,6 +1,7 @@
 import isEqual from "lodash/isEqual";
 import {
   resetReviewOnChange,
+  getAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
 } from "shared/util";
@@ -259,7 +260,11 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     if (attrPatch.fallbackAttribute !== undefined)
       changedAttributes.fallbackAttribute = attrPatch.fallbackAttribute;
     if (Object.keys(changedAttributes).length > 0) {
-      validateRuleAttributes(changedAttributes, req.context, feature.project);
+      validateRuleAttributes(
+        changedAttributes,
+        req.context,
+        getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+      );
     }
     if (
       basePatch.condition !== undefined ||

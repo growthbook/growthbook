@@ -2,6 +2,7 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getHoldoutStage } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Text from "@/ui/Text";
@@ -19,6 +20,7 @@ const EditScheduleModal = ({
   mutate: () => void;
 }) => {
   const { apiCall } = useAuth();
+  const holdoutStage = getHoldoutStage(holdout, experiment);
 
   const form = useForm<
     Pick<HoldoutInterfaceStringDates, "statusUpdateSchedule">
@@ -37,20 +39,21 @@ const EditScheduleModal = ({
     // Convert Date objects to ISO strings for API
     const statusUpdateSchedule = rawValue.statusUpdateSchedule
       ? {
-          ...(experiment.status === "draft" && {
+          ...(holdoutStage === "draft" && {
             startAt: rawValue.statusUpdateSchedule.startAt
               ? new Date(rawValue.statusUpdateSchedule.startAt).toISOString()
               : "",
           }),
-          ...(!holdout.analysisStartDate && {
-            startAnalysisPeriodAt: rawValue.statusUpdateSchedule
-              .startAnalysisPeriodAt
-              ? new Date(
-                  rawValue.statusUpdateSchedule.startAnalysisPeriodAt,
-                ).toISOString()
-              : "",
-          }),
-          ...(experiment.status !== "stopped" && {
+          ...(holdoutStage !== "analysis-period" &&
+            holdoutStage !== "stopped" && {
+              startAnalysisPeriodAt: rawValue.statusUpdateSchedule
+                .startAnalysisPeriodAt
+                ? new Date(
+                    rawValue.statusUpdateSchedule.startAnalysisPeriodAt,
+                  ).toISOString()
+                : "",
+            }),
+          ...(holdoutStage !== "stopped" && {
             stopAt: rawValue.statusUpdateSchedule.stopAt
               ? new Date(rawValue.statusUpdateSchedule.stopAt).toISOString()
               : "",
@@ -74,7 +77,7 @@ const EditScheduleModal = ({
     <Modal
       useRadixButton={false}
       open={true}
-      ctaEnabled={experiment.status !== "stopped" && !experiment.archived}
+      ctaEnabled={holdoutStage !== "stopped" && !experiment.archived}
       trackingEventModalType=""
       header="Edit Holdout Schedule"
       close={close}
