@@ -168,7 +168,6 @@ export default function SqlExplorerModal({
   const datasourceId = form.watch("datasourceId");
   const {
     autoCompletions,
-    cursorData,
     isAutocompleteEnabled,
     setCursorData,
     setIsAutocompleteEnabled,
@@ -1144,7 +1143,7 @@ export default function SqlExplorerModal({
                                     form.setValue("sql", sql);
                                   }}
                                   datasource={datasource}
-                                  cursorData={cursorData || undefined}
+                                  sql={form.watch("sql")}
                                 />
                               )}
                             </Flex>

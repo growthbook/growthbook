@@ -95,7 +95,6 @@ export default function EditSqlModal({
   const { apiCall } = useAuth();
   const {
     autoCompletions,
-    cursorData,
     isAutocompleteEnabled,
     setCursorData,
     setIsAutocompleteEnabled,
@@ -497,7 +496,7 @@ export default function EditSqlModal({
                         form.setValue("sql", sql);
                       }}
                       datasource={datasource}
-                      cursorData={cursorData || undefined}
+                      sql={form.watch("sql")}
                     />
                   </Flex>
                   {/* </div> */}
