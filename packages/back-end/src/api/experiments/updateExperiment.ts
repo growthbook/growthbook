@@ -50,22 +50,18 @@ export const updateExperiment = createApiRequestHandler(
     throw new Error("Holdouts are not supported via this API");
   }
 
-  // The assignmentQuery object supersedes the deprecated flat
-  // assignmentQueryId/assignmentQueryIdentifierType. They are mutually
-  // exclusive; when the object is present it is projected onto the flat fields
-  // the rest of the handler reads.
+  // The assignmentQuery object supersedes the deprecated flat assignmentQueryId.
+  // They are mutually exclusive; when the object is present its id is projected
+  // onto req.body and its identifier type is tracked locally (there is no public
+  // flat identifier field).
+  let assignmentQueryIdentifierType = req.body.assignmentQuery?.identifierType;
   if (req.body.assignmentQuery) {
-    if (
-      req.body.assignmentQueryId !== undefined ||
-      req.body.assignmentQueryIdentifierType !== undefined
-    ) {
+    if (req.body.assignmentQueryId !== undefined) {
       throw new Error(
-        "Cannot set assignmentQuery together with the deprecated assignmentQueryId or assignmentQueryIdentifierType",
+        "Cannot set assignmentQuery together with the deprecated assignmentQueryId",
       );
     }
     req.body.assignmentQueryId = req.body.assignmentQuery.id;
-    req.body.assignmentQueryIdentifierType =
-      req.body.assignmentQuery.identifierType;
   }
 
   // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel
@@ -107,7 +103,7 @@ export const updateExperiment = createApiRequestHandler(
   // check for associated assignment query and identifier type
   if (
     req.body.assignmentQueryId !== undefined ||
-    req.body.assignmentQueryIdentifierType !== undefined
+    assignmentQueryIdentifierType !== undefined
   ) {
     if (!datasource) {
       throw new Error("Datasource not found.");
@@ -123,23 +119,23 @@ export const updateExperiment = createApiRequestHandler(
     const assignmentQueryIdentifierTypes = assignmentQuery.userIdTypes?.length
       ? assignmentQuery.userIdTypes
       : [assignmentQuery.userIdType];
+    // Repointing to a different query without naming an identifier defaults to
+    // the new query's first declared identifier.
     if (
-      req.body.assignmentQueryIdentifierType === undefined &&
+      assignmentQueryIdentifierType === undefined &&
       req.body.assignmentQueryId !== undefined &&
       req.body.assignmentQueryId !== experiment.exposureQueryId
     ) {
-      req.body.assignmentQueryIdentifierType =
-        assignmentQueryIdentifierTypes[0];
+      assignmentQueryIdentifierType = assignmentQueryIdentifierTypes[0];
     }
-    const assignmentQueryIdentifierType =
-      req.body.assignmentQueryIdentifierType ??
-      experiment.exposureQueryIdentifierType;
+    const effectiveIdentifierType =
+      assignmentQueryIdentifierType ?? experiment.exposureQueryIdentifierType;
     if (
-      assignmentQueryIdentifierType &&
-      !assignmentQueryIdentifierTypes.includes(assignmentQueryIdentifierType)
+      effectiveIdentifierType &&
+      !assignmentQueryIdentifierTypes.includes(effectiveIdentifierType)
     ) {
       throw new Error(
-        `Identifier type "${assignmentQueryIdentifierType}" is not declared by assignment query "${assignmentQueryId}"`,
+        `Identifier type "${effectiveIdentifierType}" is not declared by assignment query "${assignmentQueryId}"`,
       );
     }
   }
@@ -278,9 +274,8 @@ export const updateExperiment = createApiRequestHandler(
       req.body.datasourceId !== experiment.datasource) ||
     (req.body.assignmentQueryId !== undefined &&
       req.body.assignmentQueryId !== experiment.exposureQueryId) ||
-    (req.body.assignmentQueryIdentifierType !== undefined &&
-      req.body.assignmentQueryIdentifierType !==
-        experiment.exposureQueryIdentifierType);
+    (assignmentQueryIdentifierType !== undefined &&
+      assignmentQueryIdentifierType !== experiment.exposureQueryIdentifierType);
   if (shouldValidatePrecomputedUnitDimensionIds) {
     const effectivePrecomputedUnitDimensionIds =
       req.body.precomputedUnitDimensionIds ??
@@ -293,7 +288,7 @@ export const updateExperiment = createApiRequestHandler(
         exposureQueryId:
           req.body.assignmentQueryId ?? experiment.exposureQueryId,
         exposureQueryIdentifierType:
-          req.body.assignmentQueryIdentifierType ??
+          assignmentQueryIdentifierType ??
           experiment.exposureQueryIdentifierType,
         dimensionIds: effectivePrecomputedUnitDimensionIds,
       });
@@ -378,6 +373,9 @@ export const updateExperiment = createApiRequestHandler(
     {
       ...req.body,
       ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
+      ...(assignmentQueryIdentifierType !== undefined
+        ? { assignmentQueryIdentifierType }
+        : {}),
     },
     experiment,
     map,

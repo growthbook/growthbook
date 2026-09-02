@@ -13,6 +13,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
+  PostExperimentApiPayload,
   toExperimentApiInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
@@ -93,19 +94,14 @@ function templateToPostExperimentDefaults(
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req) => {
     const { owner: ownerEmail, templateId } = req.body;
-    let payload = req.body;
+    let payload: PostExperimentApiPayload = req.body;
 
-    // The assignmentQuery object supersedes the deprecated flat
-    // assignmentQueryId/assignmentQueryIdentifierType. They are mutually
-    // exclusive; when the object is present it is projected onto the flat
-    // fields the rest of the handler reads.
-    if (
-      req.body.assignmentQuery &&
-      (req.body.assignmentQueryId !== undefined ||
-        req.body.assignmentQueryIdentifierType !== undefined)
-    ) {
+    // The assignmentQuery object supersedes the deprecated flat assignmentQueryId.
+    // They are mutually exclusive; when the object is present it is projected onto
+    // the internal flat fields the rest of the handler reads.
+    if (req.body.assignmentQuery && req.body.assignmentQueryId !== undefined) {
       throw new Error(
-        "Cannot set assignmentQuery together with the deprecated assignmentQueryId or assignmentQueryIdentifierType",
+        "Cannot set assignmentQuery together with the deprecated assignmentQueryId",
       );
     }
 
@@ -131,11 +127,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       if (req.body.assignmentQueryId !== undefined) {
         throw new Error(
           "assignmentQueryId cannot be set when templateId is provided",
-        );
-      }
-      if (req.body.assignmentQueryIdentifierType !== undefined) {
-        throw new Error(
-          "assignmentQueryIdentifierType cannot be set when templateId is provided",
         );
       }
 

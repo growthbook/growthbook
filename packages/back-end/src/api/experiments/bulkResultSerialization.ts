@@ -328,7 +328,6 @@ export function toExperimentSnapshotBulkResultsApiInterface(
         }
       : {}),
     assignmentQueryId,
-    assignmentQueryIdentifierType,
     experimentId: snapshot.settings.experimentId || experiment.trackingKey,
     segmentId: snapshot.settings.segment,
     queryFilter: snapshot.settings.queryFilter,

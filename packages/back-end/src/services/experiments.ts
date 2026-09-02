@@ -3091,7 +3091,6 @@ export async function toExperimentApiInterface(
           }
         : {}),
       assignmentQueryId: experiment.exposureQueryId || "",
-      assignmentQueryIdentifierType: experiment.exposureQueryIdentifierType,
       experimentId: experiment.trackingKey,
       segmentId: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
@@ -3318,9 +3317,6 @@ export function toSnapshotApiInterface(
           }
         : {}),
       assignmentQueryId: experiment.exposureQueryId || "",
-      assignmentQueryIdentifierType:
-        snapshot.settings.exposureQueryIdentifierType ??
-        experiment.exposureQueryIdentifierType,
       experimentId: experiment.trackingKey,
       segmentId: snapshot.settings.segment,
       queryFilter: snapshot.settings.queryFilter,
@@ -4348,8 +4344,17 @@ function apiScheduleToInterface(
   };
 }
 
+// The public request schema only exposes the assignmentQuery object; the handler
+// resolves the identifier type (from assignmentQuery.identifierType or a template)
+// and threads it through on this internal-only field.
+export type PostExperimentApiPayload = z.infer<
+  typeof postExperimentValidator.bodySchema
+> & {
+  assignmentQueryIdentifierType?: string;
+};
+
 export function postExperimentApiPayloadToInterface(
-  payload: z.infer<typeof postExperimentValidator.bodySchema>,
+  payload: PostExperimentApiPayload,
   organization: OrganizationInterface,
   datasource: DataSourceInterface | null,
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
@@ -4547,9 +4552,13 @@ export function postExperimentApiPayloadToInterface(
   return obj;
 }
 
+// The public request schema only exposes the assignmentQuery object; the handler
+// resolves the identifier type and threads it through on this internal-only field.
 type UpdateExperimentApiPayload = z.infer<
   typeof updateExperimentValidator.bodySchema
->;
+> & {
+  assignmentQueryIdentifierType?: string;
+};
 
 function toActivePhaseVariations(
   canonicalVariations: ExperimentInterface["variations"],
