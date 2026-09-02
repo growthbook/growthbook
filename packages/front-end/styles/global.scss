@@ -1088,6 +1088,18 @@ main.main {
     }
   }
 
+  // Collapsed borders are shared between adjacent rows, so they repaint at
+  // inconsistent positions when drag-and-drop translates a <tr>. Separate
+  // borders move rigidly with their row; the header's own border is dropped
+  // so the divider stays 1px (the first body row's border-top provides it).
+  &.gbtable-sortable {
+    border-collapse: separate;
+    border-spacing: 0;
+    thead th {
+      border-bottom: 0;
+    }
+  }
+
   .dark-theme &.decision-criteria-table {
     tbody {
       tr {

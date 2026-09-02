@@ -76,6 +76,27 @@ export const CUSTOM_FIELD_TABLE_WIDTHS = {
   required: "7%",
 } as const;
 
+export function CustomFieldColGroup({
+  showRequired,
+}: {
+  showRequired: boolean;
+}) {
+  const W = CUSTOM_FIELD_TABLE_WIDTHS;
+  return (
+    <colgroup>
+      <col style={{ width: W.dragHandle }} />
+      <col style={{ width: W.name }} />
+      <col style={{ width: W.key }} />
+      <col style={{ width: W.description }} />
+      <col style={{ width: W.appliesTo }} />
+      <col style={{ width: W.valueType }} />
+      <col style={{ width: W.projects }} />
+      {showRequired && <col style={{ width: W.required }} />}
+      <col style={{ width: W.menu }} />
+    </colgroup>
+  );
+}
+
 interface SortableProps {
   customField: CustomFieldWithArrayIndex;
   setEditModal: (cf: CustomField) => void;

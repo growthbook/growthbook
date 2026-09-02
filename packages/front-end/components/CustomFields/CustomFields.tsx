@@ -20,7 +20,7 @@ import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {
-  CUSTOM_FIELD_TABLE_WIDTHS,
+  CustomFieldColGroup,
   SortableCustomFieldRow,
   StaticCustomFieldRow,
 } from "@/components/CustomFields/SortableCustomField";
@@ -60,7 +60,6 @@ function CustomFieldsTable({
   handleMoveDown: (moveId: string, belowId: string) => void;
   canManage: boolean;
 }) {
-  const W = CUSTOM_FIELD_TABLE_WIDTHS;
   const colSpan = 7 + 1 + (showRequired ? 1 : 0); // +1 for menu
 
   const filteredItems = useMemo(() => {
@@ -75,20 +74,10 @@ function CustomFieldsTable({
 
   return (
     <table
-      className="table gbtable table-valign-top"
+      className="table gbtable gbtable-sortable table-valign-top"
       style={{ tableLayout: "fixed", width: "100%" }}
     >
-      <colgroup>
-        <col style={{ width: W.dragHandle }} />
-        <col style={{ width: W.name }} />
-        <col style={{ width: W.key }} />
-        <col style={{ width: W.description }} />
-        <col style={{ width: W.appliesTo }} />
-        <col style={{ width: W.valueType }} />
-        <col style={{ width: W.projects }} />
-        {showRequired && <col style={{ width: W.required }} />}
-        <col style={{ width: W.menu }} />
-      </colgroup>
+      <CustomFieldColGroup showRequired={showRequired} />
       <thead>
         <tr>
           <th style={{ padding: "0.5rem 0", textAlign: "center" }} />
@@ -358,7 +347,11 @@ const CustomFields: FC = () => {
           </Tabs>
           <DragOverlay>
             {activeId && selectedRow ? (
-              <table style={{ width: "100%" }} className="table gbtable">
+              <table
+                style={{ tableLayout: "fixed", width: "100%" }}
+                className="table gbtable gbtable-sortable table-valign-top"
+              >
+                <CustomFieldColGroup showRequired={true} />
                 <tbody>
                   <StaticCustomFieldRow
                     customField={selectedRow}
