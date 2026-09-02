@@ -73,11 +73,11 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
             <th>Key</th>
             <th>Global Role</th>
             <th>Project Roles</th>
+            <th>Last Used</th>
+            <th>Expires</th>
             {environments.map((env) => (
               <th key={env.id}>{env.id}</th>
             ))}
-            <th>Last Used</th>
-            <th>Expires</th>
             {canDeleteKeys && <th style={{ width: 30 }}></th>}
           </tr>
         </thead>
@@ -141,26 +141,6 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   return null;
                 })}
               </td>
-              {environments.map((env) => {
-                const access = !key.role
-                  ? "N/A"
-                  : roleHasAccessToEnv(
-                      key as ApiKeyWithRole,
-                      env.id,
-                      organization,
-                    );
-                return (
-                  <td key={env.id} style={dimStyle(key)}>
-                    {access === "N/A" ? (
-                      <span className="text-muted">N/A</span>
-                    ) : access === "yes" ? (
-                      <FaCheck className="text-success" />
-                    ) : (
-                      <FaTimes className="text-danger" />
-                    )}
-                  </td>
-                );
-              })}
               <td style={dimStyle(key)}>
                 {key.lastUsed ? (
                   <Tooltip
@@ -183,6 +163,26 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               <td style={dimStyle(key)}>
                 <ExpiresCell expiresAt={key.expiresAt} />
               </td>
+              {environments.map((env) => {
+                const access = !key.role
+                  ? "N/A"
+                  : roleHasAccessToEnv(
+                      key as ApiKeyWithRole,
+                      env.id,
+                      organization,
+                    );
+                return (
+                  <td key={env.id} style={dimStyle(key)}>
+                    {access === "N/A" ? (
+                      <span className="text-muted">N/A</span>
+                    ) : access === "yes" ? (
+                      <FaCheck className="text-success" />
+                    ) : (
+                      <FaTimes className="text-danger" />
+                    )}
+                  </td>
+                );
+              })}
               {canDeleteKeys && (
                 <td>
                   <ApiKeyRowMenu
