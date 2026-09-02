@@ -33,10 +33,11 @@ const requestsFormatter = new Intl.NumberFormat("en-US", {
   compactDisplay: "short",
 });
 
-function formatBytes(bytes: number) {
+// Decimal, matching how CDN plan limits are authored and enforced (5_000_000_000)
+function formatBandwidth(bytes: number) {
   if (bytes === 0) return "0";
 
-  const k = 1024;
+  const k = 1000;
   const sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
 
   const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -52,7 +53,7 @@ function downloadUsageCsv(usage: DailyUsage[], month: string) {
       // Trimmed, not re-parsed: the API sends "YYYY-MM-DD HH:mm:ss", which Date reads as local time
       date: u.date.substring(0, 10),
       requests: u.requests,
-      // Raw bytes: the graphs label 1024-based units "GB", unlike a CDN's decimal GB
+      // Raw bytes: full precision, unlike the page's rounded display
       bandwidth_bytes: u.bandwidth,
       managed_clickhouse_events: u.managedClickhouseEvents,
     })),
@@ -195,7 +196,7 @@ export default function CloudUsage() {
         </div>
         <div>
           <strong>Total bandwidth: </strong>
-          <span>{formatBytes(totalBandwidth)}</span>
+          <span>{formatBandwidth(totalBandwidth)}</span>
         </div>
         <div>
           <strong>Total managed Clickhouse events: </strong>
@@ -252,7 +253,7 @@ export default function CloudUsage() {
               ts: new Date(u.date),
               v: u.bandwidth,
             }))}
-            formatValue={formatBytes}
+            formatValue={formatBandwidth}
             start={startDate}
             end={endDate}
             limitLine={
