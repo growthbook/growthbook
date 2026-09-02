@@ -4,7 +4,6 @@ import {
   columnsForShape,
   fitColumn,
   formTypeFromStored,
-  onDenominatorFactTableChange,
   onFactTableChange,
   onQuantileScopeChange,
   onRetentionDelayOrModeChange,
@@ -141,11 +140,7 @@ describe("onShapeChange", () => {
   });
 });
 
-describe("onFactTableChange / onDenominatorFactTableChange", () => {
-  it("is the same function under both names", () => {
-    expect(onDenominatorFactTableChange).toBe(onFactTableChange);
-  });
-
+describe("onFactTableChange", () => {
   it("refits the column, clears row filters and aggregate filter", () => {
     const current = {
       factTableId: "old_ft",
