@@ -492,6 +492,9 @@ export default function RuleModal({
     // has a value. getDefaultRuleValue only sets it for ruleType === "rollout";
     // other rule types ignore it at save time via their Zod validators.
     hashVersion: (hasSDKWithNoBucketingV2 ? 1 : 2) as 1 | 2,
+    // Seed sticky bucketing from the org default for new experiment rules. An
+    // existing rule's value overrides this via the convertRuleToFormValues spread.
+    disableStickyBucketing: !settings.stickyBucketingOnByDefault,
   };
 
   const convertRuleToFormValues = (rule: FeatureRule | undefined) => {
@@ -941,6 +944,8 @@ export default function RuleModal({
     if (existingSeed) {
       (newVal as Record<string, unknown>).seed = existingSeed;
     }
+    (newVal as Record<string, unknown>).disableStickyBucketing =
+      !settings.stickyBucketingOnByDefault;
     // Org opt-in: new JSON rules start in sparse mode with a clean-slate value
     // (strip keys equal to the default) so the editor isn't pre-filled with the
     // whole default object. Only for eligible JSON features; new rules only.
@@ -1201,6 +1206,8 @@ export default function RuleModal({
           },
         ];
         // All looks good, create experiment
+        const disableStickyBucketing =
+          values.disableStickyBucketing ?? !settings.stickyBucketingOnByDefault;
         const exp: Partial<ExperimentInterfaceStringDates> = {
           archived: false,
           autoSnapshots: true,
@@ -1211,8 +1218,10 @@ export default function RuleModal({
             project: feature.project || "",
           }),
           hashAttribute: values.hashAttribute,
-          fallbackAttribute: values.fallbackAttribute || "",
-          disableStickyBucketing: values.disableStickyBucketing ?? false,
+          fallbackAttribute: disableStickyBucketing
+            ? ""
+            : values.fallbackAttribute || "",
+          disableStickyBucketing,
           datasource: values.datasource || undefined,
           exposureQueryId: values.exposureQueryId || "",
           goalMetrics: values.goalMetrics || [],
