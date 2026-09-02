@@ -22,7 +22,9 @@ const factTable = {
     { column: "plan", datatype: "string" as const },
     { column: "timestamp", datatype: "date" as const },
     { column: "old_col", datatype: "number" as const, deleted: true },
+    { column: "user_id", datatype: "number" as const },
   ],
+  userIdTypes: ["user_id"],
 };
 
 describe("columnsForShape", () => {
@@ -37,8 +39,8 @@ describe("columnsForShape", () => {
     expect(columnsForShape("max", factTable)).toEqual(["revenue"]);
   });
 
-  it("returns string columns for distinct", () => {
-    expect(columnsForShape("distinct", factTable)).toEqual(["plan"]);
+  it("returns string columns for distinct when hasCountDistinctHLL is true", () => {
+    expect(columnsForShape("distinct", factTable, true)).toEqual(["plan"]);
   });
 
   it("returns [] with no fact table", () => {
@@ -48,6 +50,21 @@ describe("columnsForShape", () => {
   it("hides distinct when hasCountDistinctHLL is false, leaving other shapes alone", () => {
     expect(columnsForShape("distinct", factTable, false)).toEqual([]);
     expect(columnsForShape("sum", factTable, false)).toEqual(["revenue"]);
+  });
+
+  it("excludes userIdTypes columns even when numeric", () => {
+    expect(columnsForShape("sum", factTable)).not.toContain("user_id");
+  });
+
+  it("excludes the fact table's configured timestamp column, not just the literal string 'timestamp'", () => {
+    const customTimestampTable = {
+      columns: [
+        { column: "revenue", datatype: "number" as const },
+        { column: "event_time", datatype: "number" as const },
+      ],
+      timestampColumn: "event_time",
+    };
+    expect(columnsForShape("sum", customTimestampTable)).toEqual(["revenue"]);
   });
 });
 
@@ -64,7 +81,7 @@ describe("fitColumn", () => {
 
   it("falls back to the first valid column when current is invalid", () => {
     expect(fitColumn("sum", factTable, "plan")).toBe("revenue");
-    expect(fitColumn("distinct", factTable, "revenue")).toBe("plan");
+    expect(fitColumn("distinct", factTable, "revenue", true)).toBe("plan");
   });
 
   it("falls back to empty string when no valid column exists", () => {
@@ -118,7 +135,7 @@ describe("onShapeChange", () => {
       column: "revenue",
       aggregation: "sum",
     });
-    expect(onShapeChange(base, "distinct", factTable)).toMatchObject({
+    expect(onShapeChange(base, "distinct", factTable, true)).toMatchObject({
       column: "plan",
       aggregation: "count distinct",
     });
@@ -245,6 +262,15 @@ describe("retention window reset rules", () => {
 });
 
 describe("formTypeFromStored", () => {
+  it("throws instead of silently misclassifying an unrecognized metricType as mean", () => {
+    // FactMetricType is a closed union today, so this cast simulates a future
+    // 8th value the switch above hasn't been taught about yet.
+    const futureType = "unknownFutureType" as unknown as "mean";
+    expect(() =>
+      formTypeFromStored({ metricType: futureType, numerator: null }),
+    ).toThrow(/Unhandled metric type/);
+  });
+
   it("maps funnel, ratio, and dailyParticipation directly", () => {
     expect(
       formTypeFromStored({ metricType: "funnel", numerator: null }),
@@ -536,6 +562,73 @@ describe("applyFormType", () => {
     };
     const result = applyFormType(withSteps, "funnel", factTable);
     expect(result.funnelSettings?.steps).toHaveLength(3);
+  });
+
+  it("uses $$distinctUsers for proportion, threshold, and retention (not $$count)", () => {
+    expect(
+      applyFormType(current, "proportion", factTable).numerator,
+    ).toMatchObject({
+      column: "$$distinctUsers",
+    });
+    expect(
+      applyFormType(current, "threshold", factTable).numerator,
+    ).toMatchObject({
+      column: "$$distinctUsers",
+    });
+    expect(
+      applyFormType(current, "retention", factTable).numerator,
+    ).toMatchObject({
+      column: "$$distinctUsers",
+    });
+  });
+
+  it("uses $$distinctDates for dailyParticipation (not $$count)", () => {
+    expect(
+      applyFormType(current, "dailyParticipation", factTable).numerator,
+    ).toMatchObject({ column: "$$distinctDates" });
+  });
+
+  it("round-trips: applying a type and re-classifying it recovers the same form type", () => {
+    // "threshold" isn't in this list: applyFormType deliberately clears
+    // aggregateFilter* when switching to it (see the doc comment above),
+    // so re-classifying immediately after recovers "proportion" - the
+    // Threshold field is what sets the filter, tested separately below.
+    const roundTrippableTypes = [
+      "proportion",
+      "retention",
+      "rowCount",
+      "colSum",
+      "colMax",
+      "countDist",
+      "activeDays",
+      "ratio",
+      "quantile",
+      "dailyParticipation",
+    ] as const;
+    for (const type of roundTrippableTypes) {
+      const applied = applyFormType(current, type, factTable, true);
+      expect(formTypeFromStored(applied, factTable)).toEqual({
+        representable: true,
+        type,
+      });
+    }
+  });
+
+  it("round-trips threshold once the filter is set", () => {
+    const applied = applyFormType(current, "threshold", factTable);
+    if (!applied.numerator) throw new Error("expected a numerator");
+    const withFilter = {
+      ...applied,
+      numerator: {
+        ...applied.numerator,
+        aggregateFilterColumn: "$$count",
+        aggregateFilter: ">= 3",
+      },
+    };
+    expect(formTypeFromStored(withFilter, factTable)).toEqual({
+      representable: true,
+      type: "threshold",
+    });
   });
 });
 
