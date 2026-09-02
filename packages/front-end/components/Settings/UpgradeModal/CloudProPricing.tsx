@@ -3,6 +3,7 @@ import { PiArrowSquareOut } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 
 export default function CloudProPricing({
   onSeeRecentUsage,
@@ -80,22 +81,21 @@ export default function CloudProPricing({
           </a>
         </p>
       </Box>
-      <Callout status="info">
+      <Callout
+        status="info"
+        action={
+          <Link
+            href="https://www.growthbook.io/demo"
+            target="_blank"
+            rel="noopener noreferrer"
+            weight="bold"
+            onClick={onTalkToSales}
+          >
+            Talk to Sales <PiArrowSquareOut />
+          </Link>
+        }
+      >
         Interested in an Enterprise Plan with volume discounts?
-        <a
-          href="https://www.growthbook.io/demo"
-          className="text-decoration-none pl-1"
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={onTalkToSales}
-        >
-          <strong className="a link-purple">
-            Talk to Sales{" "}
-            <PiArrowSquareOut
-              style={{ position: "relative", top: "-2px" }}
-            />{" "}
-          </strong>
-        </a>
       </Callout>
     </>
   );
