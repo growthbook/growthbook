@@ -17,7 +17,7 @@ import { compileSqlTemplate } from "back-end/src/util/sql";
 import { getFactMetricColumn } from "back-end/src/integrations/sql/columns/fact-metric-column";
 import { funnelStepTimestampColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
-import { afterWatermark } from "back-end/src/integrations/sql/primitives/after-watermark";
+import { afterWatermark } from "back-end/src/integrations/sql/primitives/watermark";
 import { getKllEventCountSourceColumn } from "back-end/src/services/factMetrics";
 
 /** Fact Table CTE for multiple fact metrics that share the same fact table */
@@ -30,6 +30,7 @@ export function getFactMetricCTE(
     castIdToString,
     idJoinMap,
     startDate,
+    startDateRaw,
     endDate,
     experimentId,
     addFiltersToWhere,
@@ -43,6 +44,8 @@ export function getFactMetricCTE(
     baseIdType: string;
     idJoinMap: Record<string, string>;
     startDate: Date;
+    // Exact watermark literal body for exclusiveStartDateFilter, if known.
+    startDateRaw?: string | null;
     endDate: Date | null;
     experimentId?: string;
     addFiltersToWhere?: boolean;
@@ -87,7 +90,7 @@ export function getFactMetricCTE(
     // be precise about which rows were already loaded
     where.push(
       exclusiveStartDateFilter
-        ? afterWatermark(timestampColumn, startDate)
+        ? afterWatermark(dialect, timestampColumn, startDate, startDateRaw)
         : `${timestampColumn} >= ${dialect.toTimestamp(startDate)}`,
     );
   }

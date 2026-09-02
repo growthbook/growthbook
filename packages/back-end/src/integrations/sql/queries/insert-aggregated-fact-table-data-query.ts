@@ -45,7 +45,8 @@ export function getInsertAggregatedFactTableDataQuery(
     idJoinMap: {},
     factTable,
     startDate: params.windowStartDate,
-    endDate: params.windowEndDate ?? null,
+    startDateRaw: params.windowStartDateRaw,
+    endDate: params.windowEndDate,
     metricsWithIndices: sortedMetrics.map((metric, index) => ({
       metric,
       index,

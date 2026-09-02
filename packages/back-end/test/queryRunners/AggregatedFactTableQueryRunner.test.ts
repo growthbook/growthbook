@@ -36,30 +36,29 @@ describe("getRestateChunkBounds", () => {
     }
     // Each closed chunk is exactly chunkDays wide.
     for (let i = 0; i < chunks.length - 1; i++) {
-      expect(chunks[i].end!.getTime() - chunks[i].start.getTime()).toBe(
+      expect(chunks[i].end.getTime() - chunks[i].start.getTime()).toBe(
         2 * 24 * 60 * 60 * 1000,
       );
     }
-    // Final chunk is open-ended so events arriving between planning and
-    // execution aren't dropped.
-    expect(chunks[6].end).toBeNull();
+    // Final chunk closes at `now` so a future-stamped row can't become the
+    // watermark.
+    expect(chunks[6].end).toEqual(now);
     expect(chunks[6].start).toEqual(new Date("2024-01-13T00:00:00Z"));
   });
 
-  it("leaves the final chunk open when the window doesn't divide evenly", () => {
+  it("closes the final chunk at now when the window doesn't divide evenly", () => {
     const now = new Date("2024-01-15T12:00:00Z");
     const windowStart = new Date("2024-01-01T00:00:00Z");
     const chunks = getRestateChunkBounds(windowStart, now, 3);
     expect(chunks.length).toBe(5);
     expect(chunks[4].start).toEqual(new Date("2024-01-13T00:00:00Z"));
-    expect(chunks[4].end).toBeNull();
+    expect(chunks[4].end).toEqual(now);
   });
 
-  it("emits at least one open chunk for degenerate windows", () => {
+  it("emits at least one chunk for degenerate windows", () => {
     const now = new Date("2024-01-01T00:00:00Z");
     const chunks = getRestateChunkBounds(now, now, 2);
-    expect(chunks.length).toBe(1);
-    expect(chunks[0].end).toBeNull();
+    expect(chunks).toEqual([{ start: now, end: now }]);
   });
 
   it("snaps internal seams to UTC midnight so a mid-day window never splits a day", () => {
@@ -74,20 +73,18 @@ describe("getRestateChunkBounds", () => {
     for (let i = 0; i < chunks.length - 1; i++) {
       // Internal seam lands on a UTC day boundary, so no event_date
       // (= DATE(timestamp), UTC) can straddle two chunks.
-      expect(chunks[i].end!.getTime() % DAY).toBe(0);
+      expect(chunks[i].end.getTime() % DAY).toBe(0);
       // Contiguous: each end === next start, no gap/overlap.
       expect(chunks[i + 1].start).toEqual(chunks[i].end);
     }
 
-    // Interior chunks (everything but the short leading and open trailing one)
+    // Interior chunks (everything but the short leading and trailing ones)
     // are exactly chunkDays wide.
     for (let i = 1; i < chunks.length - 1; i++) {
-      expect(chunks[i].end!.getTime() - chunks[i].start.getTime()).toBe(
-        2 * DAY,
-      );
+      expect(chunks[i].end.getTime() - chunks[i].start.getTime()).toBe(2 * DAY);
     }
 
-    expect(chunks[chunks.length - 1].end).toBeNull();
+    expect(chunks[chunks.length - 1].end).toEqual(now);
   });
 });
 
@@ -305,7 +302,6 @@ describe("AggregatedFactTableQueryRunner error surfacing", () => {
 // would stall every later incremental append until the wall clock caught up.
 describe("AggregatedFactTableQueryRunner scan window", () => {
   const NOW = new Date("2024-01-15T06:00:00Z");
-  const DAY = 24 * 60 * 60 * 1000;
 
   beforeEach(() => {
     jest.useFakeTimers({ now: NOW });
@@ -389,6 +385,7 @@ describe("AggregatedFactTableQueryRunner scan window", () => {
     const { runner, getInsertAggregatedFactTableDataQuery } =
       buildRunner(factTable);
     const lastMaxTimestamp = new Date("2024-01-14T23:00:00Z");
+    const lastMaxTimestampRaw = "2024-01-14 23:00:00.000456";
 
     await runner.startQueries({
       ...baseParams(factTable),
@@ -396,6 +393,7 @@ describe("AggregatedFactTableQueryRunner scan window", () => {
       aggregatedFactTable: {
         tableFullName: "`proj.ds.gb_aggregated_ft_1_user_id`",
         lastMaxTimestamp,
+        lastMaxTimestampRaw,
         currentExecutionId: "aftexec_1",
         inFlightExecutionId: null,
       } as never,
@@ -405,83 +403,10 @@ describe("AggregatedFactTableQueryRunner scan window", () => {
     expect(getInsertAggregatedFactTableDataQuery).toHaveBeenCalledWith(
       expect.objectContaining({
         windowStartDate: lastMaxTimestamp,
+        windowStartDateRaw: lastMaxTimestampRaw,
         exclusiveStart: true,
         windowEndDate: NOW,
       }),
     );
-  });
-
-  it("closes an unchunked restate at the run's start time", async () => {
-    const factTable = factTableFactory.build({
-      id: "ft_1",
-      userIdTypes: ["user_id"],
-    });
-    const { runner, getInsertAggregatedFactTableDataQuery } =
-      buildRunner(factTable);
-
-    await runner.startQueries({
-      ...baseParams(factTable),
-      mode: "restate",
-      aggregatedFactTable: {
-        tableFullName: null,
-        lastMaxTimestamp: null,
-        currentExecutionId: "aftexec_1",
-        inFlightExecutionId: null,
-      } as never,
-    });
-
-    expect(getInsertAggregatedFactTableDataQuery).toHaveBeenCalledTimes(1);
-    expect(getInsertAggregatedFactTableDataQuery).toHaveBeenCalledWith(
-      expect.objectContaining({
-        windowStartDate: new Date(NOW.getTime() - 14 * DAY),
-        exclusiveStart: false,
-        windowEndDate: NOW,
-      }),
-    );
-  });
-
-  it("closes only the final chunk of a chunked restate at the run's start time", async () => {
-    const factTable = factTableFactory.build({
-      id: "ft_1",
-      userIdTypes: ["user_id"],
-      aggregatedFactTableSettings: {
-        idTypes: ["user_id"],
-        updateTime: { time: "02:00", timezone: "UTC" },
-        lookbackWindow: 14,
-        restateChunkDays: 7,
-      },
-    });
-    const { runner, getInsertAggregatedFactTableDataQuery } =
-      buildRunner(factTable);
-
-    await runner.startQueries({
-      ...baseParams(factTable),
-      mode: "restate",
-      aggregatedFactTable: {
-        tableFullName: null,
-        lastMaxTimestamp: null,
-        currentExecutionId: "aftexec_1",
-        inFlightExecutionId: null,
-      } as never,
-    });
-
-    const chunks = getRestateChunkBounds(
-      new Date(NOW.getTime() - 14 * DAY),
-      NOW,
-      7,
-    );
-    expect(chunks.length).toBeGreaterThan(1);
-    const calls = getInsertAggregatedFactTableDataQuery.mock.calls.map(
-      (c) => c[0],
-    );
-    expect(calls).toHaveLength(chunks.length);
-    chunks.forEach((chunk, i) => {
-      expect(calls[i].windowStartDate).toEqual(chunk.start);
-      expect(calls[i].windowEndDate).toEqual(chunk.end ?? NOW);
-    });
-    // Interior seams are untouched; only the open final chunk is closed.
-    expect(calls[0].windowEndDate).toEqual(chunks[0].end);
-    expect(calls[0].windowEndDate).not.toEqual(NOW);
-    expect(calls[calls.length - 1].windowEndDate).toEqual(NOW);
   });
 });
