@@ -4,6 +4,41 @@ import styles from "./Table.module.scss";
 const KEYBOARD_STEP = 16;
 const KEYBOARD_STEP_LARGE = 64;
 
+/**
+ * Width of a cell's laid-out content. Text is measured through Ranges and only
+ * inline-level boxes count, so a block wrapper that fills the cell (a clamp, a
+ * flex row) doesn't report the cell's own width back as "content".
+ */
+function contentWidth(cell: Element, skip: Element | null): number {
+  let left = Infinity;
+  let right = -Infinity;
+  const include = ({ left: l, right: r, width }: DOMRect) => {
+    if (width <= 0) return;
+    left = Math.min(left, l);
+    right = Math.max(right, r);
+  };
+  const walker = document.createTreeWalker(
+    cell,
+    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: (node) =>
+        node === skip ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+    },
+  );
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (node instanceof Element) {
+      if (getComputedStyle(node).display.startsWith("inline")) {
+        include(node.getBoundingClientRect());
+      }
+    } else {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      include(range.getBoundingClientRect());
+    }
+  }
+  return right > left ? right - left : 0;
+}
+
 export default function ColumnResizeHandle({
   label,
   width,
@@ -89,6 +124,24 @@ export default function ColumnResizeHandle({
     if (state.moved) onCommit(state.pending);
   };
 
+  // Spreadsheet semantics: size the column to its widest header or cell content.
+  const fitToContent = () => {
+    const th = ref.current?.closest("th");
+    const table = th?.closest("table");
+    if (!th || !table) return;
+    const index = Array.from(th.parentElement?.children ?? []).indexOf(th);
+    const cells = Array.from(table.querySelectorAll("tbody tr"))
+      .map((row) => row.children[index])
+      .filter((cell): cell is Element => !!cell);
+    const style = getComputedStyle(th);
+    const padding =
+      parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    const widest = Math.max(
+      ...[th, ...cells].map((cell) => contentWidth(cell, ref.current)),
+    );
+    onCommit(clamp(Math.ceil(widest + padding)));
+  };
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     const step = e.shiftKey ? KEYBOARD_STEP_LARGE : KEYBOARD_STEP;
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
@@ -120,7 +173,7 @@ export default function ColumnResizeHandle({
       onKeyDown={onKeyDown}
       onDoubleClick={(e) => {
         e.stopPropagation();
-        onCommit(undefined);
+        fitToContent();
       }}
       onClick={(e) => e.stopPropagation()}
     />

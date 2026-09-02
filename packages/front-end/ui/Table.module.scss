@@ -230,6 +230,7 @@
   border: none;
   padding: 0;
 
+  // Faint at rest so the affordance is discoverable; accent while in use.
   &::after {
     content: "";
     position: absolute;
@@ -238,7 +239,7 @@
     width: 2px;
     height: 60%;
     border-radius: 1px;
-    background-color: transparent;
+    background-color: var(--gray-a5);
   }
 
   &:hover::after,
