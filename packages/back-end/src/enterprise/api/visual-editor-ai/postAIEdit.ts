@@ -135,14 +135,7 @@ const domDigestSchema = z.object({
   // On-demand container map for the `findElements` tool — not rendered into
   // the prompt (formatDigest ignores it).
   pageStructure: z.array(structureNodeSchema).max(400).optional(),
-  // Untyped catalog for clients that don't classify elements the way the
-  // content script does. The six arrays above each have their own field
-  // names, which means any client building a digest from raw HTML has to
-  // bucket every element before it can serialize it; this accepts the same
-  // information as one flat list. Rendered alongside the typed sections (both
-  // may be populated) and, more importantly, counted as grounded selectors —
-  // without that, the self-correct pass is skipped and hallucinated selectors
-  // go through unchecked.
+  // Flat alternative to the typed arrays above; both may be populated.
   elements: z
     .array(
       z.object({
@@ -192,12 +185,7 @@ const bodySchema = z
     // When omitted/false, the response is the original unwrapped shape
     // and only server-side tools (generateImage, etc.) are available.
     streamingMode: z.boolean().optional(),
-    // Save the generated changes onto the variation's visual change instead of
-    // returning them for the caller to persist. For non-interactive clients
-    // (CLI/agent) that have no accept/reject step: it keeps the
-    // append-mutations / replace-css-js asymmetry in one place, and lets
-    // generated images skip the quarantine prefix. Mutually exclusive with
-    // streamingMode, whose final output is assembled in postAIEditResume.
+    // Save the result rather than returning it for the caller to persist.
     persist: z.boolean().optional(),
   })
   .strict();
@@ -633,9 +621,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   const context = req.context;
   requireUserAuth(context);
 
-  // The streaming tool loop finalizes in postAIEditResume, so a persisting
-  // streaming request would need the save duplicated there. Reject the
-  // combination rather than maintaining two write paths.
+  // Streaming finalizes in postAIEditResume; one write path, not two.
   if (persist && req.body.streamingMode) {
     context.throwBadRequestError(
       "`persist` cannot be combined with `streamingMode`.",
@@ -654,11 +640,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   if (!context.permissions.canUpdateVisualChange(experiment)) {
     context.permissions.throwPermissionError();
   }
-  // Only when persisting, and deliberately before the generation: the save
-  // would be rejected by the same check anyway, and failing here means a
-  // non-draft experiment doesn't burn AI quota to produce changes that can't
-  // be stored. Generate-only requests stay unrestricted — the extension
-  // previews against running experiments.
+  // Before the generation, so a doomed save doesn't burn AI quota first.
   if (persist) requireDraftExperiment(context, experiment);
 
   // Gated on the model this request will actually run: an org on its own key
@@ -725,6 +707,11 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   let effectiveInstructions = visualEditorAIContext
     ? `${instructions}\n\nAdditional brand guidelines / context provided by the organization (these MUST be respected unless they conflict with the JSON output schema):\n${visualEditorAIContext}`
     : instructions;
+
+  // No chooser without a preview, so alternatives cost a paid call and are binned.
+  if (persist) {
+    effectiveInstructions = `${effectiveInstructions}\n\nThis request is saved directly, with no preview and no way for the user to pick between alternatives:\n- NEVER populate \`options\`. Return your single best \`value\`, even if the user asked for a few choices — say in the \`explanation\` that you picked one, and that they can ask again for a different take.\n- Call \`generateImage\` at most once per element you are changing. Never generate variants of the same image to choose from.`;
+  }
 
   if (locale && !locale.toLowerCase().startsWith("en")) {
     effectiveInstructions = `${effectiveInstructions}\n\nLanguage:\n- The user's interface is set to locale "${locale}". Write the \`explanation\` field in that language (the natural language the user reads on screen).\n- Keep the JSON keys, selectors, attribute names, mutation actions ("set"/"append"/"remove"), CSS, JS, and any code identifiers in English — only the explanation prose is localized.`;
@@ -926,7 +913,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
         // chooser of one. Dedupe defensively (the model occasionally
         // repeats its top pick).
         const opts =
-          !isPosition && m.options
+          !isPosition && !persist && m.options
             ? Array.from(new Set(m.options.filter((o) => o && o.length > 0)))
             : [];
         return {
@@ -986,8 +973,6 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     job: useToolLoop ? job : undefined,
     pageStructure,
     imageState,
-    // A persisting caller has no accept/reject step, so a generated image is
-    // accepted by definition and skips the quarantine prefix.
     quarantineImages: !persist,
   });
   // Cast through unknown — the job store is invariant in TFinal for
@@ -1083,19 +1068,14 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   aiEditJobStore.delete(job.id);
 
   if (persist) {
-    // `currentChange` is non-null here: the handler fails fast above on a
-    // variationId that isn't part of this changeset.
+    // Non-null: the handler fails fast above on a variationId not in the changeset.
     const change = currentChange as NonNullable<typeof currentChange>;
     await updateVisualChange({
       changesetId: visualChangesetId,
       visualChangeId: change.id,
       organization: req.organization.id,
       payload: {
-        // Mutations are additive — the model is prompted with the existing
-        // ones and told not to duplicate them, so it returns only what's new.
-        // css/js are the opposite: it's told to re-emit them in full, and
-        // finalizeOutput omits them entirely when unchanged. updateVisualChange
-        // replaces any array it's handed, so the concat has to happen here.
+        // The model returns only new mutations, but complete css/js.
         domMutations: [
           ...(change.domMutations ?? []),
           ...(finalized.mutations as typeof change.domMutations),

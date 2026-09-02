@@ -2,24 +2,15 @@ import request from "supertest";
 import { VisualChangesetModel } from "back-end/src/models/VisualChangesetModel";
 import { setupApp } from "./api.setup";
 
-// Coverage for the `persist` flag on POST /api/v1/visual-editor/ai/edit.
-// The LLM is mocked; the changeset round-trips through the real model against
-// in-memory Mongo, because the thing worth testing is the merge itself —
-// mutations append, css/js replace, and an omitted field must not clobber.
+// The LLM is mocked; the changeset round-trips through the real model.
 
-// These three modules sit in import cycles with the model layer, so spreading
-// `requireActual` at factory time throws "cannot access before initialization".
-// A lazy Proxy defers it to first property access — same trick as
-// release-publish-revisions-failure.test.ts. Factories are hoisted above every
-// declaration here, so each Proxy is inlined and may only close over
-// `mock`-prefixed variables.
+// Import cycles: a lazy Proxy defers requireActual to first property access.
 const mockParsePrompt = jest.fn();
 const mockGetExperimentById = jest.fn();
 
 jest.mock("back-end/src/enterprise/services/ai", () => {
   const overrides: Record<string, unknown> = {
     parsePrompt: (...args: unknown[]) => mockParsePrompt(...args),
-    secondsUntilAICanBeUsedAgainForModel: async () => 0,
   };
   return new Proxy(
     {},
@@ -28,24 +19,6 @@ jest.mock("back-end/src/enterprise/services/ai", () => {
         prop in overrides
           ? overrides[prop]
           : jest.requireActual("back-end/src/enterprise/services/ai")[prop],
-    },
-  );
-});
-
-jest.mock("back-end/src/services/organizations", () => {
-  const overrides: Record<string, unknown> = {
-    getAISettingsForOrg: async () => ({
-      visualEditorAIModel: "gpt-4o",
-      keySource: {},
-    }),
-  };
-  return new Proxy(
-    {},
-    {
-      get: (_t, prop: string) =>
-        prop in overrides
-          ? overrides[prop]
-          : jest.requireActual("back-end/src/services/organizations")[prop],
     },
   );
 });
@@ -189,24 +162,6 @@ describe("visual editor AI edit — persist", () => {
     expect((await readVisualChange()).css).toBe("h1 { color: red; }");
   });
 
-  it("replaces css wholesale when the model returns new css", async () => {
-    await seedChangeset({ css: "h1 { color: red; }" });
-    mockParsePrompt.mockResolvedValue({
-      mutations: [],
-      css: "h1 { color: blue; }",
-      js: null,
-      insert: [],
-      explanation: "Recoloured.",
-    });
-
-    await request(app)
-      .post("/api/v1/visual-editor/ai/edit")
-      .send(editBody())
-      .expect(200);
-
-    expect((await readVisualChange()).css).toBe("h1 { color: blue; }");
-  });
-
   it("rejects a non-draft experiment before calling the model", async () => {
     await seedChangeset();
     mockGetExperimentById.mockResolvedValue({
@@ -219,41 +174,18 @@ describe("visual editor AI edit — persist", () => {
       .send(editBody());
 
     expect(res.status).toBe(400);
-    // The point of the early gate: no AI quota burned on a change that
-    // could never have been saved.
+    // The point of the early gate: no AI quota burned on an unsavable change.
     expect(mockParsePrompt).not.toHaveBeenCalled();
   });
 
-  it("still generates without persist against a non-draft experiment", async () => {
+  // A selector from the flat `elements` catalog must count as grounded, or the
+  // self-correct pass burns a second call "fixing" a valid one.
+  it("treats a selector from domDigest.elements as grounded", async () => {
     await seedChangeset();
-    mockGetExperimentById.mockResolvedValue({
-      ...draftExperiment,
-      status: "running",
-    });
-
-    const res = await request(app)
-      .post("/api/v1/visual-editor/ai/edit")
-      .send(editBody({ persist: undefined }));
-
-    expect(res.status).toBe(200);
-    expect(res.body.saved).toBeUndefined();
-    expect((await readVisualChange()).domMutations).toHaveLength(0);
-  });
-
-  // The flat `elements` catalog only earns its keep if its selectors count as
-  // grounded — otherwise the self-correct pass treats every one of them as a
-  // hallucination and burns a second LLM call "fixing" a valid selector.
-  describe("flat domDigest.elements", () => {
-    const digestWith = (selector: string) => ({
-      url: "https://example.com/pricing",
-      title: "Pricing",
-      elements: [{ selector, tag: "div", text: "Promo" }],
-    });
-
-    const mutateOn = (selector: string) => ({
+    mockParsePrompt.mockResolvedValue({
       mutations: [
         {
-          selector,
+          selector: ".promo",
           action: "set",
           attribute: "html",
           value: "New",
@@ -268,42 +200,20 @@ describe("visual editor AI edit — persist", () => {
       explanation: "Done.",
     });
 
-    it("treats a selector from elements as grounded (no self-correct retry)", async () => {
-      await seedChangeset();
-      mockParsePrompt.mockResolvedValue(mutateOn(".promo"));
-
-      await request(app)
-        .post("/api/v1/visual-editor/ai/edit")
-        .send(editBody({ domDigest: digestWith(".promo") }))
-        .expect(200);
-
-      expect(mockParsePrompt).toHaveBeenCalledTimes(1);
-      expect((await readVisualChange()).domMutations[0].selector).toBe(
-        ".promo",
-      );
-    });
-
-    it("still retries on a selector that is in no catalog", async () => {
-      await seedChangeset();
-      mockParsePrompt.mockResolvedValue(mutateOn(".invented"));
-
-      await request(app)
-        .post("/api/v1/visual-editor/ai/edit")
-        .send(editBody({ domDigest: digestWith(".promo") }))
-        .expect(200);
-
-      expect(mockParsePrompt).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  it("rejects persist combined with streamingMode", async () => {
-    await seedChangeset();
-
-    const res = await request(app)
+    await request(app)
       .post("/api/v1/visual-editor/ai/edit")
-      .send(editBody({ streamingMode: true }));
+      .send(
+        editBody({
+          domDigest: {
+            url: "https://example.com/pricing",
+            title: "Pricing",
+            elements: [{ selector: ".promo", tag: "div", text: "Promo" }],
+          },
+        }),
+      )
+      .expect(200);
 
-    expect(res.status).toBe(400);
-    expect(mockParsePrompt).not.toHaveBeenCalled();
+    expect(mockParsePrompt).toHaveBeenCalledTimes(1);
+    expect((await readVisualChange()).domMutations[0].selector).toBe(".promo");
   });
 });

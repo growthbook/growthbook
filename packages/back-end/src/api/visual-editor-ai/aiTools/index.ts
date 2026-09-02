@@ -34,13 +34,7 @@ export interface VisualEditorToolsetOptions {
   pageStructure?: PageStructureNode[];
   // Set to true to suppress tools entirely.
   disabled?: boolean;
-  // Per-request image record. Pass one in to read back what `generateImage`
-  // did (URLs produced, soft failures); omit it and the tool still works, the
-  // outcomes just aren't observable.
   imageState?: ImageTurnState;
-  // False when the caller has already committed to saving the result, so
-  // generated images skip the quarantine prefix. Defaults to true — the
-  // extension previews before accepting.
   quarantineImages?: boolean;
 }
 

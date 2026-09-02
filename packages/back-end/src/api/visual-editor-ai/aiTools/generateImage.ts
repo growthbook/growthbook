@@ -16,13 +16,8 @@ import type { ApiReqContext } from "back-end/types/api";
 // constant in postAIImageGen.ts — both paths bill the same way.
 const IMAGE_GEN_TOKEN_COST_PER_IMAGE = 1290;
 
-// Shared across every generateImage call in a single chat turn. `count`/`max`
-// stop the AI burning through credits in a loop; `generated` and `warnings`
-// give the handler a machine-readable record of what the tool did, since a
-// failed generation is returned to the model as a tool result rather than
-// thrown (the turn still finishes with its text edits) and would otherwise
-// survive only as prose in the model's `explanation`. The toolset factory
-// creates one of these per request.
+// A failed generation returns a tool result rather than throwing, so `warnings`
+// is the only machine-readable trace of it.
 export interface ImageTurnState {
   count: number;
   max: number;
@@ -33,9 +28,6 @@ export interface ImageTurnState {
 export interface GenerateImageToolContext {
   context: ApiReqContext;
   turnCounter: ImageTurnState;
-  // False when the caller has already committed to saving the result (the
-  // `persist` flag on /ai/edit), so there is no reject step for the quarantine
-  // prefix to protect against. See the filePath note below.
   quarantine: boolean;
 }
 
@@ -149,10 +141,7 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
 
         const img = generated[0];
         const optimized = await optimizeAIImage(img);
-        // `gen/` is the AI quarantine prefix (7-day bucket TTL); the extension
-        // promotes a file out of it when the user accepts the proposed change.
-        // A persisting caller has no accept step, so writing there would leave
-        // the saved mutation pointing at a URL that 404s in a week.
+        // `gen/` has a 7-day TTL; the extension promotes out of it on accept.
         const filePath = `${toolCtx.quarantine ? "gen/" : ""}${
           org.id
         }/visual-editor/img_${uuidv4()}.${optimized.ext}`;
