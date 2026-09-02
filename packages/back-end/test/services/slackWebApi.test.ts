@@ -49,16 +49,23 @@ describe("isSlackIncomingWebhookUrl", () => {
 });
 
 describe("Slack Web API", () => {
-  it("posts text messages with the bot token", async () => {
+  it("posts text and blocks with the bot token", async () => {
     cancellableFetch.mockResolvedValueOnce(
       slackResponse({ ok: true, ts: "123.456" }),
     );
+    const blocks = [
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: "Open <https://example.com|GrowthBook>" },
+      },
+    ];
 
     await expect(
       postSlackMessageResult({
         token: "xoxb-token",
         channel: "C123",
         text: "Hello",
+        blocks,
       }),
     ).resolves.toEqual({ ok: true, ts: "123.456", error: null });
 
@@ -70,7 +77,7 @@ describe("Slack Web API", () => {
           Authorization: "Bearer xoxb-token",
           "Content-Type": "application/json; charset=utf-8",
         },
-        body: JSON.stringify({ channel: "C123", text: "Hello" }),
+        body: JSON.stringify({ channel: "C123", text: "Hello", blocks }),
       },
       { maxTimeMs: 15000, maxContentSize: 1024 * 256 },
     );

@@ -185,6 +185,22 @@ const eventWebHookSchema = new mongoose.Schema({
 });
 
 eventWebHookSchema.index({ organizationId: 1 });
+eventWebHookSchema.index(
+  {
+    organizationId: 1,
+    "slack.teamId": 1,
+    "slack.channelId": 1,
+  },
+  {
+    name: "unique_slack_channel_per_organization",
+    unique: true,
+    partialFilterExpression: {
+      payloadType: "slack",
+      "slack.teamId": { $type: "string" },
+      "slack.channelId": { $type: "string" },
+    },
+  },
+);
 
 type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
 
@@ -480,6 +496,24 @@ export const findSlackWorkspaceEventWebhook = async ({
       { "slack.channelId": { $exists: false } },
       { "slack.channelId": { $in: [null, ""] } },
     ],
+  });
+  return doc ? toInterface(doc) : null;
+};
+
+export const findSlackChannelEventWebhook = async ({
+  organizationId,
+  teamId,
+  channelId,
+}: {
+  organizationId: string;
+  teamId: string;
+  channelId: string;
+}): Promise<EventWebHookInterface | null> => {
+  const doc = await EventWebHookModel.findOne({
+    organizationId,
+    payloadType: "slack",
+    "slack.teamId": teamId,
+    "slack.channelId": channelId,
   });
   return doc ? toInterface(doc) : null;
 };

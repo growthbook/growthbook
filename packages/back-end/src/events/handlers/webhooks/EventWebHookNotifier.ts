@@ -188,11 +188,15 @@ export class EventWebHookNotifier implements Notifier {
         const text =
           typeof logPayload.text === "string" ? logPayload.text : null;
         if (!text) return;
+        const blocks = Array.isArray(logPayload.blocks)
+          ? logPayload.blocks
+          : undefined;
 
         const result = await postSlackMessageResult({
           token: botToken,
           channel: channelId,
           text,
+          blocks,
         });
 
         if (result.ok) {

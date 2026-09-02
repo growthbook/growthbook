@@ -94,15 +94,17 @@ export async function postSlackMessageResult({
   token,
   channel,
   text,
+  blocks,
 }: {
   token: string;
   channel: string;
   text: string;
+  blocks?: unknown[];
 }): Promise<{ ok: boolean; ts: string | null; error: string | null }> {
   const res = await slackApiCall<SlackApiResponse & { ts?: string }>(
     token,
     "chat.postMessage",
-    { channel, text },
+    { channel, text, ...(blocks ? { blocks } : {}) },
   );
   return {
     ok: !!res?.ok,
@@ -115,6 +117,7 @@ export async function postSlackMessage(args: {
   token: string;
   channel: string;
   text: string;
+  blocks?: unknown[];
 }): Promise<string | null> {
   return (await postSlackMessageResult(args)).ts;
 }

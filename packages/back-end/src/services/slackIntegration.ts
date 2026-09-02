@@ -13,6 +13,7 @@ import {
   createEventWebHook,
   deleteEventWebHookById,
   EventWebHookModel,
+  findSlackChannelEventWebhook,
   findSlackWorkspaceEventWebhook,
   getAllEventWebHooks,
   getEventWebHookById,
@@ -28,6 +29,7 @@ import {
 } from "back-end/src/services/slack/slackWebApi";
 import { logger } from "back-end/src/util/logger";
 import { fetch } from "back-end/src/util/http.util";
+import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 
 const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
@@ -775,26 +777,39 @@ export const addSlackChannelToWorkspace = async ({
     }
   }
 
-  const created = await createEventWebHook({
-    name: workspace.slack?.teamName
-      ? `Slack #${channel.name} (${workspace.slack.teamName})`
-      : `Slack #${channel.name}`,
-    url: SLACK_PLACEHOLDER_URL,
-    organizationId: context.org.id,
-    enabled: true,
-    events: DEFAULT_SLACK_EVENTS,
-    projects: [],
-    tags: [],
-    environments: [],
-    payloadType: "slack",
-    method: "POST",
-    headers: {},
-    slack: {
-      ...workspace.slack,
-      channelId: channel.id,
-      channelName: channel.name,
-    },
-  });
+  let created: EventWebHookInterface;
+  try {
+    created = await createEventWebHook({
+      name: workspace.slack?.teamName
+        ? `Slack #${channel.name} (${workspace.slack.teamName})`
+        : `Slack #${channel.name}`,
+      url: SLACK_PLACEHOLDER_URL,
+      organizationId: context.org.id,
+      enabled: true,
+      events: DEFAULT_SLACK_EVENTS,
+      projects: [],
+      tags: [],
+      environments: [],
+      payloadType: "slack",
+      method: "POST",
+      headers: {},
+      slack: {
+        ...workspace.slack,
+        channelId: channel.id,
+        channelName: channel.name,
+      },
+    });
+  } catch (error) {
+    if (!isDuplicateKeyError(error)) throw error;
+
+    const concurrent = await findSlackChannelEventWebhook({
+      organizationId: context.org.id,
+      teamId: wsTeamId,
+      channelId,
+    });
+    if (!concurrent) throw error;
+    return slackEventWebhookToIntegration(concurrent);
+  }
   // Copy the workspace bot token onto the channel doc so per-doc token reads
   // keep working even if the workspace connection is later deleted.
   await persistSlackBotAccessToken({
