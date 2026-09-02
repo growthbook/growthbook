@@ -95,8 +95,8 @@ export class ProjectModel extends BaseClass {
 
   private checkCanRestrictAccess() {
     if (!this.context.hasPremiumFeature("advanced-permissions")) {
-      this.context.throwPaymentRequiredError(
-        "Restricting project access requires a Pro or Enterprise plan.",
+      this.context.throwPlanDoesNotAllowError(
+        "Your plan does not support restricting Project access.",
       );
     }
   }
