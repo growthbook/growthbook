@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { useRouter } from "next/router";
 import { OrganizationInterface } from "shared/types/organization";
+import { NonJsonResponseError } from "shared/util";
 import {
   IdTokenResponse,
   UnauthenticatedResponse,
@@ -403,7 +404,11 @@ export const AuthProvider: React.FC<{
       if (contentType && contentType.startsWith("image/")) {
         responseData = await response.blob();
       } else {
-        responseData = await response.json();
+        try {
+          responseData = await response.json();
+        } catch (e) {
+          throw new NonJsonResponseError(response.status);
+        }
         if (
           !response.ok &&
           responseData &&
