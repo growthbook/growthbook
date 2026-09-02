@@ -125,7 +125,7 @@ export default function CustomDimensionFields({
           <HelperText status="error">
             {`Cutoff must be within the experiment window (${
               cutoffMin ? date(cutoffMin, "UTC") : "start"
-            } – ${cutoffMax ? date(cutoffMax, "UTC") : "now"}).`}
+            } - ${cutoffMax ? date(cutoffMax, "UTC") : "now"}).`}
           </HelperText>
         )}
       </Flex>
@@ -142,41 +142,43 @@ export default function CustomDimensionFields({
 
   return (
     // Reads like the `country & Plan Type` label we show once it's applied
-    <Flex align="end" gap="2">
-      <Select
-        label="First dimension"
-        value={firstId || undefined}
-        setValue={(v) => setConstituent(0, v)}
-        placeholder="Choose dimension..."
-        style={{ flex: 1, minWidth: 0 }}
-      >
-        {constituentOptions
-          .filter((o) => o.value !== secondId)
-          .map((o) => (
-            <SelectItem key={o.value} value={o.value}>
-              {o.label}
-            </SelectItem>
-          ))}
-      </Select>
-      <Text color="text-mid" mb="1">
-        &amp;
-      </Text>
-      <Select
-        label="Second dimension"
-        value={secondId || undefined}
-        setValue={(v) => setConstituent(1, v)}
-        placeholder="Choose dimension..."
-        error={duplicate ? "Choose two different dimensions." : undefined}
-        style={{ flex: 1, minWidth: 0 }}
-      >
-        {constituentOptions
-          .filter((o) => o.value !== firstId)
-          .map((o) => (
-            <SelectItem key={o.value} value={o.value}>
-              {o.label}
-            </SelectItem>
-          ))}
-      </Select>
+    <Flex direction="column" mb="4">
+      <Flex align="end" gap="2">
+        <Select
+          label="First dimension"
+          value={firstId || undefined}
+          setValue={(v) => setConstituent(0, v)}
+          placeholder="Choose dimension..."
+          style={{ flex: 1, minWidth: 0 }}
+        >
+          {constituentOptions
+            .filter((o) => o.value !== secondId)
+            .map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+        </Select>
+        <Text color="text-mid" mb="1">
+          &amp;
+        </Text>
+        <Select
+          label="Second dimension"
+          value={secondId || undefined}
+          setValue={(v) => setConstituent(1, v)}
+          placeholder="Choose dimension..."
+          error={duplicate ? "Choose two different dimensions." : undefined}
+          style={{ flex: 1, minWidth: 0 }}
+        >
+          {constituentOptions
+            .filter((o) => o.value !== firstId)
+            .map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+        </Select>
+      </Flex>
     </Flex>
   );
 }
