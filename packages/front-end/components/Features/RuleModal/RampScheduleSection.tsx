@@ -4056,12 +4056,12 @@ export default function RampScheduleSection({
               {rampStartImpact.kind === "coverage-drop" ? (
                 <>
                   This ramp-up drops this rule from {rampStartImpact.fromPct}%
-                  to {rampStartImpact.toPct}% of traffic.
+                  to {rampStartImpact.toPct}% of traffic
                 </>
               ) : (
                 <>
                   This rule (live at {rampStartImpact.liveCoveragePct}%) will be
-                  disabled until the ramp-up starts.
+                  disabled until the ramp-up starts
                 </>
               )}
             </Text>

@@ -53,6 +53,8 @@ import RampTimeline, {
 } from "@/components/RampSchedule/RampTimeline";
 import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Text from "@/ui/Text";
 import ContextualBanditRefSummary from "@/components/ContextualBandit/ContextualBanditRefSummary";
 import track from "@/services/track";
@@ -342,6 +344,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     ref,
   ) => {
     const { apiCall } = useAuth();
+    const { hasCommercialFeature } = useUser();
+    const canUseRampSchedules = hasCommercialFeature("ramp-schedules");
 
     // A scheduled-publish edit lock leaves ramp runtime controls interactive;
     // other lock reasons (old/discarded revisions) still disable them.
@@ -998,7 +1002,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         {(rule.type === "force" || rule.type === "rollout") &&
                           !hasAnyEnvRampSchedule && (
                             <DropdownMenuItem
-                              tooltip="Inserts a ramp-up rule above this one to gradually replace its value."
+                              tooltip={
+                                <Flex align="center" gap="2">
+                                  Inserts a ramp-up rule above this one to
+                                  gradually replace its value
+                                  <PaidFeatureBadge
+                                    commercialFeature="ramp-schedules"
+                                    useTip={false}
+                                  />
+                                </Flex>
+                              }
+                              disabled={!canUseRampSchedules}
                               onClick={() => {
                                 setRuleModal({
                                   environment,

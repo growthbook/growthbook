@@ -9,6 +9,7 @@ import { PiCaretDown, PiWarningFill } from "react-icons/pi";
 import { amber } from "@radix-ui/colors";
 import React, {
   ReactElement,
+  ReactNode,
   useCallback,
   useEffect,
   useState,
@@ -212,7 +213,7 @@ type DropdownItemProps = {
   onClick?: (event: Event) => Promise<void> | void;
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
-  tooltip?: string;
+  tooltip?: ReactNode;
   tooltipStyle?: React.CSSProperties;
   confirmation?: {
     submit: () => Promise<void> | void;
