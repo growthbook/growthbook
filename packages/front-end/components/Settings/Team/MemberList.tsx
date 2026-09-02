@@ -119,7 +119,7 @@ const MemberList: FC<{
 }) => {
   const [inviting, setInviting] = useState(!!router.query["just-subscribed"]);
   const { apiCall } = useAuth();
-  const { userId, users, organization, teams } = useUser();
+  const { userId, users, organization, teams = [] } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
   const [projectRoleModal, setProjectRoleModal] = useState<string>("");
   const [passwordResetModal, setPasswordResetModal] =
@@ -149,7 +149,7 @@ const MemberList: FC<{
       ...(member.projectRoles || []).map((pr) => pr.project),
       ...(member.teams || []).flatMap(
         (id) =>
-          (teams || [])
+          teams
             .find((t) => t.id === id)
             ?.projectRoles?.map((pr) => pr.project) || [],
       ),
@@ -178,12 +178,9 @@ const MemberList: FC<{
   const deniedByRestrictedAccess = (member: ExpandedMember): boolean => {
     if (!project || !restrictAccess) return false;
     const resolved = new Permissions(
-      getRolePermissions(
-        member,
-        organization as OrganizationInterface,
-        teams || [],
-        [project],
-      ),
+      getRolePermissions(member, organization as OrganizationInterface, teams, [
+        project,
+      ]),
     );
     return !resolved.canReadSingleProjectResource(project);
   };
@@ -243,9 +240,7 @@ const MemberList: FC<{
             projectRoles: roleModalUser.projectRoles,
             additionalRoles: roleModalUser.additionalRoles,
           }}
-          teams={(teams || []).filter((t) =>
-            roleModalUser.teams?.includes(t.id),
-          )}
+          teams={teams.filter((t) => roleModalUser.teams?.includes(t.id))}
           close={() => setRoleModal("")}
           onConfirm={async (value) => {
             await apiCall(`/member/${roleModal}/role`, {
@@ -365,7 +360,7 @@ const MemberList: FC<{
               const effectiveRoles = getEffectiveRolesForProject(
                 member,
                 project || null,
-                teams || [],
+                teams,
               );
               return (
                 <TableRow key={member.id}>
@@ -422,7 +417,7 @@ const MemberList: FC<{
                         const roles = getEffectiveRolesForProject(
                           member,
                           projectId,
-                          teams || [],
+                          teams,
                         );
                         return (
                           <div key={`project-tags-${p.id}`}>
@@ -442,7 +437,7 @@ const MemberList: FC<{
 
                   <TableCell>
                     {(member.teams ?? []).map((teamId) => {
-                      const team = (teams ?? []).find((t) => t.id === teamId);
+                      const team = teams.find((t) => t.id === teamId);
                       if (!team) return null;
                       return (
                         <div key={teamId}>
