@@ -253,6 +253,9 @@ function isExplorationPath(path: string): boolean {
  * allowlist matches regardless of whether the LLM sends `/api/v1/...`,
  * `/v1/...`, or `/...` — the same forms the dispatcher accepts when routing.
  */
+const SQL_QUERY_PATH_RE =
+  /^\/api\/v[12]\/data-sources\/[^/]+\/sql\/(search-tables|table-schema|preview-values|run-query)\/?$/;
+
 function requiresMutationConfirmation(input: DispatchInput): boolean {
   if (input.method === "GET") return false;
   const path = normalizePath(input.path);
@@ -260,6 +263,10 @@ function requiresMutationConfirmation(input: DispatchInput): boolean {
     return false;
   }
   if (isExplorationPath(path)) {
+    return false;
+  }
+  // SQL query endpoints are read-only POSTs with their own cost confirmation
+  if (SQL_QUERY_PATH_RE.test(path)) {
     return false;
   }
   return true;
@@ -589,6 +596,50 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
               }
             },
           });
+
+          // SQL cost confirmation gate: when run-query returns
+          // confirmation_required, park a confirmed re-call as a pending
+          // action so the user sees a confirmation card with cost details.
+          // The agent never sees the confirmation_required response.
+          if (
+            result.status === 200 &&
+            SQL_QUERY_PATH_RE.test(normalizePath(dispatchInput.path)) &&
+            result.body &&
+            typeof result.body === "object" &&
+            (result.body as Record<string, unknown>).status ===
+              "confirmation_required"
+          ) {
+            const confirmedBody =
+              typeof dispatchInput.body === "object" && dispatchInput.body
+                ? {
+                    ...(dispatchInput.body as Record<string, unknown>),
+                    confirm: true,
+                  }
+                : { confirm: true };
+            const costMessage = (result.body as Record<string, unknown>)
+              .message as string | undefined;
+            const pendingAction: AIAgentPendingAction = {
+              id: randomUUID(),
+              method: "POST",
+              path: dispatchInput.path,
+              ...(query ? { query } : {}),
+              body: confirmedBody,
+              summary: costMessage ?? "Execute SQL query",
+              createdAt: Date.now(),
+            };
+            buffer.setPendingAction(pendingAction);
+            if (emit) {
+              emit("confirm-action", {
+                actionId: pendingAction.id,
+                method: pendingAction.method,
+                path: pendingAction.path,
+                summary: pendingAction.summary,
+                body: confirmedBody,
+              });
+            }
+            return AWAITING_CONFIRMATION_RESULT;
+          }
+
           return summarizeResult(result);
         },
       }),

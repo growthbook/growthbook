@@ -16,6 +16,8 @@ import {
 } from "back-end/src/services/datasource";
 import { getFactTablesForDatasource } from "back-end/src/models/FactTableModel";
 
+export { ASK_ROW_LIMIT } from "shared/sql";
+
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
@@ -28,10 +30,10 @@ interface AskDataToolsDeps {
 }
 
 // -----------------------------------------------------------------------------
-// Tool input schemas
+// Tool input schemas (exported for API validation)
 // -----------------------------------------------------------------------------
 
-const searchTablesInputSchema = z.object({
+export const searchTablesInputSchema = z.object({
   query: z
     .string()
     .default("")
@@ -41,7 +43,7 @@ const searchTablesInputSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
-const getTableSchemaInputSchema = z.object({
+export const getTableSchemaInputSchema = z.object({
   tables: z
     .array(
       z.object({
@@ -55,7 +57,7 @@ const getTableSchemaInputSchema = z.object({
     .describe("Tables to retrieve column schemas for."),
 });
 
-const previewColumnValuesInputSchema = z.object({
+export const previewColumnValuesInputSchema = z.object({
   table: z.string().describe("Fully-qualified table name."),
   columns: z
     .array(z.string())
@@ -65,7 +67,7 @@ const previewColumnValuesInputSchema = z.object({
   limit: z.number().int().min(1).max(20).default(20),
 });
 
-const runQueryInputSchema = z.object({
+export const runQueryInputSchema = z.object({
   sql: z.string().describe("A read-only SELECT or WITH query."),
   purpose: z
     .string()
@@ -103,7 +105,7 @@ const RUN_QUERY_DESCRIPTION =
 // Helpers
 // -----------------------------------------------------------------------------
 
-function resultsToCsv(
+export function resultsToCsv(
   results: Record<string, unknown>[],
   maxRows: number,
 ): string {
@@ -123,7 +125,270 @@ function resultsToCsv(
 }
 
 // -----------------------------------------------------------------------------
-// Main export
+// Standalone functions (usable by both agent tools and API controllers)
+// -----------------------------------------------------------------------------
+
+export async function searchWarehouseTables(
+  ctx: ReqContext,
+  datasource: DataSourceInterface,
+  input: { query: string; limit: number },
+): Promise<unknown> {
+  const integration = getSourceIntegrationObject(ctx, datasource);
+  if (!integration.getInformationSchema) {
+    throw new Error("This datasource does not support schema discovery.");
+  }
+  const databases = await integration.getInformationSchema();
+  const q = input.query.toLowerCase();
+
+  const results: Array<{
+    database: string;
+    schema: string;
+    table: string;
+    columnCount: number;
+  }> = [];
+
+  for (const db of databases) {
+    for (const schema of db.schemas) {
+      for (const table of schema.tables) {
+        const fqtn =
+          `${db.databaseName}.${schema.schemaName}.${table.tableName}`.toLowerCase();
+        if (!q || fqtn.includes(q)) {
+          results.push({
+            database: db.databaseName,
+            schema: schema.schemaName,
+            table: table.tableName,
+            columnCount: table.numOfColumns,
+          });
+        }
+      }
+    }
+  }
+
+  // Include all matching schemas so the agent sees the full scope even when
+  // the table list is truncated by the limit.
+  const schemas = [...new Set(results.map((r) => `${r.database}.${r.schema}`))];
+
+  return {
+    tables: results.slice(0, input.limit),
+    total: results.length,
+    schemas,
+    datasourceType: datasource.type,
+  };
+}
+
+export async function getWarehouseTableSchema(
+  ctx: ReqContext,
+  datasource: DataSourceInterface,
+  input: {
+    tables: Array<{
+      databaseName: string;
+      tableSchema: string;
+      tableName: string;
+    }>;
+  },
+): Promise<unknown> {
+  const integration = getSourceIntegrationObject(ctx, datasource);
+  if (!integration.getTableData) {
+    return {
+      error: "This datasource does not support table schema retrieval.",
+    };
+  }
+
+  const factTables = await getFactTablesForDatasource(ctx, datasource.id);
+  return buildTableSchemaResult(integration, factTables, input, new Map());
+}
+
+export async function previewWarehouseColumnValues(
+  ctx: ReqContext,
+  datasource: DataSourceInterface,
+  input: { table: string; columns: string[]; limit: number },
+): Promise<unknown> {
+  const colList = input.columns.map((c) => `"${c}"`).join(", ");
+  const sql = `SELECT DISTINCT ${colList} FROM ${input.table} LIMIT ${input.limit}`;
+
+  const { results, error } = await runFreeFormQuery(
+    ctx,
+    datasource,
+    sql,
+    input.limit,
+  );
+
+  if (error) return { error };
+
+  return {
+    table: input.table,
+    columns: input.columns,
+    rows: (results ?? []).slice(0, input.limit),
+    rowCount: (results ?? []).length,
+  };
+}
+
+export async function runWarehouseQuery(
+  ctx: ReqContext,
+  datasource: DataSourceInterface,
+  input: { sql: string; purpose: string },
+): Promise<unknown> {
+  assertSafeReadOnlySQL(input.sql);
+
+  const limited = ensureLimit(input.sql, ASK_ROW_LIMIT);
+
+  const { results, duration, sql, columns, error } = await runFreeFormQuery(
+    ctx,
+    datasource,
+    limited,
+    ASK_ROW_LIMIT,
+  );
+
+  if (error) {
+    return { status: "error", message: error };
+  }
+
+  const rows = results ?? [];
+  const colNames = columns?.map((c) => c.name) ?? Object.keys(rows[0] ?? {});
+  const truncated = rows.length >= ASK_ROW_LIMIT;
+  const csvPreview = resultsToCsv(rows, 20);
+
+  const syntheticConfig = {
+    type: "data_source" as const,
+    datasource: datasource.id,
+    chartType: "table" as const,
+    dateRange: { predefined: "last30Days" as const },
+    dimensions: colNames.map((col) => ({
+      dimensionType: "dynamic" as const,
+      column: col,
+      maxValues: 500,
+    })),
+    dataset: {
+      type: "data_source" as const,
+      table: "sql_query",
+      path: "",
+      timestampColumn: "",
+      columnTypes: Object.fromEntries(
+        colNames.map((col) => {
+          const meta = columns?.find((c) => c.name === col);
+          const dt = meta?.dataType;
+          return [col, dt === "number" ? "number" : "string"];
+        }),
+      ),
+      values: [],
+    },
+  };
+
+  const convertedRows = rows.map((row) => ({
+    dimensions: colNames.map((col) => {
+      const v = row[col];
+      return v === null || v === undefined ? null : String(v);
+    }),
+  }));
+
+  const syntheticId = `sql_${randomUUID().slice(0, 8)}`;
+  const executedSql = sql ?? limited;
+
+  return {
+    summary: `SQL query (${rows.length} rows, ${duration ?? 0}ms): ${executedSql.slice(0, 120)}`,
+    status: "success",
+    snapshotId: syntheticId,
+    rowCount: rows.length,
+    config: syntheticConfig,
+    resultCsv: csvPreview,
+    exploration: {
+      id: syntheticId,
+      organization: ctx.org.id,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      datasource: datasource.id,
+      configHash: "",
+      valueHashes: [],
+      config: syntheticConfig,
+      result: { rows: convertedRows },
+      dateStart: "",
+      dateEnd: "",
+      runStarted: new Date(),
+      status: "success",
+      error: null,
+      queries: [],
+    },
+    ...(truncated
+      ? {
+          note: "Results were truncated at 500 rows. Consider re-aggregating at a coarser grain.",
+        }
+      : {}),
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Shared internal helper for table schema building (used by both standalone
+// function and cached agent tool wrapper)
+// -----------------------------------------------------------------------------
+
+async function buildTableSchemaResult(
+  integration: ReturnType<typeof getSourceIntegrationObject>,
+  factTables: FactTableInterface[],
+  input: {
+    tables: Array<{
+      databaseName: string;
+      tableSchema: string;
+      tableName: string;
+    }>;
+  },
+  cache: Map<string, { tableData: null | unknown[] }>,
+): Promise<unknown> {
+  const results: Array<{
+    database: string;
+    schema: string;
+    table: string;
+    columns: unknown[];
+  }> = [];
+
+  for (const t of input.tables) {
+    const key = `${t.databaseName}.${t.tableSchema}.${t.tableName}`;
+    let data = cache.get(key);
+    if (!data) {
+      data = await integration.getTableData!(
+        t.databaseName,
+        t.tableSchema,
+        t.tableName,
+      );
+      cache.set(key, data);
+    }
+
+    const matchingFt = factTables.find((ft) =>
+      ft.sql.toLowerCase().includes(t.tableName.toLowerCase()),
+    );
+    const columnDescriptions = new Map<string, string>();
+    if (matchingFt) {
+      for (const col of matchingFt.columns) {
+        if (col.description) {
+          columnDescriptions.set(col.column, col.description);
+        }
+      }
+    }
+
+    const columns = (data.tableData ?? []).map((col) => {
+      const c = col as { column_name?: string; data_type?: string };
+      const name = c.column_name ?? "";
+      return {
+        name,
+        type: c.data_type ?? "unknown",
+        ...(columnDescriptions.has(name)
+          ? { description: columnDescriptions.get(name) }
+          : {}),
+      };
+    });
+
+    results.push({
+      database: t.databaseName,
+      schema: t.tableSchema,
+      table: t.tableName,
+      columns,
+    });
+  }
+
+  return { tables: results };
+}
+
+// -----------------------------------------------------------------------------
+// Agent tool builder
 // -----------------------------------------------------------------------------
 
 /**
@@ -158,7 +423,7 @@ export async function buildAskDataTools(
     if (!integration.getInformationSchema) {
       throw new Error("This datasource does not support schema discovery.");
     }
-    emit?.("tool-progress", { message: "Reading warehouse structure…" });
+    emit?.("tool-progress", { message: "Reading warehouse structure\u2026" });
     infoSchemaCache = await integration.getInformationSchema();
     return infoSchemaCache;
   };
@@ -201,7 +466,7 @@ export async function buildAskDataTools(
 }
 
 // -----------------------------------------------------------------------------
-// Tool implementations
+// Agent tool implementations (thin wrappers using caches and deps)
 // -----------------------------------------------------------------------------
 
 async function executeSearchTables(
@@ -263,182 +528,19 @@ async function executeGetTableSchema(
   }
 
   const factTables = await getFactTables();
-  const results: Array<{
-    database: string;
-    schema: string;
-    table: string;
-    columns: unknown[];
-  }> = [];
-
-  for (const t of input.tables) {
-    const key = `${t.databaseName}.${t.tableSchema}.${t.tableName}`;
-    let data = cache.get(key);
-    if (!data) {
-      data = await integration.getTableData(
-        t.databaseName,
-        t.tableSchema,
-        t.tableName,
-      );
-      cache.set(key, data);
-    }
-
-    const matchingFt = factTables.find((ft) =>
-      ft.sql.toLowerCase().includes(t.tableName.toLowerCase()),
-    );
-    const columnDescriptions = new Map<string, string>();
-    if (matchingFt) {
-      for (const col of matchingFt.columns) {
-        if (col.description) {
-          columnDescriptions.set(col.column, col.description);
-        }
-      }
-    }
-
-    const columns = (data.tableData ?? []).map((col) => {
-      const c = col as { column_name?: string; data_type?: string };
-      const name = c.column_name ?? "";
-      return {
-        name,
-        type: c.data_type ?? "unknown",
-        ...(columnDescriptions.has(name)
-          ? { description: columnDescriptions.get(name) }
-          : {}),
-      };
-    });
-
-    results.push({
-      database: t.databaseName,
-      schema: t.tableSchema,
-      table: t.tableName,
-      columns,
-    });
-  }
-
-  return { tables: results };
+  return buildTableSchemaResult(integration, factTables, input, cache);
 }
 
 async function executePreviewColumnValues(
   { ctx, datasource }: AskDataToolsDeps,
   input: { table: string; columns: string[]; limit: number },
 ): Promise<unknown> {
-  const colList = input.columns.map((c) => `"${c}"`).join(", ");
-  const sql = `SELECT DISTINCT ${colList} FROM ${input.table} LIMIT ${input.limit}`;
-
-  const { results, error } = await runFreeFormQuery(
-    ctx,
-    datasource,
-    sql,
-    input.limit,
-  );
-
-  if (error) return { error };
-
-  return {
-    table: input.table,
-    columns: input.columns,
-    rows: (results ?? []).slice(0, input.limit),
-    rowCount: (results ?? []).length,
-  };
+  return previewWarehouseColumnValues(ctx, datasource, input);
 }
 
-/**
- * Executes raw SQL and returns results in the same shape as the PA agent's
- * `runExploration` tool (`RunExplorationToolResult`), so the frontend can
- * render them via ExplorationBubble → SimpleExplorationTable.
- */
 async function executeRunQuery(
   { ctx, datasource }: AskDataToolsDeps,
   input: { sql: string; purpose: string },
 ): Promise<unknown> {
-  assertSafeReadOnlySQL(input.sql);
-
-  const limited = ensureLimit(input.sql, ASK_ROW_LIMIT);
-
-  const { results, duration, sql, columns, error } = await runFreeFormQuery(
-    ctx,
-    datasource,
-    limited,
-    ASK_ROW_LIMIT,
-  );
-
-  if (error) {
-    return { status: "error", message: error };
-  }
-
-  const rows = results ?? [];
-  const colNames = columns?.map((c) => c.name) ?? Object.keys(rows[0] ?? {});
-  const truncated = rows.length >= ASK_ROW_LIMIT;
-  const csvPreview = resultsToCsv(rows, 20);
-
-  // Build a synthetic ExplorationConfig (data_source, table chartType)
-  const syntheticConfig = {
-    type: "data_source" as const,
-    datasource: datasource.id,
-    chartType: "table" as const,
-    dateRange: { predefined: "last30Days" as const },
-    dimensions: colNames.map((col) => ({
-      dimensionType: "dynamic" as const,
-      column: col,
-      maxValues: 500,
-    })),
-    dataset: {
-      type: "data_source" as const,
-      table: "sql_query",
-      path: "",
-      timestampColumn: "",
-      columnTypes: Object.fromEntries(
-        colNames.map((col) => {
-          const meta = columns?.find((c) => c.name === col);
-          const dt = meta?.dataType;
-          return [col, dt === "number" ? "number" : "string"];
-        }),
-      ),
-      values: [],
-    },
-  };
-
-  // Convert rows to ProductAnalyticsResultRow format (all dimensions)
-  const convertedRows = rows.map((row) => ({
-    dimensions: colNames.map((col) => {
-      const v = row[col];
-      return v === null || v === undefined ? null : String(v);
-    }),
-  }));
-
-  const syntheticId = `sql_${randomUUID().slice(0, 8)}`;
-
-  // Return in RunExplorationToolResult shape so extractExplorationResultData
-  // picks it up and ExplorationBubble renders it.
-  const executedSql = sql ?? limited;
-
-  return {
-    summary: `SQL query (${rows.length} rows, ${duration ?? 0}ms): ${executedSql.slice(0, 120)}`,
-    status: "success",
-    snapshotId: syntheticId,
-    rowCount: rows.length,
-    config: syntheticConfig,
-    resultCsv: csvPreview,
-    exploration: {
-      id: syntheticId,
-      organization: ctx.org.id,
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      datasource: datasource.id,
-      configHash: "",
-      valueHashes: [],
-      config: syntheticConfig,
-      result: { rows: convertedRows },
-      dateStart: "",
-      dateEnd: "",
-      runStarted: new Date(),
-      status: "success",
-      error: null,
-      queries: [],
-    },
-    ...(truncated
-      ? {
-          note: "Results were truncated at 500 rows. Consider re-aggregating at a coarser grain.",
-        }
-      : {}),
-  };
+  return runWarehouseQuery(ctx, datasource, input);
 }

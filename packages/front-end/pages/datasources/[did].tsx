@@ -31,6 +31,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline";
+import AskDataSettings from "@/components/Settings/EditDataSource/AskDataSettings/AskDataSettings";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -101,7 +102,7 @@ const DataSourcePage: FC = () => {
   const factTables = allFactTables.filter((ft) => ft.datasource === did);
 
   const { apiCall, orgId } = useAuth();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, settings: orgSettings } = useUser();
   const contextualBanditsEnabled = useFeatureIsOn("contextual-bandits");
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
@@ -625,6 +626,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 />
               </Frame>
             ) : null}
+
+            {supportsSQL && orgSettings?.aiAskDataEnabled && (
+              <Frame>
+                <AskDataSettings
+                  dataSource={d}
+                  onSave={updateDataSourceSettings}
+                  canEdit={canUpdateDataSourceSettings}
+                />
+              </Frame>
+            )}
           </>
         )}
       </Box>

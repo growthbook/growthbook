@@ -19243,6 +19243,390 @@ paths:
             'https://api.growthbook.io/api/v1/data-sources/{dataSourceId}/information-schema'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/sql/search-tables:
+    post:
+      operationId: searchWarehouseTables
+      summary: Search warehouse tables
+      tags:
+        - data-sources
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the data source
+          schema:
+            description: The id of the data source
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  description: >-
+                    Case-insensitive substring match on table name. Empty
+                    returns all.
+                  type: string
+                limit:
+                  description: Max results to return. Defaults to 20.
+                  type: integer
+                  minimum: 1
+                  maximum: 50
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tables:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/tables'
+                  total:
+                    type: number
+                  schemas:
+                    type: array
+                    items:
+                      type: string
+                  datasourceType:
+                    type: string
+                required:
+                  - tables
+                  - total
+                  - schemas
+                  - datasourceType
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/data-sources/{id}/sql/search-tables'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/sql/table-schema:
+    post:
+      operationId: getWarehouseTableSchema
+      summary: Get warehouse table schemas
+      tags:
+        - data-sources
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the data source
+          schema:
+            description: The id of the data source
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tables:
+                  minItems: 1
+                  maxItems: 5
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      databaseName:
+                        type: string
+                      tableSchema:
+                        type: string
+                      tableName:
+                        type: string
+                    required:
+                      - databaseName
+                      - tableSchema
+                      - tableName
+                    additionalProperties: false
+              required:
+                - tables
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tables:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        database:
+                          type: string
+                        schema:
+                          type: string
+                        table:
+                          type: string
+                        columns:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              type:
+                                type: string
+                              description:
+                                type: string
+                            required:
+                              - name
+                              - type
+                            additionalProperties: false
+                      required:
+                        - database
+                        - schema
+                        - table
+                        - columns
+                      additionalProperties: false
+                required:
+                  - tables
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/data-sources/{id}/sql/table-schema'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/sql/preview-values:
+    post:
+      operationId: previewWarehouseColumnValues
+      summary: Preview distinct column values
+      tags:
+        - data-sources
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the data source
+          schema:
+            description: The id of the data source
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                table:
+                  description: Fully-qualified table name.
+                  type: string
+                columns:
+                  minItems: 1
+                  maxItems: 3
+                  type: array
+                  items:
+                    type: string
+                limit:
+                  description: Max rows to return. Defaults to 20.
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+              required:
+                - table
+                - columns
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  table:
+                    type: string
+                  columns:
+                    type: array
+                    items:
+                      type: string
+                  rows:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/rows'
+                  rowCount:
+                    type: number
+                required:
+                  - table
+                  - columns
+                  - rows
+                  - rowCount
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/data-sources/{id}/sql/preview-values'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/sql/run-query:
+    post:
+      operationId: runSqlQuery
+      summary: Execute a read-only SQL query
+      tags:
+        - data-sources
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the data source
+          schema:
+            description: The id of the data source
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sql:
+                  description: A read-only SELECT or WITH query.
+                  type: string
+                purpose:
+                  description: One-line description of what this query answers.
+                  type: string
+                confirm:
+                  description: >-
+                    Set to true to execute a query that previously returned
+                    confirmation_required.
+                  type: boolean
+                tableMetadata:
+                  description: >-
+                    Table metadata from earlier discovery steps. When provided,
+                    the response includes an explorationUrl for viewing results
+                    in the product analytics explorer.
+                  type: object
+                  properties:
+                    table:
+                      description: Table name, e.g. 'events'
+                      type: string
+                    path:
+                      description: Fully qualified path, e.g. 'db.schema.events'
+                      type: string
+                    timestampColumn:
+                      description: A date/timestamp column name
+                      type: string
+                    columnTypes:
+                      description: Map of column names to types
+                      type: object
+                      propertyNames:
+                        type: string
+                      additionalProperties:
+                        type: string
+                        enum:
+                          - string
+                          - number
+                          - date
+                          - boolean
+                          - other
+                  required:
+                    - table
+                    - path
+                    - timestampColumn
+                    - columnTypes
+                  additionalProperties: false
+              required:
+                - sql
+                - purpose
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        const: success
+                      summary:
+                        type: string
+                      rowCount:
+                        type: number
+                      columns:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            dataType:
+                              type: string
+                          required:
+                            - name
+                          additionalProperties: false
+                      resultCsv:
+                        type: string
+                      truncated:
+                        type: boolean
+                      durationMs:
+                        type: number
+                      sql:
+                        type: string
+                      explorationUrl:
+                        type: string
+                    required:
+                      - status
+                      - summary
+                      - rowCount
+                      - columns
+                      - resultCsv
+                      - truncated
+                      - durationMs
+                      - sql
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        const: confirmation_required
+                      estimatedBytesProcessed:
+                        type: number
+                      estimatedCostUsd:
+                        type: number
+                      sql:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - status
+                      - estimatedBytesProcessed
+                      - sql
+                      - message
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        const: error
+                      message:
+                        type: string
+                    required:
+                      - status
+                      - message
+                    additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/data-sources/{id}/sql/run-query' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/visual-changesets/{id}:
     get:
       operationId: getVisualChangeset
@@ -69453,6 +69837,28 @@ components:
         - datasourceId
         - variations
       additionalProperties: false
+    tables:
+      type: object
+      properties:
+        database:
+          type: string
+        schema:
+          type: string
+        table:
+          type: string
+        columnCount:
+          type: number
+      required:
+        - database
+        - schema
+        - table
+        - columnCount
+      additionalProperties: false
+    rows:
+      type: object
+      propertyNames:
+        type: string
+      additionalProperties: {}
     savedGroups:
       type: object
       properties:

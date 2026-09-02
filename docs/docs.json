@@ -585,6 +585,10 @@
                   "api/data-sources/operation/listDataSources",
                   "api/data-sources/operation/getDataSource",
                   "api/data-sources/operation/getInformationSchema",
+                  "api/data-sources/operation/searchWarehouseTables",
+                  "api/data-sources/operation/getWarehouseTableSchema",
+                  "api/data-sources/operation/previewWarehouseColumnValues",
+                  "api/data-sources/operation/runSqlQuery",
                   "api/data-sources/operation/getInformationSchemaTable"
                 ]
               },
