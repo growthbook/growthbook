@@ -145,9 +145,8 @@ export function removeRuleAtEnvIndex(
   return { rules: next, removed };
 }
 
-// Insert a rule directly above the anchor rule. Appends when the anchor isn't
-// present (e.g. it was deleted in the draft) — mispositioning a new rule is
-// recoverable; failing the save is not.
+// Insert directly above the anchor rule; appends when the anchor is gone
+// (deleted in the draft) rather than failing the save.
 export function insertRuleBefore(
   rules: FeatureRule[],
   rule: FeatureRule,

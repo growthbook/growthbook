@@ -54,7 +54,6 @@ import RampTimeline, {
 import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Text from "@/ui/Text";
 import ContextualBanditRefSummary from "@/components/ContextualBandit/ContextualBanditRefSummary";
 import track from "@/services/track";
@@ -241,8 +240,7 @@ interface SortableProps {
   holdout: HoldoutInterface | undefined;
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedule?: RampScheduleInterface;
-  // True when the rule has a schedule (live or pending) in ANY environment,
-  // not just the viewed one. `rampSchedule` above is env-filtered.
+  // Schedule in ANY environment; `rampSchedule` above is env-filtered.
   hasAnyEnvRampSchedule?: boolean;
   /** Live state used only for runtime-control authority checks. */
   liveRule?: FeatureRule;
@@ -1000,19 +998,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           </DropdownMenuItem>
                         )}
                         {(rule.type === "force" || rule.type === "rollout") &&
-                          !hasAnyEnvRampSchedule && (
+                          !hasAnyEnvRampSchedule &&
+                          canUseRampSchedules && (
                             <DropdownMenuItem
-                              tooltip={
-                                <Flex align="center" gap="2">
-                                  Inserts a ramp-up rule above this one to
-                                  gradually replace its value.
-                                  <PaidFeatureBadge
-                                    commercialFeature="ramp-schedules"
-                                    useTip={false}
-                                  />
-                                </Flex>
-                              }
-                              disabled={!canUseRampSchedules}
+                              tooltip="Inserts a ramp-up rule above this one to gradually replace its value."
                               onClick={() => {
                                 setRuleModal({
                                   environment,

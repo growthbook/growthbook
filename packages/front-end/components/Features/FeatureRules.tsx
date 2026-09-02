@@ -630,8 +630,7 @@ export default function FeatureRules({
       </Box>
       {ruleModal !== null && (
         <RuleModal
-          // Remounts when the switch-to-ramp escape hatch retargets the open
-          // modal (edit → duplicate) — form and ramp state seed once per mount.
+          // Remount when the ramp-to-new-value switch retargets the open modal.
           key={`${ruleModal.mode}-${ruleModal.ruleId ?? "new"}`}
           feature={feature}
           baseFeature={baseFeature}

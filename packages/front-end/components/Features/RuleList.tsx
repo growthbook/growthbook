@@ -259,9 +259,8 @@ export default function RuleList(props: RuleListProps) {
     draftRevision,
     environment: allEnvsView ? undefined : props.environment,
   });
-  // Unfiltered: gates actions that must not run when the rule is ramping in
-  // ANY environment, not just the viewed one ("Ramp to new value" — a second
-  // ramp would stack on the hidden environment's live one).
+  // Env-unfiltered: "Ramp to new value" must be blocked when the rule is
+  // ramping in any environment, not just the viewed one.
   const anyEnvRampSchedulesMap = allEnvsView
     ? rampSchedulesMap
     : buildRuleRampScheduleMap({

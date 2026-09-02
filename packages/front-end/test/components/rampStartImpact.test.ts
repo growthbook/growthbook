@@ -202,8 +202,7 @@ describe("countRampFallthroughRules", () => {
   });
 
   it("treats legacy rules with no env fields as applying to all environments", () => {
-    // Pre-v2 rules may lack both allEnvironments and environments; the
-    // canonical semantics (ruleAppliesToEnv) treat that as permissive.
+    // Pre-v2 rules may lack both env fields; that means all environments.
     const legacyRule = (id: string): FeatureRule =>
       ({ type: "force", id, description: "", value: "on" }) as FeatureRule;
     expect(

@@ -899,13 +899,10 @@ interface Props {
   // Whether the parent rule is a sparse patch. The ramp's value edits inherit
   // this — sparse interpretation belongs to the rule, not the schedule.
   sparse?: boolean;
-  // The published version of the ramp's target rule. Present only when the
-  // rule is already live — powers the "starting this ramp drops traffic"
-  // warning. Leave unset for draft-only and duplicated rules.
+  // Published version of the target rule; unset when nothing is live.
   liveRule?: FeatureRule;
-  // When set, the traffic-drop warning offers this as an escape hatch: switch
-  // to the "Ramp to new value" flow (duplicate the rule above the original and
-  // ramp the copy) instead of ramping the live rule itself.
+  // Escape hatch offered by the traffic-drop warning: switch to the
+  // "Ramp to new value" flow instead of ramping the live rule itself.
   onRampToNewValue?: () => void;
 }
 
@@ -4021,11 +4018,8 @@ export default function RampScheduleSection({
       </HelperText>
     ) : null;
 
-  // Warns when starting this ramp would take traffic away from an
-  // already-live rule (the "repurposing a live rule" footgun): unenrolled
-  // users fall through to whatever is below, not what the rule serves today.
-  // Only meaningful before the ramp has started — a paused or terminal
-  // schedule already applied its steps, so "starting" language would be false.
+  // Warn when starting this ramp would take traffic away from an already-live
+  // rule. Only meaningful before the ramp has started.
   const rampNotYetStarted =
     !ruleRampSchedule || ["pending", "ready"].includes(ruleRampSchedule.status);
   const rampStartImpact = rampNotYetStarted
