@@ -245,6 +245,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
           canMoveUp={props.canMoveUp}
           canMoveDown={props.canMoveDown}
           isActive={!isDisabled}
+          sections={customField.sections}
           onEdit={() => props.setEditModal(customField)}
           onDelete={() => props.deleteCustomField(customField)}
           onMoveUp={props.onMoveUp}

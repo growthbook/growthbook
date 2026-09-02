@@ -2,6 +2,7 @@ import { useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { IconButton } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
+import { CustomFieldSection } from "shared/types/custom-fields";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -15,11 +16,26 @@ interface CustomFieldRowMenuProps {
   canMoveUp: boolean;
   canMoveDown: boolean;
   isActive: boolean;
+  sections: CustomFieldSection[] | undefined;
   onEdit: () => void;
   onDelete: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
   onToggleActive: () => void;
+}
+
+// Only the sections a field targets can hold values for it.
+function deleteConfirmation(
+  sections: CustomFieldSection[] | undefined,
+): string {
+  const scopes = [
+    ...(sections?.includes("feature") ? ["Feature Flags"] : []),
+    ...(sections?.includes("experiment") ? ["experiments"] : []),
+  ];
+  if (!scopes.length) return "Are you sure? This action cannot be undone.";
+  return `Are you sure? Any values saved for this field on ${scopes.join(
+    " and ",
+  )} will be removed too. This action cannot be undone.`;
 }
 
 export default function CustomFieldRowMenu({
@@ -28,6 +44,7 @@ export default function CustomFieldRowMenu({
   canMoveUp,
   canMoveDown,
   isActive,
+  sections,
   onEdit,
   onDelete,
   onMoveUp,
@@ -83,8 +100,7 @@ export default function CustomFieldRowMenu({
               submit: onDelete,
               confirmationTitle: "Delete custom field",
               cta: "Delete",
-              getConfirmationContent: async () =>
-                "Are you sure? This action cannot be undone.",
+              getConfirmationContent: async () => deleteConfirmation(sections),
             }}
           >
             Delete

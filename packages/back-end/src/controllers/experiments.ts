@@ -1604,12 +1604,16 @@ export async function postExperiment(
       updatedCustomFieldValues: data.customFields,
     })
   ) {
-    await validateCustomFieldsForSection({
-      customFieldValues: data.customFields,
-      customFieldsModel: context.models.customFields,
-      section: "experiment",
-      project: "project" in data ? data.project : experiment.project,
-    });
+    const { customFieldValues, prunedKeys } =
+      await validateCustomFieldsForSection({
+        customFieldValues: data.customFields,
+        existingCustomFieldValues: experiment.customFields,
+        customFieldsModel: context.models.customFields,
+        section: "experiment",
+        project: "project" in data ? data.project : experiment.project,
+      });
+    // Write the pruned map back so the dead keys stop blocking future updates.
+    if (prunedKeys.length) data.customFields = customFieldValues;
   }
 
   const { settings } = getScopedSettings({

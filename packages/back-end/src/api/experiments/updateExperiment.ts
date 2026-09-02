@@ -139,12 +139,15 @@ export const updateExperiment = createApiRequestHandler(
     updatedCustomFieldValues: req.body.customFields,
   });
 
+  let healedCustomFields: Record<string, unknown> | undefined;
   if (projectChanged || customFieldsChanged) {
-    await validateCustomFields(
+    const { customFieldValues, prunedKeys } = await validateCustomFields(
       req.body.customFields ?? experiment.customFields,
       req.context,
       req.body.project ?? experiment.project,
+      experiment.customFields,
     );
+    if (prunedKeys.length) healedCustomFields = customFieldValues;
   }
 
   if (req.body.defaultDashboardId) {
@@ -335,6 +338,9 @@ export const updateExperiment = createApiRequestHandler(
     map,
     req.organization,
   );
+
+  // Write the pruned map back so the dead keys stop blocking future updates.
+  if (healedCustomFields) changes.customFields = healedCustomFields;
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
 

@@ -79,11 +79,31 @@ export async function setRevisionMetadata(
   }
 
   if (metadataFields.customFields !== undefined) {
-    await validateCustomFields(
-      metadataFields.customFields as Record<string, unknown>,
-      context,
-      metadataFields.project ?? feature.project,
-    );
+    // A `version: "new"` draft snapshots the feature verbatim, so its snapshot is
+    // knowable before creation — validate here rather than create-then-discard.
+    const target =
+      params.version === "new"
+        ? null
+        : await getRevision({
+            context,
+            organization: organization.id,
+            featureId: feature.id,
+            feature,
+            version: params.version,
+          });
+
+    // A missing revision is `resolveOrCreateRevision`'s 404, not a 400 from here.
+    if (params.version === "new" || target) {
+      const { customFieldValues, prunedKeys } = await validateCustomFields(
+        metadataFields.customFields as Record<string, unknown>,
+        context,
+        metadataFields.project ?? feature.project,
+        // The revision's own snapshot — the live feature may already have healed.
+        target?.metadata?.customFields ?? feature.customFields,
+      );
+      // Stage the pruned map so publishing doesn't restore the dead keys.
+      if (prunedKeys.length) metadataFields.customFields = customFieldValues;
+    }
   }
 
   const { revision, created } = await resolveOrCreateRevision(

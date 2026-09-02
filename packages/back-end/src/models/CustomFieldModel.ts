@@ -7,6 +7,7 @@ import {
   apiCreateCustomFieldBody,
   apiUpdateCustomFieldBody,
   ApiCustomField,
+  ACTIVE_DRAFT_STATUSES,
 } from "shared/validators";
 import { CustomFieldSection } from "shared/types/custom-fields";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
@@ -16,6 +17,8 @@ import {
   customFieldApiSpec,
   listCustomFieldsEndpoint,
 } from "back-end/src/api/specs/custom-field.spec";
+import { getCollection } from "back-end/src/util/mongo.util";
+import { logger } from "back-end/src/util/logger";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -306,6 +309,22 @@ export class CustomFieldModel extends BaseClass {
     const newFields = existing.fields.filter((_, i) => i !== toDelete);
     const updated = await this.update(existing, { fields: newFields });
     if (updated) {
+      // Orphaned values would otherwise fail validation on every later write to
+      // the feature/experiment. Legacy duplicate ids keep the key in use.
+      if (!newFields.some((f) => f.id === customFieldId)) {
+        try {
+          await this.removeCustomFieldValues(customFieldId);
+        } catch (err) {
+          // The definition is already gone, so the delete stands. Features and
+          // experiments self-heal on their next write; revisions do not, so a
+          // survivor here keeps its stale snapshot until deleted again.
+          logger.warn(
+            { err, customFieldId, organization: this.context.org.id },
+            "Failed to strip values for deleted custom field",
+          );
+        }
+      }
+      // Queued after the sweep so the payload rebuild reads stripped documents.
       queueSDKPayloadRefresh({
         context: this.context,
         payloadKeys: getEnvironmentIdsFromOrg(this.context.org).map((env) => ({
@@ -321,6 +340,43 @@ export class CustomFieldModel extends BaseClass {
       });
     }
     return updated;
+  }
+
+  // Raw collections rather than the Feature/Experiment models: importing those
+  // here would cycle back through the context's model registry.
+  private async removeCustomFieldValues(customFieldId: string) {
+    const organization = this.context.org.id;
+    const key = `customFields.${customFieldId}`;
+    // A write racing this sweep can restore the key. Features and experiments
+    // prune it out again on their next edit; templates never validate
+    // `customFields`, so a template edit that loses the race stays stale.
+    const strip = { $unset: { [key]: "" } };
+    await getCollection("features").updateMany(
+      { organization, [key]: { $exists: true } },
+      strip,
+    );
+    await getCollection("experiments").updateMany(
+      { organization, [key]: { $exists: true } },
+      strip,
+    );
+    // Templates seed `customFields` onto new experiments, and creates don't heal
+    // — a stale key here would 400 every experiment created from the template.
+    await getCollection("experimenttemplates").updateMany(
+      { organization, [key]: { $exists: true } },
+      strip,
+    );
+    // Open revisions snapshot the feature's metadata, so publishing one would
+    // restore the key. Published/discarded ones are history and keep it.
+    // `pending-parent` is swept too — a ramp schedule auto-publishes it.
+    const metadataKey = `metadata.customFields.${customFieldId}`;
+    await getCollection("featurerevisions").updateMany(
+      {
+        organization,
+        status: { $in: [...ACTIVE_DRAFT_STATUSES, "pending-parent"] },
+        [metadataKey]: { $exists: true },
+      },
+      { $unset: { [metadataKey]: "" } },
+    );
   }
 
   // Uses _updateOne directly to bypass the change-detection check (reorders are not detected as diffs).

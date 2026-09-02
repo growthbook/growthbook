@@ -135,12 +135,16 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       updatedCustomFieldValues: customFields,
     });
 
+    let effectiveCustomFields = customFields;
     if (projectChanged || customFieldsChanged) {
-      await validateCustomFields(
+      const { customFieldValues, prunedKeys } = await validateCustomFields(
         customFields ?? feature.customFields,
         req.context,
         effectiveProject,
+        feature.customFields,
       );
+      // Write the pruned map back so the dead keys stop blocking future updates.
+      if (prunedKeys.length) effectiveCustomFields = customFieldValues;
     }
 
     // ensure environment keys are valid
@@ -237,7 +241,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(environmentSettings != null ? { environmentSettings } : {}),
       ...(prerequisites != null ? { prerequisites } : {}),
       ...(jsonSchema != null ? { jsonSchema } : {}),
-      ...(customFields != null ? { customFields } : {}),
+      ...(effectiveCustomFields != null
+        ? { customFields: effectiveCustomFields }
+        : {}),
     };
     normalizeTargetingInUpdates(updates, feature);
 
