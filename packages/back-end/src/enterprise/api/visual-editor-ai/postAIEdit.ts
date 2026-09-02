@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
+import {
+  findVisualChangesetById,
+  updateVisualChange,
+} from "back-end/src/models/VisualChangesetModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   parsePrompt,
@@ -12,8 +15,10 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
 import {
   buildVisualEditorTools,
+  newImageTurnState,
   VISUAL_EDITOR_MAX_STEPS,
 } from "back-end/src/api/visual-editor-ai/aiTools";
+import { requireDraftExperiment } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
 import { aiEditJobStore } from "back-end/src/api/visual-editor-ai/aiTools/clientJob";
 import {
   buildInsertJs,
@@ -130,6 +135,28 @@ const domDigestSchema = z.object({
   // On-demand container map for the `findElements` tool — not rendered into
   // the prompt (formatDigest ignores it).
   pageStructure: z.array(structureNodeSchema).max(400).optional(),
+  // Untyped catalog for clients that don't classify elements the way the
+  // content script does. The six arrays above each have their own field
+  // names, which means any client building a digest from raw HTML has to
+  // bucket every element before it can serialize it; this accepts the same
+  // information as one flat list. Rendered alongside the typed sections (both
+  // may be populated) and, more importantly, counted as grounded selectors —
+  // without that, the self-correct pass is skipped and hallucinated selectors
+  // go through unchecked.
+  elements: z
+    .array(
+      z.object({
+        selector: z.string(),
+        tag: z.string(),
+        text: z.string().optional(),
+        href: z.string().optional(),
+        src: z.string().optional(),
+        alt: z.string().optional(),
+        placeholder: z.string().optional(),
+      }),
+    )
+    .max(300)
+    .optional(),
 });
 
 // Capped at 12 turns + 4000 chars/turn to bound prompt size.
@@ -165,6 +192,13 @@ const bodySchema = z
     // When omitted/false, the response is the original unwrapped shape
     // and only server-side tools (generateImage, etc.) are available.
     streamingMode: z.boolean().optional(),
+    // Save the generated changes onto the variation's visual change instead of
+    // returning them for the caller to persist. For non-interactive clients
+    // (CLI/agent) that have no accept/reject step: it keeps the
+    // append-mutations / replace-css-js asymmetry in one place, and lets
+    // generated images skip the quarantine prefix. Mutually exclusive with
+    // streamingMode, whose final output is assembled in postAIEditResume.
+    persist: z.boolean().optional(),
   })
   .strict();
 
@@ -468,6 +502,22 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
         `\`${img.selector}\`${img.alt ? ` alt="${img.alt}"` : ""} src=${img.src}`,
     ),
   );
+  section(
+    "Other elements",
+    (digest.elements ?? []).map((el) => {
+      const meta = [
+        el.href ? `→ ${el.href}` : "",
+        el.src ? `src=${el.src}` : "",
+        el.alt ? `alt="${el.alt}"` : "",
+        el.placeholder ? `placeholder="${el.placeholder}"` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return `\`${el.selector}\` <${el.tag}>${
+        el.text ? ` "${el.text}"` : ""
+      }${meta ? ` ${meta}` : ""}`;
+    }),
+  );
   if (lines.length === 0) {
     return "\n(No editable elements were detected on the page.)\n";
   }
@@ -486,6 +536,7 @@ const allDigestSelectors = (
   for (const l of digest.links) out.add(l.selector);
   for (const i of digest.inputs) out.add(i.selector);
   for (const img of digest.images) out.add(img.selector);
+  for (const el of digest.elements ?? []) out.add(el.selector);
   // html/body always resolve, even without a content-script digest.
   out.add("html");
   out.add("body");
@@ -572,6 +623,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     domDigest,
     conversationHistory,
     locale,
+    persist,
   } = req.body;
 
   // Carried inside domDigest (sent in the body, kept out of the prompt) and
@@ -580,6 +632,15 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
 
   const context = req.context;
   requireUserAuth(context);
+
+  // The streaming tool loop finalizes in postAIEditResume, so a persisting
+  // streaming request would need the save duplicated there. Reject the
+  // combination rather than maintaining two write paths.
+  if (persist && req.body.streamingMode) {
+    context.throwBadRequestError(
+      "`persist` cannot be combined with `streamingMode`.",
+    );
+  }
 
   const changeset = await findVisualChangesetById(
     visualChangesetId,
@@ -593,6 +654,12 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   if (!context.permissions.canUpdateVisualChange(experiment)) {
     context.permissions.throwPermissionError();
   }
+  // Only when persisting, and deliberately before the generation: the save
+  // would be rejected by the same check anyway, and failing here means a
+  // non-draft experiment doesn't burn AI quota to produce changes that can't
+  // be stored. Generate-only requests stay unrestricted — the extension
+  // previews against running experiments.
+  if (persist) requireDraftExperiment(context, experiment);
 
   // Gated on the model this request will actually run: an org on its own key
   // for that provider pays its own bill, so the managed cap doesn't apply.
@@ -913,10 +980,15 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   // extension's handling is unchanged.
   const useToolLoop = streamingMode && !IS_CLOUD;
   const job = aiEditJobStore.create();
+  const imageState = newImageTurnState();
   const tools = buildVisualEditorTools({
     context,
     job: useToolLoop ? job : undefined,
     pageStructure,
+    imageState,
+    // A persisting caller has no accept/reject step, so a generated image is
+    // accepted by definition and skips the quarantine prefix.
+    quarantineImages: !persist,
   });
   // Cast through unknown — the job store is invariant in TFinal for
   // type-erasure reasons but each job is used with one schema only.
@@ -1009,6 +1081,38 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   // outcome.kind === "final"
   const finalized = await finalizeOutput(outcome.payload);
   aiEditJobStore.delete(job.id);
+
+  if (persist) {
+    // `currentChange` is non-null here: the handler fails fast above on a
+    // variationId that isn't part of this changeset.
+    const change = currentChange as NonNullable<typeof currentChange>;
+    await updateVisualChange({
+      changesetId: visualChangesetId,
+      visualChangeId: change.id,
+      organization: req.organization.id,
+      payload: {
+        // Mutations are additive — the model is prompted with the existing
+        // ones and told not to duplicate them, so it returns only what's new.
+        // css/js are the opposite: it's told to re-emit them in full, and
+        // finalizeOutput omits them entirely when unchanged. updateVisualChange
+        // replaces any array it's handed, so the concat has to happen here.
+        domMutations: [
+          ...(change.domMutations ?? []),
+          ...(finalized.mutations as typeof change.domMutations),
+        ],
+        ...(finalized.css !== undefined ? { css: finalized.css } : {}),
+        ...(finalized.js !== undefined ? { js: finalized.js } : {}),
+      },
+    });
+    return {
+      ...finalized,
+      saved: true as const,
+      visualChangeId: change.id,
+      images: imageState.generated,
+      warnings: imageState.warnings,
+    };
+  }
+
   return streamingMode
     ? { kind: "final" as const, payload: finalized }
     : finalized;

@@ -5,6 +5,7 @@ import type {
   ExperimentInterface,
   ExperimentInterfaceExcludingHoldouts,
 } from "shared/validators";
+import { ignoreWarningsBodyField } from "shared/validators";
 import { createExperiment } from "back-end/src/models/ExperimentModel";
 import { SoftWarningError } from "back-end/src/util/errors";
 import {
@@ -44,6 +45,11 @@ const bodySchema = z
     // Standard A/B experiment (default) or a multi-armed bandit. Bandits
     // require the "multi-armed-bandits" premium feature (enforced below).
     type: z.enum(["standard", "multi-armed-bandit"]).default("standard"),
+    // Declared so the 422 SoftWarningError retry hint ("re-send with
+    // `ignoreWarnings: true` in the request body") actually works — the flag
+    // is read off the body by context.ignoreWarnings, but this .strict()
+    // schema rejected it before the handler ever ran.
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
