@@ -557,8 +557,7 @@ export function getExperimentFactMetricsQuery(
             ${dimensionCols
               .map((c) => `, umj.${c.alias} AS ${c.alias}`)
               .join("")}
-            ${banditDates?.length ? `, umj.bandit_period` : ""}
-            , umj.${baseIdType}
+            ${banditDates?.length ? `, umj.bandit_period` : ""}            , umj.${baseIdType}
             ${
               // Funnel resolution anchors exposure-relative windows on this;
               // source 0 drives the per-unit table.
@@ -586,8 +585,7 @@ export function getExperimentFactMetricsQuery(
           GROUP BY
             umj.variation
             ${dimensionCols.map((c) => `, umj.${c.alias}`).join("")}
-            ${banditDates?.length ? `, umj.bandit_period` : ""}
-            , umj.${baseIdType}
+            ${banditDates?.length ? `, umj.bandit_period` : ""}            , umj.${baseIdType}
         `;
 
         // __eventQuantileMetric: per (variation, dimension) quantile grid for

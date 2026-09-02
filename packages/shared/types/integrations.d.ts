@@ -791,16 +791,18 @@ export type DimensionSlicesQueryResponseRows = {
 
 export type ContextualBanditSrmQueryResponseRows = {
   /**
-   * Chi-square statistic: SUM((observed - expected)^2 / expected) over the
-   * usable cells (expected >= 5) of the kept (leaf_id, bandit_version)
-   * groups (those with at least 2 usable cells).
+   * "summary" carries the overall statistic + degrees_of_freedom (across all
+   * bandit periods). "cell" rows carry raw observed/expected per leaf &
+   * variation for the most recent bandit period only.
    */
+  row_type: "summary" | "cell";
   statistic: number;
-  /**
-   * Degrees of freedom computed in SQL as
-   * (sum of usable cells across kept groups) - (number of kept groups).
-   */
   degrees_of_freedom: number;
+  bandit_version: string;
+  leaf_id: string;
+  variation: string;
+  observed: number;
+  expected: number;
 }[];
 
 export type MaxTimestampQueryResponseRow = {

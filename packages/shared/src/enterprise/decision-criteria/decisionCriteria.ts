@@ -437,6 +437,50 @@ function getDaysLeftStatus({
   }
 }
 
+function computeSrmAndMultipleExposuresUnhealthyData({
+  srm,
+  multipleExposures,
+  totalUsers,
+  numOfVariations,
+  minUsersPerVariation,
+  healthSettings,
+}: {
+  srm: number;
+  multipleExposures: number;
+  totalUsers: number;
+  numOfVariations: number;
+  minUsersPerVariation: number;
+  healthSettings: ExperimentHealthSettings;
+}): Pick<ExperimentUnhealthyData, "srm" | "multipleExposures"> {
+  const result: Pick<ExperimentUnhealthyData, "srm" | "multipleExposures"> = {};
+
+  const srmHealthData = getSRMHealthData({
+    srm,
+    srmThreshold: healthSettings.srmThreshold,
+    totalUsersCount: totalUsers,
+    numOfVariations,
+    minUsersPerVariation,
+  });
+  if (srmHealthData === "unhealthy") {
+    result.srm = true;
+  }
+
+  const multipleExposuresHealthData = getMultipleExposureHealthData({
+    multipleExposuresCount: multipleExposures,
+    totalUsersCount: totalUsers,
+    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+    minPercentThreshold: healthSettings.multipleExposureMinPercent,
+  });
+  if (multipleExposuresHealthData.status === "unhealthy") {
+    result.multipleExposures = {
+      rawDecimal: multipleExposuresHealthData.rawDecimal,
+      multipleExposedUsers: multipleExposures,
+    };
+  }
+
+  return result;
+}
+
 export function getExperimentResultStatus({
   experimentData,
   healthSettings,
@@ -512,37 +556,23 @@ export function getExperimentResultStatus({
     : undefined;
 
   if (healthSummary?.totalUsers) {
-    const srmHealthData = getSRMHealthData({
-      srm: healthSummary.srm,
-      srmThreshold: healthSettings.srmThreshold,
-      totalUsersCount: healthSummary.totalUsers,
-      numOfVariations: getLatestPhaseVariations(experimentData).length,
-      minUsersPerVariation:
-        experimentData.type === "multi-armed-bandit"
-          ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
-          : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-    });
-
-    if (srmHealthData === "unhealthy") {
-      unhealthyData.srm = true;
-    }
+    Object.assign(
+      unhealthyData,
+      computeSrmAndMultipleExposuresUnhealthyData({
+        srm: healthSummary.srm,
+        multipleExposures: healthSummary.multipleExposures,
+        totalUsers: healthSummary.totalUsers,
+        numOfVariations: getLatestPhaseVariations(experimentData).length,
+        minUsersPerVariation:
+          experimentData.type === "multi-armed-bandit"
+            ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+            : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+        healthSettings,
+      }),
+    );
 
     if (healthSummary.covariateImbalance?.isImbalanced) {
       unhealthyData.covariateImbalance = true;
-    }
-
-    const multipleExposuresHealthData = getMultipleExposureHealthData({
-      multipleExposuresCount: healthSummary.multipleExposures,
-      totalUsersCount: healthSummary.totalUsers,
-      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-      minPercentThreshold: healthSettings.multipleExposureMinPercent,
-    });
-
-    if (multipleExposuresHealthData.status === "unhealthy") {
-      unhealthyData.multipleExposures = {
-        rawDecimal: multipleExposuresHealthData.rawDecimal,
-        multipleExposedUsers: healthSummary.multipleExposures,
-      };
     }
 
     if (
@@ -651,6 +681,44 @@ export function getExperimentResultStatus({
   if (healthSettings.decisionFrameworkEnabled && daysLeftStatus) {
     return daysLeftStatus;
   }
+}
+
+export function getContextualBanditResultStatus({
+  srm,
+  totalUsers,
+  numOfVariations,
+  healthSettings,
+}: {
+  srm: number | null;
+  totalUsers: number;
+  numOfVariations: number;
+  healthSettings: ExperimentHealthSettings;
+}): ExperimentResultStatusData | undefined {
+  if (totalUsers === 0) {
+    return {
+      status: "no-data",
+    };
+  }
+
+  const srmHealthData = getSRMHealthData({
+    // A missing SRM p-value can't be unhealthy; Infinity keeps it "healthy".
+    srm: srm ?? Infinity,
+    srmThreshold: healthSettings.srmThreshold,
+    totalUsersCount: totalUsers,
+    numOfVariations,
+    // Bandits reweight frequently, so use the bandit-specific minimum.
+    minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+  });
+
+  if (srmHealthData === "unhealthy") {
+    return {
+      status: "unhealthy",
+      unhealthyData: { srm: true },
+      tooltip: "SRM",
+    };
+  }
+
+  return undefined;
 }
 
 export function getSafeRolloutDaysLeft({

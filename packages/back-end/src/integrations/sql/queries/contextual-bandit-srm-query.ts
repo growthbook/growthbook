@@ -17,6 +17,7 @@ const MIN_VALID_CELLS_PER_GROUP = 2;
  * Each assignment-query row carries the per-row variation weights, the policy
  * leaf (`leaf_id`), and the bandit version / weight-update generation
  * (`bandit_version`).
+ *
  * For every (leaf_id, bandit_version) group we compare, per variation:
  *   - observed = number of users assigned to that variation, and
  *   - expected = sum of that variation's per-user weights.
@@ -26,16 +27,7 @@ const MIN_VALID_CELLS_PER_GROUP = 2;
  * (leaf_id, bandit_version) group is only kept when at least
  * MIN_VALID_CELLS_PER_GROUP (2) of its cells survive that filter.
  *
- * The query returns the chi-square statistic
- * SUM((observed - expected)^2 / expected) over the usable cells of the kept
- * groups, and the degrees of freedom computed directly in SQL as
- * (sum of usable cells across kept groups) - (number of kept groups). The caller
- * derives the p-value from the statistic and these degrees of freedom.
- *
- * Within each (leaf_id, bandit_version) cell a user contributes a single
- * observation: their first (earliest-timestamp) exposure in that cell. A user can
- * still appear in multiple cells (e.g. across leaves or weight-update generations).
- */
+ *  */
 export function getContextualBanditSrmQuery(
   dialect: SqlDialect,
   params: ContextualBanditSrmQueryParams,
@@ -86,6 +78,22 @@ export function getContextualBanditSrmQuery(
     )
     .join("\n        UNION ALL\n        ");
 
+  // Per (leaf_id, variation) observed/expected for the most recent bandit period
+  // only.
+  const latestBreakdownRows = variations
+    .map(
+      (_, i) =>
+        `SELECT
+          a.leaf_id AS leaf_id
+          , a.bandit_version AS bandit_version
+          , ${dialect.castToString(`'${i}'`)} AS variation
+          , a.observed_${i} AS observed
+          , a.expected_${i} AS expected
+        FROM __cbCellAgg a
+        JOIN __cbLatestVersion v ON (a.bandit_version = v.bandit_version)`,
+    )
+    .join("\n        UNION ALL\n        ");
+
   return format(
     `-- Contextual Bandit SRM
     WITH
@@ -122,37 +130,47 @@ export function getContextualBanditSrmQuery(
           }
       )
       , __cbRankedExposures AS (
-        -- Rank a user's rows within each (leaf_id, bandit_version) cell by time
         SELECT
           uid
           , leaf_id
           , bandit_version
           , variation
+          , timestamp
           ${weightPassCols}
           , ROW_NUMBER() OVER (
               PARTITION BY uid, leaf_id, bandit_version
               ORDER BY timestamp ASC
             ) AS __rn
+          , MIN(variation) OVER (
+              PARTITION BY uid, leaf_id, bandit_version
+            ) AS __min_variation
+          , MAX(variation) OVER (
+              PARTITION BY uid, leaf_id, bandit_version
+            ) AS __max_variation
         FROM
           __cbExposures
       )
       , __cbUnits AS (
-        -- Keep only each user's first exposure within the cell
+        -- Keep each user's first exposure within the cell, but separate out
+        -- multiple-exposure users. 
         SELECT
           uid
           , leaf_id
           , bandit_version
           , variation
+          , timestamp
           ${weightPassCols}
         FROM
           __cbRankedExposures
         WHERE
           __rn = 1
+          AND __min_variation = __max_variation
       )
       , __cbCellAgg AS (
         SELECT
           leaf_id
           , bandit_version
+          , MAX(timestamp) AS latest_ts
           ${cellAggCols}
         FROM
           __cbUnits
@@ -200,11 +218,49 @@ export function getContextualBanditSrmQuery(
         FROM
           __cbGroups
       )
+      , __cbLatestVersion AS (
+        -- Most recent bandit period (weight-update generation).
+        SELECT bandit_version
+        FROM (
+          SELECT
+            bandit_version
+            -- zero pad the strings to ensure correct ordering 
+            , ROW_NUMBER() OVER (ORDER BY MAX(latest_ts) DESC) AS __vrn
+          FROM __cbCellAgg
+          GROUP BY bandit_version
+        ) __cbVersionRank
+        WHERE __vrn = 1
+      )
+      , __cbLatestBreakdown AS (
+        ${latestBreakdownRows}
+      )
+    -- Row 0 (row_type='summary') carries the overall statistic + degrees of
+    -- freedom (across ALL periods). The remaining rows (row_type='cell') are the
+    -- raw observed/expected per leaf & variation for the latest period only, so
+    -- they will NOT reconcile to the statistic.
     SELECT
-      statistic AS statistic
+      ${dialect.castToString("'summary'")} AS row_type
+      , statistic AS statistic
       , degrees_of_freedom AS degrees_of_freedom
+      , ${dialect.castToString("''")} AS bandit_version
+      , ${dialect.castToString("''")} AS leaf_id
+      , ${dialect.castToString("''")} AS variation
+      , 0 AS observed
+      , 0 AS expected
     FROM
       __cbResult
+    UNION ALL
+    SELECT
+      ${dialect.castToString("'cell'")} AS row_type
+      , 0 AS statistic
+      , 0 AS degrees_of_freedom
+      , ${dialect.castToString("bandit_version")} AS bandit_version
+      , ${dialect.castToString("leaf_id")} AS leaf_id
+      , variation AS variation
+      , observed AS observed
+      , expected AS expected
+    FROM
+      __cbLatestBreakdown
     `,
     dialect.formatDialect,
   );

@@ -4,8 +4,6 @@ import {
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
 } from "shared/constants";
-import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
 import { StatusBadge } from "./StatusBadge";
@@ -13,8 +11,8 @@ import { IssueValue } from "./IssueTags";
 
 interface Props {
   totalUsers: number;
+  multipleExposures: number;
   onNotify?: (issue: IssueValue) => void;
-  snapshot: ExperimentSnapshotInterface | SafeRolloutSnapshotInterface;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -25,8 +23,8 @@ const numberFormatter = new Intl.NumberFormat();
 
 export default function MultipleExposuresCard({
   totalUsers,
+  multipleExposures,
   onNotify,
-  snapshot,
 }: Props) {
   const settings = useOrgSettings();
 
@@ -37,25 +35,23 @@ export default function MultipleExposuresCard({
   const health = useMemo(
     () =>
       getMultipleExposureHealthData({
-        multipleExposuresCount: snapshot?.multipleExposures ?? 0,
+        multipleExposuresCount: multipleExposures,
         totalUsersCount: totalUsers,
         minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
         minPercentThreshold,
       }),
-    [snapshot?.multipleExposures, totalUsers, minPercentThreshold],
+    [multipleExposures, totalUsers, minPercentThreshold],
   );
 
   useEffect(() => {
     if (health.status === "unhealthy" && onNotify) {
       onNotify({ label: "Multiple Exposures", value: "multipleExposures" });
     }
-  }, [snapshot, health, onNotify]);
+  }, [health, onNotify]);
 
-  if (!snapshot || health.status === "not-enough-traffic") {
+  if (health.status === "not-enough-traffic") {
     return null;
   }
-
-  const { multipleExposures } = snapshot;
 
   return (
     <div className="appbox p-3">

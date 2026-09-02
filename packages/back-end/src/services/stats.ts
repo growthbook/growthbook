@@ -796,6 +796,35 @@ export async function analyzeExperimentResults({
   return { results, banditResult };
 }
 
+/**
+ * Resolves a traffic row's `variation` value to a variation index.
+ *
+ * Exact id match takes precedence. When the SQL emits numeric variation keys
+ * (e.g. "0", "1") but the caller passes internal variation ids (as the
+ * contextual bandit runner does), fall back to the numeric index so rows are
+ * not silently dropped. Empty or non-numeric values (the bandit SRM summary
+ * row carries an empty variation, and "__multiple__" is non-numeric) return
+ * undefined so they are skipped.
+ */
+function resolveTrafficVariationIndex(
+  variation: string,
+  variationIdMap: { [key: string]: number },
+  numVariations: number,
+): number | undefined {
+  const exact = variationIdMap[variation];
+  if (exact !== undefined) {
+    return exact;
+  }
+  if (variation === "") {
+    return undefined;
+  }
+  const asNum = Number(variation);
+  if (Number.isInteger(asNum) && asNum >= 0 && asNum < numVariations) {
+    return asNum;
+  }
+  return undefined;
+}
+
 export function analyzeExperimentTraffic({
   rows,
   error,
@@ -860,8 +889,13 @@ export function analyzeExperimentTraffic({
       trafficResults.overall.srm = chi2pvalue(r.units, variations.length - 1);
       banditSrmSet = true;
     }
-    const variationIndex = variationIdMap[r.variation];
-    // skip if variation is not found (this happens if variation is __multiple__)
+    const variationIndex = resolveTrafficVariationIndex(
+      r.variation,
+      variationIdMap,
+      variations.length,
+    );
+    // skip if variation is not found (this happens for "__multiple__" or the
+    // bandit SRM summary row, which carries an empty variation)
     if (variationIndex === undefined) return;
     const dimTraffic: Map<string, ExperimentSnapshotTrafficDimension> =
       dimTrafficResults.get(r.dimension_name) ?? new Map();

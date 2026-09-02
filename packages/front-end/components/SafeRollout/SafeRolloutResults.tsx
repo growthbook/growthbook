@@ -233,7 +233,7 @@ const SafeRolloutResults: FC<{
                     <Box mt="4">
                       <MultipleExposuresCard
                         totalUsers={totalUsers}
-                        snapshot={snapshot}
+                        multipleExposures={snapshot.multipleExposures}
                       />
                     </Box>
                   </>
