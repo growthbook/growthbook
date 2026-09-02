@@ -441,7 +441,15 @@ const FeatureAttributesPage = (): React.ReactElement => {
         onCommit={(w) => setWidth(col.id, w)}
         setLiveWidth={(w) => {
           const el = colRefs.current.get(col.id);
-          if (el) el.style.width = `${w}px`;
+          if (!el) return;
+          el.style.width = `${w}px`;
+          // Move the floor with the drag, or the auto column squeezes mid-drag
+          // and snaps back to its minimum on release.
+          const committed = col.width ?? columnWidthBounds(col).min;
+          el.closest<HTMLElement>("[data-table-list]")?.style.setProperty(
+            "--table-min-width",
+            `${minTableWidth - committed + w}px`,
+          );
         }}
       />
     );
