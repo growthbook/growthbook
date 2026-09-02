@@ -1,4 +1,10 @@
-import { isRatioMetric, isRegressionAdjusted } from "shared/experiments";
+import {
+  getFactMetricFactTableIds,
+  getFactMetricPrimaryFactTableId,
+  isFactFunnelMetric,
+  isRatioMetric,
+  isRegressionAdjusted,
+} from "shared/experiments";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import cloneDeep from "lodash/cloneDeep";
@@ -13,13 +19,20 @@ export interface CrossFtRatioMetric {
   denominatorFactTableId: string;
 }
 
+// A funnel metric whose steps span more than one fact table. The stats
+// query must join all of its caches and flatten before resolving steps.
+export interface MultiFtFunnelGroup {
+  metric: FactMetricInterface;
+  factTableIds: string[]; // distinct FTs, in step order
+}
+
 export interface MetricFanOut {
   // One entry per fact table that needs a cache. Order is stable: fact tables
   // appear in the order their first metric was supplied. A cross-FT ratio
-  // metric shows up in BOTH of its fact tables' entries; downstream consumers
-  // distinguish numerator-side vs denominator-side by comparing each metric's
-  // `numerator.factTableId` / `denominator.factTableId` against the outer
-  // `factTableId` (see `getMetricSourceTableSchema` for the canonical rule).
+  // metric shows up in BOTH of its fact tables' entries; a multifact funnel
+  // metric shows up in ALL of its steps' fact tables' entries. Downstream
+  // consumers distinguish sides by comparing each metric's column refs against
+  // the outer `factTableId`.
   perFt: Array<{
     factTableId: string;
     metrics: FactMetricInterface[];
@@ -33,16 +46,20 @@ export interface MetricFanOut {
     factTableIds: [string, string];
     metrics: CrossFtRatioMetric[];
   }>;
+  // Funnel metrics whose steps span 2+ fact tables. Each needs a multi-source
+  // stats query that joins all of its caches. Funnels sharing the same FT set
+  // can be grouped into a single stats query by the runner.
+  multiFtFunnels: MultiFtFunnelGroup[];
 }
 
 // Returns true iff `metric` is a ratio metric whose numerator and denominator
-// live in different fact tables.
+// live in different fact tables. Funnel metrics are not ratio metrics; their
+// multi-FT handling is in the isFactFunnelMetric branch of planMetricFanOut.
 export function isCrossFtRatioMetric(
   metric: FactMetricInterface,
 ): metric is FactMetricInterface & {
   denominator: NonNullable<FactMetricInterface["denominator"]>;
 } {
-  // TODO(funnel): multi-fact table support for funnel metrics
   return (
     isRatioMetric(metric) &&
     !!metric.denominator?.factTableId &&
@@ -90,6 +107,7 @@ export function planMetricFanOut(metrics: FactMetricInterface[]): MetricFanOut {
       metrics: CrossFtRatioMetric[];
     }
   >();
+  const multiFtFunnels: MultiFtFunnelGroup[] = [];
 
   const upsertMetric = (factTableId: string, metric: FactMetricInterface) => {
     const existing = perFtMap.get(factTableId);
@@ -101,11 +119,21 @@ export function planMetricFanOut(metrics: FactMetricInterface[]): MetricFanOut {
   };
 
   metrics.forEach((metric) => {
-    const numeratorFactTableId = metric.numerator?.factTableId;
+    const numeratorFactTableId = getFactMetricPrimaryFactTableId(metric);
     if (!numeratorFactTableId) {
       throw new Error(
         `Fact metric "${metric.id}" is missing a numerator fact table.`,
       );
+    }
+
+    // Funnel metrics: register in ALL step fact tables so each gets a cache.
+    if (isFactFunnelMetric(metric)) {
+      const allFtIds = getFactMetricFactTableIds(metric);
+      allFtIds.forEach((ftId) => upsertMetric(ftId, metric));
+      if (allFtIds.length > 1) {
+        multiFtFunnels.push({ metric, factTableIds: allFtIds });
+      }
+      return;
     }
 
     upsertMetric(numeratorFactTableId, metric);
@@ -146,6 +174,7 @@ export function planMetricFanOut(metrics: FactMetricInterface[]): MetricFanOut {
   return {
     perFt: Array.from(perFtMap.values()),
     crossFtPairs: Array.from(crossFtPairMap.values()),
+    multiFtFunnels,
   };
 }
 

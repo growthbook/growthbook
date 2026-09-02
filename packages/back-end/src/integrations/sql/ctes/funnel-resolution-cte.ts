@@ -32,6 +32,39 @@ export function funnelStep0NeedsExposureWindow(
 }
 
 /**
+ * Resolve step 0 to a scalar timestamp at aggregate time.
+ *
+ * Step 0 anchors on exposure (known per-row), so it is always resolved to a
+ * scalar — even when it has an exposure-relative window. Without a window the
+ * result is `MIN(ts)`; with a window it's `MIN` over the in-window candidates.
+ * Both forms are decomposable, so the same expression works for the inline
+ * per-user aggregate and incremental per-user-day partials (re-merged with
+ * `MIN` across days).
+ */
+export function funnelStep0ResolvedExpr(
+  dialect: SqlDialect,
+  metric: FunnelFactMetricInterface,
+  tsExpr: string,
+  exposureExpr: string,
+): string {
+  const step = metric.funnelSettings.steps[0];
+  if (!step?.conversionWindow) {
+    return `MIN(${tsExpr})`;
+  }
+  const { concurrencyWindowSeconds = 0 } = metric.funnelSettings;
+  const lower =
+    concurrencyWindowSeconds > 0
+      ? dialect.addIntervalSeconds(exposureExpr, "-", concurrencyWindowSeconds)
+      : exposureExpr;
+  const upper = dialect.addIntervalSeconds(
+    exposureExpr,
+    "+",
+    conversionWindowToSeconds(step.conversionWindow),
+  );
+  return `MIN(CASE WHEN ${tsExpr} >= ${lower} AND ${tsExpr} <= ${upper} THEN ${tsExpr} END)`;
+}
+
+/**
  * Per-user aggregate columns for the funnel steps a single fact table hosts.
  *
  * Step 0 without a conversion window is anchored directly: its resolved
@@ -48,20 +81,22 @@ export function getFunnelUserMetricAggColumns(
   return funnelMetrics.flatMap(({ metric, alias, stepIndices }) =>
     stepIndices.map((stepIndex) => {
       const ts = `umj.${funnelStepTimestampColumn(alias, stepIndex)}`;
-      // All arrays share one ORDER BY expression (the raw event timestamp
-      // projected by __userMetricJoin): each step column equals it whenever
-      // non-null, and Redshift requires identical WITHIN GROUP orderings
-      // across every aggregate in a SELECT.
-      const useArray = stepIndex > 0 || funnelStep0NeedsExposureWindow(metric);
-      return useArray
-        ? {
-            name: funnelStepArrayColumn(alias, stepIndex),
-            expr: dialect.arrayAggSorted(ts, "umj.event_timestamp"),
-          }
-        : {
-            name: funnelStepResolvedTsColumn(alias, 0),
-            expr: `MIN(${ts})`,
-          };
+      // Step 0 anchors on exposure (available per-row as umj.timestamp), so
+      // resolve it to a scalar now — windowed or not. Later steps anchor on
+      // a prior resolved step (only known after merging days for incremental),
+      // so they stay candidate arrays. All arrays share one ORDER BY
+      // expression (the raw event timestamp) — Redshift requires identical
+      // WITHIN GROUP orderings across every aggregate in a SELECT.
+      if (stepIndex === 0) {
+        return {
+          name: funnelStepResolvedTsColumn(alias, 0),
+          expr: funnelStep0ResolvedExpr(dialect, metric, ts, "umj.timestamp"),
+        };
+      }
+      return {
+        name: funnelStepArrayColumn(alias, stepIndex),
+        expr: dialect.arrayAggSorted(ts, "umj.event_timestamp"),
+      };
     }),
   );
 }
@@ -117,10 +152,10 @@ export function getFunnelResolutionCTEs(
     ...funnelMetrics.map(({ metric }) => metric.funnelSettings.steps.length),
   );
 
-  const anyStep0Window = funnelMetrics.some(({ metric }) =>
-    funnelStep0NeedsExposureWindow(metric),
-  );
-  const startIndex = anyStep0Window ? 0 : 1;
+  // Step 0 is always pre-resolved to a scalar (inline aggregate / incremental
+  // write), so the resolver only chains steps 1+, each anchored on the nearest
+  // prior required resolved step (or exposure when all priors are optional).
+  const startIndex = 1;
 
   for (let stepIndex = startIndex; stepIndex < maxSteps; stepIndex++) {
     const resolutionCols: string[] = [];
@@ -129,21 +164,14 @@ export function getFunnelResolutionCTEs(
       const { steps, concurrencyWindowSeconds = 0 } = metric.funnelSettings;
       if (stepIndex >= steps.length) return;
 
-      // Step 0 without a conversion window was already resolved via MIN in
-      // the aggregate; only re-resolve it when the window is exposure-relative.
-      if (stepIndex === 0 && !funnelStep0NeedsExposureWindow(metric)) return;
-
       const step = steps[stepIndex];
-      const prevExpr =
-        stepIndex === 0
-          ? `r.${exposureColumn}`
-          : buildPrevResolvedExpr({
-              steps,
-              index: stepIndex,
-              resolvedTsColumn: (i) => funnelStepResolvedTsColumn(alias, i),
-              alias: "r",
-              exposureColumn,
-            });
+      const prevExpr = buildPrevResolvedExpr({
+        steps,
+        index: stepIndex,
+        resolvedTsColumn: (i) => funnelStepResolvedTsColumn(alias, i),
+        alias: "r",
+        exposureColumn,
+      });
 
       const lowerBound =
         concurrencyWindowSeconds > 0

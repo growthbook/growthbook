@@ -182,5 +182,120 @@ describe("planMetricFanOut", () => {
       (broken.numerator as { factTableId: string }).factTableId = "";
       expect(() => planMetricFanOut([broken])).toThrow();
     });
+
+    it("fans a multifact funnel metric into all its step fact tables", () => {
+      const funnel = {
+        ...factMetricFactory.build({ id: "mf_funnel" }),
+        metricType: "funnel" as const,
+        numerator: null,
+        funnelSettings: {
+          concurrencyWindowSeconds: 0,
+          steps: [
+            {
+              name: "view",
+              factTableId: "ft_a",
+              rowFilters: [],
+              optional: false,
+              conversionWindow: null,
+            },
+            {
+              name: "purchase",
+              factTableId: "ft_b",
+              rowFilters: [],
+              optional: false,
+              conversionWindow: null,
+            },
+          ],
+        },
+      };
+      const fanOut = planMetricFanOut([funnel]);
+
+      expect(fanOut.perFt).toHaveLength(2);
+      const ftA = fanOut.perFt.find((g) => g.factTableId === "ft_a");
+      const ftB = fanOut.perFt.find((g) => g.factTableId === "ft_b");
+      expect(ftA?.metrics.map((m) => m.id)).toEqual(["mf_funnel"]);
+      expect(ftB?.metrics.map((m) => m.id)).toEqual(["mf_funnel"]);
+
+      expect(fanOut.crossFtPairs).toEqual([]);
+
+      expect(fanOut.multiFtFunnels).toHaveLength(1);
+      expect(fanOut.multiFtFunnels[0].metric.id).toBe("mf_funnel");
+      expect(fanOut.multiFtFunnels[0].factTableIds).toEqual(["ft_a", "ft_b"]);
+    });
+
+    it("does not add a single-FT funnel to multiFtFunnels", () => {
+      const funnel = {
+        ...factMetricFactory.build({ id: "sf_funnel" }),
+        metricType: "funnel" as const,
+        numerator: null,
+        funnelSettings: {
+          concurrencyWindowSeconds: 0,
+          steps: [
+            {
+              name: "view",
+              factTableId: "ft_a",
+              rowFilters: [],
+              optional: false,
+              conversionWindow: null,
+            },
+            {
+              name: "purchase",
+              factTableId: "ft_a",
+              rowFilters: [],
+              optional: false,
+              conversionWindow: null,
+            },
+          ],
+        },
+      };
+      const fanOut = planMetricFanOut([funnel]);
+
+      expect(fanOut.perFt).toHaveLength(1);
+      expect(fanOut.perFt[0].factTableId).toBe("ft_a");
+      expect(fanOut.multiFtFunnels).toEqual([]);
+    });
+
+    it("mixes a multifact funnel with a same-FT mean metric", () => {
+      const funnel = {
+        ...factMetricFactory.build({ id: "mf_funnel" }),
+        metricType: "funnel" as const,
+        numerator: null,
+        funnelSettings: {
+          concurrencyWindowSeconds: 0,
+          steps: [
+            {
+              name: "view",
+              factTableId: "ft_a",
+              rowFilters: [],
+              optional: false,
+              conversionWindow: null,
+            },
+            {
+              name: "purchase",
+              factTableId: "ft_b",
+              rowFilters: [],
+              optional: false,
+              conversionWindow: null,
+            },
+          ],
+        },
+      };
+      const meanA = factMetricFactory.build({
+        id: "mean_a",
+        metricType: "mean",
+        numerator: { factTableId: "ft_a" },
+      });
+      const fanOut = planMetricFanOut([funnel, meanA]);
+
+      expect(fanOut.perFt.map((g) => g.factTableId)).toEqual(["ft_a", "ft_b"]);
+      expect(fanOut.perFt[0].metrics.map((m) => m.id)).toEqual([
+        "mf_funnel",
+        "mean_a",
+      ]);
+      expect(fanOut.perFt[1].metrics.map((m) => m.id)).toEqual(["mf_funnel"]);
+
+      expect(fanOut.multiFtFunnels).toHaveLength(1);
+      expect(fanOut.crossFtPairs).toEqual([]);
+    });
   });
 });

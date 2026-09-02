@@ -1,9 +1,17 @@
-import { isRatioMetric, quantileMetricType } from "shared/experiments";
+import {
+  isFactFunnelMetric,
+  isRatioMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { SqlDialect } from "shared/types/sql";
 
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
+import {
+  funnelStepArrayColumn,
+  funnelStepResolvedTsColumn,
+} from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 
 // Generates the cache table schema for a single per-fact-table metric source.
 //
@@ -27,6 +35,29 @@ export function getMetricSourceTableSchema(
   schema.set(baseIdType, dialect.getDataType("string"));
 
   metrics.forEach((metric) => {
+    if (isFactFunnelMetric(metric)) {
+      const prefix = encodeMetricIdForColumnName(metric.id);
+      (metric.funnelSettings?.steps ?? []).forEach((step, stepIndex) => {
+        if (step.factTableId !== factTableId) return;
+        if (stepIndex === 0) {
+          // Step 0 anchors on exposure (known at write), so it's resolved to a
+          // scalar (windowed or not). DATETIME on BigQuery, not the units/refresh
+          // `timestamp` type.
+          schema.set(
+            funnelStepResolvedTsColumn(prefix, 0),
+            dialect.getDataType("datetime"),
+          );
+        } else {
+          // Later steps anchor on a prior resolved step (cross-day) → arrays.
+          schema.set(
+            funnelStepArrayColumn(prefix, stepIndex),
+            dialect.getDataType("arrayTimestamp"),
+          );
+        }
+      });
+      return;
+    }
+
     const includeNumerator = metric.numerator?.factTableId === factTableId;
     const includeDenominator =
       isRatioMetric(metric) && metric.denominator?.factTableId === factTableId;

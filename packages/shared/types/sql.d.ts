@@ -149,6 +149,7 @@ export interface SqlDialect {
     lowerBound: string | null,
     upperBound: string | null,
   ) => string;
+  arrayConcatAgg: (col: string) => string;
   getCurrentTimestamp: () => string;
   ifElse: (condition: string, ifTrue: string, ifFalse: string) => string;
   getDataType: (dataType: DataType) => string;

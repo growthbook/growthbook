@@ -441,15 +441,13 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
     );
   });
 
-  it("flags funnel metrics", () => {
+  it("allows funnel metrics on an incremental-capable data source", () => {
     expect(
       getIncrementalPipelineUnsupportedReason({
         ...unsupportedReasonBaseParams,
         metrics: [makeFunnelMetric()],
       }),
-    ).toBe(
-      "Funnel metrics are not supported with Incremental Pipeline mode while in beta. Please remove any funnel metrics from the experiment.",
-    );
+    ).toBeNull();
   });
 
   it("flags event quantile metrics on a data source without quantile sketches", () => {
