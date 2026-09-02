@@ -198,6 +198,18 @@ const FeatureAttributesPage = (): React.ReactElement => {
 
   const hasArchived = attributeSchema.some((a) => a.archived);
 
+  // Archived rows are hidden until an `archived:` filter asks for them, mirroring
+  // the features list. Synced from the parsed query below, as there.
+  const [showArchived, setShowArchived] = useState(false);
+  const archivedFilter = useMemo(
+    () =>
+      showArchived
+        ? undefined
+        : (items: typeof attributesWithComputedFields) =>
+            items.filter((a) => !a.archived),
+    [showArchived],
+  );
+
   const {
     items: filteredAttributes,
     searchInputProps,
@@ -211,6 +223,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
     localStorageKey: "attributes",
     defaultSortField: "property",
     pageSize: 50,
+    filterResults: archivedFilter,
     searchFields: [
       "property^3",
       "description",
@@ -243,6 +256,14 @@ const FeatureAttributesPage = (): React.ReactElement => {
       ),
     },
   });
+
+  useEffect(() => {
+    setShowArchived(
+      syntaxFilters.some(
+        (f) => f.field === "is" && !f.negated && f.values.includes("archived"),
+      ),
+    );
+  }, [syntaxFilters]);
 
   const [referencesProperty, setReferencesProperty] = useState<string | null>(
     null,
