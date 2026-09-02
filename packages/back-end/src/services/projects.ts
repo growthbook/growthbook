@@ -4,7 +4,10 @@ import { removeProjectFromMetrics } from "back-end/src/models/MetricModel";
 import { removeProjectFromFeatures } from "back-end/src/models/FeatureModel";
 import { removeProjectFromExperiments } from "back-end/src/models/ExperimentModel";
 import { removeProjectFromSlackIntegration } from "back-end/src/models/SlackIntegrationModel";
-import { removeProjectFromProjectRoles } from "back-end/src/models/OrganizationModel";
+import {
+  removeProjectFromProjectRoles,
+  removeProjectFromEnvironments,
+} from "back-end/src/models/OrganizationModel";
 
 /**
  * Remove all references to a project from multi-project resources and
@@ -50,6 +53,10 @@ export async function cleanupProjectReferences(
     [
       "project roles",
       () => removeProjectFromProjectRoles(projectId, context.org),
+    ],
+    [
+      "environments",
+      () => removeProjectFromEnvironments(projectId, context.org),
     ],
     [
       "saved groups",

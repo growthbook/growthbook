@@ -563,6 +563,32 @@ export async function removeProjectFromProjectRoles(
   }
 }
 
+export async function removeProjectFromEnvironments(
+  project: string,
+  org: OrganizationInterface,
+) {
+  if (!org) return;
+
+  const environments = cloneDeep(org.settings?.environments || []);
+  let changed = false;
+
+  environments.forEach((env) => {
+    if (!env.projects?.length) return;
+    const filtered = env.projects.filter((p) => p !== project);
+    if (filtered.length !== env.projects.length) {
+      env.projects = filtered;
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    await OrganizationModel.updateOne(
+      { id: org.id },
+      { $set: { "settings.environments": environments } },
+    );
+  }
+}
+
 export async function findOrganizationsByDomain(domain: string) {
   const docs = await OrganizationModel.find({
     verifiedDomain: domain,
