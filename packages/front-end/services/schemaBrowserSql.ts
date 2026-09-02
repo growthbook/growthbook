@@ -53,6 +53,7 @@ function isComplexSql(sql: string): boolean {
 export function columnInsertDisabledReason(
   sql: string,
   tablePath: string,
+  column: string,
 ): string | null {
   if (!sql.trim()) return null;
   if (isComplexSql(sql)) {
@@ -65,6 +66,13 @@ export function columnInsertDisabledReason(
   ) {
     return "This query selects from a different table. Copy the column name instead.";
   }
+  if (
+    parsed &&
+    parsed.selectList !== "*" &&
+    selectListHasColumn(parsed.selectList, column)
+  ) {
+    return "This column is already in SELECT.";
+  }
   return null;
 }
 
@@ -73,7 +81,7 @@ export function insertColumnIntoSelect(
   column: string,
   tablePath: string,
 ): string {
-  if (columnInsertDisabledReason(sql, tablePath)) return sql;
+  if (columnInsertDisabledReason(sql, tablePath, column)) return sql;
   const parsed = parseSimpleSelectFrom(sql);
   if (!parsed) {
     return `SELECT ${column} FROM ${tablePath}`;

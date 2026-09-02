@@ -35,6 +35,10 @@ import {
 } from "./SchemaBrowserSqlActions";
 import actionStyles from "./SchemaBrowserSqlActions.module.scss";
 
+function isActivateKey(key: string): boolean {
+  return key === "Enter" || key === " ";
+}
+
 type Props = {
   datasource: DataSourceInterfaceWithParams;
   sql?: string;
@@ -373,10 +377,7 @@ export default function SchemaBrowser({
                                         if (e.target !== e.currentTarget) {
                                           return;
                                         }
-                                        if (
-                                          e.key === "Enter" ||
-                                          e.key === " "
-                                        ) {
+                                        if (isActivateKey(e.key)) {
                                           e.preventDefault();
                                           selectTable(table.id, tablePath);
                                         }
@@ -387,7 +388,10 @@ export default function SchemaBrowser({
                                         {table.tableName}
                                       </span>
                                       <span
-                                        className={`${actionStyles.actions} ${actionStyles.actionsEnd}`}
+                                        className={clsx(
+                                          actionStyles.actions,
+                                          actionStyles.actionsEnd,
+                                        )}
                                       >
                                         <SchemaCopyButton
                                           value={tablePath}

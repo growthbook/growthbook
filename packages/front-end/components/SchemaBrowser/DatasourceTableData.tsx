@@ -9,6 +9,7 @@ import { JSONColumnFields } from "shared/types/fact-table";
 import { useEffect, useMemo, useState } from "react";
 import { FaRedo, FaTable } from "react-icons/fa";
 import { Box } from "@radix-ui/themes";
+import clsx from "clsx";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import useFullFactTable from "@/hooks/useFullFactTable";
 import { useAuth } from "@/services/auth";
@@ -46,10 +47,6 @@ export default function DatasourceSchema({
   updateSqlInput,
 }: Props) {
   const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
-  const columnInsertDisabledReasonText = columnInsertDisabledReason(
-    sql,
-    currentTable.path,
-  );
 
   const { data, mutate } = useApi<{
     table: InformationSchemaTablesInterface;
@@ -271,19 +268,25 @@ export default function DatasourceSchema({
       }
     >
       <div style={{ overflow: "auto", height: "100%" }}>
-        <table className={`table table-sm ${actionStyles.columnTable}`}>
+        <table className={clsx("table", "table-sm", actionStyles.columnTable)}>
           <tbody>
             {filteredColumns.length > 0 ? (
               <>
                 {filteredColumns?.map((column) => {
+                  const insertDisabledReason = columnInsertDisabledReason(
+                    sql,
+                    currentTable.path,
+                    column.columnName,
+                  );
                   return (
                     <tr key={`${table.tableName}:${column.columnName}`}>
                       <td className="pl-3">
                         <div className={actionStyles.row}>
                           <span
-                            className={`${actionStyles.label}${
-                              column.jsonField ? " text-muted" : ""
-                            }`}
+                            className={clsx(
+                              actionStyles.label,
+                              column.jsonField && "text-muted",
+                            )}
                             style={
                               column.jsonField ? { paddingLeft: 16 } : undefined
                             }
@@ -298,9 +301,9 @@ export default function DatasourceSchema({
                             {updateSqlInput && !column.jsonField ? (
                               <SchemaSqlInsertButton
                                 tooltip="Add to SELECT"
-                                disabled={!!columnInsertDisabledReasonText}
+                                disabled={!!insertDisabledReason}
                                 disabledTooltip={
-                                  columnInsertDisabledReasonText ?? undefined
+                                  insertDisabledReason ?? undefined
                                 }
                                 onClick={() => {
                                   updateSqlInput(

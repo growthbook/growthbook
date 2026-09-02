@@ -8,38 +8,73 @@ const TABLE_B = "analytics.users";
 
 describe("columnInsertDisabledReason", () => {
   it("allows empty, simple SELECT from this table, WHERE, and JOIN", () => {
-    expect(columnInsertDisabledReason("", TABLE_A)).toBeNull();
+    expect(columnInsertDisabledReason("", TABLE_A, "user_id")).toBeNull();
     expect(
-      columnInsertDisabledReason(`SELECT * FROM ${TABLE_A}`, TABLE_A),
+      columnInsertDisabledReason(
+        `SELECT * FROM ${TABLE_A}`,
+        TABLE_A,
+        "user_id",
+      ),
     ).toBeNull();
     expect(
       columnInsertDisabledReason(
         `SELECT * FROM ${TABLE_A} WHERE id = 1`,
         TABLE_A,
+        "user_id",
       ),
     ).toBeNull();
     expect(
       columnInsertDisabledReason(
         `SELECT * FROM ${TABLE_A} JOIN ${TABLE_B} ON events.user_id = users.id`,
         TABLE_A,
+        "user_id",
       ),
     ).toBeNull();
   });
 
   it("disables a simple SELECT from a different table", () => {
     expect(
-      columnInsertDisabledReason(`SELECT * FROM ${TABLE_A}`, TABLE_B),
+      columnInsertDisabledReason(`SELECT * FROM ${TABLE_A}`, TABLE_B, "email"),
     ).toMatch(/different table/);
+  });
+
+  it("disables a column already in the SELECT list", () => {
+    expect(
+      columnInsertDisabledReason(
+        `SELECT user_id FROM ${TABLE_A}`,
+        TABLE_A,
+        "user_id",
+      ),
+    ).toMatch(/already in SELECT/);
+    expect(
+      columnInsertDisabledReason(
+        `SELECT user_id FROM ${TABLE_A}`,
+        TABLE_A,
+        "ts",
+      ),
+    ).toBeNull();
+    expect(
+      columnInsertDisabledReason(
+        `SELECT "user_id" FROM ${TABLE_A}`,
+        TABLE_A,
+        "user_id",
+      ),
+    ).toMatch(/already in SELECT/);
   });
 
   it("matches quoted and backtick paths case-insensitively", () => {
     expect(
-      columnInsertDisabledReason(`SELECT * FROM "Analytics"."Events"`, TABLE_A),
+      columnInsertDisabledReason(
+        `SELECT * FROM "Analytics"."Events"`,
+        TABLE_A,
+        "user_id",
+      ),
     ).toBeNull();
     expect(
       columnInsertDisabledReason(
         `SELECT * FROM \`analytics\`.\`events\``,
         TABLE_A,
+        "user_id",
       ),
     ).toBeNull();
   });
@@ -49,12 +84,14 @@ describe("columnInsertDisabledReason", () => {
       columnInsertDisabledReason(
         `WITH x AS (SELECT 1) SELECT * FROM x`,
         TABLE_A,
+        "user_id",
       ),
     ).toMatch(/too complex/);
     expect(
       columnInsertDisabledReason(
         `SELECT a FROM ${TABLE_A} UNION SELECT b FROM ${TABLE_B}`,
         TABLE_A,
+        "user_id",
       ),
     ).toMatch(/too complex/);
   });
