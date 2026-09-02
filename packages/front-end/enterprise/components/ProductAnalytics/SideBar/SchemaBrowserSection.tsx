@@ -12,7 +12,7 @@ export default function SchemaBrowserSection({
 }) {
   const { draftExploreState } = useExplorerContext();
   const { getDatasourceById } = useDefinitions();
-  const { cursorData, localSql, setLocalSql } = useSqlEditorContext();
+  const { localSql, setLocalSql } = useSqlEditorContext();
   const datasource = getDatasourceById(draftExploreState.datasource);
 
   if (!datasource) return null;
@@ -53,7 +53,7 @@ export default function SchemaBrowserSection({
       >
         <SchemaBrowser
           datasource={datasource}
-          cursorData={cursorData ?? undefined}
+          sql={localSql}
           updateSqlInput={(sql) => {
             if (sql !== localSql) {
               setLocalSql(sql);
