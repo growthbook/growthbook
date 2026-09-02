@@ -11,6 +11,7 @@ import CustomFieldRowMenu from "@/components/CustomFields/CustomFieldRowMenu";
 import ProjectBadges from "@/components/ProjectBadges";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Badge from "@/ui/Badge";
+import { TableCell, TableRow } from "@/ui/Table";
 import Text from "@/ui/Text";
 
 const MULTI_VALUE_LIMIT = 3;
@@ -123,20 +124,19 @@ function RowCells({
   showRequired: boolean;
   isDuplicateId?: boolean;
 }) {
-  const WIDTHS = CUSTOM_FIELD_TABLE_WIDTHS;
   const isDisabled = customField.active === false;
 
   return (
     <>
-      <td style={{ ...tdStyle, width: WIDTHS.name }}>
+      <TableCell style={tdStyle}>
         <Flex wrap="wrap" align="center" gap="2">
           <Text weight="semibold" color={isDisabled ? "text-low" : "text-mid"}>
             {customField.name}
           </Text>
           {isDisabled && <Badge label="disabled" color="gray" variant="soft" />}
         </Flex>
-      </td>
-      <td style={{ ...tdStyle, width: WIDTHS.key }}>
+      </TableCell>
+      <TableCell style={tdStyle}>
         <Flex align="center">
           {isDuplicateId && (
             <Tooltip
@@ -162,20 +162,20 @@ function RowCells({
             {customField.id}
           </code>
         </Flex>
-      </td>
-      <td style={{ ...tdStyle, width: WIDTHS.description }}>
+      </TableCell>
+      <TableCell style={tdStyle}>
         <Text color="text-mid">
           {customField.description && customField.description.length > 80
             ? customField.description.substring(0, 80).trim() + "..."
             : (customField.description ?? "")}
         </Text>
-      </td>
-      <td style={{ ...tdStyle, width: WIDTHS.appliesTo }}>
+      </TableCell>
+      <TableCell style={tdStyle}>
         <Text color="text-mid">
           {formatSectionsLabel(customField.sections)}
         </Text>
-      </td>
-      <td style={{ ...tdStyle, width: WIDTHS.valueType }}>
+      </TableCell>
+      <TableCell style={tdStyle}>
         <Text color="text-mid">
           {customField.type}
           {(customField.type === "enum" ||
@@ -183,19 +183,19 @@ function RowCells({
             <EnumValuesDisplay valuesStr={customField.values} />
           )}
         </Text>
-      </td>
-      <td style={{ ...tdStyle, width: WIDTHS.projects }}>
+      </TableCell>
+      <TableCell style={tdStyle}>
         <ProjectBadges
           resourceType="custom field"
           projectIds={
             customField.projects?.length ? customField.projects : undefined
           }
         />
-      </td>
+      </TableCell>
       {showRequired && (
-        <td style={{ ...tdStyle, width: WIDTHS.required }}>
+        <TableCell style={tdStyle}>
           <Text color="text-mid">{customField.required ? "yes" : ""}</Text>
-        </td>
+        </TableCell>
       )}
     </>
   );
@@ -213,7 +213,6 @@ export function SortableCustomFieldRow(props: SortableProps) {
   const customField = props.customField;
   const { showRequired, isDuplicateId } = props;
   const isDisabled = customField.active === false;
-  const WIDTHS = CUSTOM_FIELD_TABLE_WIDTHS;
   const style: React.CSSProperties = {
     transition,
     ...(isDragging
@@ -222,12 +221,10 @@ export function SortableCustomFieldRow(props: SortableProps) {
   };
 
   return (
-    <tr ref={setNodeRef} style={style}>
-      <td
+    <TableRow ref={setNodeRef} style={style}>
+      <TableCell
         style={{
           ...tdStyle,
-          width: WIDTHS.dragHandle,
-          minWidth: WIDTHS.dragHandle,
           padding: "0.65rem 0",
           textAlign: "center",
         }}
@@ -245,17 +242,15 @@ export function SortableCustomFieldRow(props: SortableProps) {
             <RiDraggable size={16} />
           </div>
         </Flex>
-      </td>
+      </TableCell>
       <RowCells
         customField={customField}
         showRequired={showRequired}
         isDuplicateId={isDuplicateId}
       />
-      <td
+      <TableCell
         style={{
           ...tdStyle,
-          width: WIDTHS.menu,
-          minWidth: WIDTHS.menu,
           padding: "0.5rem 0",
           textAlign: "center",
         }}
@@ -272,8 +267,8 @@ export function SortableCustomFieldRow(props: SortableProps) {
           onMoveDown={props.onMoveDown}
           onToggleActive={() => props.toggleCustomField(customField)}
         />
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -284,15 +279,11 @@ export function StaticCustomFieldRow({
   customField: CustomField;
   showRequired?: boolean;
 }) {
-  const WIDTHS = CUSTOM_FIELD_TABLE_WIDTHS;
-
   return (
-    <tr style={{ opacity: 0.6, borderBottom: "1px solid var(--gray-a5)" }}>
-      <td
+    <TableRow style={{ opacity: 0.6 }}>
+      <TableCell
         style={{
           ...tdStyle,
-          width: WIDTHS.dragHandle,
-          minWidth: WIDTHS.dragHandle,
           padding: "0.5rem 0",
           textAlign: "center",
         }}
@@ -308,17 +299,15 @@ export function StaticCustomFieldRow({
             <RiDraggable size={16} />
           </div>
         </Flex>
-      </td>
+      </TableCell>
       <RowCells customField={customField} showRequired={showRequired} />
-      <td
+      <TableCell
         style={{
           ...tdStyle,
-          width: WIDTHS.menu,
-          minWidth: WIDTHS.menu,
           padding: "1rem 0.5rem",
           textAlign: "center",
         }}
       />
-    </tr>
+    </TableRow>
   );
 }

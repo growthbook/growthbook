@@ -24,6 +24,13 @@ import {
   SortableCustomFieldRow,
   StaticCustomFieldRow,
 } from "@/components/CustomFields/SortableCustomField";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import CustomFieldModal from "@/components/CustomFields/CustomFieldModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -73,25 +80,28 @@ function CustomFieldsTable({
     );
 
   return (
-    <table
-      className="table gbtable gbtable-sortable table-valign-top"
-      style={{ tableLayout: "fixed", width: "100%" }}
+    <Table
+      variant="list"
+      stickyHeader={false}
+      roundedCorners
+      layout="fixed"
+      className="appbox"
     >
       <CustomFieldColGroup showRequired={showRequired} />
-      <thead>
-        <tr>
-          <th style={{ padding: "0.5rem 0", textAlign: "center" }} />
-          <th>Field Name</th>
-          <th>Field Key</th>
-          <th>Description</th>
-          <th>Applies To</th>
-          <th>Value Type</th>
-          <th>Projects</th>
-          {showRequired && <th>Required</th>}
-          <th style={{ padding: "0.5rem 0", textAlign: "center" }} />
-        </tr>
-      </thead>
-      <tbody>
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader />
+          <TableColumnHeader>Field Name</TableColumnHeader>
+          <TableColumnHeader>Field Key</TableColumnHeader>
+          <TableColumnHeader>Description</TableColumnHeader>
+          <TableColumnHeader>Applies To</TableColumnHeader>
+          <TableColumnHeader>Value Type</TableColumnHeader>
+          <TableColumnHeader>Projects</TableColumnHeader>
+          {showRequired && <TableColumnHeader>Required</TableColumnHeader>}
+          <TableColumnHeader />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {filteredItems.length > 0 ? (
           <SortableContext
             items={filteredItems}
@@ -119,8 +129,8 @@ function CustomFieldsTable({
             ))}
           </SortableContext>
         ) : (
-          <tr>
-            <td colSpan={colSpan} className="text-center text-gray">
+          <TableRow>
+            <TableCell colSpan={colSpan} className="text-center text-gray">
               <em>
                 No custom fields in this view.{" "}
                 {canManage ? (
@@ -135,11 +145,11 @@ function CustomFieldsTable({
                   </a>
                 ) : null}
               </em>
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
         )}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }
 
@@ -297,68 +307,64 @@ const CustomFields: FC = () => {
               </TabsList>
             </Box>
             <TabsContent value="all">
-              <Box className="appbox">
-                <CustomFieldsTable
-                  filter="all"
-                  items={items}
-                  duplicateIds={duplicateIds}
-                  showRequired={true}
-                  deleteCustomField={deleteCustomField}
-                  toggleCustomField={toggleCustomField}
-                  setModalOpen={setModalOpen}
-                  handleMoveUp={handleMoveUp}
-                  handleMoveDown={handleMoveDown}
-                  canManage={canManage}
-                />
-              </Box>
+              <CustomFieldsTable
+                filter="all"
+                items={items}
+                duplicateIds={duplicateIds}
+                showRequired={true}
+                deleteCustomField={deleteCustomField}
+                toggleCustomField={toggleCustomField}
+                setModalOpen={setModalOpen}
+                handleMoveUp={handleMoveUp}
+                handleMoveDown={handleMoveDown}
+                canManage={canManage}
+              />
             </TabsContent>
             <TabsContent value="feature">
-              <Box className="appbox">
-                <CustomFieldsTable
-                  filter="feature"
-                  items={items}
-                  duplicateIds={duplicateIds}
-                  showRequired={true}
-                  deleteCustomField={deleteCustomField}
-                  toggleCustomField={toggleCustomField}
-                  setModalOpen={setModalOpen}
-                  handleMoveUp={handleMoveUp}
-                  handleMoveDown={handleMoveDown}
-                  canManage={canManage}
-                />
-              </Box>
+              <CustomFieldsTable
+                filter="feature"
+                items={items}
+                duplicateIds={duplicateIds}
+                showRequired={true}
+                deleteCustomField={deleteCustomField}
+                toggleCustomField={toggleCustomField}
+                setModalOpen={setModalOpen}
+                handleMoveUp={handleMoveUp}
+                handleMoveDown={handleMoveDown}
+                canManage={canManage}
+              />
             </TabsContent>
             <TabsContent value="experiment">
-              <Box className="appbox">
-                <CustomFieldsTable
-                  filter="experiment"
-                  items={items}
-                  duplicateIds={duplicateIds}
-                  showRequired={true}
-                  deleteCustomField={deleteCustomField}
-                  toggleCustomField={toggleCustomField}
-                  setModalOpen={setModalOpen}
-                  handleMoveUp={handleMoveUp}
-                  handleMoveDown={handleMoveDown}
-                  canManage={canManage}
-                />
-              </Box>
+              <CustomFieldsTable
+                filter="experiment"
+                items={items}
+                duplicateIds={duplicateIds}
+                showRequired={true}
+                deleteCustomField={deleteCustomField}
+                toggleCustomField={toggleCustomField}
+                setModalOpen={setModalOpen}
+                handleMoveUp={handleMoveUp}
+                handleMoveDown={handleMoveDown}
+                canManage={canManage}
+              />
             </TabsContent>
           </Tabs>
           <DragOverlay>
             {activeId && selectedRow ? (
-              <table
-                style={{ tableLayout: "fixed", width: "100%" }}
-                className="table gbtable gbtable-sortable table-valign-top"
+              <Table
+                variant="list"
+                stickyHeader={false}
+                layout="fixed"
+                style={{ width: "100%" }}
               >
                 <CustomFieldColGroup showRequired={true} />
-                <tbody>
+                <TableBody>
                   <StaticCustomFieldRow
                     customField={selectedRow}
                     showRequired={true}
                   />
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             ) : null}
           </DragOverlay>
         </DndContext>

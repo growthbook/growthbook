@@ -1088,15 +1088,6 @@ main.main {
     }
   }
 
-  // Collapsed borders repaint inconsistently when drag-and-drop translates a <tr>
-  &.gbtable-sortable {
-    border-collapse: separate;
-    border-spacing: 0;
-    thead th {
-      border-bottom: 0;
-    }
-  }
-
   .dark-theme &.decision-criteria-table {
     tbody {
       tr {
