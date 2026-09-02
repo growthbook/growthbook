@@ -29,8 +29,8 @@ const ManagePersonalAccessTokensPage: FC = () => {
       </Heading>
       <Text as="p" color="text-mid" mb="4">
         Personal access tokens act as the member who created them and carry
-        their full permissions. Manage who can create them and disable any that
-        are compromised.
+        their full permissions. Manage who can create them, how long they last,
+        and disable any that are compromised.
       </Text>
 
       <PersonalAccessTokenSettings />
