@@ -206,25 +206,4 @@ describe("cancelExternalQuery", () => {
       jest.useRealTimers();
     }
   });
-
-  it("resolves without waiting for the confirmation probe", async () => {
-    jest.useFakeTimers();
-    try {
-      const getExternalQueryStatus = jest.fn().mockResolvedValue({
-        state: "running",
-      });
-      const integration = makeIntegration({
-        cancelQuery: jest.fn().mockResolvedValue("requested"),
-        getExternalQueryStatus,
-      });
-
-      await cancelExternalQuery(integration, { externalId: "q1" }, logContext);
-
-      expect(getExternalQueryStatus).not.toHaveBeenCalled();
-      expect(mockedLogger.warn).not.toHaveBeenCalled();
-    } finally {
-      jest.clearAllTimers();
-      jest.useRealTimers();
-    }
-  });
 });

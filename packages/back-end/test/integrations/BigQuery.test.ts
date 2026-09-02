@@ -119,15 +119,8 @@ describe("BigQuery getExternalQueryStatus (status-only)", () => {
     });
   });
 
-  it("maps RUNNING to running", async () => {
-    mockJob.getMetadata.mockResolvedValue([{ status: { state: "RUNNING" } }]);
-    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
-      state: "running",
-    });
-  });
-
-  it("maps PENDING to running", async () => {
-    mockJob.getMetadata.mockResolvedValue([{ status: { state: "PENDING" } }]);
+  it.each(["RUNNING", "PENDING"])("maps %s to running", async (state) => {
+    mockJob.getMetadata.mockResolvedValue([{ status: { state } }]);
     expect(await integration.getExternalQueryStatus("job_1")).toEqual({
       state: "running",
     });

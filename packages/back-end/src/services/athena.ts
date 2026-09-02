@@ -8,6 +8,7 @@ import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { parseEnvInt, parseOptionalInt } from "shared/util";
 import { ExternalQueryStatus } from "back-end/src/types/Integration";
+import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
@@ -104,8 +105,7 @@ export async function getAthenaQueryStatus(
   } catch (e) {
     // Athena throws InvalidRequestException when the execution id is
     // unknown/purged.
-    const message = e instanceof Error ? e.message : String(e);
-    if (/was not found|not found|does not exist/i.test(message)) {
+    if (/was not found|not found|does not exist/i.test(getErrorMessage(e))) {
       return { state: "unknown", reason: "expired" };
     }
     return { state: "unknown", reason: "unreachable" };

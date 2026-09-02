@@ -2,6 +2,7 @@ import {
   CancelQueryOutcome,
   SourceIntegrationInterface,
 } from "back-end/src/types/Integration";
+import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
 export const CANCEL_CONFIRMATION_DELAY_MS = 30_000;
@@ -22,10 +23,9 @@ export async function cancelExternalQuery(
   try {
     outcome = await integration.cancelQuery(externalId, metadata);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
     logger.warn(
       { err: e, externalId, ...logContext },
-      `Warehouse rejected cancel request for external query: ${msg}`,
+      `Warehouse rejected cancel request for external query: ${getErrorMessage(e)}`,
     );
     return;
   }
@@ -76,10 +76,9 @@ export async function cancelExternalQuery(
           break;
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
       logger.warn(
         { err: e, externalId, ...logContext },
-        `Could not confirm external query cancellation: ${msg}`,
+        `Could not confirm external query cancellation: ${getErrorMessage(e)}`,
       );
     }
   }, CANCEL_CONFIRMATION_DELAY_MS);

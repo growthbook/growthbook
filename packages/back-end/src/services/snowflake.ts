@@ -7,6 +7,7 @@ import { QueryMetadata } from "shared/types/query";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
 import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { getQueryTagString } from "back-end/src/util/integration";
+import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
 type ProxyOptions = {
@@ -294,7 +295,6 @@ export async function getSnowflakeQueryStatus(
   conn: SnowflakeConnectionParams,
   queryId: string,
 ): Promise<ExternalQueryStatus> {
-  if (!queryId) return { state: "unknown", reason: "unreachable" };
   const connection = buildSnowflakeConnection(conn);
   try {
     await connectSnowflake(connection, 30000);
@@ -305,9 +305,7 @@ export async function getSnowflakeQueryStatus(
     });
   } catch (e) {
     logger.debug(
-      `Failed to get Snowflake query status ${queryId}: ${
-        e instanceof Error ? e.message : String(e)
-      }`,
+      `Failed to get Snowflake query status ${queryId}: ${getErrorMessage(e)}`,
     );
     return { state: "unknown", reason: "unreachable" };
   } finally {

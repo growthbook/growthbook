@@ -24,6 +24,7 @@ import {
 } from "back-end/src/types/Integration";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
+import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import {
   BigQueryDataType,
@@ -112,8 +113,7 @@ export default class BigQuery extends SqlIntegration {
       return { state: "running" };
     } catch (e) {
       const code = (e as { code?: unknown })?.code;
-      const message = e instanceof Error ? e.message : String(e);
-      if (code === 404 || /not found/i.test(message)) {
+      if (code === 404 || /not found/i.test(getErrorMessage(e))) {
         return { state: "unknown", reason: "expired" };
       }
       return { state: "unknown", reason: "unreachable" };

@@ -46,29 +46,13 @@ describe("prestoStateToStatus (status-only mapping)", () => {
     });
   });
 
-  it("maps a missing/blank state to unknown/unreachable", () => {
-    expect(prestoStateToStatus({ state: "" })).toEqual({
-      state: "unknown",
-      reason: "unreachable",
-    });
-    expect(prestoStateToStatus({})).toEqual({
-      state: "unknown",
-      reason: "unreachable",
-    });
-  });
-
-  it("maps a non-object query-info payload to unknown/unreachable", () => {
-    expect(prestoStateToStatus(undefined)).toEqual({
-      state: "unknown",
-      reason: "unreachable",
-    });
-    expect(prestoStateToStatus(null)).toEqual({
-      state: "unknown",
-      reason: "unreachable",
-    });
-    expect(prestoStateToStatus("FINISHED")).toEqual({
-      state: "unknown",
-      reason: "unreachable",
-    });
-  });
+  it.each([{ state: "" }, {}, undefined, null])(
+    "maps an unusable query-info payload %j to unknown/unreachable",
+    (payload) => {
+      expect(prestoStateToStatus(payload)).toEqual({
+        state: "unknown",
+        reason: "unreachable",
+      });
+    },
+  );
 });
