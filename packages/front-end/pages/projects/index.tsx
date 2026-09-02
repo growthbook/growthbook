@@ -12,6 +12,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgLimits from "@/hooks/useOrgLimits";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
@@ -196,13 +197,14 @@ const ProjectsPage: FC = () => {
                           <span>{p.name}</span>
                         )}
                         {p.restrictAccess ? (
-                          <Tooltip body="Restricted access: only users with a role on this Project can access it.">
-                            <PiDetective
-                              size={14}
+                          <UITooltip content="Restricted access: only users with a role on this Project can access it.">
+                            <span
                               className="ml-1"
                               style={{ color: "var(--amber-11)" }}
-                            />
-                          </Tooltip>
+                            >
+                              <PiDetective size={14} />
+                            </span>
+                          </UITooltip>
                         ) : null}
                         {p.managedBy?.type ? (
                           <div>

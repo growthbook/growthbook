@@ -423,6 +423,7 @@ export function assessApprovalCoverage({
   projects,
   footprint,
   approvers,
+  restrictedProjects,
 }: {
   org: OrganizationInterface;
   teams: RoleSourceTeam[];
@@ -431,6 +432,7 @@ export function assessApprovalCoverage({
   projects: string[];
   footprint: ReviewAuthorityFootprint;
   approvers: { id: string; roleInfo: MemberRoleWithProjects | null }[];
+  restrictedProjects?: string[];
 }): { hasCoveringApproval: boolean; uncoveredApprovers: string[] } {
   const uncoveredApprovers: string[] = [];
   let hasCoveringApproval = false;
@@ -439,7 +441,7 @@ export function assessApprovalCoverage({
     const covers =
       !!roleInfo &&
       new Permissions(
-        getRolePermissions(roleInfo, org, teams),
+        getRolePermissions(roleInfo, org, teams, restrictedProjects),
       ).canReviewRevision(model, projects, footprint);
     if (covers) hasCoveringApproval = true;
     else uncoveredApprovers.push(id);

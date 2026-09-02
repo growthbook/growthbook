@@ -6,10 +6,9 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useRestApiCall } from "@/services/restApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Checkbox from "@/ui/Checkbox";
+import Switch from "@/ui/Switch";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
-import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 
 const ProjectAccessSettings: FC<{
@@ -21,6 +20,7 @@ const ProjectAccessSettings: FC<{
   const permissionsUtil = usePermissionsUtil();
 
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const canEdit = permissionsUtil.canUpdateProject(project.id);
   const canRestrictAccess = hasCommercialFeature("advanced-permissions");
@@ -37,12 +37,15 @@ const ProjectAccessSettings: FC<{
 
   const saveRestrictAccess = async (value: boolean) => {
     setSaving(true);
+    setError("");
     try {
       await restApiCall(putProjectValidator, {
         params: { id: project.id },
         body: { restrictAccess: value },
       });
       await mutateDefinitions();
+    } catch (e) {
+      setError(e.message);
     } finally {
       setSaving(false);
     }
@@ -54,23 +57,23 @@ const ProjectAccessSettings: FC<{
         User Access
       </Heading>
       <PremiumTooltip commercialFeature="advanced-permissions">
-        <Checkbox
+        <Switch
           label="Restrict access"
-          description={
-            <Text color="text-high">
-              Members need a role on this Project, assigned directly or through
-              a team, to see it. Admins always keep access.
-            </Text>
-          }
+          description="Members need a role on this Project, assigned directly or through a team, to see it. Admins always keep access."
           value={!!project.restrictAccess}
-          setValue={saveRestrictAccess}
+          onChange={saveRestrictAccess}
           disabled={!canEdit || !canRestrictAccess || saving}
         />
       </PremiumTooltip>
+      {error ? (
+        <Callout status="error" mt="3">
+          {error}
+        </Callout>
+      ) : null}
       {project.restrictAccess && !hasExplicitGrants ? (
         <Callout status="warning" mt="3">
-          No members have an explicit role on this project yet, so only members
-          who can manage the team can access it.
+          No members have an explicit role on this Project yet, so only admins
+          can access it.
         </Callout>
       ) : null}
     </Frame>

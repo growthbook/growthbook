@@ -1,5 +1,9 @@
 import { OrganizationInterface } from "shared/types/organization";
-import { Permissions, getRolePermissions } from "shared/permissions";
+import {
+  Permissions,
+  assessApprovalCoverage,
+  getRolePermissions,
+} from "shared/permissions";
 import { getUserPermissions } from "back-end/src/util/organization.util";
 
 const testOrg = {
@@ -128,6 +132,68 @@ describe("access-restricted projects", () => {
     );
     expect(perms.canReadSingleProjectResource(RESTRICTED)).toBe(false);
     expect(perms.canReadSingleProjectResource(OPEN)).toBe(true);
+  });
+
+  it("excludes restricted projects from query-level read allowlists", () => {
+    const allProjects = [RESTRICTED, OPEN];
+    // Global role + a denial → an explicit allowlist, not "all projects"
+    expect(
+      permsFor({ role: "engineer" }).getProjectsWithPermission(
+        "readData",
+        allProjects,
+      ),
+    ).toEqual([OPEN]);
+    // No restriction → unrestricted
+    expect(
+      permsFor({ role: "engineer" }, []).getProjectsWithPermission(
+        "readData",
+        allProjects,
+      ),
+    ).toBeNull();
+    // Explicit grant on the restricted project → included again
+    expect(
+      permsFor({
+        role: "engineer",
+        projectRoles: [
+          {
+            project: RESTRICTED,
+            role: "readonly",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+      }).getProjectsWithPermission("readData", allProjects),
+    ).toBeNull();
+    // manageTeam exemption → unrestricted
+    expect(
+      permsFor({ role: "admin" }).getProjectsWithPermission(
+        "readData",
+        allProjects,
+      ),
+    ).toBeNull();
+  });
+
+  it("does not count a denied member's approval as covering", () => {
+    const approver = {
+      id: "u_1",
+      roleInfo: {
+        role: "experimenter",
+        limitAccessByEnvironment: false,
+        environments: [] as string[],
+      },
+    };
+    const assess = (restrictedProjects?: string[]) =>
+      assessApprovalCoverage({
+        org: testOrg,
+        teams: [],
+        model: "feature",
+        projects: [RESTRICTED],
+        footprint: { scope: "unbound" },
+        approvers: [approver],
+        restrictedProjects,
+      }).hasCoveringApproval;
+    expect(assess(undefined)).toBe(true);
+    expect(assess([RESTRICTED])).toBe(false);
   });
 
   it("keeps a restricted project out of multi-project read unions", () => {

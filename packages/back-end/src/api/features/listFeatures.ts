@@ -100,7 +100,10 @@ export async function loadFeaturesPage(
   }
   let projectIds: string[] | null = null;
   if (!projectId) {
-    projectIds = context.permissions.getProjectsWithPermission("readData");
+    projectIds = context.permissions.getProjectsWithPermission(
+      "readData",
+      await context.models.projects.getAllIdsForOrg(),
+    );
     if (projectIds !== null && projectIds.length === 0) {
       return { empty: true, response: emptyListResponse(limit, offset) };
     }

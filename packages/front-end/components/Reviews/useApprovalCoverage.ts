@@ -12,6 +12,7 @@ import type { RevisionModel } from "shared/permissions";
 import type { OrganizationInterface } from "shared/types/organization";
 import type { TeamInterface } from "shared/types/team";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 type Reviewer = { id: string; status: "approved" | "changes-requested" };
 
@@ -54,6 +55,12 @@ export function useApprovalCoverage({
   projects: string[];
 }): ApprovalCoverage {
   const { users, teams, organization } = useUser();
+  const { projects: allProjects } = useDefinitions();
+
+  const restrictedProjects = useMemo(
+    () => allProjects.filter((p) => p.restrictAccess).map((p) => p.id),
+    [allProjects],
+  );
 
   const uncoveredApprovers = useMemo(() => {
     const approved = reviewers.filter((r) => r.status === "approved");
@@ -62,6 +69,7 @@ export function useApprovalCoverage({
       assessApprovalCoverage({
         org: organization as OrganizationInterface,
         teams: (teams ?? []) as TeamInterface[],
+        restrictedProjects,
         model,
         projects,
         footprint,
@@ -71,7 +79,16 @@ export function useApprovalCoverage({
         })),
       }).uncoveredApprovers,
     );
-  }, [reviewers, organization, teams, model, projects, footprint, users]);
+  }, [
+    reviewers,
+    organization,
+    teams,
+    restrictedProjects,
+    model,
+    projects,
+    footprint,
+    users,
+  ]);
 
   // Resolved like the coverage decision — teams, project roles and additional
   // rules included — so the explanation cannot contradict the decision.
@@ -90,6 +107,7 @@ export function useApprovalCoverage({
         roleInfo,
         organization as OrganizationInterface,
         (teams ?? []) as TeamInterface[],
+        restrictedProjects,
       );
       const held = envIds.filter((env) =>
         userHasPermission(
@@ -102,7 +120,7 @@ export function useApprovalCoverage({
       cache.set(approverId, held);
       return held;
     };
-  }, [users, organization, teams, envIds, model, projects]);
+  }, [users, organization, teams, restrictedProjects, envIds, model, projects]);
 
   const uncoveredApproverReasons = useMemo(() => {
     const reason = (approverId: string): string => {

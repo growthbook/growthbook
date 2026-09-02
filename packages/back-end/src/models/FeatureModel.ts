@@ -4529,8 +4529,10 @@ export async function getFeatureEnvStatus(
 
   // Push project-level read restrictions into the query to avoid fetching
   // documents that will be filtered out anyway.
-  const allowedProjects =
-    context.permissions.getProjectsWithPermission("readData");
+  const allowedProjects = context.permissions.getProjectsWithPermission(
+    "readData",
+    await context.models.projects.getAllIdsForOrg(),
+  );
   if (allowedProjects !== null) {
     if (allowedProjects.length === 0) return [];
     // Also include features with no project — they're globally accessible

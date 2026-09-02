@@ -670,6 +670,7 @@ export function revisionApprovalsCoverChange(
   return assessApprovalCoverage({
     org: context.org,
     teams: context.teams ?? [],
+    restrictedProjects: context.restrictedProjects,
     model: revision.target.type,
     projects,
     footprint: environments.length

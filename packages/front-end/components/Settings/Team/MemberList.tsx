@@ -31,6 +31,7 @@ import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRoleModal";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import { FilterHeading, FilterItem } from "@/components/Search/SearchFilters";
 import Text from "@/ui/Text";
 import Table, {
@@ -261,10 +262,10 @@ const MemberList: FC<{
       <div className="my-4">
         <Flex align="center" justify="between" gap="3" mt="4" mb="2">
           <Flex align="center" gap="3">
-            <h5 className="mb-0">
+            <Heading as="h5" size="sm" mb="0">
               {project ? "Organization Members" : "Active Members"}
-              {` (${users.size})`}
-            </h5>
+              {` (${membersList.length})`}
+            </Heading>
             <Box width="250px" flexShrink="0">
               <Field
                 placeholder="Search..."

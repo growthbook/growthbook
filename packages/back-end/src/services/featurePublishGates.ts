@@ -174,6 +174,7 @@ export async function assessRevisionApproval({
   const { hasCoveringApproval, uncoveredApprovers } = assessApprovalCoverage({
     org: context.org,
     teams: context.teams,
+    restrictedProjects: context.restrictedProjects,
     model: "feature",
     projects: feature.project ? [feature.project] : [],
     footprint: reviewFootprint,

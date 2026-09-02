@@ -1774,13 +1774,20 @@ export class Permissions {
   //   string[] = specific projects
   //   [] = no projects
   //   null = global (all projects)
+  // null = unrestricted. Needs the org's full project list because a global
+  // grant can coexist with per-project denials (access-restricted projects),
+  // and the allowlist must then include projects with no explicit entry.
   public getProjectsWithPermission = (
     permission: Permission,
+    allProjects: string[],
   ): string[] | null => {
-    if (this.hasPermission(permission, "")) return null;
-    return Object.keys(this.userPermissions.projects).filter((p) =>
-      this.hasPermission(permission, p),
-    );
+    if (this.hasPermission(permission, "")) {
+      const hasDenial = Object.keys(this.userPermissions.projects).some(
+        (p) => !this.hasPermission(permission, p),
+      );
+      if (!hasDenial) return null;
+    }
+    return allProjects.filter((p) => this.hasPermission(permission, p));
   };
 
   public canReadMultiProjectResource = (

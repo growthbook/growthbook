@@ -186,8 +186,10 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
       permissionsFingerprint: context.getPermissionsFingerprint(),
       buildFingerprint: definitionsBuildFingerprint(),
       // null = the user can read all projects, so every project's version counts.
-      readableProjects:
-        context.permissions.getProjectsWithPermission("readData"),
+      readableProjects: context.permissions.getProjectsWithPermission(
+        "readData",
+        await context.models.projects.getAllIdsForOrg(),
+      ),
       configFileHash: getConfigFileHash(),
     });
     // Make the browser behavior we rely on explicit: store, but always

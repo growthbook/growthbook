@@ -253,13 +253,10 @@ export async function processJWT(
           }
         }
 
-        req.teams = await TeamModel.dangerousGetTeamsForOrganization(
-          req.organization.id,
-        );
-        req.restrictedProjects =
-          await ProjectModel.dangerousGetRestrictedProjectIds(
-            req.organization.id,
-          );
+        [req.teams, req.restrictedProjects] = await Promise.all([
+          TeamModel.dangerousGetTeamsForOrganization(req.organization.id),
+          ProjectModel.dangerousGetRestrictedProjectIds(req.organization.id),
+        ]);
 
         // Make sure this is a valid login method for the organization
         try {

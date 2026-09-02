@@ -291,9 +291,10 @@ function authenticateWithApiKey(
         throw new Error("Could not find user attached to this API key");
       }
 
-      const teams = await TeamModel.dangerousGetTeamsForOrganization(org.id);
-      const restrictedProjects =
-        await ProjectModel.dangerousGetRestrictedProjectIds(org.id);
+      const [teams, restrictedProjects] = await Promise.all([
+        TeamModel.dangerousGetTeamsForOrganization(org.id),
+        ProjectModel.dangerousGetRestrictedProjectIds(org.id),
+      ]);
 
       const eventAudit: EventUserApiKey = {
         type: "api_key",

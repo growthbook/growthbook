@@ -89,8 +89,10 @@ export async function loadRevisionsPage(
     if (singleFeature.archived && !includeArchived)
       return emptyListResponse(limit, offset);
   } else {
-    const readableProjects =
-      context.permissions.getProjectsWithPermission("readData");
+    const readableProjects = context.permissions.getProjectsWithPermission(
+      "readData",
+      await context.models.projects.getAllIdsForOrg(),
+    );
     if (readableProjects !== null) {
       if (readableProjects.length === 0) {
         return emptyListResponse(limit, offset);

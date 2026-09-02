@@ -55,7 +55,13 @@ const ChangeProjectRoleModal: FC<{
       open={true}
       size="lg"
       submit={async () => {
-        await onConfirm(value);
+        // Normalize even when the role wasn't changed this session — a stored
+        // rule can already carry an env restriction its role doesn't support.
+        await onConfirm(
+          roleSupportsEnvLimit(value.role, organization)
+            ? value
+            : { ...value, limitAccessByEnvironment: false, environments: [] },
+        );
       }}
     >
       <Flex align="center" gap="2" mb="2" minHeight="32px">

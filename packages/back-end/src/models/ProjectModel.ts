@@ -38,6 +38,13 @@ const BaseClass = MakeModelClass({
     deleteEvent: "project.delete",
   },
   globallyUniquePrimaryKeys: true,
+  additionalIndexes: [
+    {
+      fields: { organization: 1, restrictAccess: 1 },
+      name: "org_restrict_access",
+      partialFilterExpression: { restrictAccess: true },
+    },
+  ],
   defaultValues: {
     description: "",
     settings: {},

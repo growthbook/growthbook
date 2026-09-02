@@ -50,7 +50,7 @@ export const apiProjectValidator = namedSchema(
       restrictAccess: z
         .boolean()
         .describe(
-          "When true, only members with an explicit role on this project (directly or via a team) can access it. Members with the manageTeam permission retain access.",
+          "When true, only members with an explicit role on this Project (directly or via a team) can access it. Members with the manageTeam permission retain access.",
         )
         .optional(),
       settings: z
@@ -98,7 +98,7 @@ const postProjectBody = z
     restrictAccess: z
       .boolean()
       .describe(
-        "When true, only members with an explicit role on this project (directly or via a team) can access it. Members with the manageTeam permission retain access. Requires a Pro or Enterprise plan.",
+        "When true, only members with an explicit role on this Project (directly or via a team) can access it. Members with the manageTeam permission retain access. Requires a Pro or Enterprise plan.",
       )
       .optional(),
   })
@@ -138,7 +138,7 @@ const putProjectBody = z
     restrictAccess: z
       .boolean()
       .describe(
-        "When true, only members with an explicit role on this project (directly or via a team) can access it. Members with the manageTeam permission retain access. Requires a Pro or Enterprise plan.",
+        "When true, only members with an explicit role on this Project (directly or via a team) can access it. Members with the manageTeam permission retain access. Requires a Pro or Enterprise plan.",
       )
       .optional(),
   })

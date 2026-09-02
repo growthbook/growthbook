@@ -36,10 +36,6 @@ export function getUserPermissions(
 ): UserPermissions {
   const memberInfo = org.members.find((m) => m.id === user.id);
 
-  const effectiveRestrictedProjects = user.superAdmin
-    ? undefined
-    : restrictedProjects;
-
   // If the user is a super admin, fall back to a default role if they aren't in the org
   if (!memberInfo && user.superAdmin && SUPERADMIN_DEFAULT_ROLE) {
     return getRolePermissions(
@@ -61,6 +57,7 @@ export function getUserPermissions(
     memberInfo,
     org,
     teams,
-    effectiveRestrictedProjects,
+    // Super admins bypass access-restricted projects
+    user.superAdmin ? undefined : restrictedProjects,
   );
 }
