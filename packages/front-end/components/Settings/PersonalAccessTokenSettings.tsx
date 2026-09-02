@@ -21,17 +21,13 @@ const PersonalAccessTokenSettings: FC = () => {
 
   const tokensDisabled = !!settings?.disablePersonalAccessTokens;
 
+  // Throws so the confirm dialog can keep itself open and show the failure.
   const save = async (disablePersonalAccessTokens: boolean) => {
-    setError(null);
-    try {
-      await apiCall("/organization", {
-        method: "PUT",
-        body: JSON.stringify({ settings: { disablePersonalAccessTokens } }),
-      });
-      await refreshOrganization();
-    } catch (e) {
-      setError(e.message);
-    }
+    await apiCall("/organization", {
+      method: "PUT",
+      body: JSON.stringify({ settings: { disablePersonalAccessTokens } }),
+    });
+    await refreshOrganization();
   };
 
   return (
@@ -53,7 +49,8 @@ const PersonalAccessTokenSettings: FC = () => {
           if (value) {
             setConfirming(true);
           } else {
-            void save(false);
+            setError(null);
+            save(false).catch((e) => setError(e.message));
           }
         }}
       />

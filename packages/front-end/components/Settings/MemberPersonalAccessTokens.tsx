@@ -60,7 +60,6 @@ const MemberPersonalAccessTokens: FC = () => {
   const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
     null,
   );
-  const [error, setError] = useState<string | null>(null);
 
   const {
     data,
@@ -104,17 +103,14 @@ const MemberPersonalAccessTokens: FC = () => {
 
   if (!canManage) return null;
 
+  // Throws so the confirm dialog stays open and shows the failure; closing on a
+  // failed disable would tell the admin a compromised token is off when it isn't.
   const toggleDisabled = async (token: ApiKeyInterface) => {
-    setError(null);
-    try {
-      await apiCall(`/keys/${token.id}/disabled`, {
-        method: "PUT",
-        body: JSON.stringify({ disabled: !token.disabled }),
-      });
-      await mutate();
-    } catch (e) {
-      setError(e.message);
-    }
+    await apiCall(`/keys/${token.id}/disabled`, {
+      method: "PUT",
+      body: JSON.stringify({ disabled: !token.disabled }),
+    });
+    await mutate();
   };
 
   return (
@@ -239,12 +235,6 @@ const MemberPersonalAccessTokens: FC = () => {
           </Table>
           {pagination}
         </>
-      )}
-
-      {error && (
-        <Callout status="error" mt="2">
-          {error}
-        </Callout>
       )}
 
       {pendingToggle && (
