@@ -9,9 +9,11 @@ import {
 import {
   errorSnapshotIfStillRunning,
   findRunningSnapshotsByQueryId,
+  findSnapshotById,
   dangerousFindStalledRunningSnapshotsFromAllOrgs,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
+import { recoverStalledSnapshot } from "back-end/src/queryRunners/rehydrate";
 import {
   findRunningMetricsByQueryId,
   updateMetricQueriesAndStatus,
@@ -34,6 +36,7 @@ import {
   updateReport,
 } from "back-end/src/models/ReportModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import { getCollection } from "back-end/src/util/mongo.util";
@@ -270,6 +273,48 @@ async function reapStalledSnapshots() {
       latestFinishedAt > 0 ? latestFinishedAt : snapshot.dateCreated.getTime();
     if (Date.now() - lastActivityAt < STALLED_FINALIZE_GRACE_MS) continue;
 
+    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
+
+    // When every query succeeded, finalize the snapshot from the persisted
+    // results instead of erroring it. The cross-org candidate can be stale, so
+    // re-read in the org context and require the snapshot to still be running
+    // on the same queries. An ineligible or unsuccessful recovery returns false
+    // and falls through to the error write below, which is a no-op when the
+    // runner already persisted an analysis failure.
+    let finalizeError = "";
+    if (allTerminal && statuses.every((q) => q.status === "succeeded")) {
+      try {
+        const freshSnapshot = await findSnapshotById(context, snapshot.id);
+        if (freshSnapshot?.status === "running") {
+          const freshQueryIds = new Set(
+            freshSnapshot.queries.map((q) => q.query),
+          );
+          const sameQueries =
+            freshQueryIds.size === queryIds.length &&
+            queryIds.every((id) => freshQueryIds.has(id));
+          // The snapshot changed since the cross-org scan, so our succeeded
+          // statuses describe a stale query set. Skip rather than error a live
+          // run with the old query list; a later tick re-reads and re-evaluates.
+          if (!sameQueries) continue;
+
+          if (await recoverStalledSnapshot(context, freshSnapshot)) {
+            logger.info(
+              `Finalized stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}) from persisted results`,
+            );
+            continue;
+          }
+        }
+      } catch (e) {
+        // A failed finalize must still leave the snapshot terminal, so fall
+        // through to the error write below instead of retrying every tick.
+        finalizeError = getErrorMessage(e);
+        logger.warn(
+          e,
+          `Failed to finalize stalled snapshot ${snapshot.id} from persisted results`,
+        );
+      }
+    }
+
     const statusById = new Map(statuses.map((s) => [s.id, s.status]));
     snapshot.queries.forEach((q) => {
       q.status = statusById.get(q.query) ?? q.status;
@@ -285,9 +330,11 @@ async function reapStalledSnapshots() {
       ? shouldScheduleSnapshotRetry
         ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. A retry has been scheduled."
         : "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
-      : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.";
+      : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted." +
+        (finalizeError
+          ? ` Automatic recovery from persisted results failed: ${finalizeError}`
+          : "");
 
-    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
     const reaped = await errorSnapshotIfStillRunning(context, snapshot.id, {
       queries: snapshot.queries,
       error,
