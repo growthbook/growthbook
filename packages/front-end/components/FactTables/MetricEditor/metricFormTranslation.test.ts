@@ -12,6 +12,7 @@ import {
   retentionModeFromWindow,
   shapeFromColumnRef,
   typeHasShape,
+  THRESHOLD_SHAPES,
   windowOk,
   type MetricTypeSwitchState,
 } from "./metricFormTranslation";
@@ -319,6 +320,30 @@ describe("formTypeFromStored", () => {
     ).toEqual({ representable: true, type: "countDist" });
   });
 
+  it("flags sketch aggregations as unrepresentable on either side of a ratio", () => {
+    expect(
+      formTypeFromStored({
+        metricType: "ratio",
+        numerator: { column: "sketch", aggregation: "hll merge" },
+        denominator: { column: "$$count" },
+      }),
+    ).toEqual({ representable: false, reason: "sketch-aggregation" });
+    expect(
+      formTypeFromStored({
+        metricType: "ratio",
+        numerator: { column: "revenue", aggregation: "sum" },
+        denominator: { column: "sketch", aggregation: "kll merge" },
+      }),
+    ).toEqual({ representable: false, reason: "sketch-aggregation" });
+    expect(
+      formTypeFromStored({
+        metricType: "ratio",
+        numerator: { column: "revenue", aggregation: "sum" },
+        denominator: { column: "$$count" },
+      }),
+    ).toEqual({ representable: true, type: "ratio" });
+  });
+
   it("flags sketch aggregations as unrepresentable for mean and quantile", () => {
     expect(
       formTypeFromStored({
@@ -504,5 +529,9 @@ describe("gates", () => {
     expect(windowOk("retention")).toBe(false);
     expect(windowOk("proportion")).toBe(true);
     expect(windowOk("funnel")).toBe(true);
+  });
+
+  it("THRESHOLD_SHAPES is exactly count and sum", () => {
+    expect(THRESHOLD_SHAPES).toEqual(["count", "sum"]);
   });
 });
