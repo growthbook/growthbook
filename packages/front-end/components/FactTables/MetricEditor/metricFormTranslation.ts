@@ -3,6 +3,9 @@ import {
   ColumnRef,
   FactMetricType,
   FactTableColumnType,
+  FunnelSettings,
+  FunnelStep,
+  MetricQuantileSettings,
   MetricWindowSettings,
 } from "shared/types/fact-table";
 
@@ -190,6 +193,27 @@ export const FORM_METRIC_TYPES = [
 ] as const;
 export type FormMetricType = (typeof FORM_METRIC_TYPES)[number];
 
+const SHAPE_FORM_TYPES: ReadonlySet<FormMetricType> = new Set([
+  "rowCount",
+  "colSum",
+  "colMax",
+  "countDist",
+  "activeDays",
+]);
+
+// Gates from the spec.
+export function typeHasShape(type: FormMetricType): boolean {
+  return SHAPE_FORM_TYPES.has(type);
+}
+
+export function cappingOk(type: FormMetricType): boolean {
+  return type === "ratio" || typeHasShape(type);
+}
+
+export function windowOk(type: FormMetricType): boolean {
+  return type !== "retention";
+}
+
 export type UnrepresentableReason =
   | "sketch-aggregation"
   | "quantile-event-count-column"
@@ -325,14 +349,53 @@ function storedTypeAndShapeFor(formType: FormMetricType): {
   }
 }
 
-// Reset rule: metric type change -> refit the column for the new type's shape.
-export function applyFormType<
-  T extends { metricType: FactMetricType; numerator: ColumnRef | null },
->(current: T, newFormType: FormMetricType, factTable: MinimalFactTable): T {
+export type MetricTypeSwitchState = {
+  metricType: FactMetricType;
+  numerator: ColumnRef | null;
+  denominator?: ColumnRef | null;
+  quantileSettings?: MetricQuantileSettings | null;
+  funnelSettings?: FunnelSettings | null;
+};
+
+const DEFAULT_QUANTILE = 0.5;
+
+function defaultFunnelStep(name: string, factTableId: string): FunnelStep {
+  return {
+    name,
+    factTableId,
+    rowFilters: [],
+    optional: false,
+    conversionWindow: null,
+  };
+}
+
+/**
+ * Reset rule: metric type change -> refit the column for the new type's
+ * shape. Also initializes the extra fields a type requires to be valid
+ * (ratio's denominator, quantile's quantileSettings, funnel's
+ * funnelSettings.steps) when they aren't already set, since the schema
+ * requires all three for their respective metricType — but never overwrites
+ * one that's already there, so switching away and back doesn't lose it.
+ */
+export function applyFormType<T extends MetricTypeSwitchState>(
+  current: T,
+  newFormType: FormMetricType,
+  factTable: MinimalFactTable,
+): T {
   const { metricType, shape } = storedTypeAndShapeFor(newFormType);
+  const sourceFactTableId = current.numerator?.factTableId ?? "";
 
   if (newFormType === "funnel") {
-    return { ...current, metricType, numerator: null };
+    const funnelSettings =
+      current.funnelSettings && current.funnelSettings.steps.length >= 2
+        ? current.funnelSettings
+        : {
+            steps: [
+              defaultFunnelStep("Step 1", sourceFactTableId),
+              defaultFunnelStep("Step 2", sourceFactTableId),
+            ],
+          };
+    return { ...current, metricType, numerator: null, funnelSettings };
   }
 
   const base: ColumnRef = current.numerator ?? {
@@ -350,5 +413,23 @@ export function applyFormType<
     aggregateFilter: undefined,
   };
 
-  return { ...current, metricType, numerator };
+  return {
+    ...current,
+    metricType,
+    numerator,
+    ...(newFormType === "ratio" && {
+      denominator: current.denominator ?? {
+        factTableId: numerator.factTableId,
+        column: "$$count",
+        rowFilters: [],
+      },
+    }),
+    ...(newFormType === "quantile" && {
+      quantileSettings: current.quantileSettings ?? {
+        type: "unit" as const,
+        ignoreZeros: false,
+        quantile: DEFAULT_QUANTILE,
+      },
+    }),
+  };
 }

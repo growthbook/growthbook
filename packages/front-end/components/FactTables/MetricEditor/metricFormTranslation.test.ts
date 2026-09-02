@@ -1,5 +1,6 @@
 import {
   applyFormType,
+  cappingOk,
   columnsForShape,
   fitColumn,
   formTypeFromStored,
@@ -10,6 +11,9 @@ import {
   onShapeChange,
   retentionModeFromWindow,
   shapeFromColumnRef,
+  typeHasShape,
+  windowOk,
+  type MetricTypeSwitchState,
 } from "./metricFormTranslation";
 
 const factTable = {
@@ -373,8 +377,8 @@ describe("formTypeFromStored", () => {
 });
 
 describe("applyFormType", () => {
-  const current = {
-    metricType: "proportion" as const,
+  const current: MetricTypeSwitchState = {
+    metricType: "proportion",
     numerator: { factTableId: "ft1", column: "$$count", rowFilters: [] },
   };
 
@@ -412,5 +416,93 @@ describe("applyFormType", () => {
   it("preserves the fact table id across a type change", () => {
     const result = applyFormType(current, "colMax", factTable);
     expect(result.numerator?.factTableId).toBe("ft1");
+  });
+
+  it("initializes a denominator for ratio when none exists", () => {
+    const result = applyFormType(current, "ratio", factTable);
+    expect(result.denominator).toEqual({
+      factTableId: "ft1",
+      column: "$$count",
+      rowFilters: [],
+    });
+  });
+
+  it("preserves an existing denominator when switching to ratio", () => {
+    const withDenominator = {
+      ...current,
+      denominator: { factTableId: "ft2", column: "revenue", rowFilters: [] },
+    };
+    const result = applyFormType(withDenominator, "ratio", factTable);
+    expect(result.denominator).toEqual(withDenominator.denominator);
+  });
+
+  it("initializes quantileSettings for quantile when none exists", () => {
+    const result = applyFormType(current, "quantile", factTable);
+    expect(result.quantileSettings).toEqual({
+      type: "unit",
+      ignoreZeros: false,
+      quantile: 0.5,
+    });
+  });
+
+  it("preserves existing quantileSettings when switching to quantile", () => {
+    const withSettings = {
+      ...current,
+      quantileSettings: {
+        type: "event" as const,
+        ignoreZeros: true,
+        quantile: 0.9,
+      },
+    };
+    const result = applyFormType(withSettings, "quantile", factTable);
+    expect(result.quantileSettings).toEqual(withSettings.quantileSettings);
+  });
+
+  it("initializes two funnel steps sharing the numerator's fact table when none exist", () => {
+    const result = applyFormType(current, "funnel", factTable);
+    expect(result.funnelSettings?.steps).toHaveLength(2);
+    expect(
+      result.funnelSettings?.steps.every((s) => s.factTableId === "ft1"),
+    ).toBe(true);
+  });
+
+  it("preserves existing funnel steps when switching to funnel", () => {
+    const withSteps = {
+      ...current,
+      funnelSettings: {
+        steps: [
+          { name: "A", factTableId: "ft1", rowFilters: [], optional: false },
+          { name: "B", factTableId: "ft1", rowFilters: [], optional: false },
+          { name: "C", factTableId: "ft1", rowFilters: [], optional: false },
+        ],
+      },
+    };
+    const result = applyFormType(withSteps, "funnel", factTable);
+    expect(result.funnelSettings?.steps).toHaveLength(3);
+  });
+});
+
+describe("gates", () => {
+  it("typeHasShape is true only for the five Value-group types", () => {
+    expect(typeHasShape("rowCount")).toBe(true);
+    expect(typeHasShape("colSum")).toBe(true);
+    expect(typeHasShape("colMax")).toBe(true);
+    expect(typeHasShape("countDist")).toBe(true);
+    expect(typeHasShape("activeDays")).toBe(true);
+    expect(typeHasShape("proportion")).toBe(false);
+    expect(typeHasShape("ratio")).toBe(false);
+  });
+
+  it("cappingOk is true for ratio and the Value-group types only", () => {
+    expect(cappingOk("ratio")).toBe(true);
+    expect(cappingOk("colSum")).toBe(true);
+    expect(cappingOk("proportion")).toBe(false);
+    expect(cappingOk("quantile")).toBe(false);
+  });
+
+  it("windowOk is false only for retention", () => {
+    expect(windowOk("retention")).toBe(false);
+    expect(windowOk("proportion")).toBe(true);
+    expect(windowOk("funnel")).toBe(true);
   });
 });
