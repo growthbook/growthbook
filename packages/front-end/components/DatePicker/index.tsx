@@ -554,14 +554,19 @@ export default function DatePicker({
               ) : (
                 <DayPicker
                   mode="single"
+                  // Re-clicking the selected day keeps it; the library's default
+                  // toggle deselected it, which used to fall back to "now".
+                  required
                   // Nothing is selected when there is no date, rather than
                   // `getValidDate`'s "today" fallback highlighting a day the
                   // caller never set (the range branch above already does this).
                   selected={date ? parseDateInput(date) : undefined}
                   onSelect={(selectedDate: Date) => {
-                    if (!selectedDate) selectedDate = new Date();
                     setDate(selectedDate);
                     setBufferedDate(format(selectedDate, dateFormat));
+                    // A day is the whole choice at date precision; datetime
+                    // still needs the time typed into the field.
+                    if (precision === "date") setOpen(false);
                   }}
                   disabled={disabledMatchers}
                   modifiers={markedDays}
