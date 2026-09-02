@@ -24,6 +24,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
+import { cancelExternalQuery } from "back-end/src/services/queryCancellation";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -962,18 +963,15 @@ export abstract class QueryRunner<
       if (externalJobs.length) {
         await promiseAllChunks(
           externalJobs.map(({ id, metadata }) => {
-            return async () => {
-              if (!this.integration.cancelQuery) return;
-              try {
-                await this.integration.cancelQuery(id, metadata);
-              } catch (e) {
-                const msg = e instanceof Error ? e.message : String(e);
-                logger.warn(
-                  { err: e, externalId: id },
-                  `Failed to cancel external job: ${msg}`,
-                );
-              }
-            };
+            return () =>
+              cancelExternalQuery(
+                this.integration,
+                { externalId: id, metadata },
+                {
+                  datasourceId: this.integration.datasource.id,
+                  modelId: this.model.id,
+                },
+              );
           }),
           5,
         );

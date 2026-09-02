@@ -101,6 +101,7 @@ import {
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
 import { logger } from "back-end/src/util/logger";
+import { cancelExternalQuery } from "back-end/src/services/queryCancellation";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   removeManagedWarehouseLegacyIdentifier,
@@ -1575,14 +1576,15 @@ export async function cancelDataSourceQuery(
     true,
   );
 
-  if (integration.cancelQuery && query.externalId) {
-    try {
-      await integration.cancelQuery(query.externalId, query.externalIdMetadata);
-    } catch (e: unknown) {
-      // Log but continue - we'll still mark the query as failed
-      const msg = e instanceof Error ? e.message : String(e);
-      logger.debug(e, `Failed to cancel query on warehouse: ${msg}`);
-    }
+  if (query.externalId) {
+    await cancelExternalQuery(
+      integration,
+      {
+        externalId: query.externalId,
+        metadata: query.externalIdMetadata,
+      },
+      { datasourceId, queryId: query.id },
+    );
   }
 
   const cancelledBy =
