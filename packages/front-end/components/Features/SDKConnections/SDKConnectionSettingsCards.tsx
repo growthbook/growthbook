@@ -1,4 +1,5 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { ReactNode } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { isCloud } from "@/services/env";
@@ -9,6 +10,7 @@ import Link from "@/ui/Link";
 import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { shouldShowPayloadSecurity } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import {
   CATEGORY_TITLES,
   SDKConnectionSettingsCategory,
@@ -66,8 +68,8 @@ function SettingsCard({
 
 /**
  * One card per settings category, titled and grouped exactly as the full form
- * is, so the page, its per-card editor and the create/edit modals all use the
- * same names for the same things.
+ * is. A setting is only listed when the full form would offer it for this
+ * connection's SDK language and version.
  */
 export default function SDKConnectionSettingsCards({
   connection,
@@ -79,6 +81,24 @@ export default function SDKConnectionSettingsCards({
   onEditSection?: (section: SDKConnectionSettingsCategory) => void;
 }) {
   const customFields = useCustomFields();
+
+  // The same gates the full form applies: Visual Editor and URL Redirects on
+  // the SDK's latest version, Saved Groups on the pinned one, and no payload
+  // security choices at all for Next.js.
+  const currentCaps = getConnectionSDKCapabilities(
+    connection,
+    "min-ver-intersection",
+  );
+  const latestCaps = getConnectionSDKCapabilities(
+    connection,
+    "max-ver-intersection",
+  );
+  const showVisualEditor = latestCaps.includes("visualEditor");
+  const showRedirects = latestCaps.includes("redirects");
+  const showSavedGroups = currentCaps.includes("savedGroupReferences");
+  const payloadSecurityAllowed = shouldShowPayloadSecurity(
+    connection.languages,
+  );
 
   // Streaming is derived, not stored: it works on Cloud, or when a proxy is
   // configured to push updates.
@@ -95,13 +115,15 @@ export default function SDKConnectionSettingsCards({
     <Grid columns={{ initial: "1", sm: "2", md: "3" }} gap="4">
       <SettingsCard
         title={CATEGORY_TITLES.payloadSecurity}
-        canUpdate={canUpdate}
+        canUpdate={canUpdate && payloadSecurityAllowed}
         onEdit={edit("payloadSecurity")}
       >
-        <Metadata
-          label="Evaluation mode"
-          value={connection.remoteEvalEnabled ? "Remote Eval" : "Standard"}
-        />
+        {payloadSecurityAllowed && (
+          <Metadata
+            label="Evaluation mode"
+            value={connection.remoteEvalEnabled ? "Remote Eval" : "Standard"}
+          />
+        )}
         <Flex align="center" gap="1">
           <Metadata
             label="Streaming updates"
@@ -109,20 +131,24 @@ export default function SDKConnectionSettingsCards({
           />
           <Tooltip body={STREAMING_TOOLTIP} />
         </Flex>
-        <Metadata
-          label="Payload security"
-          // Ciphered covers either half, matching the edit modal and the full
-          // form — hashing alone still means the payload isn't plain text.
-          value={
-            connection.encryptPayload || connection.hashSecureAttributes
-              ? "Ciphered"
-              : "Plain text"
-          }
-        />
-        <Metadata
-          label="Secure attribute hashing"
-          value={<Toggle on={!!connection.hashSecureAttributes} />}
-        />
+        {payloadSecurityAllowed && (
+          <>
+            <Metadata
+              label="Payload security"
+              // Ciphered covers either half, matching the full form — hashing
+              // alone still means the payload isn't plain text.
+              value={
+                connection.encryptPayload || connection.hashSecureAttributes
+                  ? "Ciphered"
+                  : "Plain text"
+              }
+            />
+            <Metadata
+              label="Secure attribute hashing"
+              value={<Toggle on={!!connection.hashSecureAttributes} />}
+            />
+          </>
+        )}
       </SettingsCard>
 
       <SettingsCard
@@ -130,30 +156,36 @@ export default function SDKConnectionSettingsCards({
         canUpdate={canUpdate}
         onEdit={edit("experiments")}
       >
-        <Metadata
-          label={SETTING_TITLES.visualEditor}
-          value={<Toggle on={!!connection.includeVisualExperiments} />}
-        />
-        <Metadata
-          label={SETTING_TITLES.urlRedirect}
-          value={<Toggle on={!!connection.includeRedirectExperiments} />}
-        />
+        {showVisualEditor && (
+          <Metadata
+            label={SETTING_TITLES.visualEditor}
+            value={<Toggle on={!!connection.includeVisualExperiments} />}
+          />
+        )}
+        {showRedirects && (
+          <Metadata
+            label={SETTING_TITLES.urlRedirect}
+            value={<Toggle on={!!connection.includeRedirectExperiments} />}
+          />
+        )}
         <Metadata
           label={SETTING_TITLES.hideNames}
           value={<Toggle on={!(connection.includeExperimentNames ?? true)} />}
         />
       </SettingsCard>
 
-      <SettingsCard
-        title={CATEGORY_TITLES.savedGroups}
-        canUpdate={canUpdate}
-        onEdit={edit("savedGroups")}
-      >
-        <Metadata
-          label={SETTING_TITLES.savedGroupReferences}
-          value={<Toggle on={!!connection.savedGroupReferencesEnabled} />}
-        />
-      </SettingsCard>
+      {showSavedGroups && (
+        <SettingsCard
+          title={CATEGORY_TITLES.savedGroups}
+          canUpdate={canUpdate}
+          onEdit={edit("savedGroups")}
+        >
+          <Metadata
+            label={SETTING_TITLES.savedGroupReferences}
+            value={<Toggle on={!!connection.savedGroupReferencesEnabled} />}
+          />
+        </SettingsCard>
+      )}
 
       <SettingsCard
         title={CATEGORY_TITLES.payloadMetadata}
@@ -203,10 +235,12 @@ export default function SDKConnectionSettingsCards({
           label={SETTING_TITLES.draftRules}
           value={<Toggle on={!!connection.includeDraftExperimentRefs} />}
         />
-        <Metadata
-          label={SETTING_TITLES.draftExperiments}
-          value={<Toggle on={!!connection.includeDraftExperiments} />}
-        />
+        {(showVisualEditor || showRedirects) && (
+          <Metadata
+            label={SETTING_TITLES.draftExperiments}
+            value={<Toggle on={!!connection.includeDraftExperiments} />}
+          />
+        )}
       </SettingsCard>
 
       {/* Self-hosted configures the proxy via env vars, so the full form only

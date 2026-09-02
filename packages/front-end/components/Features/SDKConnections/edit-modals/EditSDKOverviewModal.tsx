@@ -131,7 +131,8 @@ export default function EditSDKOverviewModal({
           languageFilter={languageFilter}
           setLanguageFilter={setLanguageFilter}
           languageError={languageError}
-          disableScope={isExternallyManaged}
+          edit
+          managedByVercel={isExternallyManaged}
           requireProjectSelection={requireProjectSelection}
         />
         <SDKConnectionAdvancedSettings

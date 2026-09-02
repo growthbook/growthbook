@@ -66,9 +66,8 @@ export default function SDKConnectionAdvancedSettings({
   const { hasCommercialFeature } = useUser();
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
 
-  // Capabilities are meaningless until a language is picked, so gate only
-  // after one is chosen; the modals still sanitise against the chosen SDK.
-  const languageChosen = languages.length > 0;
+  // Gated exactly as the full form gates them — with no language chosen yet,
+  // the capability-dependent options are not offered.
   const currentCaps = getConnectionSDKCapabilities(
     { languages, sdkVersion },
     "min-ver-intersection",
@@ -79,11 +78,9 @@ export default function SDKConnectionAdvancedSettings({
     { languages, sdkVersion },
     "max-ver-intersection",
   );
-  const showVisualEditor =
-    !languageChosen || latestCaps.includes("visualEditor");
-  const showRedirects = !languageChosen || latestCaps.includes("redirects");
-  const showSavedGroups =
-    !languageChosen || currentCaps.includes("savedGroupReferences");
+  const showVisualEditor = latestCaps.includes("visualEditor");
+  const showRedirects = latestCaps.includes("redirects");
+  const showSavedGroups = currentCaps.includes("savedGroupReferences");
 
   const [open, setOpen] = useState(false);
   const panelId = useId();

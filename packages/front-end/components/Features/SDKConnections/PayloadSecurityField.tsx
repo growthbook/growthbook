@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { PiInfo } from "react-icons/pi";
 import { SDKLanguage } from "shared/types/sdk-connection";
 import {
@@ -65,19 +66,39 @@ export default function PayloadSecurityField({
     { languages, sdkVersion },
     "min-ver-intersection",
   );
-  // Capabilities are meaningless until a language is picked.
-  const languageChosen = languages.length > 0;
-  const encryptionSupported =
-    !languageChosen || currentCaps.includes("encryption");
-  const remoteEvalSupported =
-    !languageChosen || currentCaps.includes("remoteEval");
+  // Gated on the pinned version's capabilities exactly as the full form is —
+  // with no language chosen yet, neither is offered.
+  const encryptionSupported = currentCaps.includes("encryption");
+  const remoteEvalSupported = currentCaps.includes("remoteEval");
   const singleLanguage = languages.length === 1 ? languages[0] : undefined;
   const encryptionVersion = singleLanguage
     ? getSDKCapabilityVersion(singleLanguage, "encryption")
     : undefined;
 
-  // Next.js is plain-text only, so the full form hides the whole section.
-  if (!shouldShowPayloadSecurity(languages)) return null;
+  // Next.js is plain-text only, so the full form hides the whole section and
+  // forces Plain Text.
+  const allowed = shouldShowPayloadSecurity(languages);
+  useEffect(() => {
+    if (
+      !allowed &&
+      (value.delivery !== "plain" ||
+        value.encryptPayload ||
+        value.hashSecureAttributes)
+    ) {
+      onChange({
+        delivery: "plain",
+        encryptPayload: false,
+        hashSecureAttributes: false,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    allowed,
+    value.delivery,
+    value.encryptPayload,
+    value.hashSecureAttributes,
+  ]);
+  if (!allowed) return null;
 
   const cipherOptions = (
     <Box>
@@ -285,8 +306,9 @@ export default function PayloadSecurityField({
         setValue={(v) => {
           const mode = v as DeliveryMode;
           const patch: Partial<PayloadSecurityValue> = { delivery: mode };
-          if (mode === "plain") {
-            // Plain Text clears every cipher option, as the full form's tab does.
+          if (mode === "plain" || mode === "remote") {
+            // As the full form's tabs: Plain Text and Remote Eval both clear
+            // the cipher options (they can be re-enabled under Remote Eval).
             patch.encryptPayload = false;
             patch.hashSecureAttributes = false;
           } else if (
@@ -295,7 +317,7 @@ export default function PayloadSecurityField({
             !value.hashSecureAttributes
           ) {
             // Entering Ciphered with nothing set pre-enables whichever
-            // options the plan allows. Remote Eval leaves them alone.
+            // options the plan allows.
             patch.encryptPayload = hasEncryptionFeature;
             patch.hashSecureAttributes = hasSecureAttributesFeature;
           }

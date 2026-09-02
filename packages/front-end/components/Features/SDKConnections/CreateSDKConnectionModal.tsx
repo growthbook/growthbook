@@ -3,9 +3,7 @@ import { useRouter } from "next/router";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { Flex } from "@radix-ui/themes";
-import { filterProjectsByEnvironment } from "shared/util";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import Text from "@/ui/Text";
 import SDKConnectionFields, {
   SDKConnectionFieldsValue,
 } from "@/components/Features/SDKConnections/SDKConnectionFields";
@@ -40,7 +38,7 @@ export default function CreateSDKConnectionModal({
   const { apiCall } = useAuth();
   const router = useRouter();
   const environments = useEnvironments();
-  const { projects, project } = useDefinitions();
+  const { project } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
@@ -100,14 +98,6 @@ export default function CreateSDKConnectionModal({
     "max-ver-intersection",
   );
 
-  const selectedEnvironment = environments.find(
-    (e) => e.id === value.environment,
-  );
-  const allowedProjectIds = filterProjectsByEnvironment(
-    projects.map((p) => p.id),
-    selectedEnvironment,
-    true,
-  );
   // On create the org setting always applies — there's no existing scope to
   // grandfather.
   const requireProjectSelection = !!settings.requireProjectForSdkConnections;
@@ -172,15 +162,9 @@ export default function CreateSDKConnectionModal({
           languageFilter={languageFilter}
           setLanguageFilter={setLanguageFilter}
           languageError={languageError}
+          edit={false}
           requireProjectSelection={requireProjectSelection}
         />
-
-        {value.projects.some((p) => !allowedProjectIds.includes(p)) && (
-          <Text size="sm" color="text-mid">
-            Some selected projects aren&apos;t allowed in this environment and
-            won&apos;t be included in the SDK payload.
-          </Text>
-        )}
 
         <SDKConnectionAdvancedSettings
           value={value}
