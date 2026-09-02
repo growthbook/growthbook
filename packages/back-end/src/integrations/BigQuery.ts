@@ -42,9 +42,6 @@ export default class BigQuery extends SqlIntegration {
   getSqlDialect(): SqlDialect {
     return bigQueryDialect;
   }
-  getSensitiveParamKeys(): string[] {
-    return ["privateKey"];
-  }
 
   private getClient() {
     // If pull credentials from env or the metadata server
@@ -264,7 +261,7 @@ export default class BigQuery extends SqlIntegration {
         : undefined;
 
       return {
-        name: field.name!.toLowerCase(),
+        name: field.name!,
         ...(dataType && { dataType }),
         ...(childFields && { fields: childFields }),
       };

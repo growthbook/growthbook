@@ -35,15 +35,12 @@ import {
   setTag as sentrySetTag,
 } from "@sentry/nextjs";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import {
-  Permissions,
-  roleToPermissionMap,
-  userHasPermission,
-} from "shared/permissions";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { AgreementType } from "shared/validators";
+import { AIProvider } from "shared/ai";
+import { NonJsonResponseError } from "shared/util";
 import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
 import {
   getGrowthBookBuild,
@@ -76,6 +73,10 @@ export type Team = Omit<TeamInterface, "members"> & {
   members?: ExpandedMember[];
 };
 
+interface RefreshOrganizationOptions {
+  forceLicenseRefresh?: boolean;
+}
+
 export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   createDimensions: false,
   createPresentations: false,
@@ -104,6 +105,9 @@ export interface UserContextValue {
   pylonHmacHash?: string;
   email?: string;
   superAdmin?: boolean;
+  npsSurveyAt?: string;
+  accountCreatedAt?: string;
+  npsSurveyEnabled?: boolean;
   license?: Partial<LicenseInterface> | null;
   installationName?: string;
   subscription: SubscriptionInfo | null;
@@ -112,7 +116,7 @@ export interface UserContextValue {
   getUserDisplay: (id: string, fallback?: boolean) => string;
   getOwnerDisplay: (owner: string | undefined) => string;
   updateUser: () => Promise<void>;
-  refreshOrganization: () => Promise<void>;
+  refreshOrganization: (options?: RefreshOrganizationOptions) => Promise<void>;
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
   settings: OrganizationSettings;
   enterpriseSSO?: Partial<SSOConnectionInterface> | null;
@@ -122,6 +126,9 @@ export interface UserContextValue {
   commercialFeatures: CommercialFeature[];
   organization: Partial<OrganizationInterface>;
   agreements?: AgreementType[];
+  // AI providers with a usable API key, from the org's own stored keys or the
+  // host's environment variables.
+  aiKeyProviders: AIProvider[];
   seatsInUse: number;
   roles: Role[];
   teams?: Team[];
@@ -147,6 +154,9 @@ interface UserResponse {
   pylonHmacHash: string;
   verified: boolean;
   superAdmin: boolean;
+  npsSurveyAt?: string;
+  accountCreatedAt?: string;
+  npsSurveyEnabled?: boolean;
   organizations?: UserOrganizations;
   currentUserPermissions: UserPermissions;
 }
@@ -167,6 +177,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   organization: {},
   agreements: [],
+  aiKeyProviders: [],
   subscription: null,
   licenseError: "",
   seatsInUse: 0,
@@ -205,7 +216,7 @@ export function getCurrentUser() {
 }
 
 export function UserContextProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, orgId, setOrganizations } = useAuth();
+  const { apiCall, isAuthenticated, orgId, setOrganizations } = useAuth();
 
   const {
     data,
@@ -224,11 +235,50 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   const {
     data: currentOrg,
-    mutate: refreshOrganization,
+    mutate: mutateOrganization,
     error: orgLoadingError,
   } = useApi<GetOrganizationResponse>(`/organization`, {
     shouldRun: () => !!orgId,
   });
+
+  // An expired auth proxy session (e.g. Google IAP) answers API calls in plain text; only a top-level navigation can re-authenticate it, so reload, at most once a minute
+  const AUTH_PROXY_RELOAD_KEY = "gb-auth-proxy-reload";
+  const proxyAuthError = [error, orgLoadingError].some(
+    (e) =>
+      e instanceof NonJsonResponseError &&
+      (e.status === 401 || e.status === 403),
+  );
+  useEffect(() => {
+    if (!proxyAuthError) return;
+    try {
+      const lastReload = parseInt(
+        window.sessionStorage.getItem(AUTH_PROXY_RELOAD_KEY) || "0",
+        10,
+      );
+      if (Date.now() - lastReload < 60_000) return;
+      window.sessionStorage.setItem(AUTH_PROXY_RELOAD_KEY, `${Date.now()}`);
+    } catch (e) {
+      // no guard available; don't risk a reload loop
+      return;
+    }
+    window.location.reload();
+  }, [proxyAuthError]);
+
+  const refreshOrganization = useCallback(
+    async (options?: RefreshOrganizationOptions) => {
+      if (!options?.forceLicenseRefresh) {
+        await mutateOrganization();
+        return;
+      }
+
+      const organization = await apiCall<GetOrganizationResponse>(
+        "/organization?forceLicenseRefresh=true",
+        { method: "GET" },
+      );
+      await mutateOrganization(organization, false);
+    },
+    [apiCall, mutateOrganization],
+  );
 
   const hashedOrganizationId = useMemo(() => {
     const id = currentOrg?.organization?.id || "";
@@ -332,6 +382,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       buildSHA: build.sha,
       buildDate: build.date,
       buildVersion: build.lastVersion,
+      userDateCreated: data?.accountCreatedAt
+        ? getValidDate(data.accountCreatedAt).toISOString()
+        : "",
       orgOwnerJobTitle:
         currentOrg?.organization?.demographicData?.ownerJobTitle,
       orgOwnerUsageIntents:
@@ -340,6 +393,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   }, [
     data?.superAdmin,
     data?.userId,
+    data?.accountCreatedAt,
     currentOrg?.organization?.demographicData?.ownerJobTitle,
     currentOrg?.organization?.demographicData?.ownerUsageIntents,
   ]);
@@ -456,125 +510,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         projects: {},
       };
 
-    // Inject a project-scoped role for the sample data project. The
-    // permissions system already supports per-project role overrides, so this
-    // gives us the existing readonly UX everywhere with no per-page tweaks.
-    //
-    // We start from readonly, then grant just the permissions needed to
-    // explore the sample data — running queries plus updating features,
-    // experiments, and fact metrics. We then patch the create/delete entry
-    // points below to keep new-resource CTAs disabled (the underlying
-    // permission can't separate update from create/delete).
-    const orgId = currentOrg?.organization?.id;
-    const org = currentOrg?.organization;
-    if (orgId && org) {
-      const demoProjectId = getDemoDatasourceProjectIdForOrganization(orgId);
-      const permissions = new Permissions({
-        ...basePermissions,
-        projects: {
-          ...basePermissions.projects,
-          [demoProjectId]: {
-            permissions: {
-              ...roleToPermissionMap("readonly", org),
-              runQueries: true,
-              // Allow editing existing features/experiments/fact metrics.
-              manageFeatures: true,
-              manageFeatureDrafts: true,
-              canReview: true,
-              createAnalyses: true,
-              manageFactMetrics: true,
-              // Allow publishing the resulting changes.
-              publishFeatures: true,
-              runExperiments: true,
-            },
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
-      });
-
-      // Block create/delete on the demo project — the granted permissions above
-      // gate update + create + delete equally, so we patch the create/delete
-      // call sites to keep "Add ..." CTAs disabled across the app.
-      const targetsDemoProject = (project?: string) =>
-        project === demoProjectId;
-      const projectsTargetDemoOnly = (projects?: string[]) =>
-        !!projects?.length && projects.every((p) => p === demoProjectId);
-
-      const wrapByProject =
-        <T extends { project?: string }, R extends boolean>(
-          original: (arg: T) => R,
-        ) =>
-        (arg: T) =>
-          (targetsDemoProject(arg.project) ? false : original(arg)) as R;
-
-      const wrapByProjects =
-        <T extends { projects?: string[] }, R extends boolean>(
-          original: (arg: T) => R,
-        ) =>
-        (arg: T) =>
-          (projectsTargetDemoOnly(arg.projects) ? false : original(arg)) as R;
-
-      const wrapByProjectString =
-        (
-          original: (
-            project?: string,
-            allProjects?: { id: string }[],
-          ) => boolean,
-        ) =>
-        (project?: string, allProjects?: { id: string }[]) =>
-          targetsDemoProject(project) ? false : original(project, allProjects);
-
-      permissions.canCreateFeature = wrapByProject(
-        permissions.canCreateFeature,
-      );
-      permissions.canDeleteFeature = wrapByProject(
-        permissions.canDeleteFeature,
-      );
-      permissions.canViewFeatureModal = wrapByProjectString(
-        permissions.canViewFeatureModal,
-      );
-
-      permissions.canCreateExperiment = wrapByProject(
-        permissions.canCreateExperiment,
-      );
-      permissions.canDeleteExperiment = wrapByProject(
-        permissions.canDeleteExperiment,
-      );
-      permissions.canViewExperimentModal = wrapByProjectString(
-        permissions.canViewExperimentModal,
-      );
-      permissions.canCreateExperimentTemplate = wrapByProject(
-        permissions.canCreateExperimentTemplate,
-      );
-      permissions.canDeleteExperimentTemplate = wrapByProject(
-        permissions.canDeleteExperimentTemplate,
-      );
-      permissions.canViewExperimentTemplateModal = wrapByProjectString(
-        permissions.canViewExperimentTemplateModal,
-      );
-
-      permissions.canCreateFactMetric = wrapByProjects(
-        permissions.canCreateFactMetric,
-      );
-      permissions.canDeleteFactMetric = wrapByProjects(
-        permissions.canDeleteFactMetric,
-      );
-
-      permissions.canCreateHoldout = wrapByProjects(
-        permissions.canCreateHoldout,
-      );
-      permissions.canDeleteHoldout = wrapByProjects(
-        permissions.canDeleteHoldout,
-      );
-      permissions.canViewHoldoutModal = wrapByProjectString(
-        permissions.canViewHoldoutModal,
-      );
-
-      return permissions;
-    }
     return new Permissions(basePermissions);
-  }, [currentOrg?.currentUserPermissions, currentOrg?.organization]);
+  }, [currentOrg?.currentUserPermissions]);
 
   const getUserDisplay = useCallback(
     (id: string, fallback = true) => {
@@ -642,12 +579,15 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         email: data?.email,
         pylonHmacHash: data?.pylonHmacHash,
         superAdmin: data?.superAdmin,
+        npsSurveyAt: data?.npsSurveyAt,
+        accountCreatedAt: data?.accountCreatedAt,
+        npsSurveyEnabled: data?.npsSurveyEnabled,
         updateUser,
         user,
         users,
         getUserDisplay: getUserDisplay,
         getOwnerDisplay: getOwnerDisplay,
-        refreshOrganization: refreshOrganization as () => Promise<void>,
+        refreshOrganization,
         roles: currentOrg?.roles || [],
         permissions,
         permissionsUtil,
@@ -662,6 +602,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         licenseError: currentOrg?.licenseError || "",
         commercialFeatures: [...commercialFeatures],
         agreements: currentOrg?.agreements || [],
+        aiKeyProviders: currentOrg?.aiKeyProviders || [],
         organization: organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,

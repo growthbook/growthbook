@@ -2,56 +2,64 @@ name: CI
 on:
   push:
     branches: [main]
-    paths:
-      - "packages/**"
-      - "pnpm-lock.yaml"
-      - "eslint.config.mjs"
-      - "eslint-suppressions.json"
-      - ".prettierignore"
   pull_request:
-    paths:
-      - "packages/**"
-      - "pnpm-lock.yaml"
-      - "eslint.config.mjs"
-      - "eslint-suppressions.json"
-      - ".prettierignore"
+
+# No path filters on purpose: `paths` and `paths-ignore` can both fire on one
+# commit, so a second workflow can never be mutually exclusive with this one.
+
+# Superseded PR runs are waste; main pushes are not, so only cancel on PRs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Linting, type-checking, and tests
-  ci:
-    runs-on: ubuntu-latest
+  format:
+    runs-on: depot-ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - uses: ./.github/actions/setup-workspace
         with:
-          node-version: "24"
-          cache: "pnpm"
+          build-deps: "false"
 
-      - name: Cache eslint
-        uses: actions/cache@v5
+      - name: Check formatting
+        run: pnpm pretty:check
+
+  # The whole-monorepo type-aware eslint run peaks near 4.5GB, so it needs 16GB.
+  lint:
+    runs-on: depot-ubuntu-24.04-4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # No eslint cache here on purpose. ESLint keys its cache on file content
+      # plus the serialized config, neither of which changes when a type in
+      # another package or a rule under eslint-rules/ changes. Caching would let
+      # type-aware rules such as switch-exhaustiveness-check pass on stale results.
+      - uses: ./.github/actions/setup-workspace
         with:
-          path: ${{ github.workspace }}/.eslintcache
-          key: ${{ runner.os }}-eslint-${{ hashFiles('eslint.config.mjs', 'eslint-suppressions.json', 'pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-eslint-
+          build-deps: "sdk"
 
-      - name: Cache tsbuildinfo
-        uses: actions/cache@v5
+      - name: Lint
+        run: pnpm lint:ci
+        env:
+          CI: true
+          # V8 defaults near 4.3GB on any box, which this was already scraping.
+          NODE_OPTIONS: --max-old-space-size=8192
+
+  # Separate job so the JS jobs never install a Python toolchain.
+  stats:
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # Before poetry exists, so the root postinstall skips its stats install and
+      # the explicit step below is the only one.
+      - uses: ./.github/actions/setup-workspace
         with:
-          path: |
-            **/tsconfig.tsbuildinfo
-          key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-tsbuildinfo-
-
-      - name: Install pnpm dependencies
-        run: pnpm install
+          build-deps: "false"
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
@@ -62,7 +70,6 @@ jobs:
 
       - name: Install python dependencies
         run: |
-          # Stats engine
           pip install pipx
           pipx install poetry
           poetry config virtualenvs.in-project true
@@ -78,43 +85,173 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-poetry-
 
-      - name: Build dependencies
-        run: |
-          # Build required dependencies (sdks/shared package)
-          # This is required for linting/type checks to work
-          pnpm run setup
-          # Generate Next.js types (next-env.d.ts, routes.d.ts) for front-end type-check
-          pnpm --filter front-end exec next typegen
+      # `setup` and `test` are pnpm built-ins, so these need an explicit `run`.
+      - name: Install stats engine
+        run: pnpm --filter stats run setup
         env:
           CI: true
 
       - name: Lint
-        run: |
-          pnpm lint:ci
-          pnpm --filter stats lint:ci
+        run: pnpm --filter stats run lint:ci
         env:
           CI: true
+
+      - name: Test
+        run: pnpm --filter stats run test
+        env:
+          CI: true
+
+  openapi:
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
 
       - name: Check OpenAPI spec
         run: |
           pnpm generate-openapi
           [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm generate-openapi" && git status --porcelain && exit 1 || true
 
-      - name: Check doc
-        run: |
-          cd docs
-          pnpm install
-          pnpm gen
-          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm doc-gen" && git status --porcelain && exit 1 || true
+  type-check:
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+        with:
+          build-deps: "sdk"
+
+      # Only this job emits full-repo buildinfo, so only this job caches it.
+      - name: Cache tsbuildinfo
+        uses: actions/cache@v5
+        with:
+          # Explicit paths, not `**`: that glob walks node_modules, ~40s on save.
+          path: |
+            packages/*/tsconfig.tsbuildinfo
+            packages/*/dist/tsconfig.tsbuildinfo
+          key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-tsbuildinfo-${{ hashFiles('pnpm-lock.yaml') }}-
+            ${{ runner.os }}-tsbuildinfo-
+
+      - name: Generate Next.js types
+        run: pnpm --filter front-end exec next typegen
 
       - name: Type-check
-        run: |
-          pnpm type-check
+        run: pnpm type-check
         env:
           CI: true
 
+  # A 4-vCPU runner gives Jest only 3 workers for 300+ files, so shard instead.
+  # The 2 vCPU base runner drops each shard to one worker, so pay for 4 here.
+  test-back-end:
+    runs-on: depot-ubuntu-24.04-4
+    # A silently killed Jest worker leaves the parent waiting on the 6h default.
+    timeout-minutes: 15
+    env:
+      # mongodb-memory-server's own default, pinned so the cache key is exact.
+      MONGOMS_VERSION: 6.0.14
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Cache Jest transform cache
+        uses: actions/cache@v5
+        with:
+          path: packages/back-end/.jest-cache
+          key: ${{ runner.os }}-jest-back-end-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-jest-back-end-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            ${{ runner.os }}-jest-back-end-${{ matrix.shard }}-
+            ${{ runner.os }}-jest-back-end-
+
+      # Otherwise Jest workers race for the same mongod and die on its lockfile.
+      - name: Cache mongod binary
+        id: cache-mongod
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: ${{ runner.os }}-mongod-${{ env.MONGOMS_VERSION }}
+
+      - name: Download mongod binary
+        if: steps.cache-mongod.outputs.cache-hit != 'true'
+        # The hook defaults to node_modules/.cache; the tests read ~/.cache.
+        run: MONGOMS_PREFER_GLOBAL_PATH=true node packages/back-end/node_modules/mongodb-memory-server/postinstall.js
+
       - name: Test
-        run: |
-          pnpm test
+        run: pnpm --filter back-end test --shard=${{ matrix.shard }}/4
         env:
           CI: true
+
+  # Split out because front-end is over half of the non-back-end test time and
+  # everything else used to queue behind it.
+  test-front-end:
+    # vitest gets one worker per vCPU-1, so 2 vCPU leaves it single-threaded.
+    runs-on: depot-ubuntu-24.04-4
+    # A silently killed worker leaves the parent waiting on the 6h default.
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Test
+        run: pnpm --filter front-end run test
+        env:
+          CI: true
+
+  test-packages:
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Cache Jest transform cache
+        uses: actions/cache@v5
+        with:
+          path: packages/shared/.jest-cache
+          key: ${{ runner.os }}-jest-shared-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-jest-shared-${{ hashFiles('pnpm-lock.yaml') }}-
+            ${{ runner.os }}-jest-shared-
+
+      # back-end is sharded above, stats (pytest) and front-end have own jobs.
+      - name: Test
+        run: pnpm --filter '!back-end' --filter '!stats' --filter '!front-end' -r run test
+        env:
+          CI: true
+
+  # The single required status check; renaming it breaks branch protection.
+  ci:
+    # `always()` matters: without it this job is skipped when a dependency
+    # fails, and branch protection counts a skipped required check as passing.
+    if: always()
+    needs:
+      [
+        format,
+        lint,
+        stats,
+        openapi,
+        type-check,
+        test-back-end,
+        test-front-end,
+        test-packages,
+      ]
+    # This job only checks other jobs' results, so a Depot runner buys nothing.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required job did not succeed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

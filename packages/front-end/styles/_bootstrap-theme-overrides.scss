@@ -53,9 +53,35 @@ pre {
 }
 
 .input-group-text {
-  border-color: var(--border-color-300);
-  background-color: var(--form-input-group-background);
+  background-color: var(--gray-a2);
+  border-color: var(--gray-a7);
   color: var(--form-input-group-color);
+  font-size: var(--font-size-2);
+}
+
+.input-group--sm .input-group-text {
+  height: 28px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  font-size: var(--font-size-1);
+  border-radius: var(--radius-2);
+}
+.input-group--md .input-group-text {
+  height: 32px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  border-radius: var(--radius-2);
+}
+.input-group--legacy .input-group-text {
+  height: 36px;
+  border-radius: var(--radius-2);
+}
+.input-group--lg .input-group-text {
+  height: 40px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  font-size: var(--font-size-3);
+  border-radius: var(--radius-3);
 }
 
 // endregion Forms
@@ -82,6 +108,45 @@ pre {
 
 .table tbody + tbody {
   border-top: 2px solid var(--border-color-100);
+}
+
+// Bootstrap's contextual row classes hard-code light pastel backgrounds
+.dark-theme {
+  .table-warning,
+  .table-warning > th,
+  .table-warning > td {
+    background-color: var(--amber-a2);
+  }
+
+  .table-hover .table-warning:hover,
+  .table-hover .table-warning:hover > th,
+  .table-hover .table-warning:hover > td {
+    background-color: var(--amber-a3);
+  }
+
+  .table-danger,
+  .table-danger > th,
+  .table-danger > td {
+    background-color: var(--red-a2);
+  }
+
+  .table-hover .table-danger:hover,
+  .table-hover .table-danger:hover > th,
+  .table-hover .table-danger:hover > td {
+    background-color: var(--red-a3);
+  }
+
+  .table-secondary,
+  .table-secondary > th,
+  .table-secondary > td {
+    background-color: var(--slate-a2);
+  }
+
+  .table-hover .table-secondary:hover,
+  .table-hover .table-secondary:hover > th,
+  .table-hover .table-secondary:hover > td {
+    background-color: var(--slate-a3);
+  }
 }
 
 // endregion Tables

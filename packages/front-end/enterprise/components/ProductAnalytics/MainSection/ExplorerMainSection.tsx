@@ -1,11 +1,13 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { BsGraphUpArrow } from "react-icons/bs";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { PiArrowsClockwise, PiDotsSix, PiInfo } from "react-icons/pi";
+import { PiArrowsClockwise, PiChartLineUp, PiDotsSix } from "react-icons/pi";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
-import { shouldChartSectionShow } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  hasSubmittablePayload,
+  shouldChartSectionShow,
+} from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ExplorerChart from "./ExplorerChart";
@@ -23,10 +25,13 @@ export default function ExplorerMainSection() {
     draftExploreState,
     handleSubmit,
     isSubmittable,
+    collapseFunnelStepsForAnalyze,
     compareEnabled,
     comparisonExploration,
     comparisonComputed,
+    comparisonError,
     submittedPreviousTimeFrame,
+    submittedComparisonMode,
   } = useExplorerContext();
 
   const showChartSection = shouldChartSectionShow({
@@ -34,6 +39,13 @@ export default function ExplorerMainSection() {
     error,
     submittedExploreState,
   });
+
+  const funnelMainEmpty =
+    draftExploreState.type === "funnel" &&
+    draftExploreState.dataset?.type === "funnel" &&
+    !hasSubmittablePayload(submittedExploreState);
+
+  const suppressStaleFloatingCallout = funnelMainEmpty && isStale && !loading;
 
   return (
     <Flex
@@ -45,6 +57,11 @@ export default function ExplorerMainSection() {
       style={{ flex: "1", minHeight: 0 }}
     >
       <Toolbar />
+      {compareEnabled && comparisonError && !loading && (
+        <Callout status="warning" size="sm">
+          {`The comparison period could not be loaded, so only the current period is shown: ${comparisonError}`}
+        </Callout>
+      )}
 
       <Flex
         direction="column"
@@ -52,8 +69,7 @@ export default function ExplorerMainSection() {
         style={{ flex: "1", minHeight: 0, position: "relative" }}
         id="main-section-visuals"
       >
-        {submittedExploreState?.dataset?.values?.length &&
-        submittedExploreState?.dataset?.values?.length > 0 ? (
+        {hasSubmittablePayload(submittedExploreState) ? (
           <PanelGroup direction="vertical" id="visualization-group">
             {showChartSection && (
               <>
@@ -76,6 +92,7 @@ export default function ExplorerMainSection() {
                     compareEnabled={compareEnabled}
                     comparisonExploration={comparisonExploration}
                     submittedPreviousTimeFrame={submittedPreviousTimeFrame}
+                    submittedComparisonMode={submittedComparisonMode}
                     serverBigNumberTrends={
                       comparisonComputed?.bigNumberTrends ?? null
                     }
@@ -119,6 +136,7 @@ export default function ExplorerMainSection() {
                 query={query}
                 compareEnabled={compareEnabled}
                 comparisonExploration={comparisonExploration}
+                comparisonMode={submittedComparisonMode}
                 serverTableTrendsByRow={
                   comparisonComputed?.tableTrendsByRow ?? null
                 }
@@ -139,14 +157,43 @@ export default function ExplorerMainSection() {
               borderRadius: "var(--radius-4)",
             }}
           >
-            <BsGraphUpArrow size={48} className="text-muted" />
-            <Text size="large" weight="medium">
-              Configure your explorer to visualize data
-            </Text>
+            {funnelMainEmpty ? (
+              <>
+                <Text size="lg" weight="medium">
+                  Done configuring steps?
+                </Text>
+                <Button
+                  size="xl"
+                  variant="solid"
+                  disabled={
+                    loading ||
+                    !hasSubmittablePayload(draftExploreState) ||
+                    !isSubmittable
+                  }
+                  onClick={async () => {
+                    collapseFunnelStepsForAnalyze();
+                    await handleSubmit();
+                  }}
+                >
+                  <Flex align="center" gap="2">
+                    <PiArrowsClockwise />
+                    Analyze Funnel
+                  </Flex>
+                </Button>
+              </>
+            ) : (
+              <>
+                <PiChartLineUp size={48} style={{ color: "var(--gray-a9)" }} />
+
+                <Text size="lg" weight="medium">
+                  Configure your explorer to visualize data
+                </Text>
+              </>
+            )}
           </Flex>
         )}
 
-        {(isStale || loading) && (
+        {(isStale || loading) && !suppressStaleFloatingCallout && (
           <Box
             style={{
               position: "absolute",
@@ -158,35 +205,41 @@ export default function ExplorerMainSection() {
               borderRadius: "var(--radius-3)",
             }}
           >
-            <Callout status="info" size="sm" icon={null} contentsAs="div">
-              <Flex align="center" gap="2">
-                {loading ? (
-                  <Flex align="center" gap="2">
-                    <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-                    <Text>Loading...</Text>
-                  </Flex>
-                ) : (
-                  <>
-                    <Text title="Some configuration changes require running a new SQL query against your data source">
-                      <PiInfo /> Latest changes not applied
-                    </Text>
-                    <Button
-                      size="sm"
-                      variant="solid"
-                      disabled={
-                        !draftExploreState?.dataset?.values?.length ||
-                        !isSubmittable
-                      }
-                      onClick={() => handleSubmit({ force: true })}
-                    >
-                      <Flex align="center" gap="2">
-                        <PiArrowsClockwise />
-                        Refresh
-                      </Flex>
-                    </Button>
-                  </>
-                )}
-              </Flex>
+            <Callout
+              status="info"
+              size="sm"
+              icon={
+                loading ? (
+                  <LoadingSpinner style={{ width: "12px", height: "12px" }} />
+                ) : undefined
+              }
+              action={
+                loading ? undefined : (
+                  <Button
+                    color="inherit"
+                    size="sm"
+                    variant="solid"
+                    disabled={
+                      !hasSubmittablePayload(draftExploreState) ||
+                      !isSubmittable
+                    }
+                    onClick={() => handleSubmit({ force: true })}
+                  >
+                    <Flex align="center" gap="2">
+                      <PiArrowsClockwise />
+                      Refresh
+                    </Flex>
+                  </Button>
+                )
+              }
+            >
+              {loading ? (
+                "Loading..."
+              ) : (
+                <Text title="Some configuration changes require running a new SQL query against your data source">
+                  Latest changes not applied
+                </Text>
+              )}
             </Callout>
           </Box>
         )}

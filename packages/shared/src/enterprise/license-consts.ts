@@ -12,6 +12,7 @@ export const accountPlans: Set<AccountPlan> = new Set([
 
 export type CommercialFeature =
   | "ai-suggestions"
+  | "ai-byok"
   | "scim"
   | "sso"
   | "advanced-permissions"
@@ -49,6 +50,7 @@ export type CommercialFeature =
   | "custom-roles"
   | "quantile-metrics"
   | "retention-metrics"
+  | "funnel-metrics"
   | "custom-markdown"
   | "experiment-impact"
   | "metric-populations"
@@ -68,6 +70,7 @@ export type CommercialFeature =
   | "saveSqlExplorerQueries"
   | "metric-effects"
   | "metric-correlations"
+  | "learnings"
   | "dashboards"
   | "product-analytics-dashboards"
   | "share-product-analytics-dashboards"
@@ -78,10 +81,19 @@ export type CommercialFeature =
   | "incremental-refresh"
   | "adv-presentations"
   | "ramp-schedules"
-  | "contextual-bandits"
-  | "scheduled-revisions";
+  | "scheduled-revisions"
+  | "feature-configs"
+  | "releases"
+  | "contextual-bandits";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
+
+// Missing field/value = unlimited.
+export type OrgLimits = {
+  maxProjects?: number | null;
+  customEnvironments?: boolean;
+  roleManagement?: boolean;
+};
 
 export type SubscriptionInfo = {
   billingPlatform?: "stripe" | "orb";
@@ -94,6 +106,7 @@ export type SubscriptionInfo = {
   cancelationDate: string;
   pendingCancelation: boolean;
   isVercelIntegration: boolean;
+  stripeCustomerId?: string;
 };
 
 export interface LicenseInterface {
@@ -118,6 +131,7 @@ export interface LicenseInterface {
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
   vercelInstallationId?: string;
+  stripeCustomerId?: string;
   stripeSubscription?: {
     id: string;
     qty: number;
@@ -163,6 +177,7 @@ export interface LicenseInterface {
   lastFailedFetchDate?: Date; // Date of the last failed fetch
   lastServerErrorMessage?: string; // The last error message from a failed fetch
   signedChecksum: string; // Checksum of the license data signed with the private key
+  limits?: OrgLimits; // NOT part of the signed checksum (see verifyLicenseInterface)
 }
 
 // Old/Airgapped style license keys where the license data is encrypted in the key itself
@@ -214,6 +229,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "multiple-sdk-webhooks",
   "quantile-metrics",
   "retention-metrics",
+  "funnel-metrics",
   "metric-populations",
   "multi-armed-bandits",
   "historical-power",
@@ -233,6 +249,7 @@ const commercialFeaturesProSso: CommercialFeature[] = [
 
 const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "ai-suggestions",
+  "ai-byok",
   "scim",
   "audit-logging",
   "custom-metadata",
@@ -259,6 +276,7 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "holdouts",
   "metric-effects",
   "metric-correlations",
+  "learnings",
   "dashboards",
   "custom-hooks",
   "metric-slices",
@@ -268,6 +286,8 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "adv-presentations",
   "contextual-bandits",
   "scheduled-revisions",
+  "feature-configs",
+  "releases",
 ];
 
 const commercialFeaturesEnterprise: CommercialFeature[] = [

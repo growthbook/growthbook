@@ -136,6 +136,8 @@ export type FactMetricData = {
   computeUncappedMetric: boolean;
   numeratorSourceIndex: number;
   denominatorSourceIndex: number;
+  // Empty for non-funnel metrics.
+  funnelStepSourceIndices: number[];
   capCoalesceMetric: string;
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;
@@ -293,10 +295,13 @@ export type TestQueryParams = {
   testDays?: number;
   timestampColumn?: string;
   limit?: number;
+  // When set, the preview filters out rows where this column is NULL, so the
+  // sample shows meaningful values for the expression being tested.
+  notNullColumn?: string;
 };
 
 export type ColumnTopValuesParams = {
-  factTable: Pick<FactTableInterface, "sql" | "eventName">;
+  factTable: Pick<FactTableInterface, "sql" | "eventName" | "timestampColumn">;
   columns: ColumnInterface[];
   limit?: number;
   lookbackDays: number;
@@ -520,6 +525,9 @@ export interface IncrementalRefreshStatisticsQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  // skipPartialData cutoff is relative to this (defaults to now). Important for Incremental Exploratory
+  // which passes the last overall snapshot's dateCreated.
+  asOf?: Date;
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";

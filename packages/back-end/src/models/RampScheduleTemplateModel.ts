@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
   RampScheduleTemplateInterface,
@@ -33,9 +34,16 @@ const BaseClass = MakeModelClass({
 export class RampScheduleTemplateModel extends BaseClass {
   protected migrate(legacyDoc: unknown): RampScheduleTemplateInterface {
     const doc = legacyDoc as RampScheduleTemplateInterface;
-    const migrated = migrateRampStepTriggers(
-      doc as unknown as Parameters<typeof migrateRampStepTriggers>[0],
-    ) as unknown as RampScheduleTemplateInterface;
+    // Templates are reusable plans, so a legacy scheduled trigger's absolute
+    // date is meaningless against the template's creation time. Convert with
+    // no date anchor: the first scheduled date anchors the walk, preserving
+    // the plan's relative pacing (the first such step becomes ~instant).
+    const migrated = {
+      ...doc,
+      ...(migrateRampStepTriggers({ steps: doc.steps } as Parameters<
+        typeof migrateRampStepTriggers
+      >[0]) as unknown as Pick<RampScheduleTemplateInterface, "steps">),
+    };
     // Legacy templates predate the `order` field — default them to 0 so they
     // keep a stable (date-created) order until the first manual reorder.
     return { ...migrated, order: migrated.order ?? 0 };
@@ -45,19 +53,23 @@ export class RampScheduleTemplateModel extends BaseClass {
     return this.context.permissions.canViewFeatureModal(undefined);
   }
   protected canCreate() {
-    return this.context.permissions.canCreateFeature({ project: undefined });
+    return this.context.permissions.canEditFeatureDrafts({
+      project: undefined,
+    });
   }
   protected canUpdate(
     _existing: RampScheduleTemplateInterface,
     _updates: UpdateProps<RampScheduleTemplateInterface>,
   ) {
-    return this.context.permissions.canUpdateFeature(
-      { project: undefined },
-      { project: undefined },
-    );
+    return this.context.permissions.canEditFeatureDrafts({
+      project: undefined,
+    });
   }
   protected canDelete(_existing: RampScheduleTemplateInterface) {
-    return this.context.permissions.canDeleteFeature({ project: undefined });
+    return this.context.permissions.canDeleteFeature(
+      { project: undefined },
+      NO_ENVIRONMENT_BINDING,
+    );
   }
 
   // Templates in manual order. Ties (e.g. legacy order=0) fall back to

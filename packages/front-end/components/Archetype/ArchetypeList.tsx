@@ -14,6 +14,7 @@ import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Badge from "@/ui/Badge";
+import Callout from "@/ui/Callout";
 
 export const ArchetypeList: FC<{
   archetypes: ArchetypeInterface[];
@@ -34,9 +35,9 @@ export const ArchetypeList: FC<{
 
   if (archetypeErrors) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         An error occurred fetching the lists of archetypes.
-      </div>
+      </Callout>
     );
   }
 

@@ -69,7 +69,7 @@ export default function ChartSettingsSection() {
         <Flex align="center" style={{ flexShrink: 0 }}>
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             onClick={() => setIsCollapsed((prev) => !prev)}
             title={isCollapsed ? "Expand" : "Collapse"}
           >

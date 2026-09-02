@@ -111,7 +111,7 @@ export function ConditionGroupHeader({
       align="center"
       justify="between"
     >
-      <Text size="medium" weight="medium" color="text-mid">
+      <Text size="md" weight="medium" color="text-mid">
         {label}
       </Text>
       {advancedToggle && <Box>{advancedToggle}</Box>}
@@ -143,14 +143,14 @@ export function ConditionRow({
         <Flex gap="3" align="start">
           {prefixSlot !== undefined && (
             <Box flexShrink="0" style={{ width: 35 }}>
-              <Flex align="center" style={{ height: 38 }}>
+              <Flex align="center" style={{ height: 36 }}>
                 {prefixSlot}
               </Flex>
             </Box>
           )}
           <Box style={{ flex: "1 1 0", minWidth: 0 }}>{attributeSlot}</Box>
-          {!!removeSlot && (
-            <Box flexShrink="0" pt="3">
+          {removeSlot != undefined && (
+            <Box flexShrink="0" className="field-row-action">
               {removeSlot}
             </Box>
           )}
@@ -179,7 +179,7 @@ export function ConditionRow({
     <Flex gap="3" align="start" className="gb-condition-row">
       {prefixSlot !== undefined && (
         <Box flexShrink="0" style={{ width: 35 }}>
-          <Flex align="center" style={{ height: 38 }}>
+          <Flex align="center" style={{ height: 36 }}>
             {prefixSlot}
           </Flex>
         </Box>
@@ -203,7 +203,9 @@ export function ConditionRow({
         )}
         <Box
           style={{
-            minWidth: 300,
+            // Wrap threshold, not display width — 260 keeps the condition on
+            // one row inside the Radix lg dialog.
+            minWidth: 260,
             flex:
               operatorSlot !== undefined
                 ? "2 1 0"
@@ -215,7 +217,7 @@ export function ConditionRow({
         </Box>
       </Flex>
       {removeSlot !== undefined && (
-        <Box flexShrink="0" pt="3">
+        <Box flexShrink="0" className="field-row-action">
           {removeSlot}
         </Box>
       )}
@@ -225,7 +227,7 @@ export function ConditionRow({
 
 export function ConditionRowLabel({ label }: { label: string }) {
   return (
-    <Text size="medium" weight="medium" color="text-mid">
+    <Text size="md" weight="medium" color="text-mid">
       {label}
     </Text>
   );
@@ -246,7 +248,7 @@ export function ConditionRowHeader({
       mb="2"
       style={{ minHeight: 24 }}
     >
-      <Text size="medium" weight="medium" color="text-mid">
+      <Text size="md" weight="medium" color="text-mid">
         {label}
       </Text>
       {advancedToggle && <Box>{advancedToggle}</Box>}
@@ -263,7 +265,7 @@ export function OrSeparator({ slimMode }: { slimMode?: boolean }) {
       className="gb-or-separator"
     >
       <Separator style={{ flexGrow: 1 }} />
-      <Text size="medium" weight="medium">
+      <Text size="md" weight="medium">
         OR
       </Text>
       <Separator style={{ flexGrow: 1 }} />
@@ -292,7 +294,7 @@ export function AddConditionButton({
         cursor: disabled ? "not-allowed" : "pointer",
       }}
     >
-      <Text weight="semibold" size="medium">
+      <Text weight="semibold" size="md">
         <PiPlusBold className="mr-1" />
         {children ?? "Add condition"}
       </Text>
@@ -322,7 +324,7 @@ export function AddOrGroupButton({
           cursor: disabled ? "not-allowed" : "pointer",
         }}
       >
-        <Text weight="semibold" size="medium">
+        <Text weight="semibold" size="md">
           <PiPlusBold className="mr-1" />
           Add OR group
         </Text>

@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { extractConditionAttributeKeys } from "shared/util";
 import { some } from "lodash";
 import {
   PiArrowSquareOut,
@@ -26,24 +27,32 @@ import {
   getFormatEquivalentOperator,
   formatJSON,
   LARGE_FILE_SIZE,
+  resolveAttributeFilter,
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  FormatOptionLabelType,
+} from "@/components/Forms/SelectField";
 import CodeTextArea, {
   FIVE_LINES_HEIGHT,
 } from "@/components/Forms/CodeTextArea";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import CountrySelector, {
   ALL_COUNTRY_CODES,
 } from "@/components/Forms/CountrySelector";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import RadioGroup from "@/ui/RadioGroup";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
+import {
+  OperatorOption,
+  formatOperatorLabel,
+  getConditionOperators,
+} from "./conditionOperatorOptions";
 import {
   TargetingConditionsCard,
   ConditionRow,
@@ -53,8 +62,10 @@ import {
   ConditionRowLabel,
 } from "./TargetingConditionsCard";
 import {
+  AttributeOptionProjectsLabel,
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
+  toAttributeOption,
 } from "./AttributeOptionTooltip";
 
 export function ConditionLabel({
@@ -66,7 +77,7 @@ export function ConditionLabel({
 }) {
   return (
     <Flex align="center" flexShrink="0" style={{ width }} mb="1">
-      <Text weight="medium" size="medium">
+      <Text weight="medium" size="md">
         {label}
       </Text>
     </Flex>
@@ -101,6 +112,39 @@ const BASE_OPERATOR: Record<string, string> = {
   $notRegexi: "$notRegex",
 };
 
+// Scoped schema + map that keeps already-referenced attributes selectable —
+// otherwise a saved condition using a now-out-of-scope attribute fails
+// `jsonToConds` and gets ejected into the advanced JSON editor.
+function useScopedAttributes(
+  filter: string | string[] | null | undefined,
+  referencedKeys: string[],
+) {
+  const allAttributes = useAttributeMap(null);
+  const scopedSchema = useAttributeSchema(false, filter);
+  const allSchema = useAttributeSchema(false);
+  // Content-keyed: an unstable map identity re-fires the onChange effect.
+  const referencedKey = referencedKeys.join("||");
+  return useMemo(() => {
+    const referenced = new Set<string>();
+    for (const k of referencedKey ? referencedKey.split("||") : []) {
+      referenced.add(k);
+      // Dotted keys reference a property on an object attribute.
+      referenced.add(k.split(".")[0]);
+    }
+    const scoped = new Set(scopedSchema.map((s) => s.property));
+    const attributeSchema = [
+      ...scopedSchema,
+      ...allSchema.filter(
+        (s) => !scoped.has(s.property) && referenced.has(s.property),
+      ),
+    ];
+    const attributes = new Map(
+      [...allAttributes].filter(([k]) => scoped.has(k) || referenced.has(k)),
+    );
+    return { attributes, attributeSchema };
+  }, [allAttributes, scopedSchema, allSchema, referencedKey]);
+}
+
 export function operatorSupportsCaseInsensitive(operator: string): boolean {
   return OPERATORS_WITH_CASE_INSENSITIVE.has(operator);
 }
@@ -131,6 +175,8 @@ interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   project: string;
+  attributeProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   labelClassName?: string;
   emptyText?: string;
   label?: string;
@@ -152,6 +198,8 @@ export default function ConditionInput({
   defaultValue,
   onChange,
   project,
+  attributeProjects,
+  attributeSelectIndicator,
   labelClassName,
   emptyText = "Applied to everyone by default.",
   label = "Target by Attributes",
@@ -168,13 +216,24 @@ export default function ConditionInput({
   setModeLabel,
   removeModeLabel,
 }: Props) {
-  const attributes = useAttributeMap(project);
+  const attributeFilter = resolveAttributeFilter(attributeProjects, project);
+  const [value, setValue] = useState(defaultValue);
+  const referencedKeys = useMemo(() => {
+    try {
+      return extractConditionAttributeKeys(JSON.parse(value || "{}"));
+    } catch {
+      return [];
+    }
+  }, [value]);
+  const { attributes, attributeSchema } = useScopedAttributes(
+    attributeFilter,
+    referencedKeys,
+  );
 
   const [advanced, setAdvanced] = useState(
     () => jsonToConds(defaultValue, attributes) === null,
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
-  const [value, setValue] = useState(defaultValue);
   const [conds, setConds] = useState(
     () => jsonToConds(defaultValue, attributes) || [],
   );
@@ -183,7 +242,6 @@ export default function ConditionInput({
     defaultCodeEditorToggledOn,
   );
 
-  const attributeSchema = useAttributeSchema(false, project);
   const showAddRemoveSelector =
     !!addRemoveMode && !!addRemoveValue && !!onAddRemoveValueChange;
   const renderAddRemoveSelector = () =>
@@ -197,7 +255,7 @@ export default function ConditionInput({
           { value: "set", label: setModeLabel ?? "Set targeting" },
           { value: "remove", label: removeModeLabel ?? "Remove targeting" },
         ]}
-        labelSize="2"
+        labelSize="md"
       />
     ) : null;
 
@@ -305,11 +363,11 @@ export default function ConditionInput({
           <Flex justify="between" align="center" mb="1">
             <Flex gap="2" align="center">
               {slimMode ? (
-                <Text as="div" size="medium" weight="semibold" color="text-mid">
+                <Text as="div" size="md" weight="semibold" color="text-mid">
                   {label}
                 </Text>
               ) : (
-                <Text as="div" size="medium" weight="semibold">
+                <Text as="div" size="md" weight="semibold">
                   {label}
                 </Text>
               )}
@@ -327,7 +385,7 @@ export default function ConditionInput({
                     }
                   }}
                   label="Advanced"
-                  size="1"
+                  size="sm"
                   ml="2"
                   disabled={locked}
                 />
@@ -340,11 +398,11 @@ export default function ConditionInput({
           <Flex gap="2" mb="1">
             <Box flexGrow="1">
               {slimMode ? (
-                <Text as="div" size="medium" weight="semibold" color="text-mid">
+                <Text as="div" size="md" weight="semibold" color="text-mid">
                   Target by Attributes
                 </Text>
               ) : (
-                <Text as="div" size="medium" weight="semibold">
+                <Text as="div" size="md" weight="semibold">
                   Target by Attributes
                 </Text>
               )}
@@ -364,7 +422,7 @@ export default function ConditionInput({
                     }
                   }}
                   label="Advanced"
-                  size="1"
+                  size="sm"
                   ml="2"
                   disabled={locked}
                 />
@@ -390,6 +448,7 @@ export default function ConditionInput({
               />
             ) : (
               <Field
+                size="legacy"
                 labelClassName={labelClassName}
                 containerClassName="mb-0"
                 placeholder=""
@@ -415,11 +474,11 @@ export default function ConditionInput({
         {(label || labelActions) && (
           <Flex mb="1" justify="between" align="center">
             {slimMode ? (
-              <Text as="div" size="medium" weight="semibold" color="text-mid">
+              <Text as="div" size="md" weight="semibold" color="text-mid">
                 {label}
               </Text>
             ) : (
-              <Text as="div" size="medium" weight="semibold">
+              <Text as="div" size="md" weight="semibold">
                 {label}
               </Text>
             )}
@@ -429,11 +488,11 @@ export default function ConditionInput({
         {!label &&
           !labelActions &&
           (slimMode ? (
-            <Text as="div" size="medium" weight="semibold" color="text-mid">
+            <Text as="div" size="md" weight="semibold" color="text-mid">
               Target by Attributes
             </Text>
           ) : (
-            <Text as="div" size="medium" weight="semibold">
+            <Text as="div" size="md" weight="semibold">
               Target by Attributes
             </Text>
           ))}
@@ -445,7 +504,7 @@ export default function ConditionInput({
                 color="text-low"
                 fontStyle="italic"
                 mb="2"
-                size={slimMode ? "small" : undefined}
+                size={slimMode ? "sm" : undefined}
               >
                 {emptyText}
               </Text>
@@ -473,7 +532,7 @@ export default function ConditionInput({
                 >
                   <Text
                     weight="semibold"
-                    size="medium"
+                    size="md"
                     color={locked ? "text-low" : undefined}
                   >
                     <PiPlusCircleBold className="mr-1" />
@@ -493,11 +552,11 @@ export default function ConditionInput({
         <Flex justify="between" align="center" mb="1">
           <Flex gap="2" align="center">
             {slimMode ? (
-              <Text as="div" size="medium" weight="semibold" color="text-mid">
+              <Text as="div" size="md" weight="semibold" color="text-mid">
                 {label}
               </Text>
             ) : (
-              <Text as="div" size="medium" weight="semibold">
+              <Text as="div" size="md" weight="semibold">
                 {label}
               </Text>
             )}
@@ -515,7 +574,7 @@ export default function ConditionInput({
                   }
                 }}
                 label="Advanced"
-                size="1"
+                size="sm"
                 ml="2"
                 disabled={locked}
               />
@@ -527,11 +586,11 @@ export default function ConditionInput({
       {!label && !labelActions && (
         <Flex justify="between" align="center" mb="1">
           {slimMode ? (
-            <Text as="div" size="medium" weight="semibold" color="text-mid">
+            <Text as="div" size="md" weight="semibold" color="text-mid">
               Target by Attributes
             </Text>
           ) : (
-            <Text as="div" size="medium" weight="semibold">
+            <Text as="div" size="md" weight="semibold">
               Target by Attributes
             </Text>
           )}
@@ -549,7 +608,7 @@ export default function ConditionInput({
                 }
               }}
               label="Advanced"
-              size="1"
+              size="sm"
               ml="2"
               disabled={locked}
             />
@@ -619,6 +678,8 @@ export default function ConditionInput({
                 }}
                 orGroupsCount={conds.length}
                 project={project}
+                attributeProjects={attributeProjects}
+                attributeSelectIndicator={attributeSelectIndicator}
                 labelClassName={labelClassName}
                 emptyText={emptyText}
                 label={label}
@@ -679,6 +740,8 @@ function ConditionAndGroupInput({
   setConds: (conds: Condition[]) => void;
   orGroupsCount: number;
   project: string;
+  attributeProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   labelClassName?: string;
   emptyText?: string;
   label?: string;
@@ -690,7 +753,10 @@ function ConditionAndGroupInput({
 }) {
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
-  const attributes = useAttributeMap(props.project);
+  const { attributes, attributeSchema } = useScopedAttributes(
+    resolveAttributeFilter(props.attributeProjects, props.project),
+    conds.map((c) => c.field),
+  );
 
   // Normalize: secureString/secureString[] only support exact operators (in/nin), not case-insensitive (ini/nini)
   useEffect(() => {
@@ -710,20 +776,7 @@ function ConditionAndGroupInput({
     if (changed) setConds(next);
   }, [conds, attributes, setConds]);
 
-  const savedGroupOperators = [
-    {
-      label: "is in the saved group",
-      value: "$inGroup",
-    },
-    {
-      label: "is not in the saved group",
-      value: "$notInGroup",
-    },
-  ];
-
   const listOperators = ["$in", "$nin", "$ini", "$nini"];
-
-  const attributeSchema = useAttributeSchema(false, props.project);
 
   return (
     <>
@@ -754,26 +807,17 @@ function ConditionAndGroupInput({
 
         const fieldSelector = (
           <SelectField
+            size="legacy"
             disabled={disabled}
             withRadixThemedPortal
-            useMultilineLabels={true}
+            extraIndicator={props.attributeSelectIndicator}
             value={field}
-            containerStyles={{
-              control: (base) => ({ ...base, minHeight: 38, maxHeight: 38 }),
-            }}
             options={
               props.allowNestedSavedGroups
                 ? [
                     {
                       label: "Attributes",
-                      options: attributeSchema.map((s) => ({
-                        label: s.property,
-                        value: s.property,
-                        description: s.description,
-                        tags: s.tags,
-                        datatype: s.datatype,
-                        hashAttribute: s.hashAttribute,
-                      })),
+                      options: attributeSchema.map(toAttributeOption),
                     },
                     {
                       label: "Saved Groups",
@@ -789,22 +833,27 @@ function ConditionAndGroupInput({
                       ],
                     },
                   ]
-                : attributeSchema.map((s) => ({
-                    label: s.property,
-                    value: s.property,
-                    description: s.description,
-                    tags: s.tags,
-                    datatype: s.datatype,
-                    hashAttribute: s.hashAttribute,
-                  }))
+                : attributeSchema.map(toAttributeOption)
             }
             formatOptionLabel={(o, meta) => {
+              const option = o as AttributeOptionForTooltip;
               return (
                 <AttributeOptionWithTooltip
-                  option={o as AttributeOptionForTooltip}
+                  option={option}
                   context={meta.context}
                 >
-                  <Text size="medium">{o.label}</Text>
+                  <Flex align="center" gap="3">
+                    <Text size="md">{o.label}</Text>
+                    {/* Right-aligned project annotation in the menu only —
+                        not on the at-rest value, and not for the saved-group
+                        pseudo-options (they have no datatype). */}
+                    {meta.context === "menu" &&
+                      option.datatype !== undefined && (
+                        <AttributeOptionProjectsLabel
+                          projects={option.projects}
+                        />
+                      )}
+                  </Flex>
                 </AttributeOptionWithTooltip>
               );
             }}
@@ -906,6 +955,7 @@ function ConditionAndGroupInput({
               attributeSlot={fieldSelector}
               valueSlot={
                 <MultiSelectField
+                  legacyHeight
                   disabled={disabled}
                   value={ids}
                   options={groupOptions}
@@ -975,136 +1025,16 @@ function ConditionAndGroupInput({
           })
           .map((g) => ({ label: g.groupName, value: g.id }));
 
-        let operatorOptions =
-          attribute.datatype === "boolean"
-            ? [
-                { label: "is true", value: "$true" },
-                { label: "is false", value: "$false" },
-                { label: "is not NULL", value: "$exists" },
-                { label: "is NULL", value: "$notExists" },
-              ]
-            : attribute.array
-              ? attribute.enum.length
-                ? [
-                    // Enum-constrained list: set operators drive the restricted
-                    // MultiSelect. Single-value ops are only offered to keep an
-                    // existing condition that already uses them editable — hidden
-                    // otherwise to avoid duplicate-looking options.
-                    { label: "includes any of", value: "$in" },
-                    { label: "includes none of", value: "$nin" },
-                    ...(["$includes", "$notIncludes"].includes(operator)
-                      ? [
-                          { label: "includes", value: "$includes" },
-                          { label: "does not include", value: "$notIncludes" },
-                        ]
-                      : []),
-                    { label: "is empty", value: "$empty" },
-                    { label: "is not empty", value: "$notEmpty" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                  ]
-                : [
-                    { label: "includes", value: "$includes" },
-                    { label: "does not include", value: "$notIncludes" },
-                    { label: "is empty", value: "$empty" },
-                    { label: "is not empty", value: "$notEmpty" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                  ]
-              : attribute.enum.length
-                ? [
-                    { label: "is equal to", value: "$eq" },
-                    { label: "is not equal to", value: "$ne" },
-                    { label: "is any of", value: "$in" },
-                    { label: "is none of", value: "$nin" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                  ]
-                : attribute.datatype === "string"
-                  ? [
-                      {
-                        label: "is equal to",
-                        value: attribute.format === "version" ? "$veq" : "$eq",
-                      },
-                      {
-                        label: "is not equal to",
-                        value: attribute.format === "version" ? "$vne" : "$ne",
-                      },
-                      { label: "is any of", value: "$in" },
-                      { label: "is none of", value: "$nin" },
-                      { label: "matches regex", value: "$regex" },
-                      { label: "does not match regex", value: "$notRegex" },
-                      {
-                        label:
-                          attribute.format === "date"
-                            ? "is after"
-                            : "is greater than",
-                        value: attribute.format === "version" ? "$vgt" : "$gt",
-                      },
-                      {
-                        label:
-                          attribute.format === "date"
-                            ? "is after or on"
-                            : "is greater than or equal to",
-                        value:
-                          attribute.format === "version" ? "$vgte" : "$gte",
-                      },
-                      {
-                        label:
-                          attribute.format === "date"
-                            ? "is before"
-                            : "is less than",
-                        value: attribute.format === "version" ? "$vlt" : "$lt",
-                      },
-                      {
-                        label:
-                          attribute.format === "date"
-                            ? "is before or on"
-                            : "is less than or equal to",
-                        value:
-                          attribute.format === "version" ? "$vlte" : "$lte",
-                      },
-                      { label: "is not NULL", value: "$exists" },
-                      { label: "is NULL", value: "$notExists" },
-                      ...(savedGroupOptions.length > 0
-                        ? savedGroupOperators
-                        : []),
-                    ]
-                  : attribute.datatype === "secureString"
-                    ? [
-                        { label: "is equal to", value: "$eq" },
-                        { label: "is not equal to", value: "$ne" },
-                        { label: "is any of", value: "$in" },
-                        { label: "is none of", value: "$nin" },
-                        { label: "is not NULL", value: "$exists" },
-                        { label: "is NULL", value: "$notExists" },
-                        ...(savedGroupOptions.length > 0
-                          ? savedGroupOperators
-                          : []),
-                      ]
-                    : attribute.datatype === "number"
-                      ? [
-                          { label: "is equal to", value: "$eq" },
-                          { label: "is not equal to", value: "$ne" },
-                          { label: "is greater than", value: "$gt" },
-                          {
-                            label: "is greater than or equal to",
-                            value: "$gte",
-                          },
-                          { label: "is less than", value: "$lt" },
-                          {
-                            label: "is less than or equal to",
-                            value: "$lte",
-                          },
-                          { label: "is any of", value: "$in" },
-                          { label: "is none of", value: "$nin" },
-                          { label: "is not NULL", value: "$exists" },
-                          { label: "is NULL", value: "$notExists" },
-                          ...(savedGroupOptions.length > 0
-                            ? savedGroupOperators
-                            : []),
-                        ]
-                      : [];
+        let operatorOptions: OperatorOption[] = getConditionOperators(
+          attribute.datatype,
+          {
+            array: attribute.array,
+            enumValues: attribute.enum,
+            format: attribute.format,
+            savedGroupOptions,
+            operator,
+          },
+        );
 
         if (attribute.disableEqualityConditions) {
           operatorOptions = operatorOptions.filter(
@@ -1170,19 +1100,15 @@ function ConditionAndGroupInput({
               <Flex gap="3" align="start">
                 <Box flexGrow="1">
                   <SelectField
+                    size="legacy"
                     disabled={disabled}
-                    containerStyles={{
-                      control: (base) => ({
-                        ...base,
-                        minHeight: 38,
-                        maxHeight: 38,
-                      }),
-                    }}
-                    useMultilineLabels={true}
                     value={getDisplayOperator(operator)}
                     name="operator"
                     options={operatorOptions}
                     sort={false}
+                    formatOptionLabel={
+                      formatOperatorLabel as FormatOptionLabelType
+                    }
                     onChange={(v) => {
                       const newOperator = withOperatorCaseInsensitivity(
                         v,
@@ -1203,7 +1129,7 @@ function ConditionAndGroupInput({
                         variant={
                           isCaseInsensitiveOperator(operator) ? "soft" : "ghost"
                         }
-                        size="1"
+                        size="2"
                         radius="medium"
                         onClick={() => {
                           const newOperator = withOperatorCaseInsensitivity(
@@ -1213,13 +1139,16 @@ function ConditionAndGroupInput({
                           handleCondsChange(newOperator, "operator");
                         }}
                         style={{
-                          width: 24,
-                          height: 24,
-                          margin: "8px 0 0 0",
+                          width: 36,
+                          height: 36,
                           padding: 0,
+                          flexShrink: 0,
+                          alignSelf: "center",
+                          marginLeft: -4,
+                          marginRight: -4,
                         }}
                       >
-                        <PiTextAa />
+                        <PiTextAa size={18} />
                       </IconButton>
                     </Tooltip>
                   )}
@@ -1232,6 +1161,7 @@ function ConditionAndGroupInput({
                   savedGroupOptions.length > 0 ? (
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       <SelectField
+                        size="legacy"
                         disabled={disabled}
                         options={savedGroupOptions.map((o) => ({
                           label: o.label,
@@ -1268,6 +1198,7 @@ function ConditionAndGroupInput({
                       style={{ flexBasis: "100%", minWidth: 0 }}
                     >
                       <StringArrayField
+                        legacyHeight
                         disabled={disabled}
                         containerClassName="w-100"
                         value={value ? value.trim().split(",") : []}
@@ -1311,6 +1242,7 @@ function ConditionAndGroupInput({
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       {listOperators.includes(operator) ? (
                         <MultiSelectField
+                          legacyHeight
                           disabled={disabled}
                           options={attribute.enum.map((v) => ({
                             label: v,
@@ -1327,15 +1259,8 @@ function ConditionAndGroupInput({
                         />
                       ) : (
                         <SelectField
+                          size="legacy"
                           disabled={disabled}
-                          useMultilineLabels={true}
-                          containerStyles={{
-                            control: (base) => ({
-                              ...base,
-                              minHeight: 38,
-                              maxHeight: 38,
-                            }),
-                          }}
                           options={attribute.enum.map((v) => ({
                             label: v,
                             value: v,
@@ -1353,13 +1278,13 @@ function ConditionAndGroupInput({
                   ) : displayType === "number" ? (
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       <Field
+                        size="legacy"
                         disabled={disabled}
                         type="number"
                         step="any"
                         value={value}
                         onChange={handleFieldChange}
                         name="value"
-                        style={{ minHeight: 38 }}
                         required
                       />
                     </Box>
@@ -1385,11 +1310,11 @@ function ConditionAndGroupInput({
                         />
                       ) : (
                         <Field
+                          size="legacy"
                           disabled={disabled}
                           value={value}
                           onChange={handleFieldChange}
                           name="value"
-                          style={{ minHeight: 38 }}
                           containerClassName={clsx({
                             error: hasExtraWhitespace,
                           })}

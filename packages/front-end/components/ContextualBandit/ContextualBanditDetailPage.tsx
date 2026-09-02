@@ -1,18 +1,24 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
 import { getMetricLink } from "shared/experiments";
 import { ApiContextualBanditInterface } from "shared/validators";
-import { LinkedFeatureInfo } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+  Variation,
+} from "shared/types/experiment";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { contextualBanditStatusIndicatorData } from "@/services/contextualBandits";
+import { jsonToConds, useAttributeMap } from "@/services/features";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Metadata from "@/ui/Metadata";
@@ -32,9 +38,10 @@ import {
 } from "@/ui/DropdownMenu";
 import { DetailSectionColumn } from "@/components/DetailSectionBox";
 import ContextualBanditResultsTable from "@/components/ContextualBandit/ContextualBanditResultsTable";
-import ContextualBanditVariations from "@/components/ContextualBandit/ContextualBanditVariations";
+import { VariationBox } from "@/components/Experiment/VariationsTable";
 import ContextualBanditLinkedFeatures from "@/components/ContextualBandit/ContextualBanditLinkedFeatures";
 import StartContextualBanditModal from "@/components/ContextualBandit/StartContextualBanditModal";
+import CompareContextualBanditEventsModal from "@/components/ContextualBandit/CompareContextualBanditEventsModal";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 
 function OverviewSection({
@@ -51,7 +58,7 @@ function OverviewSection({
   return (
     <Frame>
       <Flex align="start" justify="between" mb="3" gap="3">
-        <Heading as="h4" size="small" mb="0">
+        <Heading as="h4" size="sm" mb="0">
           {title}
         </Heading>
         {onEdit ? (
@@ -115,6 +122,7 @@ export default function ContextualBanditDetailPage({
   const [confirmStop, setConfirmStop] = useState(false);
   const [showStart, setShowStart] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
 
   const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
 
@@ -126,6 +134,8 @@ export default function ContextualBanditDetailPage({
   const projectName =
     projects.find((p) => p.id === cb.project)?.name ?? cb.project ?? "None";
   const metricName = (id: string) => getExperimentMetricById(id)?.name ?? id;
+
+  const showResultsTab = cb.status !== "draft";
 
   const coveragePct = cb.coverage != null ? Math.round(cb.coverage * 100) : 100;
 
@@ -153,6 +163,37 @@ export default function ContextualBanditDetailPage({
     (cb.savedGroups?.length ?? 0) > 0 ||
     (cb.prerequisites?.length ?? 0) > 0;
 
+  const attributeMap = useAttributeMap(cb.project);
+  const conflictingAttributes = useMemo(() => {
+    const contextual = new Set(cb.contextualAttributes);
+    if (!contextual.size || !cb.condition || cb.condition === "{}") return [];
+
+    let globalAttributes: string[];
+    const conds = jsonToConds(cb.condition, attributeMap);
+    if (conds) {
+      const fields = new Set<string>();
+      conds.forEach((cond) =>
+        cond.forEach(({ field }) => {
+          if (field !== "$savedGroups" && field !== "$notSavedGroups") {
+            fields.add(field);
+          }
+        }),
+      );
+      globalAttributes = Array.from(fields);
+    } else {
+      // Advanced condition jsonToConds can't simplify - fall back to top-level keys
+      try {
+        globalAttributes = Object.keys(JSON.parse(cb.condition)).filter(
+          (k) => !k.startsWith("$"),
+        );
+      } catch {
+        globalAttributes = [];
+      }
+    }
+
+    return globalAttributes.filter((a) => contextual.has(a));
+  }, [cb.condition, cb.contextualAttributes, attributeMap]);
+
   const formatExploratoryStage = (
     value?: number,
     unit?: "days" | "hours",
@@ -168,6 +209,31 @@ export default function ContextualBanditDetailPage({
     const v = value ?? 1;
     return `Every ${v} ${(unit ?? "days") === "days" ? "days" : "hours"}`;
   };
+
+  const numVariations = cb.variations.length;
+  const variationCols = numVariations > 4 ? 4 : Math.max(numVariations, 1);
+  const banditVariations: Variation[] = useMemo(
+    () =>
+      cb.variations.map((v) => ({
+        id: v.id,
+        key: v.key,
+        name: v.name,
+        description: v.description,
+        screenshots: [],
+      })),
+    [cb.variations],
+  );
+
+  const experimentForVariations = useMemo<
+    Pick<ExperimentInterfaceStringDates, "id" | "status" | "type">
+  >(
+    () => ({
+      id: cb.id,
+      status: cb.status,
+      type: "multi-armed-bandit",
+    }),
+    [cb.id, cb.status],
+  );
 
   const start = async () => {
     await apiCall(`${updateEndpoint}/start`, { method: "POST" });
@@ -194,24 +260,22 @@ export default function ContextualBanditDetailPage({
   return (
     <Box>
       <Flex direction="row" align="start" justify="between" gap="5">
-        <Box>
-          <h1
-            className="mb-0"
-            style={{ display: "inline", verticalAlign: "middle" }}
+        <Flex align="center" gap="2">
+          <Heading
+            as="h1"
+            size="xl"
+            weight="semibold"
+            overflowWrap="anywhere"
+            mb="0"
           >
             {cb.name}
-          </h1>
-          <Box
-            ml="2"
-            mt="1"
-            display="inline-block"
-            style={{ userSelect: "none" }}
-          >
+          </Heading>
+          <Box style={{ userSelect: "none" }}>
             <ExperimentStatusIndicator
               experimentData={contextualBanditStatusIndicatorData(cb)}
             />
           </Box>
-        </Box>
+        </Flex>
 
         <Flex direction="row" align="center" gap="2" flexShrink="0">
           {canRun && cb.status === "draft" ? (
@@ -228,51 +292,60 @@ export default function ContextualBanditDetailPage({
               Stop Contextual Bandit
             </Button>
           ) : null}
-          {editOverview || duplicate ? (
-            <DropdownMenu
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="3"
-                  highContrast
-                  ml="2"
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="3"
+                highContrast
+                ml="2"
+              >
+                <BsThreeDotsVertical size={18} />
+              </IconButton>
+            }
+            open={dropdownOpen}
+            onOpenChange={(o) => setDropdownOpen(!!o)}
+            menuPlacement="end"
+          >
+            {editOverview ? (
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    editOverview();
+                  }}
                 >
-                  <BsThreeDotsVertical size={18} />
-                </IconButton>
-              }
-              open={dropdownOpen}
-              onOpenChange={(o) => setDropdownOpen(!!o)}
-              menuPlacement="end"
-            >
-              <DropdownMenuGroup>
-                {editOverview ? (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      editOverview();
-                    }}
-                  >
-                    Edit info
-                  </DropdownMenuItem>
-                ) : null}
+                  Edit info
+                </DropdownMenuItem>
               </DropdownMenuGroup>
-              {editOverview && duplicate ? <DropdownMenuSeparator /> : null}
+            ) : null}
+            {editOverview ? <DropdownMenuSeparator /> : null}
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => {
+                  setDropdownOpen(false);
+                  setAuditModal(true);
+                }}
+              >
+                Audit history
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            {duplicate ? <DropdownMenuSeparator /> : null}
+            {duplicate ? (
               <DropdownMenuGroup>
-                {duplicate ? (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      duplicate();
-                    }}
-                  >
-                    Duplicate
-                  </DropdownMenuItem>
-                ) : null}
+                <DropdownMenuItem
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    duplicate();
+                  }}
+                >
+                  Duplicate
+                </DropdownMenuItem>
               </DropdownMenuGroup>
-            </DropdownMenu>
-          ) : null}
+            ) : null}
+          </DropdownMenu>
         </Flex>
       </Flex>
 
@@ -345,7 +418,7 @@ export default function ContextualBanditDetailPage({
                       +Add
                     </Link>
                   ) : (
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       None
                     </Text>
                   )}
@@ -356,17 +429,22 @@ export default function ContextualBanditDetailPage({
         </div>
       </div>
 
-      <Tabs defaultValue="overview" persistInURL={true}>
+      <Tabs
+        defaultValue={cb.status === "running" ? "results" : "overview"}
+        persistInURL={true}
+      >
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="results">Results</TabsTrigger>
+          {showResultsTab ? (
+            <TabsTrigger value="results">Results</TabsTrigger>
+          ) : null}
         </TabsList>
 
         <TabsContent value="overview">
           <Box pt="4">
             <Frame>
               <Flex align="start" justify="between" mb="2" gap="3">
-                <Heading as="h4" size="small" mb="0">
+                <Heading as="h4" size="sm" mb="0">
                   Description
                 </Heading>
                 {editDescription ? (
@@ -386,16 +464,46 @@ export default function ContextualBanditDetailPage({
               )}
             </Frame>
 
-            <Heading as="h2" size="large" mt="5" mb="3">
+            <Heading as="h2" size="lg" mt="5" mb="3">
               Implementation
             </Heading>
 
             <Frame>
-              <ContextualBanditVariations
-                cb={cb}
-                canEdit={!!editVariations}
-                editVariations={editVariations}
-              />
+              <Box>
+                <Flex justify="between" align="center" mb="3" mx="1" gap="3">
+                  <Heading color="text-high" as="h4" size="sm" mb="0">
+                    Variations
+                  </Heading>
+                  {editVariations ? (
+                    <Button variant="ghost" onClick={editVariations}>
+                      Edit Variations
+                    </Button>
+                  ) : null}
+                </Flex>
+                <Grid
+                  gap="4"
+                  style={{ gridAutoRows: "1fr" }}
+                  columns={{
+                    initial: "1",
+                    xs: "2",
+                    sm: variationCols === 2 ? "2" : "3",
+                    md: variationCols.toString(),
+                  }}
+                >
+                  {banditVariations.map((v, i) => (
+                    <Box key={v.id} height="100%">
+                      <VariationBox
+                        i={i}
+                        v={v}
+                        experiment={experimentForVariations}
+                        showIds
+                        allowImages={false}
+                        showSplit={false}
+                      />
+                    </Box>
+                  ))}
+                </Grid>
+              </Box>
             </Frame>
 
             <ContextualBanditLinkedFeatures
@@ -455,6 +563,23 @@ export default function ContextualBanditDetailPage({
                   </DetailSectionColumn>
                 )}
               </Grid>
+              {conflictingAttributes.length > 0 && (
+                <Callout status="warning" mt="4">
+                  <Flex direction="column" gap="2">
+                    <Text as="span">
+                      Your attribute targeting overlaps with the Bandit&apos;s
+                      contextual attributes. Overlapping targeting can create
+                      unreachable variations. Please review your targeting to
+                      avoid conflicts.
+                    </Text>
+                    <Flex align="center" gap="1" wrap="wrap">
+                      {conflictingAttributes.map((a) => (
+                        <AttributeBadge key={a} attributeId={a} />
+                      ))}
+                    </Flex>
+                  </Flex>
+                </Callout>
+              )}
             </OverviewSection>
 
             <OverviewSection
@@ -508,13 +633,15 @@ export default function ContextualBanditDetailPage({
           </Box>
         </TabsContent>
 
-        <TabsContent value="results">
-          <Box pt="4">
-            <Frame>
-              <ContextualBanditResultsTable cb={cb} mutate={mutate} />
-            </Frame>
-          </Box>
-        </TabsContent>
+        {showResultsTab ? (
+          <TabsContent value="results">
+            <Box pt="4">
+              <Frame>
+                <ContextualBanditResultsTable cb={cb} mutate={mutate} />
+              </Frame>
+            </Box>
+          </TabsContent>
+        ) : null}
       </Tabs>
 
       {showStart && cb.status === "draft" ? (
@@ -523,6 +650,13 @@ export default function ContextualBanditDetailPage({
           linkedFeatures={linkedFeatures}
           startContextualBandit={start}
           close={() => setShowStart(false)}
+        />
+      ) : null}
+
+      {auditModal ? (
+        <CompareContextualBanditEventsModal
+          cbId={cb.id}
+          onClose={() => setAuditModal(false)}
         />
       ) : null}
 

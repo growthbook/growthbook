@@ -8,14 +8,10 @@ import {
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
 import track from "@/services/track";
-import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
-import {
-  revisionStatusColor,
-  revisionStatusLabel,
-} from "@/components/Reviews/RevisionStatusBadge";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -42,6 +38,7 @@ export function getChecklistItems({
   experiment,
   linkedFeatures,
   visualChangesets,
+  urlRedirects = [],
   connections,
   editTargeting,
   openSetupTab,
@@ -53,11 +50,11 @@ export function getChecklistItems({
   /** When publishing from a feature draft page, waive the unrelated-edits gate
    *  for that feature — the user is explicitly reviewing the full draft. */
   publishingFeatureId,
-  showAnalysisSetupItems,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
+  urlRedirects?: URLRedirectInterface[];
   connections: SDKConnectionInterface[];
   editTargeting?: (() => void) | null;
   openSetupTab?: () => void;
@@ -68,7 +65,6 @@ export function getChecklistItems({
   checkLinkedChanges: boolean;
   setShowScheduleModal?: (value: boolean) => void;
   publishingFeatureId?: string;
-  showAnalysisSetupItems?: boolean;
 }) {
   const isBandit = experiment.type === "multi-armed-bandit";
 
@@ -121,7 +117,7 @@ export function getChecklistItems({
   }
   const items: CheckListItem[] = [];
 
-  if (showAnalysisSetupItems && !isBandit) {
+  if (!isBandit) {
     const hasDatasource = !!experiment.datasource;
     const hasAssignmentTable = !!experiment.exposureQueryId;
 
@@ -260,10 +256,16 @@ export function getChecklistItems({
           });
         });
 
-      // When the draft also has unrelated changes, the FF-page publish flow
-      // already covers approval — skip the redundant approval row.
+      // Publishing this feature's own draft (from its Review & Publish page) is
+      // what approves it, so skip the self-referential approval row. Drafts with
+      // unrelated changes are likewise covered by that publish flow.
       linkedFeatures
-        .filter((f) => f.pendingApproval && !f.hasUnrelatedDraftChanges)
+        .filter(
+          (f) =>
+            f.pendingApproval &&
+            !f.hasUnrelatedDraftChanges &&
+            f.feature.id !== publishingFeatureId,
+        )
         .forEach((f) => {
           items.push({
             status:
@@ -281,15 +283,7 @@ export function getChecklistItems({
                 >
                   {f.feature.id}
                   <PiArrowSquareOut className="ml-1" />
-                </Link>{" "}
-                {f.draftRevisionStatus && (
-                  <Badge
-                    label={revisionStatusLabel(f.draftRevisionStatus)}
-                    color={revisionStatusColor(f.draftRevisionStatus)}
-                    radius="full"
-                    ml="1"
-                  />
-                )}
+                </Link>
               </>
             ),
           });
@@ -433,6 +427,41 @@ export function getChecklistItems({
         ? "An SDK Connection exists, but it has not been verified to be working yet"
         : undefined,
   });
+
+  const hasAnyVisualChanges = visualChangesets.some((vc) =>
+    hasVisualChanges(vc.visualChanges),
+  );
+  if (hasAnyVisualChanges) {
+    items.push({
+      type: "auto",
+      status: connections.some((c) => c.includeVisualExperiments)
+        ? "complete"
+        : "incomplete",
+      display: (
+        <>
+          Enable Visual Experiments on a compatible SDK Connection for this
+          project <Link href="/sdks">Manage SDK Connections</Link>
+        </>
+      ),
+      required: true,
+    });
+  }
+
+  if (urlRedirects.length > 0) {
+    items.push({
+      type: "auto",
+      status: connections.some((c) => c.includeRedirectExperiments)
+        ? "complete"
+        : "incomplete",
+      display: (
+        <>
+          Enable URL Redirects on a compatible SDK Connection for this project{" "}
+          <Link href="/sdks">Manage SDK Connections</Link>
+        </>
+      ),
+      required: true,
+    });
+  }
 
   if (checklist?.tasks?.length) {
     checklist.tasks.forEach((item) => {

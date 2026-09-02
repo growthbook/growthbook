@@ -1,3 +1,4 @@
+import { PiDotsThreeVertical } from "react-icons/pi";
 import React, { FC, useEffect, useState } from "react";
 import router from "next/router";
 import NextLink from "next/link";
@@ -6,16 +7,15 @@ import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { getScopedSettings } from "shared/settings";
 import { DEFAULT_CONFIDENCE_LEVEL } from "shared/constants";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBCircleArrowLeft } from "@/components/Icons";
 import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
 import TempMessage from "@/components/TempMessage";
 import ProjectModal from "@/components/Projects/ProjectModal";
+import ProjectApprovalSettings from "@/components/Projects/ProjectApprovalSettings";
 import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useUser } from "@/services/UserContext";
@@ -27,7 +27,12 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@/ui/DropdownMenu";
+import PageHead from "@/components/Layout/PageHead";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import useApi from "@/hooks/useApi";
@@ -35,6 +40,7 @@ import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListM
 import Metadata from "@/ui/Metadata";
 import ChanceToWinThresholdField from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
 import PValueThresholdField from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
+import Callout from "@/ui/Callout";
 
 function emptyStringToUndefined(v: unknown): number | undefined {
   if (v === "" || v === null || v === undefined) return undefined;
@@ -72,6 +78,7 @@ const ProjectPage: FC = () => {
 
   const permissionsUtil = usePermissionsUtil();
   const canEditSettings = permissionsUtil.canUpdateProject(pid);
+
   // todo: should this also be project scoped?
   const canManageTeam = permissionsUtil.canManageTeam();
 
@@ -120,16 +127,16 @@ const ProjectPage: FC = () => {
   if (!canEditSettings) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }
   if (error) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">{error}</div>
+        <Callout status="error">{error}</Callout>
       </div>
     );
   }
@@ -139,9 +146,9 @@ const ProjectPage: FC = () => {
   if (!p) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           Project <code>{pid}</code> does not exist.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -161,13 +168,13 @@ const ProjectPage: FC = () => {
           projectParams={{ projectId: pid, projectName: p.name }}
         />
       )}
-      <Box className="container-fluid contents pagecontents mt-2">
-        <Box mb="5">
-          <Link href="/projects">
-            <GBCircleArrowLeft className="mr-1" />
-            Back to all projects
-          </Link>
-        </Box>
+      <PageHead
+        breadcrumb={[
+          { display: "Projects", href: "/projects" },
+          { display: p.name },
+        ]}
+      />
+      <Box className="container-fluid contents pagecontents">
         {p.managedBy?.type ? (
           <Box mb="2">
             <Badge
@@ -177,7 +184,7 @@ const ProjectPage: FC = () => {
         ) : null}
         <Flex align="center" justify="between" width="100%">
           <Flex align="start" direction="column">
-            <Heading size="x-large" as="h1">
+            <Heading size="xl" as="h1" overflowWrap="anywhere">
               {p.name}
             </Heading>
             <Flex gap="6" mb="4">
@@ -191,18 +198,27 @@ const ProjectPage: FC = () => {
               />
             </Flex>
           </Flex>
-          <MoreMenu>
-            <a
-              href="#"
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(p);
-              }}
-            >
-              Edit Project Info
-            </a>
-          </MoreMenu>
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="3"
+                highContrast
+              >
+                <PiDotsThreeVertical size={18} />
+              </IconButton>
+            }
+            menuPlacement="end"
+            variant="soft"
+          >
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={() => setModalOpen(p)}>
+                Edit project settings
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenu>
         </Flex>
         {p.description ? (
           <Box>
@@ -223,17 +239,18 @@ const ProjectPage: FC = () => {
         )}
 
         <Box mt="4">
-          <Tabs defaultValue="settings">
+          <Tabs defaultValue="members">
             <TabsList>
-              <TabsTrigger value="settings">Experiment Settings</TabsTrigger>
               <TabsTrigger value="members">Project Members</TabsTrigger>
+              <TabsTrigger value="approvals">Approvals</TabsTrigger>
+              <TabsTrigger value="settings">Experiment Settings</TabsTrigger>
             </TabsList>
             <Box pt="4">
               <TabsContent value="settings">
                 <Frame>
                   <Flex gap="4">
                     <Box width="220px" flexShrink="0">
-                      <Heading as="h4" size="medium">
+                      <Heading as="h4" size="md">
                         Experiment Analysis
                       </Heading>
                     </Box>
@@ -242,7 +259,7 @@ const ProjectPage: FC = () => {
                         className="form-group align-items-start"
                         width="100%"
                       >
-                        <Heading as="h5" size="small">
+                        <Heading as="h5" size="sm">
                           Stats Engine Settings
                         </Heading>
                         <Box mb="3">
@@ -337,7 +354,7 @@ const ProjectPage: FC = () => {
                 <Frame>
                   <Flex gap="4" mb="4">
                     <Box width="220px" flexShrink="0">
-                      <Heading as="h4" size="medium">
+                      <Heading as="h4" size="md">
                         Experiment Settings
                       </Heading>
                     </Box>
@@ -348,7 +365,7 @@ const ProjectPage: FC = () => {
                             commercialFeature="custom-launch-checklist"
                             premiumText="Custom pre-launch checklists are available to Enterprise customers"
                           >
-                            <Heading as="h5" size="small">
+                            <Heading as="h5" size="sm">
                               Experiment Pre-Launch Checklist
                             </Heading>
                           </PremiumTooltip>
@@ -420,6 +437,9 @@ const ProjectPage: FC = () => {
                     </div>
                   </div>
                 </div>
+              </TabsContent>
+              <TabsContent value="approvals">
+                <ProjectApprovalSettings project={pid} projectName={p.name} />
               </TabsContent>
               <TabsContent value="members">
                 <MemberList

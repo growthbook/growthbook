@@ -134,7 +134,7 @@ export default function ToolUsageDetails({
             embedded ? { ...summaryStyle, padding: "2px 0" } : summaryStyle
           }
         >
-          <Text size="small" color="text-low">
+          <Text size="sm" color="text-low">
             {summaryLabel}
           </Text>
         </summary>
@@ -148,7 +148,7 @@ export default function ToolUsageDetails({
         {hasInputObj ? (
           <>
             <Box mb="1">
-              <Text size="small" color="text-low" weight="medium">
+              <Text size="sm" color="text-low" weight="medium">
                 Input
               </Text>
             </Box>
@@ -158,7 +158,7 @@ export default function ToolUsageDetails({
         {hasOutput ? (
           <>
             <Box mb="1">
-              <Text size="small" color="text-low" weight="medium">
+              <Text size="sm" color="text-low" weight="medium">
                 Output
               </Text>
             </Box>

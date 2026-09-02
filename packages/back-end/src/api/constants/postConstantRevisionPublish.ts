@@ -1,10 +1,19 @@
-import { isEqual } from "lodash";
+import {
+  holdsMoveDestination,
+  projectScopeChanged,
+  type ProjectScoped,
+} from "shared/permissions";
 import {
   checkMergeConflicts,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { postConstantRevisionPublishValidator } from "shared/validators";
+import {
+  publishRevision,
+  assertCanPublishRevision,
+} from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolvePublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
   BadRequestError,
   ConflictError,
@@ -13,10 +22,15 @@ import {
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
+  resolveEntityPublishGates,
+  PublishGate,
+} from "back-end/src/revisions/publishGates";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import {
   buildMergeDesiredState,
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
-import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -25,7 +39,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
 )(async (req) => {
   const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
-    throw new NotFoundError("Could not find constant");
+    throw new NotFoundError("Could not find Constant");
   }
 
   const revision = await loadRevisionByVersion(
@@ -34,18 +48,16 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     req.params.version,
   );
 
+  const adapter = getAdapter("constant");
+
+  // Publish authority on the live entity, or revert authority for a pure revert
+  // (project-move manage checked below).
+  await assertCanPublishRevision(req.context, revision, constant);
+
   if (revision.status === "merged" || revision.status === "discarded") {
     throw new BadRequestError(
       `Cannot publish a revision with status "${revision.status}"`,
     );
-  }
-
-  const adapter = getAdapter("constant");
-
-  // Re-check edit permission against the LIVE entity (a `project` move in the
-  // proposed changes shouldn't be able to launder write access).
-  if (!adapter.canUpdate(req.context, constant as Record<string, unknown>)) {
-    req.context.permissions.throwPermissionError();
   }
 
   // Change-aware approval gate (the constant adapter reads target.snapshot).
@@ -54,18 +66,14 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     : adapter.isApprovalRequired(req.context);
 
   const canBypass =
-    !!req.organization.settings?.restApiBypassesReviews ||
+    canUseRestApiBypassSetting(req) ||
     adapter.canBypassApproval(req.context, constant as Record<string, unknown>);
 
-  if (approvalRequired && revision.status !== "approved" && !canBypass) {
-    throw new BadRequestError(
-      `This revision requires approval before publishing (status: "${revision.status}"). ` +
-        "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-        "or use a role/token that grants bypassApprovalChecks on this constant's project.",
-    );
-  }
-
-  const isBypass = approvalRequired && revision.status !== "approved";
+  // Approval bypass does not permit merging a stale base.
+  const canForceMerge = adapter.canBypassApproval(
+    req.context,
+    constant as Record<string, unknown>,
+  );
 
   // Layer proposed changes on top of LIVE (not the snapshot) so out-of-band
   // writes to fields the revision didn't touch are preserved.
@@ -76,13 +84,76 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     adapter.getUpdatableFields(),
   );
 
-  // The live check above covers the source project. If the revision moves the
-  // constant to a different project, also require update permission on the
-  // destination.
+  // Aggregate every publish gate up front so a blocked publish returns ONE
+  // structured 422 naming each gate, the flag that clears it, and a callable
+  // resolution route. Gates are assembled for every ACTIVE condition (whether
+  // or not the caller can bypass it) so a successful publish can report the ones
+  // that were bypassed. The approval and stale-base checks below stay in place
+  // as the enforcement backstop; the adapter-collected guard gates are enforced
+  // solely here.
+  const gates: PublishGate[] = collectRevisionGovernanceGates({
+    context: req.context,
+    adapter,
+    targetType: "constant",
+    entity: constant as unknown as Record<string, unknown>,
+    revision,
+  });
+  gates.push(
+    ...((await adapter.collectPublishGates?.(
+      req.context,
+      constant as unknown as Record<string, unknown>,
+      revision,
+      desiredState,
+    )) ?? []),
+  );
+  const { bypassed } = resolveEntityPublishGates({
+    entityType: "constant",
+    req,
+    gates,
+    bypassApprovalPermission: adapter.canBypassApproval(
+      req.context,
+      constant as unknown as Record<string, unknown>,
+    ),
+    canForceMergeStaleBase: canForceMerge,
+  });
+
+  if (approvalRequired && revision.status !== "approved" && !canBypass) {
+    throw new BadRequestError(
+      `This revision requires approval before publishing (status: "${revision.status}"). ` +
+        "Enable 'REST API always bypasses approval requirements' in organization settings, " +
+        "or use a role/token that grants FlagsBypassApprovals on this Constant's project.",
+    );
+  }
+
+  const isBypass = approvalRequired && revision.status !== "approved";
+
+  const destination = {
+    ...(constant as unknown as Record<string, unknown>),
+    ...desiredState,
+  };
   if (
-    !adapter.canUpdate(req.context, {
-      ...(constant as unknown as Record<string, unknown>),
-      ...desiredState,
+    // In-place publishes are already authorized above (narrow revert/archive
+    // atoms included); only a relocation needs the destination publish check.
+    (projectScopeChanged(
+      constant as ProjectScoped,
+      destination as ProjectScoped,
+    ) &&
+      !adapter.canUpdate(req.context, destination)) ||
+    !holdsMoveDestination({
+      permissions: req.context.permissions,
+      model: "constant",
+      action: "publish",
+      existing: constant as ProjectScoped,
+      proposed: destination as ProjectScoped,
+      environments: resolvePublishFootprint(
+        req.context,
+        adapter.publishFootprint?.(
+          req.context,
+          constant as unknown as Record<string, unknown>,
+          revision.target.proposedChanges,
+        ),
+        constant as ProjectScoped,
+      ),
     })
   ) {
     req.context.permissions.throwPermissionError();
@@ -94,6 +165,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     revision.target.snapshot as Record<string, unknown>,
     constant as unknown as Record<string, unknown>,
     normalizeProposedChanges(revision.target.proposedChanges),
+    adapter.getUpdatableFields(),
   );
   if (!conflictResult.success) {
     throw new MergeConflictError(
@@ -102,83 +174,44 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     );
   }
 
-  const updatableFields = adapter.getUpdatableFields();
-
   // Same-base governance: when the org enforces rebase-before-publish, a stale
-  // revision must be rebased first. `mergeNow` only takes effect for bypass
-  // callers; otherwise it's ignored.
+  // revision must be rebased first. `ignoreWarnings` force-merges the stale
+  // draft — but only for bypass-approval callers, and asking without the
+  // permission fails loudly rather than silently re-blocking.
   if (req.organization.settings?.requireRebaseBeforePublish) {
-    const forceMerge = !!req.body.mergeNow && canBypass;
+    const forceMerge = req.context.ignoreWarnings && canForceMerge;
     if (!forceMerge) {
       const diverged = isRevisionDiverged(
         adapter,
         revision.target.snapshot as Record<string, unknown>,
         constant as unknown as Record<string, unknown>,
       );
+      if (diverged && req.context.ignoreWarnings && !canBypass) {
+        req.context.permissions.throwPermissionError();
+      }
       if (diverged && !canBypass) {
         throw new ConflictError(
-          "This revision was created against an older version of the constant. " +
-            'Rebase the revision first. ("mergeNow": true bypasses this only with bypass-approval permission.)',
+          "This revision was created against an older version of the Constant. " +
+            'Rebase the revision first, or pass `"ignoreWarnings": true` to force-merge (requires the bypass-approval permission).',
         );
       }
     }
   }
 
-  const hasChanges = Object.keys(desiredState).some((key) => {
-    if (!updatableFields.has(key)) return false;
-    return !isEqual(
-      desiredState[key],
-      (constant as unknown as Record<string, unknown>)[key],
-    );
-  });
+  // Experiment/lock/schema-break guards were enforced above via the adapter's
+  // collectPublishGates + evaluatePublishGates (the collector also records any
+  // synchronous override in the logs), so no separate assert runs here.
 
-  // No diff vs live: a genuine no-op publish, or a recovery retry after a
-  // partial failure (applyChanges landed, merge didn't). Either way, just merge
-  // the revision so a stranded draft self-heals.
-  if (!hasChanges) {
-    const merged = await req.context.models.revisions.merge(
-      revision.id,
-      req.context.userId,
-      { bypass: isBypass },
-    );
-    await dispatchConstantRevisionEvent(req.context, merged, {
-      type: merged.revertedFrom ? "reverted" : "published",
-    });
-    return { revision: await toApiConstantRevision(merged, req.context) };
-  }
-
-  // Claim the merge BEFORE applying to the live entity. `merge` is CAS-guarded,
-  // so a concurrent discard either already lost (merge throws, nothing applied)
-  // or will lose (its `close` CAS-fails). This closes the window where a discard
-  // landing between applyChanges and merge would orphan a half-applied change.
-  const merged = await req.context.models.revisions.merge(
-    revision.id,
-    req.context.userId,
-    { bypass: isBypass },
+  // Keep no-op publishes on the shared gated path.
+  const merged = await publishRevision(
+    req.context,
+    revision,
+    constant as unknown as Record<string, unknown>,
+    { bypass: isBypass, skipHooks: true },
   );
 
-  try {
-    await adapter.applyChanges(
-      req.context,
-      constant as unknown as Record<string, unknown>,
-      desiredState,
-      { isRevert: !!revision.revertedFrom },
-    );
-  } catch (e) {
-    // Couldn't apply after claiming the merge — reopen so the revision isn't
-    // stranded "merged" with the live constant unchanged; a retry re-runs the
-    // publish (and the no-op self-heal path above if it was partially applied).
-    try {
-      await req.context.models.revisions.reopen(merged.id, req.context.userId);
-    } catch {
-      // ignore — surface the original applyChanges error
-    }
-    throw e;
-  }
-
-  await dispatchConstantRevisionEvent(req.context, merged, {
-    type: merged.revertedFrom ? "reverted" : "published",
-  });
-
-  return { revision: await toApiConstantRevision(merged, req.context) };
+  return {
+    revision: await toApiConstantRevision(merged, req.context),
+    ...(bypassed.length ? { bypassedGates: bypassed } : {}),
+  };
 });

@@ -23,7 +23,7 @@ export default function BayesianTab({
           disabled={hasFileConfig()}
           helpTextAppend={
             <span className="ml-2">
-              ({Math.round(DEFAULT_CONFIDENCE_LEVEL * 100)}% is default)
+              Default is {Math.round(DEFAULT_CONFIDENCE_LEVEL * 100)}%.
             </span>
           }
           rules={{ valueAsNumber: true }}

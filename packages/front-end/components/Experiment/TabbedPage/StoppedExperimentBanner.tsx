@@ -3,7 +3,8 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { FaClock, FaPencilAlt } from "react-icons/fa";
+import { FaPencilAlt } from "react-icons/fa";
+import { PiClock } from "react-icons/pi";
 import {
   experimentHasLinkedChanges,
   includeExperimentInPayload,
@@ -13,6 +14,7 @@ import ConfirmButton from "@/components/Modal/ConfirmButton";
 import { useAuth } from "@/services/auth";
 import Markdown from "@/components/Markdown/Markdown";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -107,10 +109,10 @@ export default function StoppedExperimentBanner({
       </div>
 
       {hasLiveLinkedChanges && !isHoldout && (
-        <div className="alert alert-warning m-3">
+        <Callout status="warning" m="3" icon={<PiClock />}>
           <div className="d-flex align-items-center">
             <div>
-              <FaClock /> <strong>Temporary Rollout Enabled</strong>
+              <strong>Temporary Rollout Enabled</strong>
               <div className="my-1">
                 This experiment has been stopped, but changes are still being
                 applied to give you time to implement them in code.
@@ -151,7 +153,7 @@ export default function StoppedExperimentBanner({
               </ConfirmButton>
             </div>
           </div>
-        </div>
+        </Callout>
       )}
       {experiment?.analysis && (
         <div className="border-top p-3">

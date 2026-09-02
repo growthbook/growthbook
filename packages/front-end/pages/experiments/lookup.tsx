@@ -35,7 +35,7 @@ export default function ExperimentLookupPage() {
   }, [trackingKey, apiCall, router]);
 
   if (error) {
-    return <div className="alert alert-danger">{error}</div>;
+    return <Callout status="error">{error}</Callout>;
   }
 
   if (loading) {
@@ -46,7 +46,7 @@ export default function ExperimentLookupPage() {
     <div className="container-fluid pagecontents pt-4">
       <Callout status="error">Experiment not found</Callout>
       <div className="mt-3 px-3">
-        <Link href="/experiments" size="3">
+        <Link href="/experiments" size="lg">
           All Experiments
         </Link>
       </div>

@@ -57,6 +57,7 @@ export interface SnapshotMetric {
   }[];
   chanceToWin?: number;
   errorMessage?: string;
+  computeFailed?: boolean;
   power?: MetricPowerResponseFromStatsEngine;
   realizedSettings?: RealizedSettings;
   supplementalResults?: SupplementalResults;
@@ -143,6 +144,11 @@ export interface ExperimentSnapshotAnalysisSettings {
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";
+export type SnapshotQueryRunnerKind =
+  | "results"
+  | "incremental-full"
+  | "incremental-update"
+  | "incremental-exploratory";
 export type SnapshotTriggeredBy =
   | "schedule"
   | "manual"
@@ -232,6 +238,7 @@ export interface ExperimentSnapshotInterface {
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;
   report?: string;
+  runnerKind?: SnapshotQueryRunnerKind;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;

@@ -18,6 +18,7 @@ import {
 } from "shared/types/query";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  errorSnapshotIfStillRunning,
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -27,12 +28,20 @@ import {
   planMetricFanOut,
 } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
+import {
+  conversionWindowMinutesKey,
+  conversionWindowQueryNameSuffix,
+  getOverriddenMetricConversionWindowHours,
+  partitionMetricsByConversionWindow,
+} from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
+import { getQueryableMetricsFromSnapshotSettings } from "back-end/src/services/experimentQueries/experimentQueries";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import { parseDimension } from "back-end/src/services/experiments";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/services/data-pipeline";
+import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   QueryRunner,
@@ -52,8 +61,10 @@ export type ExperimentIncrementalRefreshExploratoryQueryParams = {
   experimentId: string;
   experimentQueryMetadata: ExperimentQueryMetadata | null;
   queryParentId: string;
-  // Incremental Refresh specific
+  /** When the incremental refresh started. */
   incrementalRefreshStartTime: Date;
+  /** The date to use for units date so we don't include units past the last overall update. Needed for exploratory incremental. */
+  asOf?: Date;
 };
 
 export const startExperimentIncrementalRefreshExploratoryQueries = async (
@@ -64,9 +75,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
 ): Promise<Queries> => {
-  const snapshotSettings = params.snapshotSettings;
-  const experimentId = params.experimentId;
-  const metricMap = params.metricMap;
+  const { snapshotSettings, experimentId, metricMap } = params;
 
   const { org } = context;
 
@@ -89,14 +98,18 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
 
   // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
   // after the introduction of metric slices
-  const selectedMetrics = snapshotSettings.metricSettings
-    .map((m) => metricMap.get(m.id))
-    .filter((m) => m) as ExperimentMetricInterface[];
+  const selectedMetrics = getQueryableMetricsFromSnapshotSettings(
+    snapshotSettings,
+    metricMap,
+  );
 
   const queries: Queries = [];
 
   const incrementalRefreshModel =
-    await context.models.incrementalRefresh.getByExperimentId(experimentId);
+    await context.models.incrementalRefresh.getLockedBySnapshotId(
+      experimentId,
+      params.queryParentId,
+    );
 
   if (!incrementalRefreshModel) {
     throw new Error(
@@ -132,24 +145,25 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     );
   }
 
+  const asOf = params.asOf;
+  if (snapshotSettings.skipPartialData && !asOf) {
+    throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+      "Overall Results require a full refresh before Dimension Results can exclude in-progress conversions.",
+    );
+  }
+
   const executionId = params.queryParentId;
 
-  // Wraps a `run` callback with an execution-fence check. The exploratory
-  // runner only reads the shared per-experiment pipeline tables, but it holds
-  // the same lock the incremental runner uses to DROP/CREATE/RENAME them. If
-  // the lock is taken over by another snapshot mid-run (stale heartbeat,
-  // cancel + restart), continuing to SELECT from those tables would observe a
-  // missing or half-rebuilt table and return empty/malformed results. Checked
-  // at execute time (not enqueue time) because queries run sequentially via
-  // dependencies — the lock can be lost between dependent queries.
+  // Dependencies can delay a query until another snapshot takes over the lock.
   const fenced =
     <A extends unknown[], R>(run: (...args: A) => Promise<R>) =>
     async (...args: A): Promise<R> => {
-      const current =
-        await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
+      const lockHeld =
+        await context.models.incrementalRefresh.isLockedBySnapshotId(
           experimentId,
+          executionId,
         );
-      if (current !== executionId) {
+      if (!lockHeld) {
         throw new Error(
           "Incremental refresh lock was lost to another snapshot; aborting exploratory analysis to avoid reading half-rebuilt pipeline tables.",
         );
@@ -158,9 +172,9 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     };
 
   // Metric Queries
-  const existingSources = incrementalRefreshModel?.metricSources;
+  const existingSources = incrementalRefreshModel.metricSources;
   const existingCovariateSources =
-    incrementalRefreshModel?.metricCovariateSources;
+    incrementalRefreshModel.metricCovariateSources;
 
   const factMetrics = selectedMetrics.filter((m): m is FactMetricInterface =>
     isFactMetric(m),
@@ -228,7 +242,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     // live in the cross-FT pair pass below.
     const sameFtMetrics = group.metrics.filter(
       (m) =>
-        m.numerator.factTableId === group.factTableId &&
+        m.numerator?.factTableId === group.factTableId &&
         (!isRatioMetric(m) || m.denominator?.factTableId === group.factTableId),
     );
     if (sameFtMetrics.length === 0) continue;
@@ -239,45 +253,56 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     // in case same fact table is split across multiple sources
     const sourceName = factTable ? `(${factTable.name})` : "";
 
-    const statisticsQuery = await startQuery({
-      name: `statistics_${group.groupId}`,
-      displayTitle: `Compute Statistics ${sourceName}`,
-      query: integration.getIncrementalRefreshStatisticsQuery({
-        settings: snapshotSettings,
-        exposureQuery: resolvedExposureQuery,
-        activationMetric: activationMetric,
-        // TODO(incremental-refresh): add post-stratification to exploratory
-        // analysis. Pre-computation is unused here; we lean on
-        // dimensionsForAnalysis to drive breakdowns instead.
-        dimensionsForPrecomputation: [],
-        dimensionsForAnalysis: dimensionObjs,
-        factTableMap: params.factTableMap,
-        metricSources: [
-          {
-            factTableId: group.factTableId,
-            tableFullName: existingSource.tableFullName,
-            ...(anyMetricHasCuped && existingCovariateSource
-              ? {
-                  covariateTableFullName: existingCovariateSource.tableFullName,
-                }
-              : {}),
-          },
-        ],
-        unitsSourceTableFullName: unitsTableFullName,
-        metrics: sameFtMetrics,
-        lastMaxTimestamp: existingSource?.maxTimestamp || null,
-      }),
-      dependencies: [],
-      run: fenced((query, setExternalId, queryMetadata) =>
-        integration.runIncrementalRefreshStatisticsQuery(
-          query,
-          setExternalId,
-          queryMetadata,
+    // Mainly for skipPartialData / conversionWindow
+    // We partition the stats query by conversion window over the same shared table.
+    const partitions = partitionMetricsByConversionWindow(
+      sameFtMetrics,
+      snapshotSettings.skipPartialData,
+      activationMetric,
+    );
+    for (const partition of partitions) {
+      const statisticsQuery = await startQuery({
+        name: `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.window?.key)}`,
+        displayTitle: `Compute Statistics ${sourceName}`,
+        query: integration.getIncrementalRefreshStatisticsQuery({
+          settings: snapshotSettings,
+          exposureQuery: resolvedExposureQuery,
+          activationMetric: activationMetric,
+          // TODO(incremental-refresh): add post-stratification to exploratory
+          // analysis. Pre-computation is unused here; we lean on
+          // dimensionsForAnalysis to drive breakdowns instead.
+          dimensionsForPrecomputation: [],
+          dimensionsForAnalysis: dimensionObjs,
+          factTableMap: params.factTableMap,
+          metricSources: [
+            {
+              factTableId: group.factTableId,
+              tableFullName: existingSource.tableFullName,
+              ...(anyMetricHasCuped && existingCovariateSource
+                ? {
+                    covariateTableFullName:
+                      existingCovariateSource.tableFullName,
+                  }
+                : {}),
+            },
+          ],
+          unitsSourceTableFullName: unitsTableFullName,
+          metrics: partition.metrics,
+          lastMaxTimestamp: existingSource?.maxTimestamp || null,
+          asOf,
+        }),
+        dependencies: [],
+        run: fenced((query, setExternalId, queryMetadata) =>
+          integration.runIncrementalRefreshStatisticsQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
         ),
-      ),
-      queryType: "experimentIncrementalRefreshStatistics",
-    });
-    queries.push(statisticsQuery);
+        queryType: "experimentIncrementalRefreshStatistics",
+      });
+      queries.push(statisticsQuery);
+    }
   }
 
   // Cross-FT pair pass — mirrors the main runner. We re-derive the
@@ -293,6 +318,16 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     metricSourceGroups,
     pipelineByGroupId,
     onMissingPipeline: "skip",
+    getWindowKey: (m) =>
+      snapshotSettings.skipPartialData
+        ? conversionWindowMinutesKey(
+            getOverriddenMetricConversionWindowHours(
+              m.metric,
+              activationMetric,
+              snapshotSettings,
+            ),
+          )
+        : null,
   });
   for (const subGroup of crossFtSubGroups) {
     const [pipelineA, pipelineB] = subGroup.pipelines;
@@ -301,7 +336,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     const sourceName = ftA && ftB ? `(${ftA.name} x ${ftB.name})` : "";
 
     const crossStatsQuery = await startQuery({
-      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}`,
+      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`,
       displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
@@ -313,6 +348,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
         unitsSourceTableFullName: unitsTableFullName,
         metrics: subGroup.metrics.map((m) => m.metric),
         lastMaxTimestamp: null,
+        asOf,
         // Cross-FT CUPED reads each side's covariate cache. Either
         // pipeline may have none (if its metrics aren't RA), and we omit
         // `covariateTableFullName` in that case.
@@ -386,8 +422,9 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     }
 
     const incrementalRefreshModel =
-      await this.context.models.incrementalRefresh.getByExperimentId(
+      await this.context.models.incrementalRefresh.getLockedBySnapshotId(
         params.experimentId,
+        this.model.id,
       );
 
     const experiment = await getExperimentById(
@@ -410,7 +447,10 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
 
     return startExperimentIncrementalRefreshExploratoryQueries(
       this.context,
-      params,
+      {
+        ...params,
+        asOf: this.model.sourceSnapshotDateCreated,
+      },
       this.integration,
       this.startQuery.bind(this),
     );
@@ -454,6 +494,40 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     if (!obj)
       throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
+  }
+
+  /** True once another finalizer (reaper, cancel) has concluded this snapshot. */
+  protected override isModelTerminal(
+    model: ExperimentSnapshotInterface,
+  ): boolean {
+    return model.status !== "running";
+  }
+
+  /**
+   * Persist error only while still running; release the incremental refresh
+   * lock if the write wins.
+   */
+  protected override async writeErrorIfStillActive(
+    error: string,
+  ): Promise<void> {
+    const wrote = await errorSnapshotIfStillRunning(
+      this.context,
+      this.model.id,
+      {
+        queries: this.model.queries,
+        error,
+      },
+    );
+    if (wrote) {
+      await this.context.models.incrementalRefresh
+        .releaseLock(this.model.experiment, this.model.id)
+        .catch((e) =>
+          this.context.logger.warn(
+            e,
+            "Failed to release incremental refresh lock on shutdown error",
+          ),
+        );
+    }
   }
 
   async updateModel({

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { date, datetime } from "shared/dates";
+import { getHoldoutStage } from "shared/util";
 import Link from "next/link";
 import { startCase } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
@@ -119,8 +120,7 @@ const HoldoutsPage = (): React.ReactElement => {
     }, []);
     const statusString =
       startCase(item.experiment.status) +
-      (item.experiment.status === "running" &&
-      item.experiment.phases.length === 2
+      (getHoldoutStage(item, item.experiment) === "analysis-period"
         ? ": Analysis Phase"
         : "");
     const ownerName = getOwnerDisplay(item.experiment.owner);
@@ -285,6 +285,7 @@ const HoldoutsPage = (): React.ReactElement => {
             </Box>
             <Box mb="4" style={{ width: "40%" }}>
               <Field
+                size="legacy"
                 placeholder="Search..."
                 type="search"
                 {...searchInputProps}
@@ -378,7 +379,6 @@ const HoldoutsPage = (): React.ReactElement => {
         <NewHoldoutForm
           onClose={() => setOpenNewHoldoutModal(false)}
           source="holdouts-list"
-          isNewHoldout
           mutate={mutateHoldouts}
         />
       )}

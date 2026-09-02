@@ -84,7 +84,7 @@ const RefreshSnapshotButton: FC<{
           )}
           <RadixButton
             variant={radixVariant}
-            size="sm"
+            size="md"
             disabled={loading || disabled}
             setError={(error) => setError(error ?? undefined)}
             onClick={handleClick}

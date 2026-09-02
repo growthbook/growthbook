@@ -29,6 +29,7 @@ import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 
 const BanditExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -240,10 +241,10 @@ const BanditExperimentPage = (): ReactElement => {
             (experiment.linkedFeatures?.length ||
               experiment.hasVisualChangesets ||
               experiment.hasURLRedirects) ? (
-              <div className="alert alert-danger">
+              <Callout status="error">
                 Changing the project may prevent your linked Feature Flags,
                 Visual Changes, and URL Redirects from being sent to users.
-              </div>
+              </Callout>
             ) : null
           }
           source="bid"
@@ -254,6 +255,7 @@ const BanditExperimentPage = (): ReactElement => {
           close={() => setPhaseModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           source="bid"
         />
       )}
@@ -272,6 +274,7 @@ const BanditExperimentPage = (): ReactElement => {
           close={() => setEditPhasesOpen(false)}
           mutateExperiment={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           editTargeting={editTargeting}
           source="bid"
         />
@@ -281,6 +284,7 @@ const BanditExperimentPage = (): ReactElement => {
           close={() => setTargetingModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
           // source="bid"
         />
@@ -294,6 +298,7 @@ const BanditExperimentPage = (): ReactElement => {
           }}
           mutate={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
           focusVariationId={trafficFocusVariation}
           addVariationOnOpen={addVariationOnOpen}

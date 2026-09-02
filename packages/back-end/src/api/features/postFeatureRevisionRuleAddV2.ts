@@ -1,5 +1,4 @@
 import cloneDeep from "lodash/cloneDeep";
-import omit from "lodash/omit";
 import { v4 as uuidv4 } from "uuid";
 import {
   RevisionRampCreateAction,
@@ -9,22 +8,25 @@ import {
   SafeRolloutInterface,
 } from "shared/validators";
 import type { FeatureRule, SafeRolloutRule } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
+import {
+  getAttributeScopeProjectIds,
+  getEffectiveRevisionHoldout,
+  resetReviewOnChange,
+} from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
-import { ExperimentInterface } from "shared/types/experiment";
 import { CreateProps } from "shared/types/base-model";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
   toApiRevisionV2,
   addIdsToFlatRules,
+  assertFeatureValuesValid,
 } from "back-end/src/services/features";
+import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import {
-  getExperimentById,
-  updateExperiment,
-} from "back-end/src/models/ExperimentModel";
+import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   getRevision,
   prevalidateRevisionUpdate,
@@ -48,7 +50,12 @@ import {
   validateRuleReferences,
 } from "./validations";
 import { buildRuleFromInput } from "./postFeatureRevisionRuleAdd";
-import { resolveScopeFromInput } from "./v2Shared";
+import {
+  assertNoRawConfigExtends,
+  assertValidRuleConfigKeys,
+  composeConfigBacking,
+  resolveScopeFromInput,
+} from "./v2Shared";
 
 export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   postFeatureRevisionRuleAddV2Validator,
@@ -56,16 +63,26 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
   }
 
   const { schedule } = req.body;
   const inlineRampSchedule = req.body.rampSchedule;
   const ruleInput = req.body.rule as RuleCreateInputV2;
+
+  // Capture config-backing inputs before the experiment-ref variation backfill
+  // below rewrites `ruleInput.variations` (which would otherwise drop `config`).
+  // `value` is an override patch when a config is supplied; we recompose it into
+  // the internal `$extends`-first value after the rule is built.
+  const ruleLevelConfig =
+    "config" in ruleInput
+      ? (ruleInput as { config?: string | null }).config
+      : undefined;
+  const variationConfigs =
+    ruleInput.type === "experiment-ref"
+      ? ruleInput.variations.map((v) => v.config)
+      : [];
 
   if (inlineRampSchedule && (schedule?.startDate || schedule?.endDate)) {
     throw new BadRequestError(
@@ -82,15 +99,20 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   );
 
   let createdSafeRolloutId: string | undefined;
-  let linkedExperimentId: string | undefined;
-  let linkedHoldoutId: string | undefined;
-  let holdoutExperimentToLink: ExperimentInterface | null = null;
   try {
     if (!isDraftStatus(revision.status)) {
       throw new BadRequestError(
         `Cannot edit a revision with status "${revision.status}"`,
       );
     }
+
+    await assertValidRuleConfigKeys(
+      req.context,
+      [ruleLevelConfig, ...variationConfigs],
+      revision.defaultValue ?? feature.defaultValue,
+      feature.baseConfig,
+      feature.project,
+    );
 
     if (ruleInput.type === "experiment-ref") {
       const anyMissing = ruleInput.variations.some((v) => !v.variationId);
@@ -100,65 +122,41 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
           "Either provide variationId for all variations or none; mixed inputs are not allowed.",
         );
       }
-      const needsHoldoutCheck = Boolean(feature.holdout?.id);
-      if (anyMissing || needsHoldoutCheck) {
-        const experiment = await getExperimentById(
-          req.context,
-          ruleInput.experimentId,
+      // Always resolve the experiment: holdout compatibility must be checked
+      // in both directions (the experiment may belong to a holdout even when
+      // this Feature Flag does not).
+      const experiment = await getExperimentById(
+        req.context,
+        ruleInput.experimentId,
+      );
+      if (!experiment)
+        throw new NotFoundError(
+          `Could not find experiment "${ruleInput.experimentId}"`,
         );
-        if (!experiment)
-          throw new NotFoundError(
-            `Could not find experiment "${ruleInput.experimentId}"`,
+
+      if (anyMissing) {
+        const phaseVariations = getLatestPhaseVariations(experiment);
+        if (phaseVariations.length < ruleInput.variations.length) {
+          throw new BadRequestError(
+            `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
           );
-
-        if (anyMissing) {
-          const phaseVariations = getLatestPhaseVariations(experiment);
-          if (phaseVariations.length < ruleInput.variations.length) {
-            throw new BadRequestError(
-              `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
-            );
-          }
-          ruleInput.variations = ruleInput.variations.map((v, i) => ({
-            variationId: phaseVariations[i].id,
-            value: v.value,
-          }));
         }
-
-        if (needsHoldoutCheck && feature.holdout?.id) {
-          if (experiment.status !== "draft") {
-            throw new BadRequestError(
-              `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status}").`,
-            );
-          }
-          const expHasLinkedChanges =
-            (experiment.linkedFeatures?.length ?? 0) > 0 ||
-            experiment.hasURLRedirects ||
-            experiment.hasVisualChangesets;
-          if (expHasLinkedChanges) {
-            throw new BadRequestError(
-              `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
-            );
-          }
-          if (
-            experiment.holdoutId &&
-            experiment.holdoutId !== feature.holdout.id
-          ) {
-            const featureHoldout = await req.context.models.holdout.getById(
-              feature.holdout.id,
-            );
-            const expHoldout = experiment.holdoutId
-              ? await req.context.models.holdout.getById(experiment.holdoutId)
-              : null;
-            throw new BadRequestError(
-              `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || feature.holdout.id}".`,
-            );
-          }
-          if (!experiment.holdoutId) {
-            // Deferred until after custom-hook prevalidation below
-            holdoutExperimentToLink = experiment;
-          }
-        }
+        ruleInput.variations = ruleInput.variations.map((v, i) => ({
+          variationId: phaseVariations[i].id,
+          value: v.value,
+        }));
       }
+
+      // Legacy revisions store holdout sparsely, so absence carries the
+      // feature's holdout forward. Linking writes are deferred until after
+      // custom-hook prevalidation below.
+      await resolveHoldoutExperimentToLink({
+        context: req.context,
+        feature,
+        experiment,
+        effectiveHoldout: getEffectiveRevisionHoldout(revision, feature),
+        makeError: (message) => new BadRequestError(message),
+      });
     }
 
     // V2: derive scope from the rule itself, not from a body `environment` field.
@@ -169,15 +167,64 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       };
     const rule = buildRuleFromInput(baseRuleInput as RuleCreateInput, uuidv4());
 
+    // Config backing comes only through the dedicated `config` field; a raw
+    // `@config:` embedded in a value is rejected (matches mapV2ApiRuleToFeatureRule).
+    if (rule.type === "force" || rule.type === "rollout") {
+      assertNoRawConfigExtends(rule.value, "Rule value");
+    } else if (rule.type === "experiment-ref") {
+      rule.variations.forEach((v) =>
+        assertNoRawConfigExtends(v.value, "Variation value"),
+      );
+    }
+
+    // Recompose config-backing into the stored value(s). null detaches.
+    if (
+      (rule.type === "force" || rule.type === "rollout") &&
+      ruleLevelConfig !== undefined
+    ) {
+      rule.value = composeConfigBacking(
+        ruleLevelConfig,
+        rule.value,
+        "Rule value",
+      );
+    }
+    if (rule.type === "experiment-ref") {
+      rule.variations = rule.variations.map((rv, i) => {
+        const c = variationConfigs[i];
+        return c !== undefined
+          ? {
+              ...rv,
+              value: composeConfigBacking(c, rv.value, "Variation value"),
+            }
+          : rv;
+      });
+    }
+
     // Backfill seed for rollout rules to ensure ramp-monitored payload
     // stability — consistent with the write-time backfill in addIdsToFlatRules.
     addIdsToFlatRules([rule as FeatureRule], feature.id);
+
+    // Enforce the feature's JSON schema on the new rule's values (no-op for
+    // config-backed values). Opt out with ?skipSchemaValidation=true.
+    assertFeatureValuesValid(req.context, feature, {
+      rules: [rule as FeatureRule],
+    });
+    // Config-backed rule values additionally validate against the backing
+    // config's schema + invariants (assertFeatureValuesValid is a no-op for
+    // them). Same check the publish path runs; a no-op for non-config values.
+    await assertConfigBackedFeatureValuesValid(req.context, feature, {
+      rules: [rule as FeatureRule],
+    });
 
     validateRuleConditions(rule);
     // Opt-in registered-attribute check before any side effects (safe-rollout
     // create, revision update). New rules have no baseline, so this validates
     // every attribute-bearing field on the incoming rule.
-    validateRuleAttributes(rule, req.context, feature.project);
+    validateRuleAttributes(
+      rule,
+      req.context,
+      getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+    );
     await validateRuleReferences(rule, req.context);
 
     // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
@@ -306,28 +353,6 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       createdSafeRolloutId = safeRollout.id;
     }
 
-    if (holdoutExperimentToLink && feature.holdout?.id) {
-      await updateExperiment({
-        context: req.context,
-        experiment: holdoutExperimentToLink,
-        changes: { holdoutId: feature.holdout.id },
-      });
-      linkedExperimentId = holdoutExperimentToLink.id;
-      const holdout = await req.context.models.holdout.getById(
-        feature.holdout.id,
-      );
-      await req.context.models.holdout.updateById(feature.holdout.id, {
-        linkedExperiments: {
-          ...holdout?.linkedExperiments,
-          [holdoutExperimentToLink.id]: {
-            id: holdoutExperimentToLink.id,
-            dateAdded: new Date(),
-          },
-        },
-      });
-      linkedHoldoutId = feature.holdout.id;
-    }
-
     await updateRevision(
       req.context,
       feature,
@@ -369,34 +394,6 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     if (createdSafeRolloutId) {
       try {
         await req.context.models.safeRollout.deleteById(createdSafeRolloutId);
-      } catch {
-        /* best effort */
-      }
-    }
-    if (linkedExperimentId) {
-      try {
-        const exp = await getExperimentById(req.context, linkedExperimentId);
-        if (exp)
-          await updateExperiment({
-            context: req.context,
-            experiment: exp,
-            changes: { holdoutId: "" },
-          });
-      } catch {
-        /* best effort */
-      }
-    }
-    if (linkedHoldoutId && linkedExperimentId) {
-      try {
-        const holdout =
-          await req.context.models.holdout.getById(linkedHoldoutId);
-        if (holdout?.linkedExperiments?.[linkedExperimentId]) {
-          await req.context.models.holdout.updateById(linkedHoldoutId, {
-            linkedExperiments: omit(holdout.linkedExperiments, [
-              linkedExperimentId,
-            ]),
-          });
-        }
       } catch {
         /* best effort */
       }

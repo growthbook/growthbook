@@ -1,6 +1,5 @@
 import {
   ColumnInterface,
-  CreateFactMetricProps,
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
@@ -13,12 +12,15 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import { getDefaultFactMetricProps } from "@/services/metrics";
+import {
+  CreateStandardFactMetricProps,
+  getDefaultFactMetricProps,
+} from "@/services/metrics";
 import { GBInfo } from "@/components/Icons";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 
 type RecommendedMetric = Pick<
-  CreateFactMetricProps,
+  CreateStandardFactMetricProps,
   "description" | "metricType" | "numerator"
 > & {
   column: string;
@@ -101,7 +103,7 @@ export function getRecommendedFactMetrics(
       // Skip if there's already a metric filtering on this value
       if (
         metrics.some((m) =>
-          m.numerator.rowFilters?.some(
+          m.numerator?.rowFilters?.some(
             (f) => f.column === column.column && f.values?.includes(value),
           ),
         )
@@ -179,7 +181,7 @@ export default function RecommendedFactMetricsModal({
         setProgress(0);
         let numProcessed = 0;
         for (const i of checked) {
-          const body: CreateFactMetricProps = getDefaultFactMetricProps({
+          const body = getDefaultFactMetricProps({
             datasources,
             metricDefaults,
             project,
@@ -249,6 +251,7 @@ export default function RecommendedFactMetricsModal({
         <div className="col-auto ml-auto">
           <div className="form-inline">
             <Field
+              size="legacy"
               label="Name Prefix"
               labelClassName="mr-2"
               value={namePrefix}

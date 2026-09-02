@@ -11,7 +11,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import SelectOwner from "@/components/Owner/SelectOwner";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { FocusSelector } from "./EditExperimentInfoModal";
 
 interface Props {
@@ -31,8 +31,8 @@ export default function EditHoldoutInfoModal({
 }: Props) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
-  const canUpdateHoldoutProjects = (project) =>
-    permissionsUtil.canUpdateHoldout({ projects: [project] }, { projects: [] });
+  const canUpdateHoldoutProjects = (project: string) =>
+    permissionsUtil.canUpdateHoldout(holdout, { projects: [project] });
 
   const form = useForm({
     defaultValues: {
@@ -69,6 +69,7 @@ export default function EditHoldoutInfoModal({
       })}
     >
       <Field
+        size="legacy"
         autoFocus={focusSelector === "name"}
         label="Experiment Name"
         {...form.register("name")}
@@ -87,6 +88,7 @@ export default function EditHoldoutInfoModal({
         />
       </div>
       <MultiSelectField
+        legacyHeight
         label={
           <>
             Projects
@@ -98,13 +100,12 @@ export default function EditHoldoutInfoModal({
             />
           </>
         }
-        placeholder="All projects"
+        placeholder="All Projects"
         autoFocus={focusSelector === "projects"}
         value={form.watch("projects") || []}
-        options={useProjectOptions(
-          (project) => canUpdateHoldoutProjects(project),
-          experiment.project ? [experiment.project] : [],
-        )}
+        // A Holdout's scope lives on the Holdout, not on its underlying
+        // Experiment, which is always created with an empty project.
+        options={useProjectOptions(canUpdateHoldoutProjects, holdout.projects)}
         onChange={(v) => form.setValue("projects", v)}
         customClassName="label-overflow-ellipsis"
         helpText="Assign this holdout to specific projects"

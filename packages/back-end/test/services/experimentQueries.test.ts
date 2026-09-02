@@ -1,7 +1,16 @@
-import { FactMetricInterface } from "shared/types/fact-table";
+import {
+  FactMetricInterface,
+  FunnelFactMetricInterface,
+} from "shared/types/fact-table";
+import {
+  ExperimentMetricInterface,
+  getFunnelStepMetrics,
+} from "shared/experiments";
+import { MetricForSnapshot } from "shared/types/experiment-snapshot";
 import {
   chunkMetrics,
   getFactMetricGroup,
+  getQueryableMetricsFromSnapshotSettings,
   maxColumnsNeededForMetric,
 } from "back-end/src/services/experimentQueries/experimentQueries";
 import { MAX_METRICS_PER_QUERY } from "back-end/src/services/experimentQueries/constants";
@@ -525,6 +534,75 @@ describe("experimentQueries", () => {
         windowSettings,
       });
 
+    const funnelMetricOnFactTables = (
+      factTableIds: string[],
+    ): FunnelFactMetricInterface => ({
+      ...factMetricFactory.build({ id: `fact__${factTableIds.join("_")}` }),
+      metricType: "funnel",
+      numerator: null,
+      denominator: null,
+      funnelSettings: {
+        steps: factTableIds.map((factTableId, i) => ({
+          name: `Step ${i + 1}`,
+          factTableId,
+          rowFilters: [],
+          optional: false,
+          conversionWindow: null,
+        })),
+      },
+    });
+
+    describe("when a metric spans several fact tables", () => {
+      it("groups a funnel with the metrics needing that exact set of tables", () => {
+        const funnel = funnelMetricOnFactTables(["ft_1", "ft_2"]);
+        const crossTableRatio = factMetricFactory.build({
+          metricType: "ratio",
+          numerator: { factTableId: "ft_2" },
+          denominator: { factTableId: "ft_1" },
+        });
+
+        // Same set of tables, so one query can serve both.
+        expect(getFactMetricGroup(funnel, { skipPartialData: false })).toBe(
+          getFactMetricGroup(crossTableRatio, { skipPartialData: false }),
+        );
+      });
+
+      it("separates metrics whose fact tables only overlap", () => {
+        const funnel = funnelMetricOnFactTables(["ft_1", "ft_2"]);
+        const otherFunnel = funnelMetricOnFactTables(["ft_1", "ft_3"]);
+        const mean = meanMetric("ft_1", conversionWindow(3, "days"));
+
+        const group = getFactMetricGroup(funnel, { skipPartialData: false });
+        expect(group).not.toBe(
+          getFactMetricGroup(otherFunnel, { skipPartialData: false }),
+        );
+        expect(group).not.toBe(
+          getFactMetricGroup(mean, { skipPartialData: false }),
+        );
+      });
+
+      it("keys on the set of fact tables, not the step order", () => {
+        expect(
+          getFactMetricGroup(funnelMetricOnFactTables(["ft_2", "ft_1"]), {
+            skipPartialData: false,
+          }),
+        ).toBe(
+          getFactMetricGroup(funnelMetricOnFactTables(["ft_1", "ft_2"]), {
+            skipPartialData: false,
+          }),
+        );
+      });
+
+      it("groups a funnel whose steps share one fact table with that table's metrics", () => {
+        const funnel = funnelMetricOnFactTables(["ft_1", "ft_1"]);
+        const mean = meanMetric("ft_1", conversionWindow(3, "days"));
+
+        expect(getFactMetricGroup(funnel, { skipPartialData: false })).toBe(
+          getFactMetricGroup(mean, { skipPartialData: false }),
+        );
+      });
+    });
+
     describe("when skipPartialData is false", () => {
       it("keys on the fact table only, ignoring the conversion window", () => {
         const a = meanMetric("ft_1", conversionWindow(3, "days"));
@@ -656,7 +734,7 @@ describe("experimentQueries", () => {
         );
         // The base cross-table grouping is preserved.
         expect(getFactMetricGroup(a, { skipPartialData: true })).toContain(
-          "(cross-table ratio metrics)",
+          "(cross-table metrics)",
         );
       });
 
@@ -688,6 +766,65 @@ describe("experimentQueries", () => {
           getFactMetricGroup(b, { skipPartialData: true }),
         );
       });
+    });
+  });
+
+  describe("getQueryableMetricsFromSnapshotSettings", () => {
+    const funnelMetric: FunnelFactMetricInterface = {
+      ...factMetricFactory.build({ id: "fact__funnel" }),
+      id: "fact__funnel",
+      name: "Signup Funnel",
+      metricType: "funnel",
+      numerator: null,
+      denominator: null,
+      funnelSettings: {
+        ordering: "strict",
+        steps: ["View", "Signup"].map((name) => ({
+          name,
+          factTableId: "ft_1",
+          rowFilters: [],
+          optional: false,
+          conversionWindow: null,
+        })),
+      },
+    };
+    const stepMetrics = getFunnelStepMetrics(funnelMetric);
+    const standardMetric = factMetricFactory.build({ id: "fact__revenue" });
+
+    const metricMap = new Map<string, ExperimentMetricInterface>(
+      [funnelMetric, standardMetric, ...stepMetrics].map((m) => [m.id, m]),
+    );
+
+    const metricSettings = (ids: string[]) =>
+      ids.map((id) => ({ id }) as MetricForSnapshot);
+
+    it("drops funnel step metrics, which the parent funnel query covers", () => {
+      const queryable = getQueryableMetricsFromSnapshotSettings(
+        {
+          metricSettings: metricSettings([
+            funnelMetric.id,
+            ...stepMetrics.map((m) => m.id),
+            standardMetric.id,
+          ]),
+        },
+        metricMap,
+      );
+
+      expect(queryable.map((m) => m.id)).toEqual([
+        funnelMetric.id,
+        standardMetric.id,
+      ]);
+    });
+
+    it("drops ids with no definition in the map", () => {
+      const queryable = getQueryableMetricsFromSnapshotSettings(
+        {
+          metricSettings: metricSettings(["fact__deleted", standardMetric.id]),
+        },
+        metricMap,
+      );
+
+      expect(queryable.map((m) => m.id)).toEqual([standardMetric.id]);
     });
   });
 });

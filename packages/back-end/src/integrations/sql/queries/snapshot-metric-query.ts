@@ -2,7 +2,7 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   eligibleForUncappedMetric,
   getUserIdTypes,
-  isFunnelMetric,
+  isLegacyFunnelMetric,
   isPercentileCappedMetric,
   isRatioMetric,
   isRegressionAdjusted,
@@ -25,7 +25,7 @@ import { getConversionWindowClause } from "back-end/src/integrations/sql/clauses
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
-import { getFunnelUsersCTE } from "back-end/src/integrations/sql/ctes/funnel-users-cte";
+import { getLegacyFunnelUsersCTE } from "back-end/src/integrations/sql/ctes/funnel-users-cte";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
 import { getMetricCTE } from "back-end/src/integrations/sql/ctes/metric-cte";
@@ -79,7 +79,7 @@ export function getSnapshotMetricQuery(
       ? denominatorMetrics[denominatorMetrics.length - 1]
       : undefined;
   const ratioMetric = isRatioMetric(metric, denominator);
-  const funnelMetric = isFunnelMetric(metric, denominator);
+  const funnelMetric = isLegacyFunnelMetric(metric, denominator);
 
   const banditDates = getBanditDates(settings.banditSettings);
 
@@ -326,7 +326,7 @@ WITH
     .join("\n")}
   ${
     funnelMetric
-      ? `, __denominatorUsers as (${getFunnelUsersCTE(
+      ? `, __denominatorUsers as (${getLegacyFunnelUsersCTE(
           dialect,
           baseIdType,
           denominatorMetrics,

@@ -4,7 +4,7 @@ import {
   AttributionModel,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import { MetricInterface } from "shared/types/metric";
+import { MetricDefinitionInterface } from "shared/types/metric";
 import {
   OrganizationSettings,
   NorthStarMetric,
@@ -13,12 +13,13 @@ import {
   MemberRoleInfo,
   OrganizationInterface,
   RequireReview,
+  TargetingReviewRule,
 } from "shared/types/organization";
 import { StatsEngine, PValueCorrection } from "shared/types/stats";
 import { ProjectInterface } from "shared/types/project";
 import { ReportInterface } from "shared/types/report";
 import { MetricWindowSettings } from "shared/types/fact-table";
-import { ExperimentMetricInterface } from "../experiments/experiments";
+import { ExperimentMetricDefinition } from "../experiments/experiments";
 
 interface SettingMetadata {
   scopeApplied?: keyof ScopeDefinition | "organization";
@@ -43,8 +44,8 @@ export interface ScopeDefinition {
   project?: ProjectInterface;
   datasource?: DataSourceInterface;
   experiment?: ExperimentInterface | ExperimentInterfaceStringDates;
-  metric?: ExperimentMetricInterface;
-  denominatorMetric?: MetricInterface;
+  metric?: ExperimentMetricDefinition;
+  denominatorMetric?: MetricDefinitionInterface;
   report?: ReportInterface;
 }
 
@@ -87,6 +88,7 @@ interface BaseSettings {
   secureAttributeSalt: string;
   killswitchConfirmation: boolean;
   requireReviews: boolean | RequireReview[];
+  targetingReviewMode: TargetingReviewRule[];
   featureKeyExample: string;
   featureRegexValidator: string;
   banditScheduleValue: number;
@@ -99,6 +101,7 @@ interface BaseSettings {
   topValuesLookbackValue: number;
   topValuesLookbackUnit: "days";
   useStickyBucketing: boolean;
+  stickyBucketingOnByDefault: boolean;
 }
 
 // todo: encapsulate all settings, including experiment

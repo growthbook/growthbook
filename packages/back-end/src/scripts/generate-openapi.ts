@@ -34,6 +34,10 @@ const openApiTags = [
   "saved-group-revisions",
   "constants",
   "constant-revisions",
+  "configs",
+  "config-revisions",
+  "releases",
+  "custom-hooks",
   "organizations",
   "members",
   "code-references",
@@ -151,12 +155,32 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   constants: {
     display: "Constants",
     description:
-      "Reusable named values referenced from feature flag values as `@const:key` and resolved into the SDK payload at build time. String constants are interpolated via `{{ @const:key }}`; JSON (object) constants are composed via an `$extends` array.",
+      "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nReusable named values referenced from feature flag values as `@const:key` and resolved into the SDK payload at build time. String constants are interpolated via `{{ @const:key }}`; JSON (object) constants are composed via an `$extends` array. A constant's own keys **replace** what its `$extends` bases provide, wholesale — constants are atomic building blocks. (Config and feature values compose as deep, targeted patches instead.)",
   },
   "constant-revisions": {
     display: "Constant Revisions",
     description:
-      'Draft revisions for constants, including pending changes, approvals, and lifecycle (publish, discard, revert). Pass `version: "new"` on edit endpoints to auto-create a draft.',
+      '**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nDraft revisions for constants, including pending changes, approvals, and lifecycle (publish, discard, revert). Pass `version: "new"` on edit endpoints to auto-create a draft.',
+  },
+  configs: {
+    display: "Configs",
+    description:
+      "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nReusable, typed, inheritable JSON objects referenced from feature flag values as `@config:key`. A config carries a field `schema` (with TypeScript/JSON Schema import-export) and a lineage `parent`. Inheritance is expressed via `parent`, never an in-value `@config:` entry. Values layer as a **deep, targeted patch**: a child (or a config-backed feature value) restates only the leaves it changes and inherits the rest — unlike a constant's `$extends`, whose own keys replace wholesale. Schema fields colliding with a published ancestor's key follow 'base wins': identical re-declarations are stripped with a warning, differing ones are rejected.",
+  },
+  "config-revisions": {
+    display: "Config Revisions",
+    description:
+      '**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nDraft revisions for configs, including value and schema edits, schema import (JSON Schema / TypeScript / inferred), approvals, and lifecycle (publish, discard, revert). Publishing a schema change cascades the "base wins" normalization to descendant configs; a publish that removes or retypes fields descendants still use soft-blocks with a 422 unless the request body sets `ignoreWarnings: true`. Pass `version: "new"` on edit endpoints to auto-create a draft.',
+  },
+  releases: {
+    display: "Releases",
+    description:
+      "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nCoordinated multi-entity publishing: publish a set of revisions across Feature Flags, Saved Groups, configs, and constants as one all-or-nothing operation, validated against the combined end-state instead of each in-between state. Requires the `releases` commercial feature.",
+  },
+  "custom-hooks": {
+    display: "Custom Hooks",
+    description:
+      "Sandboxed JavaScript validation hooks that run when features, configs, or their revisions are saved or published. Throwing an Error blocks the save; `addWarning(msg)` raises a soft warning. Hooks are scoped by projects, or pinned to a single feature/config via `entityType`/`entityId`; a config-scoped hook also runs for every config inheriting from it (its whole descendant lineage). Scope can be retargeted on update (or cleared with nulls). Requires an enterprise plan; not available on GrowthBook Cloud.",
   },
   members: {
     display: "Members",
@@ -207,29 +231,59 @@ function isNonEmptySchema(schema: z.ZodType | undefined): schema is z.ZodType {
 // Accumulated component schemas — populated as we call toOpenApiSchema.
 const componentSchemas: Record<string, unknown> = {};
 
+/** Human label for a schema id. Mintlify oneOf/anyOf tabs read `title`, not the $ref name. */
+function schemaTitle(name: string): string {
+  return name
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function addTitleToUnionRef(item: unknown): unknown {
+  if (!item || typeof item !== "object") return item;
+  const record = item as Record<string, unknown>;
+  if (typeof record.$ref !== "string" || record.title != null) return item;
+  const name = record.$ref.split("/").pop() ?? "";
+  if (!name) return item;
+  return { title: schemaTitle(name), ...record };
+}
+
 /**
  * Recursively replace `{ $ref: "#/$defs/X" }` with `{ $ref: "#/components/schemas/X" }`.
+ * Preserves $ref siblings (OpenAPI 3.1). Adds `title` on anyOf/oneOf $refs so
+ * Mintlify can label the tabs instead of "Option 1".
  */
-function rewriteRefs(obj: unknown): unknown {
-  if (Array.isArray(obj)) return obj.map(rewriteRefs);
+function rewriteRefs(obj: unknown, parentKey?: string): unknown {
+  if (Array.isArray(obj)) {
+    const rewritten = obj.map((item) => rewriteRefs(item));
+    if (parentKey === "anyOf" || parentKey === "oneOf") {
+      return rewritten.map(addTitleToUnionRef);
+    }
+    return rewritten;
+  }
   if (obj && typeof obj === "object") {
     const record = obj as Record<string, unknown>;
     if ("$ref" in record && typeof record.$ref === "string") {
-      return { $ref: record.$ref.replace("#/$defs/", "#/components/schemas/") };
+      const { $ref, ...siblings } = record;
+      return {
+        ...Object.fromEntries(
+          Object.entries(siblings).map(([k, v]) => [k, rewriteRefs(v, k)]),
+        ),
+        $ref: $ref.replace("#/$defs/", "#/components/schemas/"),
+      };
     }
     return Object.fromEntries(
-      Object.entries(record).map(([k, v]) => [k, rewriteRefs(v)]),
+      Object.entries(record).map(([k, v]) => [k, rewriteRefs(v, k)]),
     );
   }
   return obj;
 }
 
-/**
- * Convert a ZodType to an OpenAPI-compatible JSON Schema object.
- * - Strips the top-level `$schema` meta-field emitted by `z.toJSONSchema`.
- * - Hoists any `$defs` (produced by `namedSchema`) into `componentSchemas`.
- * - Rewrites `$ref` pointers from `#/$defs/X` to `#/components/schemas/X`.
- */
+// Convert a ZodType to an OpenAPI-compatible JSON Schema object.
+// - Strips the top-level `$schema` meta-field emitted by `z.toJSONSchema`.
+// - Hoists any `$defs` (produced by `namedSchema`) into `componentSchemas`.
+// - Rewrites `$ref` pointers from `#/$defs/X` to `#/components/schemas/X`.
 function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
   const {
     $schema: _$schema,
@@ -272,18 +326,16 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
   return rewriteRefs(rest) as z.core.JSONSchema.BaseSchema;
 }
 
-/**
- * Remove `default`-bearing properties from every `required` array in a schema
- * tree (recursing through properties, items, anyOf/oneOf/allOf, etc.).
- *
- * `z.toJSONSchema` runs in "output" mode, where a field with a Zod
- * `.default()` is always present in the parsed result and so gets listed as
- * `required`. That's correct for responses, but for REQUEST schemas it's
- * contradictory: `default` means the client may omit the field, so it must not
- * also be `required`. We only call this on request (params/query/body) schemas;
- * response schemas keep the output-mode `required` set. Skips `$ref` nodes, so
- * shared component schemas (used by responses) are never mutated.
- */
+// Remove `default`-bearing properties from every `required` array in a schema
+// tree (recursing through properties, items, anyOf/oneOf/allOf, etc.).
+//
+// `z.toJSONSchema` runs in "output" mode, where a field with a Zod
+// `.default()` is always present in the parsed result and so gets listed as
+// `required`. That's correct for responses, but for REQUEST schemas it's
+// contradictory: `default` means the client may omit the field, so it must not
+// also be `required`. We only call this on request (params/query/body) schemas;
+// response schemas keep the output-mode `required` set. Skips `$ref` nodes, so
+// shared component schemas (used by responses) are never mutated.
 function stripDefaultedFromRequired(node: unknown): void {
   if (Array.isArray(node)) {
     node.forEach(stripDefaultedFromRequired);
@@ -498,13 +550,26 @@ The API may return the following error status codes:
 - **402** - Request Failed - The parameters are valid, but the request failed
 - **403** - Forbidden - Provided API key does not have the required access
 - **404** - Not Found - Unknown API route or requested resource
-- **422** - Soft Warning - The request failed, but can be re-submitted with \`?ignoreWarnings=true\` to proceed anyway.
+- **422** - Unprocessable Entity - The request is valid, but a warning, validation rule, approval requirement, or another publishing gate blocked it. Do not assume that \`ignoreWarnings\` clears every 422 response.
 - **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
 - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
 
 The response body will be a JSON object with the following properties:
 
 - **message** - Information about the error
+
+### Publishing gates
+
+Publish responses include a \`gates\` array that explains every blocker:
+
+- \`type\`, \`severity\`, and \`messages\` identify the problem.
+- \`override\` names the request-body field that can bypass it. This is \`ignoreWarnings\` for warnings, \`skipSchemaValidation\` for schema and invariant failures, or \`skipHooks\` for Custom Hook rejections. A value of \`null\` means there is no request-body override.
+- \`requiresPermission\` identifies any additional permission needed to use the override.
+- \`resolution\` provides an API action, method, and path when the blocker must be resolved another way.
+
+For example, an approval gate is cleared by approving the revision or by using a caller with **Bypass draft approvals** access. A Config lock is cleared through the unlock route in \`resolution\`.
+
+When a successful publish bypasses a gate, the response includes \`bypassedGates\`. Each entry reports the gate \`type\` and how it was bypassed in \`via\`, which is one of \`ignoreWarnings\`, \`skipSchemaValidation\`, \`skipHooks\`, \`bypassApprovalPermission\`, \`restApiBypassesReviews\`, or \`revertsBypassApproval\` (reverts only). This field is omitted when no gates were bypassed.
 `,
     },
     servers: [
@@ -658,11 +723,13 @@ curl https://api.growthbook.io/api/v1/features \
       stripDefaultedFromRequired(jsonSchema);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
         const isRequired = (jsonSchema.required ?? []).includes(name);
-        // Hoist x- extension fields from schema to parameter level
+        // Hoist x- extension fields — plus serialization fields like
+        // `explode`/`style`, which schemas can set via .meta() but belong on
+        // the parameter — from schema to parameter level
         const schemaObj = schema as Record<string, unknown>;
         const extensions: Record<string, unknown> = {};
         for (const key of Object.keys(schemaObj)) {
-          if (key.startsWith("x-")) {
+          if (key.startsWith("x-") || key === "explode" || key === "style") {
             extensions[key] = schemaObj[key];
             delete schemaObj[key];
           }

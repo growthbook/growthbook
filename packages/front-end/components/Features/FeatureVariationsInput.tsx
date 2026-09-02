@@ -1,12 +1,6 @@
 import { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import { Box, Flex, Slider } from "@radix-ui/themes";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getEqualWeights } from "shared/experiments";
 import { PiArrowsClockwise, PiLockSimpleFill } from "react-icons/pi";
 import {
@@ -19,11 +13,11 @@ import {
   generateVariationId,
   getDefaultVariationValue,
 } from "@/services/features";
-import { GBAddCircle } from "@/components/Icons";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBAddCircle, GBInfo } from "@/components/Icons";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
@@ -206,7 +200,17 @@ export default function FeatureVariationsInput({
           {!hideCoverage ? (
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
-                {coverageLabel} <Tooltip body={coverageTooltip} />
+                {coverageLabel}{" "}
+                <Tooltip content={coverageTooltip} side="top">
+                  <Box
+                    as="span"
+                    display="inline-block"
+                    tabIndex={0}
+                    aria-label={`More information about ${coverageLabel}`}
+                  >
+                    <GBInfo />
+                  </Box>
+                </Tooltip>
               </label>
               <div className="row align-items-center pb-3 mx-1">
                 <div className="col pl-0">
@@ -233,6 +237,7 @@ export default function FeatureVariationsInput({
                     className={`position-relative ${styles.percentInputWrap}`}
                   >
                     <Field
+                      size="legacy"
                       style={{ width: 95 }}
                       value={
                         isNaN(coverage ?? 0)
@@ -258,6 +263,7 @@ export default function FeatureVariationsInput({
             </div>
           ) : null}
           <Field
+            size="legacy"
             label="Number of Variations"
             type="number"
             value={numberOfVariations}
@@ -285,7 +291,17 @@ export default function FeatureVariationsInput({
           {!hideCoverage ? (
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
-                {coverageLabel} <Tooltip body={coverageTooltip} />
+                {coverageLabel}{" "}
+                <Tooltip content={coverageTooltip} side="top">
+                  <Box
+                    as="span"
+                    display="inline-block"
+                    tabIndex={0}
+                    aria-label={`More information about ${coverageLabel}`}
+                  >
+                    <GBInfo />
+                  </Box>
+                </Tooltip>
               </label>
               <div className="row align-items-center pb-3 mx-1">
                 <div className="col pl-0">
@@ -312,6 +328,7 @@ export default function FeatureVariationsInput({
                     className={`position-relative ${styles.percentInputWrap}`}
                   >
                     <Field
+                      size="legacy"
                       style={{ width: 95 }}
                       value={
                         isNaN(coverage ?? 0)
@@ -379,52 +396,49 @@ export default function FeatureVariationsInput({
                   {showDescriptions && <th>Description</th>}
                   {!hideSplits && (
                     <th>
-                      Split
-                      {!disableVariations &&
-                        !disableCustomSplit &&
-                        !editingSplits &&
-                        !onlySafeToEditVariationMetadata && (
-                          <Tooltip
-                            body="Customize split"
-                            usePortal={true}
-                            tipPosition="top"
-                          >
-                            <a
-                              role="button"
-                              className="ml-1 mb-0"
-                              onClick={() => {
-                                setEditingSplits(true);
-                              }}
+                      <Flex align="center" gap="1">
+                        <span>Split</span>
+                        {!disableVariations &&
+                          !disableCustomSplit &&
+                          !editingSplits &&
+                          !onlySafeToEditVariationMetadata && (
+                            <Tooltip content="Customize split" side="top">
+                              <Link
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setEditingSplits(true);
+                                }}
+                                aria-label="Customize split"
+                              >
+                                <PiLockSimpleFill size={15} />
+                              </Link>
+                            </Tooltip>
+                          )}
+                        {editingSplits &&
+                          !isEqualWeights &&
+                          !disableCustomSplit &&
+                          !hideSplits && (
+                            <Tooltip
+                              content="Assign equal weights to all variations"
+                              side="top"
                             >
-                              <PiLockSimpleFill
-                                className="text-purple"
-                                size={15}
-                              />
-                            </a>
-                          </Tooltip>
-                        )}
-                      {editingSplits &&
-                        !isEqualWeights &&
-                        !disableCustomSplit &&
-                        !hideSplits && (
-                          <Tooltip
-                            body="Assign equal weights to all variations"
-                            usePortal={true}
-                            tipPosition="top"
-                          >
-                            <a
-                              role="button"
-                              className="ml-2 link-purple small"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setEqualWeights();
-                              }}
-                            >
-                              <PiArrowsClockwise className="mr-1" size={12} />
-                              set equal
-                            </a>
-                          </Tooltip>
-                        )}
+                              <Link
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setEqualWeights();
+                                }}
+                                aria-label="Set equal weights"
+                              >
+                                <Flex align="center" gap="1">
+                                  <PiArrowsClockwise size={12} />
+                                  <Box as="span" style={{ fontSize: "11px" }}>
+                                    set equal
+                                  </Box>
+                                </Flex>
+                              </Link>
+                            </Tooltip>
+                          )}
+                      </Flex>
                     </th>
                   )}
                 </tr>
@@ -494,7 +508,10 @@ export default function FeatureVariationsInput({
                           )}
                           {valueType === "boolean" && (
                             <>
-                              <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
+                              <Tooltip
+                                content="Boolean features can only have two variations. Use a different feature type to add multiple variations."
+                                side="top"
+                              >
                                 <Link
                                   style={{
                                     cursor: "not-allowed",

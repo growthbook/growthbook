@@ -1255,9 +1255,8 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       // Hub pipeline: two cross-FT ratios share ft_events as their
       // numerator side, with denominators on two different FTs. The
       // ft_events group ends up holding both metrics, so its data/covariate
-      // inserts see metrics that collectively reference 3 FTs. Without
-      // scoping FT discovery to the target FT, this would blow up on the
-      // 2-FT cap inside `getFactTablesForMetrics`.
+      // inserts see metrics that collectively reference 3 FTs. Scoping FT
+      // discovery to the target FT keeps each insert writing one cache.
       const paymentsFactTable = factTableFactory.build({
         id: "ft_payments",
         name: "Payments",

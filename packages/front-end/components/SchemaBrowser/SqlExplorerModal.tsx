@@ -21,7 +21,7 @@ import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
 import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { FiChevronRight } from "react-icons/fi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import { isManagedWarehouseUnavailable } from "shared/util";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
@@ -222,7 +222,7 @@ export default function SqlExplorerModal({
     datasource?.properties?.supportsInformationSchema;
 
   const managedWarehousePendingEvents =
-    !!datasource && isManagedWarehouseAwaitingProvisioning(datasource);
+    !!datasource && isManagedWarehouseUnavailable(datasource);
 
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
 
@@ -435,6 +435,13 @@ export default function SqlExplorerModal({
                   `Multi-select filter ${filterIndex + 1} in Visualization ${vizTitle} requires at least one selected value.`,
                 );
               }
+              break;
+
+            case "today":
+            case "last7Days":
+            case "last30Days":
+            case "greaterThanOrEqualTo":
+            case "lessThanOrEqualTo":
               break;
           }
         });
@@ -749,7 +756,7 @@ export default function SqlExplorerModal({
         return;
       }
       const dsForSchema = getDatasourceById(datasourceId);
-      if (dsForSchema && isManagedWarehouseAwaitingProvisioning(dsForSchema)) {
+      if (dsForSchema && isManagedWarehouseUnavailable(dsForSchema)) {
         setInformationSchema(undefined);
         return;
       }
@@ -863,7 +870,7 @@ export default function SqlExplorerModal({
                             />
                             <Button
                               variant="outline"
-                              size="xs"
+                              size="sm"
                               onClick={() => {
                                 setDirty(true);
                                 form.setValue("name", tempName);
@@ -875,7 +882,7 @@ export default function SqlExplorerModal({
                             <Button
                               color="red"
                               variant="outline"
-                              size="xs"
+                              size="sm"
                               onClick={() => {
                                 setTempName(form.watch("name"));
                                 setIsEditingName(false);
@@ -989,7 +996,7 @@ export default function SqlExplorerModal({
                     >
                       <Button
                         variant="ghost"
-                        size="sm"
+                        size="md"
                         onClick={() => {
                           setDirty(true);
                           const currentConfig = [...dataVizConfig];
@@ -1022,7 +1029,7 @@ export default function SqlExplorerModal({
                   {!readOnlyMode ? (
                     <Button
                       variant="outline"
-                      size="xs"
+                      size="sm"
                       onClick={() => setSidePanel(!showSidePanel)}
                     >
                       <PiCaretDoubleRight
@@ -1081,7 +1088,7 @@ export default function SqlExplorerModal({
                                     }
                                   >
                                     <Button
-                                      size="xs"
+                                      size="sm"
                                       variant="ghost"
                                       onClick={handleAIClick}
                                     >
@@ -1120,7 +1127,7 @@ export default function SqlExplorerModal({
                                         disabled={true}
                                       />
                                       <Text
-                                        size="small"
+                                        size="sm"
                                         weight="regular"
                                         color="text-low"
                                       >
@@ -1136,7 +1143,7 @@ export default function SqlExplorerModal({
                                     </Tooltip>
                                   )}
                                   <Button
-                                    size="xs"
+                                    size="sm"
                                     variant="ghost"
                                     onClick={handleFormatClick}
                                     disabled={!form.watch("sql") || !canFormat}
@@ -1148,7 +1155,7 @@ export default function SqlExplorerModal({
                                     shouldDisplay={!form.watch("datasourceId")}
                                   >
                                     <Button
-                                      size="xs"
+                                      size="sm"
                                       onClick={handleQuery}
                                       disabled={
                                         !form.watch("sql") ||
@@ -1198,6 +1205,7 @@ export default function SqlExplorerModal({
                                     <Tooltip body="Use text to describe what you would like to generate. The AI is aware of your table structure, but may still hallucinate, particularly with dates." />
                                   </label>
                                   <Field
+                                    size="legacy"
                                     textarea={true}
                                     value={aiInput}
                                     placeholder="Make a request, e.g. 'Show me the top 10 users by revenue in the last month.'"
@@ -1302,6 +1310,7 @@ export default function SqlExplorerModal({
                               shouldDisplay={lockDatasource}
                             >
                               <SelectField
+                                size="legacy"
                                 className="mb-2"
                                 disabled={lockDatasource}
                                 value={form.watch("datasourceId")}
@@ -1331,7 +1340,7 @@ export default function SqlExplorerModal({
                                   form.setValue("sql", sql);
                                 }}
                                 datasource={datasource}
-                                cursorData={cursorData || undefined}
+                                sql={form.watch("sql")}
                               />
                             )}
                           </Flex>

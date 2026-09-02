@@ -1,4 +1,8 @@
-import { RampScheduleInterface, SafeRolloutInterface } from "shared/validators";
+import {
+  RampScheduleInterface,
+  SafeRolloutInterface,
+  SafeRolloutSnapshotAnalysis,
+} from "shared/validators";
 import {
   evaluateCurrentStep,
   evaluateRampScheduleAfterSafeRolloutSnapshot,
@@ -117,10 +121,12 @@ function makeSafeRollout(snapshotId: string): SafeRolloutInterface {
 function makeContext({
   safeRollout,
   snapshotDate,
+  snapshotAnalysis,
   schedule,
 }: {
   safeRollout: SafeRolloutInterface;
   snapshotDate: Date;
+  snapshotAnalysis?: SafeRolloutSnapshotAnalysis;
   schedule?: RampScheduleInterface;
 }) {
   return {
@@ -136,6 +142,9 @@ function makeContext({
               ...updates,
             }),
           ),
+        acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+        releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+        touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(true),
       },
       safeRollout: {
         getById: jest.fn().mockResolvedValue(safeRollout),
@@ -146,6 +155,7 @@ function makeContext({
           id: safeRollout.analysisSummary?.snapshotId,
           status: "success",
           dateCreated: snapshotDate,
+          analyses: snapshotAnalysis ? [snapshotAnalysis] : [],
         }),
       },
       metricGroups: {
@@ -334,6 +344,52 @@ describe("rampScheduleEvaluator monitored SafeRollout integration", () => {
 
     expect(decision).toEqual({ action: "advance" });
     expect(mockCreateSafeRolloutSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("holds when the SafeRollout analysis contains a compute failure", async () => {
+    const schedule = makeSchedule();
+    const safeRollout = makeSafeRollout("srsnp_compute_failure");
+    const context = makeContext({
+      safeRollout,
+      snapshotDate: new Date("2026-01-01T01:05:00Z"),
+      snapshotAnalysis: {
+        settings: { statsEngine: "bayesian" },
+        dateCreated: new Date("2026-01-01T01:05:00Z"),
+        status: "success",
+        results: [
+          {
+            name: "All",
+            srm: 1,
+            variations: [
+              {
+                users: 100,
+                metrics: {
+                  m_guard: {
+                    value: 0,
+                    cr: 0,
+                    users: 0,
+                    computeFailed: true,
+                    errorMessage: "analysis failed",
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T02:00:00Z"),
+    );
+
+    expect(decision).toEqual({
+      action: "hold",
+      reason:
+        "Guardrail metric m_guard failed to compute — holding step until it recovers",
+    });
   });
 
   it("holds when SafeRollout analysis is older than the rolling analysis floor", async () => {

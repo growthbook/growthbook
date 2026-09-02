@@ -4,7 +4,7 @@ import {
   RampStartState,
   putFeatureRevisionRuleRampScheduleValidator,
 } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
+import { getApplicableEnvIds, resetReviewOnChange } from "shared/util";
 import { resolveRampStartState } from "back-end/src/services/rampSchedule";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
@@ -17,7 +17,6 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
-  getApplicableEnvIds,
   resolveRampTarget,
   ruleFootprint,
 } from "back-end/src/util/flattenRules";
@@ -45,10 +44,7 @@ export async function setRuleRampSchedule(
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -165,7 +161,7 @@ export async function setRuleRampSchedule(
     // When the caller didn't specify an env, use the resolved rule's full env
     // footprint — semantically the ramp affects every env the rule covers.
     const orgEnvs = getEnvironments(organization);
-    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
     const changedEnvironments = environment
       ? [environment]
       : ruleFootprint(match, applicableEnvs);

@@ -1,5 +1,7 @@
 export {
   computeContextualBanditWeights,
+  type ContextualBanditArm,
+  type ContextualBanditObservation,
   type ContextualBanditWeightsInput,
 } from "./contextualBanditWeights";
 export {

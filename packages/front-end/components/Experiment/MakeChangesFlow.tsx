@@ -36,6 +36,7 @@ export type ReleasePlan =
 
 export interface MakeChangesFlowProps {
   experiment: ExperimentInterfaceStringDates;
+  attributeProjects?: string[] | null;
   form: UseFormReturn<ExperimentTargetingData>;
   // Loosely typed because `useForm` accepts a `DeepPartial<ExperimentTargetingData>`
   // and the namespace shape produced by `EditTargetingModal` doesn't always match
@@ -52,6 +53,7 @@ export interface MakeChangesFlowProps {
 
 export default function MakeChangesFlow({
   experiment,
+  attributeProjects,
   form,
   defaultValues,
   onSubmit,
@@ -74,7 +76,14 @@ export default function MakeChangesFlow({
   // mutated programmatically by the change-type step, not by the user.
   const watchedValues = useWatch({ control: form.control });
   const pickForCompare = <T extends Record<string, unknown>>(v: T) =>
-    omit(v, ["newPhase", "reseed", "bucketVersion", "minBucketVersion"]);
+    omit(v, [
+      "newPhase",
+      "reseed",
+      "bucketVersion",
+      "minBucketVersion",
+      // Picker view preference — must not arm the publish flow on its own.
+      "attributeScopeAllProjects",
+    ]);
   const hasChanges = !isEqual(
     pickForCompare(watchedValues),
     pickForCompare(defaultValues),
@@ -149,7 +158,7 @@ export default function MakeChangesFlow({
       secondaryCTA={
         step === lastStepNumber ? (
           <Box style={{ minWidth: 520 }}>
-            <Callout status="warning" contentsAs="div">
+            <Callout status="warning">
               <Flex align="center" justify="between" gap="3">
                 <Text>
                   <Text weight="semibold">Warning:</Text> Changes made will
@@ -210,6 +219,7 @@ export default function MakeChangesFlow({
           <div>
             <TargetingForm
               experiment={experiment}
+              attributeProjects={attributeProjects}
               form={form}
               changeType={changeType}
               conditionKey={conditionKey}

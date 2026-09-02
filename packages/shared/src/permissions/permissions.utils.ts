@@ -6,7 +6,10 @@ import {
   Role,
   ProjectMemberRole,
   MemberRoleInfo,
+  MemberRoleWithProjects,
+  UserPermission,
 } from "shared/types/organization";
+import { hasNoDuplicateProjects } from "../validators/organization";
 import {
   DEFAULT_ROLES,
   ENV_SCOPED_PERMISSIONS,
@@ -17,12 +20,10 @@ import {
 } from "./permissions.constants";
 
 export function policiesSupportEnvLimit(policies: Policy[]): boolean {
-  // If any policies have a permission that is env scoped, return true
+  const scoped = ENV_SCOPED_PERMISSIONS as readonly string[];
   return policies.some((policy) =>
     POLICY_PERMISSION_MAP[policy]?.some((permission) =>
-      ENV_SCOPED_PERMISSIONS.includes(
-        permission as (typeof ENV_SCOPED_PERMISSIONS)[number],
-      ),
+      scoped.includes(permission),
     ),
   );
 }
@@ -39,6 +40,14 @@ export function getPermissionsObjectByPolicies(
   });
 
   return permissions;
+}
+
+// Effective permissions for a role. Policies are the only grant mechanism —
+// atoms are an implementation detail of what a policy carries.
+export function permissionsFromRole(
+  role: Pick<Role, "policies">,
+): PermissionsObject {
+  return getPermissionsObjectByPolicies(role.policies || []);
 }
 
 export function getRoleById(
@@ -90,12 +99,16 @@ export function areProjectRolesValid(
   if (!projectRoles) {
     return true;
   }
+  // One rule per project: duplicates union, granting more than was meant.
+  if (!hasNoDuplicateProjects(projectRoles)) {
+    return false;
+  }
   return projectRoles.every((p) => isRoleValid(p.role, org));
 }
 
 export function getDefaultRole(
   org: Partial<OrganizationInterface>,
-): MemberRoleInfo {
+): MemberRoleWithProjects {
   // First try the explicitly provided default role
   if (
     org.settings?.defaultRole?.role &&
@@ -129,12 +142,43 @@ export function hasPermission(
     return false;
   }
 
-  if (!envs || !usersPermissionsToCheck.limitAccessByEnvironment) {
-    return true;
-  }
-  return envs.every((env) =>
-    usersPermissionsToCheck.environments.includes(env),
+  return envsAllowedBy(usersPermissionsToCheck, permissionToCheck, envs);
+}
+
+// Resolve coverage from relevant grants; use merged legacy fields only when none exist.
+export function envsAllowedBy(
+  userPermission: UserPermission,
+  permissionToCheck: Permission,
+  envs?: string[],
+): boolean {
+  if (!envs) return true;
+
+  const relevantGrants = (userPermission.envGrants ?? []).filter((g) =>
+    g.permissions.includes(permissionToCheck),
   );
+  if (relevantGrants.length) {
+    // Union environments across grants carrying this permission.
+    if (relevantGrants.some((g) => !g.limitAccessByEnvironment)) return true;
+    const allowed = new Set(relevantGrants.flatMap((g) => g.environments));
+    return envs.every((env) => allowed.has(env));
+  }
+
+  if (!userPermission.limitAccessByEnvironment) return true;
+  return envs.every((env) => userPermission.environments.includes(env));
+}
+
+// Unbound changes need this: an empty footprint would otherwise pass vacuously.
+export function hasUnrestrictedEnvAuthority(
+  userPermission: UserPermission,
+  permissionToCheck: Permission,
+): boolean {
+  const relevantGrants = (userPermission.envGrants ?? []).filter((g) =>
+    g.permissions.includes(permissionToCheck),
+  );
+  if (relevantGrants.length) {
+    return relevantGrants.some((g) => !g.limitAccessByEnvironment);
+  }
+  return !userPermission.limitAccessByEnvironment;
 }
 
 export const userHasPermission = (
@@ -171,15 +215,24 @@ export const userHasPermission = (
   }
 };
 
+export function envScopedPermissionsForRole(
+  roleId: string,
+  org: Partial<OrganizationInterface>,
+): Permission[] {
+  if (["admin", "gbDefault_projectAdmin"].includes(roleId)) return [];
+
+  const role = getRoleById(roleId, org);
+  if (!role) return [];
+
+  const permissions = permissionsFromRole(role);
+  return ENV_SCOPED_PERMISSIONS.filter((p) => permissions[p]);
+}
+
 export function roleSupportsEnvLimit(
   roleId: string,
   org: Partial<OrganizationInterface>,
 ): boolean {
-  if (["admin", "gbDefault_projectAdmin"].includes(roleId)) return false;
-
-  const role = getRoleById(roleId, org);
-
-  return policiesSupportEnvLimit(role?.policies || []);
+  return envScopedPermissionsForRole(roleId, org).length > 0;
 }
 
 export function roleToPermissionMap(
@@ -187,36 +240,48 @@ export function roleToPermissionMap(
   org: OrganizationInterface,
 ): PermissionsObject {
   const role = getRoleById(roleId || "readonly", org);
-  const policies = role?.policies || [];
-  return getPermissionsObjectByPolicies(policies);
+  if (!role) return {};
+  return permissionsFromRole(role);
 }
+
+export type EnvLimitedRule = {
+  role: string;
+  limitAccessByEnvironment?: boolean;
+  environments?: string[];
+};
 
 export type EffectiveRoleSource = {
   role: string;
   sourceType: "user" | "team";
   sourceName: string;
+  limitAccessByEnvironment: boolean;
+  environments: string[];
 };
 
-/**
- * Resolve the roles that actually apply to a member, combining their own role
- * with any teams they're on, using the same precedence as the back-end
- * permission merge (mergeUserAndTeamPermissions): an explicit project-scoped
- * role — from the member or any team — takes precedence over global roles for
- * that project, and only when no explicit project role applies do global roles
- * contribute. The result is the set of contributing roles (a union, which may
- * be more than one role). Pass `project = null` to resolve global roles.
- */
+// Resolve the roles that actually apply to a member, combining their own role
+// with any teams they're on, using the same precedence as the back-end
+// permission merge (mergeUserAndTeamPermissions): an explicit project-scoped
+// role — from the member or any team — takes precedence over global roles for
+// that project, and only when no explicit project role applies do global roles
+// contribute. The result is the set of contributing roles (a union, which may
+// be more than one role). Pass `project = null` to resolve global roles.
 export function getEffectiveRolesForProject(
   member: Pick<MemberRoleInfo, "role"> & {
+    limitAccessByEnvironment?: boolean;
+    environments?: string[];
     projectRoles?: ProjectMemberRole[];
     teams?: string[];
+    additionalRoles?: EnvLimitedRule[];
   },
   project: string | null,
   teams: {
     id: string;
     name: string;
     role: string;
+    limitAccessByEnvironment?: boolean;
+    environments?: string[];
     projectRoles?: ProjectMemberRole[];
+    additionalRoles?: EnvLimitedRule[];
   }[],
 ): EffectiveRoleSource[] {
   const teamsById = new Map(teams.map((t) => [t.id, t]));
@@ -225,12 +290,18 @@ export function getEffectiveRolesForProject(
     sourceType: "user" | "team";
     sourceName: string;
     role: string;
+    limitAccessByEnvironment?: boolean;
+    environments?: string[];
+    additionalRoles?: EnvLimitedRule[];
     projectRoles?: ProjectMemberRole[];
   }[] = [
     {
       sourceType: "user",
       sourceName: "user",
       role: member.role,
+      limitAccessByEnvironment: member.limitAccessByEnvironment,
+      environments: member.environments,
+      additionalRoles: member.additionalRoles,
       projectRoles: member.projectRoles,
     },
   ];
@@ -241,6 +312,9 @@ export function getEffectiveRolesForProject(
         sourceType: "team",
         sourceName: team.name,
         role: team.role,
+        limitAccessByEnvironment: team.limitAccessByEnvironment,
+        environments: team.environments,
+        additionalRoles: team.additionalRoles,
         projectRoles: team.projectRoles,
       });
     }
@@ -253,14 +327,30 @@ export function getEffectiveRolesForProject(
       ? p.projectRoles?.find((r) => r.project === project)
       : undefined;
     const { sourceType, sourceName } = p;
-    if (projectRole) {
-      explicit.push({ role: projectRole.role, sourceType, sourceName });
-    } else {
-      globals.push({ role: p.role, sourceType, sourceName });
-    }
+    // Additional rules grant alongside their base role, and a project override
+    // replaces the global one wholesale — its own additional rules included.
+    const applicable = projectRole ?? p;
+    const rules = [applicable, ...(applicable.additionalRoles || [])];
+    const target = projectRole ? explicit : globals;
+    rules.forEach((rule) =>
+      target.push({
+        role: rule.role,
+        sourceType,
+        sourceName,
+        limitAccessByEnvironment: !!rule.limitAccessByEnvironment,
+        environments: rule.environments || [],
+      }),
+    );
   });
 
   // An explicit project role takes precedence over global roles, so only fall
   // back to global roles when no explicit project role applies.
   return explicit.length ? explicit : globals;
+}
+
+// True if any of the role's policies carries an environment-scoped atom.
+export function roleSupportsEnvLimitFromRole(
+  role: Pick<Role, "policies">,
+): boolean {
+  return policiesSupportEnvLimit(role.policies || []);
 }

@@ -364,7 +364,7 @@ export default function EditSqlModal({
                         </Tooltip>
                         {canFormat ? (
                           <RadixButton
-                            size="sm"
+                            size="md"
                             variant="ghost"
                             onClick={handleFormatClick}
                             disabled={!form.watch("sql")}
@@ -457,6 +457,7 @@ export default function EditSqlModal({
                           </Text>
                           {hasEventName && (
                             <Field
+                              size="legacy"
                               label="eventName"
                               labelClassName="mr-2"
                               value={templateVariables?.eventName || ""}
@@ -475,6 +476,7 @@ export default function EditSqlModal({
                           )}
                           {hasValueCol && (
                             <Field
+                              size="legacy"
                               label="valueColumn"
                               labelClassName="mr-2"
                               value={templateVariables?.valueColumn || ""}
@@ -555,7 +557,7 @@ export default function EditSqlModal({
                         form.setValue("sql", sql);
                       }}
                       datasource={datasource}
-                      cursorData={cursorData || undefined}
+                      sql={form.watch("sql")}
                     />
                   </Flex>
                   {/* </div> */}

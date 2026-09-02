@@ -8,16 +8,17 @@ import {
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
-import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
-import { isEventForwarderManagedExposureQuery } from "shared/util";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -38,11 +39,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       : `Edit ${
           exposureQuery ? exposureQuery.name : "Experiment Assignment"
         } query`;
-
-  const isManaged =
-    mode === "edit" &&
-    !!exposureQuery &&
-    isEventForwarderManagedExposureQuery(exposureQuery);
 
   const userIdTypeOptions = dataSource?.settings?.userIdTypes?.map(
     ({ userIdType }) => ({
@@ -77,10 +73,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    if (isManaged && exposureQuery) {
-      value.userIdType = exposureQuery.userIdType;
-      value.managedBy = exposureQuery.managedBy;
-    }
     await onSave(value);
 
     form.reset({
@@ -255,41 +247,38 @@ export const AddEditExperimentAssignmentQueryModal: FC<
         <div className="my-2 ml-3 mr-3">
           <div className="row">
             <div className="col-12">
-              <Field label="Display Name" required {...form.register("name")} />
               <Field
+                size="legacy"
+                label="Display Name"
+                required
+                {...form.register("name")}
+              />
+              <Field
+                size="legacy"
                 label="Description (optional)"
                 textarea
                 minRows={1}
                 maxLength={MAX_DESCRIPTION_LENGTH}
                 {...form.register("description")}
               />
-              <Field
-                label={
-                  <>
-                    Identifier Type
-                    {isManaged ? (
-                      <Tooltip body="Identifier type is fixed for queries created by Event Forwarder and cannot be changed." />
-                    ) : null}
-                  </>
-                }
-                options={identityTypes.map((i) => i.userIdType)}
+              <SelectField
+                size="legacy"
+                label="Identifier Type"
+                options={identityTypes.map((i) => ({
+                  value: i.userIdType,
+                  label: i.userIdType,
+                }))}
                 required
-                disabled={isManaged}
-                helpText={
-                  isManaged
-                    ? "Managed by Event Forwarder for this identifier."
-                    : undefined
-                }
-                {...form.register("userIdType")}
+                value={form.watch("userIdType")}
+                onChange={(value) => form.setValue("userIdType", value)}
               />
               <div className="form-group">
                 <label className="mr-5">Query</label>
                 {userEnteredQuery === defaultQuery && (
-                  <div className="alert alert-info">
-                    <FaExclamationTriangle style={{ marginTop: "-2px" }} /> The
-                    prefilled query below may require editing to fit your data
-                    structure.
-                  </div>
+                  <Callout status="info">
+                    The prefilled query below may require editing to fit your
+                    data structure.
+                  </Callout>
                 )}
                 {userEnteredQuery && (
                   <Code
@@ -299,26 +288,19 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                   />
                 )}
                 <div>
-                  <Tooltip
-                    body="SQL is managed by Event Forwarder and cannot be customized."
-                    shouldDisplay={isManaged}
+                  <button
+                    className="btn btn-primary mt-2"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setUiMode("sql");
+                    }}
                   >
-                    <button
-                      className="btn btn-primary mt-2"
-                      type="button"
-                      disabled={isManaged}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (isManaged) return;
-                        setUiMode("sql");
-                      }}
-                    >
-                      <div className="d-flex align-items-center">
-                        Customize SQL
-                        <FaExternalLinkAlt className="ml-2" />
-                      </div>
-                    </button>
-                  </Tooltip>
+                    <div className="d-flex align-items-center">
+                      Customize SQL
+                      <FaExternalLinkAlt className="ml-2" />
+                    </div>
+                  </button>
                 </div>
               </div>
 
@@ -349,6 +331,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                         <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
                       </Flex>
                       <StringArrayField
+                        legacyHeight
                         label="Dimension Columns"
                         value={userEnteredDimensions}
                         onChange={(dimensions) => {

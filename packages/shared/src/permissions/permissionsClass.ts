@@ -29,17 +29,59 @@ import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { ConstantInterface } from "shared/types/constant";
+import { ConfigInterface } from "shared/types/config";
 import { CustomHookInterface } from "../validators/custom-hooks";
 import { ContextualBanditInterface } from "../validators/contextual-bandit";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
-import { PermissionError } from "../util/";
+import { PermissionError, isEventForwarderEventsFactTable } from "../util/";
+// Specific module, not the util barrel: the barrel imports back from
+// shared/permissions, and the require cycle leaves re-exports uninitialized.
+import {
+  getTargetingProjectIds,
+  TargetingScopedEntity,
+} from "../util/features";
+import type { ReviewAuthorityFootprint } from "../util/features";
+import {
+  envsAllowedBy,
+  hasUnrestrictedEnvAuthority,
+} from "./permissions.utils";
+// Type-only: erased at runtime, so no cycle back through the util barrel.
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
+import {
+  NO_ENVIRONMENT_BINDING,
+  revisionActionPermission,
+  RevisionAction,
+  RevisionModel,
+} from "./revisionPermissions";
 
 type NotificationEvent = {
   containsSecrets: boolean;
   projects: string[];
 };
+
+// The Event Forwarder Events fact table is `managedBy: "api"` but is
+// intentionally editable and deletable by users for now, so it skips the
+// manageOfficialResources checks below.
+function isEventForwarderManagedFactTable(
+  factTable: Partial<
+    Pick<FactTableInterface, "id" | "managedBy" | "datasource">
+  >,
+): boolean {
+  if (!factTable.id || !factTable.datasource) return false;
+  return isEventForwarderEventsFactTable(
+    { id: factTable.id, managedBy: factTable.managedBy },
+    factTable.datasource,
+  );
+}
+
+// "everywhere"/"unbound" → [] (fail closed); "any" → null (not sanctioning).
+function footprintEnvironments(
+  footprint: ReviewAuthorityFootprint,
+): string[] | null {
+  if (footprint.scope === "environments") return footprint.environments;
+  return footprint.scope === "any" ? null : [];
+}
 
 export class Permissions {
   private userPermissions: UserPermissions;
@@ -332,6 +374,41 @@ export class Permissions {
     );
   };
 
+  // The single entry point for a revisioned entity's lifecycle permissions.
+  // Maps (model, action) -> atom+scope via REVISION_PERMISSIONS. Env-scoped
+  // actions gate on `environments`; project-scoped actions ignore them.
+  public canRevisionAction = (
+    model: RevisionModel,
+    action: RevisionAction,
+    obj: { project?: string; projects?: string[] },
+    // `null` = no environment constraint. `[]` = unbound, which fails closed.
+    environments: string[] | null = [],
+  ): boolean => {
+    const projects = obj.projects ?? (obj.project ? [obj.project] : []);
+    const { permission, scope } = revisionActionPermission(model, action);
+    if (scope === "environment") {
+      if (environments === null) {
+        return this.checkProjectFilterPermission(
+          { projects },
+          permission as ProjectScopedPermission,
+        );
+      }
+      // Unbound changes take authority no environment limit restricts.
+      if (action === "review" && !environments.length) {
+        return this.checkUnrestrictedEnvAuthority({ projects }, permission);
+      }
+      return this.checkEnvFilterPermission(
+        { projects },
+        environments,
+        permission as EnvScopedPermission,
+      );
+    }
+    return this.checkProjectFilterPermission(
+      { projects },
+      permission as ProjectScopedPermission,
+    );
+  };
+
   // Frontend helper to gate "Create Feature" UI.
   // Pass allProjects on list pages where "All Projects" may be selected;
   // omit it when checking a specific resource's project or global-only access.
@@ -345,51 +422,55 @@ export class Permissions {
       // read-only sample-data project) can't gate the CTA when it's the only
       // project.
       return (
-        this.checkProjectFilterPermission({ projects: [] }, "manageFeatures") ||
+        this.canCreateFeature({ project: undefined }, NO_ENVIRONMENT_BINDING) ||
         allProjects.some((p) =>
-          this.checkProjectFilterPermission(
-            { projects: [p.id] },
-            "manageFeatures",
-          ),
+          this.canCreateFeature({ project: p.id }, NO_ENVIRONMENT_BINDING),
         )
       );
     }
-    return this.checkProjectFilterPermission(
-      { projects: project ? [project] : [] },
-      "manageFeatures",
-    );
+    return this.canCreateFeature({ project }, NO_ENVIRONMENT_BINDING);
   };
 
+  // Creating a flag writes live state, so it takes the publish-class create
+  // atom with the environments the new flag is enabled in. The create UI passes
+  // NO_ENVIRONMENT_BINDING (no payload yet); the endpoint re-checks the real
+  // footprint on submit.
   public canCreateFeature = (
     feature: Pick<FeatureInterface, "project">,
+    environments: string[],
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      {
-        projects: feature.project ? [feature.project] : [],
-      },
-      "manageFeatures",
+    return this.canRevisionAction(
+      "feature",
+      "create",
+      { projects: feature.project ? [feature.project] : [] },
+      environments,
     );
   };
 
-  public canUpdateFeature = (
-    existing: Pick<FeatureInterface, "project">,
-    updated: Pick<FeatureInterface, "project">,
-  ): boolean => {
-    return this.checkProjectFilterUpdatePermission(
-      { projects: existing.project ? [existing.project] : [] },
-      "project" in updated ? { projects: [updated.project || ""] } : {},
-      "manageFeatures",
-    );
-  };
-
+  /** Archiving and deleting both take the flag out of service in `environments`. */
   public canDeleteFeature = (
     feature: Pick<FeatureInterface, "project">,
+    environments: string[],
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      {
-        projects: feature.project ? [feature.project] : [],
-      },
-      "manageFeatures",
+    return this.canRevisionAction(
+      "feature",
+      "delete",
+      { projects: feature.project ? [feature.project] : [] },
+      environments,
+    );
+  };
+
+  // Revert a feature to a previously-published revision. Env-scoped: gate on the
+  // environments the revert would change.
+  public canRevertFeature = (
+    feature: Pick<FeatureInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    return this.canRevisionAction(
+      "feature",
+      "revert",
+      { projects: feature.project ? [feature.project] : [] },
+      environments,
     );
   };
 
@@ -811,12 +892,20 @@ export class Permissions {
   };
 
   public canUpdateFactTable = (
-    existing: Pick<FactTableInterface, "projects" | "managedBy">,
+    existing: Pick<FactTableInterface, "projects" | "managedBy"> &
+      Partial<Pick<FactTableInterface, "id" | "datasource">>,
     updates: UpdateFactTableProps,
   ): boolean => {
     // We allow changing columns even for managed fact tables
     const changedKeys = Object.keys(updates);
-    const requireManagedByCheck = changedKeys.some((k) => k !== "columns");
+    // The Event Forwarder exception never covers changing managedBy itself —
+    // promoting the table to an official resource still needs the permission.
+    const changesManagedBy =
+      updates.managedBy !== undefined &&
+      updates.managedBy !== existing.managedBy;
+    const requireManagedByCheck =
+      changedKeys.some((k) => k !== "columns") &&
+      (changesManagedBy || !isEventForwarderManagedFactTable(existing));
 
     if (requireManagedByCheck && (existing.managedBy || updates.managedBy)) {
       if (!this.canUpdateOfficialResources(existing, updates)) {
@@ -831,10 +920,37 @@ export class Permissions {
     );
   };
 
-  public canDeleteFactTable = (
+  // Virtual columns carry a raw SQL expression that is inlined into generated
+  // queries, so creating, editing, testing, or deleting one is equivalent in
+  // power to editing the fact table's own SQL.
+  //
+  // `canUpdateFactTable` deliberately skips the managedBy check for
+  // `columns`-only updates, because column metadata is refreshed automatically
+  // even on managed fact tables. That carve-out predates virtual columns, when
+  // `columns` held metadata only. Routing virtual column writes through
+  // `canUpdateFactTable(ft, { columns: [] })` would therefore let a user
+  // without official-resource access inject SQL into a managed fact table, so
+  // apply both gates explicitly here.
+  public canManageFactTableVirtualColumn = (
     factTable: Pick<FactTableInterface, "projects" | "managedBy">,
   ): boolean => {
-    if (factTable.managedBy && ["admin", "api"].includes(factTable.managedBy)) {
+    if (factTable.managedBy) {
+      if (!this.canUpdateOfficialResources(factTable, factTable)) {
+        return false;
+      }
+    }
+    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+  };
+
+  public canDeleteFactTable = (
+    factTable: Pick<FactTableInterface, "projects" | "managedBy"> &
+      Partial<Pick<FactTableInterface, "id" | "datasource">>,
+  ): boolean => {
+    if (
+      factTable.managedBy &&
+      ["admin", "api"].includes(factTable.managedBy) &&
+      !isEventForwarderManagedFactTable(factTable)
+    ) {
       if (!this.canDeleteOfficialResources(factTable)) {
         return false;
       }
@@ -942,31 +1058,65 @@ export class Permissions {
     return this.checkProjectFilterPermission(metric, "createMetrics");
   };
 
-  public canManageFeatureDrafts = (
+  public canEditFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
   ) => {
-    return this.checkProjectFilterPermission(
-      { projects: feature.project ? [feature.project] : [] },
-      "manageFeatureDrafts",
-    );
+    return this.canRevisionAction("feature", "draft", {
+      projects: feature.project ? [feature.project] : [],
+    });
   };
 
+  // Required: there is no safe default for "what does this draft change".
+  // Pass `{ scope: "any" }` when not sanctioning a change.
   public canReviewFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
+    footprint: ReviewAuthorityFootprint,
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      { projects: feature.project ? [feature.project] : [] },
-      "canReview",
+    // Reviewer eligibility follows the primary project only. Targeting projects
+    // affect whether a review is required, never who may approve.
+    return this.canReviewRevision(
+      "feature",
+      feature.project ? [feature.project] : [],
+      footprint,
     );
   };
 
-  public canBypassApprovalChecks = (
-    feature: Pick<FeatureInterface, "project">,
+  // Saved-group review is project-scoped, so it takes no env requirement.
+  public canReviewRevision = (
+    model: RevisionModel,
+    projects: string[],
+    footprint: ReviewAuthorityFootprint,
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      { projects: feature.project ? [feature.project] : [] },
-      "bypassApprovalChecks",
+    return this.canRevisionAction(
+      model,
+      "review",
+      { projects },
+      footprintEnvironments(footprint),
     );
+  };
+
+  /**
+   * Bypass the review requirement on a Feature Flag, Config, or Constant.
+   * Atoms are per entity, so a Config unlock must consult the Config atom, not
+   * the Feature one. Saved Groups: see canBypassSavedGroupApprovalChecks.
+   */
+  public canBypassFlagApprovalChecks = (
+    obj: {
+      project?: string;
+      projects?: string[];
+    },
+    // No default: defaulting to "feature" would let Config/Constant call sites
+    // silently consult the wrong entity's bypass atom.
+    model: Extract<RevisionModel, "feature" | "config" | "constant">,
+  ): boolean => {
+    return this.canRevisionAction(model, "bypass", obj);
+  };
+
+  public canBypassSavedGroupApprovalChecks = (obj: {
+    project?: string;
+    projects?: string[];
+  }): boolean => {
+    return this.canRevisionAction("saved-group", "bypass", obj);
   };
 
   public canManageCustomFields = (): boolean => {
@@ -1167,10 +1317,20 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
+  // Diagnostics read the flag and write nothing, so any flag authority — or
+  // runQueries on the datasource it reads — qualifies. NO_ENVIRONMENT_BINDING:
+  // no write, so no footprint to narrow an env-limited publisher against.
   public canRunFeatureDiagnosticsQueries = (
-    datasource: Pick<DataSourceInterface, "projects">,
+    feature: Pick<FeatureInterface, "project">,
+    datasource?: Pick<DataSourceInterface, "projects">,
   ): boolean => {
-    return this.checkProjectFilterPermission(datasource, "runQueries");
+    return (
+      this.canEditFeatureDrafts(feature) ||
+      this.canPublishFeature(feature, NO_ENVIRONMENT_BINDING) ||
+      this.canReviewFeatureDrafts(feature, { scope: "any" }) ||
+      (!!datasource &&
+        this.checkProjectFilterPermission(datasource, "runQueries"))
+    );
   };
 
   public canViewSqlExplorerQueries = (
@@ -1251,12 +1411,11 @@ export class Permissions {
     feature: Pick<FeatureInterface, "project">,
     environments: string[],
   ): boolean => {
-    return this.checkEnvFilterPermission(
-      {
-        projects: feature.project ? [feature.project] : [],
-      },
+    return this.canRevisionAction(
+      "feature",
+      "publish",
+      { projects: feature.project ? [feature.project] : [] },
       environments,
-      "publishFeatures",
     );
   };
 
@@ -1351,52 +1510,99 @@ export class Permissions {
   public canCreateSavedGroup = (
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
-    return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
-  };
-
-  public canUpdateSavedGroup = (
-    existing: Pick<SavedGroupInterface, "projects">,
-    updates: Pick<SavedGroupInterface, "projects">,
-  ): boolean => {
-    return this.checkProjectFilterUpdatePermission(
-      existing,
-      updates,
-      "manageSavedGroups",
+    return this.canRevisionAction(
+      "saved-group",
+      "create",
+      savedGroup,
+      NO_ENVIRONMENT_BINDING,
     );
   };
 
   public canDeleteSavedGroup = (
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
-    return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+    return this.canRevisionAction("saved-group", "delete", savedGroup);
   };
 
-  public canCreateConstant = (
-    constant: Pick<ConstantInterface, "project">,
-  ): boolean => {
+  public canCreateLearning = (learning: { projects?: string[] }): boolean => {
     return this.checkProjectFilterPermission(
-      { projects: constant.project ? [constant.project] : [] },
-      "manageConstants",
+      { projects: learning.projects || [] },
+      "manageLearnings",
     );
   };
 
-  public canUpdateConstant = (
-    existing: Pick<ConstantInterface, "project">,
-    updated: Pick<ConstantInterface, "project">,
+  public canUpdateLearning = (
+    existing: { projects?: string[] },
+    updates: { projects?: string[] },
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
-      { projects: existing.project ? [existing.project] : [] },
-      "project" in updated ? { projects: [updated.project || ""] } : {},
-      "manageConstants",
+      { projects: existing.projects || [] },
+      { projects: updates.projects || [] },
+      "manageLearnings",
+    );
+  };
+
+  public canDeleteLearning = (learning: { projects?: string[] }): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: learning.projects || [] },
+      "manageLearnings",
+    );
+  };
+
+  /**
+   * Project-scoped only. A create body CAN declare `environmentValues`; that
+   * env-scoped half is a publish and is gated at the create surfaces by
+   * `assertCanCreateConstantInState`, not here.
+   */
+  public canCreateConstant = (
+    constant: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.canRevisionAction(
+      "constant",
+      "create",
+      { projects: constant.project ? [constant.project] : [] },
+      NO_ENVIRONMENT_BINDING,
     );
   };
 
   public canDeleteConstant = (
     constant: Pick<ConstantInterface, "project">,
+    environments: string[],
   ): boolean => {
-    return this.checkProjectFilterPermission(
+    return this.canRevisionAction(
+      "constant",
+      "delete",
       { projects: constant.project ? [constant.project] : [] },
-      "manageConstants",
+      environments,
+    );
+  };
+
+  /**
+   * Project-scoped only. A create body CAN attach `scopedOverrides` (env-scoped
+   * flavors that serve immediately — a feature may already embed a `@config:`
+   * ref to the new key); that half is a publish and is gated at the create
+   * surfaces by `assertCanCreateConfigInState`, not here.
+   */
+  public canCreateConfig = (
+    config: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.canRevisionAction(
+      "config",
+      "create",
+      { projects: config.project ? [config.project] : [] },
+      NO_ENVIRONMENT_BINDING,
+    );
+  };
+
+  public canDeleteConfig = (
+    config: Pick<ConfigInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    return this.canRevisionAction(
+      "config",
+      "delete",
+      { projects: config.project ? [config.project] : [] },
+      environments,
     );
   };
 
@@ -1503,11 +1709,20 @@ export class Permissions {
     return this.checkProjectFilterPermission(customHook, "manageCustomHooks");
   };
 
-  // Alias for the feature-edit permission; its own method so we can add logic/resource types later.
+  // A hook constrains which future writes are allowed and serves no value to any
+  // user, so it is not publish-class — and draft-class keeps whoever writes the
+  // rules distinct from whoever lands changes. Org/config hooks take
+  // `manageCustomHooks`.
   public canManageFeatureCustomHooks = (
     feature: Pick<FeatureInterface, "project">,
   ): boolean => {
-    return this.canUpdateFeature(feature, {});
+    return this.canEditFeatureDrafts(feature);
+  };
+
+  public canManageExperimentCustomHooks = (
+    experiment: Pick<ExperimentInterface, "project">,
+  ): boolean => {
+    return this.canUpdateExperiment(experiment, {});
   };
 
   public canCreateEventForwarderConfig = (
@@ -1586,6 +1801,17 @@ export class Permissions {
     return projects.some((p) => this.hasPermission("readData", p));
   };
 
+  // Targeting-scoped READ: readable via the governance project OR any targeting
+  // project (or all). Widens read/discovery only; governance/write keys on `project`.
+  public canReadTargetingScopedResource = (
+    entity: TargetingScopedEntity,
+  ): boolean => {
+    // null (all projects) maps to the empty-array "all" convention.
+    return this.canReadMultiProjectResource(
+      getTargetingProjectIds(entity) ?? [],
+    );
+  };
+
   public canManageCustomRoles = (): boolean => {
     return this.checkGlobalPermission("manageCustomRoles");
   };
@@ -1636,6 +1862,20 @@ export class Permissions {
     return true;
   }
 
+  private checkUnrestrictedEnvAuthority(
+    obj: { projects?: string[] },
+    permission: Permission,
+  ): boolean {
+    const projects = obj.projects?.length ? obj.projects : [""];
+
+    return projects.every((project) => {
+      const scoped =
+        this.userPermissions.projects[project] || this.userPermissions.global;
+      if (!scoped?.permissions[permission]) return false;
+      return hasUnrestrictedEnvAuthority(scoped, permission);
+    });
+  }
+
   public checkEnvFilterPermission(
     obj: { projects?: string[] },
     envs: string[],
@@ -1684,11 +1924,8 @@ export class Permissions {
       return false;
     }
 
-    if (!envs || !usersPermissionsToCheck.limitAccessByEnvironment) {
-      return true;
-    }
-    return envs.every((env) =>
-      usersPermissionsToCheck.environments.includes(env),
-    );
+    // One implementation, shared with the standalone `hasPermission` used by
+    // middleware and API keys — see `envsAllowedBy`.
+    return envsAllowedBy(usersPermissionsToCheck, permissionToCheck, envs);
   }
 }

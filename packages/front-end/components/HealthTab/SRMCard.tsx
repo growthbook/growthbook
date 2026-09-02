@@ -88,7 +88,7 @@ export default function SRMCard({
   if (!traffic?.overall?.variationUnits?.length) {
     return (
       <div className="appbox my-4 p-3">
-        <div className="alert alert-danger">Traffic data is missing</div>
+        <Callout status="error">Traffic data is missing</Callout>
       </div>
     );
   }

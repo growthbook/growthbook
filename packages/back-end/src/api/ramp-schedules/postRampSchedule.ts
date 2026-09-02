@@ -8,16 +8,19 @@ import {
   RampScheduleTemplateInterface,
   RampStepAction,
   stepHoldConditions,
+  isAwaitingStartApproval,
 } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
-import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature } from "back-end/src/models/FeatureModel";
-import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import {
+  assertCanControlRampSchedule,
   dispatchRampEvent,
+  dispatchAwaitingStartApproval,
   getStartActionsFromRules,
   remapTemplateActions,
 } from "back-end/src/services/rampSchedule";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
@@ -71,6 +74,12 @@ const postRampScheduleValidator = {
       endActions: z.array(postBodyAction).optional(),
       startDate: z.string().datetime().optional().nullable(),
       cutoffDate: z.string().datetime().optional().nullable(),
+      requiresStartApproval: z
+        .boolean()
+        .nullish()
+        .describe(
+          "When true, the ramp holds at step -1 with its rule disabled (zero traffic) until a human approves the start via /actions/approve-step. Composes with startDate.",
+        ),
       monitoringConfig: z
         .object({
           datasourceId: z.string(),
@@ -205,6 +214,17 @@ export const postRampSchedule = createApiRequestHandler(
       );
     }
 
+    // "Start on approval" promises zero traffic until approved, but this
+    // endpoint can't publish the rule disabled (no feature revision here). If
+    // the target rule is already serving, reject rather than silently leave it
+    // live while the schedule reports "awaiting approval".
+    if (body.requiresStartApproval && rule.enabled) {
+      throw new BadRequestError(
+        `Rule '${body.ruleId}' is currently enabled${envSuffix}. ` +
+          `Disable it before creating a start-approval ramp schedule, or it would keep serving traffic until approved.`,
+      );
+    }
+
     const conflicting = await req.context.models.rampSchedules.findByTargetRule(
       body.ruleId!,
       body.environment ?? undefined,
@@ -316,6 +336,31 @@ export const postRampSchedule = createApiRequestHandler(
     { month: "short", year: "numeric" },
   )}`;
 
+  // Arming a dated start IS scheduling the live transition: the poller fires it
+  // under an admin context, so it takes the same per-target publish authority the
+  // fire would. The model's create gate is draft-class and cannot see the
+  // targets. Mirrors the internal controller. An approval-gated schedule never
+  // auto-arms (nextProcessAt stays null), and a dateless one is draft-class.
+  if (startDate && !body.requiresStartApproval) {
+    await assertCanControlRampSchedule(req.context, {
+      entityType: "feature",
+      entityId: body.featureId ?? "",
+      targets: hasTarget
+        ? [
+            {
+              id: targetId!,
+              entityType: "feature",
+              entityId: body.featureId ?? "",
+              ruleId: body.ruleId,
+            },
+          ]
+        : [],
+      steps: resolvedSteps,
+      startActions: resolvedStartActions,
+      endActions: resolvedEndActions,
+    } as unknown as RampScheduleInterface);
+  }
+
   const schedule = await req.context.models.rampSchedules.create({
     name: body.name ?? defaultName,
     entityType: "feature",
@@ -348,10 +393,14 @@ export const postRampSchedule = createApiRequestHandler(
     ...(body.experimentHealthAction
       ? { experimentHealthAction: body.experimentHealthAction }
       : {}),
+    requiresStartApproval: body.requiresStartApproval || undefined,
     status: hasTarget ? "ready" : "pending",
     currentStepIndex: -1,
     nextStepAt: null,
-    nextProcessAt: startDate ?? null,
+    // An approval-gated schedule must not auto-arm (even with a startDate) — it
+    // holds until /actions/approve-step. Leaving nextProcessAt null keeps the
+    // poller from picking it up until the approval sets it.
+    nextProcessAt: body.requiresStartApproval ? null : (startDate ?? null),
   } as Omit<
     RampScheduleInterface,
     "id" | "organization" | "dateCreated" | "dateUpdated"
@@ -366,6 +415,12 @@ export const postRampSchedule = createApiRequestHandler(
       entityId: schedule.entityId,
     },
   });
+
+  // A schedule created directly into the pre-start hold emits the same
+  // awaiting-approval signal as the publish/rollback paths.
+  if (isAwaitingStartApproval(schedule)) {
+    await dispatchAwaitingStartApproval(req.context, schedule);
+  }
 
   return { rampSchedule: rampScheduleToApiInterface(schedule) };
 });

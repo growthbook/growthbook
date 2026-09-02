@@ -1,6 +1,6 @@
 import {
   EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
-  isEventForwarderManagedExposureQuery,
+  isEventForwarderManaged,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -25,9 +25,7 @@ export async function revalidateManagedEventForwarderDataSourceQueries(
 
   const exposure = datasource.settings?.queries?.exposure ?? [];
   const featureUsage = datasource.settings?.queries?.featureUsage ?? [];
-  const hasManagedExposure = exposure.some(
-    isEventForwarderManagedExposureQuery,
-  );
+  const hasManagedExposure = exposure.some(isEventForwarderManaged);
   const hasManagedFeatureUsage = featureUsage.some(
     (query) => query.managedBy === "api",
   );

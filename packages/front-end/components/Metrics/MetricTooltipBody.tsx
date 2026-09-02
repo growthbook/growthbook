@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
@@ -22,7 +22,7 @@ import MetricName from "./MetricName";
 import FactMetricTypeDisplayName from "./FactMetricTypeDisplayName";
 
 interface MetricToolTipCompProps {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   row?: ExperimentTableRow;
   statsEngine?: StatsEngine;
   hideDetails?: boolean;

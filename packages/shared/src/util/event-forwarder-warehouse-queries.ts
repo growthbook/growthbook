@@ -4,28 +4,27 @@ import type {
   SDKAttributeSchema,
   SDKAttributeType,
 } from "shared/types/organization";
+import { attributeDataTypes } from "../constants";
 import {
-  EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE_SUFFIX,
-  EVENT_FORWARDER_FEATURE_USAGE_TABLE_SUFFIX,
   resolveBigQueryEventForwarderTableNames,
   resolveSnowflakeEventForwarderTableNames,
 } from "./event-forwarder-destination";
 import {
   buildBigQueryEventForwarderTableReference,
   buildEventForwarderNestedAttributeValueSql,
+  buildEventForwarderPropertyValueSql,
   buildSnowflakeEventForwarderTableReference,
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
   quoteBigQueryIdentifier,
 } from "./event-forwarder-fact-table";
 import {
-  buildEventForwarderManagedIdentifierId,
-  getEventForwarderManagedIdentifierSourceAttribute,
+  EventForwarderUserIdTypePair,
+  isEventForwarderManaged,
+  normalizeUserIdTypeName,
+  resolveEventForwarderManagedName,
+  toNormalizedNameSet,
 } from "./event-forwarder-datasource";
 
-export const EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE =
-  EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE_SUFFIX;
-export const EVENT_FORWARDER_FEATURE_USAGE_TABLE =
-  EVENT_FORWARDER_FEATURE_USAGE_TABLE_SUFFIX;
 export const EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION =
   "Managed by Event Forwarder and updated when the linked Identifier type changes.";
 export const EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION =
@@ -48,8 +47,9 @@ export type BuildEventForwarderExperimentViewedTableRefParams =
 export type BuildEventForwarderFeatureUsageTableRefParams =
   BuildEventForwarderExperimentViewedTableRefParams;
 
-export function buildEventForwarderExperimentViewedTableReference(
+function buildEventForwarderSinkTableReference(
   params: BuildEventForwarderExperimentViewedTableRefParams,
+  table: "experimentViewed" | "featureUsage",
 ): string {
   if (params.sinkType === "bigquery") {
     const tableNames = resolveBigQueryEventForwarderTableNames(
@@ -58,7 +58,7 @@ export function buildEventForwarderExperimentViewedTableReference(
     return buildBigQueryEventForwarderTableReference(
       params.projectId,
       params.dataset,
-      tableNames.experimentViewed,
+      tableNames[table],
     );
   }
 
@@ -68,42 +68,27 @@ export function buildEventForwarderExperimentViewedTableReference(
   return buildSnowflakeEventForwarderTableReference(
     params.database,
     params.schema,
-    tableNames.experimentViewed,
+    tableNames[table],
   );
+}
+
+export function buildEventForwarderExperimentViewedTableReference(
+  params: BuildEventForwarderExperimentViewedTableRefParams,
+): string {
+  return buildEventForwarderSinkTableReference(params, "experimentViewed");
 }
 
 export function buildEventForwarderFeatureUsageTableReference(
   params: BuildEventForwarderFeatureUsageTableRefParams,
 ): string {
-  if (params.sinkType === "bigquery") {
-    const tableNames = resolveBigQueryEventForwarderTableNames(
-      params.tablePrefix,
-    );
-    return buildBigQueryEventForwarderTableReference(
-      params.projectId,
-      params.dataset,
-      tableNames.featureUsage,
-    );
-  }
-
-  const tableNames = resolveSnowflakeEventForwarderTableNames(
-    params.tablePrefix,
-  );
-  return buildSnowflakeEventForwarderTableReference(
-    params.database,
-    params.schema,
-    tableNames.featureUsage,
-  );
+  return buildEventForwarderSinkTableReference(params, "featureUsage");
 }
 
-function findHashAttributeForUserIdType(
-  userIdType: string,
+function findHashAttributeBySourceAttribute(
+  sourceAttribute: string,
   attributeSchema?: SDKAttributeSchema,
 ): SDKAttribute | undefined {
-  // userIdType is the managed identifier id (e.g. "ef_user_id"); resolve back to
-  // the source attribute before matching the schema.
-  const normalized =
-    getEventForwarderManagedIdentifierSourceAttribute(userIdType).toLowerCase();
+  const normalized = normalizeUserIdTypeName(sourceAttribute);
   return attributeSchema?.find(
     (attribute) =>
       attribute.hashAttribute &&
@@ -139,21 +124,19 @@ export function buildEventForwarderExposureQuerySql({
   sinkType,
   tableRef,
   userIdType,
+  sourceAttribute,
   attributeDatatype,
 }: {
   sinkType: "bigquery" | "snowflake";
   tableRef: string;
   userIdType: string;
+  sourceAttribute?: string;
   attributeDatatype?: SDKAttributeType;
 }): string {
-  // The column alias / join key is the (prefixed) managed identifier id, but the
-  // value is extracted from the real source attribute (e.g. "ef_user_id" reads
-  // the "user_id" attribute).
-  const sourceAttribute =
-    getEventForwarderManagedIdentifierSourceAttribute(userIdType);
+  // Alias (userIdType) ≠ extraction key (sourceAttribute).
   const attributeValueSql = buildEventForwarderAttributeValueSql({
     sinkType,
-    userIdType: sourceAttribute,
+    userIdType: sourceAttribute ?? userIdType,
     attributeDatatype,
   });
 
@@ -179,145 +162,137 @@ FROM ${tableRef}`;
 export type GenerateEventForwarderExposureQueriesParams =
   BuildEventForwarderExperimentViewedTableRefParams;
 
-export function generateEventForwarderExposureQueries(
-  userIdTypes: string[],
-  params: GenerateEventForwarderExposureQueriesParams,
-  attributeSchema?: SDKAttributeSchema,
-): ExposureQuery[] {
-  const tableRef = buildEventForwarderExperimentViewedTableReference(params);
-
-  return userIdTypes.map((userIdType) => {
-    const attribute = findHashAttributeForUserIdType(
-      userIdType,
-      attributeSchema,
-    );
-
-    // userIdType is already the (prefixed) managed identifier id, so the
-    // exposure query id/name mirror it directly.
-    return {
-      id: userIdType,
-      userIdType,
-      name: userIdType,
-      description: EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
-      dimensions: [],
-      managedBy: "api" as const,
-      query: buildEventForwarderExposureQuerySql({
-        sinkType: params.sinkType,
-        tableRef,
-        userIdType,
-        attributeDatatype: attribute?.datatype,
-      }),
-    };
-  });
+function isEquivalentExposureQuerySql(a: string, b: string): boolean {
+  const normalize = (sql: string) => sql.trim().replace(/\s+/g, " ");
+  return normalize(a) === normalize(b);
 }
 
-export function isEventForwarderManagedExposureQuery(
-  query: ExposureQuery,
-): boolean {
-  return query.managedBy === "api";
-}
-
-export function eventForwarderManagedExposureQueryExistsForUserIdType(
-  exposureQueries: ExposureQuery[],
-  userIdType: string,
-): boolean {
-  const normalized = userIdType.toLowerCase();
-  return exposureQueries.some(
-    (q) =>
-      isEventForwarderManagedExposureQuery(q) &&
-      q.userIdType.toLowerCase() === normalized,
-  );
-}
-
-export function mergeEventForwarderExposureQueries(
-  existing: ExposureQuery[],
-  userIdTypes: string[],
-  params: GenerateEventForwarderExposureQueriesParams,
-  attributeSchema?: SDKAttributeSchema,
-): ExposureQuery[] {
-  // Only skip identifiers that already have a managed query. A user's own
-  // (non-managed) query for the same identifier no longer blocks us, since the
-  // prefixed id keeps the managed query from colliding with theirs.
-  const missing = userIdTypes.filter(
-    (userIdType) =>
-      !eventForwarderManagedExposureQueryExistsForUserIdType(
-        existing,
-        userIdType,
-      ),
-  );
-
-  if (missing.length === 0) {
-    return existing;
-  }
-
-  return [
-    ...existing,
-    ...generateEventForwarderExposureQueries(missing, params, attributeSchema),
+// True for generator output under any datatype cast, so a query written before
+// an attribute's datatype changed still counts as unmodified.
+function isGeneratedExposureQuerySql({
+  query,
+  sinkType,
+  tableRef,
+  sourceAttribute,
+}: {
+  query: ExposureQuery;
+  sinkType: "bigquery" | "snowflake";
+  tableRef: string;
+  sourceAttribute: string;
+}): boolean {
+  const candidateDatatypes: (SDKAttributeType | undefined)[] = [
+    undefined,
+    ...attributeDataTypes,
   ];
-}
-
-export function refreshEventForwarderManagedExposureQuery(
-  existing: ExposureQuery[],
-  matchUserIdType: string,
-  attribute: SDKAttribute,
-  params: GenerateEventForwarderExposureQueriesParams,
-): ExposureQuery[] {
-  const normalized = matchUserIdType.toLowerCase();
-  const tableRef = buildEventForwarderExperimentViewedTableReference(params);
-  let found = false;
-
-  const updated = existing.map((query) => {
-    if (
-      !isEventForwarderManagedExposureQuery(query) ||
-      query.userIdType.toLowerCase() !== normalized
-    ) {
-      return query;
-    }
-
-    found = true;
-    // Re-derive the managed identifier id from the (possibly renamed) attribute.
-    const userIdType = buildEventForwarderManagedIdentifierId(
-      attribute.property,
-    );
-
-    return {
-      ...query,
-      id: userIdType,
-      userIdType,
-      name: userIdType,
-      query: buildEventForwarderExposureQuerySql({
-        sinkType: params.sinkType,
+  return candidateDatatypes.some((attributeDatatype) =>
+    isEquivalentExposureQuerySql(
+      query.query,
+      buildEventForwarderExposureQuerySql({
+        sinkType,
         tableRef,
-        userIdType,
-        attributeDatatype: attribute.datatype,
+        userIdType: query.userIdType,
+        sourceAttribute,
+        attributeDatatype,
       }),
-    };
-  });
-
-  return found ? updated : existing;
+    ),
+  );
 }
 
+/**
+ * Gives every paired identifier type a managed assignment query. An existing
+ * managed query is kept current; failing that, a query the user wrote carrying
+ * the same SQL stands on its own and nothing is added beside it. Nothing is ever
+ * removed, and a managed query keeps its id, name and userIdType for the life of
+ * the record — those are referenced by experiments, reports, safe rollouts,
+ * templates and ramp schedules.
+ */
 export function reconcileEventForwarderManagedExposureQueries({
   existing,
-  userIdTypes,
+  pairs,
   params,
   attributeSchema,
 }: {
   existing: ExposureQuery[];
-  userIdTypes: string[];
+  pairs: EventForwarderUserIdTypePair[];
   params: GenerateEventForwarderExposureQueriesParams;
   attributeSchema?: SDKAttributeSchema;
 }): ExposureQuery[] {
-  const desiredManaged = generateEventForwarderExposureQueries(
-    userIdTypes,
-    params,
-    attributeSchema,
-  );
+  const tableRef = buildEventForwarderExperimentViewedTableReference(params);
+  const result = [...existing];
+  const takenNames = toNormalizedNameSet(existing.map((query) => query.name));
 
-  return [
-    ...existing.filter((query) => !isEventForwarderManagedExposureQuery(query)),
-    ...desiredManaged,
-  ];
+  for (const { attribute, userIdType } of pairs) {
+    const attributeDatatype = findHashAttributeBySourceAttribute(
+      attribute,
+      attributeSchema,
+    )?.datatype;
+    const buildSql = (alias: string) =>
+      buildEventForwarderExposureQuerySql({
+        sinkType: params.sinkType,
+        tableRef,
+        userIdType: alias,
+        sourceAttribute: attribute,
+        attributeDatatype,
+      });
+
+    const onIdentifier = result
+      .map((query, index) => ({ query, index }))
+      .filter(
+        ({ query }) =>
+          normalizeUserIdTypeName(query.userIdType) ===
+          normalizeUserIdTypeName(userIdType.userIdType),
+      );
+
+    const regenerate = ({
+      query,
+      index,
+    }: {
+      query: ExposureQuery;
+      index: number;
+    }) => {
+      result[index] = { ...query, query: buildSql(query.userIdType) };
+    };
+
+    // Ours first: a look-alike query the user wrote must not stop the managed one
+    // from tracking the attribute's current datatype.
+    const managed = onIdentifier.find(({ query }) =>
+      isEventForwarderManaged(query),
+    );
+    if (managed) {
+      regenerate(managed);
+      continue;
+    }
+
+    const generated = onIdentifier.find(({ query }) =>
+      isGeneratedExposureQuerySql({
+        query,
+        sinkType: params.sinkType,
+        tableRef,
+        sourceAttribute: attribute,
+      }),
+    );
+    if (generated) {
+      continue;
+    }
+
+    const name = resolveEventForwarderManagedName(
+      userIdType.userIdType,
+      takenNames,
+    );
+    takenNames.add(normalizeUserIdTypeName(name));
+    result.push({
+      // Empty id → the model mints a stable exq_; reconcile preserves it after.
+      id: "",
+      userIdType: userIdType.userIdType,
+      name,
+      description: EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
+      dimensions: [],
+      managedBy: "api",
+      query: buildSql(userIdType.userIdType),
+    });
+  }
+
+  return result;
 }
 
 export function buildEventForwarderFeatureUsageQuerySql({
@@ -330,14 +305,24 @@ export function buildEventForwarderFeatureUsageQuerySql({
   if (sinkType === "bigquery") {
     return `SELECT
   timestamp AS timestamp,
-  feature_key AS feature_key
+  feature_key AS feature_key,
+  environment AS environment,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "value" })} AS value,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "source" })} AS source,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "ruleId" })} AS rule_id,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "variationId" })} AS variation_id
 FROM ${tableRef}
 WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`;
   }
 
   return `SELECT
   TIMESTAMP AS timestamp,
-  FEATURE_KEY AS feature_key
+  FEATURE_KEY AS feature_key,
+  ENVIRONMENT AS environment,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "value" })} AS value,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "source" })} AS source,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "ruleId" })} AS rule_id,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "variationId" })} AS variation_id
 FROM ${tableRef}`;
 }
 
@@ -359,12 +344,6 @@ export function buildEventForwarderFeatureUsageQuery(
   };
 }
 
-export function isEventForwarderManagedFeatureUsageQuery(
-  query: FeatureUsageQuery,
-): boolean {
-  return query.managedBy === "api";
-}
-
 export function getActiveFeatureUsageQuery(
   queries: FeatureUsageQuery[] | undefined,
 ): FeatureUsageQuery | undefined {
@@ -372,11 +351,5 @@ export function getActiveFeatureUsageQuery(
     return undefined;
   }
 
-  return queries.find(isEventForwarderManagedFeatureUsageQuery) ?? queries[0];
-}
-
-export function eventForwarderManagedFeatureUsageQueryExists(
-  queries: FeatureUsageQuery[],
-): boolean {
-  return queries.some(isEventForwarderManagedFeatureUsageQuery);
+  return queries.find(isEventForwarderManaged) ?? queries[0];
 }

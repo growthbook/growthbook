@@ -36,7 +36,7 @@ export default function TrafficAndTargeting({
   editTargeting,
   editTraffic,
 }: Props) {
-  const { namespaces } = useOrgSettings();
+  const { namespaces, useStickyBucketing } = useOrgSettings();
 
   const phase = experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
@@ -64,7 +64,7 @@ export default function TrafficAndTargeting({
         <>
           <Frame>
             <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-              <Heading color="text-high" as="h4" size="small" mb="0">
+              <Heading color="text-high" as="h4" size="sm" mb="0">
                 Traffic Allocation
               </Heading>
               <div className="flex-1" />
@@ -145,10 +145,13 @@ export default function TrafficAndTargeting({
                     </HashVersionTooltip>
                   ) : null}
                 </div>
-                {!isHoldout && experiment.disableStickyBucketing ? (
+                {!isHoldout && useStickyBucketing ? (
                   <div className="mt-1">
                     <Text color="text-mid">
-                      Sticky bucketing: <em>disabled</em>
+                      Sticky bucketing:{" "}
+                      {experiment.disableStickyBucketing
+                        ? "Disabled"
+                        : "Enabled"}
                     </Text>
                   </div>
                 ) : null}
@@ -182,7 +185,7 @@ export default function TrafficAndTargeting({
 
           <Frame>
             <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-              <Heading color="text-high" as="h4" size="small" mb="0">
+              <Heading color="text-high" as="h4" size="sm" mb="0">
                 Targeting
               </Heading>
               <div className="flex-1" />

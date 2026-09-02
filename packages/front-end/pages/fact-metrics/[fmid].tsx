@@ -3,12 +3,16 @@ import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
 import {
   FactMetricType,
-  FactTableInterface,
+  FactTableDefinition,
+  FunnelSettings,
+  FunnelStep,
   RowFilter,
 } from "shared/types/fact-table";
 import {
   getAggregateFilters,
+  getFactMetricPrimaryFactTableId,
   isBinomialMetric,
+  isFactFunnelMetric,
   isRatioMetric,
   quantileMetricType,
   getRowFilterSQL,
@@ -25,6 +29,7 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
@@ -60,6 +65,7 @@ import FactTableAutoSliceSelector from "@/components/FactTables/FactTableAutoSli
 import { useCurrency } from "@/hooks/useCurrency";
 import HistoryTable from "@/components/HistoryTable";
 import Modal from "@/components/Modal";
+import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -74,6 +80,10 @@ import {
   isMergeAggregationMetric,
   REST_API_ONLY_EDIT_MESSAGE,
 } from "@/services/factMetrics";
+import {
+  ReplacedByCallout,
+  ReplacesMetadata,
+} from "@/components/Metrics/MetricReplacement";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -138,6 +148,13 @@ function MetricType({
           percentage of days after exposure that a user is in the Fact Table
         </div>
       );
+    case "funnel":
+      return (
+        <div>
+          <strong>Funnel Metric</strong> - Percent of experiment users who
+          complete an ordered sequence of events
+        </div>
+      );
     default: {
       const exhaustiveCheck: never = type;
       throw new Error(`Unhandled MetricType type: ${exhaustiveCheck}`);
@@ -150,7 +167,7 @@ function RowFilterCodeDisplay({
   factTable,
 }: {
   rowFilters: RowFilter[];
-  factTable?: FactTableInterface | null;
+  factTable?: FactTableDefinition | null;
 }) {
   if (!rowFilters.length) return null;
 
@@ -179,6 +196,85 @@ function RowFilterCodeDisplay({
   }`;
 
   return <Code language="sql" code={text} expandable filename={"SQL"} />;
+}
+
+function FunnelStepsDisplay({
+  funnelSettings,
+}: {
+  funnelSettings: FunnelSettings;
+}) {
+  const { getFactTableById } = useDefinitions();
+
+  const getStepItems = (step: FunnelStep): DataListItem[] => [
+    {
+      label: "Fact Table",
+      value: <FactTableLink id={step.factTableId} />,
+    },
+    ...(step.rowFilters?.length
+      ? [
+          {
+            label: "Row Filter",
+            value: (
+              <RowFilterCodeDisplay
+                rowFilters={step.rowFilters}
+                factTable={getFactTableById(step.factTableId)}
+              />
+            ),
+          },
+        ]
+      : []),
+  ];
+
+  const getConversionWindowValue = (
+    step: FunnelStep,
+    i: number,
+  ): string | null =>
+    step.conversionWindow
+      ? i === 0
+        ? `Within ${step.conversionWindow.value} ${step.conversionWindow.unit} of exposure`
+        : `Within ${step.conversionWindow.value} ${step.conversionWindow.unit} of the nearest required prior step`
+      : null;
+
+  return (
+    <Box>
+      <Heading as="h4" size="sm" mb="2">
+        Funnel Steps
+      </Heading>
+      {funnelSettings.steps.map((step, i) => {
+        const items = getStepItems(step);
+        const conversionWindowValue = getConversionWindowValue(step, i);
+        const hasMetadata = !!conversionWindowValue || !!step.optional;
+        return (
+          <Box key={i} className="appbox" p="3" mb="2">
+            <Heading
+              as="h4"
+              size="sm"
+              mb="2"
+            >{`Step ${i + 1}: ${step.name}`}</Heading>
+            {items.length ? <DataList data={items} maxColumns={1} /> : null}
+            {hasMetadata ? (
+              <Flex
+                gap="4"
+                align="center"
+                wrap="wrap"
+                mt={items.length ? "2" : "0"}
+              >
+                {conversionWindowValue ? (
+                  <Metadata
+                    label="Conversion Window"
+                    value={conversionWindowValue}
+                  />
+                ) : null}
+                {step.optional ? (
+                  <Metadata label="Optional" value="Yes" />
+                ) : null}
+              </Flex>
+            ) : null}
+          </Box>
+        );
+      })}
+    </Box>
+  );
 }
 
 export default function FactMetricPage() {
@@ -239,10 +335,10 @@ export default function FactMetricPage() {
 
   if (!factMetric) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         Could not find the requested metric.{" "}
         <Link href="/metrics">Back to all metrics</Link>
-      </div>
+      </Callout>
     );
   }
 
@@ -258,7 +354,9 @@ export default function FactMetricPage() {
     canDelete = false;
   }
 
-  const factTable = getFactTableById(factMetric.numerator.factTableId);
+  const factTable = getFactTableById(
+    getFactMetricPrimaryFactTableId(factMetric),
+  );
   const denominatorFactTable = getFactTableById(
     factMetric.denominator?.factTableId || "",
   );
@@ -266,85 +364,96 @@ export default function FactMetricPage() {
   const datasource = factMetric.datasource
     ? getDatasourceById(factMetric.datasource)
     : null;
+  const canOpenInExplorer = datasource
+    ? permissionsUtil.canRunMetricQueries(datasource)
+    : false;
 
-  const userFilters = getAggregateFilters({
-    columnRef: factMetric.numerator,
-    column:
-      factMetric.numerator.aggregateFilterColumn === "$$count"
-        ? `COUNT(*)`
-        : `SUM(${factMetric.numerator.aggregateFilterColumn})`,
-    ignoreInvalid: true,
-  });
+  const numerator = isFactFunnelMetric(factMetric)
+    ? null
+    : factMetric.numerator;
 
-  const numeratorData: DataListItem[] = [
-    {
-      label: `Fact Table`,
-      value: <FactTableLink id={factMetric.numerator.factTableId} />,
-    },
-    ...(factMetric.numerator.rowFilters?.length
-      ? [
-          {
-            label: "Row Filter",
-            value: (
-              <RowFilterCodeDisplay
-                rowFilters={factMetric.numerator.rowFilters}
-                factTable={factTable}
-              />
-            ),
-          },
-        ]
-      : []),
-    ...(!isBinomialMetric(factMetric)
-      ? [
-          {
-            label: `Value`,
-            value:
-              factMetric.numerator.column === "$$count"
-                ? "Count of Rows"
-                : factMetric.numerator.column === "$$distinctUsers"
-                  ? "Unique Users"
-                  : factMetric.numerator.column === "$$distinctDates"
-                    ? "Distinct Dates"
-                    : factMetric.numerator.column,
-          },
-        ]
-      : []),
-    ...(!factMetric.numerator.column.startsWith("$$") &&
-    (factMetric.metricType !== "quantile" ||
-      factMetric.quantileSettings?.type === "unit")
-      ? [
-          {
-            label: "Per-User Aggregation",
-            value: (factMetric.numerator.aggregation || "SUM").toUpperCase(),
-          },
-        ]
-      : userFilters.length > 0
-        ? [
-            {
-              label: "User Filter",
-              value: userFilters.join(" AND "),
-            },
-          ]
-        : []),
-    ...(factMetric.metricType === "quantile"
-      ? [
-          {
-            label: "Quantile Scope",
-            value: factMetric.quantileSettings?.type,
-          },
-          {
-            label: "Ignore Zeros",
-            value: factMetric.quantileSettings?.ignoreZeros ? "Yes" : "No",
-          },
-          {
-            label: "Quantile",
-            value: getPercentileLabel(
-              factMetric.quantileSettings?.quantile ?? 0.5,
-            ),
-          },
-        ]
-      : []),
-  ];
+  const userFilters = numerator
+    ? getAggregateFilters({
+        columnRef: numerator,
+        column:
+          numerator.aggregateFilterColumn === "$$count"
+            ? `COUNT(*)`
+            : `SUM(${numerator.aggregateFilterColumn})`,
+        ignoreInvalid: true,
+      })
+    : [];
+
+  const numeratorData: DataListItem[] = numerator
+    ? [
+        {
+          label: `Fact Table`,
+          value: <FactTableLink id={numerator.factTableId} />,
+        },
+        ...(numerator.rowFilters?.length
+          ? [
+              {
+                label: "Row Filter",
+                value: (
+                  <RowFilterCodeDisplay
+                    rowFilters={numerator.rowFilters}
+                    factTable={factTable}
+                  />
+                ),
+              },
+            ]
+          : []),
+        ...(!isBinomialMetric(factMetric)
+          ? [
+              {
+                label: `Value`,
+                value:
+                  numerator.column === "$$count"
+                    ? "Count of Rows"
+                    : numerator.column === "$$distinctUsers"
+                      ? "Unique Users"
+                      : numerator.column === "$$distinctDates"
+                        ? "Distinct Dates"
+                        : numerator.column,
+              },
+            ]
+          : []),
+        ...(!numerator.column.startsWith("$$") &&
+        (factMetric.metricType !== "quantile" ||
+          factMetric.quantileSettings?.type === "unit")
+          ? [
+              {
+                label: "Per-User Aggregation",
+                value: (numerator.aggregation || "SUM").toUpperCase(),
+              },
+            ]
+          : userFilters.length > 0
+            ? [
+                {
+                  label: "User Filter",
+                  value: userFilters.join(" AND "),
+                },
+              ]
+            : []),
+        ...(factMetric.metricType === "quantile"
+          ? [
+              {
+                label: "Quantile Scope",
+                value: factMetric.quantileSettings?.type,
+              },
+              {
+                label: "Ignore Zeros",
+                value: factMetric.quantileSettings?.ignoreZeros ? "Yes" : "No",
+              },
+              {
+                label: "Quantile",
+                value: getPercentileLabel(
+                  factMetric.quantileSettings?.quantile ?? 0.5,
+                ),
+              },
+            ]
+          : []),
+      ]
+    : [];
 
   const denominatorData: DataListItem[] =
     factMetric.metricType === "ratio" &&
@@ -521,19 +630,39 @@ export default function FactMetricPage() {
       />
 
       {factMetric.archived && (
-        <div className="alert alert-secondary mb-2">
+        <Callout status="info" mb="2">
           <strong>This metric is archived.</strong> Existing references will
           continue working, but you will be unable to add this metric to new
           experiments.
-        </div>
+        </Callout>
       )}
+      <ReplacedByCallout metricId={factMetric.id} />
       <Flex align="start" justify="between" gap="2" mb="2">
         <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
-          <Heading size="x-large" as="h1" mb="0">
+          <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
             <MetricName id={factMetric.id} officialBadgePosition="right" />
           </Heading>
         </Flex>
-        <Flex align="center" pr="2">
+        <Flex align="center" gap="2" pr="2">
+          <OpenInExplorerButton
+            enabled={canOpenInExplorer}
+            // Funnel metrics open in the Funnel Builder, which understands
+            // steps; every other type goes to the Metric Explorer as before.
+            href={
+              isFactFunnelMetric(factMetric)
+                ? `/product-analytics/explore/funnel?funnelMetricId=${encodeURIComponent(
+                    factMetric.id,
+                  )}`
+                : `/product-analytics/explore/metrics?metricId=${encodeURIComponent(
+                    factMetric.id,
+                  )}`
+            }
+            tooltip={
+              isFactFunnelMetric(factMetric)
+                ? "Open this funnel in the Funnel Builder to explore its steps, break them down by dimension, and try changes without affecting the metric."
+                : "Open this Fact Metric in the Product Analytics Explorer to view trends, compare time periods, and slice/dice a metric."
+            }
+          />
           <DropdownMenu
             trigger={
               <IconButton
@@ -681,6 +810,7 @@ export default function FactMetricPage() {
             </Link>
           }
         />
+        <ReplacesMetadata replaces={factMetric.replaces} />
       </Flex>
       <Box mt="3" mb="3">
         <Flex align="center" gap="1">
@@ -772,15 +902,21 @@ export default function FactMetricPage() {
               />
             </div>
             <div className="appbox p-3 mb-3">
-              <DataList
-                data={numeratorData}
-                header={
-                  factMetric.metricType === "ratio"
-                    ? "Numerator"
-                    : "Metric Details"
-                }
-                maxColumns={1}
-              />
+              {isFactFunnelMetric(factMetric) ? (
+                <FunnelStepsDisplay
+                  funnelSettings={factMetric.funnelSettings}
+                />
+              ) : (
+                <DataList
+                  data={numeratorData}
+                  header={
+                    factMetric.metricType === "ratio"
+                      ? "Numerator"
+                      : "Metric Details"
+                  }
+                  maxColumns={1}
+                />
+              )}
             </div>
             {factMetric.metricType === "ratio" ? (
               <div className="appbox p-3 mb-3">
@@ -792,46 +928,48 @@ export default function FactMetricPage() {
               </div>
             ) : null}
 
-            <div className="appbox p-3 mb-3">
-              <h4>
-                Auto Slices
-                <PaidFeatureBadge
-                  commercialFeature="metric-slices"
-                  premiumText="This is an Enterprise feature"
-                  variant="outline"
-                  ml="2"
-                />
-              </h4>
-              <Text as="p" mb="2" color="text-mid">
-                Choose metric breakdowns to automatically analyze in your
-                experiments.{" "}
-                <DocLink useRadix={false} docSection="autoSlices">
-                  Learn More <PiArrowSquareOut />
-                </DocLink>
-              </Text>
-              <div className="mt-2">
-                <FactTableAutoSliceSelector
-                  factMetric={factMetric}
-                  factTableId={factMetric.numerator.factTableId}
-                  canEdit={
-                    permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
-                    !factMetric.managedBy &&
-                    hasMetricSlicesFeature
-                  }
-                  onUpdate={async (metricAutoSlices) => {
-                    await apiCall(`/fact-metrics/${factMetric.id}`, {
-                      method: "PUT",
-                      body: JSON.stringify({
-                        metricAutoSlices,
-                      }),
-                    });
-                    mutateDefinitions();
-                  }}
-                  compactButtons={false}
-                  containerWidth="auto"
-                />
+            {factMetric.metricType !== "funnel" ? (
+              <div className="appbox p-3 mb-3">
+                <h4>
+                  Auto Slices
+                  <PaidFeatureBadge
+                    commercialFeature="metric-slices"
+                    premiumText="This is an Enterprise feature"
+                    variant="outline"
+                    ml="2"
+                  />
+                </h4>
+                <Text as="p" mb="2" color="text-mid">
+                  Choose metric breakdowns to automatically analyze in your
+                  experiments.{" "}
+                  <DocLink useRadix={false} docSection="autoSlices">
+                    Learn More <PiArrowSquareOut />
+                  </DocLink>
+                </Text>
+                <div className="mt-2">
+                  <FactTableAutoSliceSelector
+                    factMetric={factMetric}
+                    factTableId={getFactMetricPrimaryFactTableId(factMetric)}
+                    canEdit={
+                      permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
+                      !factMetric.managedBy &&
+                      hasMetricSlicesFeature
+                    }
+                    onUpdate={async (metricAutoSlices) => {
+                      await apiCall(`/fact-metrics/${factMetric.id}`, {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          metricAutoSlices,
+                        }),
+                      });
+                      mutateDefinitions();
+                    }}
+                    compactButtons={false}
+                    containerWidth="auto"
+                  />
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
 
           <div className="mb-4">

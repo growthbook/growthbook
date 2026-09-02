@@ -5,6 +5,8 @@ import { PiX, PiPlus, PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
 import type { AIChatMessage } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
 import Text from "@/ui/Text";
+import track from "@/services/track";
+import { useAISettings } from "@/hooks/useOrgSettings";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import type { ActiveTurnItem } from "@/enterprise/hooks/useAIChat/types";
 import { useDefaultDataSourceId } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -26,9 +28,15 @@ import {
   type FeedbackState,
 } from "@/enterprise/components/AIChat/AIChatFeedback";
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
+import MessageTokens from "@/enterprise/components/AIChat/MessageTokens";
 import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMessages";
 import aiChatStyles from "@/enterprise/components/AIChat/AIChatPrimitives.module.scss";
-import ChatInputBar from "@/enterprise/components/AIChat/ChatInputBar";
+import ChatComposer, {
+  type ChatComposerHandle,
+  type ComposerSubmission,
+} from "@/enterprise/components/AIChat/Composer/ChatComposer";
+import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
+import { useSkillCommandItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import AgentChatHistory from "./AgentChatHistory";
 import {
   type MessageTurn,
@@ -139,13 +147,14 @@ export default function AgentPanel({
   onClose,
   onToggleExpanded,
 }: AgentPanelProps) {
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<ChatComposerHandle>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const askSeqRef = useRef(0);
   // Preserves each tool-detail disclosure's open/closed state across the
   // active-turn → persisted-message remount so it doesn't snap shut mid-turn.
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
   const router = useRouter();
+  const { defaultAIModel } = useAISettings();
   // Read latest pathname inside the callback (not at render) so the URL
   // captured matches where the user is when they hit send, not where they
   // were when the panel rendered.
@@ -165,6 +174,15 @@ export default function AgentPanel({
   // Holds the decision to attach to the next outgoing message. Consumed (and
   // cleared) by buildRequestBody so it only rides along with one request.
   const pendingDecisionRef = useRef<ConfirmDecisionBody | null>(null);
+  const pendingSubmissionRef = useRef<ComposerSubmission>({
+    text: "",
+    mentions: [],
+    skills: [],
+  });
+
+  const { items: mentionItems, ready: mentionItemsReady } =
+    useMetricMentionItems();
+  const skillItems = useSkillCommandItems();
 
   const {
     feedbackMap,
@@ -200,11 +218,15 @@ export default function AgentPanel({
     const dsId = datasourceIdRef.current;
     const decision = pendingDecisionRef.current;
     pendingDecisionRef.current = null;
+    const { mentions, skills } = pendingSubmissionRef.current;
+    pendingSubmissionRef.current = { text: "", mentions: [], skills: [] };
     return {
       message,
       conversationId: cid,
       ...(path ? { currentPage: path } : {}),
       ...(dsId ? { datasourceId: dsId } : {}),
+      ...(mentions.length ? { mentions } : {}),
+      ...(skills.length ? { skills } : {}),
       ...(decision ?? {}),
     };
   }, []);
@@ -339,6 +361,25 @@ export default function AgentPanel({
     onSSEEvent: handleSSEEvent,
     onConversationLoaded: handleConversationLoaded,
     conversationStorageKey: STORAGE_KEY,
+    onMessageComplete: (info) => {
+      track("AI Assistant Response Completed", {
+        model: defaultAIModel,
+        durationMs: info.durationMs,
+        toolCallCount: info.toolCallCount,
+      });
+    },
+    onMessageCancelled: (info) => {
+      track("AI Assistant Generation Cancelled", {
+        model: defaultAIModel,
+        durationMs: info.durationMs,
+      });
+    },
+    onMessageError: (info) => {
+      track("AI Assistant Error", {
+        errorType: info.errorType,
+        httpStatus: info.httpStatus,
+      });
+    },
   });
 
   // Keep the feedback hook's ref in sync with the current conversation id.
@@ -350,22 +391,16 @@ export default function AgentPanel({
     displayedTextMap,
   );
 
-  // Focus the composer after a short delay so any slide-in / layout transition
-  // settles first. Used on open, new chat, conversation select, and turn end.
+  // Focus the composer after a short delay so any layout transition settles
+  // first. Used on new chat, conversation select, and turn end — opening the
+  // panel remounts the composer, so that case is its own `autoFocus`.
   const focusInput = useCallback((delay = 100) => {
-    window.setTimeout(() => inputRef.current?.focus(), delay);
+    window.setTimeout(() => composerRef.current?.focus(), delay);
   }, []);
 
-  useEffect(() => {
-    if (open) {
-      const t = setTimeout(() => inputRef.current?.focus(), 100);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
-
   // Re-focus the input when a turn finishes (loading true → false) so the user
-  // can immediately type a follow-up. The Field is disabled while loading, so
-  // focus only takes once it re-enables.
+  // can immediately type a follow-up. The composer is read-only while loading,
+  // so focus only takes once it re-enables.
   const prevLoadingRef = useRef(false);
   useEffect(() => {
     if (open && prevLoadingRef.current && !loading) {
@@ -378,27 +413,50 @@ export default function AgentPanel({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, activeTurnItems]);
 
-  const handleSend = useCallback(() => {
-    const text = input.trim();
-    if (!text) return;
-    if (askPrompt && !askPrompt.resolved) {
-      // Typing a free-text reply also resolves the active question.
-      setAskPrompt({ ...askPrompt, resolved: true });
-    }
-    if (confirmPrompt && !confirmPrompt.resolved) {
-      // Typing instead of clicking supersedes the parked mutation server-side.
-      setConfirmPrompt({ ...confirmPrompt, resolved: true });
-    }
-    sendMessage();
-  }, [input, sendMessage, askPrompt, confirmPrompt]);
+  const trackMessageSent = useCallback(() => {
+    track("AI Assistant Message Sent", {
+      model: defaultAIModel,
+      messageCount: messages.length,
+      isFirstMessage: messages.length === 0,
+    });
+  }, [defaultAIModel, messages.length]);
+
+  const handleSend = useCallback(
+    (
+      submission: ComposerSubmission = {
+        text: input,
+        mentions: [],
+        skills: [],
+      },
+    ) => {
+      const text = submission.text.trim();
+      if (!text || loading) return;
+      pendingSubmissionRef.current = submission;
+      if (askPrompt && !askPrompt.resolved) {
+        // Typing a free-text reply also resolves the active question.
+        setAskPrompt({ ...askPrompt, resolved: true });
+      }
+      if (confirmPrompt && !confirmPrompt.resolved) {
+        // Typing instead of clicking supersedes the parked mutation server-side.
+        setConfirmPrompt({ ...confirmPrompt, resolved: true });
+      }
+      trackMessageSent();
+      sendMessage(text, {
+        mentions: submission.mentions,
+        skills: submission.skills,
+      });
+    },
+    [input, loading, sendMessage, askPrompt, confirmPrompt, trackMessageSent],
+  );
 
   const handleAskOption = useCallback(
     (option: AskUserOption) => {
       if (!askPrompt || askPrompt.resolved || loading) return;
       setAskPrompt({ ...askPrompt, resolved: true });
+      trackMessageSent();
       sendMessage(option.label);
     },
-    [askPrompt, sendMessage, loading],
+    [askPrompt, sendMessage, loading, trackMessageSent],
   );
 
   const handleConfirmAction = useCallback(
@@ -410,21 +468,12 @@ export default function AgentPanel({
         confirmDecision: decision,
       };
       // The decision is a control signal — don't render it as a user bubble.
+      trackMessageSent();
       sendMessage(decision === "confirm" ? "Confirm" : "Cancel", {
         suppressUserMessage: true,
       });
     },
-    [confirmPrompt, sendMessage, loading],
-  );
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSend();
-      }
-    },
-    [handleSend],
+    [confirmPrompt, sendMessage, loading, trackMessageSent],
   );
 
   const resetTransientState = useCallback(() => {
@@ -436,14 +485,24 @@ export default function AgentPanel({
   }, []);
 
   const handleNewChat = useCallback(() => {
+    track("AI Assistant New Conversation", {
+      previousConversationMessageCount: messages.length,
+    });
     newChat();
     resetTransientState();
     clearFeedback();
     focusInput();
-  }, [newChat, resetTransientState, clearFeedback, focusInput]);
+  }, [
+    messages.length,
+    newChat,
+    resetTransientState,
+    clearFeedback,
+    focusInput,
+  ]);
 
   const handleSelectConversation = useCallback(
     (id: string) => {
+      track("AI Assistant Load Conversation");
       void loadConversation(id);
       resetTransientState();
       focusInput();
@@ -547,7 +606,7 @@ export default function AgentPanel({
       <Box style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
         <Flex direction="column" gap="3">
           {messages.length === 0 && !loading && (
-            <Text size="small" color="text-low">
+            <Text size="sm" color="text-low">
               Hi! Ask me to find a metric, build a chart, list features, or run
               an experiment query. I&apos;ll use the GrowthBook REST API to do
               the work.
@@ -562,6 +621,7 @@ export default function AgentPanel({
               toolDetailsOpenRef={toolDetailsOpenRef}
               feedbackMap={feedbackMap}
               onFeedbackSubmit={handleFeedbackSubmit}
+              feedbackTrackingEventName="AI Assistant Feedback"
             />
           ))}
 
@@ -620,12 +680,15 @@ export default function AgentPanel({
       </Box>
 
       {/* Input */}
-      <ChatInputBar
+      <ChatComposer
         variant="compact"
-        inputRef={inputRef}
-        input={input}
-        onInputChange={setInput}
-        onKeyDown={handleKeyDown}
+        ref={composerRef}
+        autoFocus
+        mentionItems={mentionItems}
+        mentionItemsReady={mentionItemsReady}
+        skillItems={skillItems}
+        value={input}
+        onChange={setInput}
         onSend={handleSend}
         onCancel={cancelGeneration}
         loading={loading}
@@ -691,7 +754,7 @@ function ActiveTurnItemRow({
     return (
       <Flex align="center" gap="2">
         <ToolStatusIcon status={item.status} />
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           {item.label || CALL_API_LABEL}
         </Text>
       </Flex>
@@ -725,6 +788,7 @@ function PersistedTurn({
   toolDetailsOpenRef,
   feedbackMap,
   onFeedbackSubmit,
+  feedbackTrackingEventName,
 }: {
   turn: MessageTurn;
   onInternalLinkClick?: (href: string) => void;
@@ -735,6 +799,7 @@ function PersistedTurn({
     rating: "positive" | "negative" | null,
     comment: string,
   ) => void;
+  feedbackTrackingEventName?: string;
 }) {
   const { preWork, replyContent, replyMessageId } = classifyTurn(turn.rest);
   const steps = preWorkToSteps(preWork, turn.rest, toolDetailsOpenRef);
@@ -744,7 +809,15 @@ function PersistedTurn({
     <>
       {turn.user && (
         <UserBubble>
-          <Text size="small">{getUserText(turn.user)}</Text>
+          <Text size="sm">
+            <MessageTokens
+              text={getUserText(turn.user)}
+              mentions={
+                turn.user.role === "user" ? turn.user.mentions : undefined
+              }
+              skills={turn.user.role === "user" ? turn.user.skills : undefined}
+            />
+          </Text>
         </UserBubble>
       )}
 
@@ -765,6 +838,7 @@ function PersistedTurn({
           messageId={replyMessageId}
           value={feedbackMap[replyMessageId] ?? { rating: null, comment: "" }}
           onSubmit={onFeedbackSubmit}
+          trackingEventName={feedbackTrackingEventName}
         />
       )}
     </>

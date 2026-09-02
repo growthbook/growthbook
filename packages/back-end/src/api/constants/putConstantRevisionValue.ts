@@ -7,7 +7,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
-import { assertNoConstantCycle } from "back-end/src/services/constants";
+import { assertNoReferenceCycle } from "back-end/src/services/constants";
 import {
   assertValidConstantValueEdit,
   discardIfJustCreated,
@@ -22,10 +22,12 @@ export const putConstantRevisionValue = createApiRequestHandler(
 )(async (req) => {
   const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
-    throw new NotFoundError("Could not find constant");
+    throw new NotFoundError("Could not find Constant");
   }
 
-  if (!req.context.permissions.canUpdateConstant(constant, constant)) {
+  if (
+    !req.context.permissions.canRevisionAction("constant", "draft", constant)
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -40,7 +42,7 @@ export const putConstantRevisionValue = createApiRequestHandler(
   assertValidConstantValueEdit(constant, value, environmentValues);
 
   // Reject a draft value that would close a reference cycle (merged value).
-  await assertNoConstantCycle(
+  await assertNoReferenceCycle(
     req.context,
     constant.key,
     value ?? constant.value,

@@ -1,14 +1,21 @@
-import { Revision, JsonPatchOperation } from "shared/enterprise";
+import {
+  Revision,
+  JsonPatchOperation,
+  getConstantRevisionChange,
+} from "shared/enterprise";
 import { ConstantInterface } from "shared/types/constant";
 import {
   ResourceEvents,
   NotificationEventPayloadSchemaType,
 } from "shared/types/events/base-types";
+import { constantPublishEnvironments } from "shared/util";
+import { revisionEventRouting } from "back-end/src/services/revisionEventRouting";
 import { Context } from "back-end/src/models/BaseModel";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { toApiConstantRevision } from "back-end/src/api/constants/toApiConstantRevision";
 import type { RevisionLifecycleAction } from "back-end/src/events/revisionWebhookAdapters";
+import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
 import { logger } from "back-end/src/util/logger";
 
 type ConstantRevisionEvent = Extract<
@@ -50,7 +57,22 @@ export async function dispatchConstantRevisionEvent(
       context as ApiReqContext,
     );
     const snapshot = revision.target.snapshot as ConstantInterface;
-    const projects = snapshot.project ? [snapshot.project] : [];
+    const liveForRouting = await context.models.constants.getById(
+      revision.target.id,
+    );
+    // Constants scope by the CHANGE — a per-environment override names its
+    // environments, a base-value change names none — so the same list answers for
+    // both snapshot and live.
+    const changedEnvironments = constantPublishEnvironments(
+      getConstantRevisionChange(snapshot, revision.target.proposedChanges)
+        .changedEnvironments,
+    );
+    const { projects, environments } = await revisionEventRouting({
+      context,
+      revision,
+      liveForRouting,
+      scopedFor: () => changedEnvironments,
+    });
 
     const emit = async <T extends ConstantRevisionEvent>(
       event: T,
@@ -64,7 +86,7 @@ export async function dispatchConstantRevisionEvent(
         data: { object } as CreateEventData<"constant", T>,
         projects,
         tags: [],
-        environments: [],
+        environments,
         containsSecrets: false,
       });
     };
@@ -118,13 +140,34 @@ export async function dispatchConstantRevisionEvent(
         await emit("revision.rebased", apiRevision);
         break;
       case "published":
-        await emit("revision.published", apiRevision);
+        await emit("revision.published", {
+          ...apiRevision,
+          ...bulkPublishFields(context),
+        });
+        break;
+      case "publishFailed":
+        await emit("revision.publishFailed", {
+          ...apiRevision,
+          ...bulkPublishFields(context),
+          failureReason: action.reason,
+          terminal: action.terminal,
+          attempts: action.attempts,
+        });
         break;
       case "discarded":
         await emit("revision.discarded", apiRevision);
         break;
       case "reopened":
         await emit("revision.reopened", apiRevision);
+        break;
+      case "recalled":
+        await emit("revision.recalled", apiRevision);
+        break;
+      case "reviewRetracted":
+        await emit("revision.reviewRetracted", apiRevision);
+        break;
+      case "publishScheduleChanged":
+        await emit("revision.publishScheduleChanged", apiRevision);
         break;
       case "reverted": {
         const source = revision.revertedFrom
@@ -134,6 +177,7 @@ export async function dispatchConstantRevisionEvent(
           : null;
         await emit("revision.reverted", {
           ...apiRevision,
+          ...bulkPublishFields(context),
           ...(source && source.version !== undefined
             ? { revertedToVersion: source.version }
             : {}),

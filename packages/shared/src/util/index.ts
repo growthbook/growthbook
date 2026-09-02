@@ -29,6 +29,13 @@ export * from "./strings";
 export * from "./units-query-settings";
 export * from "./event-forwarder-destination";
 export * from "./features";
+export * from "./threeWayMerge";
+export * from "./draftConflict";
+export * from "./projectScopedRules";
+export * from "./featureDraftPurity";
+export * from "./configs";
+export * from "./deep-merge";
+export * from "./config-schema";
 export * from "./managedWarehouse";
 export * from "./saved-groups";
 export * from "./metric-time-series";
@@ -38,6 +45,7 @@ export * from "./types";
 export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
+export * from "./holdouts";
 export * from "./diffFormats";
 export * from "./format-json";
 export * from "./datasource";
@@ -116,6 +124,23 @@ export function getSnapshotAnalysis(
   );
 }
 
+export function findAnalysisComputeFailure(
+  analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis | null,
+): { metricId: string; errorMessage: string | null } | null {
+  for (const dimension of analysis?.results ?? []) {
+    for (const variation of dimension.variations ?? []) {
+      for (const [metricId, metric] of Object.entries(
+        variation.metrics ?? {},
+      )) {
+        if (metric?.computeFailed) {
+          return { metricId, errorMessage: metric.errorMessage ?? null };
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export function getSafeRolloutSnapshotAnalysis(
   snapshot: SafeRolloutSnapshotInterface,
   analysisSettings?: SafeRolloutSnapshotAnalysisSettings | null,
@@ -192,14 +217,20 @@ export function experimentHasLiveLinkedChanges(
 export function includeExperimentInPayload(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
   linkedFeatures: FeatureInterface[] = [],
+  options?: {
+    // Keep feature-only drafts (SDK connections with includeDraftExperimentRefs)
+    includeDrafts?: boolean;
+  },
 ): boolean {
   // Archived experiments are always excluded
   if (exp.archived) return false;
 
   if (!experimentHasLinkedChanges(exp)) return false;
 
-  // Exclude if experiment is a draft and there are no visual changes or redirects (feature flags always ignore draft experiment rules)
+  // Exclude if experiment is a draft and there are no visual changes or redirects
+  // (feature flags ignore draft experiment rules unless includeDrafts is set)
   if (
+    !options?.includeDrafts &&
     !exp.hasVisualChangesets &&
     !exp.hasURLRedirects &&
     exp.status === "draft"
@@ -284,19 +315,17 @@ export type MatchingRule = {
   rule: FeatureRule;
 };
 
-/**
- * Scan the v2 unified rule array (from `revision.rules` if provided, else
- * `feature.rules`) and emit one `MatchingRule` entry per (rule × applicable
- * env) pair that passes `filter`. Multi-env rules fan out to one entry per
- * env they cover; single-env rules emit exactly one entry. Rules with
- * `allEnvironments: true` fan out across every valid env in `environments`.
- *
- * `i` is the rule's index in the UNIFIED rule array (same across every
- * fan-out entry for a given rule). Callers that identify a rule by
- * `(environmentId, i)` were the v1 contract; under v2 the authoritative
- * match handle is `rule.id` — `i` is preserved only for backward-compatible
- * display/logging.
- */
+// Scan the v2 unified rule array (from `revision.rules` if provided, else
+// `feature.rules`) and emit one `MatchingRule` entry per (rule × applicable
+// env) pair that passes `filter`. Multi-env rules fan out to one entry per
+// env they cover; single-env rules emit exactly one entry. Rules with
+// `allEnvironments: true` fan out across every valid env in `environments`.
+//
+// `i` is the rule's index in the UNIFIED rule array (same across every
+// fan-out entry for a given rule). Callers that identify a rule by
+// `(environmentId, i)` were the v1 contract; under v2 the authoritative
+// match handle is `rule.id` — `i` is preserved only for backward-compatible
+// display/logging.
 export function getMatchingRules(
   feature: FeatureInterface,
   filter: (rule: FeatureRule) => boolean,
@@ -385,6 +414,57 @@ export function getRulesForEnvironment(
     (r): r is FeatureRule =>
       r != null && typeof r === "object" && ruleAppliesToEnv(r, environment),
   );
+}
+
+// A rule's own project scope: explicit list, or null = all projects. Empty array
+// means "no project" (leak-safe — never "all"); allProjects/legacy-absent → null.
+export function ruleProjectScope(rule: FeatureRule): string[] | null {
+  if (rule == null || typeof rule !== "object") return [];
+  if (rule.allProjects === true) return null;
+  // allProjects === false is explicit scoping — an absent/empty list means no
+  // project, never "all". Only the legacy state (no scope fields) falls back to all.
+  if (rule.allProjects !== false && rule.projects == null) return null;
+  return Array.isArray(rule.projects) ? rule.projects : [];
+}
+
+// Whether a rule is served into an SDK payload: true only where its own scope,
+// the feature's delivery set (null = all), and the served set ([] = all) overlap.
+export function ruleServedToConnection(
+  rule: FeatureRule,
+  deliveryProjects: string[] | null,
+  servedProjects: string[],
+): boolean {
+  const scopes: (string[] | null)[] = [
+    ruleProjectScope(rule),
+    deliveryProjects,
+    servedProjects.length ? servedProjects : null,
+  ];
+  const concrete = scopes.filter((s): s is string[] => s !== null);
+  if (!concrete.length) return true;
+  return (
+    concrete.reduce((acc, s) => {
+      const set = new Set(s);
+      return acc.filter((x) => set.has(x));
+    }).length > 0
+  );
+}
+
+// Compare rule lists ignoring project-scope encoding (ruleProjectScope
+// canonicalizes the several "all"/"none" forms) and undefined keys, so an
+// idempotent API round-trip isn't mistaken for a change.
+export function rulesEqualIgnoringScopeEncoding(
+  a: FeatureRule[],
+  b: FeatureRule[],
+): boolean {
+  const canon = (rules: FeatureRule[]) =>
+    rules.map((r) => {
+      const { projects: _p, allProjects: _ap, ...rest } = r;
+      const defined = Object.fromEntries(
+        Object.entries(rest).filter(([, v]) => v !== undefined),
+      );
+      return { ...defined, canonicalProjectScope: ruleProjectScope(r) };
+    });
+  return isEqual(canon(a), canon(b));
 }
 
 // Footprint of a rule, intersected with `applicableEnvs`. Must match

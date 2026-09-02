@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getHoldoutStage } from "shared/util";
 import { PiArrowSquareOut, PiLightbulb, PiWarningFill } from "react-icons/pi";
 import { Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -41,8 +42,7 @@ export const HoldoutSelect = ({
 
       const experiment = experimentsMap.get(h.experimentId);
 
-      // If the holdout is in draft or is in the analysis phase, don't show it
-      if (!!h.analysisStartDate || experiment?.status === "draft") {
+      if (!experiment || getHoldoutStage(h, experiment) !== "running") {
         return false;
       }
       // If the holdout is a part of the current project or all projects, show it
@@ -93,7 +93,7 @@ export const HoldoutSelect = ({
       <PremiumCallout
         id="holdout-select-promo"
         commercialFeature="holdouts"
-        dismissable={true}
+        dismissible={true}
         mt="3"
         mb="3"
       >
@@ -130,6 +130,7 @@ export const HoldoutSelect = ({
   return (
     <>
       <SelectField
+        size="legacy"
         label="Holdout"
         labelClassName="font-weight-bold"
         value={selectedHoldoutId || ""}

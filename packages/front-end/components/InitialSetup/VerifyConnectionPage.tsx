@@ -3,12 +3,7 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import { useCallback, useEffect, useState } from "react";
-import {
-  FaAngleDown,
-  FaAngleRight,
-  FaExclamationCircle,
-  FaExclamationTriangle,
-} from "react-icons/fa";
+import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { PiArrowRight, PiPaperPlaneTiltFill } from "react-icons/pi";
 import { Flex, Box } from "@radix-ui/themes";
 import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
@@ -17,6 +12,7 @@ import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
 import GrowthBookSetupCodeSnippet from "@/components/SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema } from "@/services/features";
 import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
 import { GBHashLock } from "@/components/Icons";
@@ -34,6 +30,7 @@ import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
+import Callout from "@/ui/Callout";
 
 interface Props {
   connection: string | null;
@@ -60,6 +57,7 @@ const VerifyConnectionPage = ({
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
   const { data, error, mutate } = useSDKConnections();
+  const { ready: definitionsReady, eventIngestorRegion } = useDefinitions();
 
   const currentConnection: SDKConnectionInterface | null =
     data?.connections.find((c) => c.id === connection) || null;
@@ -152,12 +150,12 @@ const VerifyConnectionPage = ({
   const secureAttributeSalt = settings.secureAttributeSalt ?? "";
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   return (
     <div style={{ padding: "0px 57px" }}>
-      {!currentConnection && <LoadingOverlay />}
+      {(!currentConnection || !definitionsReady) && <LoadingOverlay />}
       {inviting && (
         <InviteModal
           close={() => setInviting(false)}
@@ -180,7 +178,7 @@ const VerifyConnectionPage = ({
           showModalClose
         />
       )}
-      {currentConnection && (
+      {currentConnection && definitionsReady && (
         <div>
           <div className="d-flex mb-1">
             <h3>
@@ -253,6 +251,7 @@ const VerifyConnectionPage = ({
                   remoteEvalEnabled={
                     currentConnection.remoteEvalEnabled || false
                   }
+                  eventIngestorRegion={eventIngestorRegion}
                 />
               </div>
             )}
@@ -284,6 +283,7 @@ const VerifyConnectionPage = ({
                   }
                   eventTracker={eventTracker}
                   setEventTracker={updateEventTracker}
+                  eventIngestorRegion={eventIngestorRegion}
                 />
               </div>
             )}
@@ -314,13 +314,13 @@ const VerifyConnectionPage = ({
                       className="appbox mt-4"
                       style={{ background: "rgb(209 236 241 / 25%)" }}
                     >
-                      <div className="alert alert-info mb-0">
+                      <Callout status="info" mb="0">
                         <GBHashLock className="text-blue" /> This connection has{" "}
                         <strong>secure attribute hashing</strong> enabled. You
                         must manually hash all attributes with datatype{" "}
                         <code>secureString</code> or <code>secureString[]</code>{" "}
                         in your SDK implementation code.
-                      </div>
+                      </Callout>
                       <div className="px-3 pb-3">
                         <div className="mt-3">
                           Your organization currently has{" "}
@@ -362,15 +362,15 @@ const VerifyConnectionPage = ({
                           Example, using your organization&apos;s secure
                           attribute salt:
                           {secureAttributeSalt === "" && (
-                            <div className="alert alert-warning mt-2 px-2 py-1">
-                              <FaExclamationTriangle /> Your organization has an
-                              empty salt string. Add a salt string in your{" "}
+                            <Callout status="warning" mt="2" size="sm">
+                              Your organization has an empty salt string. Add a
+                              salt string in your{" "}
                               <Link href="/settings">
                                 organization settings
                               </Link>{" "}
                               to improve the security of hashed targeting
                               conditions.
-                            </div>
+                            </Callout>
                           )}
                           <Code
                             filename="pseudocode"
@@ -384,14 +384,13 @@ myAttribute = sha256(salt + myAttribute);
 myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                           />
                         </div>
-                        <div className="alert text-warning-orange mt-3 mb-0 px-2 py-1">
-                          <FaExclamationCircle /> When using an insecure
-                          environment (such as a browser), do not rely
-                          exclusively on hashing as a means of securing highly
-                          sensitive data. Hashing is an obfuscation technique
-                          that makes it very difficult, but not impossible, to
-                          extract sensitive data.
-                        </div>
+                        <Callout status="warning" mt="3" mb="0">
+                          When using an insecure environment (such as a
+                          browser), do not rely exclusively on hashing as a
+                          means of securing highly sensitive data. Hashing is an
+                          obfuscation technique that makes it very difficult,
+                          but not impossible, to extract sensitive data.
+                        </Callout>
                       </div>
                     </div>
                   )}

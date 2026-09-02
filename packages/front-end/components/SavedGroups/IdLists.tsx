@@ -20,7 +20,6 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Table, {
   TableHeader,
@@ -40,7 +39,7 @@ import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
 
 export interface Props {
   groups: SavedGroupWithoutValues[];
-  mutate: () => void;
+  mutate: () => void | Promise<void>;
 }
 
 export default function IdLists({ groups, mutate }: Props) {
@@ -48,9 +47,6 @@ export default function IdLists({ groups, mutate }: Props) {
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
     useState<SavedGroupWithoutValues | null>(null);
-  const settings = useOrgSettings();
-  const approvalFlowRequired =
-    settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
   const { project, projects, getProjectById } = useDefinitions();
   const { getOwnerDisplay } = useUser();
 
@@ -191,16 +187,21 @@ export default function IdLists({ groups, mutate }: Props) {
             close={() => setSavedGroupForm(null)}
             current={savedGroupForm}
             type="list"
-            approvalFlowRequired={approvalFlowRequired}
+            mutate={mutate}
           />
         )}
         <Flex align="center" justify="between" mb="1">
           <Heading size="6" mb="0">
             ID Lists
           </Heading>
-          {canCreate ? (
-            <Button onClick={() => setSavedGroupForm({})}>Add ID List</Button>
-          ) : null}
+          <Tooltip
+            body="You do not have permission to create Saved Groups."
+            shouldDisplay={!canCreate}
+          >
+            <Button disabled={!canCreate} onClick={() => setSavedGroupForm({})}>
+              Add ID List
+            </Button>
+          </Tooltip>
         </Flex>
         <p className="text-gray mb-1">
           Specify a list of values to include for an attribute.
@@ -226,6 +227,7 @@ export default function IdLists({ groups, mutate }: Props) {
             <Flex align="center" justify="between" gap="3" mb="4">
               <Box style={{ width: "40%" }}>
                 <Field
+                  size="legacy"
                   placeholder="Search..."
                   type="search"
                   {...searchInputProps}

@@ -1,9 +1,7 @@
 import { postConstantRevisionRequestReviewValidator } from "shared/validators";
+import { requestRevisionReview } from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { getAdapter } from "back-end/src/revisions";
-import { canEnableAutoPublishOnApproval } from "back-end/src/revisions/revisionActions";
-import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { NotFoundError } from "back-end/src/util/errors";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -12,7 +10,7 @@ export const postConstantRevisionRequestReview = createApiRequestHandler(
 )(async (req) => {
   const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
-    throw new NotFoundError("Could not find constant");
+    throw new NotFoundError("Could not find Constant");
   }
 
   const revision = await loadRevisionByVersion(
@@ -21,38 +19,12 @@ export const postConstantRevisionRequestReview = createApiRequestHandler(
     req.params.version,
   );
 
-  if (
-    !getAdapter("constant").canUpdate(
-      req.context,
-      constant as Record<string, unknown>,
-    )
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  // Allow re-submitting a changes-requested revision (→ pending-review).
-  if (revision.status !== "draft" && revision.status !== "changes-requested") {
-    throw new BadRequestError(
-      `Can only request review on a draft or changes-requested revision (status is "${revision.status}")`,
-    );
-  }
-
-  const enableAutoPublish =
-    req.body.autoPublishOnApproval &&
-    canEnableAutoPublishOnApproval(
-      req.context,
-      "constant",
-      constant as unknown as Record<string, unknown>,
-    );
-
-  const updated = await req.context.models.revisions.submitForReview(
-    revision.id,
-    req.context.userId,
-    { autoPublishOnApproval: enableAutoPublish },
-  );
-
-  await dispatchConstantRevisionEvent(req.context, updated, {
-    type: "reviewRequested",
+  const updated = await requestRevisionReview({
+    context: req.context,
+    entityType: "constant",
+    entity: constant as unknown as Record<string, unknown>,
+    revision,
+    autoPublishOnApproval: req.body.autoPublishOnApproval,
   });
 
   return { revision: await toApiConstantRevision(updated, req.context) };

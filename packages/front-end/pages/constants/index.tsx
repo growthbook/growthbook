@@ -1,3 +1,4 @@
+import { canCreateInSelectedScope } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
@@ -12,6 +13,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import Link from "@/ui/Link";
+import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import EmptyState from "@/components/EmptyState";
@@ -50,7 +52,12 @@ function isConstantsTab(value: string): value is ConstantsTab {
 
 export default function ConstantsPage(): React.ReactElement {
   const router = useRouter();
-  const { ready, project, projects, constants } = useDefinitions();
+  const {
+    ready,
+    project,
+    projects,
+    _constantsIncludingArchived: allConstants,
+  } = useDefinitions();
   const { getOwnerDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
@@ -82,21 +89,28 @@ export default function ConstantsPage(): React.ReactElement {
 
   const { count: openReviewsCount } = useOpenRevisionCount("constant");
 
+  // Source from the archived-inclusive list so the `is:archived` facet can
+  // actually surface archived constants (the default view still hides them via
+  // `filterResults` below).
   const visibleConstants = useMemo(
     () =>
-      constants.filter((c) =>
+      allConstants.filter((c) =>
         isProjectListValidForProject(c.project ? [c.project] : [], project),
       ),
-    [constants, project],
+    [allConstants, project],
   );
 
-  const constantItems = useAddComputedFields(visibleConstants, (c) => ({
-    ownerName: getOwnerDisplay(c.owner) || "",
-    typeLabel: TYPE_LABEL[c.type],
-    projectNames: c.project
-      ? [projects.find((p) => p.id === c.project)?.name ?? c.project]
-      : [],
-  }));
+  const constantItems = useAddComputedFields(
+    visibleConstants,
+    (c) => ({
+      ownerName: getOwnerDisplay(c.owner) || "",
+      typeLabel: TYPE_LABEL[c.type],
+      projectNames: c.project
+        ? [projects.find((p) => p.id === c.project)?.name ?? c.project]
+        : [],
+    }),
+    [getOwnerDisplay, projects],
+  );
 
   const draftHook = useConstantDraftStates();
   const hasDraftStates = Object.keys(draftHook.draftStates).length > 0;
@@ -113,8 +127,8 @@ export default function ConstantsPage(): React.ReactElement {
     items: constantItems,
     searchFields: ["name^3", "key^2", "description^2", "ownerName"],
     localStorageKey: "constants",
-    defaultSortField: "name",
-    defaultSortDir: 1,
+    defaultSortField: "dateUpdated",
+    defaultSortDir: -1,
     pageSize: 50,
     updateSearchQueryOnChange: true,
     filterResults: !showArchived
@@ -168,16 +182,27 @@ export default function ConstantsPage(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, hasDraftFilter]);
 
-  const hasArchived = constants.some((c) => c.archived);
+  // Project-scoped: the archived facet/badge must reflect the constants in scope
+  // for the current project, not the org-wide list.
+  const hasArchived = visibleConstants.some((c) => c.archived);
+  const allTabCount = (
+    showArchived
+      ? visibleConstants
+      : visibleConstants.filter((c) => !c.archived)
+  ).length;
 
   if (!ready) {
     return <LoadingOverlay />;
   }
 
-  const canAdd = permissionsUtil.canCreateConstant({
-    project: project || undefined,
+  const canAdd = canCreateInSelectedScope({
+    project,
+    projectIds: projects.map((p) => p.id),
+    canCreateIn: (p) => permissionsUtil.canCreateConstant({ project: p }),
   });
-  const hasConstants = constants.length > 0;
+  // Include archived so an org with only archived constants still gets the list
+  // (and its `is:archived` facet) rather than the empty state.
+  const hasConstants = allConstants.length > 0;
 
   const addButton = (
     <Button disabled={!canAdd} onClick={() => setModalOpen(true)}>
@@ -189,20 +214,20 @@ export default function ConstantsPage(): React.ReactElement {
     <>
       <Box className="contents container-fluid pagecontents" mb="3" mt="2">
         <Flex align="center" justify="between" mb="3" mt="2">
-          <Heading as="h1" size="2x-large">
+          <Heading as="h1" size="2xl">
             Constants
           </Heading>
           {hasConstants && canAdd && addButton}
         </Flex>
         <Text as="p" mb="3" color="text-mid">
-          Define a value once and reference it across your feature flags. Change
+          Define a value once and reference it across your Feature Flags. Change
           it in one place and every consumer updates.
         </Text>
 
         {!hasConstants ? (
           <EmptyState
-            title="Reusable values for your configs"
-            description="Define a value once and reference it from feature flags with {{ @const:key }}. Change it in one place and every consumer updates."
+            title="Reusable values for your Configs"
+            description="Define a value once and reference it from Feature Flags with {{ @const:key }}. Change it in one place and every consumer updates."
             leftButton={
               <LinkButton
                 href="https://docs.growthbook.io/features/constants"
@@ -231,7 +256,7 @@ export default function ConstantsPage(): React.ReactElement {
               <TabsTrigger value="all">
                 All Constants
                 <span className="ml-2 round-text-background text-main">
-                  {constants.length}
+                  {allTabCount}
                 </span>
               </TabsTrigger>
               <TabsTrigger value="drafts">
@@ -296,16 +321,21 @@ export default function ConstantsPage(): React.ReactElement {
                           }}
                         >
                           <TableCell style={{ padding: "var(--space-0)" }}>
-                            <Link
-                              color="dark"
-                              style={{
-                                display: "block",
-                                padding: "var(--space-3)",
-                              }}
-                              href={`/constants/${c.key}`}
-                            >
-                              {c.name}
-                            </Link>
+                            <Flex align="center" gap="2">
+                              <Link
+                                color="dark"
+                                style={{
+                                  display: "block",
+                                  padding: "var(--space-3)",
+                                }}
+                                href={`/constants/${c.key}`}
+                              >
+                                {c.name}
+                              </Link>
+                              {c.archived && (
+                                <Badge label="Archived" color="gray" />
+                              )}
+                            </Flex>
                           </TableCell>
                           <TableCell>{c.key}</TableCell>
                           <TableCell>{c.typeLabel}</TableCell>
@@ -370,8 +400,8 @@ export default function ConstantsPage(): React.ReactElement {
                       <TableRow>
                         <TableCell colSpan={7} style={{ textAlign: "center" }}>
                           {isFiltered
-                            ? "No constants match the current filter."
-                            : "No constants found."}
+                            ? "No Constants match the current filter."
+                            : "No Constants found."}
                         </TableCell>
                       </TableRow>
                     )}

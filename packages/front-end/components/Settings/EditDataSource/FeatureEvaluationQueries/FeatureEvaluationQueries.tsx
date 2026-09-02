@@ -4,19 +4,23 @@ import {
   FeatureUsageQuery,
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { FaPlus } from "react-icons/fa";
+import { PiDotsThreeVertical, PiPlus } from "react-icons/pi";
 import {
   getActiveFeatureUsageQuery,
-  isEventForwarderManagedFeatureUsageQuery,
+  isEventForwarderManaged,
 } from "shared/util";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
+import {
+  EVENT_FORWARDER_MANAGED_TOOLTIP,
+  EventForwarderManagedBadge,
+} from "@/components/Settings/EditDataSource/EventForwarderManaged";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { FeatureEvaluationQueryModal } from "./FeatureEvaluationQueryModal";
 
 type FeatureEvaluationQueriesProps = Omit<
@@ -42,20 +46,8 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
     [dataSource.settings?.queries?.featureUsage],
   );
 
-  const isManagedQuery = useMemo(
-    () =>
-      featureUsageQuery
-        ? isEventForwarderManagedFeatureUsageQuery(featureUsageQuery)
-        : false,
-    [featureUsageQuery],
-  );
-
   const handleActionDeleteClicked = useCallback(
     () => async () => {
-      if (isManagedQuery) {
-        return;
-      }
-
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
       const existing = copy.settings.queries?.featureUsage ?? [];
       const next = existing.filter(
@@ -70,7 +62,7 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
 
       await onSave(copy);
     },
-    [dataSource, featureUsageQuery?.id, isManagedQuery, onSave],
+    [dataSource, featureUsageQuery?.id, onSave],
   );
 
   const handleSave = useCallback(
@@ -109,6 +101,12 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
     return null;
   }
 
+  const isManaged =
+    !!featureUsageQuery && isEventForwarderManaged(featureUsageQuery);
+  const managedTooltip = isManaged
+    ? EVENT_FORWARDER_MANAGED_TOOLTIP
+    : undefined;
+
   return (
     <Box>
       <Flex align="center" gap="2" mb="3" justify="between">
@@ -116,6 +114,9 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
           <Flex align="center" gap="3" mb="0">
             <Heading as="h3" size="4" mb="0">
               Feature Usage Query
+              {isManaged && (
+                <EventForwarderManagedBadge type="feature usage query" />
+              )}
             </Heading>
           </Flex>
         </Box>
@@ -123,34 +124,50 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
         {canEdit && (
           <Flex gap="2">
             {!featureUsageQuery && (
-              <Button onClick={() => setUiMode("add")}>
-                <FaPlus className="mr-1" /> Add
+              <Button onClick={() => setUiMode("add")} icon={<PiPlus />}>
+                Add
               </Button>
             )}
-            {featureUsageQuery && !isManagedQuery && (
-              <MoreMenu useRadix={false}>
-                <button
-                  className="dropdown-item py-2"
+            {featureUsageQuery && (
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="2"
+                    highContrast
+                    aria-label="Feature usage query actions"
+                  >
+                    <PiDotsThreeVertical size={18} />
+                  </IconButton>
+                }
+                menuPlacement="end"
+                variant="soft"
+              >
+                <DropdownMenuItem
                   onClick={() => setUiMode("edit")}
+                  disabled={isManaged}
+                  tooltip={managedTooltip}
                 >
                   Edit Query
-                </button>
+                </DropdownMenuItem>
 
-                <hr className="dropdown-divider" />
-                <DeleteButton
-                  useRadix={false}
-                  onClick={handleActionDeleteClicked()}
-                  className="dropdown-item text-danger py-2"
-                  iconClassName="mr-2"
-                  style={{ borderRadius: 0 }}
-                  useIcon={false}
-                  displayName={"Feature Usage Query"}
-                  deleteMessage={`Are you sure you want to delete this feature usage query?`}
-                  title="Delete"
-                  text="Delete"
-                  outline={false}
-                />
-              </MoreMenu>
+                <DropdownMenuItem
+                  color="red"
+                  disabled={isManaged}
+                  tooltip={managedTooltip}
+                  confirmation={{
+                    submit: handleActionDeleteClicked(),
+                    confirmationTitle: "Delete Feature Usage Query",
+                    cta: "Delete",
+                    getConfirmationContent: async () =>
+                      "Are you sure you want to delete this feature usage query?",
+                  }}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenu>
             )}
           </Flex>
         )}
@@ -169,6 +186,11 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
 
       {featureUsageQuery && (
         <Box p="2">
+          {featureUsageQuery.description ? (
+            <Text as="p" color="text-mid">
+              {featureUsageQuery.description}
+            </Text>
+          ) : null}
           {featureUsageQuery.error ? (
             <Callout status="error" mb="3">
               This query had an error with it the last time it ran:{" "}
@@ -176,7 +198,11 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
                 {featureUsageQuery.error}
               </Box>
               <Box mt="3">
-                <Button onClick={handleValidate()} loading={validatingQuery}>
+                <Button
+                  color="inherit"
+                  onClick={handleValidate()}
+                  loading={validatingQuery}
+                >
                   Check it again.
                 </Button>
               </Box>

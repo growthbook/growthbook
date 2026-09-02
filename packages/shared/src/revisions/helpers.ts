@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import type {
   ApprovalFlowConfiguration,
   ApprovalFlowConfigurations,
+  ApprovalFlowPolicy,
   OrganizationSettings,
 } from "shared/types/organization";
 import type { TeamInterface } from "shared/types/team";
@@ -22,29 +23,113 @@ import {
   constantBlockSelfApproval,
   constantAutopublishOnApproval,
 } from "../util/features";
+// Specific files (not the barrel) to avoid a runtime import cycle.
+import { configUpdatableFieldsSchema } from "../validators/config";
+import { constantUpdatableFieldsSchema } from "../validators/constant";
+import { savedGroupUpdatableFieldsSchema } from "../validators/saved-group";
+import {
+  resolveProjectScopedRule,
+  RuleCombiners,
+} from "../util/projectScopedRules";
+
+// One project for a constant or config, several for a saved group.
+export const entityProjects = (snapshot: unknown): string[] => {
+  const entity = (snapshot ?? {}) as { project?: string; projects?: string[] };
+  if (entity.projects?.length) return entity.projects;
+  return entity.project ? [entity.project] : [];
+};
+
+// Stricter wins; autopublish takes agreement; team lists union into one OR-group.
+const APPROVAL_FLOW_COMBINERS: RuleCombiners<ApprovalFlowConfiguration> = {
+  required: (vals) => vals.some(Boolean),
+  requireMetadataReview: (vals) => vals.some((v) => v !== false),
+  blockSelfApproval: (vals) => vals.some(Boolean),
+  resetReviewOnChange: (vals) => vals.some(Boolean),
+  autopublishOnApproval: (vals) => vals.every(Boolean),
+  requiredApproverTeams: (vals) =>
+    [...new Set(vals.flatMap((v) => v ?? []))].sort(),
+};
+
+// `projects` is the selector and `required` the override's own switch.
+const APPROVAL_FLOW_INHERITABLE = [
+  "requireMetadataReview",
+  "blockSelfApproval",
+  "autopublishOnApproval",
+  "resetReviewOnChange",
+  "requiredApproverTeams",
+] as const;
 
 /**
- * Resolve the approval-flow configuration for a given entity type.
+ * The approval-flow rules for an entity type.
  *
  * Extension point: when introducing a new RevisionTargetType, add a `case`
  * mapping it to the corresponding key on `ApprovalFlowConfigurations`.
- *
- * Returns `undefined` if no approval-flow config exists for the entity type
- * yet (treat the same as "no approval flow features enabled").
  */
+const approvalFlowRulesFor = (
+  approvalFlows: ApprovalFlowConfigurations | undefined,
+  entityType: RevisionTargetType,
+): ApprovalFlowConfiguration[] => {
+  if (!approvalFlows) return [];
+  switch (entityType) {
+    case "saved-group":
+      return approvalFlows.savedGroups ?? [];
+    // Constants don't use this config — they inherit the feature `requireReviews`
+    // settings (see constantRequiresReview).
+    case "config":
+    case "constant":
+    default:
+      return [];
+  }
+};
+
+// One rule per governing project: each is its own requirement, so no winner.
+export const getApprovalFlowRules = (
+  approvalFlows: ApprovalFlowConfigurations | undefined,
+  entityType: RevisionTargetType,
+  projects: string[] = [],
+): ApprovalFlowConfiguration[] => {
+  const rules = approvalFlowRulesFor(approvalFlows, entityType);
+  if (!rules.length) return [];
+  const scopes: (string | undefined)[] = projects.length
+    ? projects
+    : [undefined];
+  const seen = new Set<string>();
+  const resolved: ApprovalFlowConfiguration[] = [];
+  for (const project of scopes) {
+    const rule = resolveProjectScopedRule(
+      rules,
+      project,
+      APPROVAL_FLOW_INHERITABLE,
+      APPROVAL_FLOW_COMBINERS,
+      (r) => !!r.required,
+    );
+    if (!rule) continue;
+    // By content: inherited layers resolve to equal but distinct objects.
+    const key = JSON.stringify(rule);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    resolved.push(rule);
+  }
+  return resolved;
+};
+
+// The toggles for one entity: stricter wins across governing projects, except
+// autopublish, which loosens the flow and so needs all of them to agree.
 export const getApprovalFlowSettings = (
   approvalFlows: ApprovalFlowConfigurations | undefined,
   entityType: RevisionTargetType,
-): ApprovalFlowConfiguration | undefined => {
-  if (!approvalFlows) return undefined;
-  switch (entityType) {
-    case "saved-group":
-      return approvalFlows.savedGroups?.[0];
-    // Constants don't use this config — they inherit the feature `requireReviews`
-    // settings (see constantRequiresReview).
-    default:
-      return undefined;
-  }
+  projects: string[] = [],
+): ApprovalFlowPolicy | undefined => {
+  const rules = getApprovalFlowRules(approvalFlows, entityType, projects);
+  if (!rules.length) return undefined;
+  if (rules.length === 1) return rules[0];
+  return {
+    required: rules.some((r) => r.required),
+    requireMetadataReview: rules.some((r) => r.requireMetadataReview !== false),
+    blockSelfApproval: rules.some((r) => !!r.blockSelfApproval),
+    resetReviewOnChange: rules.some((r) => !!r.resetReviewOnChange),
+    autopublishOnApproval: rules.every((r) => !!r.autopublishOnApproval),
+  };
 };
 
 /**
@@ -97,6 +182,19 @@ export const CONSTANT_METADATA_FIELDS: ReadonlySet<string> = new Set([
   "archived",
 ]);
 
+// Config-only fields whose change affects the value the SDK resolves (so they
+// must require full review when approval is enabled, like `value`). Constants
+// never carry these, so they're inert for constant revisions.
+const CONFIG_CONTENT_FIELDS: ReadonlySet<string> = new Set([
+  "schema",
+  "parent",
+  "extends",
+  "extensible",
+  // NOTE: `scopedOverrides` is NOT here — the env/project variant selection writes
+  // immediately (setConfigScopedOverrides), never through a revision, so it's
+  // never part of a revision's proposed changes.
+]);
+
 /**
  * Returns true when every proposed change in the revision touches a constant
  * metadata field (per `CONSTANT_METADATA_FIELDS`). An empty proposed-changes
@@ -111,6 +209,51 @@ export const isConstantRevisionMetadataOnly = (
     const field = op.path.split("/")[1];
     return !!field && CONSTANT_METADATA_FIELDS.has(field);
   });
+};
+
+/**
+ * What RESTORING a historical revision would change, measured against the entity as
+ * it stands now: which per-environment overrides differ, and where the restored
+ * state would live.
+ *
+ * This is the question every revert authority check asks, and it is not the one
+ * `getConstantRevisionChange` answers — that reports what the revision changed when
+ * it was published, which a later change can have superseded. Shared so the revert
+ * endpoint and the controls that predict it derive the same footprint.
+ */
+export const getConstantRestoreChange = (
+  live: Pick<ConstantInterface, "environmentValues"> & { project?: string },
+  target: {
+    snapshot: unknown;
+    proposedChanges: JsonPatchOperation[] | unknown;
+  },
+): {
+  changedEnvironments: string[];
+  restoredProject?: string;
+  /**
+   * The restoration carries an op this applier couldn't read, so
+   * `changedEnvironments` is a floor rather than the answer. Callers deriving
+   * authority from it must widen instead of narrowing — an empty list would
+   * otherwise skip the environment check entirely.
+   */
+  unresolvedOps: boolean;
+} => {
+  const restored = applyTopLevelPatchOps(
+    (target.snapshot ?? {}) as Record<string, unknown>,
+    normalizeProposedChanges(target.proposedChanges),
+  ) as Pick<ConstantInterface, "environmentValues"> & { project?: string };
+
+  const liveEnvs = live.environmentValues ?? {};
+  const restoredEnvs = restored.environmentValues ?? {};
+  const changedEnvironments = [
+    ...new Set([...Object.keys(liveEnvs), ...Object.keys(restoredEnvs)]),
+  ].filter((env) => (liveEnvs[env] ?? "") !== (restoredEnvs[env] ?? ""));
+
+  return {
+    changedEnvironments,
+    restoredProject: restored.project,
+    unresolvedOps: hasUnappliablePatchOps(target.proposedChanges),
+  };
 };
 
 /**
@@ -133,7 +276,26 @@ export const getConstantRevisionChange = (
     ops,
   ) as Pick<ConstantInterface, "value" | "environmentValues">;
 
-  const valueChanged = (snapshot.value ?? "") !== (patched.value ?? "");
+  // Config-only content fields that change what the SDK resolves, so they need
+  // full review when approval is enabled rather than metadata-only treatment:
+  // `schema` (field definitions) plus the lineage/extensibility fields, which
+  // shift the effective resolved value. Constants never carry these ops, so
+  // this is a no-op for them.
+  const contentChanged = ops.some((op) =>
+    CONFIG_CONTENT_FIELDS.has(op.path.split("/")[1]),
+  );
+  // Deep-equal, not `!==`: a constant's value is a string, but a config reuses
+  // this helper with an OBJECT value, where reference-inequality would flag a
+  // restated-but-unchanged value as a change (spuriously forcing review).
+  //
+  // An op this applier can't account for reads as a base-value change — the
+  // widest thing it could be. Otherwise a change it dropped lands as
+  // `valueChanged: false` with no environments named, which is exactly the shape
+  // `constantRequiresReview` treats as "nothing to review".
+  const valueChanged =
+    !isEqual(snapshot.value ?? "", patched.value ?? "") ||
+    contentChanged ||
+    hasUnappliablePatchOps(ops);
 
   const oldEnvs = snapshot.environmentValues ?? {};
   const newEnvs = patched.environmentValues ?? {};
@@ -158,12 +320,18 @@ const isSelfApprovalBlockedForEntity = (
   entityType: RevisionTargetType,
   revision: Pick<Revision, "target">,
 ): boolean => {
-  if (entityType === "constant") {
-    const snapshot = revision.target.snapshot as { project?: string };
+  const snapshot = revision.target.snapshot as {
+    project?: string;
+    projects?: string[];
+  };
+  if (entityType === "constant" || entityType === "config") {
     return constantBlockSelfApproval({ project: snapshot.project }, settings);
   }
-  return !!getApprovalFlowSettings(settings?.approvalFlows, entityType)
-    ?.blockSelfApproval;
+  return !!getApprovalFlowSettings(
+    settings?.approvalFlows,
+    entityType,
+    snapshot.projects ?? [],
+  )?.blockSelfApproval;
 };
 
 /**
@@ -196,15 +364,17 @@ export const isUserBlockedFromApproving = ({
 export const isAutopublishOnApprovalEnabled = (
   settings: OrganizationSettings | undefined,
   entityType: RevisionTargetType,
-  // The constant's project, used to match its `requireReviews` rule. Ignored
-  // for entities that read from `approvalFlows`.
-  project?: string,
+  // Both families match their rules on this.
+  projects: string[] = [],
 ): boolean => {
-  if (entityType === "constant") {
-    return constantAutopublishOnApproval({ project }, settings);
+  if (entityType === "constant" || entityType === "config") {
+    return constantAutopublishOnApproval({ project: projects[0] }, settings);
   }
-  return !!getApprovalFlowSettings(settings?.approvalFlows, entityType)
-    ?.autopublishOnApproval;
+  return !!getApprovalFlowSettings(
+    settings?.approvalFlows,
+    entityType,
+    projects,
+  )?.autopublishOnApproval;
 };
 
 /**
@@ -221,6 +391,8 @@ export const getRevisionKey = (
       return "saved-groups";
     case "constant":
       return "constants";
+    case "config":
+      return "configs";
     // case "feature": return "features";  ← add future entity types here
     default:
       return null;
@@ -238,7 +410,6 @@ export const canUserReviewEntity = ({
   entityType,
   revision,
   entity,
-  approvalFlowSettings: _approvalFlowSettings,
   userId,
   teams,
   userPermissions,
@@ -264,7 +435,11 @@ export const canUserReviewEntity = ({
 
   // Extension point: add a new `case` here when introducing a new RevisionTargetType
   // that requires custom reviewer logic beyond the default `canEditEntity` check.
-  if (entityType === "saved-group" || entityType === "constant") {
+  if (
+    entityType === "saved-group" ||
+    entityType === "constant" ||
+    entityType === "config"
+  ) {
     // Anyone who can edit can review (except the author, checked above)
     return !!canEditEntity;
   }
@@ -317,26 +492,34 @@ export function normalizeProposedChanges(
     : [];
 }
 
+function topLevelField(path: string): string | null {
+  const parts = path.split("/");
+  return parts.length === 2 && parts[1] ? parts[1] : null;
+}
+
 /**
- * Apply the top-level `replace` / `add` / `remove` operations from a JSON Patch
- * array to an object and return the resulting merged object.  Nested paths
- * (e.g. `/values/0`) are treated as a no-op since we only track top-level fields.
- *
- * This is intentionally a lightweight, dependency-free alternative to
- * `fast-json-patch` so it can be used in both front-end and back-end shared code.
+ * Detects operations the lightweight top-level applier cannot represent.
+ * Callers widen authority and approval scope for legacy nested operations.
+ */
+export function hasUnappliablePatchOps(proposedChanges: unknown): boolean {
+  return normalizeProposedChanges(proposedChanges).some(
+    (op) => topLevelField(op.path) === null,
+  );
+}
+
+/**
+ * Applies top-level add, replace, and remove operations. Nested paths are ignored.
  */
 export function applyTopLevelPatchOps<T extends Record<string, unknown>>(
   snapshot: T,
-  proposedChanges: JsonPatchOperation[] | unknown,
+  proposedChanges: unknown,
 ): T {
   const ops = normalizeProposedChanges(proposedChanges);
   if (ops.length === 0) return snapshot;
   const result: Record<string, unknown> = { ...snapshot };
   for (const op of ops) {
-    // Only handle simple top-level paths like "/fieldName"
-    const parts = op.path.split("/");
-    if (parts.length !== 2 || !parts[1]) continue;
-    const field = parts[1];
+    const field = topLevelField(op.path);
+    if (field === null) continue;
     if (op.op === "replace" || op.op === "add") {
       result[field] = op.value;
     } else if (op.op === "remove") {
@@ -386,10 +569,38 @@ export function patchOpsToPartial<T extends Record<string, unknown>>(
  * If the proposed value equals the base value, it's not considered a change
  * and won't trigger a conflict even if live has changed.
  */
+// The top-level fields a revision merge may write for each entity type — the
+// keys of the entity's `*UpdatableFieldsSchema`. Pass to `checkMergeConflicts`
+// so only mergeable fields participate in conflict detection, on the client
+// (conflict UI computes it in the browser) as well as the server. Mirrors each
+// back-end adapter's getUpdatableFields(); both read the same pick schema, so
+// they can't drift. Exhaustive over RevisionTargetType (no default) so a new
+// entity type fails type-check until it's handled here.
+export function getRevisionUpdatableFields(
+  entityType: RevisionTargetType,
+): ReadonlySet<string> {
+  switch (entityType) {
+    case "config":
+      return new Set(Object.keys(configUpdatableFieldsSchema.shape));
+    case "constant":
+      return new Set(Object.keys(constantUpdatableFieldsSchema.shape));
+    case "saved-group":
+      return new Set(Object.keys(savedGroupUpdatableFieldsSchema.shape));
+  }
+}
+
 export function checkMergeConflicts(
   baseState: Record<string, unknown>,
   liveState: Record<string, unknown>,
   proposedChanges: JsonPatchOperation[] | unknown,
+  // The fields the entity's merge can actually write. Only these participate in
+  // conflict detection — mirroring `buildMergeDesiredState`, which drops ops for
+  // non-updatable fields before merging. If a draft's proposedChanges carry an op
+  // for a field that isn't revision-updatable (e.g. one excluded from the
+  // snapshot, like a config's `scopedOverrides`, which writes directly to the
+  // entity rather than through a revision), without this filter that op reads as
+  // a phantom conflict the merge would never apply. Omit to consider every field.
+  updatableFields?: ReadonlySet<string>,
 ): MergeResult {
   // Normalise: old DB documents may have a plain object instead of an array
   const ops = normalizeProposedChanges(proposedChanges);
@@ -398,10 +609,10 @@ export function checkMergeConflicts(
   const fieldsChanged: string[] = [];
   const mergedChanges: Record<string, unknown> = { ...liveState };
 
-  // Helper to check if values are different
+  // Undefined means absent; null is an explicit clear and participates in comparison.
   const hasChanged = (val1: unknown, val2: unknown): boolean => {
-    if (val1 == null) return false;
-    if (val2 == null) return true;
+    if (val1 === undefined) return false;
+    if ((val2 ?? null) === null) return (val1 ?? null) !== null;
     return !isEqual(val1, val2);
   };
 
@@ -418,6 +629,9 @@ export function checkMergeConflicts(
   for (const op of ops) {
     const field = fieldFromPath(op.path);
     if (!field) continue;
+    // A non-updatable field can't be merged, so it can't truly conflict —
+    // ignore its ops (see `updatableFields` above).
+    if (updatableFields && !updatableFields.has(field)) continue;
     if (op.op === "replace" || op.op === "add") {
       proposedByField.set(field, op.value);
     } else if (op.op === "remove") {
@@ -512,4 +726,60 @@ export function getRevisionNumberById<
       r.version ?? sorted.findIndex((s) => s.id === r.id) + 1,
     ]),
   );
+}
+
+// Matches the feature revision shape.
+export type ReviewerVerdictStatus =
+  | "approved"
+  | "changes-requested"
+  | "approved-stale"
+  | "changes-requested-stale";
+
+const VERDICT_BASE: Record<string, "approved" | "changes-requested"> = {
+  approve: "approved",
+  "request-changes": "changes-requested",
+};
+
+// As hooks see them: latest per reviewer, `decision` + `stale` collapsed.
+export function toHookReviewerVerdicts<U, T>(
+  reviews: {
+    userId: string;
+    decision: string;
+    stale?: boolean;
+    dateCreated: Date;
+  }[],
+  enrich: (userId: string) => { user: U; teams: T[] },
+): {
+  userId: string;
+  user: U;
+  status: ReviewerVerdictStatus;
+  timestamp: Date;
+  teams: T[];
+}[] {
+  const latest = new Map<
+    string,
+    { status: ReviewerVerdictStatus; timestamp: Date }
+  >();
+  for (const r of reviews) {
+    const base = VERDICT_BASE[r.decision];
+    if (!base) continue;
+    const status = (r.stale ? `${base}-stale` : base) as ReviewerVerdictStatus;
+    const existing = latest.get(r.userId);
+    if (existing && existing.timestamp > r.dateCreated) continue;
+    latest.set(r.userId, { status, timestamp: r.dateCreated });
+  }
+  return Array.from(latest, ([userId, v]) => ({
+    userId,
+    ...enrich(userId),
+    status: v.status,
+    timestamp: v.timestamp,
+  }));
+}
+
+// `contributors` may include the author, and carries blanks from older rows.
+export function coauthorIds(
+  authorId: string | undefined,
+  contributors: string[] | undefined,
+): string[] {
+  return (contributors ?? []).filter((id) => !!id && id !== authorId);
 }

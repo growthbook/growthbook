@@ -91,7 +91,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
     }
   }, [didInitializeTab, setStoredTab, storedTab, tab]);
 
-  const { contextualBandits, error, loading, hasArchived, mutate } =
+  const { contextualBandits, error, loading, hasArchived } =
     useContextualBandits(project, activeTab === "archived");
 
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
@@ -428,10 +428,6 @@ const ContextualBanditsPage = (): React.ReactElement => {
       {openNewModal && (
         <ContextualBanditForm
           onClose={() => setOpenNewModal(false)}
-          onCreate={async () => {
-            await mutate();
-            setOpenNewModal(false);
-          }}
           source="contextual-bandits-list"
           isNewExperiment={true}
         />

@@ -1,10 +1,11 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import { z } from "zod";
 import {
   postConstantBodyValidator,
   putConstantBodyValidator,
-  validateConstantValue,
+  validateResolvableValue,
   getConstantReferenceKeys,
   getReferencingConstantKeys,
 } from "shared/validators";
@@ -15,6 +16,16 @@ import {
   getConstantRevisionChange,
 } from "shared/enterprise";
 import { constantRequiresReview } from "shared/util";
+import { assertCanCreateConstantInState } from "back-end/src/revisions/createAuthority";
+import {
+  canStageArchiveDraft,
+  canWriteArchiveIntoDraft,
+} from "back-end/src/revisions/landAuthority";
+import {
+  compensateFailedLanding,
+  runGuardedWrite,
+} from "back-end/src/revisions/landingSequence";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -25,12 +36,26 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
+import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
+import {
+  archiveServeFootprint,
+  constantPublishEnvironments,
+} from "back-end/src/revisions/revisionPublishEnvironments";
 import {
   ConstantReferences,
   loadConstantReferences,
-  assertConstantArchivable,
+  assertKeyAvailable,
 } from "back-end/src/services/constants";
+import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
+import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
+import { constantChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
+import {
+  isValidRevertBypass,
+  revertRestoresTargetSnapshot,
+} from "back-end/src/services/configRevertBypass";
+import { isPureRevertPatch } from "back-end/src/revisions/revertPurity";
 
 type PostConstantBody = z.infer<typeof postConstantBodyValidator>;
 type PutConstantBody = z.infer<typeof putConstantBodyValidator>;
@@ -100,11 +125,15 @@ export const getConstantCyclicKeys = async (
   if (!constant) {
     return context.throwNotFoundError("Constant not found");
   }
-  const all = await context.models.constants.getAll();
+  // Constant cycles live entirely in the constant namespace, so scope the graph
+  // to constants and count only `@const:` references.
+  const all = (await getResolvableValues(context)).filter(
+    (c) => c.source === "constant",
+  );
   const referencesByKey = new Map(
     all.map((c) => [
       c.key,
-      getConstantReferenceKeys(c.value, c.environmentValues),
+      getConstantReferenceKeys(c.value, c.environmentValues, "constant"),
     ]),
   );
   const cyclicKeys = [
@@ -139,20 +168,32 @@ export const postConstant = async (
   }
 
   // JSON constants must hold parseable JSON (empty is allowed).
-  validateConstantValue(body.type, body.value ?? "");
+  validateResolvableValue({
+    type: body.type,
+    value: body.value ?? "",
+    refSource: "constant",
+  });
   for (const [envId, v] of Object.entries(body.environmentValues ?? {})) {
-    validateConstantValue(body.type, v, envId);
+    validateResolvableValue({
+      type: body.type,
+      value: v,
+      label: envId,
+      refSource: "constant",
+    });
   }
 
   // Cycle rejection is enforced in ConstantModel (covers every write path).
 
-  // Keys are unique per org; pre-check for a friendly error rather than a raw
-  // duplicate-key failure from the unique index.
-  if (await context.models.constants.getByKey(body.key)) {
-    throw new Error(`A constant with key "${body.key}" already exists.`);
-  }
+  // Constant keys are unique within the constant namespace (a config may share
+  // the key — `@const:foo` and `@config:foo` are distinct).
+  await assertKeyAvailable(context, body.key, "constant");
 
-  // Permission is enforced by the model's canCreate.
+  // Project-scoped create authority is enforced by the model's canCreate;
+  // env-scoped values in the create body are a publish into those environments.
+  assertCanCreateConstantInState(context, {
+    project: body.project,
+    environmentValues: body.environmentValues,
+  });
   const constant = await context.models.constants.create({
     key: body.key,
     name: body.name,
@@ -184,6 +225,7 @@ type PutConstantRequest = AuthRequest<
     revisionId?: string;
     forceCreateRevision?: string;
     title?: string;
+    comment?: string;
     revertedFrom?: string;
   }
 >;
@@ -218,33 +260,51 @@ export const putConstant = async (
     return context.throwNotFoundError("Constant not found");
   }
 
-  // Permission check always runs regardless of approval flow status.
-  if (
-    !context.permissions.canUpdateConstant(existing, {
-      project: project ?? existing.project,
-    })
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  // JSON constants must hold parseable JSON (empty is allowed). Type is
-  // immutable, so validate incoming values against the existing type.
-  if (typeof value !== "undefined") {
-    validateConstantValue(existing.type, value);
-  }
-  for (const [envId, v] of Object.entries(environmentValues ?? {})) {
-    validateConstantValue(existing.type, v, envId);
-  }
-
-  // Cycle rejection is enforced in ConstantModel (covers every write path,
-  // including the publish/applyChanges merge).
+  // A request that touches nothing but `archived` is a pure archive/unarchive
+  // (what the archive modal sends), and rides its landing authority alone — a
+  // delete-only role can take a Constant out of service without edit rights.
+  const archiveOnlyRequest =
+    typeof archived === "boolean" &&
+    Object.keys(req.body).every(
+      (k) => k === "archived" || k === "ignoreWarnings",
+    );
+  const canLandArchive =
+    archiveOnlyRequest &&
+    !!archived !== !!existing.archived &&
+    canLandArchivedState({
+      permissions: context.permissions,
+      model: "constant",
+      entity: existing,
+      archived: !!archived,
+      // Serve footprint — the SAME helper the adapter's archive arm uses.
+      environments: archiveServeFootprint(context, existing),
+    });
 
   // If updating a specific revision, compare against its current (patched) state
   // rather than the live entity so we don't re-propose unchanged fields.
   const revisionId = req.query.revisionId;
   let comparisonBase: ConstantInterface = existing;
   if (revisionId) {
-    const targetRevision = await context.models.revisions.getById(revisionId);
+    const targetRevision =
+      await context.models.revisions.getByIdReadable(revisionId);
+    // Writing `archived` into a PINNED revision is a write into someone
+    // else's draft: it makes that draft delete-class, so its author — a
+    // publisher without delete — could no longer publish their own work.
+    // `archiveOnlyRequest` inspects only the body, so it does not cover
+    // this query-param path.
+    if (
+      targetRevision &&
+      typeof archived === "boolean" &&
+      !canWriteArchiveIntoDraft({
+        permissions: context.permissions,
+        model: "constant",
+        entity: existing,
+        revision: targetRevision,
+        userId: context.userId,
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
     if (targetRevision && targetRevision.target.type === "constant") {
       const patchedSnapshot = applyPatchToSnapshot(
         targetRevision.target.snapshot as ConstantInterface,
@@ -253,6 +313,68 @@ export const putConstant = async (
       comparisonBase = { ...existing, ...patchedSnapshot };
     }
   }
+
+  // The destination of a move. A draft may already carry one: editing it
+  // without naming `project` again still authors content bound for that pending
+  // destination, so resolve from the draft's patched state rather than this
+  // request alone — otherwise a draft moving A→B checks A on both sides.
+  const destinationProject =
+    project ?? comparisonBase.project ?? existing.project ?? "";
+
+  // Permission check always runs regardless of approval flow status.
+  const canDraftEntity =
+    context.permissions.canRevisionAction(
+      "constant",
+      "draft",
+      existing,
+      NO_ENVIRONMENT_BINDING,
+    ) &&
+    holdsMoveDestination({
+      permissions: context.permissions,
+      model: "constant",
+      action: "draft",
+      existing,
+      proposed: { ...existing, project: destinationProject },
+    });
+
+  // Restoring a previously-published revision is its own atom, so a revert-only
+  // role (no draft authority) still gets in when the request names a revert
+  // target. What it may then WRITE is narrowed to a pure restoration below, so
+  // this cannot be used to author arbitrary drafts.
+  const revertedFrom = req.query.revertedFrom;
+  const canRideRevert =
+    !!revertedFrom &&
+    context.permissions.canRevisionAction(
+      "constant",
+      "revert",
+      existing,
+      constantPublishEnvironments(context),
+    );
+
+  if (!canLandArchive && !canDraftEntity && !canRideRevert) {
+    context.permissions.throwPermissionError();
+  }
+
+  // JSON constants must hold parseable JSON (empty is allowed). Type is
+  // immutable, so validate incoming values against the existing type.
+  if (typeof value !== "undefined") {
+    validateResolvableValue({
+      type: existing.type,
+      value,
+      refSource: "constant",
+    });
+  }
+  for (const [envId, v] of Object.entries(environmentValues ?? {})) {
+    validateResolvableValue({
+      type: existing.type,
+      value: v,
+      label: envId,
+      refSource: "constant",
+    });
+  }
+
+  // Cycle rejection is enforced in ConstantModel (covers every write path,
+  // including the publish/applyChanges merge).
 
   // null/undefined means "field wasn't intentionally changed" (the form sends
   // null for untouched fields).
@@ -285,21 +407,47 @@ export const putConstant = async (
     fieldsToUpdate.project = project;
   }
   if (hasChanged(archived, comparisonBase.archived)) {
+    // Gate only live-state transitions.
+    if (!!archived !== !!existing.archived) {
+      const canLand = canLandArchivedState({
+        permissions: context.permissions,
+        model: "constant",
+        entity: existing,
+        archived: !!archived,
+        environments: archiveServeFootprint(context, existing),
+      });
+      const canStage =
+        canLand ||
+        canStageArchiveDraft({
+          permissions: context.permissions,
+          model: "constant",
+          entity: existing,
+          archived: !!archived,
+        });
+      if (!canStage) {
+        context.permissions.throwPermissionError();
+      }
+    }
     fieldsToUpdate.archived = archived;
   }
 
-  // Block the archive transition when the constant is still referenced (same
-  // gate as the REST archive endpoints and the front-end ConstantArchiveModal).
-  // Mirrors saved groups; only archiving is blocked, never unarchiving.
+  // Soft-warn (bypassably) on the archive transition when the constant is still
+  // referenced (same gate as the REST archive endpoints and the front-end
+  // ConstantArchiveModal). Only archiving is guarded, never unarchiving.
   if (fieldsToUpdate.archived === true && !comparisonBase.archived) {
-    await assertConstantArchivable(context, existing.id);
+    await assertConstantArchiveDependentsGuard(
+      context,
+      { id: existing.id, key: existing.key, project: existing.project },
+      { armed: false },
+    );
   }
 
   const forceCreateRevision = req.query.forceCreateRevision === "1";
   const bypassApproval = req.query.bypassApproval === "1";
   const autoPublish = req.query.autoPublish === "1";
   const title = req.query.title;
-  const revertedFrom = req.query.revertedFrom;
+  // Sent by the shared RevertModal for all three entities.
+  const comment = req.query.comment;
 
   // If no draft-intent flag was provided we treat the request as an implicit
   // auto-publish so the change is still tracked as a revision and merged
@@ -324,17 +472,101 @@ export const putConstant = async (
 
   const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
 
+  // Resolved once (only for a request that names a revert target) and consulted
+  // by both the write-narrowing check and the landing gate below.
+  const pureRevertPatch = revertedFrom
+    ? await isPureRevertPatch(context, {
+        revertedFrom,
+        entityType: "constant",
+        entityId: existing.id,
+        patchOps,
+      })
+    : false;
+
+  // A caller who got in on revert authority alone may only write a revision that
+  // purely restores the named published revision — draft or publish alike. The
+  // change set comes from the caller's body, so a valid `revertedFrom` id must
+  // never be able to front arbitrary values.
+  if (!canLandArchive && !canDraftEntity && !pureRevertPatch) {
+    context.permissions.throwPermissionError();
+  }
+
   // Constants inherit the feature `requireReviews` settings: a value change
   // requires review (all environments), a per-env override only when its
   // environment is in scope, metadata per the rule's metadata-review toggle.
   // Computed against the live entity + this change, matching the merge endpoint.
+  const revisionChange = getConstantRevisionChange(existing, patchOps);
   const approvalRequired = constantRequiresReview(
     { project: existing.project },
-    getConstantRevisionChange(existing, patchOps),
+    revisionChange,
     org.settings,
   );
+  // The landing footprint: the environment overrides this change touches. A
+  // base-value change carries no intrinsic environment (declared design), but a
+  // dev-limited publisher must not be able to write environmentValues.production.
+  const landingEnvs = constantPublishEnvironments(
+    context,
+    revisionChange.changedEnvironments,
+  );
+
+  // Landing a change live is publish-class, not edit-class. Checked before the
+  // revision is created so a blocked publish leaves nothing behind. A pure
+  // archive carries its own landing authority (checked above), so it's exempt.
+  // Restoring a previously-published revision is its own atom, so revert
+  // authority also lands one — but only once the ops are proven to restore the
+  // named revision, since the change set comes from the caller's body.
+  const willPublish =
+    wantsMerge && (!approvalRequired || bypassApproval || autoPublish);
+  // Landing a move takes publish in the destination too.
+  if (
+    willPublish &&
+    !holdsMoveDestination({
+      permissions: context.permissions,
+      model: "constant",
+      action: "publish",
+      existing,
+      proposed: { ...existing, project: destinationProject },
+      environments: landingEnvs,
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+  if (
+    willPublish &&
+    !canLandArchive &&
+    !context.permissions.canRevisionAction(
+      "constant",
+      "publish",
+      existing,
+      landingEnvs,
+    ) &&
+    !(
+      pureRevertPatch &&
+      context.permissions.canRevisionAction(
+        "constant",
+        "revert",
+        existing,
+        landingEnvs,
+      )
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const forceCreate = wantsMerge || forceCreateRevision;
+
+  // Delegate to the adapter so the multi-project bypass rule has a single
+  // source of truth (also used by the generic revision controller).
+  const canBypass = getAdapter("constant").canBypassApproval(
+    context,
+    existing as unknown as Record<string, unknown>,
+  );
+
+  // bypassApproval is an explicit admin override — enforce it before the
+  // revision is written, so a caller without the atom doesn't leave one behind.
+  if (wantsMerge && bypassApproval && approvalRequired && !canBypass) {
+    context.permissions.throwPermissionError();
+  }
 
   let revision = await createOrUpdateRevision(
     context,
@@ -344,6 +576,7 @@ export const putConstant = async (
     {
       forceCreate,
       title,
+      comment,
       revertedFrom,
       revisionId:
         wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,
@@ -351,18 +584,6 @@ export const putConstant = async (
   );
 
   if (wantsMerge) {
-    // Delegate to the adapter so the multi-project bypass rule has a single
-    // source of truth (also used by the generic revision controller).
-    const canBypass = getAdapter("constant").canBypassApproval(
-      context,
-      existing as unknown as Record<string, unknown>,
-    );
-
-    // bypassApproval is an explicit admin override — enforce server-side.
-    if (bypassApproval && approvalRequired && !canBypass) {
-      context.permissions.throwPermissionError();
-    }
-
     // autoPublish must not bypass review that this change genuinely requires.
     // `approvalRequired` is already change-aware (it returns false for changes
     // the review rules don't gate — e.g. metadata when metadata review is off,
@@ -370,9 +591,44 @@ export const putConstant = async (
     // means real review is needed: only an admin bypass (or revert bypass) may
     // publish immediately.
     if (autoPublish && approvalRequired && !canBypass) {
-      const isRevertBypass =
-        !!revertedFrom && !!org.settings?.revertsBypassApproval;
-      if (!isRevertBypass) {
+      // A revert may auto-publish past review only when `revertedFrom` names a
+      // genuine merged revision of THIS constant AND the proposed changes restore
+      // that revision's state — validating the id alone would let a valid id front
+      // arbitrary body changes past review. Per changed field (partial reverts
+      // still work), normalized via the adapter snapshot. Mirrors config.
+      const revertSource = revertedFrom
+        ? await context.models.revisions.getById(revertedFrom)
+        : null;
+      let genuineRevert = false;
+      if (
+        isValidRevertBypass({
+          revision: revertSource,
+          entityType: "constant",
+          entityId: existing.id,
+          revertsBypassApproval: !!org.settings?.revertsBypassApproval,
+        }) &&
+        revertSource
+      ) {
+        const revertAdapter = getAdapter("constant");
+        const targetSnap = revertAdapter.buildSnapshot(
+          applyPatchToSnapshot(
+            revertSource.target.snapshot as Record<string, unknown>,
+            revertSource.target.proposedChanges,
+          ),
+        ) as Record<string, unknown>;
+        const proposedSnap = revertAdapter.buildSnapshot(
+          applyPatchToSnapshot(
+            existing as unknown as Record<string, unknown>,
+            patchOps,
+          ),
+        ) as Record<string, unknown>;
+        genuineRevert = revertRestoresTargetSnapshot({
+          changedFields: Object.keys(fieldsToUpdate),
+          proposedSnapshot: proposedSnap,
+          targetSnapshot: targetSnap,
+        });
+      }
+      if (!genuineRevert) {
         context.permissions.throwPermissionError();
       }
     }
@@ -384,33 +640,91 @@ export const putConstant = async (
       // Only record a bypass when the caller used the explicit admin override.
       const isBypass = approvalRequired && bypassApproval;
 
+      // Warn (bypassably) when this change would reach a running experiment
+      // through a guarded config, or when an archive/unarchive flip scrubs (or
+      // restores) refs into a schema-break for dependents. Metadata-only edits
+      // can't shift a served value.
+      if (constantChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
+        await assertConstantPublishGuards(
+          context,
+          existing,
+          revision,
+          { armed: false },
+          (fieldsToUpdate.value as string | undefined) ?? existing.value,
+          "environmentValues" in fieldsToUpdate
+            ? (fieldsToUpdate.environmentValues as
+                | Record<string, string>
+                | undefined)
+            : existing.environmentValues,
+          "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
+        );
+      }
+
       // Claim the merge first (CAS-guarded) so a concurrent discard can't orphan
       // a half-applied change; reopen if the live write then fails.
+      // Kept for compensation: the claim overwrites `revision` with the merged row.
+      const priorRevision = revision;
       revision = await context.models.revisions.merge(
         revision.id,
         context.userId,
         { bypass: isBypass },
       );
 
+      let landedDoc: Record<string, unknown> | null = null;
       try {
-        await context.models.constants.update(
-          existing,
-          fieldsToUpdate as Parameters<
-            typeof context.models.constants.update
-          >[1],
+        // Guarded on the pre-image: the merge claim above guards the REVISION,
+        // not the entity; a lost race reopens the revision below (retryable
+        // 409). The write reports its landed doc so a post-write failure can
+        // put live state back, not just un-merge.
+        await runGuardedWrite("constant", existing.id, () =>
+          context.models.constants.updateIfUnchanged(
+            existing,
+            fieldsToUpdate as Parameters<
+              typeof context.models.constants.update
+            >[1],
+            undefined,
+            {
+              onWritten: (doc: unknown) => {
+                landedDoc = doc as Record<string, unknown>;
+              },
+            },
+          ),
         );
       } catch (e) {
         try {
-          await context.models.revisions.reopen(revision.id, context.userId);
+          // Live back first, then un-merge — ordering and guards live in
+          // `compensateFailedLanding`.
+          await compensateFailedLanding({
+            context,
+            entityType: "constant",
+            entity: existing as unknown as Record<string, unknown> & {
+              id: string;
+            },
+            persisted: landedDoc,
+            changes: fieldsToUpdate as Record<string, unknown>,
+            unmerge: () =>
+              context.models.revisions.reopenAfterFailedApply(
+                revision.id,
+                context.userId,
+                priorRevision,
+                revision.dateUpdated,
+              ),
+          });
         } catch {
           // ignore — surface the original update error
         }
         throw e;
       }
 
+      // See the revert paths in revisionActions: a landing revert owes both events.
       await dispatchConstantRevisionEvent(context, revision, {
-        type: revision.revertedFrom ? "reverted" : "published",
+        type: "published",
       });
+      if (revision.revertedFrom) {
+        await dispatchConstantRevisionEvent(context, revision, {
+          type: "reverted",
+        });
+      }
 
       return res.status(200).json({ status: 200, revision });
     }

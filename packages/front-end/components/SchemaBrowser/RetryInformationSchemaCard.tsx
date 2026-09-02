@@ -2,6 +2,8 @@ import { InformationSchemaInterface } from "shared/types/integrations";
 import { isManagedWarehouseNoEventsGuidanceMessage } from "shared/util";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 
 export default function RetryInformationSchemaCard({
   informationSchema,
@@ -42,24 +44,25 @@ export default function RetryInformationSchemaCard({
           </div>
         </div>
       ) : (
-        <div className="alert alert-warning d-flex align-items-center">
-          {combinedError ? <span>{combinedError}</span> : null}
-          <Tooltip
-            body="You do not have permission to retry generating an information schema for this datasource."
-            shouldDisplay={!canRunQueries}
-          >
-            <button
-              disabled={!canRunQueries}
-              className="btn btn-link"
-              onClick={async (e) => {
-                e.preventDefault();
-                refreshOrCreateInfoSchema("PUT");
-              }}
+        <Callout
+          status="warning"
+          action={
+            <Tooltip
+              body="You do not have permission to retry generating an information schema for this datasource."
+              shouldDisplay={!canRunQueries}
             >
-              Retry
-            </button>
-          </Tooltip>
-        </div>
+              <Button
+                color="inherit"
+                disabled={!canRunQueries}
+                onClick={() => refreshOrCreateInfoSchema("PUT")}
+              >
+                Retry
+              </Button>
+            </Tooltip>
+          }
+        >
+          {combinedError}
+        </Callout>
       )}
     </div>
   );

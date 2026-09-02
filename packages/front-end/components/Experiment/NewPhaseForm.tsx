@@ -1,8 +1,9 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import {
@@ -25,13 +26,33 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
 import DatePicker from "@/components/DatePicker";
+import Callout from "@/ui/Callout";
+import {
+  getLinkedExperimentAttributeScopes,
+  useAttributeScopePicker,
+} from "./useAttributeScopePicker";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   close: () => void;
   source?: string;
-}> = ({ experiment, close, mutate, source }) => {
+}> = ({ experiment, linkedFeatures, close, mutate, source }) => {
+  const { dropdown: dropdownScope } = getLinkedExperimentAttributeScopes(
+    experiment.project,
+    linkedFeatures,
+  );
+  const [scopeAllProjects, setScopeAllProjects] = useState(
+    !!experiment.attributeScopeAllProjects,
+  );
+  const { effectiveAttributeProjects, attributeScopeToggle } =
+    useAttributeScopePicker({
+      project: experiment.project,
+      scopeProjects: dropdownScope,
+      allProjects: scopeAllProjects,
+      setAllProjects: setScopeAllProjects,
+    });
   const { refreshWatching } = useWatching();
 
   const firstPhase = !experiment.phases.length;
@@ -43,7 +64,7 @@ const NewPhaseForm: FC<{
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       name: prevPhase.name || "Main",
-      coverage: prevPhase.coverage || 1,
+      coverage: prevPhase.coverage ?? 1,
       variationWeights:
         prevPhase.variationWeights ||
         getEqualWeights(lastPhaseVariations.length),
@@ -132,13 +153,14 @@ const NewPhaseForm: FC<{
       size="lg"
     >
       {hasLinkedChanges && experiment.status !== "stopped" && (
-        <div className="alert alert-warning">
+        <Callout status="warning">
           <strong>Warning:</strong> Starting a new phase will immediately affect
           all linked Feature Flags and Visual Changes.
-        </div>
+        </Callout>
       )}
       <div className="row">
         <Field
+          size="legacy"
           label="Name"
           containerClassName="col-lg"
           required
@@ -147,6 +169,7 @@ const NewPhaseForm: FC<{
       </div>
       {!firstPhase && (
         <Field
+          size="legacy"
           label="Reason for Starting New Phase"
           textarea
           {...form.register("reason")}
@@ -179,6 +202,8 @@ const NewPhaseForm: FC<{
           onChange={(condition) => form.setValue("condition", condition)}
           key={conditionKey}
           project={experiment.project || ""}
+          attributeProjects={effectiveAttributeProjects}
+          attributeSelectIndicator={attributeScopeToggle}
         />
       )}
 

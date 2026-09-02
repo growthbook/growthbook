@@ -18,7 +18,16 @@ const BaseClass = MakeModelClass({
   pKey: ["key"] as const,
   globallyUniquePrimaryKeys: true,
   idPrefix: "key_",
-  additionalIndexes: [{ fields: { id: 1 } }],
+  additionalIndexes: [
+    { fields: { id: 1 } },
+    // Partial TTL for OAuth access tokens only — classic API keys/PATs are untouched.
+    {
+      fields: { expiresAt: 1 },
+      expireAfterSeconds: 0,
+      partialFilterExpression: { oauthClientId: { $exists: true } },
+      name: "oauthAccessTokenTtl",
+    },
+  ],
   skipDateUpdatedFields: ["lastUsed"],
   defaultValues: {
     limitAccessByEnvironment: false,
@@ -97,22 +106,51 @@ export class ApiKeyModel extends BaseClass {
     };
   }
 
-  protected async customValidation(doc: ApiKeyInterface) {
+  protected async customValidation(
+    doc: ApiKeyInterface,
+    previousDoc?: ApiKeyInterface,
+  ) {
     if (doc.userId) {
+      // Creation only — existing tokens are already rejected at authentication,
+      // and users must still be able to disable or delete the ones they have.
+      if (
+        !previousDoc &&
+        this.context.org.settings?.disablePersonalAccessTokens
+      ) {
+        this.context.throwBadRequestError(
+          "Personal access tokens are disabled for this organization.",
+        );
+      }
       // PATs inherit permissions from their user — scoping fields must not be set
       if (doc.limitAccessByEnvironment) {
         this.context.throwBadRequestError(
           "PATs do not support environment restrictions.",
         );
       }
-      if (doc.projectRoles) {
+      if (doc.projectRoles?.length) {
         this.context.throwBadRequestError(
           "PATs do not support project-scoped roles.",
+        );
+      }
+      if (doc.additionalRoles?.length) {
+        this.context.throwBadRequestError(
+          "PATs do not support additional roles.",
         );
       }
     } else {
       // Org API keys — validate role, environments, project roles, and commercial features
       this.validateRole(doc.role);
+      // Only gate a role change so existing keys keep working
+      if (
+        doc.role &&
+        doc.role !== previousDoc?.role &&
+        doc.role !== "admin" &&
+        !this.context.limits.orgSupportsRoles()
+      ) {
+        this.context.throwBadRequestError(
+          "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
+        );
+      }
       if (
         doc.limitAccessByEnvironment &&
         !this.context.hasPremiumFeature("advanced-permissions")
@@ -122,7 +160,11 @@ export class ApiKeyModel extends BaseClass {
         );
       }
       this.validateEnvironments(doc.environments);
-      if (doc.projectRoles) {
+      for (const rule of doc.additionalRoles ?? []) {
+        this.validateRole(rule.role);
+        this.validateEnvironments(rule.environments);
+      }
+      if (doc.projectRoles?.length) {
         if (!this.context.hasPremiumFeature("advanced-permissions")) {
           this.context.throwPlanDoesNotAllowError(
             "Your plan does not support project-level permissions on API keys.",
@@ -132,6 +174,10 @@ export class ApiKeyModel extends BaseClass {
           this.validateRole(pr.role);
           await this.validateProject(pr.project);
           this.validateEnvironments(pr.environments);
+          for (const rule of pr.additionalRoles ?? []) {
+            this.validateRole(rule.role);
+            this.validateEnvironments(rule.environments);
+          }
         }
       }
     }
@@ -171,12 +217,14 @@ export class ApiKeyModel extends BaseClass {
     roleId,
     limitAccessByEnvironment,
     environments,
+    additionalRoles,
     projectRoles,
   }: {
     description: string;
     roleId: string;
     limitAccessByEnvironment?: boolean;
     environments?: string[];
+    additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
@@ -188,6 +236,7 @@ export class ApiKeyModel extends BaseClass {
       role: roleId,
       limitAccessByEnvironment,
       environments,
+      additionalRoles,
       projectRoles,
     });
   }
@@ -266,12 +315,14 @@ export class ApiKeyModel extends BaseClass {
       role,
       limitAccessByEnvironment,
       environments,
+      additionalRoles,
       projectRoles,
       description,
     }: {
       role?: string;
       limitAccessByEnvironment?: boolean;
       environments?: string[];
+      additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
       description?: string;
     },
@@ -311,6 +362,7 @@ export class ApiKeyModel extends BaseClass {
         role,
         limitAccessByEnvironment,
         environments,
+        additionalRoles,
         projectRoles,
         description,
       },
@@ -330,6 +382,42 @@ export class ApiKeyModel extends BaseClass {
     await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
       { key, organization },
       { $set: { lastUsed: new Date() } },
+    );
+  }
+
+  // OAuth token endpoint has no ReqContext. These static helpers keep apikey
+  // writes in the model layer (same pattern as dangerousRecordUsageByKey).
+
+  public static async dangerousFindByKeyHash(
+    keyHash: string,
+  ): Promise<ApiKeyInterface | null> {
+    return getCollection<ApiKeyInterface>(COLLECTION_NAME).findOne({
+      key: keyHash,
+    });
+  }
+
+  public static async dangerousDisableByKeyHash(
+    keyHash: string,
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
+      { key: keyHash },
+      { $set: { disabled: true } },
+    );
+  }
+
+  public static async dangerousDisableOAuthGrant(
+    clientId: string,
+    userId: string,
+    organization: string,
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateMany(
+      {
+        oauthClientId: clientId,
+        userId,
+        organization,
+        disabled: { $ne: true },
+      },
+      { $set: { disabled: true } },
     );
   }
 
@@ -409,6 +497,7 @@ export class ApiKeyModel extends BaseClass {
     role,
     limitAccessByEnvironment,
     environments,
+    additionalRoles,
     projectRoles,
   }: {
     environment: string;
@@ -420,6 +509,7 @@ export class ApiKeyModel extends BaseClass {
     role?: string;
     limitAccessByEnvironment?: boolean;
     environments?: string[];
+    additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
   }): Promise<ApiKeyInterface> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
@@ -447,6 +537,7 @@ export class ApiKeyModel extends BaseClass {
       encryptionKey: encryptSDK ? await generateEncryptionKey() : undefined,
       limitAccessByEnvironment: limitAccessByEnvironment ?? false,
       environments: environments ?? [],
+      additionalRoles,
       projectRoles,
     });
   }

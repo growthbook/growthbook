@@ -14,6 +14,7 @@ import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
 import { parseEnvInt, stringToBoolean } from "shared/util";
+import { AI_PROVIDERS } from "shared/ai";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { revisionRouter } from "back-end/src/routers/revision/revision.router";
@@ -26,6 +27,7 @@ import {
   ENVIRONMENT,
   EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
+  OAUTH_AS_ENABLED,
   SENTRY_DSN,
 } from "./util/secrets";
 import {
@@ -33,10 +35,15 @@ import {
   getExperimentsScript,
 } from "./controllers/config";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
+import { trackRequestCompletion } from "./services/growthbook";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
 import { getBuild } from "./util/build";
+import {
+  oauthAsAuthedRouter,
+  oauthAsPublicRouter,
+} from "./routers/oauth-as/oauth-as.router";
 
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
@@ -107,9 +114,9 @@ import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
 import {
   ApiError,
-  ExperimentIncrementalPipelineRequiresFullRefreshError,
   shouldSkipErrorLog,
   SoftWarningError,
+  SQLExecutionError,
 } from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
@@ -119,12 +126,17 @@ import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.rou
 import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
+import { learningsRouter } from "./routers/learnings/learnings.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
 import {
   constantsRouter,
   constantDraftStatesRouter,
 } from "./routers/constant/constant.router";
+import {
+  configsRouter,
+  configDraftStatesRouter,
+} from "./routers/config/config.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
@@ -141,7 +153,10 @@ import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router"
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
-import { getContextFromReq } from "./services/organizations";
+import {
+  getAISettingsForOrg,
+  getContextFromReq,
+} from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
@@ -271,9 +286,10 @@ app.get("/", (req, res) => {
     res.json({
       name: "GrowthBook API",
       production: ENVIRONMENT === "production",
-      api_host:
+      api_host: (
         process.env.API_HOST ||
-        req.protocol + "://" + req.hostname + ":" + app.get("port"),
+        req.protocol + "://" + req.hostname + ":" + app.get("port")
+      ).replace(/\/+$/, ""),
       app_origin: APP_ORIGIN,
       config_source: usingFileConfig() ? "file" : "db",
       email_enabled: isEmailEnabled(),
@@ -502,12 +518,22 @@ app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
+// OAuth 2.1 Authorization Server (public) — discovery, DCR, token, revoke.
+// CORS is per-route on the router; don't add app-wide cors(*) here.
+if (OAUTH_AS_ENABLED) {
+  app.use(oauthAsPublicRouter);
+}
+
 // All other routes require a valid JWT
 const auth = getAuthConnection();
 app.use(auth.middleware as RequestHandler);
 
 // Add logged in user props to the request
 app.use(asyncHandler(processJWT as unknown as RequestHandler));
+
+// Track request completion for GrowthBook telemetry — only routes past this
+// point can have `req.gb` set, so earlier (public/SDK) routes never pay for it
+app.use(trackRequestCompletion as unknown as RequestHandler);
 
 // Add logged in user props to the logger
 app.use(((
@@ -554,6 +580,11 @@ const requireUserIdHandler: RequestHandler = async (req, res, next) => {
   next();
 };
 app.use(asyncHandler(requireUserIdHandler));
+
+// OAuth consent helpers (authenticated)
+if (OAUTH_AS_ENABLED) {
+  app.use(oauthAsAuthedRouter);
+}
 
 // Organization and Settings
 app.use(organizationsRouter);
@@ -637,12 +668,16 @@ app.use("/saved-groups", savedGroupRouter);
 
 app.use("/archetype", ArchetypeRouter);
 
+app.use("/learnings", learningsRouter);
+
 app.use("/attribute", AttributeRouter);
 
 app.use("/custom-fields", customFieldsRouter);
 
 app.use("/constants", constantsRouter);
 app.use("/constants-draft-states", constantDraftStatesRouter);
+app.use("/configs", configsRouter);
+app.use("/configs-draft-states", configDraftStatesRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
@@ -1087,20 +1122,16 @@ app.post(
   datasourcesController.fetchBigQueryDatasets,
 );
 app.post(
-  "/datasource/:datasourceId/materializedColumn",
-  datasourcesController.postMaterializedColumn,
-);
-app.put(
-  "/datasource/:datasourceId/materializedColumn/:matColumnName",
-  datasourcesController.updateMaterializedColumn,
-);
-app.delete(
-  "/datasource/:datasourceId/materializedColumn/:matColumnName",
-  datasourcesController.deleteMaterializedColumn,
-);
-app.post(
   "/datasource/:datasourceId/recreate-managed-warehouse",
   datasourcesController.postRecreateManagedWarehouse,
+);
+app.post(
+  "/datasource/:datasourceId/managed-warehouse/remove-legacy-identifier",
+  datasourcesController.postRemoveManagedWarehouseLegacyIdentifier,
+);
+app.put(
+  "/datasource/:datasourceId/managed-warehouse/id-attribute-identifier",
+  datasourcesController.putManagedWarehouseIdAttributeIdentifier,
 );
 
 if (IS_CLOUD) {
@@ -1191,6 +1222,10 @@ app.delete(
   discussionsController.deleteComment,
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
+app.get(
+  "/discussions/counts/:parentType",
+  discussionsController.getDiscussionCounts,
+);
 app.use("/upload", uploadRouter);
 
 app.use("/session-replay", sessionReplayRouter);
@@ -1266,11 +1301,19 @@ app.use("/product-analytics", productAnalyticsRouter);
 app.use("/agent", agentRouter);
 
 // Meta info
-app.get("/meta/ai", (req, res) => {
-  res.json({
-    enabled: !!process.env.OPENAI_API_KEY,
+app.get("/meta/ai", (async (
+  req: express.Request,
+  res: express.Response,
+  _next: express.NextFunction,
+) => {
+  // Any reachable provider, stored key included. This read OPENAI_API_KEY, so
+  // the Visual Editor extension saw "no AI" for a BYOK org.
+  const context = getContextFromReq(req as AuthRequest);
+  const { keySource } = await getAISettingsForOrg(context);
+  return res.json({
+    enabled: AI_PROVIDERS.some((p) => keySource[p] !== "none"),
   });
-});
+}) as unknown as RequestHandler);
 
 app.use("/ai", aiRouter);
 
@@ -1309,6 +1352,7 @@ const errorHandler: ErrorRequestHandler = (
     warnings?: string[];
     code?: string;
     details?: unknown;
+    sql?: string;
   } = {
     status: status,
     message: err.message || "An error occurred",
@@ -1318,12 +1362,13 @@ const errorHandler: ErrorRequestHandler = (
   if (err instanceof SoftWarningError) {
     body.warnings = err.warnings;
   }
+  // Surface the rendered SQL so the front-end can display it alongside the error
+  if (err instanceof SQLExecutionError) {
+    body.sql = err.query;
+  }
   // Structured errors carry a machine-readable code + details so the front-end
   // can render richer error states.
-  if (
-    err instanceof ApiError ||
-    err instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
-  ) {
+  if (err instanceof ApiError) {
     body.code = err.code;
     body.details = err.details;
   }

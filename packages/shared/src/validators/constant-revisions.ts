@@ -3,6 +3,10 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  publishOverrideBodyFields,
+  bypassApprovalPublishBodyField,
+  publishBypassedGatesField,
+  revisionScheduleResponseFields,
 } from "./shared";
 import { apiConstantValidator } from "./constant";
 import {
@@ -106,6 +110,8 @@ export const apiConstantRevisionValidator = namedSchema(
       revertedFrom: z.string().optional(),
       reviews: z.array(apiReviewValidator),
       activityLog: z.array(apiActivityLogEntryValidator),
+      // Deferred-publish state, shared across every revisioned entity.
+      ...revisionScheduleResponseFields,
       resolution: z
         .object({
           action: z.enum(["merged", "discarded"]),
@@ -306,21 +312,19 @@ export const postConstantRevisionPublishValidator = {
   operationId: "postConstantRevisionPublish",
   summary: "Publish a draft revision",
   description:
-    "Publishes a draft revision, making it the live state of the constant. Blocked if the org requires approvals and the revision is not approved (callers with the bypass-approval permission may still publish).",
+    "Publishes the draft and makes its changes live. The caller needs Publish access for the affected environments. When approval is required, the draft must be approved unless the caller has Bypass draft approvals access. If the organization requires rebasing, an out-of-date draft must be rebased first; an authorized caller can instead send `ignoreWarnings: true` to force-publish it. A 422 response lists every blocking gate and the available resolution.",
   tags: ["constant-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      mergeNow: z
-        .boolean()
-        .optional()
-        .describe(
-          "When the org enforces same-base merges and the constant changed since this revision was created, set to true to force-merge the stale revision instead of rebasing first. This only takes effect for callers with bypass-approval permission; otherwise it is ignored and the revision must be rebased.",
-        ),
+      bypassApproval: bypassApprovalPublishBodyField,
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const postConstantRevisionRevertValidator = {
@@ -334,13 +338,21 @@ export const postConstantRevisionRevertValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      strategy: z.enum(["draft", "publish"]).optional(),
+      strategy: z
+        .enum(["draft", "publish"])
+        .optional()
+        .describe(
+          "Whether to stage the revert as a draft or publish it immediately. Defaults to `draft`, or to `publish` when the org enables 'reverts bypass approval'.",
+        ),
       title: z.string().optional(),
       comment: z.string().optional(),
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const postConstantRevisionRebaseValidator = {
@@ -377,7 +389,13 @@ export const postConstantRevisionRequestReviewValidator = {
   tags: ["constant-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
-    .object({ autoPublishOnApproval: z.boolean().optional() })
+    .object({
+      autoPublishOnApproval: z.boolean().optional(),
+      // Arming captures guard acknowledgments and 422s asking for these when
+      // the draft conflicts with live — a strict body without them rejects the
+      // retry that 422 instructs the caller to send.
+      ...publishOverrideBodyFields,
+    })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
@@ -389,7 +407,7 @@ export const postConstantRevisionSubmitReviewValidator = {
   operationId: "postConstantRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description:
-    "Submits an `approve`, `request-changes`, or `comment` review on the revision. Authors and contributors cannot submit `approve` reviews on their own drafts when the org has `blockSelfApproval` enabled.\n\nWhen `decision` is `approve` and the revision has `autoPublishOnApproval` enabled, the revision is automatically published after approval. The response includes `autoPublished: true` when this happens. Pass `skipAutoPublish: true` to approve without triggering auto-publish.",
+    "Submits an `approve`, `request-changes`, or `comment` review on the revision. Submitting `approve` or `request-changes` needs Review access. A `comment` is participation rather than a verdict, so it is also open to the Comments permission or draft authority on the entity. Authors and contributors cannot submit `approve` reviews on their own drafts when the org has `blockSelfApproval` enabled.\n\nWhen `decision` is `approve` and the revision has `autoPublishOnApproval` enabled, the revision is automatically published after approval. The response includes `autoPublished: true` when this happens. Pass `skipAutoPublish: true` to approve without triggering auto-publish.",
   tags: ["constant-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -467,8 +485,83 @@ export const putConstantRevisionArchiveValidator = {
   tags: ["constant-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
-    .object({ ...newDraftMetadataFields, archived: z.boolean() })
+    .object({
+      ...newDraftMetadataFields,
+      archived: z.boolean(),
+      // The archive-dependents guard soft-warns on a still-referenced entity
+      // and asks for an acknowledgment; a strict body must accept that retry.
+      ...publishOverrideBodyFields,
+    })
     .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postConstantRevisionSchedulePublishValidator = {
+  method: "post" as const,
+  path: "/constants-revisions/:key/:version/schedule-publish",
+  operationId: "postConstantRevisionSchedulePublish",
+  summary: "Schedule (or cancel) a deferred publish",
+  description:
+    "Arms a revision to publish automatically at a future time. Pass `scheduledPublishAt` as an RFC3339 timestamp in the future to arm, or `null` to cancel a pending schedule. Requires the `scheduled-revisions` commercial feature and publish permission on the Constant. A draft that still requires approval must request review first (or be armed with `bypassApproval` by a caller who can bypass).",
+  tags: ["constant-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z
+    .object({
+      // Accept RFC3339 numeric offsets for backward compatibility.
+      scheduledPublishAt: z
+        .union([z.iso.datetime({ offset: true }), z.null()])
+        .describe(
+          "When to publish, as an RFC3339 timestamp (e.g. `2026-01-31T09:00:00Z` or `2026-01-31T02:00:00-07:00`), or `null` to cancel a pending schedule.",
+        ),
+      lockEdits: z.boolean().optional(),
+      lockOthers: z.boolean().optional(),
+      bypassApproval: z.boolean().optional(),
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postConstantRevisionReopenValidator = {
+  method: "post" as const,
+  path: "/constants-revisions/:key/:version/reopen",
+  operationId: "postConstantRevisionReopen",
+  summary: "Reopen a discarded revision",
+  description:
+    "Returns a previously discarded revision to `draft` status so it can be edited and published again. Only discarded revisions can be reopened.",
+  tags: ["constant-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postConstantRevisionRecallReviewValidator = {
+  method: "post" as const,
+  path: "/constants-revisions/:key/:version/recall-review",
+  operationId: "postConstantRevisionRecallReview",
+  summary: "Recall a review request",
+  description:
+    "Pulls a revision in review (`pending-review`, `changes-requested`, or `approved`) back to `draft`, clearing existing reviews and disarming any auto-publish-on-approval.",
+  tags: ["constant-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postConstantRevisionUndoReviewValidator = {
+  method: "post" as const,
+  path: "/constants-revisions/:key/:version/undo-review",
+  operationId: "postConstantRevisionUndoReview",
+  summary: "Retract your own review verdict",
+  description:
+    "Retracts the calling user's own active `approve` or `request-changes` verdict, returning the revision to `pending-review`. Review comments stay in the log. Retracting a `request-changes` can leave the revision approved by someone else, in which case an armed auto-publish fires.",
+  tags: ["constant-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };

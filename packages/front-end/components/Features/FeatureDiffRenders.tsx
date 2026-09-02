@@ -310,17 +310,17 @@ export function RampScheduleSummary({
   return (
     <Flex direction="column" gap="1">
       {startDate ? (
-        <Text size="small">
+        <Text size="sm">
           <strong>Enable:</strong> {datetime(startDate)}
         </Text>
       ) : null}
       {endAt ? (
-        <Text size="small">
+        <Text size="sm">
           <strong>Disable:</strong> {datetime(endAt)}
         </Text>
       ) : null}
       {showStepRow ? (
-        <Text size="small">
+        <Text size="sm">
           {stepCount} step{stepCount !== 1 ? "s" : ""}
         </Text>
       ) : null}
@@ -386,7 +386,7 @@ function RampActionBody({
         stepCount={action.steps.length}
       />
       {ruleCount ? (
-        <Text size="small" color="text-mid">
+        <Text size="sm" color="text-mid">
           {ruleCount === 1 ? "Target" : "Targets"}: {ruleCount} feature rule
           {ruleCount !== 1 ? "s" : ""} (
           {targetRuleIndices!.map((i) => `Rule #${i}`).join(", ")})
@@ -407,7 +407,7 @@ export function PendingRampForRule({
   return (
     <div className="mb-2">
       <Flex align="center" gap="2" mb="1" wrap="wrap">
-        <Text size="medium" weight="medium" color="text-mid">
+        <Text size="md" weight="medium" color="text-mid">
           {label}
         </Text>
         <PendingPublishBadge />
@@ -466,13 +466,13 @@ function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
   return (
     <div className="mb-2">
       <Flex align="center" gap="2" wrap="wrap">
-        <Text size="medium" weight="semibold" color="text-high">
+        <Text size="md" weight="semibold" color="text-high">
           Rule #{index} — {getRuleTypeLabel(rule.type)}
         </Text>
         <RuleEnvScope rule={rule} />
       </Flex>
       {(detail || rule.description) && (
-        <Text size="small" color="text-low" as="span">
+        <Text size="sm" color="text-low" as="span">
           {detail ? <> ({detail})</> : null}
           {rule.description ? ` · ${rule.description}` : ""}
         </Text>
@@ -1172,7 +1172,7 @@ export function renderFeatureRules(
     if (movedRules.length > 0) {
       sections.push(
         <div key="reordered" className="mb-3">
-          <Text size="medium" weight="medium" color="text-mid" as="div" mb="2">
+          <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
             Reordered
           </Text>
           {movedRules.map(({ r, newPos, oldPos }) => (
@@ -1193,7 +1193,7 @@ export function renderFeatureRules(
   if (added.length > 0) {
     sections.push(
       <div key="added" className="mb-3">
-        <Text size="medium" weight="medium" color="text-mid" as="div" mb="2">
+        <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
           Added
         </Text>
         {added.map((r) => {
@@ -1218,7 +1218,7 @@ export function renderFeatureRules(
   if (removed.length > 0) {
     sections.push(
       <div key="removed" className="mb-3">
-        <Text size="medium" weight="medium" color="text-mid" as="div" mb="2">
+        <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
           Removed
         </Text>
         {removed.map((r) => {
@@ -1240,7 +1240,7 @@ export function renderFeatureRules(
   if (modifiedAll.length > 0) {
     sections.push(
       <div key="modified" className="mb-2">
-        <Text size="medium" weight="medium" color="text-mid" as="div" mb="2">
+        <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
           Modified
         </Text>
         {modifiedAll.map((r) => {
@@ -1429,7 +1429,7 @@ function FeatureRulesSection({
     <>
       {toggleRows.length > 0 && (
         <div className="mb-2">
-          <Heading as="h6" size="small" color="text-mid" mb="2">
+          <Heading as="h6" size="sm" color="text-mid" mb="2">
             Environment toggles
           </Heading>
           {toggleRows}
@@ -1437,7 +1437,7 @@ function FeatureRulesSection({
       )}
       {rulesRender && (
         <div className={toggleRows.length > 0 ? "mt-3" : ""}>
-          <Heading as="h6" size="small" color="text-mid" mb="2">
+          <Heading as="h6" size="sm" color="text-mid" mb="2">
             Rules
           </Heading>
           {rulesRender}
@@ -1485,6 +1485,39 @@ export function renderFeatureArchived(
   );
 }
 
+// Targeting-projects change detection + rendering, shared by every metadata
+// diff surface (revision compare, audit-event compare) so the two projections
+// stay identical. `targetingAllProjects` overrides the explicit list.
+export function targetingProjectsChanged(
+  preAll: boolean | undefined,
+  preProjects: string[] | undefined,
+  postAll: boolean | undefined,
+  postProjects: string[] | undefined,
+): boolean {
+  return (
+    (preAll ?? false) !== (postAll ?? false) ||
+    !isEqual(preProjects ?? [], postProjects ?? [])
+  );
+}
+
+function renderTargetingNode(
+  allProjects: boolean | undefined,
+  projects: string[] | undefined,
+): ReactNode {
+  if (allProjects) return "All Projects";
+  if (!projects?.length) return <em>none</em>;
+  return (
+    <>
+      {projects.map((p, i) => (
+        <span key={p}>
+          {i > 0 ? ", " : ""}
+          <ProjectName id={p} />
+        </span>
+      ))}
+    </>
+  );
+}
+
 export function renderFeatureMetadataSection(
   pre: FeaturePartial,
   post: Partial<FeatureInterface>,
@@ -1525,6 +1558,33 @@ export function renderFeatureMetadataSection(
     );
   }
 
+  if (
+    (post.targetingAllProjects !== undefined ||
+      post.targetingProjects !== undefined) &&
+    targetingProjectsChanged(
+      pre?.targetingAllProjects,
+      pre?.targetingProjects,
+      post.targetingAllProjects,
+      post.targetingProjects,
+    )
+  ) {
+    rows.push(
+      <ChangeField
+        key="targeting"
+        label="Targeting Projects"
+        changed
+        oldNode={renderTargetingNode(
+          pre?.targetingAllProjects,
+          pre?.targetingProjects,
+        )}
+        newNode={renderTargetingNode(
+          post.targetingAllProjects,
+          post.targetingProjects,
+        )}
+      />,
+    );
+  }
+
   if (!isEqual(pre?.tags, post.tags) && post.tags !== undefined) {
     const preTags = pre?.tags ?? [];
     const postTags = post.tags ?? [];
@@ -1534,7 +1594,7 @@ export function renderFeatureMetadataSection(
       rows.push(
         <div key="tags" className="mb-2">
           <div className="mb-1">
-            <Text size="medium" weight="medium" color="text-mid">
+            <Text size="md" weight="medium" color="text-mid">
               Tags
             </Text>
           </div>
@@ -1589,6 +1649,21 @@ export function getFeatureMetadataBadges(
     post.project !== undefined
   ) {
     badges.push({ label: "Edit project", action: "edit project" });
+  }
+  if (
+    (post.targetingAllProjects !== undefined ||
+      post.targetingProjects !== undefined) &&
+    targetingProjectsChanged(
+      pre?.targetingAllProjects,
+      pre?.targetingProjects,
+      post.targetingAllProjects,
+      post.targetingProjects,
+    )
+  ) {
+    badges.push({
+      label: "Edit Targeting Projects",
+      action: "edit targeting",
+    });
   }
   if (!isEqual(pre?.tags, post.tags) && post.tags !== undefined) {
     const preTags = pre?.tags ?? [];
@@ -1719,13 +1794,7 @@ function renderPrerequisiteList(
       <div key="added" className="mb-3">
         {added.map((p) => (
           <div key={p.id} className="mb-2">
-            <Text
-              size="medium"
-              weight="medium"
-              color="text-mid"
-              as="div"
-              mb="1"
-            >
+            <Text size="md" weight="medium" color="text-mid" as="div" mb="1">
               Added{" "}
               <Text weight="semibold" color="text-high">
                 {p.id}
@@ -1743,7 +1812,7 @@ function renderPrerequisiteList(
       <div key="removed" className="mb-3">
         {removed.map((p) => (
           <div key={p.id} className="mb-1">
-            <Text size="medium" weight="medium" color="text-mid" as="div">
+            <Text size="md" weight="medium" color="text-mid" as="div">
               Removed{" "}
               <Text weight="semibold" color="text-high">
                 {p.id}
@@ -1762,13 +1831,7 @@ function renderPrerequisiteList(
           const prev = preById.get(p.id)!;
           return (
             <div key={p.id} className="mb-3">
-              <Text
-                size="medium"
-                weight="medium"
-                color="text-mid"
-                as="div"
-                mb="1"
-              >
+              <Text size="md" weight="medium" color="text-mid" as="div" mb="1">
                 Modified{" "}
                 <Text weight="semibold" color="text-high">
                   {p.id}
@@ -1807,7 +1870,7 @@ export function renderEnvPrerequisites(
   if (!result) return null;
   return (
     <div>
-      <Text size="small" color="text-low" as="div" mb="2">
+      <Text size="sm" color="text-low" as="div" mb="2">
         {envId}
       </Text>
       {result}
@@ -2053,6 +2116,33 @@ export function renderRevisionMetadata(
     );
   }
 
+  if (
+    (draft.targetingAllProjects !== undefined ||
+      draft.targetingProjects !== undefined) &&
+    targetingProjectsChanged(
+      current?.targetingAllProjects,
+      current?.targetingProjects,
+      draft.targetingAllProjects,
+      draft.targetingProjects,
+    )
+  ) {
+    rows.push(
+      <ChangeField
+        key="targeting"
+        label="Targeting Projects"
+        changed
+        oldNode={renderTargetingNode(
+          current?.targetingAllProjects,
+          current?.targetingProjects,
+        )}
+        newNode={renderTargetingNode(
+          draft.targetingAllProjects,
+          draft.targetingProjects,
+        )}
+      />,
+    );
+  }
+
   if (!isEqual(current?.tags, draft.tags) && draft.tags !== undefined) {
     const preTags = current?.tags ?? [];
     const postTags = draft.tags ?? [];
@@ -2091,8 +2181,10 @@ export function renderRevisionMetadata(
     }
   }
 
+  // `null` and `undefined` both mean "not set" here — an explicit staged
+  // null only matters when it clears a current `true`.
   if (
-    current?.neverStale !== draft.neverStale &&
+    (current?.neverStale ?? false) !== (draft.neverStale ?? false) &&
     draft.neverStale !== undefined
   ) {
     rows.push(
@@ -2126,7 +2218,7 @@ export function renderRevisionMetadata(
   }
 
   if (
-    !isEqual(current?.customFields, draft.customFields) &&
+    !isEqual(current?.customFields ?? null, draft.customFields ?? null) &&
     draft.customFields !== undefined
   ) {
     rows.push(

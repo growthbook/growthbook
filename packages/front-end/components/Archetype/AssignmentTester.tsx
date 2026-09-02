@@ -7,7 +7,7 @@ import { FiAlertTriangle } from "react-icons/fi";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -249,7 +249,7 @@ export default function AssignmentTester({
                         {debugLog && (
                           <div className="mb-3">
                             <h5>Log</h5>
-                            <div className="bg-white border border-light rounded p-3">
+                            <div className="bg-white border border-light rounded  p-3">
                               {debugLog.map((log, i) => (
                                 <div className="row my-2" key={i}>
                                   <div className="col">{log}</div>

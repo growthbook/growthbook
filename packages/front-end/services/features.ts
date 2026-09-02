@@ -1,3 +1,4 @@
+import isEqual from "lodash/isEqual";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Environment,
@@ -25,6 +26,7 @@ import { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
   featureHasEnvironment,
+  filterEnvironmentsByFeature,
   generateVariationId,
   getNewDraftExperimentsToPublish,
   getRulesForEnvironment,
@@ -34,11 +36,23 @@ import {
   extractConditionAttributeKeys,
   getRequireRegisteredAttributesSettings,
   formatJsonMultilineObjects,
+  getTargetingProjectIds,
+  type MergeResultChanges,
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import isEqual from "lodash/isEqual";
-import { SafeRolloutRule } from "shared/validators";
+import {
+  HoldoutInterface,
+  RevisionRampAction,
+  SafeRolloutRule,
+} from "shared/validators";
+import {
+  featurePublishFootprint,
+  rampActionFootprint,
+  servingEnvironments,
+  holdoutEnvsForChange,
+  HOLDOUT_ENVS_UNRESOLVED,
+} from "shared/permissions";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getFutureScheduledStartDate } from "@/services/experiments";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
@@ -238,7 +252,7 @@ export function useFeatureSearch({
     [contentSearchPrefixes],
   );
   const { getOwnerDisplay } = useUser();
-  const { getProjectById } = useDefinitions();
+  const { getProjectById, projects } = useDefinitions();
 
   const features = useAddComputedFields(
     allFeatures,
@@ -273,6 +287,8 @@ export function useFeatureSearch({
       rampStates,
       dependencyIndex,
       experimentStates,
+      projects,
+      getProjectById,
     ],
     searchTermFilters: {
       is: (item) => {
@@ -317,10 +333,16 @@ export function useFeatureSearch({
         return has;
       },
       key: (item) => item.id,
-      project: (item: ComputedFeatureInterface) => [
-        item.project,
-        item.projectName,
-      ],
+      // Match the governance project plus any targeting projects (all
+      // projects when targetingAllProjects), by id and resolved name, so
+      // `project:` discovery mirrors where the feature is actually delivered.
+      project: (item: ComputedFeatureInterface) => {
+        const ids = getTargetingProjectIds(item) ?? projects.map((p) => p.id);
+        return [
+          ...ids,
+          ...ids.map((id) => (id ? getProjectById(id)?.name : undefined)),
+        ];
+      },
       created: (item) => new Date(item.dateCreated),
       updated: (item) => new Date(item.dateUpdated),
       experiment: (item) => item.linkedExperiments || [],
@@ -584,25 +606,49 @@ export function getVariationColor(i: number, experimentTheme = false) {
   return colors[i % colors.length];
 }
 
+// True when the org enforces project-scoped attribute registration — the
+// picker opt-out must be ignored then; it never loosens enforcement.
+export function useStrictAttributeProjectScoping(): boolean {
+  const { isOn, requireProjectScoping } =
+    getRequireRegisteredAttributesSettings(
+      useOrgSettings().requireRegisteredAttributes,
+    );
+  return isOn && requireProjectScoping;
+}
+
+// Resolve a picker's attribute filter: an explicitly provided scope wins
+// (null = unscoped, show everything); otherwise fall back to the entity's
+// primary project.
+export function resolveAttributeFilter(
+  attributeProjects: string[] | null | undefined,
+  fallbackProject: string | undefined,
+): string | string[] | null {
+  return attributeProjects !== undefined
+    ? attributeProjects
+    : fallbackProject || null;
+}
+
 export function useAttributeSchema(
   showArchived = false,
-  projectFilter?: string,
+  projectFilter?: string | string[] | null,
 ) {
   const attributeSchema = useOrgSettings().attributeSchema || [];
 
-  const filteredAttributeSchema = attributeSchema.filter((attribute) => {
-    return (
-      !projectFilter ||
-      !attribute.projects?.length ||
-      attribute.projects.includes(projectFilter)
-    );
-  });
+  // Content-keyed — callers often build the projects array inline per render.
+  const filterKey = Array.isArray(projectFilter)
+    ? projectFilter.filter(Boolean).join("||")
+    : (projectFilter ?? "");
   return useMemo(() => {
-    if (!showArchived) {
-      return filteredAttributeSchema.filter((s) => !s.archived);
-    }
-    return filteredAttributeSchema;
-  }, [attributeSchema, showArchived, projectFilter]);
+    const filterProjects = new Set(filterKey ? filterKey.split("||") : []);
+    return attributeSchema.filter((attribute) => {
+      if (!showArchived && attribute.archived) return false;
+      return (
+        !filterProjects.size ||
+        !attribute.projects?.length ||
+        attribute.projects.some((p) => filterProjects.has(p))
+      );
+    });
+  }, [attributeSchema, showArchived, filterKey]);
 }
 
 // Shared formatter so the client-side pre-flight error matches the back-end
@@ -648,7 +694,7 @@ export function validateUnregisteredAttributes(
   options: {
     attributeSchema?: SDKAttributeSchema;
     requireRegisteredAttributes?: RawRequireRegistered;
-    project?: string;
+    project?: string | string[] | null;
   },
   existingParts?: AttributeParts,
 ): void {
@@ -678,7 +724,7 @@ export function validateUnregisteredAttributes(
   const buckets = categorizeUnregisteredAttributes(
     keys,
     options.attributeSchema,
-    requireProjectScoping ? options.project : undefined,
+    requireProjectScoping ? (options.project ?? undefined) : undefined,
   );
   if (buckets.unknown.length || buckets.outOfProject.length) {
     throw new Error(formatUnregisteredAttributesError(label, buckets));
@@ -691,6 +737,7 @@ export function validateFeatureRule(
   options: {
     attributeSchema?: SDKAttributeSchema;
     requireRegisteredAttributes?: RawRequireRegistered;
+    attributeProjects?: string[] | null;
   } = {},
   existingRule?: FeatureRule,
 ): null | FeatureRule {
@@ -722,7 +769,13 @@ export function validateFeatureRule(
       condition: ruleCopy.condition,
     },
     "rule",
-    { ...options, project: feature.project },
+    {
+      ...options,
+      project: resolveAttributeFilter(
+        options.attributeProjects,
+        feature.project,
+      ),
+    },
     existingRule
       ? {
           hashAttribute: (existingRule as { hashAttribute?: string })
@@ -876,20 +929,105 @@ export function getDefaultValue(valueType: FeatureValueType): string {
   return "";
 }
 
-export function getAffectedRevisionEnvs(
-  liveFeature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-  environments: Environment[],
-): string[] {
-  const enabledEnvs = getEnabledEnvironments(liveFeature, environments);
-  if (revision.defaultValue !== liveFeature.defaultValue) return enabledEnvs;
-
-  return enabledEnvs.filter((env) => {
-    const liveRules = getRulesForEnvironment(liveFeature.rules, env);
-    const revisionRules = getRulesForEnvironment(revision.rules, env);
-
-    return !isEqual(liveRules, revisionRules);
+/** Computes the client-side publish footprint using shared server rules. */
+export function getRevisionPublishEnvs({
+  liveFeature,
+  changes,
+  environments,
+  holdoutsMap,
+  rampActions,
+}: {
+  liveFeature: FeatureInterface;
+  changes: MergeResultChanges;
+  environments: Environment[];
+  holdoutsMap: Map<string, HoldoutInterface>;
+  /** Revision ramp actions, which are not part of the merge result. */
+  rampActions?: RevisionRampAction[];
+}): string[] {
+  const environmentIds = environments.map((e) => e.id);
+  const holdout = holdoutEnvsForChange({
+    currentHoldoutId: liveFeature.holdout?.id,
+    newHoldout: changes.holdout,
+    environmentIds,
+    resolve: (id) => holdoutsMap.get(id),
   });
+
+  const base = featurePublishFootprint({
+    feature: liveFeature,
+    liveRules: liveFeature.rules ?? [],
+    changes,
+    environmentIds,
+    holdoutEnvs: holdout.unresolved.length
+      ? HOLDOUT_ENVS_UNRESOLVED
+      : holdout.envs,
+  });
+
+  const rampEnvs = rampActionFootprint({
+    rampActions,
+    liveRules: liveFeature.rules ?? [],
+    environmentIds,
+  });
+  return rampEnvs === "all"
+    ? [...environmentIds]
+    : [...new Set([...base, ...rampEnvs])];
+}
+
+/** Returns environments applicable before or after a staged project move. */
+export function getMoveWidenedEnvironments({
+  feature,
+  changes,
+  allEnvironments,
+}: {
+  feature: FeatureInterface;
+  changes: MergeResultChanges;
+  allEnvironments: Environment[];
+}): Environment[] {
+  const base = filterEnvironmentsByFeature(allEnvironments, feature);
+  const m = changes.metadata;
+  const moves =
+    m?.project !== undefined ||
+    m?.targetingProjects !== undefined ||
+    m?.targetingAllProjects !== undefined;
+  if (!moves) return base;
+  const destination = filterEnvironmentsByFeature(allEnvironments, {
+    ...feature,
+    ...(m?.project !== undefined ? { project: m.project } : {}),
+    ...(m?.targetingProjects !== undefined
+      ? { targetingProjects: m.targetingProjects }
+      : {}),
+    ...(m?.targetingAllProjects !== undefined
+      ? { targetingAllProjects: m.targetingAllProjects }
+      : {}),
+  });
+  const seen = new Set(base.map((e) => e.id));
+  return [...base, ...destination.filter((e) => !seen.has(e.id))];
+}
+
+export function getMetadataEditEnvs({
+  feature,
+  proposed,
+  environments,
+}: {
+  feature: FeatureInterface;
+  proposed: {
+    project?: string;
+    targetingAllProjects?: boolean;
+    targetingProjects?: string[];
+  };
+  environments: Environment[];
+}): string[] {
+  const relocates = (proposed.project || "") !== (feature.project || "");
+  const targetingChanged =
+    !!proposed.targetingAllProjects !== !!feature.targetingAllProjects ||
+    !isEqual(
+      [...(proposed.targetingProjects ?? [])].sort(),
+      [...(feature.targetingProjects ?? [])].sort(),
+    );
+  if (!relocates && !targetingChanged) return [];
+  return servingEnvironments(
+    feature,
+    filterEnvironmentsByFeature(environments, feature).map((e) => e.id),
+  );
 }
 
 export function getDefaultVariationValue(defaultValue: string) {
@@ -1318,17 +1456,17 @@ export function jsonToConds(
             value: "",
           });
         }
-        if (operator === "$eq" && (v === true || v === false)) {
+        if (v === true || v === false) {
+          // Only `$eq` round-trips through `$true` / `$false`. Anything else
+          // (e.g. `{$ne: true}`, which also matches an unset attribute) has no
+          // simple-editor equivalent and would be rewritten on save.
+          if (operator !== "$eq") {
+            valid = false;
+            return;
+          }
           return conds.push({
             field,
             operator: v ? "$true" : "$false",
-            value: "",
-          });
-        }
-        if (operator === "$ne" && (v === true || v === false)) {
-          return conds.push({
-            field,
-            operator: v ? "$false" : "$true",
             value: "",
           });
         }
@@ -1506,7 +1644,7 @@ function getAttributeDataType(type: SDKAttributeType) {
 }
 
 export function useAttributeMap(
-  projectFilter?: string,
+  projectFilter?: string | string[] | null,
 ): Map<string, AttributeData> {
   const attributeSchema = useAttributeSchema(true, projectFilter);
 
@@ -1572,7 +1710,7 @@ export function getExperimentDefinitionFromFeature(
     variations,
     phases: [
       {
-        coverage: expRule.coverage || 1,
+        coverage: expRule.coverage ?? 1,
         variationWeights,
         variations: variations.map((v) => ({
           id: v.id,
