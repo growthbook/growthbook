@@ -638,7 +638,7 @@ export default function SDKConnectionPage() {
                 Connection Details
               </Heading>
               {canUpdate && (
-                <Link onClick={() => openEditSection("connection")}>Edit</Link>
+                <Link onClick={() => openEditSection("proxy")}>Edit</Link>
               )}
             </Flex>
             <SDKConnectionCredentialsCard connection={displayedConn} />

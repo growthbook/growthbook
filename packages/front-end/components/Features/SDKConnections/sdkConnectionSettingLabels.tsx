@@ -5,9 +5,38 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { DocLink } from "@/components/DocLink";
 
 /**
- * The label (and help copy) of every advanced SDK connection setting, verbatim
- * from the full form, so a setting reads the same wherever it's edited.
+ * The titles of every SDK connection settings category and setting, verbatim
+ * from the full form, so they read the same on the detail page cards, in the
+ * per-card editor and in the create/edit modals. The label components below
+ * add the full form's help copy and docs links.
  */
+
+export const CATEGORY_TITLES = {
+  payloadSecurity: "Payload Security",
+  experiments: "Experiments",
+  savedGroups: "Saved Groups",
+  payloadMetadata: "Payload Metadata",
+  observability: "Observability and QA",
+  proxy: "GrowthBook Proxy",
+} as const;
+
+export type SDKConnectionSettingsCategory = keyof typeof CATEGORY_TITLES;
+
+export const SETTING_TITLES = {
+  visualEditor: "Enable Visual Editor experiments",
+  urlRedirect: "Enable URL Redirect experiments",
+  hideNames: "Hide names from payload",
+  savedGroupReferences: "Pass Saved Groups by reference",
+  projectIds: "Include Project IDs",
+  customFields: "Include Custom Fields",
+  tags: "Include tags",
+  scheduleDates: "Include experiment schedule dates",
+  ruleIds: "Include feature rule IDs in payload",
+  draftRules: "Include draft Experiment rules in feature definitions",
+  draftExperiments: "Include draft Visual Editor and URL Redirect experiments",
+  useProxy: "Use GrowthBook Proxy",
+  proxyHost: "Proxy Host URL",
+} as const;
 
 export function VisualEditorLabel() {
   return (
@@ -30,7 +59,7 @@ export function UrlRedirectLabel() {
 export function HideNamesLabel() {
   return (
     <>
-      Hide names from payload{" "}
+      {SETTING_TITLES.hideNames}{" "}
       <Tooltip
         body={
           <>
@@ -85,7 +114,7 @@ export function SavedGroupReferencesLabel({
         </>
       }
     >
-      Pass Saved Groups by reference <PiInfo />
+      {SETTING_TITLES.savedGroupReferences} <PiInfo />
     </PremiumTooltip>
   );
 }
@@ -93,7 +122,7 @@ export function SavedGroupReferencesLabel({
 export function ProjectIdsLabel() {
   return (
     <>
-      Include Project IDs{" "}
+      {SETTING_TITLES.projectIds}{" "}
       <Tooltip
         body={
           <>
@@ -119,7 +148,7 @@ export function ProjectIdsLabel() {
 export function CustomFieldsLabel() {
   return (
     <>
-      Include Custom Fields{" "}
+      {SETTING_TITLES.customFields}{" "}
       <Tooltip
         body={
           <p>
@@ -138,7 +167,7 @@ export function CustomFieldsLabel() {
 export function TagsLabel() {
   return (
     <>
-      Include tags{" "}
+      {SETTING_TITLES.tags}{" "}
       <Tooltip
         body={
           <>
@@ -157,7 +186,7 @@ export function TagsLabel() {
 export function ScheduleDatesLabel() {
   return (
     <>
-      Include experiment schedule dates{" "}
+      {SETTING_TITLES.scheduleDates}{" "}
       <Tooltip
         body={
           <>
@@ -173,12 +202,10 @@ export function ScheduleDatesLabel() {
   );
 }
 
-export const RULE_IDS_LABEL = "Include feature rule IDs in payload";
-
 export function DraftRulesLabel() {
   return (
     <>
-      Include draft Experiment rules in feature definitions{" "}
+      {SETTING_TITLES.draftRules}{" "}
       <Tooltip
         body={
           <p>
@@ -197,7 +224,7 @@ export function DraftRulesLabel() {
 export function DraftExperimentsLabel() {
   return (
     <>
-      Include draft Visual Editor and URL Redirect experiments{" "}
+      {SETTING_TITLES.draftExperiments}{" "}
       <Tooltip
         body={
           <>
@@ -217,8 +244,6 @@ export function DraftExperimentsLabel() {
     </>
   );
 }
-
-export const USE_PROXY_LABEL = "Use GrowthBook Proxy";
 
 export function ProxyHostTooltip() {
   return (

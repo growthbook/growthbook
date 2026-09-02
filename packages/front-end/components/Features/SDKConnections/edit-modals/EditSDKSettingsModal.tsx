@@ -11,20 +11,25 @@ import TextField from "@/ui/TextField";
 import PayloadSecurityField, {
   PayloadSecurityValue,
 } from "@/components/Features/SDKConnections/PayloadSecurityField";
-import { deliveryModeFromConnection } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import {
+  advancedValueFromConnection,
+  deliveryModeFromConnection,
+  SDKConnectionAdvancedValue,
+} from "@/components/Features/SDKConnections/sdkConnectionRules";
+import {
+  CATEGORY_TITLES,
   CustomFieldsLabel,
   DraftExperimentsLabel,
   DraftRulesLabel,
   HideNamesLabel,
   ProjectIdsLabel,
   ProxyHostTooltip,
-  RULE_IDS_LABEL,
   SavedGroupReferencesLabel,
   ScheduleDatesLabel,
+  SDKConnectionSettingsCategory,
+  SETTING_TITLES,
   TagsLabel,
   UrlRedirectLabel,
-  USE_PROXY_LABEL,
   VisualEditorLabel,
 } from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
 import { isCloud } from "@/services/env";
@@ -35,20 +40,11 @@ import {
   useSdkConnectionRevisionFlow,
 } from "./useSdkConnectionRevisionFlow";
 
-export type SDKConnectionEditSection =
-  | "connection"
-  | "delivery"
-  | "experiments"
-  | "metadata";
+// Each settings card on the page opens this modal scoped to its own category,
+// so a section only ever saves the fields it shows.
+export type SDKConnectionEditSection = SDKConnectionSettingsCategory;
 
-// Each Edit link on the page opens this modal scoped to its own section, so a
-// section only ever saves the fields it shows.
-const SECTION_HEADERS: Record<SDKConnectionEditSection, string> = {
-  connection: "Edit Connection Details",
-  delivery: "Edit Delivery & Security",
-  experiments: "Edit Features & Experiments",
-  metadata: "Edit Payload & Metadata",
-};
+type FormValue = PayloadSecurityValue & SDKConnectionAdvancedValue;
 
 function GroupLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -83,18 +79,15 @@ export default function EditSDKSettingsModal({
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
   const proxyHostId = useId();
 
-  // Capability gates, mirroring SDKConnectionForm: an option is only offered
-  // when the connection's SDK language/version actually supports it. Without
-  // these a section modal can enable something the SDK will ignore.
+  // Capability gates, mirroring the full form: an option is only offered when
+  // the connection's SDK language/version actually supports it.
   const currentSdkCapabilities = getConnectionSDKCapabilities(
     connection,
     "min-ver-intersection",
   );
   // "max-ver-intersection", as the full form uses: Visual Editor and URL
   // Redirects are offered on what the SDK supports at its LATEST version, not
-  // the version this connection is pinned to. Using the pinned version hid them
-  // for older SDKs and — because submit sanitises against this — silently
-  // cleared the stored value on save.
+  // the version this connection is pinned to.
   const latestSdkCapabilities = getConnectionSDKCapabilities(
     connection,
     "max-ver-intersection",
@@ -114,143 +107,279 @@ export default function EditSDKSettingsModal({
     ...revisionProps,
   });
 
-  // Delivery & Security
-  const [security, setSecurity] = useState<PayloadSecurityValue>({
+  // One state object for every section, so a field is never held twice.
+  const [value, setValue] = useState<FormValue>(() => ({
     delivery: deliveryModeFromConnection(connection),
     encryptPayload: !!connection.encryptPayload,
     hashSecureAttributes: !!connection.hashSecureAttributes,
-    includeExperimentNames: connection.includeExperimentNames ?? true,
-  });
+    ...advancedValueFromConnection(connection),
+  }));
+  const onChange = (patch: Partial<FormValue>) =>
+    setValue((v) => ({ ...v, ...patch }));
 
-  // Features & Experiments
-  const [includeRuleIds, setIncludeRuleIds] = useState(
-    !!connection.includeRuleIds,
-  );
-  const [includeVisualExperiments, setIncludeVisualExperiments] = useState(
-    !!connection.includeVisualExperiments,
-  );
-  const [includeRedirectExperiments, setIncludeRedirectExperiments] = useState(
-    !!connection.includeRedirectExperiments,
-  );
-  const [includeDraftExperiments, setIncludeDraftExperiments] = useState(
-    !!connection.includeDraftExperiments,
-  );
-  const [includeDraftExperimentRefs, setIncludeDraftExperimentRefs] = useState(
-    !!connection.includeDraftExperimentRefs,
-  );
-  const [
-    includeExperimentScheduleInMetadata,
-    setIncludeExperimentScheduleInMetadata,
-  ] = useState(!!connection.includeExperimentScheduleInMetadata);
-
-  // Connection details
-  const [proxyEnabled, setProxyEnabled] = useState(!!connection.proxy?.enabled);
-  const [proxyHost, setProxyHost] = useState(connection.proxy?.host ?? "");
-
-  // Payload Metadata
-  const [includeTagsInMetadata, setIncludeTagsInMetadata] = useState(
-    !!connection.includeTagsInMetadata,
-  );
-  const [includeProjectIdInMetadata, setIncludeProjectIdInMetadata] = useState(
-    !!connection.includeProjectIdInMetadata,
-  );
-  const [savedGroupReferencesEnabled, setSavedGroupReferencesEnabled] =
-    useState(!!connection.savedGroupReferencesEnabled);
-  const [includeCustomFieldsInMetadata, setIncludeCustomFieldsInMetadata] =
-    useState(!!connection.includeCustomFieldsInMetadata);
-  const [allowedCustomFieldsInMetadata, setAllowedCustomFieldsInMetadata] =
-    useState<string[]>(connection.allowedCustomFieldsInMetadata ?? []);
+  const submit = async () => {
+    switch (section) {
+      case "payloadSecurity": {
+        const plain = value.delivery === "plain";
+        await save({
+          // Plain Text is the only mode that implies no encryption.
+          encryptPayload: plain ? false : value.encryptPayload,
+          hashSecureAttributes: plain ? false : value.hashSecureAttributes,
+          // As the full form: never persist Remote Eval the SDK can't run at
+          // its latest version, or that the plan doesn't include.
+          remoteEvalEnabled:
+            value.delivery === "remote" &&
+            latestSdkCapabilities.includes("remoteEval") &&
+            hasRemoteEvaluationFeature,
+          includeExperimentNames: value.includeExperimentNames,
+        });
+        return;
+      }
+      case "experiments": {
+        const visual =
+          showVisualEditorSettings && value.includeVisualExperiments;
+        const redirect =
+          showRedirectSettings && value.includeRedirectExperiments;
+        await save({
+          includeVisualExperiments: visual,
+          includeRedirectExperiments: redirect,
+          includeExperimentNames: value.includeExperimentNames,
+          // As the full form: draft auto-experiments need a parent option on.
+          includeDraftExperiments:
+            (visual || redirect) && !!connection.includeDraftExperiments,
+        });
+        return;
+      }
+      case "savedGroups":
+        await save({
+          // Premium, as in the full form: without the entitlement this must
+          // not be persisted.
+          savedGroupReferencesEnabled:
+            showSavedGroupSettings &&
+            hasLargeSavedGroupFeature &&
+            value.savedGroupReferencesEnabled,
+        });
+        return;
+      case "payloadMetadata":
+        await save({
+          includeProjectIdInMetadata: value.includeProjectIdInMetadata,
+          includeCustomFieldsInMetadata: value.includeCustomFieldsInMetadata,
+          allowedCustomFieldsInMetadata: value.includeCustomFieldsInMetadata
+            ? value.allowedCustomFieldsInMetadata
+            : [],
+          includeTagsInMetadata: value.includeTagsInMetadata,
+          includeExperimentScheduleInMetadata:
+            value.includeExperimentScheduleInMetadata,
+        });
+        return;
+      case "observability":
+        await save({
+          includeRuleIds: value.includeRuleIds,
+          includeDraftExperimentRefs: value.includeDraftExperimentRefs,
+          includeDraftExperiments:
+            (!!connection.includeVisualExperiments ||
+              !!connection.includeRedirectExperiments) &&
+            value.includeDraftExperiments,
+        });
+        return;
+      case "proxy":
+        await save({
+          proxyEnabled: value.proxyEnabled,
+          proxyHost: value.proxyEnabled ? value.proxyHost : "",
+        });
+        return;
+    }
+  };
 
   return (
     <ModalStandard
       trackingEventModalType="edit-sdk-settings"
       open={true}
       close={close}
-      header={SECTION_HEADERS[section]}
+      header={`Edit ${CATEGORY_TITLES[section]}`}
       size="lg"
-      submit={async () => {
-        if (section === "connection") {
-          await save({
-            proxyEnabled,
-            proxyHost: proxyEnabled ? proxyHost : "",
-          });
-          return;
-        }
-        if (section === "delivery") {
-          const plain = security.delivery === "plain";
-          await save({
-            // Plain Text is the only mode that implies no encryption; Remote
-            // Eval keeps whatever the connection had.
-            encryptPayload: plain ? false : security.encryptPayload,
-            hashSecureAttributes: plain ? false : security.hashSecureAttributes,
-            // As the full form: never persist Remote Eval the SDK can't run at
-            // its latest version, or that the plan doesn't include.
-            remoteEvalEnabled:
-              security.delivery === "remote" &&
-              latestSdkCapabilities.includes("remoteEval") &&
-              hasRemoteEvaluationFeature,
-            includeExperimentNames: security.includeExperimentNames,
-          });
-          return;
-        }
-        if (section === "experiments") {
-          // Mirror the full form: never persist an option the SDK can't use,
-          // and drop draft experiments when neither parent is on.
-          const visual = showVisualEditorSettings && includeVisualExperiments;
-          const redirect = showRedirectSettings && includeRedirectExperiments;
-          await save({
-            includeRuleIds,
-            includeExperimentNames: security.includeExperimentNames,
-            includeVisualExperiments: visual,
-            includeRedirectExperiments: redirect,
-            includeDraftExperiments:
-              visual || redirect ? includeDraftExperiments : false,
-            includeDraftExperimentRefs,
-            includeExperimentScheduleInMetadata,
-          });
-          return;
-        }
-        await save({
-          includeTagsInMetadata,
-          includeProjectIdInMetadata,
-          // Premium, as in the full form: without the entitlement this must
-          // not be persisted.
-          savedGroupReferencesEnabled:
-            showSavedGroupSettings &&
-            hasLargeSavedGroupFeature &&
-            savedGroupReferencesEnabled,
-          includeCustomFieldsInMetadata,
-          allowedCustomFieldsInMetadata: includeCustomFieldsInMetadata
-            ? allowedCustomFieldsInMetadata
-            : [],
-        });
-      }}
+      submit={submit}
       cta="Save"
     >
       <Flex direction="column" gap="5" style={{ minWidth: 0, width: "100%" }}>
         {draftSelector}
 
-        {section === "connection" && (
-          <Box>
-            <GroupLabel>Connection Details</GroupLabel>
-            <Flex direction="column" gap="3">
-              {/* Self-hosted configures the proxy via env vars, so the full
-                  form only offers these on Cloud. */}
-              <Switch
-                label={USE_PROXY_LABEL}
-                value={proxyEnabled}
-                onChange={setProxyEnabled}
+        <Box>
+          <GroupLabel>{CATEGORY_TITLES[section]}</GroupLabel>
+
+          {section === "payloadSecurity" && (
+            <>
+              <PayloadSecurityField
+                value={value}
+                onChange={onChange}
+                languages={connection.languages}
+                sdkVersion={connection.sdkVersion}
+                disabled={isExternallyManaged}
               />
-              {proxyEnabled && (
+              {canStream && value.delivery !== "ciphered" && (
+                <Box mt="3">
+                  <Text size="sm" color="text-mid">
+                    Streaming updates are enabled — feature changes are pushed
+                    to subscribed SDKs in real time.
+                  </Text>
+                </Box>
+              )}
+            </>
+          )}
+
+          {section === "experiments" && (
+            <Flex direction="column" gap="2">
+              {showVisualEditorSettings && (
+                <Checkbox
+                  weight="regular"
+                  label={<VisualEditorLabel />}
+                  value={value.includeVisualExperiments}
+                  setValue={(v) => onChange({ includeVisualExperiments: v })}
+                />
+              )}
+              {showRedirectSettings && (
+                <Checkbox
+                  weight="regular"
+                  label={<UrlRedirectLabel />}
+                  value={value.includeRedirectExperiments}
+                  setValue={(v) => onChange({ includeRedirectExperiments: v })}
+                />
+              )}
+              <Checkbox
+                weight="regular"
+                label={<HideNamesLabel />}
+                value={!value.includeExperimentNames}
+                setValue={(v) => onChange({ includeExperimentNames: !v })}
+              />
+            </Flex>
+          )}
+
+          {section === "savedGroups" &&
+            (showSavedGroupSettings ? (
+              <Checkbox
+                weight="regular"
+                label={
+                  <SavedGroupReferencesLabel
+                    remoteEvalEnabled={!!connection.remoteEvalEnabled}
+                  />
+                }
+                value={value.savedGroupReferencesEnabled}
+                disabled={!hasLargeSavedGroupFeature}
+                setValue={(v) => onChange({ savedGroupReferencesEnabled: v })}
+              />
+            ) : (
+              <Text size="sm" color="text-mid">
+                Not supported by this connection&apos;s SDK version.
+              </Text>
+            ))}
+
+          {section === "payloadMetadata" && (
+            <Flex direction="column" gap="2">
+              <Checkbox
+                weight="regular"
+                label={<ProjectIdsLabel />}
+                value={value.includeProjectIdInMetadata}
+                setValue={(v) => onChange({ includeProjectIdInMetadata: v })}
+              />
+              <Box>
+                <Switch
+                  label={<CustomFieldsLabel />}
+                  value={value.includeCustomFieldsInMetadata}
+                  onChange={(v) =>
+                    onChange({
+                      includeCustomFieldsInMetadata: v,
+                      ...(v ? {} : { allowedCustomFieldsInMetadata: [] }),
+                    })
+                  }
+                />
+                {value.includeCustomFieldsInMetadata && (
+                  <Box mt="2">
+                    <MultiSelectField
+                      placeholder="No fields included"
+                      value={value.allowedCustomFieldsInMetadata}
+                      onChange={(fields) =>
+                        onChange({
+                          allowedCustomFieldsInMetadata: fields as string[],
+                        })
+                      }
+                      options={(customFields || []).map((cf) => ({
+                        label: cf.name,
+                        value: cf.id,
+                      }))}
+                      sort={false}
+                      closeMenuOnSelect={true}
+                    />
+                  </Box>
+                )}
+              </Box>
+              <Checkbox
+                weight="regular"
+                label={<TagsLabel />}
+                value={value.includeTagsInMetadata}
+                setValue={(v) => onChange({ includeTagsInMetadata: v })}
+              />
+              <Checkbox
+                weight="regular"
+                label={<ScheduleDatesLabel />}
+                value={value.includeExperimentScheduleInMetadata}
+                setValue={(v) =>
+                  onChange({ includeExperimentScheduleInMetadata: v })
+                }
+              />
+            </Flex>
+          )}
+
+          {section === "observability" && (
+            <Flex direction="column" gap="3">
+              <Checkbox
+                weight="regular"
+                label={SETTING_TITLES.ruleIds}
+                value={value.includeRuleIds}
+                setValue={(v) => onChange({ includeRuleIds: v })}
+              />
+              <Box>
+                <Text as="div" size="md" weight="medium" mb="2">
+                  Draft mode experiments
+                </Text>
+                <Flex direction="column" gap="2">
+                  <Checkbox
+                    weight="regular"
+                    label={<DraftRulesLabel />}
+                    value={value.includeDraftExperimentRefs}
+                    setValue={(v) =>
+                      onChange({ includeDraftExperimentRefs: v })
+                    }
+                  />
+                  {(showVisualEditorSettings || showRedirectSettings) && (
+                    <Checkbox
+                      weight="regular"
+                      label={<DraftExperimentsLabel />}
+                      value={value.includeDraftExperiments}
+                      setValue={(v) => onChange({ includeDraftExperiments: v })}
+                    />
+                  )}
+                </Flex>
+              </Box>
+            </Flex>
+          )}
+
+          {section === "proxy" && (
+            <Flex direction="column" gap="3">
+              <Switch
+                label={SETTING_TITLES.useProxy}
+                value={value.proxyEnabled}
+                onChange={(v) => onChange({ proxyEnabled: v })}
+              />
+              {value.proxyEnabled && (
                 <TextField
                   id={proxyHostId}
                   type="url"
                   placeholder="https://"
-                  value={proxyHost}
-                  onChange={(e) => setProxyHost(e.target.value)}
+                  value={value.proxyHost}
+                  onChange={(e) => onChange({ proxyHost: e.target.value })}
                   label={
                     <Text as="label" htmlFor={proxyHostId} weight="semibold">
-                      Proxy Host URL{" "}
+                      {SETTING_TITLES.proxyHost}{" "}
                       <Text size="sm" weight="regular" color="text-mid">
                         (optional)
                       </Text>{" "}
@@ -260,143 +389,8 @@ export default function EditSDKSettingsModal({
                 />
               )}
             </Flex>
-          </Box>
-        )}
-
-        {section === "delivery" && (
-          <Box>
-            <GroupLabel>Delivery &amp; Security</GroupLabel>
-            <PayloadSecurityField
-              value={security}
-              onChange={(patch) => setSecurity((s) => ({ ...s, ...patch }))}
-              languages={connection.languages}
-              sdkVersion={connection.sdkVersion}
-              disabled={isExternallyManaged}
-            />
-            {canStream && security.delivery !== "ciphered" && (
-              <Box mt="3">
-                <Text size="sm" color="text-mid">
-                  Streaming updates are enabled — feature changes are pushed to
-                  subscribed SDKs in real time.
-                </Text>
-              </Box>
-            )}
-          </Box>
-        )}
-
-        {section === "experiments" && (
-          <Box>
-            <GroupLabel>Features &amp; Experiments</GroupLabel>
-            <Flex direction="column" gap="3">
-              {showVisualEditorSettings && (
-                <Checkbox
-                  weight="regular"
-                  label={<VisualEditorLabel />}
-                  value={includeVisualExperiments}
-                  setValue={setIncludeVisualExperiments}
-                />
-              )}
-              {showRedirectSettings && (
-                <Checkbox
-                  weight="regular"
-                  label={<UrlRedirectLabel />}
-                  value={includeRedirectExperiments}
-                  setValue={setIncludeRedirectExperiments}
-                />
-              )}
-              <Checkbox
-                weight="regular"
-                label={<HideNamesLabel />}
-                value={!security.includeExperimentNames}
-                setValue={(v) =>
-                  setSecurity((s) => ({ ...s, includeExperimentNames: !v }))
-                }
-              />
-              <Checkbox
-                weight="regular"
-                label={RULE_IDS_LABEL}
-                value={includeRuleIds}
-                setValue={setIncludeRuleIds}
-              />
-              <Checkbox
-                weight="regular"
-                label={<DraftRulesLabel />}
-                value={includeDraftExperimentRefs}
-                setValue={setIncludeDraftExperimentRefs}
-              />
-              {(showVisualEditorSettings || showRedirectSettings) && (
-                <Checkbox
-                  weight="regular"
-                  label={<DraftExperimentsLabel />}
-                  value={includeDraftExperiments}
-                  setValue={setIncludeDraftExperiments}
-                />
-              )}
-              <Checkbox
-                weight="regular"
-                label={<ScheduleDatesLabel />}
-                value={includeExperimentScheduleInMetadata}
-                setValue={setIncludeExperimentScheduleInMetadata}
-              />
-            </Flex>
-          </Box>
-        )}
-
-        {section === "metadata" && (
-          <Box>
-            <GroupLabel>Payload &amp; Metadata</GroupLabel>
-            <Flex direction="column" gap="3">
-              <Checkbox
-                weight="regular"
-                label={<ProjectIdsLabel />}
-                value={includeProjectIdInMetadata}
-                setValue={setIncludeProjectIdInMetadata}
-              />
-              <Checkbox
-                weight="regular"
-                label={<TagsLabel />}
-                value={includeTagsInMetadata}
-                setValue={setIncludeTagsInMetadata}
-              />
-              {showSavedGroupSettings && (
-                <Checkbox
-                  weight="regular"
-                  label={
-                    <SavedGroupReferencesLabel
-                      remoteEvalEnabled={!!connection.remoteEvalEnabled}
-                    />
-                  }
-                  value={savedGroupReferencesEnabled}
-                  disabled={!hasLargeSavedGroupFeature}
-                  setValue={setSavedGroupReferencesEnabled}
-                />
-              )}
-              <Switch
-                label={<CustomFieldsLabel />}
-                value={includeCustomFieldsInMetadata}
-                onChange={(v) => {
-                  setIncludeCustomFieldsInMetadata(v);
-                  if (!v) setAllowedCustomFieldsInMetadata([]);
-                }}
-              />
-              {includeCustomFieldsInMetadata && (
-                <MultiSelectField
-                  placeholder="No fields included"
-                  value={allowedCustomFieldsInMetadata}
-                  onChange={(fields) =>
-                    setAllowedCustomFieldsInMetadata(fields as string[])
-                  }
-                  options={(customFields || []).map((cf) => ({
-                    label: cf.name,
-                    value: cf.id,
-                  }))}
-                  sort={false}
-                  closeMenuOnSelect={true}
-                />
-              )}
-            </Flex>
-          </Box>
-        )}
+          )}
+        </Box>
       </Flex>
     </ModalStandard>
   );

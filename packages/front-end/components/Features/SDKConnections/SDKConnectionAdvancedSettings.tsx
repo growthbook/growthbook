@@ -20,13 +20,13 @@ import {
   HideNamesLabel,
   ProjectIdsLabel,
   ProxyHostTooltip,
-  RULE_IDS_LABEL,
   SavedGroupReferencesLabel,
   ScheduleDatesLabel,
   TagsLabel,
   UrlRedirectLabel,
-  USE_PROXY_LABEL,
   VisualEditorLabel,
+  CATEGORY_TITLES,
+  SETTING_TITLES,
 } from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
 
 function Category({ title, children }: { title: string; children: ReactNode }) {
@@ -97,10 +97,10 @@ export default function SDKConnectionAdvancedSettings({
   }, [open]);
 
   const categories = [
-    "Experiments",
-    ...(showSavedGroups ? ["Saved Groups"] : []),
-    "Payload Metadata",
-    "Observability and QA",
+    CATEGORY_TITLES.experiments,
+    ...(showSavedGroups ? [CATEGORY_TITLES.savedGroups] : []),
+    CATEGORY_TITLES.payloadMetadata,
+    CATEGORY_TITLES.observability,
   ];
 
   return (
@@ -108,9 +108,9 @@ export default function SDKConnectionAdvancedSettings({
       {/* Self-hosted configures the proxy via env vars, so the full form only
           offers these on Cloud. */}
       {isCloud() && (
-        <Category title="GrowthBook Proxy">
+        <Category title={CATEGORY_TITLES.proxy}>
           <Switch
-            label={USE_PROXY_LABEL}
+            label={SETTING_TITLES.useProxy}
             value={value.proxyEnabled}
             onChange={(v) => onChange({ proxyEnabled: v })}
           />
@@ -123,7 +123,7 @@ export default function SDKConnectionAdvancedSettings({
               onChange={(e) => onChange({ proxyHost: e.target.value })}
               label={
                 <Text as="label" htmlFor={proxyHostId} weight="semibold">
-                  Proxy Host URL{" "}
+                  {SETTING_TITLES.proxyHost}{" "}
                   <Text size="sm" weight="regular" color="text-mid">
                     (optional)
                   </Text>{" "}
@@ -191,7 +191,7 @@ export default function SDKConnectionAdvancedSettings({
         {/* Kept mounted so the aria-controls target always exists. */}
         <Box id={panelId} p="3" hidden={!open}>
           <Flex direction="column" gap="5">
-            <Category title="Experiments">
+            <Category title={CATEGORY_TITLES.experiments}>
               {showVisualEditor && (
                 <Checkbox
                   weight="regular"
@@ -217,7 +217,7 @@ export default function SDKConnectionAdvancedSettings({
             </Category>
 
             {showSavedGroups && (
-              <Category title="Saved Groups">
+              <Category title={CATEGORY_TITLES.savedGroups}>
                 <Checkbox
                   weight="regular"
                   value={value.savedGroupReferencesEnabled}
@@ -232,7 +232,7 @@ export default function SDKConnectionAdvancedSettings({
               </Category>
             )}
 
-            <Category title="Payload Metadata">
+            <Category title={CATEGORY_TITLES.payloadMetadata}>
               <Checkbox
                 weight="regular"
                 value={value.includeProjectIdInMetadata}
@@ -286,10 +286,10 @@ export default function SDKConnectionAdvancedSettings({
               />
             </Category>
 
-            <Category title="Observability and QA">
+            <Category title={CATEGORY_TITLES.observability}>
               <Checkbox
                 weight="regular"
-                label={RULE_IDS_LABEL}
+                label={SETTING_TITLES.ruleIds}
                 value={value.includeRuleIds}
                 setValue={(v) => onChange({ includeRuleIds: v })}
               />
