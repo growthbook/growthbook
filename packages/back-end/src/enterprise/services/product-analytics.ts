@@ -40,6 +40,8 @@ function withRequestedDisplayConfig(
     config: {
       ...existing.config,
       chartType: requested.chartType,
+      showAs: requested.showAs,
+      chartSettings: requested.chartSettings,
       dateRange: requested.dateRange,
     },
   };

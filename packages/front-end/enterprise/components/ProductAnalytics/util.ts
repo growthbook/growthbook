@@ -15,6 +15,13 @@ import type {
   FunnelStep,
   FunnelDataset,
   ExplorationDateRange,
+  ProductAnalyticsChartSettings,
+} from "shared/validators";
+import {
+  dateGranularity,
+  explorationConfigValidator,
+  explorationDateRangeValidator,
+  comparisonModeValidator,
   ComparisonMode,
 } from "shared/validators";
 import type { AIChatMention } from "shared/ai-chat";
@@ -31,6 +38,10 @@ import {
   mapDatabaseTypeToEnum,
   getMetricMixClass,
 } from "shared/enterprise";
+import {
+  operatorLabelMap,
+  getColumnInfo,
+} from "@/components/FactTables/rowFilterUtils";
 export {
   getMetricMixClass,
   getEffectiveShowAs,
@@ -56,19 +67,21 @@ export type ExplorerDraftConfig = ExplorationConfig & {
 export function stripExplorerDraftFields(
   config: ExplorerDraftConfig,
 ): ExplorationConfig {
-  const { previousTimeFrame: _, comparisonMode: __, ...rest } = config;
-  return rest;
+  const rest = { ...config };
+  delete rest.previousTimeFrame;
+  delete rest.comparisonMode;
+
+  const cleanedChartSettings = cleanChartSettings(rest.chartSettings);
+  if (cleanedChartSettings) {
+    return {
+      ...rest,
+      chartSettings: cleanedChartSettings,
+    } as ExplorationConfig;
+  }
+
+  delete rest.chartSettings;
+  return rest as ExplorationConfig;
 }
-import {
-  dateGranularity,
-  explorationConfigValidator,
-  explorationDateRangeValidator,
-  comparisonModeValidator,
-} from "shared/validators";
-import {
-  operatorLabelMap,
-  getColumnInfo,
-} from "@/components/FactTables/rowFilterUtils";
 
 export { mapDatabaseTypeToEnum };
 
@@ -857,18 +870,45 @@ export function removeIncompleteInputs(
   return dataset;
 }
 
+function cleanChartSettings(
+  chartSettings: ProductAnalyticsChartSettings | undefined,
+): ProductAnalyticsChartSettings | undefined {
+  const categoryAxisLabel =
+    chartSettings?.axes?.categoryAxisLabel?.trim() ?? "";
+  const valueAxisLabel = chartSettings?.axes?.valueAxisLabel?.trim() ?? "";
+
+  if (!categoryAxisLabel && !valueAxisLabel) return undefined;
+
+  return {
+    axes: {
+      ...(categoryAxisLabel ? { categoryAxisLabel } : {}),
+      ...(valueAxisLabel ? { valueAxisLabel } : {}),
+    },
+  };
+}
+
+function getValueFetchKey(
+  value: ProductAnalyticsValue,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(value).filter(([key]) => key !== "name"),
+  );
+}
+
 /** Prepares a config for submission by removing incomplete inputs (values, filters) from the dataset. */
 export function cleanConfigForSubmission(
   config: ExplorerDraftConfig,
 ): ExplorationConfig {
-  const configWithoutPrevious = stripExplorerDraftFields(config);
-  const cleanedDataset = removeIncompleteInputs(configWithoutPrevious.dataset);
-  const cleanedDimensions = configWithoutPrevious.dimensions.filter((d) => {
+  const configWithoutDraftFields = stripExplorerDraftFields(config);
+  const cleanedDataset = removeIncompleteInputs(
+    configWithoutDraftFields.dataset,
+  );
+  const cleanedDimensions = configWithoutDraftFields.dimensions.filter((d) => {
     if (d.dimensionType === "date" || d.dimensionType === "slice") return true;
     return "column" in d && d.column !== null;
   });
   return {
-    ...configWithoutPrevious,
+    ...configWithoutDraftFields,
     dataset: cleanedDataset,
     dimensions: cleanedDimensions,
   } as ExplorationConfig;
@@ -904,8 +944,9 @@ export function toFetchKey(
     "previousTimeFrame" in config || "comparisonMode" in config
       ? stripExplorerDraftFields(config)
       : config;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { showAs, ...rest } = base;
+  const rest = { ...base };
+  delete rest.showAs;
+  delete rest.chartSettings;
   if (base.dataset.type === "funnel") {
     // yAxisScale only affects how counts are rendered (percent vs raw);
     // same rows as chart-type-only changes — omit from the fetch identity.
@@ -927,8 +968,7 @@ export function toFetchKey(
     chartType: getChartCategory(base.chartType),
     dataset: {
       ...base.dataset,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      values: base.dataset.values.map(({ name, ...rest }) => rest),
+      values: base.dataset.values.map(getValueFetchKey),
     },
   };
 }
