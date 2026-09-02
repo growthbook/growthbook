@@ -111,10 +111,6 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   blockIndex?: number;
   isFocused: boolean;
   isEditing: boolean;
-  /** Drag and resize without edit mode — see the same prop on DashboardEditor. */
-  allowLayoutEditing?: boolean;
-  /** Offer Delete without edit mode — see the same prop on DashboardEditor. */
-  allowBlockDeletion?: boolean;
   editingBlock: boolean;
   canMoveBlock: boolean;
   disableBlock: "full" | "partial" | "none";
@@ -162,8 +158,6 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   dashboardComparison,
   blockIndex,
   isEditing,
-  allowLayoutEditing,
-  allowBlockDeletion,
   isFocused,
   editingBlock,
   canMoveBlock,
@@ -474,23 +468,21 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         ></div>
       )}
       <Flex align="center" mb="2">
-        {(isEditing || allowLayoutEditing) &&
-          canMoveBlock &&
-          disableBlock !== "full" && (
-            <IconButton
-              className="dashboard-block-drag-handle"
-              variant="ghost"
-              size="1"
-              mr="2"
-              aria-label="Drag to reorder block"
-              // Only swallow click (which would otherwise toggle title edit) -
-              // mousedown must bubble to RGL so the drag actually starts.
-              onClick={(e) => e.stopPropagation()}
-              style={{ cursor: "grab", touchAction: "none" }}
-            >
-              <PiDotsSixVertical />
-            </IconButton>
-          )}
+        {isEditing && canMoveBlock && disableBlock !== "full" && (
+          <IconButton
+            className="dashboard-block-drag-handle"
+            variant="ghost"
+            size="1"
+            mr="2"
+            aria-label="Drag to reorder block"
+            // Only swallow click (which would otherwise toggle title edit) -
+            // mousedown must bubble to RGL so the drag actually starts.
+            onClick={(e) => e.stopPropagation()}
+            style={{ cursor: "grab", touchAction: "none" }}
+          >
+            <PiDotsSixVertical />
+          </IconButton>
+        )}
         {canEditTitle && editTitle && setBlock ? (
           <Field
             size="legacy"
@@ -647,7 +639,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
               </DropdownMenu>
             )}
           </div>
-        ) : allowBlockDeletion || (canEdit && setIsEditing) ? (
+        ) : canEdit && setIsEditing ? (
           <div>
             <DropdownMenu
               open={dropdownOpen}
@@ -665,39 +657,19 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 </IconButton>
               }
             >
-              {canEdit && setIsEditing && (
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (
-                      typeof blockIndex === "number" &&
-                      enterEditModeForBlock
-                    ) {
-                      enterEditModeForBlock(blockIndex);
-                    } else {
-                      setIsEditing(true);
-                    }
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Edit
-                </DropdownMenuItem>
-              )}
-              {allowBlockDeletion && (
-                <>
-                  {canEdit && setIsEditing && <DropdownMenuSeparator />}
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteBlock();
-                      setDropdownOpen(false);
-                    }}
-                    color="red"
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                </>
-              )}
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (typeof blockIndex === "number" && enterEditModeForBlock) {
+                    enterEditModeForBlock(blockIndex);
+                  } else {
+                    setIsEditing(true);
+                  }
+                  setDropdownOpen(false);
+                }}
+              >
+                Edit
+              </DropdownMenuItem>
             </DropdownMenu>
           </div>
         ) : null}

@@ -258,10 +258,3 @@ export function listSkillSummaries(): readonly SkillSummary[] {
 export function readSkill(name: string): Skill | undefined {
   return resolveSkill(getSkillRegistry().skills, name);
 }
-
-/** Router and leaves for one domain, for scoping an agent to its own area. */
-export function getSkillNamesForGroup(group: string): string[] {
-  return listSkillSummaries()
-    .filter((s) => s.group === group)
-    .map((s) => s.name);
-}

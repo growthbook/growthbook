@@ -13,12 +13,11 @@ function toLabel(name: string): string {
 }
 
 /** The lookup catalogue, routers included — an old `/feature-flags` token must resolve. */
-export function useSkillCommandItems(group?: string): SkillItem[] {
+export function useSkillCommandItems(): SkillItem[] {
   const { data } = useApi<{ skills: SkillSummary[] }>("/agent/skills");
 
   return useMemo(() => {
-    const all = data?.skills ?? [];
-    const skills = group ? all.filter((s) => s.group === group) : all;
+    const skills = data?.skills ?? [];
 
     return skills.map((s): SkillItem => {
       const label = toLabel(s.name);
@@ -31,11 +30,11 @@ export function useSkillCommandItems(group?: string): SkillItem[] {
         ...(s.group !== undefined ? { group: s.group } : {}),
       };
     });
-  }, [data?.skills, group]);
+  }, [data?.skills]);
 }
 
 /** The `/` menu: leaves only, since a router is two entries for one job. */
-export function useSkillMenuItems(group?: string): SkillItem[] {
-  const items = useSkillCommandItems(group);
+export function useSkillMenuItems(): SkillItem[] {
+  const items = useSkillCommandItems();
   return useMemo(() => items.filter((i) => i.kind !== "domain"), [items]);
 }

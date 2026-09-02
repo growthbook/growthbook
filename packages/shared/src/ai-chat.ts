@@ -191,12 +191,6 @@ export type AIChatMention = {
 
 export type SkillKind = "domain" | "leaf";
 
-/**
- * The one skill domain the Product Analytics chat can load. Shared so the
- * agent's resolver and the composer's `/` menu cannot drift apart.
- */
-export const PRODUCT_ANALYTICS_CHAT_SKILL_GROUP = "dashboards";
-
 /** Skill index entry for the `/` menu. Omits the prompt body — the agent loads that. */
 export interface SkillSummary {
   name: string;

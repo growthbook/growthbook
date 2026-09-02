@@ -651,6 +651,24 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   dataSourceExplorationBlockInterface.omit(createOmits),
   funnelExplorationBlockInterface.omit(createOmits),
 ]);
+// An exploration block normally references a run that already happened. Over the
+// API a caller can instead send the `config` alone and let the write run it, so
+// the id is optional here — see `runNewExplorationBlocks`.
+const apiCreateExplorationOmits = {
+  ...createOmits,
+  explorerAnalysisId: true,
+} as const;
+
+const optionalExplorerAnalysisId = {
+  explorerAnalysisId: z
+    .string()
+    .optional()
+    .describe(
+      "The exploration run this block renders. Omit it to send `config` alone " +
+        "and have the query run when the dashboard is written.",
+    ),
+};
+
 export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
   markdownBlockInterface.omit(createOmits),
   experimentMetadataBlockInterface.omit(createOmits),
@@ -664,9 +682,18 @@ export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
   experimentTrafficBlockInterface.omit(createOmits),
   sqlExplorerBlockInterface.omit(createOmits),
   apiMetricExplorerBlockInterface.omit(createOmits),
-  metricExplorationBlockInterface.omit(createOmits),
-  factTableExplorationBlockInterface.omit(createOmits),
-  dataSourceExplorationBlockInterface.omit(createOmits),
+  metricExplorationBlockInterface
+    .omit(apiCreateExplorationOmits)
+    .extend(optionalExplorerAnalysisId),
+  factTableExplorationBlockInterface
+    .omit(apiCreateExplorationOmits)
+    .extend(optionalExplorerAnalysisId),
+  dataSourceExplorationBlockInterface
+    .omit(apiCreateExplorationOmits)
+    .extend(optionalExplorerAnalysisId),
+  funnelExplorationBlockInterface
+    .omit(apiCreateExplorationOmits)
+    .extend(optionalExplorerAnalysisId),
 ]);
 export type CreateDashboardBlockInterface = z.infer<
   typeof createDashboardBlockInterface
@@ -674,6 +701,18 @@ export type CreateDashboardBlockInterface = z.infer<
 export type ApiCreateDashboardBlockInterface = z.infer<
   typeof apiCreateDashboardBlockInterface
 >;
+
+/**
+ * The same block once its analysis id is settled — what an API create block
+ * becomes after the write runs its chart. Distributes over the block union, and
+ * touches only the four types that carry a `config`.
+ */
+export type DashboardBlockWithAnalysisId<T> = T extends {
+  config: unknown;
+  explorerAnalysisId?: string;
+}
+  ? Omit<T, "explorerAnalysisId"> & { explorerAnalysisId: string }
+  : T;
 
 // Allow templates to specify a partial of the individual block fields
 export const dashboardBlockPartial = z.discriminatedUnion("type", [
@@ -746,78 +785,3 @@ export type DashboardBlockData<T extends DashboardBlockInterface> =
 export type DashboardBlockInterfaceOrData<T extends DashboardBlockInterface> =
   | T
   | DashboardBlockData<T>;
-
-// The wire shape `proposeDashboard` accepts. Not the create shape: the analysis
-// ids are the server's to produce and the coordinates are the packer's, so the
-// model supplies neither.
-
-/** Coarse width intent; `packDashboardBlocks` turns it into grid coordinates. */
-export const dashboardBlockSizeHintValidator = z.enum([
-  "small",
-  "medium",
-  "full",
-]);
-export type DashboardBlockSizeHint = z.infer<
-  typeof dashboardBlockSizeHintValidator
->;
-
-const sizeHintField = {
-  sizeHint: dashboardBlockSizeHintValidator
-    .describe(
-      "Width intent: `small` for a KPI tile (three across), `medium` to pair " +
-        "with a neighbour, `full` for a table, funnel, or section heading. " +
-        "Defaults to `full`.",
-    )
-    .optional(),
-};
-
-const proposeOmits = {
-  ...createOmits,
-  layout: true,
-  snapshotId: true,
-} as const;
-
-const explorationProposeOmits = {
-  ...proposeOmits,
-  explorerAnalysisId: true,
-  comparisonExplorerAnalysisId: true,
-  // Decided when the draft is built, alongside the config each chart runs.
-  // Model-set enrollment is how a tile ends up enrolled in a date control it
-  // was never queried against, rendering as "click Update" forever.
-  globalControlSettings: true,
-} as const;
-
-/** Experimentation blocks compute client-side; exploration blocks carry only a
- * config, which the propose handler runs. */
-export const proposeDashboardBlockValidator = z.discriminatedUnion("type", [
-  markdownBlockInterface.omit(proposeOmits).extend(sizeHintField),
-  metricExperimentsBlockInterface.omit(proposeOmits).extend(sizeHintField),
-  experimentsScaledImpactBlockInterface
-    .omit(proposeOmits)
-    .extend(sizeHintField),
-  experimentsWinRateBlockInterface.omit(proposeOmits).extend(sizeHintField),
-  experimentsStatusBlockInterface.omit(proposeOmits).extend(sizeHintField),
-  metricExplorationBlockInterface
-    .omit(explorationProposeOmits)
-    .extend(sizeHintField),
-  factTableExplorationBlockInterface
-    .omit(explorationProposeOmits)
-    .extend(sizeHintField),
-  dataSourceExplorationBlockInterface
-    .omit(explorationProposeOmits)
-    .extend(sizeHintField),
-  funnelExplorationBlockInterface
-    .omit(explorationProposeOmits)
-    .extend(sizeHintField),
-]);
-
-export type ProposeDashboardBlock = z.infer<
-  typeof proposeDashboardBlockValidator
->;
-
-/** True when this proposed block needs an exploration run before it can render. */
-export function proposedBlockNeedsExploration(
-  block: ProposeDashboardBlock,
-): block is Extract<ProposeDashboardBlock, { config: unknown }> {
-  return "config" in block;
-}

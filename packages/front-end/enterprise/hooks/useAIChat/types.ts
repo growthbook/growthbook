@@ -134,9 +134,6 @@ export interface ConversationLoadResponse {
 
 export interface UseAIChatReturn {
   messages: AIChatMessage[];
-  // Loaded-with, not streamed-in. Not inferable from the list: every turn ends by
-  // re-reading the transcript, so by then the two look identical.
-  rehydratedMessageIds: ReadonlySet<string>;
   activeTurnItems: ActiveTurnItem[];
   displayedTextMap: Map<string, string>;
   sendMessage: (

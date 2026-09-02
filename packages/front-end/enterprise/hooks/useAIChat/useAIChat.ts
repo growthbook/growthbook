@@ -52,10 +52,6 @@ export function useAIChat({
   });
 
   const [messages, setMessages] = useState<AIChatMessage[]>([]);
-  // Set only by the conversation-load effect, never by the poll or the resync.
-  const [rehydratedMessageIds, setRehydratedMessageIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
   const [activeTurnItems, setActiveTurnItems] = useState<ActiveTurnItem[]>([]);
   const activeTurnItemsRef = useRef<ActiveTurnItem[]>([]);
 
@@ -144,9 +140,6 @@ export function useAIChat({
 
         setIsLoadingConversation(false);
         setMessages(data.messages ?? []);
-        setRehydratedMessageIds(
-          new Set((data.messages ?? []).map((m) => m.id)),
-        );
         onConversationLoadedRef.current?.(data);
 
         const isRecent =
@@ -555,7 +548,6 @@ export function useAIChat({
 
   return {
     messages,
-    rehydratedMessageIds,
     activeTurnItems,
     displayedTextMap,
     sendMessage,

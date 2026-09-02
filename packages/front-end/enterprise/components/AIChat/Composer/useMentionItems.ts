@@ -39,7 +39,7 @@ export function useMentionItems(datasourceId?: string): {
 } {
   const { metrics, factMetrics, metricGroups, ready } = useDefinitions();
   // Analytics dashboards only. A per-experiment dashboard belongs to its
-  // experiment's page and none of the dashboard skills can touch it, so
+  // experiment's page and none of the dashboard workflows can touch it, so
   // offering one here would only produce a dead end.
   const { dashboards, loading: dashboardsLoading } = useDashboards(false);
 
@@ -64,6 +64,8 @@ export function useMentionItems(datasourceId?: string): {
         typeLabel: mentionTypeLabel("factMetric", m.metricType),
       });
     }
+    // Datasource-scoped means the Product Analytics chat, which can act on
+    // neither a metric group nor a dashboard.
     if (!datasourceId) {
       for (const g of metricGroups) {
         items.push({
@@ -73,16 +75,14 @@ export function useMentionItems(datasourceId?: string): {
           typeLabel: mentionTypeLabel("metricGroup"),
         });
       }
-    }
-    // Not filtered by datasource: a dashboard is not scoped to one, so it stays
-    // offerable whichever datasource the chat is pointed at.
-    for (const d of dashboards) {
-      items.push({
-        id: d.id,
-        label: d.title,
-        metricType: "dashboard",
-        typeLabel: mentionTypeLabel("dashboard"),
-      });
+      for (const d of dashboards) {
+        items.push({
+          id: d.id,
+          label: d.title,
+          metricType: "dashboard",
+          typeLabel: mentionTypeLabel("dashboard"),
+        });
+      }
     }
 
     return sortMentionItems(items);

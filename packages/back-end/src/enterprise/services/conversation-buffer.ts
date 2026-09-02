@@ -1,7 +1,6 @@
 import type { AIChatMessage, AIChatToolResultPart } from "shared/ai-chat";
 import type {
   AIChatFeedbackEntry,
-  AIChatSavedDashboard,
   AIAgentPendingAction,
 } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
@@ -41,8 +40,6 @@ export interface ConversationBuffer {
   getMessages(): AIChatMessage[];
   getLatestToolResult(toolName: string): AIChatToolResultPart | undefined;
   getModel(): string | undefined;
-  /** Previews the user has committed; written by its own endpoint, read-only here. */
-  getSavedDashboards(): AIChatSavedDashboard[];
 
   getPendingAction(): AIAgentPendingAction | undefined;
 
@@ -71,7 +68,6 @@ export class LocalConversationBuffer implements ConversationBuffer {
   private modelValue: string | undefined;
   private readonly agentTypeValue: string;
   private pendingActionValue: AIAgentPendingAction | null;
-  private readonly savedDashboardsValue: AIChatSavedDashboard[];
 
   constructor(
     public readonly conversationId: string,
@@ -83,7 +79,6 @@ export class LocalConversationBuffer implements ConversationBuffer {
       agentType: string;
       model?: string;
       pendingAction?: AIAgentPendingAction | null;
-      savedDashboards?: AIChatSavedDashboard[];
     },
   ) {
     this.messages = init.messages;
@@ -94,11 +89,6 @@ export class LocalConversationBuffer implements ConversationBuffer {
     this.agentTypeValue = init.agentType;
     this.modelValue = init.model;
     this.pendingActionValue = init.pendingAction ?? null;
-    this.savedDashboardsValue = init.savedDashboards ?? [];
-  }
-
-  getSavedDashboards(): AIChatSavedDashboard[] {
-    return this.savedDashboardsValue;
   }
 
   getMessages(): AIChatMessage[] {
@@ -182,8 +172,6 @@ export interface ConversationStatus {
   feedback: AIChatFeedbackEntry[];
   /** Parked mutation awaiting the user's confirm/cancel; `null` if none. */
   pendingAction: AIAgentPendingAction | null;
-  /** Dashboards already saved from this conversation's previews. */
-  savedDashboards: AIChatSavedDashboard[];
 }
 
 export interface ConversationSummary {
@@ -223,7 +211,6 @@ export async function loadOrInitConversation(
       agentType: existing.agentType,
       model: existing.model,
       pendingAction: existing.pendingAction ?? null,
-      savedDashboards: existing.savedDashboards ?? [],
     });
   }
 
@@ -314,7 +301,6 @@ export async function getConversationStatus(
     messages: doc.messages as AIChatMessage[],
     feedback: (doc.feedback ?? []) as AIChatFeedbackEntry[],
     pendingAction: doc.pendingAction ?? null,
-    savedDashboards: doc.savedDashboards ?? [],
   };
 }
 

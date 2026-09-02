@@ -30,9 +30,6 @@ import CollapsedSteps, {
 } from "@/enterprise/components/AIChat/CollapsedSteps";
 import { useCollapsibleActiveTurnItems } from "@/enterprise/components/AIChat/useCollapsibleActiveTurnItems";
 import MessageTokens from "@/enterprise/components/AIChat/MessageTokens";
-import DashboardPreviewBubble, {
-  dashboardDraftFromToolResult,
-} from "./DashboardPreviewBubble";
 import ExplorationBubble, {
   chartDataFromToolResult,
   chartDataFromRecord,
@@ -44,40 +41,7 @@ export const TOOL_STATUS_LABELS: Record<string, string> = {
   search: "Searching...",
   getAvailableColumns: "Inspecting data shape...",
   getColumnValues: "Inspecting values...",
-  proposeDashboard: "Building dashboard...",
 };
-
-/** The one preview still writable; saving from an earlier one pushes stale blocks. */
-function latestProposeToolCallId(
-  messages: AIChatMessage[],
-  activeTurnItems: ActiveTurnItem[],
-): string | undefined {
-  for (let i = activeTurnItems.length - 1; i >= 0; i--) {
-    const item = activeTurnItems[i];
-    if (
-      item.kind === "tool-status" &&
-      item.status === "done" &&
-      item.toolResultData &&
-      dashboardDraftFromToolResult(item.toolResultData)
-    ) {
-      return item.toolCallId;
-    }
-  }
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (msg.role !== "tool") continue;
-    for (let j = msg.content.length - 1; j >= 0; j--) {
-      const part = msg.content[j];
-      if (
-        part.toolName === "proposeDashboard" &&
-        dashboardDraftFromToolResult(part.result)
-      ) {
-        return part.toolCallId;
-      }
-    }
-  }
-  return undefined;
-}
 
 function groupIntoBlocks(
   msgs: AIChatMessage[],
@@ -124,14 +88,12 @@ function classifyAssistantBlockMessages(msgs: AIChatMessage[]): {
     }
 
     if (msg.role === "tool") {
-      const hasArtifact = msg.content.some(
+      const hasChart = msg.content.some(
         (part) =>
-          (part.toolName === "runExploration" &&
-            chartDataFromToolResult(part.result) !== null) ||
-          (part.toolName === "proposeDashboard" &&
-            dashboardDraftFromToolResult(part.result) !== null),
+          part.toolName === "runExploration" &&
+          chartDataFromToolResult(part.result) !== null,
       );
-      if (hasArtifact) {
+      if (hasChart) {
         finalContent.push(msg);
         continue;
       }
@@ -149,8 +111,6 @@ function classifyAssistantBlockMessages(msgs: AIChatMessage[]): {
 
 interface ChatMessageListProps {
   messages: AIChatMessage[];
-  /** Loaded-from-history ids: a preview among them re-queries its aged-out analyses. */
-  rehydratedMessageIds: ReadonlySet<string>;
   activeTurnItems: ActiveTurnItem[];
   displayedTextMap: Map<string, string>;
   loading: boolean;
@@ -164,20 +124,14 @@ interface ChatMessageListProps {
     rating: "positive" | "negative" | null,
     comment: string,
   ) => void;
-  /** Dashboard already saved from each `proposeDashboard` tile, by tool call id. */
-  savedDashboardMap: Record<string, string>;
-  onDashboardSaved: (toolCallId: string, dashboardId: string) => void;
   toolDetailsOpenRef: React.MutableRefObject<Record<string, boolean>>;
   scrollContainerRef: React.RefObject<HTMLDivElement>;
   messagesEndRef: React.RefObject<HTMLDivElement>;
   onScroll: () => void;
-  /** Rendered inside the scroll area, below the messages — turn-ending prompts. */
-  footer?: React.ReactNode;
 }
 
 export default function ChatMessageList({
   messages,
-  rehydratedMessageIds,
   activeTurnItems,
   displayedTextMap,
   loading,
@@ -186,21 +140,14 @@ export default function ChatMessageList({
   waitingForNextStep,
   error,
   feedbackMap,
-  savedDashboardMap,
-  onDashboardSaved,
   onFeedbackSubmit,
   toolDetailsOpenRef,
   scrollContainerRef,
   messagesEndRef,
   onScroll,
-  footer,
 }: ChatMessageListProps) {
   const hasAnyContent = messages.length > 0 || activeTurnItems.length > 0;
   const messageBlocks = groupIntoBlocks(messages);
-  const livePreviewToolCallId = latestProposeToolCallId(
-    messages,
-    activeTurnItems,
-  );
   const lastBlockIsAssistant =
     messageBlocks.length > 0 &&
     messageBlocks[messageBlocks.length - 1].type === "assistant";
@@ -213,8 +160,7 @@ export default function ChatMessageList({
         item.kind === "tool-status" &&
         item.status === "done" &&
         !!item.toolResultData &&
-        (chartDataFromRecord(item.toolResultData) !== null ||
-          dashboardDraftFromToolResult(item.toolResultData) !== null),
+        chartDataFromRecord(item.toolResultData) !== null,
     },
   );
 
@@ -308,45 +254,6 @@ export default function ChatMessageList({
       return [];
     });
 
-  const renderDashboardPreview = ({
-    key,
-    toolCallId,
-    proposal,
-    toolInput,
-    toolOutput,
-    argsTextPreview,
-    refreshOnMount,
-  }: {
-    key: string;
-    toolCallId: string;
-    proposal: NonNullable<ReturnType<typeof dashboardDraftFromToolResult>>;
-    toolInput: Record<string, unknown> | undefined;
-    toolOutput: unknown;
-    argsTextPreview?: string;
-    refreshOnMount?: boolean;
-  }) => (
-    <DashboardPreviewBubble
-      key={key}
-      draft={proposal.draft}
-      droppedBlocks={proposal.droppedBlocks}
-      savedDashboardId={savedDashboardMap[toolCallId]}
-      onSaved={(id) => onDashboardSaved(toolCallId, id)}
-      refreshOnMount={refreshOnMount}
-      superseded={toolCallId !== livePreviewToolCallId}
-      toolTransparency={
-        <ToolUsageDetails
-          embedded
-          summaryLabel="Dashboard definition"
-          toolInput={toolInput}
-          argsTextPreview={argsTextPreview}
-          toolOutput={toolOutput}
-          toolCallId={toolCallId}
-          openStateRef={toolDetailsOpenRef}
-        />
-      }
-    />
-  );
-
   const renderActiveTurnItem = (item: ActiveTurnItem) => {
     if (item.kind === "text") {
       const displayedContent = displayedTextMap.get(item.id) ?? "";
@@ -359,21 +266,6 @@ export default function ChatMessageList({
     }
 
     if (item.kind === "tool-status") {
-      const proposal =
-        item.status === "done" && item.toolResultData
-          ? dashboardDraftFromToolResult(item.toolResultData)
-          : null;
-      if (proposal) {
-        return renderDashboardPreview({
-          key: item.toolCallId,
-          toolCallId: item.toolCallId,
-          proposal,
-          toolInput: item.toolInput,
-          argsTextPreview: item.argsTextPreview,
-          toolOutput: item.toolOutput,
-        });
-      }
-
       const chartData = item.toolResultData
         ? chartDataFromRecord(item.toolResultData)
         : null;
@@ -476,20 +368,6 @@ export default function ChatMessageList({
     if (msg.role === "tool") {
       return msg.content.map((part, i) => {
         const pairedCall = findToolCallPart(messages, part);
-
-        if (part.toolName === "proposeDashboard") {
-          const proposal = dashboardDraftFromToolResult(part.result);
-          if (proposal) {
-            return renderDashboardPreview({
-              key: `${msg.id}-r${i}`,
-              toolCallId: part.toolCallId,
-              proposal,
-              toolInput: pairedCall?.args,
-              toolOutput: part.result,
-              refreshOnMount: rehydratedMessageIds.has(msg.id),
-            });
-          }
-        }
 
         if (part.toolName === "runExploration") {
           const chartData = chartDataFromToolResult(part.result);
@@ -693,8 +571,6 @@ export default function ChatMessageList({
           <Text size="sm">{error}</Text>
         </ErrorBubble>
       )}
-
-      {footer}
 
       <div ref={messagesEndRef} />
     </Flex>

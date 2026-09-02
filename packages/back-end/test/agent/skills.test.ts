@@ -4,7 +4,6 @@ import { dirname, join } from "node:path";
 import {
   _loadSkillsFromDirectory,
   _resolveSkill,
-  getSkillNamesForGroup,
 } from "back-end/src/agent/skills";
 
 function writeFixtureFile(path: string, content: string): void {
@@ -122,35 +121,6 @@ describe("agent skills loader", () => {
     expect(skills.get("growthbook-docs")?.body).toContain(
       "GrowthBook documentation",
     );
-
-    // The Product Analytics chat scopes itself to the `dashboards` domain, so
-    // both workflows must load — a missing one silently disappears from that
-    // chat's `/` menu and from what its agent can reach.
-    expect(
-      summaries.filter((s) => s.group === "dashboards").map(({ name }) => name),
-    ).toEqual([
-      "dashboards",
-      "dashboards/references/dashboard-create",
-      "dashboards/references/dashboard-edit",
-    ]);
-
-    // The router's table and the chat's system prompt both name workflows bare,
-    // and the Product Analytics chat gates on the resolved skill's group — so a
-    // bare name must resolve, or that chat can load none of its own workflows.
-    expect(_resolveSkill(skills, "dashboard-create")).toMatchObject({
-      name: "dashboards/references/dashboard-create",
-      group: "dashboards",
-    });
-  });
-});
-
-describe("getSkillNamesForGroup", () => {
-  it("returns nothing for a name that is not a domain", () => {
-    expect(getSkillNamesForGroup("nope")).toEqual([]);
-    // A workflow's qualified name is not a group name.
-    expect(
-      getSkillNamesForGroup("dashboards/references/dashboard-create"),
-    ).toEqual([]);
   });
 });
 

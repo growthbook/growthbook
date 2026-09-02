@@ -270,36 +270,23 @@ function stripQueryStrings(
   return out;
 }
 
-export interface AgentApiToolOptions {
-  /** Which skills this agent may load. Defaults to the whole registry. */
-  resolveSkill?: (name: string) => SkillLoadResult | undefined;
-  /** Skill names offered in the `loadSkill` error message. Defaults to the domain routers. */
-  availableSkillNames?: () => string[];
-}
-
 /** Build `loadSkill`, `callApi`, and `askUser` for one request. */
 export function buildAgentApiTools(
   ctx: ReqContext,
   buffer: ConversationBuffer,
   emit?: AgentEmit,
-  options: AgentApiToolOptions = {},
 ) {
-  const resolve = options.resolveSkill ?? loadSkillResult;
-  const listSkills =
-    options.availableSkillNames ??
-    (() => listDomainSkills().map((s) => s.name));
-
   return {
     loadSkill: aiTool({
       description: LOAD_SKILL_DESCRIPTION,
       inputSchema: loadSkillInputSchema,
       execute: async (input) => {
-        const result = resolve(input.name);
+        const result = loadSkillResult(input.name);
         if (!result) {
           return {
             status: "not_found" as const,
             message: `No skill named "${input.name}". Pick one from availableSkills and retry.`,
-            availableSkills: listSkills(),
+            availableSkills: listDomainSkills().map((s) => s.name),
           };
         }
         return result;

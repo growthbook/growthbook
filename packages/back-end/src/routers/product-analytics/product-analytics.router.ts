@@ -3,9 +3,7 @@ import { z } from "zod";
 import {
   productAnalyticsRunRequestBodyValidator,
   aiChatFeedbackRatingValidator,
-  aiChatSavedDashboardValidator,
   aiChatMentionValidator,
-  aiChatSkillsValidator,
 } from "shared/validators";
 import { aiModelValidator } from "back-end/src/routers/ai/ai.validators";
 import { wrapController } from "back-end/src/routers/wrapController";
@@ -45,11 +43,6 @@ router.post(
         datasourceId: z.string(),
         model: aiModelValidator,
         mentions: aiChatMentionValidator.array().optional(),
-        // Scoped server-side to PRODUCT_ANALYTICS_CHAT_SKILL_GROUP.
-        skills: aiChatSkillsValidator.optional(),
-        // The user's answer to a parked mutation; the harness replays the stored call.
-        confirmActionId: z.string().min(1).optional(),
-        confirmDecision: z.enum(["confirm", "cancel"]).optional(),
       })
       .strict(),
   }),
@@ -87,15 +80,6 @@ router.post(
       .strict(),
   }),
   productAnalyticsController.postChatFeedback,
-);
-
-router.post(
-  "/chat/:conversationId/saved-dashboard",
-  validateRequestMiddleware({
-    params: z.object({ conversationId: z.string().min(1) }).strict(),
-    body: aiChatSavedDashboardValidator,
-  }),
-  productAnalyticsController.postChatSavedDashboard,
 );
 
 router.delete(

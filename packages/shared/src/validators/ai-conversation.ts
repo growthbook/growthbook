@@ -58,46 +58,6 @@ export const aiChatMentionValidator = z
   })
   .strict();
 
-/** Both the `openAnalyticsChat` tool input and what the handoff card reads back. */
-export const analyticsHandoffValidator = z.object({
-  // Required, not defaulted: guessing `create` for an edit duplicates the dashboard.
-  mode: z
-    .enum(["create", "edit"])
-    .describe(
-      "`create` to build a new dashboard, `edit` to change one that already " +
-        "exists. On `edit`, name that dashboard in `mentions` so the other chat " +
-        "resolves it by id instead of searching.",
-    ),
-  prompt: z
-    .string()
-    .trim()
-    .min(1)
-    .max(2000)
-    .describe(
-      "The brief to start the Analytics chat with, written as the user would put it " +
-        "and complete on its own — the chat on the other side gets this text and " +
-        "nothing else from this conversation. Name the metrics, the timeframe, and " +
-        "the dashboard name if the user gave one.",
-    ),
-  // A malformed `mentions` drops rather than failing the whole handoff.
-  mentions: aiChatMentionValidator
-    .array()
-    .max(20)
-    .optional()
-    .catch(undefined)
-    .describe(
-      "Entities named in the prompt, copied from the `[Referenced by the user: ...]` " +
-        "line, so the other chat resolves them by id instead of searching.",
-    ),
-});
-
-export type AnalyticsHandoff = z.infer<typeof analyticsHandoffValidator>;
-
-/** The `openAnalyticsChat` tool result, as the transcript stores it. */
-export const analyticsHandoffResultValidator = z.object({
-  handoff: analyticsHandoffValidator,
-});
-
 /** Stored form. `stale` is server-set — the client cannot assert it. */
 export const aiChatStoredMentionValidator = aiChatMentionValidator.extend({
   stale: z.boolean().optional(),
@@ -204,27 +164,6 @@ export type AIAgentPendingAction = z.infer<
 >;
 
 // ---------------------------------------------------------------------------
-// Saved dashboards
-// ---------------------------------------------------------------------------
-
-/**
- * A dashboard the user saved from a `proposeDashboard` preview, keyed by the
- * tool call that proposed it. Without this the binding lives only in component
- * state, so re-opening the conversation offers Save again and creates a second
- * dashboard from the same tile.
- */
-export const aiChatSavedDashboardValidator = z
-  .object({
-    toolCallId: z.string().min(1).max(128),
-    dashboardId: z.string().min(1).max(128),
-  })
-  .strict();
-
-export type AIChatSavedDashboard = z.infer<
-  typeof aiChatSavedDashboardValidator
->;
-
-// ---------------------------------------------------------------------------
 // Feedback validator
 // ---------------------------------------------------------------------------
 
@@ -275,8 +214,6 @@ export const aiConversationValidator = z
      * confirm; `null`/absent means there is no pending action.
      */
     pendingAction: aiAgentPendingActionValidator.nullable().optional(),
-    /** Dashboards saved from this conversation's previews, by tool call id. */
-    savedDashboards: aiChatSavedDashboardValidator.array().optional(),
   })
   .strict();
 

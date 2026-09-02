@@ -1,7 +1,6 @@
 import { setTimeout as delay } from "timers/promises";
 import { z } from "zod";
 import {
-  PRODUCT_ANALYTICS_CHAT_SKILL_GROUP,
   tryParseToolResultJson,
   toolResultSnapshotId,
   type AIChatMention,
@@ -15,9 +14,6 @@ import {
   ProductAnalyticsResultRow,
 } from "shared/validators";
 import {
-  blockComparisonValidator,
-  dashboardGlobalControlsValidator,
-  proposeDashboardBlockValidator,
   clearInapplicableShowAs,
   getEffectiveShowAs,
   getIsRatioByIndex,
@@ -28,10 +24,6 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import {
-  buildDashboardDraft,
-  type BuildDashboardDraftInput,
-} from "back-end/src/enterprise/services/dashboard-proposal";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import {
@@ -47,13 +39,7 @@ import type { ConversationBuffer } from "back-end/src/enterprise/services/conver
 import {
   createAgentHandler,
   type AgentConfig,
-  type SkillLoadResult,
 } from "back-end/src/enterprise/services/agent-handler";
-import {
-  buildAgentApiTools,
-  loadSkillResult,
-} from "back-end/src/agent/shared-tools";
-import { getSkillNamesForGroup, readSkill } from "back-end/src/agent/skills";
 import {
   getFactTable,
   getFactTablesForDatasource,
@@ -77,32 +63,6 @@ Standard workflow for building a chart:
 
 For follow-up modifications ("break down by country", "change to last 90 days", etc.), start from the config returned by the previous runExploration and apply the requested changes — do not rebuild from scratch.
 </workflow>
-
-<dashboards>
-Building or editing a dashboard is a different job from building a chart, and it does NOT use the chart tools above.
-
-1. Settle the brief. A name is needed only to CREATE a dashboard — if you are editing one you already have a \`dashboardId\` for, it keeps its saved name and you must not ask about the title at all. For a new dashboard with no name given, call \`askUser\` (or ask in one short sentence) and stop. Everything else has a default: take it, and say what you assumed.
-2. \`loadSkill('dashboards')\` — read the router, then the leaf it points to (\`dashboard-create\` or \`dashboard-edit\`).
-3. \`proposeDashboard\` — once, with every block. The server runs each query, lays out the grid, and shows the user a live preview with a Save button.
-
-The skill carries the rules. Two that apply before you have read it:
-- Do NOT call \`runExploration\` for a dashboard — each call renders its own chart card. Pass the configs to \`proposeDashboard\`.
-- After a \`proposeDashboard\` call that carried \`blocks\`, stop: one short sentence naming what's on it. A call with only \`dashboardId\` is a read that changes nothing — if the user asked for a change, keep going and make it, and never report that read as done. Stop after it only when all they asked for was to see the dashboard.
-- Say only what the preview actually shows. If a tile you were asked to remove is still in the draft you got back, the removal did not happen: fix it and call again rather than claiming it.
-- A \`proposeDashboard\` result annotated \`[The user saved this preview as dashboard <id> ...]\` means that dashboard now exists: pass that id as \`dashboardId\` on every later call, or saving again creates a duplicate.
-- Once a dashboard is in play in this conversation, every follow-up is about that one. Take its id and its current state from the newest draft you have — do not ask which dashboard they mean, whether to update it or make a new one, or for permission to make a change they just asked for. Re-loading by \`dashboardId\` throws away timeframe and comparison the user set on a preview they have not saved yet, so carry \`globalControls\` and \`comparison\` through from that draft.
-
-\`loadSkill\` here only resolves the dashboard skills; there is nothing else to load.
-</dashboards>
-
-<tools>
-Beyond the chart tools, you have:
-
-- \`loadSkill\` — read a dashboard workflow. See <dashboards>.
-- \`proposeDashboard\` — build or revise a dashboard. See <dashboards>.
-- \`callApi\` — call the GrowthBook REST API: { method, path (full, including version), query?, body?, summary? }. The response is { status, body }; treat 2xx as success. Only call paths documented in a skill you have loaded — never invent one. On a write, pass \`summary\`: one line naming what changes in the user's terms, because it is the only thing they read before approving, and the request body is collapsed. Writes are gated for confirmation automatically — just issue the call; do not ask permission first.
-- \`askUser\` — ask a multiple-choice question and stop, when the request is genuinely ambiguous and no sensible default exists. Emit no text after it; the reply arrives as the next message.
-</tools>
 
 <chart_rules>
 Timeseries charts (line, area, timeseries-table): always include a date dimension.
@@ -239,17 +199,13 @@ async function buildProductAnalyticsSystemPrompt(
     `There are ${metrics.length} metrics and ${allFactTables.length} fact tables available. ` +
     "Use the search tool to discover them — pass an empty query to browse, or a search term to filter.\n\n" +
     "A user message may begin with an auto-injected line of the form\n" +
-    "  [Referenced by the user: Revenue (factMetric: fact__xyz), Growth KPIs (dashboard: dash_abc)]\n" +
+    "  [Referenced by the user: Revenue (factMetric: fact__xyz)]\n" +
     "The chat UI adds it when the user @-mentioned entities in the composer — it is " +
     "not something they typed, so do not echo it. It maps each `@Name` already in " +
     "their text to the exact id they picked, so use those ids directly rather than " +
     "calling search to re-resolve the name. An entry marked STALE was picked under a " +
     "different datasource and is not usable here — say so, name it, and ask the user " +
-    "to re-pick it rather than searching for a replacement.\n" +
-    "A `dashboard:` entry is the dashboard the user wants worked on — pass its id as " +
-    "`dashboardId` to `proposeDashboard` so saving updates it instead of creating a " +
-    "second one, and do not list or search dashboards to find it. Dashboards are not " +
-    "scoped to a datasource, so one is never STALE.\n\n" +
+    "to re-pick it rather than searching for a replacement.\n\n" +
     buildConfigSchemaSummary() +
     "\n\n" +
     PA_SYSTEM_INSTRUCTIONS
@@ -966,72 +922,6 @@ const RUN_EXPLORATION_DESCRIPTION =
   "Use config and resultCsv for analysis and follow-up modifications. Ignore the exploration field (internal use). " +
   "Call getSnapshot only for older or compacted snapshots.";
 
-const proposeDashboardInputSchema = z.object({
-  title: z
-    .string()
-    .min(1)
-    .max(200)
-    .optional()
-    .describe(
-      "The dashboard's name. Required only when creating a new dashboard. On an edit " +
-        "(any call with `dashboardId`) omit it and the saved name is kept — pass it " +
-        "only to rename. Never ask the user to restate a name you are not changing.",
-    ),
-  dashboardId: z
-    .string()
-    .optional()
-    .describe(
-      "Only when revising a dashboard that is already saved. Omit for a new one — " +
-        "a dashboard you proposed but the user has not saved yet does not have an " +
-        "id, so revising it means calling again with no dashboardId.",
-    ),
-  projects: z
-    .string()
-    .array()
-    .optional()
-    .describe(
-      "Project ids the dashboard belongs to; `[]` means every project. " +
-        "Ask the user which project when the organization has more than one, " +
-        "since moving a dashboard afterwards means editing it by hand. " +
-        "Omit only when you could not establish it.",
-    ),
-  globalControls: dashboardGlobalControlsValidator
-    .optional()
-    .describe(
-      "Dashboard-wide filter bar: dateRange, dateGranularity, and (for experimentation blocks) projects and experimentSearchString.",
-    ),
-  comparison: blockComparisonValidator
-    .optional()
-    .describe(
-      'Dashboard-wide compare-to-previous-period, e.g. { enabled: true, mode: "previousPeriod" }. ' +
-        "Use this when the user wants the whole dashboard compared against a prior window, " +
-        "rather than setting `comparison` on individual blocks.",
-    ),
-  blocks: proposeDashboardBlockValidator
-    .array()
-    .min(1)
-    .max(20)
-    .optional()
-    .describe(
-      "The blocks, in reading order. Chart blocks carry only their `config` — the server runs each query and wires up the result, so do not run the charts yourself first. " +
-        "Omit entirely, with `dashboardId` set, to load a saved dashboard as-is.",
-    ),
-});
-
-const PROPOSE_DASHBOARD_DESCRIPTION =
-  "Propose a dashboard and show it to the user as a live, laid-out preview with " +
-  "a Save button. This is the ONLY way to build or revise a dashboard — do not " +
-  "run the charts with runExploration first, and do not POST to the dashboards " +
-  "API. The server runs every query, arranges the grid, and renders the result. " +
-  "The user can rearrange, resize, and delete tiles in the preview, then save. " +
-  "To put a dashboard that already exists in front of them unchanged, pass only " +
-  "`dashboardId` and no `blocks`: the server loads it exactly as saved, keeping " +
-  "its layout, and runs nothing. That form is for when looking at it is the whole " +
-  "request — it changes nothing, so describe it as the dashboard as it stands. " +
-  "To read a dashboard you are about to edit, use `GET /api/v1/dashboards/<id>` " +
-  "instead, which costs nothing and shows the user no preview. Stop after a call " +
-  "that carried `blocks`.";
-
 const GET_SNAPSHOT_DESCRIPTION =
   "Retrieve configuration and result CSV for a snapshot by snapshotId from conversation history. " +
   "Prefer using the runExploration return value (especially resultCsv) for the run you just executed. " +
@@ -1045,9 +935,6 @@ async function mentionDatasource(
   ctx: ReqContext,
   mention: AIChatMention,
 ): Promise<string | undefined> {
-  // Callers filter these out first; guarded here so a dashboard can never be
-  // read as a metric with a missing datasource, which would mark it stale.
-  if (mention.type === "dashboard") return undefined;
   if (mention.type === "factMetric") {
     return (await ctx.models.factMetrics.getById(mention.id))?.datasource;
   }
@@ -1066,33 +953,12 @@ async function resolveProductAnalyticsMentions(
 
   return Promise.all(
     mentions.map(async (mention) => {
-      // A dashboard is not scoped to a datasource, so there is nothing for it
-      // to be stale against — it stays usable whichever one the chat is on.
-      if (mention.type === "dashboard") return mention;
-
       const datasource = await mentionDatasource(ctx, mention);
       return datasource === datasourceId
         ? mention
         : { ...mention, stale: true };
     }),
   );
-}
-
-// Scoped on the resolver, not just the `/` menu, so the model cannot reach
-// another domain's endpoints even if it guesses the skill name.
-function productAnalyticsSkillNames(): string[] {
-  return getSkillNamesForGroup(PRODUCT_ANALYTICS_CHAT_SKILL_GROUP);
-}
-
-function resolveProductAnalyticsSkill(
-  name: string,
-): SkillLoadResult | undefined {
-  // Resolve first, then gate on the group. An exact-name allowlist would reject
-  // the bare workflow names the router's table and this prompt both hand out
-  // (`dashboard-create`, not `dashboards/references/dashboard-create`).
-  const skill = readSkill(name);
-  if (skill?.group !== PRODUCT_ANALYTICS_CHAT_SKILL_GROUP) return undefined;
-  return loadSkillResult(skill.name);
 }
 
 const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
@@ -1109,9 +975,7 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
   resolveMentions: (ctx, mentions, { datasourceId }) =>
     resolveProductAnalyticsMentions(ctx, mentions, datasourceId),
 
-  resolveSkill: resolveProductAnalyticsSkill,
-
-  buildTools: (ctx, buffer, { datasourceId }, emit) => {
+  buildTools: (ctx, buffer, { datasourceId }) => {
     // Memoized for the whole turn: a chat turn searches several times and each
     // miss refetches every metric in the org.
     const searchLoaders = createProductAnalyticsSearchLoaders(
@@ -1120,12 +984,6 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
     );
 
     return {
-      // What lets this chat go on to save its charts as a dashboard.
-      ...buildAgentApiTools(ctx, buffer, emit, {
-        resolveSkill: resolveProductAnalyticsSkill,
-        availableSkillNames: productAnalyticsSkillNames,
-      }),
-
       search: aiTool({
         description: SEARCH_DESCRIPTION,
         inputSchema: searchInputSchema,
@@ -1158,74 +1016,6 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
         inputSchema: runExplorationInputSchema,
         execute: ({ config }, { abortSignal }) =>
           executeRunExploration(ctx, buffer, config, abortSignal),
-      }),
-
-      proposeDashboard: aiTool({
-        description: PROPOSE_DASHBOARD_DESCRIPTION,
-        inputSchema: proposeDashboardInputSchema,
-        execute: async (input) => {
-          const { blocks, dashboardId, title, ...rest } = input;
-          const meta = { ...rest, ...(dashboardId ? { dashboardId } : {}) };
-
-          // Checked here, not in the schema, so a wrong call gets a usable sentence.
-          let draftInput: BuildDashboardDraftInput;
-          if (blocks) {
-            // Only a new dashboard needs a name from the model; an edit keeps the
-            // one it already has, so never make the user restate it.
-            if (dashboardId) {
-              draftInput = { ...meta, dashboardId, title, blocks };
-            } else if (title) {
-              draftInput = { ...meta, title, blocks };
-            } else {
-              return {
-                status: "error" as const,
-                message:
-                  "`title` is required when proposing blocks for a new dashboard. " +
-                  "Ask the user what to call it, then call again.",
-              };
-            }
-          } else if (dashboardId) {
-            draftInput = { ...meta, dashboardId, title };
-          } else {
-            return {
-              status: "error" as const,
-              message:
-                "Pass `blocks` to propose a dashboard, or `dashboardId` on its own to " +
-                "load one that already exists.",
-            };
-          }
-
-          const { draft, droppedBlocks, error } = await buildDashboardDraft(
-            ctx,
-            draftInput,
-          );
-          if (error || !draft.blocks.length) {
-            return {
-              status: "error" as const,
-              message:
-                error ??
-                "None of the proposed blocks could be built. Check the metric ids and " +
-                  "date range, then try again — do not present this as a finished dashboard.",
-              droppedBlocks,
-            };
-          }
-          // The draft rides in the tool result rather than an SSE event so the
-          // preview re-renders from the transcript after a reload.
-          return {
-            status: "shown" as const,
-            message: blocks
-              ? "Dashboard preview shown to the user with a Save button. Stop now — " +
-                "describe it in one short sentence and let them review it. Do not save it yourself."
-              : // A read, not a delivery. Reporting it as one is how the agent ends up
-                // claiming an edit it never made.
-                "This is the dashboard exactly as it is saved, and its blocks are in " +
-                "`draft`. Describe it as it stands. An edit the user asked for still " +
-                "needs a second call carrying the full block list you want, with " +
-                "`globalControls` and `comparison` carried through from this draft.",
-            draft,
-            ...(droppedBlocks.length ? { droppedBlocks } : {}),
-          };
-        },
       }),
 
       getSnapshot: aiTool({

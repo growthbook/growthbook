@@ -10,6 +10,7 @@ import {
   resolveGlobalControlsBlockEnrollment,
   dashboardBlockHasIds,
   apiCreateDashboardBody,
+  DashboardBlockWithAnalysisId,
   ApiDashboardInterface,
   ApiGetDashboardsForExperimentReturn,
   apiUpdateDashboardBody,
@@ -46,7 +47,10 @@ import {
   getDashboardsForExperimentEndpoint,
 } from "back-end/src/api/specs/dashboard.spec";
 import { determineNextDate } from "back-end/src/services/experiments";
-import { shouldRecalculateNextUpdate } from "back-end/src/enterprise/services/dashboards";
+import {
+  runNewApiExplorationBlocks,
+  shouldRecalculateNextUpdate,
+} from "back-end/src/enterprise/services/dashboards";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
@@ -450,10 +454,18 @@ export class DashboardModel extends BaseClass {
       title,
       projects,
       globalControls,
+      comparison,
       blocks,
     } = apiCreateDashboardBody.parse(rawBody);
+    // Chart blocks may arrive as a config the caller never ran, so run those
+    // before the write — a block with no analysis id is a tile that never
+    // renders.
+    const ranBlocks = await runNewApiExplorationBlocks(this.context, blocks, {
+      globalControls,
+      comparison,
+    });
     const createdBlocks = await Promise.all(
-      blocks.map((blockData) =>
+      ranBlocks.map((blockData) =>
         generateDashboardBlockIds(
           this.context.org.id,
           fromBlockApiInterface(blockData),
@@ -478,6 +490,7 @@ export class DashboardModel extends BaseClass {
       title,
       projects,
       globalControls,
+      comparison,
       blocks: normalizeLayouts(blocksWithGlobalControls),
     };
   }
@@ -502,7 +515,20 @@ export class DashboardModel extends BaseClass {
       apiUpdateDashboardBody.parse(rawBody);
     const updates: UpdateProps<DashboardInterface> = otherUpdates;
     if (blockUpdates) {
-      const migratedBlocks = blockUpdates
+      // A new block can arrive as a config the caller never ran; blocks already
+      // on the dashboard keep the analysis they have. Absent controls mean the
+      // saved ones still apply, so a partial update queries the same window the
+      // tiles render under.
+      const ranBlocks = await runNewApiExplorationBlocks(
+        this.context,
+        blockUpdates,
+        {
+          globalControls:
+            updates.globalControls ?? existingDashboard?.globalControls,
+          comparison: updates.comparison ?? existingDashboard?.comparison,
+        },
+      );
+      const migratedBlocks = ranBlocks
         .map(fromBlockApiInterface)
         .map(migrateBlock);
       const createdBlocks = await Promise.all(
@@ -963,7 +989,12 @@ function toBlockApiInterface(
 }
 
 export function fromBlockApiInterface(
-  apiBlock: ApiDashboardBlockInterface | ApiCreateDashboardBlockInterface,
+  apiBlock:
+    | ApiDashboardBlockInterface
+    // An API create block reaches this only once its chart has been run — the
+    // shape it goes in with allows a missing analysis id, the stored shape does
+    // not. See `runNewApiExplorationBlocks`.
+    | DashboardBlockWithAnalysisId<ApiCreateDashboardBlockInterface>,
 ): DashboardBlockInterface | CreateDashboardBlockInterface {
   switch (apiBlock.type) {
     case "metric-explorer":

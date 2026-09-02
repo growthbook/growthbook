@@ -1,11 +1,12 @@
-import { analyticsHandoffValidator } from "shared/validators";
 import {
   createAgentHandler,
   type AgentConfig,
 } from "back-end/src/enterprise/services/agent-handler";
-import { buildAgentApiTools } from "back-end/src/agent/shared-tools";
+import {
+  buildAgentApiTools,
+  loadSkillResult,
+} from "back-end/src/agent/shared-tools";
 import { listDomainSkills } from "back-end/src/agent/skills";
-import { aiTool } from "back-end/src/enterprise/services/ai";
 
 // =============================================================================
 // System prompt
@@ -70,15 +71,6 @@ How to use skills:
 - Pick the narrowest leaf that matches; only load multiple leaves if the
   request genuinely spans workflows (e.g. create flag then target it).
 - If no domain fits, ask the user to clarify. Do not invent endpoints.
-- **The \`dashboards\` domain is not yours to finish.** Building one and changing
-  one both need a live preview this panel cannot render, and a dashboard is only
-  ever written by the user pressing the button on that preview. So for either:
-  read the \`dashboards\` router, restate the request as a brief, call
-  \`openAnalyticsChat\`, and stop. Do not load a leaf, run queries, or write to
-  the dashboards API. The one read worth making first: when page context is
-  \`/product-analytics/dashboards/<id>\` and the user has not @-mentioned it,
-  \`GET /api/v1/dashboards/<id>\` for the title so you can pass the dashboard
-  across in \`mentions\` — a bare path does not survive the handoff.
 - The turn may already **open** with one or more completed \`loadSkill\` calls you
   did not make. Those are skills the user picked explicitly from the composer's
   slash-command menu, so treat them as their stated intent: follow them rather
@@ -101,9 +93,15 @@ NOT something the user typed — do not echo it back. Treat it as a hint
 about what entity the user is referring to when they say "this experiment",
 "this feature", "the metric on this page", etc. Map \`/features/<key>\` to that
 feature, \`/experiment/<id>\` to that experiment, \`/metric/<id>\` or
-\`/fact-metrics/<id>\` to that metric, and collection pages to browsing that
-resource. Load the matching skill before acting. If page context is irrelevant
-to the request, ignore it.
+\`/fact-metrics/<id>\` to that metric,
+\`/product-analytics/dashboards/<id>\` to that dashboard, and collection pages
+to browsing that resource. Load the matching skill before acting. If page
+context is irrelevant to the request, ignore it.
+
+An Analytics dashboard the user is looking at is the one they mean by "this
+dashboard", "the dashboard", or an unqualified "add a chart" — take the id from
+the path and edit that dashboard rather than asking which one or building a
+second one.
 
 A user message may carry other auto-injected lines of the same
 \`[Label: value]\` shape — e.g. \`[Active product-analytics datasource: <id>]\`,
@@ -128,9 +126,8 @@ substitute a different entity that happens to have a similar name. Keep using
 the readable name in your reply.
 
 A \`dashboard:\` entry names an Analytics dashboard the user wants worked on.
-Copy the whole entry into \`openAnalyticsChat\`'s \`mentions\` so the chat on the
-other side resolves it by id — take it as given rather than listing dashboards
-to find one by name.
+Use that id directly with the \`analytics\` skill's dashboard workflows rather
+than listing dashboards to find one by name.
 
 # Linking to pages
 
@@ -156,6 +153,9 @@ can navigate them to relevant pages by including links in your final reply.
 - Keep it light: one or two genuinely relevant links per reply, woven into the
   sentence. Don't append a wall of links or link things the user didn't ask
   about.
+- **A dashboard you just created is the exception.** The app opens it for the
+  user as soon as the call succeeds, so they are already looking at it — say
+  what is on it instead of linking it.
 
 Path patterns (the same URL ↔ entity mappings the skills document):
 
@@ -163,6 +163,7 @@ Path patterns (the same URL ↔ entity mappings the skills document):
 - Experiment: \`/experiment/<id>\`; experiments list: \`/experiments\`
 - Metric: \`/metric/<id>\`; fact metric: \`/fact-metrics/<id>\`
 - Project: \`/projects/<id>\`; environments: \`/environments\`
+- Analytics dashboard: \`/product-analytics/dashboards/<id>\`
 - Product-analytics charts: use the exact \`explorationUrl\` returned by the
   exploration response.
 
@@ -239,17 +240,6 @@ function buildGeneralAgentSystemPrompt(): string {
   ].join("\n");
 }
 
-// Handoff to the Product Analytics chat: building a dashboard needs a live
-// preview, which this panel cannot render.
-const OPEN_ANALYTICS_CHAT_DESCRIPTION =
-  "Hand a dashboard request to the Product Analytics chat, which can build one. " +
-  "Offers the user a link that opens a fresh chat there with your brief already " +
-  "filled in. Use this for ANY Analytics dashboard request — building a new one " +
-  '(`mode: "create"`) and changing one that exists (`mode: "edit"`) alike: ' +
-  "this panel cannot render the preview a dashboard is written from, and only " +
-  "the user pressing that preview's button writes one. Never write a dashboard " +
-  "through `callApi`. After calling this, stop.";
-
 // =============================================================================
 // AgentConfig
 // =============================================================================
@@ -271,23 +261,12 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
   buildSystemPrompt: async () => buildGeneralAgentSystemPrompt(),
 
   // No skill restriction: this is the agent with no area of its own, so it can
-  // load anything.
+  // load anything — as a tool call, and as a skill the user picked from the
+  // composer's `/` menu, which arrives pre-loaded and is dropped without this.
+  resolveSkill: loadSkillResult,
+
   buildTools: (ctx, buffer, _params, emit) => ({
     ...buildAgentApiTools(ctx, buffer, emit),
-    openAnalyticsChat: aiTool({
-      description: OPEN_ANALYTICS_CHAT_DESCRIPTION,
-      inputSchema: analyticsHandoffValidator,
-      execute: async (input) => ({
-        // The handoff rides in the tool result rather than an SSE event so the
-        // offer is still there when the user re-opens the conversation.
-        status: "offered" as const,
-        message:
-          "The user has been offered a link into the Product Analytics chat, carrying this brief. " +
-          "Stop now: say in one sentence that building a dashboard happens there and that the " +
-          "brief is ready for them. Do not attempt to build it here.",
-        handoff: input,
-      }),
-    }),
   }),
 
   temperature: 0.1,

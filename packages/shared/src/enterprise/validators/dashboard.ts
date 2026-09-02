@@ -150,6 +150,12 @@ export const apiCreateDashboardBody = z
       )
       .optional(),
     globalControls: dashboardGlobalControlsValidator.optional(),
+    comparison: blockComparisonValidator
+      .optional()
+      .describe(
+        "Dashboard-wide compare-to-previous-period. Takes precedence over any " +
+          "per-block comparison.",
+      ),
     blocks: z.array(apiCreateDashboardBlockInterface),
   })
   .strict();
@@ -180,42 +186,3 @@ export type ApiDashboardInterface = z.infer<typeof apiDashboardInterface>;
 export type DashboardEditLevel = z.infer<typeof dashboardEditLevel>;
 export type DashboardShareLevel = z.infer<typeof dashboardShareLevel>;
 export type DashboardUpdateSchedule = z.infer<typeof dashboardUpdateSchedule>;
-
-// The `proposeDashboard` tool result. `blocks` stays `unknown[]` — already
-// validated on the way in, and re-checking here could only reject a valid one.
-
-export const droppedDashboardBlockValidator = z.object({
-  title: z.string(),
-  type: z.string(),
-  reason: z.string(),
-  /** Kept at its previous result instead of being left off — an edit, not a build. */
-  kept: z.boolean().optional(),
-});
-
-export const dashboardDraftValidator = z.object({
-  /** Set when revising a dashboard that already exists; absent for a new one. */
-  dashboardId: z.string().optional(),
-  title: z.string().min(1),
-  /** `[]` is every project; absent means fall back to the user's selection. */
-  projects: z.array(z.string()).optional(),
-  globalControls: dashboardGlobalControlsValidator.optional(),
-  /** Dashboard-wide compare-to-previous-period; overrides any per-block setting. */
-  comparison: blockComparisonValidator.optional(),
-  blocks: z.array(z.unknown()).min(1),
-});
-
-export const proposeDashboardResultValidator = z.object({
-  draft: dashboardDraftValidator,
-  /** Blocks that could not be built, and why — surfaced to the model and user. */
-  droppedBlocks: z.array(droppedDashboardBlockValidator).catch([]),
-});
-
-export type DroppedDashboardBlock = z.infer<
-  typeof droppedDashboardBlockValidator
->;
-
-/** A draft carrying the block type the reading side works in. */
-export type DashboardDraftOf<Block> = Omit<
-  z.infer<typeof dashboardDraftValidator>,
-  "blocks"
-> & { blocks: Block[] };

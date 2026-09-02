@@ -8,7 +8,6 @@ import {
   ProductAnalyticsRunComparisonPayload,
   type AIChatFeedbackEntry,
   type AIChatFeedbackRating,
-  type AIChatSavedDashboard,
 } from "shared/validators";
 import {
   buildComparisonExplorationConfig,
@@ -191,7 +190,6 @@ export const getChat = async (
     lastStreamedAt: number;
     messages: AIChatMessage[];
     feedback: AIChatFeedbackEntry[];
-    savedDashboards: AIChatSavedDashboard[];
   }>,
 ) => {
   const context = getContextFromReq(req);
@@ -208,7 +206,6 @@ export const getChat = async (
       lastStreamedAt: 0,
       messages: [],
       feedback: [],
-      savedDashboards: [],
     });
   }
 
@@ -218,7 +215,6 @@ export const getChat = async (
     lastStreamedAt: statusData.lastStreamedAt,
     messages: statusData.messages,
     feedback: statusData.feedback,
-    savedDashboards: statusData.savedDashboards,
   });
 };
 
@@ -292,41 +288,6 @@ export const postChatFeedback = async (
   });
 
   return res.status(200).json({ status: 200, feedback: updatedFeedback });
-};
-
-/**
- * Binds a saved dashboard to the `proposeDashboard` tool call that proposed it,
- * so re-opening the conversation updates that dashboard rather than offering
- * Save again and creating a second one. Idempotent per tool call.
- */
-export const postChatSavedDashboard = async (
-  req: AuthRequest<
-    { toolCallId: string; dashboardId: string },
-    { conversationId: string }
-  >,
-  res: Response<{ status: 200; savedDashboards: AIChatSavedDashboard[] }>,
-) => {
-  const context = getContextFromReq(req);
-  const { conversationId } = req.params;
-  const { toolCallId, dashboardId } = req.body;
-
-  const doc = await context.models.aiConversations.getById(conversationId);
-  if (!doc) {
-    throw new NotFoundError("Conversation not found");
-  }
-
-  const existing = doc.savedDashboards ?? [];
-  // Last write wins: saving again after an update keeps one row per tool call.
-  const savedDashboards = [
-    ...existing.filter((d) => d.toolCallId !== toolCallId),
-    { toolCallId, dashboardId },
-  ];
-
-  await context.models.aiConversations.updateById(conversationId, {
-    savedDashboards,
-  });
-
-  return res.status(200).json({ status: 200, savedDashboards });
 };
 
 export const getExplorationById = async (

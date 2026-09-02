@@ -2,7 +2,6 @@ import React, { useRef, useEffect, useCallback, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
 import type { AIChatMention } from "shared/ai-chat";
-import { PRODUCT_ANALYTICS_CHAT_SKILL_GROUP } from "shared/ai-chat";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -14,15 +13,8 @@ import AIChatGatingScreen from "@/enterprise/components/AIChat/AIChatGatingScree
 import ChatComposer, {
   type ChatComposerHandle,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
-import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
-import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
-import AskUserCard, {
-  type AskUserOption,
-} from "@/components/Agent/AskUserCard";
-import ConfirmActionCard from "@/components/Agent/ConfirmActionCard";
 import { useMentionItems } from "@/enterprise/components/AIChat/Composer/useMentionItems";
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
-import { useChatSavedDashboards } from "@/enterprise/components/AIChat/useChatSavedDashboards";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
 import {
@@ -53,23 +45,6 @@ export default function ExplorerAIChat() {
   const { items: mentionItems, ready: mentionItemsReady } = useMentionItems(
     draftExploreState.datasource,
   );
-  // Scoped to the dashboard domain to match what this chat's agent can load —
-  // see PRODUCT_ANALYTICS_CHAT_SKILL_GROUP, shared with the back end.
-  const skillItems = useSkillMenuItems(PRODUCT_ANALYTICS_CHAT_SKILL_GROUP);
-  // The dashboard skills use `askUser` and write through the confirmation gate,
-  // so this chat has to render both prompts — an unhandled `confirm-action`
-  // would park a dashboard create the user can never approve.
-  const {
-    askPrompt,
-    confirmPrompt,
-    handleSSEEvent: handleInteractionEvent,
-    syncFromConversation,
-    takePendingDecision,
-    resolveOnUserMessage,
-    resolveAsk,
-    resolveConfirm,
-    reset: resetPrompts,
-  } = useAgentInteractionPrompts();
 
   // -- Hooks with no cross-dependencies (safe to call first) -----------------
 
@@ -83,44 +58,27 @@ export default function ExplorerAIChat() {
     conversationIdRef: feedbackConversationIdRef,
   } = useChatFeedback();
 
-  const {
-    savedDashboardMap,
-    handleDashboardSaved,
-    loadSavedDashboardsFromConversation,
-    clearSavedDashboards,
-    conversationIdRef: savedDashboardsConversationIdRef,
-  } = useChatSavedDashboards();
-
-  // One-shot handoff: `buildRequestBody` is a stable callback, so the current
-  // send's mentions and skills are stashed here rather than closed over.
   const pendingMentionsRef = useRef<AIChatMention[]>([]);
-  const pendingSkillsRef = useRef<string[]>([]);
 
   const buildRequestBody = useCallback(
     (message: string, cid: string) => {
       const mentions = pendingMentionsRef.current;
-      const skills = pendingSkillsRef.current;
       pendingMentionsRef.current = [];
-      pendingSkillsRef.current = [];
-      const decision = takePendingDecision();
       return {
         message,
         conversationId: cid,
         datasourceId: draftExploreState.datasource,
         model: chatModel,
         ...(mentions.length ? { mentions } : {}),
-        ...(skills.length ? { skills } : {}),
-        ...(decision ?? {}),
       };
     },
-    [draftExploreState.datasource, chatModel, takePendingDecision],
+    [draftExploreState.datasource, chatModel],
   );
 
   // -- Core chat hook --------------------------------------------------------
 
   const {
     messages,
-    rehydratedMessageIds,
     activeTurnItems,
     displayedTextMap,
     sendMessage,
@@ -150,13 +108,8 @@ export default function ExplorerAIChat() {
         const title = (event.data.title as string) || "";
         if (title) handleTitleUpdate(conversationId, title);
       }
-      handleInteractionEvent(event);
     },
-    onConversationLoaded: (data) => {
-      syncFromConversation(data);
-      loadFeedbackFromConversation(data);
-      loadSavedDashboardsFromConversation(data);
-    },
+    onConversationLoaded: loadFeedbackFromConversation,
     onMessageComplete: (info) => {
       track("AI Chat Response Completed", {
         model: chatModel,
@@ -181,7 +134,6 @@ export default function ExplorerAIChat() {
   // Keep the feedback hook's ref in sync with the current conversation id.
   // The ref is only read inside event handlers, never during render.
   feedbackConversationIdRef.current = conversationId;
-  savedDashboardsConversationIdRef.current = conversationId;
 
   // -- Hooks that depend on useAIChat return values --------------------------
 
@@ -202,25 +154,18 @@ export default function ExplorerAIChat() {
   // -- Handlers --------------------------------------------------------------
 
   const trackAndSend = useCallback(
-    (
-      messageOverride?: string,
-      mentions: AIChatMention[] = [],
-      skills: string[] = [],
-    ) => {
+    (messageOverride?: string, mentions: AIChatMention[] = []) => {
       const text = (messageOverride ?? input).trim();
       if (!text) return;
       pendingMentionsRef.current = mentions;
-      pendingSkillsRef.current = skills;
-      resolveOnUserMessage();
       track("AI Chat Message Sent", {
         model: chatModel,
         messageCount: messages.length,
         isFirstMessage: messages.length === 0,
-        skills,
       });
-      sendMessage(messageOverride, { mentions, skills });
+      sendMessage(messageOverride, { mentions });
     },
-    [input, chatModel, messages.length, sendMessage, resolveOnUserMessage],
+    [input, chatModel, messages.length, sendMessage],
   );
 
   // -- Effects ---------------------------------------------------------------
@@ -249,27 +194,8 @@ export default function ExplorerAIChat() {
     const initial = initialMessageRef.current;
     if (!initial) return;
     initialMessageRef.current = null;
-    trackAndSend(initial.text, initial.mentions, initial.skills);
+    trackAndSend(initial.text, initial.mentions);
   }, [trackAndSend]);
-
-  const handleAskOption = useCallback(
-    (option: AskUserOption) => {
-      if (loading || !resolveAsk()) return;
-      sendMessage(option.label);
-    },
-    [resolveAsk, sendMessage, loading],
-  );
-
-  const handleConfirmAction = useCallback(
-    (decision: "confirm" | "cancel") => {
-      if (loading || !resolveConfirm(decision)) return;
-      // The decision is a control signal — don't render it as a user bubble.
-      sendMessage(decision === "confirm" ? "Confirm" : "Cancel", {
-        suppressUserMessage: true,
-      });
-    },
-    [resolveConfirm, sendMessage, loading],
-  );
 
   const handleNewChat = useCallback(() => {
     track("AI Chat New Conversation", {
@@ -278,8 +204,6 @@ export default function ExplorerAIChat() {
     newChat();
     setChatModel(defaultAIModel);
     clearFeedback();
-    clearSavedDashboards();
-    resetPrompts();
     refreshList();
   }, [
     newChat,
@@ -287,8 +211,6 @@ export default function ExplorerAIChat() {
     defaultAIModel,
     setChatModel,
     clearFeedback,
-    clearSavedDashboards,
-    resetPrompts,
     messages.length,
   ]);
 
@@ -372,7 +294,6 @@ export default function ExplorerAIChat() {
 
         <ChatMessageList
           messages={messages}
-          rehydratedMessageIds={rehydratedMessageIds}
           activeTurnItems={activeTurnItems}
           displayedTextMap={displayedTextMap}
           loading={loading}
@@ -382,30 +303,10 @@ export default function ExplorerAIChat() {
           error={error}
           feedbackMap={feedbackMap}
           onFeedbackSubmit={handleFeedbackSubmit}
-          savedDashboardMap={savedDashboardMap}
-          onDashboardSaved={handleDashboardSaved}
           toolDetailsOpenRef={toolDetailsOpenRef}
           scrollContainerRef={scrollContainerRef}
           messagesEndRef={messagesEndRef}
           onScroll={handleScroll}
-          footer={
-            <>
-              {askPrompt && !askPrompt.resolved && (
-                <AskUserCard
-                  prompt={askPrompt}
-                  loading={loading}
-                  onSelect={handleAskOption}
-                />
-              )}
-              {confirmPrompt && !confirmPrompt.resolved && (
-                <ConfirmActionCard
-                  prompt={confirmPrompt}
-                  loading={loading}
-                  onDecide={handleConfirmAction}
-                />
-              )}
-            </>
-          }
         />
 
         <ChatComposer
@@ -415,10 +316,7 @@ export default function ExplorerAIChat() {
           mentionItemsReady={mentionItemsReady}
           value={input}
           onChange={setInput}
-          skillItems={skillItems}
-          onSend={({ text, mentions, skills }) =>
-            trackAndSend(text, mentions, skills)
-          }
+          onSend={({ text, mentions }) => trackAndSend(text, mentions)}
           onCancel={cancelGeneration}
           loading={loading}
           isLocalStream={isLocalStream}

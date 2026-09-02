@@ -10,7 +10,6 @@ import {
   PiTable,
 } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { PRODUCT_ANALYTICS_CHAT_SKILL_GROUP } from "shared/ai-chat";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import TextDivider from "@/components/TextDivider/TextDivider";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -31,7 +30,6 @@ import ChatComposer, {
   type ComposerSubmission,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
 import { useMentionItems } from "@/enterprise/components/AIChat/Composer/useMentionItems";
-import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 
@@ -53,13 +51,10 @@ export default function EmptyState() {
   const { items: mentionItems, ready: mentionItemsReady } = useMentionItems(
     draftExploreState.datasource,
   );
-  // Same scope as the chat this hands off to, so a skill picked here is one the
-  // agent on the other side can actually load.
-  const skillItems = useSkillMenuItems(PRODUCT_ANALYTICS_CHAT_SKILL_GROUP);
 
   const handleSubmit = useCallback(
     (
-      { text, mentions, skills }: ComposerSubmission = {
+      { text, mentions }: ComposerSubmission = {
         text: input,
         mentions: [],
         skills: [],
@@ -69,7 +64,7 @@ export default function EmptyState() {
       if (!trimmed) return;
       sessionStorage.setItem(
         PA_AI_CHAT_INITIAL_MESSAGE_KEY,
-        JSON.stringify({ text: trimmed, mentions, skills }),
+        JSON.stringify({ text: trimmed, mentions }),
       );
       router.push("/product-analytics/explore/ai-chat");
     },
@@ -215,7 +210,6 @@ export default function EmptyState() {
                   disabled={chatDisabled || isDataSourceEmpty}
                   mentionItems={mentionItems}
                   mentionItemsReady={mentionItemsReady}
-                  skillItems={skillItems}
                 />
               </Box>
 

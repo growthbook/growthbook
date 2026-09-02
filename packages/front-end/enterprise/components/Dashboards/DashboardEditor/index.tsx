@@ -163,10 +163,6 @@ interface Props {
   globalControlBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   id: string;
   isEditing: boolean;
-  /** Rearrange the grid without edit mode's add/edit/delete. For the AI preview. */
-  allowLayoutEditing?: boolean;
-  /** Offer Delete on each block without edit mode. For the AI preview. */
-  allowBlockDeletion?: boolean;
   projects: string[];
   enableAutoUpdates: boolean;
   updateSchedule: DashboardUpdateSchedule | undefined;
@@ -209,8 +205,6 @@ function DashboardEditor({
   blocks,
   globalControlBlocks,
   isEditing,
-  allowLayoutEditing,
-  allowBlockDeletion,
   enableAutoUpdates,
   updateSchedule,
   globalControls,
@@ -313,8 +307,6 @@ function DashboardEditor({
         dashboardComparison={dashboardComparison}
         blockIndex={i}
         isEditing={isEditing}
-        allowLayoutEditing={allowLayoutEditing}
-        allowBlockDeletion={allowBlockDeletion}
         isFocused={isFocused}
         editingBlock={isEditingBlock}
         canMoveBlock={
@@ -680,7 +672,6 @@ function DashboardEditor({
           <DashboardGrid
             blocks={blocks}
             isEditing={isEditing}
-            allowLayoutEditing={allowLayoutEditing}
             editSidebarDirty={!!editSidebarDirty}
             stagedBlockIndex={stagedBlockIndex}
             isAddingBlock={!!isAddingBlock}
@@ -732,8 +723,6 @@ function DashboardEditor({
 interface DashboardGridProps {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   isEditing: boolean;
-  /** Drag/resize without edit mode — see the same prop on DashboardEditor. */
-  allowLayoutEditing?: boolean;
   editSidebarDirty: boolean;
   stagedBlockIndex: number | undefined;
   isAddingBlock: boolean;
@@ -755,7 +744,6 @@ interface DashboardGridProps {
 function DashboardGrid({
   blocks,
   isEditing,
-  allowLayoutEditing,
   editSidebarDirty,
   stagedBlockIndex,
   isAddingBlock,
@@ -828,7 +816,7 @@ function DashboardGrid({
     [updateLayout],
   );
 
-  const isInteractive = (isEditing || !!allowLayoutEditing) && !isAddingBlock;
+  const isInteractive = isEditing && !isAddingBlock;
   // When we're in edit mode but interaction is disabled (because the edit
   // drawer is open), keep the resize handle visible-but-dimmed and surface a
   // tooltip explaining why it doesn't respond. Outside of edit mode the
@@ -841,15 +829,13 @@ function DashboardGrid({
       // codebase is still on React 18 types - cast to satisfy the older
       // LegacyRef signature without changing runtime behaviour.
       ref={containerRef as unknown as React.RefObject<HTMLDivElement>}
-      className={clsx("dashboard-grid-container", {
-        "is-editing": isEditing || !!allowLayoutEditing,
-      })}
+      className={clsx("dashboard-grid-container", { "is-editing": isEditing })}
     >
       {mounted && (
         <ResponsiveGridLayout
           width={width}
           className={clsx("dashboard-grid", {
-            "is-editing": isEditing || !!allowLayoutEditing,
+            "is-editing": isEditing,
             "is-resize-disabled": showDisabledResizeOverlay,
           })}
           layouts={layouts}

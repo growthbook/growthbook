@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiX, PiPlus, PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
+import { useSWRConfig } from "swr";
 import type { AIChatMessage } from "shared/ai-chat";
-import type { AnalyticsHandoff } from "shared/validators";
 import Markdown from "@/components/Markdown/Markdown";
 import Text from "@/ui/Text";
 import track from "@/services/track";
@@ -49,36 +49,19 @@ import {
 } from "./agentMessageUtils";
 import AskUserCard, { type AskUserOption } from "./AskUserCard";
 import ConfirmActionCard from "./ConfirmActionCard";
-import AnalyticsHandoffCard, {
-  analyticsHandoffFromToolResult,
-} from "./AnalyticsHandoffCard";
+import { dashboardPath, dashboardWriteFromEvent } from "./dashboardWrite";
 
 const STORAGE_KEY = "growthbook.agent.conversationId";
 
 const CALL_API_LABEL = "Calling GrowthBook API…";
 const ASK_USER_LABEL = "Asking you a question…";
 const LOAD_SKILL_LABEL = "Loading skill…";
-const OPEN_ANALYTICS_CHAT_LABEL = "Preparing the Analytics chat…";
 
 const TOOL_STATUS_LABELS: Record<string, string> = {
   callApi: CALL_API_LABEL,
   askUser: ASK_USER_LABEL,
   loadSkill: LOAD_SKILL_LABEL,
-  openAnalyticsChat: OPEN_ANALYTICS_CHAT_LABEL,
 };
-
-/** Read from the transcript, not component state, so the offer survives a reload. */
-function handoffInTurn(messages: AIChatMessage[]): AnalyticsHandoff | null {
-  for (const msg of messages) {
-    if (msg.role !== "tool") continue;
-    for (const part of msg.content) {
-      if (part.toolName !== "openAnalyticsChat") continue;
-      const handoff = analyticsHandoffFromToolResult(part.result);
-      if (handoff) return handoff;
-    }
-  }
-  return null;
-}
 
 interface AgentPanelProps {
   open: boolean;
@@ -227,6 +210,36 @@ export default function AgentPanel({
     void routerRef.current?.push(href);
   }, []);
 
+  const { mutate } = useSWRConfig();
+
+  /**
+   * Follow the agent onto a dashboard it just wrote. Opening a new one is what
+   * gives the next turn its page context, so a follow-up edits that dashboard
+   * instead of asking which one. Either way the cached copy is now stale, and
+   * the dashboard page cannot see a write that happened in here.
+   */
+  const handleDashboardWrite = useCallback(
+    (event: { type: string; data: Record<string, unknown> }) => {
+      const write = dashboardWriteFromEvent(event);
+      if (!write) return;
+      void mutate(
+        (key) => typeof key === "string" && key.includes("::/dashboards"),
+      );
+      if (write.kind === "created") {
+        void routerRef.current?.push(dashboardPath(write.id));
+      }
+    },
+    [mutate],
+  );
+
+  const handleAgentSSEEvent = useCallback(
+    (event: { type: string; data: Record<string, unknown> }) => {
+      handleSSEEvent(event);
+      handleDashboardWrite(event);
+    },
+    [handleSSEEvent, handleDashboardWrite],
+  );
+
   const buildRequestBody = useCallback(
     (message: string, cid: string) => {
       // router.asPath is the path + search (no host); cap to match the
@@ -280,7 +293,7 @@ export default function AgentPanel({
     toolStatusLabels: TOOL_STATUS_LABELS,
     getConversationEndpoint: (cid) => `/agent/chat/${cid}`,
     getCancelEndpoint: (cid) => `/agent/chat/${cid}/cancel`,
-    onSSEEvent: handleSSEEvent,
+    onSSEEvent: handleAgentSSEEvent,
     onConversationLoaded: handleConversationLoaded,
     conversationStorageKey: STORAGE_KEY,
     onMessageComplete: (info) => {
@@ -705,7 +718,6 @@ function PersistedTurn({
   const { preWork, replyContent, replyMessageId } = classifyTurn(turn.rest);
   const steps = preWorkToSteps(preWork, turn.rest, toolDetailsOpenRef);
   const hasReply = replyContent !== null && replyContent.trim().length > 0;
-  const handoff = handoffInTurn(turn.rest);
 
   return (
     <>
@@ -734,8 +746,6 @@ function PersistedTurn({
           </Markdown>
         </AssistantBubble>
       )}
-
-      {handoff && <AnalyticsHandoffCard handoff={handoff} />}
 
       {hasReply && replyMessageId && (
         <AIChatFeedback
