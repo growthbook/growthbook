@@ -30,6 +30,7 @@ import {
 } from "react-icons/pi";
 import type {
   FeatureInterface,
+  FeatureRule,
   SavedGroupTargeting,
   FeaturePrerequisite,
 } from "shared/types/feature";
@@ -101,6 +102,10 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { formatRemainingDuration } from "@/components/Features/Rule";
 import { Popover } from "@/ui/Popover";
 import { getExposureQuery } from "@/services/datasources";
+import {
+  countRampFallthroughRules,
+  getRampStartImpact,
+} from "@/components/Features/RuleModal/rampStartImpact";
 import styles from "./RampScheduleSection.module.scss";
 
 export type IntervalUnit = "minutes" | "hours" | "days";
@@ -894,6 +899,11 @@ interface Props {
   // Whether the parent rule is a sparse patch. The ramp's value edits inherit
   // this — sparse interpretation belongs to the rule, not the schedule.
   sparse?: boolean;
+  // Published version of the target rule; unset when nothing is live.
+  liveRule?: FeatureRule;
+  // Escape hatch offered by the traffic-drop warning: switch to the
+  // "Ramp to new value" flow instead of ramping the live rule itself.
+  onRampToNewValue?: () => void;
 }
 
 export default function RampScheduleSection({
@@ -921,6 +931,8 @@ export default function RampScheduleSection({
   ruleId,
   featureId,
   sparse = false,
+  liveRule,
+  onRampToNewValue,
 }: Props) {
   const [open, setOpen] = useState(embedded || state.mode !== "off");
   const [seedOpen, setSeedOpen] = useState(
@@ -4006,8 +4018,77 @@ export default function RampScheduleSection({
       </HelperText>
     ) : null;
 
+  // Warn when starting this ramp would take traffic away from an already-live
+  // rule. Only meaningful before the ramp has started.
+  const rampNotYetStarted =
+    !ruleRampSchedule || ["pending", "ready"].includes(ruleRampSchedule.status);
+  const rampStartImpact = rampNotYetStarted
+    ? getRampStartImpact({
+        liveRule,
+        firstStepCoveragePct: state.steps.find(
+          (s) => s.patch.coverage !== undefined,
+        )?.patch.coverage,
+        hasDelayedStart:
+          (!!state.startDate && new Date(state.startDate) > new Date()) ||
+          state.requiresStartApproval,
+      })
+    : null;
+  const fallthroughPhrase =
+    countRampFallthroughRules(feature, ruleId) > 0
+      ? "the next matching rule, or the default value"
+      : "the default value";
+
+  const rampImpactCallout =
+    !rampStartImpact ||
+    hideTemplateSave ||
+    isReadOnlyView ||
+    state.mode === "off" ? null : (
+      <Callout status="warning" size="sm" mb="4">
+        <Flex align="center" gap="8">
+          <Box flexGrow="1">
+            <Text as="div">
+              {rampStartImpact.kind === "coverage-drop" ? (
+                <>
+                  This ramp-up drops this rule from {rampStartImpact.fromPct}%
+                  to {rampStartImpact.toPct}% of traffic.
+                </>
+              ) : (
+                <>
+                  This rule (live at {rampStartImpact.liveCoveragePct}%) will be
+                  disabled until the ramp-up starts.
+                </>
+              )}
+            </Text>
+            <Text as="div" size="sm" mt="1">
+              {rampStartImpact.kind === "coverage-drop" ? (
+                <>Unenrolled users will fall through to {fallthroughPhrase}.</>
+              ) : (
+                <>
+                  Until then, all traffic will fall through to{" "}
+                  {fallthroughPhrase}.
+                </>
+              )}
+              {onRampToNewValue && (
+                <>
+                  {" "}
+                  To ramp to a new value instead, insert a ramp-up rule above
+                  this one.
+                </>
+              )}
+            </Text>
+          </Box>
+          {onRampToNewValue && (
+            <Button variant="solid" size="sm" onClick={onRampToNewValue}>
+              Ramp to new value
+            </Button>
+          )}
+        </Flex>
+      </Callout>
+    );
+
   const createContent = (
     <>
+      {rampImpactCallout}
       {hasRampSchedulesFeature && !hideTemplateSave && (
         <>
           <Text as="div" weight="semibold" mb="1">
