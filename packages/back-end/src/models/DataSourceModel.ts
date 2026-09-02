@@ -503,7 +503,17 @@ export async function validateExposureQueriesAndAddMissingIds(
         if (!exposure.userIdTypes?.length) {
           exposure.userIdTypes = [exposure.userIdType].filter(Boolean);
         }
-        exposure.userIdType = exposure.userIdTypes[0] ?? exposure.userIdType;
+        // Invariant relied on throughout analysis: every assignment query
+        // declares at least one identifier type, and the deprecated scalar
+        // mirrors the first declared type.
+        if (!exposure.userIdTypes.length) {
+          throw new Error(
+            `Experiment assignment query "${
+              exposure.name || exposure.id
+            }" must declare at least one identifier type`,
+          );
+        }
+        exposure.userIdType = exposure.userIdTypes[0];
         // Skip live validation while the warehouse can't serve queries — never
         // provisioned OR mid-migration (tables being recreated). Otherwise a
         // concurrent settings save would test-run against unavailable tables and

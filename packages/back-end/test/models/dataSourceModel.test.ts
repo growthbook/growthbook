@@ -118,6 +118,7 @@ describe("dataSourceModel", () => {
           exposure: [
             // @ts-expect-error - we are testing the case where id is missing
             {
+              userIdType: "user_id",
               query: "SELECT new_id FROM experiment_viewed",
             },
           ],
@@ -137,12 +138,38 @@ describe("dataSourceModel", () => {
               error: undefined,
               id: expect.any(String),
               query: "SELECT new_id FROM experiment_viewed",
-              userIdType: undefined,
-              userIdTypes: [],
+              userIdType: "user_id",
+              userIdTypes: ["user_id"],
             },
           ],
         },
       });
+    });
+
+    it("throws when an exposure query declares no identifier type", async () => {
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "no_id",
+              userIdType: "",
+              userIdTypes: [],
+              dimensions: [],
+              name: "No identifier",
+              query: "SELECT 1 FROM experiment_viewed",
+            },
+          ],
+        },
+      };
+
+      await expect(
+        validateExposureQueriesAndAddMissingIds(
+          context,
+          datasource,
+          updates,
+          "skip",
+        ),
+      ).rejects.toThrow("must declare at least one identifier type");
     });
 
     it("normalizes multi-identifier exposure queries", async () => {
