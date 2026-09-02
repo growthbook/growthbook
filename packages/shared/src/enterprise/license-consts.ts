@@ -88,18 +88,12 @@ export type CommercialFeature =
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
-// Missing field/value = unlimited / unrestricted.
-export type DataSourceLimit = "managed-only" | "one-byow-plus-forwarder";
-
+// Missing field/value = unlimited.
 export type OrgLimits = {
   maxProjects?: number | null;
   customEnvironments?: boolean;
   roleManagement?: boolean;
-  // Presence (not the specific value) marks the org as the seatless-Pro cohort.
-  dataSources?: DataSourceLimit;
 };
-
-export type ProBillingModel = "usage" | "seats";
 
 export type SubscriptionInfo = {
   billingPlatform?: "stripe" | "orb";

@@ -4,14 +4,7 @@ import { date } from "shared/dates";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { FaCheckCircle } from "react-icons/fa";
 import { PiCaretRight } from "react-icons/pi";
-import { useFeatureValue } from "@growthbook/growthbook-react";
-import {
-  CommercialFeature,
-  PRICING_PHASE_1_FLAG_KEY,
-  ProBillingModel,
-  isLegacyProCheckoutAllowed,
-  orgDefaultsToSeatlessPro,
-} from "shared/enterprise";
+import { CommercialFeature } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
 import { getGrowthBookBuild, isCloud } from "@/services/env";
 import track from "@/services/track";
@@ -78,13 +71,6 @@ export default function UpgradeModal({
 
   const orgIsManagedByVercel = organization.isVercelIntegration;
 
-  const pricingLimitsFlag = useFeatureValue(PRICING_PHASE_1_FLAG_KEY, null);
-  const defaultsToSeatlessPro = orgDefaultsToSeatlessPro(organization.limits);
-  const allowLegacyProCheckout = isLegacyProCheckoutAllowed(pricingLimitsFlag);
-  const [proBillingModel, setProBillingModel] = useState<ProBillingModel>(
-    defaultsToSeatlessPro ? "usage" : "seats",
-  );
-
   function shouldShowEnterpriseTreatment(): boolean {
     // Self-hosted Pro is not allowed, always show Enterprise
     if (!isCloud()) return true;
@@ -129,7 +115,6 @@ export default function UpgradeModal({
     source,
     currentUsers,
     freeTrialAvailable,
-    proBillingModel,
   };
 
   const useInlineUpgradeForm = isCloud();
@@ -529,19 +514,6 @@ export default function UpgradeModal({
         </div>
         {isCloud() && permissionsUtil.canManageBilling() && (
           <CloudProPricing
-            billingModel={proBillingModel}
-            onBillingModelChange={(model) => {
-              track("Switch Pro billing model", {
-                ...trackContext,
-                proBillingModel: model,
-              });
-              setProBillingModel(model);
-            }}
-            showBillingModelChoice={
-              defaultsToSeatlessPro && allowLegacyProCheckout
-            }
-            numOfCurrentMembers={numOfCurrentMembers}
-            commercialFeature={commercialFeature}
             onSeeRecentUsage={() => {
               track(
                 "Clicked See Recent Usage From Upgrade Modal",
@@ -586,7 +558,8 @@ export default function UpgradeModal({
     if (showEnterpriseTreatment) {
       startEnterprise();
     } else if (trialAndUpgradePreference === "upgrade") {
-      if (proBillingModel === "usage") return;
+      // Usage-based Pro checkout isn't wired yet.
+      if (isCloud()) return;
       await startPro();
       //MKTODO: Clean up this else block and simplify logic to remove trial option
     } else {
@@ -761,8 +734,7 @@ export default function UpgradeModal({
               : "Checkout for this plan is coming soon."
           }
           ctaEnabled={
-            permissionsUtil.canManageBilling() &&
-            (showEnterpriseTreatment || proBillingModel !== "usage")
+            permissionsUtil.canManageBilling() && showEnterpriseTreatment
           }
           submit={onSubmit}
         >
