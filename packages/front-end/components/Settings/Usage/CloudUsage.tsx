@@ -25,6 +25,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { isCloud } from "@/services/env";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import track from "@/services/track";
 
 // Formatter for numbers
@@ -34,7 +35,7 @@ const requestsFormatter = new Intl.NumberFormat("en-US", {
 });
 
 // Decimal, matching how CDN plan limits are authored and enforced (5_000_000_000)
-function formatBandwidth(bytes: number) {
+function formatBandwidth(bytes: number, decimals?: number) {
   if (bytes === 0) return "0";
 
   const k = 1000;
@@ -43,8 +44,9 @@ function formatBandwidth(bytes: number) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
   const adjusted = bytes / Math.pow(k, i);
+  const digits = decimals ?? (adjusted > 10 ? 0 : 1);
 
-  return parseFloat(adjusted.toFixed(adjusted > 10 ? 0 : 1)) + " " + sizes[i];
+  return parseFloat(adjusted.toFixed(digits)) + " " + sizes[i];
 }
 
 function downloadUsageCsv(usage: DailyUsage[], month: string) {
@@ -66,6 +68,7 @@ function downloadUsageCsv(usage: DailyUsage[], month: string) {
   document.body.appendChild(link);
   link.click();
   link.remove();
+  window.URL.revokeObjectURL(url);
 }
 
 export default function CloudUsage() {
@@ -169,16 +172,17 @@ export default function CloudUsage() {
       {!usage.length && <LoadingOverlay />}
       <Flex gap="2" align="center" mb="4">
         <h2 className="mr-4 mb-0">CDN Usage</h2>
-        <Flex className="ml-auto" gap="3" align="center">
+        <Flex ml="auto" gap="3" align="center">
           <Button
             variant="ghost"
+            icon={<PiDownloadSimple />}
             disabled={!usage.length}
             onClick={() => {
               downloadUsageCsv(usage, startDate.toISOString().substring(0, 7));
               track("Exported CDN Usage CSV");
             }}
           >
-            <PiDownloadSimple /> Export CSV
+            Export CSV
           </Button>
           <SelectField
             size="legacy"
@@ -253,7 +257,9 @@ export default function CloudUsage() {
               ts: new Date(u.date),
               v: u.bandwidth,
             }))}
-            formatValue={formatBandwidth}
+            // Wrapped, not by reference: visx calls tickFormat as (value, index)
+            formatValue={(v) => formatBandwidth(v)}
+            formatTooltipValue={(v) => formatBandwidth(v, 2)}
             start={startDate}
             end={endDate}
             limitLine={
@@ -493,14 +499,14 @@ function DailyGraph({
                       zIndex: 1000,
                     }}
                   >
-                    <Box className="text-muted" mb="2">
+                    <Text as="div" color="text-low" mb="2">
                       {tooltipData.ts.toLocaleDateString("default", {
                         month: "short",
                         day: "numeric",
                         year: "numeric",
                         timeZone: "UTC",
                       })}
-                    </Box>
+                    </Text>
                     <Flex justify="between" gap="4">
                       <span>This day</span>
                       <strong>{formatTooltip(tooltipData.daily)}</strong>
