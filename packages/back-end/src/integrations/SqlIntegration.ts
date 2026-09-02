@@ -333,6 +333,7 @@ export default abstract class SqlIntegration
   requiresDatabase = true;
   requiresSchema = true;
   escapePathCharacter: string | null = null;
+  columnNamesAreCaseSensitive = false;
 
   ensureMaxLimit(sql: string, limit: number): string {
     return ensureLimit(sql, limit);
@@ -1661,8 +1662,8 @@ export default abstract class SqlIntegration
     const lastMaxTimestampBinds =
       params.lastMaxTimestamp && params.lastMaxTimestamp > settings.startDate;
 
-    // TODO(incremental-refresh): What if "skip partial data" is true?
-    // Does the conversionWindowsHour need to be set different?
+    // For the units table, we collect every exposure up to the phase end.
+    // conversionWindow / skipPartialData is applied at read time in the statistics query.
     const endDate = getExperimentEndDate(settings, 0);
 
     return format(
@@ -2094,14 +2095,10 @@ export default abstract class SqlIntegration
       a.id.localeCompare(b.id),
     );
 
-    // TODO(incremental-refresh): use max hours to convert from here
-    // for eventual "skipPartialData" feature
-    //
     // Scope FT discovery to this insert's target FT so a pipeline with
-    // multiple cross-FT ratios that share a hub (e.g. `[A/B, A/C]`)
-    // doesn't trip the 2-FT cap inside `getFactTablesForMetrics` when we
-    // try to populate the hub's data cache. The other FTs' data is
-    // populated by separate calls scoped to their own FT.
+    // multiple cross-FT ratios that share a hub (e.g. `[A/B, A/C]`) only
+    // populates the hub's data cache. The other FTs' data is populated by
+    // separate calls scoped to their own FT.
     const { sources, metricData } = parseExperimentFactMetricsParams(
       this.getSqlDialect(),
       {
@@ -2317,9 +2314,8 @@ export default abstract class SqlIntegration
   //     denominator column ref.
   // Source ordering and `m{i}` aliases are derived internally from the
   // metrics' first-appearance order, so the caller-supplied entry order is
-  // not significant. Adding entries beyond 2 is rejected upstream by
-  // getFactTablesForMetrics (it caps at 2 to match the inline experiment
-  // query path).
+  // not significant. Three or more sources are rejected below: only funnels
+  // can span that many tables, and they are not supported incrementally.
   getIncrementalRefreshStatisticsQuery(
     params: IncrementalRefreshStatisticsQueryParams,
   ): string {
@@ -2342,6 +2338,12 @@ export default abstract class SqlIntegration
       // Covariate data joined to single table with `m` alias before columns are extracted
       covariateTableAlias: "m",
     });
+
+    if (sources.length > 2) {
+      throw new Error(
+        "getIncrementalRefreshStatisticsQuery: only two fact tables at a time are supported.",
+      );
+    }
 
     // Index the caller-supplied entries by factTableId so source-ordering
     // (which is decided here by the SQL layer, not the caller) drives lookup.
@@ -2367,6 +2369,21 @@ export default abstract class SqlIntegration
         );
       }
     }
+
+    // Filter units whose conversion window is still open. Callers partition
+    // by window so this is the longest cutoff in the slice.
+    const maxHoursToConvert = Math.max(
+      0,
+      ...metricData.map((m) => m.maxHoursToConvert),
+    );
+    const unitsEndDate = getExperimentEndDate(
+      params.settings,
+      maxHoursToConvert,
+      params.asOf,
+    );
+    const unitsWhere = params.settings.skipPartialData
+      ? `WHERE e.first_exposure_timestamp <= ${this.getSqlDialect().toTimestamp(unitsEndDate)}`
+      : "";
 
     // Every FT that hosts at least one side of an RA metric must also have
     // a covariate cache. The metric-data layer unconditionally references
@@ -2560,6 +2577,7 @@ export default abstract class SqlIntegration
           )`,
             )
             .join("\n")}
+          ${unitsWhere}
           GROUP BY
             e.${baseIdType}
       `
@@ -2568,7 +2586,8 @@ export default abstract class SqlIntegration
           , e.variation AS variation
           , e.first_exposure_timestamp AS first_exposure_timestamp
           ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
-        FROM ${params.unitsSourceTableFullName} e`
+        FROM ${params.unitsSourceTableFullName} e
+        ${unitsWhere}`
       })
       ${sources
         .map(

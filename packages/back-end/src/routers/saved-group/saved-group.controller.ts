@@ -2,6 +2,7 @@ import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import {
+  draftValuesEqual,
   formatByteSizeString,
   SAVED_GROUP_SIZE_LIMIT_BYTES,
   ID_LIST_DATATYPES,
@@ -648,15 +649,12 @@ export const putSavedGroup = async (
       projects,
     };
     const base = comparisonBase as unknown as Record<string, unknown>;
-    // An empty array and an absent field mean the same thing to the editor.
-    const norm = (v: unknown) =>
-      Array.isArray(v) && v.length === 0 ? null : (v ?? null);
     const contested = Object.keys(baseline).filter((k) => {
       const loaded = (baseline as Record<string, unknown>)[k];
-      if (isEqual(norm(loaded), norm(base[k]))) return false;
+      if (draftValuesEqual(loaded, base[k])) return false;
       // Someone else changed it; only a differing submission is contested.
       return (
-        incoming[k] !== undefined && !isEqual(norm(incoming[k]), norm(base[k]))
+        incoming[k] !== undefined && !draftValuesEqual(incoming[k], base[k])
       );
     });
     if (contested.length) {

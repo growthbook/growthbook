@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
@@ -363,12 +364,10 @@ export const funnelOrderingValidator = z.enum([
 ]);
 export type FunnelOrdering = z.infer<typeof funnelOrderingValidator>;
 
-export const MAX_FACT_METRIC_FUNNEL_STEPS = 20;
-
 // Funnel-as-experiment-metric settings. Mirrors the quantileSettings pattern:
 // a nullable sub-object on the fact metric. Statistically a proportion.
 export const funnelSettingsValidator = z.object({
-  steps: z.array(funnelStepValidator).min(2).max(MAX_FACT_METRIC_FUNNEL_STEPS),
+  steps: z.array(funnelStepValidator).min(2).max(MAX_FUNNEL_STEPS),
   ordering: funnelOrderingValidator.optional(),
   // Out-of-order tolerance between adjacent steps (seconds). Optional; only
   // meaningful for ordered modes (ignored for "unordered").
@@ -404,6 +403,9 @@ const factMetricObjectValidator = z
     projects: z.array(z.string()),
     inverse: z.boolean(),
     archived: z.boolean().optional(),
+
+    // Older metrics this one supersedes. API-only; existence is not enforced.
+    replaces: z.array(z.string()).optional(),
 
     metricType: metricTypeValidator,
     // Null only for funnel metrics, which describe their events through
@@ -788,7 +790,7 @@ export type ApiAggregatedFactTable = z.infer<
 >;
 
 // Corresponds to payload-schemas/PostFactTablePayload.yaml
-const postFactTableBody = z
+export const postFactTableBody = z
   .object({
     name: z.string(),
     description: z
@@ -877,48 +879,30 @@ const updateFactTableBody = z
   .strict();
 
 // Corresponds to payload-schemas/PostFactTableFilterPayload.yaml
-const postFactTableFilterBody = z
-  .object({
-    name: z.string(),
-    description: z
-      .string()
-      .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the fact table filter")
-      .optional(),
-    value: z
-      .string()
-      .describe("The SQL expression for this filter.")
-      .meta({ example: "country = 'US'" }),
-    managedBy: z
-      .enum(["", "api"])
-      .describe(
-        'Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api"',
-      )
-      .optional(),
-  })
-  .strict();
+export const postFactTableFilterBodyFields = z.object({
+  name: z.string(),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe("Description of the fact table filter")
+    .optional(),
+  value: z
+    .string()
+    .describe("The SQL expression for this filter.")
+    .meta({ example: "country = 'US'" }),
+  managedBy: z
+    .enum(["", "api"])
+    .describe(
+      'Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api"',
+    )
+    .optional(),
+});
+
+export const postFactTableFilterBody = postFactTableFilterBodyFields.strict();
 
 // Corresponds to payload-schemas/UpdateFactTableFilterPayload.yaml
-const updateFactTableFilterBody = z
-  .object({
-    name: z.string().optional(),
-    description: z
-      .string()
-      .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the fact table filter")
-      .optional(),
-    value: z
-      .string()
-      .describe("The SQL expression for this filter.")
-      .meta({ example: "country = 'US'" })
-      .optional(),
-    managedBy: z
-      .enum(["", "api"])
-      .describe(
-        'Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api"',
-      )
-      .optional(),
-  })
+const updateFactTableFilterBody = postFactTableFilterBodyFields
+  .partial()
   .strict();
 
 const idParams = z

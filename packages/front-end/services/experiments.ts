@@ -60,6 +60,15 @@ import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicat
 import { RowError } from "@/components/Experiment/ResultsTable";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
+export const NO_DATA_ERROR_MESSAGE = "No data";
+
+export function getComputeErrorMessage(
+  stats?: Pick<SnapshotMetric, "errorMessage"> | null,
+): string | null {
+  const message = stats?.errorMessage;
+  return message && message !== NO_DATA_ERROR_MESSAGE ? message : null;
+}
+
 export const compareRows = (
   a: ExperimentTableRow,
   b: ExperimentTableRow,
@@ -213,6 +222,7 @@ export type ExperimentTableRow = {
   // Funnel step row properties
   funnelStepIndex?: number;
   funnelStepOptional?: boolean;
+  replacedByMetricName?: string;
   // Dimension-table rows: the raw dimension value this row belongs to. On a
   // parent row this equals its label; child rows (e.g. funnel steps) carry it
   // because their label is the step name, not the dimension value.

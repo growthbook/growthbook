@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 import {
   isValidRowFilterRangeLength,
-  MAX_FACT_METRIC_FUNNEL_STEPS,
   ROW_FILTER_RANGE_LENGTH_MESSAGE,
 } from "./fact-table";
 
@@ -175,7 +175,7 @@ const apiFunnelSettings = z
     steps: z
       .array(apiFunnelStep)
       .min(2)
-      .max(MAX_FACT_METRIC_FUNNEL_STEPS)
+      .max(MAX_FUNNEL_STEPS)
       .describe("Ordered list of funnel steps. Minimum 2 steps required."),
     ordering: z
       .enum(["sequential", "strict", "unordered"])
@@ -197,7 +197,7 @@ const postFunnelSettings = z
     steps: z
       .array(apiFunnelStep)
       .min(2)
-      .max(MAX_FACT_METRIC_FUNNEL_STEPS)
+      .max(MAX_FUNNEL_STEPS)
       .describe("Ordered list of funnel steps. Minimum 2 steps required."),
     ordering: z
       .enum(["sequential"])
@@ -294,7 +294,7 @@ const apiPriorSettings = z
   })
   .describe("Controls the bayesian prior for the metric");
 
-const apiMetricTypeEnum = z.enum([
+export const apiMetricTypeEnum = z.enum([
   "proportion",
   "retention",
   "mean",
@@ -357,6 +357,12 @@ export const apiFactMetricValidator = namedSchema(
         .array(z.string())
         .describe(
           "Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.",
+        )
+        .optional(),
+      replaces: z
+        .array(z.string())
+        .describe(
+          "Ids of older metrics (legacy or fact) that this metric supersedes, for example the legacy metric it was migrated from. Informational only - GrowthBook uses it to link the old and new definitions in the UI and to keep showing results from a snapshot that was created before an experiment switched to this metric.",
         )
         .optional(),
     })
@@ -593,198 +599,150 @@ const postRegressionAdjustmentSettings = z
     "Controls the regression adjustment (CUPED) settings for the metric",
   );
 
+export const factMetricCreateArchivedField = z
+  .boolean()
+  .describe(
+    "Set to true to archive the metric. Archived metrics are hidden by default in the UI and excluded from new experiments.",
+  )
+  .optional();
+
 // Corresponds to payload-schemas/PostFactMetricPayload.yaml
-const postFactMetricBody = z
-  .object({
-    name: z.string(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-    owner: ownerInputField.optional(),
-    projects: z.array(z.string()).optional(),
-    tags: z.array(z.string()).optional(),
-    metricType: apiMetricTypeEnum,
-    numerator: postNumeratorRef.nullable().optional(),
-    denominator: postDenominatorRef.optional(),
-    inverse: z
-      .boolean()
-      .describe(
-        "Set to true for things like Bounce Rate, where you want the metric to decrease",
-      )
-      .optional(),
-    quantileSettings: postQuantileSettings.optional(),
-    funnelSettings: postFunnelSettings.optional(),
-    cappingSettings: postCappingSettings.optional(),
-    windowSettings: postWindowSettings.optional(),
-    priorSettings: postPriorSettings.optional(),
-    regressionAdjustmentSettings: postRegressionAdjustmentSettings.optional(),
-    riskThresholdSuccess: z
-      .number()
-      .gte(0)
-      .describe(
-        "No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.",
-      )
-      .optional()
-      .meta({ deprecated: true }),
-    riskThresholdDanger: z
-      .number()
-      .gte(0)
-      .describe(
-        "No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.",
-      )
-      .optional()
-      .meta({ deprecated: true }),
-    displayAsPercentage: z
-      .boolean()
-      .describe(
-        "If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics.",
-      )
-      .optional(),
-    minPercentChange: z
-      .number()
-      .gte(0)
-      .describe(
-        "Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)",
-      )
-      .optional(),
-    maxPercentChange: z
-      .number()
-      .gte(0)
-      .describe(
-        "Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)",
-      )
-      .optional(),
-    minSampleSize: z.number().gte(0).optional(),
-    targetMDE: z
-      .number()
-      .gte(0)
-      .describe(
-        'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.',
-      )
-      .optional(),
-    managedBy: z
-      .enum(["", "api", "admin"])
-      .describe('Set this to "api" to disable editing in the GrowthBook UI')
-      .optional(),
-    metricAutoSlices: z
-      .array(z.string())
-      .describe(
-        "Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.",
-      )
-      .optional(),
-  })
-  .strict()
-  .superRefine((body, ctx) => {
-    if (body.metricType === "funnel") {
-      if (!body.funnelSettings) {
-        ctx.addIssue({
-          code: "custom",
-          message: "funnelSettings is required for funnel metrics",
-          path: ["funnelSettings"],
-        });
-      }
-      if ((body.numerator ?? null) !== null) {
-        ctx.addIssue({
-          code: "custom",
-          message: "numerator is not allowed for funnel metrics",
-          path: ["numerator"],
-        });
-      }
-      if (body.denominator) {
-        ctx.addIssue({
-          code: "custom",
-          message: "denominator is not allowed for funnel metrics",
-          path: ["denominator"],
-        });
-      }
-    } else {
-      if (!body.numerator) {
-        ctx.addIssue({
-          code: "custom",
-          message: "numerator is required for non-funnel metrics",
-          path: ["numerator"],
-        });
-      }
-      if (body.funnelSettings) {
-        ctx.addIssue({
-          code: "custom",
-          message: "funnelSettings is only allowed for funnel metrics",
-          path: ["funnelSettings"],
-        });
-      }
+export const postFactMetricBodyFields = z.object({
+  name: z.string(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  owner: ownerInputField.optional(),
+  projects: z.array(z.string()).optional(),
+  tags: z.array(z.string()).optional(),
+  metricType: apiMetricTypeEnum,
+  numerator: postNumeratorRef.nullable().optional(),
+  denominator: postDenominatorRef.optional(),
+  inverse: z
+    .boolean()
+    .describe(
+      "Set to true for things like Bounce Rate, where you want the metric to decrease",
+    )
+    .optional(),
+  quantileSettings: postQuantileSettings.optional(),
+  funnelSettings: postFunnelSettings.optional(),
+  cappingSettings: postCappingSettings.optional(),
+  windowSettings: postWindowSettings.optional(),
+  priorSettings: postPriorSettings.optional(),
+  regressionAdjustmentSettings: postRegressionAdjustmentSettings.optional(),
+  riskThresholdSuccess: z
+    .number()
+    .gte(0)
+    .describe(
+      "No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.",
+    )
+    .optional()
+    .meta({ deprecated: true }),
+  riskThresholdDanger: z
+    .number()
+    .gte(0)
+    .describe(
+      "No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.",
+    )
+    .optional()
+    .meta({ deprecated: true }),
+  displayAsPercentage: z
+    .boolean()
+    .describe(
+      "If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics.",
+    )
+    .optional(),
+  minPercentChange: z
+    .number()
+    .gte(0)
+    .describe(
+      "Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)",
+    )
+    .optional(),
+  maxPercentChange: z
+    .number()
+    .gte(0)
+    .describe(
+      "Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)",
+    )
+    .optional(),
+  minSampleSize: z.number().gte(0).optional(),
+  targetMDE: z
+    .number()
+    .gte(0)
+    .describe(
+      'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.',
+    )
+    .optional(),
+  managedBy: z
+    .enum(["", "api", "admin"])
+    .describe('Set this to "api" to disable editing in the GrowthBook UI')
+    .optional(),
+  metricAutoSlices: z
+    .array(z.string())
+    .describe(
+      "Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.",
+    )
+    .optional(),
+  replaces: z
+    .array(z.string())
+    .describe(
+      "Ids of older metrics (legacy or fact) that this metric supersedes, for example the legacy metric it was migrated from. Cannot include this metric's own id. Informational only - GrowthBook uses it to link the old and new definitions in the UI and to keep showing results from a snapshot that was created before an experiment switched to this metric. This field can only be set through the API.",
+    )
+    .optional(),
+});
+
+export function refineFactMetricCreateBody(
+  body: z.infer<typeof postFactMetricBodyFields>,
+  ctx: z.RefinementCtx,
+): void {
+  if (body.metricType === "funnel") {
+    if (!body.funnelSettings) {
+      ctx.addIssue({
+        code: "custom",
+        message: "funnelSettings is required for funnel metrics",
+        path: ["funnelSettings"],
+      });
     }
-  });
+    if ((body.numerator ?? null) !== null) {
+      ctx.addIssue({
+        code: "custom",
+        message: "numerator is not allowed for funnel metrics",
+        path: ["numerator"],
+      });
+    }
+    if (body.denominator) {
+      ctx.addIssue({
+        code: "custom",
+        message: "denominator is not allowed for funnel metrics",
+        path: ["denominator"],
+      });
+    }
+  } else {
+    if (!body.numerator) {
+      ctx.addIssue({
+        code: "custom",
+        message: "numerator is required for non-funnel metrics",
+        path: ["numerator"],
+      });
+    }
+    if (body.funnelSettings) {
+      ctx.addIssue({
+        code: "custom",
+        message: "funnelSettings is only allowed for funnel metrics",
+        path: ["funnelSettings"],
+      });
+    }
+  }
+}
+
+export const postFactMetricBody = postFactMetricBodyFields
+  .strict()
+  .superRefine(refineFactMetricCreateBody);
 
 // Corresponds to payload-schemas/UpdateFactMetricPayload.yaml
-const updateFactMetricBody = z
-  .object({
-    name: z.string().optional(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-    owner: ownerInputField.optional(),
-    projects: z.array(z.string()).optional(),
-    tags: z.array(z.string()).optional(),
-    metricType: apiMetricTypeEnum.optional(),
-    numerator: postNumeratorRef.nullable().optional(),
-    denominator: postDenominatorRef.optional(),
-    inverse: z
-      .boolean()
-      .describe(
-        "Set to true for things like Bounce Rate, where you want the metric to decrease",
-      )
-      .optional(),
-    quantileSettings: postQuantileSettings.optional(),
-    funnelSettings: postFunnelSettings.optional(),
-    cappingSettings: postCappingSettings.optional(),
-    windowSettings: postWindowSettings.optional(),
-    priorSettings: postPriorSettings.optional(),
-    regressionAdjustmentSettings: postRegressionAdjustmentSettings.optional(),
-    riskThresholdSuccess: z
-      .number()
-      .gte(0)
-      .describe(
-        "No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.",
-      )
-      .optional()
-      .meta({ deprecated: true }),
-    riskThresholdDanger: z
-      .number()
-      .gte(0)
-      .describe(
-        "No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.",
-      )
-      .optional()
-      .meta({ deprecated: true }),
-    displayAsPercentage: z
-      .boolean()
-      .describe(
-        "If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics.",
-      )
-      .optional(),
-    minPercentChange: z
-      .number()
-      .gte(0)
-      .describe(
-        "Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)",
-      )
-      .optional(),
-    maxPercentChange: z
-      .number()
-      .gte(0)
-      .describe(
-        "Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)",
-      )
-      .optional(),
-    minSampleSize: z.number().gte(0).optional(),
-    targetMDE: z.number().gte(0).optional(),
-    managedBy: z
-      .enum(["", "api", "admin"])
-      .describe('Set this to "api" to disable editing in the GrowthBook UI')
-      .optional(),
-    archived: z.boolean().optional(),
-    metricAutoSlices: z
-      .array(z.string())
-      .describe(
-        "Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.",
-      )
-      .optional(),
+const updateFactMetricBody = postFactMetricBodyFields
+  .partial()
+  .extend({
+    archived: factMetricCreateArchivedField,
   })
   .strict()
   .superRefine((body, ctx) => {

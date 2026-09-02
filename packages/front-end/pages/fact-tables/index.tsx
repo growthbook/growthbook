@@ -1,7 +1,7 @@
 import { isProjectListValidForProject } from "shared/util";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { date } from "shared/dates";
-import { getFactMetricPrimaryFactTableId } from "shared/experiments";
+import { getFactMetricFactTableIds } from "shared/experiments";
 import { FaArrowRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { Box, Flex, Separator } from "@radix-ui/themes";
@@ -99,19 +99,10 @@ export default function FactTablesPage() {
 
   const factMetricCounts: Record<string, number> = {};
   factMetrics.forEach((m) => {
-    const key = getFactMetricPrimaryFactTableId(m);
-    factMetricCounts[key] = factMetricCounts[key] || 0;
-    factMetricCounts[key]++;
-
-    if (
-      m.metricType === "ratio" &&
-      m.denominator &&
-      m.denominator.factTableId !== key
-    ) {
-      const key = m.denominator.factTableId;
+    getFactMetricFactTableIds(m).forEach((key) => {
       factMetricCounts[key] = factMetricCounts[key] || 0;
       factMetricCounts[key]++;
-    }
+    });
   });
 
   const filteredFactTables = project
@@ -347,7 +338,7 @@ export default function FactTablesPage() {
               <Flex gap="2" mt="5">
                 <Flex direction="column" gap="1">
                   <div>Fact Table</div>
-                  <Box className="border px-3 py-2 bg-white">
+                  <Box className="appbox px-3 py-2">
                     <InlineCode
                       language="sql"
                       code={`SELECT\n  timestamp,\n  user_id,\n  event_name,\n  device_type\nFROM\n  events`}
@@ -401,7 +392,7 @@ export default function FactTablesPage() {
               <Flex gap="2" mt="5">
                 <Flex direction="column" gap="1">
                   <div>Fact Table</div>
-                  <Box className="border px-3 py-2 bg-white">
+                  <Box className="appbox px-3 py-2">
                     <InlineCode
                       language="sql"
                       code={`SELECT\n  timestamp,\n  user_id,\n  amount,\n  numItems\nFROM\n  orders`}
@@ -612,7 +603,7 @@ function ExampleMetric({
         </Flex>
       }
     >
-      <Box className="border p-2 bg-white">
+      <Box className="appbox p-2">
         {name} <GBInfo />
       </Box>
     </Tooltip>

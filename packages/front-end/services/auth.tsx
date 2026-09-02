@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { useRouter } from "next/router";
 import { OrganizationInterface } from "shared/types/organization";
+import { NonJsonResponseError } from "shared/util";
 import {
   IdTokenResponse,
   UnauthenticatedResponse,
@@ -210,6 +211,31 @@ export async function safeLogout() {
   await redirectWithTimeout(json?.redirectURI || window.location.origin);
 }
 
+// Where to land once login completes; only a same-origin relative path is trusted
+export function getPostAuthRedirectPath({ consume = false } = {}): string {
+  try {
+    const path = window.sessionStorage.getItem("postAuthRedirectPath") ?? "/";
+    if (consume) {
+      window.sessionStorage.removeItem("postAuthRedirectPath");
+    }
+    // Reject protocol-relative (//host) and backslash (/\host) escapes
+    return /^\/(?![/\\])/.test(path) ? path : "/";
+  } catch (e) {
+    return "/";
+  }
+}
+
+export function savePostAuthRedirectPath() {
+  try {
+    window.sessionStorage.setItem(
+      "postAuthRedirectPath",
+      window.location.pathname + (window.location.search || ""),
+    );
+  } catch (e) {
+    // ignore
+  }
+}
+
 export async function redirectWithTimeout(url: string, timeout: number = 5000) {
   // If the URL is the same as the current one, do a reload instead
   // This is the only way to force the page to refresh if the URL contains a hash
@@ -284,6 +310,7 @@ export const AuthProvider: React.FC<{
             trackingEventModalType=""
             open={true}
             submit={async () => {
+              savePostAuthRedirectPath();
               await redirectWithTimeout(resp.redirectURI);
             }}
             close={async () => {
@@ -299,16 +326,7 @@ export const AuthProvider: React.FC<{
           </Modal>,
         );
       } else {
-        try {
-          const redirectAddress =
-            window.location.pathname + (window.location.search || "");
-          window.sessionStorage.setItem(
-            "postAuthRedirectPath",
-            redirectAddress,
-          );
-        } catch (e) {
-          // ignore
-        }
+        savePostAuthRedirectPath();
 
         // Don't need to confirm, just redirect immediately
         if (isUnregisteredCloudUser()) {
@@ -386,7 +404,11 @@ export const AuthProvider: React.FC<{
       if (contentType && contentType.startsWith("image/")) {
         responseData = await response.blob();
       } else {
-        responseData = await response.json();
+        try {
+          responseData = await response.json();
+        } catch (e) {
+          throw new NonJsonResponseError(response.status);
+        }
         if (
           !response.ok &&
           responseData &&
@@ -443,16 +465,7 @@ export const AuthProvider: React.FC<{
               init.headers["Authorization"] = `Bearer ${resp.token}`;
               return fetch(getApiHost() + url, init);
             } else if ("redirectURI" in resp) {
-              try {
-                const redirectAddress =
-                  window.location.pathname + (window.location.search || "");
-                window.sessionStorage.setItem(
-                  "postAuthRedirectPath",
-                  redirectAddress,
-                );
-              } catch (e) {
-                // ignore
-              }
+              savePostAuthRedirectPath();
               await redirectWithTimeout(resp.redirectURI);
             }
             setSessionError(true);
@@ -517,16 +530,7 @@ export const AuthProvider: React.FC<{
             }
             return responseData;
           } else if ("redirectURI" in resp) {
-            try {
-              const redirectAddress =
-                window.location.pathname + (window.location.search || "");
-              window.sessionStorage.setItem(
-                "postAuthRedirectPath",
-                redirectAddress,
-              );
-            } catch (e) {
-              // ignore
-            }
+            savePostAuthRedirectPath();
             // Don't need to confirm, just redirect immediately
             await redirectWithTimeout(resp.redirectURI);
           }
