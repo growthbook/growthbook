@@ -181,9 +181,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
         await setExternalId(queryId);
       } catch (e) {
         logger.debug(
-          `Snowflake: failed to persist external id ${queryId}: ${
-            e instanceof Error ? e.message : String(e)
-          }`,
+          `Snowflake: failed to persist external id ${queryId}: ${getErrorMessage(e)}`,
         );
       }
     }
@@ -237,13 +235,6 @@ export async function cancelSnowflakeQuery(
   conn: SnowflakeConnectionParams,
   queryId: string,
 ): Promise<void> {
-  if (!queryId) {
-    logger.debug(
-      `Failed to cancel Snowflake query ${queryId}: No query ID provided`,
-    );
-    return;
-  }
-
   const connection = buildSnowflakeConnection(conn);
   try {
     await connectSnowflake(connection, 30000);

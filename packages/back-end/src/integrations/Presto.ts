@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Client, ClientOptions, QueryOptions } from "presto-client";
 import { format } from "shared/sql";
 import { parseIntWithDefault } from "shared/util";
@@ -31,45 +32,28 @@ const PRESTO_QUERY_TAG_MAX_LENGTH = 2000;
 
 const DEFAULT_PRESTO_REQUEST_TIMEOUT_SEC = 3600;
 
-function extractPrestoFailureMessage(
-  info: Record<string, unknown>,
-): string | undefined {
-  const failureInfo = info.failureInfo;
-  if (
-    failureInfo &&
-    typeof failureInfo === "object" &&
-    "message" in failureInfo
-  ) {
-    const message = (failureInfo as { message?: unknown }).message;
-    if (typeof message === "string" && message.length > 0) return message;
-  }
-  const errorCode = info.errorCode;
-  if (errorCode && typeof errorCode === "object" && "name" in errorCode) {
-    const name = (errorCode as { name?: unknown }).name;
-    if (typeof name === "string" && name.length > 0) return name;
-  }
-  return undefined;
-}
+// Query-info payload from GET /v1/query/{id}. Only the fields we read.
+const prestoQueryInfoSchema = z.object({
+  state: z.string().min(1),
+  failureInfo: z.object({ message: z.string().nullish() }).nullish(),
+  errorCode: z.object({ name: z.string().nullish() }).nullish(),
+});
 
-// Maps a Trino/Presto query-info object (from GET /v1/query/{id}) to a status.
 // Only FINISHED and FAILED are terminal; every other reported state is still
-// executing. A missing/blank state means we can't tell, so return unknown
+// executing. An unparseable payload means we can't tell, so return unknown
 // rather than assuming the query is alive.
 export function prestoStateToStatus(info: unknown): ExternalQueryStatus {
-  const obj =
-    info && typeof info === "object"
-      ? (info as Record<string, unknown>)
-      : undefined;
-  const state = obj && typeof obj.state === "string" ? obj.state : undefined;
+  const parsed = prestoQueryInfoSchema.safeParse(info);
+  if (!parsed.success) return { state: "unknown", reason: "unreachable" };
+  const { state, failureInfo, errorCode } = parsed.data;
   if (state === "FINISHED") return { state: "succeeded" };
   if (state === "FAILED") {
     return {
       state: "failed",
-      error: (obj && extractPrestoFailureMessage(obj)) || "Query failed",
+      error: failureInfo?.message || errorCode?.name || "Query failed",
     };
   }
-  if (state !== undefined && state.length > 0) return { state: "running" };
-  return { state: "unknown", reason: "unreachable" };
+  return { state: "running" };
 }
 
 export default class Presto extends SqlIntegration {
