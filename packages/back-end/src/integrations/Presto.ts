@@ -12,7 +12,10 @@ import {
 import { QueryStatistics, RunQueryMetadata } from "shared/types/query";
 import { PrestoConnectionParams } from "shared/types/integrations/presto";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { ExternalQueryStatus } from "back-end/src/types/Integration";
+import {
+  CancelQueryOutcome,
+  ExternalQueryStatus,
+} from "back-end/src/types/Integration";
 import { getKerberosHeader } from "back-end/src/util/kerberos.util";
 import { getQueryTagString } from "back-end/src/util/integration";
 import { logger } from "back-end/src/util/logger";
@@ -141,9 +144,9 @@ export default class Presto extends SqlIntegration {
     return new Client(configOptions);
   }
 
-  async cancelQuery(externalId: string): Promise<void> {
+  async cancelQuery(externalId: string): Promise<CancelQueryOutcome> {
     const client = this.createClient();
-    return new Promise((resolve, reject) => {
+    return new Promise<CancelQueryOutcome>((resolve, reject) => {
       client.kill(externalId, (error) => {
         if (error) {
           logger.debug(
@@ -152,7 +155,7 @@ export default class Presto extends SqlIntegration {
           reject(error);
         } else {
           logger.debug(`Cancelled Presto/Trino query ${externalId}`);
-          resolve();
+          resolve("cancelled");
         }
       });
     });

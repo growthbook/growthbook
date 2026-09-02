@@ -271,12 +271,6 @@ export async function cancelSnowflakeQuery(
     });
 
     logger.debug(`Cancelled Snowflake query ${queryId}`);
-  } catch (e) {
-    logger.debug(
-      `Failed to cancel Snowflake query ${queryId}: ${
-        e instanceof Error ? e.message : String(e)
-      }`,
-    );
   } finally {
     await destroySnowflakeConnection(connection);
   }

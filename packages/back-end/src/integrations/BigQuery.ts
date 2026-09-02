@@ -18,7 +18,10 @@ import {
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { ExternalQueryStatus } from "back-end/src/types/Integration";
+import {
+  CancelQueryOutcome,
+  ExternalQueryStatus,
+} from "back-end/src/types/Integration";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { logger } from "back-end/src/util/logger";
@@ -62,7 +65,7 @@ export default class BigQuery extends SqlIntegration {
   async cancelQuery(
     externalId: string,
     metadata?: Record<string, string>,
-  ): Promise<void> {
+  ): Promise<CancelQueryOutcome> {
     const client = this.getClient();
 
     // Location is required for non-US/EU multi-region datasets — without it
@@ -80,6 +83,7 @@ export default class BigQuery extends SqlIntegration {
       { externalId, location, statusAtCancel: apiResult.job?.status },
       "BigQuery cancel request accepted",
     );
+    return "requested";
   }
 
   async getExternalQueryStatus(

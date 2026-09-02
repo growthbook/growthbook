@@ -9,7 +9,10 @@ import {
   getSnowflakeQueryStatus,
   runSnowflakeQuery,
 } from "back-end/src/services/snowflake";
-import { ExternalQueryStatus } from "back-end/src/types/Integration";
+import {
+  CancelQueryOutcome,
+  ExternalQueryStatus,
+} from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 import { snowflakeDialect } from "./dialects/snowflake";
 
@@ -41,8 +44,9 @@ export default class Snowflake extends SqlIntegration {
   ): Promise<QueryResponse> {
     return runSnowflakeQuery(this.params, sql, setExternalId, queryMetadata);
   }
-  async cancelQuery(externalId: string): Promise<void> {
+  async cancelQuery(externalId: string): Promise<CancelQueryOutcome> {
     await cancelSnowflakeQuery(this.params, externalId);
+    return "requested";
   }
   getExternalQueryStatus(externalId: string): Promise<ExternalQueryStatus> {
     return getSnowflakeQueryStatus(this.params, externalId);
