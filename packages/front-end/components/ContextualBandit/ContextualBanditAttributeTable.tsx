@@ -59,9 +59,6 @@ function AttributeSplitsModal({
           ? "Splits on other attributes"
           : `Splits on ${entry.label}`
       }
-      subheader={`Removed ${percentFormatter.format(
-        fractionRemoved(entry.totalReduction, rootSse),
-      )} of the total within-context error.`}
       closeCta="Close"
       size="lg"
     >
