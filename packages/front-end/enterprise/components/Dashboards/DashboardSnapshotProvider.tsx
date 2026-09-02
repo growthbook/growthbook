@@ -348,7 +348,7 @@ export function useDashboardSnapshot(
       const res = await apiCall<{ snapshot?: ExperimentSnapshotInterface }>(
         `/experiment/${experiment.id}/snapshot/${
           experiment.phases.length - 1
-        }/${dimension === undefined ? dimension : encodeURIComponent(dimension)}`,
+        }${dimension ? "/" + encodeURIComponent(dimension) : ""}`,
       );
       if (!res.snapshot) {
         setFetchingSnapshotFailed(true);

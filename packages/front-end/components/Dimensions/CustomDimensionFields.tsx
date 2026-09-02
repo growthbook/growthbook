@@ -102,7 +102,7 @@ export default function CustomDimensionFields({
       !!draft.cutoff &&
       !isCutoffWithinBounds(draft.cutoff, cutoffMin, cutoffMax);
     return (
-      <div>
+      <Flex direction="column" gap="1">
         <DatePicker
           label="First exposure cutoff (UTC)"
           date={draft.cutoff ? utcInstantToPickerDate(draft.cutoff) : undefined}
@@ -128,7 +128,7 @@ export default function CustomDimensionFields({
             } – ${cutoffMax ? date(cutoffMax, "UTC") : "now"}).`}
           </HelperText>
         )}
-      </div>
+      </Flex>
     );
   }
 
