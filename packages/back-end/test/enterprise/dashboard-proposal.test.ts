@@ -739,6 +739,26 @@ describe("buildDashboardDraft — a failed re-run on an existing tile", () => {
       },
     ]);
   });
+
+  // A failed rename that collides with another saved tile's title claims that
+  // tile, so the real original is left unclaimed and Update would delete it.
+  it("refuses when a failed tile leaves another saved one unclaimed", async () => {
+    mockRunExploration.mockRejectedValue(new Error("warehouse down"));
+    const signups = {
+      ...saved,
+      id: "blk_sig",
+      uid: "uid_sig",
+      title: "Signups",
+    };
+
+    const { draft, error } = await buildDashboardDraft(
+      ctxWith([saved, signups]),
+      input([chartBlock("Signups")], { dashboardId: "dash_abc" }),
+    );
+
+    expect(error).toContain('Could not run "Signups"');
+    expect(draft.blocks).toEqual([]);
+  });
 });
 
 // A rename plus a failed re-run is indistinguishable from a brand-new tile, and

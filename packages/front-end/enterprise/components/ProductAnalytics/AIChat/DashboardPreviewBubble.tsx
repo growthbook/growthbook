@@ -304,7 +304,9 @@ export default function DashboardPreviewBubble({
               size="sm"
               color="violet"
             >
-              Open dashboard
+              {/* Before Update, this opens the dashboard as it stands today, not
+                  the draft above it — say so rather than implying it is live. */}
+              {savedId ? "Open dashboard" : "Open saved dashboard"}
             </LinkButton>
           ) : readOnly ? null : (
             // Only on the create path: an existing dashboard keeps the access

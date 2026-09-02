@@ -226,9 +226,11 @@ export async function buildDashboardDraft(
   }
   const matcher = createSavedBlockMatcher(saved?.blocks ?? []);
   const revised = input.blocks.map(matcher.match);
-  // A failed tile we cannot trace back to a saved one: dropping it is a deletion
-  // if it was really a rename, and the proposal alone cannot tell us which.
-  const untraceable: string[] = [];
+  // Any tile that fails on a saved dashboard: dropping it is a deletion if it
+  // was really a rename, and the proposal alone cannot tell us which. Matching
+  // a saved tile does not clear it — a rename can collide with another tile's
+  // title, claiming that one and leaving the real original to be deleted.
+  const failedOnSaved: string[] = [];
 
   // Identity travels with the layout, or every edit churns the block's `uid`.
   const carriedFrom = (previous: DashboardBlockInterface | undefined) =>
@@ -283,6 +285,7 @@ export async function buildDashboardDraft(
       );
       if (!ran) {
         const previous = revised[index];
+        if (saved) failedOnSaved.push(proposed.title);
         // Dropping a tile that already exists would PUT a block list without it,
         // deleting it for good. Keep the saved one, stale result and all.
         if (previous) {
@@ -294,7 +297,6 @@ export async function buildDashboardDraft(
           });
           return { block: previous as DraftBlock, sizeHint };
         }
-        if (saved) untraceable.push(proposed.title);
         droppedBlocks.push({
           title: proposed.title,
           type: proposed.type,
@@ -311,10 +313,10 @@ export async function buildDashboardDraft(
   );
 
   // Only ambiguous while a saved tile is unaccounted for; with every one claimed,
-  // a failed unmatched block is genuinely new and drops without losing anything.
-  if (untraceable.length && matcher.unclaimedCount() > 0) {
+  // a failed block loses nothing — it is either new, or kept at its old result.
+  if (failedOnSaved.length && matcher.unclaimedCount() > 0) {
     return noDraft(
-      `Could not run ${untraceable.map((t) => `"${t}"`).join(", ")}, and on an existing dashboard ` +
+      `Could not run ${failedOnSaved.map((t) => `"${t}"`).join(", ")}, and on an existing dashboard ` +
         "leaving a tile out deletes it. Nothing was changed. Keep the titles of the tiles you are " +
         "not renaming identical to the saved ones, fix the failing config, and call again.",
     );
