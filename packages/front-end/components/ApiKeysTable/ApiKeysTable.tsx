@@ -13,6 +13,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import Text from "@/ui/Text";
 import ExpiresCell from "@/components/ApiKeysTable/ExpiresCell";
 
 const ADMIN_LOCKED_REASON =
@@ -172,10 +173,10 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     <span>{ago(key.lastUsed)}</span>
                   </Tooltip>
                 ) : key.lastUsed === null ? (
-                  <span className="text-muted">Never</span>
+                  <Text color="text-low">Never</Text>
                 ) : (
                   <Tooltip content="This key was created before usage tracking was added, so we don't know when it was last used.">
-                    <span className="text-muted">Unknown</span>
+                    <Text color="text-low">Unknown</Text>
                   </Tooltip>
                 )}
               </td>
