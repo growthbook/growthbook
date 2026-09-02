@@ -1,5 +1,24 @@
+import { ExposureQuery } from "shared/types/datasource";
 import { describe, expect, it } from "vitest";
-import { validateSQL } from "@/services/datasources";
+import {
+  getExposureQueryIdentifierType,
+  getExposureQueryIdentifierTypes,
+  validateSQL,
+} from "@/services/datasources";
+
+// The helpers only read userIdType/userIdTypes; build a minimal query.
+function makeExposureQuery(
+  partial: Partial<ExposureQuery> &
+    Pick<ExposureQuery, "userIdType" | "userIdTypes">,
+): ExposureQuery {
+  return {
+    id: "exq_1",
+    name: "Assignments",
+    query: "SELECT 1",
+    dimensions: [],
+    ...partial,
+  };
+}
 
 describe("validateSQL", () => {
   describe("empty SQL", () => {
@@ -145,5 +164,63 @@ describe("validateSQL", () => {
         ),
       ).not.toThrow();
     });
+  });
+});
+
+describe("getExposureQueryIdentifierTypes", () => {
+  it("returns userIdTypes when present", () => {
+    expect(
+      getExposureQueryIdentifierTypes(
+        makeExposureQuery({
+          userIdType: "user_id",
+          userIdTypes: ["user_id", "anonymous_id"],
+        }),
+      ),
+    ).toEqual(["user_id", "anonymous_id"]);
+  });
+
+  it("falls back to the deprecated scalar when userIdTypes is empty", () => {
+    expect(
+      getExposureQueryIdentifierTypes(
+        makeExposureQuery({ userIdType: "user_id", userIdTypes: [] }),
+      ),
+    ).toEqual(["user_id"]);
+  });
+
+  it("returns an empty list when neither is set", () => {
+    expect(
+      getExposureQueryIdentifierTypes(
+        makeExposureQuery({ userIdType: "", userIdTypes: [] }),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("getExposureQueryIdentifierType", () => {
+  const query = makeExposureQuery({
+    userIdType: "user_id",
+    userIdTypes: ["user_id", "anonymous_id"],
+  });
+
+  it("returns the preferred identifier when the query declares it", () => {
+    expect(getExposureQueryIdentifierType(query, "anonymous_id")).toBe(
+      "anonymous_id",
+    );
+  });
+
+  it("ignores a preferred identifier the query does not declare", () => {
+    expect(getExposureQueryIdentifierType(query, "device_id")).toBe("user_id");
+  });
+
+  it("returns the first declared identifier when no preference is given", () => {
+    expect(getExposureQueryIdentifierType(query)).toBe("user_id");
+  });
+
+  it("falls back to the deprecated scalar for a legacy query", () => {
+    expect(
+      getExposureQueryIdentifierType(
+        makeExposureQuery({ userIdType: "user_id", userIdTypes: [] }),
+      ),
+    ).toBe("user_id");
   });
 });
