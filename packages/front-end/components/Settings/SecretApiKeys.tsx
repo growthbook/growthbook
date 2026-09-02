@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
+import React, { FC, ReactNode, useCallback, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { useAuth } from "@/services/auth";
@@ -10,10 +10,13 @@ import HistoryTable from "@/components/HistoryTable";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import ApiKeysModal from "./ApiKeysModal";
 
-const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
-  keys,
-  mutate,
-}) => {
+// `children` renders between the intro and the key list, for controls that
+// constrain the keys (expiration policy) and so belong above them.
+const SecretApiKeys: FC<{
+  keys: ApiKeyInterface[];
+  mutate: () => void;
+  children?: ReactNode;
+}> = ({ keys, mutate, children }) => {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
   const [editingKey, setEditingKey] = useState<ApiKeyInterface | null>(null);
@@ -109,6 +112,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
           Secret keys have access to your organization. They{" "}
           <strong>must not be exposed to users</strong>.
         </p>
+        {children}
         {organizationSecretKeys.length > 0 && (
           <ApiKeysTable
             onDelete={onDelete}
