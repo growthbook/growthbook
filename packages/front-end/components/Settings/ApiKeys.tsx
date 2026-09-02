@@ -26,13 +26,13 @@ const ApiKeys: FC = () => {
 
   return (
     <>
-      <SecretApiKeys keys={data.keys} mutate={mutate} />
-
-      <ApiKeyExpirationPolicy
-        kind="secret"
-        keys={data.keys.filter((k) => k.secret && !k.userId)}
-        mutate={mutate}
-      />
+      <SecretApiKeys keys={data.keys} mutate={mutate}>
+        <ApiKeyExpirationPolicy
+          kind="secret"
+          keys={data.keys.filter((k) => k.secret && !k.userId)}
+          mutate={mutate}
+        />
+      </SecretApiKeys>
 
       {(!settings?.disablePersonalAccessTokens || canManageTokens) && (
         <Callout status="info" mb="4">
