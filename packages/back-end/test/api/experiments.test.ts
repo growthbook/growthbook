@@ -799,8 +799,7 @@ describe("experiments API", () => {
         name: "New Experiment",
         hypothesis: "This will increase conversions",
         datasourceId: "ds_123",
-        assignmentQueryId: "user_id",
-        assignmentQueryIdentifierType: "anonymous_id",
+        assignmentQuery: { id: "user_id", identifierType: "anonymous_id" },
         variations: [
           {
             key: "control",

@@ -14926,7 +14926,7 @@ paths:
                     assignment query objects associated with the datasource, and
                     the identifier type must be one it declares. Can only be set
                     if a templateId is not provided. Mutually exclusive with the
-                    deprecated assignmentQueryId/assignmentQueryIdentifierType.
+                    deprecated assignmentQueryId.
                   type: object
                   properties:
                     id:
@@ -14943,10 +14943,6 @@ paths:
                     Deprecated: use assignmentQuery instead. The ID property of
                     one of the assignment query objects associated with the
                     datasource. Can only be set if a templateId is not provided.
-                  type: string
-                assignmentQueryIdentifierType:
-                  deprecated: true
-                  description: 'Deprecated: use assignmentQuery.identifierType instead.'
                   type: string
                 trackingKey:
                   type: string
@@ -15666,7 +15662,7 @@ paths:
                   description: >-
                     The assignment query to use, grouping its ID with the
                     identifier type to analyze on. Mutually exclusive with the
-                    deprecated assignmentQueryId/assignmentQueryIdentifierType.
+                    deprecated assignmentQueryId.
                   type: object
                   properties:
                     id:
@@ -15680,10 +15676,6 @@ paths:
                 assignmentQueryId:
                   deprecated: true
                   description: 'Deprecated: use assignmentQuery instead.'
-                  type: string
-                assignmentQueryIdentifierType:
-                  deprecated: true
-                  description: 'Deprecated: use assignmentQuery.identifierType instead.'
                   type: string
                 trackingKey:
                   type: string
@@ -63074,9 +63066,6 @@ components:
             - identifierType
           additionalProperties: false
         assignmentQueryId:
-          deprecated: true
-          type: string
-        assignmentQueryIdentifierType:
           deprecated: true
           type: string
         experimentId:
