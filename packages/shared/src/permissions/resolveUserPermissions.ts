@@ -261,10 +261,9 @@ function getSingleRolePermission(
 }
 
 // Access-restricted projects deny by default: a principal with no explicit
-// role there gets an empty project entry, which every project-scoped check
-// resolves to instead of falling through to the global role. Principals whose
-// global role grants manageTeam are exempt — they can edit membership and so
-// could grant themselves a project role anyway; denying them is theater.
+// role there gets an empty project entry, which project-scoped checks resolve
+// to instead of the global fall-through. manageTeam holders are exempt — they
+// could grant themselves a project role anyway.
 function applyProjectAccessRestrictions(
   permissions: UserPermissions,
   restrictedProjects: string[] | undefined,

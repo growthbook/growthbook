@@ -50,8 +50,7 @@ export type AuthRequest<
   superAdmin?: boolean;
   organization?: OrganizationInterface;
   teams: TeamInterface[];
-  // Ids of org projects with restrictAccess, loaded alongside the org so
-  // synchronous permission resolution can deny-by-default on them
+  // Ids of restrictAccess projects, loaded with the org for permission resolution
   restrictedProjects?: string[];
   audit: (
     data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">,

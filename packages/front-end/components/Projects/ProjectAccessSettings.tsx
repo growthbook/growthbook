@@ -25,8 +25,6 @@ const ProjectAccessSettings: FC<{
   const canEdit = permissionsUtil.canUpdateProject(project.id);
   const canRestrictAccess = hasCommercialFeature("advanced-permissions");
 
-  // Anyone holding an explicit role on this project, directly or via a team —
-  // the people who keep access (besides admins) when access is restricted.
   const hasExplicitGrants = Array.from(users.values()).some(
     (member) =>
       member.projectRoles?.some((pr) => pr.project === project.id) ||

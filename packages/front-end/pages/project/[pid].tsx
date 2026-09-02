@@ -458,8 +458,7 @@ const ProjectPage: FC = () => {
                 <MemberList
                   mutate={refreshOrganization}
                   project={pid}
-                  // Scoped controls only: this page assigns roles on THIS
-                  // project, never the global editor or other projects' roles.
+                  // Scoped controls only — never the global role editor here
                   canEditRoles={false}
                   canEditProjectRoles={canEditSettings}
                   canDeleteMembers={false}

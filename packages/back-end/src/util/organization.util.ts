@@ -36,7 +36,6 @@ export function getUserPermissions(
 ): UserPermissions {
   const memberInfo = org.members.find((m) => m.id === user.id);
 
-  // Super admins bypass access-restricted projects entirely
   const effectiveRestrictedProjects = user.superAdmin
     ? undefined
     : restrictedProjects;

@@ -171,9 +171,8 @@ const MemberList: FC<{
         scopedProjectIds(member).includes(project),
     );
 
-  // When the project restricts access, a member's fall-through global role no
-  // longer applies there — resolve through the real permission pipeline so the
-  // table shows the denial (and its exemptions) exactly as the server does.
+  // Resolve through the real permission pipeline so the table shows
+  // restricted-access denials (and their exemptions) exactly as the server does.
   const restrictAccess = !!projects.find((p) => p.id === project)
     ?.restrictAccess;
   const deniedByRestrictedAccess = (member: ExpandedMember): boolean => {
