@@ -8,7 +8,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import useOrgLimits from "@/hooks/useOrgLimits";
 import track from "@/services/track";
-import Field from "@/components/Forms/Field";
+import TextField from "@/ui/TextField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import Callout from "@/ui/Callout";
@@ -136,10 +136,10 @@ const ApiKeysModal: FC<{
       submit={onSubmit}
       cta={editMode ? "Save" : "Create"}
     >
-      <Field
-        size="legacy"
+      <TextField
         label="Description"
-        required={true}
+        required
+        mb="3"
         {...form.register("description")}
       />
       {!editMode && (
