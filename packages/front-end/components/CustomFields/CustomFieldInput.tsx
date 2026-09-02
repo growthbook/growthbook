@@ -61,6 +61,7 @@ const CustomFieldInput: FC<{
                 ) : v.type === "enum" ? (
                   <SelectField
                     size="legacy"
+                    createable={!!v.creatable}
                     label={
                       <>
                         {v.name}
@@ -88,6 +89,7 @@ const CustomFieldInput: FC<{
                 ) : v.type === "multiselect" ? (
                   <MultiSelectField
                     legacyHeight
+                    creatable={!!v.creatable}
                     label={
                       <>
                         {v.name}

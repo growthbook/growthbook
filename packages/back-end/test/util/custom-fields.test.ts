@@ -324,6 +324,66 @@ describe("custom fields validation", () => {
       );
     });
 
+    it("accepts values outside the allowed options for creatable multiselect fields", async () => {
+      await expect(
+        validate({
+          values: { cfd_owners: '["team-c","team-a"]' },
+          fields: [
+            buildCustomField({
+              id: "cfd_owners",
+              name: "Owners",
+              type: "multiselect",
+              required: true,
+              values: "team-a,team-b",
+              creatable: true,
+              sections: ["experiment"],
+            }),
+          ],
+          section: "experiment",
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it("accepts values outside the allowed options for creatable enum fields", async () => {
+      await expect(
+        validate({
+          values: { cfd_tier: "tier-c" },
+          fields: [
+            buildCustomField({
+              id: "cfd_tier",
+              name: "Tier",
+              type: "enum",
+              required: true,
+              values: "tier-a,tier-b",
+              creatable: true,
+              sections: ["experiment"],
+            }),
+          ],
+          section: "experiment",
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it("still rejects multiple values for creatable enum fields", async () => {
+      await expect(
+        validate({
+          values: { cfd_tier: '["tier-a","tier-c"]' },
+          fields: [
+            buildCustomField({
+              id: "cfd_tier",
+              name: "Tier",
+              type: "enum",
+              required: true,
+              values: "tier-a,tier-b",
+              creatable: true,
+              sections: ["experiment"],
+            }),
+          ],
+          section: "experiment",
+        }),
+      ).rejects.toThrow("Only one value is allowed for enum fields");
+    });
+
     it("treats numeric zero as a valid required number value", async () => {
       await expect(
         validate({
