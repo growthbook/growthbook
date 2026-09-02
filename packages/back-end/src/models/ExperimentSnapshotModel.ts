@@ -648,6 +648,9 @@ export async function updateSnapshot({
     experimentSnapshot.status === "success" &&
     // Only use main snapshots or those triggered automatically for dashboards
     experimentSnapshot.triggeredBy !== "manual-dashboard" &&
+    // The dependency rebuild only exists to materialize Overall Results for a
+    // fan-out in progress; it must not become a block's data source.
+    experimentSnapshot.triggeredBy !== "dashboard-dependency" &&
     (experimentSnapshot.triggeredBy === "update-dashboards" ||
       experimentSnapshot.type === "standard")
   ) {
