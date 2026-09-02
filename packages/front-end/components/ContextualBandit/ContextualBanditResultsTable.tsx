@@ -22,6 +22,8 @@ import Heatmap, { HeatmapColumn, HeatmapRow } from "@/ui/Heatmap";
 import VariationNumber from "@/ui/VariationNumber";
 import Tooltip from "@/ui/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getExperimentMetricFormatter } from "@/services/metrics";
+import { useCurrency } from "@/hooks/useCurrency";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useContextualBanditResults } from "@/hooks/useContextualBandits";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
@@ -149,9 +151,14 @@ export default function ContextualBanditResultsTable({
 }) {
   const [mode, setMode] = useState<ComparisonMode>("weights");
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
-  const { getDatasourceById, getExperimentMetricById, metricGroups } =
-    useDefinitions();
+  const {
+    getDatasourceById,
+    getExperimentMetricById,
+    getFactTableById,
+    metricGroups,
+  } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
+  const displayCurrency = useCurrency();
 
   const {
     loading,
@@ -179,6 +186,13 @@ export default function ContextualBanditResultsTable({
     : null;
   const goalMetricName = goalMetric?.name ?? "outcome";
   const goalMetricLink = goalMetric ? getMetricLink(goalMetric.id) : null;
+  const formatGoalMetricMean = (value: number): string => {
+    if (Number.isNaN(value)) return "—";
+    if (!goalMetric) return formatModeValue(value, "means");
+    return getExperimentMetricFormatter(goalMetric, getFactTableById)(value, {
+      currency: displayCurrency,
+    });
+  };
 
   const queryLatest = latest;
   const { status } = getQueryStatus(
@@ -420,14 +434,14 @@ export default function ContextualBanditResultsTable({
               unitDisplayName={unitDisplayName}
               goalMetricName={goalMetricName}
               goalMetricLink={goalMetricLink}
-              formatMean={(value) => formatModeValue(value, "means")}
+              formatMean={formatGoalMetricMean}
               formatWeight={formatWeight}
             />
           </Box>
 
           <SectionHeading
             title="Attribute Importance"
-            description="Attributes ranked by proportion of error removed."
+            description="Attributes ranked by proportion of total error removed."
           />
           {hasSplitMetadata ? (
             <Box mb="5">

@@ -44,6 +44,11 @@ function AttributeSplitsModal({
     [entry.steps],
   );
 
+  const attributeReduction = percentFormatter.format(
+    fractionRemoved(entry.totalReduction, rootSse),
+  );
+  const splitsSubject = entry.isOther ? "these other attributes" : entry.label;
+
   return (
     <ModalStandard
       open
@@ -56,11 +61,23 @@ function AttributeSplitsModal({
       }
       subheader={`Removed ${percentFormatter.format(
         fractionRemoved(entry.totalReduction, rootSse),
-      )} of the starting within-context error.`}
+      )} of the total within-context error.`}
       closeCta="Close"
       size="lg"
     >
       <Flex direction="column" gap="3">
+        <Box>
+          <Text size="sm" color="text-low" as="div">
+            GrowthBook&apos;s Contextual Bandits use a tree-based model to split
+            units on the attributes that best differentiate those units on the
+            decision metric.
+          </Text>
+          <Text size="sm" color="text-low" as="div" mt="2">
+            The splits on {splitsSubject} removed {attributeReduction} of the
+            total within-context error. Below is the list of splits that add up
+            to this reduction.
+          </Text>
+        </Box>
         {steps.map((step) => {
           const prevSse = sseByNumSplits.get(step.numSplits - 1);
           const gain = prevSse !== undefined ? prevSse - step.totalSse : 0;
