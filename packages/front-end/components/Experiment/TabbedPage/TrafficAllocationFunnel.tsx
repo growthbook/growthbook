@@ -14,7 +14,7 @@ import {
   filterEnvironmentsByExperiment,
   isManagedByExperiment,
 } from "shared/util";
-import { Box, Flex, Grid, IconButton, Separator } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { PiCaretDownBold, PiPencilSimpleFill, PiPlus } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -491,6 +491,39 @@ export default function TrafficAllocationFunnel({
             </>
           )}
 
+          {environmentStates.length > 0 ? (
+            // Above the card, not inside it: where the experiment runs frames
+            // everything below rather than being one more targeting rule.
+            <Flex align="center" justify="center" gap="2" wrap="wrap" mb="3">
+              {environmentsAreDraft && (
+                <UnpublishedDot
+                  tooltip={
+                    draftDetail.name
+                      ? `Unpublished targeting in ${draftDetail.name}`
+                      : "Unpublished draft targeting"
+                  }
+                  note={draftDetail.note}
+                />
+              )}
+              <Text color="text-high" weight="semibold">
+                Environments:
+              </Text>
+              <EnvironmentStateChips states={environmentStates} />
+              {canEditEnvironments ? (
+                <IconButton
+                  variant="ghost"
+                  color="violet"
+                  radius="full"
+                  size="2"
+                  onClick={() => setEditEnvironments(true)}
+                  aria-label="Edit environments"
+                >
+                  <PiPencilSimpleFill size="16" />
+                </IconButton>
+              ) : null}
+            </Flex>
+          ) : null}
+
           <FunnelCard
             title="Targeting"
             onEdit={editTargeting}
@@ -534,44 +567,6 @@ export default function TrafficAllocationFunnel({
                     </div>
                   ) : null}
                 </>
-              ) : null}
-              {environmentStates.length > 0 ? (
-                <div>
-                  <Separator
-                    size="4"
-                    mb="3"
-                    style={{ background: "var(--slate-a3)" }}
-                  />
-                  <Flex align="center" gap="1" mb="2">
-                    {environmentsAreDraft && (
-                      <UnpublishedDot
-                        tooltip={
-                          draftDetail.name
-                            ? `Unpublished targeting in ${draftDetail.name}`
-                            : "Unpublished draft targeting"
-                        }
-                        note={draftDetail.note}
-                      />
-                    )}
-                    <Text as="div" color="text-high" weight="semibold">
-                      Environments
-                    </Text>
-                    <Box flexGrow="1" />
-                    {canEditEnvironments ? (
-                      <IconButton
-                        variant="ghost"
-                        color="violet"
-                        radius="full"
-                        size="2"
-                        onClick={() => setEditEnvironments(true)}
-                        aria-label="Edit environments"
-                      >
-                        <PiPencilSimpleFill size="16" />
-                      </IconButton>
-                    ) : null}
-                  </Flex>
-                  <EnvironmentStateChips states={environmentStates} />
-                </div>
               ) : null}
             </Flex>
           </FunnelCard>
