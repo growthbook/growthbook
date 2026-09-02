@@ -24,15 +24,21 @@ type MinimalColumn = {
 type MinimalFactTable = { columns: MinimalColumn[] } | null | undefined;
 
 // columnsFor(shape, factTable) from the spec. [] means omit the Column field.
+// "distinct" also needs datasource.properties.hasCountDistinctHLL — where
+// that's false, the spec says to hide the shape entirely; returning no
+// columns here is what makes that rule enforceable ("everything else follows
+// from columnsFor(shape).length > 0", per the spec's Gates section).
 export function columnsForShape(
   shape: RatioShape,
   factTable: MinimalFactTable,
+  hasCountDistinctHLL = true,
 ): string[] {
   if (
     !factTable ||
     shape === "count" ||
     shape === "days" ||
-    shape === "users"
+    shape === "users" ||
+    (shape === "distinct" && !hasCountDistinctHLL)
   ) {
     return [];
   }
@@ -49,11 +55,12 @@ export function fitColumn(
   shape: RatioShape,
   factTable: MinimalFactTable,
   currentColumn: string,
+  hasCountDistinctHLL = true,
 ): string {
   if (shape === "count") return "$$count";
   if (shape === "days") return "$$distinctDates";
   if (shape === "users") return "$$distinctUsers";
-  const candidates = columnsForShape(shape, factTable);
+  const candidates = columnsForShape(shape, factTable, hasCountDistinctHLL);
   return candidates.includes(currentColumn)
     ? currentColumn
     : (candidates[0] ?? "");
@@ -86,10 +93,11 @@ export function onShapeChange(
   current: ColumnRef,
   newShape: RatioShape,
   factTable: MinimalFactTable,
+  hasCountDistinctHLL = true,
 ): ColumnRef {
   return {
     ...current,
-    column: fitColumn(newShape, factTable, current.column),
+    column: fitColumn(newShape, factTable, current.column, hasCountDistinctHLL),
     aggregation:
       newShape === "users" ? undefined : aggregationForShape(newShape as Shape),
   };
@@ -101,12 +109,13 @@ export function onFactTableChange(
   current: ColumnRef,
   newFactTableId: string,
   factTable: MinimalFactTable,
+  hasCountDistinctHLL = true,
 ): ColumnRef {
   const shape = shapeFromColumnRef(current) ?? "sum";
   return {
     ...current,
     factTableId: newFactTableId,
-    column: fitColumn(shape, factTable, current.column),
+    column: fitColumn(shape, factTable, current.column, hasCountDistinctHLL),
     rowFilters: [],
     aggregateFilterColumn: undefined,
     aggregateFilter: undefined,
@@ -119,6 +128,7 @@ export function onQuantileScopeChange(
   current: ColumnRef,
   newScope: "unit" | "event",
   factTable: MinimalFactTable,
+  hasCountDistinctHLL = true,
 ): ColumnRef {
   if (newScope === "event") {
     const numericColumns = columnsForShape("sum", factTable);
@@ -133,7 +143,7 @@ export function onQuantileScopeChange(
   const shape = shapeFromColumnRef(current) ?? "sum";
   return {
     ...current,
-    column: fitColumn(shape, factTable, current.column),
+    column: fitColumn(shape, factTable, current.column, hasCountDistinctHLL),
     aggregation:
       shape === "users" ? undefined : aggregationForShape(shape as Shape),
   };
@@ -267,13 +277,16 @@ export function formTypeFromStored(
 ): FormTypeResult {
   const { metricType, numerator, denominator, quantileSettings } = metric;
 
-  if (metricType === "funnel") return { representable: true, type: "funnel" };
-  if (metricType === "ratio") {
-    if (isSketchAggregation(numerator) || isSketchAggregation(denominator)) {
-      return { representable: false, reason: "sketch-aggregation" };
-    }
-    return { representable: true, type: "ratio" };
+  // "aggregation: 'hll merge' or 'kll merge'" (spec) is stated generally, not
+  // scoped to one metric type. Checked once here rather than per-branch so
+  // every type's numerator/denominator is covered, not just the ones that
+  // happen to be reachable through today's UI.
+  if (isSketchAggregation(numerator) || isSketchAggregation(denominator)) {
+    return { representable: false, reason: "sketch-aggregation" };
   }
+
+  if (metricType === "funnel") return { representable: true, type: "funnel" };
+  if (metricType === "ratio") return { representable: true, type: "ratio" };
   if (metricType === "dailyParticipation") {
     return { representable: true, type: "dailyParticipation" };
   }
@@ -299,9 +312,6 @@ export function formTypeFromStored(
   }
 
   if (metricType === "quantile") {
-    if (isSketchAggregation(numerator)) {
-      return { representable: false, reason: "sketch-aggregation" };
-    }
     if (quantileSettings?.quantileEventCountColumn) {
       return { representable: false, reason: "quantile-event-count-column" };
     }
@@ -309,9 +319,6 @@ export function formTypeFromStored(
   }
 
   // metricType === "mean"
-  if (isSketchAggregation(numerator)) {
-    return { representable: false, reason: "sketch-aggregation" };
-  }
   if (numerator?.column === "$$distinctUsers") {
     return { representable: false, reason: "mean-on-distinct-users" };
   }
@@ -391,6 +398,7 @@ export function applyFormType<T extends MetricTypeSwitchState>(
   current: T,
   newFormType: FormMetricType,
   factTable: MinimalFactTable,
+  hasCountDistinctHLL = true,
 ): T {
   const { metricType, shape } = storedTypeAndShapeFor(newFormType);
   const sourceFactTableId = current.numerator?.factTableId ?? "";
@@ -416,7 +424,9 @@ export function applyFormType<T extends MetricTypeSwitchState>(
 
   const numerator: ColumnRef = {
     ...base,
-    column: shape ? fitColumn(shape, factTable, base.column) : base.column,
+    column: shape
+      ? fitColumn(shape, factTable, base.column, hasCountDistinctHLL)
+      : base.column,
     aggregation:
       shape && shape !== "count" ? aggregationForShape(shape) : undefined,
     aggregateFilterColumn: undefined,
