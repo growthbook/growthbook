@@ -32,11 +32,6 @@ export type SDKConnectionFieldsValue = PayloadSecurityValue & {
   sdkVersion?: string;
   environment: string;
   projects: string[];
-  // Experiment options carried alongside so the modals sanitise and persist
-  // them together with the rest.
-  includeRuleIds: boolean;
-  includeVisualExperiments: boolean;
-  includeRedirectExperiments: boolean;
 };
 
 /**

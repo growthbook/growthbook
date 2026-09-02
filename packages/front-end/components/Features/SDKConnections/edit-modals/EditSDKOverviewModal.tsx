@@ -1,11 +1,18 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SDKConnectionFields, {
   SDKConnectionFieldsValue,
 } from "@/components/Features/SDKConnections/SDKConnectionFields";
-import { deliveryModeFromConnection } from "@/components/Features/SDKConnections/sdkConnectionRules";
+import SDKConnectionAdvancedSettings from "@/components/Features/SDKConnections/SDKConnectionAdvancedSettings";
+import {
+  advancedValueFromConnection,
+  deliveryModeFromConnection,
+  sanitizeAdvancedForSave,
+  SDKConnectionAdvancedValue,
+} from "@/components/Features/SDKConnections/sdkConnectionRules";
 import {
   getConnectionLanguageFilter,
   LanguageFilter,
@@ -16,6 +23,8 @@ import {
   SdkConnectionRevisionProps,
   useSdkConnectionRevisionFlow,
 } from "./useSdkConnectionRevisionFlow";
+
+type FormValue = SDKConnectionFieldsValue & SDKConnectionAdvancedValue;
 
 export default function EditSDKOverviewModal({
   connection,
@@ -29,13 +38,15 @@ export default function EditSDKOverviewModal({
 } & SdkConnectionRevisionProps) {
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
+  const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
   const { draftSelector, save } = useSdkConnectionRevisionFlow({
     connection,
     mutate,
     ...revisionProps,
   });
 
-  const [value, setValue] = useState<SDKConnectionFieldsValue>({
+  // Same shape as the create modal, so the two share both form sections.
+  const [value, setValue] = useState<FormValue>(() => ({
     name: connection.name,
     languages: connection.languages ?? [],
     sdkVersion: connection.sdkVersion,
@@ -43,20 +54,23 @@ export default function EditSDKOverviewModal({
     projects: connection.projects ?? [],
     delivery: deliveryModeFromConnection(connection),
     encryptPayload: !!connection.encryptPayload,
-    includeExperimentNames: connection.includeExperimentNames ?? true,
     hashSecureAttributes: !!connection.hashSecureAttributes,
-    includeRuleIds: !!connection.includeRuleIds,
-    includeVisualExperiments: !!connection.includeVisualExperiments,
-    includeRedirectExperiments: !!connection.includeRedirectExperiments,
-  });
+    ...advancedValueFromConnection(connection),
+  }));
   const [languageError, setLanguageError] = useState<string | null>(null);
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
     getConnectionLanguageFilter(connection.languages ?? []),
   );
 
-  const onChange = (patch: Partial<SDKConnectionFieldsValue>) =>
+  const onChange = (patch: Partial<FormValue>) =>
     setValue((v) => ({ ...v, ...patch }));
 
+  // Gates follow the selection being edited, not the stored connection, so
+  // switching language updates what gets persisted.
+  const currentCapabilities = getConnectionSDKCapabilities(
+    { languages: value.languages, sdkVersion: value.sdkVersion },
+    "min-ver-intersection",
+  );
   // "max-ver-intersection" matches the full form: save-time sanitisation is
   // based on what the SDK supports at its latest version, not the pinned one.
   const latestCapabilities = getConnectionSDKCapabilities(
@@ -85,17 +99,7 @@ export default function EditSDKOverviewModal({
           throw new Error("Please select an SDK language");
         }
         setLanguageError(null);
-        const remote =
-          value.delivery === "remote" &&
-          latestCapabilities.includes("remoteEval") &&
-          hasCommercialFeature("remote-evaluation");
-        // Never persist an option this SDK can't use.
-        const visual =
-          latestCapabilities.includes("visualEditor") &&
-          value.includeVisualExperiments;
-        const redirect =
-          latestCapabilities.includes("redirects") &&
-          value.includeRedirectExperiments;
+        const plain = value.delivery === "plain";
         await save({
           name: value.name,
           languages: value.languages,
@@ -103,28 +107,41 @@ export default function EditSDKOverviewModal({
           environment: value.environment,
           projects: value.projects,
           // Plain Text is the only mode that implies no encryption.
-          encryptPayload:
-            value.delivery === "plain" ? false : value.encryptPayload,
-          hashSecureAttributes:
-            value.delivery === "plain" ? false : value.hashSecureAttributes,
-          remoteEvalEnabled: remote,
-          includeExperimentNames: value.includeExperimentNames,
-          includeRuleIds: value.includeRuleIds,
-          includeVisualExperiments: visual,
-          includeRedirectExperiments: redirect,
+          encryptPayload: plain ? false : value.encryptPayload,
+          hashSecureAttributes: plain ? false : value.hashSecureAttributes,
+          // As the full form: never persist Remote Eval the SDK can't run at
+          // its latest version, or that the plan doesn't include.
+          remoteEvalEnabled:
+            value.delivery === "remote" &&
+            latestCapabilities.includes("remoteEval") &&
+            hasCommercialFeature("remote-evaluation"),
+          ...sanitizeAdvancedForSave(value, {
+            latestCapabilities,
+            currentCapabilities,
+            hasLargeSavedGroupFeature,
+          }),
         });
       }}
     >
-      {draftSelector}
-      <SDKConnectionFields
-        value={value}
-        onChange={onChange}
-        languageFilter={languageFilter}
-        setLanguageFilter={setLanguageFilter}
-        languageError={languageError}
-        disableScope={isExternallyManaged}
-        requireProjectSelection={requireProjectSelection}
-      />
+      <Flex direction="column" gap="4">
+        {draftSelector}
+        <SDKConnectionFields
+          value={value}
+          onChange={onChange}
+          languageFilter={languageFilter}
+          setLanguageFilter={setLanguageFilter}
+          languageError={languageError}
+          disableScope={isExternallyManaged}
+          requireProjectSelection={requireProjectSelection}
+        />
+        <SDKConnectionAdvancedSettings
+          value={value}
+          onChange={onChange}
+          languages={value.languages}
+          sdkVersion={value.sdkVersion}
+          remoteEvalEnabled={value.delivery === "remote"}
+        />
+      </Flex>
     </ModalStandard>
   );
 }

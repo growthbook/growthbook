@@ -1,6 +1,6 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Checkbox from "@/ui/Checkbox";
@@ -12,6 +12,21 @@ import PayloadSecurityField, {
   PayloadSecurityValue,
 } from "@/components/Features/SDKConnections/PayloadSecurityField";
 import { deliveryModeFromConnection } from "@/components/Features/SDKConnections/sdkConnectionRules";
+import {
+  CustomFieldsLabel,
+  DraftExperimentsLabel,
+  DraftRulesLabel,
+  HideNamesLabel,
+  ProjectIdsLabel,
+  ProxyHostTooltip,
+  RULE_IDS_LABEL,
+  SavedGroupReferencesLabel,
+  ScheduleDatesLabel,
+  TagsLabel,
+  UrlRedirectLabel,
+  USE_PROXY_LABEL,
+  VisualEditorLabel,
+} from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import { useCustomFields } from "@/hooks/useCustomFields";
@@ -65,6 +80,8 @@ export default function EditSDKSettingsModal({
   const customFields = useCustomFields();
   const { hasCommercialFeature } = useUser();
   const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
+  const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
+  const proxyHostId = useId();
 
   // Capability gates, mirroring SDKConnectionForm: an option is only offered
   // when the connection's SDK language/version actually supports it. Without
@@ -183,6 +200,7 @@ export default function EditSDKSettingsModal({
           const redirect = showRedirectSettings && includeRedirectExperiments;
           await save({
             includeRuleIds,
+            includeExperimentNames: security.includeExperimentNames,
             includeVisualExperiments: visual,
             includeRedirectExperiments: redirect,
             includeDraftExperiments:
@@ -195,8 +213,12 @@ export default function EditSDKSettingsModal({
         await save({
           includeTagsInMetadata,
           includeProjectIdInMetadata,
+          // Premium, as in the full form: without the entitlement this must
+          // not be persisted.
           savedGroupReferencesEnabled:
-            showSavedGroupSettings && savedGroupReferencesEnabled,
+            showSavedGroupSettings &&
+            hasLargeSavedGroupFeature &&
+            savedGroupReferencesEnabled,
           includeCustomFieldsInMetadata,
           allowedCustomFieldsInMetadata: includeCustomFieldsInMetadata
             ? allowedCustomFieldsInMetadata
@@ -215,17 +237,26 @@ export default function EditSDKSettingsModal({
               {/* Self-hosted configures the proxy via env vars, so the full
                   form only offers these on Cloud. */}
               <Switch
-                label="Use GrowthBook Proxy"
-                description="Route SDK requests through a GrowthBook Proxy instance."
+                label={USE_PROXY_LABEL}
                 value={proxyEnabled}
                 onChange={setProxyEnabled}
               />
               {proxyEnabled && (
                 <TextField
-                  label="Proxy Host"
+                  id={proxyHostId}
+                  type="url"
                   placeholder="https://"
                   value={proxyHost}
                   onChange={(e) => setProxyHost(e.target.value)}
+                  label={
+                    <Text as="label" htmlFor={proxyHostId} weight="semibold">
+                      Proxy Host URL{" "}
+                      <Text size="sm" weight="regular" color="text-mid">
+                        (optional)
+                      </Text>{" "}
+                      <ProxyHostTooltip />
+                    </Text>
+                  }
                 />
               )}
             </Flex>
@@ -257,43 +288,53 @@ export default function EditSDKSettingsModal({
           <Box>
             <GroupLabel>Features &amp; Experiments</GroupLabel>
             <Flex direction="column" gap="3">
-              <Checkbox
-                label="Rule IDs"
-                description="Include feature rule IDs in the SDK payload."
-                value={includeRuleIds}
-                setValue={setIncludeRuleIds}
-              />
               {showVisualEditorSettings && (
                 <Checkbox
-                  label="Visual editor"
-                  description="Include visual editor experiments in the SDK payload."
+                  weight="regular"
+                  label={<VisualEditorLabel />}
                   value={includeVisualExperiments}
                   setValue={setIncludeVisualExperiments}
                 />
               )}
               {showRedirectSettings && (
                 <Checkbox
-                  label="URL redirects"
-                  description="Include URL redirect experiments in the SDK payload."
+                  weight="regular"
+                  label={<UrlRedirectLabel />}
                   value={includeRedirectExperiments}
                   setValue={setIncludeRedirectExperiments}
                 />
               )}
               <Checkbox
-                label="Draft experiments"
-                description="Include draft Visual Editor and URL Redirect experiments."
-                value={includeDraftExperiments}
-                setValue={setIncludeDraftExperiments}
+                weight="regular"
+                label={<HideNamesLabel />}
+                value={!security.includeExperimentNames}
+                setValue={(v) =>
+                  setSecurity((s) => ({ ...s, includeExperimentNames: !v }))
+                }
               />
               <Checkbox
-                label="Draft experiment rules"
-                description="Include draft Experiment rules in feature definitions."
+                weight="regular"
+                label={RULE_IDS_LABEL}
+                value={includeRuleIds}
+                setValue={setIncludeRuleIds}
+              />
+              <Checkbox
+                weight="regular"
+                label={<DraftRulesLabel />}
                 value={includeDraftExperimentRefs}
                 setValue={setIncludeDraftExperimentRefs}
               />
+              {(showVisualEditorSettings || showRedirectSettings) && (
+                <Checkbox
+                  weight="regular"
+                  label={<DraftExperimentsLabel />}
+                  value={includeDraftExperiments}
+                  setValue={setIncludeDraftExperiments}
+                />
+              )}
               <Checkbox
-                label="Experiment schedule dates"
-                description="Include experiment schedule dates in the SDK payload."
+                weight="regular"
+                label={<ScheduleDatesLabel />}
                 value={includeExperimentScheduleInMetadata}
                 setValue={setIncludeExperimentScheduleInMetadata}
               />
@@ -303,31 +344,35 @@ export default function EditSDKSettingsModal({
 
         {section === "metadata" && (
           <Box>
-            <GroupLabel>Payload Metadata</GroupLabel>
+            <GroupLabel>Payload &amp; Metadata</GroupLabel>
             <Flex direction="column" gap="3">
               <Checkbox
-                label="Tags in metadata"
-                description="Include feature tags."
-                value={includeTagsInMetadata}
-                setValue={setIncludeTagsInMetadata}
-              />
-              <Checkbox
-                label="Project IDs in metadata"
-                description="Include project IDs alongside features."
+                weight="regular"
+                label={<ProjectIdsLabel />}
                 value={includeProjectIdInMetadata}
                 setValue={setIncludeProjectIdInMetadata}
               />
+              <Checkbox
+                weight="regular"
+                label={<TagsLabel />}
+                value={includeTagsInMetadata}
+                setValue={setIncludeTagsInMetadata}
+              />
               {showSavedGroupSettings && (
                 <Checkbox
-                  label="Saved group references"
-                  description="Send saved group references instead of inlined values."
+                  weight="regular"
+                  label={
+                    <SavedGroupReferencesLabel
+                      remoteEvalEnabled={!!connection.remoteEvalEnabled}
+                    />
+                  }
                   value={savedGroupReferencesEnabled}
+                  disabled={!hasLargeSavedGroupFeature}
                   setValue={setSavedGroupReferencesEnabled}
                 />
               )}
               <Switch
-                label="Custom fields"
-                description="Include selected custom fields in the payload."
+                label={<CustomFieldsLabel />}
                 value={includeCustomFieldsInMetadata}
                 onChange={(v) => {
                   setIncludeCustomFieldsInMetadata(v);
@@ -336,7 +381,6 @@ export default function EditSDKSettingsModal({
               />
               {includeCustomFieldsInMetadata && (
                 <MultiSelectField
-                  label="Allowed custom fields"
                   placeholder="No fields included"
                   value={allowedCustomFieldsInMetadata}
                   onChange={(fields) =>
