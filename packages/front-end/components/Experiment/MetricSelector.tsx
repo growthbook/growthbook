@@ -1,9 +1,10 @@
 import { FC } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import {
-  getFactMetricPrimaryFactTableId,
+  getFactMetricFactTableIds,
   isBinomialMetric,
   isFactFunnelMetric,
+  isFactMetricJoinable,
   isMetricJoinable,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -18,7 +19,7 @@ export type MetricOption = {
   tags: string[];
   projects: string[];
   factTables: string[];
-  userIdTypes: string[];
+  joinable: boolean;
   isBinomial: boolean;
   isConversionWindowMetric: boolean;
   isFactFunnelMetric: boolean;
@@ -57,50 +58,8 @@ const MetricSelector: FC<
   onPaste,
   ...selectProps
 }) => {
-  const { metrics, factMetrics, factTables, getDatasourceById } =
+  const { metrics, factMetrics, getFactTableById, getDatasourceById } =
     useDefinitions();
-
-  const options: MetricOption[] = [
-    ...metrics.map((m) => ({
-      id: m.id,
-      name: m.name,
-      datasource: m.datasource || "",
-      tags: m.tags || [],
-      projects: m.projects || [],
-      factTables: [],
-      userIdTypes: m.userIdTypes || [],
-      isBinomial: isBinomialMetric(m) && !m.denominator,
-      isFactFunnelMetric: isFactFunnelMetric(m),
-      isConversionWindowMetric: m?.windowSettings?.type === "conversion",
-    })),
-    ...(includeFacts
-      ? factMetrics.map((m) => ({
-          id: m.id,
-          name: m.name,
-          datasource: m.datasource,
-          tags: m.tags || [],
-          projects: m.projects || [],
-          factTables: [
-            getFactMetricPrimaryFactTableId(m),
-            (m.metricType === "ratio" && m.denominator
-              ? m.denominator.factTableId
-              : "") || "",
-          ],
-          // only focus on numerator user id types
-          userIdTypes:
-            factTables.find((f) => f.id === getFactMetricPrimaryFactTableId(m))
-              ?.userIdTypes || [],
-          isBinomial: isBinomialMetric(m),
-          isFactFunnelMetric: isFactFunnelMetric(m),
-          isConversionWindowMetric: m?.windowSettings?.type === "conversion",
-        }))
-      : []),
-  ].filter((m) => (filterMetrics ? filterMetrics(m) : true));
-
-  if (sortMetrics) {
-    options.sort(sortMetrics);
-    selectProps.sort = false;
-  }
 
   // get data to help filter metrics to those with joinable userIdTypes to
   // the experiment assignment table
@@ -114,16 +73,60 @@ const MetricSelector: FC<
     ? getExposureQueryIdentifierType(exposureQuery, exposureQueryIdentifierType)
     : undefined;
 
+  const options: MetricOption[] = [
+    ...metrics.map((m) => ({
+      id: m.id,
+      name: m.name,
+      datasource: m.datasource || "",
+      tags: m.tags || [],
+      projects: m.projects || [],
+      factTables: [],
+      joinable:
+        !userIdType || !(m.userIdTypes || []).length
+          ? true
+          : isMetricJoinable(
+              m.userIdTypes || [],
+              userIdType,
+              datasourceSettings,
+            ),
+      isBinomial: isBinomialMetric(m) && !m.denominator,
+      isFactFunnelMetric: isFactFunnelMetric(m),
+      isConversionWindowMetric: m?.windowSettings?.type === "conversion",
+    })),
+    ...(includeFacts
+      ? factMetrics.map((m) => ({
+          id: m.id,
+          name: m.name,
+          datasource: m.datasource,
+          tags: m.tags || [],
+          projects: m.projects || [],
+          factTables: getFactMetricFactTableIds(m),
+          joinable: !userIdType
+            ? true
+            : isFactMetricJoinable(
+                m,
+                userIdType,
+                getFactTableById,
+                datasourceSettings,
+              ),
+          isBinomial: isBinomialMetric(m),
+          isFactFunnelMetric: isFactFunnelMetric(m),
+          isConversionWindowMetric: m?.windowSettings?.type === "conversion",
+        }))
+      : []),
+  ].filter((m) => (filterMetrics ? filterMetrics(m) : true));
+
+  if (sortMetrics) {
+    options.sort(sortMetrics);
+    selectProps.sort = false;
+  }
+
   const filteredOptions = options
     .filter((m) => !availableIds || availableIds.includes(m.id))
     .filter((m) => (datasource ? m.datasource === datasource : true))
     .filter((m) => !onlyBinomial || m.isBinomial)
     .filter((m) => !filterFactFunnelMetrics || !m.isFactFunnelMetric)
-    .filter((m) =>
-      userIdType && m.userIdTypes.length
-        ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
-        : true,
-    )
+    .filter((m) => m.joinable)
     .filter((m) => {
       if (projects && !project) {
         return (

@@ -7,7 +7,13 @@ import {
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
+  roleSupportsEnvLimit,
 } from "shared/permissions";
+import {
+  DUPLICATE_PROJECT_ROLES_MESSAGE,
+  hasNoDuplicateProjects,
+} from "shared/validators";
+import { accountFeatures } from "shared/enterprise";
 import {
   DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_MAX_PERCENT_CHANGE,
@@ -28,6 +34,7 @@ import {
   AIProvider,
   AI_PROVIDERS,
   CLOUD_MANAGED_AI_MODEL,
+  SELF_HOSTED_DEFAULT_AI_MODELS,
   CLOUD_MANAGED_IMAGE_MODEL,
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
   DEFAULT_EMBEDDING_MODEL,
@@ -111,7 +118,9 @@ import {
 import {
   getAccountPlan,
   getLicense,
+  getLowestPlanPerFeature,
   licenseInit,
+  orgHasPremiumFeature,
 } from "back-end/src/enterprise";
 import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { TeamModel } from "back-end/src/models/TeamModel";
@@ -336,8 +345,13 @@ export async function getAISettingsForOrg(
       context.org.settings?.openAIDefaultModel,
     keySource,
   );
+  const selfHostedDefaultAIModel: AIModel =
+    SELF_HOSTED_DEFAULT_AI_MODELS.find(
+      ([provider]) => keySource[provider] !== "none",
+    )?.[1] ?? SELF_HOSTED_DEFAULT_AI_MODELS[0][1];
   const defaultAIModel: AIModel =
-    orgDefaultAIModel || (IS_CLOUD ? CLOUD_MANAGED_AI_MODEL : "gpt-5.4-mini");
+    orgDefaultAIModel ||
+    (IS_CLOUD ? CLOUD_MANAGED_AI_MODEL : selfHostedDefaultAIModel);
 
   // Cloud stays on Sonnet unless the Visual Editor's own setting overrides it:
   // its structured-output + vision workload fails schema adherence on Haiku.
@@ -587,6 +601,114 @@ export async function revokeInvite(
 
 export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
+}
+
+type RoleRuleInput = {
+  role: string;
+  limitAccessByEnvironment?: boolean;
+  environments?: string[];
+};
+
+// One rule: a valid role the plan allows, with a coherent environment limit.
+function assertRoleRuleValid(
+  organization: OrganizationInterface,
+  { role, limitAccessByEnvironment, environments }: RoleRuleInput,
+) {
+  if (!isRoleValid(role, organization)) {
+    throw new Error(`${role} is not a valid role`);
+  }
+
+  const lowestPlanMap = getLowestPlanPerFeature(accountFeatures);
+
+  if (
+    role === "noaccess" &&
+    !orgHasPremiumFeature(organization, "no-access-role")
+  ) {
+    throw new Error(
+      `Must have a ${lowestPlanMap["no-access-role"]} plan to gain access to the no-access role.`,
+    );
+  }
+
+  if (
+    role === "gbDefault_projectAdmin" &&
+    !orgHasPremiumFeature(organization, "project-admin-role")
+  ) {
+    throw new Error(
+      `Must have a ${lowestPlanMap["project-admin-role"]} plan to gain access to the project admin role.`,
+    );
+  }
+
+  if (limitAccessByEnvironment && environments?.length) {
+    if (!orgHasPremiumFeature(organization, "advanced-permissions")) {
+      throw new Error(
+        `Must have a ${lowestPlanMap["advanced-permissions"]} plan to restrict permissions by environment.`,
+      );
+    }
+
+    if (!roleSupportsEnvLimit(role, organization)) {
+      throw new Error(
+        `${role} does not support restricting access to certain environments.`,
+      );
+    }
+
+    const environmentIds =
+      organization.settings?.environments?.map((e) => e.id) || [];
+    environments.forEach((env) => {
+      if (!environmentIds.includes(env)) {
+        throw new Error(
+          `${env} is not a valid environment ID for this organization.`,
+        );
+      }
+    });
+  }
+}
+
+// The whole shape a member-role writer accepts. Every human-payload writer
+// validates through here, so no rule rides in unchecked on just one path.
+export function assertMemberRoleInfoValid(
+  organization: OrganizationInterface,
+  roleInfo: RoleRuleInput & {
+    additionalRoles?: RoleRuleInput[];
+    projectRoles?: (RoleRuleInput & {
+      project: string;
+      additionalRoles?: RoleRuleInput[];
+    })[];
+  },
+) {
+  const rules = [roleInfo, ...(roleInfo.additionalRoles ?? [])];
+  rules.forEach((rule) =>
+    assertRoleRuleValid(organization, {
+      ...rule,
+      // An extra rule's env list is its limit; there is no unlimited form.
+      limitAccessByEnvironment:
+        rule === roleInfo
+          ? rule.limitAccessByEnvironment
+          : (rule.limitAccessByEnvironment ?? !!rule.environments?.length),
+    }),
+  );
+
+  const projectRoles = roleInfo.projectRoles ?? [];
+  if (!projectRoles.length) return;
+
+  if (!orgHasPremiumFeature(organization, "advanced-permissions")) {
+    throw new Error(
+      "Your plan does not support providing users with project-level permissions.",
+    );
+  }
+  if (!hasNoDuplicateProjects(projectRoles)) {
+    throw new Error(DUPLICATE_PROJECT_ROLES_MESSAGE);
+  }
+  projectRoles.forEach((projectRole) => {
+    [projectRole, ...(projectRole.additionalRoles ?? [])].forEach((rule) =>
+      assertRoleRuleValid(organization, {
+        ...rule,
+        limitAccessByEnvironment:
+          rule === projectRole
+            ? rule.limitAccessByEnvironment
+            : (rule.limitAccessByEnvironment ?? !!rule.environments?.length),
+      }),
+    );
+  });
 }
 
 // Free (role-restricted) plans can only assign the admin global role. Only the
@@ -881,6 +1003,7 @@ export async function inviteUser({
   limitAccessByEnvironment,
   environments,
   projectRoles,
+  additionalRoles,
   invitedBy,
 }: {
   organization: OrganizationInterface;
@@ -939,6 +1062,7 @@ export async function inviteUser({
     limitAccessByEnvironment,
     environments,
     projectRoles,
+    additionalRoles,
     invitedBy,
   };
   const updatedOrganization = await addOrganizationInviteIfSeatAvailable(

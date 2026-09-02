@@ -9,6 +9,7 @@ import {
   JsonPatchOperation,
   ScheduledPublishInput,
   getApprovalFlowSettings,
+  entityProjects,
   isRevisionEditLockedBySchedule,
   REVIEW_CYCLE_STATUSES,
   reviewCycleOf,
@@ -142,17 +143,17 @@ const BaseClass = MakeModelClass({
     "scheduledPublishGaveUpAt",
     "armAcknowledgments",
   ],
+  // The first two are prefixes of longer indexes below, which give identical
+  // bounds — no query needs them. Nothing filters `authorId` without also
+  // constraining `target.type`, so the third can never be the selective choice.
+  indexesToRemove: [
+    "organization_1_target.type_1_target.id_1_status_1",
+    "organization_1_status_1",
+    "organization_1_authorId_1",
+  ],
   additionalIndexes: [
-    {
-      fields: {
-        organization: 1,
-        "target.type": 1,
-        "target.id": 1,
-        status: 1,
-      },
-    },
-    // Merge order, read on every landing. Extends the equality prefix above with
-    // the sort keys so the read is a one-row indexed walk, not an in-memory sort.
+    // Merge order, read on every landing. The equality filter plus both sort keys,
+    // so the read is a one-row indexed walk, not an in-memory sort.
     {
       fields: {
         organization: 1,
@@ -162,9 +163,6 @@ const BaseClass = MakeModelClass({
         "resolution.dateCreated": 1,
         version: 1,
       },
-    },
-    {
-      fields: { organization: 1, authorId: 1 },
     },
     // The listing sort `{dateCreated: -1, id: -1}` on the filter's prefix, so
     // paginated reads don't block-sort the whole match.
@@ -308,6 +306,7 @@ export class RevisionModel extends BaseClass {
       : !!getApprovalFlowSettings(
           this.context.org.settings?.approvalFlows,
           existing.target.type,
+          entityProjects(existing.target.snapshot),
         )?.resetReviewOnChange;
     if (!shouldReset) return {};
     return {
@@ -878,7 +877,7 @@ export class RevisionModel extends BaseClass {
         status: "merged",
       } as Record<string, unknown>,
       {
-        sort: { "resolution.dateCreated": -1, version: -1, id: -1 },
+        sort: { "resolution.dateCreated": -1, version: -1 },
         limit: 1,
         // NOT read-filtered: a consistency query, not a user-facing read. A
         // snapshot-basis null here reads to `assertLandingBaseline` as "no
@@ -1521,13 +1520,22 @@ export class RevisionModel extends BaseClass {
 
   // Proposed changes
 
+  // `proposedChanges` may be a function of the row being written: an edit derived
+  // from current content (one property of a config value) has to recompute on each
+  // CAS retry instead of replaying ops captured before the first attempt.
   async updateProposedChanges(
     id: string,
-    proposedChanges: JsonPatchOperation[],
+    proposedChanges:
+      | JsonPatchOperation[]
+      | ((
+          existing: Revision,
+        ) => JsonPatchOperation[] | Promise<JsonPatchOperation[]>),
     userId: string,
     authority: CasAuthority<Revision>,
   ) {
-    this.assertSupportedPatchOps(proposedChanges);
+    if (Array.isArray(proposedChanges)) {
+      this.assertSupportedPatchOps(proposedChanges);
+    }
 
     // Live-entity basis, so this resolves the same set of revisions the handler
     // and `createOrUpdateRevision` do — disagreeing about which revisions EXIST
@@ -1550,26 +1558,34 @@ export class RevisionModel extends BaseClass {
       );
     }
 
-    return this.writeContentEdit(id, userId, authority, (row) => ({
-      target: {
-        ...row.target,
-        snapshot: getAdapter(row.target.type).buildSnapshot(
-          row.target.snapshot as Record<string, unknown>,
-        ) as typeof row.target.snapshot,
-        proposedChanges,
-      } as Revision["target"],
-      entry: {
-        id: uniqid("act_"),
-        userId,
-        action: "updated",
-        description: "Updated proposed changes",
-        dateCreated: new Date(),
-        // Persist the cumulative proposed-changes state as of this edit so the UI
-        // can diff it against the previous entry's snapshot and show exactly what
-        // this particular edit changed.
-        proposedChangesSnapshot: proposedChanges,
-      },
-    }));
+    return this.writeContentEdit(id, userId, authority, async (row) => {
+      const changes = Array.isArray(proposedChanges)
+        ? proposedChanges
+        : await proposedChanges(row);
+      if (!Array.isArray(proposedChanges)) {
+        this.assertSupportedPatchOps(changes);
+      }
+      return {
+        target: {
+          ...row.target,
+          snapshot: getAdapter(row.target.type).buildSnapshot(
+            row.target.snapshot as Record<string, unknown>,
+          ) as typeof row.target.snapshot,
+          proposedChanges: changes,
+        } as Revision["target"],
+        entry: {
+          id: uniqid("act_"),
+          userId,
+          action: "updated",
+          description: "Updated proposed changes",
+          dateCreated: new Date(),
+          // Persist the cumulative proposed-changes state as of this edit so the UI
+          // can diff it against the previous entry's snapshot and show exactly what
+          // this particular edit changed.
+          proposedChangesSnapshot: changes,
+        },
+      };
+    });
   }
 
   // Write content, contributor identity, approval reset, and activity together.
@@ -1577,10 +1593,15 @@ export class RevisionModel extends BaseClass {
     id: string,
     userId: string,
     authority: CasAuthority<Revision>,
-    build: (existing: Revision) => {
-      target: Revision["target"];
-      entry: Revision["activityLog"][number];
-    },
+    build: (existing: Revision) =>
+      | {
+          target: Revision["target"];
+          entry: Revision["activityLog"][number];
+        }
+      | Promise<{
+          target: Revision["target"];
+          entry: Revision["activityLog"][number];
+        }>,
   ): Promise<Revision> {
     const updated = await this.updateWithCas(
       id,
@@ -1602,7 +1623,7 @@ export class RevisionModel extends BaseClass {
       async (existing) => {
         await assertCasAuthority(authority, existing);
         this.assertDraftAcceptsContentEdit(existing);
-        const { target, entry } = build(existing);
+        const { target, entry } = await build(existing);
         const { status, resetEntry } = this.resetApprovalIfNeeded(
           existing,
           userId,

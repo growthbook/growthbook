@@ -187,6 +187,7 @@ export function growthbookTrackingPlugin({
   queueFlushInterval = 100,
   ingestorHost,
   enable = true,
+  enableFeatureUsageEvents = true,
   debug,
   dedupeCacheSize = 1000,
   dedupeKeyAttributes = [],
@@ -197,6 +198,7 @@ export function growthbookTrackingPlugin({
   queueFlushInterval?: number;
   ingestorHost?: string;
   enable?: boolean;
+  enableFeatureUsageEvents?: boolean;
   debug?: boolean;
   dedupeCacheSize?: number;
   dedupeKeyAttributes?: string[];
@@ -252,6 +254,13 @@ export function growthbookTrackingPlugin({
           attributes: userContext.attributes || {},
           url: userContext.url || "",
         };
+
+        if (
+          !enableFeatureUsageEvents &&
+          eventName === EVENT_FEATURE_EVALUATED
+        ) {
+          return;
+        }
 
         // Skip logging if the event is being filtered
         if (eventFilter && !eventFilter(data)) {

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import asyncHandler from "express-async-handler";
-import { hasPermission } from "shared/permissions";
+import { getRolePermissions, hasPermission } from "shared/permissions";
 import {
   EventUserApiKey,
   EventUserLoggedIn,
@@ -19,10 +19,7 @@ import {
   isApiKeyForUserInOrganization,
   dangerousLookupOrganizationByApiKey,
 } from "back-end/src/util/api-key.util";
-import {
-  getUserPermissions,
-  getRolePermissions,
-} from "back-end/src/util/organization.util";
+import { getUserPermissions } from "back-end/src/util/organization.util";
 import { getUserById } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,

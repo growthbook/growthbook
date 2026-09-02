@@ -372,6 +372,54 @@ describe("Fact Metric Migration", () => {
         rowFilters: [],
       });
     });
+    it("keeps a complete aggregate filter", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          rowFilters: [],
+          aggregateFilterColumn: "$$count",
+          aggregateFilter: ">= 1",
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+        aggregateFilterColumn: "$$count",
+        aggregateFilter: ">= 1",
+      });
+    });
+    it("drops an aggregate filter column with no filter", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          rowFilters: [],
+          aggregateFilterColumn: "$$count",
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+    it("drops an aggregate filter with a null column", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          rowFilters: [],
+          aggregateFilter: ">= 1",
+          // Mongo stores an explicit `undefined` as null
+          aggregateFilterColumn: null as unknown as string,
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+
     it("Can unmigrate filters for API responses", () => {
       const original: LegacyColumnRef = {
         factTableId: "ft_123",
@@ -2118,6 +2166,7 @@ describe("Organization Migration", () => {
         },
         statsEngine: DEFAULT_STATS_ENGINE,
         restApiBypassesReviews: true,
+        stickyBucketingOnByDefault: true,
         environments: [
           {
             id: "dev",
@@ -2179,6 +2228,57 @@ describe("Organization Migration", () => {
     };
     const result = upgradeOrganizationDoc(testOrg);
     expect(result.settings.restApiBypassesReviews).toBe(false);
+  });
+
+  it("defaults stickyBucketingOnByDefault to true for orgs that predate the setting", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {},
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.stickyBucketingOnByDefault).toBe(true);
+  });
+
+  it("preserves an explicit stickyBucketingOnByDefault=false (per-experiment opt-in)", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {
+        useStickyBucketing: true,
+        stickyBucketingOnByDefault: false,
+      },
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.stickyBucketingOnByDefault).toBe(false);
+  });
+
+  it("preserves an explicit stickyBucketingOnByDefault=true", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {
+        useStickyBucketing: true,
+        stickyBucketingOnByDefault: true,
+      },
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.stickyBucketingOnByDefault).toBe(true);
   });
 
   it("migrate approval flow settings", () => {

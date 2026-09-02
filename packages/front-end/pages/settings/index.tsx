@@ -17,7 +17,6 @@ import {
   DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_LEARNING_STATUSES,
-  DEFAULT_REVISION_CONFIGURATION,
 } from "shared/constants";
 import {
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
@@ -40,6 +39,7 @@ import {
 import { useUser } from "@/services/UserContext";
 import { useCurrency } from "@/hooks/useCurrency";
 import useURLHash from "@/hooks/useURLHash";
+import { applyApprovalFlowEntitlements } from "@/hooks/useOrgSettings";
 import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
 import ImportSettings from "@/components/GeneralSettings/ImportSettings";
 import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
@@ -54,6 +54,7 @@ import LearningSettings from "@/components/GeneralSettings/LearningSettings";
 import AISettings from "@/components/GeneralSettings/AISettings";
 import {
   SETTINGS_TAB,
+  SETTINGS_TABS_ANCHOR,
   parseSettingsHash,
 } from "@/components/GeneralSettings/settingsSections";
 import HelperText from "@/ui/HelperText";
@@ -78,28 +79,6 @@ function hasChanges(
   return !isEqual(value, existing);
 }
 
-function applyApprovalFlowEntitlements(
-  approvalFlows: OrganizationSettings["approvalFlows"],
-  hasRequireApprovals: boolean,
-): OrganizationSettings["approvalFlows"] {
-  if (hasRequireApprovals || !approvalFlows) return approvalFlows;
-
-  const savedGroupApprovalFlow =
-    approvalFlows?.savedGroups?.[0] ??
-    DEFAULT_REVISION_CONFIGURATION.savedGroups[0];
-
-  return {
-    ...approvalFlows,
-    savedGroups: [
-      {
-        ...savedGroupApprovalFlow,
-        required: false,
-      },
-      ...(approvalFlows.savedGroups?.slice(1) ?? []),
-    ],
-  };
-}
-
 const GeneralSettingsPage = (): React.ReactElement => {
   const { refreshOrganization, settings, organization, hasCommercialFeature } =
     useUser();
@@ -119,6 +98,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [urlHash, setUrlHash] = useURLHash();
   const { tab: activeTab, section: deepLinkSection } =
     parseSettingsHash(urlHash);
+  const [arrivedOnTab] = useState(() => !!urlHash && !urlHash.includes("/"));
   const { metricDefaults } = useOrganizationMetricDefaults();
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
@@ -191,6 +171,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       disablePrecomputedDimensions:
         settings.disablePrecomputedDimensions ?? true,
       useStickyBucketing: false,
+      stickyBucketingOnByDefault: false,
       useFallbackAttributes: false,
       codeReferencesEnabled: false,
       codeRefsBranchesToFilter: [],
@@ -296,6 +277,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     sparseJSONRulesByDefault: form.watch("sparseJSONRulesByDefault"),
     defaultDataSource: form.watch("defaultDataSource"),
     useStickyBucketing: form.watch("useStickyBucketing"),
+    stickyBucketingOnByDefault: form.watch("stickyBucketingOnByDefault"),
     useFallbackAttributes: form.watch("useFallbackAttributes"),
     codeReferencesEnabled: form.watch("codeReferencesEnabled"),
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
@@ -425,6 +407,18 @@ const GeneralSettingsPage = (): React.ReactElement => {
     return () => window.cancelAnimationFrame(frame);
   }, [deepLinkSection]);
 
+  // Arriving on a tab deep link selects that tab, but the tabs sit below the
+  // page header, so without this you land above the thing you asked for.
+  useEffect(() => {
+    if (!arrivedOnTab) return;
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById(SETTINGS_TABS_ANCHOR)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [arrivedOnTab]);
+
   // I Don't think this works as intended - the hasChanges(value, originalValue) always seems to return true.
   const ctaEnabled =
     hasChanges(value, originalValue) || promptForm.formState.isDirty;
@@ -520,7 +514,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
           />
         </Box>
 
-        <Tabs value={activeTab} onValueChange={setUrlHash}>
+        <Tabs
+          id={SETTINGS_TABS_ANCHOR}
+          value={activeTab}
+          onValueChange={setUrlHash}
+        >
           <StickyTabsList>
             <TabsTrigger value={SETTINGS_TAB.experiment}>
               Experiments

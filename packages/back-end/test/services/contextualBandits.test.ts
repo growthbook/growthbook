@@ -1,9 +1,13 @@
 import { ExposureQuery } from "shared/types/datasource";
+import type { SDKAttributeSchema } from "shared/types/organization";
 import {
   ContextualBanditInterface,
   ContextualBanditSnapshotInterface,
   contextualBanditSnapshotSettingsValidator,
 } from "shared/validators";
+
+const schema = (...properties: string[]): SDKAttributeSchema =>
+  properties.map((property) => ({ property })) as SDKAttributeSchema;
 import { ApiReqContext, ReqContext } from "back-end/types/api";
 import {
   buildContextualBanditSnapshotSettings,
@@ -191,7 +195,11 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const cb = makeCb();
     const eaq = makeExposureQuery();
 
-    const settings = buildContextualBanditSnapshotSettings(cb, eaq);
+    const settings = buildContextualBanditSnapshotSettings(
+      cb,
+      eaq,
+      schema("country", "device"),
+    );
 
     expect(settings).not.toHaveProperty("activationMetric");
     expect(settings).not.toHaveProperty("phase");
@@ -215,6 +223,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const settings = buildContextualBanditSnapshotSettings(
       makeCb({ trackingKey: "first_contextual_bandit" }),
       makeExposureQuery(),
+      schema("country", "device"),
     );
 
     expect(settings.experimentId).toBe("cb_1");
@@ -225,6 +234,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const cbSettings = buildContextualBanditSnapshotSettings(
       makeCb({ trackingKey: "first_contextual_bandit" }),
       makeExposureQuery(),
+      schema("country", "device"),
     );
 
     expect(buildSnapshotSettingsForCb(cbSettings).experimentId).toBe(
@@ -232,13 +242,75 @@ describe("buildContextualBanditSnapshotSettings", () => {
     );
   });
 
-  it("falls back to CB.contextualAttributes when EAQ has no targeting columns", () => {
-    const cb = makeCb({ contextualAttributes: ["plan_tier"] });
-    const eaq = makeExposureQuery({ targetingAttributeColumns: undefined });
+  it("intersects CB, query, and global attributes and preserves query order", () => {
+    const cb = makeCb({ contextualAttributes: ["device", "country"] });
+    const eaq = makeExposureQuery({
+      targetingAttributeColumns: ["country", "device", "plan_tier"],
+    });
 
-    const settings = buildContextualBanditSnapshotSettings(cb, eaq);
+    const settings = buildContextualBanditSnapshotSettings(
+      cb,
+      eaq,
+      schema("country", "device", "plan_tier"),
+    );
 
-    expect(settings.contextualAttributes).toEqual(["plan_tier"]);
+    expect(settings.contextualAttributes).toEqual(["country", "device"]);
+  });
+
+  it("drops an attribute the query no longer exposes", () => {
+    const cb = makeCb({ contextualAttributes: ["country", "device"] });
+    const eaq = makeExposureQuery({ targetingAttributeColumns: ["country"] });
+
+    const settings = buildContextualBanditSnapshotSettings(
+      cb,
+      eaq,
+      schema("country", "device"),
+    );
+
+    expect(settings.contextualAttributes).toEqual(["country"]);
+  });
+
+  it("drops an attribute removed from the global attribute schema", () => {
+    const cb = makeCb({ contextualAttributes: ["country", "device"] });
+    const eaq = makeExposureQuery({
+      targetingAttributeColumns: ["country", "device"],
+    });
+
+    const settings = buildContextualBanditSnapshotSettings(
+      cb,
+      eaq,
+      schema("country"),
+    );
+
+    expect(settings.contextualAttributes).toEqual(["country"]);
+  });
+
+  it("does not include a query attribute the CB did not select", () => {
+    const cb = makeCb({ contextualAttributes: ["country"] });
+    const eaq = makeExposureQuery({
+      targetingAttributeColumns: ["country", "device"],
+    });
+
+    const settings = buildContextualBanditSnapshotSettings(
+      cb,
+      eaq,
+      schema("country", "device"),
+    );
+
+    expect(settings.contextualAttributes).toEqual(["country"]);
+  });
+
+  it("throws when the intersection is empty", () => {
+    const cb = makeCb({ contextualAttributes: ["country"] });
+    const eaq = makeExposureQuery({ targetingAttributeColumns: ["device"] });
+
+    expect(() =>
+      buildContextualBanditSnapshotSettings(
+        cb,
+        eaq,
+        schema("country", "device"),
+      ),
+    ).toThrow(/no usable contextual attributes/);
   });
 
   it("defaults variation weights to uniform when the CB has none set", () => {
@@ -255,6 +327,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const settings = buildContextualBanditSnapshotSettings(
       cb,
       makeExposureQuery(),
+      schema("country", "device"),
     );
 
     expect(settings.variations).toEqual([
@@ -292,6 +365,13 @@ describe("runContextualBanditSnapshot", () => {
       overrides.update ?? jest.fn().mockImplementation((cb) => cb);
     return {
       hasPremiumFeature: jest.fn().mockReturnValue(true),
+      auditLog: jest.fn().mockResolvedValue(undefined),
+      logger: { error: jest.fn() },
+      org: {
+        settings: {
+          attributeSchema: [{ property: "country" }, { property: "device" }],
+        },
+      },
       models: {
         contextualBandits: { update: updateMock },
         contextualBanditQueries: {
@@ -306,6 +386,7 @@ describe("runContextualBanditSnapshot", () => {
           create: jest
             .fn()
             .mockResolvedValue({ id: overrides.cbeSnapshotId ?? "cbs_1" }),
+          getLatestForContextualBandit: jest.fn().mockResolvedValue(null),
         },
       },
     } as unknown as ApiReqContext;
@@ -395,22 +476,27 @@ describe("persistContextualBanditEvent", () => {
     expect(cbe.id).toBe("cbe_1");
     expect(getByIdMock).toHaveBeenCalledWith(cbs.contextualBandit);
 
-    expect(createCbeMock).toHaveBeenCalledWith({
-      contextualBandit: cb.id,
-      snapshotId: cbs.id,
-      attributes: result.attributes,
-      responses: result.responses,
-      leaf_map: result.leaf_map,
-      weightsWereUpdated: true,
-    });
+    expect(createCbeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contextualBandit: cb.id,
+        snapshotId: cbs.id,
+        attributes: result.attributes,
+        responses: result.responses,
+        leaf_map: result.leaf_map,
+        weightsWereUpdated: true,
+        // New seed is generated when weights are updated
+        seed: expect.any(String),
+      }),
+    );
 
     expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
     const [cbIdArg, leafWeightsArg, patchOptions] =
       patchLeafWeightsMock.mock.calls[0];
     expect(cbIdArg).toBe(cb.id);
     expect(leafWeightsArg).toHaveLength(2);
-    // Weights changed → the version bumps alongside the payload refresh
-    expect(patchOptions).toEqual({ bumpVersion: true });
+    // Weights changed → the version bumps alongside the payload refresh, and a new seed is set
+    expect(patchOptions.bumpVersion).toBe(true);
+    expect(patchOptions.newSeed).toEqual(expect.any(String));
     const expectedLeafWeights = leafWeightsFromContextualBanditResult(
       result,
       cb.variations,
@@ -469,8 +555,8 @@ describe("persistContextualBanditEvent", () => {
     expect(cbIdArg).toBe(cb.id);
     expect(leafWeightsArg).toEqual([]);
     // No weight change → no version bump and no SDK payload refresh, so the
-    // payload's banditVersion stays consistent with the DB.
-    expect(patchOptions).toEqual({ bumpVersion: false });
+    // payload's banditVersion stays consistent with the DB. No new seed either.
+    expect(patchOptions).toEqual({ bumpVersion: false, newSeed: undefined });
     expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
   });
 

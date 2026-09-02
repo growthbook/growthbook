@@ -75,16 +75,21 @@ export type UserPermissions = {
   global: UserPermission;
   projects: { [key: string]: UserPermission };
 };
+// An absent inheritable field falls back to the all-projects rule. The selector
+// (`projects`) and the rule's own switch (`requireReviewOn`) never inherit.
 export type RequireReview = {
   requireReviewOn: boolean;
-  resetReviewOnChange: boolean;
-  environments: string[];
   projects: string[];
+  resetReviewOnChange?: boolean;
+  environments?: string[];
   featureRequireEnvironmentReview?: boolean;
   featureRequireMetadataReview?: boolean;
   // When true, co-authors (contributors[]) are also blocked from approving, not just the original author.
   blockSelfApproval?: boolean;
   autopublishOnApproval?: boolean;
+  // A requirement on the approval SET, not on who may approve. Any ONE of these
+  // teams satisfies the rule; a second rule is a separate requirement.
+  requiredApproverTeams?: string[];
 };
 
 // Whether secondary targeting projects impose their own review requirements
@@ -221,21 +226,31 @@ export type ExperimentUpdateSchedule = {
 export type Environment = z.infer<typeof environment>;
 
 export type ApprovalFlowConfiguration = {
-  requireMetadataReview: boolean;
+  // Selector; empty (or absent, on rows predating the field) = all projects.
+  projects?: string[];
   required: boolean;
+  // Inherited from the all-projects rule when absent, as in RequireReview.
+  requireMetadataReview?: boolean;
+  // Same meaning as the flag family's: a requirement on the approval SET.
+  requiredApproverTeams?: string[];
   // When true, anyone listed in `revision.contributors` (including the author)
   // is blocked from approving the revision. A separate, non-contributor
   // reviewer is required.
   blockSelfApproval?: boolean;
   autopublishOnApproval?: boolean;
-  // TODO: Should we add support for these additional settings?
-  canBypassReview?: boolean;
   resetReviewOnChange?: boolean;
 };
 
 export type ApprovalFlowConfigurations = {
   savedGroups: ApprovalFlowConfiguration[];
 };
+
+// Team requirements are deliberately absent here: a multi-project entity has
+// several governing rules, and flattening their teams turns "A and B" into "A or B".
+export type ApprovalFlowPolicy = Omit<
+  ApprovalFlowConfiguration,
+  "projects" | "requiredApproverTeams"
+>;
 
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
@@ -257,7 +272,7 @@ export interface OrganizationSettings {
   sdkInstructionsViewed?: boolean;
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
-  defaultRole?: MemberRoleInfo;
+  defaultRole?: MemberRoleWithProjects;
   statsEngine?: StatsEngine;
   pValueThreshold?: number;
   pValueCorrection?: PValueCorrection;
@@ -287,6 +302,7 @@ export interface OrganizationSettings {
   /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  // Reviewers must hold review rights in every environment a draft touches.
   // Project-scoped rules; absent/no-match = strict.
   targetingReviewMode?: TargetingReviewRule[];
   // Default extensibility for newly authored configs. When true (default),
@@ -327,6 +343,7 @@ export interface OrganizationSettings {
   testQueryDays?: number;
   disablePrecomputedDimensions?: boolean;
   useStickyBucketing?: boolean;
+  stickyBucketingOnByDefault?: boolean;
   useFallbackAttributes?: boolean;
   codeReferencesEnabled?: boolean;
   codeRefsBranchesToFilter?: string[];

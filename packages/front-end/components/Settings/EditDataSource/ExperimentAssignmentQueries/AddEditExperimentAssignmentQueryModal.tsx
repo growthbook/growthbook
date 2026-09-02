@@ -9,7 +9,6 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { isEventForwarderManagedExposureQuery } from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/ui/StringArrayField";
@@ -17,9 +16,9 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
-import MultiSelectField from "@/ui/MultiSelectField";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -28,13 +27,6 @@ type EditExperimentAssignmentQueryProps = {
   onSave: (exposureQuery: ExposureQuery) => void;
   onCancel: () => void;
 };
-
-function haveSameIdentifierTypes(left: string[], right: string[]) {
-  return (
-    left.length === right.length &&
-    left.every((identifierType) => right.includes(identifierType))
-  );
-}
 
 export const AddEditExperimentAssignmentQueryModal: FC<
   EditExperimentAssignmentQueryProps
@@ -48,41 +40,36 @@ export const AddEditExperimentAssignmentQueryModal: FC<
           exposureQuery ? exposureQuery.name : "Experiment Assignment"
         } query`;
 
-  // Event Forwarder managed queries are intentionally editable for now. Restore
-  // `mode === "edit" && !!exposureQuery &&
-  // isEventForwarderManagedExposureQuery(exposureQuery)` to lock them again.
-  const isManaged = false;
-
   const userIdTypeOptions = dataSource?.settings?.userIdTypes?.map(
     ({ userIdType }) => ({
       display: userIdType,
       value: userIdType,
     }),
   );
-  const defaultUserId = userIdTypeOptions?.[0]?.value ?? "user_id";
+  const defaultUserId = userIdTypeOptions
+    ? userIdTypeOptions[0]?.value
+    : "user_id";
 
   const defaultQuery = `SELECT\n  ${defaultUserId} as ${defaultUserId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`;
 
-  const defaultValues =
-    mode === "edit" && exposureQuery
-      ? {
-          ...cloneDeep<ExposureQuery>(exposureQuery),
-          userIdTypes: exposureQuery.userIdTypes?.length
-            ? exposureQuery.userIdTypes
-            : [exposureQuery.userIdType].filter(Boolean),
-        }
-      : {
-          description: "",
-          id: uniqId("tbl_"),
-          name: "",
-          dimensions: [],
-          query: defaultQuery,
-          userIdType: defaultUserId ?? "",
-          userIdTypes: defaultUserId ? [defaultUserId] : [],
-        };
-
   const form = useForm<ExposureQuery>({
-    defaultValues,
+    defaultValues:
+      mode === "edit" && exposureQuery
+        ? {
+            ...cloneDeep<ExposureQuery>(exposureQuery),
+            userIdTypes: exposureQuery.userIdTypes?.length
+              ? exposureQuery.userIdTypes
+              : [exposureQuery.userIdType].filter(Boolean),
+          }
+        : {
+            description: "",
+            id: uniqId("tbl_"),
+            name: "",
+            dimensions: [],
+            query: defaultQuery,
+            userIdType: defaultUserId ?? "",
+            userIdTypes: defaultUserId ? [defaultUserId] : [],
+          },
   });
 
   // User-entered values
@@ -92,27 +79,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    if (isManaged && exposureQuery) {
-      value.userIdTypes = exposureQuery.userIdTypes?.length
-        ? exposureQuery.userIdTypes
-        : [exposureQuery.userIdType].filter(Boolean);
-      value.userIdType = value.userIdTypes[0] ?? exposureQuery.userIdType;
-      value.managedBy = exposureQuery.managedBy;
-    } else if (
-      exposureQuery &&
-      isEventForwarderManagedExposureQuery(exposureQuery) &&
-      !haveSameIdentifierTypes(
-        value.userIdTypes,
-        exposureQuery.userIdTypes?.length
-          ? exposureQuery.userIdTypes
-          : [exposureQuery.userIdType].filter(Boolean),
-      )
-    ) {
-      // Re-pointing a managed query at a different identifier hands it to the
-      // user. Leaving managedBy: "api" would make attribute reconciliation
-      // treat that identifier as Event Forwarder owned and delete it.
-      value.managedBy = "";
-    }
+    // Keep the deprecated scalar in sync with the first declared identifier.
     value.userIdType = value.userIdTypes[0] ?? value.userIdType;
     await onSave(value);
 
@@ -305,25 +272,12 @@ export const AddEditExperimentAssignmentQueryModal: FC<
               />
               <MultiSelectField
                 legacyHeight
-                label={
-                  <>
-                    Identifier types
-                    {isManaged ? (
-                      <Tooltip body="Identifier types are fixed for queries created by Event Forwarder and cannot be changed." />
-                    ) : null}
-                  </>
-                }
+                label="Identifier types"
                 options={identityTypes.map((i) => ({
                   value: i.userIdType,
                   label: i.userIdType,
                 }))}
                 required
-                disabled={isManaged}
-                helpText={
-                  isManaged
-                    ? "Managed by Event Forwarder for these identifiers."
-                    : undefined
-                }
                 value={userEnteredUserIdTypes}
                 onChange={(value) => form.setValue("userIdTypes", value)}
               />
@@ -343,26 +297,19 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                   />
                 )}
                 <div>
-                  <Tooltip
-                    body="SQL is managed by Event Forwarder and cannot be customized."
-                    shouldDisplay={isManaged}
+                  <button
+                    className="btn btn-primary mt-2"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setUiMode("sql");
+                    }}
                   >
-                    <button
-                      className="btn btn-primary mt-2"
-                      type="button"
-                      disabled={isManaged}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (isManaged) return;
-                        setUiMode("sql");
-                      }}
-                    >
-                      <div className="d-flex align-items-center">
-                        Customize SQL
-                        <FaExternalLinkAlt className="ml-2" />
-                      </div>
-                    </button>
-                  </Tooltip>
+                    <div className="d-flex align-items-center">
+                      Customize SQL
+                      <FaExternalLinkAlt className="ml-2" />
+                    </div>
+                  </button>
                 </div>
               </div>
 

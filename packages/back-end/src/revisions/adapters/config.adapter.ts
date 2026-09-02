@@ -5,16 +5,16 @@ import {
 import { ConfigInterface } from "shared/types/config";
 import {
   Revision,
+  configPublishFootprint,
   getConstantRevisionChange,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import {
   configRequiresReview,
+  getConfigReviewRequirement,
   configResetReviewOnChange,
   constantAutopublishOnApproval,
-  flipsArchivedState,
   formatAncestorFieldConflictMessage,
-  proposedArchivedValue,
 } from "shared/util";
 import {
   configValidator,
@@ -164,21 +164,27 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
   // list the controllers gate on. An empty footprint would pass every
   // environment check vacuously, so never report one for a scoped Config.
   publishFootprint(
-    context: Context,
+    _context: Context,
     snapshot: ConfigInterface,
     proposedChanges: unknown,
   ): PublishFootprint {
-    const environments = configPublishEnvironments(context, snapshot);
-    if (environments.length) return { scope: "environments", environments };
-    // A BASE Config binds to no environment. An archive flip on one still takes it
-    // out of service everywhere it serves; any other change to it has no
-    // environment dimension. Same split the Constant adapter makes.
-    return flipsArchivedState({
-      proposed: proposedArchivedValue(proposedChanges),
-      current: snapshot.archived,
-    })
-      ? { scope: "everywhere" }
-      : { scope: "unscoped" };
+    return configPublishFootprint(snapshot, proposedChanges);
+  },
+
+  reviewRequirementForRevision(context: Context, revision: Revision) {
+    if (!context.hasPremiumFeature("require-approvals")) {
+      return { required: false, rules: [] };
+    }
+    const snapshot = revision.target.snapshot as ConfigInterface;
+    const flavorEnvironments = snapshot.scopedConfig
+      ? (snapshot.scopedConfig.environments ?? [])
+      : null;
+    return getConfigReviewRequirement(
+      { project: snapshot.project },
+      getConstantRevisionChange(snapshot, revision.target.proposedChanges),
+      flavorEnvironments,
+      context.org.settings,
+    );
   },
 
   canRead(context: Context, snapshot: ConfigInterface): boolean {

@@ -1,7 +1,7 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import type { RevisionRampDetachAction } from "shared/validators";
 import { deleteFeatureRevisionRuleRampScheduleValidator } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
+import { getApplicableEnvIds, resetReviewOnChange } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -13,7 +13,6 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
-  getApplicableEnvIds,
   resolveRampTarget,
   ruleFootprint,
 } from "back-end/src/util/flattenRules";

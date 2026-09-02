@@ -151,6 +151,24 @@ describe("testQueryValidity", () => {
   });
 
   describe("datasources with LIMIT 0 support (column metadata validation)", () => {
+    const camelCaseQuery = {
+      id: "user_id",
+      name: "Logged in Users",
+      userIdType: "user_id",
+      dimensions: ["browserFamily"],
+      hasNameCol: false,
+      query: "SELECT * FROM experiments",
+    };
+    const lowercasedMetadataColumns = [
+      { name: "user_id" },
+      { name: "experiment_id" },
+      { name: "variation_id" },
+      { name: "timestamp" },
+      { name: "browserfamily" },
+    ];
+    const missingCamelCaseDimension =
+      "Missing required columns in response: browserFamily";
+
     it('should return "Unable to determine columns from query" if no column metadata is returned', async () => {
       const query = {
         id: "user_id",
@@ -234,6 +252,77 @@ describe("testQueryValidity", () => {
       const result = await testQueryValidity(mockLimitZeroIntegration, query);
 
       expect(result).toBeUndefined();
+    });
+
+    it.each([
+      {
+        name: "matches a camelCase dimension against lowercased column metadata",
+        queryResult: { results: [], columns: lowercasedMetadataColumns },
+        expected: undefined,
+      },
+      {
+        name: "matches a camelCase dimension against lowercased row keys",
+        queryResult: {
+          results: [
+            {
+              user_id: 1,
+              experiment_id: 1,
+              variation_id: 1,
+              timestamp: "2022-01-01",
+              browserfamily: "Chrome",
+            },
+          ],
+        },
+        expected: undefined,
+      },
+      {
+        name: "reports the configured casing when a column is genuinely absent",
+        queryResult: {
+          results: [],
+          columns: [
+            { name: "user_id" },
+            { name: "experiment_id" },
+            { name: "variation_id" },
+            { name: "timestamp" },
+          ],
+        },
+        expected: missingCamelCaseDimension,
+      },
+    ])("$name", async ({ queryResult, expected }) => {
+      mockLimitZeroIntegration.getTestValidityQuery = jest
+        .fn()
+        .mockReturnValue("SELECT * FROM experiments LIMIT 0");
+      mockLimitZeroIntegration.runTestQuery = jest
+        .fn()
+        .mockResolvedValue(queryResult);
+
+      const result = await testQueryValidity(
+        mockLimitZeroIntegration,
+        camelCaseQuery,
+      );
+
+      expect(result).toBe(expected);
+    });
+
+    it("reports a casing-only mismatch as missing on a case-sensitive engine (ClickHouse)", async () => {
+      // Local stub: jest.clearAllMocks does not reset plain props on the shared mock.
+      const caseSensitiveIntegration = {
+        columnNamesAreCaseSensitive: true,
+        getTestValidityQuery: jest
+          .fn()
+          .mockReturnValue("SELECT * FROM experiments LIMIT 0"),
+        runTestQuery: jest.fn().mockResolvedValue({
+          results: [],
+          columns: lowercasedMetadataColumns,
+        }),
+      } as unknown as SourceIntegrationInterface;
+
+      const result = await testQueryValidity(
+        caseSensitiveIntegration,
+        camelCaseQuery,
+      );
+
+      expect(result).toBe(missingCamelCaseDimension);
     });
   });
 
