@@ -635,9 +635,8 @@ export abstract class QueryRunner<
   }
 
   /**
-   * Finalize a stalled model from persisted query results via the refresh path.
-   * true = written succeeded. An analysis failure is persisted by
-   * refreshQueryStatuses itself and yields false; missing query docs throw.
+   * Recovers a snapshot so it goes to a terminal state.
+   * Returns true if the snapshot was finalized successfully.
    */
   public async finalizeFromPersistedResults(): Promise<boolean> {
     // Direct assignment: setStatus("running") arms heartbeat and watchdog
@@ -647,8 +646,6 @@ export abstract class QueryRunner<
     return this.finishedWithoutError();
   }
 
-  // Read in its own scope: control-flow analysis would otherwise pin status to
-  // the "running" assigned by the caller above and reject the comparison.
   private finishedWithoutError(): boolean {
     return this.status === "finished" && !this.error;
   }

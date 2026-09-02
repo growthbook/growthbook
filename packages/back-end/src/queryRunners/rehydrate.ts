@@ -1,9 +1,8 @@
 /**
- * Finalizes an experiment snapshot whose warehouse queries all succeeded but
- * whose results were never written, because the process driving it died first.
- * It re-derives the analysis inputs and replays the refresh path over the
- * persisted query results, so no warehouse queries are run. Report and bandit
- * snapshots are gated out.
+ * Finalize a experiment snapshot for which all queries succeeded but
+ * results were never written, because the process driving it died first.
+ * It re-creates the analysis inputs and replays the refresh path over the
+ * persisted results, so no new warehouse queries are run.
  */
 import {
   ExperimentSnapshotInterface,
@@ -12,6 +11,7 @@ import {
 import {
   expandDerivedMetricsInMap,
   getPhaseVariations,
+  ExperimentMetricInterface,
 } from "shared/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
@@ -26,39 +26,30 @@ import { ExperimentResultsQueryRunner } from "./ExperimentResultsQueryRunner";
 import { ExperimentIncrementalRefreshQueryRunner } from "./ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "./ExperimentIncrementalRefreshExploratoryQueryRunner";
 
-type Context = ReqContext | ApiReqContext;
-
-type MetricMap = Awaited<ReturnType<typeof getMetricMap>>;
-
-/**
- * runAnalysis reads only metricMap and variationNames; experimentQueryMetadata
- * only shapes queries, which recovery never issues.
- */
 type ExperimentAnalysisInputs = {
-  metricMap: MetricMap;
+  metricMap: Map<string, ExperimentMetricInterface>;
   variationNames: string[];
-  experimentQueryMetadata: null;
 };
 
-/** A runner that can be seeded from persisted results and finalized. */
-interface FinalizableExperimentRunner {
+interface RecoverableExperimentRunner {
   prepareAnalysisData(inputs: ExperimentAnalysisInputs): void;
   finalizeFromPersistedResults(): Promise<boolean>;
 }
 
-type ExperimentRunnerFactory = (
-  context: Context,
-  snapshot: ExperimentSnapshotInterface,
-  integration: SourceIntegrationInterface,
-) => FinalizableExperimentRunner;
-
 /**
  * Mirrors the live construction switch in services/experiments.ts, keyed by the
  * runnerKind persisted on the snapshot (absent means a legacy "results"
- * snapshot). A kind is only listed once its runner supports prepareAnalysisData.
+ * snapshot).
  */
 const experimentRunnerFactories: Partial<
-  Record<SnapshotQueryRunnerKind, ExperimentRunnerFactory>
+  Record<
+    SnapshotQueryRunnerKind,
+    (
+      context: ReqContext | ApiReqContext,
+      snapshot: ExperimentSnapshotInterface,
+      integration: SourceIntegrationInterface,
+    ) => RecoverableExperimentRunner
+  >
 > = {
   results: (context, snapshot, integration) =>
     new ExperimentResultsQueryRunner(context, snapshot, integration, false),
@@ -86,11 +77,11 @@ const experimentRunnerFactories: Partial<
 };
 
 /**
- * Finalizes a stalled snapshot from its persisted query results. Returns false
- * when the snapshot is not eligible, so the caller can fail it instead.
+ * Finalizes a stalled snapshot from its persisted query results.
+ * Returns false when we are unable to do so, so the caller can take action.
  */
 export async function recoverStalledSnapshot(
-  context: Context,
+  context: ReqContext | ApiReqContext,
   snapshot: ExperimentSnapshotInterface,
 ): Promise<boolean> {
   if (snapshot.report) {
@@ -130,19 +121,19 @@ export async function recoverStalledSnapshot(
     return false;
   }
 
-  // Not getLatestSnapshotStatus: it returns the single most recent doc across
-  // success, running and error, so a newer errored run would hide a newer
-  // successful one behind it.
-  const newer = await getLatestSuccessfulSnapshot({
+  const lastSuccessfulSnapshot = await getLatestSuccessfulSnapshot({
     context,
     experiment: snapshot.experiment,
     phase: snapshot.phase,
     dimension: snapshot.dimension ?? undefined,
     type: snapshot.type,
   });
-  if (newer && newer.dateCreated > snapshot.dateCreated) {
+  if (
+    lastSuccessfulSnapshot &&
+    lastSuccessfulSnapshot.dateCreated > snapshot.dateCreated
+  ) {
     logger.info(
-      `Not recovering stalled snapshot ${snapshot.id}: superseded by newer successful snapshot ${newer.id}`,
+      `Not recovering stalled snapshot ${snapshot.id}: superseded by newer successful snapshot ${lastSuccessfulSnapshot.id}`,
     );
     return false;
   }
@@ -171,7 +162,6 @@ export async function recoverStalledSnapshot(
   runner.prepareAnalysisData({
     metricMap,
     variationNames,
-    experimentQueryMetadata: null,
   });
   return runner.finalizeFromPersistedResults();
 }

@@ -279,9 +279,8 @@ async function reapStalledSnapshots() {
     // results instead of erroring it. The cross-org candidate can be stale, so
     // re-read in the org context and require the snapshot to still be running
     // on the same queries. An ineligible or unsuccessful recovery returns false
-    // and falls through to the error write below, which is a no-op when the
-    // runner already persisted an analysis failure.
-    let finalizeError = "";
+    // and falls through to the error write below
+    let recoverError = "";
     if (allTerminal && statuses.every((q) => q.status === "succeeded")) {
       try {
         const freshSnapshot = await findSnapshotById(context, snapshot.id);
@@ -292,14 +291,14 @@ async function reapStalledSnapshots() {
           const sameQueries =
             freshQueryIds.size === queryIds.length &&
             queryIds.every((id) => freshQueryIds.has(id));
-          // The snapshot changed since the cross-org scan, so our succeeded
-          // statuses describe a stale query set. Skip rather than error a live
-          // run with the old query list; a later tick re-reads and re-evaluates.
+
+          // The snapshot changed since the original scan, so our succeeded
+          // statuses describe a stale query set. Skip rather than error
           if (!sameQueries) continue;
 
           if (await recoverStalledSnapshot(context, freshSnapshot)) {
             logger.info(
-              `Finalized stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}) from persisted results`,
+              `Recovered stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}) from persisted results`,
             );
             continue;
           }
@@ -307,10 +306,10 @@ async function reapStalledSnapshots() {
       } catch (e) {
         // A failed finalize must still leave the snapshot terminal, so fall
         // through to the error write below instead of retrying every tick.
-        finalizeError = getErrorMessage(e);
+        recoverError = getErrorMessage(e);
         logger.warn(
           e,
-          `Failed to finalize stalled snapshot ${snapshot.id} from persisted results`,
+          `Failed to recover stalled snapshot ${snapshot.id} from persisted results`,
         );
       }
     }
@@ -331,9 +330,7 @@ async function reapStalledSnapshots() {
         ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. A retry has been scheduled."
         : "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
       : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted." +
-        (finalizeError
-          ? ` Automatic recovery from persisted results failed: ${finalizeError}`
-          : "");
+        (recoverError ? ` Automatic recovery failed: ${recoverError}` : "");
 
     const reaped = await errorSnapshotIfStillRunning(context, snapshot.id, {
       queries: snapshot.queries,

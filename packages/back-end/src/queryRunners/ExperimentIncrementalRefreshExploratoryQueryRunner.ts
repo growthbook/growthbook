@@ -413,22 +413,22 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   prepareAnalysisData(
     params: Pick<
       ExperimentIncrementalRefreshExploratoryQueryParams,
-      "metricMap" | "variationNames" | "experimentQueryMetadata"
+      "metricMap" | "variationNames"
     >,
   ): void {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
-    if (params.experimentQueryMetadata) {
-      this.integration.setAdditionalQueryMetadata?.(
-        params.experimentQueryMetadata,
-      );
-    }
   }
 
   async startQueries(
     params: ExperimentIncrementalRefreshExploratoryQueryParams,
   ): Promise<Queries> {
     this.prepareAnalysisData(params);
+    if (params.experimentQueryMetadata) {
+      this.integration.setAdditionalQueryMetadata?.(
+        params.experimentQueryMetadata,
+      );
+    }
 
     const incrementalRefreshModel =
       await this.context.models.incrementalRefresh.getLockedBySnapshotId(

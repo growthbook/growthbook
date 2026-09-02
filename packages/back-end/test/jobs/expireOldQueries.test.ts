@@ -295,7 +295,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       "snp_1",
       expect.objectContaining({
         error: expect.stringContaining(
-          "Automatic recovery from persisted results failed: analysis blew up",
+          "Automatic recovery failed: analysis blew up",
         ),
       }),
     );

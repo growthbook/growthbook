@@ -1236,22 +1236,22 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   prepareAnalysisData(
     params: Pick<
       ExperimentIncrementalRefreshQueryParams,
-      "metricMap" | "variationNames" | "experimentQueryMetadata"
+      "metricMap" | "variationNames"
     >,
   ): void {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
-    if (params.experimentQueryMetadata) {
-      this.integration.setAdditionalQueryMetadata?.(
-        params.experimentQueryMetadata,
-      );
-    }
   }
 
   async startQueries(
     params: ExperimentIncrementalRefreshQueryParams,
   ): Promise<Queries> {
     this.prepareAnalysisData(params);
+    if (params.experimentQueryMetadata) {
+      this.integration.setAdditionalQueryMetadata?.(
+        params.experimentQueryMetadata,
+      );
+    }
 
     const incrementalRefreshModel = params.fullRefresh
       ? null
