@@ -43,7 +43,7 @@ import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
-import Checkbox from "@/ui/Checkbox";
+import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -429,12 +429,6 @@ export default function ExperimentRefNewFields({
                   attribute of the holdout this experiment will belong to.
                 </HelperText>
               )}
-            <FallbackAttributeSelector
-              form={form}
-              attributeSchema={attributeSchema}
-              extraIndicator={attributeSelectIndicator}
-            />
-
             {hasSDKWithNoBucketingV2 && !isTemplate && (
               <HashVersionSelector
                 value={(form.watch("hashVersion") || 1) as 1 | 2}
@@ -444,17 +438,23 @@ export default function ExperimentRefNewFields({
             )}
 
             {orgStickyBucketing && !isTemplate ? (
-              <Checkbox
+              <StickyBucketingToggle
                 mt="4"
-                size="lg"
-                label="Disable Sticky Bucketing"
-                description="Do not persist variation assignments for this experiment (overrides your organization settings)"
-                value={!!form.watch("disableStickyBucketing")}
-                setValue={(v) => {
-                  form.setValue("disableStickyBucketing", v);
-                }}
+                disableStickyBucketing={!!form.watch("disableStickyBucketing")}
+                setDisableStickyBucketing={(v) =>
+                  form.setValue("disableStickyBucketing", v)
+                }
+                description="Keep users in their assigned variation even when experiment traffic, targeting, or rollout settings change."
               />
             ) : null}
+
+            {!form.watch("disableStickyBucketing") && (
+              <FallbackAttributeSelector
+                form={form}
+                attributeSchema={attributeSchema}
+                extraIndicator={attributeSelectIndicator}
+              />
+            )}
           </div>
 
           {feature &&
