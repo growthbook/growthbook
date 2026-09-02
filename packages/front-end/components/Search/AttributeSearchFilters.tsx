@@ -196,33 +196,35 @@ const AttributeSearchFilters: FC<
           exclusive={field.type === "boolean"}
         />
       ))}
-      <DropdownMenu
-        trigger={FilterHeading({
-          heading: "more",
-          open: dropdownFilterOpen === "more",
-        })}
-        open={dropdownFilterOpen === "more"}
-        onOpenChange={(o) => {
-          setDropdownFilterOpen(o ? "more" : "");
-        }}
-      >
-        <DropdownMenuItem
-          disabled={!hasArchived}
-          onClick={() => {
-            updateQuery({
-              field: "is",
-              values: ["archived"],
-              operator: "",
-              negated: false,
-            });
+      {/* Its only item, so the menu goes with it. */}
+      {hasArchived && (
+        <DropdownMenu
+          trigger={FilterHeading({
+            heading: "more",
+            open: dropdownFilterOpen === "more",
+          })}
+          open={dropdownFilterOpen === "more"}
+          onOpenChange={(o) => {
+            setDropdownFilterOpen(o ? "more" : "");
           }}
         >
-          <FilterItem
-            item="Archived attributes"
-            exists={doesFilterExist("is", "archived", "")}
-          />
-        </DropdownMenuItem>
-      </DropdownMenu>
+          <DropdownMenuItem
+            onClick={() => {
+              updateQuery({
+                field: "is",
+                values: ["archived"],
+                operator: "",
+                negated: false,
+              });
+            }}
+          >
+            <FilterItem
+              item="Archived attributes"
+              exists={doesFilterExist("is", "archived", "")}
+            />
+          </DropdownMenuItem>
+        </DropdownMenu>
+      )}
     </Flex>
   );
 };
