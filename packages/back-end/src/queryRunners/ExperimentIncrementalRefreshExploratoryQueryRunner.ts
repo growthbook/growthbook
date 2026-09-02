@@ -410,9 +410,12 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       );
   }
 
-  async startQueries(
-    params: ExperimentIncrementalRefreshExploratoryQueryParams,
-  ): Promise<Queries> {
+  prepareAnalysisData(
+    params: Pick<
+      ExperimentIncrementalRefreshExploratoryQueryParams,
+      "metricMap" | "variationNames" | "experimentQueryMetadata"
+    >,
+  ): void {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
     if (params.experimentQueryMetadata) {
@@ -420,6 +423,12 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
         params.experimentQueryMetadata,
       );
     }
+  }
+
+  async startQueries(
+    params: ExperimentIncrementalRefreshExploratoryQueryParams,
+  ): Promise<Queries> {
+    this.prepareAnalysisData(params);
 
     const incrementalRefreshModel =
       await this.context.models.incrementalRefresh.getLockedBySnapshotId(

@@ -1233,9 +1233,12 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       );
   }
 
-  async startQueries(
-    params: ExperimentIncrementalRefreshQueryParams,
-  ): Promise<Queries> {
+  prepareAnalysisData(
+    params: Pick<
+      ExperimentIncrementalRefreshQueryParams,
+      "metricMap" | "variationNames" | "experimentQueryMetadata"
+    >,
+  ): void {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
     if (params.experimentQueryMetadata) {
@@ -1243,6 +1246,12 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         params.experimentQueryMetadata,
       );
     }
+  }
+
+  async startQueries(
+    params: ExperimentIncrementalRefreshQueryParams,
+  ): Promise<Queries> {
+    this.prepareAnalysisData(params);
 
     const incrementalRefreshModel = params.fullRefresh
       ? null

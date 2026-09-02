@@ -1065,6 +1065,65 @@ describe("QueryRunner", () => {
       expect(runner.status).toBe("finished");
     });
 
+    it("finalizeFromPersistedResults flips stale running pointers and resolves true", async () => {
+      // A stalled snapshot's persisted pointers still read "running" because the
+      // process died before finalizing. Recovery must flip them so the UI
+      // (getQueryStatus reads the pointers) stops showing it as in-flight.
+      const runner = new StallTestQueryRunner(
+        mockContext,
+        makeModel([
+          { name: "a", query: "qry_a", status: "running" },
+          { name: "b", query: "qry_b", status: "running" },
+        ]),
+        mockIntegration,
+      );
+      (getQueriesByIds as jest.Mock).mockResolvedValue([
+        createMockQuery("qry_a", "succeeded"),
+        createMockQuery("qry_b", "succeeded"),
+      ]);
+
+      await expect(runner.finalizeFromPersistedResults()).resolves.toBe(true);
+
+      expect(runner.runAnalysisSpy).toHaveBeenCalledTimes(1);
+      expect(runner.updateModelSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "succeeded",
+          queries: [
+            expect.objectContaining({ query: "qry_a", status: "succeeded" }),
+            expect.objectContaining({ query: "qry_b", status: "succeeded" }),
+          ],
+        }),
+      );
+      expect(runner.status).toBe("finished");
+    });
+
+    it("finalizeFromPersistedResults resolves false and persists the analysis failure", async () => {
+      const runner = new StallTestQueryRunner(
+        mockContext,
+        makeModel([
+          { name: "a", query: "qry_a", status: "running" },
+          { name: "b", query: "qry_b", status: "running" },
+        ]),
+        mockIntegration,
+      );
+      runner.runAnalysis = async () => {
+        throw new Error("boom");
+      };
+      (getQueriesByIds as jest.Mock).mockResolvedValue([
+        createMockQuery("qry_a", "succeeded"),
+        createMockQuery("qry_b", "succeeded"),
+      ]);
+
+      await expect(runner.finalizeFromPersistedResults()).resolves.toBe(false);
+
+      expect(runner.updateModelSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "failed",
+          error: expect.stringContaining("Error running analysis"),
+        }),
+      );
+    });
+
     it("does not finalize from a fresh (pending) runner instance", async () => {
       // Pending runners (status-polling endpoints) keep the no-change fast path.
       const runner = new StallTestQueryRunner(
