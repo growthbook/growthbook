@@ -275,17 +275,31 @@ export type DateDimension = {
 export type ActivationDimension = {
   type: "activation";
 };
+export type DateCutoffDimension = {
+  type: "datecutoff";
+  cutoff: Date;
+};
+export type ComboConstituent = UserDimension | ExperimentDimension;
+export type ComboDimension = {
+  type: "combo";
+  // Length 2 enforced at parse/validation for now
+  dimensions: ComboConstituent[];
+};
 export type Dimension =
   | UserDimension
   | ExperimentDimension
   | DateDimension
-  | ActivationDimension;
+  | ActivationDimension
+  | DateCutoffDimension
+  | ComboDimension;
 
 export type ProcessedDimensions = {
   unitDimensions: UserDimension[];
   experimentDimensions: ExperimentDimension[];
   activationDimension: ActivationDimension | null;
   dateDimension: DateDimension | null;
+  dateCutoffDimension: DateCutoffDimension | null;
+  comboDimension: ComboDimension | null;
 };
 
 export interface DropTableQueryParams {
@@ -543,6 +557,9 @@ export interface IncrementalRefreshStatisticsQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  // skipPartialData cutoff is relative to this (defaults to now). Important for Incremental Exploratory
+  // which passes the last overall snapshot's dateCreated.
+  asOf?: Date;
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";

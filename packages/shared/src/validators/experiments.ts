@@ -1051,6 +1051,10 @@ export const apiExperimentResultsValidator = namedSchema(
       dimension: z.object({
         type: z.string(),
         id: z.string().optional(),
+        // Constituents of a "combo" dimension, in the order they were combined
+        dimensions: z
+          .array(z.object({ type: z.string(), id: z.string().optional() }))
+          .optional(),
       }),
       settings: apiExperimentAnalysisSettingsValidator,
       queryIds: z.array(z.string()),
@@ -1230,6 +1234,10 @@ export const apiExperimentBulkResultValidator = componentSchema(
         type: z.string(),
         id: z.string().optional(),
         precomputed: z.boolean(),
+        // Constituents of a "combo" dimension, in the order they were combined
+        dimensions: z
+          .array(z.object({ type: z.string(), id: z.string().optional() }))
+          .optional(),
       }),
       settings: apiBulkResultSettings,
       results: z.array(
@@ -1457,7 +1465,12 @@ const postExperimentBody = z
       )
       .optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
-    disableStickyBucketing: z.boolean().optional(),
+    disableStickyBucketing: z
+      .boolean()
+      .describe(
+        "When true, disables Sticky Bucketing for this experiment. If omitted, defaults to your organization's Sticky Bucketing setting for new experiments. Sticky Bucketing only takes effect when it is also enabled at the organization level.",
+      )
+      .optional(),
     bucketVersion: z.number().optional(),
     minBucketVersion: z.number().optional(),
     releasedVariationId: z.string().optional(),
@@ -2241,7 +2254,7 @@ export const postExperimentSnapshotValidator = {
       dimension: z
         .string()
         .describe(
-          'Dimension to break results down by. For Unit Dimensions, use the dimension id (e.g. "dim_abc123"). For Experiment Dimensions, use "exp:<dimensionName>" (e.g. "exp:country"). Built-in pre-exposure dimensions include "pre:date" and, when configured, "pre:activation". Omit this field to create a standard snapshot.',
+          'Dimension to break results down by. For Unit Dimensions, use the dimension id (e.g. "dim_abc123"). For Experiment Dimensions, use "exp:<dimensionName>" (e.g. "exp:country"). Built-in pre-exposure dimensions include "pre:date" and, when configured, "pre:activation". Use "cutoff:<ISO datetime>" (e.g. "cutoff:2026-01-15T00:12:00.000Z") to split units by whether they were first exposed before or after the cutoff; it must fall within the phase dates. Use "combo:<dimA>::<dimB>" (e.g. "combo:exp:country::dim_abc123") to break down by the intersection of two dimensions, each an Experiment Dimension or Unit Dimension id; values beyond the top 20 combined slices are merged into "(other)". Omit this field to create a standard snapshot.',
         )
         .optional(),
       phase: z

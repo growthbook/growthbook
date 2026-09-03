@@ -408,6 +408,11 @@ tags:
     description: >-
       Saved learnings captured across experiments, including AI-discovered
       patterns.
+  - name: Holdouts
+    x-displayName: Holdouts
+    description: >-
+      Hold a share of traffic out of all experiments to measure their combined
+      effect.
   - name: AggregatedFactTable_model
     x-displayName: Aggregated Fact Table
     description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />
@@ -636,6 +641,9 @@ tags:
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisionsV2"
       />
+  - name: Holdout_model
+    x-displayName: Holdout
+    description: <SchemaDefinition schemaRef="#/components/schemas/Holdout" />
   - name: InformationSchema_model
     x-displayName: Information Schema
     description: <SchemaDefinition schemaRef="#/components/schemas/InformationSchema" />
@@ -13706,6 +13714,11 @@ paths:
                     - type: number
                       const: 2
                 disableStickyBucketing:
+                  description: >-
+                    When true, disables Sticky Bucketing for this experiment. If
+                    omitted, defaults to your organization's Sticky Bucketing
+                    setting for new experiments. Sticky Bucketing only takes
+                    effect when it is also enabled at the organization level.
                   type: boolean
                 bucketVersion:
                   type: number
@@ -15512,7 +15525,15 @@ paths:
                     the dimension id (e.g. "dim_abc123"). For Experiment
                     Dimensions, use "exp:<dimensionName>" (e.g. "exp:country").
                     Built-in pre-exposure dimensions include "pre:date" and,
-                    when configured, "pre:activation". Omit this field to create
+                    when configured, "pre:activation". Use "cutoff:<ISO
+                    datetime>" (e.g. "cutoff:2026-01-15T00:12:00.000Z") to split
+                    units by whether they were first exposed before or after the
+                    cutoff; it must fall within the phase dates. Use
+                    "combo:<dimA>::<dimB>" (e.g.
+                    "combo:exp:country::dim_abc123") to break down by the
+                    intersection of two dimensions, each an Experiment Dimension
+                    or Unit Dimension id; values beyond the top 20 combined
+                    slices are merged into "(other)". Omit this field to create
                     a standard snapshot.
                   type: string
                 phase:
@@ -16081,6 +16102,9 @@ paths:
                           sse_trajectory:
                             type: array
                             items: {}
+                          bic_trajectory:
+                            type: array
+                            items: {}
                         required:
                           - attributes
                           - responses
@@ -16121,6 +16145,46 @@ paths:
                                   minimum: 0
                                 totalSse:
                                   type: number
+                                split:
+                                  type: object
+                                  properties:
+                                    leafClauses:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          attribute:
+                                            type: string
+                                          levels:
+                                            type: array
+                                            items:
+                                              type: string
+                                          operator:
+                                            type: string
+                                            enum:
+                                              - in
+                                              - not in
+                                        required:
+                                          - attribute
+                                          - levels
+                                          - operator
+                                        additionalProperties: false
+                                    attribute:
+                                      type: string
+                                    leftLevels:
+                                      type: array
+                                      items:
+                                        type: string
+                                    rightLevels:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - leafClauses
+                                    - attribute
+                                    - leftLevels
+                                    - rightLevels
+                                  additionalProperties: false
                               required:
                                 - numSplits
                                 - totalSse
@@ -16141,6 +16205,10 @@ paths:
                                       anyOf:
                                         - type: number
                                         - type: 'null'
+                                    mean:
+                                      anyOf:
+                                        - type: number
+                                        - type: 'null'
                                     users:
                                       anyOf:
                                         - type: number
@@ -16148,6 +16216,7 @@ paths:
                                   required:
                                     - variationId
                                     - weight
+                                    - mean
                                     - users
                                   additionalProperties: false
                             required:
@@ -16755,6 +16824,7 @@ paths:
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/datasourceId'
+        - $ref: '#/components/parameters/includeArchived'
       responses:
         '200':
           description: Successful response
@@ -28482,6 +28552,18 @@ paths:
                   type: array
                   items:
                     type: string
+                replaces:
+                  description: >-
+                    Ids of older metrics (legacy or fact) that this metric
+                    supersedes, for example the legacy metric it was migrated
+                    from. Cannot include this metric's own id. Informational
+                    only - GrowthBook uses it to link the old and new
+                    definitions in the UI and to keep showing results from a
+                    snapshot that was created before an experiment switched to
+                    this metric. This field can only be set through the API.
+                  type: array
+                  items:
+                    type: string
               required:
                 - name
                 - metricType
@@ -29129,6 +29211,11 @@ paths:
                   type: number
                   minimum: 0
                 targetMDE:
+                  description: >-
+                    The percentage change that you want to reliably detect
+                    before ending an experiment, as a proportion (e.g. put 0.1
+                    for 10%). This is used to estimate the "Days Left" for
+                    running experiments.
                   type: number
                   minimum: 0
                 managedBy:
@@ -29138,8 +29225,6 @@ paths:
                     - ''
                     - api
                     - admin
-                archived:
-                  type: boolean
                 metricAutoSlices:
                   description: >-
                     Array of slice column names that will be automatically
@@ -29147,6 +29232,24 @@ paths:
                   type: array
                   items:
                     type: string
+                replaces:
+                  description: >-
+                    Ids of older metrics (legacy or fact) that this metric
+                    supersedes, for example the legacy metric it was migrated
+                    from. Cannot include this metric's own id. Informational
+                    only - GrowthBook uses it to link the old and new
+                    definitions in the UI and to keep showing results from a
+                    snapshot that was created before an experiment switched to
+                    this metric. This field can only be set through the API.
+                  type: array
+                  items:
+                    type: string
+                archived:
+                  description: >-
+                    Set to true to archive the metric. Archived metrics are
+                    hidden by default in the UI and excluded from new
+                    experiments.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -29296,6 +29399,11 @@ paths:
     post:
       operationId: postBulkImportFacts
       summary: Bulk import fact tables, filters, and metrics
+      description: >-
+        Creates or updates Fact Tables, Fact Table filters, and Fact Metrics.
+        Resources upsert by `id`. Pass `dryRun: true` to validate with zero
+        writes. Not transactional: a live mid-loop failure returns HTTP 400 (403
+        for a permission failure) with write counts and `errors`.
       tags:
         - fact-tables
       requestBody:
@@ -29305,6 +29413,19 @@ paths:
             schema:
               type: object
               properties:
+                defaultManagedBy:
+                  description: >-
+                    Fallback `managedBy` for Fact Tables and Fact Metrics that
+                    omit the field. Defaults to `"api"`. Filters inherit `"api"`
+                    only when the parent Fact Table is api-managed.
+                  type: string
+                  enum:
+                    - ''
+                    - api
+                    - admin
+                dryRun:
+                  description: Validate with zero writes.
+                  type: boolean
                 factTables:
                   type: array
                   items:
@@ -29320,6 +29441,7 @@ paths:
                           description:
                             description: Description of the fact table
                             type: string
+                            maxLength: 10000
                           owner:
                             description: >-
                               The userId or email address of the owner. If an
@@ -29348,6 +29470,42 @@ paths:
                             type: array
                             items:
                               type: string
+                          aggregatedFactTableSettings:
+                            description: >-
+                              Settings for maintaining shared daily aggregated
+                              tables (a subset of userIdTypes plus the daily
+                              update time and restate lookback window) used to
+                              speed up CUPED. Requires the data pipeline
+                              (pipeline-mode) feature.
+                            type: object
+                            properties:
+                              idTypes:
+                                type: array
+                                items:
+                                  type: string
+                              updateTime:
+                                type: object
+                                properties:
+                                  time:
+                                    type: string
+                                  timezone:
+                                    type: string
+                                required:
+                                  - time
+                                  - timezone
+                                additionalProperties: false
+                              lookbackWindow:
+                                type: integer
+                                exclusiveMinimum: 0
+                              restateChunkDays:
+                                type: integer
+                                minimum: 1
+                                maximum: 7
+                            required:
+                              - idTypes
+                              - updateTime
+                              - lookbackWindow
+                            additionalProperties: false
                           sql:
                             description: The SQL query for this fact table
                             type: string
@@ -29407,6 +29565,7 @@ paths:
                           description:
                             description: Description of the fact table filter
                             type: string
+                            maxLength: 10000
                           value:
                             description: The SQL expression for this filter.
                             example: country = 'US'
@@ -29443,6 +29602,7 @@ paths:
                             type: string
                           description:
                             type: string
+                            maxLength: 10000
                           owner:
                             description: >-
                               The userId or email address of the owner. If an
@@ -29468,129 +29628,135 @@ paths:
                               - quantile
                               - ratio
                               - dailyParticipation
+                              - funnel
                           numerator:
-                            type: object
-                            properties:
-                              factTableId:
-                                type: string
-                              column:
-                                description: >-
-                                  Must be empty for proportion metrics and
-                                  dailyParticipation metrics. Otherwise, the
-                                  column name or one of the special values:
-                                  '$$distinctUsers' or '$$count' (or
-                                  '$$distinctDates' if metricType is 'mean' or
-                                  'ratio' or 'quantile' and
-                                  quantileSettings.type is 'unit')
-                                type: string
-                              aggregation:
-                                description: >-
-                                  User aggregation of selected column. Either
-                                  sum or max for numeric columns; count distinct
-                                  for string columns; hll merge / kll merge for
-                                  pre-built sketch columns (requires data-source
-                                  support); ignored for special columns.
-                                  Default: sum. If you specify a string column
-                                  you must explicitly specify count distinct.
-                                  Not used for proportion metrics; for event
-                                  quantile metrics only kll merge is applicable.
-                                type: string
-                                enum:
-                                  - sum
-                                  - max
-                                  - count distinct
-                                  - hll merge
-                                  - kll merge
-                              filters:
-                                deprecated: true
-                                description: >-
-                                  Array of Fact Table Filter Ids. Deprecated,
-                                  use rowFilters instead.
-                                type: array
-                                items:
-                                  type: string
-                              inlineFilters:
-                                deprecated: true
-                                description: >-
-                                  Inline filters to apply to the fact table.
-                                  Keys are column names, values are arrays of
-                                  values to filter by. Deprecated, use
-                                  rowFilters instead.
-                                type: object
-                                propertyNames:
-                                  type: string
-                                additionalProperties:
-                                  type: array
-                                  items:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  factTableId:
                                     type: string
-                              rowFilters:
-                                description: >-
-                                  Filters to apply to the rows of the fact table
-                                  before aggregation.
-                                type: array
-                                items:
-                                  type: object
-                                  properties:
-                                    operator:
+                                  column:
+                                    description: >-
+                                      Must be empty for proportion metrics and
+                                      dailyParticipation metrics. Otherwise, the
+                                      column name or one of the special values:
+                                      '$$distinctUsers' or '$$count' (or
+                                      '$$distinctDates' if metricType is 'mean'
+                                      or 'ratio' or 'quantile' and
+                                      quantileSettings.type is 'unit')
+                                    type: string
+                                  aggregation:
+                                    description: >-
+                                      User aggregation of selected column.
+                                      Either sum or max for numeric columns;
+                                      count distinct for string columns; hll
+                                      merge / kll merge for pre-built sketch
+                                      columns (requires data-source support);
+                                      ignored for special columns. Default: sum.
+                                      If you specify a string column you must
+                                      explicitly specify count distinct. Not
+                                      used for proportion metrics; for event
+                                      quantile metrics only kll merge is
+                                      applicable.
+                                    type: string
+                                    enum:
+                                      - sum
+                                      - max
+                                      - count distinct
+                                      - hll merge
+                                      - kll merge
+                                  filters:
+                                    deprecated: true
+                                    description: >-
+                                      Array of Fact Table Filter Ids.
+                                      Deprecated, use rowFilters instead.
+                                    type: array
+                                    items:
                                       type: string
-                                      enum:
-                                        - '='
-                                        - '!='
-                                        - '>'
-                                        - <
-                                        - '>='
-                                        - <=
-                                        - between
-                                        - not_between
-                                        - in
-                                        - not_in
-                                        - is_null
-                                        - not_null
-                                        - is_true
-                                        - is_false
-                                        - contains
-                                        - not_contains
-                                        - starts_with
-                                        - ends_with
-                                        - sql_expr
-                                        - saved_filter
-                                    values:
-                                      description: >-
-                                        Not required for is_null, not_null,
-                                        is_true, is_false operators. The between
-                                        and not_between operators take at most
-                                        two values, a lower and an upper bound
-                                        in that order; leave a bound as an empty
-                                        string for an open-ended range.
+                                  inlineFilters:
+                                    deprecated: true
+                                    description: >-
+                                      Inline filters to apply to the fact table.
+                                      Keys are column names, values are arrays
+                                      of values to filter by. Deprecated, use
+                                      rowFilters instead.
+                                    type: object
+                                    propertyNames:
+                                      type: string
+                                    additionalProperties:
                                       type: array
                                       items:
                                         type: string
-                                    column:
-                                      description: >-
-                                        Required for all operators except
-                                        sql_expr and saved_filter.
-                                      type: string
-                                  required:
-                                    - operator
-                                  additionalProperties: false
-                              aggregateFilterColumn:
-                                description: >-
-                                  Column to use to filter users after
-                                  aggregation. Either '$$count' of rows or the
-                                  name of a numeric column that will be summed
-                                  by user. Must specify `aggregateFilter` if
-                                  using this. Only can be used with 'retention'
-                                  and 'proportion' metrics.
-                                type: string
-                              aggregateFilter:
-                                description: >-
-                                  Simple comparison operator and value to apply
-                                  after aggregation (e.g. '= 10' or '>= 1').
-                                  Requires `aggregateFilterColumn`.
-                                type: string
-                            required:
-                              - factTableId
-                            additionalProperties: false
+                                  rowFilters:
+                                    description: >-
+                                      Filters to apply to the rows of the fact
+                                      table before aggregation.
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        operator:
+                                          type: string
+                                          enum:
+                                            - '='
+                                            - '!='
+                                            - '>'
+                                            - <
+                                            - '>='
+                                            - <=
+                                            - between
+                                            - not_between
+                                            - in
+                                            - not_in
+                                            - is_null
+                                            - not_null
+                                            - is_true
+                                            - is_false
+                                            - contains
+                                            - not_contains
+                                            - starts_with
+                                            - ends_with
+                                            - sql_expr
+                                            - saved_filter
+                                        values:
+                                          description: >-
+                                            Not required for is_null, not_null,
+                                            is_true, is_false operators. The between
+                                            and not_between operators take at most
+                                            two values, a lower and an upper bound
+                                            in that order; leave a bound as an empty
+                                            string for an open-ended range.
+                                          type: array
+                                          items:
+                                            type: string
+                                        column:
+                                          description: >-
+                                            Required for all operators except
+                                            sql_expr and saved_filter.
+                                          type: string
+                                      required:
+                                        - operator
+                                      additionalProperties: false
+                                  aggregateFilterColumn:
+                                    description: >-
+                                      Column to use to filter users after
+                                      aggregation. Either '$$count' of rows or
+                                      the name of a numeric column that will be
+                                      summed by user. Must specify
+                                      `aggregateFilter` if using this. Only can
+                                      be used with 'retention' and 'proportion'
+                                      metrics.
+                                    type: string
+                                  aggregateFilter:
+                                    description: >-
+                                      Simple comparison operator and value to
+                                      apply after aggregation (e.g. '= 10' or
+                                      '>= 1'). Requires `aggregateFilterColumn`.
+                                    type: string
+                                required:
+                                  - factTableId
+                                additionalProperties: false
+                              - type: 'null'
                           denominator:
                             description: Only when metricType is 'ratio'
                             type: object
@@ -29742,6 +29908,136 @@ paths:
                               - type
                               - ignoreZeros
                               - quantile
+                            additionalProperties: false
+                          funnelSettings:
+                            description: >-
+                              Funnel metric settings (required when metricType
+                              is "funnel")
+                            type: object
+                            properties:
+                              steps:
+                                description: >-
+                                  Ordered list of funnel steps. Minimum 2 steps
+                                  required.
+                                minItems: 2
+                                maxItems: 20
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    name:
+                                      description: Display name for the funnel step
+                                      type: string
+                                    factTableId:
+                                      description: >-
+                                        The fact table this step draws events
+                                        from
+                                      type: string
+                                    rowFilters:
+                                      description: >-
+                                        Filters that decide whether an event row
+                                        counts as this step
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          operator:
+                                            type: string
+                                            enum:
+                                              - '='
+                                              - '!='
+                                              - '>'
+                                              - <
+                                              - '>='
+                                              - <=
+                                              - between
+                                              - not_between
+                                              - in
+                                              - not_in
+                                              - is_null
+                                              - not_null
+                                              - is_true
+                                              - is_false
+                                              - contains
+                                              - not_contains
+                                              - starts_with
+                                              - ends_with
+                                              - sql_expr
+                                              - saved_filter
+                                          values:
+                                            description: >-
+                                              Not required for is_null, not_null,
+                                              is_true, is_false operators. The between
+                                              and not_between operators take at most
+                                              two values, a lower and an upper bound
+                                              in that order; leave a bound as an empty
+                                              string for an open-ended range.
+                                            type: array
+                                            items:
+                                              type: string
+                                          column:
+                                            description: >-
+                                              Required for all operators except
+                                              sql_expr and saved_filter.
+                                            type: string
+                                        required:
+                                          - operator
+                                        additionalProperties: false
+                                    optional:
+                                      description: >-
+                                        When true, this step still counts for
+                                        its own conversion but does not anchor
+                                        later steps. Later steps window off the
+                                        nearest prior required step (or
+                                        exposure, for experiment funnel metrics,
+                                        when every prior step is optional).
+                                      type: boolean
+                                    conversionWindow:
+                                      anyOf:
+                                        - description: >-
+                                            Bounds how long after the nearest prior
+                                            required step (or exposure, for the
+                                            first step / after only-optional priors
+                                            of an experiment funnel metric) this
+                                            step's event can occur.
+                                          type: object
+                                          properties:
+                                            unit:
+                                              type: string
+                                              enum:
+                                                - weeks
+                                                - days
+                                                - hours
+                                                - minutes
+                                            value:
+                                              type: number
+                                              exclusiveMinimum: 0
+                                          required:
+                                            - unit
+                                            - value
+                                          additionalProperties: false
+                                        - type: 'null'
+                                  required:
+                                    - name
+                                    - factTableId
+                                    - rowFilters
+                                    - optional
+                                  additionalProperties: false
+                              ordering:
+                                description: >-
+                                  Step ordering mode. Only 'sequential' is
+                                  supported in v1.
+                                type: string
+                                enum:
+                                  - sequential
+                              concurrencyWindowSeconds:
+                                description: >-
+                                  Out-of-order tolerance between adjacent steps
+                                  in seconds. Defaults to 0.
+                                type: integer
+                                minimum: 0
+                            required:
+                              - steps
                             additionalProperties: false
                           cappingSettings:
                             description: Controls how outliers are handled
@@ -29931,12 +30227,6 @@ paths:
                               - ''
                               - api
                               - admin
-                          archived:
-                            description: >-
-                              Set to true to archive the metric. Archived
-                              metrics are hidden by default in the UI and
-                              excluded from new experiments.
-                            type: boolean
                           metricAutoSlices:
                             description: >-
                               Array of slice column names that will be
@@ -29945,10 +30235,29 @@ paths:
                             type: array
                             items:
                               type: string
+                          replaces:
+                            description: >-
+                              Ids of older metrics (legacy or fact) that this
+                              metric supersedes, for example the legacy metric
+                              it was migrated from. Cannot include this metric's
+                              own id. Informational only - GrowthBook uses it to
+                              link the old and new definitions in the UI and to
+                              keep showing results from a snapshot that was
+                              created before an experiment switched to this
+                              metric. This field can only be set through the
+                              API.
+                            type: array
+                            items:
+                              type: string
+                          archived:
+                            description: >-
+                              Set to true to archive the metric. Archived
+                              metrics are hidden by default in the UI and
+                              excluded from new experiments.
+                            type: boolean
                         required:
                           - name
                           - metricType
-                          - numerator
                         additionalProperties: false
                     required:
                       - id
@@ -29965,6 +30274,8 @@ paths:
                 properties:
                   success:
                     type: boolean
+                  dryRun:
+                    type: boolean
                   factTablesAdded:
                     type: integer
                   factTablesUpdated:
@@ -29977,14 +30288,20 @@ paths:
                     type: integer
                   factMetricsUpdated:
                     type: integer
+                  errors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BulkImportError'
                 required:
                   - success
+                  - dryRun
                   - factTablesAdded
                   - factTablesUpdated
                   - factTableFiltersAdded
                   - factTableFiltersUpdated
                   - factMetricsAdded
                   - factMetricsUpdated
+                  - errors
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -43609,6 +43926,11 @@ paths:
                     - datetime
                 values:
                   type: string
+                creatable:
+                  description: >-
+                    For enum and multiselect fields, allow users to enter values
+                    beyond the predefined list
+                  type: boolean
                 required:
                   type: boolean
                 projects:
@@ -43796,6 +44118,11 @@ paths:
                           ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
                 values:
                   type: string
+                creatable:
+                  description: >-
+                    For enum and multiselect fields, allow users to enter values
+                    beyond the predefined list
+                  type: boolean
                 required:
                   type: boolean
                 projects:
@@ -49418,6 +49745,587 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/learnings/search' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/holdouts/{id}:
+    get:
+      operationId: getHoldout
+      summary: Get a single holdout
+      tags:
+        - Holdouts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdout:
+                    $ref: '#/components/schemas/Holdout'
+                required:
+                  - holdout
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/holdouts/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: updateHoldout
+      summary: Update a single holdout
+      description: >-
+        Updates a Holdout. Use the start, start-analysis, and stop endpoints to
+        move it through its lifecycle.
+      tags:
+        - Holdouts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+                  maxLength: 10000
+                projects:
+                  type: array
+                  items:
+                    type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                archived:
+                  type: boolean
+                skipAsDefaultHoldout:
+                  description: >-
+                    When true, this Holdout is not selected automatically when
+                    creating Feature Flags or Experiments in Projects assigned
+                    to the Holdout.
+                  type: boolean
+                holdoutSize:
+                  description: >-
+                    Proportion of traffic placed in the holdout group (e.g. 0.05
+                    for 5%). An equally sized comparison group is sampled from
+                    the remaining traffic for measurement, so 2× this value
+                    enters the holdout experiment in total. Must be greater than
+                    0 and at most 0.5.
+                  type: number
+                  exclusiveMinimum: 0
+                  maximum: 0.5
+                hashAttribute:
+                  type: string
+                targetingCondition:
+                  type: string
+                savedGroupTargeting:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                datasourceId:
+                  type: string
+                assignmentQueryId:
+                  type: string
+                goalMetrics:
+                  type: array
+                  items:
+                    type: string
+                secondaryMetrics:
+                  type: array
+                  items:
+                    type: string
+                statsEngine:
+                  description: Statistics engine used to analyze this Holdout.
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
+                environments:
+                  description: >-
+                    Replaces the entire per-environment state. Environments not
+                    listed are disabled.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: object
+                    properties:
+                      enabled:
+                        description: Whether the Holdout is active in this environment.
+                        type: boolean
+                    required:
+                      - enabled
+                    additionalProperties: false
+                statusUpdateSchedule:
+                  anyOf:
+                    - description: >-
+                        Automatic stage transitions for the Holdout. Dates must
+                        be consecutive: `startAt` before `startAnalysisPeriodAt`
+                        before `stopAt`. Send `null` to delete the schedule.
+                      type: object
+                      properties:
+                        startAt:
+                          description: >-
+                            ISO datetime to move the Holdout from `draft` to
+                            `running`. Must be in the future while the Holdout
+                            is still a draft.
+                          type: string
+                          format: date-time
+                        startAnalysisPeriodAt:
+                          description: >-
+                            ISO datetime to move the Holdout from `running` to
+                            `analysis-period`. Requires `startAt` while the
+                            Holdout is still a draft.
+                          type: string
+                          format: date-time
+                        stopAt:
+                          description: >-
+                            ISO datetime to stop the Holdout. Requires
+                            `startAnalysisPeriodAt` unless the analysis period
+                            has already begun.
+                          type: string
+                          format: date-time
+                      additionalProperties: false
+                    - type: 'null'
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdout:
+                    $ref: '#/components/schemas/Holdout'
+                required:
+                  - holdout
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/holdouts/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/holdouts:
+    post:
+      operationId: createHoldout
+      summary: Create a single holdout
+      description: >-
+        Creates a Holdout. The Holdout starts in the `draft` stage. Use the
+        start endpoint to start it.
+      tags:
+        - Holdouts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+                  maxLength: 10000
+                projects:
+                  description: >-
+                    Project IDs this Holdout applies to. Omit or send an empty
+                    array for All Projects.
+                  type: array
+                  items:
+                    type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                skipAsDefaultHoldout:
+                  description: >-
+                    When true, this Holdout is not selected automatically when
+                    creating Feature Flags or Experiments in Projects assigned
+                    to the Holdout.
+                  type: boolean
+                holdoutSize:
+                  description: >-
+                    Proportion of traffic held out, expressed as a decimal (e.g.
+                    0.05 for 5%). An equally-sized control group is bucketed
+                    alongside it. Defaults to 0.05. Maximum 0.5.
+                  type: number
+                  exclusiveMinimum: 0
+                  maximum: 0.5
+                hashAttribute:
+                  type: string
+                targetingCondition:
+                  description: Targeting condition as a JSON string.
+                  type: string
+                savedGroupTargeting:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                datasourceId:
+                  type: string
+                assignmentQueryId:
+                  type: string
+                goalMetrics:
+                  type: array
+                  items:
+                    type: string
+                secondaryMetrics:
+                  type: array
+                  items:
+                    type: string
+                statsEngine:
+                  description: Statistics engine used to analyze this Holdout.
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
+                environments:
+                  description: >-
+                    Per-environment state, keyed by environment ID. Environments
+                    not listed are disabled.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: object
+                    properties:
+                      enabled:
+                        description: Whether the Holdout is active in this environment.
+                        type: boolean
+                    required:
+                      - enabled
+                    additionalProperties: false
+                statusUpdateSchedule:
+                  description: >-
+                    Automatic stage transitions for the Holdout. Dates must be
+                    consecutive: `startAt` before `startAnalysisPeriodAt` before
+                    `stopAt`. Send `null` to delete the schedule.
+                  type: object
+                  properties:
+                    startAt:
+                      description: >-
+                        ISO datetime to move the Holdout from `draft` to
+                        `running`. Must be in the future while the Holdout is
+                        still a draft.
+                      type: string
+                      format: date-time
+                    startAnalysisPeriodAt:
+                      description: >-
+                        ISO datetime to move the Holdout from `running` to
+                        `analysis-period`. Requires `startAt` while the Holdout
+                        is still a draft.
+                      type: string
+                      format: date-time
+                    stopAt:
+                      description: >-
+                        ISO datetime to stop the Holdout. Requires
+                        `startAnalysisPeriodAt` unless the analysis period has
+                        already begun.
+                      type: string
+                      format: date-time
+                  additionalProperties: false
+              required:
+                - name
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdout:
+                    $ref: '#/components/schemas/Holdout'
+                required:
+                  - holdout
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/holdouts' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listHoldouts
+      summary: Get all holdouts
+      tags:
+        - Holdouts
+      parameters:
+        - name: projectId
+          in: query
+          description: ''
+          schema:
+            type: string
+        - name: datasourceId
+          in: query
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/stage'
+        - name: archived
+          in: query
+          description: >-
+            Filter by archived state. Omit to return both archived and
+            unarchived Holdouts.
+          schema:
+            description: >-
+              Filter by archived state. Omit to return both archived and
+              unarchived Holdouts.
+            anyOf:
+              - type: string
+                const: 'true'
+              - type: string
+                const: 'false'
+              - type: string
+                const: '0'
+              - type: string
+                const: '1'
+              - type: boolean
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdouts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Holdout'
+                required:
+                  - holdouts
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/holdouts' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/holdouts/{id}/start:
+    post:
+      operationId: startHoldout
+      summary: Start the Holdout's Active Period
+      description: >-
+        Feature Flags and Experiments can be added during this period while the
+        Holdout measures their cumulative impact.
+      tags:
+        - Holdouts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdout:
+                    $ref: '#/components/schemas/Holdout'
+                required:
+                  - holdout
+                additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST 'https://api.growthbook.io/api/v1/holdouts/{id}/start'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/holdouts/{id}/start-analysis:
+    post:
+      operationId: startHoldoutAnalysis
+      summary: Start the Holdout's Analysis Period
+      description: >-
+        Move the holdout into an analysis phase. New Feature Flags and
+        Experiments can no longer be added, but existing traffic splits remain
+        active for existing and new traffic. Results exclude data from before
+        the analysis period so you can measure the cumulative impact after
+        changes are frozen.
+      tags:
+        - Holdouts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdout:
+                    $ref: '#/components/schemas/Holdout'
+                required:
+                  - holdout
+                additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/holdouts/{id}/start-analysis' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/holdouts/{id}/stop:
+    post:
+      operationId: stopHoldout
+      summary: Stop a Holdout
+      tags:
+        - Holdouts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdout:
+                    $ref: '#/components/schemas/Holdout'
+                required:
+                  - holdout
+                additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/holdouts/{id}/stop' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
     limit:
@@ -49913,6 +50821,26 @@ components:
           Required when the rule hasn't been published yet — omitting it targets
           the live revision, which has nothing to remove.
         type: integer
+    includeArchived:
+      name: includeArchived
+      in: query
+      description: >-
+        Whether to include archived metrics. Defaults to `true`. Pass `false` to
+        return only non-archived metrics.
+      schema:
+        description: >-
+          Whether to include archived metrics. Defaults to `true`. Pass `false`
+          to return only non-archived metrics.
+        anyOf:
+          - type: string
+            const: 'true'
+          - type: string
+            const: 'false'
+          - type: string
+            const: '0'
+          - type: string
+            const: '1'
+          - type: boolean
     type:
       name: type
       in: query
@@ -50163,6 +51091,17 @@ components:
           - preferred
           - required
           - never
+    stage:
+      name: stage
+      in: query
+      description: ''
+      schema:
+        type: string
+        enum:
+          - draft
+          - running
+          - analysis-period
+          - stopped
   schemas:
     FeatureV1:
       type: object
@@ -54784,6 +55723,18 @@ components:
               type: string
             id:
               type: string
+            dimensions:
+              type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  id:
+                    type: string
+                required:
+                  - type
+                additionalProperties: false
           required:
             - type
           additionalProperties: false
@@ -59192,6 +60143,16 @@ components:
           type: array
           items:
             type: string
+        replaces:
+          description: >-
+            Ids of older metrics (legacy or fact) that this metric supersedes,
+            for example the legacy metric it was migrated from. Informational
+            only - GrowthBook uses it to link the old and new definitions in the
+            UI and to keep showing results from a snapshot that was created
+            before an experiment switched to this metric.
+          type: array
+          items:
+            type: string
       required:
         - id
         - name
@@ -59233,6 +60194,24 @@ components:
       required:
         - id
         - status
+      additionalProperties: false
+    BulkImportError:
+      type: object
+      properties:
+        resourceType:
+          type: string
+          enum:
+            - factTable
+            - factTableFilter
+            - factMetric
+        id:
+          type: string
+        message:
+          type: string
+      required:
+        - resourceType
+        - id
+        - message
       additionalProperties: false
     CodeRef:
       type: object
@@ -64431,6 +65410,8 @@ components:
             - datetime
         values:
           type: string
+        creatable:
+          type: boolean
         required:
           type: boolean
         creator:
@@ -65126,6 +66107,274 @@ components:
         - projects
         - status
         - source
+      additionalProperties: false
+    Holdout:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        name:
+          type: string
+        description:
+          type: string
+          maxLength: 10000
+        projects:
+          description: >-
+            Project IDs this Holdout applies to. An empty array means All
+            Projects.
+          type: array
+          items:
+            type: string
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        archived:
+          type: boolean
+        stage:
+          description: >-
+            Lifecycle stage of the Holdout. Use the start, start-analysis, and
+            stop endpoints to move through the lifecycle.
+          type: string
+          enum:
+            - draft
+            - running
+            - analysis-period
+            - stopped
+        trackingKey:
+          type: string
+        experimentId:
+          description: >-
+            ID of the companion experiment that stores this Holdout's analysis.
+            Use it with the experiment results endpoints (e.g. GET
+            /experiments/{experimentId}/results). Pass phase=0 for results
+            across the whole Holdout period, or phase=1 for results limited to
+            the analysis period.
+          type: string
+        skipAsDefaultHoldout:
+          description: >-
+            When true, this Holdout is not selected automatically when creating
+            Feature Flags or experiments in Projects assigned to the Holdout.
+          type: boolean
+        holdoutSize:
+          description: >-
+            Proportion of traffic placed in the holdout group (e.g. 0.05 for
+            5%). An equally sized comparison group is sampled from the remaining
+            traffic for measurement, so 2× this value enters the holdout
+            experiment in total. Must be greater than 0 and at most 0.5.
+          type: number
+          exclusiveMinimum: 0
+          maximum: 0.5
+        hashAttribute:
+          description: Attribute used to assign users to the Holdout.
+          type: string
+        targetingCondition:
+          description: Targeting condition as a JSON string.
+          type: string
+        savedGroupTargeting:
+          type: array
+          items:
+            type: object
+            properties:
+              match:
+                type: string
+                enum:
+                  - all
+                  - none
+                  - any
+              ids:
+                type: array
+                items:
+                  type: string
+            required:
+              - match
+              - ids
+            additionalProperties: false
+        datasourceId:
+          type: string
+        assignmentQueryId:
+          type: string
+        goalMetrics:
+          type: array
+          items:
+            type: string
+        secondaryMetrics:
+          type: array
+          items:
+            type: string
+        statsEngine:
+          description: Statistics engine used to analyze this Holdout.
+          type: string
+          enum:
+            - bayesian
+            - frequentist
+        variations:
+          type: array
+          items:
+            type: object
+            properties:
+              variationId:
+                type: string
+              key:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+                maxLength: 10000
+            required:
+              - variationId
+              - key
+              - name
+            additionalProperties: false
+        environments:
+          description: >-
+            Per-environment state, keyed by environment ID. Environments not
+            present are disabled.
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: object
+            properties:
+              enabled:
+                description: Whether the Holdout is active in this environment.
+                type: boolean
+            required:
+              - enabled
+            additionalProperties: false
+        linkedFeatures:
+          description: >-
+            Feature Flags held out by this Holdout. Manage these through the
+            Feature Flag endpoints.
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              dateAdded:
+                type: string
+                format: date-time
+            required:
+              - id
+              - dateAdded
+            additionalProperties: false
+        linkedExperiments:
+          description: >-
+            Experiments held out by this Holdout. Manage these through the
+            experiment endpoints.
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              dateAdded:
+                type: string
+                format: date-time
+            required:
+              - id
+              - dateAdded
+            additionalProperties: false
+        dateStarted:
+          type: string
+          format: date-time
+        analysisStartDate:
+          description: When the Holdout entered its analysis period.
+          type: string
+          format: date-time
+        dateStopped:
+          type: string
+          format: date-time
+        statusUpdateSchedule:
+          anyOf:
+            - description: >-
+                Automatic stage transitions for the Holdout. Dates must be
+                consecutive: `startAt` before `startAnalysisPeriodAt` before
+                `stopAt`. Send `null` to delete the schedule.
+              type: object
+              properties:
+                startAt:
+                  description: >-
+                    ISO datetime to move the Holdout from `draft` to `running`.
+                    Must be in the future while the Holdout is still a draft.
+                  type: string
+                  format: date-time
+                startAnalysisPeriodAt:
+                  description: >-
+                    ISO datetime to move the Holdout from `running` to
+                    `analysis-period`. Requires `startAt` while the Holdout is
+                    still a draft.
+                  type: string
+                  format: date-time
+                stopAt:
+                  description: >-
+                    ISO datetime to stop the Holdout. Requires
+                    `startAnalysisPeriodAt` unless the analysis period has
+                    already begun.
+                  type: string
+                  format: date-time
+              additionalProperties: false
+            - type: 'null'
+        nextScheduledStatusUpdate:
+          anyOf:
+            - description: The next stage transition that will run automatically.
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - start
+                    - startAnalysisPeriod
+                    - stop
+                date:
+                  type: string
+                  format: date-time
+              required:
+                - type
+                - date
+              additionalProperties: false
+            - type: 'null'
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - description
+        - projects
+        - owner
+        - tags
+        - archived
+        - stage
+        - trackingKey
+        - experimentId
+        - skipAsDefaultHoldout
+        - holdoutSize
+        - hashAttribute
+        - targetingCondition
+        - datasourceId
+        - assignmentQueryId
+        - goalMetrics
+        - secondaryMetrics
+        - variations
+        - environments
+        - linkedFeatures
+        - linkedExperiments
       additionalProperties: false
     ExperimentSnapshot:
       type: object
@@ -69352,6 +70601,7 @@ x-tagGroups:
       - AnalyticsExplorations
       - RampScheduleTemplates
       - Learnings
+      - Holdouts
   - name: Models
     tags:
       - AggregatedFactTable_model
@@ -69420,6 +70670,7 @@ x-tagGroups:
       - FeatureV2_model
       - FeatureWithRevisionsV1_model
       - FeatureWithRevisionsV2_model
+      - Holdout_model
       - InformationSchema_model
       - InformationSchemaTable_model
       - Learning_model
