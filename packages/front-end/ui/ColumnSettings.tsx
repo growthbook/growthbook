@@ -15,9 +15,9 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiDotsSixVertical, PiEye, PiEyeSlash, PiLock } from "react-icons/pi";
-import Tooltip from "@/ui/Tooltip";
+import { Flex } from "@radix-ui/themes";
+import { PiDotsSixVertical } from "react-icons/pi";
+import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 
@@ -25,7 +25,7 @@ export interface ManagedColumn {
   id: string;
   label: string;
   visible: boolean;
-  /** Can still be reordered, but shows a lock instead of a visibility toggle. */
+  /** Can still be reordered, but its checkbox is checked and disabled. */
   alwaysVisible?: boolean;
 }
 
@@ -70,45 +70,16 @@ function SortableColumnRow({
       >
         <PiDotsSixVertical />
       </span>
-      <Box style={{ flex: 1, minWidth: 0 }}>
-        <Text
-          as="div"
-          size="sm"
-          color={column.visible ? "text-high" : "text-low"}
-          truncate
-        >
-          {column.label}
-        </Text>
-      </Box>
-      {column.alwaysVisible ? (
-        <Tooltip content="This column is always shown">
-          {/* Not a button: a ghost IconButton shows hover/press states for something inert. 16px is the toggle's layout box. */}
-          <span
-            role="img"
-            aria-label={`${column.label} column is always shown`}
-            style={{
-              display: "inline-flex",
-              width: 16,
-              height: 16,
-              color: "var(--gray-a11)",
-            }}
-          >
-            <PiLock size={16} />
-          </span>
-        </Tooltip>
-      ) : (
-        <Tooltip content={column.visible ? "Hide column" : "Show column"}>
-          <IconButton
-            size="1"
-            variant="ghost"
-            color={column.visible ? "violet" : "gray"}
-            aria-label={column.visible ? "Hide column" : "Show column"}
-            onClick={() => onToggle(!column.visible)}
-          >
-            {column.visible ? <PiEye size={16} /> : <PiEyeSlash size={16} />}
-          </IconButton>
-        </Tooltip>
-      )}
+      <Checkbox
+        size="sm"
+        labelSize="sm"
+        weight="regular"
+        label={column.label}
+        value={column.visible}
+        setValue={onToggle}
+        disabled={column.alwaysVisible}
+        disabledMessage="This column is always shown"
+      />
     </Flex>
   );
 }
