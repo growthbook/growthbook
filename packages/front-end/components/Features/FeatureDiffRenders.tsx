@@ -29,6 +29,7 @@ import Badge from "@/ui/Badge";
 import { useExperiments } from "@/hooks/useExperiments";
 import VariationLabel from "@/ui/VariationLabel";
 import VisuallyHidden from "@/ui/VisuallyHidden";
+import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import { useEnvironments } from "@/services/features";
@@ -166,33 +167,31 @@ function ValueOnlyField({
   if (isSimple) {
     const display: ReactNode =
       value == null || value === "" ? <em>unset</em> : value;
-    if (label) {
-      return (
-        <div className="mb-2">
-          <div className="mb-1">
-            <Text size="md" weight="medium" color="text-mid">
-              {label}
-            </Text>
-          </div>
-          <div>{display}</div>
+    const body = (
+      // The colour the "after" half of a diff carries: this IS that half, with
+      // nothing to compare it against.
+      <div className="font-weight-bold text-success">{display}</div>
+    );
+    if (!label) return <div className="mb-2">{body}</div>;
+    return (
+      <div className="mb-2">
+        <div className="mb-1">
+          <Text size="md" weight="medium" color="text-mid">
+            {label}
+          </Text>
         </div>
-      );
-    }
-    return <div className="mb-2">{display}</div>;
+        {body}
+      </div>
+    );
   }
   return (
     <div className="mb-2">
       {label && <div className="font-weight-bold mb-1">{label}</div>}
-      {/* The diff viewer's own wrapper, so the block reads the same as the
-          green pane it replaces. */}
-      <div
-        className="diff-wrapper diff-wrapper-compact"
-        style={{ maxHeight: 250, overflowY: "auto" }}
-      >
-        <pre className="m-0 p-2" style={{ background: "none", border: "none" }}>
-          {value}
-        </pre>
-      </div>
+      {/* Syntax highlighting says more about a JSON body than a success colour
+          would, so it wins here. */}
+      <Box style={{ maxHeight: 250, overflowY: "auto" }}>
+        <InlineCode language="json" code={value ?? ""} />
+      </Box>
     </div>
   );
 }

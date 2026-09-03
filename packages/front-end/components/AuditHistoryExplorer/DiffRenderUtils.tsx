@@ -169,7 +169,8 @@ export function GenericFieldChange({
             {camelToLabel(fieldKey)}
           </Text>
         </div>
-        <div>{fmt(postVal)}</div>
+        {/* The colour the "after" half of a diff carries. */}
+        <div className="font-weight-bold text-success">{fmt(postVal)}</div>
       </div>
     );
   }
