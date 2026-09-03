@@ -2,14 +2,20 @@ import type { ExperimentInterface, FeatureInterface } from "shared/validators";
 import { updateManagedVariationValues } from "back-end/src/services/managedFeatures";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
+  discardRevision,
   getActiveDraft,
+  markRevisionAsReviewRequested,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
+  mergeDraftForAutoPublish,
   updateExperimentRefVariations,
   validateExperimentFeatureUpdates,
 } from "back-end/src/services/experiment-feature";
-import { getDraftRevision } from "back-end/src/services/features";
+import {
+  getDraftRevision,
+  getLiveAndBaseRevisionsForFeature,
+} from "back-end/src/services/features";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
   createFeature: jest.fn(),
@@ -21,6 +27,7 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
   updateFeature: jest.fn(),
 }));
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  discardRevision: jest.fn(),
   getActiveDraft: jest.fn(),
   getRevision: jest.fn(),
   markRevisionAsReviewRequested: jest.fn(),
@@ -50,6 +57,10 @@ const mockValidate = validateExperimentFeatureUpdates as jest.Mock;
 const mockUpdateRefs = updateExperimentRefVariations as jest.Mock;
 const mockDraftRevision = getDraftRevision as jest.Mock;
 const mockUpdateRevision = updateRevision as jest.Mock;
+const mockLiveAndBase = getLiveAndBaseRevisionsForFeature as jest.Mock;
+const mockMerge = mergeDraftForAutoPublish as jest.Mock;
+const mockDiscard = discardRevision as jest.Mock;
+const mockRequestReview = markRevisionAsReviewRequested as jest.Mock;
 
 const context = {
   org: { id: "org_1", settings: {} },
@@ -112,6 +123,38 @@ beforeEach(() => {
   mockUpdateRefs.mockResolvedValue({ version: 8 });
   mockDraftRevision.mockResolvedValue({ version: 8 });
   mockUpdateRevision.mockResolvedValue({ version: 8 });
+  mockLiveAndBase.mockResolvedValue({
+    live: { version: 1 },
+    base: { version: 1 },
+  });
+  // The draft still differs from live unless a test says otherwise.
+  mockMerge.mockReturnValue({
+    mergeResult: { success: true, result: { rules: [] } },
+    rebaseRequired: false,
+    staleApproval: false,
+  });
+});
+
+describe("updateManagedVariationValues no-op drafts", () => {
+  it("discards a draft edited back to what live serves", async () => {
+    mockMerge.mockReturnValue({
+      mergeResult: { success: true, result: {} },
+      rebaseRequired: false,
+      staleApproval: false,
+    });
+
+    const result = await update();
+
+    expect(mockDiscard).toHaveBeenCalledTimes(1);
+    expect(mockRequestReview).not.toHaveBeenCalled();
+    expect(result.version).toBe(managedFeature().version);
+  });
+
+  it("keeps a draft that still changes something", async () => {
+    await update();
+
+    expect(mockDiscard).not.toHaveBeenCalled();
+  });
 });
 
 describe("updateManagedVariationValues revision choice", () => {

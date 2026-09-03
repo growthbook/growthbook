@@ -97,6 +97,7 @@ import {
   PutFeatureRuleConflict,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
+import { ejectManagedFeatureFromFlag } from "back-end/src/services/managedFeatures";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import {
@@ -7746,4 +7747,15 @@ export async function getFeatureWatchers(
     status: 200,
     userIds: watchers,
   });
+}
+
+export async function postFeatureEjectManaged(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200; feature: FeatureInterface }>,
+) {
+  const context = getContextFromReq(req);
+  const feature = await getFeature(context, req.params.id);
+  if (!feature) throw new Error("Could not find feature");
+  const updated = await ejectManagedFeatureFromFlag(context, feature);
+  res.status(200).json({ status: 200, feature: updated });
 }

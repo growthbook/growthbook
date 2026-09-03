@@ -160,11 +160,17 @@ import {
   getManagedFlagsByExperiment,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
-import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
+import {
+  getActiveDraft,
+  getLinkageSyncRevisionSummaries,
+} from "back-end/src/models/FeatureRevisionModel";
 import {
   adoptManagedFlagForExperiment,
+  assertManagedFlagCanMove,
   clearManagedMarkersForExperiment,
   createManagedFlagForNewExperiment,
+  discardManagedDraftIfNoop,
+  moveManagedFlagWithExperiment,
   managedFlagAdoptionBlocker,
   planManagedFlagKey,
   type ManagedFlagKeyPlan,
@@ -2250,12 +2256,18 @@ export async function postExperiment(
     }
   }
 
+  if ("project" in changes) {
+    await assertManagedFlagCanMove(context, experiment, changes.project ?? "");
+  }
   await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperimentAndSync({
     context,
     experiment,
     changes,
   });
+  if ("project" in changes) {
+    await moveManagedFlagWithExperiment(context, updated);
+  }
   if (
     aiSettings.aiEnabled &&
     (changes.name || changes.description || changes.hypothesis)
@@ -4454,6 +4466,18 @@ export async function postExperimentFeatureValues(
     }
   }
 
+  // One draft matters on a managed flag, so the caller's revision choice is
+  // replaced with it — the same resolution the REST surface uses.
+  for (const f of featureObjects) {
+    const entry = features[f.id];
+    if (!entry || !isManagedByExperiment(f, experiment.id)) continue;
+    if (entry.revisionOptions?.autoPublish) continue;
+    const openDraft = await getActiveDraft(context, f);
+    entry.revisionOptions = openDraft
+      ? { targetVersion: openDraft.version }
+      : { forceNewDraft: true };
+  }
+
   // Validate feature updates and get update plans for each feature before applying any changes
   const featureUpdatePlans = await validateExperimentFeatureUpdates({
     experiment,
@@ -4521,6 +4545,19 @@ export async function postExperimentFeatureValues(
       user: res.locals.eventAudit,
       orgSettings: org.settings,
     });
+
+    if (
+      !autoPublish &&
+      managedHere &&
+      (await discardManagedDraftIfNoop({
+        context,
+        feature,
+        revision: updatedRevision,
+        eventAudit: res.locals.eventAudit,
+      }))
+    ) {
+      continue;
+    }
 
     // A managed flag has no separate "request review" step — editing its values
     // is the request.

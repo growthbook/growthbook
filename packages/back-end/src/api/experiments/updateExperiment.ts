@@ -3,6 +3,10 @@ import {
   ExperimentInterfaceExcludingHoldouts,
   updateExperimentValidator,
 } from "shared/validators";
+import {
+  assertManagedFlagCanMove,
+  moveManagedFlagWithExperiment,
+} from "back-end/src/services/managedFeatures";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   updateExperiment as updateExperimentToDb,
@@ -357,6 +361,9 @@ export const updateExperiment = createApiRequestHandler(
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";
 
+  if (changes.project !== undefined) {
+    await assertManagedFlagCanMove(req.context, experiment, changes.project);
+  }
   await validateExperimentChange({ context: req.context, experiment, changes });
 
   let experimentForUpdate = experiment;
@@ -399,6 +406,9 @@ export const updateExperiment = createApiRequestHandler(
           changes: changesForUpdate,
         })
       : experimentForUpdate;
+  if (changes.project !== undefined) {
+    await moveManagedFlagWithExperiment(req.context, updatedExperiment);
+  }
 
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");

@@ -19,6 +19,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
+  archiveFeature: jest.fn(),
   featureIdExists: jest.fn(),
   getManagedFlagIdsUnfiltered: jest.fn(),
   createFeature: jest.fn(),

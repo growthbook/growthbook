@@ -6,6 +6,7 @@ import {
   isManagedByExperiment,
   checkIfRevisionNeedsReview,
   managedFeatureKeyCandidate,
+  mergeResultHasChanges,
   seedManagedVariationValues,
   validateFeatureValue,
 } from "shared/util";
@@ -23,6 +24,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { OpenApiRoute, runApiHandler } from "back-end/src/util/handler";
 import {
+  archiveFeature,
   createFeature,
   deleteFeature,
   featureIdExists,
@@ -32,6 +34,7 @@ import {
   updateFeature,
 } from "back-end/src/models/FeatureModel";
 import {
+  discardRevision,
   getActiveDraft,
   getRevision,
   markRevisionAsReviewRequested,
@@ -979,6 +982,12 @@ export async function updateManagedVariationValues({
     orgSettings: context.org.settings,
   });
 
+  if (
+    await discardManagedDraftIfNoop({ context, feature, revision, eventAudit })
+  ) {
+    return { feature, version: feature.version };
+  }
+
   // A managed flag has no separate "request review" step — editing is the request.
   await requestReviewForManagedDraft({
     context,
@@ -1089,7 +1098,8 @@ export async function ejectManagedFeature({
 }
 
 // Includes flags the caller cannot read: deletion must never leave one pointing
-// at an experiment that no longer exists.
+// at an experiment that no longer exists. The flag existed only for the
+// experiment, so it is archived rather than left serving control forever.
 export async function clearManagedMarkersForExperiment(
   context: ReqContext | ApiReqContext,
   experimentId: string,
@@ -1106,8 +1116,88 @@ export async function clearManagedMarkersForExperiment(
       );
       continue;
     }
-    await clearManagedMarker(context, feature);
+    const released = await clearManagedMarker(context, feature);
+    await archiveFeature(context, released, true);
   }
+}
+
+/** Eject from the flag's side; the only write the lockdown lets through. */
+export async function ejectManagedFeatureFromFlag(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+): Promise<FeatureInterface> {
+  const experimentId = managedByExperimentId(feature);
+  if (!experimentId) {
+    throw new BadRequestError(
+      `Feature Flag "${feature.id}" is not managed by an experiment.`,
+    );
+  }
+  return ejectManagedFeature({ context, feature, experimentId });
+}
+
+// A change edited back to what serves would otherwise leave a pending review
+// behind with nothing in it.
+export async function discardManagedDraftIfNoop({
+  context,
+  feature,
+  revision,
+  eventAudit,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  eventAudit: EventUser;
+}): Promise<boolean> {
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
+    context,
+    feature,
+    revision,
+  });
+  const { mergeResult } = mergeDraftForAutoPublish(
+    context,
+    feature,
+    revision,
+    live,
+    base,
+  );
+  if (!mergeResult.success || mergeResultHasChanges(mergeResult)) return false;
+  await discardRevision(context, revision, eventAudit, feature.version);
+  return true;
+}
+
+// The flag is where the project reaches the SDK payload and where its own
+// permissions resolve, so it moves with the experiment.
+export async function assertManagedFlagCanMove(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  project: string,
+): Promise<void> {
+  const feature = await getManagedFeatureForExperiment(context, experiment);
+  if (!feature || (feature.project ?? "") === project) return;
+  // Lands on the live document, so publish authority on both sides — the same
+  // rule `putFeature` applies to a project move.
+  const envs = Array.from(
+    getEnabledEnvironments(
+      feature,
+      getEnvironments(context.org).map((e) => e.id),
+    ),
+  );
+  if (
+    !context.permissions.canPublishFeature(feature, envs) ||
+    !context.permissions.canPublishFeature({ project }, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+}
+
+export async function moveManagedFlagWithExperiment(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  const feature = await getManagedFeatureForExperiment(context, experiment);
+  const project = experiment.project ?? "";
+  if (!feature || (feature.project ?? "") === project) return;
+  await updateFeature(context, feature, { project });
 }
 
 // No authority check; for callers that established their own, notably deletion.
@@ -1123,13 +1213,14 @@ function isMutatingMethod(method: string): boolean {
   return !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
 }
 
-// POSTs that compute a response without touching the flag.
-const READ_ONLY_POST_PATHS = [/\/eval$/];
+// POSTs the lockdown lets through: reads that happen to be POSTs, and the eject
+// that ends the lockdown itself.
+const LOCKDOWN_EXEMPT_POST_PATHS = [/\/eval$/, /\/eject-managed$/];
 
 /** Mounted ahead of the route table so later feature routes are covered too. */
 export const blockManagedFeatureWrites: RequestHandler = (req, _res, next) => {
   if (!isMutatingMethod(req.method)) return next();
-  if (READ_ONLY_POST_PATHS.some((re) => re.test(req.path))) return next();
+  if (LOCKDOWN_EXEMPT_POST_PATHS.some((re) => re.test(req.path))) return next();
   const featureId = req.params?.id;
   if (!featureId) return next();
   assertFeatureNotManaged(getContextFromReq(req as AuthRequest), featureId)

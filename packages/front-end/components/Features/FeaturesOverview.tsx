@@ -57,12 +57,14 @@ import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
 import KillSwitchModal from "@/components/Features/KillSwitchModal";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import {
+  getEnabledEnvironments,
   getFeatureDefaultValue,
   useEnvironments,
   getPrerequisites,
   getRules,
   useFeatureRulesEnv,
 } from "@/services/features";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 // eslint-disable-next-line no-restricted-imports -- legacy Modal still backs the new-draft modal; migrate to @/ui/Modal in a follow-up
@@ -228,6 +230,7 @@ export default function FeaturesOverview({
 }) {
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
+  const [ejectConfirm, setEjectConfirm] = useState(false);
   const [confirmNewDraft, setConfirmNewDraft] = useState(false);
   // Always reflects the current live version — used in async callbacks to avoid
   // stale closure captures when ramp actions auto-publish new revisions.
@@ -533,6 +536,18 @@ export default function FeaturesOverview({
   // and a caller passing a bare `{project}` literal would skip the check.
   const isManagedFlag = isManagedFeature(baseFeature);
   const managedExperimentId = managedByExperimentId(baseFeature) ?? "";
+  // Same authority the experiment-side eject asks for.
+  const canEjectManaged =
+    isManagedFlag &&
+    permissionsUtil.canPublishFeature(
+      baseFeature,
+      getEnabledEnvironments(baseFeature, allEnvironments),
+    );
+  const ejectManaged = async () => {
+    await apiCall(`/feature/${feature.id}/eject-managed`, { method: "POST" });
+    setEjectConfirm(false);
+    await mutate();
+  };
   const canEditDrafts =
     !isManagedFlag && permissionsUtil.canEditFeatureDrafts(baseFeature);
   // An env change can be staged in a draft or published straight out. Offer the
@@ -659,9 +674,24 @@ export default function FeaturesOverview({
               experiment
             </Link>
             . Its values, review and publishing are handled there, so it is read
-            only here. Convert it to an unmanaged Feature Flag from the
-            experiment to edit it directly.
+            only here.{" "}
+            {canEjectManaged ? (
+              <Link onClick={() => setEjectConfirm(true)}>
+                Convert to unmanaged Feature Flag
+              </Link>
+            ) : (
+              "Convert it to an unmanaged Feature Flag from the experiment to edit it directly."
+            )}
           </Callout>
+        )}
+        {ejectConfirm && (
+          <ConfirmDialog
+            title="Convert to unmanaged Feature Flag?"
+            content="The experiment keeps using this Feature Flag, but you'll manage and review it directly from this page instead of from the experiment. This cannot be undone."
+            yesText="Convert"
+            onConfirm={ejectManaged}
+            onCancel={() => setEjectConfirm(false)}
+          />
         )}
         {(() => {
           const bannerProps =

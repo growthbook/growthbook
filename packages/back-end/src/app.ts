@@ -1003,6 +1003,10 @@ app.delete(
   featuresController.deleteFeatureRevisionLogEntry,
 );
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
+app.post(
+  "/feature/:id/eject-managed",
+  featuresController.postFeatureEjectManaged,
+);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
 app.post("/feature/:id/draft", featuresController.postFeatureCreateDraft);
 app.post("/feature/:id/:version/fork", featuresController.postFeatureFork);
