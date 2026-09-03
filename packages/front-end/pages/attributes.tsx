@@ -31,7 +31,7 @@ import Table, {
 import Heading from "@/ui/Heading";
 import ColumnSettingsButton from "@/ui/ColumnSettingsButton";
 import { useTableColumns } from "@/hooks/useTableColumns";
-import { TableColumnDef } from "@/services/tableColumns";
+import { ResolvedTableColumn, TableColumnDef } from "@/services/tableColumns";
 
 const ATTRIBUTE_NAME_COLUMN_MAX_WIDTH = 200;
 const TAGS_COLUMN_MAX_WIDTH = 160;
@@ -281,12 +281,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
         header: null,
         locked: true,
         resizable: false,
-        headerProps: { className: "text-center" },
         render: (v) => (
-          <AttributeRowMenu
-            attribute={v}
-            onEdit={() => setModalData(v.property)}
-          />
+          <Flex justify="end">
+            <AttributeRowMenu
+              attribute={v}
+              onEdit={() => setModalData(v.property)}
+            />
+          </Flex>
         ),
       },
     ],
@@ -302,6 +303,36 @@ const FeatureAttributesPage = (): React.ReactElement => {
     applySettings,
     reset,
   } = useTableColumns({ storageKey: "attributes", columns: columnDefs });
+
+  // Lives in the empty row-actions header rather than the filter toolbar, which
+  // is for data filters.
+  const columnSettings = (
+    <Flex justify="end">
+      <ColumnSettingsButton
+        columns={columns
+          // Locked columns can't be hidden or moved, so listing them is noise.
+          .filter((c) => !c.locked)
+          .map((c) => ({
+            id: c.id,
+            label: c.label,
+            visible: c.visible,
+            alwaysVisible: c.hideable === false,
+          }))}
+        hiddenCount={hiddenCount}
+        canReset={isCustomized}
+        onReset={reset}
+        onChange={applySettings}
+        note="The Attribute column is always shown."
+      />
+    </Flex>
+  );
+
+  const renderHeader = (col: ResolvedTableColumn<AttributeRow>) =>
+    col.id === "actions"
+      ? columnSettings
+      : col.header !== undefined
+        ? col.header
+        : col.label;
 
   return (
     <>
@@ -333,32 +364,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     {...searchInputProps}
                   />
                 </Box>
-                <Flex gap="5" align="center">
-                  <AttributeSearchFilters
-                    attributes={attributesWithComputedFields}
-                    searchInputProps={searchInputProps}
-                    setSearchValue={setSearchValue}
-                    syntaxFilters={syntaxFilters}
-                    hasArchived={hasArchived}
-                  />
-                  <ColumnSettingsButton
-                    columns={columns
-                      // The row-actions column has no header and can't be
-                      // hidden or moved, so listing it is pure noise.
-                      .filter((c) => c.header !== null)
-                      .map((c) => ({
-                        id: c.id,
-                        label: c.label,
-                        visible: c.visible,
-                        alwaysVisible: c.locked || c.hideable === false,
-                      }))}
-                    hiddenCount={hiddenCount}
-                    canReset={isCustomized}
-                    onReset={reset}
-                    onChange={applySettings}
-                    note="The Attribute column is always shown."
-                  />
-                </Flex>
+                <AttributeSearchFilters
+                  attributes={attributesWithComputedFields}
+                  searchInputProps={searchInputProps}
+                  setSearchValue={setSearchValue}
+                  syntaxFilters={syntaxFilters}
+                  hasArchived={hasArchived}
+                />
               </Flex>
             </Box>
           )}
@@ -382,7 +394,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                         ...col.headerProps?.style,
                       }}
                     >
-                      {col.header !== undefined ? col.header : col.label}
+                      {renderHeader(col)}
                     </SortableTableColumnHeader>
                   ) : (
                     <TableColumnHeader
@@ -394,7 +406,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                         ...col.headerProps?.style,
                       }}
                     >
-                      {col.header !== undefined ? col.header : col.label}
+                      {renderHeader(col)}
                     </TableColumnHeader>
                   ),
                 )}
