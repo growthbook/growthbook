@@ -6,12 +6,12 @@ import { Box, Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
-import DataList, { DataListItem } from "@/ui/DataList";
+import DataList from "@/ui/DataList";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import { renderCustomFieldValue } from "./renderCustomFieldValue";
+import { customFieldDataListItems } from "./renderCustomFieldValue";
 import CustomFieldEditModal, {
   CustomFieldDraftInfo,
 } from "./CustomFieldEditModal";
@@ -52,21 +52,10 @@ const CustomFieldDisplay: FC<{
     return null;
   }
 
-  const displayFieldsObj: DataListItem[] = [];
-  const currentValueMap = new Map(
-    Object.entries(currentCustomFields ?? {}).map(([fid, cValue]) => [
-      fid,
-      cValue ?? "",
-    ]),
+  const displayFieldsObj = customFieldDataListItems(
+    customFields,
+    currentCustomFields,
   );
-
-  customFields.forEach((v) => {
-    displayFieldsObj.push({
-      label: v.name,
-      value: renderCustomFieldValue(v, currentValueMap.get(v.id) ?? ""),
-      tooltip: v.description,
-    });
-  });
 
   const editLink = canEdit ? (
     <Link onClick={() => setEditModal(true)}>

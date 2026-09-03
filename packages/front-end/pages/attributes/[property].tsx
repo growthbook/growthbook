@@ -26,7 +26,7 @@ import Frame from "@/ui/Frame";
 import DataList from "@/ui/DataList";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { filterCustomFieldsForSectionAndProjects } from "@/services/customFields";
-import { renderCustomFieldValue } from "@/components/CustomFields/renderCustomFieldValue";
+import { customFieldDataListItems } from "@/components/CustomFields/renderCustomFieldValue";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import SortedTags from "@/components/Tags/SortedTags";
 import {
@@ -435,14 +435,10 @@ export default function AttributeDetailPage() {
                 Additional Fields
               </Heading>
               <DataList
-                data={attributeCustomFields.map((f) => ({
-                  label: f.name,
-                  value: renderCustomFieldValue(
-                    f,
-                    attribute.customFields?.[f.id] ?? "",
-                  ),
-                  tooltip: f.description,
-                }))}
+                data={customFieldDataListItems(
+                  attributeCustomFields,
+                  attribute.customFields,
+                )}
                 maxColumns={3}
               />
             </Frame>

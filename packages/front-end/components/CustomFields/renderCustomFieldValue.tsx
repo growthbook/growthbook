@@ -1,6 +1,7 @@
 import React, { ReactNode } from "react";
 import { CustomField } from "shared/types/custom-fields";
 import Markdown from "@/components/Markdown/Markdown";
+import { DataListItem } from "@/ui/DataList";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import {
@@ -65,6 +66,18 @@ export function renderCustomFieldValue(
   }
 
   return stringValue || <Text color="text-mid">--</Text>;
+}
+
+/** DataList rows for a set of fields, so no surface renders them differently. */
+export function customFieldDataListItems(
+  fields: CustomField[],
+  values: Record<string, unknown> | undefined,
+): DataListItem[] {
+  return fields.map((f) => ({
+    label: f.name,
+    value: renderCustomFieldValue(f, values?.[f.id] ?? ""),
+    tooltip: f.description,
+  }));
 }
 
 /**
