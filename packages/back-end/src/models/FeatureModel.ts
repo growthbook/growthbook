@@ -516,15 +516,21 @@ export async function getAllFeatures(
   {
     projects,
     projectsAreReadAllowlist = false,
+    ids,
     includeArchived = false,
   }: {
     projects?: string[];
     projectsAreReadAllowlist?: boolean;
+    ids?: string[];
     includeArchived?: boolean;
   } = {},
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
-  if (projects && projects.length) {
+  // An explicit id list is its own scope, ignoring `projects`.
+  if (ids) {
+    if (!ids.length) return [];
+    q.id = { $in: ids };
+  } else if (projects && projects.length) {
     Object.assign(
       q,
       projectsAreReadAllowlist
