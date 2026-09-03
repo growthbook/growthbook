@@ -175,7 +175,6 @@ const AttributeSearchFilters: FC<
           setOpen={setDropdownFilterOpen}
           items={identifierItems}
           updateQuery={updateQuery}
-          exclusive
         />
       )}
       {filterableCustomFields.map(({ field, values }) => (
@@ -192,8 +191,6 @@ const AttributeSearchFilters: FC<
             searchValue,
           }))}
           updateQuery={updateQuery}
-          // A boolean has one answer per row, so yes/no act as radios.
-          exclusive={field.type === "boolean"}
         />
       ))}
       {/* Always offered: with nothing archived it is still the way to undo the filter. */}
