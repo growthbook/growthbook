@@ -668,6 +668,12 @@ export default function ManagedFlagApproval({
                     ? "red"
                     : null;
               const isOwn = !!logUserId(l) && logUserId(l) === userId;
+              // Derived before the trigger renders: a row with neither action
+              // (an own review request carries no comment to edit) would
+              // otherwise open an empty menu.
+              const canEditRow = isOwn && !!l.id && !!l.comment;
+              const canRetractRow =
+                isOwn && !!l.isActiveVerdict && state.canUndoReview;
               // An approval that cannot sanction the publish reads as one here
               // too, so the thread and the Reviewers list agree.
               const uncoveredReason =
@@ -703,7 +709,7 @@ export default function ManagedFlagApproval({
                   avatarSize="sm"
                   compact
                   actions={
-                    isOwn && (l.id || l.isActiveVerdict) ? (
+                    canEditRow || canRetractRow ? (
                       <DropdownMenu
                         trigger={
                           <IconButton
@@ -718,7 +724,7 @@ export default function ManagedFlagApproval({
                         }
                         menuPlacement="end"
                       >
-                        {l.id && l.comment && (
+                        {canEditRow && (
                           <DropdownMenuItem
                             onClick={() => {
                               setEditingLogId(l.id ?? null);
@@ -728,7 +734,7 @@ export default function ManagedFlagApproval({
                             Edit
                           </DropdownMenuItem>
                         )}
-                        {l.isActiveVerdict && state.canUndoReview && (
+                        {canRetractRow && (
                           <DropdownMenuItem
                             color="red"
                             onClick={() => post("undo-review")}
