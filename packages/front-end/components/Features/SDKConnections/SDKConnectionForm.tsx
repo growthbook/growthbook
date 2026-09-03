@@ -667,37 +667,40 @@ export default function SDKConnectionForm({
             project being removed from the selected environment.
           </div>
         )}
-        {/* Only meaningful when the payload is actually project-filtered. An
-        empty selection still filters when the environment is scoped to
-        Projects, so both have to be empty before this becomes a no-op. */}
-        {((form.watch("projects") || []).length > 0 ||
-          environmentHasProjects) && (
-          <Box mt="3">
-            <Checkbox
-              weight="regular"
-              value={!!form.watch("includeReferencedPrerequisites")}
-              setValue={(val) =>
-                form.setValue("includeReferencedPrerequisites", val)
-              }
-              label={
-                <>
-                  Always include prerequisite Feature Flags{" "}
-                  <Tooltip
-                    body={
-                      <p className="mb-0">
-                        Deliver prerequisite Feature Flags that target other
-                        Projects. Without them, the Feature Flags they gate are
-                        always off.
-                      </p>
-                    }
-                  >
-                    <PiInfo />
-                  </Tooltip>
-                </>
-              }
-            />
-          </Box>
-        )}
+        <Box mt="3">
+          <Checkbox
+            weight="regular"
+            // A no-op on an unfiltered payload, which already carries every
+            // prerequisite. An empty selection still filters when the
+            // environment is scoped to Projects, so check both. Disabled
+            // rather than hidden: the value is still submitted.
+            disabled={
+              (form.watch("projects") || []).length === 0 &&
+              !environmentHasProjects
+            }
+            disabledMessage="Only applies when the payload is filtered by Project."
+            value={!!form.watch("includeReferencedPrerequisites")}
+            setValue={(val) =>
+              form.setValue("includeReferencedPrerequisites", val)
+            }
+            label={
+              <>
+                Always include prerequisite Feature Flags{" "}
+                <Tooltip
+                  body={
+                    <p className="mb-0">
+                      Deliver prerequisite Feature Flags that target other
+                      Projects. Without them, the Feature Flags they gate are
+                      always off.
+                    </p>
+                  }
+                >
+                  <PiInfo />
+                </Tooltip>
+              </>
+            }
+          />
+        </Box>
       </div>
 
       {shouldShowPayloadSecurity(languageType, languages) && (
