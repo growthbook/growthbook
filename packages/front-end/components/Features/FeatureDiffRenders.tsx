@@ -68,17 +68,12 @@ function ExperimentLink({
 // The rule heading is gone on the experiment surface, so the values need
 // something to sit under.
 function VariationsHeading() {
+  // The section heading DiffContent draws, so it reads as a peer of
+  // "Environments" rather than as one more field label.
   return (
-    <Text
-      key="variationsHeading"
-      size="md"
-      weight="medium"
-      color="text-mid"
-      as="div"
-      mb="2"
-    >
+    <Heading as="h6" size="sm" color="text-mid" mb="2">
       Variations
-    </Text>
+    </Heading>
   );
 }
 
