@@ -191,6 +191,10 @@ export default function SDKConnectionForm({
         false,
       includeExperimentScheduleInMetadata:
         initialValue.includeExperimentScheduleInMetadata ?? false,
+      // Absent means off — connections created before the setting existed keep
+      // their behavior. New ones are created with it on.
+      includeReferencedPrerequisites:
+        initialValue.includeReferencedPrerequisites ?? !edit,
     },
   });
 
@@ -1336,6 +1340,34 @@ export default function SDKConnectionForm({
               label="Include feature rule IDs in payload"
               value={!!form.watch("includeRuleIds")}
               setValue={(val) => form.setValue("includeRuleIds", val)}
+            />
+          </Box>
+          <Box>
+            <Checkbox
+              weight="regular"
+              value={!!form.watch("includeReferencedPrerequisites")}
+              setValue={(val) =>
+                form.setValue("includeReferencedPrerequisites", val)
+              }
+              label={
+                <>
+                  Include referenced prerequisite features{" "}
+                  <Tooltip
+                    body={
+                      <p className="mb-0">
+                        When a feature in this payload is gated on a
+                        prerequisite that targets other projects, include that
+                        prerequisite too. Without it the gate can never pass and
+                        the feature it gates is silently off. Turn this off to
+                        keep the payload strictly limited to this
+                        connection&apos;s projects.
+                      </p>
+                    }
+                  >
+                    <PiInfo />
+                  </Tooltip>
+                </>
+              }
             />
           </Box>
           <Box>

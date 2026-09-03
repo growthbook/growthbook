@@ -422,6 +422,7 @@ export type SDKPayloadParams = Pick<
   | "includeCustomFieldsInMetadata"
   | "allowedCustomFieldsInMetadata"
   | "includeTagsInMetadata"
+  | "includeReferencedPrerequisites"
 > &
   Partial<Pick<SDKConnectionInterface, "organization">> & {
     // Extend languages to allow "legacy" for old API keys
@@ -468,6 +469,7 @@ export async function getPayloadParamsFromApiKey(
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+      includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
       languages: connection.languages,
       sdkVersion: connection.sdkVersion,
     };
@@ -588,6 +590,7 @@ export async function getFeatureDefinitionsWithCache({
           ? params.savedGroupReferencesEnabled &&
             capabilities.includes("savedGroupReferences")
           : undefined,
+      includeReferencedPrerequisites: params.includeReferencedPrerequisites,
     });
 
     // Write back to cache to populate it for future reads (fire and forget)

@@ -18977,6 +18977,11 @@ paths:
                   type: boolean
                 savedGroupReferencesEnabled:
                   type: boolean
+                includeReferencedPrerequisites:
+                  description: >-
+                    Carry prerequisite features into this payload even when they
+                    target other projects. Defaults to true for new connections.
+                  type: boolean
               required:
                 - name
                 - language
@@ -19091,6 +19096,11 @@ paths:
                 remoteEvalEnabled:
                   type: boolean
                 savedGroupReferencesEnabled:
+                  type: boolean
+                includeReferencedPrerequisites:
+                  description: >-
+                    Carry prerequisite features into this payload even when they
+                    target other projects. Defaults to true for new connections.
                   type: boolean
               additionalProperties: false
       responses:
@@ -56925,6 +56935,8 @@ components:
         remoteEvalEnabled:
           type: boolean
         savedGroupReferencesEnabled:
+          type: boolean
+        includeReferencedPrerequisites:
           type: boolean
       required:
         - id

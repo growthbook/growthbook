@@ -73,6 +73,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   allowedCustomFieldsInMetadata: [String],
   includeTagsInMetadata: Boolean,
   includeExperimentScheduleInMetadata: Boolean,
+  includeReferencedPrerequisites: Boolean,
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
@@ -215,6 +216,7 @@ export const createSDKConnectionValidator = z
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    includeReferencedPrerequisites: z.boolean().optional(),
     managedBy: managedByValidator.optional(),
   })
   .strict();
@@ -235,6 +237,11 @@ export async function createSDKConnection(
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
     ...otherParams,
+    // Written explicitly rather than left absent, so "absent" keeps a single
+    // meaning (off, every connection predating the setting) instead of one that
+    // depends on when the connection was created.
+    includeReferencedPrerequisites:
+      otherParams.includeReferencedPrerequisites ?? true,
     organization: context.org.id,
     languages: languages as SDKLanguage[],
     id: uniqid("sdk_"),
@@ -323,6 +330,7 @@ export const editSDKConnectionValidator = z
     includeExperimentScheduleInMetadata: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    includeReferencedPrerequisites: z.boolean().optional(),
     eventTracker: z.string().optional(),
   })
   .strict();
@@ -394,6 +402,7 @@ export async function editSDKConnection(
     "includeTagsInMetadata",
     "includeExperimentScheduleInMetadata",
     "savedGroupReferencesEnabled",
+    "includeReferencedPrerequisites",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
     if (key in otherChanges && !isEqual(otherChanges[key], connection[key])) {
@@ -656,5 +665,6 @@ export function toApiSDKConnectionInterface(
     proxySigningKey: connection.proxy.signingKey,
     remoteEvalEnabled: connection.remoteEvalEnabled,
     savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+    includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
   };
 }
