@@ -1,4 +1,5 @@
 import { Flex } from "@radix-ui/themes";
+import { useState } from "react";
 import {
   ColumnRef,
   FactTableDefinition,
@@ -7,7 +8,7 @@ import {
 import RadioGroup from "@/ui/RadioGroup";
 import { Select, SelectItem } from "@/ui/Select";
 import TextField from "@/ui/TextField";
-import Checkbox from "@/ui/Checkbox";
+import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import ShapeSelect from "@/components/FactTables/MetricEditor/ShapeSelect";
 import ColumnSelect from "@/components/FactTables/MetricEditor/ColumnSelect";
@@ -54,9 +55,14 @@ export default function QuantileFields({
   const scope = quantileSettings.type;
   const shape =
     scope === "unit" ? (shapeFromColumnRef(numerator) ?? "sum") : "sum";
-  const isCustomQuantile = !QUANTILE_OPTIONS.some(
+  const isPresetQuantile = QUANTILE_OPTIONS.some(
     (o) => o.value === quantileSettings.quantile + "",
   );
+  // Tracked separately from isPresetQuantile so picking "Custom" reveals the
+  // input without first mutating quantile to some seed value (matches
+  // FactMetricModal's QuantileSelector).
+  const [showCustom, setShowCustom] = useState(!isPresetQuantile);
+  const isCustomQuantile = showCustom || !isPresetQuantile;
 
   return (
     <Flex direction="column" gap="3">
@@ -119,7 +125,11 @@ export default function QuantileFields({
           label="Percentile"
           value={isCustomQuantile ? "custom" : quantileSettings.quantile + ""}
           setValue={(v) => {
-            if (v === "custom") return;
+            if (v === "custom") {
+              setShowCustom(true);
+              return;
+            }
+            setShowCustom(false);
             onQuantileSettingsChange({
               ...quantileSettings,
               quantile: parseFloat(v),
@@ -135,6 +145,7 @@ export default function QuantileFields({
         </Select>
         {isCustomQuantile && (
           <TextField
+            label="Custom percentile"
             type="number"
             step={0.001}
             min={0.001}
@@ -148,10 +159,10 @@ export default function QuantileFields({
             }
           />
         )}
-        <Checkbox
+        <Switch
           label="Ignore zeros"
           value={quantileSettings.ignoreZeros}
-          setValue={(ignoreZeros) =>
+          onChange={(ignoreZeros) =>
             onQuantileSettingsChange({ ...quantileSettings, ignoreZeros })
           }
         />
