@@ -274,6 +274,25 @@ export const featureRule = z.union([
 
 export type FeatureRule = z.infer<typeof featureRule>;
 
+// The keys each rule type actually stores. The rule form carries widget-only
+// fields (hashVersion, sticky bucketing, coverage) for every type, and the
+// union members are `.strict()`, so nothing strips them on the way in — they
+// persist and then read as changes in every later revision diff.
+export function stripUnknownRuleFields<T extends { type?: string }>(
+  rule: T,
+): T {
+  const schema = featureRule.options.find((o) =>
+    o.shape.type._def.values.includes(rule.type as never),
+  );
+  if (!schema) return rule;
+  const allowed = new Set(Object.keys(schema.shape));
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(rule)) {
+    if (allowed.has(k)) out[k] = v;
+  }
+  return out as T;
+}
+
 // Env-level settings only (kill switch + prerequisites). Rules live on
 // `featureInterface.rules`.
 export const featureEnvironment = z
