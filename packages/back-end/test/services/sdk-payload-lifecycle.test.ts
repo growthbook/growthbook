@@ -88,6 +88,7 @@ function minimalContext(overrides?: Partial<ApiReqContext>): ApiReqContext {
       settings: { environments: [{ id: "production", projects: [] }] },
     },
     models: {} as ApiReqContext["models"],
+    getAllProjectIds: async () => [],
     userId: "u1",
     email: "e@e.com",
     userName: "User",

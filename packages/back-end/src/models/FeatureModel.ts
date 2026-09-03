@@ -515,11 +515,16 @@ export async function getAllFeatures(
   context: ReqContext | ApiReqContext,
   {
     projects,
+    ids,
     includeArchived = false,
-  }: { projects?: string[]; includeArchived?: boolean } = {},
+  }: { projects?: string[]; ids?: string[]; includeArchived?: boolean } = {},
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
-  if (projects && projects.length) {
+  // An explicit id list is its own scope, ignoring `projects`.
+  if (ids) {
+    if (!ids.length) return [];
+    q.id = { $in: ids };
+  } else if (projects && projects.length) {
     Object.assign(q, targetingScopedProjectClause(projects));
   }
 
