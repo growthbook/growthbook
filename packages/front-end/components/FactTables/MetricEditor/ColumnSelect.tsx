@@ -4,17 +4,19 @@ import { columnsForShape, RatioShape } from "./metricFormTranslation";
 
 // columnsFor(shape, factTable).length === 0 means omit the field, not
 // disable it (spec) - the null return is what makes that possible.
+// hasCountDistinctHLL is required, not defaulted: forgetting it would
+// silently offer "Count distinct" columns on a datasource that can't run it.
 export default function ColumnSelect({
   shape,
   factTable,
-  hasCountDistinctHLL = false,
+  hasCountDistinctHLL,
   value,
   onChange,
   label = "Column",
 }: {
   shape: RatioShape;
   factTable: FactTableDefinition | null;
-  hasCountDistinctHLL?: boolean;
+  hasCountDistinctHLL: boolean;
   value: string;
   onChange: (column: string) => void;
   label?: string;
