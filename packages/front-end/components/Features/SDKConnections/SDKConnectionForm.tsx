@@ -676,7 +676,7 @@ export default function SDKConnectionForm({
             }
             label={
               <>
-                Include referenced prerequisite features{" "}
+                Always include prerequisite features{" "}
                 <Tooltip
                   body={
                     <p className="mb-0">
