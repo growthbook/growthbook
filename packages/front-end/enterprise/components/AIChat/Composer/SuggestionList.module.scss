@@ -41,9 +41,10 @@
   }
 }
 
-// The name gets the row; it only truncates once it has run out of it.
+// Shrinks (and truncates) when the row is tight, but never grows — a short
+// name keeps its secondary right beside it instead of across the row.
 .name {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;

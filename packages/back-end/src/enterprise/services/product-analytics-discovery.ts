@@ -465,7 +465,7 @@ export async function getProductAnalyticsColumnValues(
     rawValues = await runColumnsTopValuesQuery(
       ctx,
       datasource,
-      { sql: factTable.sql, eventName: factTable.eventName ?? "" },
+      factTable,
       colsToQuery,
     );
   } catch (err) {
