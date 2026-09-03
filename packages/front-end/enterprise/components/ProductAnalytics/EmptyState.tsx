@@ -29,7 +29,7 @@ import ChatComposer, {
   type ChatComposerHandle,
   type ComposerSubmission,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
-import { useMentionItems } from "@/enterprise/components/AIChat/Composer/useMentionItems";
+import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 
@@ -48,9 +48,8 @@ export default function EmptyState() {
 
   const isDataSourceEmpty = datasources.length === 0;
   const { draftExploreState } = useExplorerContext();
-  const { items: mentionItems, ready: mentionItemsReady } = useMentionItems(
-    draftExploreState.datasource,
-  );
+  const { items: mentionItems, ready: mentionItemsReady } =
+    useMetricMentionItems(draftExploreState.datasource);
 
   const handleSubmit = useCallback(
     (

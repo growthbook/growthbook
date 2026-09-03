@@ -15,20 +15,11 @@ const dashboardWriteEventSchema = z.object({
   }),
 });
 
-// The model picks the path it sends and the dispatcher accepts three prefix
-// shapes for the same route, so match all of them rather than one.
+// The dispatcher accepts three prefix shapes for the same route.
 const CREATE_PATH = /^(?:\/api)?(?:\/v[12])?\/dashboards\/?$/;
 const UPDATE_PATH = /^(?:\/api)?(?:\/v[12])?\/dashboards\/[^/]+\/?$/;
 
-/**
- * A successful dashboard write inside a `tool-call-end` event, or null for
- * every other event.
- *
- * The agent panel acts on it twice over: it opens a dashboard the agent just
- * created, which is what gives the next turn its page context, and it drops the
- * cached copy of one the agent changed, which the dashboard page is otherwise
- * holding from before the write.
- */
+/** A successful dashboard write in a `tool-call-end` event, or null. */
 export function dashboardWriteFromEvent(event: {
   type: string;
   data: Record<string, unknown>;

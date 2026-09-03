@@ -174,18 +174,14 @@ export type AIChatSystemMessage = {
   content: string;
 };
 
-export type AIChatMentionType =
-  | "metric"
-  | "factMetric"
-  | "metricGroup"
-  | "dashboard";
+export type AIChatMentionType = "metric" | "factMetric" | "metricGroup";
 
-/** An @-mentioned entity. The text keeps "@Revenue"; this carries the id. */
+/** An @-mentioned metric. The text keeps "@Revenue"; this carries the id. */
 export type AIChatMention = {
   type: AIChatMentionType;
   id: string;
   name: string;
-  /** Server-set when a metric isn't in this turn's Data Source; never on a dashboard. */
+  /** Set by the server when the metric isn't in this turn's Data Source. */
   stale?: boolean;
 };
 

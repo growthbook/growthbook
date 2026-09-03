@@ -83,8 +83,7 @@ describe("runNewApiExplorationBlocks", () => {
   });
 
   it("enrolls a new block in the dashboard's date range, and queries that range", async () => {
-    // Persisting an enrollment the query never used is how a tile ends up
-    // rendering "click Update" against a window it was never run over.
+    // A query that ignored the enrollment leaves the tile on "click Update".
     const [block] = await runNewApiExplorationBlocks(ctx, [chartBlock()], {
       globalControls: { dateRange: { predefined: "last90Days" } },
     });

@@ -651,9 +651,7 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   dataSourceExplorationBlockInterface.omit(createOmits),
   funnelExplorationBlockInterface.omit(createOmits),
 ]);
-// An exploration block normally references a run that already happened. Over the
-// API a caller can instead send the `config` alone and let the write run it, so
-// the id is optional here — see `runNewExplorationBlocks`.
+// Optional here: an API caller can send `config` alone and let the write run it.
 const apiCreateExplorationOmits = {
   ...createOmits,
   explorerAnalysisId: true,
@@ -702,11 +700,7 @@ export type ApiCreateDashboardBlockInterface = z.infer<
   typeof apiCreateDashboardBlockInterface
 >;
 
-/**
- * The same block once its analysis id is settled — what an API create block
- * becomes after the write runs its chart. Distributes over the block union, and
- * touches only the four types that carry a `config`.
- */
+/** The same block with its analysis id settled. Distributes; only `config` types change. */
 export type DashboardBlockWithAnalysisId<T> = T extends {
   config: unknown;
   explorerAnalysisId?: string;

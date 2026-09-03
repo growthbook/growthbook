@@ -7,6 +7,7 @@ import type { AIChatMessage } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
 import Text from "@/ui/Text";
 import track from "@/services/track";
+import { useAuth } from "@/services/auth";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import type { ActiveTurnItem } from "@/enterprise/hooks/useAIChat/types";
@@ -36,7 +37,7 @@ import ChatComposer, {
   type ChatComposerHandle,
   type ComposerSubmission,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
-import { useMentionItems } from "@/enterprise/components/AIChat/Composer/useMentionItems";
+import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
 import AgentChatHistory from "./AgentChatHistory";
@@ -180,7 +181,8 @@ export default function AgentPanel({
     skills: [],
   });
 
-  const { items: mentionItems, ready: mentionItemsReady } = useMentionItems();
+  const { items: mentionItems, ready: mentionItemsReady } =
+    useMetricMentionItems();
   const skillItems = useSkillMenuItems();
 
   const {
@@ -211,25 +213,37 @@ export default function AgentPanel({
   }, []);
 
   const { mutate } = useSWRConfig();
+  const { apiCall } = useAuth();
 
-  /**
-   * Follow the agent onto a dashboard it just wrote. Opening a new one is what
-   * gives the next turn its page context, so a follow-up edits that dashboard
-   * instead of asking which one. Either way the cached copy is now stale, and
-   * the dashboard page cannot see a write that happened in here.
-   */
+  /** Every cached dashboard is stale once the agent has written one. */
+  const mutateDashboards = useCallback(
+    () =>
+      mutate((key) => typeof key === "string" && key.includes("::/dashboards")),
+    [mutate],
+  );
+
+  /** Open a new dashboard (which becomes the next turn's page context); refresh an edited one. */
   const handleDashboardWrite = useCallback(
     (event: { type: string; data: Record<string, unknown> }) => {
       const write = dashboardWriteFromEvent(event);
       if (!write) return;
-      void mutate(
-        (key) => typeof key === "string" && key.includes("::/dashboards"),
-      );
+
       if (write.kind === "created") {
+        void mutateDashboards();
         void routerRef.current?.push(dashboardPath(write.id));
+        return;
       }
+
+      void (async () => {
+        try {
+          await apiCall(`/dashboards/${write.id}/refresh`, { method: "POST" });
+        } catch {
+          // The edit landed; its Update button can retry the refresh.
+        }
+        await mutateDashboards();
+      })();
     },
-    [mutate],
+    [apiCall, mutateDashboards],
   );
 
   const handleAgentSSEEvent = useCallback(

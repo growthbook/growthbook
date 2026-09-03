@@ -7,20 +7,18 @@ import { Popover } from "@/ui/Popover";
 import Markdown from "@/components/Markdown/Markdown";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useSkillCommandItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
-import { mentionTypeLabel } from "@/enterprise/components/AIChat/Composer/useMentionItems";
+import { metricTypeLabel } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import styles from "./TokenPopovers.module.scss";
 
 export const TOKEN_POPOVER_PADDING = "10px 0";
 
 export function metricHref({ type, id }: AIChatMention): string {
-  if (type === "dashboard") return `/product-analytics/dashboards/${id}`;
   if (type === "metricGroup") return `/metric-groups/${id}`;
   if (type === "factMetric") return `/fact-metrics/${id}`;
   return `/metric/${id}`;
 }
 
 function openLabel(type: AIChatMention["type"]): string {
-  if (type === "dashboard") return "Open dashboard";
   return type === "metricGroup" ? "Open metric group" : "Open metric";
 }
 
@@ -44,9 +42,6 @@ export function MentionPopoverContent({
     const metric = getFactMetricById(mention.id);
     description = metric?.description;
     rawType = metric?.metricType;
-  } else if (mention.type === "dashboard") {
-    // Dashboards carry no description. The name, the badge, and the link out
-    // are all there is to show.
   } else {
     description = getMetricGroupById(mention.id)?.description;
   }
@@ -58,7 +53,7 @@ export function MentionPopoverContent({
         <Badge
           size="xs"
           variant="soft"
-          label={mentionTypeLabel(mention.type, rawType)}
+          label={metricTypeLabel(mention.type, rawType)}
         />
       </div>
       {stale && (
@@ -68,9 +63,7 @@ export function MentionPopoverContent({
       )}
       {description ? (
         <Description>{description}</Description>
-      ) : mention.type === "dashboard" ? null : (
-        // "No description" is for a metric that could carry one; a dashboard
-        // never can, so the slot is only noise there.
+      ) : (
         <div className={styles.empty}>No description</div>
       )}
       <Link href={metricHref(mention)} className={styles.action}>

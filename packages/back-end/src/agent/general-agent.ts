@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { z } from "zod";
+import type { AIChatMessage } from "shared/ai-chat";
 import type { AIAgentPendingAction } from "shared/validators";
 import { aiTool } from "back-end/src/enterprise/services/ai";
 import {
@@ -111,6 +112,13 @@ dashboard", "the dashboard", or an unqualified "add a chart" — take the id fro
 the path and edit that dashboard rather than asking which one or building a
 second one.
 
+**That is the only dashboard you can change.** Updating one is allowed only
+while the user is viewing it, and a request naming a different dashboard by
+title is refused whatever the title resolves to. So when they ask you to change
+a dashboard they are not on — including from the dashboard list — do not look it
+up: say they need to open it first, and that you will make the change there.
+Creating a new dashboard has no such restriction.
+
 A user message may carry other auto-injected lines of the same
 \`[Label: value]\` shape — e.g. \`[Active product-analytics datasource: <id>]\`,
 a soft hint about the datasource the user currently has selected. These are
@@ -125,17 +133,13 @@ raw rows, so do not invent a numeric summary when no numbers are visible.
 
 One of these lines is authoritative rather than a hint:
 
-  [Referenced by the user: Revenue (metric: met_abc123), Growth KPIs (dashboard: dash_abc)]
+  [Referenced by the user: Revenue (metric: met_abc123)]
 
 It appears when the user @-mentioned entities in the composer, and it maps each
 \`@Name\` already present in their text to the exact id they picked. Use those
 ids directly — do not search or list to re-resolve a mentioned name, and do not
 substitute a different entity that happens to have a similar name. Keep using
 the readable name in your reply.
-
-A \`dashboard:\` entry names an Analytics dashboard the user wants worked on.
-Use that id directly with the \`analytics\` skill's dashboard workflows rather
-than listing dashboards to find one by name.
 
 # Linking to pages
 
@@ -273,6 +277,43 @@ function requiresMutationConfirmation(input: DispatchInput): boolean {
     return false;
   }
   return true;
+}
+
+const DASHBOARD_UPDATE_RE = /^\/api\/v[12]\/dashboards\/([^/]+)\/?$/;
+const DASHBOARD_PAGE_RE = /^\/product-analytics\/dashboards\/([^/?#]+)/;
+
+/** The page the user was on for the newest message that carried one. */
+function latestPageContext(messages: AIChatMessage[]): string | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role === "user" && message.currentPage) {
+      return message.currentPage;
+    }
+  }
+  return undefined;
+}
+
+/** Only the dashboard on screen may be updated: an update replaces its block list outright. */
+function offScreenDashboardUpdate(
+  input: DispatchInput,
+  messages: AIChatMessage[],
+): { status: "rejected"; message: string } | undefined {
+  if (input.method !== "PUT") return undefined;
+  const target = normalizePath(input.path).match(DASHBOARD_UPDATE_RE)?.[1];
+  if (!target) return undefined;
+
+  const onScreen = latestPageContext(messages)?.match(DASHBOARD_PAGE_RE)?.[1];
+  if (onScreen === target) return undefined;
+
+  return {
+    status: "rejected",
+    message:
+      (onScreen
+        ? `You can only update the dashboard the user is viewing, which is "${onScreen}", not "${target}".`
+        : `You can only update a dashboard while the user is viewing it, and they are not on a dashboard page.`) +
+      " Do not retry this call and do not look for another way to make the change." +
+      " Tell them to open the dashboard they want changed and ask again there.",
+  };
 }
 
 /** Models sometimes JSON-encode `body` as a string; parse it back. */
@@ -514,9 +555,7 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
 
   buildSystemPrompt: async () => buildGeneralAgentSystemPrompt(),
 
-  // No skill restriction: this is the agent with no area of its own, so it can
-  // load anything — as a tool call, and as a skill the user picked from the
-  // composer's `/` menu, which arrives pre-loaded and is dropped without this.
+  // No skill restriction, and needed for a `/` menu pick to survive.
   resolveSkill: loadSkillResult,
 
   buildTools: (ctx, buffer, _params, emit) => ({
@@ -547,6 +586,13 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
           query,
           body: coerceBody(input.body),
         };
+
+        // Before the card, which only shows a summary the model wrote.
+        const offScreen = offScreenDashboardUpdate(
+          dispatchInput,
+          buffer.getMessages(),
+        );
+        if (offScreen) return offScreen;
 
         // Park the call and end the turn; the handler replays the stored call
         // verbatim once the user decides, so the model never sees the gate.
@@ -639,4 +685,5 @@ export const postGeneralAgentChat = createAgentHandler(generalAgentConfig);
 // Exposed for unit tests — see test/agent/general-agent.test.ts
 export const _buildGeneralAgentSystemPrompt = buildGeneralAgentSystemPrompt;
 export const _coerceBody = coerceBody;
+export const _offScreenDashboardUpdate = offScreenDashboardUpdate;
 export const _requiresMutationConfirmation = requiresMutationConfirmation;

@@ -13,7 +13,7 @@ import AIChatGatingScreen from "@/enterprise/components/AIChat/AIChatGatingScree
 import ChatComposer, {
   type ChatComposerHandle,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
-import { useMentionItems } from "@/enterprise/components/AIChat/Composer/useMentionItems";
+import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
@@ -42,9 +42,8 @@ export default function ExplorerAIChat() {
   const permissionsUtil = usePermissionsUtil();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const { draftExploreState } = useExplorerContext();
-  const { items: mentionItems, ready: mentionItemsReady } = useMentionItems(
-    draftExploreState.datasource,
-  );
+  const { items: mentionItems, ready: mentionItemsReady } =
+    useMetricMentionItems(draftExploreState.datasource);
 
   // -- Hooks with no cross-dependencies (safe to call first) -----------------
 

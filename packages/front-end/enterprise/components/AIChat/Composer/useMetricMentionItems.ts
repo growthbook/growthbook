@@ -1,8 +1,7 @@
 import { useMemo } from "react";
 import type { AIChatMentionType } from "shared/ai-chat";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useDashboards } from "@/hooks/useDashboards";
-import { sortMentionItems, type MentionItem } from "./extensions/metricMention";
+import type { MentionItem } from "./extensions/metricMention";
 
 const FACT_METRIC_LABELS: Record<string, string> = {
   proportion: "Proportion",
@@ -21,11 +20,10 @@ const LEGACY_METRIC_LABELS: Record<string, string> = {
   revenue: "Revenue",
 };
 
-export function mentionTypeLabel(
+export function metricTypeLabel(
   kind: AIChatMentionType,
   rawType?: string,
 ): string {
-  if (kind === "dashboard") return "Dashboard";
   if (kind === "metricGroup") return "Metric Group";
   if (kind === "factMetric") {
     return FACT_METRIC_LABELS[rawType ?? ""] ?? "Fact Metric";
@@ -33,15 +31,11 @@ export function mentionTypeLabel(
   return LEGACY_METRIC_LABELS[rawType ?? ""] ?? "Metric";
 }
 
-export function useMentionItems(datasourceId?: string): {
+export function useMetricMentionItems(datasourceId?: string): {
   items: MentionItem[];
   ready: boolean;
 } {
   const { metrics, factMetrics, metricGroups, ready } = useDefinitions();
-  // Analytics dashboards only. A per-experiment dashboard belongs to its
-  // experiment's page and none of the dashboard workflows can touch it, so
-  // offering one here would only produce a dead end.
-  const { dashboards, loading: dashboardsLoading } = useDashboards(false);
 
   const items = useMemo(() => {
     const items: MentionItem[] = [];
@@ -52,7 +46,7 @@ export function useMentionItems(datasourceId?: string): {
         id: m.id,
         label: m.name,
         metricType: "metric",
-        typeLabel: mentionTypeLabel("metric", m.type),
+        typeLabel: metricTypeLabel("metric", m.type),
       });
     }
     for (const m of factMetrics) {
@@ -61,34 +55,22 @@ export function useMentionItems(datasourceId?: string): {
         id: m.id,
         label: m.name,
         metricType: "factMetric",
-        typeLabel: mentionTypeLabel("factMetric", m.metricType),
+        typeLabel: metricTypeLabel("factMetric", m.metricType),
       });
     }
-    // Datasource-scoped means the Product Analytics chat, which can act on
-    // neither a metric group nor a dashboard.
     if (!datasourceId) {
       for (const g of metricGroups) {
         items.push({
           id: g.id,
           label: g.name,
           metricType: "metricGroup",
-          typeLabel: mentionTypeLabel("metricGroup"),
-        });
-      }
-      for (const d of dashboards) {
-        items.push({
-          id: d.id,
-          label: d.title,
-          metricType: "dashboard",
-          typeLabel: mentionTypeLabel("dashboard"),
+          typeLabel: metricTypeLabel("metricGroup"),
         });
       }
     }
 
-    return sortMentionItems(items);
-  }, [metrics, factMetrics, metricGroups, dashboards, datasourceId]);
+    return items.sort((a, b) => a.label.localeCompare(b.label));
+  }, [metrics, factMetrics, metricGroups, datasourceId]);
 
-  // Both sources have to land before the list is complete. Reporting ready too
-  // early makes the composer mark every not-yet-loaded mention stale.
-  return { items, ready: ready && !dashboardsLoading };
+  return { items, ready };
 }

@@ -457,9 +457,7 @@ export class DashboardModel extends BaseClass {
       comparison,
       blocks,
     } = apiCreateDashboardBody.parse(rawBody);
-    // Chart blocks may arrive as a config the caller never ran, so run those
-    // before the write — a block with no analysis id is a tile that never
-    // renders.
+    // A chart block can arrive as a config the caller never ran.
     const ranBlocks = await runNewApiExplorationBlocks(this.context, blocks, {
       globalControls,
       comparison,
@@ -515,10 +513,8 @@ export class DashboardModel extends BaseClass {
       apiUpdateDashboardBody.parse(rawBody);
     const updates: UpdateProps<DashboardInterface> = otherUpdates;
     if (blockUpdates) {
-      // A new block can arrive as a config the caller never ran; blocks already
-      // on the dashboard keep the analysis they have. Absent controls mean the
-      // saved ones still apply, so a partial update queries the same window the
-      // tiles render under.
+      // Absent controls mean the saved ones still apply, so a partial update
+      // queries the window the tiles render under.
       const ranBlocks = await runNewApiExplorationBlocks(
         this.context,
         blockUpdates,
@@ -991,9 +987,7 @@ function toBlockApiInterface(
 export function fromBlockApiInterface(
   apiBlock:
     | ApiDashboardBlockInterface
-    // An API create block reaches this only once its chart has been run — the
-    // shape it goes in with allows a missing analysis id, the stored shape does
-    // not. See `runNewApiExplorationBlocks`.
+    // Only reached once its chart has been run; see `runNewApiExplorationBlocks`.
     | DashboardBlockWithAnalysisId<ApiCreateDashboardBlockInterface>,
 ): DashboardBlockInterface | CreateDashboardBlockInterface {
   switch (apiBlock.type) {

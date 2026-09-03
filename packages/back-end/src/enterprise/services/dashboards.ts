@@ -387,15 +387,7 @@ function isProductAnalyticsExplorationBlock(
 /** Narrowed to what `getEffectiveExplorationConfig` reads. */
 type EffectiveConfigInput = Parameters<typeof getEffectiveExplorationConfig>[0];
 
-/**
- * Runs the exploration blocks an API caller handed over as a bare `config`, so a
- * dashboard can be built from chart definitions the caller never ran itself.
- *
- * Unlike a refresh, a failure here is fatal: a new block has no previous result
- * to fall back on, so persisting it would give the dashboard a tile that never
- * renders. Blocks that already name an analysis are returned untouched — an API
- * caller that ran its own chart should not pay for a second query.
- */
+/** Runs blocks sent as a bare `config`. Throws: a new tile has no previous result to fall back on. */
 export async function runNewApiExplorationBlocks<
   T extends { type: string; title: string },
 >(
@@ -403,22 +395,15 @@ export async function runNewApiExplorationBlocks<
   blocks: T[],
   dashboard: Pick<DashboardInterface, "globalControls" | "comparison">,
 ): Promise<DashboardBlockWithAnalysisId<T>[]> {
-  // In parallel: each run can sit on the warehouse for seconds, so a six-tile
-  // dashboard done one block at a time risks the request timing out.
+  // In parallel: serial runs on a six-tile dashboard risk the request timing out.
   return Promise.all(
     blocks.map(async (block): Promise<DashboardBlockWithAnalysisId<T>> => {
-      // The casts below are what the return type buys the caller: every block
-      // leaving here carries an analysis id, which the conditional type states
-      // and TypeScript cannot infer from the branches.
+      // Casts: the conditional return type states what TS can't infer per branch.
       if (!isExplorationBlockNeedingRun(block)) {
         return block as DashboardBlockWithAnalysisId<T>;
       }
 
-      // Enroll in the dashboard's date control before querying, the way a block
-      // saved from the UI is. Querying an unenrolled block over the dashboard's
-      // range is how a tile ends up rendering "click Update" forever, so the
-      // enrollment we query under is also the one we persist. An explicit
-      // opt-out from the caller stands.
+      // Enroll before querying, or the tile renders "click Update" forever.
       const enrolled =
         dashboard.globalControls?.dateRange &&
         block.globalControlSettings?.dateRange === undefined
@@ -431,17 +416,14 @@ export async function runNewApiExplorationBlocks<
             }
           : block;
 
-      // Only `type`, `config` and `globalControlSettings` are read, none of
-      // which an API create block is missing — but it has no id or organization,
-      // so it is not the stored block this signature asks for.
+      // Reads only type/config/globalControlSettings; a create block has no id.
       const config = dashboard.globalControls
         ? getEffectiveExplorationConfig(
             enrolled as unknown as EffectiveConfigInput,
             dashboard,
           )
         : block.config;
-      // Dashboard-wide comparison wins over the block's own, both ways — the
-      // same precedence the tiles render under.
+      // Dashboard-wide wins over the block's own — the precedence tiles render under.
       const comparison = resolveBlockComparison(block, dashboard);
 
       // Never cached: a fuzzy hit stores a dateRange the tile reads as stale.
@@ -478,11 +460,7 @@ export async function runNewApiExplorationBlocks<
   );
 }
 
-/**
- * An exploration block carrying a config but no analysis id. Structural rather
- * than a type guard on the block union: the same check has to cover the API
- * create shape, where the id is optional, and the stored one, where it is not.
- */
+/** Structural, not a union guard: covers both shapes, where the id is optional and required. */
 function isExplorationBlockNeedingRun<T extends { type: string }>(
   block: T,
 ): block is T & {

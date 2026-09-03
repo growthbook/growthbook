@@ -14,8 +14,6 @@ import {
   MetricMention,
   METRIC_MENTION_NAME,
   filterMentionItems,
-  mentionGroupLabel,
-  sortMentionItems,
   offeredMentionIds,
   type MentionItem,
 } from "@/enterprise/components/AIChat/Composer/extensions/metricMention";
@@ -25,7 +23,7 @@ import {
   skillDisplayName,
   type SkillItem,
 } from "@/enterprise/components/AIChat/Composer/extensions/skillCommand";
-import { mentionTypeLabel } from "@/enterprise/components/AIChat/Composer/useMentionItems";
+import { metricTypeLabel } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 
 const EXTENSIONS = [
   Document,
@@ -440,7 +438,7 @@ describe("stripDanglingTriggers", () => {
   });
 });
 
-describe("mentionTypeLabel", () => {
+describe("metricTypeLabel", () => {
   it.each([
     ["proportion", "Proportion"],
     ["mean", "Mean"],
@@ -449,7 +447,7 @@ describe("mentionTypeLabel", () => {
     ["quantile", "Quantile"],
     ["dailyParticipation", "Daily Participation"],
   ])("labels the fact metric type %j as %j", (raw, expected) => {
-    expect(mentionTypeLabel("factMetric", raw)).toBe(expected);
+    expect(metricTypeLabel("factMetric", raw)).toBe(expected);
   });
 
   it.each([
@@ -457,83 +455,15 @@ describe("mentionTypeLabel", () => {
     ["count", "Count"],
     ["revenue", "Revenue"],
   ])("labels the legacy metric type %j as %j", (raw, expected) => {
-    expect(mentionTypeLabel("metric", raw)).toBe(expected);
+    expect(metricTypeLabel("metric", raw)).toBe(expected);
   });
 
   it("labels a metric group by its kind, since it has no statistical type", () => {
-    expect(mentionTypeLabel("metricGroup")).toBe("Metric Group");
-  });
-
-  it("labels a dashboard, which has no statistical type at all", () => {
-    expect(mentionTypeLabel("dashboard")).toBe("Dashboard");
+    expect(metricTypeLabel("metricGroup")).toBe("Metric Group");
   });
 
   it("names the kind rather than leaking a raw enum it doesn't know", () => {
-    expect(mentionTypeLabel("factMetric", "somethingNew")).toBe("Fact Metric");
-    expect(mentionTypeLabel("metric", undefined)).toBe("Metric");
-  });
-});
-
-describe("mention grouping", () => {
-  const items = [
-    {
-      id: "dash_1",
-      label: "Growth KPIs",
-      metricType: "dashboard" as const,
-      typeLabel: "Dashboard",
-    },
-    {
-      id: "met_rev",
-      label: "Revenue",
-      metricType: "metric" as const,
-      typeLabel: "Metric",
-    },
-    {
-      id: "fact_signup",
-      label: "Signups",
-      metricType: "factMetric" as const,
-      typeLabel: "Fact Metric",
-    },
-  ];
-
-  it("labels metrics and dashboards", () => {
-    expect(mentionGroupLabel("metric")).toBe("Metrics");
-    expect(mentionGroupLabel("factMetric")).toBe("Metrics");
-    expect(mentionGroupLabel("metricGroup")).toBe("Metrics");
-    expect(mentionGroupLabel("dashboard")).toBe("Dashboards");
-  });
-
-  it("puts metrics above dashboards with no query", () => {
-    expect(filterMentionItems(items, "").map((i) => i.id)).toEqual([
-      "met_rev",
-      "fact_signup",
-      "dash_1",
-    ]);
-  });
-
-  it("sorts the source list by group, then alphabetically", () => {
-    expect(sortMentionItems(items).map((i) => i.id)).toEqual([
-      "met_rev",
-      "fact_signup",
-      "dash_1",
-    ]);
-  });
-
-  it("keeps the groups apart when searching", () => {
-    const dashboardFirst = [
-      {
-        id: "dash_s",
-        label: "Sales board",
-        metricType: "dashboard" as const,
-        typeLabel: "Dashboard",
-      },
-      ...items,
-    ];
-    // Metrics first, then Dashboards, with match ranking intact inside each.
-    expect(filterMentionItems(dashboardFirst, "s").map((i) => i.id)).toEqual([
-      "fact_signup",
-      "dash_s",
-      "dash_1",
-    ]);
+    expect(metricTypeLabel("factMetric", "somethingNew")).toBe("Fact Metric");
+    expect(metricTypeLabel("metric", undefined)).toBe("Metric");
   });
 });
