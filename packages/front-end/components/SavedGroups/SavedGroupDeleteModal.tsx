@@ -52,17 +52,16 @@ export default function SavedGroupDeleteModal({
         close();
       }}
       ctaEnabled={canDelete}
-      useRadixButton={true}
     >
       {loading ? (
         <Text color="gray">
-          <LoadingSpinner /> Checking saved group references...
+          <LoadingSpinner /> Checking Saved Group references...
         </Text>
       ) : hasReferences ? (
         <>
           <Callout status="error" mb="4">
             <Text as="p" weight="bold" mb="2">
-              Cannot delete saved group
+              Cannot delete Saved Group
             </Text>
             <Text as="p" mb="0">
               Before you can delete this group, you will need to remove any

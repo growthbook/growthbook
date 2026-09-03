@@ -20,10 +20,7 @@ import {
   FeatureValueType,
 } from "shared/types/feature";
 import { FeatureUsageLookback } from "shared/types/integrations";
-import {
-  isManagedWarehouseAwaitingProvisioning,
-  stemRuleId,
-} from "shared/util";
+import { isManagedWarehouseUnavailable, stemRuleId } from "shared/util";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -143,13 +140,13 @@ const featureUsageContext = createContext<{
   featureUsage: FeatureUsageData | undefined;
   sparkFeatureUsage: FeatureUsageData | undefined;
   showFeatureUsage: boolean;
-  managedWarehouseAwaitingProvisioning: boolean;
+  managedWarehouseUnavailable: boolean;
   mutateFeatureUsage: () => void;
 }>({
   lookback: "15minute",
   setLookback: () => {},
   showFeatureUsage: false,
-  managedWarehouseAwaitingProvisioning: false,
+  managedWarehouseUnavailable: false,
   featureUsage: undefined,
   sparkFeatureUsage: undefined,
   mutateFeatureUsage: () => {},
@@ -174,8 +171,8 @@ export function FeatureUsageProvider({
   const growthbookManagedDatasource = datasources.find(
     (ds) => ds.type === "growthbook_clickhouse",
   );
-  const managedWarehouseAwaitingProvisioning = growthbookManagedDatasource
-    ? isManagedWarehouseAwaitingProvisioning(growthbookManagedDatasource)
+  const managedWarehouseUnavailable = growthbookManagedDatasource
+    ? isManagedWarehouseUnavailable(growthbookManagedDatasource)
     : false;
   const showFeatureUsage = useDummyData || !!growthbookManagedDatasource;
 
@@ -186,7 +183,7 @@ export function FeatureUsageProvider({
       !!feature &&
       showFeatureUsage &&
       !useDummyData &&
-      !managedWarehouseAwaitingProvisioning,
+      !managedWarehouseUnavailable,
   });
 
   const { data: sparkData, mutate: mutateSparkData } = useApi<{
@@ -196,7 +193,7 @@ export function FeatureUsageProvider({
       !!feature &&
       showFeatureUsage &&
       !useDummyData &&
-      !managedWarehouseAwaitingProvisioning &&
+      !managedWarehouseUnavailable &&
       lookback !== SPARK_LOOKBACK,
   });
 
@@ -216,7 +213,7 @@ export function FeatureUsageProvider({
   );
 
   useEffect(() => {
-    if (managedWarehouseAwaitingProvisioning) return;
+    if (managedWarehouseUnavailable) return;
 
     const hasData =
       (featureUsage?.bySource?.length ?? 0) > 0 ||
@@ -239,7 +236,7 @@ export function FeatureUsageProvider({
     featureUsage,
     sparkFeatureUsage,
     featureUsageAutoRefreshInterval,
-    managedWarehouseAwaitingProvisioning,
+    managedWarehouseUnavailable,
     mutateFeatureUsage,
     mutateSparkData,
   ]);
@@ -250,7 +247,7 @@ export function FeatureUsageProvider({
         lookback,
         setLookback,
         showFeatureUsage,
-        managedWarehouseAwaitingProvisioning,
+        managedWarehouseUnavailable,
         featureUsage,
         sparkFeatureUsage,
         mutateFeatureUsage,
@@ -275,14 +272,10 @@ export function FeatureUsageContainer({
   initialTab?: "source" | "value" | "rule";
 }) {
   const [tab, setTab] = useState<"source" | "value" | "rule">(initialTab);
-  const {
-    featureUsage,
-    lookback,
-    setLookback,
-    managedWarehouseAwaitingProvisioning,
-  } = useFeatureUsage();
+  const { featureUsage, lookback, setLookback, managedWarehouseUnavailable } =
+    useFeatureUsage();
 
-  if (managedWarehouseAwaitingProvisioning) {
+  if (managedWarehouseUnavailable) {
     return <ManagedWarehouseNoEventsCallout />;
   }
 
@@ -319,7 +312,7 @@ export function FeatureUsageContainer({
           <TabsTrigger value="rule">By Environment &amp; Rule</TabsTrigger>
         </TabsList>
         <Select
-          size="2"
+          size="md"
           value={lookback}
           setValue={(v) => setLookback(v as FeatureUsageLookback)}
           align="end"
@@ -1046,10 +1039,10 @@ export default function FeatureUsageGraph({
                                     align="center"
                                     style={{ whiteSpace: "nowrap" }}
                                   >
-                                    <Text size="small" weight="semibold">
+                                    <Text size="sm" weight="semibold">
                                       {formatter.format(keyTotal)}
                                     </Text>
-                                    <Text size="small" color="text-low">
+                                    <Text size="sm" color="text-low">
                                       ({pct}%)
                                     </Text>
                                   </Flex>
@@ -1061,7 +1054,7 @@ export default function FeatureUsageGraph({
                       );
                     })}
                   {useGrouping && (
-                    <Link onClick={() => setExpanded(true)} size="1">
+                    <Link onClick={() => setExpanded(true)} size="sm">
                       expand
                     </Link>
                   )}
@@ -1074,7 +1067,7 @@ export default function FeatureUsageGraph({
                           setExpanded(false);
                           setDisabledKeys(new Set());
                         }}
-                        size="1"
+                        size="sm"
                       >
                         show fewer groups
                       </Link>
@@ -1100,14 +1093,13 @@ export function FeatureUsageSparkline({
   valueType: FeatureValueType;
   revision?: FeatureRevisionInterface;
 }) {
-  const {
-    sparkFeatureUsage,
-    showFeatureUsage,
-    managedWarehouseAwaitingProvisioning,
-  } = useFeatureUsage();
+  const { sparkFeatureUsage, showFeatureUsage, managedWarehouseUnavailable } =
+    useFeatureUsage();
   const [modalOpen, setModalOpen] = useState(false);
+  const router = useRouter();
+  const useDummyData = router.query["dummy"] === "true";
 
-  if (!showFeatureUsage || managedWarehouseAwaitingProvisioning) return null;
+  if (!showFeatureUsage || managedWarehouseUnavailable) return null;
 
   const defaultBin = "default";
   const overrideBin = "override";
@@ -1303,10 +1295,25 @@ export function FeatureUsageSparkline({
       </Tooltip>
       {modalOpen && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType="feature-usage-sparkline"
           open={true}
           close={() => setModalOpen(false)}
-          header="Usage Analytics"
+          header={
+            useDummyData ? (
+              <Flex align="center" gap="2">
+                Usage Analytics
+                <Badge
+                  label="Using dummy data"
+                  color="cyan"
+                  variant="soft"
+                  size="sm"
+                />
+              </Flex>
+            ) : (
+              "Usage Analytics"
+            )
+          }
           submit={undefined}
           closeCta="Close"
           size="lg"

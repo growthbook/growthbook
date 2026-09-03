@@ -5,6 +5,7 @@ import {
 import { useForm } from "react-hook-form";
 import { datetime } from "shared/dates";
 import { HoldoutInterfaceStringDates } from "shared/validators";
+import { getHoldoutStage } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
@@ -30,7 +31,6 @@ export default function EditStatusModal({
   holdout,
 }: Props) {
   const isHoldout = experiment.type === "holdout";
-  const experimentStatus = experiment.status;
   const form = useForm<{
     status: ExperimentStatus | "analysis";
     reason: string;
@@ -39,8 +39,8 @@ export default function EditStatusModal({
     defaultValues: {
       status:
         isHoldout &&
-        experimentStatus === "running" &&
-        experiment.phases.length === 2
+        holdout &&
+        getHoldoutStage(holdout, experiment) === "analysis-period"
           ? "analysis"
           : experiment.status,
       reason: "",
@@ -123,7 +123,7 @@ export default function EditStatusModal({
     >
       {isHoldout && (
         <Box mb="4">
-          <Text size="medium" color="text-mid">
+          <Text size="md" color="text-mid">
             <strong>Warning: </strong>Changing the status of a Holdout will
             delete the existing schedule and could change the behavior of
             associated Feature Flags and Metrics.
@@ -137,6 +137,7 @@ export default function EditStatusModal({
         </Callout>
       )}
       <SelectField
+        size="legacy"
         label="Status"
         options={statusOptions}
         onChange={(v) => {
@@ -150,6 +151,7 @@ export default function EditStatusModal({
         experiment.status === "running" && (
           <>
             <Field
+              size="legacy"
               label="Reason for stopping the test"
               textarea
               {...form.register("reason")}

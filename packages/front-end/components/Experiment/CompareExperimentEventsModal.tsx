@@ -163,6 +163,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   bucketVersion: "targeting-top-level",
   minBucketVersion: "targeting-top-level",
   disableStickyBucketing: "targeting-top-level",
+  attributeScopeAllProjects: "targeting-top-level",
 
   // — Variations —
   variations: "variations",
@@ -190,6 +191,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   sequentialTestingTuningParameter: "analysis",
   attributionModel: "analysis",
   customMetricSlices: "analysis",
+  precomputedUnitDimensionIds: "analysis",
   banditBurnInUnit: "analysis",
   banditBurnInValue: "analysis",
   banditScheduleUnit: "analysis",
@@ -205,6 +207,8 @@ const EXPERIMENT_SECTION_KEYS: Record<
   tags: "metadata",
   project: "metadata",
   status: "metadata",
+  statusUpdateSchedule: "metadata",
+  nextScheduledStatusUpdate: "metadata",
   winner: "metadata",
   owner: "metadata",
   type: "metadata",
@@ -231,6 +235,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   lastSnapshotAttempt: false,
   nextSnapshotAttempt: false,
   autoSnapshots: false,
+  disableAutoSnapshots: false,
   ideaSource: false,
   hasVisualChangesets: false,
   hasURLRedirects: false,

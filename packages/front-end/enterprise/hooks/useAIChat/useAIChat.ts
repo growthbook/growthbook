@@ -9,6 +9,7 @@ import { useAuth } from "@/services/auth";
 import type {
   ActiveTurnItem,
   ConversationLoadResponse,
+  AIChatMention,
   AIChatMessage,
   UseAIChatOptions,
   UseAIChatReturn,
@@ -321,17 +322,30 @@ export function useAIChat({
   // ---------------------------------------------------------------------------
 
   const sendMessage = useCallback(
-    async (messageOverride?: string) => {
+    async (
+      messageOverride?: string,
+      options?: {
+        suppressUserMessage?: boolean;
+        mentions?: AIChatMention[];
+        skills?: string[];
+      },
+    ) => {
       const trimmed = (messageOverride ?? input).trim();
       if (!trimmed || loading) return;
 
-      const userMessage: AIChatMessage = {
-        role: "user",
-        id: `msg_${messageCounterRef.current++}`,
-        content: trimmed,
-        ts: Date.now(),
-      };
-      setMessages((prev) => [...prev, userMessage]);
+      // Control-signal sends (e.g. a mutation confirm/cancel decision) ride
+      // along in the request body but should not render as a chat bubble.
+      if (!options?.suppressUserMessage) {
+        const userMessage: AIChatMessage = {
+          role: "user",
+          id: `msg_${messageCounterRef.current++}`,
+          content: trimmed,
+          ts: Date.now(),
+          ...(options?.mentions?.length ? { mentions: options.mentions } : {}),
+          ...(options?.skills?.length ? { skills: options.skills } : {}),
+        };
+        setMessages((prev) => [...prev, userMessage]);
+      }
       setInput("");
       setError(null);
       clearRemotePoll();

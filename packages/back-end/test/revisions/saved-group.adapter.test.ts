@@ -5,13 +5,16 @@ import { savedGroupAdapter } from "back-end/src/revisions/adapters/saved-group.a
 import { getAdapter, getEntityModel } from "back-end/src/revisions/index";
 import { isRevisionRequired } from "back-end/src/revisions/util";
 
-const buildRevision = (proposedChanges: JsonPatchOperation[]): Revision =>
+const buildRevision = (
+  proposedChanges: JsonPatchOperation[],
+  snapshot: Record<string, unknown> = {},
+): Revision =>
   ({
     id: "rev-1",
     target: {
       type: "saved-group",
       id: "sg-1",
-      snapshot: {} as Record<string, unknown>,
+      snapshot,
       proposedChanges,
     },
     status: "draft",
@@ -43,6 +46,10 @@ const baseGroup: SavedGroupInterface = {
 // to avoid pulling the entire context surface into a unit test.
 function makeContext(overrides: {
   approvalRequired?: boolean;
+  hasRequireApprovals?: boolean;
+  // The full rule list, for the project-scoped cases. Takes precedence over
+  // `approvalRequired` / `requireMetadataReview`.
+  savedGroups?: Record<string, unknown>[];
   // When provided, controls the `requireMetadataReview` org setting. Defaults
   // to `undefined` (which behaves like the historical "true" default).
   requireMetadataReview?: boolean;
@@ -51,28 +58,36 @@ function makeContext(overrides: {
 }): Context {
   const permissions = {
     canReadMultiProjectResource: () => true,
-    canUpdateSavedGroup: () => true,
-    canBypassApprovalChecks: () => true,
+    canBypassSavedGroupApprovalChecks: () => true,
     ...(overrides.permissions ?? {}),
   };
   return {
     org: {
       settings: {
-        approvalFlows: overrides.approvalRequired
-          ? {
-              savedGroups: [
-                {
-                  required: true,
-                  ...(overrides.requireMetadataReview !== undefined
-                    ? { requireMetadataReview: overrides.requireMetadataReview }
-                    : {}),
-                },
-              ],
-            }
-          : { savedGroups: [{ required: false }] },
+        approvalFlows: overrides.savedGroups
+          ? { savedGroups: overrides.savedGroups }
+          : overrides.approvalRequired
+            ? {
+                savedGroups: [
+                  {
+                    required: true,
+                    ...(overrides.requireMetadataReview !== undefined
+                      ? {
+                          requireMetadataReview:
+                            overrides.requireMetadataReview,
+                        }
+                      : {}),
+                  },
+                ],
+              }
+            : { savedGroups: [{ required: false }] },
       },
     },
     permissions,
+    hasPremiumFeature: (feature: string) =>
+      feature === "require-approvals"
+        ? (overrides.hasRequireApprovals ?? true)
+        : false,
     models: {
       savedGroups: overrides.savedGroupsModel ?? {
         getById: jest.fn(),
@@ -180,10 +195,20 @@ describe("savedGroupAdapter", () => {
       expect(savedGroupAdapter.isApprovalRequired(ctx)).toBe(false);
     });
 
+    it("returns false when the org does not have the require-approvals feature", () => {
+      const ctx = makeContext({
+        approvalRequired: true,
+        hasRequireApprovals: false,
+      });
+      expect(savedGroupAdapter.isRevisionRequired(ctx)).toBe(false);
+      expect(savedGroupAdapter.isApprovalRequired(ctx)).toBe(false);
+    });
+
     it("returns false when settings are missing entirely", () => {
       const ctx = {
         org: { settings: undefined },
         permissions: {},
+        hasPremiumFeature: () => true,
         models: {},
       } as unknown as Context;
       expect(savedGroupAdapter.isRevisionRequired(ctx)).toBe(false);
@@ -212,6 +237,19 @@ describe("savedGroupAdapter", () => {
           buildRevision(metadataOnlyChanges),
         ),
       ).toBe(false);
+      expect(
+        savedGroupAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision(contentChanges),
+        ),
+      ).toBe(false);
+    });
+
+    it("returns false when approval settings are enabled but not licensed", () => {
+      const ctx = makeContext({
+        approvalRequired: true,
+        hasRequireApprovals: false,
+      });
       expect(
         savedGroupAdapter.isApprovalRequiredForRevision!(
           ctx,
@@ -313,32 +351,47 @@ describe("savedGroupAdapter", () => {
       expect(canReadMultiProjectResource).toHaveBeenCalledWith(["prj-1"]);
     });
 
-    it("canCreate / canUpdate both delegate to canUpdateSavedGroup", () => {
-      const canUpdateSavedGroup = jest.fn(() => true);
-      const ctx = makeContext({ permissions: { canUpdateSavedGroup } });
+    // Their only remaining consumers land a change on the live entity — the
+    // destination-project check on a publish that moves projects, and the bulk
+    // publisher's move guard — so both ask for publish authority.
+    it("canCreate / canUpdate both ask for saved-group publish authority", () => {
+      const canRevisionAction = jest.fn(() => true);
+      const ctx = makeContext({ permissions: { canRevisionAction } });
       expect(savedGroupAdapter.canCreate(ctx, baseGroup)).toBe(true);
       expect(savedGroupAdapter.canUpdate(ctx, baseGroup)).toBe(true);
-      expect(canUpdateSavedGroup).toHaveBeenCalledTimes(2);
-      expect(canUpdateSavedGroup).toHaveBeenNthCalledWith(1, baseGroup, {});
+      expect(canRevisionAction).toHaveBeenCalledTimes(2);
+      expect(canRevisionAction).toHaveBeenNthCalledWith(
+        1,
+        "saved-group",
+        "publish",
+        baseGroup,
+        [],
+      );
     });
 
     it("canDelete with no projects checks bypass on the empty project", () => {
-      const canBypassApprovalChecks = jest.fn(() => true);
-      const ctx = makeContext({ permissions: { canBypassApprovalChecks } });
+      const canBypassSavedGroupApprovalChecks = jest.fn(() => true);
+      const ctx = makeContext({
+        permissions: { canBypassSavedGroupApprovalChecks },
+      });
       const groupNoProjects: SavedGroupInterface = {
         ...baseGroup,
         projects: undefined,
       };
       expect(savedGroupAdapter.canDelete(ctx, groupNoProjects)).toBe(true);
-      expect(canBypassApprovalChecks).toHaveBeenCalledWith({ project: "" });
+      expect(canBypassSavedGroupApprovalChecks).toHaveBeenCalledWith({
+        project: "",
+      });
     });
 
     it("canDelete with multiple projects requires bypass on every project", () => {
       const allowedProjects = new Set(["prj-1", "prj-2"]);
-      const canBypassApprovalChecks = jest.fn(
+      const canBypassSavedGroupApprovalChecks = jest.fn(
         ({ project }: { project: string }) => allowedProjects.has(project),
       );
-      const ctx = makeContext({ permissions: { canBypassApprovalChecks } });
+      const ctx = makeContext({
+        permissions: { canBypassSavedGroupApprovalChecks },
+      });
       const group: SavedGroupInterface = {
         ...baseGroup,
         projects: ["prj-1", "prj-2"],
@@ -349,16 +402,18 @@ describe("savedGroupAdapter", () => {
         ({ project }: { project: string }) => project !== "prj-2",
       );
       const ctx2 = makeContext({
-        permissions: { canBypassApprovalChecks: partialDeny },
+        permissions: { canBypassSavedGroupApprovalChecks: partialDeny },
       });
       expect(savedGroupAdapter.canDelete(ctx2, group)).toBe(false);
     });
 
     it("canBypassApproval mirrors canDelete logic", () => {
-      const canBypassApprovalChecks = jest.fn(
+      const canBypassSavedGroupApprovalChecks = jest.fn(
         ({ project }: { project: string }) => project === "prj-1",
       );
-      const ctx = makeContext({ permissions: { canBypassApprovalChecks } });
+      const ctx = makeContext({
+        permissions: { canBypassSavedGroupApprovalChecks },
+      });
       // Single allowed project
       expect(savedGroupAdapter.canBypassApproval(ctx, baseGroup)).toBe(true);
       // Multi-project — partial deny
@@ -418,6 +473,10 @@ describe("savedGroupAdapter", () => {
       expect(update).toHaveBeenCalledWith(
         baseGroup,
         expect.objectContaining({ groupName: "renamed" }),
+        undefined,
+        // The write reports what it persisted from INSIDE itself, so a throw in a
+        // post-write hook is still seen as a persisted change.
+        expect.objectContaining({ onWritten: expect.any(Function) }),
       );
       const [, changes] = update.mock.calls[0];
       expect(changes).not.toHaveProperty("description");
@@ -470,5 +529,112 @@ describe("revisions registry", () => {
     const ctxOff = makeContext({ approvalRequired: false });
     expect(isRevisionRequired(ctxOn, "saved-group", "sg-1")).toBe(true);
     expect(isRevisionRequired(ctxOff, "saved-group", "sg-1")).toBe(false);
+  });
+});
+
+describe("savedGroupAdapter.reviewRequirementForRevision", () => {
+  const valueChange: JsonPatchOperation[] = [
+    { op: "replace", path: "/values", value: ["c"] } as JsonPatchOperation,
+  ];
+  const metadataChange: JsonPatchOperation[] = [
+    { op: "replace", path: "/description", value: "new" } as JsonPatchOperation,
+  ];
+
+  it("carries the governing project's rule so its required teams apply", () => {
+    const context = makeContext({
+      savedGroups: [
+        { projects: [], required: true, requiredApproverTeams: ["t_sec"] },
+        { projects: ["prj-1"], required: true },
+      ],
+    });
+
+    const requirement = savedGroupAdapter.reviewRequirementForRevision?.(
+      context,
+      buildRevision(valueChange, { projects: ["prj-1"] }),
+    );
+
+    expect(requirement?.required).toBe(true);
+    // Inherited from the all-projects layer, which the override left unset.
+    expect(requirement?.rules).toEqual([
+      expect.objectContaining({ requiredApproverTeams: ["t_sec"] }),
+    ]);
+  });
+
+  // Each project's rule is its own requirement, so both must be reported.
+  it("returns a rule per project a multi-project group belongs to", () => {
+    const context = makeContext({
+      savedGroups: [
+        { projects: ["prj-1"], required: true, requiredApproverTeams: ["t_a"] },
+        { projects: ["prj-2"], required: true, requiredApproverTeams: ["t_b"] },
+      ],
+    });
+
+    const requirement = savedGroupAdapter.reviewRequirementForRevision?.(
+      context,
+      buildRevision(valueChange, { projects: ["prj-1", "prj-2"] }),
+    );
+
+    expect(requirement?.rules.map((r) => r.requiredApproverTeams)).toEqual([
+      ["t_a"],
+      ["t_b"],
+    ]);
+  });
+
+  it("drops rules that do not gate metadata from a metadata-only change", () => {
+    const context = makeContext({
+      savedGroups: [
+        {
+          projects: ["prj-1"],
+          required: true,
+          requireMetadataReview: false,
+          requiredApproverTeams: ["t_a"],
+        },
+        {
+          projects: ["prj-2"],
+          required: true,
+          requireMetadataReview: true,
+          requiredApproverTeams: ["t_b"],
+        },
+      ],
+    });
+
+    const requirement = savedGroupAdapter.reviewRequirementForRevision?.(
+      context,
+      buildRevision(metadataChange, { projects: ["prj-1", "prj-2"] }),
+    );
+
+    expect(requirement?.required).toBe(true);
+    expect(requirement?.rules.map((r) => r.requiredApproverTeams)).toEqual([
+      ["t_b"],
+    ]);
+  });
+
+  it("agrees with isApprovalRequiredForRevision", () => {
+    const context = makeContext({
+      savedGroups: [
+        { projects: ["prj-1"], required: true, requireMetadataReview: false },
+      ],
+    });
+    const revision = buildRevision(metadataChange, { projects: ["prj-1"] });
+
+    expect(
+      savedGroupAdapter.reviewRequirementForRevision?.(context, revision)
+        ?.required,
+    ).toBe(
+      savedGroupAdapter.isApprovalRequiredForRevision?.(context, revision),
+    );
+  });
+
+  it("requires nothing when the group's project is not governed", () => {
+    const context = makeContext({
+      savedGroups: [{ projects: ["prj-other"], required: true }],
+    });
+
+    const requirement = savedGroupAdapter.reviewRequirementForRevision?.(
+      context,
+      buildRevision(valueChange, { projects: ["prj-1"] }),
+    );
+
+    expect(requirement).toEqual({ required: false, rules: [] });
   });
 });

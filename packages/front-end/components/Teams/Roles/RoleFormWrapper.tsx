@@ -2,16 +2,13 @@ import { ReactNode } from "react";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 
 export default function RoleFormWrapper({
   children,
-  href,
-  display,
   breadcrumb,
 }: {
   children: ReactNode;
-  href: string;
-  display: string;
   breadcrumb: string;
 }) {
   const { hasCommercialFeature } = useUser();
@@ -21,9 +18,9 @@ export default function RoleFormWrapper({
   if (!permissionsUtil.canManageTeam()) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -31,10 +28,10 @@ export default function RoleFormWrapper({
   if (!hasCustomRolesFeature) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           Custom Roles are only available on the Enterprise plan. Email
           sales@growthbook.io for more information and to set up a call.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -42,10 +39,7 @@ export default function RoleFormWrapper({
     <>
       <PageHead
         breadcrumb={[
-          {
-            display,
-            href,
-          },
+          { display: "Roles", href: "/settings/team#roles" },
           { display: breadcrumb },
         ]}
       />

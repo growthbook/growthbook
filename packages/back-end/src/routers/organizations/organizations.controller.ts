@@ -3,21 +3,20 @@ import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   experimentHasLinkedChanges,
-  getRulesForEnvironment,
   getNamespaceRanges,
+  getRulesForEnvironment,
+  normalizeApprovalRuleSettings,
   parseIntWithDefaultCapped,
+  pruneApprovalRuleReferences,
 } from "shared/util";
-import {
-  getRoles,
-  areProjectRolesValid,
-  isRoleValid,
-  getDefaultRole,
-} from "shared/permissions";
+import { getRoles, getDefaultRole } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
+import { AI_PROVIDERS } from "shared/ai";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
+import { ApiKeyInterface } from "shared/types/apikey";
 import {
   GetOrganizationResponse,
   CreateOrganizationPostBody,
@@ -33,7 +32,7 @@ import {
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
-import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
+import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -42,8 +41,12 @@ import {
   acceptInvite,
   addMemberToOrg,
   addPendingMemberToOrg,
+  assertMemberRoleInfoValid,
+  assertRoleAssignmentAllowed,
+  assertRoleChangeAllowed,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
+  getAISettingsForOrg,
   getContextFromReq,
   getInviteUrl,
   getMembersOfTeam,
@@ -55,13 +58,10 @@ import {
   revokeInvite,
   setLicenseKey,
 } from "back-end/src/services/organizations";
-import {
-  getNonSensitiveParams,
-  getSourceIntegrationObject,
-} from "back-end/src/services/datasource";
 import { updatePassword } from "back-end/src/services/users";
-import { getAllTags } from "back-end/src/models/TagModel";
 import {
+  auditDetailsCreate,
+  auditDetailsDelete,
   auditDetailsUpdate,
   getRecentWatchedAudits,
   isValidAuditEntityType,
@@ -70,12 +70,12 @@ import {
   getAllFeatures,
   hasNonDemoFeature,
 } from "back-end/src/models/FeatureModel";
-import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import {
   ALLOW_SELF_ORG_CREATION,
   APP_ORIGIN,
   IS_CLOUD,
   IS_MULTI_ORG,
+  PROHIBITED_ORGANIZATION_NAME_REGEX,
 } from "back-end/src/util/secrets";
 import {
   sendInviteEmail,
@@ -85,8 +85,6 @@ import {
   sendPendingMemberApprovalEmail,
   sendOwnerEmailChangeEmail,
 } from "back-end/src/services/email";
-import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
-import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -101,7 +99,19 @@ import {
   activateRoleById,
   addGetStartedChecklistItem,
 } from "back-end/src/models/OrganizationModel";
-import { ConfigFile } from "back-end/src/init/config";
+import { ConfigFile, getConfigFileHash } from "back-end/src/init/config";
+import { getDefinitionsData } from "back-end/src/services/definitions";
+import { getDefinitionsVersionState } from "back-end/src/models/DefinitionsVersionModel";
+import {
+  buildDefinitionsEtag,
+  definitionsBuildFingerprint,
+  ifNoneMatchMatches,
+} from "back-end/src/util/definitionsEtag";
+import {
+  classifyEmail,
+  parseAttributionCookie,
+  postSignupAttributionToLicenseServer,
+} from "back-end/src/util/signup-attribution";
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
@@ -127,9 +137,9 @@ import {
   countAllAuditsByEntityType,
   countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
-import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
+  getInstallationName,
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
@@ -146,6 +156,7 @@ import {
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
+import { validatePriorSettings } from "back-end/src/util/priors";
 import {
   getInstallation,
   setInstallationName,
@@ -158,66 +169,43 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     throw new Error("Must be part of an organization");
   }
 
-  const [
-    metrics,
-    datasources,
-    dimensions,
-    segments,
-    metricGroups,
-    tags,
-    savedGroups,
-    customFields,
-    projects,
-    factTables,
-    factMetrics,
-    decisionCriteria,
-    webhookSecrets,
-  ] = await Promise.all([
-    getMetricsByOrganization(context),
-    getDataSourcesByOrganization(context),
-    findDimensionsByOrganization(orgId),
-    context.models.segments.getAll(),
-    context.models.metricGroups.getAll(),
-    getAllTags(orgId),
-    context.models.savedGroups.getAllWithoutValues(),
-    context.models.customFields.getCustomFields(),
-    context.models.projects.getAll(),
-    getAllFactTablesForOrganization(context),
-    context.models.factMetrics.getAll(),
-    context.models.decisionCriteria.getAll(),
-    context.models.webhookSecrets.getAllForFrontEnd(),
-  ]);
+  // Short-circuit with a cheap 304 before the expensive reads below when the
+  // client's cached copy is still current. The ETag combines the org's global
+  // definitions version and the versions of the projects this user can read
+  // (both bumped by relevant writes via touchDefinitionsVersion) with the
+  // user's permission fingerprint (the response is permission-filtered) and,
+  // under config.yml, the parsed file's hash (file-managed resources bypass the
+  // Mongo writes that bump the version). Gated behind a feature flag.
+  if (req.gb?.getFeatureValue("definitions-etag-304", true) === true) {
+    const { version, projectVersions } =
+      await getDefinitionsVersionState(orgId);
+    const etag = buildDefinitionsEtag({
+      version,
+      projectVersions,
+      organization: orgId,
+      permissionsFingerprint: context.getPermissionsFingerprint(),
+      buildFingerprint: definitionsBuildFingerprint(),
+      // null = the user can read all projects, so every project's version counts.
+      readableProjects:
+        context.permissions.getProjectsWithPermission("readData"),
+      configFileHash: getConfigFileHash(),
+    });
+    // Make the browser behavior we rely on explicit: store, but always
+    // revalidate (private keeps shared caches out). Vary on the org header so
+    // the cache doesn't reuse one org's entry for another.
+    res.set("Cache-Control", "private, no-cache");
+    res.vary("X-Organization");
+    res.set("ETag", etag);
+    if (ifNoneMatchMatches(req.headers["if-none-match"], etag)) {
+      return res.status(304).end();
+    }
+  }
+
+  const definitions = await getDefinitionsData(context);
 
   return res.status(200).json({
     status: 200,
-    metrics,
-    datasources: datasources.map((d) => {
-      const integration = getSourceIntegrationObject(context, d);
-      return {
-        id: d.id,
-        name: d.name,
-        description: d.description,
-        type: d.type,
-        settings: d.settings,
-        params: getNonSensitiveParams(integration),
-        projects: d.projects || [],
-        properties: integration.getSourceProperties(),
-        decryptionError: integration.decryptionError || false,
-        dateCreated: d.dateCreated,
-        dateUpdated: d.dateUpdated,
-      };
-    }),
-    dimensions,
-    segments,
-    metricGroups,
-    tags,
-    savedGroups,
-    customFields: customFields?.fields ?? [],
-    projects,
-    factTables,
-    factMetrics,
-    decisionCriteria,
-    webhookSecrets,
+    ...definitions,
   });
 }
 
@@ -270,6 +258,13 @@ export async function getAllHistory(
       status: 400,
       message: `${type} is not a valid entity type. Possible entity types are: ${entityTypes}`,
     });
+  }
+
+  // API key history can expose roles/scope/descriptions, so gate it behind the
+  // same admin permission used to manage keys (matching the admin-gated UI).
+  // Other entity types keep their existing org-scoped access.
+  if (type === "apiKey" && !context.permissions.canCreateApiKey()) {
+    context.permissions.throwPermissionError();
   }
 
   // Get total count for display
@@ -356,6 +351,13 @@ export async function getHistory(
     });
   }
 
+  // API key history can expose roles/scope/descriptions, so gate it behind the
+  // same admin permission used to manage keys (matching the admin-gated UI).
+  // Other entity types keep their existing org-scoped access.
+  if (type === "apiKey" && !context.permissions.canCreateApiKey()) {
+    context.permissions.throwPermissionError();
+  }
+
   // Get total count for display
   const [entityCount, parentCount] = await Promise.all([
     countAuditByEntity(org.id, type, id),
@@ -432,8 +434,13 @@ export async function putMemberRole(
     context.permissions.throwPermissionError();
   }
   const { org, userId } = context;
-  const { role, limitAccessByEnvironment, environments, projectRoles } =
-    req.body;
+  const {
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+    additionalRoles,
+  } = req.body;
   const { id } = req.params;
 
   if (id === userId) {
@@ -443,21 +450,47 @@ export async function putMemberRole(
     });
   }
 
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
+    });
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
   }
 
-  let found = false;
+  const existingMember = [...org.members, ...(org.pendingMembers || [])].find(
+    (m) => m.id === id,
+  );
+  if (!existingMember) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find member",
+    });
+  }
+  try {
+    // Only gate a role change so existing assignments keep working
+    assertRoleChangeAllowed(org, existingMember.role, role);
+  } catch (e) {
+    return res.status(e.status || 400).json({
+      status: e.status || 400,
+      message: e.message,
+    });
+  }
+
   org.members.forEach((m) => {
     if (m.id === id) {
       m.role = role;
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
-      found = true;
+      m.additionalRoles = additionalRoles || [];
     }
   });
   org?.pendingMembers?.forEach((m) => {
@@ -466,16 +499,9 @@ export async function putMemberRole(
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
-      found = true;
+      m.additionalRoles = additionalRoles || [];
     }
   });
-
-  if (!found) {
-    return res.status(404).json({
-      status: 404,
-      message: "Cannot find member",
-    });
-  }
 
   try {
     await updateOrganization(org.id, {
@@ -524,18 +550,13 @@ export async function putMemberProjectRole(
     });
   }
 
-  // Validate the project role
-  const { memberIsValid, reason } = validateRoleAndEnvs(
-    org,
-    projectRole.role,
-    projectRole.limitAccessByEnvironment || false,
-    projectRole.environments,
-  );
-
-  if (!memberIsValid) {
+  try {
+    // The whole rule, additional roles included — nothing rides in unchecked.
+    assertMemberRoleInfoValid(org, projectRole);
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: reason,
+      message: e.message,
     });
   }
   const updatedProjectRole: ProjectMemberRole = {
@@ -629,7 +650,7 @@ export async function putMember(
     );
     if (invite) {
       // if user already invited, accept invite
-      await acceptInvite(invite.key, req.userId);
+      await acceptInvite(invite.key, req.userId, req.email);
     } else if (organization.autoApproveMembers) {
       // if auto approve, add user as member
       await addMemberToOrg({
@@ -784,19 +805,47 @@ export async function putInviteRole(
   }
 
   const { org } = context;
-  const { role, limitAccessByEnvironment, environments, projectRoles } =
-    req.body;
+  const {
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+    additionalRoles,
+  } = req.body;
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
+    });
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
   }
 
-  let found = false;
+  const existingInvite = originalInvites.find((m) => m.key === key);
+  if (!existingInvite) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find member",
+    });
+  }
+  try {
+    // Only gate a role change so existing invites keep working
+    assertRoleChangeAllowed(org, existingInvite.role, role);
+  } catch (e) {
+    return res.status(e.status || 400).json({
+      status: e.status || 400,
+      message: e.message,
+    });
+  }
 
   org.invites.forEach((m) => {
     if (m.key === key) {
@@ -804,16 +853,9 @@ export async function putInviteRole(
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
-      found = true;
+      m.additionalRoles = additionalRoles || [];
     }
   });
-
-  if (!found) {
-    return res.status(404).json({
-      status: 404,
-      message: "Cannot find member",
-    });
-  }
 
   try {
     await updateOrganization(org.id, {
@@ -842,7 +884,7 @@ export async function putInviteRole(
 }
 
 export async function getOrganization(
-  req: AuthRequest,
+  req: AuthRequest<unknown, unknown, { forceLicenseRefresh?: string }>,
   res: Response<GetOrganizationResponse | { status: 200; organization: null }>,
 ) {
   if (!req.organization) {
@@ -851,8 +893,11 @@ export async function getOrganization(
       organization: null,
     });
   }
+
   const context = getContextFromReq(req);
   const { org, userId } = context;
+  const forceLicenseRefresh = req.query.forceLicenseRefresh !== undefined;
+
   const {
     invites,
     members,
@@ -871,22 +916,44 @@ export async function getOrganization(
     isVercelIntegration,
   } = org;
 
-  let license: Partial<LicenseInterface> | null = null;
-  if (licenseKey || process.env.LICENSE_KEY) {
-    // automatically set the license data based on org license key
-    license = getLicense(licenseKey || process.env.LICENSE_KEY);
-    if (!license || (license.organizationId && license.organizationId !== id)) {
-      try {
-        license =
-          (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
-          null;
-      } catch (e) {
-        logger.error(e, "setting license failed");
+  const resolveLicense =
+    async (): Promise<Partial<LicenseInterface> | null> => {
+      if (!licenseKey && !process.env.LICENSE_KEY) return null;
+      // automatically set the license data based on org license key
+      let license: Partial<LicenseInterface> | null =
+        getLicense(licenseKey || process.env.LICENSE_KEY) || null;
+      if (
+        forceLicenseRefresh ||
+        !license ||
+        (license.organizationId && license.organizationId !== id)
+      ) {
+        try {
+          license =
+            (await licenseInit(
+              org,
+              getUserCodesForOrg,
+              getLicenseMetaData,
+              forceLicenseRefresh,
+            )) || null;
+        } catch (e) {
+          logger.error(e, "setting license failed");
+          if (forceLicenseRefresh) {
+            throw e;
+          }
+        }
       }
-    }
-  }
+      return license;
+    };
 
-  const installationName = (await getLicenseMetaData())?.installationName;
+  // These lookups don't depend on each other, so run them in parallel
+  const [license, installationName, expandedMembers, agreements, watch] =
+    await Promise.all([
+      resolveLicense(),
+      getInstallationName(org),
+      expandOrgMembers(members, userId),
+      context.models.agreements.getAll(),
+      context.models.watch.getWatchedByUser(userId),
+    ]);
 
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
     context.permissions.canReadMultiProjectResource(attribute.projects),
@@ -908,9 +975,13 @@ export async function getOrganization(
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
-  const expandedMembers = await expandOrgMembers(members, userId);
+  // Returned here so every page can gate AI affordances off the org's real key
+  // state without a second request. The keys never leave the back end.
+  const { keySource } = await getAISettingsForOrg(context);
+  const aiKeyProviders = AI_PROVIDERS.filter((p) => keySource[p] !== "none");
 
-  const teams = await context.models.teams.getAll();
+  // Teams were already loaded (unfiltered) by the auth middleware
+  const teams = context.teams;
 
   const teamsWithMembers: TeamInterface[] = teams.map((team) => {
     const memberIds = getMembersOfTeam(org, team.id);
@@ -925,23 +996,21 @@ export async function getOrganization(
     org,
     teams || [],
   );
-  const agreements = await context.models.agreements.getAll();
   const agreementsAgreed = Array.from(
     new Set(agreements.map((a) => a.agreement as AgreementType)),
   );
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
-  const watch = await context.models.watch.getWatchedByUser(userId);
-
   const commercialFeatureLowestPlan = getLowestPlanPerFeature(accountFeatures);
+  const effectiveAccountPlan = getEffectiveAccountPlan(org);
 
   return res.status(200).json({
     status: 200,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
-    effectiveAccountPlan: getEffectiveAccountPlan(org),
+    effectiveAccountPlan,
     licenseError: getLicenseError(org),
-    commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
+    commercialFeatures: [...accountFeatures[effectiveAccountPlan]],
     commercialFeatureLowestPlan: commercialFeatureLowestPlan,
     roles: getRoles(org),
     members: expandedMembers,
@@ -951,6 +1020,7 @@ export async function getOrganization(
     installationName: installationName || null,
     subscription: license ? getSubscriptionFromLicense(license) : null,
     agreements: agreementsAgreed || [],
+    aiKeyProviders,
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],
@@ -972,12 +1042,14 @@ export async function getOrganization(
       customRoles: org.customRoles,
       deactivatedRoles: org.deactivatedRoles,
       isVercelIntegration,
+      limits: org.limits,
       settings: {
         ...settings,
         attributeSchema: filteredAttributes,
         environments: filteredEnvironments,
       },
       autoApproveMembers: org.autoApproveMembers,
+      suspended: org.suspended,
       members: org.members,
       messages: messages || [],
       pendingMembers: org.pendingMembers,
@@ -1320,10 +1392,10 @@ export async function postInviteAccept(
   const { key } = req.body;
 
   try {
-    if (!req.userId) {
+    if (!req.userId || !req.email) {
       throw new Error("Must be logged in");
     }
-    const org = await acceptInvite(key, req.userId);
+    const org = await acceptInvite(key, req.userId, req.email);
     await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 
     return res.status(200).json({
@@ -1353,26 +1425,29 @@ export async function postInvite(
   }
 
   const { org } = context;
-  const { email, role, limitAccessByEnvironment, environments, projectRoles } =
-    req.body;
+  const {
+    email,
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+    additionalRoles,
+  } = req.body;
 
   // Make sure role is valid
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
+    });
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
-  }
-
-  const license = getLicense();
-  if (
-    license &&
-    license.hardCap &&
-    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
-  ) {
-    throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
-    );
   }
 
   const { emailSent, inviteUrl } = await inviteUser({
@@ -1382,6 +1457,7 @@ export async function postInvite(
     limitAccessByEnvironment,
     environments,
     projectRoles,
+    additionalRoles,
     invitedBy: req.email,
   });
 
@@ -1503,6 +1579,19 @@ export async function signup(
     if (company.length < 3) {
       throw Error("Company length must be at least 3 characters");
     }
+    if (IS_CLOUD && PROHIBITED_ORGANIZATION_NAME_REGEX?.test(company)) {
+      req.log.warn(
+        {
+          event: "signup_blocked_prohibited_organization_name",
+          company,
+          userId: req.userId,
+        },
+        "Blocked signup with prohibited organization name",
+      );
+      throw Error(
+        "Unable to create organization. Please contact support@growthbook.io",
+      );
+    }
     if (!req.userId) {
       throw Error("Must be logged in");
     }
@@ -1514,6 +1603,26 @@ export async function signup(
       externalId,
       demographicData,
     });
+
+    // Forward marketing attribution to central-license-server for the new
+    // org owner (best-effort, Cloud-only). Failures are logged and swallowed
+    // so attribution issues never block org creation.
+    if (IS_CLOUD) {
+      try {
+        await postSignupAttributionToLicenseServer({
+          organizationId: org.id,
+          userId: req.userId,
+          email: req.email,
+          emailType: classifyEmail(req.email),
+          attribution: parseAttributionCookie(req),
+        });
+      } catch (e) {
+        req.log.error(
+          e,
+          "Failed to forward signup attribution to license server",
+        );
+      }
+    }
 
     req.organization = org;
     const context = getContextFromReq(req);
@@ -1591,6 +1700,15 @@ export async function putOrganization(
         throw new Error(
           "Not supported: Updating namespaces not supported via this route.",
         );
+      } else if (k === "defaultRole") {
+        if (!context.permissions.canManageOrgSettings()) {
+          context.permissions.throwPermissionError();
+        }
+        const newRole = settings.defaultRole?.role;
+        if (newRole) {
+          // Only gate a change so an existing non-admin default keeps working
+          assertRoleChangeAllowed(org, getDefaultRole(org).role, newRole);
+        }
       } else {
         if (!context.permissions.canManageOrgSettings()) {
           context.permissions.throwPermissionError();
@@ -1603,6 +1721,13 @@ export async function putOrganization(
     const updates: Partial<OrganizationInterface> = {};
 
     const orig: Partial<OrganizationInterface> = {};
+    if (!context.hasPremiumFeature("require-approvals")) {
+      if (settings?.approvalFlows?.savedGroups?.some((sg) => sg?.required)) {
+        throw new Error(
+          "Saved Groups approval flows require the Require Approvals enterprise feature.",
+        );
+      }
+    }
 
     if (name) {
       updates.name = name;
@@ -1654,7 +1779,15 @@ export async function putOrganization(
     if (settings) {
       updates.settings = {
         ...org.settings,
-        ...settings,
+        // Drops rule references to deleted teams/environments, so the settings
+        // UI's "Saving removes it" note is true.
+        ...pruneApprovalRuleReferences(
+          normalizeApprovalRuleSettings(settings),
+          {
+            environments: (org.settings?.environments ?? []).map((e) => e.id),
+            teams: (context.teams ?? []).map((t) => t.id),
+          },
+        ),
       };
       orig.settings = org.settings;
     }
@@ -1663,6 +1796,20 @@ export async function putOrganization(
       updates.licenseKey = licenseKey.trim();
       orig.licenseKey = org.licenseKey;
       await setLicenseKey(org, updates.licenseKey);
+    }
+
+    validatePriorSettings(updates.settings?.metricDefaults?.priorSettings);
+
+    const topValuesLookbackValue = settings?.topValuesLookbackValue;
+    if (
+      typeof topValuesLookbackValue === "number" &&
+      (!Number.isInteger(topValuesLookbackValue) ||
+        topValuesLookbackValue <= 0 ||
+        topValuesLookbackValue > 365)
+    ) {
+      throw new Error(
+        "Top values lookback value must be an integer between 1 and 365",
+      );
     }
 
     await updateOrganization(org.id, updates);
@@ -1751,7 +1898,11 @@ export const autoAddGroupsAttribute = async (
 export async function getApiKeys(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
   const keys = await context.models.apiKeys.getAll();
-  const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
+  // Exclude OAuth-issued access tokens (they carry an oauthClientId): they're
+  // hashed and short-lived, so they don't belong in the API Keys / PAT UI.
+  const filteredKeys = keys.filter(
+    (k) => !k.oauthClientId && (!k.userId || k.userId === req.userId),
+  );
 
   res.status(200).json({
     status: 200,
@@ -1765,6 +1916,7 @@ export async function postApiKey(
     type: string;
     limitAccessByEnvironment?: boolean;
     environments?: string[];
+    additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ProjectMemberRole[];
   }>,
   res: Response,
@@ -1776,9 +1928,11 @@ export async function postApiKey(
     type,
     limitAccessByEnvironment,
     environments,
+    additionalRoles,
     projectRoles,
   } = req.body;
 
+  let key: ApiKeyInterface;
   // Handle user personal access tokens
   if (type === "user") {
     if (!userId) {
@@ -1786,31 +1940,98 @@ export async function postApiKey(
         "Cannot create user personal access token without a user ID",
       );
     }
-    const key = await context.models.apiKeys.createUserPersonalAccessApiKey({
+    key = await context.models.apiKeys.createUserPersonalAccessApiKey({
       description,
       userId: userId,
-    });
-
-    return res.status(200).json({
-      status: 200,
-      key,
     });
   }
   // Handle organization secret tokens
   else {
-    const key = await context.models.apiKeys.createOrganizationApiKey({
+    key = await context.models.apiKeys.createOrganizationApiKey({
       description,
       roleId: type,
       limitAccessByEnvironment,
       environments,
+      additionalRoles,
+      projectRoles,
+    });
+  }
+
+  await req.audit({
+    event: "apiKey.create",
+    entity: {
+      object: "apiKey",
+      id: key.id || "",
+      name: key.description,
+    },
+    details: auditDetailsCreate(ApiKeyModel.toAuditDetails(key)),
+  });
+
+  return res.status(200).json({
+    status: 200,
+    key,
+  });
+}
+
+export async function putApiKey(
+  req: AuthRequest<
+    {
+      role: string;
+      description?: string;
+      limitAccessByEnvironment?: boolean;
+      environments?: string[];
+      additionalRoles?: ApiKeyInterface["additionalRoles"];
+      projectRoles?: ProjectMemberRole[];
+    },
+    { id: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const {
+    role,
+    description,
+    limitAccessByEnvironment,
+    environments,
+    additionalRoles,
+    projectRoles,
+  } = req.body;
+
+  // Editing a key's authority is at least as sensitive as revealing it, so we
+  // mirror the admin/owner-only gate that postApiKeyReveal uses for non-user
+  // keys (permissions.canCreateApiKey()).
+  if (!context.permissions.canCreateApiKey()) {
+    context.permissions.throwPermissionError();
+  }
+
+  // The model returns both the pre- and post-update docs from a single read so
+  // the audit log can diff the permission scope. If the key doesn't exist the
+  // model throws, so there is always a before-state here.
+  const { before, after } =
+    await context.models.apiKeys.updateSecretApiKeyPermissions(id, {
+      role,
+      description,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
       projectRoles,
     });
 
-    return res.status(200).json({
-      status: 200,
-      key,
-    });
-  }
+  await req.audit({
+    event: "apiKey.update",
+    entity: {
+      object: "apiKey",
+      id,
+      name: after.description,
+    },
+    details: auditDetailsUpdate(
+      ApiKeyModel.toAuditDetails(before),
+      ApiKeyModel.toAuditDetails(after),
+    ),
+  });
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function deleteApiKey(
@@ -1824,10 +2045,20 @@ export async function deleteApiKey(
     throw new Error("Must provide either an API key or id in order to delete");
   }
 
-  await context.models.apiKeys.deleteByIdOrKey(
+  const deleted = await context.models.apiKeys.deleteByIdOrKey(
     id || undefined,
     key || undefined,
   );
+
+  await req.audit({
+    event: "apiKey.delete",
+    entity: {
+      object: "apiKey",
+      id: deleted.id || "",
+      name: deleted.description,
+    },
+    details: auditDetailsDelete(ApiKeyModel.toAuditDetails(deleted)),
+  });
 
   res.status(200).json({
     status: 200,
@@ -1842,7 +2073,25 @@ export async function putApiKeyDisabled(
   const { id } = req.params;
   const { disabled } = req.body;
 
-  await context.models.apiKeys.setDisabled(id, disabled);
+  // `setDisabled` returns both the pre- and post-update docs so we can log the
+  // before/after state from the real persisted doc.
+  const { before, after } = await context.models.apiKeys.setDisabled(
+    id,
+    disabled,
+  );
+
+  await req.audit({
+    event: disabled ? "apiKey.disable" : "apiKey.enable",
+    entity: {
+      object: "apiKey",
+      id: after.id || "",
+      name: after.description,
+    },
+    details: auditDetailsUpdate(
+      ApiKeyModel.toAuditDetails(before),
+      ApiKeyModel.toAuditDetails(after),
+    ),
+  });
 
   res.status(200).json({ status: 200 });
 }
@@ -2121,22 +2370,27 @@ export async function addOrphanedUser(
   }
 
   // Make sure role is valid
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
+    });
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
   }
 
-  const license = getLicense();
-  if (
-    license &&
-    license.hardCap &&
-    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
-  ) {
-    throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
-    );
+  try {
+    assertRoleAssignmentAllowed(org, role);
+  } catch (e) {
+    return res.status(e.status || 400).json({
+      status: e.status || 400,
+      message: e.message,
+    });
   }
 
   await addMemberToOrg({
@@ -2304,31 +2558,10 @@ export async function putDefaultRole(
     context.permissions.throwPermissionError();
   }
 
-  const { memberIsValid, reason } = validateRoleAndEnvs(
-    org,
-    defaultRole.role,
-    defaultRole.limitAccessByEnvironment,
-    defaultRole.environments,
-  );
+  // Only gate a change so an existing non-admin default keeps working
+  assertRoleChangeAllowed(org, getDefaultRole(org).role, defaultRole.role);
 
-  if (!memberIsValid) {
-    throw new Error(reason);
-  }
-
-  if (defaultRole.projectRoles?.length) {
-    defaultRole.projectRoles.forEach((p) => {
-      const { memberIsValid, reason } = validateRoleAndEnvs(
-        org,
-        p.role,
-        p.limitAccessByEnvironment,
-        p.environments,
-      );
-
-      if (!memberIsValid) {
-        throw new Error(reason);
-      }
-    });
-  }
+  assertMemberRoleInfoValid(org, defaultRole);
 
   updateOrganization(org.id, {
     settings: {

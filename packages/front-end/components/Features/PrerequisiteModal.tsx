@@ -26,6 +26,9 @@ import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
+import { ConflictShell } from "@/components/DraftConflicts/ConflictContext";
+import HelperText from "@/ui/HelperText";
+import Button from "@/ui/Button";
 import {
   PrerequisiteStateResult,
   useBatchPrerequisiteStates,
@@ -78,8 +81,12 @@ export default function PrerequisiteModal({
 
   const defaultDraft = useDefaultDraft(revisionList);
 
+  // Pinned at open: an index-based edit is only meaningful against this list.
+  const [baselineList] = useState(() => prerequisites);
+  const [staleList, setStaleList] = useState(false);
+
   const [mode, setMode] = useState<DraftMode>(
-    defaultDraft != null ? "existing" : "new",
+    defaultDraft !== null ? "existing" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
@@ -104,7 +111,6 @@ export default function PrerequisiteModal({
   });
 
   const selectedFeatureId = form.watch("id");
-  const selectedPrerequisite = form.getValues();
   const parentFeatureMeta = featureNames.find(
     (f) => f.id === selectedFeatureId,
   );
@@ -123,23 +129,12 @@ export default function PrerequisiteModal({
     [featureNames, feature?.id],
   );
 
-  const { results: batchStates, checkPrerequisiteCyclic } =
-    useBatchPrerequisiteStates({
-      baseFeatureId: feature.id,
-      featureIds,
-      environments: envs,
-      enabled: featureIds.length > 0 && envs.length > 0,
-      checkPrerequisite: selectedPrerequisite.id
-        ? {
-            id: selectedPrerequisite.id,
-            condition: selectedPrerequisite.condition,
-            prerequisiteIndex: i,
-          }
-        : undefined,
-    });
-
-  const isCyclic = checkPrerequisiteCyclic?.wouldBeCyclic ?? false;
-  const cyclicFeatureId = checkPrerequisiteCyclic?.cyclicFeatureId ?? null;
+  const { results: batchStates } = useBatchPrerequisiteStates({
+    baseFeatureId: feature.id,
+    featureIds,
+    environments: envs,
+    enabled: featureIds.length > 0 && envs.length > 0,
+  });
 
   const featuresStates: Record<
     string,
@@ -161,6 +156,12 @@ export default function PrerequisiteModal({
     }
     return states;
   }, [batchStates]);
+
+  const isCyclic = selectedFeatureId
+    ? (wouldBeCyclicStates[selectedFeatureId] ?? false)
+    : false;
+  const cyclicFeatureId = isCyclic ? selectedFeatureId : null;
+
   const { states: prereqStates, loading: prereqStatesLoading } =
     usePrerequisiteStates({
       featureId: selectedFeatureId,
@@ -209,9 +210,7 @@ export default function PrerequisiteModal({
       const cyclic = targetEnv
         ? featureStates[targetEnv]?.state === "cyclic"
         : false;
-      const wouldBeCyclic = targetEnv
-        ? wouldBeCyclicStates[f.id] || false
-        : false;
+      const wouldBeCyclic = wouldBeCyclicStates[f.id] || false;
 
       const states = targetEnv
         ? [featureStates[targetEnv]].filter(Boolean)
@@ -258,14 +257,19 @@ export default function PrerequisiteModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}
       size="lg"
       cta="Save"
-      ctaEnabled={canSubmit}
+      ctaEnabled={canSubmit && !staleList}
+      disabledMessage={
+        staleList ? "Reload to edit against the current list." : undefined
+      }
       header={prerequisite ? "Edit Prerequisite" : "New Prerequisite"}
       submit={form.handleSubmit(async (values) => {
+        if (staleList) return;
         if (!values.condition) {
           values.condition = getDefaultPrerequisiteCondition(parentFeature);
         }
@@ -280,17 +284,27 @@ export default function PrerequisiteModal({
           mode === "existing"
             ? { targetDraftVersion: selectedDraft }
             : { forceNewDraft: true };
-        const res = await apiCall<{ version: number }>(
+        const res = await apiCall<{ draftVersion: number }>(
           `/feature/${feature.id}/prerequisite`,
           {
             method: action === "add" ? "POST" : "PUT",
-            body: JSON.stringify({ prerequisite: values, i, ...draftBody }),
+            body: JSON.stringify({
+              prerequisite: values,
+              i,
+              // An add appends to the current list, so only an edit needs the
+              // guard — its index would otherwise retarget.
+              ...(action === "edit" ? { baseline: baselineList } : {}),
+              ...draftBody,
+            }),
+          },
+          (responseData) => {
+            if (responseData?.status === 409) setStaleList(true);
           },
         );
         await mutate();
         const resolvedVersion =
-          res?.version ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null) setVersion(resolvedVersion);
+          res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
+        if (resolvedVersion !== null) setVersion(resolvedVersion);
       })}
     >
       <DraftSelectorForChanges
@@ -302,7 +316,32 @@ export default function PrerequisiteModal({
         setSelectedDraft={setSelectedDraft}
         canAutoPublish={false}
         gatedEnvSet={gatedEnvSet}
+        alert={
+          staleList ? (
+            <HelperText status="warning" icon={null}>
+              The prerequisites changed while you were editing, so this edit no
+              longer points at the same one.
+            </HelperText>
+          ) : undefined
+        }
       />
+      {staleList && (
+        <ConflictShell
+          resolved={false}
+          message={<Text>Reload to edit against the current list.</Text>}
+          choices={
+            <Button
+              size="sm"
+              onClick={async () => {
+                await mutate();
+                close();
+              }}
+            >
+              Reload
+            </Button>
+          }
+        />
+      )}
       <Text as="div" mt="2" mb="3">
         Prerequisite features must evaluate to{" "}
         <span className="rounded px-1 bg-light">

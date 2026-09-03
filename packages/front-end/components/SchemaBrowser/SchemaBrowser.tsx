@@ -1,6 +1,6 @@
 import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import { isManagedWarehouseUnavailable } from "shared/util";
 import {
   Fragment,
   useCallback,
@@ -10,13 +10,12 @@ import {
   useState,
 } from "react";
 import Collapsible from "react-collapsible";
-import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
-import { cloneDeep } from "lodash";
+import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { PiTable } from "react-icons/pi";
 import clsx from "clsx";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
-import { CursorData } from "@/components/Segments/SegmentForm";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
@@ -24,25 +23,34 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import Callout from "@/ui/Callout";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
 import BuildInformationSchemaCard from "./BuildInformationSchemaCard";
 import DatasourceTableData from "./DatasourceTableData";
+import {
+  SchemaCopyButton,
+  SchemaSqlInsertButton,
+} from "./SchemaBrowserSqlActions";
+import actionStyles from "./SchemaBrowserSqlActions.module.scss";
+
+function isActivateKey(key: string): boolean {
+  return key === "Enter" || key === " ";
+}
 
 type Props = {
   datasource: DataSourceInterfaceWithParams;
-  cursorData?: CursorData;
+  sql?: string;
   updateSqlInput?: (sql: string) => void;
 };
 
 export default function SchemaBrowser({
   datasource,
   updateSqlInput,
-  cursorData,
+  sql = "",
 }: Props) {
-  const managedWarehousePending =
-    isManagedWarehouseAwaitingProvisioning(datasource);
+  const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
 
   const { data, mutate } = useApi<{
     informationSchema: InformationSchemaInterfaceWithPaths;
@@ -55,7 +63,10 @@ export default function SchemaBrowser({
   const canRunQueries = permissionsUtil.canRunSchemaQueries(datasource);
 
   const { apiCall } = useAuth();
-  const [currentTable, setCurrentTable] = useState<string>("");
+  const [currentTable, setCurrentTable] = useState<{
+    id: string;
+    path: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fetching, setFetching] = useState<boolean>(false);
   const [tableFilter, setTableFilter] = useState("");
@@ -66,12 +77,6 @@ export default function SchemaBrowser({
 
   const [retryCount, setRetryCount] = useState(1);
 
-  const row = cursorData?.row || 0;
-  const column = cursorData?.column || 0;
-  const inputArray = useMemo(
-    () => cursorData?.input || [],
-    [cursorData?.input],
-  );
   const normalizedTableFilter = tableFilter.trim().toLowerCase();
   const isFiltering = normalizedTableFilter.length > 0;
   const filteredDatabases = useMemo(() => {
@@ -174,40 +179,10 @@ export default function SchemaBrowser({
     [apiCall, datasource.id, informationSchema?.id],
   );
 
-  function pastePathIntoExistingQuery(
-    existingQuery: string,
-    index: number,
-    pathToPaste: string,
-  ) {
-    if (index === existingQuery.length - 1) return existingQuery + pathToPaste;
-    return (
-      existingQuery.substring(0, index) +
-      pathToPaste +
-      existingQuery.substring(index)
-    );
-  }
-
-  const handleTableClick = useCallback(
-    async (e, path: string, tableId: string) => {
-      setError(null);
-      if (e.detail === 2) {
-        if (!inputArray || !updateSqlInput) return;
-        const updatedStr = pastePathIntoExistingQuery(
-          inputArray[row] || "",
-          column,
-          path,
-        );
-
-        const updatedInputArray = cloneDeep(inputArray);
-        updatedInputArray[row] = updatedStr;
-
-        updateSqlInput(updatedInputArray.join("\n"));
-      }
-
-      setCurrentTable(tableId);
-    },
-    [inputArray, updateSqlInput, row, column],
-  );
+  const selectTable = useCallback((id: string, path: string) => {
+    setError(null);
+    setCurrentTable({ id, path });
+  }, []);
 
   useEffect(() => {
     if (fetching) {
@@ -237,7 +212,7 @@ export default function SchemaBrowser({
   }, [fetching, mutate, retryCount, informationSchema]);
 
   useEffect(() => {
-    setCurrentTable("");
+    setCurrentTable(null);
     setTableFilter("");
     setSchemaOpenState({});
     hasQueuedStaleRefreshRef.current = false;
@@ -381,25 +356,59 @@ export default function SchemaBrowser({
                                 transitionTime={100}
                               >
                                 {schema.tables.map((table) => {
+                                  const tablePath = table.path;
+                                  const selected =
+                                    table.id === currentTable?.id;
                                   return (
                                     <div
                                       className={clsx(
-                                        table.id === currentTable &&
-                                          "bg-secondary rounded text-white",
+                                        actionStyles.row,
+                                        actionStyles.hoverRow,
+                                        selected && actionStyles.selectedRow,
                                         "pl-3 py-1",
                                       )}
                                       style={{ userSelect: "none" }}
-                                      role="button"
+                                      tabIndex={0}
                                       key={table.id || table.tableName}
-                                      onClick={(e) =>
-                                        handleTableClick(
-                                          e,
-                                          table.path,
-                                          table.id,
-                                        )
+                                      onClick={() =>
+                                        selectTable(table.id, tablePath)
                                       }
+                                      onKeyDown={(e) => {
+                                        if (e.target !== e.currentTarget) {
+                                          return;
+                                        }
+                                        if (isActivateKey(e.key)) {
+                                          e.preventDefault();
+                                          selectTable(table.id, tablePath);
+                                        }
+                                      }}
                                     >
-                                      <FaTable /> {table.tableName}
+                                      <PiTable />
+                                      <span className={actionStyles.label}>
+                                        {table.tableName}
+                                      </span>
+                                      <span
+                                        className={clsx(
+                                          actionStyles.actions,
+                                          actionStyles.actionsEnd,
+                                        )}
+                                      >
+                                        <SchemaCopyButton
+                                          value={tablePath}
+                                          tooltip="Copy full table path"
+                                        />
+                                        {updateSqlInput ? (
+                                          <SchemaSqlInsertButton
+                                            tooltip={`Insert SELECT * FROM ${tablePath} query into editor`}
+                                            onClick={() => {
+                                              selectTable(table.id, tablePath);
+                                              updateSqlInput(
+                                                `SELECT * FROM ${tablePath}`,
+                                              );
+                                            }}
+                                          />
+                                        ) : null}
+                                      </span>
                                     </div>
                                   );
                                 })}
@@ -450,16 +459,21 @@ export default function SchemaBrowser({
               <DatasourceTableData
                 datasource={datasource}
                 canRunQueries={canRunQueries}
-                tableId={currentTable}
-                datasourceId={datasource.id}
+                currentTable={currentTable}
                 setError={setError}
+                sql={sql}
+                updateSqlInput={updateSqlInput}
               />
             </Panel>
           </>
         )}
       </PanelGroup>
 
-      {error && <div className="alert alert-danger mt-2 mb-0">{error}</div>}
+      {error && (
+        <Callout status="error" mt="2" mb="0">
+          {error}
+        </Callout>
+      )}
     </div>
   );
 }

@@ -20,14 +20,23 @@ import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {
-  CUSTOM_FIELD_TABLE_WIDTHS,
+  CustomFieldColGroup,
   SortableCustomFieldRow,
   StaticCustomFieldRow,
 } from "@/components/CustomFields/SortableCustomField";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import CustomFieldModal from "@/components/CustomFields/CustomFieldModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
 
@@ -60,7 +69,6 @@ function CustomFieldsTable({
   handleMoveDown: (moveId: string, belowId: string) => void;
   canManage: boolean;
 }) {
-  const W = CUSTOM_FIELD_TABLE_WIDTHS;
   const colSpan = 7 + 1 + (showRequired ? 1 : 0); // +1 for menu
 
   const filteredItems = useMemo(() => {
@@ -74,35 +82,28 @@ function CustomFieldsTable({
     );
 
   return (
-    <table
-      className="table gbtable table-valign-top"
-      style={{ tableLayout: "fixed", width: "100%" }}
+    <Table
+      variant="list"
+      stickyHeader={false}
+      roundedCorners
+      layout="fixed"
+      className="appbox"
     >
-      <colgroup>
-        <col style={{ width: W.dragHandle }} />
-        <col style={{ width: W.name }} />
-        <col style={{ width: W.key }} />
-        <col style={{ width: W.description }} />
-        <col style={{ width: W.appliesTo }} />
-        <col style={{ width: W.valueType }} />
-        <col style={{ width: W.projects }} />
-        {showRequired && <col style={{ width: W.required }} />}
-        <col style={{ width: W.menu }} />
-      </colgroup>
-      <thead>
-        <tr>
-          <th style={{ padding: "0.5rem 0", textAlign: "center" }} />
-          <th>Field Name</th>
-          <th>Field Key</th>
-          <th>Description</th>
-          <th>Applies To</th>
-          <th>Value Type</th>
-          <th>Projects</th>
-          {showRequired && <th>Required</th>}
-          <th style={{ padding: "0.5rem 0", textAlign: "center" }} />
-        </tr>
-      </thead>
-      <tbody>
+      <CustomFieldColGroup showRequired={showRequired} />
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader />
+          <TableColumnHeader>Field Name</TableColumnHeader>
+          <TableColumnHeader>Field Key</TableColumnHeader>
+          <TableColumnHeader>Description</TableColumnHeader>
+          <TableColumnHeader>Applies To</TableColumnHeader>
+          <TableColumnHeader>Value Type</TableColumnHeader>
+          <TableColumnHeader>Projects</TableColumnHeader>
+          {showRequired && <TableColumnHeader>Required</TableColumnHeader>}
+          <TableColumnHeader />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {filteredItems.length > 0 ? (
           <SortableContext
             items={filteredItems}
@@ -130,27 +131,21 @@ function CustomFieldsTable({
             ))}
           </SortableContext>
         ) : (
-          <tr>
-            <td colSpan={colSpan} className="text-center text-gray">
-              <em>
-                No custom fields in this view.{" "}
-                {canManage ? (
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      openAddModal();
-                    }}
-                  >
-                    Add custom field
-                  </a>
-                ) : null}
-              </em>
-            </td>
-          </tr>
+          <TableRow>
+            <TableCell colSpan={colSpan}>
+              <Text as="div" align="center" color="text-low">
+                <em>
+                  No custom fields in this view.{" "}
+                  {canManage ? (
+                    <Link onClick={openAddModal}>Add custom field</Link>
+                  ) : null}
+                </em>
+              </Text>
+            </TableCell>
+          </TableRow>
         )}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }
 
@@ -308,64 +303,64 @@ const CustomFields: FC = () => {
               </TabsList>
             </Box>
             <TabsContent value="all">
-              <Box className="appbox">
-                <CustomFieldsTable
-                  filter="all"
-                  items={items}
-                  duplicateIds={duplicateIds}
-                  showRequired={true}
-                  deleteCustomField={deleteCustomField}
-                  toggleCustomField={toggleCustomField}
-                  setModalOpen={setModalOpen}
-                  handleMoveUp={handleMoveUp}
-                  handleMoveDown={handleMoveDown}
-                  canManage={canManage}
-                />
-              </Box>
+              <CustomFieldsTable
+                filter="all"
+                items={items}
+                duplicateIds={duplicateIds}
+                showRequired={true}
+                deleteCustomField={deleteCustomField}
+                toggleCustomField={toggleCustomField}
+                setModalOpen={setModalOpen}
+                handleMoveUp={handleMoveUp}
+                handleMoveDown={handleMoveDown}
+                canManage={canManage}
+              />
             </TabsContent>
             <TabsContent value="feature">
-              <Box className="appbox">
-                <CustomFieldsTable
-                  filter="feature"
-                  items={items}
-                  duplicateIds={duplicateIds}
-                  showRequired={true}
-                  deleteCustomField={deleteCustomField}
-                  toggleCustomField={toggleCustomField}
-                  setModalOpen={setModalOpen}
-                  handleMoveUp={handleMoveUp}
-                  handleMoveDown={handleMoveDown}
-                  canManage={canManage}
-                />
-              </Box>
+              <CustomFieldsTable
+                filter="feature"
+                items={items}
+                duplicateIds={duplicateIds}
+                showRequired={true}
+                deleteCustomField={deleteCustomField}
+                toggleCustomField={toggleCustomField}
+                setModalOpen={setModalOpen}
+                handleMoveUp={handleMoveUp}
+                handleMoveDown={handleMoveDown}
+                canManage={canManage}
+              />
             </TabsContent>
             <TabsContent value="experiment">
-              <Box className="appbox">
-                <CustomFieldsTable
-                  filter="experiment"
-                  items={items}
-                  duplicateIds={duplicateIds}
-                  showRequired={true}
-                  deleteCustomField={deleteCustomField}
-                  toggleCustomField={toggleCustomField}
-                  setModalOpen={setModalOpen}
-                  handleMoveUp={handleMoveUp}
-                  handleMoveDown={handleMoveDown}
-                  canManage={canManage}
-                />
-              </Box>
+              <CustomFieldsTable
+                filter="experiment"
+                items={items}
+                duplicateIds={duplicateIds}
+                showRequired={true}
+                deleteCustomField={deleteCustomField}
+                toggleCustomField={toggleCustomField}
+                setModalOpen={setModalOpen}
+                handleMoveUp={handleMoveUp}
+                handleMoveDown={handleMoveDown}
+                canManage={canManage}
+              />
             </TabsContent>
           </Tabs>
           <DragOverlay>
             {activeId && selectedRow ? (
-              <table style={{ width: "100%" }} className="table gbtable">
-                <tbody>
+              <Table
+                variant="list"
+                stickyHeader={false}
+                layout="fixed"
+                style={{ width: "100%" }}
+              >
+                <CustomFieldColGroup showRequired={true} />
+                <TableBody>
                   <StaticCustomFieldRow
                     customField={selectedRow}
                     showRequired={true}
                   />
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             ) : null}
           </DragOverlay>
         </DndContext>

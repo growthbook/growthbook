@@ -1,7 +1,7 @@
 import { FC, useState, useMemo } from "react";
 import { PiInfo } from "react-icons/pi";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   ExperimentSortBy,
 } from "shared/experiments";
 import {
@@ -26,7 +26,7 @@ import { filterRowsForMetricDrilldown } from "./helpers";
 import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
 
 interface MetricDrilldownSlicesProps {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   // Rows computed by parent using useExperimentTableRows
   rows: ExperimentTableRow[];
   variationNames: string[];
@@ -100,12 +100,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
 
   // Get snapshot context - this will be the local context from LocalSnapshotProvider
   // when rendered inside MetricDrilldownModal
-  const {
-    snapshot,
-    analysis,
-    setAnalysisSettings,
-    mutateSnapshot: mutate,
-  } = useSnapshot();
+  const { snapshot, analysis, setAnalysisSettings, mutate } = useSnapshot();
 
   // Check the owning org's features (via SSR data) first, then fall back to current user's org
   const hasMetricSlicesFeature =
@@ -255,7 +250,10 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
-        mutate={mutate}
+        // Forwarded to BaselineChooserColumnLabel, which appends analyses
+        // to the current snapshot in place — need `inPlace: true` so the
+        // heavy fetch refreshes (id-keyed auto-upgrade won't fire here).
+        mutate={() => mutate({ inPlace: true })}
         dimensionId={dimensionInfo?.id}
         dimensionValue={dimensionInfo?.rawValue}
       />

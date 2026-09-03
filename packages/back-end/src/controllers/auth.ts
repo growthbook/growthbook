@@ -7,6 +7,7 @@ import {
 } from "back-end/src/models/ForgotPasswordModel";
 import {
   createOrganization,
+  findOrganizationById,
   hasOrganization,
 } from "back-end/src/models/OrganizationModel";
 import { IS_CLOUD, IS_LOCALHOST } from "back-end/src/util/secrets";
@@ -29,7 +30,8 @@ import {
 } from "back-end/src/services/organizations";
 import { updatePassword, verifyPassword } from "back-end/src/services/users";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { _dangerousGetSSOConnectionByEmailDomain } from "back-end/src/models/SSOConnectionModel";
+import { _dangerousGetSSOConnectionsByEmailDomain } from "back-end/src/models/SSOConnectionModel";
+import { logger } from "back-end/src/util/logger";
 import {
   resetMinTokenDate,
   getEmailFromUserId,
@@ -38,6 +40,7 @@ import {
   getUserById,
 } from "back-end/src/models/UserModel";
 import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
+import { reissueAttributionCookie } from "back-end/src/util/signup-attribution";
 
 export async function getHasOrganizations(req: Request, res: Response) {
   const hasOrg = IS_CLOUD && !IS_LOCALHOST ? true : await hasOrganization();
@@ -49,6 +52,10 @@ export async function getHasOrganizations(req: Request, res: Response) {
 
 const auth = getAuthConnection();
 
+function getSsoConnectionIdForResponse(req: Request) {
+  return SSOConnectionIdCookie.getValue(req) || undefined;
+}
+
 export async function postRefresh(req: Request, res: Response) {
   // First try getting the idToken from cookies. If the cookie has outlived
   // the JWT (e.g. provider access_token TTL > id_token TTL), drop it and
@@ -58,6 +65,7 @@ export async function postRefresh(req: Request, res: Response) {
     return res.json({
       status: 200,
       token: idToken,
+      ssoConnectionId: getSsoConnectionIdForResponse(req),
     });
   }
   if (idToken) {
@@ -92,6 +100,7 @@ export async function postRefresh(req: Request, res: Response) {
     return res.json({
       status: 200,
       token: idToken,
+      ssoConnectionId: getSsoConnectionIdForResponse(req),
     });
   } catch (e) {
     // Could not refresh
@@ -117,6 +126,13 @@ export async function postOAuthCallback(req: Request, res: Response) {
 
     RefreshTokenCookie.setValue(refreshToken, req, res);
     setIdTokenCookie(idToken, req, res);
+
+    // Harden gb_attr against Safari ITP's 7-day JS-cookie cap by re-issuing
+    // it server-side. Cloud-only since the cookie domain (.growthbook.io)
+    // and the downstream attribution forwarding are both Cloud concerns.
+    if (IS_CLOUD) {
+      reissueAttributionCookie(req, res);
+    }
 
     return res.status(200).json({
       status: 200,
@@ -360,10 +376,40 @@ export async function getResetPassword(
   });
 }
 
-export async function getSSOConnectionFromDomain(req: Request, res: Response) {
+export async function getSSOConnectionFromDomain(
+  // eslint-disable-next-line
+  req: Request<any, any, { domain: unknown }>,
+  res: Response,
+) {
   const { domain } = req.body;
+  if (!domain || typeof domain !== "string") {
+    throw new Error("Invalid domain");
+  }
 
-  const sso = await _dangerousGetSSOConnectionByEmailDomain(domain as string);
+  const connections = await _dangerousGetSSOConnectionsByEmailDomain(domain);
+
+  // Connections whose organization has been disabled cannot be used to log in
+  const active: typeof connections = [];
+  for (const connection of connections) {
+    if (connection.organization) {
+      const org = await findOrganizationById(connection.organization);
+      if (org?.disabled) continue;
+    }
+    active.push(connection);
+  }
+
+  if (active.length > 1) {
+    // Ambiguous - we can't know which org the user intends to log in to
+    logger.error(
+      { domain, connectionIds: active.map((c) => c.id) },
+      "Multiple active SSO connections match email domain",
+    );
+    throw new Error(
+      `Multiple SSO Connections exist for *@${domain}. Please contact support.`,
+    );
+  }
+
+  const sso = active[0];
 
   if (!sso?.id) {
     throw new Error(`Unknown SSO Connection for *@${domain}`);

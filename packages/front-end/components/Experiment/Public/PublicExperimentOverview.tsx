@@ -1,12 +1,16 @@
-import {ExperimentInterfaceStringDates, LinkedFeatureInfo} from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import React from "react";
-import {VisualChangesetInterface} from "shared/types/visual-changeset";
-import {URLRedirectInterface} from "shared/types/url-redirect";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import Markdown from "@/components/Markdown/Markdown";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
-import {SSRPolyfills} from "@/hooks/useSSRPolyfills";
+import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 
 export default function PublicExperimentOverview({
   experiment,
@@ -32,7 +36,11 @@ export default function PublicExperimentOverview({
 
       <div className="box px-4 py-3 mb-4">
         <h4>Description</h4>
-        <Markdown isPublic={true} shareUid={experiment.uid} shareType="experiment">
+        <Markdown
+          isPublic={true}
+          shareUid={experiment.uid}
+          shareType="experiment"
+        >
           {experiment?.description || "_no description_"}
         </Markdown>
       </div>
@@ -74,6 +82,12 @@ export default function PublicExperimentOverview({
       <AnalysisSettings
         experiment={experiment}
         envs={[]}
+        canEdit={false}
+        ssrPolyfills={ssrPolyfills}
+        isPublic={true}
+      />
+      <DecisionMakingSettings
+        experiment={experiment}
         canEdit={false}
         ssrPolyfills={ssrPolyfills}
         isPublic={true}

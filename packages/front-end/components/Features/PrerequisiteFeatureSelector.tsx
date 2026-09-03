@@ -13,6 +13,7 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { Popover } from "@/ui/Popover";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -34,6 +35,8 @@ interface FeatureOption {
   meta: FeatureOptionMeta;
   project: string;
   projectName: string | null | undefined;
+  targetingProjectNames?: string[];
+  targetingAllProjects?: boolean;
 }
 
 interface Props {
@@ -103,6 +106,7 @@ export default function PrerequisiteFeatureSelector({
       placeholder="Select feature"
       options={groupedFeatureOptions}
       value={value}
+      size="legacy"
       onChange={(v) => {
         const meta = featureOptions.find((o) => o.value === v)?.meta;
         if (meta?.disabled) return;
@@ -115,6 +119,8 @@ export default function PrerequisiteFeatureSelector({
         const foundOption = featureOptions.find((o) => o.value === optionValue);
         const meta = foundOption?.meta;
         const projectName = foundOption?.projectName;
+        const targetingProjectNames = foundOption?.targetingProjectNames ?? [];
+        const targetingAllProjects = !!foundOption?.targetingAllProjects;
         const isSelectedValue = context === "value" && optionValue;
 
         return (
@@ -166,27 +172,65 @@ export default function PrerequisiteFeatureSelector({
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
+                fontSize: 11,
               }}
             >
-              {projectName ? (
-                <Box style={{ position: "relative", zIndex: 1000 }}>
-                  <Text size="small">
-                    <Text color="text-low">Project:</Text>{" "}
-                    <Text color="text-high">
-                      <OverflowText maxWidth={150} title={projectName}>
-                        {projectName}
-                      </OverflowText>
+              <Box style={{ position: "relative", zIndex: 1000 }}>
+                <Text size="inherit">
+                  {projectName ? (
+                    <>
+                      <Text size="inherit" color="text-low">
+                        Project:
+                      </Text>{" "}
+                      <Text size="inherit" color="text-high">
+                        <OverflowText maxWidth={150} title={projectName}>
+                          {projectName}
+                        </OverflowText>
+                      </Text>
+                    </>
+                  ) : (
+                    <Text size="inherit" color="text-low">
+                      no project
                     </Text>
-                  </Text>
-                </Box>
-              ) : (
-                <Text color="text-low">no project</Text>
-              )}
+                  )}
+                  {targetingAllProjects ? (
+                    <Text size="inherit" color="text-low">
+                      {" "}
+                      + all projects
+                    </Text>
+                  ) : targetingProjectNames.length > 0 ? (
+                    <>
+                      {" "}
+                      <Popover
+                        openOnHover
+                        anchorOnly
+                        side="top"
+                        sideOffset={8}
+                        // Native span: @/ui/Text drops Slot-injected props
+                        // (hover handlers, aria), which makes it an inert
+                        // asChild trigger.
+                        trigger={
+                          <span>
+                            <Text size="inherit" color="text-low">
+                              + {targetingProjectNames.length} more
+                            </Text>
+                          </span>
+                        }
+                        content={
+                          <Text size="sm">
+                            Also targets: {targetingProjectNames.join(", ")}
+                          </Text>
+                        }
+                      />
+                    </>
+                  ) : null}
+                </Text>
+              </Box>
               {meta?.wouldBeCyclic && (
                 <Tooltip
                   flipTheme={false}
                   body={
-                    <Text size="small" color="text-high">
+                    <Text size="sm" color="text-high">
                       Selecting this feature would create a cyclic dependency.
                     </Text>
                   }
@@ -204,7 +248,7 @@ export default function PrerequisiteFeatureSelector({
                 <Tooltip
                   flipTheme={false}
                   body={
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       This feature is{" "}
                       <strong style={{ color: featureStatusColors.on }}>
                         live
@@ -232,7 +276,7 @@ export default function PrerequisiteFeatureSelector({
                 <Tooltip
                   flipTheme={false}
                   body={
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       This feature is{" "}
                       <strong style={{ color: featureStatusColors.off }}>
                         not live
@@ -262,7 +306,7 @@ export default function PrerequisiteFeatureSelector({
                 <Tooltip
                   flipTheme={false}
                   body={
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       This feature is currently serving{" "}
                       <span
                         style={{
@@ -298,7 +342,7 @@ export default function PrerequisiteFeatureSelector({
                 <Tooltip
                   flipTheme={false}
                   body={
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       This feature is in a{" "}
                       <strong style={{ color: featureStatusColors.warning }}>
                         Schrödinger state
@@ -329,7 +373,7 @@ export default function PrerequisiteFeatureSelector({
                 <Tooltip
                   flipTheme={false}
                   body={
-                    <Text size="small" color="text-high">
+                    <Text size="sm" color="text-high">
                       This feature has a cyclic dependency.
                     </Text>
                   }

@@ -1,3 +1,8 @@
+import {
+  metadataTouchesPayload,
+  holdsMoveDestination,
+  NO_ENVIRONMENT_BINDING,
+} from "shared/permissions";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import type { EventUser } from "shared/types/events/event-types";
 import type { OrganizationInterface } from "shared/types/organization";
@@ -5,14 +10,20 @@ import {
   filterEnvironmentsByFeature,
   MergeResultChanges,
   checkIfRevisionNeedsReview,
+  getRevertTargetHoldout,
   getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
+import { revertFootprint } from "back-end/src/revisions/featureDraftAuthority";
+import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
-import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
+import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   BadRequestError,
@@ -31,6 +42,9 @@ import {
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
+import { assertValidHoldout } from "./v2Shared";
+import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function revertFeatureRevision(
   context: ApiReqContext,
@@ -43,17 +57,15 @@ export async function revertFeatureRevision(
     title?: string;
   },
   audit: (input: AuditInterfaceInput) => Promise<void>,
+  canUseRestApiBypass: boolean,
 ) {
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
-    context.permissions.throwPermissionError();
-  }
-
+  // Revert authority gated per strategy below (publish: canRevertFeature; draft: canEditFeatureDrafts).
   const { strategy = "draft", comment, title } = body;
   // Publish perms only apply to strategy: "publish"; the draft branch is
-  // gated by canManageFeatureDrafts below.
+  // gated by canEditFeatureDrafts below.
   const isPublish = strategy === "publish";
 
   const targetRevision = await getRevision({
@@ -88,7 +100,7 @@ export async function revertFeatureRevision(
   if (targetRevision.defaultValue !== feature.defaultValue) {
     if (
       isPublish &&
-      !context.permissions.canPublishFeature(
+      !context.permissions.canRevertFeature(
         feature,
         environmentIds.filter(
           (env) => feature.environmentSettings?.[env]?.enabled,
@@ -132,7 +144,7 @@ export async function revertFeatureRevision(
   }
 
   if (isPublish && changedEnvs.length > 0) {
-    if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
+    if (!context.permissions.canRevertFeature(feature, changedEnvs)) {
       context.permissions.throwPermissionError();
     }
   }
@@ -147,7 +159,11 @@ export async function revertFeatureRevision(
   ) {
     if (
       isPublish &&
-      !context.permissions.canPublishFeature(feature, allEnabledEnvs)
+      // Prerequisites are not per-environment, but changing them reaches every
+      // environment the flag serves in — same footprint the defaultValue and
+      // archived reverts above and below use. An empty list here skipped the
+      // caller's environment restrictions entirely.
+      !context.permissions.canRevertFeature(feature, allEnabledEnvs)
     ) {
       context.permissions.throwPermissionError();
     }
@@ -159,11 +175,22 @@ export async function revertFeatureRevision(
     targetRevision.archived !== undefined &&
     targetRevision.archived !== (feature.archived ?? false)
   ) {
-    if (
-      isPublish &&
-      !context.permissions.canPublishFeature(feature, allEnabledEnvs)
-    ) {
-      context.permissions.throwPermissionError();
+    if (isPublish) {
+      if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
+        context.permissions.throwPermissionError();
+      }
+      // Restoring an archived state still takes the flag out of service, so it
+      // carries the same delete-class gate as archiving it any other way.
+      // Revert authority covers the restoration, not the elevation.
+      if (
+        isArchiveTransition({
+          proposed: targetRevision.archived,
+          current: feature.archived,
+        }) &&
+        !context.permissions.canDeleteFeature(feature, allEnabledEnvs)
+      ) {
+        context.permissions.throwPermissionError();
+      }
     }
     changes.archived = targetRevision.archived;
   }
@@ -184,7 +211,48 @@ export async function revertFeatureRevision(
       hasMetaChange = true;
     }
     if (m.project !== undefined && m.project !== (feature.project ?? "")) {
+      // A move has to land where the caller has authority, not just leave where
+      // they do — same rule as assertCanPublishFeatureRevision, which this
+      // direct-publish path bypasses.
+      // Footprint is the union of what the flag serves NOW and every environment
+      // this revert touches: `allEnabledEnvs` alone omits environments the revert
+      // itself re-enables, so a move could land a flag serving production into a
+      // project where the caller holds no production authority.
+      if (
+        !holdsMoveDestination({
+          permissions: context.permissions,
+          model: "feature",
+          // Direct revert moves require revert authority in the destination.
+          action: isPublish ? "revert" : "draft",
+          existing: feature,
+          proposed: { ...feature, project: m.project },
+          environments: isPublish
+            ? revertFootprint({
+                feature,
+                targetRevision,
+                environmentIds,
+                changedEnvs,
+              })
+            : [],
+        })
+      ) {
+        context.permissions.throwPermissionError();
+      }
       metadataChanges.project = m.project;
+      hasMetaChange = true;
+    }
+    if (
+      m.targetingAllProjects !== undefined &&
+      m.targetingAllProjects !== (feature.targetingAllProjects ?? false)
+    ) {
+      metadataChanges.targetingAllProjects = m.targetingAllProjects;
+      hasMetaChange = true;
+    }
+    if (
+      m.targetingProjects !== undefined &&
+      !isEqual(m.targetingProjects, feature.targetingProjects ?? [])
+    ) {
+      metadataChanges.targetingProjects = m.targetingProjects;
       hasMetaChange = true;
     }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
@@ -213,10 +281,15 @@ export async function revertFeatureRevision(
       metadataChanges.valueType = m.valueType;
       hasMetaChange = true;
     }
-    if (hasMetaChange) {
+    if (
+      hasMetaChange &&
+      // PAYLOAD-AFFECTING metadata only — one rule across the publish footprint,
+      // both reverts and the Revert control. Inert metadata reaches no SDK.
+      metadataTouchesPayload(metadataChanges as Record<string, unknown>)
+    ) {
       if (
         isPublish &&
-        !context.permissions.canPublishFeature(feature, allEnabledEnvs)
+        !context.permissions.canRevertFeature(feature, allEnabledEnvs)
       ) {
         context.permissions.throwPermissionError();
       }
@@ -224,11 +297,38 @@ export async function revertFeatureRevision(
     }
   }
 
+  const targetHoldout = getRevertTargetHoldout(targetRevision);
+  // Read-gated: restoring a holdout the caller cannot see would attach the
+  // feature outside their scope, since publish resolves linkage unscoped.
+  await assertValidHoldout(
+    targetHoldout,
+    context,
+    changes.metadata?.project ?? feature.project,
+  );
+  const holdoutChanged = !isEqual(targetHoldout, feature.holdout ?? null);
+  if (holdoutChanged) {
+    // A revert of holdout membership is a revert like any other field here, so
+    // revert authority lands it — while publish, being the broader authority
+    // that could set the same value outright, still does too. Checking publish
+    // alone made this the one field a revert-only role could not restore.
+    if (
+      isPublish &&
+      !context.permissions.canRevertFeature(feature, allEnabledEnvs) &&
+      !context.permissions.canPublishFeature(feature, allEnabledEnvs)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    changes.holdout = targetHoldout;
+  }
+
   // Full target state for the new revision; sparse `changes` above is only
   // used for per-field permission checks.
   const revisionChanges: Partial<FeatureRevisionInterface> = {
     defaultValue: targetRevision.defaultValue,
     rules: targetRevision.rules ?? feature.rules ?? [],
+    // Provenance for the revert-authority publish path; re-verified at publish.
+    revertedFromVersion: targetRevision.version,
+    holdout: targetHoldout,
   };
   if (targetRevision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = targetRevision.environmentsEnabled;
@@ -246,7 +346,15 @@ export async function revertFeatureRevision(
   const defaultComment = `Revert to revision #${targetRevision.version}`;
 
   if (!isPublish) {
-    if (!context.permissions.canManageFeatureDrafts(feature)) {
+    // Proposing a revert as a draft is open to draft authors, and also to anyone
+    // with revert authority even if they have no general draft access. Scoped to
+    // the project, not the enabled environments: staging a draft publishes
+    // nothing, so an environment-limited reverter can still propose one for a
+    // publisher to land. Matches the internal path and the revert modal.
+    if (
+      !context.permissions.canEditFeatureDrafts(feature) &&
+      !context.permissions.canRevertFeature(feature, [])
+    ) {
       context.permissions.throwPermissionError();
     }
 
@@ -262,45 +370,76 @@ export async function revertFeatureRevision(
       changes: revisionChanges,
       org: context.org,
       canBypassApprovalChecks: false,
+      revertedFrom: targetRevision.version,
     });
 
-    return { feature, revision: newDraft };
+    // A draft lands nothing, so it clears no publish gate.
+    return { feature, revision: newDraft, bypassedGates: [] };
   }
 
-  // Bypass review gate via restApiBypassesReviews or bypassApprovalChecks.
-  const canBypass =
-    !!context.org.settings?.restApiBypassesReviews ||
-    context.permissions.canBypassApprovalChecks(feature);
-
-  if (!canBypass) {
-    const liveRevision = await getRevision({
-      context,
-      organization: feature.organization,
-      featureId: feature.id,
-      feature,
-      version: feature.version,
-    });
-    if (!liveRevision)
-      throw new InternalServerError("Could not load live revision");
-
-    const allEnvironmentIds = getEnvironmentIdsFromOrg(context.org);
-    const requiresReview = checkIfRevisionNeedsReview({
-      feature,
-      baseRevision: liveRevision,
-      revision: { ...liveRevision, ...revisionChanges } as typeof liveRevision,
-      allEnvironments: allEnvironmentIds,
-      settings: organization.settings,
-      requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-    });
-
-    if (requiresReview) {
-      throw new BadRequestError(
-        "This revert requires approval before changes can be published. " +
-          "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-          "or use a role/token that grants bypassApprovalChecks on this project.",
-      );
-    }
+  // Prevent metadata-only reverts from bypassing the project-scoped check.
+  if (!context.permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING)) {
+    context.permissions.throwPermissionError();
   }
+
+  // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
+  // calls should behave like dashboard actions), FlagsBypassApprovals, or the
+  // org-wide "reverts bypass approval" setting. That last one was missing here
+  // while v1 honoured it, so the same org rejected a revert over v2 that v2's
+  // own documented contract allows.
+  const permissionBypass = context.permissions.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
+  const settingBypass = !!organization.settings?.revertsBypassApproval;
+  const canBypass = canUseRestApiBypass || permissionBypass || settingBypass;
+
+  // Asked whether or not the caller can bypass — a bypass that reports nothing is
+  // indistinguishable from a revert that needed no approval, and this is the one
+  // publish path that rewrites live state from history. Mirrors the gate layer,
+  // which assembles every ACTIVE gate before deciding who may clear it.
+  const liveRevision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    feature,
+    version: feature.version,
+  });
+  if (!liveRevision)
+    throw new InternalServerError("Could not load live revision");
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision: liveRevision,
+    revision: { ...liveRevision, ...revisionChanges } as typeof liveRevision,
+    orgEnvironments: getEnvironments(context.org),
+    settings: organization.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+  });
+
+  if (requiresReview && !canBypass) {
+    throw new BadRequestError(
+      "This revert requires approval before changes can be published. " +
+        "Enable 'REST API always bypasses approval requirements' in organization settings, " +
+        "or use a role/token that grants FlagsBypassApprovals on this project.",
+    );
+  }
+
+  // Same precedence the generic reverts and the gate layer use, so the whole
+  // family names the same source for the same caller.
+  const bypassedGates: BypassedGate[] =
+    requiresReview && canBypass
+      ? [
+          {
+            type: "approval-required",
+            outcome: "bypassed",
+            via: canUseRestApiBypass
+              ? "restApiBypassesReviews"
+              : permissionBypass
+                ? "bypassApprovalPermission"
+                : "revertsBypassApproval",
+          },
+        ]
+      : [];
 
   const { revision: publishedRevision, updatedFeature } =
     await createAndPublishRevision({
@@ -311,6 +450,7 @@ export async function revertFeatureRevision(
       changes: revisionChanges,
       comment: comment ?? defaultComment,
       canBypassApprovalChecks: canBypass,
+      revertedFrom: targetRevision.version,
     });
 
   if (
@@ -336,14 +476,13 @@ export async function revertFeatureRevision(
     }),
   });
 
-  const updated = await getRevision({
+  // Re-read so events and the response carry the published status; falls back
+  // to the in-memory revision instead of failing the already-committed revert.
+  const finalRevision = await getPublishedRevisionForEvents(
     context,
-    organization: organization.id,
-    featureId: feature.id,
-    feature,
-    version: publishedRevision.version,
-  });
-  const finalRevision = updated ?? publishedRevision;
+    updatedFeature,
+    publishedRevision,
+  );
 
   await dispatchFeatureRevisionEvent(
     context,
@@ -353,19 +492,33 @@ export async function revertFeatureRevision(
     { revertedToVersion: targetRevision.version },
   );
 
-  return { feature, revision: finalRevision };
+  // A revert publishes a new revision, so emit the same lifecycle event as a
+  // regular publish — consumers watching `revision.published` see reverts too.
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    finalRevision,
+    "revision.published",
+    {},
+  );
+
+  return { feature, revision: finalRevision, bypassedGates };
 }
 
 export const postFeatureRevisionRevert = createApiRequestHandler(
   postFeatureRevisionRevertValidator,
 )(async (req) => {
-  const { feature, revision } = await revertFeatureRevision(
+  const { feature, revision, bypassedGates } = await revertFeatureRevision(
     req.context,
     req.organization,
     req.eventAudit,
     req.params,
     req.body,
     req.audit,
+    canUseRestApiBypassSetting(req),
   );
-  return { revision: toApiRevision(revision, req.context, feature) };
+  return {
+    revision: toApiRevision(revision, req.context, feature),
+    ...(bypassedGates.length ? { bypassedGates } : {}),
+  };
 });

@@ -1,4 +1,6 @@
 import { useFormContext } from "react-hook-form";
+import { CustomField } from "shared/types/custom-fields";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   FeatureInterface,
   FeaturePrerequisite,
@@ -7,9 +9,14 @@ import {
 } from "shared/types/feature";
 import React, { useMemo } from "react";
 import Collapsible from "react-collapsible";
-import { Flex, Tooltip, Separator } from "@radix-ui/themes";
+import { Flex, Tooltip } from "@radix-ui/themes";
 import { date } from "shared/dates";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
+  expandSparseToFull,
+} from "shared/util";
 import { PiCaretRightFill } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
@@ -26,16 +33,17 @@ import {
   getFeatureDefaultValue,
   NewExperimentRefRule,
   useAttributeSchema,
+  resolveAttributeFilter,
 } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
-import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
+import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
-import Checkbox from "@/ui/Checkbox";
+import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -48,19 +56,18 @@ import { convertTemplateToExperimentRule } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
 import HelperText from "@/ui/HelperText";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import RuleProjectScopeField, {
+  type ProjectScopeProps,
+} from "@/components/Features/RuleModal/ProjectScopeField";
 import { getExposureQuery } from "@/services/datasources";
 import Text from "@/ui/Text";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 
 export default function ExperimentRefNewFields({
@@ -68,6 +75,8 @@ export default function ExperimentRefNewFields({
   source,
   feature,
   project,
+  attributeProjects,
+  attributeSelectIndicator,
   environments,
   defaultValues,
   prerequisiteValue,
@@ -93,15 +102,21 @@ export default function ExperimentRefNewFields({
   hideVariationIds = true,
   startEditingIndexes = false,
   orgStickyBucketing,
+  customFields,
+  customFieldValues,
   setCustomFields,
   isTemplate = false,
   holdoutHashAttribute,
   envScope,
+  projectScope,
+  onRuleCyclicChange,
 }: {
   step: number;
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
+  attributeProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
   prerequisiteValue: FeaturePrerequisite[];
@@ -127,10 +142,14 @@ export default function ExperimentRefNewFields({
   hideVariationIds?: boolean;
   startEditingIndexes?: boolean;
   orgStickyBucketing?: boolean;
+  customFields?: CustomField[];
+  customFieldValues?: Record<string, string>;
   setCustomFields?: (customFields: Record<string, string>) => void;
   isTemplate?: boolean;
   holdoutHashAttribute?: string;
   envScope?: EnvScopeProps;
+  projectScope?: ProjectScopeProps;
+  onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
 
@@ -166,7 +185,10 @@ export default function ExperimentRefNewFields({
   const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.getValues("exposureQueryId");
 
-  const attributeSchema = useAttributeSchema(false, project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    resolveAttributeFilter(attributeProjects, project),
+  );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
@@ -264,12 +286,6 @@ export default function ExperimentRefNewFields({
     settings.requireExperimentTemplates &&
     availableTemplates.length >= 1;
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "experiment",
-    project,
-  );
-
   return (
     <>
       {step === 0 ? (
@@ -280,6 +296,7 @@ export default function ExperimentRefNewFields({
                 <label>Select Template</label>
               </PremiumTooltip>
               <SelectField
+                size="legacy"
                 value={form.watch("templateId") ?? ""}
                 onChange={(t) => {
                   if (t === "") {
@@ -313,7 +330,7 @@ export default function ExperimentRefNewFields({
                   return (
                     <Flex as="div" align="baseline">
                       <Text>{value.label}</Text>
-                      <Text size="small" color="text-mid" ml="auto">
+                      <Text size="sm" color="text-mid" ml="auto">
                         Created {date(t.dateCreated)}
                       </Text>
                     </Flex>
@@ -330,6 +347,7 @@ export default function ExperimentRefNewFields({
             </div>
           )}
           <Field
+            size="legacy"
             required={true}
             minLength={2}
             label="Experiment Name"
@@ -337,6 +355,7 @@ export default function ExperimentRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Tracking Key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
@@ -344,6 +363,7 @@ export default function ExperimentRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Hypothesis"
             textarea
             minRows={1}
@@ -352,67 +372,55 @@ export default function ExperimentRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Description"
             textarea
             minRows={1}
+            maxLength={MAX_DESCRIPTION_LENGTH}
             {...form.register("description")}
             placeholder="Short human-readable description of the Experiment"
           />
 
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
+          {projectScope && <RuleProjectScopeField {...projectScope} mb="5" />}
 
-          {hasCommercialFeature("custom-metadata") &&
-            !!customFields?.length && (
-              <CustomFieldInput
-                customFields={customFields}
-                currentCustomFields={form.watch("customFields")}
-                setCustomFields={setCustomFields ? setCustomFields : () => {}}
-                section={"experiment"}
-                project={project}
-              />
-            )}
+          {!!customFields?.length && (
+            <CustomFieldInput
+              fields={customFields}
+              value={customFieldValues ?? {}}
+              onChange={setCustomFields ? setCustomFields : () => {}}
+            />
+          )}
         </>
       ) : null}
 
       {step === 1 ? (
         <>
           <div className="mb-4">
+            <Text as="label" weight="semibold" mb="1">
+              Assign Variation by Attribute
+            </Text>
+            <Text as="div" color="text-mid" mb="2">
+              Will be hashed together with the Tracking Key to determine which
+              variation to assign
+            </Text>
             <SelectField
+              size="legacy"
               withRadixThemedPortal
-              label="Assign Variation by Attribute"
               containerClassName="flex-1"
+              extraIndicator={attributeSelectIndicator}
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({
-                  label: s.property,
-                  value: s.property,
-                  description: s.description,
-                  tags: s.tags,
-                  datatype: s.datatype,
-                  hashAttribute: s.hashAttribute,
-                }))}
+                .map(toAttributeOption)}
               value={hashAttribute}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
-                // Try and find a matching exposure query for the new hash attribute
                 const exposureQueryId = getMatchingExposureQuery(v, datasource);
                 if (exposureQueryId) {
                   form.setValue("exposureQueryId", exposureQueryId);
                 }
               }}
-              formatOptionLabel={(o, meta) => {
-                return (
-                  <AttributeOptionWithTooltip
-                    option={o as AttributeOptionForTooltip}
-                    context={meta.context}
-                  >
-                    {o.label}
-                  </AttributeOptionWithTooltip>
-                );
-              }}
-              helpText={
-                "Will be hashed together with the Tracking Key to determine which variation to assign"
-              }
+              formatOptionLabel={formatAttributeOptionLabel}
             />
             {!!holdoutHashAttribute &&
               form.watch("hashAttribute") !== holdoutHashAttribute && (
@@ -421,11 +429,6 @@ export default function ExperimentRefNewFields({
                   attribute of the holdout this experiment will belong to.
                 </HelperText>
               )}
-            <FallbackAttributeSelector
-              form={form}
-              attributeSchema={attributeSchema}
-            />
-
             {hasSDKWithNoBucketingV2 && !isTemplate && (
               <HashVersionSelector
                 value={(form.watch("hashVersion") || 1) as 1 | 2}
@@ -435,19 +438,49 @@ export default function ExperimentRefNewFields({
             )}
 
             {orgStickyBucketing && !isTemplate ? (
-              <Checkbox
+              <StickyBucketingToggle
                 mt="4"
-                size="lg"
-                label="Disable Sticky Bucketing"
-                description="Do not persist variation assignments for this experiment (overrides your organization settings)"
-                value={!!form.watch("disableStickyBucketing")}
-                setValue={(v) => {
-                  form.setValue("disableStickyBucketing", v);
-                }}
+                disableStickyBucketing={!!form.watch("disableStickyBucketing")}
+                setDisableStickyBucketing={(v) =>
+                  form.setValue("disableStickyBucketing", v)
+                }
+                description="Keep users in their assigned variation even when experiment traffic, targeting, or rollout settings change."
               />
             ) : null}
+
+            {!form.watch("disableStickyBucketing") && (
+              <FallbackAttributeSelector
+                form={form}
+                attributeSchema={attributeSchema}
+                extraIndicator={attributeSelectIndicator}
+              />
+            )}
           </div>
 
+          {feature &&
+            feature.valueType === "json" &&
+            parsePlainJSONObject(getFeatureDefaultValue(feature)) !== null && (
+              <Flex align="center" gap="3" mb="2">
+                <SparsePatchToggle
+                  checked={!!form.watch("sparse")}
+                  onChange={(checked) => {
+                    // Rewrite every variation value so the editor isn't left
+                    // with a default-laden patch (on) or a bare patch shown as
+                    // the full value (off).
+                    const def = feature ? getFeatureDefaultValue(feature) : "";
+                    setVariations?.(
+                      (variations || []).map((variation) => ({
+                        ...variation,
+                        value: checked
+                          ? stripDefaultsForSparse(variation.value, def)
+                          : expandSparseToFull(variation.value, def),
+                      })),
+                    );
+                    form.setValue("sparse", checked);
+                  }}
+                />
+              </Flex>
+            )}
           <FeatureVariationsInput
             label="Traffic Percent & Variations"
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
@@ -465,6 +498,7 @@ export default function ExperimentRefNewFields({
             hideVariations={isTemplate}
             disableVariations={isTemplate}
             startEditingIndexes={startEditingIndexes}
+            sparse={!!form.watch("sparse")}
           />
 
           {!isTemplate && namespaces && namespaces.length > 0 && (
@@ -482,27 +516,23 @@ export default function ExperimentRefNewFields({
 
       {step === 2 ? (
         <>
-          <SavedGroupTargetingField
-            value={savedGroupValue}
-            setValue={setSavedGroupValue}
+          <TargetingFieldsGroup
             project={project || ""}
-          />
-          <Separator size="4" my="5" />
-          <ConditionInput
-            defaultValue={defaultConditionValue}
-            onChange={setConditionValue}
-            key={conditionKey}
-            project={project || ""}
-          />
-          <Separator size="4" my="5" />
-          <PrerequisiteInput
-            value={prerequisiteValue}
-            setValue={setPrerequisiteValue}
-            feature={feature}
+            attributeProjects={attributeProjects}
+            attributeSelectIndicator={attributeSelectIndicator}
             environments={environments ?? []}
+            feature={feature}
+            savedGroups={savedGroupValue}
+            setSavedGroups={setSavedGroupValue}
+            condition={defaultConditionValue}
+            setCondition={setConditionValue}
+            conditionKey={conditionKey}
+            prerequisites={prerequisiteValue}
+            setPrerequisites={setPrerequisiteValue}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
+            onRuleCyclicChange={onRuleCyclicChange}
           />
           {isCyclic && (
             <Callout status="error">
@@ -531,6 +561,7 @@ export default function ExperimentRefNewFields({
         <>
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <SelectField
+              size="legacy"
               label="Data Source"
               labelClassName="font-weight-bold"
               value={form.watch("datasource") ?? ""}
@@ -582,6 +613,7 @@ export default function ExperimentRefNewFields({
 
             {datasourceProperties?.exposureQueries && exposureQueries ? (
               <SelectField
+                size="legacy"
                 label={
                   <>
                     Experiment Assignment Table{" "}
@@ -634,6 +666,7 @@ export default function ExperimentRefNewFields({
             }
             collapseSecondary={true}
             collapseGuardrail={true}
+            experimentType="standard"
           />
 
           <CustomMetricSlicesSelector
@@ -670,12 +703,14 @@ export default function ExperimentRefNewFields({
                       Activation Metric{" "}
                       <MetricsSelectorTooltip
                         onlyBinomial={true}
+                        noFactFunnelMetrics={true}
                         isSingular={true}
                       />
                     </>
                   }
                   initialOption="None"
                   onlyBinomial
+                  filterFactFunnelMetrics
                   value={form.watch("activationMetric")}
                   onChange={(value) =>
                     form.setValue("activationMetric", value || "")
@@ -685,6 +720,7 @@ export default function ExperimentRefNewFields({
               )}
               {datasourceProperties?.experimentSegments && (
                 <SelectField
+                  size="legacy"
                   label="Segment"
                   labelClassName="font-weight-bold"
                   value={form.watch("segment")}
@@ -701,6 +737,7 @@ export default function ExperimentRefNewFields({
               )}
               {datasourceProperties?.separateExperimentResultQueries && (
                 <SelectField
+                  size="legacy"
                   label="Metric Conversion Windows"
                   labelClassName="font-weight-bold"
                   value={form.watch("skipPartialData")}

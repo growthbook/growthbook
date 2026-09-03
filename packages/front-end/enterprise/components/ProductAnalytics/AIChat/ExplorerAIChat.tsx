@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
+import type { AIChatMention } from "shared/ai-chat";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -9,30 +10,29 @@ import Button from "@/ui/Button";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import ConversationSidebar from "@/enterprise/components/AIChat/ConversationSidebar";
 import AIChatGatingScreen from "@/enterprise/components/AIChat/AIChatGatingScreen";
-import ChatInputBar from "@/enterprise/components/AIChat/ChatInputBar";
+import ChatComposer, {
+  type ChatComposerHandle,
+} from "@/enterprise/components/AIChat/Composer/ChatComposer";
+import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
+import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
-import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  takeInitialChatMessage,
+  type PAInitialChatMessage,
+} from "@/enterprise/components/ProductAnalytics/util";
 import ChatMessageList, { TOOL_STATUS_LABELS } from "./ChatMessageList";
 import { useConversationList } from "./useConversationList";
 import { useChatModel } from "./useChatModel";
-import { useChatFeedback } from "./useChatFeedback";
 import { useAutoScroll } from "./useAutoScroll";
 
 export default function ExplorerAIChat() {
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
   const prevLoadingRef = useRef(false);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<ChatComposerHandle>(null);
 
-  const initialMessageRef = useRef<string | null>(
-    (() => {
-      const stored = sessionStorage.getItem(PA_AI_CHAT_INITIAL_MESSAGE_KEY);
-      if (stored) {
-        sessionStorage.removeItem(PA_AI_CHAT_INITIAL_MESSAGE_KEY);
-        return stored.trim() || null;
-      }
-      return null;
-    })(),
+  const initialMessageRef = useRef<PAInitialChatMessage | null>(
+    takeInitialChatMessage(),
   );
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -42,6 +42,8 @@ export default function ExplorerAIChat() {
   const permissionsUtil = usePermissionsUtil();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const { draftExploreState } = useExplorerContext();
+  const { items: mentionItems, ready: mentionItemsReady } =
+    useMetricMentionItems(draftExploreState.datasource);
 
   // -- Hooks with no cross-dependencies (safe to call first) -----------------
 
@@ -55,13 +57,20 @@ export default function ExplorerAIChat() {
     conversationIdRef: feedbackConversationIdRef,
   } = useChatFeedback();
 
+  const pendingMentionsRef = useRef<AIChatMention[]>([]);
+
   const buildRequestBody = useCallback(
-    (message: string, cid: string) => ({
-      message,
-      conversationId: cid,
-      datasourceId: draftExploreState.datasource,
-      model: chatModel,
-    }),
+    (message: string, cid: string) => {
+      const mentions = pendingMentionsRef.current;
+      pendingMentionsRef.current = [];
+      return {
+        message,
+        conversationId: cid,
+        datasourceId: draftExploreState.datasource,
+        model: chatModel,
+        ...(mentions.length ? { mentions } : {}),
+      };
+    },
     [draftExploreState.datasource, chatModel],
   );
 
@@ -144,15 +153,16 @@ export default function ExplorerAIChat() {
   // -- Handlers --------------------------------------------------------------
 
   const trackAndSend = useCallback(
-    (messageOverride?: string) => {
+    (messageOverride?: string, mentions: AIChatMention[] = []) => {
       const text = (messageOverride ?? input).trim();
       if (!text) return;
+      pendingMentionsRef.current = mentions;
       track("AI Chat Message Sent", {
         model: chatModel,
         messageCount: messages.length,
         isFirstMessage: messages.length === 0,
       });
-      sendMessage(messageOverride);
+      sendMessage(messageOverride, { mentions });
     },
     [input, chatModel, messages.length, sendMessage],
   );
@@ -162,7 +172,7 @@ export default function ExplorerAIChat() {
   useEffect(() => {
     if (prevLoadingRef.current && !loading) {
       refreshList();
-      inputRef.current?.focus();
+      composerRef.current?.focus();
     }
     prevLoadingRef.current = loading;
   }, [loading, refreshList]);
@@ -173,15 +183,17 @@ export default function ExplorerAIChat() {
     });
   }, []);
 
+  // Refocus when switching conversations. The mount case is the composer's
+  // own `autoFocus`, since the editor doesn't exist yet on the first commit.
   useEffect(() => {
-    inputRef.current?.focus();
+    composerRef.current?.focus();
   }, [conversationId]);
 
   useEffect(() => {
-    const msg = initialMessageRef.current;
-    if (!msg) return;
+    const initial = initialMessageRef.current;
+    if (!initial) return;
     initialMessageRef.current = null;
-    trackAndSend(msg);
+    trackAndSend(initial.text, initial.mentions);
   }, [trackAndSend]);
 
   const handleNewChat = useCallback(() => {
@@ -212,16 +224,6 @@ export default function ExplorerAIChat() {
       }
     },
     [deleteConversation, conversationId, newChat],
-  );
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        trackAndSend();
-      }
-    },
-    [trackAndSend],
   );
 
   // -- Render ----------------------------------------------------------------
@@ -275,7 +277,7 @@ export default function ExplorerAIChat() {
           <Flex align="center" gap="2">
             <Button
               variant="ghost"
-              size="xs"
+              size="sm"
               onClick={() => setSidebarOpen((o) => !o)}
               title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
             >
@@ -306,12 +308,14 @@ export default function ExplorerAIChat() {
           onScroll={handleScroll}
         />
 
-        <ChatInputBar
-          inputRef={inputRef}
-          input={input}
-          onInputChange={setInput}
-          onKeyDown={handleKeyDown}
-          onSend={() => trackAndSend()}
+        <ChatComposer
+          ref={composerRef}
+          autoFocus
+          mentionItems={mentionItems}
+          mentionItemsReady={mentionItemsReady}
+          value={input}
+          onChange={setInput}
+          onSend={({ text, mentions }) => trackAndSend(text, mentions)}
           onCancel={cancelGeneration}
           loading={loading}
           isLocalStream={isLocalStream}

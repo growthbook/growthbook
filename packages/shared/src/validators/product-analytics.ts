@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { apiBaseSchema } from "./base-model";
 import { queryPointerValidator } from "./queries";
-import { rowFilterValidator } from "./fact-table";
+import { rowFilterValidator, funnelStepValidator } from "./fact-table";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -19,7 +20,7 @@ const metricValueValidator = baseValueValidator.extend({
 });
 export type MetricValue = z.infer<typeof metricValueValidator>;
 
-export type DatasetType = "metric" | "fact_table" | "data_source";
+export type DatasetType = "metric" | "fact_table" | "data_source" | "funnel";
 
 const metricDatasetValidator = z
   .object({
@@ -70,10 +71,36 @@ const dataSourceDatasetValidator = z
   })
   .strict();
 
+// Funnels
+/** Y-axis scaling for the funnel bar chart.
+ *  - `count`: raw user counts per step.
+ *  - `percent`: each series is normalized so step 1 is 100%, surfacing
+ *    cross-dimension conversion rates directly.
+ *  Optional for backward compatibility; read sites default to "percent". */
+export const funnelYAxisScaleValidator = z.enum(["count", "percent"]);
+export type FunnelYAxisScale = z.infer<typeof funnelYAxisScaleValidator>;
+
+const funnelDatasetValidator = z
+  .object({
+    type: z.literal("funnel"),
+    // The user identifier type to count. Must exist on every step's fact
+    // table. Nullable so a default-state config can exist before the user
+    // has picked anything.
+    unit: z.string().nullable(),
+    steps: z.array(funnelStepValidator).max(MAX_FUNNEL_STEPS),
+    // Seconds of out-of-order tolerance applied between adjacent steps.
+    // Defaults to 0 (strict chronological ordering).
+    concurrencyWindowSeconds: z.number().int().min(0).optional(),
+    yAxisScale: funnelYAxisScaleValidator.optional(),
+  })
+  .strict();
+export type FunnelDataset = z.infer<typeof funnelDatasetValidator>;
+
 export const explorationDatasetValidator = z.discriminatedUnion("type", [
   metricDatasetValidator,
   factTableDatasetValidator,
   dataSourceDatasetValidator,
+  funnelDatasetValidator,
 ]);
 
 const _valueValidator = z.discriminatedUnion("type", [
@@ -107,6 +134,8 @@ export const dynamicDimensionValidator = z.object({
 export const staticDimensionValidator = z.object({
   dimensionType: z.literal("static"),
   column: z.string(),
+  // Unbounded so this can parse older saved/URL-encoded explorations too;
+  // the editor enforces the 20-value cap.
   values: z.array(z.string()),
 });
 
@@ -141,29 +170,49 @@ export const chartTypes = [
 
 export const dateRangePredefined = [
   "today",
+  "yesterday",
   "last7Days",
   "last30Days",
   "last90Days",
+  "last12Months",
+  "lastCalendarYear",
   "customLookback",
   "customDateRange",
 ] as const;
 
 export const lookbackUnit = ["hour", "day", "week", "month"] as const;
 
+// Order drives the option order in the comparison-mode pickers.
+export const comparisonMode = [
+  "previousPeriod",
+  "previousPeriodMatchDayOfWeek",
+  "previousYear",
+  "previousYearMatchDayOfWeek",
+  "custom",
+] as const;
+
+export const comparisonModeValidator = z.enum(comparisonMode);
+export type ComparisonMode = z.infer<typeof comparisonModeValidator>;
+
 export const showAsValidator = z.enum(["total", "per_unit"]);
 export type ShowAs = z.infer<typeof showAsValidator>;
+
+export const explorationDateRangeValidator = z.object({
+  predefined: z.enum(dateRangePredefined),
+  lookbackValue: z.number().nullish(),
+  lookbackUnit: z.enum(lookbackUnit).nullish(),
+  startDate: z.string().nullish(),
+  endDate: z.string().nullish(),
+});
+export type ExplorationDateRange = z.infer<
+  typeof explorationDateRangeValidator
+>;
 
 export const baseExplorationConfigValidator = z.object({
   datasource: z.string().describe("ID of the datasource to query"),
   dimensions: z.array(dimensionValidator),
   chartType: z.enum(chartTypes),
-  dateRange: z.object({
-    predefined: z.enum(dateRangePredefined),
-    lookbackValue: z.number().nullish(),
-    lookbackUnit: z.enum(lookbackUnit).nullish(),
-    startDate: z.string().nullish(),
-    endDate: z.string().nullish(),
-  }),
+  dateRange: explorationDateRangeValidator,
   // Controls how values with a denominator are rendered at the chart level.
   // "total"    -> render the raw numerator (e.g. total events)
   // "per_unit" -> divide numerator by denominator (e.g. events per unit)
@@ -191,6 +240,12 @@ export const dataSourceExplorationConfigValidator =
     dataset: dataSourceDatasetValidator,
   });
 
+export const funnelExplorationConfigValidator =
+  baseExplorationConfigValidator.extend({
+    type: z.literal("funnel"),
+    dataset: funnelDatasetValidator,
+  });
+
 // For SQL datasets, we need to know the column types
 // This is the shape of the response from the warehouse / API
 const columnType = ["string", "number", "date", "boolean", "other"] as const;
@@ -202,16 +257,31 @@ export const sqlDatasetColumnResponseValidator = z.object({
   columns: z.array(sqlDatasetColumnResponseRowValidator),
 });
 
+// One per-step entry on a funnel result row. The dataset.type determines
+// whether a row carries `values` (metric/fact_table/data_source) or `steps`
+// (funnel); they're never both populated.
+export const productAnalyticsFunnelStepResultValidator = z.object({
+  count: z.number(),
+  // Sum and sum-of-squares over time-from-previous-step (in hours),
+  // restricted to users who completed both this step and its predecessor.
+  // null when the step is the first or when no users converted.
+  timeFromPrevSumHrs: z.number().nullable(),
+  timeFromPrevSumSquaresHrs: z.number().nullable(),
+});
+
 // The shape of the final result data from the warehouse / API
 export const productAnalyticsResultRowValidator = z.object({
   dimensions: z.array(z.string().nullable()),
-  values: z.array(
-    z.object({
-      metricId: z.string(),
-      numerator: z.number().nullable(),
-      denominator: z.number().nullable(),
-    }),
-  ),
+  values: z
+    .array(
+      z.object({
+        metricId: z.string(),
+        numerator: z.number().nullable(),
+        denominator: z.number().nullable(),
+      }),
+    )
+    .optional(),
+  steps: z.array(productAnalyticsFunnelStepResultValidator).optional(),
 });
 export const productAnalyticsResultValidator = z.object({
   rows: z.array(productAnalyticsResultRowValidator),
@@ -229,6 +299,7 @@ export const productAnalyticsExplorationValidator = z.object({
     metricExplorationConfigValidator,
     factTableExplorationConfigValidator,
     dataSourceExplorationConfigValidator,
+    funnelExplorationConfigValidator,
   ]),
   result: productAnalyticsResultValidator,
   dateStart: z.string(),
@@ -261,6 +332,7 @@ export const explorationConfigValidator = z.discriminatedUnion("type", [
   metricExplorationConfigValidator,
   factTableExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
+  funnelExplorationConfigValidator,
 ]);
 export type ExplorationConfig = z.infer<typeof explorationConfigValidator>;
 
@@ -273,15 +345,24 @@ export type FactTableExplorationConfig = z.infer<
 export type DataSourceExplorationConfig = z.infer<
   typeof dataSourceExplorationConfigValidator
 >;
+export type FunnelExplorationConfig = z.infer<
+  typeof funnelExplorationConfigValidator
+>;
 
 export type MetricDataset = z.infer<typeof metricDatasetValidator>;
 export type FactTableDataset = z.infer<typeof factTableDatasetValidator>;
 export type DataSourceDataset = z.infer<typeof dataSourceDatasetValidator>;
 export type ExplorationDataset = z.infer<typeof explorationDatasetValidator>;
+export type ProductAnalyticsFunnelStepResult = z.infer<
+  typeof productAnalyticsFunnelStepResultValidator
+>;
 
 export type ProductAnalyticsDimension = z.infer<typeof dimensionValidator>;
 export type ProductAnalyticsDynamicDimension = z.infer<
   typeof dynamicDimensionValidator
+>;
+export type ProductAnalyticsStaticDimension = z.infer<
+  typeof staticDimensionValidator
 >;
 export type ProductAnalyticsResult = z.infer<
   typeof productAnalyticsResultValidator
@@ -291,6 +372,45 @@ export type ProductAnalyticsResultRow = z.infer<
 >;
 export type ProductAnalyticsExploration = z.infer<
   typeof productAnalyticsExplorationValidator
+>;
+
+export const productAnalyticsRunRequestBodyValidator = z
+  .object({
+    config: explorationConfigValidator,
+    previousTimeFrame: explorationDateRangeValidator.optional(),
+    // The client sends the already-resolved window, so this is only used to pick
+    // how the two periods' rows are paired.
+    comparisonMode: comparisonModeValidator.optional(),
+  })
+  .strict();
+
+export type ProductAnalyticsRunRequestBody = z.infer<
+  typeof productAnalyticsRunRequestBodyValidator
+>;
+
+const bigNumberComparisonTrendComputedValidator = z
+  .object({
+    currentValue: z.number(),
+    previousValue: z.number(),
+    /** Signed fractional change, e.g. -0.12 for −12%. */
+    pctChangeFraction: z.number(),
+    /** Same change as a percentage, rounded to 2 decimals. */
+    pctChangePercent: z.number(),
+  })
+  .nullable();
+
+export const productAnalyticsRunComparisonPayloadValidator = z.object({
+  exploration: productAnalyticsExplorationValidator.nullable(),
+  previousPeriod: z.object({
+    startDate: z.string(),
+    endDate: z.string(),
+  }),
+  bigNumberTrends: z.array(bigNumberComparisonTrendComputedValidator),
+  tableTrendsByRow: z.array(z.record(z.string(), z.number().nullable())),
+});
+
+export type ProductAnalyticsRunComparisonPayload = z.infer<
+  typeof productAnalyticsRunComparisonPayloadValidator
 >;
 
 export const apiExplorationBaseValidator = apiBaseSchema.safeExtend({
@@ -315,6 +435,11 @@ export const apiFactTableExplorationValidator =
 export const apiDataSourceExplorationValidator =
   apiExplorationBaseValidator.safeExtend({
     config: dataSourceExplorationConfigValidator,
+  });
+
+export const apiFunnelExplorationValidator =
+  apiExplorationBaseValidator.safeExtend({
+    config: funnelExplorationConfigValidator,
   });
 
 export const apiAnalyticsExplorationValidator = namedSchema(

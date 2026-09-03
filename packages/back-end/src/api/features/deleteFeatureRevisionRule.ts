@@ -1,6 +1,10 @@
 import cloneDeep from "lodash/cloneDeep";
 import { deleteFeatureRevisionRuleValidator } from "shared/validators";
-import { resetReviewOnChange, ruleAppliesToEnv } from "shared/util";
+import {
+  getApplicableEnvIds,
+  resetReviewOnChange,
+  ruleAppliesToEnv,
+} from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -12,10 +16,7 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import {
-  getApplicableEnvIds,
-  narrowRuleForEnvRemoval,
-} from "back-end/src/util/flattenRules";
+import { narrowRuleForEnvRemoval } from "back-end/src/util/flattenRules";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   assertValidEnvironment,
@@ -30,10 +31,7 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -46,7 +44,7 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
   // same effective coverage) — looks like success but doesn't change
   // anything the user can observe.
   const orgEnvs = getEnvironments(req.organization);
-  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
   if (!applicableEnvs.includes(environment)) {
     throw new BadRequestError(
       `Environment "${environment}" is not applicable to this feature's project`,
@@ -120,7 +118,7 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
     if (fullyDeleted) {
       const existingActions = revision.rampActions ?? [];
       const filteredActions = existingActions.filter(
-        (a) => a.ruleId !== req.params.ruleId,
+        (a) => !("ruleId" in a) || a.ruleId !== req.params.ruleId,
       );
       if (filteredActions.length !== existingActions.length) {
         changes.rampActions = filteredActions;

@@ -2,6 +2,7 @@ import { ReactElement } from "react";
 import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import { teal, red } from "@radix-ui/colors";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 
 export default function ConnectionStatus({
   connected,
@@ -45,13 +46,13 @@ export default function ConnectionStatus({
                         Encountered an error while trying to connect:
                       </div>
                       {errorTxt ? (
-                        <div className="alert alert-danger mt-2">
+                        <Callout status="error" mt="2">
                           {errorTxt}
-                        </div>
+                        </Callout>
                       ) : (
-                        <div className="alert alert-danger">
+                        <Callout status="error">
                           <em>Unknown error</em>
-                        </div>
+                        </Callout>
                       )}
                     </>
                   }

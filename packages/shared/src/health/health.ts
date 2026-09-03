@@ -1,6 +1,5 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { SafeRolloutSnapshotInterface } from "../validators/safe-rollout-snapshot";
-import { ExperimentType } from "../validators/experiments";
 
 type MultipleExposureHealthStatus =
   | "not-enough-traffic"
@@ -95,46 +94,43 @@ export function getSRMHealthData({
   }
 }
 
-export function getSRMValue(
-  experimentType: ExperimentType,
+/**
+ * SRM lookup for multi-armed-bandit experiments. Reads only top-level
+ * snapshot fields, so callers that only have a status summary (e.g.
+ * `SnapshotStatusSummary`) can use it without paying for the heavy
+ * analyses fetch. Old bandit snapshots stored SRM on `banditResult`;
+ * newer ones surface it via the dedicated health query.
+ */
+export function getBanditSRMValue(
+  snapshot: Pick<ExperimentSnapshotInterface, "banditResult" | "health">,
+): number | undefined {
+  return snapshot.banditResult?.srm ?? snapshot.health?.traffic?.overall?.srm;
+}
+
+/**
+ * SRM lookup for standard or holdout experiments. Requires the full
+ * snapshot because the fallback path reads `analyses[0].results[0].srm`
+ * when the dedicated health query hasn't run; passing a narrowed
+ * snapshot summary here would silently return `undefined` for snapshots
+ * that depend on the fallback, so the type system rules that out.
+ */
+export function getExperimentSRMValue(
   snapshot: ExperimentSnapshotInterface,
 ): number | undefined {
-  switch (experimentType) {
-    case "multi-armed-bandit":
-      // get SRM from bandit result if available (only old bandit snapshots have SRM
-      // on the banditResult object)
-      return (
-        snapshot.banditResult?.srm ?? snapshot.health?.traffic?.overall?.srm
-      );
-
-    case "holdout":
-    case "standard": {
-      const healthQuerySRM = snapshot.health?.traffic?.overall?.srm;
-
-      if (healthQuerySRM !== undefined) {
-        return healthQuerySRM;
-      }
-      // fall back to main results SRM for no dimension split snapshots
-      // and without health query SRM
-      // if no dimension && only one overall result (e.g. no dim splits)
-      if (
-        snapshot.type === "standard" &&
-        snapshot.analyses?.[0]?.results?.length === 1
-      ) {
-        return snapshot.analyses?.[0]?.results?.[0]?.srm;
-      }
-      return undefined;
-    }
-
-    default: {
-      const _exhaustiveCheck: never = experimentType;
-      // eslint-disable-next-line no-console
-      console.error(
-        `Unknown experiment type for SRM: ${_exhaustiveCheck}. snapshotId: ${snapshot.id}`,
-      );
-      return undefined;
-    }
+  const healthQuerySRM = snapshot.health?.traffic?.overall?.srm;
+  if (healthQuerySRM !== undefined) {
+    return healthQuerySRM;
   }
+  // fall back to the first overall result only for standard snapshots
+  // that have a single non-dimension-split result; holdouts and
+  // dimension splits don't have a meaningful overall result here.
+  if (
+    snapshot.type === "standard" &&
+    snapshot.analyses?.[0]?.results?.length === 1
+  ) {
+    return snapshot.analyses?.[0]?.results?.[0]?.srm;
+  }
+  return undefined;
 }
 
 export function getSafeRolloutSRMValue(

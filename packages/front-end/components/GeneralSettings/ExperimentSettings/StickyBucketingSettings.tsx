@@ -1,17 +1,15 @@
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import {
-  StickyBucketingToggleWarning,
-  StickyBucketingTooltip,
-} from "@/components/Features/FallbackAttributeSelector";
+import { StickyBucketingTooltip } from "@/components/Features/FallbackAttributeSelector";
+import { DocLink } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ConnectSettingsForm } from "@/pages/settings";
-import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { GBInfo } from "@/components/Icons";
+import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 
 export default function StickyBucketingSettings() {
   const { hasCommercialFeature } = useUser();
@@ -64,50 +62,86 @@ export default function StickyBucketingSettings() {
           </Flex>
 
           {watch("useStickyBucketing") && (
-            <Flex align="start" gap="3" mt="3">
-              <Checkbox
-                value={watch("useFallbackAttributes")}
-                setValue={(v) => setValue("useFallbackAttributes", v)}
-                id="toggle-useFallbackAttributes"
-              />
-              <Box>
-                <label
-                  htmlFor="toggle-useFallbackAttributes"
-                  className="font-weight-semibold"
-                >
-                  <Tooltip
-                    body={
-                      <>
-                        <div className="mb-2">
-                          If the user&apos;s assignment attribute is not
-                          available a fallback attribute may be used instead.
-                          Toggle this to allow selection of a fallback attribute
-                          when creating experiments.
-                        </div>
-                        <div>
-                          While using a fallback attribute can improve the
-                          consistency of the user experience, it can also lead
-                          to statistical biases if not implemented carefully.
-                          See the Sticky Bucketing docs for more information.
-                        </div>
-                      </>
-                    }
+            <Flex direction="column" gap="3" mt="3" ml="6">
+              <Flex align="start" gap="3">
+                <Checkbox
+                  value={watch("stickyBucketingOnByDefault")}
+                  setValue={(v) => setValue("stickyBucketingOnByDefault", v)}
+                  id="toggle-stickyBucketingOnByDefault"
+                />
+                <Box>
+                  <label
+                    htmlFor="toggle-stickyBucketingOnByDefault"
+                    className="font-weight-semibold"
                   >
-                    Enable fallback attributes in experiments <GBInfo />
-                  </Tooltip>
-                </label>
-              </Box>
+                    Enable by default for new experiments
+                  </label>
+                  <p>
+                    When enabled, new experiments start with Sticky Bucketing
+                    on. You can still turn it off for individual experiments.
+                  </p>
+                </Box>
+              </Flex>
+
+              <Flex align="start" gap="3">
+                <Checkbox
+                  value={watch("useFallbackAttributes")}
+                  setValue={(v) => setValue("useFallbackAttributes", v)}
+                  id="toggle-useFallbackAttributes"
+                />
+                <Box>
+                  <label
+                    htmlFor="toggle-useFallbackAttributes"
+                    className="font-weight-semibold"
+                  >
+                    <Tooltip
+                      body={
+                        <>
+                          <div className="mb-2">
+                            If the user&apos;s assignment attribute is not
+                            available a fallback attribute may be used instead.
+                            Toggle this to allow selection of a fallback
+                            attribute when creating experiments.
+                          </div>
+                          <div>
+                            While using a fallback attribute can improve the
+                            consistency of the user experience, it can also lead
+                            to statistical biases if not implemented carefully.
+                            See the Sticky Bucketing docs for more information.
+                          </div>
+                        </>
+                      }
+                    >
+                      Enable fallback attributes in Experiments <GBInfo />
+                    </Tooltip>
+                  </label>
+                </Box>
+              </Flex>
             </Flex>
           )}
-          <Callout status="info" mt="3" contentsAs="div">
-            <Text size="2">
-              <StickyBucketingToggleWarning
-                showIcon={false}
-                skipMargin={true}
-                hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
-              />
-            </Text>
-          </Callout>
+
+          <SDKCapabilityWarning
+            as="helperText"
+            size="medium"
+            status="info"
+            capability="stickyBucketing"
+            popoverTriggerText="Show incompatible SDKs"
+            someMessage={
+              <>
+                Ensure that Sticky Bucketing is correctly integrated (
+                <DocLink
+                  useRadix={false}
+                  docSection="stickyBucketing"
+                  className="underline"
+                >
+                  see docs
+                </DocLink>
+                ) with your SDK.
+              </>
+            }
+            noneMessage="None of your SDK Connections support Sticky Bucketing."
+            mt="3"
+          />
         </>
       )}
     </ConnectSettingsForm>

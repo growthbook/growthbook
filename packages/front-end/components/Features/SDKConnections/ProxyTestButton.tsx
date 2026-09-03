@@ -5,6 +5,7 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Callout from "@/ui/Callout";
 
 export default function ProxyTestButton({
   host,
@@ -30,6 +31,7 @@ export default function ProxyTestButton({
     <>
       {proxyTestResult && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           header="Proxy Status"
           open={true}
@@ -62,15 +64,13 @@ export default function ProxyTestButton({
                   expandable={true}
                 />
               )}
-              <div className="alert alert-danger">
-                Error: {proxyTestResult.error}
-              </div>
+              <Callout status="error">Error: {proxyTestResult.error}</Callout>
             </div>
           ) : (
-            <div className="alert alert-success">
+            <Callout status="success">
               Successfully Connected. Proxy Server running version{" "}
               <strong>{proxyTestResult.version}</strong>.
-            </div>
+            </Callout>
           )}
         </Modal>
       )}

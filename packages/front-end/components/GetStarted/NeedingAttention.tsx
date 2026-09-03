@@ -70,10 +70,11 @@ const NeedingAttention = (): React.ReactElement | null => {
     getDatasourceById,
     getMetricById,
     getFactMetricById,
+    project: currentProject,
   } = useDefinitions();
 
-  // fetch the experiments
-  const { experiments } = useExperiments();
+  // fetch the experiments (scoped to the currently selected project)
+  const { experiments } = useExperiments(currentProject);
   const filterResults = useCallback((items: ComputedExperimentInterface[]) => {
     // filter to only those experiments that match the status
     if (!items || !items.length) return [];
@@ -209,7 +210,9 @@ const NeedingAttention = (): React.ReactElement | null => {
       (result, revision) => {
         if (
           revision.featureMeta &&
-          revision.featureMeta.dateCreated <= revision.dateCreated
+          revision.featureMeta.dateCreated <= revision.dateCreated &&
+          // Scope to the currently selected project
+          (!currentProject || revision.featureMeta.project === currentProject)
         ) {
           result.push({
             ...revision,
@@ -343,7 +346,7 @@ const NeedingAttention = (): React.ReactElement | null => {
                 key={feature.value}
                 align="center"
                 width="100%"
-                labelSize="1"
+                labelSize="sm"
                 labelWeight="medium"
                 options={[
                   {
@@ -529,10 +532,10 @@ const NeedingAttention = (): React.ReactElement | null => {
             </thead>
             <tbody>
               {paginatedFeatureFlags.map((item) => (
-                <tr key={item.featureId} className="hover-highlight">
+                <tr key={item.id} className="hover-highlight">
                   <td className={styles.nameTd}>
                     <Link
-                      href={`/features/${item.featureId}`}
+                      href={`/features/${item.featureId}?v=${item.version}`}
                       style={{
                         textDecoration: "none",
                         color: "inherit",

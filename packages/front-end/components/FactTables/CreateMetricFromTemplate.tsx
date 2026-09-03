@@ -19,7 +19,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Link from "@/ui/Link";
 
 const metricToCreateValidator = z.object({
-  metricType: metricTypeValidator,
+  metricType: metricTypeValidator.exclude(["funnel"]),
   name: z.string(),
   numerator: columnRefValidator,
   denominator: columnRefValidator.optional(),

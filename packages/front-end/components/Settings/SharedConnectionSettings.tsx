@@ -1,16 +1,19 @@
-import { DataSourceSettings } from "shared/types/datasource";
+import { DataSourceSettings, DataSourceType } from "shared/types/datasource";
 import { ChangeEventHandler, useState } from "react";
 import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
+import { getDefaultMaxConcurrentQueries } from "shared/util";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 
 export interface Props {
+  type: DataSourceType;
   settings: Partial<DataSourceSettings>;
   onSettingChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
 }
 
 export default function SharedConnectionSettings({
+  type,
   settings,
   onSettingChange,
 }: Props) {
@@ -19,6 +22,13 @@ export default function SharedConnectionSettings({
     !!settings.maxConcurrentQueries || !!settings.queryCacheTTLMins;
 
   const [open, setOpen] = useState(hasExistingSettings);
+
+  // Datasources with a nonzero default apply it when the field is left blank.
+  const defaultMaxConcurrentQueries = getDefaultMaxConcurrentQueries(type);
+  const maxConcurrentQueriesHelpText =
+    defaultMaxConcurrentQueries > 0
+      ? `Leave empty to use the default of ${defaultMaxConcurrentQueries}. Enter 0 for no limit on the number of concurrent queries.`
+      : "A value of 0 or an empty field will result in no limit on the number of queries";
 
   return (
     <div className="mb-3">
@@ -35,6 +45,7 @@ export default function SharedConnectionSettings({
       >
         <div className="rounded px-3 pt-3 pb-1 bg-highlight">
           <Field
+            size="legacy"
             name="maxConcurrentQueries"
             type="number"
             label={
@@ -50,12 +61,18 @@ export default function SharedConnectionSettings({
                 />
               </>
             }
-            helpText="A value of 0 or an empty field will result in no limit on the number of queries"
+            helpText={maxConcurrentQueriesHelpText}
+            placeholder={
+              defaultMaxConcurrentQueries > 0
+                ? String(defaultMaxConcurrentQueries)
+                : undefined
+            }
             value={settings.maxConcurrentQueries || ""}
             onChange={onSettingChange}
             min={0}
           />
           <Field
+            size="legacy"
             name="queryCacheTTLMins"
             type="number"
             label={

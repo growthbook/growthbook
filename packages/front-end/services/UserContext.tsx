@@ -29,6 +29,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import {
   setUser as sentrySetUser,
   setTag as sentrySetTag,
@@ -38,6 +39,8 @@ import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { AgreementType } from "shared/validators";
+import { AIProvider } from "shared/ai";
+import { NonJsonResponseError } from "shared/util";
 import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
 import {
   getGrowthBookBuild,
@@ -70,6 +73,10 @@ export type Team = Omit<TeamInterface, "members"> & {
   members?: ExpandedMember[];
 };
 
+interface RefreshOrganizationOptions {
+  forceLicenseRefresh?: boolean;
+}
+
 export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   createDimensions: false,
   createPresentations: false,
@@ -98,6 +105,9 @@ export interface UserContextValue {
   pylonHmacHash?: string;
   email?: string;
   superAdmin?: boolean;
+  npsSurveyAt?: string;
+  accountCreatedAt?: string;
+  npsSurveyEnabled?: boolean;
   license?: Partial<LicenseInterface> | null;
   installationName?: string;
   subscription: SubscriptionInfo | null;
@@ -106,7 +116,7 @@ export interface UserContextValue {
   getUserDisplay: (id: string, fallback?: boolean) => string;
   getOwnerDisplay: (owner: string | undefined) => string;
   updateUser: () => Promise<void>;
-  refreshOrganization: () => Promise<void>;
+  refreshOrganization: (options?: RefreshOrganizationOptions) => Promise<void>;
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
   settings: OrganizationSettings;
   enterpriseSSO?: Partial<SSOConnectionInterface> | null;
@@ -116,10 +126,14 @@ export interface UserContextValue {
   commercialFeatures: CommercialFeature[];
   organization: Partial<OrganizationInterface>;
   agreements?: AgreementType[];
+  // AI providers with a usable API key, from the org's own stored keys or the
+  // host's environment variables.
+  aiKeyProviders: AIProvider[];
   seatsInUse: number;
   roles: Role[];
   teams?: Team[];
   error?: string;
+  orgSuspended: boolean;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
   commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
   permissionsUtil: Permissions;
@@ -140,6 +154,9 @@ interface UserResponse {
   pylonHmacHash: string;
   verified: boolean;
   superAdmin: boolean;
+  npsSurveyAt?: string;
+  accountCreatedAt?: string;
+  npsSurveyEnabled?: boolean;
   organizations?: UserOrganizations;
   currentUserPermissions: UserPermissions;
 }
@@ -160,6 +177,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   organization: {},
   agreements: [],
+  aiKeyProviders: [],
   subscription: null,
   licenseError: "",
   seatsInUse: 0,
@@ -179,6 +197,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   canSubscribe: false,
   freeSeats: 3,
+  orgSuspended: false,
 });
 
 export function useUser() {
@@ -197,7 +216,7 @@ export function getCurrentUser() {
 }
 
 export function UserContextProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, orgId, setOrganizations } = useAuth();
+  const { apiCall, isAuthenticated, orgId, setOrganizations } = useAuth();
 
   const {
     data,
@@ -216,11 +235,50 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   const {
     data: currentOrg,
-    mutate: refreshOrganization,
+    mutate: mutateOrganization,
     error: orgLoadingError,
   } = useApi<GetOrganizationResponse>(`/organization`, {
     shouldRun: () => !!orgId,
   });
+
+  // An expired auth proxy session (e.g. Google IAP) answers API calls in plain text; only a top-level navigation can re-authenticate it, so reload, at most once a minute
+  const AUTH_PROXY_RELOAD_KEY = "gb-auth-proxy-reload";
+  const proxyAuthError = [error, orgLoadingError].some(
+    (e) =>
+      e instanceof NonJsonResponseError &&
+      (e.status === 401 || e.status === 403),
+  );
+  useEffect(() => {
+    if (!proxyAuthError) return;
+    try {
+      const lastReload = parseInt(
+        window.sessionStorage.getItem(AUTH_PROXY_RELOAD_KEY) || "0",
+        10,
+      );
+      if (Date.now() - lastReload < 60_000) return;
+      window.sessionStorage.setItem(AUTH_PROXY_RELOAD_KEY, `${Date.now()}`);
+    } catch (e) {
+      // no guard available; don't risk a reload loop
+      return;
+    }
+    window.location.reload();
+  }, [proxyAuthError]);
+
+  const refreshOrganization = useCallback(
+    async (options?: RefreshOrganizationOptions) => {
+      if (!options?.forceLicenseRefresh) {
+        await mutateOrganization();
+        return;
+      }
+
+      const organization = await apiCall<GetOrganizationResponse>(
+        "/organization?forceLicenseRefresh=true",
+        { method: "GET" },
+      );
+      await mutateOrganization(organization, false);
+    },
+    [apiCall, mutateOrganization],
+  );
 
   const hashedOrganizationId = useMemo(() => {
     const id = currentOrg?.organization?.id || "";
@@ -324,6 +382,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       buildSHA: build.sha,
       buildDate: build.date,
       buildVersion: build.lastVersion,
+      userDateCreated: data?.accountCreatedAt
+        ? getValidDate(data.accountCreatedAt).toISOString()
+        : "",
       orgOwnerJobTitle:
         currentOrg?.organization?.demographicData?.ownerJobTitle,
       orgOwnerUsageIntents:
@@ -332,6 +393,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   }, [
     data?.superAdmin,
     data?.userId,
+    data?.accountCreatedAt,
     currentOrg?.organization?.demographicData?.ownerJobTitle,
     currentOrg?.organization?.demographicData?.ownerUsageIntents,
   ]);
@@ -385,9 +447,17 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
   }, [currentOrg?.organization?.id]);
 
+  const hasVisualEditorPromo = useFeatureIsOn("visual-editor-free-access");
+
   const commercialFeatures = useMemo(() => {
-    return new Set(currentOrg?.commercialFeatures || []);
-  }, [currentOrg?.commercialFeatures]);
+    const features = new Set<CommercialFeature>(
+      currentOrg?.commercialFeatures || [],
+    );
+    // This is a temporary override to give some users access to the visual editor
+    // If we decide to keep this, we should add a getEffectiveCommercialFeatures that expands this functionality
+    if (hasVisualEditorPromo) features.add("visual-editor");
+    return features;
+  }, [currentOrg?.commercialFeatures, hasVisualEditorPromo]);
 
   const permissionsCheck = useCallback(
     (
@@ -430,7 +500,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   ]);
 
   const permissionsUtil = useMemo(() => {
-    return new Permissions(
+    const basePermissions: UserPermissions =
       currentOrg?.currentUserPermissions || {
         global: {
           permissions: {},
@@ -438,8 +508,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           environments: [],
         },
         projects: {},
-      },
-    );
+      };
+
+    return new Permissions(basePermissions);
   }, [currentOrg?.currentUserPermissions]);
 
   const getUserDisplay = useCallback(
@@ -508,12 +579,15 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         email: data?.email,
         pylonHmacHash: data?.pylonHmacHash,
         superAdmin: data?.superAdmin,
+        npsSurveyAt: data?.npsSurveyAt,
+        accountCreatedAt: data?.accountCreatedAt,
+        npsSurveyEnabled: data?.npsSurveyEnabled,
         updateUser,
         user,
         users,
         getUserDisplay: getUserDisplay,
         getOwnerDisplay: getOwnerDisplay,
-        refreshOrganization: refreshOrganization as () => Promise<void>,
+        refreshOrganization,
         roles: currentOrg?.roles || [],
         permissions,
         permissionsUtil,
@@ -526,12 +600,14 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         effectiveAccountPlan: currentOrg?.effectiveAccountPlan,
         commercialFeatureLowestPlan: currentOrg?.commercialFeatureLowestPlan,
         licenseError: currentOrg?.licenseError || "",
-        commercialFeatures: currentOrg?.commercialFeatures || [],
+        commercialFeatures: [...commercialFeatures],
         agreements: currentOrg?.agreements || [],
+        aiKeyProviders: currentOrg?.aiKeyProviders || [],
         organization: organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
         error: error?.message || orgLoadingError?.message,
+        orgSuspended: organization?.suspended === true && !data?.superAdmin,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
         watching: watching,
         canSubscribe,

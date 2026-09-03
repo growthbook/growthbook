@@ -6,17 +6,33 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ReactElement, useMemo, useState } from "react";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
+import { useEffect, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { filterEnvironmentsByExperiment, getReviewSetting } from "shared/util";
+import { Box, Flex, Separator } from "@radix-ui/themes";
+import {
+  filterEnvironmentsByExperiment,
+  getReviewSetting,
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
+  expandSparseToFull,
+  ensureConfigBacking,
+  setConfigBacking,
+  valueHasConfigExtends,
+  mergeRevision,
+} from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import Callout from "@/ui/Callout";
-import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
@@ -25,6 +41,7 @@ import {
   getDefaultVariationValue,
   validateFeatureRule,
 } from "@/services/features";
+import { useConfigBacking } from "@/hooks/useConfigBacking";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useWatching } from "@/services/WatchProvider";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -32,27 +49,24 @@ import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
-import DraftSelectorForChanges, {
+import DraftSelectorDropdown, {
   DraftMode,
-} from "@/components/Features/DraftSelectorForChanges";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
+} from "@/components/Features/DraftSelectorDropdown";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import HelperText from "@/ui/HelperText";
 import FeatureKeyField from "./FeatureKeyField";
 import TagsField from "./TagsField";
 import ValueTypeField from "./ValueTypeField";
 
+const NO_ENVIRONMENTS: string[] = [];
+
 export type Props = {
-  close?: () => void;
-  inline?: boolean;
+  close: () => void;
   cta?: string;
-  secondaryCTA?: ReactElement;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   source?: string;
@@ -84,13 +98,11 @@ const genFormDefaultValues = ({
   permissions,
   project,
   experiment,
-  customFields,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
   experiment: ExperimentInterfaceStringDates;
-  customFields?: ReturnType<typeof useCustomFields>;
 }): Omit<
   FeatureInterface,
   | "organization"
@@ -108,11 +120,6 @@ const genFormDefaultValues = ({
     permissions,
     project,
   });
-  const customFieldValues = customFields
-    ? Object.fromEntries(
-        customFields.map((field) => [field.id, field.defaultValue ?? ""]),
-      )
-    : {};
   const type =
     getLatestPhaseVariations(experiment).length > 2 ? "string" : "boolean";
   const defaultValue = getDefaultValue(type);
@@ -127,7 +134,7 @@ const genFormDefaultValues = ({
     tags: experiment.tags || [],
     environmentSettings,
     rules: [],
-    customFields: customFieldValues,
+    customFields: {},
     variations: getLatestPhaseVariations(experiment).map((v, i) => {
       return {
         value: i ? getDefaultVariationValue(defaultValue) : defaultValue,
@@ -139,9 +146,7 @@ const genFormDefaultValues = ({
 
 export default function FeatureFromExperimentModal({
   close,
-  inline,
-  cta = "Create",
-  secondaryCTA,
+  cta = "Add",
   experiment,
   mutate,
   source,
@@ -156,24 +161,14 @@ export default function FeatureFromExperimentModal({
   );
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
-  const { hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
   const { holdoutsMap } = useHoldouts();
-  const allCustomFields = useCustomFields();
-  const customFields = filterCustomFieldsForSectionAndProject(
-    allCustomFields,
-    "feature",
-    selectedProject,
-  );
 
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
     experiment,
     project: selectedProject,
-    customFields: hasCommercialFeature("custom-metadata")
-      ? customFields
-      : undefined,
   });
 
   const { features } = useFeatureMetaInfo({ project: experiment.project });
@@ -186,7 +181,23 @@ export default function FeatureFromExperimentModal({
     return true;
   });
 
-  const form = useForm({ defaultValues });
+  // react-hook-form's DefaultValues<T> cannot accept `unknown` fields — it maps
+  // them to {} | undefined, which excludes null. force: unknown in FeatureRulePatch
+  // propagates through FeatureRule.rampActions and triggers this constraint. Since
+  // rules is always [] in these defaults and the form never sets rampActions fields,
+  // the explicit type parameter preserves full form type safety while the cast
+  // bypasses the DefaultValues constraint check.
+  const form = useForm<ReturnType<typeof genFormDefaultValues>>({
+    defaultValues: defaultValues as never,
+  });
+
+  const { availableFields: availableCustomFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "feature",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
 
   const [showTags, setShowTags] = useState(
     experiment.tags && experiment.tags.length > 0,
@@ -195,11 +206,6 @@ export default function FeatureFromExperimentModal({
     experiment.description && experiment.description.length > 0,
   );
 
-  const [ruleAllEnvironments, setRuleAllEnvironments] = useState<boolean>(true);
-  const [ruleSelectedEnvironments, setRuleSelectedEnvironments] = useState<
-    string[]
-  >([]);
-
   const [draftMode, setDraftMode] = useState<DraftMode>("new");
   const [selectedDraft, setSelectedDraft] = useState<number | null>(null);
 
@@ -207,14 +213,158 @@ export default function FeatureFromExperimentModal({
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const existing = form.watch("existing");
+  const variations = getLatestPhaseVariations(experiment);
 
   const { data: existingFeatureData } = useApi<{
     status: 200;
     feature: FeatureInterface;
-    revisions: MinimalFeatureRevisionInterface[];
+    revisionList: MinimalFeatureRevisionInterface[];
+    revisions: FeatureRevisionInterface[];
   }>(`/feature/${existing}`, { shouldRun: () => !!existing });
   const existingFeature = existingFeatureData?.feature;
-  const existingRevisionList = existingFeatureData?.revisions ?? [];
+  const existingRevisionList = existingFeatureData?.revisionList ?? [];
+
+  // Sparse patch mode for the experiment-ref rule. Only coherent when linking an
+  // EXISTING JSON feature with a plain-object default — a brand-new feature's
+  // default is derived from the control variation here, so there's no
+  // independent default to patch onto.
+  const sparseEligible =
+    !!existing &&
+    existingFeature?.valueType === "json" &&
+    parsePlainJSONObject(existingFeature.defaultValue ?? "") !== null;
+  const [sparse, setSparse] = useState(false);
+
+  // Config-backed existing JSON flags: every variation value is a sparse patch
+  // serving the default's config, so the variations use the config-backing
+  // editor with sparse forced on, and each value is seeded with the backing
+  // (mirrors useSeedConfigBackedVariations on the feature page, except this
+  // modal keeps `sparse` in local state rather than the form).
+  const { defaultConfigKey, isConfigBacked, configBackingOptionKeys } =
+    useConfigBacking(existing ? existingFeature : undefined);
+  useEffect(() => {
+    if (!isConfigBacked || !defaultConfigKey) return;
+    setSparse(true);
+    (form.getValues("variations") || []).forEach((v, i) => {
+      const normalized = ensureConfigBacking(v.value, defaultConfigKey);
+      if (normalized !== v.value) {
+        form.setValue(`variations.${i}.value`, normalized);
+      }
+    });
+  }, [isConfigBacked, defaultConfigKey, form]);
+
+  // Enabled environments of the destination state the rule will land in: the
+  // selected draft (overlaid on live) when saving to an existing draft, or the
+  // live feature otherwise (new draft / apply now).
+  const enabledEnvsForDestination = useMemo<string[] | null>(() => {
+    if (!existing || !existingFeature) return null;
+
+    const envIds = environments.map((e) => e.id);
+    const draftRevision =
+      draftMode === "existing" && selectedDraft !== null
+        ? existingFeatureData?.revisions?.find(
+            (r) => r.version === selectedDraft,
+          )
+        : undefined;
+
+    // mergeRevision overlays the draft's environmentsEnabled per env, which is
+    // what publishing applies — envs the draft doesn't record keep their live
+    // value rather than reading as disabled.
+    const destination = draftRevision
+      ? mergeRevision(existingFeature, draftRevision, envIds)
+      : existingFeature;
+
+    return envIds.filter(
+      (id) => !!destination.environmentSettings?.[id]?.enabled,
+    );
+  }, [
+    existing,
+    existingFeature,
+    existingFeatureData?.revisions,
+    draftMode,
+    selectedDraft,
+    environments,
+  ]);
+
+  const destinationKey =
+    existing && existingFeature
+      ? `${existing}:${draftMode}:${draftMode === "existing" ? selectedDraft : ""}`
+      : "";
+
+  // The rule scope defaults to the destination's enabled envs and switches to
+  // the user's selection once they edit it. Keying the override to the
+  // destination it was made for means a feature/draft change re-seeds on its
+  // own — a stale override simply stops matching, so there's no reset effect
+  // and never a render where the scope lags the destination.
+  const [scopeOverride, setScopeOverride] = useState<{
+    key: string;
+    allEnvironments: boolean;
+    selectedEnvironments: string[];
+  } | null>(null);
+
+  const ruleScope =
+    scopeOverride?.key === destinationKey
+      ? scopeOverride
+      : enabledEnvsForDestination === null
+        ? // New feature, or the selected one hasn't loaded yet.
+          { allEnvironments: true, selectedEnvironments: NO_ENVIRONMENTS }
+        : {
+            allEnvironments:
+              environments.length > 0 &&
+              enabledEnvsForDestination.length === environments.length,
+            selectedEnvironments: enabledEnvsForDestination,
+          };
+  const ruleAllEnvironments = ruleScope.allEnvironments;
+  const ruleSelectedEnvironments = ruleScope.selectedEnvironments;
+
+  const setRuleAllEnvironments = (allEnvironments: boolean) =>
+    setScopeOverride({
+      key: destinationKey,
+      allEnvironments,
+      selectedEnvironments: ruleSelectedEnvironments,
+    });
+  const setRuleSelectedEnvironments = (selectedEnvironments: string[]) =>
+    setScopeOverride({
+      key: destinationKey,
+      allEnvironments: ruleAllEnvironments,
+      selectedEnvironments,
+    });
+
+  // Rule-footprint environments not yet enabled on the destination. Publishing
+  // this rule flips them on for the feature (the back end enables any footprint
+  // env that's currently off), so warn the user before they commit.
+  const envsEnabledByPublish = useMemo<string[]>(() => {
+    if (!existing || enabledEnvsForDestination === null) return [];
+    const enabledSet = new Set(enabledEnvsForDestination);
+    const footprint = ruleAllEnvironments
+      ? environments.map((e) => e.id)
+      : ruleSelectedEnvironments;
+    return footprint.filter(
+      (id) => environments.some((e) => e.id === id) && !enabledSet.has(id),
+    );
+  }, [
+    existing,
+    enabledEnvsForDestination,
+    ruleAllEnvironments,
+    ruleSelectedEnvironments,
+    environments,
+  ]);
+
+  const enableOnPublishWarning = useMemo<React.ReactNode>(() => {
+    if (envsEnabledByPublish.length === 0) return null;
+    const envNames = <strong>{envsEnabledByPublish.join(", ")}</strong>;
+    const scope =
+      draftMode === "existing"
+        ? "in the selected draft"
+        : "for this Feature Flag";
+    const verb = envsEnabledByPublish.length === 1 ? "is" : "are";
+    const pronoun = envsEnabledByPublish.length === 1 ? "it" : "them";
+    return (
+      <>
+        {envNames} {verb} not enabled {scope}. Publishing will enable {pronoun}{" "}
+        so the rule can take effect.
+      </>
+    );
+  }, [envsEnabledByPublish, draftMode]);
 
   // Pessimistic default ("all") until the FF loads so publish-now stays gated.
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
@@ -230,7 +380,8 @@ export default function FeatureFromExperimentModal({
 
   const canAutoPublish = useMemo(() => {
     if (!existingFeature) return false;
-    if (permissionsUtil.canBypassApprovalChecks(existingFeature)) return true;
+    if (permissionsUtil.canBypassFlagApprovalChecks(existingFeature, "feature"))
+      return true;
     return gatedEnvSet === "none";
   }, [existingFeature, permissionsUtil, gatedEnvSet]);
 
@@ -252,11 +403,21 @@ export default function FeatureFromExperimentModal({
     return null;
   }, [existing, existingFeature, experiment.holdoutId, holdoutsMap]);
 
+  // A holdout-free experiment linked to an existing feature that IS in a holdout
+  // will be enrolled in that holdout on submit — surface it. Name is null when
+  // this doesn't apply (no existing feature holdout, or the experiment already
+  // has a holdout, which holdoutWarning handles).
+  const holdoutToAddToExperiment = useMemo<string | null>(() => {
+    if (!existing || !existingFeature?.holdout?.id) return null;
+    if (experiment.holdoutId) return null;
+    return holdoutsMap.get(existingFeature.holdout.id)?.name ?? "the holdout";
+  }, [existing, existingFeature, experiment.holdoutId, holdoutsMap]);
+
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
 
   if (
-    !permissionsUtil.canManageFeatureDrafts({
+    !permissionsUtil.canEditFeatureDrafts({
       project: selectedProject,
     })
   ) {
@@ -298,18 +459,29 @@ export default function FeatureFromExperimentModal({
   }
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="feature-from-experiment"
       trackingEventModalSource={source}
       open
       size="lg"
-      inline={inline}
-      header={"Add Feature Flag to Experiment"}
+      header="Add Feature Flag to Experiment"
+      headerAction={
+        existing && existingFeature ? (
+          <DraftSelectorDropdown
+            feature={existingFeature}
+            revisionList={existingRevisionList}
+            mode={draftMode}
+            setMode={setDraftMode}
+            selectedDraft={selectedDraft}
+            setSelectedDraft={setSelectedDraft}
+            canAutoPublish={canAutoPublish}
+            gatedEnvSet={gatedEnvSet}
+          />
+        ) : null
+      }
       cta={cta}
       close={close}
       ctaEnabled={ctaEnabled}
-      disabledMessage={disabledMessage}
-      secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { variations, existing, ...feature } = values;
 
@@ -358,6 +530,9 @@ export default function FeatureFromExperimentModal({
           scheduleRules: [],
           experimentId: experiment.id,
           variations,
+          ...((sparseEligible && sparse) || isConfigBacked
+            ? { sparse: true }
+            : {}),
         };
 
         const newRule = validateFeatureRule(rule, featureToCreate);
@@ -404,7 +579,7 @@ export default function FeatureFromExperimentModal({
 
         const autoPublish = existing && draftMode === "publish";
         const draftVersion =
-          existing && draftMode === "existing" && selectedDraft != null
+          existing && draftMode === "existing" && selectedDraft !== null
             ? selectedDraft
             : undefined;
         const forceNewDraft = !existing || draftMode === "new";
@@ -423,6 +598,7 @@ export default function FeatureFromExperimentModal({
       })}
     >
       <SelectField
+        size="legacy"
         label="Create New or Use Existing?"
         options={validFeatures.map((f) => ({
           label: f.id + " (" + f.valueType + ")",
@@ -435,6 +611,26 @@ export default function FeatureFromExperimentModal({
             const newFeature = validFeatures.find((f) => f.id === value);
             if (newFeature) {
               updateValuesOnTypeChange(newFeature.valueType);
+              // A config-backed flag serves its config, so seed each variation
+              // as a clean backing ref (empty override patch) rather than a
+              // copy of the type-transformed default. Selecting a non-config
+              // JSON flag strips any backing ref left from a prior selection.
+              if (newFeature.valueType === "json") {
+                const configKey = newFeature.configBackingKey ?? null;
+                (form.getValues("variations") || []).forEach((v, i) => {
+                  if (configKey) {
+                    form.setValue(
+                      `variations.${i}.value`,
+                      setConfigBacking(configKey, "{}"),
+                    );
+                  } else if (valueHasConfigExtends(v.value)) {
+                    form.setValue(
+                      `variations.${i}.value`,
+                      setConfigBacking(null, v.value),
+                    );
+                  }
+                });
+              }
             }
           }
 
@@ -447,6 +643,19 @@ export default function FeatureFromExperimentModal({
       {holdoutWarning && (
         <Callout status="warning" mb="3">
           {holdoutWarning}
+        </Callout>
+      )}
+
+      {holdoutToAddToExperiment && (
+        <Callout status="info" mb="3">
+          The selected feature is in holdout &ldquo;{holdoutToAddToExperiment}
+          &rdquo;. Adding this experiment will also add it to that holdout.
+        </Callout>
+      )}
+
+      {disabledMessage && (
+        <Callout status="warning" mb="3">
+          {disabledMessage}
         </Callout>
       )}
 
@@ -497,7 +706,8 @@ export default function FeatureFromExperimentModal({
           <ValueTypeField
             value={valueType}
             onChange={(val) => {
-              updateValuesOnTypeChange(val);
+              // config authoring type isn't offered here yet (allowConfig off).
+              if (val !== "config") updateValuesOnTypeChange(val);
             }}
           />
 
@@ -511,42 +721,22 @@ export default function FeatureFromExperimentModal({
             my="5"
           />
 
-          {hasCommercialFeature("custom-metadata") &&
-            customFields &&
-            customFields.length > 0 && (
-              <div>
-                <CustomFieldInput
-                  customFields={customFields}
-                  setCustomFields={(value) => {
-                    form.setValue("customFields", value);
-                  }}
-                  currentCustomFields={form.watch("customFields") || {}}
-                  section={"feature"}
-                  project={selectedProject}
-                />
-              </div>
-            )}
+          {availableCustomFields.length > 0 && (
+            <div>
+              <CustomFieldInput
+                fields={availableCustomFields}
+                value={customFieldValues}
+                onChange={(value) => form.setValue("customFields", value)}
+              />
+            </div>
+          )}
         </>
       )}
 
       {existing && (
         <>
-          {existingFeature && (
-            <DraftSelectorForChanges
-              feature={existingFeature}
-              revisionList={existingRevisionList}
-              mode={draftMode}
-              setMode={setDraftMode}
-              selectedDraft={selectedDraft}
-              setSelectedDraft={setSelectedDraft}
-              canAutoPublish={canAutoPublish}
-              gatedEnvSet={gatedEnvSet}
-              triggerPrefix="Rule will be"
-            />
-          )}
-
-          <HelperText status="info" icon={null}>
-            <span>
+          <HelperText status="info">
+            <Box>
               A rule will be added to the bottom of the rule list. For more
               control over placement, add Experiment rules directly from the{" "}
               <Link href={`/features/${existing}`} target="_blank">
@@ -554,38 +744,77 @@ export default function FeatureFromExperimentModal({
                 <PiArrowSquareOut className="ml-1" />
               </Link>{" "}
               instead.
-            </span>
+            </Box>
           </HelperText>
 
-          <RuleEnvironmentScopeField
-            environments={environments}
-            allEnvironments={ruleAllEnvironments}
-            setAllEnvironments={setRuleAllEnvironments}
-            selectedEnvironments={ruleSelectedEnvironments}
-            setSelectedEnvironments={setRuleSelectedEnvironments}
-            label="Environments"
-            my="5"
-          />
+          <Box my="5">
+            <RuleEnvironmentScopeField
+              environments={environments}
+              allEnvironments={ruleAllEnvironments}
+              setAllEnvironments={setRuleAllEnvironments}
+              selectedEnvironments={ruleSelectedEnvironments}
+              setSelectedEnvironments={setRuleSelectedEnvironments}
+              label="Environments"
+            />
+
+            {enableOnPublishWarning && (
+              <Callout status="warning" mt="3">
+                {enableOnPublishWarning}
+              </Callout>
+            )}
+          </Box>
         </>
       )}
 
-      <div className="form-group">
-        <label>Variation Values</label>
-        <div className="mb-3 bg-light border p-3">
-          {getLatestPhaseVariations(experiment).map((v, i) => (
+      <Flex direction="column" gap="3" pt="2">
+        <Flex align="center" gap="3">
+          <Text as="label" weight="semibold" mb="0">
+            Variation Values
+          </Text>
+          {sparseEligible && !isConfigBacked && (
+            <SparsePatchToggle
+              checked={sparse}
+              onChange={(checked) => {
+                // Rewrite every variation value so the editor isn't left with a
+                // default-laden patch (on) or a bare patch shown as the full
+                // value (off).
+                const def = existingFeature?.defaultValue ?? "";
+                (form.getValues("variations") || []).forEach((v, i) => {
+                  form.setValue(
+                    `variations.${i}.value`,
+                    checked
+                      ? stripDefaultsForSparse(v.value ?? "", def)
+                      : expandSparseToFull(v.value ?? "", def),
+                  );
+                });
+                setSparse(checked);
+              }}
+            />
+          )}
+        </Flex>
+        {variations.map((v, i) => (
+          <Box key={v.id}>
+            <Box mb="3">
+              <VariationLabel number={i} name={v.name} />
+            </Box>
             <FeatureValueField
-              key={v.id}
-              label={v.name}
               id={v.id}
               value={form.watch(`variations.${i}.value`) || ""}
-              setValue={(v) => form.setValue(`variations.${i}.value`, v)}
-              valueType={form.watch("valueType")}
+              setValue={(val) => form.setValue(`variations.${i}.value`, val)}
+              valueType={valueType}
+              feature={existing ? existingFeature : undefined}
+              sparse={sparse}
               useCodeInput={true}
               showFullscreenButton={true}
+              allowConfigBacking={isConfigBacked}
+              configBackingOptionKeys={configBackingOptionKeys}
+              configBackingShowPatch={isConfigBacked}
+              lockConfigBacking={isConfigBacked}
             />
-          ))}
-        </div>
-      </div>
-    </Modal>
+            {i < variations.length - 1 && <Separator size="4" my="4" />}
+          </Box>
+        ))}
+      </Flex>
+    </ModalStandard>
   );
 }

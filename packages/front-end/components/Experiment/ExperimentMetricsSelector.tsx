@@ -5,9 +5,14 @@ import {
   expandMetricGroups,
   quantileMetricType,
   isFactMetric,
+  isFactFunnelMetric,
   getUserIdTypes,
 } from "shared/experiments";
-import { FactTableMap } from "shared/types/fact-table";
+import {
+  FactMetricType,
+  FactTableDefinitionMap,
+} from "shared/types/fact-table";
+import { ExperimentType } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { getExposureQuery } from "@/services/datasources";
@@ -27,6 +32,7 @@ export interface Props {
   autoFocus?: boolean;
   forceSingleGoalMetric?: boolean;
   noQuantileGoalMetrics?: boolean;
+  goalMetricAllowedFactMetricTypes?: FactMetricType[];
   noLegacyMetrics?: boolean;
   disabled?: boolean;
   goalDisabled?: boolean;
@@ -36,6 +42,8 @@ export interface Props {
   filterConversionWindowMetrics?: boolean;
   excludeQuantiles?: boolean;
   experimentId?: string;
+  requireDatasource?: boolean;
+  experimentType: ExperimentType | undefined;
 }
 
 export default function ExperimentMetricsSelector({
@@ -51,6 +59,7 @@ export default function ExperimentMetricsSelector({
   autoFocus = false,
   forceSingleGoalMetric = false,
   noQuantileGoalMetrics = false,
+  goalMetricAllowedFactMetricTypes,
   noLegacyMetrics = false,
   disabled,
   goalDisabled,
@@ -60,6 +69,8 @@ export default function ExperimentMetricsSelector({
   filterConversionWindowMetrics,
   excludeQuantiles = false,
   experimentId,
+  requireDatasource = false,
+  experimentType,
 }: Props) {
   const {
     getExperimentMetricById,
@@ -75,14 +86,34 @@ export default function ExperimentMetricsSelector({
         getIsExperimentIncludedInIncrementalRefresh(
           datasourceObj ?? undefined,
           experimentId,
+          experimentType,
         );
+
+      // Query generation rejects funnel metrics for bandits.
+      if (experimentType === "multi-armed-bandit") {
+        const ids = isGroup
+          ? expandMetricGroups(
+              metricGroups.find((mg) => mg.id === metricId)?.metrics ?? [],
+              metricGroups,
+            )
+          : [metricId];
+        const hasFunnelMetric = ids.some((id) => {
+          const metric = getExperimentMetricById(id);
+          return metric && isFactFunnelMetric(metric);
+        });
+        if (hasFunnelMetric) {
+          return {
+            disabled: true,
+            reason: "Funnel metrics are not supported in Bandit experiments",
+          };
+        }
+      }
 
       if (!isExperimentIncludedInIncrementalRefresh) {
         return { disabled: false };
       }
 
       if (isGroup) {
-        // Check if metric group contains cross fact-table ratio metrics
         const metricGroup = metricGroups.find((mg) => mg.id === metricId);
         if (!metricGroup) {
           return { disabled: false };
@@ -91,23 +122,6 @@ export default function ExperimentMetricsSelector({
           metricGroup.metrics,
           metricGroups,
         );
-        const hasInvalidMetrics = expandedIds.some((id) => {
-          const metric = getExperimentMetricById(id);
-          return (
-            metric &&
-            "numerator" in metric &&
-            !!metric.denominator &&
-            metric.numerator.factTableId !== metric.denominator.factTableId
-          );
-        });
-
-        if (hasInvalidMetrics) {
-          return {
-            disabled: true,
-            reason:
-              "We currently don't support cross fact-table metrics with Incremental Refresh",
-          };
-        }
 
         // Event quantile metrics require KLL support for incremental refresh.
         const hasUnsupportedEventQuantileMetrics = expandedIds.some((id) => {
@@ -115,7 +129,7 @@ export default function ExperimentMetricsSelector({
           return (
             metric &&
             quantileMetricType(metric) === "event" &&
-            !datasourceObj?.properties?.hasQuantileKLL
+            !datasourceObj?.properties?.hasQuantileSketch
           );
         });
 
@@ -139,27 +153,26 @@ export default function ExperimentMetricsSelector({
             reason: "Only fact metrics are supported with Incremental Refresh",
           };
         }
-      } else {
-        // Check if individual metric is a cross fact-table ratio metric
-        const metric = getExperimentMetricById(metricId);
-        if (
-          metric &&
-          "numerator" in metric &&
-          !!metric.denominator &&
-          metric.numerator.factTableId !== metric.denominator.factTableId
-        ) {
+
+        const hasFunnelMetrics = expandedIds.some((id) => {
+          const metric = getExperimentMetricById(id);
+          return metric && isFactFunnelMetric(metric);
+        });
+
+        if (hasFunnelMetrics) {
           return {
             disabled: true,
-            reason:
-              "We currently don't support cross fact-table metrics with Incremental Refresh",
+            reason: "Funnel metrics are not supported with Incremental Refresh",
           };
         }
+      } else {
+        const metric = getExperimentMetricById(metricId);
 
         // Event quantile metrics require KLL support for incremental refresh.
         if (
           metric &&
           quantileMetricType(metric) === "event" &&
-          !datasourceObj?.properties?.hasQuantileKLL
+          !datasourceObj?.properties?.hasQuantileSketch
         ) {
           return {
             disabled: true,
@@ -175,6 +188,13 @@ export default function ExperimentMetricsSelector({
             reason: "Only fact metrics are supported with Incremental Refresh",
           };
         }
+
+        if (metric && isFactFunnelMetric(metric)) {
+          return {
+            disabled: true,
+            reason: "Funnel metrics are not supported with Incremental Refresh",
+          };
+        }
       }
 
       return { disabled: false };
@@ -182,6 +202,7 @@ export default function ExperimentMetricsSelector({
     [
       datasource,
       experimentId,
+      experimentType,
       getExperimentMetricById,
       getDatasourceById,
       metricGroups,
@@ -224,7 +245,7 @@ export default function ExperimentMetricsSelector({
     }
 
     // Build factTableMap for getUserIdTypes
-    const factTableMap: FactTableMap = new Map();
+    const factTableMap: FactTableDefinitionMap = new Map();
     factTables.forEach((ft) => {
       factTableMap.set(ft.id, ft);
     });
@@ -271,9 +292,11 @@ export default function ExperimentMetricsSelector({
             forceSingleMetric={forceSingleGoalMetric}
             includeGroups={!forceSingleGoalMetric}
             excludeQuantiles={noQuantileGoalMetrics || excludeQuantiles}
+            allowedFactMetricTypes={goalMetricAllowedFactMetricTypes}
             filterConversionWindowMetrics={filterConversionWindowMetrics}
             noLegacyMetrics={noLegacyMetrics}
             disabled={disabled || goalDisabled}
+            requireDatasource={requireDatasource}
             getMetricDisabledInfo={getMetricDisabledInfo}
           />
           {hasIdentifierTypeMismatch && (

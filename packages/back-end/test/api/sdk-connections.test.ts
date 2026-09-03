@@ -385,6 +385,92 @@ describe("sdk-connections API", () => {
     });
   });
 
+  describe("requireProjectForSdkConnections enabled", () => {
+    const requireProjectContext = (overrides = {}) =>
+      setReqContext({
+        org: {
+          ...org,
+          settings: { requireProjectForSdkConnections: true },
+        },
+        permissions: {
+          canCreateSDKConnection: () => true,
+          canUpdateSDKConnection: () => true,
+        },
+        ...overrides,
+      });
+
+    it("fails to create new sdk-connections without a project", async () => {
+      requireProjectContext();
+
+      const response = await request(app)
+        .post("/api/v1/sdk-connections")
+        .send({
+          name: "my-connection",
+          environment: org.environments[0].id,
+          language: "javascript",
+          sdkVersion: "latest-version",
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        message:
+          "SDK Connection is required to be associated with at least one project",
+      });
+    });
+
+    it("fails to update existing sdk-connections if removing projects", async () => {
+      requireProjectContext();
+
+      const existing = sdkConnectionFactory.build({
+        organization: org.id,
+        environment: org.environments[0].id,
+        projects: ["project-1"],
+      });
+      findSDKConnectionById.mockReturnValue(existing);
+
+      const response = await request(app)
+        .put(`/api/v1/sdk-connections/${existing.id}`)
+        .send({ projects: [] })
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        message:
+          "SDK Connection is required to be associated with at least one project",
+      });
+    });
+
+    it("allows updating existing project-less sdk-connections", async () => {
+      requireProjectContext();
+
+      const existing = sdkConnectionFactory.build({
+        organization: org.id,
+        environment: org.environments[0].id,
+        projects: [],
+      });
+      findSDKConnectionById.mockReturnValue(existing);
+
+      const updated = sdkConnectionFactory.build({
+        organization: org.id,
+        environment: org.environments[0].id,
+        projects: [],
+        name: "renamed-connection",
+      });
+      editSDKConnection.mockResolvedValue(updated);
+
+      const response = await request(app)
+        .put(`/api/v1/sdk-connections/${existing.id}`)
+        .send({ name: "renamed-connection" })
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        sdkConnection: mockApiSDKConnectionInterface(updated),
+      });
+    });
+  });
+
   it("can update sdk-connections", async () => {
     const context = {
       org,

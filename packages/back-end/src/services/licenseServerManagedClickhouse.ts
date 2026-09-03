@@ -1,13 +1,15 @@
 /**
- * Delegates managed ClickHouse provisioning to central-license-server
+ * Delegates managed ClickHouse operations to central-license-server
  * (see managed-clickhouse/* routes there).
  */
-import type { MaterializedColumn } from "shared/types/datasource";
+import type { AIPromptType } from "shared/ai";
+import type { DailyUsage } from "shared/types/organization";
+import { dailyUsageForOrgResponseValidator } from "shared/validators";
 import type { RequestInit, Response } from "node-fetch";
 import { LICENSE_SERVER_URL } from "back-end/src/enterprise/licenseUtil";
 import { logger } from "back-end/src/util/logger";
 import { fetch } from "back-end/src/util/http.util";
-import { CLOUD_SECRET } from "back-end/src/util/secrets";
+import { CLOUD_SECRET, IS_CLOUD } from "back-end/src/util/secrets";
 
 const MAX_SENTRY_RESPONSE_BODY_LENGTH = 16_000;
 /** Long cap so outbound requests cannot hang indefinitely (e.g. black-holed TCP). */
@@ -37,6 +39,7 @@ function errorDetailForLog(text: string, status: number): string {
 async function postManagedClickhouse(
   path: string,
   body: unknown,
+  { allowStatuses = [] }: { allowStatuses?: number[] } = {},
 ): Promise<Response> {
   if (!CLOUD_SECRET) {
     throw new Error(
@@ -87,7 +90,7 @@ async function postManagedClickhouse(
     clearTimeout(timeoutId);
   }
 
-  if (!res.ok) {
+  if (!res.ok && !allowStatuses.includes(res.status)) {
     const rawBody = await res.text();
     const contentType = res.headers.get("content-type") ?? "";
     const detail = errorDetailForLog(rawBody, res.status);
@@ -120,14 +123,59 @@ async function postManagedClickhouse(
   return res;
 }
 
+async function postManagedClickhouseJson<T>(
+  path: string,
+  body: unknown,
+): Promise<T> {
+  const res = await postManagedClickhouse(path, body);
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(
+      "The managed warehouse service returned invalid JSON. Please try again or contact support if this continues.",
+    );
+  }
+}
+
+/**
+ * Kick off an async table rebuild on the license server. The server acks (202)
+ * and rebuilds in the background under a datasource lock, so this returns as soon
+ * as the rebuild is accepted — not when it finishes. A 423 means a rebuild is
+ * already running for this org, so the caller should wait rather than re-request.
+ */
 export async function dangerousRecreateClickhouseTables(
   orgId: string,
-): Promise<void> {
-  await postManagedClickhouse("recreate-tables", { orgId });
+): Promise<"started" | "already-running"> {
+  const res = await postManagedClickhouse(
+    "recreate-tables",
+    { orgId },
+    { allowStatuses: [423] },
+  );
+  return res.status === 423 ? "already-running" : "started";
 }
 
 export async function deleteClickhouseUser(orgId: string): Promise<void> {
   await postManagedClickhouse("delete", { orgId });
+}
+
+/**
+ * Apply the JSON-ergonomics affordances (per-org user settings + typed
+ * `attributes.<property>` ALIAS columns) to a provisioned JSON-columns
+ * warehouse. The license server reads the desired column list from
+ * `settings.typedAttributeColumns` on the datasource doc, so persist that
+ * (via syncManagedWarehouseIdentifiers) before calling. Idempotent. Returns
+ * whether the DDL was actually applied (false = the license server skipped a
+ * warehouse with no JSON tables to alter yet).
+ */
+export async function syncJsonErgonomicsInClickhouse(
+  orgId: string,
+): Promise<boolean> {
+  const res = await postManagedClickhouseJson<{
+    ok: boolean;
+    applied?: boolean;
+  }>("sync-json-ergonomics", { orgId });
+  return res.applied === true;
 }
 
 export async function addCloudSDKMapping(
@@ -146,27 +194,61 @@ export async function migrateOverageEventsForOrgId(
   await postManagedClickhouse("migrate-overage", { orgId });
 }
 
-export async function updateMaterializedColumnsInClickhouse({
-  orgId,
-  columnsToAdd,
-  columnsToDelete,
-  columnsToRename,
-  finalColumns,
-  originalColumns,
+export async function logCloudAIUsage({
+  organization,
+  type,
+  model,
+  temperature,
+  numPromptTokensUsed,
+  numCompletionTokensUsed,
+  usedDefaultPrompt,
 }: {
-  orgId: string;
-  columnsToAdd: MaterializedColumn[];
-  columnsToDelete: string[];
-  columnsToRename: { from: string; to: string }[];
-  finalColumns: MaterializedColumn[];
-  originalColumns: MaterializedColumn[];
+  organization: string;
+  type: AIPromptType;
+  model: string;
+  numPromptTokensUsed?: number;
+  numCompletionTokensUsed?: number;
+  temperature?: number;
+  usedDefaultPrompt: boolean;
 }): Promise<void> {
-  await postManagedClickhouse("update-materialized-columns", {
+  if (!IS_CLOUD) {
+    return;
+  }
+
+  try {
+    await postManagedClickhouse("log-ai-usage", {
+      organization,
+      type,
+      model,
+      temperature,
+      numPromptTokensUsed,
+      numCompletionTokensUsed,
+      usedDefaultPrompt,
+    });
+  } catch (e) {
+    logger.error(e, "Failed to log AI usage to Clickhouse");
+  }
+}
+
+export async function getDailyUsageForOrg(
+  orgId: string,
+  start: Date,
+  end: Date,
+): Promise<DailyUsage[]> {
+  const json = await postManagedClickhouseJson("daily-usage-for-org", {
     orgId,
-    columnsToAdd,
-    columnsToDelete,
-    columnsToRename,
-    finalColumns,
-    originalColumns,
+    start: start.toISOString(),
+    end: end.toISOString(),
   });
+  const parsed = dailyUsageForOrgResponseValidator.safeParse(json);
+  if (!parsed.success) {
+    logger.error(
+      { zodError: parsed.error.flatten() },
+      "Unexpected response shape from daily-usage-for-org endpoint",
+    );
+    throw new Error(
+      "Unexpected response shape from daily-usage-for-org endpoint",
+    );
+  }
+  return parsed.data.days;
 }

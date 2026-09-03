@@ -2,16 +2,25 @@ import type { AuditInterfaceInput } from "shared/types/audit";
 import type { EventUser } from "shared/types/events/event-types";
 import type { OrganizationInterface } from "shared/types/organization";
 import { toggleFeatureValidator } from "shared/validators";
+import type { FeatureInterface } from "shared/types/feature";
 import {
   checkIfRevisionNeedsReview,
   getDraftAffectedEnvironments,
   PermissionError,
 } from "shared/util";
-import type { ApiReqContext } from "back-end/types/api";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import {
+  deleteRevisionForFailedLanding,
   createRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import type { BypassedGate } from "back-end/src/revisions/publishGates";
+import { logger } from "back-end/src/util/logger";
+import {
+  LandingConflictError,
+  runGuardedWrite,
+} from "back-end/src/revisions/landingSequence";
+import type { ApiReqContext } from "back-end/types/api";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
   applyRevisionChanges,
@@ -24,7 +33,12 @@ import {
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function toggleFeatureCore(
   context: ApiReqContext,
@@ -36,6 +50,7 @@ export async function toggleFeatureCore(
     reason?: string;
   },
   audit: (input: AuditInterfaceInput) => Promise<void>,
+  canUseRestApiBypass: boolean,
 ) {
   const feature = await getFeature(context, params.id);
   if (!feature) {
@@ -45,7 +60,6 @@ export async function toggleFeatureCore(
   const environmentIds = getEnvironmentIdsFromOrg(organization);
 
   if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
     !context.permissions.canPublishFeature(
       feature,
       Object.keys(body.environments),
@@ -77,7 +91,6 @@ export async function toggleFeatureCore(
     await context.models.safeRollout.getAllPayloadSafeRollouts();
 
   if (Object.keys(changedToggles).length === 0) {
-    // No changes — return current state
     const revision = await getRevision({
       context,
       organization: feature.organization,
@@ -92,15 +105,19 @@ export async function toggleFeatureCore(
       experimentMap,
       revision,
       safeRolloutMap,
+      bypassedGates: [],
     };
   }
 
   // Callers bypass the review gate via either the org-level
-  // restApiBypassesReviews setting or a role/token that grants the
-  // bypassApprovalChecks permission on this feature's project.
-  const canBypass =
-    !!context.org.settings?.restApiBypassesReviews ||
-    context.permissions.canBypassApprovalChecks(feature);
+  // restApiBypassesReviews setting (API keys/PATs only — JWT-backed REST
+  // calls should behave like dashboard actions) or a role/token that grants
+  // the FlagsBypassApprovals permission on this feature's project.
+  const permissionBypass = context.permissions.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
+  const canBypass = canUseRestApiBypass || permissionBypass;
   // Build a minimal fake revision to check whether these toggle changes need review
   const liveRevision = await getRevision({
     context,
@@ -120,7 +137,7 @@ export async function toggleFeatureCore(
     feature,
     baseRevision: liveRevision,
     revision: fakeRevision,
-    allEnvironments: environmentIds,
+    orgEnvironments: getEnvironments(organization),
     settings: organization.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
@@ -136,9 +153,22 @@ export async function toggleFeatureCore(
     throw new PermissionError(
       `This feature requires a review before publishing changes to: ${envList}. ` +
         "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-        "or use a role/token that grants bypassApprovalChecks on this project.",
+        "or use a role/token that grants FlagsBypassApprovals on this project.",
     );
   }
+
+  const bypassedGates: BypassedGate[] =
+    reviewRequired && canBypass
+      ? [
+          {
+            type: "approval-required",
+            outcome: "bypassed",
+            via: canUseRestApiBypass
+              ? "restApiBypassesReviews"
+              : "bypassApprovalPermission",
+          },
+        ]
+      : [];
 
   const revision = await createRevision({
     context,
@@ -153,12 +183,34 @@ export async function toggleFeatureCore(
     canBypassApprovalChecks: true, // review gate enforced above
   });
 
-  const updatedFeature = await applyRevisionChanges(
-    context,
-    feature,
-    revision,
-    { environmentsEnabled: changedToggles },
-  );
+  let updatedFeature: FeatureInterface;
+  try {
+    updatedFeature = await runGuardedWrite("feature", feature.id, () =>
+      applyRevisionChanges(context, feature, revision, {
+        environmentsEnabled: changedToggles,
+      }),
+    );
+  } catch (e) {
+    // The revision above was recorded as PUBLISHED before the write. A lost CAS
+    // wrote nothing, so that record must not survive — it would claim a landing
+    // that never happened, and stranded-merge recovery is generic-entity only.
+    // Any other failure keeps it: the write may have landed before the error,
+    // and history for a possibly-live change must not be deleted.
+    if (e instanceof LandingConflictError) {
+      await deleteRevisionForFailedLanding(
+        context,
+        context.org.id,
+        feature.id,
+        revision.version,
+      ).catch((cleanupErr: unknown) => {
+        logger.error(
+          cleanupErr,
+          `Feature toggle for ${feature.id} lost its landing race AND failed to remove revision v${revision.version}; that revision is phantom history and needs removing by hand`,
+        );
+      });
+    }
+    throw e;
+  }
 
   await audit({
     event: "feature.toggle",
@@ -166,6 +218,24 @@ export async function toggleFeatureCore(
     details: auditDetailsUpdate(feature, updatedFeature),
     reason: body.reason,
   });
+
+  // A toggle lands a PUBLISHED revision, so it owes the same `revision.published`
+  // webhook the dedicated publish endpoints emit — it was the last feature path
+  // landing a revision silently. After the commit and best-effort, like the others.
+  try {
+    await dispatchFeatureRevisionEvent(
+      context,
+      updatedFeature,
+      await getPublishedRevisionForEvents(context, updatedFeature, revision),
+      "revision.published",
+      {},
+    );
+  } catch (e) {
+    logger.error(
+      e,
+      `Failed to dispatch revision.published for feature ${updatedFeature.id}`,
+    );
+  }
 
   const updatedExperimentMap = await getExperimentMapForFeature(
     context,
@@ -185,6 +255,7 @@ export async function toggleFeatureCore(
     experimentMap: updatedExperimentMap,
     revision: latestRevision,
     safeRolloutMap,
+    bypassedGates,
   };
 }
 
@@ -197,9 +268,13 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       req.params,
       req.body,
       req.audit,
+      canUseRestApiBypassSetting(req),
     );
     return {
       feature: await resolveOwnerEmail(getApiFeatureObj(data), req.context),
+      ...(data.bypassedGates.length
+        ? { bypassedGates: data.bypassedGates }
+        : {}),
     };
   },
 );

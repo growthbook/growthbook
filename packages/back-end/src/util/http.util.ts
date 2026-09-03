@@ -23,21 +23,7 @@ export function fetch(url: string, init?: RequestInit) {
   });
 }
 
-export function getHttpOptions(url?: string) {
-  // if there is a ?proxy argument in the url, use that as the proxy
-  if (url) {
-    // parse the url and extract the proxy argument
-    const urlObj = new URL(url);
-    const proxy = urlObj.searchParams.get("proxy_test");
-    if (proxy) {
-      return {
-        agent: new ProxyAgent({
-          getProxyForUrl: () => proxy,
-        }),
-      };
-    }
-  }
-
+export function getHttpOptions() {
   if (useWebhookProxy && WEBHOOK_PROXY) {
     logger.debug("using webhook proxy");
     return {
@@ -89,7 +75,7 @@ export const cancellableFetch = async (
   try {
     response = await fetch(url, {
       signal: abortController.signal as RequestInit["signal"],
-      ...getHttpOptions(url),
+      ...getHttpOptions(),
       ...fetchOptions,
     });
 

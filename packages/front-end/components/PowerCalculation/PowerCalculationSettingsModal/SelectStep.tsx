@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   isBinomialMetric,
   isFactMetric,
+  isFactMetricJoinable,
+  isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
 import { config, FullModalPowerCalculationParams } from "shared/power";
 import { isProjectListValidForProject } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Modal from "@/components/Modal";
@@ -137,55 +139,60 @@ export const SelectStep = ({
 
   // only allow metrics from the same datasource in an analysis
   // combine both metrics and remove quantile metrics
-  const availableMetrics: ExperimentMetricInterface[] = useMemo(
-    () =>
-      [...appMetrics, ...appFactMetrics].filter((m) => {
-        // drop quantile metrics
-        if (quantileMetricType(m) !== "") return false;
+  const availableMetrics: ExperimentMetricDefinition[] = useMemo(() => {
+    const datasourceSettings = datasources.find(
+      (d) => d.id === selectedDatasource,
+    )?.settings;
 
-        // include all for manual metric values source
-        if (metricValuesSource === "manual") {
-          return true;
-        }
+    return [...appMetrics, ...appFactMetrics].filter((m) => {
+      // drop quantile metrics
+      if (quantileMetricType(m) !== "") return false;
 
-        // drop if not in experiment
-        if (metricValuesSource === "experiment") {
-          const experiment = availableExperiments.find(
-            (e) => e.id === metricValuesSourceId,
-          );
-
-          if (experiment && !experiment.allMetrics.includes(m.id)) return false;
-        }
-
-        // drop if not in datasource
-        if (selectedDatasource && m.datasource !== selectedDatasource)
-          return false;
-
-        // drop if does not have user id type
-        const userIdTypes = !isFactMetric(m)
-          ? m.userIdTypes
-          : appFactTables.find((ft) => ft.id === m.numerator.factTableId)
-              ?.userIdTypes;
-        if (
-          selectedIdType &&
-          userIdTypes &&
-          !userIdTypes.includes(selectedIdType)
-        )
-          return false;
-
+      // include all for manual metric values source
+      if (metricValuesSource === "manual") {
         return true;
-      }),
-    [
-      selectedDatasource,
-      selectedIdType,
-      appFactMetrics,
-      appMetrics,
-      appFactTables,
-      metricValuesSource,
-      metricValuesSourceId,
-      availableExperiments,
-    ],
-  );
+      }
+
+      // drop if not in experiment
+      if (metricValuesSource === "experiment") {
+        const experiment = availableExperiments.find(
+          (e) => e.id === metricValuesSourceId,
+        );
+
+        if (experiment && !experiment.allMetrics.includes(m.id)) return false;
+      }
+
+      // drop if not in datasource
+      if (selectedDatasource && m.datasource !== selectedDatasource)
+        return false;
+
+      // drop if does not have user id type
+      if (selectedIdType) {
+        const joinable = isFactMetric(m)
+          ? isFactMetricJoinable(
+              m,
+              selectedIdType,
+              (id) => appFactTables.find((ft) => ft.id === id),
+              datasourceSettings,
+            )
+          : !m.userIdTypes ||
+            isMetricJoinable(m.userIdTypes, selectedIdType, datasourceSettings);
+        if (!joinable) return false;
+      }
+
+      return true;
+    });
+  }, [
+    selectedDatasource,
+    selectedIdType,
+    appFactMetrics,
+    appMetrics,
+    appFactTables,
+    datasources,
+    metricValuesSource,
+    metricValuesSourceId,
+    availableExperiments,
+  ]);
 
   useEffect(() => {
     const metricValuesData = form.getValues("metricValuesData");
@@ -273,7 +280,7 @@ export const SelectStep = ({
 
   const field = (
     key: keyof typeof config,
-    metric: ExperimentMetricInterface,
+    metric: ExperimentMetricDefinition,
   ) => ({
     [key]: defaultValue(config[key], metric.priorSettings, settings),
   });
@@ -293,6 +300,7 @@ export const SelectStep = ({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="power-calculation-select"
       open
       size="lg"
@@ -375,6 +383,7 @@ export const SelectStep = ({
         {metricValuesSource !== "manual" ? (
           <>
             <SelectField
+              size="legacy"
               label={
                 <>
                   <span className="mr-auto font-weight-bold">
@@ -394,6 +403,7 @@ export const SelectStep = ({
               forceUndefinedValueToNull={true}
             />
             <SelectField
+              size="legacy"
               label={
                 <>
                   <span className="mr-auto font-weight-bold">
@@ -439,6 +449,7 @@ export const SelectStep = ({
           Pick the key metrics for which you want to estimate power.
         </div>
         <MultiSelectField
+          legacyHeight
           sort={false}
           value={selectedMetrics}
           options={availableMetrics.map(({ name: label, id: value }) => ({

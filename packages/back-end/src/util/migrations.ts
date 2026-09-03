@@ -4,6 +4,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
+  DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { v4 as uuidv4 } from "uuid";
@@ -48,6 +49,10 @@ import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
 import { getAccountPlan } from "back-end/src/enterprise";
 import { logger } from "back-end/src/util/logger";
+import {
+  healPriorSettings,
+  healMetricOverrides,
+} from "back-end/src/util/priors";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -72,6 +77,11 @@ function adjustWeights(weights: number[]): number[] {
 
 export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
   const newDoc = { ...doc };
+
+  // Raw-driver reads skip Mongoose date casting; legacy docs may store strings
+  if (typeof newDoc.runStarted === "string") {
+    newDoc.runStarted = new Date(newDoc.runStarted);
+  }
 
   if (doc.windowSettings === undefined) {
     if (doc.conversionDelayHours == null && doc.earlyStart) {
@@ -113,6 +123,7 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
       stddev: DEFAULT_PROPER_PRIOR_STDDEV,
     };
   }
+  healPriorSettings(newDoc.priorSettings);
 
   if (!doc.userIdTypes?.length) {
     if (doc.userIdType === "user") {
@@ -373,6 +384,38 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   return rule;
 }
 
+// Materialize the SDK's own no-seed fallback (`rule.seed || featureId`) for
+// seedless rollout rules, so the write-time default (rule.id) can't re-bucket a
+// legacy rollout on its next save. New rules are seeded at write, so anything
+// seedless on read is legacy. Safe rollouts keep their own seed.
+export function pinLegacyRolloutSeeds<T extends FeatureRule>(
+  rules: T[] = [],
+  featureId: string,
+): T[] {
+  return rules.map((r) =>
+    r != null && r.type === "rollout" && !r.seed
+      ? { ...r, seed: featureId }
+      : r,
+  );
+}
+
+// Backfills the `jsonSchema` keys that postdate the oldest documents, returning
+// a new object. Docs written before `schemaType`/`simple` existed hold a
+// three-key shape that means exactly what the five-key one means, so leaving
+// them unequal makes an untouched schema read as an edit.
+//
+// Applied to the feature on read and to every revision's metadata snapshot, so
+// the two always compare in the same spelling.
+export function normalizeJsonSchemaDef<T extends Partial<JSONSchemaDef>>(
+  jsonSchema: T,
+): T {
+  return {
+    ...jsonSchema,
+    schemaType: jsonSchema.schemaType || "schema",
+    simple: jsonSchema.simple || { type: "object", fields: [] },
+  };
+}
+
 // Non-rule backfills shared by v1 and v2 docs (`version`, `jsonSchema.*`).
 // Mutates and returns. Rules go through `upgradeFeatureRule` separately.
 export function applyNonRuleFeatureUpgrades<
@@ -384,26 +427,20 @@ export function applyNonRuleFeatureUpgrades<
   feature.version = feature.version || 1;
 
   if (feature.jsonSchema) {
-    feature.jsonSchema.schemaType = feature.jsonSchema.schemaType || "schema";
-    feature.jsonSchema.simple = feature.jsonSchema.simple || {
-      type: "object",
-      fields: [],
-    };
+    feature.jsonSchema = normalizeJsonSchemaDef(feature.jsonSchema);
   }
 
   return feature;
 }
 
-/**
- * v0 → v1 upgrade. Redistributes top-level rules into
- * `environmentSettings.{dev,production}.rules`, seeds `enabled` from the
- * legacy env list, promotes `draft` → `legacyDraft`, and applies rule and
- * non-rule backfills.
- *
- * CRITICAL: callers MUST discriminate v0 first (no `environmentSettings`).
- * Running this on a v1/v2 doc would redistribute legitimate v2 top-level
- * rules into v1-only storage.
- */
+// v0 → v1 upgrade. Redistributes top-level rules into
+// `environmentSettings.{dev,production}.rules`, seeds `enabled` from the
+// legacy env list, promotes `draft` → `legacyDraft`, and applies rule and
+// non-rule backfills.
+//
+// CRITICAL: callers MUST discriminate v0 first (no `environmentSettings`).
+// Running this on a v1/v2 doc would redistribute legitimate v2 top-level
+// rules into v1-only storage.
 export function upgradeV0Feature(
   feature: LegacyFeatureInterface,
 ): V1FeatureInterface {
@@ -546,6 +583,15 @@ export function upgradeOrganizationDoc(
     org.settings.restApiBypassesReviews = true;
   }
 
+  // Default stickyBucketingOnByDefault for orgs that predate this field. Unset
+  // means "on by default" so existing orgs keep defaulting new experiments to
+  // sticky bucketing exactly as they did before the setting existed. An explicit
+  // false (per-experiment opt-in) is preserved.
+  if (org.settings.stickyBucketingOnByDefault === undefined) {
+    org.settings.stickyBucketingOnByDefault =
+      DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT;
+  }
+
   // Migrate Arroval Flow Settings
   if (
     org.settings?.requireReviews === true ||
@@ -599,6 +645,8 @@ export function upgradeOrganizationDoc(
     }
     delete org.settings.postStratificationDisabled;
   }
+
+  healPriorSettings(org.settings?.metricDefaults?.priorSettings);
 
   return org;
 }
@@ -721,6 +769,7 @@ export function upgradeExperimentDoc(
       }
     });
   }
+  healMetricOverrides(experiment.metricOverrides);
 
   if (experiment.decisionFrameworkSettings === undefined) {
     experiment.decisionFrameworkSettings = {};
@@ -733,7 +782,7 @@ export function upgradeExperimentDoc(
         experiment.releasedVariationId = experiment.variations[0]?.id || "";
       } else if (experiment.results === "won") {
         experiment.releasedVariationId =
-          experiment.variations[experiment.winner || 1]?.id || "";
+          experiment.variations[experiment.winner ?? 1]?.id || "";
       } else {
         experiment.releasedVariationId = "";
       }
@@ -802,6 +851,8 @@ export function migrateExperimentReport(
       }),
     );
   }
+
+  healMetricOverrides(newArgs.metricOverrides);
 
   return {
     ...report,

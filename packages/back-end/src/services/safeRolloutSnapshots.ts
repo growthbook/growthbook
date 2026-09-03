@@ -34,7 +34,6 @@ import {
   SafeRolloutSnapshotInterface,
   SafeRolloutSnapshotSettings,
   FeatureInterface,
-  SafeRolloutRule,
 } from "shared/validators";
 import {
   ExperimentSnapshotAnalysisSettings,
@@ -85,7 +84,15 @@ export function getMetricForSafeRolloutSnapshot(
       datasource: metric.datasource,
       type: isBinomialMetric(metric) ? "binomial" : "count",
       aggregation: ("aggregation" in metric && metric.aggregation) || undefined,
-      cappingSettings: metric.cappingSettings,
+      // Sanitize legacy metric data before writing to a Zod-validated Mongo
+      // document. Use `null` (not `undefined`) for absent ignoreZeros so the
+      // field is materialized in the doc and can be cleared via $set later;
+      // API response paths use `undefined` to omit the key from JSON instead.
+      cappingSettings: {
+        type: metric.cappingSettings.type || "",
+        value: metric.cappingSettings.value ?? 0,
+        ignoreZeros: metric.cappingSettings.ignoreZeros ?? null,
+      },
       denominator: (!isFactMetric(metric) && metric.denominator) || undefined,
       sql: (!isFactMetric(metric) && metric.sql) || undefined,
       userIdTypes: (!isFactMetric(metric) && metric.userIdTypes) || undefined,
@@ -277,9 +284,9 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
   };
 }
 
-function getSafeRolloutSnapshotSettings({
+export function getSafeRolloutSnapshotSettings({
   safeRollout,
-  safeRolloutRule,
+  trackingKey,
   settings,
   orgPriorSettings,
   settingsForSnapshotMetrics,
@@ -290,7 +297,7 @@ function getSafeRolloutSnapshotSettings({
   customFields,
 }: {
   safeRollout: SafeRolloutInterface;
-  safeRolloutRule: SafeRolloutRule;
+  trackingKey: string;
   settings: ExperimentSnapshotAnalysisSettings;
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -343,24 +350,45 @@ function getSafeRolloutSnapshotSettings({
 
   return {
     queryFilter: "",
-    experimentId: safeRolloutRule.trackingKey,
+    experimentId: trackingKey,
     phase: {
       index: "0",
     },
-    customFields,
+    // customFields originates from feature.customFields, a legacy Mongoose Mixed
+    // field that can be null. The settings validator's .optional() rejects null
+    // (accepts only undefined/record), so normalize to an empty record.
+    customFields: customFields ?? {},
     datasourceId: safeRollout.datasourceId || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
-    startDate: safeRollout.startedAt || new Date(), // TODO: What do we want to do if startedAt is not set?
+    // Honor the rolling floor so post-restart snapshots skip prior-run exposures.
+    startDate:
+      safeRollout.analysisStartedAt || safeRollout.startedAt || new Date(),
     endDate: new Date(),
     guardrailMetrics,
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: safeRollout.exposureQueryId,
     metricSettings,
-    variations: [
-      { id: "0", weight: 0.5 },
-      { id: "1", weight: 0.5 },
-    ],
+    // SDK-emitted variation_id mapping depends on the safe rollout's mode:
+    //   v1 (rule.type === "safe-rollout"):
+    //     "0" = controlValue (baseline), "1" = variationValue (treatment)
+    //   v2 (monitored rollout rule, signalled by safeRollout.rampScheduleId):
+    //     "0" = rule.value (the new rollout value, treatment)
+    //     "1" = defaultValue passthrough (the baseline arm)
+    // The analysis pipeline universally treats `variations[0]` as the
+    // baseline (computeResultsStatus, /status endpoint, results UI). Place
+    // the warehouse id for the baseline arm first here so positional indexing
+    // downstream lines up with semantic roles for both v1 and v2 without any
+    // further special-casing.
+    variations: safeRollout.rampScheduleId
+      ? [
+          { id: "1", weight: 0.5 },
+          { id: "0", weight: 0.5 },
+        ]
+      : [
+          { id: "0", weight: 0.5 },
+          { id: "1", weight: 0.5 },
+        ],
     coverage: 1, //hardcoded for now
   };
 }
@@ -392,12 +420,18 @@ export async function _createSafeRolloutSnapshot({
   if (!feature) {
     throw new Error("Could not load safe rollout feature");
   }
+  // For ramp-monitored rollout rules, there is no safe-rollout rule on the
+  // feature — the tracking key lives on the SafeRollout entity itself.
   const safeRolloutRule = getSafeRolloutRuleFromFeature(
     feature,
     safeRollout.id,
   );
-  if (!safeRolloutRule) {
-    throw new Error("Could not find safe rollout rule");
+  const trackingKey = safeRolloutRule?.trackingKey ?? safeRollout.trackingKey;
+  if (!trackingKey) {
+    throw new Error(
+      "Could not determine tracking key for safe rollout snapshot " +
+        "(no matching rule on feature and no trackingKey on SafeRollout)",
+    );
   }
 
   const datasource = await getDataSourceById(context, safeRollout.datasourceId);
@@ -407,7 +441,7 @@ export async function _createSafeRolloutSnapshot({
 
   const snapshotSettings = getSafeRolloutSnapshotSettings({
     safeRollout,
-    safeRolloutRule,
+    trackingKey,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
     settings: defaultAnalysisSettings,
     settingsForSnapshotMetrics,
@@ -442,6 +476,7 @@ export async function _createSafeRolloutSnapshot({
   );
   await context.models.safeRollout.update(safeRollout, {
     nextSnapshotAttempt: nextSnapshot,
+    lastSnapshotAttempt: new Date(),
   });
 
   const snapshot = await context.models.safeRolloutSnapshots.create(data);
@@ -565,13 +600,13 @@ export async function getSafeRolloutAnalysisSummary({
 const dispatchSafeRolloutEvent = async <T extends ResourceEvents<"feature">>({
   context,
   feature,
-  environment,
+  environments,
   event,
   data,
 }: {
   context: ReqContext;
   feature: FeatureInterface;
-  environment: string;
+  environments: string[];
   event: T;
   data: CreateEventData<"feature", T>;
 }) => {
@@ -583,7 +618,7 @@ const dispatchSafeRolloutEvent = async <T extends ResourceEvents<"feature">>({
     data,
     projects: feature.project ? [feature.project] : [],
     tags: feature.tags || [],
-    environments: [environment],
+    environments,
     containsSecrets: false,
   });
 };
@@ -642,10 +677,34 @@ export async function notifySafeRolloutChange({
     throw new Error("Could not find feature to fire event");
   }
 
+  const rule = getSafeRolloutRuleFromFeature(feature, updatedSafeRollout.id);
+
+  let ruleEnvironments: string[];
+  if (rule) {
+    ruleEnvironments = rule.allEnvironments
+      ? Object.keys(feature.environmentSettings)
+      : (rule.environments ?? []);
+  } else if (updatedSafeRollout.rampScheduleId) {
+    // Ramp-linked SRs monitor a rollout rule, not a safe-rollout rule.
+    // Derive environments from the ramp schedule's active target, falling back
+    // to all feature environments when the target covers all environments
+    // (environment === null).
+    const rampSchedule = await context.models.rampSchedules.getById(
+      updatedSafeRollout.rampScheduleId,
+    );
+    const activeTarget = rampSchedule?.targets.find(
+      (t) => t.status === "active",
+    );
+    ruleEnvironments = activeTarget?.environment
+      ? [activeTarget.environment]
+      : Object.keys(feature.environmentSettings);
+  } else {
+    ruleEnvironments = [];
+  }
   const notificationData = {
     featureId: feature.id,
     safeRolloutId: updatedSafeRollout.id,
-    environment: updatedSafeRollout.environment,
+    environment: ruleEnvironments[0] ?? "",
   };
 
   // always notify of new status, regardless of old status
@@ -667,7 +726,7 @@ export async function notifySafeRolloutChange({
         dispatchSafeRolloutEvent({
           context,
           feature,
-          environment: notificationData.environment,
+          environments: ruleEnvironments,
           event: "saferollout.unhealthy",
           data: {
             object: {
@@ -689,7 +748,7 @@ export async function notifySafeRolloutChange({
         dispatchSafeRolloutEvent({
           context,
           feature,
-          environment: notificationData.environment,
+          environments: ruleEnvironments,
           event: "saferollout.rollback",
           data: {
             object: notificationData,
@@ -707,7 +766,7 @@ export async function notifySafeRolloutChange({
         dispatchSafeRolloutEvent({
           context,
           feature,
-          environment: notificationData.environment,
+          environments: ruleEnvironments,
           event: "saferollout.ship",
           data: {
             object: notificationData,

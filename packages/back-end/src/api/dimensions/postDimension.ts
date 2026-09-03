@@ -13,6 +13,10 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 export const postDimension = createApiRequestHandler(postDimensionValidator)(
   async (req) => {
+    if (!req.context.permissions.canCreateDimension()) {
+      req.context.permissions.throwPermissionError();
+    }
+
     const organization = req.organization.id;
 
     const datasourceDoc = await getDataSourceById(

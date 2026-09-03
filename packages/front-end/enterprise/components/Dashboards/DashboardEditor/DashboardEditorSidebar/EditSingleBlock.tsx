@@ -3,9 +3,15 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
+  DashboardInterface,
   blockHasFieldOfType,
   isDifferenceType,
+  isDashboardExperimentBlock,
+  getActiveBlockGlobalFilterKeys,
+  getCustomBlockGlobalFilterKeys,
+  withBlockGlobalFilterFollowing,
   BLOCK_CONFIG_ITEM_TYPES,
+  DIFFERENCE_TYPE_OPTIONS,
 } from "shared/enterprise";
 import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -14,6 +20,7 @@ import {
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
   MetricExplorationConfig,
+  FunnelExplorationConfig,
   SavedQuery,
 } from "shared/validators";
 import {
@@ -26,6 +33,7 @@ import {
 } from "react-icons/pi";
 import { UNSUPPORTED_METRIC_EXPLORER_TYPES } from "shared/constants";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { getValidDate } from "shared/dates";
 import { FormatOptionLabelMeta } from "react-select";
 import Collapsible from "react-collapsible";
 import {
@@ -41,8 +49,9 @@ import {
 } from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
+import VariationLabel from "@/ui/VariationLabel";
 import Link from "@/ui/Link";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import TagsInput from "@/components/Tags/TagsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SingleValue } from "@/components/Forms/SelectField";
@@ -52,24 +61,46 @@ import SqlExplorerModal, {
   SqlExplorerModalInitial,
 } from "@/components/SchemaBrowser/SqlExplorerModal";
 import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
-import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
+import {
+  CUSTOM_COMBO_OPTION,
+  CUSTOM_CUTOFF_OPTION,
+  buildCustomDimensionId,
+  draftFromDimensionId,
+  getCombinationConstituentOptions,
+  getDimensionDisplayName,
+  getDimensionOptions,
+} from "@/components/Dimensions/DimensionChooser";
+import CustomDimensionFields, {
+  CustomDimensionDraft,
+  CustomDimensionKind,
+  isCustomDimensionDraftValid,
+} from "@/components/Dimensions/CustomDimensionFields";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MetricName from "@/components/Metrics/MetricName";
 import Avatar from "@/ui/Avatar";
-import { getPrecomputedDimensions } from "@/components/Experiment/SnapshotProvider";
+import {
+  getPrecomputedDimensions,
+  getPrecomputedUnitDimensionIds,
+} from "@/components/Experiment/SnapshotProvider";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import {
   useDashboardSnapshot,
   DashboardSnapshotContext,
 } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
-import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
 import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import MetricExplorerSettings from "./MetricExplorerSettings";
 import ProductAnalyticsExplorerSettings from "./ProductAnalyticsExplorerSettings";
+import MetricExperimentsSettings from "./MetricExperimentsSettings";
+import ExperimentsScaledImpactSettings from "./ExperimentsScaledImpactSettings";
+import ExperimentsWinRateSettings from "./ExperimentsWinRateSettings";
+import ExperimentsStatusSettings from "./ExperimentsStatusSettings";
+import DashboardFilterSummary from "./DashboardFilterSummary";
 
 type RequiredField = {
   field: string;
@@ -82,6 +113,20 @@ const REQUIRED_FIELDS: {
     {
       field: "dimensionId",
       validation: (dimId) => typeof dimId === "string" && dimId.length > 0,
+    },
+  ],
+  "metric-experiments": [
+    {
+      field: "metricId",
+      validation: (metricId) =>
+        typeof metricId === "string" && metricId.length > 0,
+    },
+  ],
+  "experiments-scaled-impact": [
+    {
+      field: "metricId",
+      validation: (metricId) =>
+        typeof metricId === "string" && metricId.length > 0,
     },
   ],
   "sql-explorer": [
@@ -111,12 +156,31 @@ const REQUIRED_FIELDS: {
         isSubmittableConfig(config as DataSourceExplorationConfig),
     },
   ],
+  "funnel-exploration": [
+    {
+      field: "config",
+      validation: (config) =>
+        isSubmittableConfig(config as FunnelExplorationConfig),
+    },
+  ],
 };
+
+// Whether a required field is still missing, keeping the block from being saved.
+// No global filter can stand in for one of these: every required field is the
+// block's own (a block's `metricId` is what it calculates, not a filter).
+function isBlockIncomplete(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): boolean {
+  return !!(REQUIRED_FIELDS[block.type] || []).find(
+    ({ field, validation }) => !validation(block[field]),
+  );
+}
 
 interface Props {
   projects: string[];
   dashboardId: string;
   experiment: ExperimentInterfaceStringDates | null;
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
   cancel: () => void;
   submit: () => void;
   block?: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
@@ -139,7 +203,11 @@ function shouldShowEditorField(
   const SKIPPED_EDITOR_FIELDS_BY_BLOCK_TYPE = {
     sortBy: ["experiment-metric", "experiment-dimension"],
     sortDirection: ["experiment-metric", "experiment-dimension"],
-    differenceType: ["experiment-metric", "experiment-dimension"],
+    differenceType: [
+      "experiment-metric",
+      "experiment-dimension",
+      "metric-experiments",
+    ],
     baselineRow: ["experiment-metric", "experiment-dimension"],
     variationIds: ["experiment-metric", "experiment-dimension"],
   };
@@ -210,6 +278,7 @@ function toggleBlockConfigItem(
 export default function EditSingleBlock({
   dashboardId,
   experiment,
+  dashboardGlobalControls,
   cancel,
   submit,
   block,
@@ -222,12 +291,15 @@ export default function EditSingleBlock({
     getExperimentMetricById,
     getMetricGroupById,
     getDatasourceById,
+    getDimensionById,
     getFactTableById,
     getTagById,
     factMetrics,
     factTables,
   } = useDefinitions();
   const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
+  const hasPipelineModeFeature = hasCommercialFeature("pipeline-mode");
   const {
     data: savedQueriesData,
     mutate: mutateQueries,
@@ -263,7 +335,8 @@ export default function EditSingleBlock({
   const isExplorationBlock =
     block?.type === "metric-exploration" ||
     block?.type === "fact-table-exploration" ||
-    block?.type === "data-source-exploration";
+    block?.type === "data-source-exploration" ||
+    block?.type === "funnel-exploration";
   const prevMetricTagFilterRef = useRef(
     blockHasFieldOfType(block, "metricTagFilter", isStringArray)
       ? block.metricTagFilter?.length || 0
@@ -293,6 +366,31 @@ export default function EditSingleBlock({
   );
 
   const { incrementalRefresh } = useIncrementalRefresh(experiment?.id ?? "");
+
+  // Custom dimensions are configured inline: picking the sentinel option holds
+  // an incomplete draft locally until it is valid enough to build an id
+  const [customDimensionDraft, setCustomDimensionDraft] =
+    useState<CustomDimensionDraft | null>(null);
+
+  const customDimensionConstituentOptions = useMemo(() => {
+    if (!experiment) return [];
+    return getCombinationConstituentOptions({
+      incrementalRefresh,
+      datasource: getDatasourceById(experiment.datasource),
+      dimensions,
+      exposureQueryId: experiment.exposureQueryId,
+      userIdType: experiment.userIdType,
+    });
+  }, [experiment, incrementalRefresh, getDatasourceById, dimensions]);
+
+  const cutoffBounds = useMemo(() => {
+    const phase = experiment?.phases?.[experiment.phases.length - 1];
+    if (!phase) return { min: undefined, max: undefined };
+    return {
+      min: getValidDate(phase.dateStarted),
+      max: phase.dateEnded ? getValidDate(phase.dateEnded) : new Date(),
+    };
+  }, [experiment]);
 
   // TODO: does this need to handle metric groups
   const factMetricOptions = useMemo(() => {
@@ -583,11 +681,18 @@ export default function EditSingleBlock({
         defaultSnapshot,
         dimensionless,
       ),
+      precomputedUnitDimensionIds: getPrecomputedUnitDimensionIds(
+        experiment,
+        defaultSnapshot,
+        dimensionless,
+      ),
+      hasPipelineModeFeature,
       datasource,
       dimensions,
       exposureQueryId: experiment.exposureQueryId,
       userIdType: experiment.userIdType,
       activationMetric: !!experiment.activationMetric,
+      includeCustomDimensions: true,
     }).map((optionGroup) => ({
       label: optionGroup.label,
       // For now, remove the date cohorts time-series as the visualization isn't supported yet
@@ -602,6 +707,7 @@ export default function EditSingleBlock({
     defaultSnapshot,
     dimensionless,
     incrementalRefresh,
+    hasPipelineModeFeature,
   ]);
 
   const savedQueryId = blockHasFieldOfType(block, "savedQueryId", isString)
@@ -691,6 +797,7 @@ export default function EditSingleBlock({
     <>
       {savedQuery && showDeleteSavedQueryConfirmation && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           header={"Delete Saved Query?"}
           close={() => setShowDeleteSavedQueryConfirmation(false)}
@@ -766,18 +873,45 @@ export default function EditSingleBlock({
       )}
       {block && (
         <Flex direction="column" py="5" px="4" gap="5" width="100%">
-          <Text weight="medium" size="4">
-            <Avatar
-              radius="small"
-              color="indigo"
-              variant="soft"
-              mr="2"
-              size="sm"
-            >
-              {BLOCK_TYPE_INFO[block.type].icon}
-            </Avatar>
-            {BLOCK_TYPE_INFO[block.type].name}
-          </Text>
+          <Flex justify="between" align="center" gap="3">
+            <Text weight="medium" size="4">
+              <Avatar
+                radius="small"
+                color="indigo"
+                variant="soft"
+                mr="2"
+                size="sm"
+              >
+                {BLOCK_TYPE_INFO[block.type].icon}
+              </Avatar>
+              {BLOCK_TYPE_INFO[block.type].name}
+            </Text>
+          </Flex>
+
+          {/* Exploration blocks render their own summary in ExplorerSideBar, next
+              to the draft date state it has to revert. */}
+          {isDashboardExperimentBlock(block) &&
+            getActiveBlockGlobalFilterKeys(block, dashboardGlobalControls)
+              .length > 0 && (
+              <DashboardFilterSummary
+                customCount={
+                  getCustomBlockGlobalFilterKeys(block, dashboardGlobalControls)
+                    .length
+                }
+                onRevertAll={() =>
+                  setBlock(
+                    withBlockGlobalFilterFollowing(
+                      block,
+                      getActiveBlockGlobalFilterKeys(
+                        block,
+                        dashboardGlobalControls,
+                      ),
+                      true,
+                    ),
+                  )
+                }
+              />
+            )}
 
           <Flex gap="5" direction="column" flexGrow="1">
             {block.type === "experiment-metadata" && (
@@ -878,6 +1012,7 @@ export default function EditSingleBlock({
             )}
             {blockHasFieldOfType(block, "factMetricId", isString) && (
               <SelectField
+                size="legacy"
                 label="Metric"
                 labelClassName="font-weight-bold"
                 value={block.factMetricId}
@@ -927,6 +1062,7 @@ export default function EditSingleBlock({
                 <>
                   <Box>
                     <MultiSelectField
+                      legacyHeight
                       label="Metrics"
                       labelClassName="font-weight-bold"
                       placeholder="All Metrics"
@@ -1177,6 +1313,7 @@ export default function EditSingleBlock({
                   ) &&
                     sliceOptions.length > 0 && (
                       <MultiSelectField
+                        legacyHeight
                         label="Slices"
                         labelClassName="font-weight-bold"
                         placeholder="Type to search..."
@@ -1217,6 +1354,7 @@ export default function EditSingleBlock({
                     shouldShowEditorField(block, "sortBy") &&
                     sortByOptions.length > 1 && (
                       <SelectField
+                        size="legacy"
                         label="Sort by"
                         labelClassName="font-weight-bold"
                         containerClassName="mb-0"
@@ -1250,6 +1388,7 @@ export default function EditSingleBlock({
                     (block.sortBy === "significance" ||
                       block.sortBy === "change") && (
                       <SelectField
+                        size="legacy"
                         label="Sort direction"
                         labelClassName="font-weight-bold"
                         containerClassName="mb-0"
@@ -1271,23 +1410,101 @@ export default function EditSingleBlock({
                     )}
                 </>
               )}
-            {blockHasFieldOfType(block, "dimensionId", isString) && (
-              <SelectField
-                required
-                markRequired
-                label="Dimension"
-                labelClassName="font-weight-bold"
-                placeholder="Choose which dimension to use"
-                value={block.dimensionId}
-                containerClassName="mb-0"
-                onChange={(value) => setBlock({ ...block, dimensionId: value })}
-                options={dimensionOptions}
-                sort={false}
-              />
-            )}
+            {blockHasFieldOfType(block, "dimensionId", isString) &&
+              (() => {
+                const savedDraft = draftFromDimensionId(block.dimensionId);
+                const activeDraft = customDimensionDraft ?? savedDraft;
+                // A configured custom dimension isn't one of the standard
+                // options, so add it for the select to render its label
+                const options =
+                  savedDraft && !customDimensionDraft
+                    ? [
+                        ...dimensionOptions,
+                        {
+                          label: "Custom",
+                          options: [
+                            {
+                              label: getDimensionDisplayName(
+                                block.dimensionId,
+                                (id) => getDimensionById(id)?.name || undefined,
+                              ),
+                              value: block.dimensionId,
+                            },
+                          ],
+                        },
+                      ]
+                    : dimensionOptions;
+                return (
+                  <>
+                    <SelectField
+                      size="legacy"
+                      required
+                      markRequired
+                      label="Dimension"
+                      labelClassName="font-weight-bold"
+                      placeholder="Choose which dimension to use"
+                      value={
+                        customDimensionDraft
+                          ? customDimensionDraft.kind === "cutoff"
+                            ? CUSTOM_CUTOFF_OPTION
+                            : CUSTOM_COMBO_OPTION
+                          : block.dimensionId
+                      }
+                      containerClassName="mb-0"
+                      onChange={(value) => {
+                        if (
+                          value === CUSTOM_CUTOFF_OPTION ||
+                          value === CUSTOM_COMBO_OPTION
+                        ) {
+                          const kind: CustomDimensionKind =
+                            value === CUSTOM_CUTOFF_OPTION ? "cutoff" : "combo";
+                          setCustomDimensionDraft(
+                            savedDraft?.kind === kind
+                              ? savedDraft
+                              : { kind, constituentIds: [] },
+                          );
+                          return;
+                        }
+                        setCustomDimensionDraft(null);
+                        setBlock({ ...block, dimensionId: value });
+                      }}
+                      options={options}
+                      sort={false}
+                    />
+                    {activeDraft && (
+                      <CustomDimensionFields
+                        draft={activeDraft}
+                        setDraft={(next) => {
+                          // Hold the draft locally until it can build an id,
+                          // so the block never points at a half-built dimension
+                          if (
+                            isCustomDimensionDraftValid(
+                              next,
+                              cutoffBounds.min,
+                              cutoffBounds.max,
+                            )
+                          ) {
+                            setCustomDimensionDraft(null);
+                            setBlock({
+                              ...block,
+                              dimensionId: buildCustomDimensionId(next),
+                            });
+                          } else {
+                            setCustomDimensionDraft(next);
+                          }
+                        }}
+                        constituentOptions={customDimensionConstituentOptions}
+                        cutoffMin={cutoffBounds.min}
+                        cutoffMax={cutoffBounds.max}
+                      />
+                    )}
+                  </>
+                );
+              })()}
             {blockHasFieldOfType(block, "differenceType", isDifferenceType) &&
               shouldShowEditorField(block, "differenceType") && (
                 <SelectField
+                  size="legacy"
                   label="Difference Type"
                   labelClassName="font-weight-bold"
                   containerClassName="mb-0"
@@ -1300,17 +1517,14 @@ export default function EditSingleBlock({
                         : "absolute",
                     })
                   }
-                  options={[
-                    { label: "Relative", value: "relative" },
-                    { label: "Absolute", value: "absolute" },
-                    { label: "Scaled", value: "scaled" },
-                  ]}
+                  options={DIFFERENCE_TYPE_OPTIONS}
                   sort={false}
                 />
               )}
             {blockHasFieldOfType(block, "baselineRow", isNumber) &&
               shouldShowEditorField(block, "baselineRow") && (
                 <SelectField
+                  size="legacy"
                   sort={false}
                   label="Baseline"
                   labelClassName="font-weight-bold"
@@ -1330,31 +1544,19 @@ export default function EditSingleBlock({
                       : []
                   }
                   formatOptionLabel={({ value, label }) => (
-                    <div
-                      className={`variation variation${value} with-variation-label d-flex align-items-center`}
-                    >
-                      <span
-                        className="label"
-                        style={{ width: 20, height: 20, flex: "none" }}
-                      >
-                        {value}
-                      </span>
-                      <span
-                        className="d-inline-block"
-                        style={{
-                          width: 150,
-                          lineHeight: "14px",
-                        }}
-                      >
-                        {label}
-                      </span>
-                    </div>
+                    <VariationLabel
+                      number={parseInt(value)}
+                      name={label}
+                      size="md"
+                      maxWidth="170px"
+                    />
                   )}
                 />
               )}
             {blockHasFieldOfType(block, "variationIds", isStringArray) &&
               shouldShowEditorField(block, "variationIds") && (
                 <MultiSelectField
+                  legacyHeight
                   sort={false}
                   label="Variations"
                   labelClassName="font-weight-bold"
@@ -1371,31 +1573,19 @@ export default function EditSingleBlock({
                         )
                       : -1;
                     return (
-                      <div
-                        className={`variation variation${varIndex} with-variation-label d-flex align-items-center`}
-                      >
-                        <span
-                          className="label"
-                          style={{ width: 20, height: 20, flex: "none" }}
-                        >
-                          {varIndex}
-                        </span>
-                        <span
-                          className="d-inline-block"
-                          style={{
-                            width: 150,
-                            lineHeight: "14px",
-                          }}
-                        >
-                          {label}
-                        </span>
-                      </div>
+                      <VariationLabel
+                        number={varIndex}
+                        name={label}
+                        size="md"
+                        maxWidth="170px"
+                      />
                     );
                   }}
                 />
               )}
             {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
               <MultiSelectField
+                legacyHeight
                 label="Dimension Values"
                 labelClassName="font-weight-bold"
                 placeholder="Showing all values"
@@ -1520,6 +1710,7 @@ export default function EditSingleBlock({
                 ) : (
                   <>
                     <SelectField
+                      size="legacy"
                       required
                       labelClassName="font-weight-bold flex-grow-1"
                       containerClassName="mb-0"
@@ -1658,10 +1849,43 @@ export default function EditSingleBlock({
             {block.type === "metric-explorer" && (
               <MetricExplorerSettings block={block} setBlock={setBlock} />
             )}
+            {block.type === "metric-experiments" && (
+              <MetricExperimentsSettings
+                block={block}
+                setBlock={setBlock}
+                projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
+              />
+            )}
+            {block.type === "experiments-scaled-impact" && (
+              <ExperimentsScaledImpactSettings
+                block={block}
+                setBlock={setBlock}
+                projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
+              />
+            )}
+            {block.type === "experiments-win-rate" && (
+              <ExperimentsWinRateSettings
+                block={block}
+                setBlock={setBlock}
+                projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
+              />
+            )}
+            {block.type === "experiments-status" && (
+              <ExperimentsStatusSettings
+                block={block}
+                setBlock={setBlock}
+                projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
+              />
+            )}
             {block.type === "metric-exploration" && (
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}
+                dashboardGlobalControls={dashboardGlobalControls}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
               />
@@ -1670,6 +1894,7 @@ export default function EditSingleBlock({
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}
+                dashboardGlobalControls={dashboardGlobalControls}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
               />
@@ -1678,6 +1903,16 @@ export default function EditSingleBlock({
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}
+                dashboardGlobalControls={dashboardGlobalControls}
+                saveAndCloseTrigger={saveAndCloseTrigger}
+                onSaveAndClose={submit}
+              />
+            )}
+            {block.type === "funnel-exploration" && (
+              <ProductAnalyticsExplorerSettings
+                block={block}
+                setBlock={setBlock}
+                dashboardGlobalControls={dashboardGlobalControls}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
               />
@@ -1706,11 +1941,7 @@ export default function EditSingleBlock({
                   submit();
                 }
               }}
-              disabled={
-                !!(REQUIRED_FIELDS[block.type] || []).find(
-                  ({ field, validation }) => !validation(block[field]),
-                )
-              }
+              disabled={isBlockIncomplete(block)}
             >
               Save & Close
             </Button>

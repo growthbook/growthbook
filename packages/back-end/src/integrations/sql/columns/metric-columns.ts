@@ -2,6 +2,7 @@ import {
   ExperimentMetricInterface,
   getAggregateFilters,
   getColumnExpression,
+  getFactTableTimestampColumn,
   getUserIdTypes,
   isBinomialMetric,
   isFactMetric,
@@ -53,12 +54,18 @@ export function getMetricColumns(
       column === "$$distinctDates"
         ? "1"
         : factTable && column
-          ? getColumnExpression(column, factTable, dialect.jsonExtract, alias)
+          ? getColumnExpression(
+              column,
+              factTable,
+              dialect.jsonExtract,
+              alias,
+              dialect.identifierQuote,
+            )
           : `${alias}.${column}`;
 
     return {
       userIds,
-      timestamp: `${alias}.timestamp`,
+      timestamp: `${alias}.${getFactTableTimestampColumn(factTable)}`,
       value,
     };
   }

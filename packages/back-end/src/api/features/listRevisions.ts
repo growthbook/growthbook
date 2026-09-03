@@ -1,4 +1,7 @@
-import { listRevisionsValidator } from "shared/validators";
+import {
+  listRevisionsValidator,
+  parseRevisionStatusFilter,
+} from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import {
@@ -32,15 +35,20 @@ export async function loadRevisionsPage(
   organizationId: string,
   query: {
     featureId?: string;
-    status?: string;
+    status?: string | string[];
     author?: string;
     mine?: string | boolean;
+    archived?: string | boolean;
     skipPagination?: string | boolean;
     limit?: number;
     offset?: number;
   },
 ) {
-  const { featureId, status, author } = query;
+  const { featureId, author } = query;
+  const status = parseRevisionStatusFilter(query.status);
+  // Mirrors includeArchived: false (default) excludes archived features;
+  // true includes them alongside non-archived ones.
+  const includeArchived = stringToBoolean(query.archived?.toString()) ?? false;
 
   const mine = stringToBoolean(query.mine?.toString());
   if (mine && author) {
@@ -75,6 +83,11 @@ export async function loadRevisionsPage(
   if (featureId) {
     singleFeature = await getFeature(context, featureId);
     if (!singleFeature) return emptyListResponse(limit, offset);
+    // Apply the archived filter consistently with the no-featureId path.
+    // When archived=false (default), exclude revisions for archived features
+    // even when featureId is given explicitly.
+    if (singleFeature.archived && !includeArchived)
+      return emptyListResponse(limit, offset);
   } else {
     const readableProjects =
       context.permissions.getProjectsWithPermission("readData");
@@ -84,7 +97,7 @@ export async function loadRevisionsPage(
       }
       const scopedFeatures = await getAllFeatures(context, {
         projects: readableProjects,
-        includeArchived: true,
+        includeArchived,
       });
       featureIds = scopedFeatures.map((f) => f.id);
       if (featureIds.length === 0) {
@@ -142,7 +155,7 @@ export const listRevisions = createApiRequestHandler(listRevisionsValidator)(
     const r = await loadRevisionsPage(
       req.context,
       req.organization.id,
-      req.query,
+      { ...req.query, archived: true }, // v1 always included archived features
     );
     if (r.empty) return r.response;
     const mapped = r.revisions.map((rev) =>

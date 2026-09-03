@@ -1,18 +1,182 @@
-import { useState } from "react";
-import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
-import { Box, Text } from "@radix-ui/themes";
+import { useMemo, useState } from "react";
+import { Box, Flex, Text } from "@radix-ui/themes";
+import type { ExpandedMember } from "shared/types/organization";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
-import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
-import { useUser } from "@/services/UserContext";
+import { type Team, useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
+import { useForceLicenseRefresh } from "@/hooks/useForceLicenseRefresh";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import Modal from "@/components/Modal";
 import UpgradeModal from "./UpgradeModal";
 import UpdateOrbSubscriptionModal from "./UpdateOrbSubscriptionModal";
+import {
+  getSubscriptionBillingState,
+  type PaymentMethodNotice,
+  type SubscriptionBillingState,
+} from "./subscriptionBillingState";
 
 const CANCELLATION_SURVEY_URL = "https://form.typeform.com/to/kL75SA6F";
+
+function isReadOnlySeatRole(role: string): boolean {
+  return role === "readonly" || role === "noaccess";
+}
+
+function getSeatBreakdown(
+  users: Map<string, ExpandedMember>,
+  teams: Team[] | undefined,
+): { fullMemberSeats: number; readOnlySeats: number } {
+  const teamById = new Map((teams ?? []).map((team) => [team.id, team]));
+  let fullMemberSeats = 0;
+  let readOnlySeats = 0;
+
+  users.forEach((member) => {
+    const roles = [member.role];
+    member.projectRoles?.forEach((projectRole) => {
+      roles.push(projectRole.role);
+    });
+    member.teams?.forEach((teamId) => {
+      const team = teamById.get(teamId);
+      if (!team) return;
+      roles.push(team.role);
+      team.projectRoles?.forEach((projectRole) => {
+        roles.push(projectRole.role);
+      });
+    });
+
+    if (roles.every(isReadOnlySeatRole)) {
+      readOnlySeats += 1;
+    } else {
+      fullMemberSeats += 1;
+    }
+  });
+
+  return { fullMemberSeats, readOnlySeats };
+}
+
+function seatLabel(count: number): string {
+  return count === 1 ? "seat" : "seats";
+}
+
+function PaymentMethodCallout({
+  notice,
+  actionLabel,
+}: {
+  notice: PaymentMethodNotice;
+  actionLabel: string;
+}) {
+  if (notice === "valid") {
+    return (
+      <Box maxWidth="650px" mt="3">
+        <Callout status="success">
+          You have a valid payment method on file. You will be billed
+          automatically on this date.
+        </Callout>
+      </Box>
+    );
+  }
+  if (notice === "missing") {
+    return (
+      <Box maxWidth="550px" mt="3">
+        <Callout status="warning">
+          <p>
+            You do not have a valid payment method on file. Your subscription
+            will be cancelled on this date unless you add a valid payment
+            method.
+          </p>
+          <p className="mb-0">
+            Click <strong>{actionLabel}</strong> below to add a payment method.
+          </p>
+        </Callout>
+      </Box>
+    );
+  }
+  return null;
+}
+
+function NextBillDateRow({
+  nextBillDate,
+  paymentMethodNotice,
+  actionLabel,
+}: {
+  nextBillDate: string;
+  paymentMethodNotice: PaymentMethodNotice;
+  actionLabel: string;
+}) {
+  return (
+    <Box mb="3">
+      <div>
+        <strong>Next Bill Date: </strong>
+        {nextBillDate}
+      </div>
+      <PaymentMethodCallout
+        notice={paymentMethodNotice}
+        actionLabel={actionLabel}
+      />
+    </Box>
+  );
+}
+
+function BillingStatusSection({
+  billing,
+  actionLabel,
+}: {
+  billing: SubscriptionBillingState;
+  actionLabel: string;
+}) {
+  switch (billing.kind) {
+    case "canceled":
+      return (
+        <Callout status="error" mb="3">
+          Your plan was canceled on{" "}
+          {billing.cancelationDate ? `${billing.cancelationDate}.` : ""}
+        </Callout>
+      );
+    case "self_serve_pending_cancel":
+      return billing.pendingCancelDate ? (
+        <Callout status="error" mb="3">
+          Your plan will be canceled, but is still available until the end of
+          your billing period on {billing.pendingCancelDate}.
+        </Callout>
+      ) : null;
+    case "self_serve_active":
+    case "enterprise_active":
+      return billing.nextBillDate ? (
+        <NextBillDateRow
+          nextBillDate={billing.nextBillDate}
+          paymentMethodNotice={billing.paymentMethodNotice}
+          actionLabel={actionLabel}
+        />
+      ) : null;
+    case "enterprise_contract_ending":
+      return (
+        <>
+          <Box mb="3">
+            <strong>Contract Expiration:</strong>{" "}
+            {billing.contractExpirationDate}
+            <Text as="div" color="gray" size="2">
+              {billing.contractExpirationHelper}
+            </Text>
+            {!billing.nextBillDate ? (
+              <PaymentMethodCallout
+                notice={billing.paymentMethodNotice}
+                actionLabel={actionLabel}
+              />
+            ) : null}
+          </Box>
+          {billing.nextBillDate ? (
+            <NextBillDateRow
+              nextBillDate={billing.nextBillDate}
+              paymentMethodNotice={billing.paymentMethodNotice}
+              actionLabel={actionLabel}
+            />
+          ) : null}
+        </>
+      );
+  }
+}
 
 export default function SubscriptionInfo() {
   const { apiCall } = useAuth();
@@ -22,9 +186,14 @@ export default function SubscriptionInfo() {
     canSubscribe,
     accountPlan,
     users,
-    refreshOrganization,
     organization,
+    teams,
   } = useUser();
+  const {
+    status: organizationRefreshStatus,
+    refresh: refreshOrganizationAfterCancellation,
+    retry: retryOrganizationRefresh,
+  } = useForceLicenseRefresh();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [cancelSubscriptionModal, setCancelSubscriptionModal] = useState(false);
@@ -36,12 +205,28 @@ export default function SubscriptionInfo() {
   // Orb subscriptions only count members, not members + invites like Stripe Subscriptions
   const subscriptionSeats =
     subscription?.billingPlatform === "orb" ? users.size : seatsInUse;
+  const { fullMemberSeats, readOnlySeats } = useMemo(
+    () => getSeatBreakdown(users, teams),
+    [users, teams],
+  );
 
-  const hasActiveOrbSubscription =
-    subscription?.billingPlatform === "orb" &&
-    subscription?.status === "active" &&
-    subscription?.nextBillDate &&
-    !subscription?.pendingCancelation;
+  const billing = useMemo(
+    () =>
+      getSubscriptionBillingState({
+        subscription,
+        accountPlan,
+        canSubscribe,
+      }),
+    [subscription, accountPlan, canSubscribe],
+  );
+  const showActionButtons =
+    billing.showStripeManageButton ||
+    billing.showUpdateInvoiceButton ||
+    billing.showRenewButton ||
+    billing.showCancelButton;
+  const addPaymentMethodActionLabel = billing.showUpdateInvoiceButton
+    ? "Update Invoice Details"
+    : "View Plan Details";
 
   return (
     <div className="p-3">
@@ -54,6 +239,7 @@ export default function SubscriptionInfo() {
       )}
       {showCancellationSurveyModal && (
         <Modal
+          useRadixButton={false}
           open={true}
           header={null}
           trackingEventModalType="cancellation-survey"
@@ -84,6 +270,7 @@ export default function SubscriptionInfo() {
       )}
       {cancelSubscriptionModal && (
         <Modal
+          useRadixButton={false}
           open={true}
           header="Are you sure you want to cancel?"
           trackingEventModalType="cancel-subscription"
@@ -93,7 +280,7 @@ export default function SubscriptionInfo() {
           submitColor="danger"
           submit={async () => {
             await apiCall("/subscription/cancel", { method: "POST" });
-            refreshOrganization();
+            await refreshOrganizationAfterCancellation();
             setCancelSubscriptionModal(false);
             setShowCancellationSurveyModal(true);
           }}
@@ -121,78 +308,68 @@ export default function SubscriptionInfo() {
           />
         </StripeProvider>
       )}
-      <div className="col-auto mb-3">
-        <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"} Pro
-        {subscription?.status === "trialing" && (
+      {organizationRefreshStatus !== "idle" ? (
+        <Callout
+          status="warning"
+          mb="3"
+          action={
+            <Button
+              size="sm"
+              color="inherit"
+              loading={organizationRefreshStatus === "loading"}
+              onClick={retryOrganizationRefresh}
+            >
+              Try again
+            </Button>
+          }
+        >
+          We couldn&apos;t refresh your organization details. Try again to see
+          your updated plan.
+        </Callout>
+      ) : null}
+      <Box mb="3">
+        <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"}{" "}
+        {planNameFromAccountPlan(accountPlan)}
+        {billing.isTrialing && (
           <>
             {" "}
             <em>(trial)</em>
           </>
         )}
-      </div>
-      <div className="col-md-12 mb-3">
+      </Box>
+      <Box mb="3">
         <strong>Number Of Seats:</strong> {subscriptionSeats || 0}
-      </div>
-      {subscription?.status !== "canceled" &&
-        !subscription?.pendingCancelation && (
-          <div className="col-md-12 mb-3">
-            <div>
-              <strong>Next Bill Date: </strong>
-              {subscription?.nextBillDate}
-            </div>
-            {subscription?.hasPaymentMethod === true ? (
-              <div
-                className="mt-3 px-3 py-2 alert alert-success row"
-                style={{ maxWidth: 650 }}
-              >
-                <div className="col-auto px-1">
-                  <FaCheckCircle />
-                </div>
-                <div className="col">
-                  You have a valid payment method on file. You will be billed
-                  automatically on this date.
-                </div>
-              </div>
-            ) : subscription?.hasPaymentMethod === false ? (
-              <div
-                className="mt-3 px-3 py-2 alert alert-warning row"
-                style={{ maxWidth: 550 }}
-              >
-                <div className="col-auto px-1">
-                  <FaExclamationTriangle />
-                </div>
-                <div className="col">
-                  <p>
-                    You do not have a valid payment method on file. Your
-                    subscription will be cancelled on this date unless you add a
-                    valid payment method.
-                  </p>
-                  <p className="mb-0">
-                    Click <strong>View Plan Details</strong> below to add a
-                    payment method.
-                  </p>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        )}
-      {subscription?.pendingCancelation && subscription?.dateToBeCanceled && (
-        <div className="col-md-12 mb-3 alert alert-danger">
-          Your plan will be canceled, but is still available until the end of
-          your billing period on
-          {` ${subscription?.dateToBeCanceled}.`}
-        </div>
-      )}
-      {subscription?.status === "canceled" && (
-        <div className="col-md-12 mb-3 alert alert-danger">
-          Your plan was canceled on {` ${subscription?.cancelationDate}.`}
-        </div>
-      )}
-      <div className="col-md-12 mt-4 mb-3 d-flex flex-row px-0">
-        {subscription?.billingPlatform === "stripe" ? (
-          <div className="col-auto">
+        {/* Only Orb totals count members alone; Stripe's includes invites, so the breakdown wouldn't add up. */}
+        {subscription?.billingPlatform === "orb" && readOnlySeats > 0 ? (
+          <Text as="div" color="gray" size="2">
+            This includes {readOnlySeats} read-only {seatLabel(readOnlySeats)}{" "}
+            and {fullMemberSeats} full-member {seatLabel(fullMemberSeats)}.
+          </Text>
+        ) : null}
+      </Box>
+      <BillingStatusSection
+        billing={billing}
+        actionLabel={addPaymentMethodActionLabel}
+      />
+      {billing.invoiceBlocked ? (
+        <Box maxWidth="550px" mt="4" mb="3">
+          <Callout status="info">
+            To make changes to your subscription, please contact your account
+            executive or{" "}
+            <a href="mailto:support@growthbook.io">support@growthbook.io</a>.
+          </Callout>
+        </Box>
+      ) : null}
+      {showActionButtons ? (
+        <Flex
+          mt={billing.invoiceBlocked ? "0" : "4"}
+          mb="3"
+          gap="3"
+          align="center"
+          wrap="wrap"
+        >
+          {billing.showStripeManageButton ? (
             <Button
-              color="primary"
               onClick={async () => {
                 const res = await apiCall<{ url: string }>(
                   `/subscription/manage`,
@@ -211,41 +388,27 @@ export default function SubscriptionInfo() {
                 ? "View Plan Details"
                 : "View Previous Invoices"}
             </Button>
-          </div>
-        ) : null}
-        {subscription?.billingPlatform === "orb" &&
-        subscription?.status === "active" ? (
-          <div className="col-auto">
-            <Button
-              color="primary"
-              onClick={() => setUpdateOrbSubscriptionModal(true)}
-            >
+          ) : null}
+          {billing.showUpdateInvoiceButton ? (
+            <Button onClick={() => setUpdateOrbSubscriptionModal(true)}>
               Update Invoice Details
             </Button>
-          </div>
-        ) : null}
-        {subscription?.status === "canceled" && canSubscribe && (
-          <div className="col-auto">
-            <button
-              className="btn btn-success"
-              onClick={(e) => {
-                e.preventDefault();
-                setUpgradeModal(true);
-              }}
-            >
+          ) : null}
+          {billing.showRenewButton ? (
+            <Button onClick={() => setUpgradeModal(true)}>
               Renew Your Plan
-            </button>
-          </div>
-        )}
-        {hasActiveOrbSubscription ? (
-          <Button
-            onClick={() => setCancelSubscriptionModal(true)}
-            color="danger"
-          >
-            Cancel Subscription
-          </Button>
-        ) : null}
-      </div>
+            </Button>
+          ) : null}
+          {billing.showCancelButton ? (
+            <Button
+              color="red"
+              onClick={() => setCancelSubscriptionModal(true)}
+            >
+              Cancel Subscription
+            </Button>
+          ) : null}
+        </Flex>
+      ) : null}
     </div>
   );
 }

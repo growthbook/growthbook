@@ -5,7 +5,6 @@ import {
   AnalysisKeyType,
   AnalysisMetaEntry,
 } from "shared/snapshot-analysis-chunks";
-import { PhaseSQLVar } from "shared/types/sql";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
@@ -17,21 +16,22 @@ import {
   SupplementalResults,
 } from "shared/types/stats";
 import { QueryLanguage } from "./datasource";
+import { DimensionInterface } from "./dimension";
+import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 import { MetricInterface, MetricStats } from "./metric";
 import { Queries } from "./query";
+import { PhaseSQLVar } from "./sql";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   LegacyMetricRegressionAdjustmentStatus,
 } from "./report";
-import { DimensionInterface } from "./dimension";
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
   LegacyBanditResult,
   LookbackOverride,
 } from "./experiment";
-import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 
 export interface SnapshotMetric {
   value: number;
@@ -57,6 +57,7 @@ export interface SnapshotMetric {
   }[];
   chanceToWin?: number;
   errorMessage?: string;
+  computeFailed?: boolean;
   power?: MetricPowerResponseFromStatsEngine;
   realizedSettings?: RealizedSettings;
   supplementalResults?: SupplementalResults;
@@ -90,7 +91,7 @@ export type LegacyExperimentSnapshotInterface = ExperimentSnapshotInterface & {
 
 export interface MetricForSnapshot {
   id: string;
-  // Settings directly from the Metric object at the time the snapshot was created
+  /** Snapshot-time copy of the Metric object's settings. */
   settings?: Pick<
     MetricInterface,
     | "datasource"
@@ -101,8 +102,7 @@ export interface MetricForSnapshot {
     | "userIdTypes"
     | "type"
   >;
-  // Computed settings that take into account overrides
-  // see MetricSnapshotSettings
+  /** Settings after overrides applied; see MetricSnapshotSettings. */
   computedSettings?: {
     regressionAdjustmentEnabled: boolean;
     regressionAdjustmentAvailable: boolean;
@@ -115,18 +115,13 @@ export interface MetricForSnapshot {
     targetMDE?: number;
   };
 }
-
 export interface DimensionForSnapshot {
-  // The same format we use today that encodes both the type and id
-  // For example: `exp:country` or `pre:date`
+  /** Encodes type and id (e.g. `exp:country`, `pre:date`). */
   id: string;
-  // Pre-defined dimension levels, if they exist
   slices?: string[];
-  // Dimension settings at the time the snapshot was created
-  // Used to show an "out-of-date" warning on the front-end
+  /** Snapshot-time settings, used by the front-end "out-of-date" warning. */
   settings?: Pick<DimensionInterface, "datasource" | "userIdType" | "sql">;
 }
-
 export interface ExperimentSnapshotAnalysisSettings {
   dimensions: string[];
   statsEngine: StatsEngine;
@@ -149,6 +144,11 @@ export interface ExperimentSnapshotAnalysisSettings {
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";
+export type SnapshotQueryRunnerKind =
+  | "results"
+  | "incremental-full"
+  | "incremental-update"
+  | "incremental-exploratory";
 export type SnapshotTriggeredBy =
   | "schedule"
   | "manual"
@@ -183,13 +183,14 @@ export interface SnapshotBanditSettings {
   }[];
   useFirstExposure?: boolean;
   windowSettings?: MetricWindowSettings;
+  contextualBandit?: boolean;
+  targetingAttributeColumns?: string[];
 }
 
-// Settings that control which queries are run
-// Used to determine which types of analyses are possible
-// Also used to determine when to show "out-of-date" in the UI
 export interface ExperimentSnapshotSettings {
   dimensions: DimensionForSnapshot[];
+  /** Always-computed unit dimensions gathered in 1 pass and split into per-dimension analyses. */
+  precomputedUnitDimensionIds?: string[];
   metricSettings: MetricForSnapshot[];
   goalMetrics: string[];
   secondaryMetrics: string[];
@@ -227,12 +228,17 @@ export interface ExperimentSnapshotInterface {
   // Status and meta info about the snapshot run
   error?: string;
   dateCreated: Date;
+  // For incremental-pipeline exploratory snapshots as their analysis
+  // is built on top of the overall results snapshot
+  sourceSnapshotId?: string;
+  sourceSnapshotDateCreated?: Date;
   runStarted: Date | null;
   status: "running" | "success" | "error";
   settings: ExperimentSnapshotSettings;
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;
   report?: string;
+  runnerKind?: SnapshotQueryRunnerKind;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;
@@ -253,6 +259,30 @@ export interface ExperimentWithSnapshot extends ExperimentInterfaceStringDates {
   snapshot?: ExperimentSnapshotInterface;
 }
 
+/**
+ * Subset of `ExperimentSnapshotInterface` returned by the dedicated
+ * `GET /experiment/:id/snapshot-summary/:phase` endpoint. The endpoint only
+ * fetches top-level snapshot fields (no per-metric analysis chunks), so
+ * `analyses[].results` are not available here — only fields needed to
+ * render refresh status, queries, errors, and other top-level snapshot
+ * metadata. The narrow return type, not a runtime flag, encodes the "no
+ * per-metric results" contract.
+ */
+export type SnapshotStatusSummary = Pick<
+  ExperimentSnapshotInterface,
+  | "id"
+  | "status"
+  | "error"
+  | "queries"
+  | "runStarted"
+  | "dateCreated"
+  | "multipleExposures"
+  | "health"
+  | "banditResult"
+  | "type"
+  | "triggeredBy"
+>;
+
 export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;
   power?: MidExperimentPowerCalculationResult;
@@ -265,6 +295,8 @@ export interface ExperimentSnapshotTraffic {
     [dimension: string]: ExperimentSnapshotTrafficDimension[];
   };
   error?: "NO_ROWS_IN_UNIT_QUERY" | "TOO_MANY_ROWS" | string;
+  // Absent when the traffic query errored
+  multipleExposures?: number;
 }
 export interface ExperimentSnapshotTrafficDimension {
   name: string;

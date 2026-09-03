@@ -1,13 +1,25 @@
-import { isRatioMetric } from "shared/experiments";
+import { getFactMetricFactTableIds } from "shared/experiments";
 import type {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
 
+// Builds the fact-table buckets for a set of metrics. By default, walks every
+// metric and adds it to a bucket for each fact table it reads from: the
+// numerator's, the denominator's for cross-FT ratios, and every step's for
+// funnels (whose steps can each come from a different table).
+//
+// When `targetFactTableId` is provided, the function instead scopes output to
+// that single fact table: a metric contributes only if its numerator or
+// denominator references the target FT, and only that side is recorded. This
+// is the right mode for per-FT incremental refresh inserts, where we're
+// populating one cache and the OTHER sides of any cross-FT ratio metrics are
+// populated by separate calls against their own target FTs.
 export function getFactTablesForMetrics(
   metrics: { metric: FactMetricInterface; index: number }[],
   factTableMap: FactTableMap,
+  targetFactTableId?: string,
 ): {
   factTable: FactTableInterface;
   index: number;
@@ -21,59 +33,35 @@ export function getFactTablesForMetrics(
     }
   > = {};
 
-  metrics.forEach(({ metric, index }) => {
-    const numeratorFactTable = factTableMap.get(
-      metric.numerator?.factTableId || "",
-    );
-
-    if (!numeratorFactTable) {
+  const addMetricToFactTable = (
+    factTableId: string,
+    metric: FactMetricInterface,
+    index: number,
+  ) => {
+    if (targetFactTableId && factTableId !== targetFactTableId) return;
+    const factTable = factTableMap.get(factTableId);
+    if (!factTable) {
       throw new Error("Unknown fact table");
     }
-
-    const existing = factTables[numeratorFactTable.id];
+    const existing = factTables[factTable.id];
     if (existing) {
       existing.metrics.push({ metric, index });
     } else {
-      factTables[numeratorFactTable.id] = {
-        factTable: numeratorFactTable,
+      factTables[factTable.id] = {
+        factTable,
         metrics: [{ metric, index }],
       };
     }
+  };
 
-    if (
-      isRatioMetric(metric) &&
-      metric.denominator?.factTableId &&
-      metric.denominator?.factTableId !== metric.numerator?.factTableId
-    ) {
-      const denominatorFactTable = factTableMap.get(
-        metric.denominator?.factTableId || "",
-      );
-      if (!denominatorFactTable) {
-        throw new Error("Unknown fact table");
-      }
-
-      const denomExisting = factTables[denominatorFactTable.id];
-      if (denomExisting) {
-        denomExisting.metrics.push({ metric, index });
-      } else {
-        factTables[denominatorFactTable.id] = {
-          factTable: denominatorFactTable,
-          metrics: [{ metric, index }],
-        };
-      }
-    }
+  metrics.forEach(({ metric, index }) => {
+    getFactMetricFactTableIds(metric).forEach((factTableId) => {
+      addMetricToFactTable(factTableId, metric, index);
+    });
   });
 
   if (Object.keys(factTables).length === 0) {
     throw new Error("No fact tables found");
-  }
-  // TODO(sql): Consider supporting more than two fact tables
-  // for cases where you have < 20 metrics that span 3+ fact tables
-  // and sometimes cross between them.
-  if (Object.keys(factTables).length > 2) {
-    throw new Error(
-      "Only two fact tables at a time are supported at the moment",
-    );
   }
 
   return Object.values(factTables).map((f, i) => ({

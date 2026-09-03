@@ -1,5 +1,14 @@
 import { getValidDate } from "shared/dates";
 import { buildMinimalOrCondition, format } from "shared/sql";
+import {
+  buildPrevResolvedExpr,
+  conversionWindowToSeconds,
+} from "shared/funnels";
+import {
+  buildManagedWarehouseAttributeAliasClause,
+  MANAGED_WAREHOUSE_EVENTS_TABLE,
+  MANAGED_WAREHOUSE_EXPERIMENT_VIEWS_TABLE,
+} from "shared/util";
 import { SqlDialect } from "shared/types/sql";
 import {
   RowFilter,
@@ -11,21 +20,26 @@ import {
   MetricCappingSettings,
   NumberFormat,
   ColumnRef,
+  StandardFactMetricInterface,
 } from "shared/types/fact-table";
-import { DataSourceSettings } from "shared/types/datasource";
+import { DataSourceSettings, DataSourceType } from "shared/types/datasource";
 import {
   ProductAnalyticsDimension,
   ProductAnalyticsDynamicDimension,
+  ProductAnalyticsStaticDimension,
   FactTableDataset,
   ExplorationConfig,
   DataSourceDataset,
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
+  FunnelDataset,
 } from "../../validators/product-analytics";
+import { FunnelStep } from "../../validators/fact-table";
 import {
   getRowFilterSQL,
   getColumnExpression,
   getAggregateFilters,
+  isFactFunnelMetric,
 } from "../../experiments/experiments";
 
 // Internal Type definitions
@@ -33,8 +47,11 @@ type MinimalFactTable = Pick<
   FactTableInterface,
   "sql" | "columns" | "filters" | "userIdTypes" | "timestampColumn"
 >;
+// Funnel fact metrics are excluded: product-analytics explorations describe
+// their own funnels through the funnel dataset, and a funnel fact metric has no
+// numerator column to roll up.
 type MinimalMetric = Pick<
-  FactMetricInterface,
+  StandardFactMetricInterface,
   | "id"
   | "name"
   | "metricType"
@@ -45,7 +62,21 @@ type MinimalMetric = Pick<
   | "quantileSettings"
 >;
 interface MinimalDatasourceInterface {
+  type?: string;
   settings?: DataSourceSettings | null;
+}
+
+// Per-org managed-warehouse tables that carry the `attributes` JSON column, so a
+// `data_source` exploration querying one directly can be given the same column aliases
+// the fact table uses. Matches the table-name suffix (the information-schema path may be
+// db-qualified / backtick-quoted).
+const MANAGED_WAREHOUSE_PER_ORG_TABLES = new Set<string>([
+  MANAGED_WAREHOUSE_EVENTS_TABLE,
+  MANAGED_WAREHOUSE_EXPERIMENT_VIEWS_TABLE,
+]);
+function isManagedWarehousePerOrgTable(path: string): boolean {
+  const table = path.replace(/`/g, "").split(".").pop()?.trim().toLowerCase();
+  return table !== undefined && MANAGED_WAREHOUSE_PER_ORG_TABLES.has(table);
 }
 interface MetricWithMetadata {
   metric: MinimalMetric;
@@ -125,24 +156,33 @@ function getFactTableGroups({
   config,
   factTableMap,
   metricMap,
-  datasourceSettings,
+  datasource,
 }: {
   config: ExplorationConfig;
   factTableMap: FactTableMap;
   metricMap: Map<string, FactMetricInterface>;
-  datasourceSettings: DataSourceSettings | null;
+  datasource: MinimalDatasourceInterface;
 }): FactTableGroup[] {
   if (!config.dataset) {
     throw new Error("Dataset is required");
   }
+  const datasourceSettings = datasource.settings || null;
 
   switch (config.dataset.type) {
-    case "data_source":
+    case "data_source": {
+      // For a migrated managed warehouse, re-expose former materialized columns as
+      // top-level aliases (same as the fact table) so bare references in a raw
+      // `data_source` exploration keep resolving. No-op for legacy/other datasources.
+      const aliasClause =
+        datasource.type === "growthbook_clickhouse" &&
+        isManagedWarehousePerOrgTable(config.dataset.path)
+          ? buildManagedWarehouseAttributeAliasClause(datasourceSettings)
+          : "";
       return [
         {
           index: 0,
           factTable: createStubFactTable(
-            `SELECT * FROM ${config.dataset.path}`,
+            `SELECT *${aliasClause} FROM ${config.dataset.path}`,
             config.dataset.timestampColumn,
             config.dataset.columnTypes,
             datasourceSettings,
@@ -150,6 +190,7 @@ function getFactTableGroups({
           ...getMetricsAndUnitsFromValues(config.dataset.values),
         },
       ];
+    }
     case "fact_table":
       return (() => {
         if (!config.dataset.factTableId) {
@@ -167,6 +208,11 @@ function getFactTableGroups({
           },
         ];
       })();
+    case "funnel":
+      // Funnels are dispatched away from this code path in
+      // generateProductAnalyticsSQL; this branch exists only so the switch
+      // is exhaustive over the dataset type union.
+      throw new Error("Funnel datasets are not handled by getFactTableGroups");
     case "metric":
       return (() => {
         const groups: Record<string, FactTableGroup> = {};
@@ -175,6 +221,11 @@ function getFactTableGroups({
           const originalMetric = metricMap.get(value.metricId);
           if (!originalMetric) {
             throw new Error(`Metric ${value.metricId} not found`);
+          }
+          if (isFactFunnelMetric(originalMetric)) {
+            throw new Error(
+              `Metric ${value.metricId} is a funnel metric, which is not supported here. Use a funnel exploration instead.`,
+            );
           }
 
           const metric: MinimalMetric = {
@@ -263,6 +314,42 @@ function getFactTableGroups({
       })();
   }
 }
+/**
+ * A `customLookback` value only describes a window when it is a positive
+ * number. Zero, negatives and non-finite values are treated as absent.
+ */
+export function isPositiveLookbackValue(
+  value: number | null | undefined,
+): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+/**
+ * Start of the UTC calendar day `daysBack` days before today. Rolling presets are
+ * inclusive of both end days, so "past N days" passes `N - 1`. Subtracting a raw
+ * N without truncating leaves the start at the current time-of-day, which touches
+ * N + 1 calendar days and renders as N + 1 day buckets.
+ */
+function startOfUtcDaysAgo(daysBack: number): Date {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - daysBack);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+
+/**
+ * Start of the inclusive window covering the last `months` calendar months. Steps
+ * back `months` then forward a day, since anchoring on the same day-of-month
+ * would span `months` *and* a day.
+ */
+function startOfUtcMonthsAgo(months: number): Date {
+  const d = new Date();
+  d.setUTCMonth(d.getUTCMonth() - months);
+  d.setUTCDate(d.getUTCDate() + 1);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+
 export function calculateProductAnalyticsDateRange(
   dateRange: ExplorationConfig["dateRange"],
 ): DateRange {
@@ -273,32 +360,56 @@ export function calculateProductAnalyticsDateRange(
     case "today":
       startDate.setUTCHours(0, 0, 0, 0);
       return { startDate, endDate };
+    case "yesterday": {
+      // A complete day, unlike `today` which runs up to "now".
+      startDate.setUTCDate(startDate.getUTCDate() - 1);
+      startDate.setUTCHours(0, 0, 0, 0);
+      const yesterdayEnd = new Date(startDate);
+      yesterdayEnd.setUTCHours(23, 59, 59, 999);
+      return { startDate, endDate: yesterdayEnd };
+    }
     case "last7Days":
-      startDate.setUTCDate(startDate.getUTCDate() - 7);
-      return { startDate, endDate };
+      return { startDate: startOfUtcDaysAgo(6), endDate };
     case "last30Days":
-      startDate.setUTCDate(startDate.getUTCDate() - 30);
-      return { startDate, endDate };
+      return { startDate: startOfUtcDaysAgo(29), endDate };
     case "last90Days":
-      startDate.setUTCDate(startDate.getUTCDate() - 90);
-      return { startDate, endDate };
-    case "customLookback":
-      if (dateRange.lookbackValue && dateRange.lookbackUnit) {
-        const unit = dateRange.lookbackUnit;
-        const value = dateRange.lookbackValue;
-        if (unit === "hour") {
-          startDate.setUTCHours(startDate.getUTCHours() - value);
-        } else if (unit === "day") {
-          startDate.setUTCDate(startDate.getUTCDate() - value);
-        } else if (unit === "week") {
-          startDate.setUTCDate(startDate.getUTCDate() - value * 7);
-        } else if (unit === "month") {
-          startDate.setUTCMonth(startDate.getUTCMonth() - value);
-        }
-      } else {
-        startDate.setUTCDate(startDate.getUTCDate() - 30);
+      return { startDate: startOfUtcDaysAgo(89), endDate };
+    case "last12Months":
+      return { startDate: startOfUtcMonthsAgo(12), endDate };
+    case "lastCalendarYear": {
+      // The whole prior calendar year — fixed until the year rolls over.
+      const year = startDate.getUTCFullYear() - 1;
+      return {
+        startDate: new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0)),
+        endDate: new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999)),
+      };
+    }
+    case "customLookback": {
+      // A negative or non-finite lookback would move the start date past the
+      // end and produce an inverted window, so anything that isn't a positive
+      // number falls back to the 30-day default alongside a missing value.
+      if (
+        !isPositiveLookbackValue(dateRange.lookbackValue) ||
+        !dateRange.lookbackUnit
+      ) {
+        return { startDate: startOfUtcDaysAgo(29), endDate };
       }
-      return { startDate, endDate };
+      const unit = dateRange.lookbackUnit;
+      const value = dateRange.lookbackValue;
+      if (unit === "hour") {
+        // Sub-day windows stay on instants; truncating would widen "past 6
+        // hours" to everything since midnight.
+        startDate.setUTCHours(startDate.getUTCHours() - value);
+        return { startDate, endDate };
+      }
+      if (unit === "day") {
+        return { startDate: startOfUtcDaysAgo(value - 1), endDate };
+      }
+      if (unit === "week") {
+        return { startDate: startOfUtcDaysAgo(value * 7 - 1), endDate };
+      }
+      return { startDate: startOfUtcMonthsAgo(value), endDate };
+    }
     case "customDateRange": {
       // The user picked calendar days, not instants, so expand the start to
       // `00:00:00.000` UTC and the end to `23:59:59.999` UTC. Without the
@@ -352,12 +463,67 @@ function generateRowFilterSQL(
         rowFilter: filter,
         factTable,
         escapeStringLiteral: helpers.escapeStringLiteral,
+        stringMatch: helpers.stringMatch,
         jsonExtract: helpers.jsonExtract,
         evalBoolean: helpers.evalBoolean,
+        castToTimestamp: helpers.castToTimestamp,
+        identifierQuote: helpers.identifierQuote,
       });
       return sql;
     })
     .filter((sql): sql is string => sql !== null);
+}
+
+// True if `column` resolves to a real underlying column on `factTable` —
+// either a top-level column, or (for a dotted path) a JSON field defined on
+// a JSON-typed top-level column. A ratio metric's denominator can live on a
+// different fact table than its numerator, and that table may not expose
+// the dimension's column at all; callers use this to skip applying a static
+// dimension's filter to a group whose table can't actually resolve it,
+// rather than injecting a WHERE clause that references a nonexistent
+// column and fails at the warehouse.
+function factTableHasResolvableColumn(
+  factTable: MinimalFactTable,
+  column: string,
+): boolean {
+  const [baseColumn, ...rest] = column.split(".");
+  const col = factTable.columns.find((c) => c.column === baseColumn);
+  if (!col) return false;
+  if (rest.length === 0) return true;
+  return col.datatype === "json" && !!col.jsonFields?.[rest.join(".")];
+}
+
+// Build `column IN (...)` clauses for every static (pinned-values) dimension,
+// so callers can drop rows outside the pinned list before aggregation.
+function getStaticDimensionFilters(
+  dimensions: ProductAnalyticsDimension[],
+  factTable: MinimalFactTable,
+  helpers: SqlDialect,
+): string[] {
+  const staticDimensions = dimensions.filter(
+    (d): d is ProductAnalyticsStaticDimension =>
+      d.dimensionType === "static" && d.values.length > 0,
+  );
+
+  // A ratio metric's denominator table may not expose a pinned column at
+  // all — exclude every row from this fact table rather than let them all
+  // through unfiltered on that dimension.
+  const hasUnresolvableDimension = staticDimensions.some(
+    (d) => !factTableHasResolvableColumn(factTable, d.column),
+  );
+  if (hasUnresolvableDimension) return ["1 = 0"];
+
+  return staticDimensions.map((d) => {
+    const columnExpr = getColumnExpression(
+      d.column,
+      factTable,
+      helpers.jsonExtract,
+    );
+    const valueList = d.values
+      .map((v) => `'${helpers.escapeStringLiteral(v)}'`)
+      .join(", ");
+    return `${columnExpr} IN (${valueList})`;
+  });
 }
 
 function getCappingSettings(
@@ -376,7 +542,7 @@ function getCappingSettings(
 }
 
 // Generate dimension expression
-function generateDimensionExpression(
+export function generateDimensionExpression(
   dimension: ProductAnalyticsDimension,
   dimensionIndex: number,
   factTableGroup: FactTableGroup,
@@ -401,6 +567,8 @@ function generateDimensionExpression(
         dimension.column || "",
         factTable,
         helpers.jsonExtract,
+        "",
+        helpers.identifierQuote,
       );
       return `CASE 
         WHEN ${columnExpr} IN (SELECT value FROM ${topCTE}) THEN ${columnExpr}
@@ -408,18 +576,16 @@ function generateDimensionExpression(
       END`;
     }
     case "static": {
-      const columnExpr = getColumnExpression(
+      // Rows outside the pinned value list are dropped entirely (filtered in
+      // generateFactTableCTE / buildFunnelSql), so this is just the raw
+      // column — no CASE/'other' fallback needed.
+      return getColumnExpression(
         dimension.column,
         factTable,
         helpers.jsonExtract,
+        "",
+        helpers.identifierQuote,
       );
-      const valueList = dimension.values
-        .map((v) => `'${helpers.escapeStringLiteral(v)}'`)
-        .join(", ");
-      return `CASE 
-        WHEN ${columnExpr} IN (${valueList}) THEN ${columnExpr}
-        ELSE 'other'
-      END`;
     }
     case "slice": {
       const cases = dimension.slices.map(
@@ -494,7 +660,16 @@ function getEventValueExpr(
   let rawValue: string;
   if (columnRef.column === "$$distinctUsers") {
     if (columnRef.aggregateFilter && columnRef.aggregateFilterColumn) {
-      rawValue = columnRef.aggregateFilterColumn;
+      // Same expansion as an ordinary value column below, so a virtual column
+      // inlines its expression instead of emitting a name the warehouse cannot
+      // resolve. A plain column returns its own name, as before.
+      rawValue = getColumnExpression(
+        columnRef.aggregateFilterColumn,
+        factTable,
+        helpers.jsonExtract,
+        "",
+        helpers.identifierQuote,
+      );
     } else {
       rawValue = "1";
     }
@@ -506,7 +681,15 @@ function getEventValueExpr(
       "day",
     );
   } else {
-    rawValue = columnRef.column;
+    // Expand virtual (computed) columns into their SQL expression, and resolve
+    // JSON columns. A plain column just returns its own name here.
+    rawValue = getColumnExpression(
+      columnRef.column,
+      factTable,
+      helpers.jsonExtract,
+      "",
+      helpers.identifierQuote,
+    );
   }
 
   if (cap) {
@@ -565,7 +748,7 @@ function getUnitAggregationExpr(
     case "hll merge":
       return helpers.hllCardinality(helpers.hllReaggregate(alias));
     case "kll merge":
-      return helpers.kllMergePartial(alias);
+      return helpers.quantileSketchMergePartial(alias);
     case undefined:
       return `SUM(${alias})`;
   }
@@ -589,8 +772,8 @@ function getRollupAggregationExpr(
   // Quantiles
   if (metric.metricType === "quantile" && metric.quantileSettings) {
     if (columnRef.aggregation === "kll merge") {
-      return helpers.kllExtractPoint(
-        helpers.kllMergePartial(alias),
+      return helpers.quantileSketchExtractPoint(
+        helpers.quantileSketchMergePartial(alias),
         metric.quantileSettings.quantile,
       );
     }
@@ -767,6 +950,8 @@ function generateDynamicDimensionCTE(
     dimension.column || "",
     factTableGroup.factTable,
     helpers.jsonExtract,
+    "",
+    helpers.identifierQuote,
   );
 
   return {
@@ -816,6 +1001,7 @@ function generateFactTableCTE(
   factTableGroup: FactTableGroup,
   helpers: SqlDialect,
   dateRange: DateRange,
+  staticDimensionFilters: string[],
 ): CTE {
   const factTable = factTableGroup.factTable;
 
@@ -852,6 +1038,8 @@ function generateFactTableCTE(
   if (metricsFilter) {
     whereClauses.push(metricsFilter);
   }
+
+  whereClauses.push(...staticDimensionFilters);
 
   return {
     name: `_factTable${factTableGroup.index}`,
@@ -961,10 +1149,13 @@ function generateUnitAggregationRollupCTE(
   // Add metrics
   allMetrics.forEach((alias) => {
     const metricData = includedMetrics.find((m) => m.alias === alias);
+    const valueAlias = alias.endsWith("_denominator")
+      ? alias
+      : `${alias}_numerator`;
 
     if (metricData && metricData.rollupAggregationExpr) {
       selects.push(
-        `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${alias}_numerator`,
+        `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${valueAlias}`,
       );
       if (aliasesWithDenominator.has(alias)) {
         selects.push(
@@ -972,7 +1163,7 @@ function generateUnitAggregationRollupCTE(
         );
       }
     } else {
-      selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_numerator`);
+      selects.push(`${dialect.castToFloat("NULL")} AS ${valueAlias}`);
       if (aliasesWithDenominator.has(alias)) {
         selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_denominator`);
       }
@@ -1011,9 +1202,12 @@ function generateEventRollupCTE(
   // Add metrics
   allMetrics.forEach((alias) => {
     const metricData = includedMetrics.find((m) => m.alias === alias);
+    const valueAlias = alias.endsWith("_denominator")
+      ? alias
+      : `${alias}_numerator`;
     if (metricData && metricData.rollupAggregationExpr) {
       selects.push(
-        `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${metricData.alias}_numerator`,
+        `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${valueAlias}`,
       );
       if (aliasesWithDenominator.has(alias)) {
         selects.push(
@@ -1021,7 +1215,7 @@ function generateEventRollupCTE(
         );
       }
     } else {
-      selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_numerator`);
+      selects.push(`${dialect.castToFloat("NULL")} AS ${valueAlias}`);
       if (aliasesWithDenominator.has(alias)) {
         selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_denominator`);
       }
@@ -1061,10 +1255,13 @@ function generateFinalSelect(
     }
   });
   allMetrics.forEach((m) => {
+    const valueAlias = m.alias.endsWith("_denominator")
+      ? m.alias
+      : `${m.alias}_numerator`;
     selects.push(
       needsReaggregation
-        ? `MAX(${m.alias}_numerator) AS ${m.alias}_numerator`
-        : `${m.alias}_numerator AS ${m.alias}_numerator`,
+        ? `MAX(${valueAlias}) AS ${valueAlias}`
+        : `${valueAlias} AS ${valueAlias}`,
     );
     if (m.rollupCountExpr) {
       selects.push(
@@ -1080,6 +1277,455 @@ function generateFinalSelect(
   ${groupBys.length ? `GROUP BY ${groupBys.join(", ")}` : ""}`;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Funnel SQL                                                                 */
+/* -------------------------------------------------------------------------- */
+
+interface FunnelFactTableGroup {
+  index: number;
+  factTable: MinimalFactTable;
+  // Step indexes (1-based) sourced from this fact table.
+  stepIndexes: number[];
+}
+
+/**
+ * Group funnel steps by fact table id, preserving the order of fact tables
+ * as they first appear in the steps array.
+ */
+function groupFunnelStepsByFactTable(
+  steps: FunnelStep[],
+  factTableMap: FactTableMap,
+): FunnelFactTableGroup[] {
+  const groups: Map<string, FunnelFactTableGroup> = new Map();
+  steps.forEach((step, idx) => {
+    if (!step.factTableId) {
+      throw new Error(
+        `Funnel step ${idx + 1} ("${step.name}") is missing a fact table`,
+      );
+    }
+    const existing = groups.get(step.factTableId);
+    if (existing) {
+      existing.stepIndexes.push(idx + 1);
+      return;
+    }
+    const factTable = factTableMap.get(step.factTableId);
+    if (!factTable) {
+      throw new Error(`Fact table ${step.factTableId} not found`);
+    }
+    groups.set(step.factTableId, {
+      index: groups.size,
+      factTable,
+      stepIndexes: [idx + 1],
+    });
+  });
+  return Array.from(groups.values());
+}
+
+/**
+ * Build SQL for a funnel exploration.
+ *
+ * The query is structured as:
+ *   1. One CTE per fact table referenced by any step. Each row emits
+ *      `stepN_ts` columns that are NULL except for the steps the row
+ *      qualifies for. Date-range filter is applied here.
+ *   2. `__funnel_events` UNIONs the fact-table CTEs into a common shape
+ *      (NULLs for non-applicable step columns / dimension column).
+ *   3. `__funnel_user_aggregates`: a SINGLE per-user GROUP BY that pulls
+ *      step 1's earliest timestamp + first-touch dimension AND materializes
+ *      a sorted timestamp array per follow-on step. This is the only place
+ *      the full per-event log is scanned for step resolution.
+ *   4. Chained `__funnel_resolved_step{N}` CTEs resolve each follow-on
+ *      step's timestamp via the dialect's `arrayMinInRange` lookup against
+ *      that step's pre-sorted array — one row per user, no joins back to
+ *      the raw events. The conversion-window and concurrency-window bounds
+ *      live in the array filter predicate.
+ *   5. The final SELECT aggregates per dimension: per-step counts +
+ *      sum/sum-of-squares of time-from-previous-step (ms).
+ */
+/**
+ * Datasource types whose funnel SQL has been execution-verified and are
+ * enabled for the standalone funnel explorer at launch. D-PA2 decision: launch
+ * on a validated subset first, then expand as each remaining dialect's funnel
+ * SQL is execution-tested (see B1a in the deploy-readiness workplan).
+ *
+ * Keyed on datasource `type` (not `SqlDialect.formatDialect`): formatDialect is
+ * the sql-formatter id and is shared across engines (both Athena and Presto are
+ * `"trino"`), so it can't express a per-engine subset. `growthbook_clickhouse`
+ * (managed warehouse) and `clickhouse` both use the ClickHouse dialect.
+ */
+export const FUNNEL_SUPPORTED_DATASOURCE_TYPES: readonly DataSourceType[] = [
+  "postgres",
+  "clickhouse",
+  "growthbook_clickhouse",
+  "bigquery",
+  "snowflake",
+  "athena",
+  "presto",
+  "databricks",
+  "redshift",
+];
+
+export function isFunnelSupportedDatasourceType(type: DataSourceType): boolean {
+  return FUNNEL_SUPPORTED_DATASOURCE_TYPES.includes(type);
+}
+
+export function buildFunnelSql(
+  config: ExplorationConfig,
+  factTableMap: FactTableMap,
+  dialect: SqlDialect,
+): { sql: string; stepCount: number } {
+  if (config.dataset.type !== "funnel") {
+    throw new Error("buildFunnelSql called with a non-funnel dataset");
+  }
+  const dataset: FunnelDataset = config.dataset;
+  const steps = dataset.steps;
+  if (steps.length < 2) {
+    throw new Error("Funnels require at least 2 steps");
+  }
+  if (!dataset.unit) {
+    throw new Error("Funnel unit is required");
+  }
+  const unit = dataset.unit;
+  const concurrencyWindowSeconds = dataset.concurrencyWindowSeconds ?? 0;
+  const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
+  const ftGroups = groupFunnelStepsByFactTable(steps, factTableMap);
+
+  const resolvedTsColumn = (stepIndex: number) =>
+    `step${stepIndex + 1}_resolved_ts`;
+
+  // Validate that the unit exists on every step's fact table.
+  for (const group of ftGroups) {
+    if (!group.factTable.userIdTypes.includes(unit)) {
+      throw new Error(
+        `Funnel unit "${unit}" is not a userIdType on fact table for step(s) ${group.stepIndexes.join(", ")}`,
+      );
+    }
+  }
+
+  // Funnels are capped at 1 dimension (Phase 1) and the dimension must
+  // resolve against the initial step's fact table.
+  const dimension = config.dimensions[0] ?? null;
+  const initialFactTable = factTableMap.get(steps[0].factTableId);
+  if (!initialFactTable) {
+    throw new Error(`Fact table ${steps[0].factTableId} not found`);
+  }
+  const initialFactTableGroup: FactTableGroup = {
+    index: 0,
+    factTable: initialFactTable,
+    metrics: [],
+    units: [],
+  };
+  const dimensionExpr = dimension
+    ? generateDimensionExpression(
+        dimension,
+        0,
+        initialFactTableGroup,
+        dialect,
+        dateRange,
+      )
+    : null;
+  const ctes: CTE[] = [];
+
+  // 1a. Per-fact-table "raw" CTE — wraps the fact table SQL with the date
+  // filter and preserves all raw columns so the optional top-N dimension
+  // CTE can read the un-classified column.
+  ftGroups.forEach((group) => {
+    const ft = group.factTable;
+    const timestampColumn = ft.timestampColumn || "timestamp";
+    const dateFilter = `${timestampColumn} >= ${dialect.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${dialect.toTimestamp(dateRange.endDate)}`;
+    ctes.push({
+      name: `__funnel_ft${group.index}_raw`,
+      sql: `
+        SELECT * FROM (
+          -- Raw fact table SQL
+          ${ft.sql}
+        ) t
+        WHERE ${dateFilter}
+      `,
+    });
+  });
+
+  // 1b. Optional dynamic-dimension top-N CTE. Built before the events CTE
+  // so the inlined dimensionExpr (which references _dimension0_top) is
+  // resolvable.
+  if (dimension?.dimensionType === "dynamic") {
+    const initialRawCte = ctes[0];
+    ctes.push(
+      generateDynamicDimensionCTE(
+        initialFactTableGroup,
+        dimension as ProductAnalyticsDynamicDimension,
+        0,
+        initialRawCte,
+        dialect,
+      ),
+    );
+  }
+
+  // 1c. Per-fact-table events CTE — projects user_id, ts, the dimension
+  // (only on the initial fact table; later fact tables emit NULL), and one
+  // `stepN_ts` column per funnel step (NULL when this fact table doesn't
+  // source that step).
+  ftGroups.forEach((group) => {
+    const ft = group.factTable;
+    const timestampColumn = ft.timestampColumn || "timestamp";
+    const selectCols: string[] = [
+      `${unit} AS user_id`,
+      `${timestampColumn} AS ts`,
+      // Funnel dimensions are first-touch from the funnel's start, so only
+      // the initial fact table contributes a real dimension value. Cast to a
+      // string on every fact table (including the typed-NULL placeholder) so
+      // the multi-fact-table UNION column types line up — a bare `NULL` is
+      // inferred as INT64 on BigQuery / text on Postgres and clashes with the
+      // real (string) dimension value. Dimension values are consumed as string
+      // labels downstream (transformFunnelRowsToResult → parseStringValue).
+      group.stepIndexes.includes(1) && dimensionExpr
+        ? `${dialect.castToString(dimensionExpr)} AS dimension_1`
+        : `${dialect.castToString("NULL")} AS dimension_1`,
+    ];
+    steps.forEach((step, idx) => {
+      const stepN = idx + 1;
+      const colName = `step${stepN}_ts`;
+      if (group.stepIndexes.includes(stepN)) {
+        const filters = generateRowFilterSQL(step.rowFilters, ft, dialect);
+        const filterClause = filters.length
+          ? `(${filters.join(" AND ")})`
+          : "TRUE";
+        selectCols.push(
+          `CASE WHEN ${filterClause} THEN ${timestampColumn} END AS ${colName}`,
+        );
+      } else {
+        // Wrap NULL in a typed cast so the multi-fact-table UNION matches
+        // up. Postgres infers a bare `NULL` as `text`, which then conflicts
+        // with the real timestamp values emitted by other fact tables.
+        selectCols.push(`${dialect.castToTimestamp("NULL")} AS ${colName}`);
+      }
+    });
+    ctes.push({
+      name: `__funnel_ft${group.index}_events`,
+      sql: `
+        SELECT
+          ${selectCols.join(",\n          ")}
+        FROM __funnel_ft${group.index}_raw
+      `,
+    });
+  });
+
+  // 2. Unified events CTE (UNION across fact tables). When only one fact
+  // table is involved we point at its events CTE directly for a simpler plan.
+  const eventsCTE: CTE =
+    ftGroups.length === 1
+      ? { name: "__funnel_ft0_events", sql: "" }
+      : {
+          name: "__funnel_events",
+          sql: ftGroups
+            .map((g) => `SELECT * FROM __funnel_ft${g.index}_events`)
+            .join("\nUNION ALL\n"),
+        };
+  if (ftGroups.length > 1) ctes.push(eventsCTE);
+
+  // 3. Per-user aggregate CTE. One GROUP BY user_id pass over the unified
+  // events table captures everything we need to resolve the funnel:
+  //   - step 1's earliest qualifying timestamp (MIN of step1_ts)
+  //   - the first-touch dimension (argMin valueCol=dimension_1 by tsCol=step1_ts)
+  //   - one sorted timestamp array per follow-on step (stepN_arr) so the
+  //     chained CTEs below can look up the next step in-memory.
+  //
+  // This replaces the old approach of doing one LEFT JOIN back to the full
+  // event log per step. The event log gets scanned exactly once here.
+  const userAggregateCols: string[] = ["user_id"];
+  if (dimensionExpr) {
+    userAggregateCols.push(
+      `${dialect.argMinByTimestamp("dimension_1", "step1_ts")} AS dimension_1`,
+    );
+  }
+  userAggregateCols.push(`MIN(step1_ts) AS step1_resolved_ts`);
+  for (let i = 1; i < steps.length; i++) {
+    const stepN = i + 1;
+    // Order every array by the shared raw event timestamp instead of the
+    // step's own column: each stepN_ts is a CASE-gated copy of `ts`, so the
+    // resulting order is identical, and using one shared expression keeps
+    // Redshift happy (all WITHIN GROUP ORDER BYs in a SELECT must match).
+    userAggregateCols.push(
+      `${dialect.arrayAggSorted(`step${stepN}_ts`, "ts")} AS step${stepN}_arr`,
+    );
+  }
+  const userAggregatesCte: CTE = {
+    name: "__funnel_user_aggregates",
+    sql: `
+      SELECT
+        ${userAggregateCols.join(",\n        ")}
+      FROM ${eventsCTE.name}
+      GROUP BY user_id
+    `,
+  };
+  ctes.push(userAggregatesCte);
+
+  // First-touch, like the dimension itself — filters on `dimension_1`, not
+  // raw per-fact-table events (which may also feed later, unrelated steps).
+  const staticDimensionFilter =
+    dimension?.dimensionType === "static" && dimension.values.length > 0
+      ? `dimension_1 IN (${dimension.values
+          .map((v) => `'${dialect.escapeStringLiteral(v)}'`)
+          .join(", ")})`
+      : null;
+
+  // 3a. Drop users who can't survive the funnel (no step 1, or a pinned
+  // dimension mismatch) before the per-step CTEs below, so later steps
+  // only process users who could still make it into the result.
+  const qualifyingUsersCte: CTE = {
+    name: "__funnel_qualifying_users",
+    sql: `
+      SELECT *
+      FROM ${userAggregatesCte.name}
+      WHERE step1_resolved_ts IS NOT NULL
+      ${staticDimensionFilter ? `AND ${staticDimensionFilter}` : ""}
+    `,
+  };
+  ctes.push(qualifyingUsersCte);
+
+  // 3b. Chained step-N resolution. Each CTE reads the previous one directly
+  // (it already carries `stepN_arr` forward) and "consumes" its own array,
+  // replacing it with `stepN_resolved_ts` and forwarding the rest.
+  let prevCte: CTE = qualifyingUsersCte;
+  const carriedCols: string[] = [];
+  if (dimensionExpr) carriedCols.push("dimension_1");
+  carriedCols.push("step1_resolved_ts");
+  for (let i = 1; i < steps.length; i++) {
+    const step = steps[i];
+    const stepN = i + 1;
+    const prevExpr = buildPrevResolvedExpr({
+      steps,
+      index: i,
+      resolvedTsColumn,
+      alias: "r",
+    });
+    const windowSeconds = step.conversionWindow
+      ? conversionWindowToSeconds(step.conversionWindow)
+      : null;
+    const lowerBound =
+      concurrencyWindowSeconds > 0
+        ? dialect.addIntervalSeconds(prevExpr, "-", concurrencyWindowSeconds)
+        : prevExpr;
+    const upperBound =
+      windowSeconds != null
+        ? dialect.addIntervalSeconds(prevExpr, "+", windowSeconds)
+        : null;
+    const selectCols: string[] = ["r.user_id"];
+    for (const c of carriedCols) selectCols.push(`r.${c}`);
+    selectCols.push(
+      `${dialect.arrayMinInRange(`r.step${stepN}_arr`, lowerBound, upperBound)} AS step${stepN}_resolved_ts`,
+    );
+    // Forward arrays that subsequent step CTEs still need to consume.
+    for (let j = i + 1; j < steps.length; j++) {
+      selectCols.push(`r.step${j + 1}_arr`);
+    }
+    const cte: CTE = {
+      name: `__funnel_resolved_step${stepN}`,
+      sql: `
+        SELECT
+          ${selectCols.join(",\n          ")}
+        FROM ${prevCte.name} r
+      `,
+    };
+    ctes.push(cte);
+    carriedCols.push(`step${stepN}_resolved_ts`);
+    prevCte = cte;
+  }
+
+  // 4. Final aggregation: counts + time-from-previous stats per step.
+  const finalSelects: string[] = [];
+  const finalGroupBys: string[] = [];
+  if (dimensionExpr) {
+    finalSelects.push("dimension_1");
+    finalGroupBys.push("dimension_1");
+  }
+  steps.forEach((_step, i) => {
+    const stepN = i + 1;
+    finalSelects.push(
+      `${dialect.castToFloat(`COUNT(step${stepN}_resolved_ts)`)} AS step${stepN}_count`,
+    );
+    if (i > 0) {
+      const prevExpr = buildPrevResolvedExpr({
+        steps,
+        index: i,
+        resolvedTsColumn,
+      });
+      // Express the diff in hours so the sum-of-squares stays well below
+      // MAX_SAFE_INTEGER at scale. Millisecond-precision squares overflow
+      // JS numbers with only a few thousand users.
+      const diffExpr = `(${dialect.castToFloat(dialect.dateDiffMs(prevExpr, `step${stepN}_resolved_ts`))} / 3600000)`;
+      finalSelects.push(
+        `SUM(CASE WHEN step${stepN}_resolved_ts IS NOT NULL THEN ${diffExpr} END) AS step${stepN}_tfp_sum_hrs`,
+      );
+      finalSelects.push(
+        `SUM(CASE WHEN step${stepN}_resolved_ts IS NOT NULL THEN ${diffExpr} * ${diffExpr} END) AS step${stepN}_tfp_sum_sq_hrs`,
+      );
+    }
+  });
+
+  // step1_resolved_ts IS NOT NULL and the static dimension filter (if any)
+  // are already applied in __funnel_qualifying_users, above.
+  const finalSelect = `
+    SELECT
+      ${finalSelects.join(",\n      ")}
+    FROM ${prevCte.name}
+    ${finalGroupBys.length ? `GROUP BY ${finalGroupBys.join(", ")}` : ""}
+  `;
+
+  const sql = format(
+    `
+    WITH
+      ${ctes.map((c) => `${c.name} AS (\n${c.sql}\n)`).join(",\n      ")}
+    ${finalSelect}
+    `,
+    dialect.formatDialect,
+  );
+
+  return { sql, stepCount: steps.length };
+}
+
+/**
+ * Parse warehouse rows produced by `buildFunnelSql` into the funnel result
+ * shape. Each input row carries `dimension_1` (if a dimension was set) plus
+ * `step{N}_count`, `step{N}_tfp_sum_hrs`, `step{N}_tfp_sum_sq_hrs` columns.
+ */
+export function transformFunnelRowsToResult(
+  config: ExplorationConfig,
+  rows: Record<string, unknown>[],
+): ProductAnalyticsResult {
+  if (config.dataset.type !== "funnel") {
+    throw new Error(
+      "transformFunnelRowsToResult called with non-funnel config",
+    );
+  }
+  const steps = config.dataset.steps;
+  const hasDimension = config.dimensions.length > 0;
+  const result: ProductAnalyticsResult = { rows: [] };
+
+  for (const row of rows) {
+    const resultRow: ProductAnalyticsResultRow = {
+      dimensions: hasDimension ? [parseStringValue(row["dimension_1"])] : [],
+      steps: steps.map((_step, i) => {
+        const stepN = i + 1;
+        return {
+          count: parseNumberValue(row[`step${stepN}_count`]) ?? 0,
+          timeFromPrevSumHrs:
+            i === 0 ? null : parseNumberValue(row[`step${stepN}_tfp_sum_hrs`]),
+          timeFromPrevSumSquaresHrs:
+            i === 0
+              ? null
+              : parseNumberValue(row[`step${stepN}_tfp_sum_sq_hrs`]),
+        };
+      }),
+    };
+    result.rows.push(resultRow);
+  }
+
+  return result;
+}
+
+/* -------------------------------------------------------------------------- */
+
 export function generateProductAnalyticsSQL(
   config: ExplorationConfig,
   factTableMap: FactTableMap,
@@ -1094,13 +1740,20 @@ export function generateProductAnalyticsSQL(
     throw new Error("Dataset is required");
   }
 
+  // Funnels have a structurally different query (chained per-step CTEs
+  // instead of per-fact-table rollups), so dispatch early.
+  if (config.dataset.type === "funnel") {
+    const { sql } = buildFunnelSql(config, factTableMap, dialect);
+    return { sql, orderedMetricIds: [] };
+  }
+
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
 
   const factTableGroups = getFactTableGroups({
     config,
     factTableMap,
     metricMap,
-    datasourceSettings: datasource.settings || null,
+    datasource,
   });
 
   // Get all metric aliases
@@ -1120,7 +1773,8 @@ export function generateProductAnalyticsSQL(
     allMetrics.filter((m) => m.rollupCountExpr).map((m) => m.alias),
   );
 
-  // Get all dimensions
+  // Only `.alias` is used from this for the final SELECT (below); each
+  // group computes its own `.valueExpr` in `groupDimensions` instead.
   const allDimensions: DimensionData[] = [];
   config.dimensions.forEach((d, i) => {
     allDimensions.push({
@@ -1140,11 +1794,35 @@ export function generateProductAnalyticsSQL(
   const ctesToRollup: CTE[] = [];
 
   factTableGroups.forEach((factTableGroup, i) => {
+    // Recomputed against this group's own fact table — a ratio metric's
+    // denominator can resolve a column differently, or not at all (NULL;
+    // getStaticDimensionFilters excludes such a group's rows entirely).
+    const groupDimensions: DimensionData[] = config.dimensions.map((d, di) => ({
+      alias: `dimension${di}`,
+      valueExpr:
+        d.dimensionType === "static" &&
+        !factTableHasResolvableColumn(factTableGroup.factTable, d.column)
+          ? "NULL"
+          : generateDimensionExpression(
+              d,
+              di,
+              factTableGroup,
+              dialect,
+              dateRange,
+            ),
+    }));
+    const staticDimensionFilters = getStaticDimensionFilters(
+      config.dimensions,
+      factTableGroup.factTable,
+      dialect,
+    );
+
     // Add the raw fact table CTE
     const factTableCTE = generateFactTableCTE(
       factTableGroup,
       dialect,
       dateRange,
+      staticDimensionFilters,
     );
     ctes.push(factTableCTE);
 
@@ -1177,7 +1855,7 @@ export function generateProductAnalyticsSQL(
       factTableGroup,
       factTableCTE,
       percentileCapsCTE,
-      allDimensions,
+      groupDimensions,
       dialect,
     );
     ctes.push(factTableRowsCTE);
@@ -1206,7 +1884,7 @@ export function generateProductAnalyticsSQL(
       const unitAggregationCTE = generateUnitAggregationCTE(
         factTableGroup,
         factTableRowsCTE,
-        allDimensions,
+        groupDimensions,
         unitIndex,
         metrics,
       );
@@ -1216,7 +1894,7 @@ export function generateProductAnalyticsSQL(
       const unitRollupCTE = generateUnitAggregationRollupCTE(
         factTableGroup,
         unitAggregationCTE,
-        allDimensions,
+        groupDimensions,
         unitIndex,
         metrics,
         allMetricsAliases,
@@ -1232,7 +1910,7 @@ export function generateProductAnalyticsSQL(
       const eventRollupCTE = generateEventRollupCTE(
         factTableGroup,
         factTableRowsCTE,
-        allDimensions,
+        groupDimensions,
         eventMetrics,
         allMetricsAliases,
         aliasesWithDenominator,
@@ -1292,6 +1970,13 @@ export function transformProductAnalyticsRowsToResult(
   rows: Record<string, unknown>[],
   orderedMetricIds: string[],
 ): ProductAnalyticsResult {
+  // Funnels emit `step{N}_*` columns instead of metric columns and carry
+  // results in `row.steps` instead of `row.values`. Delegate to the
+  // funnel-specific parser.
+  if (config.dataset.type === "funnel") {
+    return transformFunnelRowsToResult(config, rows);
+  }
+
   // Raw rows should look like this:
   // { dimension0: "value0", m0: 1, m0_denominator: 1 }
 
@@ -1312,7 +1997,7 @@ export function transformProductAnalyticsRowsToResult(
     });
     orderedMetricIds.forEach((metricId, index) => {
       const aliases = getMetricAliases(index);
-      resultRow.values.push({
+      resultRow.values?.push({
         metricId,
         numerator: parseNumberValue(row[aliases.numerator]),
         denominator: parseNumberValue(row[aliases.denominator]),

@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { ReactElement, useState } from "react";
-import { includeHoldoutInPayload } from "shared/util";
+import { getHoldoutStage, includeHoldoutInPayload } from "shared/util";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import useApi from "@/hooks/useApi";
@@ -41,10 +41,6 @@ const HoldoutPage = (): ReactElement => {
   const [startAnalysisModalOpen, setStartAnalysisModalOpen] = useState(false);
   const [editHoldoutScheduleModalOpen, setEditHoldoutScheduleModalOpen] =
     useState(false);
-  const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
-    number | null
-  >(null);
-  const [checklistHardBlockerCount, setChecklistHardBlockerCount] = useState(0);
 
   const { data, error, mutate } = useApi<{
     holdout: HoldoutInterfaceStringDates;
@@ -71,6 +67,7 @@ const HoldoutPage = (): ReactElement => {
     envs = [],
     linkedExperiments = [],
   } = data;
+  const holdoutStage = getHoldoutStage(holdout, experiment);
 
   const startAnalysis = async () => {
     await apiCall(`/holdout/${hid}/edit-status`, {
@@ -99,7 +96,7 @@ const HoldoutPage = (): ReactElement => {
     : null;
   const editResult = canRunExperiment
     ? () => {
-        if (holdout?.analysisStartDate) {
+        if (holdoutStage === "analysis-period") {
           setStopModalOpen(true);
         } else {
           setStartAnalysisModalOpen(true);
@@ -169,7 +166,6 @@ const HoldoutPage = (): ReactElement => {
           initialExperiment={experiment}
           source="duplicate-hid"
           duplicate
-          isNewHoldout
         />
       )}
       {tagsModalOpen && (
@@ -259,11 +255,8 @@ const HoldoutPage = (): ReactElement => {
           editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
-          checklistItemsRemaining={checklistItemsRemaining}
-          checklistHardBlockerCount={checklistHardBlockerCount}
-          setChecklistItemsRemaining={setChecklistItemsRemaining}
-          setChecklistHardBlockerCount={setChecklistHardBlockerCount}
-          editHoldoutSchedule={editHoldoutSchedule}
+          editTraffic={editTargeting}
+          editSchedule={editHoldoutSchedule}
         />
       </SnapshotProvider>
     </>

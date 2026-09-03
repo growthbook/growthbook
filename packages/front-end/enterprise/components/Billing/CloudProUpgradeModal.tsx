@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 import { TaxIdType, StripeAddress } from "shared/types/subscriptions";
 import { PiCaretRight } from "react-icons/pi";
 import { useStripeContext } from "@/hooks/useStripeContext";
+import { useForceLicenseRefresh } from "@/hooks/useForceLicenseRefresh";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -19,6 +20,8 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import Checkbox from "@/ui/Checkbox";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
 
 export const taxIdTypeOptions: { label: string; value: TaxIdType }[] = [
@@ -135,7 +138,13 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   const [loading, setLoading] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
   const { clientSecret } = useStripeContext();
-  const { refreshOrganization, organization, email } = useUser();
+  const { organization, email } = useUser();
+  const {
+    status: organizationRefreshStatus,
+    refresh: refreshOrganizationAfterUpgrade,
+    retry: retryOrganizationRefresh,
+  } = useForceLicenseRefresh();
+  const showOrganizationRefreshFailure = organizationRefreshStatus !== "idle";
   const { apiCall } = useAuth();
   const elements = useElements();
   const stripe = useStripe();
@@ -184,12 +193,24 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
         }
       }
 
-      // Add payment method to customer in stripe
-      await stripe.confirmSetup({
-        elements,
-        clientSecret,
-        redirect: "if_required",
-      });
+      // Add payment method to customer in stripe. If Radar blocks the
+      // SetupIntent (e.g. high-risk card), confirmSetup resolves with an
+      // `error` instead of throwing, so we must inspect the result before
+      // proceeding to subscription creation.
+      const { setupIntent, error: setupIntentError } =
+        await stripe.confirmSetup({
+          elements,
+          clientSecret,
+          redirect: "if_required",
+        });
+
+      if (setupIntentError) {
+        throw new Error(setupIntentError.message);
+      }
+
+      if (!setupIntent || !setupIntent.payment_method) {
+        throw new Error("Unable to save new payment method");
+      }
 
       // Now that payment is confirmed, create the subscription
       await apiCall("/subscription/start-new-pro", {
@@ -207,18 +228,21 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
               : undefined,
         }),
       });
-      refreshOrganization();
-      setLoading(false);
-      setSuccess(true);
     } catch (e) {
       setLoading(false);
       throw new Error(e.message);
     }
+
+    await refreshOrganizationAfterUpgrade();
+
+    setLoading(false);
+    setSuccess(true);
   };
 
   if (success) {
     return (
       <Modal
+        useRadixButton={false}
         header={null}
         close={() => {
           close();
@@ -232,11 +256,36 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
         showHeaderCloseButton={false}
       >
         <div className="container-fluid dashboard p-3 ">
-          <h3>Welcome to GrowthBook Pro!</h3>
-          <span>
-            You&apos;re all set! Your organization now has access to all
-            GrowthBook Pro features.
-          </span>
+          <h3>
+            {showOrganizationRefreshFailure
+              ? "GrowthBook Pro Subscription Created"
+              : "Welcome to GrowthBook Pro!"}
+          </h3>
+          {!showOrganizationRefreshFailure ? (
+            <span>
+              You&apos;re all set! Your organization now has access to all
+              GrowthBook Pro features.
+            </span>
+          ) : null}
+          {showOrganizationRefreshFailure ? (
+            <Callout
+              status="warning"
+              mt="3"
+              action={
+                <Button
+                  size="sm"
+                  color="inherit"
+                  loading={organizationRefreshStatus === "loading"}
+                  onClick={retryOrganizationRefresh}
+                >
+                  Try again
+                </Button>
+              }
+            >
+              We couldn&apos;t refresh your organization details. Try again to
+              see your updated plan.
+            </Callout>
+          ) : null}
         </div>
       </Modal>
     );
@@ -264,6 +313,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
 
   return (
     <PagedModal
+      useRadixButton={false}
       trackingEventModalType="upgrade-to-pro"
       trackingEventModalSource="upgrade-modal"
       hideNav={true}
@@ -302,6 +352,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
               Monthly invoices will be sent to this address
             </Text>
             <Field
+              size="legacy"
               type="email"
               required={true}
               {...form.register("email")}
@@ -311,6 +362,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
           <Flex align="center" width="100%" gap="4">
             <Box style={{ width: "50%" }}>
               <SelectField
+                size="legacy"
                 label="Tax ID type"
                 options={taxIdTypeOptions}
                 value={form.watch("taxIdType") || ""}
@@ -323,6 +375,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
             </Box>
             <Box style={{ width: "50%" }}>
               <Field
+                size="legacy"
                 type="text"
                 {...form.register("taxIdValue")}
                 placeholder="(optional)"
@@ -350,7 +403,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
               current month and it will renew automatically on the 1st of each
               subsequent month. Cancel anytime.
             </p>
-            <Separator size="4" mb="3" />
+            <Separator size="4" mb="3" mt="3" />
             <div className="mb-4">
               <Checkbox
                 label="Customize Invoice"

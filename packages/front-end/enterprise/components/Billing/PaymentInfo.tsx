@@ -31,11 +31,10 @@ export default function PaymentInfo() {
   const [loading, setLoading] = useState(false);
   const { subscription, organization } = useUser();
   const { apiCall } = useAuth();
-  // TODO: Remove once all orgs have moved license info off of the org - only limit by isCloud()
-  // The licenseKey is required to look up payment methods
   const canShowPaymentInfo =
     isCloud() &&
     !!organization.licenseKey &&
+    !!subscription?.stripeCustomerId &&
     growthbook.getFeatureValue("ff_payment-info", false);
 
   const fetchPaymentMethods = useCallback(async () => {
@@ -133,6 +132,7 @@ export default function PaymentInfo() {
       ) : null}
       {defaultPaymentMethod ? (
         <Modal
+          useRadixButton={false}
           header="Update default payment method"
           open={true}
           cta="Set as default payment method"
@@ -224,7 +224,7 @@ export default function PaymentInfo() {
                                 {method.type === "card"
                                   ? `Expires ${method.expMonth}/${method.expYear}`
                                   : null}
-                                <MoreMenu className="pl-2">
+                                <MoreMenu useRadix={false} className="pl-2">
                                   <button
                                     className="dropdown-item"
                                     disabled={method.isDefault}
@@ -241,6 +241,7 @@ export default function PaymentInfo() {
                                     shouldDisplay={method.isDefault}
                                   >
                                     <DeleteButton
+                                      useRadix={false}
                                       onClick={async () =>
                                         await detachPaymentMethod(method.id)
                                       }

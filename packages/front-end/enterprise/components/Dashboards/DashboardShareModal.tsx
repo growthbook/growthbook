@@ -182,7 +182,6 @@ export default function DashboardShareModal({
         showHeaderCloseButton={false}
         close={onClose}
         closeCta="Close"
-        useRadixButton={true}
         secondaryCTA={shareLinkButton}
       >
         <Flex direction="column" gap="1">
@@ -212,6 +211,7 @@ export default function DashboardShareModal({
             <div>
               {isGeneralDashboard && (
                 <SelectField
+                  size="legacy"
                   label="View access"
                   disabled={
                     !hasCommercialFeature("share-product-analytics-dashboards")
@@ -248,6 +248,7 @@ export default function DashboardShareModal({
             </div>
             <div>
               <SelectField
+                size="legacy"
                 label="Edit access"
                 disabled={
                   shareLevel === "private" ||

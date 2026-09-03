@@ -25,7 +25,7 @@ export default function StartHoldoutAnalysisModal({
       header="Start Analysis Phase"
     >
       <Box>
-        <Text as="div" size="medium" color="text-mid">
+        <Text as="div" size="md" color="text-mid">
           Once you start the Analysis Phase:
           <ul style={{ paddingLeft: "var(--space-4)", marginBottom: 0 }}>
             <li>No new features or experiments can be added to the holdout</li>

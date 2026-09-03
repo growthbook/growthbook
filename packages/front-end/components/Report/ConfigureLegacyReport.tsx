@@ -16,7 +16,7 @@ import {
 } from "shared/constants";
 import { datetime, getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
-import { MetricInterface } from "shared/types/metric";
+import { MetricDefinitionInterface } from "shared/types/metric";
 import { DifferenceType } from "shared/types/stats";
 import {
   getAllMetricIdsFromExperiment,
@@ -101,7 +101,7 @@ export default function ConfigureLegacyReport({
       .map((m) => m?.denominator)
       .filter((m) => m && typeof m === "string") as string[],
   );
-  const denominatorMetrics: MetricInterface[] = useMemo(() => {
+  const denominatorMetrics: MetricDefinitionInterface[] = useMemo(() => {
     return denominatorMetricIds
       .map((m) => getMetricById(m as string))
       .filter(isDefined);
@@ -184,6 +184,7 @@ export default function ConfigureLegacyReport({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       inline={true}
       header=""
@@ -219,6 +220,7 @@ export default function ConfigureLegacyReport({
       cta="Save and Run"
     >
       <Field
+        size="legacy"
         label="Tracking Key"
         labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
@@ -236,6 +238,7 @@ export default function ConfigureLegacyReport({
               key={i}
             >
               <Field
+                size="legacy"
                 label={v.name}
                 labelClassName="mb-0"
                 containerClassName="mb-1"
@@ -261,6 +264,7 @@ export default function ConfigureLegacyReport({
               key={i}
             >
               <Field
+                size="legacy"
                 label={v.name}
                 labelClassName="mb-0"
                 containerClassName="mb-1"
@@ -278,6 +282,7 @@ export default function ConfigureLegacyReport({
       </div>
       {datasource?.properties?.userIds && (
         <SelectField
+          size="legacy"
           label={
             <>
               Experiment Assignment Table{" "}
@@ -355,6 +360,7 @@ export default function ConfigureLegacyReport({
       </div>
 
       <ExperimentMetricsSelector
+        experimentType={experiment?.type}
         datasource={report.args.datasource}
         exposureQueryId={exposureQueryId}
         project={project?.id}
@@ -382,8 +388,10 @@ export default function ConfigureLegacyReport({
         labelClassName="font-weight-bold"
         showHelp={true}
         newUi={false}
+        enableCustomDimensions={false}
       />
       <SelectField
+        size="legacy"
         label="Difference Type"
         labelClassName="font-weight-bold"
         value={form.watch("differenceType")}
@@ -412,18 +420,24 @@ export default function ConfigureLegacyReport({
         label={
           <>
             Activation Metric{" "}
-            <MetricsSelectorTooltip onlyBinomial={true} isSingular={true} />
+            <MetricsSelectorTooltip
+              onlyBinomial={true}
+              noFactFunnelMetrics={true}
+              isSingular={true}
+            />
           </>
         }
         labelClassName="font-weight-bold"
         initialOption="None"
         onlyBinomial
+        filterFactFunnelMetrics
         value={form.watch("activationMetric") || ""}
         onChange={(value) => form.setValue("activationMetric", value || "")}
         helpText="Users must convert on this metric before being included"
       />
       {datasourceProperties?.experimentSegments && (
         <SelectField
+          size="legacy"
           label="Segment"
           labelClassName="font-weight-bold"
           // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
@@ -441,6 +455,7 @@ export default function ConfigureLegacyReport({
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
+          size="legacy"
           label="Handling In-Progress Conversions"
           labelClassName="font-weight-bold"
           value={form.watch("skipPartialData") ? "strict" : "loose"}
@@ -462,6 +477,7 @@ export default function ConfigureLegacyReport({
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
+          size="legacy"
           label={
             <AttributionModelTooltip>
               <strong>Conversion Window Override</strong> <FaQuestionCircle />
@@ -498,6 +514,7 @@ export default function ConfigureLegacyReport({
         <div className="d-flex flex-row no-gutters align-items-top ml-1">
           <div className="col-3">
             <SelectField
+              size="legacy"
               label={
                 <PremiumTooltip commercialFeature="sequential-testing">
                   <GBSequential /> Use Sequential Testing
@@ -529,6 +546,7 @@ export default function ConfigureLegacyReport({
             }}
           >
             <Field
+              size="legacy"
               label="Tuning parameter"
               type="number"
               containerClassName="mb-0"
@@ -569,6 +587,7 @@ export default function ConfigureLegacyReport({
       <div className="d-flex flex-row no-gutters align-items-center mb-3 ml-1">
         <div className="col-3">
           <SelectField
+            size="legacy"
             label={
               <PremiumTooltip commercialFeature="regression-adjustment">
                 <GBCuped /> Use Regression Adjustment (CUPED)
@@ -598,6 +617,7 @@ export default function ConfigureLegacyReport({
         <div className="row">
           <div className="col">
             <Field
+              size="legacy"
               label="Custom SQL Filter"
               labelClassName="font-weight-bold"
               {...form.register("queryFilter")}
