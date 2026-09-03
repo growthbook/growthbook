@@ -27,6 +27,12 @@
     overflow: visible !important;
   }
 
+  // Radix still measures the viewport it can no longer scroll and renders a
+  // scrollbar for it, which drags but moves nothing.
+  :global(.rt-ScrollAreaScrollbar) {
+    display: none;
+  }
+
   :global(.rt-TableBody .rt-TableRow .rt-TableCell) {
     box-sizing: border-box;
     overflow: visible;
