@@ -552,7 +552,7 @@ export function parseStatsEngineResult({
   let unknownVariationsCopy = [...unknownVariations];
 
   const experimentReportResults: ExperimentReportResults[] = [];
-  // Fallback when there is no traffic query; see getMultipleExposuresFromTraffic.
+  // Fallback when there is no traffic query; see analyzeExperimentTraffic.
   // Rows are one per (variation × dimension slice), so sum the slices within
   // a query; the unit set is the same across queries, so max is a safe merge
   const multipleExposures = Math.max(
