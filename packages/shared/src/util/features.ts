@@ -431,6 +431,9 @@ export function validateFeatureValue(
       throw new Error(prefix + errors.join(", "));
     }
   } else if (type === "json") {
+    if (value.trim() === "") {
+      throw new Error(prefix + "A JSON value is required");
+    }
     let parsedValue;
     let validJSON = true;
     try {

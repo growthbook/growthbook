@@ -581,6 +581,42 @@ function ManagedTrafficForm({
       }
     }
 
+    // A row added in this session carries no value yet. A sparse patch that
+    // sets nothing is a valid variation; otherwise derive one from the key.
+    const valueFor = (v: { id: string; key?: string }, i: number) => {
+      const typed = featureValues[v.id];
+      if (
+        typed !== undefined &&
+        (typed.trim() !== "" || valueType === "string")
+      )
+        return typed;
+      if (sparse && valueType === "json") return "{}";
+      return castFeatureValue({
+        value: v.key || String(i),
+        from: "string",
+        to: valueType,
+        index: i,
+      });
+    };
+    // Validated before anything is sent: the experiment and the flag are two
+    // requests, and a bad value must not leave the first one applied alone.
+    const flagValues =
+      adopting || (feature && canEditValues && editingValues)
+        ? data.variations.map((v, i) => ({
+            variationId: v.id,
+            value: validateFeatureValue(
+              {
+                valueType,
+                // A schema describes the type it was written for.
+                jsonSchema:
+                  !feature || typeChanged ? undefined : feature.jsonSchema,
+              },
+              valueFor(v, i),
+              `Variation ${i}`,
+            ),
+          }))
+        : null;
+
     // Once started, only variation names and descriptions leave this modal.
     // Traffic and structure belong to Make Changes, so they are never sent
     // rather than sent and refused.
@@ -609,17 +645,7 @@ function ManagedTrafficForm({
         method: "POST",
         body: JSON.stringify({
           valueType,
-          variations: data.variations.map((v, i) => ({
-            variationId: v.id,
-            value:
-              featureValues[v.id] ??
-              castFeatureValue({
-                value: v.key || String(i),
-                from: "string",
-                to: valueType,
-                index: i,
-              }),
-          })),
+          variations: flagValues,
           ...(sparse ? { sparse: true } : {}),
           ...(manualKey ? { featureId: manualKey } : {}),
           ...(renameTo && !manualKey ? { trackingKey: renameTo } : {}),
@@ -627,26 +653,7 @@ function ManagedTrafficForm({
       });
     }
 
-    if (feature && canEditValues && editingValues) {
-      const values = data.variations.map((v, i) => ({
-        variationId: v.id,
-        value: validateFeatureValue(
-          {
-            valueType,
-            // A schema describes the type it was written for.
-            jsonSchema: typeChanged ? undefined : feature.jsonSchema,
-          },
-          featureValues[v.id] ??
-            castFeatureValue({
-              value: v.key || String(i),
-              from: "string",
-              to: valueType,
-              index: i,
-            }),
-          `Variation ${i}`,
-        ),
-      }));
-
+    if (feature && canEditValues && editingValues && flagValues) {
       await apiCall(`/experiment/${experiment.id}/features`, {
         method: "POST",
         body: JSON.stringify({
@@ -654,7 +661,7 @@ function ManagedTrafficForm({
           ...(safeToEdit && { variationWeights: data.variationWeights }),
           features: {
             [feature.id]: {
-              variations: values,
+              variations: flagValues,
               ...(sparseEligible && { sparse }),
               ...(typeChanged && { valueType }),
               revisionOptions:
