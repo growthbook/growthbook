@@ -9,7 +9,7 @@ import {
   renderFeatureRules,
   normalizeFeatureRules,
   featureRuleChangeBadges,
-  renderEnvironmentsEnabled,
+  renderEnvironmentToggles,
   renderPrerequisites,
   renderRevisionMetadata,
   prerequisiteChangeBadges,
@@ -311,27 +311,33 @@ export function useFeatureRevisionDiff({
       draft.environmentsEnabled,
       orgEnvs,
     );
-    const draftEnabledEnvs = Object.keys(draft.environmentsEnabled || {});
-    draftEnabledEnvs.forEach((envId) => {
-      const currentVal = inheritedCurrent[envId] ?? false;
-      const draftVal = inheritedDraft[envId] ?? false;
-      if (currentVal !== draftVal) {
-        const direction = draftVal ? "on" : "off";
-        diffs.push({
-          key: `environmentsEnabled.${envId}`,
-          title: `Environment Toggle - ${envId}`,
-          a: String(currentVal),
-          b: String(draftVal),
-          customRender: renderEnvironmentsEnabled(currentVal, draftVal),
-          badges: [
-            {
-              label: `Toggled ${envId} ${direction}`,
-              action: `toggle environment ${envId}`,
-            },
-          ],
-        });
-      }
-    });
+    const toggled = Object.keys(draft.environmentsEnabled || {})
+      .map((envId) => ({
+        envId,
+        from: inheritedCurrent[envId] ?? false,
+        to: inheritedDraft[envId] ?? false,
+      }))
+      .filter(({ from, to }) => from !== to);
+    // One section for every toggle, not one per environment: an org with
+    // twenty environments would otherwise bury the rest of the diff.
+    if (toggled.length) {
+      const asMap = (side: "from" | "to") =>
+        Object.fromEntries(toggled.map((t) => [t.envId, t[side]]));
+      diffs.push({
+        key: "environmentsEnabled",
+        title:
+          toggled.length === 1
+            ? `Environment Toggle - ${toggled[0].envId}`
+            : "Environment Toggles",
+        a: JSON.stringify(asMap("from"), null, 2),
+        b: JSON.stringify(asMap("to"), null, 2),
+        customRender: renderEnvironmentToggles(toggled),
+        badges: toggled.map(({ envId, to }) => ({
+          label: `Toggled ${envId} ${to ? "on" : "off"}`,
+          action: `toggle environment ${envId}`,
+        })),
+      });
+    }
 
     // 3. Prerequisites (feature-level)
     if (draft.prerequisites !== undefined) {

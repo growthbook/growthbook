@@ -1,7 +1,7 @@
 import { ReactNode, ReactElement } from "react";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import isEqual from "lodash/isEqual";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import {
   FeatureRule,
@@ -1928,6 +1928,41 @@ export function renderEnvironmentsEnabled(
         )}
       </div>
     </div>
+  );
+}
+
+// Every environment whose kill switch moved, as one section. A per-environment
+// section each would push the rest of the diff off the screen on an org with
+// twenty of them, so they share a grid that wraps into as many columns as fit.
+export function renderEnvironmentToggles(
+  toggles: { envId: string; from: boolean; to: boolean }[],
+): ReactNode {
+  if (!toggles.length) return null;
+  return (
+    <Grid
+      gapX="5"
+      gapY="2"
+      mb="2"
+      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}
+    >
+      {toggles.map(({ envId, from, to }) => (
+        <Flex key={envId} align="center" gap="2" minWidth="0">
+          <Box className="text-ellipsis" title={envId} minWidth="0">
+            <Text weight="medium">{envId}</Text>
+          </Box>
+          {/* The same red/green pairing the single-toggle renderer uses. */}
+          <Flex align="center" gap="2" flexShrink="0">
+            <span className="text-danger">
+              <EnvEnabledIndicator enabled={from} />
+            </span>
+            <span className="text-success">→</span>
+            <span className="text-success">
+              <EnvEnabledIndicator enabled={to} />
+            </span>
+          </Flex>
+        </Flex>
+      ))}
+    </Grid>
   );
 }
 
