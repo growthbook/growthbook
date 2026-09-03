@@ -1,3 +1,6 @@
+import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
+import cloneDeep from "lodash/cloneDeep";
 import {
   requireFreshBaseForPublish,
   getReviewSetting,
@@ -13,9 +16,6 @@ import {
   reconcileMergeBaselines,
   resetReviewOnChange,
 } from "shared/util";
-import isEqual from "lodash/isEqual";
-import omit from "lodash/omit";
-import cloneDeep from "lodash/cloneDeep";
 import { isVariationWeightsSumValid } from "shared/experiments";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";

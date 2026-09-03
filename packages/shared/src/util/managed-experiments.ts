@@ -104,9 +104,8 @@ export function copyManagedVariationValues({
   }));
 }
 
-// A managed flag's live version moves through the experiment's own lifecycle
-// writes, so while approvals apply an approval must stand against the current
-// live state, whatever the org's rebase setting says.
+// The experiment's own lifecycle writes move a managed flag's live version, so
+// under approvals an approval must stand against current live regardless of org setting.
 export function requireFreshBaseForPublish({
   feature,
   reviewRequired,

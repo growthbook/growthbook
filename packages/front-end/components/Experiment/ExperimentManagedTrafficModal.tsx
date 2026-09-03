@@ -624,9 +624,8 @@ function ManagedTrafficForm({
           }))
         : null;
 
-    // Once started, only variation names and descriptions leave this modal.
-    // Traffic and structure belong to Make Changes, so they are never sent
-    // rather than sent and refused.
+    // Once started, only names and descriptions leave this modal; traffic and
+    // structure belong to Make Changes.
     const lockedVariations = experiment.variations.map((live) => {
       const edited = data.variations.find((v) => v.id === live.id);
       return edited

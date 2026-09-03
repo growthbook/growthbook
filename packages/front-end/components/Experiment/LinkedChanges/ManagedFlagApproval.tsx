@@ -301,8 +301,7 @@ export default function ManagedFlagApproval({
   // Request-review has to stay reachable: a draft can land back in `draft` or
   // `changes-requested` after the auto-request, and without this CTA that state
   // has no action at all.
-  // Also held back while the gate is unmet: the state machine only sees the
-  // revision status, so it would offer a publish the server refuses.
+  // And while the gate is unmet: the state machine sees only the status.
   const submitAction =
     state.submitAction === "publish" &&
     (publishIsLaunch || (approvalGateUnmet && !adminOverride))

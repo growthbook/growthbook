@@ -40,9 +40,8 @@ export function normalizeRevisionMetadata(
   };
 }
 
-// Bookkeeping the snapshot records but the human diff never renders. Not
-// `valueType`: a re-type is a real change, and a section whose raw JSON reads
-// equal is dropped along with its rendered rows.
+// Bookkeeping the human diff never renders. Not `valueType`: a section whose
+// raw JSON reads equal is dropped along with its rendered rows.
 const NON_SETTING_METADATA_FIELDS = new Set(["baseConfig"]);
 
 // Canonical JSON for the raw "Feature Settings" diff: keys sorted (so a differing
