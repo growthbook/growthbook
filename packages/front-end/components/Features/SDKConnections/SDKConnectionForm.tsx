@@ -676,12 +676,13 @@ export default function SDKConnectionForm({
             }
             label={
               <>
-                Always include prerequisite features{" "}
+                Always include prerequisite Feature Flags{" "}
                 <Tooltip
                   body={
                     <p className="mb-0">
-                      Deliver prerequisite features that target other projects.
-                      Without them, the features they gate are always off.
+                      Deliver prerequisite Feature Flags that target other
+                      Projects. Without them, the Feature Flags they gate are
+                      always off.
                     </p>
                   }
                 >
