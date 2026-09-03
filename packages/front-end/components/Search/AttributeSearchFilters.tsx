@@ -87,39 +87,47 @@ const AttributeSearchFilters: FC<
   // Only fields with a known value set make sense as a dropdown; free-text
   // fields are still reachable via `<fieldId>:value` in the search box.
   const filterableCustomFields = useMemo(() => {
-    const used = new Map<string, Set<string>>();
+    // Keyed by lowercase (how the query matches) but holding the value as
+    // written, so an option that isn't declared still displays as authored.
+    const used = new Map<string, Map<string, string>>();
     attributes.forEach((attr) => {
       customFields.forEach((f) => {
         const values = customFieldFilterValue(
           f,
           attr.customFields?.[f.id] ?? "",
         );
-        const set = used.get(f.id) ?? new Set<string>();
+        const seen = used.get(f.id) ?? new Map<string, string>();
         (Array.isArray(values) ? values : [values]).forEach((v) => {
-          if (v) set.add(v.toLowerCase());
+          if (v && !seen.has(v.toLowerCase())) seen.set(v.toLowerCase(), v);
         });
-        used.set(f.id, set);
+        used.set(f.id, seen);
       });
     });
     return customFields.flatMap((f) => {
-      // Display casing matches the Identifier filter on the same bar; the
-      // query value stays lowercase.
-      const candidates =
-        f.type === "boolean"
-          ? [
-              { name: "Yes", searchValue: "yes" },
-              { name: "No", searchValue: "no" },
-            ]
-          : f.type === "enum" || f.type === "multiselect"
-            ? (f.values ?? "")
-                .split(",")
-                .map((v) => v.trim())
-                .filter(Boolean)
-                .map((v) => ({ name: v, searchValue: v }))
-            : [];
-      const values = candidates.filter((v) =>
-        used.get(f.id)?.has(v.searchValue.toLowerCase()),
-      );
+      const seen = used.get(f.id) ?? new Map<string, string>();
+      if (f.type === "boolean") {
+        // Display casing matches the Identifier filter on the same bar; the
+        // query value stays lowercase.
+        const values = [
+          { name: "Yes", searchValue: "yes" },
+          { name: "No", searchValue: "no" },
+        ].filter((v) => seen.has(v.searchValue));
+        return values.length ? [{ field: f, values }] : [];
+      }
+      if (f.type !== "enum" && f.type !== "multiselect") return [];
+      const declared = (f.values ?? "")
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean);
+      const declaredKeys = new Set(declared.map((v) => v.toLowerCase()));
+      // Declared order first, then anything else in use: a `creatable` field
+      // accepts values beyond its declared list.
+      const values = [
+        ...declared.filter((v) => seen.has(v.toLowerCase())),
+        ...[...seen]
+          .filter(([key]) => !declaredKeys.has(key))
+          .map(([, v]) => v),
+      ].map((v) => ({ name: v, searchValue: v }));
       return values.length ? [{ field: f, values }] : [];
     });
   }, [attributes, customFields]);
