@@ -11,13 +11,19 @@ import Table, {
 import ColumnResizeHandle from "./ColumnResizeHandle";
 
 const COLUMNS = [
-  { id: "name", label: "Name", defaultWidth: 200 },
-  { id: "description", label: "Description", defaultWidth: 240 },
-  { id: "status", label: "Status", defaultWidth: 140 },
-  { id: "date", label: "Date", defaultWidth: 160 },
-  // No default width: absorbs the leftover, like the row-actions column on the
-  // Attributes table, so a resize only ever moves the columns to its right.
-  { id: "actions", label: "", defaultWidth: undefined },
+  { id: "name", label: "Name", defaultWidth: 200, resizable: true },
+  {
+    id: "description",
+    label: "Description",
+    defaultWidth: 240,
+    resizable: true,
+  },
+  { id: "status", label: "Status", defaultWidth: 140, resizable: true },
+  { id: "date", label: "Date", defaultWidth: 160, resizable: true },
+  // No default width: absorbs the leftover, so a resize only ever moves the
+  // columns to its right.
+  { id: "spacer", label: "", defaultWidth: undefined, resizable: false },
+  { id: "actions", label: "", defaultWidth: 56, resizable: false },
 ];
 
 const ROWS = [
@@ -54,6 +60,7 @@ function ResizableTable({ scrollX }: { scrollX?: boolean }) {
       roundedCorners
       layout="fixed"
       scrollX={scrollX}
+      stickyLastColumn={scrollX}
     >
       <colgroup>
         {COLUMNS.map((col) => (
@@ -71,7 +78,7 @@ function ResizableTable({ scrollX }: { scrollX?: boolean }) {
           {COLUMNS.map((col) => (
             <TableColumnHeader key={col.id}>
               {col.label}
-              {col.defaultWidth !== undefined && (
+              {col.resizable && (
                 <ColumnResizeHandle
                   label={col.label}
                   width={widths[col.id]}
@@ -116,8 +123,8 @@ export default function ColumnResizeHandleStories() {
           a handle and use Left/Right (Shift for a larger step, Home to reset).
           A fixed layout and a <code>&lt;colgroup&gt;</code> are what make the
           widths authoritative. Every data column has a width, so a resize only
-          moves the columns to its right; the trailing column absorbs whatever
-          is left over.
+          moves the columns to its right; a trailing spacer column absorbs
+          whatever is left over.
         </Text>
         <ResizableTable />
       </Flex>
@@ -126,7 +133,7 @@ export default function ColumnResizeHandleStories() {
         <Text size="sm" color="text-low">
           Widen the columns past the container to scroll horizontally. The
           header sticks to the top of the scroll region rather than the
-          viewport.
+          viewport, and the last column pins to the right edge.
         </Text>
         <ResizableTable scrollX />
       </Flex>

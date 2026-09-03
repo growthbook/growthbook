@@ -353,6 +353,14 @@ describe("minTableWidth", () => {
     expect(minTableWidth(resolveTableColumns(defs, null))).toBe(164);
   });
 
+  it("lets a spacer column opt out of the floor with minWidth 0", () => {
+    const defs = [
+      col("a", { defaultWidth: 100 }),
+      col("spacer", { minWidth: 0 }),
+    ];
+    expect(minTableWidth(resolveTableColumns(defs, null))).toBe(100);
+  });
+
   it("counts a resized slack column at its committed width", () => {
     const defs = [
       col("a", { defaultWidth: 100 }),
