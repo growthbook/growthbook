@@ -346,6 +346,10 @@ export async function deleteAllDataSourcesForAProject({
     organization: organizationId,
     projects: [projectId],
   });
+
+  for (const doc of docs) {
+    await closeMssqlPool(doc.id);
+  }
   // Only datasources whose sole project is projectId are deleted here, so only
   // that project's readers are affected.
   await touchDefinitionsVersion(organizationId, definitionsScope([projectId]));
