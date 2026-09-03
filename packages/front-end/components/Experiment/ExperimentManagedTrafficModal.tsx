@@ -218,7 +218,11 @@ function ManagedTrafficForm({
   const [featureValues, setFeatureValues] = useState<Record<string, string>>(
     () =>
       Object.fromEntries(
-        (targetFeature?.values ?? []).map((v) => [
+        (
+          targetFeature?.pendingDraft?.values ??
+          targetFeature?.values ??
+          []
+        ).map((v) => [
           v.variationId,
           seedValueType === "json" ? (formatJSON(v.value) ?? v.value) : v.value,
         ]),
