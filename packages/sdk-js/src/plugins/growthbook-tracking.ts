@@ -29,6 +29,7 @@ type EventPayload = {
   sdk_language: string;
   sdk_version: string;
   url: string;
+  timestamp: string;
   context_json: Record<string, unknown>;
   user_id: string | null;
   device_id: string | null;
@@ -105,6 +106,7 @@ type EventData = {
   properties: EventProperties;
   attributes: Attributes;
   url: string;
+  timestamp: string;
 };
 
 function getEventPayload({
@@ -112,6 +114,7 @@ function getEventPayload({
   properties,
   attributes,
   url,
+  timestamp,
 }: EventData): EventPayload {
   const { nested, topLevel } = parseAttributes(attributes || {});
 
@@ -122,6 +125,7 @@ function getEventPayload({
     sdk_language: "js",
     sdk_version: SDK_VERSION,
     url: url,
+    timestamp,
     context_json: nested,
   };
 }
@@ -144,7 +148,11 @@ async function track({
   const endpoint = `${
     ingestorHost || "https://us-east-1.gb-ingest.com"
   }/track?client_key=${clientKey}`;
-  const body = JSON.stringify(events);
+  const payload = {
+    events,
+    sentAt: new Date().toISOString(),
+  };
+  const body = JSON.stringify(payload);
 
   // sendBeacon is queued by the browser and survives page unload even where
   // fetch keepalive is unsupported. text/plain keeps it a CORS simple request.
@@ -221,6 +229,7 @@ export function growthbookTrackingPlugin({
     if ("setEventLogger" in gb) {
       let _q: EventPayload[] = [];
       let timer: NodeJS.Timeout | null = null;
+      let isUnloading = false;
       let promise: Promise<void> | null = null;
       let flushDone: (() => void) | null = null;
       const flush = async (unloading?: boolean) => {
@@ -253,6 +262,7 @@ export function growthbookTrackingPlugin({
           properties,
           attributes: userContext.attributes || {},
           url: userContext.url || "",
+          timestamp: new Date().toISOString(),
         };
 
         if (
@@ -315,6 +325,12 @@ export function growthbookTrackingPlugin({
 
         _q.push(payload);
 
+        // The page is tearing down; a delayed flush would never fire
+        if (isUnloading) {
+          await flush(true);
+          return;
+        }
+
         // Only one in-progress promise at a time
         if (!promise) {
           promise = new Promise((resolve) => {
@@ -330,6 +346,8 @@ export function growthbookTrackingPlugin({
 
       // Flush the queue on page unload. Listeners are removed on destroy so
       // SPA re-inits don't accumulate handlers over dead instances.
+      // visibilitychange → hidden doesn't set isUnloading so a tab switch
+      // doesn't degrade batching for the rest of the page.
       if (typeof document !== "undefined" && document.visibilityState) {
         const onVisibilityChange = () => {
           if (document.visibilityState === "hidden") {
@@ -345,9 +363,11 @@ export function growthbookTrackingPlugin({
             ),
           );
       }
-      // pagehide fires on navigations where visibilitychange may not
+      // pagehide fires on navigations where visibilitychange may not; it's the
+      // real unload signal, so later events skip the queue delay
       if (typeof window !== "undefined") {
         const onPageHide = () => {
+          isUnloading = true;
           flush(true).catch(console.error);
         };
         window.addEventListener("pagehide", onPageHide);

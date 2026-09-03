@@ -49,44 +49,50 @@ describe("growthbookTrackingPlugin", () => {
 
     await sleep(75);
 
-    expect(fetchMock).toHaveBeenCalledWith(
+    const calledWith = fetchMock.mock.calls[0];
+    expect(calledWith[0]).toBe(
       `https://us-east-1.gb-ingest.com/track?client_key=test`,
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "text/plain",
-        },
-        body: JSON.stringify([
-          {
-            event_name: "test",
-            properties_json: {},
-            user_id: "456",
-            device_id: "123",
-            page_id: "a",
-            session_id: "789",
-            sdk_language: "js",
-            sdk_version: "",
-            url: "http://localhost:3000",
-            context_json: { hello: "world" },
-          },
-          {
-            event_name: "another",
-            properties_json: {},
-            user_id: "456",
-            device_id: "123",
-            page_id: "b",
-            session_id: "789",
-            sdk_language: "js",
-            sdk_version: "",
-            url: "http://localhost:3000",
-            context_json: { hello: "world" },
-          },
-        ]),
-        credentials: "omit",
-        keepalive: true,
-      },
     );
+    expect(calledWith[1]).toMatchObject({
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "text/plain",
+      },
+      body: expect.any(String),
+      credentials: "omit",
+    });
+
+    const body = JSON.parse(calledWith[1].body);
+    expect(body).toMatchObject({
+      events: [
+        {
+          event_name: "test",
+          properties_json: {},
+          user_id: "456",
+          device_id: "123",
+          page_id: "a",
+          session_id: "789",
+          sdk_language: "js",
+          sdk_version: "",
+          url: "http://localhost:3000",
+          context_json: { hello: "world" },
+        },
+        {
+          event_name: "another",
+          properties_json: {},
+          user_id: "456",
+          device_id: "123",
+          page_id: "b",
+          session_id: "789",
+          sdk_language: "js",
+          sdk_version: "",
+          url: "http://localhost:3000",
+          context_json: { hello: "world" },
+        },
+      ],
+      sentAt: expect.any(String),
+    });
 
     gb.destroy();
   });
@@ -140,8 +146,11 @@ describe("growthbookTrackingPlugin", () => {
 
     gb.logEvent("test", { bar: "baz" });
 
+    const calledWith = log.mock.calls[0];
+
     // Should have been logged to console
-    expect(log).toHaveBeenCalledWith("Logging event to GrowthBook", {
+    expect(calledWith[0]).toBe("Logging event to GrowthBook");
+    expect(calledWith[1]).toMatchObject({
       context_json: { foo: "bar" },
       device_id: "123",
       event_name: "test",
@@ -151,6 +160,7 @@ describe("growthbookTrackingPlugin", () => {
       sdk_version: "",
       session_id: null,
       url: "http://localhost:3000",
+      timestamp: expect.any(String),
       user_id: null,
     });
 
@@ -218,10 +228,10 @@ describe("growthbookTrackingPlugin", () => {
     gb.logEvent(EVENT_FEATURE_EVALUATED, { foo: "baz" });
 
     await sleep(150);
-    let body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body.length).toBe(2);
-    expect(body[0].properties_json).toEqual({ foo: "bar" });
-    expect(body[1].properties_json).toEqual({ foo: "baz" });
+    let bodyEvents = JSON.parse(fetchMock.mock.calls[0][1].body).events;
+    expect(bodyEvents.length).toBe(2);
+    expect(bodyEvents[0].properties_json).toEqual({ foo: "bar" });
+    expect(bodyEvents[1].properties_json).toEqual({ foo: "baz" });
 
     // Also skips experiment viewed events with the same properties
     gb.logEvent(EVENT_EXPERIMENT_VIEWED, { foo: "bar" });
@@ -229,10 +239,10 @@ describe("growthbookTrackingPlugin", () => {
     gb.logEvent(EVENT_EXPERIMENT_VIEWED, { foo: "baz" });
 
     await sleep(150);
-    body = JSON.parse(fetchMock.mock.calls[1][1].body);
-    expect(body.length).toBe(2);
-    expect(body[0].properties_json).toEqual({ foo: "bar" });
-    expect(body[1].properties_json).toEqual({ foo: "baz" });
+    bodyEvents = JSON.parse(fetchMock.mock.calls[1][1].body).events;
+    expect(bodyEvents.length).toBe(2);
+    expect(bodyEvents[0].properties_json).toEqual({ foo: "bar" });
+    expect(bodyEvents[1].properties_json).toEqual({ foo: "baz" });
 
     // Skips the fetch entirely if there are no new events to log
     gb.logEvent(EVENT_FEATURE_EVALUATED, { foo: "bar" });
@@ -310,18 +320,18 @@ describe("growthbookTrackingPlugin", () => {
     });
 
     await sleep(150);
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body.length).toBe(2);
-    expect(body[0].event_name).toBe("test");
-    expect(body[1].event_name).toBe("test2");
-    expect(body[1].properties_json).toEqual({ hello: "world" });
+    const bodyEvents = JSON.parse(fetchMock.mock.calls[0][1].body).events;
+    expect(bodyEvents.length).toBe(2);
+    expect(bodyEvents[0].event_name).toBe("test");
+    expect(bodyEvents[1].event_name).toBe("test2");
+    expect(bodyEvents[1].properties_json).toEqual({ hello: "world" });
 
     // Picks up events after the plugin is initialized
     window.gbEvents.push("test3");
     await sleep(150);
-    const body2 = JSON.parse(fetchMock.mock.calls[1][1].body);
-    expect(body2.length).toBe(1);
-    expect(body2[0].event_name).toBe("test3");
+    const bodyEvents2 = JSON.parse(fetchMock.mock.calls[1][1].body).events;
+    expect(bodyEvents2.length).toBe(1);
+    expect(bodyEvents2[0].event_name).toBe("test3");
 
     // A new GrowthBook instance does not pick up the events that have already been fired
     const gb2 = new GrowthBook({
@@ -344,9 +354,9 @@ describe("growthbookTrackingPlugin", () => {
     expect(fetchMock.mock.calls[2][0]).toBe(
       "https://us-east-1.gb-ingest.com/track?client_key=test2",
     );
-    const body3 = JSON.parse(fetchMock.mock.calls[2][1].body);
-    expect(body3.length).toBe(1);
-    expect(body3[0].event_name).toBe("test");
+    const bodyEvents3 = JSON.parse(fetchMock.mock.calls[2][1].body).events;
+    expect(bodyEvents3.length).toBe(1);
+    expect(bodyEvents3[0].event_name).toBe("test");
 
     gb.destroy();
     gb2.destroy();
@@ -370,8 +380,82 @@ describe("growthbookTrackingPlugin", () => {
     gb.logEvent("custom", { foo: "bar" });
 
     await sleep(150);
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body.length).toBe(4);
+    const bodyEvents = JSON.parse(fetchMock.mock.calls[0][1].body).events;
+    expect(bodyEvents.length).toBe(4);
+
+    gb.destroy();
+  });
+
+  it("flushes with keepalive: true on pagehide so the request survives unload", async () => {
+    const plugin = growthbookTrackingPlugin();
+
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [plugin],
+      url: "http://localhost:3000",
+      attributes: { id: "abc" },
+    });
+
+    gb.logEvent("event-during-pagehide");
+
+    // Don't wait for the queueFlushInterval — fire pagehide right away.
+    window.dispatchEvent(new Event("pagehide"));
+
+    // Yield once so the async flush() resolves the in-flight microtask
+    await sleep(0);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ keepalive: true });
+
+    gb.destroy();
+  });
+
+  it("does not permanently flip isUnloading on visibilitychange (tab-switch)", async () => {
+    // Ensure visibility starts "visible"
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+
+    const plugin = growthbookTrackingPlugin({ queueFlushInterval: 100 });
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [plugin],
+      url: "http://localhost:3000",
+      attributes: { id: "abc" },
+    });
+
+    // Tab goes to background -> flush, but isUnloading should NOT stick
+    gb.logEvent("before-hidden");
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "hidden",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+    await sleep(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ keepalive: true });
+
+    // Tab comes back
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    // A new event should still go through the queue (not flush instantly)
+    gb.logEvent("after-visible-again");
+
+    // Right after logEvent, the queue timer hasn't elapsed yet — no new fetch
+    await sleep(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // After the queue interval, the second batch flushes on the timer
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(
+      JSON.parse(fetchMock.mock.calls[1][1].body).events[0].event_name,
+    ).toBe("after-visible-again");
 
     gb.destroy();
   });
@@ -411,11 +495,14 @@ describe("growthbookTrackingPlugin", () => {
     await sleep(10);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    // Later events must still be flushed by the normal timer
+    // Later events must still be flushed (immediately, since the page is
+    // unloading and a queued timer would never fire)
     gb.logEvent("b");
     await sleep(150);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)[0].event_name).toBe("b");
+    expect(
+      JSON.parse(fetchMock.mock.calls[1][1].body).events[0].event_name,
+    ).toBe("b");
 
     gb.destroy();
   });
@@ -472,8 +559,8 @@ describe("growthbookTrackingPlugin", () => {
         reader.readAsText(blob as Blob);
       });
       const body = JSON.parse(text);
-      expect(body.length).toBe(1);
-      expect(body[0].event_name).toBe("test");
+      expect(body.events.length).toBe(1);
+      expect(body.events[0].event_name).toBe("test");
       expect(fetchMock).not.toHaveBeenCalled();
 
       // Queue was drained - the flush timer must not re-send
@@ -621,7 +708,7 @@ describe("growthbookTrackingPlugin", () => {
     user1.runInlineExperiment(experiment);
 
     await sleep(150);
-    let body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    let body = JSON.parse(fetchMock.mock.calls[0][1].body).events;
     expect(body.map((e: { event_name: string }) => e.event_name)).toEqual([
       EVENT_FEATURE_EVALUATED,
       EVENT_EXPERIMENT_VIEWED,
@@ -634,7 +721,7 @@ describe("growthbookTrackingPlugin", () => {
     user2.runInlineExperiment(experiment);
 
     await sleep(150);
-    body = JSON.parse(fetchMock.mock.calls[1][1].body);
+    body = JSON.parse(fetchMock.mock.calls[1][1].body).events;
     expect(body.map((e: { event_name: string }) => e.event_name)).toEqual([
       EVENT_FEATURE_EVALUATED,
       EVENT_EXPERIMENT_VIEWED,
@@ -671,7 +758,7 @@ describe("growthbookTrackingPlugin", () => {
     }
 
     await sleep(150);
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body).events;
     expect(
       body.map((e: { context_json: { spaceId: string } }) => e.context_json),
     ).toEqual([{ spaceId: "a" }, { spaceId: "b" }]);
@@ -715,7 +802,7 @@ describe("growthbookTrackingPlugin", () => {
     }
 
     await sleep(150);
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body).events;
 
     // One exposure for the account, but feature usage for each user
     expect(
