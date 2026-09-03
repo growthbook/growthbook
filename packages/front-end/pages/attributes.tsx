@@ -282,7 +282,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         locked: true,
         resizable: false,
         render: (v) => (
-          <Flex justify="end">
+          <Flex justify="center">
             <AttributeRowMenu
               attribute={v}
               onEdit={() => setModalData(v.property)}
@@ -307,7 +307,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
   // Lives in the empty row-actions header rather than the filter toolbar, which
   // is for data filters.
   const columnSettings = (
-    <Flex justify="end">
+    <Flex justify="center">
       <ColumnSettingsButton
         columns={columns
           // Locked columns can't be hidden or moved, so listing them is noise.
