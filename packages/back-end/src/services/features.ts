@@ -941,11 +941,12 @@ export async function refreshSDKPayloadCache({
     getAllURLRedirectExperiments(context, experimentMap),
   ]);
 
-  // Widen before matching connections; a no-op when no prerequisite crosses a
-  // project boundary. Re-applies the skip, which reach can otherwise undo.
-  // Only an all-projects dependent needs the full project list, and this context
-  // is fresh, so its cache is cold — don't pay for the query otherwise.
+  // Only an all-projects dependent needs the project list, and this context is
+  // fresh, so its cache is cold — don't pay for the query otherwise.
   const hasAllProjectsFeature = allFeatures.some((f) => f.targetingAllProjects);
+
+  // Widen before matching connections; a no-op when no prerequisite crosses a
+  // project boundary.
   payloadKeys = expandPayloadKeysForPrerequisites(
     payloadKeys,
     buildPrerequisiteProjectReach(
@@ -954,6 +955,8 @@ export async function refreshSDKPayloadCache({
       experimentMap,
     ),
   );
+
+  // Widening can reintroduce a project the caller asked to skip.
   if (skipRefreshForProject) {
     payloadKeys = payloadKeys.filter(
       (k) => k.project !== skipRefreshForProject,
@@ -1385,7 +1388,7 @@ export type SDKPayloadRawData = {
   // connection. When omitted, generateFeaturesPayload builds it from `constants`.
   constantMap?: ConstantValueMap | null;
   // Hoisted for the same reason as `constantMap`: prerequisite closure needs it
-  // per connection. Built in generateFeaturesPayload when omitted.
+  // per connection. Built in buildSDKPayloadForConnection when omitted.
   featuresMap?: Map<string, FeatureInterface>;
 };
 

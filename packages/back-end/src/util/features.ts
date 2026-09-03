@@ -707,10 +707,10 @@ export function featuresWithPrerequisiteClosure(
   };
 }
 
-// Closure delivers a parent into payloads its own projects don't name, and a
-// change to it only produces keys for those projects. Maps a project to the
-// projects whose payloads may carry a feature from it, so the keys can be
-// widened without knowing which feature changed.
+// Closure delivers a parent into payloads its own projects don't name, so a
+// change to it produces keys that miss them. Maps a project to the projects
+// whose payloads may carry a feature from it, so keys can be widened without
+// knowing which feature changed.
 export function buildPrerequisiteProjectReach(
   features: FeatureInterface[],
   allProjectIds: string[] = [],
@@ -727,9 +727,9 @@ export function buildPrerequisiteProjectReach(
   };
 
   for (const dependent of features) {
-    // An all-projects dependent is delivered everywhere, so its prerequisites
-    // are carried everywhere. The "" key doesn't cover that: it only reaches
-    // connections with no project filter unless treatEmptyProjectAsGlobal.
+    // An all-projects dependent carries its prerequisites everywhere. The ""
+    // key doesn't cover that — it only reaches connections with no project
+    // filter unless treatEmptyProjectAsGlobal.
     const dependentProjects =
       getTargetingProjectIds(dependent) ?? allProjectIds;
 
