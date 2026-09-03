@@ -22,6 +22,8 @@ export default function ExplorerMainSection() {
     loading,
     error,
     isStale,
+    needsFetch,
+    needsUpdate,
     query,
     draftExploreState,
     handleSubmit,
@@ -47,7 +49,15 @@ export default function ExplorerMainSection() {
     !hasSubmittablePayload(submittedExploreState);
 
   const suppressStaleFloatingCallout = funnelMainEmpty && isStale && !loading;
-  const isTimeoutError = !loading && isQueryTimeoutError(error);
+  // Draft matches submitted but has no result: the last attempt for this
+  // exact config failed. Derived from `exploration` (always set on any
+  // completed attempt) rather than `error`, which can be cleared elsewhere.
+  const isUnresolved =
+    !loading &&
+    !needsFetch &&
+    !needsUpdate &&
+    exploration === null &&
+    hasSubmittablePayload(submittedExploreState);
   const retryDisabled =
     !hasSubmittablePayload(draftExploreState) || !isSubmittable;
 
@@ -196,13 +206,13 @@ export default function ExplorerMainSection() {
             )}
           </Flex>
         )}
-        {(isStale || loading || isTimeoutError) &&
+        {(isStale || loading || isUnresolved) &&
           !suppressStaleFloatingCallout && (
             <Box
               style={{
                 position: "absolute",
                 zIndex: 1000,
-                top: isTimeoutError ? 63 : 12,
+                top: isUnresolved ? 63 : 12,
                 right: 15,
                 width: "auto",
                 backgroundColor: "var(--color-panel-solid)",
@@ -210,7 +220,7 @@ export default function ExplorerMainSection() {
               }}
             >
               <Callout
-                status={isTimeoutError ? "error" : "info"}
+                status={isUnresolved ? "error" : "info"}
                 size="sm"
                 align="center"
                 wrap="nowrap"
@@ -229,22 +239,24 @@ export default function ExplorerMainSection() {
                       onClick={() => handleSubmit({ force: true })}
                       icon={<PiArrowsClockwise />}
                     >
-                      {isTimeoutError ? "Retry" : "Refresh"}
+                      {isUnresolved ? "Retry" : "Refresh"}
                     </Button>
                   ) : undefined
                 }
               >
                 <Text
                   title={
-                    !loading && !isTimeoutError
+                    !loading && !isUnresolved
                       ? "Some configuration changes require running a new SQL query against your data source"
                       : undefined
                   }
                 >
                   {loading
                     ? "Loading..."
-                    : isTimeoutError
-                      ? "Query timed out"
+                    : isUnresolved
+                      ? isQueryTimeoutError(error)
+                        ? "Query timed out"
+                        : "Query failed"
                       : "Latest changes not applied"}
                 </Text>
               </Callout>

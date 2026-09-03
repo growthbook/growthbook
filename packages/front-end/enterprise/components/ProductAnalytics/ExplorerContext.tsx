@@ -500,11 +500,6 @@ export function ExplorerProvider({
       hasEverFetchedRef.current = true;
       const requestId = ++submitRequestIdRef.current;
 
-      setExplorerState((prev) => ({
-        ...prev,
-        error: null,
-      }));
-
       const startTime = Date.now();
       const {
         data: fetchResult,
