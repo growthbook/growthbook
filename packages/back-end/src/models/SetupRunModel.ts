@@ -63,8 +63,13 @@ export class SetupRunModel extends BaseClass {
     return true;
   }
 
-  protected canUpdate(): boolean {
-    return true;
+  // Only the developer who ran the wizard, or an org admin, may rewrite a run's
+  // checks and outcome. Runs created with an org-level key carry no owner and
+  // stay open to any member, as before.
+  protected canUpdate(existing: SetupRunDoc): boolean {
+    if (this.context.permissions.canManageOrgSettings()) return true;
+    const owner = existing.createdBy ?? null;
+    return owner === null || owner === this.context.userId;
   }
 
   protected canDelete(): boolean {
@@ -131,26 +136,28 @@ export class SetupRunModel extends BaseClass {
   }
 
   // Idempotent on (kind, id) so a retried append, or the reconcile at the end of a
-  // run resending one that already landed, does not produce a duplicate row.
+  // run resending one that already landed, does not produce a duplicate row. The
+  // compare-and-swap on the array keeps two overlapping appends (an agent running
+  // its tool calls in parallel) from each storing a copy that lacks the other's.
   public async appendArtifacts(
     id: string,
     incoming: Omit<SetupRunArtifact, "dateCreated">[],
   ) {
-    const run = await this.getById(id);
-    if (!run) throw new Error(`Setup Run ${id} not found`);
-
-    const artifacts = [...run.artifacts];
-    for (const a of incoming) {
-      const existing = artifacts.findIndex(
-        (x) => x.kind === a.kind && x.id === a.id,
-      );
-      if (existing >= 0) {
-        artifacts[existing] = { ...artifacts[existing], ...a };
-      } else {
-        artifacts.push({ ...a, dateCreated: new Date() });
+    const run = await this.updateWithCas(id, ["artifacts"], (existing) => {
+      const artifacts = [...existing.artifacts];
+      for (const a of incoming) {
+        const index = artifacts.findIndex(
+          (x) => x.kind === a.kind && x.id === a.id,
+        );
+        if (index >= 0) {
+          artifacts[index] = { ...artifacts[index], ...a };
+        } else {
+          artifacts.push({ ...a, dateCreated: new Date() });
+        }
       }
-    }
-
-    return this.updateById(id, { artifacts });
+      return { artifacts };
+    });
+    if (!run) throw new Error(`Setup Run ${id} not found`);
+    return run;
   }
 }
