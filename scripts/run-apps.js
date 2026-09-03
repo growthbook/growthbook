@@ -15,6 +15,10 @@ const KILL_TIMEOUT_MS =
   5000;
 const RESTART_DELAY_MS = 1000;
 const MEMORY_POLL_MS = 10000;
+// Node's own baseline RSS is ~46MB, so a limit under this restarts on every poll.
+const MIN_MEMORY_BYTES = 50 * 1024 * 1024;
+const RESTART_WINDOW_MS = 60000;
+const MAX_RESTARTS_PER_WINDOW = 5;
 
 function parseArgs(argv) {
   let only = null;
@@ -75,6 +79,36 @@ if (!apps.length) {
   process.exit(1);
 }
 
+// name identifies a process everywhere below, so a missing or repeated one makes
+// the bookkeeping incoherent rather than merely odd.
+const names = new Set();
+for (const app of apps) {
+  if (typeof app.name !== "string" || !app.name) {
+    console.error(`Every app needs a name; found ${JSON.stringify(app.name)}`);
+    process.exit(1);
+  }
+  if (names.has(app.name)) {
+    console.error(`Duplicate app name ${JSON.stringify(app.name)}`);
+    process.exit(1);
+  }
+  names.add(app.name);
+}
+
+// Reject an unusable limit at startup rather than let it crash-loop the container.
+const limits = new Map();
+for (const app of apps) {
+  if ((app.max_memory_restart ?? null) === null) continue;
+  const limit = parseMemory(app.max_memory_restart);
+  if (limit === null || limit < MIN_MEMORY_BYTES) {
+    console.error(
+      `${app.name}: max_memory_restart ${JSON.stringify(app.max_memory_restart)} ` +
+        `is unusable; expected at least ${MIN_MEMORY_BYTES / 1024 ** 2}M, like "512M" or "6G"`,
+    );
+    process.exit(1);
+  }
+  limits.set(app.name, limit);
+}
+
 // pm2 accepted far more than we implement, so a config carried over from it can
 // quietly mean something different. Say which parts we're dropping.
 const HONOURED = new Set([
@@ -97,8 +131,22 @@ for (const app of apps) {
 }
 
 const running = new Map();
+const restartTimes = new Map();
 let pendingRestarts = 0;
 let shuttingDown = false;
+let shutdownCode = 0;
+
+// A process that keeps dying won't be fixed by restarting it again, so hand the
+// backoff to whatever supervises the container instead of spinning in here.
+function inRestartLoop(app) {
+  const now = Date.now();
+  const recent = (restartTimes.get(app.name) ?? []).filter(
+    (at) => now - at < RESTART_WINDOW_MS,
+  );
+  recent.push(now);
+  restartTimes.set(app.name, recent);
+  return recent.length > MAX_RESTARTS_PER_WINDOW;
+}
 
 function finish(code) {
   log(`all apps stopped, exiting ${code}`);
@@ -120,23 +168,32 @@ function start(app) {
 
   child.on("error", (err) => {
     log(`${app.name} failed to start: ${err.message}`);
-    onExit(app, 1, null);
+    onExit(app, child, 1, null);
   });
-  child.on("exit", (code, signal) => onExit(app, code, signal));
+  child.on("exit", (code, signal) => onExit(app, child, code, signal));
 }
 
-function onExit(app, code, signal) {
-  if (running.get(app.name) === undefined) return; // 'error' already handled it
+// Keyed on the child, not the name: a late event from a replaced process must not
+// evict the one now running under that name.
+function onExit(app, child, code, signal) {
+  if (running.get(app.name) !== child) return;
   running.delete(app.name);
   log(`${app.name} exited (code ${code}, signal ${signal})`);
 
   if (shuttingDown) {
-    if (!running.size) finish(0);
+    if (!running.size) finish(shutdownCode);
     return;
   }
 
   if (app.autorestart || app.forceRestart) {
     app.forceRestart = false;
+    if (inRestartLoop(app)) {
+      return shutdown(
+        `${app.name} restarted ${MAX_RESTARTS_PER_WINDOW + 1} times in under ` +
+          `${RESTART_WINDOW_MS / 1000}s`,
+        3,
+      );
+    }
     pendingRestarts++;
     setTimeout(() => {
       pendingRestarts--;
@@ -159,23 +216,18 @@ function stop(child) {
   setTimeout(() => child.kill("SIGKILL"), KILL_TIMEOUT_MS).unref();
 }
 
-function shutdown(signal) {
+function shutdown(reason, code = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
-  log(`${signal} received, stopping ${running.size} app(s)`);
-  if (!running.size) finish(0);
+  shutdownCode = code;
+  log(`${reason}, stopping ${running.size} app(s)`);
+  if (!running.size) finish(code);
 
   for (const child of running.values()) stop(child);
 }
 
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-process.on("SIGINT", () => shutdown("SIGINT"));
-
-const limits = new Map(
-  apps
-    .map((app) => [app.name, parseMemory(app.max_memory_restart)])
-    .filter(([, limit]) => limit),
-);
+process.on("SIGTERM", () => shutdown("SIGTERM received"));
+process.on("SIGINT", () => shutdown("SIGINT received"));
 
 setInterval(() => {
   for (const [name, child] of running) {
