@@ -2,6 +2,34 @@ import type { Response } from "express";
 import { ApiSetupRun } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
+
+// Artifacts are pointers recorded at creation. An experiment recorded without a
+// name carries its id as the label; show the experiment's current name instead.
+async function withExperimentNames(
+  context: Parameters<typeof getExperimentsByIds>[0],
+  run: ApiSetupRun,
+): Promise<ApiSetupRun> {
+  const unnamed = run.artifacts.filter(
+    (a) => a.kind === "experiment" && a.label === a.id,
+  );
+  if (!unnamed.length) return run;
+  const experiments = await getExperimentsByIds(
+    context,
+    unnamed.map((a) => a.id),
+  );
+  const names = new Map(experiments.map((e) => [e.id, e.name]));
+  return {
+    ...run,
+    artifacts: run.artifacts.map((a) => {
+      const name =
+        a.kind === "experiment" && a.label === a.id
+          ? names.get(a.id)
+          : undefined;
+      return name ? { ...a, label: name } : a;
+    }),
+  };
+}
 
 export const getSetupRun = async (
   req: AuthRequest<null, { id: string }>,
@@ -19,7 +47,10 @@ export const getSetupRun = async (
 
   res.status(200).json({
     status: 200,
-    setupRun: context.models.setupRuns.toApi(run),
+    setupRun: await withExperimentNames(
+      context,
+      context.models.setupRuns.toApi(run),
+    ),
   });
 };
 
@@ -33,8 +64,12 @@ export const getSetupRuns = async (
 
   res.status(200).json({
     status: 200,
-    setupRuns: runs
-      .sort((a, b) => b.dateCreated.getTime() - a.dateCreated.getTime())
-      .map((r) => context.models.setupRuns.toApi(r)),
+    setupRuns: await Promise.all(
+      runs
+        .sort((a, b) => b.dateCreated.getTime() - a.dateCreated.getTime())
+        .map((r) =>
+          withExperimentNames(context, context.models.setupRuns.toApi(r)),
+        ),
+    ),
   });
 };
