@@ -222,20 +222,36 @@
       z-index: 2;
     }
 
-    // accent-a2 is translucent, so the opaque background has to stay under it.
+    // The row-hover rule sets a translucent background-color on every cell and
+    // outranks the opaque one above, so restate it here and layer the tint on
+    // top as an image. Otherwise scrolled content shows through the hovered row.
     :global(
       .rt-TableBody
         .rt-TableRow:not([data-no-hover]):hover
         > *:last-child:not([colspan])
     ) {
+      background-color: var(--color-panel-solid);
       background-image: linear-gradient(var(--accent-a2), var(--accent-a2));
     }
 
-    // Only once something is actually hidden behind it. box-sizing is
-    // border-box here, so this costs no layout width.
+    // Only once something is actually hidden behind it. A soft shadow rather
+    // than a rule: the neighbouring column's resize handle is already a crisp
+    // line, and two of those side by side read as a double border.
     &[data-overflow-x="true"]
-      :global(.rt-TableRow > *:last-child:not([colspan])) {
-      border-left: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
+      :global(.rt-TableRow > *:last-child:not([colspan]))::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      // Narrow: the peak sets how dark the edge is, the width how much tint is
+      // laid down overall — too wide and it reads as a wash, not a shadow.
+      width: 6px;
+      transform: translateX(-100%);
+      pointer-events: none;
+      // The same slate-alpha family as the table's own borders: it inverts for
+      // dark mode, where black leaves no cue and neutral grey doesn't blend.
+      background: linear-gradient(to right, transparent, var(--slate-a3));
     }
   }
 
