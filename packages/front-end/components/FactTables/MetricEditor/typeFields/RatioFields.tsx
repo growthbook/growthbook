@@ -1,7 +1,8 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { ColumnRef, FactTableDefinition } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
+import Frame from "@/ui/Frame";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import ShapeSelect from "@/components/FactTables/MetricEditor/ShapeSelect";
 import ColumnSelect from "@/components/FactTables/MetricEditor/ColumnSelect";
@@ -21,35 +22,37 @@ const RATIO_SHAPES: readonly RatioShape[] = [
   "users",
 ];
 
-// Denominator's fact table override is a plain always-visible select here,
-// not the design's read-only-value-plus-Edit-action treatment - a smaller,
-// deliberate simplification for this pass, left for a later visual pass.
-function RatioPart({
-  label,
-  value,
-  onChange,
-  factTable,
-  hasCountDistinctHLL,
-  isDenominator,
-  availableFactTables,
-  getFactTableById,
-}: {
+type RatioPartProps = {
   label: string;
   value: ColumnRef;
   onChange: (value: ColumnRef) => void;
   factTable: FactTableDefinition | null;
-  hasCountDistinctHLL?: boolean;
-  isDenominator?: boolean;
-  availableFactTables?: FactTableDefinition[];
-  getFactTableById?: (id: string) => FactTableDefinition | null;
-}) {
+  hasCountDistinctHLL: boolean;
+} & (
+  | { isDenominator?: false }
+  | {
+      // The fact-table override is denominator-only UI, so these two are
+      // required together rather than independently optional - passing one
+      // without the other used to silently empty the column instead of
+      // failing to compile.
+      isDenominator: true;
+      availableFactTables: FactTableDefinition[];
+      getFactTableById: (id: string) => FactTableDefinition | null;
+    }
+);
+
+// Denominator's fact table override is a plain always-visible select here,
+// not the design's read-only-value-plus-Edit-action treatment - a smaller,
+// deliberate simplification for this pass, left for a later visual pass.
+function RatioPart(props: RatioPartProps) {
+  const { label, value, onChange, factTable, hasCountDistinctHLL } = props;
   const shape = shapeFromColumnRef(value) ?? "sum";
-  const partFactTable = isDenominator
-    ? (getFactTableById?.(value.factTableId) ?? factTable)
+  const partFactTable = props.isDenominator
+    ? (props.getFactTableById(value.factTableId) ?? factTable)
     : factTable;
 
   return (
-    <Box className="appbox p-3">
+    <Frame p="3" mb="0">
       <Text weight="semibold" size="sm" mb="2" as="div">
         {label}
       </Text>
@@ -58,6 +61,8 @@ function RatioPart({
           <ShapeSelect
             value={shape}
             shapes={RATIO_SHAPES}
+            factTable={partFactTable}
+            hasCountDistinctHLL={hasCountDistinctHLL}
             onChange={(newShape) =>
               onChange(
                 onShapeChange(
@@ -77,7 +82,7 @@ function RatioPart({
             onChange={(column) => onChange({ ...value, column })}
           />
         </Flex>
-        {isDenominator && shape !== "users" && availableFactTables && (
+        {props.isDenominator && shape !== "users" && (
           <Select
             label="Fact table"
             value={value.factTableId}
@@ -86,13 +91,13 @@ function RatioPart({
                 onFactTableChange(
                   value,
                   factTableId,
-                  getFactTableById?.(factTableId) ?? null,
+                  props.getFactTableById(factTableId),
                   hasCountDistinctHLL,
                 ),
               )
             }
           >
-            {availableFactTables.map((ft) => (
+            {props.availableFactTables.map((ft) => (
               <SelectItem key={ft.id} value={ft.id}>
                 {ft.name}
               </SelectItem>
@@ -107,7 +112,7 @@ function RatioPart({
           />
         )}
       </Flex>
-    </Box>
+    </Frame>
   );
 }
 
@@ -130,9 +135,9 @@ export default function RatioFields({
   denominator: ColumnRef;
   onDenominatorChange: (value: ColumnRef) => void;
   factTable: FactTableDefinition | null;
-  availableFactTables?: FactTableDefinition[];
-  getFactTableById?: (id: string) => FactTableDefinition | null;
-  hasCountDistinctHLL?: boolean;
+  availableFactTables: FactTableDefinition[];
+  getFactTableById: (id: string) => FactTableDefinition | null;
+  hasCountDistinctHLL: boolean;
 }) {
   return (
     <Flex direction="column" gap="3">
