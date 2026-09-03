@@ -158,7 +158,7 @@ describe("useFeatureRevisionDiff", () => {
     );
 
     const toggleDiffs = result.current.filter((d) =>
-      d.title.startsWith("Environment Toggle"),
+      d.title.startsWith("Environment"),
     );
     expect(toggleDiffs).toHaveLength(0);
   });
@@ -226,10 +226,10 @@ describe("useFeatureRevisionDiff", () => {
     );
 
     const toggleDiffs = result.current.filter((d) =>
-      d.title.startsWith("Environment Toggle"),
+      d.title.startsWith("Environment"),
     );
     expect(toggleDiffs).toHaveLength(1);
-    expect(toggleDiffs[0].title).toBe("Environment Toggle - production");
+    expect(toggleDiffs[0].title).toBe("Environment");
     // The section carries every toggle it covers, so the raw view reads as a
     // map even when only one environment moved.
     expect(JSON.parse(toggleDiffs[0].a)).toEqual({ production: false });
@@ -253,10 +253,10 @@ describe("useFeatureRevisionDiff", () => {
     );
 
     const toggleDiffs = result.current.filter((d) =>
-      d.title.startsWith("Environment Toggle"),
+      d.title.startsWith("Environment"),
     );
     expect(toggleDiffs).toHaveLength(1);
-    expect(toggleDiffs[0].title).toBe("Environment Toggles");
+    expect(toggleDiffs[0].title).toBe("Environments");
     // dev didn't move, so it stays out of the section entirely.
     expect(JSON.parse(toggleDiffs[0].a)).toEqual({
       production: false,

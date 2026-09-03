@@ -2016,13 +2016,9 @@ function EnvEnabledIndicator({
   tone?: "state" | "muted";
 }) {
   // The Feature Flag overview's own environment icons, so a state reads the
-  // same wherever it is shown.
-  const color =
-    tone === "muted"
-      ? "var(--color-text-low)"
-      : enabled
-        ? featureStatusColors.on
-        : featureStatusColors.off;
+  // same wherever it is shown. The before half keeps its colour and fades,
+  // rather than turning grey and reading as a third state.
+  const color = enabled ? featureStatusColors.on : featureStatusColors.off;
   const label = enabled ? "On" : "Off";
   const Icon = enabled ? FaCircleCheck : FaCircleXmark;
   return (
@@ -2030,7 +2026,10 @@ function EnvEnabledIndicator({
       style={{ display: "inline-flex", alignItems: "center" }}
       title={label}
     >
-      <Icon size={20} style={{ color }} />
+      <Icon
+        size={20}
+        style={{ color, opacity: tone === "muted" ? 0.4 : undefined }}
+      />
       {/* Real text, so a selection of this row copies as "production Off → On"
           rather than the env name alone. A title or aria-label would not. */}
       <VisuallyHidden>{label}</VisuallyHidden>

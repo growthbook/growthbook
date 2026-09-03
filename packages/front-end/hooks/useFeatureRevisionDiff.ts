@@ -334,12 +334,9 @@ export function useFeatureRevisionDiff({
         renderMode === "experiment" && !(current.rules ?? []).length;
       diffs.push({
         key: "environmentsEnabled",
-        title:
-          renderMode === "experiment"
-            ? "Environments"
-            : toggled.length === 1
-              ? `Environment Toggle - ${toggled[0].envId}`
-              : "Environment Toggles",
+        // The rows name the environments, so the heading doesn't repeat them,
+        // and "toggle" adds nothing a check/cross doesn't already say.
+        title: toggled.length === 1 ? "Environment" : "Environments",
         a: JSON.stringify(asMap("from"), null, 2),
         b: JSON.stringify(asMap("to"), null, 2),
         customRender: renderEnvironmentToggles(toggled, {
