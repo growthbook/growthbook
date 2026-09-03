@@ -40,10 +40,10 @@ export function normalizeRevisionMetadata(
   };
 }
 
-// Bookkeeping fields the snapshot records but that aren't user-editable revision
-// settings and aren't rendered by the human diff — including them in the raw
-// JSON diff only produces phantom churn when an older snapshot predates them.
-const NON_SETTING_METADATA_FIELDS = new Set(["valueType", "baseConfig"]);
+// Bookkeeping the snapshot records but the human diff never renders. Not
+// `valueType`: a re-type is a real change, and a section whose raw JSON reads
+// equal is dropped along with its rendered rows.
+const NON_SETTING_METADATA_FIELDS = new Set(["baseConfig"]);
 
 // Canonical JSON for the raw "Feature Settings" diff: keys sorted (so a differing
 // snapshot key order doesn't read as churn) and bookkeeping fields dropped, so
@@ -78,10 +78,25 @@ export const revisionToFeatureRevisionDiffInput = (
     prerequisites: r.prerequisites ?? fallback?.prerequisites,
     archived: r.archived ?? fallback?.archived,
     holdout: r.holdout !== undefined ? r.holdout : (fallback?.holdout ?? null),
-    metadata: normalizeRevisionMetadata(r.metadata) ?? fallback?.metadata,
+    metadata: withValueType(
+      normalizeRevisionMetadata(r.metadata) ?? fallback?.metadata,
+      fallback?.metadata?.valueType,
+    ),
     rampActions: r.rampActions ?? undefined,
   };
 };
+
+// Snapshots older than the field carry no `valueType`; read it as unchanged
+// rather than removed.
+function withValueType(
+  m: RevisionMetadata | undefined,
+  fallbackValueType: RevisionMetadata["valueType"] | undefined,
+): RevisionMetadata | undefined {
+  if (!m || m.valueType !== undefined || fallbackValueType === undefined) {
+    return m;
+  }
+  return { ...m, valueType: fallbackValueType };
+}
 
 export const featureToFeatureRevisionDiffInput = (
   feature: FeatureInterface,

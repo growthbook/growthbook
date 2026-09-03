@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { datetime } from "shared/dates";
 import {
@@ -110,6 +110,11 @@ export default function ManagedFlagApproval({
     () => data?.revisions?.find((r) => r.version === version),
     [data, version],
   );
+  // The values modal saves through the experiment's mutate, which does not
+  // touch this feature fetch; re-read on open or the diff shows the old draft.
+  useEffect(() => {
+    if (open) mutateRevisions();
+  }, [open, mutateRevisions]);
 
   // The Feature Flag's own review engine. A managed flag's draft IS the
   // experiment's change, so the whole-revision diff is the right unit — and if
