@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiCaretDown, PiCaretUp, PiSlidersHorizontal } from "react-icons/pi";
+import { Box, IconButton } from "@radix-ui/themes";
+import { PiSlidersHorizontal } from "react-icons/pi";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 import ColumnSettings, { ManagedColumn } from "@/ui/ColumnSettings";
@@ -15,14 +15,14 @@ export default function ColumnSettingsButton({
   trigger,
 }: {
   columns: ManagedColumn[];
-  /** Shown on the default trigger. Omit when the caller surfaces it itself. */
+  /** Announced on the default trigger, which has no room to show it. */
   hiddenCount?: number;
   onChange: (columns: { id: string; visible: boolean }[]) => void;
   onReset?: () => void;
   canReset?: boolean;
   /** Appended to the popover's helper copy, e.g. which column is pinned. */
   note?: string;
-  /** Overrides the default toolbar trigger, for hosts that need another weight. */
+  /** Overrides the default trigger, for hosts that need another weight. */
   trigger?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -34,32 +34,18 @@ export default function ColumnSettingsButton({
       align="end"
       trigger={
         trigger ?? (
-          // Matches FilterHeading in components/Search/SearchFilters.tsx so the
-          // control reads as part of the same toolbar family.
           <IconButton
             variant="ghost"
             color="gray"
             radius="small"
-            size="3"
+            // Matches the row-action kebab below it, so the two line up.
+            size="2"
             highContrast
-            // Derived rather than static: a fixed label would override the name
-            // computed from the children and drop the hidden count.
             aria-label={
               hiddenCount > 0 ? `Columns, ${hiddenCount} hidden` : "Columns"
             }
           >
-            <Flex gap="2" align="center">
-              <Flex gap="1" align="center">
-                <PiSlidersHorizontal />
-                Columns
-                {hiddenCount > 0 && (
-                  <Text as="span" color="text-low">
-                    · {hiddenCount} hidden
-                  </Text>
-                )}
-              </Flex>
-              {open ? <PiCaretUp /> : <PiCaretDown />}
-            </Flex>
+            <PiSlidersHorizontal size={18} />
           </IconButton>
         )
       }

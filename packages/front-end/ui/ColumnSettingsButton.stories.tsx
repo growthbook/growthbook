@@ -30,9 +30,7 @@ export default function ColumnSettingsButtonStories() {
     <Flex direction="column" gap="6">
       <Box>
         <Box className="mb-2">
-          <Text weight="medium">
-            Default toolbar trigger, with a hidden-column count
-          </Text>
+          <Text weight="medium">Default trigger</Text>
         </Box>
         <ColumnSettingsButton
           columns={columns}
@@ -44,8 +42,9 @@ export default function ColumnSettingsButtonStories() {
         />
         <Box className="mt-2">
           <Text size="1" color="gray">
-            Trigger weight matches `FilterHeading`, so it sits alongside search
-            filters in a toolbar row.
+            Icon only, sized to match a row-action kebab — it lives in a
+            table&apos;s row-actions header cell. The hidden-column count goes
+            to the accessible name, since there is no room to show it.
           </Text>
         </Box>
       </Box>
