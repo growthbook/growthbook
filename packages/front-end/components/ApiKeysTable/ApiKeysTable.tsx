@@ -9,9 +9,13 @@ import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useEnvironments } from "@/services/features";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+
+const ADMIN_LOCKED_REASON =
+  "An administrator disabled this token. Ask them to re-enable it, or delete it and create a new one.";
 
 type ApiKeysTableProps = {
   onDelete: (keyId: string | undefined) => () => Promise<void>;
@@ -38,6 +42,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   onShowAuditLog,
 }) => {
   const { organization, userId } = useUser();
+  const canManageTokens = usePermissionsUtil().canDeleteApiKey();
   const { projects } = useDefinitions();
   const environments = useEnvironments();
   const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
@@ -64,12 +69,14 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
         </thead>
         <tbody>
           {keys.map((key) => {
-            // A PAT disabled by an admin can only be re-enabled by an admin.
+            // A PAT disabled by an admin can only be re-enabled by an admin;
+            // mirrors the model's canUpdate rule.
             const adminLocked =
               !!key.userId &&
               !!key.disabled &&
               !!key.disabledBy &&
-              key.disabledBy !== userId;
+              key.disabledBy !== userId &&
+              !canManageTokens;
             return (
               <tr
                 key={key.id}
@@ -83,11 +90,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                       color="red"
                       variant="soft"
                       label={adminLocked ? "Disabled by admin" : "Disabled"}
-                      title={
-                        adminLocked
-                          ? "An administrator disabled this token. Ask them to re-enable it, or delete it and create a new one."
-                          : undefined
-                      }
+                      title={adminLocked ? ADMIN_LOCKED_REASON : undefined}
                     />
                   )}
                 </td>
@@ -181,9 +184,10 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                       onDelete={onDelete}
                       onEdit={onEdit}
                       onToggleClick={
-                        onToggleDisabled && !adminLocked
-                          ? setPendingToggle
-                          : undefined
+                        onToggleDisabled ? setPendingToggle : undefined
+                      }
+                      toggleLockedReason={
+                        adminLocked ? ADMIN_LOCKED_REASON : undefined
                       }
                       onShowAuditLog={onShowAuditLog}
                     />

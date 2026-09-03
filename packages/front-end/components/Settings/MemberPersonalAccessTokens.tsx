@@ -205,13 +205,18 @@ const MemberPersonalAccessTokens: FC = () => {
                           ml="2"
                           color="red"
                           variant="soft"
-                          label="Disabled"
-                          title={
+                          label={
                             !token.disabledBy
-                              ? undefined
+                              ? "Disabled"
                               : token.disabledBy === token.userId
-                                ? "Disabled by the member"
-                                : `Disabled by ${users.get(token.disabledBy)?.name || "an administrator"}`
+                                ? "Disabled by member"
+                                : "Disabled by admin"
+                          }
+                          title={
+                            token.disabledBy &&
+                            token.disabledBy !== token.userId
+                              ? `Disabled by ${users.get(token.disabledBy)?.name || "a former member"}`
+                              : undefined
                           }
                         />
                       )}
