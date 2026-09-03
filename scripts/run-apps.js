@@ -10,7 +10,9 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const KILL_TIMEOUT_MS = Number(process.env.APP_KILL_TIMEOUT_MS) || 5000;
+const KILL_TIMEOUT_MS =
+  Number(process.env.APP_KILL_TIMEOUT_MS || process.env.PM2_KILL_TIMEOUT) ||
+  5000;
 const RESTART_DELAY_MS = 1000;
 const MEMORY_POLL_MS = 10000;
 
@@ -48,7 +50,9 @@ function rssBytes(pid) {
   }
 }
 
-const log = (message) => console.log(`[run-apps] ${message}`);
+// stderr, so stdout stays purely the apps' own output and a log pipeline parsing
+// the back-end's JSON lines doesn't trip over ours.
+const log = (message) => console.error(`[run-apps] ${message}`);
 
 const { only, configPath } = parseArgs(process.argv.slice(2));
 if (!configPath) {
@@ -69,6 +73,27 @@ if (!apps.length) {
     `No apps to run in ${configPath}${only ? ` matching --only ${only}` : ""}`,
   );
   process.exit(1);
+}
+
+// pm2 accepted far more than we implement, so a config carried over from it can
+// quietly mean something different. Say which parts we're dropping.
+const HONOURED = new Set([
+  "name",
+  "script",
+  "args",
+  "cwd",
+  "node_args",
+  "autorestart",
+  "max_memory_restart",
+]);
+for (const app of apps) {
+  if (app.instances > 1) {
+    log(`${app.name}: instances=${app.instances} unsupported, starting one`);
+  }
+  const dropped = Object.keys(app).filter(
+    (key) => !HONOURED.has(key) && key !== "instances",
+  );
+  if (dropped.length) log(`${app.name}: ignoring ${dropped.join(", ")}`);
 }
 
 const running = new Map();
@@ -94,7 +119,7 @@ function start(app) {
   log(`started ${app.name} (pid ${child.pid})`);
 
   child.on("error", (err) => {
-    console.error(`[run-apps] ${app.name} failed to start: ${err.message}`);
+    log(`${app.name} failed to start: ${err.message}`);
     onExit(app, 1, null);
   });
   child.on("exit", (code, signal) => onExit(app, code, signal));
