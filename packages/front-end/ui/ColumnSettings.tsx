@@ -132,7 +132,14 @@ export default function ColumnSettings({
         onDragEnd={handleDragEnd}
       >
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-          <Flex direction="column" gap="2">
+          {/* Only the list scrolls, so the reset link stays reachable. pr is
+              for the scrollbar, which would otherwise sit on the row borders. */}
+          <Flex
+            direction="column"
+            gap="2"
+            pr="1"
+            style={{ maxHeight: "min(50vh, 360px)", overflowY: "auto" }}
+          >
             {columns.map((c) => (
               <SortableColumnRow
                 key={c.id}

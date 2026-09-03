@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Box, IconButton } from "@radix-ui/themes";
-import { PiSlidersHorizontal } from "react-icons/pi";
+import { PiTextColumns } from "react-icons/pi";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 import ColumnSettings, { ManagedColumn } from "@/ui/ColumnSettings";
@@ -15,7 +15,7 @@ export default function ColumnSettingsButton({
   trigger,
 }: {
   columns: ManagedColumn[];
-  /** Announced on the default trigger, which has no room to show it. */
+  /** Named on the default trigger, which has no room to show it. */
   hiddenCount?: number;
   onChange: (columns: { id: string; visible: boolean }[]) => void;
   onReset?: () => void;
@@ -26,6 +26,8 @@ export default function ColumnSettingsButton({
   trigger?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+
+  const label = hiddenCount > 0 ? `Columns, ${hiddenCount} hidden` : "Columns";
 
   return (
     <Popover
@@ -41,11 +43,10 @@ export default function ColumnSettingsButton({
             // Matches the row-action kebab below it, so the two line up.
             size="2"
             highContrast
-            aria-label={
-              hiddenCount > 0 ? `Columns, ${hiddenCount} hidden` : "Columns"
-            }
+            aria-label={label}
+            title={label}
           >
-            <PiSlidersHorizontal size={18} />
+            <PiTextColumns size={18} />
           </IconButton>
         )
       }
