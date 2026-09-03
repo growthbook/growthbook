@@ -1,9 +1,9 @@
 import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
 import { RxDesktop } from "react-icons/rx";
-import { BsFlag } from "react-icons/bs";
+import { BsFlag, BsFlagFill } from "react-icons/bs";
 import { PiArrowSquareOutBold, PiShuffle } from "react-icons/pi";
 import { TbCloudOff } from "react-icons/tb";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { isFactMetricId, getAllVariations } from "shared/experiments";
 import { date } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -21,6 +21,7 @@ import { VariationBox } from "@/components/Experiment/VariationsTable";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import CollapsibleDiscussion from "@/components/CollapsibleDiscussion";
 import useApi from "@/hooks/useApi";
+import { useManagedExperimentFlagStates } from "@/hooks/useManagedExperimentFlagStates";
 
 const maxImageHeight = 200;
 const maxImageWidth = 300;
@@ -46,6 +47,24 @@ const CompletedExperimentList = ({
 
   const { getOwnerDisplay } = useUser();
   const { getMetricById, getFactMetricById } = useDefinitions();
+
+  // Same just-in-time fetch the running list does: ownership lives on the
+  // Feature Flag, not the experiment row.
+  const { fetchSome, getManagedFlag } = useManagedExperimentFlagStates();
+  const managedLookupKey = useMemo(
+    () =>
+      experiments
+        .slice(start, end)
+        .filter((e) => (e.linkedFeatures || []).length > 0)
+        .map((e) => e.id)
+        .join(","),
+    [experiments, start, end],
+  );
+  useEffect(() => {
+    if (!managedLookupKey) return;
+    fetchSome(managedLookupKey.split(","));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [managedLookupKey]);
 
   // Batch-fetch comment counts for the current page of experiments so each
   // card doesn't fire its own discussion fetch just to render a count.
@@ -155,9 +174,17 @@ const CompletedExperimentList = ({
                 <Tooltip
                   key={e.id + "-feature-flag"}
                   className="d-flex align-items-center ml-2"
-                  body="Linked Feature Flag"
+                  body={
+                    getManagedFlag(e.id)
+                      ? "Feature Flag managed by this experiment"
+                      : "Linked Feature Flag"
+                  }
                 >
-                  <BsFlag className="text-purple" />
+                  {getManagedFlag(e.id) ? (
+                    <BsFlagFill className="text-purple" />
+                  ) : (
+                    <BsFlag className="text-purple" />
+                  )}
                 </Tooltip>,
               );
             }

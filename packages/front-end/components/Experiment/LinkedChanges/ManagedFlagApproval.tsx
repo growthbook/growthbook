@@ -3,8 +3,11 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import { datetime } from "shared/dates";
 import {
   ANY_REVIEW_FOOTPRINT,
+  autoMerge,
   evaluatePublishGovernance,
+  fillRevisionFromFeature,
   getReviewSetting,
+  liveRevisionFromFeature,
 } from "shared/util";
 import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
 import {
@@ -141,6 +144,47 @@ export default function ManagedFlagApproval({
 
   // Starting the experiment is the publish, so a draft runs review only.
   const publishIsLaunch = experiment.status === "draft";
+  // A managed flag hides the Feature Flag's own Review & Publish tab, so this
+  // modal is the only place a diverged draft can be brought up to live. Same
+  // merge the feature page computes for the same call.
+  const liveRevision = data?.revisions?.find(
+    (r) => r.version === info.feature.version,
+  );
+  const baseRevision = data?.revisions?.find(
+    (r) => r.version === revision?.baseVersion,
+  );
+  const mergeResult = useMemo(() => {
+    if (!revision || !liveRevision) return null;
+    return autoMerge(
+      liveRevisionFromFeature(liveRevision, info.feature),
+      fillRevisionFromFeature(baseRevision ?? liveRevision, info.feature),
+      revision,
+      allEnvironments.map((e) => e.id),
+      {},
+    );
+  }, [revision, liveRevision, baseRevision, info.feature, allEnvironments]);
+
+  const [rebasing, setRebasing] = useState(false);
+  const updateFromLive = async () => {
+    if (!revision || !mergeResult?.success) return;
+    setRebasing(true);
+    setError(null);
+    try {
+      await apiCall(`/feature/${info.feature.id}/${revision.version}/rebase`, {
+        method: "POST",
+        body: JSON.stringify({
+          mergeResultSerialized: JSON.stringify(mergeResult),
+          strategies: {},
+        }),
+      });
+      await Promise.all([mutate(), mutateRevisions()]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update from live");
+    } finally {
+      setRebasing(false);
+    }
+  };
+
   // The same inputs the auto-publish path feeds the gate, so the notice and the
   // refusal agree on whether live has moved past this draft.
   const governance = revision
@@ -579,6 +623,9 @@ export default function ManagedFlagApproval({
         <DivergenceNotice
           subtle
           governance={governance}
+          onUpdateFromLive={updateFromLive}
+          updating={rebasing}
+          canRebase={permissionsUtil.canEditFeatureDrafts(info.feature)}
           liveVersion={info.feature.version}
           baseVersion={revision?.baseVersion ?? info.feature.version}
         />

@@ -27,6 +27,7 @@ import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
 import Callout from "@/ui/Callout";
 import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
+import { useExperiments } from "@/hooks/useExperiments";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
@@ -212,7 +213,12 @@ export default function FeaturesHeader({
   // Editing an existing flag takes draft authority, not the create gate:
   // `canViewFeatureModal` answers "may this user create a feature".
   // Managed flags refuse direct writes, so offer no edit/publish/archive/delete.
+  const { experimentsMap } = useExperiments();
   const isManagedFlag = isManagedFeature(feature);
+  const managedByExperimentId =
+    feature.managedBy?.type === "experiment"
+      ? feature.managedBy.experimentId
+      : null;
   const canEdit =
     !isManagedFlag && permissionsUtil.canEditFeatureDrafts(feature);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
@@ -491,6 +497,18 @@ export default function FeaturesHeader({
             {portalHost && createPortal(revisionAndSettingsGroup, portalHost)}
           </Flex>
           <Flex gap="4" align="center">
+            {managedByExperimentId && (
+              // Why the edit and publish controls are missing, stated where
+              // someone scanning the page will see it — the overview callout
+              // says the same thing, but only once you scroll to it.
+              <Box>
+                <Text weight="medium">Managed by: </Text>
+                <Link href={`/experiment/${managedByExperimentId}`}>
+                  {experimentsMap.get(managedByExperimentId)?.name ??
+                    managedByExperimentId}
+                </Link>
+              </Box>
+            )}
             {holdout?.id && (
               <Box>
                 <Text weight="medium">Holdout: </Text>
