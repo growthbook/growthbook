@@ -48,8 +48,8 @@ export default function ColumnSettingsStories() {
         </Box>
         <Box className="mt-2">
           <Text size="1" color="gray">
-            The Attribute row shows a lock rather than an eye — it can be
-            reordered but not hidden. Everything else toggles.
+            The Attribute row is checked and disabled — it can be reordered but
+            not hidden. Everything else toggles.
           </Text>
         </Box>
       </Box>
