@@ -4635,6 +4635,15 @@ export async function postExperimentLinkedFeatureEnvironments(
     eventAudit: res.locals.eventAudit,
   });
 
+  if (isManagedByExperiment(feature, experiment.id)) {
+    await requestReviewForManagedDraft({
+      context,
+      feature,
+      version,
+      eventAudit: res.locals.eventAudit,
+    });
+  }
+
   res.status(200).json({ status: 200, version });
 }
 

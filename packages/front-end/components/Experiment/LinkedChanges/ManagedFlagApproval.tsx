@@ -169,7 +169,7 @@ export default function ManagedFlagApproval({
     setRebasing(true);
     setError(null);
     try {
-      await apiCall(`/feature/${info.feature.id}/${revision.version}/rebase`, {
+      await apiCall(`/experiment/${experiment.id}/managed-flag/rebase`, {
         method: "POST",
         body: JSON.stringify({
           mergeResultSerialized: JSON.stringify(mergeResult),

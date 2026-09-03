@@ -41,7 +41,7 @@ const experiment = (over: Partial<ExperimentInterface> = {}) =>
   ({
     id: "exp_1",
     trackingKey: "checkout-test",
-    status: "draft",
+    status: "running",
     archived: false,
     linkedFeatures: ["checkout-test"],
     ...over,
@@ -282,7 +282,7 @@ describe("getManagedFlagState", () => {
     );
   });
 
-  it("offers publish to a caller who can bypass the approval", async () => {
+  it("reports bypass authority separately from a plain publish", async () => {
     mockLinkedInfo.mockResolvedValue([
       {
         feature: managedFeature(),
@@ -296,7 +296,19 @@ describe("getManagedFlagState", () => {
 
     const state = await getManagedFlagState(context, experiment());
     expect(state.pending?.approvalRequired).toBe(true);
-    expect(state.pending?.canPublish).toBe(true);
+    expect(state.pending?.canPublish).toBe(false);
+    expect(state.pending?.canBypassApproval).toBe(true);
+  });
+
+  it("withholds publish while the experiment is a draft", async () => {
+    mockLinkedInfo.mockResolvedValue([
+      { feature: managedFeature(), pendingDraft: pendingDraft() },
+    ]);
+
+    expect(
+      (await getManagedFlagState(context, experiment({ status: "draft" })))
+        .pending?.canPublish,
+    ).toBe(false);
   });
 
   it("does not let a bypass override a merge conflict", async () => {

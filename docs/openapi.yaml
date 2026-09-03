@@ -56617,9 +56617,15 @@ components:
           type: boolean
         canPublish:
           description: >-
-            Whether publish would succeed right now. False while approval is
+            Whether a plain publish would succeed right now. False while the
+            experiment is a draft (starting it publishes), while approval is
             outstanding, or when the values need attention on the Feature Flag
             page.
+          type: boolean
+        canBypassApproval:
+          description: >-
+            Whether this caller may publish with bypassApproval while approval
+            is outstanding.
           type: boolean
         reviews:
           type: array
@@ -56631,6 +56637,7 @@ components:
         - status
         - approvalRequired
         - canPublish
+        - canBypassApproval
         - reviews
       additionalProperties: false
     ExperimentVariationValuesReview:

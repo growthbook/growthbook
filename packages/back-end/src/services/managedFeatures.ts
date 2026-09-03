@@ -637,8 +637,10 @@ export type ManagedFlagState = {
     valueType: FeatureValueType;
     status: string;
     approvalRequired: boolean;
-    /** Whether publishing is available right now, approvals included. */
+    /** Whether a plain publish would succeed right now. */
     canPublish: boolean;
+    /** Whether this caller may publish with `bypassApproval` while approval is outstanding. */
+    canBypassApproval: boolean;
     reviews: ManagedFlagReview[];
   } | null;
 };
@@ -696,18 +698,19 @@ export async function getManagedFlagState(
           valueType: pendingValueType,
           status: pendingDraft.status,
           approvalRequired: pendingDraft.pendingApproval,
-          // Answers for THIS caller, bypass authority included. Conflicts and
-          // rebases are out of scope here, so they read as not publishable.
+          // A draft experiment publishes its values by starting. Rebases are
+          // out of scope here, so a diverged draft reads as not publishable.
           canPublish:
+            experiment.status !== "draft" &&
             !pendingDraft.hasMergeConflict &&
             !pendingDraft.hasUnrelatedDraftChanges &&
             (!pendingDraft.pendingApproval ||
               (pendingDraft.approval?.satisfied ??
-                pendingDraft.status === "approved") ||
-              context.permissions.canBypassFlagApprovalChecks(
-                feature,
-                "feature",
-              )),
+                pendingDraft.status === "approved")),
+          canBypassApproval: context.permissions.canBypassFlagApprovalChecks(
+            feature,
+            "feature",
+          ),
           reviews,
         }
       : null,
@@ -845,6 +848,14 @@ export async function stageManagedFeatureFields({
   // already have staged it.
   const defaultChanged =
     defaultValue !== undefined && defaultValue !== revision.defaultValue;
+  // Holdout users get control too, and nothing else can edit a managed flag's
+  // holdout value.
+  const holdout =
+    defaultChanged &&
+    revision.holdout &&
+    revision.holdout.value !== defaultValue
+      ? { ...revision.holdout, value: defaultValue }
+      : undefined;
 
   if (!typeChanged && !defaultChanged) return revision;
 
@@ -859,6 +870,7 @@ export async function stageManagedFeatureFields({
         metadata: { ...revision.metadata, valueType },
       }),
       ...(defaultChanged && { defaultValue }),
+      ...(holdout && { holdout }),
     },
     {
       user: eventAudit,
@@ -993,6 +1005,11 @@ export async function publishManagedDraft({
   const feature = await getManagedFeatureForExperiment(context, experiment);
   if (!feature) {
     throw new NotFoundError("This experiment does not manage a Feature Flag.");
+  }
+  if (experiment.status === "draft") {
+    throw new BadRequestError(
+      "Pending variation values publish when the experiment starts.",
+    );
   }
   const revision = await getActiveDraft(context, feature);
   if (!revision) {

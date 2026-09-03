@@ -39,6 +39,18 @@ router.post(
   resolveManagedFlagParams,
   featuresController.postFeatureRecallReview,
 );
+// The Feature Flag page refuses every write on a managed flag, so a diverged or
+// unwanted draft can only be rebased or discarded from here.
+router.post(
+  "/rebase",
+  resolveManagedFlagParams,
+  featuresController.postFeatureRebase,
+);
+router.post(
+  "/discard",
+  resolveManagedFlagParams,
+  featuresController.postFeatureDiscard,
+);
 // Not postFeaturePublish: it wants a mergeResultSerialized this surface has no
 // diff view to compute, so this merges server-side instead.
 router.post("/publish", experimentsController.postExperimentManagedFlagPublish);

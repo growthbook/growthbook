@@ -721,7 +721,10 @@ function ManagedTrafficForm({
       submit={submit}
       cta={cta}
       ctaEnabled={
-        !adopting || (!keyBlocker && !keyUnresolved && !keyPlan?.regexError)
+        !adopting ||
+        (!keyBlocker &&
+          !keyUnresolved &&
+          (!keyPlan?.regexError || !!manualKey?.trim()))
       }
       size="lg"
     >
@@ -822,7 +825,19 @@ function ManagedTrafficForm({
                       )}
                       {keyPlan.regexError && (
                         <Callout status="error" mt="3">
-                          {keyPlan.regexError}
+                          <Box>{keyPlan.regexError}</Box>
+                          {manualKey === null && (
+                            <Link
+                              onClick={() => {
+                                setRenameTo(null);
+                                setManualKey("");
+                              }}
+                              size="sm"
+                              weight="bold"
+                            >
+                              Choose a Feature Flag key instead
+                            </Link>
+                          )}
                         </Callout>
                       )}
                       {keyPlan.derivedIdAvailable && keyPlan.sanitized && (

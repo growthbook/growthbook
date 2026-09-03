@@ -2553,7 +2553,12 @@ const apiPendingVariationValues = namedSchema(
       canPublish: z
         .boolean()
         .describe(
-          "Whether publish would succeed right now. False while approval is outstanding, or when the values need attention on the Feature Flag page.",
+          "Whether a plain publish would succeed right now. False while the experiment is a draft (starting it publishes), while approval is outstanding, or when the values need attention on the Feature Flag page.",
+        ),
+      canBypassApproval: z
+        .boolean()
+        .describe(
+          "Whether this caller may publish with bypassApproval while approval is outstanding.",
         ),
       reviews: z.array(apiVariationValueReview),
     })
