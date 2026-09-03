@@ -7,7 +7,11 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
-import { experimentHasLiveLinkedChanges, getHoldoutStage } from "shared/util";
+import {
+  experimentHasLiveLinkedChanges,
+  getHoldoutStage,
+  isManagedByExperiment,
+} from "shared/util";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
@@ -180,6 +184,10 @@ export default function ExperimentHeader({
 
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  // Deleting the experiment archives the flag that existed only for it.
+  const managedFlagToArchive = linkedFeatures.find((f) =>
+    isManagedByExperiment(f.feature, experiment.id),
+  )?.feature.id;
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showBanditModal, setShowBanditModal] = useState(false);
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
@@ -666,6 +674,12 @@ export default function ExperimentHeader({
               Are you sure you want to delete this{" "}
               {isHoldout ? "holdout" : "experiment"}?
             </Text>
+            {managedFlagToArchive && (
+              <Text as="p">
+                Its managed Feature Flag <strong>{managedFlagToArchive}</strong>{" "}
+                will be archived.
+              </Text>
+            )}
             {!safeToEdit ? (
               <Callout status="warning">
                 This will immediately stop all linked Feature Flags, Visual
