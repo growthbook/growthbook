@@ -1,5 +1,6 @@
 import {
   applyFormType,
+  availableShapes,
   cappingOk,
   columnsForShape,
   fitColumn,
@@ -65,6 +66,35 @@ describe("columnsForShape", () => {
       timestampColumn: "event_time",
     };
     expect(columnsForShape("sum", customTimestampTable)).toEqual(["revenue"]);
+  });
+});
+
+describe("availableShapes", () => {
+  it("always includes count/days/users regardless of HLL or columns", () => {
+    expect(availableShapes(["count", "days", "users"], null, false)).toEqual([
+      "count",
+      "days",
+      "users",
+    ]);
+  });
+
+  it("excludes distinct when hasCountDistinctHLL is false", () => {
+    expect(availableShapes(["sum", "distinct"], factTable, false)).toEqual([
+      "sum",
+    ]);
+    expect(availableShapes(["sum", "distinct"], factTable, true)).toEqual([
+      "sum",
+      "distinct",
+    ]);
+  });
+
+  it("excludes sum/max/distinct when the fact table has no matching column", () => {
+    const noNumericTable = {
+      columns: [{ column: "plan", datatype: "string" as const }],
+    };
+    expect(
+      availableShapes(["count", "sum", "max"], noNumericTable, false),
+    ).toEqual(["count"]);
   });
 });
 
@@ -258,6 +288,22 @@ describe("retention window reset rules", () => {
       value: "between",
     });
     expect(result).toEqual(between);
+  });
+
+  it("derives windowValue from a direct end edit", () => {
+    const result = onRetentionDelayOrModeChange(between, {
+      type: "end",
+      value: 20,
+    });
+    expect(result.windowValue).toBe(13); // 20 - delay (7)
+  });
+
+  it("floors windowValue at 1 when end would put it at or below delay", () => {
+    const result = onRetentionDelayOrModeChange(between, {
+      type: "end",
+      value: 5,
+    });
+    expect(result.windowValue).toBe(1);
   });
 });
 
@@ -589,12 +635,9 @@ describe("applyFormType", () => {
   });
 
   it("round-trips: applying a type and re-classifying it recovers the same form type", () => {
-    // "threshold" isn't in this list: applyFormType deliberately clears
-    // aggregateFilter* when switching to it (see the doc comment above),
-    // so re-classifying immediately after recovers "proportion" - the
-    // Threshold field is what sets the filter, tested separately below.
     const roundTrippableTypes = [
       "proportion",
+      "threshold",
       "retention",
       "rowCount",
       "colSum",
@@ -614,21 +657,38 @@ describe("applyFormType", () => {
     }
   });
 
-  it("round-trips threshold once the filter is set", () => {
-    const applied = applyFormType(current, "threshold", factTable);
-    if (!applied.numerator) throw new Error("expected a numerator");
-    const withFilter = {
-      ...applied,
+  it("preserves an existing threshold filter already on the numerator", () => {
+    const withFilter: MetricTypeSwitchState = {
+      metricType: "proportion",
       numerator: {
-        ...applied.numerator,
-        aggregateFilterColumn: "$$count",
-        aggregateFilter: ">= 3",
+        factTableId: "ft1",
+        column: "$$distinctUsers",
+        rowFilters: [],
+        aggregateFilterColumn: "revenue",
+        aggregateFilter: ">= 100",
       },
     };
-    expect(formTypeFromStored(withFilter, factTable)).toEqual({
-      representable: true,
-      type: "threshold",
+    const result = applyFormType(withFilter, "threshold", factTable);
+    expect(result.numerator).toMatchObject({
+      aggregateFilterColumn: "revenue",
+      aggregateFilter: ">= 100",
     });
+  });
+
+  it("clears the threshold filter when switching to plain proportion", () => {
+    const withFilter = applyFormType(current, "threshold", factTable);
+    if (!withFilter.numerator) throw new Error("expected a numerator");
+    const customized = {
+      ...withFilter,
+      numerator: {
+        ...withFilter.numerator,
+        aggregateFilterColumn: "revenue",
+        aggregateFilter: ">= 100",
+      },
+    };
+    const result = applyFormType(customized, "proportion", factTable);
+    expect(result.numerator?.aggregateFilterColumn).toBeUndefined();
+    expect(result.numerator?.aggregateFilter).toBeUndefined();
   });
 });
 
