@@ -296,10 +296,11 @@ export function validateJSONFeatureValue(
 }
 
 // Unwraps the `{ "value": X }` envelope `castFeatureValue` writes, so a round
-// trip through JSON returns what went in.
+// trip through JSON returns what went in. A bare string literal unwraps too.
 function unwrapCastEnvelope(value: string): string {
   try {
     const parsed = JSON.parse(value);
+    if (typeof parsed === "string") return parsed;
     if (
       parsed === null ||
       typeof parsed !== "object" ||

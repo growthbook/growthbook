@@ -11,6 +11,12 @@ const cast = (value: string, from: string, to: string, index = 0) =>
   });
 
 describe("castFeatureValue", () => {
+  it("unquotes a JSON string literal moving to string", () => {
+    expect(
+      castFeatureValue({ value: '"control"', from: "json", to: "string" }),
+    ).toBe("control");
+  });
+
   it("leaves a value alone when the type does not change", () => {
     expect(cast("anything", "string", "string")).toBe("anything");
     expect(cast("{bad json", "json", "json")).toBe("{bad json");

@@ -845,10 +845,10 @@ export async function stageManagedFeatureFields({
   defaultValue?: string;
   eventAudit: EventUser;
 }): Promise<FeatureRevisionInterface> {
-  const typeChanged =
-    valueType !== undefined && valueType !== feature.valueType;
   // Against the draft, not the feature: an earlier edit on this same draft may
-  // already have staged it.
+  // already have staged either field — including a re-type being undone.
+  const draftType = revision.metadata?.valueType ?? feature.valueType;
+  const typeChanged = valueType !== undefined && valueType !== draftType;
   const defaultChanged =
     defaultValue !== undefined && defaultValue !== revision.defaultValue;
   // Holdout users get control too, and nothing else can edit a managed flag's
@@ -879,7 +879,7 @@ export async function stageManagedFeatureFields({
       user: eventAudit,
       action: typeChanged ? "change value type" : "change default value",
       subject: typeChanged
-        ? `from ${feature.valueType} to ${valueType}`
+        ? `from ${draftType} to ${valueType}`
         : "to match the control variation",
       value: JSON.stringify({
         ...(typeChanged && { valueType }),

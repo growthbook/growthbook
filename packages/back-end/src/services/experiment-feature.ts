@@ -553,9 +553,11 @@ export async function validateExperimentFeatureUpdates({
     });
 
     // A type change counts even when every value reads the same under both
-    // ("0"/"1" as strings and numbers), so it must not be skipped.
+    // ("0"/"1" as strings and numbers), so it must not be skipped. Judged
+    // against the draft's staged type so undoing a re-type is a change too.
     const typeChanging =
-      !!entry.valueType && entry.valueType !== feature.valueType;
+      !!entry.valueType &&
+      entry.valueType !== (revision.metadata?.valueType ?? feature.valueType);
     if (!featureNeedsUpdate && !typeChanging) continue;
 
     if (autoPublish) {

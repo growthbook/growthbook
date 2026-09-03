@@ -557,6 +557,9 @@ export default function EditFeatureFlagValuesModal({
         // flag both move together in one draft.
         const savingType = values.valueType;
         const savingTypeChanged = savingType !== feature.valueType;
+        // Or undoing a re-type the draft already holds.
+        const savingTypeMoves =
+          savingTypeChanged || savingType !== draftValueType;
         const updatedRefVariations: ExperimentRefVariation[] = rows.map(
           (r) => ({
             variationId: r.id,
@@ -618,7 +621,7 @@ export default function EditFeatureFlagValuesModal({
                 [feature.id]: {
                   variations: updatedRefVariations,
                   ...(sparseEligible && { sparse }),
-                  ...(savingTypeChanged && { valueType: savingType }),
+                  ...(savingTypeMoves && { valueType: savingType }),
                   revisionOptions,
                 },
               },

@@ -338,6 +338,9 @@ function ManagedTrafficForm({
     targetFeature.draftRevisionVersion != null;
 
   const typeChanged = !!feature && valueType !== feature.valueType;
+  // Also when undoing a re-type the draft already holds: live and the draft
+  // can disagree, and the server must hear about either move.
+  const typeMoves = !!feature && (typeChanged || valueType !== seedValueType);
   // Judged on what the draft leaves behind: a re-typed draft stages the JSON
   // default that the live feature does not have yet.
   const draftDefaultValue =
@@ -667,7 +670,7 @@ function ManagedTrafficForm({
             [feature.id]: {
               variations: flagValues,
               ...(sparseEligible && { sparse }),
-              ...(typeChanged && { valueType }),
+              ...(typeMoves && { valueType }),
               revisionOptions:
                 mode === "existing" && selectedDraft != null
                   ? { targetVersion: selectedDraft }
