@@ -279,6 +279,9 @@ export default function ManagedFlagApproval({
       await runAction(path, body, method);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
+      // The error renders in the body, which is no help if this ran from the
+      // trigger's menu with the modal closed.
+      setOpen(true);
     } finally {
       setSubmitting(false);
     }
@@ -527,36 +530,9 @@ export default function ManagedFlagApproval({
     <Flex direction="column" gap="3" width="50%" minWidth="0">
       {contributorRows.length > 0 && (
         <Box>
-          <Flex align="center" justify="between" gap="2" mb="2">
-            <Text size="lg" weight="medium" color="text-high" as="div">
-              Contributors
-            </Text>
-            {state.canRecallReview && (
-              <DropdownMenu
-                trigger={
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="2"
-                    highContrast
-                    aria-label="Review actions"
-                  >
-                    <BsThreeDotsVertical size={16} />
-                  </IconButton>
-                }
-                menuPlacement="end"
-                variant="soft"
-              >
-                <DropdownMenuItem
-                  disabled={submitting}
-                  onClick={() => post("recall-review")}
-                >
-                  Return to draft
-                </DropdownMenuItem>
-              </DropdownMenu>
-            )}
-          </Flex>
+          <Text size="lg" weight="medium" color="text-high" as="div" mb="2">
+            Contributors
+          </Text>
           <Flex direction="column" gap="2">
             {contributorRows}
           </Flex>
@@ -793,22 +769,51 @@ export default function ManagedFlagApproval({
 
   return (
     <>
-      <Button
-        variant="ghost"
-        color={triggerColor}
-        onClick={() => setOpen(true)}
-      >
-        {/* A caller-supplied label wins for everyone, so one callout can't show
-            two different CTAs. Otherwise name what the modal offers this
-            viewer; with no action it is still worth opening to see the changes
-            and who has reviewed. */}
-        {ctaLabel ??
-          (canReview
-            ? "Review"
-            : showSubmit
-              ? state.ctaLabel
-              : "Review changes")}
-      </Button>
+      <Flex align="center" gap="1">
+        <Button
+          variant="ghost"
+          color={triggerColor}
+          onClick={() => setOpen(true)}
+        >
+          {/* A caller-supplied label wins for everyone, so one callout can't
+              show two different CTAs. Otherwise name what the modal offers this
+              viewer; with no action it is still worth opening to see the
+              changes and who has reviewed. */}
+          {ctaLabel ??
+            (canReview
+              ? "Review"
+              : showSubmit
+                ? state.ctaLabel
+                : "Review changes")}
+        </Button>
+        {/* Beside the CTA rather than inside the modal: recalling the request
+            is an alternative to reviewing it, not part of reviewing it. */}
+        {state.canRecallReview && (
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="2"
+                highContrast
+                aria-label="Review actions"
+              >
+                <BsThreeDotsVertical size={16} />
+              </IconButton>
+            }
+            menuPlacement="end"
+            variant="soft"
+          >
+            <DropdownMenuItem
+              disabled={submitting}
+              onClick={() => post("recall-review")}
+            >
+              Return to draft
+            </DropdownMenuItem>
+          </DropdownMenu>
+        )}
+      </Flex>
       <ModalStandard
         open={open}
         trackingEventModalType="managed-flag-approval"
