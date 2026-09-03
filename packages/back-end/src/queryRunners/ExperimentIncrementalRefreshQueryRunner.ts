@@ -69,6 +69,7 @@ import {
   partitionMetricsByConversionWindow,
 } from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { resolveCovariateInsertPath } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
+import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark";
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
@@ -228,6 +229,22 @@ export function getIncrementalRefreshMetricSources({
   });
 
   return finalGroups;
+}
+
+// MAX() is NULL on an empty table; both fields are null then.
+function parseMaxTimestampRow(row: Record<string, unknown> | undefined): {
+  maxTimestamp: Date | null;
+  maxTimestampRaw: string | null;
+} {
+  const parsed = row?.max_timestamp
+    ? new Date(row.max_timestamp as string)
+    : null;
+  const maxTimestamp =
+    parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
+  return {
+    maxTimestamp,
+    maxTimestampRaw: rawWatermark(maxTimestamp, row?.max_timestamp_raw),
+  };
 }
 
 const startExperimentIncrementalRefreshQueries = async (
@@ -431,6 +448,7 @@ const startExperimentIncrementalRefreshQueries = async (
     incrementalRefreshStartTime: params.incrementalRefreshStartTime,
     factTableMap: params.factTableMap,
     lastMaxTimestamp: lastMaxTimestamp || null,
+    lastMaxTimestampRaw: incrementalRefreshModel?.unitsMaxTimestampRaw ?? null,
   };
 
   let createUnitsTableQuery: QueryPointer | null = null;
@@ -535,11 +553,7 @@ const startExperimentIncrementalRefreshQueries = async (
     onSuccess: async (rows) => {
       // MAX() is NULL on an empty units table; persist null so a prior
       // watermark cannot survive a full refresh that matched no one.
-      const parsed = rows[0]?.max_timestamp
-        ? new Date(rows[0].max_timestamp as string)
-        : null;
-      const maxTimestamp =
-        parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
+      const watermark = parseMaxTimestampRow(rows[0]);
 
       const lockHeld =
         await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
@@ -547,7 +561,8 @@ const startExperimentIncrementalRefreshQueries = async (
           executionId,
           {
             unitsTableFullName: unitsTableFullName,
-            unitsMaxTimestamp: maxTimestamp,
+            unitsMaxTimestamp: watermark.maxTimestamp,
+            unitsMaxTimestampRaw: watermark.maxTimestampRaw,
             experimentSettingsHash:
               getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
             unitsDimensions: eligibleDimensions.map((d) => d.id),
@@ -699,6 +714,8 @@ const startExperimentIncrementalRefreshQueries = async (
       unitsSourceTableFullName: unitsTableFullName,
       metrics: group.metrics,
       lastMaxTimestamp: existingSource?.maxTimestamp || null,
+      lastMaxTimestampRaw: existingSource?.maxTimestampRaw ?? null,
+      incrementalRefreshStartTime: params.incrementalRefreshStartTime,
     };
 
     const insertMetricsSourceDataQuery = await startQuery({
@@ -841,15 +858,19 @@ const startExperimentIncrementalRefreshQueries = async (
             );
           const lastSuccessfulMaxTimestamp =
             incrementalRefresh?.unitsMaxTimestamp ?? null;
+          const lastSuccessfulMaxTimestampRaw =
+            incrementalRefresh?.unitsMaxTimestampRaw ?? null;
           const updatedCovariateSource: IncrementalRefreshMetricCovariateSourceInterface =
             existingCovariateSource
               ? {
                   ...existingCovariateSource,
                   lastSuccessfulMaxTimestamp,
+                  lastSuccessfulMaxTimestampRaw,
                 }
               : {
                   groupId: group.groupId,
                   lastSuccessfulMaxTimestamp,
+                  lastSuccessfulMaxTimestampRaw,
                   tableFullName: metricSourceCovariateTableFullName,
                 };
           if (!existingCovariateSource) {
@@ -889,6 +910,8 @@ const startExperimentIncrementalRefreshQueries = async (
         metrics: regressionAdjustedMetrics,
         lastCovariateSuccessfulMaxTimestamp:
           existingCovariateSource?.lastSuccessfulMaxTimestamp || null,
+        lastCovariateSuccessfulMaxTimestampRaw:
+          existingCovariateSource?.lastSuccessfulMaxTimestampRaw ?? null,
       };
 
       if (covariatePath.path === "aggregated") {
@@ -951,53 +974,54 @@ const startExperimentIncrementalRefreshQueries = async (
           );
       },
       onSuccess: async (rows) => {
-        const maxTimestamp = new Date(rows[0].max_timestamp as string);
-        if (maxTimestamp) {
-          // TODO(incremental-refresh): Clean up metadata handling in query runner
-          const updatedSource: IncrementalRefreshMetricSourceInterface =
-            existingSource
-              ? { ...existingSource, maxTimestamp }
-              : {
-                  groupId: group.groupId,
-                  factTableId: group.factTableId,
-                  maxTimestamp,
-                  // (factTableId, metricId) is the persisted key. Which side
-                  // of the metric this cache materializes is derived at read
-                  // time by comparing the metric's column refs to
-                  // `factTableId` (see metric-source-table-schema.ts).
-                  metrics: group.metrics.map((m) => ({
-                    id: m.id,
-                    settingsHash: getMetricSettingsHashForIncrementalRefresh({
-                      factMetric: m,
-                      factTableMap: params.factTableMap,
-                      metricSettings: insertParams.settings.metricSettings.find(
-                        (ms) => ms.id === m.id,
-                      ),
-                    }),
-                  })),
-                  tableFullName: metricSourceTableFullName,
-                };
-          if (!existingSource) {
-            runningSourceData = runningSourceData.concat(updatedSource);
-          } else {
-            runningSourceData = runningSourceData.map((s) =>
-              s.groupId === group.groupId ? updatedSource : s,
-            );
-          }
-          const lockHeld =
-            await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+        // MAX() is NULL on an empty cache; persist null rather than skip
+        // the source so the table isn't rebuilt on the next refresh.
+        const { maxTimestamp, maxTimestampRaw } = parseMaxTimestampRow(rows[0]);
+        // TODO(incremental-refresh): Clean up metadata handling in query runner
+        const updatedSource: IncrementalRefreshMetricSourceInterface =
+          existingSource
+            ? { ...existingSource, maxTimestamp, maxTimestampRaw }
+            : {
+                groupId: group.groupId,
+                factTableId: group.factTableId,
+                maxTimestamp,
+                maxTimestampRaw,
+                // (factTableId, metricId) is the persisted key. Which side
+                // of the metric this cache materializes is derived at read
+                // time by comparing the metric's column refs to
+                // `factTableId` (see metric-source-table-schema.ts).
+                metrics: group.metrics.map((m) => ({
+                  id: m.id,
+                  settingsHash: getMetricSettingsHashForIncrementalRefresh({
+                    factMetric: m,
+                    factTableMap: params.factTableMap,
+                    metricSettings: insertParams.settings.metricSettings.find(
+                      (ms) => ms.id === m.id,
+                    ),
+                  }),
+                })),
+                tableFullName: metricSourceTableFullName,
+              };
+        if (!existingSource) {
+          runningSourceData = runningSourceData.concat(updatedSource);
+        } else {
+          runningSourceData = runningSourceData.map((s) =>
+            s.groupId === group.groupId ? updatedSource : s,
+          );
+        }
+        const lockHeld =
+          await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+            experimentId,
+            executionId,
+            {
+              metricSources: runningSourceData,
+            },
+          );
+        if (lockHeld !== true) {
+          context.logger.warn(
+            "Incremental refresh execution lock lost for experiment: " +
               experimentId,
-              executionId,
-              {
-                metricSources: runningSourceData,
-              },
-            );
-          if (lockHeld !== true) {
-            context.logger.warn(
-              "Incremental refresh execution lock lost for experiment: " +
-                experimentId,
-            );
-          }
+          );
         }
       },
       queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",

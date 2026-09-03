@@ -16145,6 +16145,46 @@ paths:
                                   minimum: 0
                                 totalSse:
                                   type: number
+                                split:
+                                  type: object
+                                  properties:
+                                    leafClauses:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          attribute:
+                                            type: string
+                                          levels:
+                                            type: array
+                                            items:
+                                              type: string
+                                          operator:
+                                            type: string
+                                            enum:
+                                              - in
+                                              - not in
+                                        required:
+                                          - attribute
+                                          - levels
+                                          - operator
+                                        additionalProperties: false
+                                    attribute:
+                                      type: string
+                                    leftLevels:
+                                      type: array
+                                      items:
+                                        type: string
+                                    rightLevels:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - leafClauses
+                                    - attribute
+                                    - leftLevels
+                                    - rightLevels
+                                  additionalProperties: false
                               required:
                                 - numSplits
                                 - totalSse
@@ -16165,6 +16205,10 @@ paths:
                                       anyOf:
                                         - type: number
                                         - type: 'null'
+                                    mean:
+                                      anyOf:
+                                        - type: number
+                                        - type: 'null'
                                     users:
                                       anyOf:
                                         - type: number
@@ -16172,6 +16216,7 @@ paths:
                                   required:
                                     - variationId
                                     - weight
+                                    - mean
                                     - users
                                   additionalProperties: false
                             required:

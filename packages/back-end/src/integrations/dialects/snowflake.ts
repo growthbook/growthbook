@@ -23,6 +23,10 @@ export const snowflakeDialect: SqlDialect = {
   formatDate: (col: string) => `TO_VARCHAR(${col}, 'YYYY-MM-DD')`,
   formatDateTimeString: (col: string) =>
     `TO_VARCHAR(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`,
+  // TIMESTAMP holds nanoseconds; the session's default output format only
+  // prints milliseconds, so the precision has to be spelled out.
+  formatTimestampExact: (col: string) =>
+    `TO_VARCHAR(${col}, 'YYYY-MM-DD HH24:MI:SS.FF9')`,
   castToString: (col: string) => `TO_VARCHAR(${col})`,
   castToFloat: (col: string) => `CAST(${col} AS DOUBLE)`,
   hasCountDistinctHLL: () => true,
