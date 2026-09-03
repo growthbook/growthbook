@@ -486,8 +486,9 @@ export class ApiKeyModel extends BaseClass {
   // writes in the model layer (same pattern as dangerousRecordUsageByKey).
 
   /**
-   * Keys the expiration sweep still owes a notification for: within the
-   * expiring-soon window or already past it, and not yet fully notified.
+   * Keys the expiration sweep has work for: inside the expiring-soon window or
+   * past it and not yet fully notified, plus keys carrying a notice whose expiry
+   * has since moved back out, so the notice can be cleared and announce again.
    * Cross-organization because the sweep runs once for the whole instance.
    */
   public static async dangerousFindPendingExpirationNotices(
@@ -497,8 +498,16 @@ export class ApiKeyModel extends BaseClass {
       .find({
         secret: true,
         oauthClientId: { $exists: false },
-        expiresAt: { $ne: null, $lte: horizon },
-        expirationNotice: { $ne: "expired" },
+        $or: [
+          {
+            expiresAt: { $ne: null, $lte: horizon },
+            expirationNotice: { $ne: "expired" },
+          },
+          {
+            expirationNotice: { $ne: null },
+            expiresAt: { $not: { $lte: horizon } },
+          },
+        ],
       })
       .toArray();
   }
