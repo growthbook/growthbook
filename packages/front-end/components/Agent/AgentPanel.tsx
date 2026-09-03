@@ -782,6 +782,7 @@ function ActiveTurnItemRow({
       return (
         <ExplorationBubble
           chartData={chartData}
+          compact
           toolTransparency={
             <ToolUsageDetails
               embedded
@@ -864,6 +865,7 @@ function PersistedTurn({
           key={`${msg.id}-chart-${i}`}
           chartData={chartData}
           animate={false}
+          compact
           toolTransparency={
             <ToolUsageDetails
               embedded
