@@ -1433,15 +1433,15 @@ main.main {
     border-top: none;
     border-radius: 0 0 5px 5px;
   }
+}
 
-  .activesort {
+.activesort {
+  opacity: 1;
+}
+.inactivesort {
+  opacity: 0.2;
+  &:hover {
     opacity: 1;
-  }
-  .inactivesort {
-    opacity: 0.2;
-    &:hover {
-      opacity: 1;
-    }
   }
 }
 .dark-theme .appbox:not(.nobg) .appbox,
