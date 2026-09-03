@@ -73,8 +73,6 @@ type Props = {
   mutate: () => void;
   /** Overrides the trigger label when the surrounding copy already sets it up. */
   ctaLabel?: string;
-  /** "inherit" lets the trigger take its surroundings' accent (e.g. a Callout). */
-  triggerColor?: "inherit";
 };
 
 // CTA + reviewers only: a managed flag has one rule and one draft, so the
@@ -84,7 +82,6 @@ export default function ManagedFlagApproval({
   info,
   mutate,
   ctaLabel,
-  triggerColor,
 }: Props) {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
@@ -769,12 +766,8 @@ export default function ManagedFlagApproval({
 
   return (
     <>
-      <Flex align="center" gap="1">
-        <Button
-          variant="ghost"
-          color={triggerColor}
-          onClick={() => setOpen(true)}
-        >
+      <Flex align="center" gap="3">
+        <Button size="sm" onClick={() => setOpen(true)}>
           {/* A caller-supplied label wins for everyone, so one callout can't
               show two different CTAs. Otherwise name what the modal offers this
               viewer; with no action it is still worth opening to see the

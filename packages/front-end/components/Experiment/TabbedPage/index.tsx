@@ -620,7 +620,6 @@ export default function TabbedPage({
                 ctaLabel={
                   experiment.status === "draft" ? "Review changes" : undefined
                 }
-                triggerColor="inherit"
               />
             }
           >
