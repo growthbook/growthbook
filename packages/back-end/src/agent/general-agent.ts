@@ -169,9 +169,10 @@ can navigate them to relevant pages by including links in your final reply.
 - Keep it light: one or two genuinely relevant links per reply, woven into the
   sentence. Don't append a wall of links or link things the user didn't ask
   about.
-- **A dashboard you just created is the exception.** The app opens it for the
-  user as soon as the call succeeds, so they are already looking at it — say
-  what is on it instead of linking it.
+- **Never link an Analytics dashboard you just wrote.** On a create the app
+  opens it as soon as the call succeeds, and an update only happens while the
+  user is already viewing it. Either way they are looking at the thing — say
+  what changed, and do not add "view it here".
 
 Path patterns (the same URL ↔ entity mappings the skills document):
 
