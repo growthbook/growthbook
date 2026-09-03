@@ -1,8 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/router";
+import { useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { SDKLanguage } from "shared/types/sdk-connection";
-import { ApiSetupRun } from "shared/validators";
 import {
   PiCaretLeftBold,
   PiCaretRightBold,
@@ -18,13 +16,11 @@ import PageHead from "@/components/Layout/PageHead";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
-import Link from "@/ui/Link";
 import LinkButton from "@/ui/LinkButton";
 import { Select, SelectItem } from "@/ui/Select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
-import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 
 const PACKAGE = "growthbook-install";
@@ -38,48 +34,6 @@ const AGENTS = [
   { id: "gemini", label: "Gemini CLI" },
 ] as const;
 type AgentId = (typeof AGENTS)[number]["id"];
-
-/**
- * Runs that already existed when this page loaded. Anything that appears afterwards
- * is this setup.
- *
- * Matching on `createdBy` alone is not enough: an org that has been set up before
- * has runs by this user already, so the check would report success against whichever
- * one came back first and send them to a report from last week.
- *
- * Snapshotted as a set of ids rather than a timestamp — comparing browser time to a
- * server-generated `dateCreated` invites clock skew, while ids need no comparison at
- * all. Kept in sessionStorage so reloading mid-setup does not re-baseline the very
- * run we are waiting for and then never find it.
- */
-const BASELINE_KEY = "connect:runs-before";
-
-function readBaseline(): string[] | null {
-  try {
-    const raw = sessionStorage.getItem(BASELINE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    // Private mode, or storage disabled. Falling back to no baseline is the safe
-    // direction: nothing is treated as new, so we never claim a false success.
-    return null;
-  }
-}
-
-function writeBaseline(ids: string[]) {
-  try {
-    sessionStorage.setItem(BASELINE_KEY, JSON.stringify(ids));
-  } catch {
-    /* nothing to do — see readBaseline */
-  }
-}
-
-function clearBaseline() {
-  try {
-    sessionStorage.removeItem(BASELINE_KEY);
-  } catch {
-    /* nothing to do */
-  }
-}
 
 // The wizard installs a package and then proves it landed. For a script tag or a
 // hand-copied BrightScript file there is nothing to install and nothing to verify,
@@ -95,13 +49,11 @@ const NO_WIZARD: ReadonlySet<string> = new Set([
 ]);
 
 export default function ConnectPage() {
-  const router = useRouter();
-  const { userId, organization } = useUser();
+  const { organization } = useUser();
   const [step, setStep] = useState<1 | 2>(1);
   const [language, setLanguage] = useState<SDKLanguage>("react");
   const [languageFilter, setLanguageFilter] =
     useState<LanguageFilter>("popular");
-  const [checked, setChecked] = useState(false);
   // InstallationCodeSnippet owns the GTM/GrowthBook tracker choice for its script-tag
   // paths; the props are required even where that choice does not apply.
   const [eventTracker, setEventTracker] = useState("");
@@ -111,54 +63,6 @@ export default function ConnectPage() {
   const wizardable = !NO_WIZARD.has(language);
   const command = `npx ${PACKAGE} --language ${language} --${agent}${organization.id ? ` --org ${organization.id}` : ""}`;
   const agentLabel = AGENTS.find((a) => a.id === agent)?.label ?? "your agent";
-
-  // The wizard opens a setup run as soon as it has something to report, so a run by
-  // this user is the signal the command actually ran.
-  const { data: runsData, mutate } = useApi<{ setupRuns: ApiSetupRun[] }>(
-    "/setup-runs",
-    { shouldRun: () => step === 2 },
-  );
-
-  const [baseline, setBaseline] = useState<string[] | null>(() =>
-    typeof window === "undefined" ? null : readBaseline(),
-  );
-
-  // Set from the first fetch that actually returned, never on mount: baselining an
-  // empty list before the data arrives would make every pre-existing run look new.
-  useEffect(() => {
-    if (baseline !== null || !runsData) return;
-    const ids = runsData.setupRuns.map((r) => r.id);
-    writeBaseline(ids);
-    setBaseline(ids);
-  }, [baseline, runsData]);
-
-  const findNewRun = useCallback(
-    (runs: ApiSetupRun[] | undefined) => {
-      if (!runs || baseline === null) return null;
-      return (
-        runs.find((r) => r.createdBy === userId && !baseline.includes(r.id)) ||
-        null
-      );
-    },
-    [baseline, userId],
-  );
-
-  const newRun = useMemo(
-    () => findNewRun(runsData?.setupRuns),
-    [findNewRun, runsData],
-  );
-
-  const checkConnection = useCallback(async () => {
-    setChecked(true);
-    const fresh = await mutate();
-    const run = findNewRun(fresh?.setupRuns);
-    if (run) {
-      // Done with this visit's baseline. Leaving it behind would make the same run
-      // look new again if they came back to this page in the same tab.
-      clearBaseline();
-      router.push(`/setup-runs/${run.id}`);
-    }
-  }, [mutate, router, findNewRun]);
 
   return (
     <div className="container pagecontents" style={{ maxWidth: 885 }}>
@@ -253,9 +157,6 @@ export default function ConnectPage() {
                   {agent === "gemini"
                     ? "prints the prompt for Gemini CLI."
                     : `opens ${agentLabel} with the rest.`}
-                  <br />
-                  Once you&apos;re done, click &quot;Check SDK Connection&quot;
-                  below.
                 </Text>
                 <Code
                   language="bash"
@@ -264,23 +165,6 @@ export default function ConnectPage() {
                   filename="Terminal"
                 />
               </Box>
-
-              {newRun ? (
-                <Box mt="4">
-                  <Callout status="success">
-                    Your app connected.{" "}
-                    <Link href={`/setup-runs/${newRun.id}`}>
-                      See what the setup built →
-                    </Link>
-                  </Callout>
-                </Box>
-              ) : checked ? (
-                <Box mt="4">
-                  <Callout status="warning">
-                    No connection yet. Run the command above, then check again.
-                  </Callout>
-                </Box>
-              ) : null}
             </TabsContent>
           )}
 
@@ -340,14 +224,10 @@ export default function ConnectPage() {
             <LinkButton href="/getstarted" variant="ghost">
               Skip
             </LinkButton>
-            {step === 1 ? (
+            {step === 1 && (
               <Button onClick={() => setStep(2)}>
                 Next <PiCaretRightBold />
               </Button>
-            ) : (
-              wizardable && (
-                <Button onClick={checkConnection}>Check SDK Connection</Button>
-              )
             )}
           </Flex>
         </Box>
