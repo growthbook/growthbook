@@ -1,14 +1,12 @@
 import { isEqual } from "lodash";
-import {
-  DEFAULT_STATS_ENGINE,
-  PRECOMPUTED_DIMENSION_PREFIX,
-} from "shared/constants";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { isDefined } from "shared/util";
 import {
   ExperimentMetricInterface,
   getFunnelStepMetric,
   isDimensionPrecomputed,
   isFactFunnelMetric,
+  parseDimensionId,
   parseFunnelStepMetricId,
   parseSliceMetricId,
 } from "shared/experiments";
@@ -39,7 +37,7 @@ export function buildExperimentBulkResultId(
 function parseApiResultDimension(
   dimensionId: string,
   precomputedUnitDimensionIds: string[],
-): { type: string; id?: string; precomputed: boolean } {
+): ApiExperimentBulkResult["dimension"] {
   if (!dimensionId) {
     return { type: "none", precomputed: false };
   }
@@ -49,26 +47,38 @@ function parseApiResultDimension(
     precomputedUnitDimensionIds,
   );
 
-  // Precomputed experiment dimensions carry the `precomputed:` prefix.
-  if (dimensionId.startsWith(PRECOMPUTED_DIMENSION_PREFIX)) {
-    return {
-      type: "experiment",
-      id: dimensionId.substring(PRECOMPUTED_DIMENSION_PREFIX.length),
-      precomputed: true,
-    };
+  const parsed = parseDimensionId(dimensionId);
+  switch (parsed.kind) {
+    case "experiment":
+      return { type: "experiment", id: parsed.column, precomputed };
+    case "date":
+      return { type: "date", precomputed };
+    case "activation":
+      return { type: "activation", precomputed };
+    case "datecutoff":
+      return {
+        type: "datecutoff",
+        id: parsed.cutoff.toISOString(),
+        precomputed,
+      };
+    case "combo":
+      return {
+        type: "combo",
+        precomputed,
+        dimensions: parsed.constituentIds.map((c) => {
+          const constituent = parseDimensionId(c);
+          return constituent.kind === "experiment"
+            ? { type: "experiment", id: constituent.column }
+            : { type: "user", id: c };
+        }),
+      };
+    case "invalid":
+      // Preserve legacy output for unrecognized "pre:*" ids stored on old snapshots
+      return { type: dimensionId.replace(/^pre:/, ""), precomputed };
+    case "user":
+      // Possibly a precomputed unit dimension.
+      return { type: "user", id: parsed.id, precomputed };
   }
-  if (dimensionId.startsWith("exp:")) {
-    return {
-      type: "experiment",
-      id: dimensionId.substring(4),
-      precomputed,
-    };
-  }
-  if (dimensionId.startsWith("pre:")) {
-    return { type: dimensionId.substring(4), precomputed };
-  }
-  // Otherwise a unit/user dimension id (possibly a precomputed unit dimension).
-  return { type: "user", id: dimensionId, precomputed };
 }
 
 // Builds a metric display-name resolver that formats slice metrics as
