@@ -20,6 +20,7 @@ import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import LinkButton from "@/ui/LinkButton";
+import { Select, SelectItem } from "@/ui/Select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
@@ -27,6 +28,16 @@ import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 
 const PACKAGE = "growthbook-install";
+
+// Ids match the launcher's --agent values; the flag on the command is `--${id}`.
+const AGENTS = [
+  { id: "claude", label: "Claude Code" },
+  { id: "cursor", label: "Cursor" },
+  { id: "codex", label: "Codex" },
+  { id: "opencode", label: "opencode" },
+  { id: "gemini", label: "Gemini CLI" },
+] as const;
+type AgentId = (typeof AGENTS)[number]["id"];
 
 /**
  * Runs that already existed when this page loaded. Anything that appears afterwards
@@ -94,10 +105,12 @@ export default function ConnectPage() {
   // InstallationCodeSnippet owns the GTM/GrowthBook tracker choice for its script-tag
   // paths; the props are required even where that choice does not apply.
   const [eventTracker, setEventTracker] = useState("");
+  const [agent, setAgent] = useState<AgentId>("claude");
 
   const apiHost = getApiBaseUrl();
   const wizardable = !NO_WIZARD.has(language);
-  const command = `npx ${PACKAGE} --language ${language}`;
+  const command = `npx ${PACKAGE} --language ${language} --${agent}`;
+  const agentLabel = AGENTS.find((a) => a.id === agent)?.label ?? "your agent";
 
   // The wizard opens a setup run as soon as it has something to report, so a run by
   // this user is the signal the command actually ran.
@@ -203,7 +216,7 @@ export default function ConnectPage() {
                 <Heading as="h4" size="medium" weight="semibold" mb="0">
                   AI-Assisted Setup
                 </Heading>
-                <Tooltip content="It signs you in, creates a new SDK connection, and can automatically detect attributes, fact tables, and metrics from your codebase.">
+                <Tooltip content="It signs you in, creates an SDK connection and installs the SDK, then hands over to your coding agent to wire it up, find targeting attributes in your code, and put something behind a first flag.">
                   <Box style={{ color: "var(--slate-9)", display: "flex" }}>
                     <PiInfo size={16} />
                   </Box>
@@ -217,9 +230,29 @@ export default function ConnectPage() {
                   borderRadius: "var(--radius-3)",
                 }}
               >
+                <Box mb="3" maxWidth="240px">
+                  <Select
+                    label="Coding agent"
+                    value={agent}
+                    setValue={(v) => {
+                      const next = AGENTS.find((a) => a.id === v);
+                      if (next) setAgent(next.id);
+                    }}
+                    size="small"
+                  >
+                    {AGENTS.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.label}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </Box>
                 <Text as="p" color="text-mid" mb="3">
-                  Run this command inside an AI coding agent like Claude Code or
-                  Cursor.
+                  Run this in a terminal in your project. It signs you in,
+                  installs the SDK, and{" "}
+                  {agent === "gemini"
+                    ? "prints the prompt for Gemini CLI."
+                    : `opens ${agentLabel} with the rest.`}
                   <br />
                   Once you&apos;re done, click &quot;Check SDK Connection&quot;
                   below.
