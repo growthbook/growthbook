@@ -449,7 +449,10 @@ export default function ManagedFlagApproval({
         variant="card"
         // Human-readable only: this modal is a review, not the export surface.
         formats={["formatted"]}
-        jsonFallback={false}
+        // A section with no human render falls back to its JSON diff. Linking
+        // out to a Changes tab, as the feature's Conversation tab does, would
+        // be a dead control here — nothing in this modal listens for it.
+        jsonFallback
         showCopyAs={false}
         showSummaryHeader={false}
       />

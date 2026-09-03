@@ -204,7 +204,13 @@ function ValueOnlyField({
   }
   return (
     <div className="mb-2">
-      {label && <div className="font-weight-bold mb-1">{label}</div>}
+      {label && (
+        <div className="mb-1">
+          <Text size="md" weight="medium" color="text-mid">
+            {label}
+          </Text>
+        </div>
+      )}
       {/* Syntax highlighting says more about a JSON body than a success colour
           would, so it wins here. */}
       <Box style={{ maxHeight: 250, overflowY: "auto" }}>
@@ -2129,8 +2135,10 @@ export function renderEnvironmentToggles(
     >
       {toggles.map(({ envId, from, to }) => (
         <Box key={envId} minWidth="0">
-          <Box className="text-ellipsis" title={envId} minWidth="0" mb="1">
-            <Text weight="medium">{envId}</Text>
+          <Box minWidth="0" mb="1">
+            <Text weight="medium" truncate title={envId}>
+              {envId}
+            </Text>
           </Box>
           <Flex align="center" gap="2">
             {!endStateOnly && (
