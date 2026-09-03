@@ -1333,6 +1333,13 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         traffic: trafficHealth,
       };
 
+      // Use the traffic query's multiple exposures count when available, as it
+      // correctly aggregates across dimension slices. The metric query's count
+      // can be incorrect when dimensions are configured.
+      if (trafficHealth.multipleExposures !== undefined) {
+        result.multipleExposures = trafficHealth.multipleExposures;
+      }
+
       // TODO(incremental-refresh): ensure power calculations work
       // const _relativeAnalysis = this.model.analyses.find(
       //   (a) => a.settings.differenceType === "relative",

@@ -2,8 +2,12 @@ import type {
   ExperimentSnapshotAnalysisSettings,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
+import type { ExperimentAggregateUnitsQueryResponseRows } from "shared/types/integrations";
 import type { ExperimentMetricAnalysis } from "shared/types/stats";
-import { parseStatsEngineResult } from "back-end/src/services/stats";
+import {
+  parseStatsEngineResult,
+  analyzeExperimentTraffic,
+} from "back-end/src/services/stats";
 
 const analysisSettings: ExperimentSnapshotAnalysisSettings = {
   dimensions: [""],
@@ -236,5 +240,133 @@ describe("parseStatsEngineResult", () => {
         variations: [],
       },
     ]);
+  });
+});
+
+describe("analyzeExperimentTraffic", () => {
+  it("computes multiple exposures from traffic query rows", () => {
+    const rows: ExperimentAggregateUnitsQueryResponseRows = [
+      {
+        variation: "control",
+        dimension_name: "dim_exposure_date",
+        dimension_value: "2026-08-29",
+        units: 25360,
+      },
+      {
+        variation: "treatment",
+        dimension_name: "dim_exposure_date",
+        dimension_value: "2026-08-29",
+        units: 25398,
+      },
+      {
+        variation: "__multiple__",
+        dimension_name: "dim_exposure_date",
+        dimension_value: "2026-08-29",
+        units: 198,
+      },
+      {
+        variation: "__multiple__",
+        dimension_name: "dim_exposure_date",
+        dimension_value: "2026-08-30",
+        units: 84,
+      },
+      {
+        variation: "__multiple__",
+        dimension_name: "dim_exposure_date",
+        dimension_value: "2026-08-31",
+        units: 40,
+      },
+      {
+        variation: "__multiple__",
+        dimension_name: "dim_exposure_date",
+        dimension_value: "2026-09-01",
+        units: 30,
+      },
+      {
+        variation: "__multiple__",
+        dimension_name: "dim_exposure_date",
+        dimension_value: "2026-08-28",
+        units: 1,
+      },
+    ];
+
+    const result = analyzeExperimentTraffic({
+      rows,
+      variations,
+    });
+
+    expect(result.multipleExposures).toBe(353);
+  });
+
+  it("uses max across dimensions when multiple dimensions have __multiple__ rows", () => {
+    const rows: ExperimentAggregateUnitsQueryResponseRows = [
+      {
+        variation: "control",
+        dimension_name: "dim_exposure_date",
+        dimension_value: "2026-08-29",
+        units: 100,
+      },
+      {
+        variation: "__multiple__",
+        dimension_name: "dim_app_platform",
+        dimension_value: "iOS",
+        units: 353,
+      },
+      {
+        variation: "__multiple__",
+        dimension_name: "dim_app_theme",
+        dimension_value: "Light",
+        units: 189,
+      },
+      {
+        variation: "__multiple__",
+        dimension_name: "dim_app_theme",
+        dimension_value: "Black",
+        units: 145,
+      },
+      {
+        variation: "__multiple__",
+        dimension_name: "dim_app_theme",
+        dimension_value: "Dark",
+        units: 13,
+      },
+      {
+        variation: "__multiple__",
+        dimension_name: "dim_app_theme",
+        dimension_value: "Sepia",
+        units: 6,
+      },
+    ];
+
+    const result = analyzeExperimentTraffic({
+      rows,
+      variations,
+    });
+
+    expect(result.multipleExposures).toBe(353);
+  });
+
+  it("returns undefined multipleExposures when no __multiple__ rows exist", () => {
+    const rows: ExperimentAggregateUnitsQueryResponseRows = [
+      {
+        variation: "control",
+        dimension_name: "dim_exposure_date",
+        dimension_value: "2026-08-29",
+        units: 100,
+      },
+      {
+        variation: "treatment",
+        dimension_name: "dim_exposure_date",
+        dimension_value: "2026-08-29",
+        units: 100,
+      },
+    ];
+
+    const result = analyzeExperimentTraffic({
+      rows,
+      variations,
+    });
+
+    expect(result.multipleExposures).toBeUndefined();
   });
 });

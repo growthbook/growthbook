@@ -132,6 +132,13 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
       result.health = {
         traffic: trafficHealth,
       };
+
+      // Use the traffic query's multiple exposures count when available, as it
+      // correctly aggregates across dimension slices. The metric query's count
+      // can be incorrect when dimensions are configured.
+      if (trafficHealth.multipleExposures !== undefined) {
+        result.multipleExposures = trafficHealth.multipleExposures;
+      }
     }
     // TODO: Add functionality to dynamically update coverage here
     return result;

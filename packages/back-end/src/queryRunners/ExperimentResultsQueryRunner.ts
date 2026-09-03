@@ -577,6 +577,13 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         traffic: trafficHealth,
       };
 
+      // Use the traffic query's multiple exposures count when available, as it
+      // correctly aggregates across dimension slices. The metric query's count
+      // can be incorrect when dimensions are configured.
+      if (trafficHealth.multipleExposures !== undefined) {
+        result.multipleExposures = trafficHealth.multipleExposures;
+      }
+
       const relativeAnalysis = this.model.analyses.find(
         (a) => a.settings.differenceType === "relative",
       );

@@ -855,15 +855,31 @@ export function analyzeExperimentTraffic({
     dimension: {},
   };
 
+  // Track multiple exposures per dimension. Each dimension should have the
+  // same total (since the same users appear in each dimension). We sum within
+  // each dimension and take the max across dimensions to handle cases where
+  // some dimensions might not have all slices reported.
+  const multipleExposuresPerDimension: Map<string, number> = new Map();
+
   let banditSrmSet = false;
   rows.forEach((r) => {
     if (r.dimension_name === BANDIT_SRM_DIMENSION_NAME) {
       trafficResults.overall.srm = chi2pvalue(r.units, variations.length - 1);
       banditSrmSet = true;
     }
+
+    // Track __multiple__ rows separately to compute total multiple exposures
+    if (r.variation === "__multiple__") {
+      const currentTotal =
+        multipleExposuresPerDimension.get(r.dimension_name) ?? 0;
+      multipleExposuresPerDimension.set(
+        r.dimension_name,
+        currentTotal + r.units,
+      );
+      return;
+    }
+
     const variationIndex = variationIdMap[r.variation];
-    // skip if variation is not found (this happens if variation is __multiple__)
-    if (variationIndex === undefined) return;
     const dimTraffic: Map<string, ExperimentSnapshotTrafficDimension> =
       dimTrafficResults.get(r.dimension_name) ?? new Map();
     const dimValueTraffic: ExperimentSnapshotTrafficDimension = dimTraffic.get(
@@ -906,5 +922,15 @@ export function analyzeExperimentTraffic({
       }
     }
   }
+
+  // Set multiple exposures as the max across dimensions. All dimensions should
+  // have the same total since the same users appear in each, but we take max
+  // to be safe in case some dimensions have incomplete data.
+  if (multipleExposuresPerDimension.size > 0) {
+    trafficResults.multipleExposures = Math.max(
+      ...multipleExposuresPerDimension.values(),
+    );
+  }
+
   return trafficResults;
 }
