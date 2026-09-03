@@ -296,7 +296,9 @@ export async function deleteDatasource(
     organization: context.org.id,
   });
 
-  await closeMssqlPool(datasource.id);
+  // Eviction is synchronous; socket teardown can take up to the driver's
+  // connect timeout, so don't make the request wait on it
+  void closeMssqlPool(datasource.id);
 
   await audit.logDelete(context, datasource);
   await touchDefinitionsVersion(
@@ -348,7 +350,7 @@ export async function deleteAllDataSourcesForAProject({
   });
 
   for (const doc of docs) {
-    await closeMssqlPool(doc.id);
+    void closeMssqlPool(doc.id);
   }
   // Only datasources whose sole project is projectId are deleted here, so only
   // that project's readers are affected.
