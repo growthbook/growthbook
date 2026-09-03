@@ -552,12 +552,15 @@ export function parseStatsEngineResult({
   let unknownVariationsCopy = [...unknownVariations];
 
   const experimentReportResults: ExperimentReportResults[] = [];
-  // TODO fix for dimension slices and move to health query
+  // Fallback when there is no traffic query; see getMultipleExposuresFromTraffic.
+  // Rows are one per (variation × dimension slice), so sum the slices within
+  // a query; the unit set is the same across queries, so max is a safe merge
   const multipleExposures = Math.max(
     0,
-    ...queryResults.map(
-      (q) =>
-        q.rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0,
+    ...queryResults.map((q) =>
+      q.rows
+        .filter((r) => r.variation === "__multiple__")
+        .reduce((sum, r) => sum + (Number(r.users) || 0), 0),
     ),
   );
 
@@ -853,6 +856,7 @@ export function analyzeExperimentTraffic({
   const trafficResults: ExperimentSnapshotTraffic = {
     overall: overallResult,
     dimension: {},
+    multipleExposures: 0,
   };
 
   let banditSrmSet = false;
@@ -860,6 +864,15 @@ export function analyzeExperimentTraffic({
     if (r.dimension_name === BANDIT_SRM_DIMENSION_NAME) {
       trafficResults.overall.srm = chi2pvalue(r.units, variations.length - 1);
       banditSrmSet = true;
+    }
+    // Every dimension repeats the __multiple__ units, so count them once
+    // via the exposure-date dimension (which also feeds the overall counts)
+    if (
+      r.variation === "__multiple__" &&
+      r.dimension_name === EXPOSURE_DATE_DIMENSION_NAME
+    ) {
+      trafficResults.multipleExposures =
+        (trafficResults.multipleExposures ?? 0) + (Number(r.units) || 0);
     }
     const variationIndex = variationIdMap[r.variation];
     // skip if variation is not found (this happens if variation is __multiple__)
