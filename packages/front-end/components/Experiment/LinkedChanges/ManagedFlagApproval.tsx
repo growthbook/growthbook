@@ -125,6 +125,7 @@ export default function ManagedFlagApproval({
   const revisionDiffs = useFeatureRevisionDiff({
     current: liveDiffInput,
     draft: draftDiffInput,
+    renderMode: "experiment",
   });
 
   const status = info.pendingDraft?.status ?? "draft";

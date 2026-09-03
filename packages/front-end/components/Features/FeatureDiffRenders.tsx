@@ -127,6 +127,54 @@ function ValueChangedField({
   );
 }
 
+// A field that has no "before" worth showing: the end state on its own. An
+// added rule diffed against nothing is a column of "unset -> value" rows and
+// empty panes, which reads as a change when it is really just the content.
+// Mirrors ValueChangedField's two branches so the only visible difference is
+// the missing red pane.
+function ValueOnlyField({
+  label,
+  value,
+}: {
+  label?: string;
+  value: string | null | undefined;
+}) {
+  const isSimple =
+    value == null || (!value.includes("\n") && value.length <= 80);
+  if (isSimple) {
+    const display: ReactNode =
+      value == null || value === "" ? <em>unset</em> : value;
+    if (label) {
+      return (
+        <div className="mb-2">
+          <div className="mb-1">
+            <Text size="md" weight="medium" color="text-mid">
+              {label}
+            </Text>
+          </div>
+          <div>{display}</div>
+        </div>
+      );
+    }
+    return <div className="mb-2">{display}</div>;
+  }
+  return (
+    <div className="mb-2">
+      {label && <div className="font-weight-bold mb-1">{label}</div>}
+      {/* The diff viewer's own wrapper, so the block reads the same as the
+          green pane it replaces. */}
+      <div
+        className="diff-wrapper diff-wrapper-compact"
+        style={{ maxHeight: 250, overflowY: "auto" }}
+      >
+        <pre className="m-0 p-2" style={{ background: "none", border: "none" }}>
+          {value}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 1,
@@ -485,14 +533,19 @@ function RuleFieldDiffs({
   pre,
   post,
   pendingRampAction,
+  renderMode = "feature",
 }: {
   pre: FeatureRule;
   post: FeatureRule;
   pendingRampAction?: RevisionRampCreateAction;
+  renderMode?: DiffRenderMode;
 }) {
   if (isEqual(pre, post) && !pendingRampAction) return null;
 
   const rows: ReactNode[] = [];
+  // The experiment surface names the flag and the experiment itself, and its
+  // rule always spans every environment — both rows would restate the page.
+  const compact = renderMode === "experiment";
   // id/type/scheduleRules are structural; allEnvironments+environments render
   // together as a single "Environments" row below. The rest are explicit cases.
   const handled = new Set<string>([
@@ -518,7 +571,7 @@ function RuleFieldDiffs({
   const envScopeChanged =
     !!pre.allEnvironments !== !!post.allEnvironments ||
     !isEqual(sortedEnvs(pre), sortedEnvs(post));
-  if (envScopeChanged) {
+  if (envScopeChanged && !compact) {
     const renderScope = (r: FeatureRule): ReactNode =>
       r.allEnvironments || Array.isArray(r.environments) ? (
         <RuleEnvScope rule={r} />
@@ -793,17 +846,22 @@ function RuleFieldDiffs({
 }
 
 function NewRuleDetails({
+  renderMode = "feature",
   rule,
   pendingRampAction,
 }: {
   rule: FeatureRule;
   pendingRampAction?: RevisionRampCreateAction;
+  renderMode?: DiffRenderMode;
 }) {
   const rows: ReactNode[] = [];
+  // The experiment surface names the flag and the experiment itself, and its
+  // rule always spans every environment — both rows would restate the page.
+  const compact = renderMode === "experiment";
 
   // Combined env-scope row (matches `RuleFieldDiffs`); raw fields are
   // suppressed via the `handled` set below.
-  if (rule.allEnvironments || Array.isArray(rule.environments)) {
+  if (!compact && (rule.allEnvironments || Array.isArray(rule.environments))) {
     rows.push(
       <ChangeField
         key="envScope"
@@ -931,23 +989,31 @@ function NewRuleDetails({
   }
 
   if (rule.type === "experiment-ref") {
-    rows.push(
-      <ChangeField
-        key="experimentId"
-        label="Experiment"
-        changed
-        oldNode={<em>unset</em>}
-        newNode={<ExperimentLink experimentId={rule.experimentId} />}
-      />,
-    );
-    rule.variations.forEach((v, i) => {
+    if (!compact) {
       rows.push(
-        <ValueChangedField
-          key={`var-${i}`}
-          label={`Variation ${i} value`}
-          pre={null}
-          post={formatValue(v.value)}
+        <ChangeField
+          key="experimentId"
+          label="Experiment"
+          changed
+          oldNode={<em>unset</em>}
+          newNode={<ExperimentLink experimentId={rule.experimentId} />}
         />,
+      );
+    }
+    rule.variations.forEach((v, i) => {
+      const label = `Variation ${i} value`;
+      const value = formatValue(v.value);
+      rows.push(
+        compact ? (
+          <ValueOnlyField key={`var-${i}`} label={label} value={value} />
+        ) : (
+          <ValueChangedField
+            key={`var-${i}`}
+            label={label}
+            pre={null}
+            post={value}
+          />
+        ),
       );
     });
   }
@@ -1110,6 +1176,13 @@ export function featureRuleChangeBadges(
   return badges;
 }
 
+// How much feature framing a diff needs. "feature" is the flag's own review:
+// rules are one of several things a revision can change, so each is named and
+// numbered. "experiment" is a surface where the rule IS the subject and the
+// page already says which flag and experiment it belongs to, so the rule
+// chrome and the fields restating that context are dropped.
+export type DiffRenderMode = "feature" | "experiment";
+
 export function renderFeatureRules(
   preRules: FeatureRule[],
   postRules: FeatureRule[],
@@ -1120,6 +1193,7 @@ export function renderFeatureRules(
     // each side with its own correct numbering.
     preHasHoldout?: boolean;
     postHasHoldout?: boolean;
+    renderMode?: DiffRenderMode;
   },
 ): ReactNode | null {
   const { added, removed, modified, reordered } = analyzeRuleChanges(
@@ -1135,6 +1209,8 @@ export function renderFeatureRules(
   const preIndexById = new Map(preRules.map((r, i) => [r.id, i + preOffset]));
   const preById = new Map(preRules.map((r) => [r.id, r]));
   const pendingRampActions = options?.pendingRampActions;
+  const renderMode = options?.renderMode ?? "feature";
+  const compact = renderMode === "experiment";
 
   // Rules that aren't add/modify/reorder but do have a pending ramp action —
   // surface them as a "modified" entry so the user sees the per-rule pending
@@ -1172,9 +1248,11 @@ export function renderFeatureRules(
     if (movedRules.length > 0) {
       sections.push(
         <div key="reordered" className="mb-3">
-          <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
-            Reordered
-          </Text>
+          {!compact && (
+            <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
+              Reordered
+            </Text>
+          )}
           {movedRules.map(({ r, newPos, oldPos }) => (
             <Box key={r.id} mb="2" className={styles.ruleSummaryBox}>
               <Flex align="start" justify="between" gap="2">
@@ -1193,15 +1271,18 @@ export function renderFeatureRules(
   if (added.length > 0) {
     sections.push(
       <div key="added" className="mb-3">
-        <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
-          Added
-        </Text>
+        {!compact && (
+          <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
+            Added
+          </Text>
+        )}
         {added.map((r) => {
           const idx = postIndexById.get(r.id)!;
           return (
             <Box key={r.id} mb="3" className={styles.ruleSummaryBox}>
-              <RuleHeading rule={r} index={idx} />
+              {!compact && <RuleHeading rule={r} index={idx} />}
               <NewRuleDetails
+                renderMode={renderMode}
                 rule={r}
                 pendingRampAction={findPendingRampForRule(
                   r.id,
@@ -1218,9 +1299,11 @@ export function renderFeatureRules(
   if (removed.length > 0) {
     sections.push(
       <div key="removed" className="mb-3">
-        <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
-          Removed
-        </Text>
+        {!compact && (
+          <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
+            Removed
+          </Text>
+        )}
         {removed.map((r) => {
           const idx = preIndexById.get(r.id)!;
           return (
@@ -1240,16 +1323,19 @@ export function renderFeatureRules(
   if (modifiedAll.length > 0) {
     sections.push(
       <div key="modified" className="mb-2">
-        <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
-          Modified
-        </Text>
+        {!compact && (
+          <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
+            Modified
+          </Text>
+        )}
         {modifiedAll.map((r) => {
           const prev = preById.get(r.id)!;
           const idx = postIndexById.get(r.id)!;
           return (
             <Box key={r.id} mb="3" className={styles.ruleSummaryBox}>
-              <RuleHeading rule={r} index={idx} />
+              {!compact && <RuleHeading rule={r} index={idx} />}
               <RuleFieldDiffs
+                renderMode={renderMode}
                 pre={prev ?? r}
                 post={r}
                 pendingRampAction={findPendingRampForRule(

@@ -10,6 +10,7 @@ import {
   normalizeFeatureRules,
   featureRuleChangeBadges,
   renderEnvironmentToggles,
+  type DiffRenderMode,
   renderPrerequisites,
   renderRevisionMetadata,
   prerequisiteChangeBadges,
@@ -205,9 +206,13 @@ function fillEnabledByInheritance(
 export function useFeatureRevisionDiff({
   current,
   draft,
+  renderMode = "feature",
 }: {
   current: FeatureRevisionDiffInput;
   draft: FeatureRevisionDiffInput;
+  // "experiment": the rule is the subject and the surface already names the
+  // flag, so the feature framing around it is dropped. See DiffRenderMode.
+  renderMode?: DiffRenderMode;
 }): FeatureRevisionDiff[] {
   const orgEnvs = useEnvironments();
   const { holdoutsMap } = useHoldouts();
@@ -377,12 +382,13 @@ export function useFeatureRevisionDiff({
       }
     }
 
-    // 5. Default value
+    // 5. Default value. A managed flag's default IS its control value, which
+    // the rule below states — the section would only say it twice.
     const currentDefault = current.defaultValue ?? "";
     const draftDefault = draft.defaultValue ?? "";
     const aValue = parseDefaultValue(currentDefault);
     const bValue = parseDefaultValue(draftDefault);
-    if (!isEqual(aValue, bValue)) {
+    if (!isEqual(aValue, bValue) && renderMode !== "experiment") {
       diffs.push({
         key: "defaultValue",
         title: "Default Value",
@@ -438,13 +444,14 @@ export function useFeatureRevisionDiff({
           // rules list shows Rule #1, #2, … with no holdout row.
           preHasHoldout: holdoutOccupiesRuleSlot(current.holdout, holdoutsMap),
           postHasHoldout: holdoutOccupiesRuleSlot(draft.holdout, holdoutsMap),
+          renderMode,
         }),
         badges: featureRuleChangeBadges(currentRulesArr, draftRulesArr),
       });
     }
 
     return diffs;
-  }, [current, draft, orgEnvs, holdoutsMap]);
+  }, [current, draft, orgEnvs, holdoutsMap, renderMode]);
 }
 
 /**
