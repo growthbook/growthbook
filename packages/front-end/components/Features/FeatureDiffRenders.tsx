@@ -2097,7 +2097,8 @@ export function renderEnvironmentToggles(
             {!endStateOnly && (
               <>
                 <EnvEnabledIndicator enabled={from} tone="muted" />
-                <Text color="text-low">→</Text>
+                {/* The arrow ChangeField draws between the two halves. */}
+                <span className="font-weight-bold text-success">→</span>
               </>
             )}
             <EnvEnabledIndicator enabled={to} />
