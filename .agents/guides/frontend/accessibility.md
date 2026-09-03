@@ -147,7 +147,7 @@ An action that only exists under the pointer does not exist for a keyboard.
 
 - **Hover-reveal.** A row action that appears on `:hover` only must also appear on `:focus-within`, and its trigger must be focusable.
 - **Tooltip-only triggers.** A non-focusable `<span>` wrapped in a tooltip never fires the tooltip for a keyboard user. Make the trigger a `@/ui/Button variant="ghost" size="sm"` or give it `tabIndex={0}`.
-- **A tooltip is never the only carrier of required information.** If the user must know it to proceed, put it in `description`, `helpText`, or a `@/ui/Callout`.
+- **A tooltip is never the only carrier of required information.** If the user must know it to proceed, put it in `description`, `helpText`, or a `@/ui/Callout` — see [Put a non-obvious consequence in always-visible text](ui-states.md#put-a-non-obvious-consequence-in-always-visible-text).
 - **A natively `disabled` button suppresses pointer events**, so a tooltip wrapping it never fires — the explanation you attached is invisible. See the disabled-control patterns in [ui-states.md](ui-states.md).
 - **Enter must submit a form.** A field plus a `@/ui/Button` with `onClick` and no `<form>` wrapper gives no implicit submission, so Enter in the field does nothing. Wrap the fields in `<form onSubmit={…}>` and give the button `type="submit"` — `@/ui/Button` defaults to `type="button"`, and its `onClick` handler calls `preventDefault()`, so drive the submit from `onSubmit` rather than both. A single-field form is not an exemption.
 

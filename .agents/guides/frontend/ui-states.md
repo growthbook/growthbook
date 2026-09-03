@@ -136,6 +136,37 @@ A control that is inert with no explanation is a dead end. Never ship one.
 
 One trap: a natively `disabled` button **suppresses pointer events**, so a `@/ui/Tooltip` wrapping it never fires and the explanation you attached is invisible. Keep the trigger hover-reachable — either style the button as inert with `pointerEvents: "none"` instead of setting `disabled`, or wrap a muted non-disabled element.
 
+## Put a non-obvious consequence in always-visible text
+
+When a control's effect is silent or not inferable from its label — a checkbox that is a no-op until some precondition is met, a column whose value is a derived statistic — prefer always-visible helper text over hover-only chrome: `description` on `@/ui/Checkbox` and `@/ui/Switch`, on each `@/ui/RadioGroup` or `@/ui/RadioCards` option, `helpText` on `@/ui/TextField`, or a `@/ui/Callout` for a section-wide caveat. A `Tooltip` plus an info icon is right for supplementary detail, but the user cannot make the choice correctly when the thing they need in order to make it is only reachable by mouse-hover. Whether a keyboard user can reach the trigger at all is a separate rule — see [Mouse-only affordances](accessibility.md#mouse-only-affordances).
+
+### ❌ DON'T
+
+```tsx
+// The one thing the user needs to know is hidden behind a hover.
+<Flex align="center" gap="1">
+  <Checkbox
+    label="Apply to linked experiments"
+    value={apply}
+    setValue={setApply}
+  />
+  <Tooltip content="Has no effect unless the metric has a denominator.">
+    <PiInfoFill />
+  </Tooltip>
+</Flex>
+```
+
+### ✅ DO
+
+```tsx
+<Checkbox
+  label="Apply to linked experiments"
+  description="Has no effect unless the metric has a denominator."
+  value={apply}
+  setValue={setApply}
+/>
+```
+
 ## Loading and empty states share the loaded shell
 
 A state change should not relocate the UI. Keep the surrounding shell — dialog frame, section heading, description — and swap only the part that has content.
