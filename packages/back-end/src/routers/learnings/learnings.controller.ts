@@ -27,6 +27,14 @@ import { getLatestSnapshotMultipleExperiments } from "back-end/src/models/Experi
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getAllTags } from "back-end/src/models/TagModel";
 import { logger } from "back-end/src/util/logger";
+import {
+  MAX_ANALYSIS_CHARS,
+  MAX_DESCRIPTION_CHARS,
+  MAX_HYPOTHESIS_CHARS,
+  MAX_VARIATION_DESCRIPTION_CHARS,
+  roundForAI,
+  truncateForAI,
+} from "back-end/src/util/ai-prompt.util";
 
 type LearningWithCanManage = LearningInterface & { canManage: boolean };
 
@@ -227,11 +235,6 @@ const MAX_EXPERIMENTS_FOR_AI = 150;
 const METRIC_RESULTS_CHAR_ALLOWANCE = 2000;
 const MAX_SAVED_LEARNINGS_IN_PROMPT = 100;
 const MAX_ORG_TAGS_IN_PROMPT = 100;
-// Per-field character caps for the experiment summaries sent to the AI
-const MAX_HYPOTHESIS_CHARS = 600;
-const MAX_DESCRIPTION_CHARS = 1500;
-const MAX_ANALYSIS_CHARS = 2000;
-const MAX_VARIATION_DESCRIPTION_CHARS = 300;
 const MAX_SAVED_LEARNING_TEXT_CHARS = 600;
 // Candidates at or above this cosine similarity to a saved learning are
 // dropped as duplicates (prompt-level dedup is soft; this is the hard check)
@@ -239,15 +242,6 @@ const SIMILARITY_DEDUP_THRESHOLD = 0.85;
 // Saved learnings normally get embeddings via LearningModel hooks; backfill at
 // most this many missing ones inline per request
 const MAX_SAVED_VECTOR_BACKFILL = 50;
-
-function truncateForAI(s: string | undefined, maxChars: number): string {
-  if (!s) return "";
-  return s.length > maxChars ? s.slice(0, maxChars) + "…" : s;
-}
-
-function roundForAI(n: number): number {
-  return Math.round(n * 10000) / 10000;
-}
 
 // When stopped, an experiment's last phase end date is the best "recency"
 // signal; fall back to dateUpdated for anything without phases.
