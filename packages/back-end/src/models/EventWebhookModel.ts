@@ -18,6 +18,10 @@ import {
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
+import {
+  decryptSlackBotToken,
+  encryptSlackBotToken,
+} from "back-end/src/util/slackToken";
 import { ReqContext } from "back-end/types/request";
 import { createEvent } from "./EventModel";
 
@@ -468,7 +472,9 @@ export const getSlackBotAccessTokenForWebhook = async ({
   const slack = doc?.slack as
     | { botAccessToken?: string; teamId?: string }
     | undefined;
-  if (slack?.botAccessToken) return slack.botAccessToken;
+  if (slack?.botAccessToken) {
+    return decryptSlackBotToken(slack.botAccessToken);
+  }
 
   if (!slack?.teamId) return null;
   const teamDoc = await EventWebHookModel.findOne({
@@ -478,7 +484,9 @@ export const getSlackBotAccessTokenForWebhook = async ({
     "slack.botAccessToken": { $exists: true, $nin: [null, ""] },
   }).lean();
   const teamSlack = teamDoc?.slack as { botAccessToken?: string } | undefined;
-  return teamSlack?.botAccessToken || null;
+  return teamSlack?.botAccessToken
+    ? decryptSlackBotToken(teamSlack.botAccessToken)
+    : null;
 };
 
 export const findSlackWorkspaceEventWebhook = async ({
@@ -530,7 +538,9 @@ export const propagateSlackTeamCredentials = async ({
   scope?: string;
 }): Promise<void> => {
   const set: Record<string, unknown> = {
-    ...(botAccessToken ? { "slack.botAccessToken": botAccessToken } : {}),
+    ...(botAccessToken
+      ? { "slack.botAccessToken": encryptSlackBotToken(botAccessToken) }
+      : {}),
     ...(scope ? { "slack.scope": scope } : {}),
   };
   if (!Object.keys(set).length) return;
@@ -578,7 +588,9 @@ export const reconnectSlackEventWebhook = async ({
   for (const [key, value] of Object.entries(slack)) {
     if (value !== undefined) set[`slack.${key}`] = value;
   }
-  if (botAccessToken) set["slack.botAccessToken"] = botAccessToken;
+  if (botAccessToken) {
+    set["slack.botAccessToken"] = encryptSlackBotToken(botAccessToken);
+  }
 
   await EventWebHookModel.updateOne(
     { id: eventWebHookId, organizationId, payloadType: "slack" },

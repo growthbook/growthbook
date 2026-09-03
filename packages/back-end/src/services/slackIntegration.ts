@@ -30,6 +30,7 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { fetch } from "back-end/src/util/http.util";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
+import { encryptSlackBotToken } from "back-end/src/util/slackToken";
 
 const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
@@ -262,7 +263,11 @@ const persistSlackBotAccessToken = async ({
 
   await EventWebHookModel.updateOne(
     { id: eventWebHookId, organizationId },
-    { $set: { "slack.botAccessToken": accessToken } },
+    {
+      $set: {
+        "slack.botAccessToken": encryptSlackBotToken(accessToken),
+      },
+    },
   );
 };
 
