@@ -702,7 +702,8 @@ export async function getManagedFlagState(
             !pendingDraft.hasMergeConflict &&
             !pendingDraft.hasUnrelatedDraftChanges &&
             (!pendingDraft.pendingApproval ||
-              pendingDraft.status === "approved" ||
+              (pendingDraft.approval?.satisfied ??
+                pendingDraft.status === "approved") ||
               context.permissions.canBypassFlagApprovalChecks(
                 feature,
                 "feature",
@@ -982,9 +983,12 @@ export async function updateManagedVariationValues({
 export async function publishManagedDraft({
   context,
   experiment,
+  bypassApproval = false,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
+  /** Explicit per-publish opt-in; still needs bypass authority. */
+  bypassApproval?: boolean;
 }): Promise<FeatureInterface> {
   const feature = await getManagedFeatureForExperiment(context, experiment);
   if (!feature) {
@@ -1025,10 +1029,9 @@ export async function publishManagedDraft({
     revision,
     result: mergeResult.result,
     comment: "",
-    bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
-      feature,
-      "feature",
-    ),
+    bypassLockdown:
+      bypassApproval &&
+      context.permissions.canBypassFlagApprovalChecks(feature, "feature"),
   });
 }
 

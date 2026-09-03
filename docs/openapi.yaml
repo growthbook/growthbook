@@ -15137,7 +15137,12 @@ paths:
           application/json:
             schema:
               type: object
-              properties: {}
+              properties:
+                bypassApproval:
+                  description: >-
+                    Publish without a satisfied approval. Ignored unless the
+                    caller may bypass approval checks.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':

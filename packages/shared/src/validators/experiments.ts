@@ -2720,7 +2720,16 @@ export const postExperimentVariationValuesCommentValidator = {
 };
 
 export const postExperimentVariationValuesPublishValidator = {
-  bodySchema: z.object({}).strict(),
+  bodySchema: z
+    .object({
+      bypassApproval: z
+        .boolean()
+        .optional()
+        .describe(
+          "Publish without a satisfied approval. Ignored unless the caller may bypass approval checks.",
+        ),
+    })
+    .strict(),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: variationValuesResponse,

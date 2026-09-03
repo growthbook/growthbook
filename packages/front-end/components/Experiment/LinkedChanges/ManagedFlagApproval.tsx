@@ -36,7 +36,6 @@ import { revisionStatusLabel } from "@/components/Reviews/RevisionStatusBadge";
 import ApprovalStatusBand from "@/components/Reviews/ApprovalStatusBand";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 import { getVariationValueChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
-import {} from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import {
   findActiveVerdict,
   rowVisual,
@@ -139,6 +138,7 @@ export default function ManagedFlagApproval({
   // A revision keeps the status it was left in, so a draft opened while
   // approvals were on stays "pending-review" after the org turns them off.
   const requireReviews = !!info.pendingDraft?.pendingApproval;
+  const approvalGateUnmet = requireReviews && !!approval && !approval.satisfied;
   const reviews = revision?.reviews ?? [];
   const isReviewer = reviews.some((r) => r.userId === userId);
 
@@ -290,8 +290,11 @@ export default function ManagedFlagApproval({
   // Request-review has to stay reachable: a draft can land back in `draft` or
   // `changes-requested` after the auto-request, and without this CTA that state
   // has no action at all.
+  // Also held back while the gate is unmet: the state machine only sees the
+  // revision status, so it would offer a publish the server refuses.
   const submitAction =
-    state.submitAction === "publish" && publishIsLaunch
+    state.submitAction === "publish" &&
+    (publishIsLaunch || (approvalGateUnmet && !adminOverride))
       ? "none"
       : state.submitAction;
   const submitAuthorized =
@@ -353,7 +356,9 @@ export default function ManagedFlagApproval({
           run: () =>
             runAction(
               submitAction === "publish" ? "publish" : "request-review",
-              submitAction === "publish" ? {} : { comment },
+              submitAction === "publish"
+                ? { bypassApproval: adminOverride }
+                : { comment },
             ),
         }
       : null;
@@ -520,7 +525,6 @@ export default function ManagedFlagApproval({
 
   // The Review & Publish tab's own band logic, so both surfaces explain a
   // blocked publish at the same point in the cycle and in the same words.
-  const approvalGateUnmet = requireReviews && !!approval && !approval.satisfied;
   const showApprovalBand =
     requireReviews &&
     !!info.pendingDraft &&

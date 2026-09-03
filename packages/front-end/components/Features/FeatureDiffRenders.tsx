@@ -2061,7 +2061,7 @@ function EnvEnabledIndicator({
     >
       <Icon
         size={20}
-        style={{ color, opacity: tone === "muted" ? 0.4 : undefined }}
+        style={{ color, opacity: tone === "muted" ? 0.3 : undefined }}
       />
       {/* Real text, so a selection of this row copies as "production Off → On"
           rather than the env name alone. A title or aria-label would not. */}

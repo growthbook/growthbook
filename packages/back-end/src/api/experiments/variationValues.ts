@@ -198,6 +198,7 @@ export const postExperimentVariationValuesPublish = createApiRequestHandler(
   await publishManagedDraft({
     context: req.context,
     experiment,
+    bypassApproval: !!req.body.bypassApproval,
   });
 
   return respond(req.context, experiment);

@@ -399,9 +399,9 @@ export default function EditFeatureFlagValuesModal({
   // and the new flag is persisted alongside the values on save.
   // Only while it stays JSON, or `sparse` lands on values that aren't patches.
   const sparseEligible =
-    feature.valueType === "json" &&
+    draftValueType === "json" &&
     valueType === "json" &&
-    parsePlainJSONObject(feature.defaultValue ?? "") !== null;
+    parsePlainJSONObject(draftDefaultValue ?? "") !== null;
   // Config-backed JSON flags always merge object arm values onto the resolved
   // config, so they're inherently sparse patches that serve the default's
   // config: default the toggle on (even for rules created via the v2 REST API
@@ -686,7 +686,7 @@ export default function EditFeatureFlagValuesModal({
                     // Rewrite every variation value so the editor isn't left
                     // with a default-laden patch (on) or a bare patch shown as
                     // the full value (off).
-                    const def = feature.defaultValue ?? "";
+                    const def = draftDefaultValue ?? "";
                     (form.getValues("variations") || []).forEach((v, i) => {
                       form.setValue(
                         `variations.${i}.value`,

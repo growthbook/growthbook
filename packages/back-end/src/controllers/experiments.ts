@@ -4331,19 +4331,38 @@ export async function postExperimentFeatureValues(
 
   const featureObjects = await getFeaturesByIds(context, Object.keys(features));
 
-  // A managed flag is read-only on the Feature Flag page, so the message below
-  // has nowhere to send its caller. Every other update still stops at draft.
-  const allManaged =
-    featureObjects.length > 0 &&
-    featureObjects.every((f) => isManagedByExperiment(f, experiment.id));
-
-  if (experiment.status !== "draft" && !allManaged) {
-    res.status(400).json({
-      status: 400,
-      message:
-        "Editing feature values from an experiment is only allowed for experiments in draft. To edit feature values for a running experiment, edit the values from the feature flags directly.",
-    });
-    return;
+  // Once an experiment has started, this endpoint only stages drafts and edits
+  // variation metadata: traffic and variation ids are read-only, and a shared
+  // flag publishes from its own page.
+  const structureLocked = experiment.status !== "draft";
+  if (structureLocked) {
+    const autoPublishingShared = featureObjects.find(
+      (f) =>
+        features[f.id].revisionOptions.autoPublish &&
+        !isManagedByExperiment(f, experiment.id),
+    );
+    if (autoPublishingShared) {
+      res.status(400).json({
+        status: 400,
+        message: `Feature ${autoPublishingShared.id}: publishing from a running experiment is only allowed for a Feature Flag it manages. Publish the draft from the feature flag directly.`,
+      });
+      return;
+    }
+    const sameStructure =
+      variations.length === experiment.variations.length &&
+      variations.every(
+        (v, i) =>
+          v.id === experiment.variations[i].id &&
+          v.key === experiment.variations[i].key,
+      );
+    if (!sameStructure) {
+      res.status(400).json({
+        status: 400,
+        message:
+          "Variation ids and keys cannot change once an experiment has started.",
+      });
+      return;
+    }
   }
 
   if (!experiment.phases?.length) {
@@ -4369,10 +4388,9 @@ export async function postExperimentFeatureValues(
   const latestPhase = experiment.phases[experiment.phases.length - 1];
 
   const variationsChanged = !isEqual(variations, experiment.variations);
-  const variationWeightsChanged = !isEqual(
-    variationWeights,
-    latestPhase.variationWeights,
-  );
+  const variationWeightsChanged =
+    !structureLocked &&
+    !isEqual(variationWeights, latestPhase.variationWeights);
 
   const changes: Changeset = {};
 
@@ -4716,7 +4734,7 @@ export async function postExperimentManagedFlag(
 }
 
 export async function postExperimentManagedFlagPublish(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<{ bypassApproval?: boolean } | null, { id: string }>,
   res: Response<
     { status: 200; feature: FeatureInterface },
     EventUserForResponseLocals
@@ -4734,7 +4752,11 @@ export async function postExperimentManagedFlagPublish(
     context.permissions.throwPermissionError();
   }
 
-  const feature = await publishManagedDraft({ context, experiment });
+  const feature = await publishManagedDraft({
+    context,
+    experiment,
+    bypassApproval: !!req.body?.bypassApproval,
+  });
 
   res.status(200).json({ status: 200, feature });
 }
