@@ -680,17 +680,6 @@ export function upgradeExperimentDoc(
     experiment.secondaryMetrics = [];
   }
 
-  // Backfill a missing creation date.
-  if (!experiment.dateCreated) {
-    const earliestPhaseStart = (experiment.phases ?? [])
-      .map((p) => p.dateStarted)
-      .filter((d): d is Date => !!d)
-      .sort((a, b) => +new Date(a) - +new Date(b))[0];
-    if (earliestPhaseStart) {
-      experiment.dateCreated = earliestPhaseStart;
-    }
-  }
-
   // Populate phase names and targeting properties
   if (experiment.phases) {
     experiment.phases.forEach((phase, i) => {
@@ -699,13 +688,14 @@ export function upgradeExperimentDoc(
         phase.name = p.substring(0, 1).toUpperCase() + p.substring(1);
       }
 
-      // Backfill a missing start date on legacy phases.
-      // Use the prior phase's `dateEnded`; for the first phase,
-      // fall back to the experiment's creation date.
+      // Backfill a missing start date on a legacy phase from the prior phase's
+      // end date.
       if (!phase.dateStarted) {
         const prevPhaseEnded =
           i > 0 ? experiment.phases[i - 1].dateEnded : undefined;
-        phase.dateStarted = prevPhaseEnded ?? experiment.dateCreated;
+        if (prevPhaseEnded) {
+          phase.dateStarted = prevPhaseEnded;
+        }
       }
 
       phase.coverage = phase.coverage ?? 1;

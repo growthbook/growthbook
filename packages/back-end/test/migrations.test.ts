@@ -1865,10 +1865,13 @@ describe("Experiment Migration", () => {
     expect(upgradeExperimentDoc(exp)).toEqual(upgraded);
   });
 
-  it("backfills a first phase's missing start date from the experiment's dateCreated", () => {
+  it("does not backfill a first phase's missing start date, even when dateCreated exists", () => {
+    // A first phase has no reliable start to derive, so we intentionally do not
+    // fall back to dateCreated. Leaving it unset makes the analysis guard in
+    // getSnapshotSettings block and prompt the user to set the phase dates.
     const dateCreated = new Date("2024-01-01T00:00:00.000Z");
     const result = upgradeExperimentDoc({ ...exp, dateCreated });
-    expect(result.phases[0].dateStarted).toEqual(dateCreated);
+    expect(result.phases[0].dateStarted).toBeUndefined();
   });
 
   it("backfills a later phase's missing start date from the previous phase's dateEnded", () => {
@@ -1885,7 +1888,7 @@ describe("Experiment Migration", () => {
     expect(result.phases[1].dateStarted).toEqual(phase0End);
   });
 
-  it("leaves a first phase's start date unset when there is no dateCreated to fall back to", () => {
+  it("leaves a first phase's start date unset when it has no dateStarted", () => {
     // The exact case the analysis guard in getSnapshotSettings blocks on.
     const result = upgradeExperimentDoc({ ...exp });
     expect(result.phases[0].dateStarted).toBeUndefined();
@@ -1905,57 +1908,6 @@ describe("Experiment Migration", () => {
     expect(result.phases[0].dateStarted).toEqual(existing);
   });
 
-  it("backfills a missing dateCreated from the earliest phase start", () => {
-    const early = new Date("2024-01-01T00:00:00.000Z");
-    const late = new Date("2024-03-01T00:00:00.000Z");
-    const result = upgradeExperimentDoc({
-      ...exp,
-      dateCreated: undefined,
-      phases: [
-        { ...exp.phases[0], dateStarted: late },
-        { ...exp.phases[1], dateStarted: early },
-      ],
-    });
-    expect(result.dateCreated).toEqual(early);
-  });
-
-  it("leaves dateCreated unset when no phase has a start (no dateUpdated fallback)", () => {
-    // "Last modified" is a poor proxy for creation, so dateUpdated is not used.
-    // Leaving dateCreated (and the phase start) absent lets the analysis guard
-    // fire rather than analyzing against a fabricated window.
-    const dateUpdated = new Date("2024-05-01T00:00:00.000Z");
-    const result = upgradeExperimentDoc({
-      ...exp,
-      dateCreated: undefined,
-      dateUpdated,
-    });
-    expect(result.dateCreated).toBeUndefined();
-  });
-
-  it("derives dateCreated from a phase start, which then resolves that phase's dateStarted", () => {
-    // Mirrors the heal path: a user sets the phase start on a doc missing
-    // dateCreated; on the next read dateCreated derives from it and analysis
-    // (which needs dateCreated) can proceed.
-    const phaseStart = new Date("2024-02-01T00:00:00.000Z");
-    const result = upgradeExperimentDoc({
-      ...exp,
-      dateCreated: undefined,
-      phases: [{ ...exp.phases[0], dateStarted: phaseStart }],
-    });
-    expect(result.dateCreated).toEqual(phaseStart);
-    expect(result.phases[0].dateStarted).toEqual(phaseStart);
-  });
-
-  it("does not overwrite an existing dateCreated", () => {
-    const dateCreated = new Date("2022-01-01T00:00:00.000Z");
-    const phaseStart = new Date("2024-02-01T00:00:00.000Z");
-    const result = upgradeExperimentDoc({
-      ...exp,
-      dateCreated,
-      phases: [{ ...exp.phases[0], dateStarted: phaseStart }],
-    });
-    expect(result.dateCreated).toEqual(dateCreated);
-  });
   it("upgrades stopped experiments with results", () => {
     expect(
       upgradeExperimentDoc({
