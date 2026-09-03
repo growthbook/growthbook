@@ -546,6 +546,20 @@ export function isProjectListValidForProject(
   return projects.includes(project);
 }
 
+export function isProjectListValidForProjects(
+  itemProjects?: string[],
+  requiredProjects?: string[],
+) {
+  // If there are no required projects, everything is valid
+  if (!requiredProjects || !requiredProjects.length) return true;
+
+  // If the item has no project restrictions, it's valid for all projects
+  if (!itemProjects || !itemProjects.length) return true;
+
+  // Otherwise, the item must be available in at least one required project
+  return requiredProjects.some((p) => itemProjects.includes(p));
+}
+
 export function stringToBoolean(
   value: string | undefined,
   defaultValue = false,

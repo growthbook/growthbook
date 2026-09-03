@@ -1,9 +1,10 @@
-import React, { FC, useState } from "react";
+import React, { FC, useMemo, useState } from "react";
 import { FaArchive, FaExclamationTriangle } from "react-icons/fa";
 import router from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { MetricGroupInterface } from "shared/types/metric-groups";
+import { isProjectListValidForProject } from "shared/util";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -30,10 +31,25 @@ const MetricGroupsList: FC = () => {
   const [archiveModal, setArchiveModal] = useState<MetricGroupInterface | null>(
     null,
   );
-  const { metricGroups, mutateDefinitions, getDatasourceById } =
-    useDefinitions();
+  const {
+    metricGroups,
+    mutateDefinitions,
+    getDatasourceById,
+    getProjectById,
+    project,
+  } = useDefinitions();
   const { hasCommercialFeature } = useUser();
   const hasGroupsFeature = hasCommercialFeature("metric-groups");
+
+  const filteredMetricGroups = useMemo(
+    () =>
+      project
+        ? metricGroups.filter((mg) =>
+            isProjectListValidForProject(mg.projects, project),
+          )
+        : metricGroups,
+    [metricGroups, project],
+  );
 
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canUpdateMetricGroup();
@@ -116,14 +132,15 @@ const MetricGroupsList: FC = () => {
             <TableColumnHeader>Metric Group Name</TableColumnHeader>
             <TableColumnHeader>Description</TableColumnHeader>
             <TableColumnHeader>Datasource</TableColumnHeader>
-            <TableColumnHeader>metrics</TableColumnHeader>
+            <TableColumnHeader>Projects</TableColumnHeader>
+            <TableColumnHeader>Metrics</TableColumnHeader>
             <TableColumnHeader>Date Created</TableColumnHeader>
             <TableColumnHeader />
             <TableColumnHeader style={{ width: "50px" }} />
           </TableRow>
         </TableHeader>
         <TableBody>
-          {metricGroups.map((mg) => {
+          {filteredMetricGroups.map((mg) => {
             const dsName = getDatasourceById(mg.datasource)?.name || "-";
             return (
               <TableRow
@@ -147,6 +164,13 @@ const MetricGroupsList: FC = () => {
                   {mg.description}
                 </TableCell>
                 <TableCell>{dsName}</TableCell>
+                <TableCell>
+                  {mg.projects.length === 0
+                    ? null
+                    : mg.projects
+                        .map((p) => getProjectById(p)?.name || p)
+                        .join(", ")}
+                </TableCell>
                 <TableCell>{mg.metrics.length}</TableCell>
                 <TableCell>{date(mg.dateCreated)}</TableCell>
                 <TableCell style={{ color: "var(--gray-11)" }}>
