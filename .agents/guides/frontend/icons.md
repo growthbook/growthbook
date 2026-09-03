@@ -80,7 +80,7 @@ Design-system components that take an icon expose a prop for it. Use the prop ra
 <Button icon={<PiPlus />}>Add metric</Button>
 ```
 
-`@/ui/Button` takes `icon` and `iconPosition` (`"left"` by default). `@/ui/Callout` takes `icon`, and `icon={null}` suppresses the status icon it would otherwise render — do not stack a second icon into its children to change it.
+`@/ui/Button` takes `icon` and `iconPosition` (`"left"` or `"right"`, `"left"` by default). It renders `children` inside a Radix `<Text weight="medium">`, so an icon nested in `children` ends up wrapped in that text element instead of sitting beside the label. `@/ui/Callout` takes `icon`, and `icon={null}` suppresses the status icon it would otherwise render — do not stack a second icon into its children to change it.
 
 ## Icon-only controls
 

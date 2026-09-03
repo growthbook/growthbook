@@ -102,6 +102,8 @@ A bare `<label>`, a `<Text as="label">`, or a bold `<Text>` sitting above a cont
 
 Pass the text to the control's own `label` prop — `@/ui/Checkbox`, `@/ui/Switch`, `@/ui/Select`, `@/ui/MultiSelectField`, `@/components/Forms/Field`, and the legacy `@/components/Forms/SelectField` and `@/components/Experiment/MetricSelector` where those are already in use — or wire `htmlFor`/`id` yourself.
 
+`@/ui/Select` is `label`-only. Its prop type is closed and anything extra spreads onto the wrapper `<Flex>`, not the trigger, so `aria-label` never reaches the control. A string `label` is the only working route.
+
 ### `@/ui/TextField` — read this before assuming `label` is enough
 
 `TextField`'s `label` is **optional**, and it only wires `htmlFor` when the label is a **string**:
@@ -147,6 +149,7 @@ An action that only exists under the pointer does not exist for a keyboard.
 - **Tooltip-only triggers.** A non-focusable `<span>` wrapped in a tooltip never fires the tooltip for a keyboard user. Make the trigger a `@/ui/Button variant="ghost" size="sm"` or give it `tabIndex={0}`.
 - **A tooltip is never the only carrier of required information.** If the user must know it to proceed, put it in `description`, `helpText`, or a `@/ui/Callout`.
 - **A natively `disabled` button suppresses pointer events**, so a tooltip wrapping it never fires — the explanation you attached is invisible. See the disabled-control patterns in [ui-states.md](ui-states.md).
+- **Enter must submit a form.** A field plus a `@/ui/Button` with `onClick` and no `<form>` wrapper gives no implicit submission, so Enter in the field does nothing. Wrap the fields in `<form onSubmit={…}>` and give the button `type="submit"` — `@/ui/Button` defaults to `type="button"`, and its `onClick` handler calls `preventDefault()`, so drive the submit from `onSubmit` rather than both. A single-field form is not an exemption.
 
 ## Do not nest interactive content inside a `<label>`
 
