@@ -9,3 +9,6 @@ Before changing front-end code, read and follow the relevant guides:
 
 - `.agents/guides/frontend/react-patterns.md`
 - `.agents/guides/frontend/data-fetching.md`
+- `.agents/guides/frontend/icons.md`
+- `.agents/guides/frontend/accessibility.md`
+- `.agents/guides/frontend/ui-states.md`
