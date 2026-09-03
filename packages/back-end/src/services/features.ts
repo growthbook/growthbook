@@ -943,9 +943,16 @@ export async function refreshSDKPayloadCache({
 
   // Widen before matching connections; a no-op when no prerequisite crosses a
   // project boundary. Re-applies the skip, which reach can otherwise undo.
+  // Only an all-projects dependent needs the full project list, and this context
+  // is fresh, so its cache is cold — don't pay for the query otherwise.
+  const hasAllProjectsFeature = allFeatures.some((f) => f.targetingAllProjects);
   payloadKeys = expandPayloadKeysForPrerequisites(
     payloadKeys,
-    buildPrerequisiteProjectReach(allFeatures),
+    buildPrerequisiteProjectReach(
+      allFeatures,
+      hasAllProjectsFeature ? await context.getAllProjectIds() : [],
+      experimentMap,
+    ),
   );
   if (skipRefreshForProject) {
     payloadKeys = payloadKeys.filter(

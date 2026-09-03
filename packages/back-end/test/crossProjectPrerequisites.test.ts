@@ -215,6 +215,39 @@ describe("buildPrerequisiteProjectReach", () => {
     expect([...(reach.get("prj_a") ?? [])].sort()).toEqual(["prj_b", "prj_c"]);
   });
 
+  it("reaches every project when the dependent targets all projects", () => {
+    const child = feature("child", "prj_b", {
+      prerequisites: ["root"],
+      targetingAllProjects: true,
+    });
+    const root = feature("root", "prj_a");
+
+    const reach = buildPrerequisiteProjectReach(
+      [child, root],
+      ["prj_a", "prj_b", "prj_c"],
+    );
+
+    expect([...(reach.get("prj_a") ?? [])].sort()).toEqual(["prj_b", "prj_c"]);
+  });
+
+  it("follows gates on the phase of a referenced experiment", () => {
+    const child = feature("child", "prj_b", {
+      rules: [{ experimentId: "exp_a" }],
+    });
+    const root = feature("root", "prj_a");
+    const experimentMap = new Map([
+      ["exp_a", experimentWithPhasePrereq("exp_a", "root")],
+    ]);
+
+    const reach = buildPrerequisiteProjectReach(
+      [child, root],
+      [],
+      experimentMap,
+    );
+
+    expect([...(reach.get("prj_a") ?? [])]).toEqual(["prj_b"]);
+  });
+
   it("is empty when no prerequisite crosses a project boundary", () => {
     const child = feature("child", "prj_a", { prerequisites: ["root"] });
     const root = feature("root", "prj_a");

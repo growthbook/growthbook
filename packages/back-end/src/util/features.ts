@@ -713,6 +713,8 @@ export function featuresWithPrerequisiteClosure(
 // widened without knowing which feature changed.
 export function buildPrerequisiteProjectReach(
   features: FeatureInterface[],
+  allProjectIds: string[] = [],
+  experimentMap?: Map<string, ExperimentInterface>,
 ): Map<string, Set<string>> {
   const featuresMap = new Map(features.map((f) => [f.id, f]));
   const reach = new Map<string, Set<string>>();
@@ -725,11 +727,16 @@ export function buildPrerequisiteProjectReach(
   };
 
   for (const dependent of features) {
-    // All-projects entities are served by the "" key already.
-    const dependentProjects = getTargetingProjectIds(dependent);
-    if (dependentProjects === null) continue;
+    // An all-projects dependent is delivered everywhere, so its prerequisites
+    // are carried everywhere. The "" key doesn't cover that: it only reaches
+    // connections with no project filter unless treatEmptyProjectAsGlobal.
+    const dependentProjects =
+      getTargetingProjectIds(dependent) ?? allProjectIds;
 
-    for (const parentId of getPrerequisiteIdsInFeatures([dependent])) {
+    for (const parentId of getPrerequisiteIdsInFeatures(
+      [dependent],
+      experimentMap,
+    )) {
       const parent = featuresMap.get(parentId);
       if (!parent) continue;
       const parentProjects = getTargetingProjectIds(parent);
