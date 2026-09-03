@@ -39,6 +39,23 @@ const auditSchema = new mongoose.Schema({
   dateCreated: Date,
 });
 
+// The history queries below filter on organization + entity (or parent, or
+// user) and sort by dateCreated; without these they scan every audit in the
+// organization and sort in memory.
+auditSchema.index({
+  organization: 1,
+  "entity.object": 1,
+  "entity.id": 1,
+  dateCreated: 1,
+});
+auditSchema.index({
+  organization: 1,
+  "parent.object": 1,
+  "parent.id": 1,
+  dateCreated: 1,
+});
+auditSchema.index({ organization: 1, "user.id": 1, dateCreated: 1 });
+
 type AuditDocument = mongoose.Document & AuditInterface;
 
 const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
