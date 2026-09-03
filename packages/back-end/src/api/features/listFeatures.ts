@@ -172,6 +172,7 @@ export async function loadFeaturesPage(
     if (skipPagination) {
       const features = await getAllFeatures(context, {
         projects: projectsFilter,
+        projectsAreReadAllowlist: true,
         includeArchived,
       });
       const sorted = features.sort(

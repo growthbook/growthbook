@@ -515,12 +515,22 @@ export async function getAllFeatures(
   context: ReqContext | ApiReqContext,
   {
     projects,
+    projectsAreReadAllowlist = false,
     includeArchived = false,
-  }: { projects?: string[]; includeArchived?: boolean } = {},
+  }: {
+    projects?: string[];
+    projectsAreReadAllowlist?: boolean;
+    includeArchived?: boolean;
+  } = {},
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
   if (projects && projects.length) {
-    Object.assign(q, targetingScopedProjectClause(projects));
+    Object.assign(
+      q,
+      projectsAreReadAllowlist
+        ? readAllowlistClause(projects)
+        : targetingScopedProjectClause(projects),
+    );
   }
 
   if (!includeArchived) {
@@ -585,14 +595,29 @@ export async function getAllFeaturesWithoutEditorFields(
 
 // Mongo pre-filter mirroring canReadTargetingScopedResource (project,
 // targetingProjects, or all-projects flag), so targeting-only features survive.
+function targetingScopedProjectArms(projects: string[]) {
+  return [
+    { project: { $in: projects } },
+    { targetingProjects: { $in: projects } },
+    { targetingAllProjects: true },
+  ];
+}
+
 function targetingScopedProjectClause(
   projects: string[],
 ): FilterQuery<FeatureDocument> {
+  return { $or: targetingScopedProjectArms(projects) };
+}
+
+// For queries scoped by a READ ALLOWLIST (getProjectsWithPermission) rather
+// than a project filter: no-project features are org-wide and stay readable
+// whenever any project is, so they must survive the pre-filter. The post-query
+// permission filter stays authoritative.
+function readAllowlistClause(projects: string[]): FilterQuery<FeatureDocument> {
   return {
     $or: [
-      { project: { $in: projects } },
-      { targetingProjects: { $in: projects } },
-      { targetingAllProjects: true },
+      ...targetingScopedProjectArms(projects),
+      { project: { $in: ["", null] } },
     ],
   };
 }
@@ -606,7 +631,8 @@ function featureListQuery(
     project != null
       ? targetingScopedProjectClause([project])
       : projectIds != null
-        ? targetingScopedProjectClause(projectIds)
+        ? // projectIds is always a read allowlist, never a user filter
+          readAllowlistClause(projectIds)
         : {};
   return {
     organization: orgId,

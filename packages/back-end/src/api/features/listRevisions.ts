@@ -99,6 +99,7 @@ export async function loadRevisionsPage(
       }
       const scopedFeatures = await getAllFeatures(context, {
         projects: readableProjects,
+        projectsAreReadAllowlist: true,
         includeArchived,
       });
       featureIds = scopedFeatures.map((f) => f.id);
