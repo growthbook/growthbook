@@ -4,7 +4,6 @@ import { datetime } from "shared/dates";
 import {
   ANY_REVIEW_FOOTPRINT,
   evaluatePublishGovernance,
-  featureAsOfRevision,
   getReviewSetting,
 } from "shared/util";
 import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
@@ -21,20 +20,20 @@ import { RampScheduleInterface } from "shared/validators";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { getReviewAndPublishState } from "@/components/Reviews/reviewAndPublishState";
 import {
+  featureToFeatureRevisionDiffInput,
+  revisionToFeatureRevisionDiffInput,
+  useFeatureRevisionDiff,
+} from "@/hooks/useFeatureRevisionDiff";
+import { DiffContent } from "@/components/Reviews/Feature/RevisionDiffUtils";
+import {
   PersonRow,
   ReviewerVerdictIcon,
 } from "@/components/Reviews/ReviewPeople";
 import { revisionStatusLabel } from "@/components/Reviews/RevisionStatusBadge";
 import ApprovalStatusBand from "@/components/Reviews/ApprovalStatusBand";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
-import {
-  environmentStatesDiffer,
-  getVariationValueChanges,
-} from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
-import {
-  EnvironmentStateChips,
-  getEnvironmentStates,
-} from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import { getVariationValueChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
+import {} from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import {
   findActiveVerdict,
   rowVisual,
@@ -54,9 +53,6 @@ import Checkbox from "@/ui/Checkbox";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import RadioGroup from "@/ui/RadioGroup";
-import VariationLabel from "@/ui/VariationLabel";
-import ForceSummary from "@/components/Features/ForceSummary";
-import { ChangeField } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -112,13 +108,27 @@ export default function ManagedFlagApproval({
     [data, version],
   );
 
+  // The Feature Flag's own review engine. A managed flag's draft IS the
+  // experiment's change, so the whole-revision diff is the right unit — and if
+  // anything else ever lands in there, this is what would show it.
+  const liveDiffInput = useMemo(
+    () => featureToFeatureRevisionDiffInput(info.feature),
+    [info.feature],
+  );
+  const draftDiffInput = useMemo(
+    () =>
+      revision
+        ? revisionToFeatureRevisionDiffInput(revision, liveDiffInput)
+        : liveDiffInput,
+    [revision, liveDiffInput],
+  );
+  const revisionDiffs = useFeatureRevisionDiff({
+    current: liveDiffInput,
+    draft: draftDiffInput,
+  });
+
   const status = info.pendingDraft?.status ?? "draft";
   const approval = info.pendingDraft?.approval;
-  // A draft can re-type the flag; the live feature still carries the old type.
-  const draftFeature = useMemo(
-    () => featureAsOfRevision(info.feature, revision),
-    [info.feature, revision],
-  );
   // Approved on paper, blocked in practice.
   const approvalGated =
     !!approval && !approval.satisfied && status === "approved";
@@ -414,103 +424,34 @@ export default function ManagedFlagApproval({
     });
 
   const variations = getLatestPhaseVariations(experiment);
-  // The same readout the overview shows, from where the draft would run.
-  const environmentStates = getEnvironmentStates(info.pendingDraft ?? {}, {
-    future: publishIsLaunch ? "started" : "published",
-  });
-  // Where the rule runs today, as the "before" half of the diff. A first draft
-  // has no live rule, so there is nothing to compare and only the result shows.
-  const liveEnvironmentStates = getEnvironmentStates({
-    environmentStates: info.liveEnvironmentStates,
-  });
-  const environmentsChanged =
-    liveEnvironmentStates.length > 0 && environmentStatesDiffer(info);
-
-  // Only a value that moved earns the before/after treatment; a first draft has
-  // no live rule to compare against, and an unchanged one reads as "Δ x → x".
-  const valueChanges = getVariationValueChanges(
+  // Only names the modal; the diff itself comes from the shared engine.
+  const hasValueChanges = getVariationValueChanges(
     info,
     variations.map((v) => v.id),
-  );
-  const variationValues = variations.map((v, i) => ({
-    v,
-    i,
-    ...valueChanges[i],
-  }));
-  const hasValueChanges = variationValues.some((r) => r.changed);
-  const typeChanged = draftFeature.valueType !== info.feature.valueType;
-
-  // One renderer for every value in this column, changed or not, so a diff and
-  // a steady value read the same way — and the same way the flag's own page
-  // reads them.
-  const renderValue = (value: string | undefined) => (
-    <ForceSummary
-      label={null}
-      value={value ?? ""}
-      feature={draftFeature}
-      sparse={info.pendingDraft?.sparse ?? info.sparse}
-    />
-  );
+  ).some((c) => c.changed);
 
   const changesColumn = (
     <Flex
       direction="column"
       gap="3"
-      width={requireReviews ? "50%" : "100%"}
+      flexGrow="1"
+      width={requireReviews ? undefined : "100%"}
       minWidth="0"
     >
       <Text size="lg" weight="semibold" color="text-high">
         Changes
       </Text>
-      {typeChanged && (
-        // A re-type changes how every value below is read, so it leads.
-        <Box>
-          <Text size="sm" weight="medium" color="text-high" as="div">
-            Value type
-          </Text>
-          <Box mt="1">
-            <ChangeField
-              changed
-              oldNode={info.feature.valueType}
-              newNode={draftFeature.valueType}
-            />
-          </Box>
-        </Box>
-      )}
-      {variationValues.map(({ v, i, before, after, changed }) => (
-        <Box key={v.id}>
-          <VariationLabel number={i} name={v.name} size="sm" />
-          <Box mt="1">
-            {changed ? (
-              <ChangeField
-                changed
-                oldNode={renderValue(before)}
-                newNode={renderValue(after)}
-              />
-            ) : (
-              renderValue(after)
-            )}
-          </Box>
-        </Box>
-      ))}
-      {environmentStates.length > 0 && (
-        <Box>
-          <Text as="div" size="md" weight="semibold" color="text-high" mb="2">
-            Environments
-          </Text>
-          {environmentsChanged ? (
-            // The markers the value rows use, so a moved environment reads as
-            // the same kind of change as a moved value.
-            <ChangeField
-              changed
-              oldNode={<EnvironmentStateChips states={liveEnvironmentStates} />}
-              newNode={<EnvironmentStateChips states={environmentStates} />}
-            />
-          ) : (
-            <EnvironmentStateChips states={environmentStates} />
-          )}
-        </Box>
-      )}
+      <DiffContent
+        diffs={revisionDiffs}
+        feature={info.feature}
+        outOfOrderWarning={false}
+        variant="card"
+        // Human-readable only: this modal is a review, not the export surface.
+        formats={["formatted"]}
+        jsonFallback={false}
+        showCopyAs={false}
+        showSummaryHeader={false}
+      />
     </Flex>
   );
 
@@ -550,7 +491,9 @@ export default function ManagedFlagApproval({
       : null;
 
   const reviewColumn = (
-    <Flex direction="column" gap="3" width="50%" minWidth="0">
+    // Held at the width it had before the modal grew, so the extra room goes
+    // to the diff rather than stretching a column of names.
+    <Flex direction="column" gap="3" width="360px" flexShrink="0" minWidth="0">
       {contributorRows.length > 0 && (
         <Box>
           <Text size="lg" weight="medium" color="text-high" as="div" mb="2">
@@ -840,7 +783,7 @@ export default function ManagedFlagApproval({
         header={hasValueChanges ? "Review Value Changes" : "Review Values"}
         hideHeader
         bodyMb="0"
-        size="lg"
+        size="xl"
         close={() => {
           // The override is per publish, so it must not survive the modal.
           setAdminBypass(false);
