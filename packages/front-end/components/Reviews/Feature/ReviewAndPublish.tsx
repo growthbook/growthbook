@@ -53,6 +53,7 @@ import {
   PiClockFill,
   PiGitMergeBold,
   PiCaretDownBold,
+  PiFlaskBold,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -2106,9 +2107,10 @@ export default function ReviewAndPublish({
       <Box mb="3">
         {immediateStartExperiments.length > 0 && (
           <Box mb={scheduledExperiments.length > 0 ? "3" : "0"}>
-            <Heading as="h4" size="sm" mb="2">
-              Start running experiments upon publishing:
-            </Heading>
+            <Flex align="center" gap="1" mb="2">
+              <PiFlaskBold />
+              <Text>Start running experiments upon publishing:</Text>
+            </Flex>
             {immediateStartExperiments.map((experiment) => (
               <Box key={experiment.id}>
                 <Checkbox
@@ -2127,9 +2129,10 @@ export default function ReviewAndPublish({
         )}
         {scheduledExperiments.length > 0 && (
           <Box>
-            <Heading as="h4" size="sm" mb="2">
-              Approve scheduled start for experiments:
-            </Heading>
+            <Flex align="center" gap="1" mb="2">
+              <PiFlaskBold />
+              <Text>Approve scheduled start for experiments:</Text>
+            </Flex>
             {scheduledExperiments.map((experiment) => (
               <Box key={experiment.id}>
                 <Checkbox
