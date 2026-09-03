@@ -38,6 +38,7 @@ export const numberFormatValidator = z.enum([
   "",
   "currency",
   "time:seconds",
+  "time:milliseconds",
   "memory:bytes",
   "memory:kilobytes",
 ]);
@@ -527,6 +528,7 @@ export const apiFactTableColumnValidator = namedSchema(
           "",
           "currency",
           "time:seconds",
+          "time:milliseconds",
           "memory:bytes",
           "memory:kilobytes",
         ])
