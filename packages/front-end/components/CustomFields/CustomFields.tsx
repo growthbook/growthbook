@@ -346,20 +346,18 @@ const CustomFields: FC = () => {
               />
             </TabsContent>
             <TabsContent value="attribute">
-              <Box className="appbox">
-                <CustomFieldsTable
-                  filter="attribute"
-                  items={items}
-                  duplicateIds={duplicateIds}
-                  showRequired={true}
-                  deleteCustomField={deleteCustomField}
-                  toggleCustomField={toggleCustomField}
-                  setModalOpen={setModalOpen}
-                  handleMoveUp={handleMoveUp}
-                  handleMoveDown={handleMoveDown}
-                  canManage={canManage}
-                />
-              </Box>
+              <CustomFieldsTable
+                filter="attribute"
+                items={items}
+                duplicateIds={duplicateIds}
+                showRequired={true}
+                deleteCustomField={deleteCustomField}
+                toggleCustomField={toggleCustomField}
+                setModalOpen={setModalOpen}
+                handleMoveUp={handleMoveUp}
+                handleMoveDown={handleMoveDown}
+                canManage={canManage}
+              />
             </TabsContent>
           </Tabs>
           <DragOverlay>
