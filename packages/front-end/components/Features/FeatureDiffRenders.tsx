@@ -42,7 +42,10 @@ import {
   ProjectName,
   OwnerName,
 } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
-import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
+import {
+  COMPACT_DIFF_STYLES,
+  DENSE_DIFF_STYLES,
+} from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import SortedTags from "@/components/Tags/SortedTags";
 import styles from "./FeatureDiffRenders.module.scss";
@@ -103,10 +106,13 @@ function ValueChangedField({
   label,
   pre,
   post,
+  dense = false,
 }: {
   label?: ReactNode;
   pre: string | null | undefined;
   post: string | null | undefined;
+  // Tighter leading, for a diff sharing a column with other content.
+  dense?: boolean;
 }) {
   if (isEqual(pre, post)) return null;
   // Treat null, undefined, and empty string as unset (matches GenericFieldChange precedent)
@@ -155,7 +161,7 @@ function ValueChangedField({
           oldValue={pre ?? ""}
           newValue={post ?? ""}
           compareMethod={DiffMethod.LINES}
-          styles={COMPACT_DIFF_STYLES}
+          styles={dense ? DENSE_DIFF_STYLES : COMPACT_DIFF_STYLES}
         />
       </div>
     </div>
@@ -202,7 +208,12 @@ function ValueOnlyField({
       {/* Syntax highlighting says more about a JSON body than a success colour
           would, so it wins here. */}
       <Box style={{ maxHeight: 250, overflowY: "auto" }}>
-        <InlineCode language="json" code={value ?? ""} />
+        <InlineCode
+          language="json"
+          code={value ?? ""}
+          fontSize="0.75rem"
+          lineHeight={1.35}
+        />
       </Box>
     </div>
   );
@@ -846,6 +857,7 @@ function RuleFieldDiffs({
       rows.push(
         <ValueChangedField
           key={`var-${i}`}
+          dense={compact}
           label={
             <VariationValueLabel
               experimentId={(post as { experimentId?: string }).experimentId}
@@ -1057,6 +1069,7 @@ function NewRuleDetails({
         ) : (
           <ValueChangedField
             key={`var-${i}`}
+            dense={compact}
             label={label}
             pre={null}
             post={value}

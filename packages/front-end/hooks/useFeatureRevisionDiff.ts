@@ -111,8 +111,11 @@ export const featureToFeatureRevisionDiffInput = (
       neverStale: feature.neverStale,
       customFields: feature.customFields,
       jsonSchema: feature.jsonSchema,
-      // valueType is intentionally excluded: it is immutable after feature creation
-      // and is never written into a revision metadata envelope.
+      // Was excluded as immutable, which a managed flag broke: it re-types
+      // through the draft's `metadata.valueType` and only applies on publish.
+      // Without the live type here a re-type reads as "unset -> json", or
+      // vanishes entirely when the draft inherits this envelope wholesale.
+      valueType: feature.valueType,
     }),
   };
 };
