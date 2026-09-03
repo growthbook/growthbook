@@ -14,6 +14,7 @@ import {
 } from "shared/enterprise";
 import {
   ExplorationConfig,
+  ComparisonMode,
   ExplorationDateRange,
   ProductAnalyticsExploration,
 } from "shared/validators";
@@ -64,8 +65,12 @@ interface Props {
   compareEnabled?: boolean;
   /** The comparison (previous) window the explorer submitted, if any. */
   previousTimeFrame?: ExplorationDateRange | null;
+  /** How the previous window is derived; only `custom` persists the window. */
+  comparisonMode?: ComparisonMode;
   /** Current comparison exploration id, to seed the block before first refresh. */
   comparisonExplorationId?: string | null;
+  /** Funnel metric the exploration was loaded from, if any. */
+  linkedFunnelMetricId?: string | null;
   trackingSource?: string;
 }
 
@@ -75,7 +80,9 @@ export default function SaveToDashboardModal({
   exploration,
   compareEnabled = false,
   previousTimeFrame = null,
+  comparisonMode = "previousPeriod",
   comparisonExplorationId = null,
+  linkedFunnelMetricId = null,
   trackingSource,
 }: Props) {
   const router = useRouter();
@@ -122,13 +129,14 @@ export default function SaveToDashboardModal({
   const handleSubmit = async () => {
     const blockType = datasetTypeToBlockType(config.dataset.type);
     // Persist the comparison so dashboards can show it and roll it on refresh.
-    // Only store `previousTimeFrame` for a fixed (custom date range) primary;
-    // relative primaries re-derive the previous window each refresh so it rolls.
+    // Only `custom` needs its window stored; every other mode re-derives it each
+    // refresh so it rolls with the primary range.
     const comparison = compareEnabled
       ? {
           enabled: true,
+          mode: comparisonMode,
           previousTimeFrame:
-            config.dateRange.predefined === "customDateRange"
+            comparisonMode === "custom"
               ? (previousTimeFrame ?? undefined)
               : undefined,
         }
@@ -142,6 +150,9 @@ export default function SaveToDashboardModal({
       ...(comparison ? { comparison } : {}),
       ...(comparison && comparisonExplorationId
         ? { comparisonExplorerAnalysisId: comparisonExplorationId }
+        : {}),
+      ...(blockType === "funnel-exploration" && linkedFunnelMetricId
+        ? { linkedFunnelMetricId }
         : {}),
     };
 
@@ -282,7 +293,7 @@ export default function SaveToDashboardModal({
               {...form.register("title")}
             />
             <MultiSelectField
-              size="legacy"
+              legacyHeight
               label="Projects"
               placeholder="All projects"
               options={projectsOptions}

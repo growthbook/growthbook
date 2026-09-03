@@ -6,7 +6,10 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import { useEffect, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiArrowSquareOut } from "react-icons/pi";
@@ -20,6 +23,7 @@ import {
   ensureConfigBacking,
   setConfigBacking,
   valueHasConfigExtends,
+  mergeRevision,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import Callout from "@/ui/Callout";
@@ -48,12 +52,8 @@ import RuleEnvironmentScopeField from "@/components/Features/RuleModal/Environme
 import DraftSelectorDropdown, {
   DraftMode,
 } from "@/components/Features/DraftSelectorDropdown";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -61,6 +61,8 @@ import HelperText from "@/ui/HelperText";
 import FeatureKeyField from "./FeatureKeyField";
 import TagsField from "./TagsField";
 import ValueTypeField from "./ValueTypeField";
+
+const NO_ENVIRONMENTS: string[] = [];
 
 export type Props = {
   close: () => void;
@@ -96,13 +98,11 @@ const genFormDefaultValues = ({
   permissions,
   project,
   experiment,
-  customFields,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
   experiment: ExperimentInterfaceStringDates;
-  customFields?: ReturnType<typeof useCustomFields>;
 }): Omit<
   FeatureInterface,
   | "organization"
@@ -120,11 +120,6 @@ const genFormDefaultValues = ({
     permissions,
     project,
   });
-  const customFieldValues = customFields
-    ? Object.fromEntries(
-        customFields.map((field) => [field.id, field.defaultValue ?? ""]),
-      )
-    : {};
   const type =
     getLatestPhaseVariations(experiment).length > 2 ? "string" : "boolean";
   const defaultValue = getDefaultValue(type);
@@ -139,7 +134,7 @@ const genFormDefaultValues = ({
     tags: experiment.tags || [],
     environmentSettings,
     rules: [],
-    customFields: customFieldValues,
+    customFields: {},
     variations: getLatestPhaseVariations(experiment).map((v, i) => {
       return {
         value: i ? getDefaultVariationValue(defaultValue) : defaultValue,
@@ -166,24 +161,14 @@ export default function FeatureFromExperimentModal({
   );
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
-  const { hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
   const { holdoutsMap } = useHoldouts();
-  const allCustomFields = useCustomFields();
-  const customFields = filterCustomFieldsForSectionAndProject(
-    allCustomFields,
-    "feature",
-    selectedProject,
-  );
 
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
     experiment,
     project: selectedProject,
-    customFields: hasCommercialFeature("custom-metadata")
-      ? customFields
-      : undefined,
   });
 
   const { features } = useFeatureMetaInfo({ project: experiment.project });
@@ -206,17 +191,20 @@ export default function FeatureFromExperimentModal({
     defaultValues: defaultValues as never,
   });
 
+  const { availableFields: availableCustomFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "feature",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
+
   const [showTags, setShowTags] = useState(
     experiment.tags && experiment.tags.length > 0,
   );
   const [showDescription, setShowDescription] = useState(
     experiment.description && experiment.description.length > 0,
   );
-
-  const [ruleAllEnvironments, setRuleAllEnvironments] = useState<boolean>(true);
-  const [ruleSelectedEnvironments, setRuleSelectedEnvironments] = useState<
-    string[]
-  >([]);
 
   const [draftMode, setDraftMode] = useState<DraftMode>("new");
   const [selectedDraft, setSelectedDraft] = useState<number | null>(null);
@@ -230,10 +218,11 @@ export default function FeatureFromExperimentModal({
   const { data: existingFeatureData } = useApi<{
     status: 200;
     feature: FeatureInterface;
-    revisions: MinimalFeatureRevisionInterface[];
+    revisionList: MinimalFeatureRevisionInterface[];
+    revisions: FeatureRevisionInterface[];
   }>(`/feature/${existing}`, { shouldRun: () => !!existing });
   const existingFeature = existingFeatureData?.feature;
-  const existingRevisionList = existingFeatureData?.revisions ?? [];
+  const existingRevisionList = existingFeatureData?.revisionList ?? [];
 
   // Sparse patch mode for the experiment-ref rule. Only coherent when linking an
   // EXISTING JSON feature with a plain-object default — a brand-new feature's
@@ -263,6 +252,120 @@ export default function FeatureFromExperimentModal({
     });
   }, [isConfigBacked, defaultConfigKey, form]);
 
+  // Enabled environments of the destination state the rule will land in: the
+  // selected draft (overlaid on live) when saving to an existing draft, or the
+  // live feature otherwise (new draft / apply now).
+  const enabledEnvsForDestination = useMemo<string[] | null>(() => {
+    if (!existing || !existingFeature) return null;
+
+    const envIds = environments.map((e) => e.id);
+    const draftRevision =
+      draftMode === "existing" && selectedDraft !== null
+        ? existingFeatureData?.revisions?.find(
+            (r) => r.version === selectedDraft,
+          )
+        : undefined;
+
+    // mergeRevision overlays the draft's environmentsEnabled per env, which is
+    // what publishing applies — envs the draft doesn't record keep their live
+    // value rather than reading as disabled.
+    const destination = draftRevision
+      ? mergeRevision(existingFeature, draftRevision, envIds)
+      : existingFeature;
+
+    return envIds.filter(
+      (id) => !!destination.environmentSettings?.[id]?.enabled,
+    );
+  }, [
+    existing,
+    existingFeature,
+    existingFeatureData?.revisions,
+    draftMode,
+    selectedDraft,
+    environments,
+  ]);
+
+  const destinationKey =
+    existing && existingFeature
+      ? `${existing}:${draftMode}:${draftMode === "existing" ? selectedDraft : ""}`
+      : "";
+
+  // The rule scope defaults to the destination's enabled envs and switches to
+  // the user's selection once they edit it. Keying the override to the
+  // destination it was made for means a feature/draft change re-seeds on its
+  // own — a stale override simply stops matching, so there's no reset effect
+  // and never a render where the scope lags the destination.
+  const [scopeOverride, setScopeOverride] = useState<{
+    key: string;
+    allEnvironments: boolean;
+    selectedEnvironments: string[];
+  } | null>(null);
+
+  const ruleScope =
+    scopeOverride?.key === destinationKey
+      ? scopeOverride
+      : enabledEnvsForDestination === null
+        ? // New feature, or the selected one hasn't loaded yet.
+          { allEnvironments: true, selectedEnvironments: NO_ENVIRONMENTS }
+        : {
+            allEnvironments:
+              environments.length > 0 &&
+              enabledEnvsForDestination.length === environments.length,
+            selectedEnvironments: enabledEnvsForDestination,
+          };
+  const ruleAllEnvironments = ruleScope.allEnvironments;
+  const ruleSelectedEnvironments = ruleScope.selectedEnvironments;
+
+  const setRuleAllEnvironments = (allEnvironments: boolean) =>
+    setScopeOverride({
+      key: destinationKey,
+      allEnvironments,
+      selectedEnvironments: ruleSelectedEnvironments,
+    });
+  const setRuleSelectedEnvironments = (selectedEnvironments: string[]) =>
+    setScopeOverride({
+      key: destinationKey,
+      allEnvironments: ruleAllEnvironments,
+      selectedEnvironments,
+    });
+
+  // Rule-footprint environments not yet enabled on the destination. Publishing
+  // this rule flips them on for the feature (the back end enables any footprint
+  // env that's currently off), so warn the user before they commit.
+  const envsEnabledByPublish = useMemo<string[]>(() => {
+    if (!existing || enabledEnvsForDestination === null) return [];
+    const enabledSet = new Set(enabledEnvsForDestination);
+    const footprint = ruleAllEnvironments
+      ? environments.map((e) => e.id)
+      : ruleSelectedEnvironments;
+    return footprint.filter(
+      (id) => environments.some((e) => e.id === id) && !enabledSet.has(id),
+    );
+  }, [
+    existing,
+    enabledEnvsForDestination,
+    ruleAllEnvironments,
+    ruleSelectedEnvironments,
+    environments,
+  ]);
+
+  const enableOnPublishWarning = useMemo<React.ReactNode>(() => {
+    if (envsEnabledByPublish.length === 0) return null;
+    const envNames = <strong>{envsEnabledByPublish.join(", ")}</strong>;
+    const scope =
+      draftMode === "existing"
+        ? "in the selected draft"
+        : "for this Feature Flag";
+    const verb = envsEnabledByPublish.length === 1 ? "is" : "are";
+    const pronoun = envsEnabledByPublish.length === 1 ? "it" : "them";
+    return (
+      <>
+        {envNames} {verb} not enabled {scope}. Publishing will enable {pronoun}{" "}
+        so the rule can take effect.
+      </>
+    );
+  }, [envsEnabledByPublish, draftMode]);
+
   // Pessimistic default ("all") until the FF loads so publish-now stays gated.
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
     if (!existing || !existingFeature) return "all";
@@ -277,7 +380,8 @@ export default function FeatureFromExperimentModal({
 
   const canAutoPublish = useMemo(() => {
     if (!existingFeature) return false;
-    if (permissionsUtil.canBypassApprovalChecks(existingFeature)) return true;
+    if (permissionsUtil.canBypassFlagApprovalChecks(existingFeature, "feature"))
+      return true;
     return gatedEnvSet === "none";
   }, [existingFeature, permissionsUtil, gatedEnvSet]);
 
@@ -313,7 +417,7 @@ export default function FeatureFromExperimentModal({
   let disabledMessage: string | undefined;
 
   if (
-    !permissionsUtil.canManageFeatureDrafts({
+    !permissionsUtil.canEditFeatureDrafts({
       project: selectedProject,
     })
   ) {
@@ -617,21 +721,15 @@ export default function FeatureFromExperimentModal({
             my="5"
           />
 
-          {hasCommercialFeature("custom-metadata") &&
-            customFields &&
-            customFields.length > 0 && (
-              <div>
-                <CustomFieldInput
-                  customFields={customFields}
-                  setCustomFields={(value) => {
-                    form.setValue("customFields", value);
-                  }}
-                  currentCustomFields={form.watch("customFields") || {}}
-                  section={"feature"}
-                  project={selectedProject}
-                />
-              </div>
-            )}
+          {availableCustomFields.length > 0 && (
+            <div>
+              <CustomFieldInput
+                fields={availableCustomFields}
+                value={customFieldValues}
+                onChange={(value) => form.setValue("customFields", value)}
+              />
+            </div>
+          )}
         </>
       )}
 
@@ -649,15 +747,22 @@ export default function FeatureFromExperimentModal({
             </Box>
           </HelperText>
 
-          <RuleEnvironmentScopeField
-            environments={environments}
-            allEnvironments={ruleAllEnvironments}
-            setAllEnvironments={setRuleAllEnvironments}
-            selectedEnvironments={ruleSelectedEnvironments}
-            setSelectedEnvironments={setRuleSelectedEnvironments}
-            label="Environments"
-            my="5"
-          />
+          <Box my="5">
+            <RuleEnvironmentScopeField
+              environments={environments}
+              allEnvironments={ruleAllEnvironments}
+              setAllEnvironments={setRuleAllEnvironments}
+              selectedEnvironments={ruleSelectedEnvironments}
+              setSelectedEnvironments={setRuleSelectedEnvironments}
+              label="Environments"
+            />
+
+            {enableOnPublishWarning && (
+              <Callout status="warning" mt="3">
+                {enableOnPublishWarning}
+              </Callout>
+            )}
+          </Box>
         </>
       )}
 

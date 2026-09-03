@@ -6,7 +6,10 @@ import React, {
   type ReactNode,
 } from "react";
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
-import { getDefaultPrerequisiteCondition } from "shared/util";
+import {
+  entityTargetsProject,
+  getDefaultPrerequisiteCondition,
+} from "shared/util";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import {
   PiXBold,
@@ -340,6 +343,9 @@ export default function PrerequisiteInput({
         (!hasSDKWithPrerequisites && conditional) || cyclic || wouldBeCyclic;
       const projectId = f.project || "";
       const projectName = projectId ? projectMap.get(projectId) : null;
+      const targetingProjectNames = (f.targetingProjects ?? [])
+        .filter((id) => id && id !== projectId)
+        .map((id) => projectMap.get(id) || id);
       return {
         label: f.id,
         value: f.id,
@@ -354,6 +360,8 @@ export default function PrerequisiteInput({
         } as FeatureOptionMeta,
         project: projectId,
         projectName,
+        targetingProjectNames,
+        targetingAllProjects: !!f.targetingAllProjects,
       };
     });
 
@@ -402,11 +410,11 @@ export default function PrerequisiteInput({
         premiumText="Prerequisite targeting is available for Enterprise customers"
       >
         {slimMode ? (
-          <Text as="div" size="medium" weight="semibold" color="text-mid">
+          <Text as="div" size="md" weight="semibold" color="text-mid">
             {label}
           </Text>
         ) : (
-          <Text as="div" size="medium" weight="semibold">
+          <Text as="div" size="md" weight="semibold">
             {label}
           </Text>
         )}
@@ -426,7 +434,7 @@ export default function PrerequisiteInput({
         { value: "set", label: setModeLabel ?? "Set targeting" },
         { value: "remove", label: removeModeLabel ?? "Remove targeting" },
       ]}
-      labelSize="2"
+      labelSize="md"
     />
   ) : null;
   useEffect(() => {
@@ -446,7 +454,7 @@ export default function PrerequisiteInput({
       >
         <Text
           weight="semibold"
-          size="medium"
+          size="md"
           color={
             !hasPrerequisitesCommercialFeature || locked
               ? "text-low"
@@ -467,7 +475,7 @@ export default function PrerequisiteInput({
           color="text-low"
           fontStyle="italic"
           mb="2"
-          size={slimMode ? "small" : undefined}
+          size={slimMode ? "sm" : undefined}
         >
           {emptyText || "No prerequisite targeting applied"}
         </Text>
@@ -488,7 +496,7 @@ export default function PrerequisiteInput({
                   setAdvancedMode(newAdvancedMode);
                 }}
                 label="Advanced"
-                size="1"
+                size="sm"
                 disabled={locked}
               />
             ) : undefined
@@ -557,7 +565,7 @@ export default function PrerequisiteInput({
                               setAdvancedMode(newAdvancedMode);
                             }}
                             label="Advanced"
-                            size="1"
+                            size="sm"
                             disabled={locked}
                           />
                         ) : undefined
@@ -695,7 +703,7 @@ export default function PrerequisiteInput({
                               conds?.[0]?.[0]?.operator,
                             ) ? (
                               <StringArrayField
-                                size="legacy"
+                                legacyHeight
                                 disabled={locked}
                                 containerClassName="w-100"
                                 value={
@@ -881,7 +889,7 @@ export default function PrerequisiteInput({
                         showFullscreenButton={!locked}
                       />
                       <Box>
-                        <Text color="text-low" size="small">
+                        <Text color="text-low" size="sm">
                           <code>{`"value"`}</code> refers to the
                           prerequisite&apos;s evaluated value.
                           <Tooltip
@@ -927,7 +935,8 @@ export default function PrerequisiteInput({
                   )}
 
                   {parentFeature &&
-                    (parentFeature?.project || "") !== featureProject && (
+                    !!parentFeature.project &&
+                    !entityTargetsProject(parentFeature, featureProject) && (
                       <Callout
                         status="warning"
                         mb="2"

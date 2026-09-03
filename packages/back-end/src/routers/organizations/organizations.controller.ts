@@ -5,18 +5,16 @@ import {
   experimentHasLinkedChanges,
   getNamespaceRanges,
   getRulesForEnvironment,
+  normalizeApprovalRuleSettings,
   parseIntWithDefaultCapped,
+  pruneApprovalRuleReferences,
 } from "shared/util";
-import {
-  getRoles,
-  areProjectRolesValid,
-  isRoleValid,
-  getDefaultRole,
-} from "shared/permissions";
+import { getRoles, getDefaultRole } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
+import { AI_PROVIDERS } from "shared/ai";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
@@ -35,7 +33,6 @@ import {
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
-import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -44,10 +41,12 @@ import {
   acceptInvite,
   addMemberToOrg,
   addPendingMemberToOrg,
+  assertMemberRoleInfoValid,
   assertRoleAssignmentAllowed,
   assertRoleChangeAllowed,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
+  getAISettingsForOrg,
   getContextFromReq,
   getInviteUrl,
   getMembersOfTeam,
@@ -187,8 +186,10 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
       permissionsFingerprint: context.getPermissionsFingerprint(),
       buildFingerprint: definitionsBuildFingerprint(),
       // null = the user can read all projects, so every project's version counts.
-      readableProjects:
-        context.permissions.getProjectsWithPermission("readData"),
+      readableProjects: context.permissions.getProjectsWithPermission(
+        "readData",
+        await context.models.projects.getAllIdsForOrg(),
+      ),
       configFileHash: getConfigFileHash(),
     });
     // Make the browser behavior we rely on explicit: store, but always
@@ -435,8 +436,13 @@ export async function putMemberRole(
     context.permissions.throwPermissionError();
   }
   const { org, userId } = context;
-  const { role, limitAccessByEnvironment, environments, projectRoles } =
-    req.body;
+  const {
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+    additionalRoles,
+  } = req.body;
   const { id } = req.params;
 
   if (id === userId) {
@@ -446,10 +452,18 @@ export async function putMemberRole(
     });
   }
 
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
+    });
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
   }
 
@@ -478,6 +492,7 @@ export async function putMemberRole(
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
+      m.additionalRoles = additionalRoles || [];
     }
   });
   org?.pendingMembers?.forEach((m) => {
@@ -486,6 +501,7 @@ export async function putMemberRole(
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
+      m.additionalRoles = additionalRoles || [];
     }
   });
 
@@ -536,18 +552,13 @@ export async function putMemberProjectRole(
     });
   }
 
-  // Validate the project role
-  const { memberIsValid, reason } = validateRoleAndEnvs(
-    org,
-    projectRole.role,
-    projectRole.limitAccessByEnvironment || false,
-    projectRole.environments,
-  );
-
-  if (!memberIsValid) {
+  try {
+    // The whole rule, additional roles included — nothing rides in unchecked.
+    assertMemberRoleInfoValid(org, projectRole);
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: reason,
+      message: e.message,
     });
   }
   const updatedProjectRole: ProjectMemberRole = {
@@ -796,15 +807,28 @@ export async function putInviteRole(
   }
 
   const { org } = context;
-  const { role, limitAccessByEnvironment, environments, projectRoles } =
-    req.body;
+  const {
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+    additionalRoles,
+  } = req.body;
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
+    });
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
   }
 
@@ -831,6 +855,7 @@ export async function putInviteRole(
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
+      m.additionalRoles = additionalRoles || [];
     }
   });
 
@@ -861,7 +886,7 @@ export async function putInviteRole(
 }
 
 export async function getOrganization(
-  req: AuthRequest,
+  req: AuthRequest<unknown, unknown, { forceLicenseRefresh?: string }>,
   res: Response<GetOrganizationResponse | { status: 200; organization: null }>,
 ) {
   if (!req.organization) {
@@ -873,6 +898,8 @@ export async function getOrganization(
 
   const context = getContextFromReq(req);
   const { org, userId } = context;
+  const forceLicenseRefresh = req.query.forceLicenseRefresh !== undefined;
+
   const {
     invites,
     members,
@@ -898,15 +925,23 @@ export async function getOrganization(
       let license: Partial<LicenseInterface> | null =
         getLicense(licenseKey || process.env.LICENSE_KEY) || null;
       if (
+        forceLicenseRefresh ||
         !license ||
         (license.organizationId && license.organizationId !== id)
       ) {
         try {
           license =
-            (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
-            null;
+            (await licenseInit(
+              org,
+              getUserCodesForOrg,
+              getLicenseMetaData,
+              forceLicenseRefresh,
+            )) || null;
         } catch (e) {
           logger.error(e, "setting license failed");
+          if (forceLicenseRefresh) {
+            throw e;
+          }
         }
       }
       return license;
@@ -942,6 +977,11 @@ export async function getOrganization(
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
+  // Returned here so every page can gate AI affordances off the org's real key
+  // state without a second request. The keys never leave the back end.
+  const { keySource } = await getAISettingsForOrg(context);
+  const aiKeyProviders = AI_PROVIDERS.filter((p) => keySource[p] !== "none");
+
   // Teams were already loaded (unfiltered) by the auth middleware
   const teams = context.teams;
 
@@ -957,6 +997,7 @@ export async function getOrganization(
     req.currentUser,
     org,
     teams || [],
+    req.restrictedProjects,
   );
   const agreementsAgreed = Array.from(
     new Set(agreements.map((a) => a.agreement as AgreementType)),
@@ -982,6 +1023,7 @@ export async function getOrganization(
     installationName: installationName || null,
     subscription: license ? getSubscriptionFromLicense(license) : null,
     agreements: agreementsAgreed || [],
+    aiKeyProviders,
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],
@@ -1386,26 +1428,29 @@ export async function postInvite(
   }
 
   const { org } = context;
-  const { email, role, limitAccessByEnvironment, environments, projectRoles } =
-    req.body;
+  const {
+    email,
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+    additionalRoles,
+  } = req.body;
 
   // Make sure role is valid
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      additionalRoles,
+      projectRoles,
+    });
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
-  }
-
-  const license = getLicense();
-  if (
-    license &&
-    license.hardCap &&
-    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
-  ) {
-    throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
-    );
   }
 
   const { emailSent, inviteUrl } = await inviteUser({
@@ -1415,6 +1460,7 @@ export async function postInvite(
     limitAccessByEnvironment,
     environments,
     projectRoles,
+    additionalRoles,
     invitedBy: req.email,
   });
 
@@ -1537,6 +1583,14 @@ export async function signup(
       throw Error("Company length must be at least 3 characters");
     }
     if (IS_CLOUD && PROHIBITED_ORGANIZATION_NAME_REGEX?.test(company)) {
+      req.log.warn(
+        {
+          event: "signup_blocked_prohibited_organization_name",
+          company,
+          userId: req.userId,
+        },
+        "Blocked signup with prohibited organization name",
+      );
       throw Error(
         "Unable to create organization. Please contact support@growthbook.io",
       );
@@ -1728,7 +1782,15 @@ export async function putOrganization(
     if (settings) {
       updates.settings = {
         ...org.settings,
-        ...settings,
+        // Drops rule references to deleted teams/environments, so the settings
+        // UI's "Saving removes it" note is true.
+        ...pruneApprovalRuleReferences(
+          normalizeApprovalRuleSettings(settings),
+          {
+            environments: (org.settings?.environments ?? []).map((e) => e.id),
+            teams: (context.teams ?? []).map((t) => t.id),
+          },
+        ),
       };
       orig.settings = org.settings;
     }
@@ -1857,6 +1919,7 @@ export async function postApiKey(
     type: string;
     limitAccessByEnvironment?: boolean;
     environments?: string[];
+    additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ProjectMemberRole[];
   }>,
   res: Response,
@@ -1868,6 +1931,7 @@ export async function postApiKey(
     type,
     limitAccessByEnvironment,
     environments,
+    additionalRoles,
     projectRoles,
   } = req.body;
 
@@ -1891,6 +1955,7 @@ export async function postApiKey(
       roleId: type,
       limitAccessByEnvironment,
       environments,
+      additionalRoles,
       projectRoles,
     });
   }
@@ -1918,6 +1983,7 @@ export async function putApiKey(
       description?: string;
       limitAccessByEnvironment?: boolean;
       environments?: string[];
+      additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ProjectMemberRole[];
     },
     { id: string }
@@ -1931,6 +1997,7 @@ export async function putApiKey(
     description,
     limitAccessByEnvironment,
     environments,
+    additionalRoles,
     projectRoles,
   } = req.body;
 
@@ -1950,6 +2017,7 @@ export async function putApiKey(
       description,
       limitAccessByEnvironment,
       environments,
+      additionalRoles,
       projectRoles,
     });
 
@@ -2305,10 +2373,17 @@ export async function addOrphanedUser(
   }
 
   // Make sure role is valid
-  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+  try {
+    assertMemberRoleInfoValid(org, {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
+    });
+  } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: "Invalid role",
+      message: e.message,
     });
   }
 
@@ -2319,17 +2394,6 @@ export async function addOrphanedUser(
       status: e.status || 400,
       message: e.message,
     });
-  }
-
-  const license = getLicense();
-  if (
-    license &&
-    license.hardCap &&
-    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
-  ) {
-    throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
-    );
   }
 
   await addMemberToOrg({
@@ -2500,31 +2564,7 @@ export async function putDefaultRole(
   // Only gate a change so an existing non-admin default keeps working
   assertRoleChangeAllowed(org, getDefaultRole(org).role, defaultRole.role);
 
-  const { memberIsValid, reason } = validateRoleAndEnvs(
-    org,
-    defaultRole.role,
-    defaultRole.limitAccessByEnvironment,
-    defaultRole.environments,
-  );
-
-  if (!memberIsValid) {
-    throw new Error(reason);
-  }
-
-  if (defaultRole.projectRoles?.length) {
-    defaultRole.projectRoles.forEach((p) => {
-      const { memberIsValid, reason } = validateRoleAndEnvs(
-        org,
-        p.role,
-        p.limitAccessByEnvironment,
-        p.environments,
-      );
-
-      if (!memberIsValid) {
-        throw new Error(reason);
-      }
-    });
-  }
+  assertMemberRoleInfoValid(org, defaultRole);
 
   updateOrganization(org.id, {
     settings: {

@@ -81,16 +81,16 @@ describe("composeConfigBacking", () => {
 
   it("rejects a scalar or array value when a config is supplied (would silently drop the backing)", () => {
     expect(() => composeConfigBacking("pricing", "42", "Rule value")).toThrow(
-      /must be a JSON object when backed by a config/,
+      /must be a JSON object when backed by a Config/,
     );
     expect(() =>
       composeConfigBacking("pricing", '"hello"', "Variation value"),
     ).toThrow(/Variation value must be a JSON object/);
     expect(() =>
       composeConfigBacking("pricing", "[1,2]", "Rule value"),
-    ).toThrow(/must be a JSON object when backed by a config/);
+    ).toThrow(/must be a JSON object when backed by a Config/);
     expect(() => composeConfigBacking("pricing", "true", "Rule value")).toThrow(
-      /must be a JSON object when backed by a config/,
+      /must be a JSON object when backed by a Config/,
     );
   });
 
@@ -144,6 +144,25 @@ describe("mapV2ApiRuleToFeatureRule", () => {
         savedGroupTargeting: [{ matchType: "any", savedGroups: ["g1", "g2"] }],
       } as ApiRuleV2Input);
       expect(out.savedGroups).toEqual([{ match: "any", ids: ["g1", "g2"] }]);
+    });
+
+    it("takes savedGroups through as-is instead of dropping the targeting", () => {
+      const out = mapV2ApiRuleToFeatureRule({
+        type: "force",
+        value: "true",
+        savedGroups: [{ match: "all", ids: ["g1"] }],
+      } as ApiRuleV2Input);
+      expect(out.savedGroups).toEqual([{ match: "all", ids: ["g1"] }]);
+    });
+
+    it("prefers savedGroups when both spellings are supplied", () => {
+      const out = mapV2ApiRuleToFeatureRule({
+        type: "force",
+        value: "true",
+        savedGroups: [{ match: "all", ids: ["storage"] }],
+        savedGroupTargeting: [{ matchType: "any", savedGroups: ["response"] }],
+      } as ApiRuleV2Input);
+      expect(out.savedGroups).toEqual([{ match: "all", ids: ["storage"] }]);
     });
 
     it("infers allEnvironments:false when only environments[] is provided", () => {

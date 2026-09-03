@@ -76,7 +76,7 @@ export default function FactTableTabContent() {
             width: "100%",
           }}
         >
-          <Text size="small" color="text-low">
+          <Text size="sm" color="text-low">
             Add at least one value to chart
           </Text>
         </Flex>
@@ -141,7 +141,7 @@ export default function FactTableTabContent() {
         </ValueCard>
       ))}
       <Button
-        size="sm"
+        size="md"
         variant="outline"
         onClick={() => addValueToDataset("fact_table")}
       >

@@ -1,6 +1,6 @@
 import { isEqual } from "lodash";
 import {
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   isDimensionPrecomputed,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
@@ -143,7 +143,7 @@ export async function getOrCreatePrecomputedDimensionTimeSeriesAnalyses(
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  expandAllSliceMetricsInMap({
+  expandDerivedMetricsInMap({
     metricMap,
     factTableMap,
     experiment,

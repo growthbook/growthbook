@@ -16,8 +16,9 @@ import {
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
   isFactMetric,
+  isFactMetricJoinable,
   isMetricJoinable,
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   ExperimentMetricDefinition,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
@@ -136,6 +137,7 @@ export default function AnalysisSettingsSummary({
   const {
     getDatasourceById,
     getExperimentMetricById,
+    getFactTableById,
     factTables,
     metricGroups,
     factMetrics,
@@ -437,13 +439,20 @@ export default function AnalysisSettingsSummary({
     allExpandedMetrics.forEach((m) => {
       const metric = getExperimentMetricById(m);
       if (!metric) return;
-      const userIdTypes = isFactMetric(metric)
-        ? factTables.find((f) => f.id === metric.numerator.factTableId)
-            ?.userIdTypes || []
-        : metric.userIdTypes || [];
       const isJoinable =
         userIdType && datasourceSettings
-          ? isMetricJoinable(userIdTypes, userIdType, datasourceSettings)
+          ? isFactMetric(metric)
+            ? isFactMetricJoinable(
+                metric,
+                userIdType,
+                getFactTableById,
+                datasourceSettings,
+              )
+            : isMetricJoinable(
+                metric.userIdTypes || [],
+                userIdType,
+                datasourceSettings,
+              )
           : true;
       if (!isJoinable) {
         unjoinables.add(m);
@@ -452,7 +461,7 @@ export default function AnalysisSettingsSummary({
     return unjoinables;
   }, [
     allExpandedMetrics,
-    factTables,
+    getFactTableById,
     userIdType,
     datasourceSettings,
     getExperimentMetricById,
@@ -984,8 +993,8 @@ export default function AnalysisSettingsSummary({
                   factTables.map((table) => [table.id, table]),
                 );
 
-                // Expand slice metrics and add them to the map
-                expandAllSliceMetricsInMap({
+                // Expand derived metrics and add them to the map
+                expandDerivedMetricsInMap({
                   metricMap,
                   factTableMap,
                   experiment,
@@ -1068,7 +1077,7 @@ export default function AnalysisSettingsSummary({
           nothing to rescan, and Results already shows "Add at least 1 metric". */}
       {incrementalUpdatesUnavailable && allMetrics.length > 0 && (
         <Callout status="warning" mt="2">
-          <Text weight="semibold" size="medium">
+          <Text weight="semibold" size="md">
             Updates will rescan full experiment data.
           </Text>{" "}
           {incrementalPipelineUnsupportedReason}
@@ -1091,7 +1100,7 @@ export default function AnalysisSettingsSummary({
         <Callout status="warning" mt="2">
           {overallNeedsFullRefresh ? (
             <>
-              <Text weight="semibold" size="medium">
+              <Text weight="semibold" size="md">
                 Overall Results require a Full Refresh.
               </Text>{" "}
               Dimension Results are computed from Overall Results and would be
@@ -1102,7 +1111,7 @@ export default function AnalysisSettingsSummary({
             </>
           ) : (
             <>
-              <Text weight="semibold" size="medium">
+              <Text weight="semibold" size="md">
                 Overall Results need to be run first.
               </Text>{" "}
               Dimension Results are computed from Overall Results.{" "}
@@ -1130,7 +1139,7 @@ export default function AnalysisSettingsSummary({
           </Callout>
           {isExperimentIncludedInIncrementalRefresh && (
             <Box mt="2" mb="2">
-              <Text size="small" color="text-low">
+              <Text size="sm" color="text-low">
                 If this error persists, you can try disabling Incremental
                 Refresh for this experiment by{" "}
                 <Link onClick={handleDisableIncrementalRefresh}>

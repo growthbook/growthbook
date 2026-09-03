@@ -59,7 +59,7 @@ function NameCell({
     <Box>
       <Text weight="medium">{name}</Text>
       {subtitle && (
-        <Text as="p" size="small" color="text-mid">
+        <Text as="p" size="sm" color="text-mid">
           {subtitle}
         </Text>
       )}
@@ -86,7 +86,7 @@ function Section({
 }) {
   return (
     <Box mb="5">
-      <Heading as="h2" size="large" weight="semibold" mb="2">
+      <Heading as="h2" size="lg" weight="semibold" mb="2">
         {title}
       </Heading>
       <Text as="p" color="text-mid" mb="4">
@@ -226,7 +226,7 @@ export default function SetupRunPage() {
       />
 
       <Box mt="4" mb="5">
-        <Heading as="h1" size="2x-large" mb="0">
+        <Heading as="h1" size="2xl" mb="0">
           {completed ? "Setup Complete!" : "Almost There"}
         </Heading>
       </Box>
@@ -240,7 +240,7 @@ export default function SetupRunPage() {
           </Text>
           <Box mt="1">
             {failing.map((c) => (
-              <Text as="div" size="small" key={c.name}>
+              <Text as="div" size="sm" key={c.name}>
                 {c.name}
               </Text>
             ))}

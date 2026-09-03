@@ -77,7 +77,7 @@ export default function ConnectPage() {
 
       <Flex align="start" gap="3" mt="4" mb="5">
         <Box>
-          <Heading as="h1" size="2x-large" mb="1">
+          <Heading as="h1" size="2xl" mb="1">
             Connect Your SDK
           </Heading>
           <Text as="p" color="text-mid">
@@ -122,7 +122,7 @@ export default function ConnectPage() {
           {wizardable && (
             <TabsContent value="ai-assisted">
               <Flex align="center" gap="2" mb="3">
-                <Heading as="h2" size="medium" weight="semibold" mb="0">
+                <Heading as="h2" size="md" weight="semibold" mb="0">
                   AI-Assisted Setup
                 </Heading>
                 <Tooltip content="It signs you in, creates an SDK Connection and installs the SDK, then hands over to your coding agent to wire it up, find targeting attributes in your code, and put something behind a first flag.">
@@ -141,7 +141,7 @@ export default function ConnectPage() {
                       const next = AGENTS.find((a) => a.id === v);
                       if (next) setAgent(next.id);
                     }}
-                    size="small"
+                    size="sm"
                   >
                     {AGENTS.map((a) => (
                       <SelectItem key={a.id} value={a.id}>

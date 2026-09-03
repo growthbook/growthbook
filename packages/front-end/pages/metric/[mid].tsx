@@ -60,6 +60,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
+import { ReplacedByCallout } from "@/components/Metrics/MetricReplacement";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -427,10 +428,11 @@ const MetricPage: FC = () => {
           experiments.
         </Callout>
       )}
+      <ReplacedByCallout metricId={metric.id} />
 
       <Flex align="start" justify="between" gap="2" mb="2">
         <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
-          <Heading size="x-large" as="h1" mb="0">
+          <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
             <MetricName id={metric.id} />
           </Heading>
         </Flex>

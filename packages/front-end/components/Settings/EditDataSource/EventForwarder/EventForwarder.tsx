@@ -22,6 +22,7 @@ import { PiCaretRight, PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import PremiumCallout from "@/ui/PremiumCallout";
+import SelectField from "@/components/Forms/SelectField";
 import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwarderForm";
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
@@ -41,6 +42,12 @@ import {
   PROVISIONING_TIMEOUT_MESSAGE,
   useEventForwarderProvisioningPoll,
 } from "@/components/Settings/EditDataSource/EventForwarder/useEventForwarderProvisioningPoll";
+import {
+  DEFAULT_DATA_REGION,
+  DataRegion,
+  getDataRegionLabel,
+  useDataRegionOptions,
+} from "@/services/dataRegions";
 
 type Props = {
   dataSource: DataSourceInterfaceWithParams;
@@ -120,6 +127,7 @@ function getEventForwarderDraft(
   if (existing?.sinkType === "bigquery") {
     return {
       sinkType: "bigquery",
+      region: existing.region,
       config: {
         projectId: existing.config.projectId,
         dataset: existing.config.dataset,
@@ -131,6 +139,7 @@ function getEventForwarderDraft(
   if (existing?.sinkType === "snowflake") {
     return {
       sinkType: "snowflake",
+      region: existing.region,
       config: {
         database: existing.config.database,
         schema: existing.config.schema,
@@ -150,6 +159,7 @@ function getEventForwarderDraft(
 
     return {
       sinkType: "bigquery",
+      region: "us-east-1",
       config: {
         projectId: params.defaultProject || params.projectId || "",
         dataset: params.defaultDataset || "",
@@ -162,6 +172,7 @@ function getEventForwarderDraft(
     const params = dataSource.params as SnowflakeConnectionParams;
     return {
       sinkType: "snowflake",
+      region: "us-east-1",
       config: {
         database: params.database || "",
         schema: params.schema || "",
@@ -255,15 +266,15 @@ function EventForwarderConfigField({
 
   return (
     <Box>
-      <Text size="small" weight="medium" color="text-mid" mb="1">
+      <Text size="sm" weight="medium" color="text-mid" mb="1">
         {optional ? `${label} (optional)` : label}
       </Text>
       {trimmed ? (
-        <Text as="div" size="small" weight="regular" color="text-high">
+        <Text as="div" size="sm" weight="regular" color="text-high">
           {trimmed}
         </Text>
       ) : (
-        <Text color="text-low" size="small">
+        <Text color="text-low" size="sm">
           {optional ? "Not set" : "None"}
         </Text>
       )}
@@ -323,6 +334,7 @@ function EventForwarderModal({
   const { apiCall } = useAuth();
   const isSubmittingRef = useRef(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const dataRegionOptions = useDataRegionOptions();
   const [datasourceDraft, setDatasourceDraft] =
     useState<EventForwarderDatasourceDraft>(() => ({
       type: dataSource.type as "bigquery" | "snowflake",
@@ -436,12 +448,32 @@ function EventForwarderModal({
                 setEventForwarderConfig={setEventForwarderConfig}
               />
             ) : null}
+            {eventForwarderConfig ? (
+              <SelectField
+                size="small"
+                legacyLabelFormatting={false}
+                label="Data region"
+                value={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
+                onChange={(value) => {
+                  setEventForwarderConfig({
+                    ...eventForwarderConfig,
+                    region: value as DataRegion,
+                  });
+                  setUsEventForwarderFlowConsent(false);
+                }}
+                disabled={isEditingEventForwarder}
+                options={dataRegionOptions}
+                helpText="Where the forwarder's Kafka/Confluent resources are provisioned. This cannot be changed later."
+              />
+            ) : null}
             <Callout status="info" mb="0" mt="3" icon={null}>
               <Checkbox
                 value={usEventForwarderFlowConsent}
                 setValue={setUsEventForwarderFlowConsent}
                 disabled={isEditingEventForwarder}
-                label="I understand that event data will flow through GrowthBook's US servers and confirm I'm authorized to enable this for my organization."
+                label={`I understand that event data will flow through GrowthBook's servers in ${getDataRegionLabel(
+                  eventForwarderConfig?.region ?? DEFAULT_DATA_REGION,
+                )} and confirm I'm authorized to enable this for my organization.`}
                 weight="regular"
               />
             </Callout>
@@ -489,7 +521,7 @@ function EventForwarderSetupIndicator() {
       }}
     >
       <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-      <Text size="small">Setting up</Text>
+      <Text size="sm">Setting up</Text>
     </Box>
   );
 }
@@ -555,7 +587,7 @@ export default function EventForwarder({
     <Box>
       <Flex align="center" justify="between" gap="3" mb="2">
         <Flex align="center" gap="2">
-          <Heading as="h3" size="medium" mb="0">
+          <Heading as="h3" size="md" mb="0">
             Event Forwarder
           </Heading>
           {eventForwarderConfig ? (
@@ -731,11 +763,17 @@ export default function EventForwarder({
                   />
                 </>
               ) : null}
+              <EventForwarderConfigField
+                label="Data region"
+                value={getDataRegionLabel(
+                  eventForwarderConfig.region ?? DEFAULT_DATA_REGION,
+                )}
+              />
             </Flex>
 
             {isProvisioning ? (
               <Callout status="info">
-                <Text color="text-mid" size="medium">
+                <Text color="text-mid" size="md">
                   This page will update automatically once provisioning
                   completes.
                 </Text>

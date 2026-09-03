@@ -19,6 +19,7 @@ import { getMetricSourceCovariateTableColumns } from "back-end/src/integrations/
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { capCoalesceValue } from "back-end/src/integrations/sql/primitives/cap-coalesce-value";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
+import { afterWatermark } from "back-end/src/integrations/sql/primitives/watermark";
 
 // Legacy covariate insert: scans raw fact-table events over the covariate
 // window and aggregates them per unit. Used whenever the pre-aggregated table
@@ -55,7 +56,7 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
   };
 
   // Scope FT discovery to the target FT so cross-FT ratios sharing a hub
-  // (e.g. `[A/B, A/C]`) don't trip the 2-FT cap in `getFactTablesForMetrics`.
+  // (e.g. `[A/B, A/C]`) only populate the cache this insert is writing.
   const { sources, metricData } = parseExperimentFactMetricsParams(dialect, {
     ...paramsMetricsSorted,
     targetFactTableId: params.factTableId,
@@ -186,7 +187,7 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
             FROM ${params.unitsSourceTableFullName}
             ${
               params.lastCovariateSuccessfulMaxTimestamp
-                ? `WHERE max_timestamp > ${toTimestampWithMs(params.lastCovariateSuccessfulMaxTimestamp)}`
+                ? `WHERE ${afterWatermark(dialect, "max_timestamp", params.lastCovariateSuccessfulMaxTimestamp, params.lastCovariateSuccessfulMaxTimestampRaw)}`
                 : ""
             }
           ) d

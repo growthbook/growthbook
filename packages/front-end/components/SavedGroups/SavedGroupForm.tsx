@@ -1,4 +1,5 @@
-import { FC, useEffect, useMemo, useState } from "react";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import { FC, useEffect, useMemo, useRef, useState } from "react";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
@@ -10,10 +11,11 @@ import {
   Revision,
   applyTopLevelPatchOps,
   JsonPatchOperation,
+  getApprovalFlowSettings,
 } from "shared/enterprise";
 import { useForm } from "react-hook-form";
-import { isEqual } from "lodash";
 import {
+  draftValuesEqual,
   isIdListSupportedAttribute,
   validateAndFixCondition,
 } from "shared/util";
@@ -40,6 +42,11 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Link from "@/ui/Link";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import Callout from "@/ui/Callout";
+import ConflictCallout, {
+  ConflictProvider,
+} from "@/components/DraftConflicts/ConflictContext";
+import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
+import { namedProjectsFormatter } from "@/components/DraftConflicts/conflictValues";
 import SavedGroupDraftSelectorForChanges, {
   DraftMode,
 } from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
@@ -87,18 +94,17 @@ const SavedGroupForm: FC<{
   const { user } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
-  // Compute approvalFlowRequired from settings if not provided as prop
+  // Resolved against the group's own projects, so a project override applies.
+  const approvalFlow = getApprovalFlowSettings(
+    settings.approvalFlows,
+    "saved-group",
+    current.projects ?? [],
+  );
   const isApprovalFlowRequired =
-    approvalFlowRequired ??
-    settings.approvalFlows?.savedGroups?.[0]?.required ??
-    false;
-
-  // Compute metadataReviewRequired from settings if not provided as prop
+    approvalFlowRequired ?? !!approvalFlow?.required;
   const isMetadataReviewRequired =
     metadataReviewRequired ??
-    (isApprovalFlowRequired &&
-      (settings.approvalFlows?.savedGroups?.[0]?.requireMetadataReview ??
-        true));
+    (isApprovalFlowRequired && (approvalFlow?.requireMetadataReview ?? true));
 
   const canAdminPublish =
     !!isApprovalFlowRequired &&
@@ -106,11 +112,11 @@ const SavedGroupForm: FC<{
     (user?.role === "admin" ||
       (current.projects?.length
         ? current.projects.every((project) =>
-            permissionsUtil.canBypassApprovalChecks({ project: project || "" }),
+            permissionsUtil.canBypassSavedGroupApprovalChecks({
+              project: project || "",
+            }),
           )
-        : permissionsUtil.canBypassApprovalChecks({ project: "" })));
-
-  const canAutoPublish = !isApprovalFlowRequired || canAdminPublish;
+        : permissionsUtil.canBypassSavedGroupApprovalChecks({ project: "" })));
 
   // Metadata-only edit when the org's saved-group approval flow is on but
   // metadata review is off: skip the publish-now affordance in this form
@@ -152,8 +158,10 @@ const SavedGroupForm: FC<{
   const allRevisionsForLabel = allRevisions ?? openRevisions;
 
   const [conditionKey, forceConditionRender] = useIncrementer();
-  const [internalSelectedRevision, _setInternalSelectedRevision] =
-    useState<Revision | null>(selectedRevision ?? null);
+
+  const [internalSelectedRevision] = useState<Revision | null>(
+    selectedRevision ?? null,
+  );
 
   const attributeSchema = useAttributeSchema();
 
@@ -174,7 +182,7 @@ const SavedGroupForm: FC<{
     (currentRevision?.status === "discarded" ||
       currentRevision?.status === "merged");
 
-  const { mutateDefinitions, project } = useDefinitions();
+  const { mutateDefinitions, project, getProjectById } = useDefinitions();
 
   const { data: savedGroupsData } = useApi<{
     savedGroups: SavedGroupWithoutValues[];
@@ -214,8 +222,52 @@ const SavedGroupForm: FC<{
     },
   });
 
-  // Update form values when selected revision changes OR when current prop updates
+  // Flag-only: a condition blob and an id list can't be merged granularly, so
+  // the guard surfaces the change and makes the user choose rather than
+  // silently overwriting it.
+  const conflict = useDraftConflict<Record<string, unknown>>({
+    initial: {
+      groupName: current.groupName ?? "",
+      owner: current.owner ?? "",
+      description: current.description ?? "",
+      projects: current.projects ?? [],
+      ...(current.type === "condition"
+        ? { condition: current.condition ?? "" }
+        : { values: current.values ?? [] }),
+    },
+    labels: {
+      groupName: "Name",
+      owner: "Owner",
+      description: "Description",
+      projects: "Projects",
+      condition: "Condition",
+      values: "IDs",
+    },
+    formatters: {
+      projects: namedProjectsFormatter(getProjectById),
+    },
+    form,
+    isNewDraft: draftMode === "new",
+    entityNoun: "saved group",
+  });
+
+  const descriptionContested = conflict.providerProps.contested.some(
+    (c) => c.key === "description",
+  );
+
+  // Live state pinned at open. Publish/new-draft submits compare against live,
+  // which the hook baseline only describes when the conflict came from live.
+  const [livePin] = useState<SavedGroupInterface | undefined>(
+    () => liveVersion,
+  );
+
+  // Reseed only when the backing revision changes: a same-revision SWR refresh
+  // must not clobber unsaved edits — the stale baseline 409s instead.
+  const seedKey = currentRevision ? currentRevision.id : "__live__";
+  const seededKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    if (seededKeyRef.current === seedKey) return;
+    seededKeyRef.current = seedKey;
     let baseData: Partial<SavedGroupInterface>;
 
     if (currentRevision) {
@@ -257,29 +309,61 @@ const SavedGroupForm: FC<{
     if (baseData.description) {
       setShowDescription(true);
     }
-  }, [currentRevision, liveVersion, type, project, orgId, form, current]);
+  }, [
+    seedKey,
+    currentRevision,
+    liveVersion,
+    type,
+    project,
+    orgId,
+    form,
+    current,
+  ]);
 
   const selectedProjects = form.watch("projects") || [];
+
+  // Publishing is its own authority: an author without it edits through drafts and is
+  // never offered "publish now" — the server refuses that write. Only applies to
+  // edits; creating a group isn't a publish.
+  //
+  // BOTH sides of a move, like the endpoint's `holdsMoveDestination`: publishing a
+  // group whose projects changed lands it in the destination, so authority there is
+  // required too. Judging `current` alone offered publish-now for a move into a
+  // project the caller cannot publish in.
+  const canAutoPublish =
+    (!current.id ||
+      (permissionsUtil.canRevisionAction("saved-group", "publish", current) &&
+        permissionsUtil.canRevisionAction("saved-group", "publish", {
+          ...current,
+          projects: selectedProjects,
+        }))) &&
+    (!isApprovalFlowRequired || canAdminPublish);
   const projectsOptions = useProjectOptions(
     (p) =>
       current.id
-        ? permissionsUtil.canUpdateSavedGroup(
-            { projects: current.projects || [] },
+        ? permissionsUtil.canRevisionAction(
+            "saved-group",
+            "draft",
             { projects: [p] },
+            NO_ENVIRONMENT_BINDING,
           )
         : permissionsUtil.canCreateSavedGroup({ projects: [p] }),
     selectedProjects,
   );
   const canCreateWithoutProject = current.id
-    ? permissionsUtil.canUpdateSavedGroup(
-        { projects: current.projects || [] },
+    ? permissionsUtil.canRevisionAction(
+        "saved-group",
+        "draft",
         { projects: [] },
+        NO_ENVIRONMENT_BINDING,
       )
     : permissionsUtil.canCreateSavedGroup({ projects: [] });
   const hasProjectPermission = current.id
-    ? permissionsUtil.canUpdateSavedGroup(
-        { projects: current.projects || [] },
+    ? permissionsUtil.canRevisionAction(
+        "saved-group",
+        "draft",
         { projects: selectedProjects },
+        NO_ENVIRONMENT_BINDING,
       )
     : permissionsUtil.canCreateSavedGroup({ projects: selectedProjects });
   const listAboveSizeLimit = savedGroupSizeLimit
@@ -295,31 +379,35 @@ const SavedGroupForm: FC<{
             (!listAboveSizeLimit || adminBypassSizeLimit)
           : !!form.watch("condition"));
 
-  const ctaDisabledMessage = isEditBlocked
-    ? "This revision is discarded and cannot be edited."
-    : !hasProjectPermission && !editConditionOnly
-      ? !selectedProjects.length && projectsOptions.length > 0
-        ? "Select a project to continue."
-        : `You don't have permission to ${current.id ? "update" : "create"} saved groups.`
-      : !isValid
-        ? editConditionOnly
-          ? !form.watch("condition")
-            ? "Add a condition to continue."
-            : undefined
-          : !form.watch("groupName")
-            ? "Enter a name to continue."
-            : editInfoOnly
-              ? undefined
-              : type === "list"
-                ? !form.watch("attributeKey")
-                  ? "Select an attribute key to continue."
-                  : listAboveSizeLimit && !adminBypassSizeLimit
-                    ? "List size exceeds limit. Enable bypass or reduce size."
-                    : undefined
-                : !form.watch("condition")
-                  ? "Add a condition to continue."
-                  : undefined
+  const getCtaDisabledMessage = (): string | undefined => {
+    if (isEditBlocked) {
+      return "This revision is discarded and cannot be edited.";
+    }
+    if (!hasProjectPermission && !editConditionOnly) {
+      if (!selectedProjects.length && projectsOptions.length > 0) {
+        return "Select a project to continue.";
+      }
+      return `You don't have permission to ${current.id ? "update" : "create"} Saved Groups.`;
+    }
+    if (isValid) return undefined;
+    if (editConditionOnly) {
+      return form.watch("condition")
+        ? undefined
+        : "Add a condition to continue.";
+    }
+    if (!form.watch("groupName")) return "Enter a name to continue.";
+    if (editInfoOnly) return undefined;
+    if (type === "list") {
+      if (!form.watch("attributeKey")) {
+        return "Select an attribute key to continue.";
+      }
+      return listAboveSizeLimit && !adminBypassSizeLimit
+        ? "List size exceeds limit. Enable bypass or reduce size."
         : undefined;
+    }
+    return form.watch("condition") ? undefined : "Add a condition to continue.";
+  };
+  const ctaDisabledMessage = getCtaDisabledMessage();
 
   // Create a Map from saved groups for cycle detection
   const groupMap = useMemo(
@@ -327,13 +415,8 @@ const SavedGroupForm: FC<{
     [savedGroups],
   );
 
-  return upgradeModal ? (
-    <UpgradeModal
-      close={() => setUpgradeModal(false)}
-      source="large-saved-groups"
-      commercialFeature="large-saved-groups"
-    />
-  ) : (
+  // In a variable so the provider wrapper doesn't reindent the tree.
+  const modalContent = (
     <Modal
       trackingEventModalType="saved-group-form"
       close={close}
@@ -370,7 +453,10 @@ const SavedGroupForm: FC<{
           : "primary"
       }
       ctaEnabled={
-        isValid && (editConditionOnly || hasProjectPermission) && !isEditBlocked
+        isValid &&
+        (editConditionOnly || hasProjectPermission) &&
+        !isEditBlocked &&
+        conflict.resolved
       }
       disabledMessage={ctaDisabledMessage}
       submit={form.handleSubmit(async (value) => {
@@ -405,40 +491,39 @@ const SavedGroupForm: FC<{
           const baseline = (k: keyof SavedGroupInterface) =>
             (current as Partial<SavedGroupInterface>)[k];
           const fieldChanged = (k: keyof SavedGroupFormValues) =>
-            !isEqual(value[k] ?? null, baseline(k) ?? null);
-          const payload: UpdateSavedGroupProps = editInfoOnly
-            ? {
-                ...(fieldChanged("groupName")
-                  ? { groupName: value.groupName }
-                  : {}),
-                ...(fieldChanged("owner") ? { owner: value.owner } : {}),
-                ...(fieldChanged("description")
-                  ? { description: value.description }
-                  : {}),
-                ...(fieldChanged("projects")
-                  ? { projects: value.projects }
-                  : {}),
-              }
-            : editConditionOnly
-              ? fieldChanged("condition")
+            !draftValuesEqual(value[k], baseline(k));
+          let payload: UpdateSavedGroupProps;
+          if (editInfoOnly) {
+            payload = {
+              ...(fieldChanged("groupName")
+                ? { groupName: value.groupName }
+                : {}),
+              ...(fieldChanged("owner") ? { owner: value.owner } : {}),
+              ...(fieldChanged("description")
+                ? { description: value.description }
+                : {}),
+              ...(fieldChanged("projects") ? { projects: value.projects } : {}),
+            };
+          } else if (editConditionOnly) {
+            payload = fieldChanged("condition")
+              ? { condition: value.condition }
+              : {};
+          } else {
+            payload = {
+              ...(fieldChanged("condition")
                 ? { condition: value.condition }
-                : {}
-              : {
-                  ...(fieldChanged("condition")
-                    ? { condition: value.condition }
-                    : {}),
-                  ...(fieldChanged("groupName")
-                    ? { groupName: value.groupName }
-                    : {}),
-                  ...(fieldChanged("owner") ? { owner: value.owner } : {}),
-                  ...(fieldChanged("values") ? { values: value.values } : {}),
-                  ...(fieldChanged("description")
-                    ? { description: value.description }
-                    : {}),
-                  ...(fieldChanged("projects")
-                    ? { projects: value.projects }
-                    : {}),
-                };
+                : {}),
+              ...(fieldChanged("groupName")
+                ? { groupName: value.groupName }
+                : {}),
+              ...(fieldChanged("owner") ? { owner: value.owner } : {}),
+              ...(fieldChanged("values") ? { values: value.values } : {}),
+              ...(fieldChanged("description")
+                ? { description: value.description }
+                : {}),
+              ...(fieldChanged("projects") ? { projects: value.projects } : {}),
+            };
+          }
 
           // Build URL with query params based on the user's selector choice.
           // `autoBypassApproval` (the metadata-only shortcut) routes "publish"
@@ -462,14 +547,35 @@ const SavedGroupForm: FC<{
           const queryString = params.toString();
           const url = `/saved-groups/${current.id}${queryString ? `?${queryString}` : ""}`;
 
-          const res = await apiCall<{
-            status: number;
-            requiresApproval?: boolean;
-            revision?: Revision;
-          }>(url, {
-            method: "PUT",
-            body: JSON.stringify(payload),
-          });
+          const guard = conflict.guard(
+            payload as unknown as Record<string, unknown>,
+          );
+          const submitBaseline =
+            livePin &&
+            draftMode !== "existing" &&
+            (!conflict.hasConflict || conflict.conflictFromDraft)
+              ? Object.fromEntries(
+                  Object.keys(payload).map((k) => [
+                    k,
+                    (livePin as unknown as Record<string, unknown>)[k],
+                  ]),
+                )
+              : guard.baseline;
+          const res = await conflict.guarded(() =>
+            apiCall<{
+              status: number;
+              requiresApproval?: boolean;
+              revision?: Revision;
+            }>(
+              url,
+              {
+                method: "PUT",
+                body: JSON.stringify({ ...payload, baseline: submitBaseline }),
+              },
+              guard.onError,
+            ),
+          );
+          conflict.clear();
 
           // If a revision was created or updated, handle it
           if (res?.revision) {
@@ -529,8 +635,11 @@ const SavedGroupForm: FC<{
           canAutoPublish={canAutoPublish}
           approvalRequired={isApprovalFlowRequired && !autoBypassApproval}
           metadataOnly={isMetadataOnlyRevisionFlow}
+          alert={conflict.alert}
+          alertActive={conflict.alertActive}
         />
       )}
+      {conflict.callouts}
       {isEditBlocked && currentRevision && (
         <Callout status="warning" mb="4">
           <Text size="2">
@@ -554,19 +663,23 @@ const SavedGroupForm: FC<{
             {...form.register("groupName")}
             placeholder="e.g. beta-users or internal-team-members"
           />
-          {showDescription ? (
-            <Field
-              size="legacy"
-              label="Description"
-              labelClassName="font-weight-bold"
-              required={false}
-              textarea
-              maxLength={100}
-              value={form.watch("description")}
-              onChange={(e) => {
-                form.setValue("description", e.target.value);
-              }}
-            />
+          <ConflictCallout field="groupName" />
+          {showDescription || descriptionContested ? (
+            <>
+              <Field
+                size="legacy"
+                label="Description"
+                labelClassName="font-weight-bold"
+                required={false}
+                textarea
+                maxLength={100}
+                value={form.watch("description")}
+                onChange={(e) => {
+                  form.setValue("description", e.target.value);
+                }}
+              />
+              <ConflictCallout field="description" />
+            </>
           ) : (
             <Link
               onClick={(e) => {
@@ -582,7 +695,7 @@ const SavedGroupForm: FC<{
             </Link>
           )}
           <MultiSelectField
-            size="legacy"
+            legacyHeight
             label="Projects"
             labelClassName="font-weight-bold"
             placeholder={
@@ -594,6 +707,7 @@ const SavedGroupForm: FC<{
             sort={false}
             closeMenuOnSelect={true}
           />
+          <ConflictCallout field="projects" />
           {current.id && (
             <SelectOwner
               placeholder="Optional"
@@ -601,19 +715,25 @@ const SavedGroupForm: FC<{
               onChange={(v) => form.setValue("owner", v)}
             />
           )}
+          <ConflictCallout field="owner" />
         </>
       )}
 
       {!editInfoOnly &&
         (type === "condition" ? (
-          <ConditionInput
-            defaultValue={form.watch("condition") || ""}
-            onChange={(v) => {
-              form.setValue("condition", v);
-            }}
-            project={selectedProjects[0] || ""}
-            key={conditionKey}
-          />
+          <>
+            <ConditionInput
+              defaultValue={form.watch("condition") || ""}
+              onChange={(v) => {
+                form.setValue("condition", v);
+              }}
+              project={selectedProjects[0] || ""}
+              // Seeds its own state from defaultValue, so a resolved conflict
+              // has to remount it to show the value that was applied.
+              key={`${conditionKey}-${conflict.renderKey}`}
+            />
+            <ConflictCallout field="condition" />
+          </>
         ) : (
           <>
             <SelectField
@@ -677,6 +797,18 @@ const SavedGroupForm: FC<{
           </>
         ))}
     </Modal>
+  );
+
+  return upgradeModal ? (
+    <UpgradeModal
+      close={() => setUpgradeModal(false)}
+      source="large-saved-groups"
+      commercialFeature="large-saved-groups"
+    />
+  ) : (
+    <ConflictProvider {...conflict.providerProps}>
+      {modalContent}
+    </ConflictProvider>
   );
 };
 export default SavedGroupForm;

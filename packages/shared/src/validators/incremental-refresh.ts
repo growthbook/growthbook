@@ -15,6 +15,9 @@ export const incrementalRefreshMetricSourceValidator = z.object({
     }),
   ),
   maxTimestamp: z.date().nullable(),
+  // Same instant at the warehouse's own precision (see rawWatermark);
+  // absent on documents written before it was captured.
+  maxTimestampRaw: z.string().nullable().optional(),
   tableFullName: z.string(),
 });
 
@@ -22,16 +25,20 @@ export const incrementalRefreshMetricCovariateSourceValidator = z.object({
   groupId: z.string(),
   tableFullName: z.string(),
   lastSuccessfulMaxTimestamp: z.date().nullable(),
+  lastSuccessfulMaxTimestampRaw: z.string().nullable().optional(),
 });
 
 const incrementalRefresh = z
   .object({
     // Refs
     experimentId: z.string(),
+    // Legacy documents gain a phase when they next refresh.
+    phase: z.number().optional(),
 
     // Unit Source Settings
     unitsTableFullName: z.string().nullable(),
     unitsMaxTimestamp: z.date().nullable(),
+    unitsMaxTimestampRaw: z.string().nullable().optional(),
     unitsDimensions: z.array(z.string()),
 
     // Experiment Settings Hash

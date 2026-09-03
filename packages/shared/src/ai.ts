@@ -1,11 +1,64 @@
 import { parseOptionalInt } from "./util/numbers";
 
-// AI Provider types and configurations
-export type AIProvider = "openai" | "anthropic" | "xai" | "mistral" | "google";
+export const AI_PROVIDERS = [
+  "openai",
+  "anthropic",
+  "google",
+  "xai",
+  "mistral",
+] as const;
+export type AIProvider = (typeof AI_PROVIDERS)[number];
 
-// Available text generation models for each provider
+export const AI_PROVIDER_META: Record<
+  AIProvider,
+  {
+    label: string;
+    envVar: string;
+    legacyEnvVars?: string[];
+    keyPlaceholder: string;
+    consoleUrl: string;
+  }
+> = {
+  openai: {
+    label: "OpenAI",
+    envVar: "OPENAI_API_KEY",
+    keyPlaceholder: "sk-...",
+    consoleUrl: "https://platform.openai.com/api-keys",
+  },
+  anthropic: {
+    label: "Anthropic",
+    envVar: "ANTHROPIC_API_KEY",
+    keyPlaceholder: "sk-ant-...",
+    consoleUrl: "https://console.anthropic.com/settings/keys",
+  },
+  google: {
+    label: "Google",
+    envVar: "GOOGLE_AI_API_KEY",
+    legacyEnvVars: ["GEMINI_API_KEY"],
+    keyPlaceholder: "AIza...",
+    consoleUrl: "https://aistudio.google.com/apikey",
+  },
+  xai: {
+    label: "xAI",
+    envVar: "XAI_API_KEY",
+    keyPlaceholder: "xai-...",
+    consoleUrl: "https://console.x.ai",
+  },
+  mistral: {
+    label: "Mistral",
+    envVar: "MISTRAL_API_KEY",
+    keyPlaceholder: "...",
+    consoleUrl: "https://console.mistral.ai/api-keys",
+  },
+};
+
 export const AI_PROVIDER_MODEL_MAP = {
   openai: [
+    // GPT-5.6 series. `gpt-5.6` is an alias for sol; we list the explicit
+    // ids so a stored setting can't shift under an org when the alias moves.
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
     // GPT-5 series
     "gpt-5.4-mini",
     "gpt-5.4-nano",
@@ -32,10 +85,15 @@ export const AI_PROVIDER_MODEL_MAP = {
     "o1",
   ],
   anthropic: [
+    // Current generation. These ids are complete as published — Anthropic
+    // stopped issuing dated snapshots for them, so there is nothing to pin.
+    "claude-opus-5",
+    "claude-sonnet-5",
+    "claude-opus-4-8",
     // Intentional rolling alias — Anthropic hasn't published a dated snapshot
     // for Sonnet 4.6 yet, so this tracks the latest build. Pin to a dated id
     // (claude-sonnet-4-6-YYYYMMDD) here once one exists if you need stable
-    // behaviour. The other Claude entries are dated for exactly that reason.
+    // behaviour. The older Claude entries are dated for exactly that reason.
     "claude-sonnet-4-6",
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-5-20250929",
@@ -46,36 +104,62 @@ export const AI_PROVIDER_MODEL_MAP = {
     "claude-3-5-haiku-20241022",
     "claude-3-haiku-20240307",
   ],
-  xai: [
-    "grok-code-fast-1",
-    "grok-4-fast-non-reasoning",
-    "grok-4-fast-reasoning",
-    "grok-4",
-    "grok-3",
-    "grok-3-mini",
-    "grok-3-fast",
-    "grok-3-mini-fast",
-    "grok-2",
+  // The grok-4-fast / grok-4-0709 / grok-3 / grok-2 families were retired on
+  // 2026-05-15 — xAI redirects them to grok-4.3 and bills at 4.3 rates, so
+  // keeping them listed only misrepresents what an org is selecting.
+  xai: ["grok-4.6", "grok-4.5", "grok-4.3"],
+  // Rolling aliases rather than dated snapshots. Mistral supports both, but
+  // its dated ids (mistral-medium-2508) turn over far faster than we update
+  // this list, and the previous pinned entries had all reached end of life —
+  // pixtral-12b in Dec 2025, Medium 3/3.1 on 2026-08-31. The tradeoff is that
+  // a model's behaviour can shift under an org when Mistral moves an alias.
+  mistral: [
+    "mistral-large-latest",
+    "mistral-medium-latest",
+    "mistral-small-latest",
+    "pixtral-large-latest",
   ],
-  mistral: ["mistral-small", "mistral-medium", "pixtral-12b"],
+  // gemini-3-pro-preview was shut down on 2026-03-09 (superseded by
+  // gemini-3.1-pro-preview), and the gemini-2.0 pair is likewise retired.
   google: [
-    "gemini-3-pro-preview",
+    "gemini-3.1-pro-preview",
+    "gemini-3.7-flash",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
     "gemini-3-flash-preview",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
     "gemini-2.5-pro",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
     "gemini-flash-latest",
     "gemini-flash-lite-latest",
     "gemini-pro-latest",
   ],
 } as const;
 
-// Derive AIModel type from the models defined in AI_PROVIDER_MODEL_MAP
 export type AIModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
 
-// Helper to determine which provider a model belongs to
+export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-sonnet-5";
+// Currently the same as the general default. Kept as its own constant so the
+// visual editor — the most schema-sensitive workload we run — can be moved
+// independently when its needs and the general default's diverge.
+export const CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL: AIModel = "claude-sonnet-5";
+// Self-hosted has no managed key, so the default has to follow whichever
+// provider the admin actually configured. A fixed OpenAI default told an
+// admin who set only ANTHROPIC_API_KEY that no OpenAI key was configured.
+// OpenAI is first so existing installs keep the model they run today.
+export const SELF_HOSTED_DEFAULT_AI_MODELS: ReadonlyArray<
+  [AIProvider, AIModel]
+> = [
+  ["openai", "gpt-5.4-mini"],
+  ["anthropic", "claude-sonnet-5"],
+  ["google", "gemini-3.5-flash"],
+  ["xai", "grok-4.3"],
+  ["mistral", "mistral-medium-latest"],
+];
+
+export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image";
+export const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
+
 export function getProviderFromModel(model: AIModel): AIProvider {
   for (const [provider, models] of Object.entries(AI_PROVIDER_MODEL_MAP)) {
     if (models.includes(model as never)) {
@@ -94,6 +178,23 @@ export function isReasoningModel(model: AIModel): boolean {
   return /^(o[0-9]|gpt-5)/.test(model);
 }
 
+// Claude models that removed the sampling parameters: sending `temperature`
+// returns a 400 rather than being ignored. Claude 4.6 and older still accept
+// it, so this can't be a version-range check — add new ids here as they ship.
+const CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS: ReadonlySet<string> = new Set([
+  "claude-opus-5",
+  "claude-sonnet-5",
+  "claude-opus-4-8",
+]);
+
+// Whether `temperature` can be sent for this model at all. Callers should
+// omit it entirely when false — passing it is a hard error on the newer
+// Claude models and a silently-dropped no-op on OpenAI reasoning models.
+export function supportsTemperature(model: AIModel): boolean {
+  if (isReasoningModel(model)) return false;
+  return !CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS.has(model);
+}
+
 // Whether a text model can accept image input (vision). The model
 // registry carries no capability metadata, so this is a hand-maintained
 // allow-list — keep it in sync with AI_PROVIDER_MODEL_MAP. Routing an
@@ -109,8 +210,10 @@ export function isVisionCapableModel(model: AIModel): boolean {
   if (/^gpt-4o/.test(model)) return true;
   if (/^gpt-4\.1/.test(model)) return true;
   if (/^gpt-5/.test(model)) return true;
-  // Mistral: only the Pixtral vision model.
-  if (model === "pixtral-12b") return true;
+  // Mistral: only the Pixtral vision line. The generalist models have gained
+  // vision in recent releases, but an alias can move off it, and routing an
+  // image at a text-only model fails opaquely — so stay conservative.
+  if (/^pixtral-/.test(model)) return true;
   // xAI: the grok-4 family is multimodal; grok-3/grok-2 are not.
   if (/^grok-4/.test(model)) return true;
   return false;
@@ -201,10 +304,10 @@ export const AI_IMAGE_MODELS: ReadonlyArray<AIImageModelMeta> = [
     honorsAspectRatio: false,
   },
   {
-    id: "gemini-3-pro-image-preview",
+    id: "gemini-3-pro-image",
     provider: "google",
     kind: "multimodal-text",
-    label: "Gemini 3 Pro Image (preview)",
+    label: "Gemini 3 Pro Image",
     supportsReferenceImage: true,
     supportedAspectRatios: GEMINI_ASPECT_RATIOS,
     honorsAspectRatio: true,
@@ -284,6 +387,8 @@ export const AI_IMAGE_MODELS: ReadonlyArray<AIImageModelMeta> = [
 // keep working without a migration.
 const IMAGE_MODEL_ALIASES: Record<string, string> = {
   "gemini-2.5-flash-image-preview": "gemini-2.5-flash-image",
+  // Retired 2026-06-25; the GA id took over.
+  "gemini-3-pro-image-preview": "gemini-3-pro-image",
 };
 
 export function resolveImageModelIdForSdk(model: string): string {
@@ -443,6 +548,80 @@ export function getProviderFromEmbeddingModel(
   throw new Error(`Embedding model ${model} is not supported.`);
 }
 
+// Text, embedding and image models each have their own registry, so callers
+// holding an org setting must say which one it came from.
+export type AIModelKind = "text" | "embedding" | "image";
+
+// Provider that serves `model`, or null when the id isn't in that registry.
+// Null rather than a throw: a stale org setting should read as "not selectable",
+// not fail the request that looked at it.
+export function getProviderForAIModel(
+  kind: AIModelKind,
+  model: string,
+): AIProvider | null {
+  try {
+    if (kind === "text") return getProviderFromModel(model as AIModel);
+    if (kind === "embedding")
+      return getProviderFromEmbeddingModel(model as EmbeddingModel);
+    return getImageModelMeta(model)?.provider ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Org settings that name a model. Removing a provider key has to find every
+// one of them, so they are listed here rather than at each call site.
+// `fallback` mirrors getAISettingsForOrg, so the UI can name what takes over.
+export const AI_MODEL_SETTINGS = [
+  {
+    key: "defaultAIModel",
+    kind: "text",
+    label: "Default AI model",
+    fallback: CLOUD_MANAGED_AI_MODEL,
+  },
+  // Legacy field still read as a fallback for defaultAIModel.
+  {
+    key: "openAIDefaultModel",
+    kind: "text",
+    label: "Default AI model",
+    fallback: CLOUD_MANAGED_AI_MODEL,
+  },
+  {
+    key: "visualEditorAIModel",
+    kind: "text",
+    label: "Visual Editor text model",
+    fallback: CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
+  },
+  {
+    key: "visualEditorImageModel",
+    kind: "image",
+    label: "Visual Editor image model",
+    fallback: CLOUD_MANAGED_IMAGE_MODEL,
+  },
+  {
+    key: "embeddingModel",
+    kind: "embedding",
+    label: "Embedding model",
+    fallback: DEFAULT_EMBEDDING_MODEL,
+  },
+] as const;
+
+export type AIModelSettingKey = (typeof AI_MODEL_SETTINGS)[number]["key"];
+
+/**
+ * Which model settings would stop resolving if `provider` lost its key. Used
+ * both to warn before removing one and to clear them after.
+ */
+export function getAIModelSettingsUsingProvider(
+  settings: Partial<Record<AIModelSettingKey, string | undefined>>,
+  provider: AIProvider,
+): { key: AIModelSettingKey; label: string; fallback: string }[] {
+  return AI_MODEL_SETTINGS.filter((s) => {
+    const model = settings[s.key];
+    return !!model && getProviderForAIModel(s.kind, model) === provider;
+  }).map(({ key, label, fallback }) => ({ key, label, fallback }));
+}
+
 export interface AITokenUsageInterface {
   id?: string;
   organization: string;
@@ -465,6 +644,7 @@ export const AI_PROMPT_TYPES = [
   "visual-editor-ai-image-gen",
   "visual-editor-ai-figma",
   "product-analytics-chat",
+  "find-learnings-context",
   "general-chat",
 ] as const;
 export type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
@@ -503,6 +683,7 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "visual-editor-ai-image-gen": "", // Image generation does not currently use a text prompt template
   "visual-editor-ai-figma": "", // Always uses the default prompt set in postFigmaToVariant.ts
   "product-analytics-chat": "",
+  "find-learnings-context": "", // Org-specific context appended when finding cross-experiment insights
   "general-chat": "",
 };
 
@@ -511,7 +692,8 @@ export const CUSTOMIZABLE_PROMPT_TYPES = Object.keys(AI_PROMPT_DEFAULTS).filter(
   (key) =>
     AI_PROMPT_DEFAULTS[key as AIPromptType] !== "" ||
     key === "generate-sql-query" ||
-    key === "product-analytics-chat",
+    key === "product-analytics-chat" ||
+    key === "find-learnings-context",
 ) as AIPromptType[];
 
 export interface AIUsageData {

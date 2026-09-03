@@ -8,6 +8,7 @@ import { PostgresConnectionParams } from "./integrations/postgres";
 import { PrestoConnectionParams } from "./integrations/presto";
 import { SnowflakeConnectionParams } from "./integrations/snowflake";
 import { DatabricksConnectionParams } from "./integrations/databricks";
+import { AdobeExperiencePlatformQueryServiceConnectionParams } from "./integrations/adobe-experience-platform-query-service";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
 import { FactTableColumnType } from "./fact-table";
@@ -27,7 +28,8 @@ export type DataSourceType =
   | "presto"
   | "databricks"
   | "mixpanel"
-  | "vertica";
+  | "vertica"
+  | "adobe_experience_platform_query_service";
 
 export type DataSourceParams =
   | PostgresConnectionParams
@@ -40,7 +42,8 @@ export type DataSourceParams =
   | SnowflakeConnectionParams
   | BigQueryConnectionParams
   | ClickHouseConnectionParams
-  | MixpanelConnectionParams;
+  | MixpanelConnectionParams
+  | AdobeExperiencePlatformQueryServiceConnectionParams;
 
 export type QueryLanguage = "sql" | "javascript" | "json" | "none";
 
@@ -181,7 +184,7 @@ export interface ExposureQuery {
   dimensionSlicesId?: string;
   dimensionMetadata?: ExperimentDimensionMetadata[];
   error?: string;
-  /** Set to "api" for queries auto-created by Event Forwarder (not deletable in UI). */
+  /** Set to "api" for queries auto-created by Event Forwarder. */
   managedBy?: "" | "api";
 }
 
@@ -190,7 +193,7 @@ export interface FeatureUsageQuery {
   query: string;
   description?: string;
   error?: string;
-  /** Set to "api" for queries auto-created by Event Forwarder (not deletable in UI). */
+  /** Set to "api" for queries auto-created by Event Forwarder. */
   managedBy?: "" | "api";
 }
 
@@ -198,6 +201,8 @@ export interface UserIdType {
   userIdType: string;
   description?: string;
   attributes?: string[];
+  /** Set to "api" for identifier types auto-created by Event Forwarder. */
+  managedBy?: "" | "api";
 }
 
 export type DataSourceEvents = {
@@ -331,6 +336,8 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
   /** When false, the warehouse exists in GrowthBook but ClickHouse was not provisioned yet. */
   hasBeenProvisioned?: boolean;
   sessionReplayProvisioned?: boolean;
+  /** AWS region the managed warehouse is provisioned in. Absent means `us-east-1` (pre-EU warehouses). */
+  region?: "us-east-1" | "eu-west-1";
   /** @deprecated Replaced by native JSON columns (`useJsonColumns`); kept for legacy warehouses. */
   materializedColumns?: MaterializedColumn[];
   /**
@@ -447,6 +454,10 @@ interface VerticaDataSource extends DataSourceBase {
   type: "vertica";
 }
 
+interface AdobeExperiencePlatformQueryServiceDataSource extends DataSourceBase {
+  type: "adobe_experience_platform_query_service";
+}
+
 interface BigQueryDataSource extends DataSourceBase {
   type: "bigquery";
 }
@@ -491,11 +502,15 @@ export type PostgresDataSourceWithParams = WithParams<
   PostgresDataSource,
   PostgresConnectionParams
 >;
-
 export type VerticaDataSourceWithParams = WithParams<
   VerticaDataSource,
   PostgresConnectionParams
 >;
+export type AdobeExperiencePlatformQueryServiceDataSourceWithParams =
+  WithParams<
+    AdobeExperiencePlatformQueryServiceDataSource,
+    AdobeExperiencePlatformQueryServiceConnectionParams
+  >;
 export type MysqlDataSourceWithParams = WithParams<
   MysqlDataSource,
   MysqlConnectionParams
@@ -531,7 +546,8 @@ export type DataSourceInterface =
   | MssqlDataSource
   | BigQueryDataSource
   | ClickHouseDataSource
-  | MixpanelDataSource;
+  | MixpanelDataSource
+  | AdobeExperiencePlatformQueryServiceDataSource;
 
 export type DataSourceInterfaceWithParams =
   | GrowthbookClickhouseDataSourceWithParams
@@ -547,4 +563,5 @@ export type DataSourceInterfaceWithParams =
   | MssqlDataSourceWithParams
   | BigQueryDataSourceWithParams
   | ClickHouseDataSourceWithParams
-  | MixpanelDataSourceWithParams;
+  | MixpanelDataSourceWithParams
+  | AdobeExperiencePlatformQueryServiceDataSourceWithParams;

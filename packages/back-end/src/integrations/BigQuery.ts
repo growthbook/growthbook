@@ -42,9 +42,6 @@ export default class BigQuery extends SqlIntegration {
   getSqlDialect(): SqlDialect {
     return bigQueryDialect;
   }
-  getSensitiveParamKeys(): string[] {
-    return ["privateKey"];
-  }
 
   private getClient() {
     // If pull credentials from env or the metadata server
@@ -264,7 +261,7 @@ export default class BigQuery extends SqlIntegration {
         : undefined;
 
       return {
-        name: field.name!.toLowerCase(),
+        name: field.name!,
         ...(dataType && { dataType }),
         ...(childFields && { fields: childFields }),
       };
@@ -289,6 +286,7 @@ export default class BigQuery extends SqlIntegration {
       `
       SELECT
         MAX(max_timestamp) AS max_timestamp
+        , ${this.getSqlDialect().formatTimestampExact("MAX(max_timestamp)")} AS max_timestamp_raw
         FROM ${params.metricSourceTableFullName}
         ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.getSqlDialect().toTimestamp(params.lastMaxTimestamp)}` : ""}
       `,
@@ -303,6 +301,7 @@ export default class BigQuery extends SqlIntegration {
       `
       SELECT
         MAX(max_timestamp) AS max_timestamp
+        , ${this.getSqlDialect().formatTimestampExact("MAX(max_timestamp)")} AS max_timestamp_raw
         FROM ${params.unitsTableFullName}
         ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.getSqlDialect().toTimestamp(params.lastMaxTimestamp)}` : ""}
       `,

@@ -1,6 +1,13 @@
 {
   "versions": [
     {
+      "version": "0.2.1"
+    },
+    {
+      "version": "0.2.0",
+      "capabilities": ["savedGroupReferences"]
+    },
+    {
       "version": "0.1.1",
       "capabilities": ["caseInsensitiveRegex", "caseInsensitiveMembership"]
     },

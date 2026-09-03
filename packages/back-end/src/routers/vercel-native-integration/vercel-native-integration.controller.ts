@@ -52,6 +52,7 @@ import {
 } from "back-end/src/services/licenseData";
 import { getLicenseByKey } from "back-end/src/enterprise/models/licenseModel";
 import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
+import { logger } from "back-end/src/util/logger";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
@@ -67,6 +68,8 @@ const STARTER_BILLING_PLAN: BillingPlan = {
   id: "starter-billing-plan",
   name: "Starter Plan",
   cost: "Free",
+  paymentMethodRequired: false,
+  scope: "installation",
   type: "subscription",
   details: [
     { label: "Feature Flags & Evaluations", value: "Unlimited" },
@@ -83,6 +86,8 @@ function getProBillingPlan(perSeatCost: number): BillingPlan {
     description: "Full featured experimentation and growth platform",
     id,
     name: "Pro Plan",
+    paymentMethodRequired: true,
+    scope: "installation",
     type: "subscription",
     cost: `Starting at $${perSeatCost}/month`,
     details: [
@@ -233,6 +238,10 @@ const getContext = async ({
     try {
       return await getOrgFromInstallationResource(installationId, resourceId);
     } catch (err) {
+      logger.warn(
+        { err, installationId, resourceId },
+        "Failed to load Vercel integration context",
+      );
       return failed(401, err.message);
     }
   })();
@@ -269,6 +278,18 @@ const getContext = async ({
 
 const authContext = async (req: Request, res: Response) => {
   const failed = (status: number, reason?: string) => {
+    logger.warn(
+      {
+        status,
+        reason,
+        installationId: req.params.installation_id,
+        resourceId: req.params.resource_id,
+        authType: req.headers["x-vercel-auth"],
+        hasAuthorizationHeader: Boolean(req.headers.authorization),
+      },
+      "Vercel request authentication failed",
+    );
+
     if (reason) res.status(status).send(reason);
     else res.sendStatus(status);
 
@@ -622,7 +643,7 @@ export async function updateResource(req: Request, res: Response) {
   return res.json(updatedResource);
 }
 
-export async function getInstallationProducts(req: Request, res: Response) {
+export async function getPlans(req: Request, res: Response) {
   const { integration } = await authContext(req, res);
 
   const plans = [...availableBillingPlans];

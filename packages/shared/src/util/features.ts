@@ -6,6 +6,7 @@ import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import { evalCondition } from "@growthbook/growthbook";
 import {
+  ContextualBanditRefRule,
   ExperimentRefRule,
   RevisionMetadata,
   ApiFeature,
@@ -43,6 +44,16 @@ import {
   expandNestedSavedGroups,
   EXTENDS_KEY,
 } from "../sdk-versioning";
+import {
+  threeWayMerge,
+  ThreeWayMergeConfig,
+  ThreeWayMergeResult,
+} from "./threeWayMerge";
+import {
+  resolveProjectScopedRule,
+  projectsWithOwnRule,
+  RuleCombiners,
+} from "./projectScopedRules";
 import { formatJsonMultilineObjects } from "./format-json";
 import { stemRuleId } from "./ruleId";
 import {
@@ -562,9 +573,14 @@ export function getRevertValueValidationWarnings(
         );
         break;
       case "experiment-ref":
+      case "contextual-bandit-ref":
         rule.variations.forEach((v, j) =>
           check(v.value, `${label} variation #${j + 1}`),
         );
+        break;
+      case "safe-rollout":
+        check(rule.controlValue, `${label} control value`);
+        check(rule.variationValue, `${label} variation value`);
         break;
     }
   });
@@ -729,6 +745,9 @@ const isForceRule = (rule: FeatureRule): rule is ForceRule =>
   rule.type === "force";
 const isExperimentRefRule = (rule: FeatureRule): rule is ExperimentRefRule =>
   rule.type === "experiment-ref";
+const isContextualBanditRefRule = (
+  rule: FeatureRule,
+): rule is ContextualBanditRefRule => rule.type === "contextual-bandit-ref";
 
 // A rule that unconditionally matches all users, blocking any rules after it.
 const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
@@ -1121,6 +1140,35 @@ export function isStrandedLiveRevision({
   );
 }
 
+// The metadata envelope as the live feature spells it. Revisions store metadata
+// sparsely — absent keys inherit live — so baselines seed from this and
+// snapshots write it; a field spelled in one place and absent from the other
+// reads as an edit nobody made.
+//
+// Every key of `RevisionMetadata` is optional, so `CompleteMetadata` forces
+// each key to be listed here (values may still be undefined).
+type CompleteMetadata = {
+  [K in keyof Required<RevisionMetadata>]: RevisionMetadata[K];
+};
+
+export function featureMetadataEnvelope(
+  feature: FeatureInterface,
+): CompleteMetadata {
+  return {
+    description: feature.description ?? "",
+    owner: feature.owner ?? "",
+    project: feature.project ?? "",
+    targetingAllProjects: feature.targetingAllProjects,
+    targetingProjects: feature.targetingProjects,
+    tags: feature.tags ?? [],
+    neverStale: feature.neverStale,
+    customFields: feature.customFields,
+    jsonSchema: feature.jsonSchema,
+    valueType: feature.valueType,
+    baseConfig: feature.baseConfig ?? null,
+  };
+}
+
 // Per-field backfill for old/sparse revisions before passing to autoMerge.
 // Fields not listed here are left as-is; sparse absence is meaningful for those.
 const revisionFieldFillers: Partial<{
@@ -1139,16 +1187,13 @@ const revisionFieldFillers: Partial<{
     ),
     ...(current ?? {}),
   }),
-  // Backfill valueType + baseConfig for old revisions that predate these fields,
-  // so a legacy draft doesn't false-diff against the live baseline.
-  metadata: (feature, current) => {
-    let next = current;
-    if (next?.valueType === undefined)
-      next = { ...next, valueType: feature.valueType };
-    if (next?.baseConfig === undefined)
-      next = { ...next, baseConfig: feature.baseConfig ?? null };
-    return next;
-  },
+  // Seed the whole envelope for old revisions that predate these fields, so a
+  // legacy revision doesn't false-diff against the live baseline. Recorded keys
+  // win; only the absent ones inherit.
+  metadata: (feature, current) => ({
+    ...featureMetadataEnvelope(feature),
+    ...(current ?? {}),
+  }),
   // Backfill envelope fields for legacy revisions that predate them. Without
   // this, revisionHasGlobalChange compares e.g. "false" !== undefined for
   // defaultValue and returns "all", bypassing env-scoped review checks even
@@ -1203,13 +1248,7 @@ export function liveRevisionFromFeature(
         ? ((feature as { holdout?: RevisionFields["holdout"] }).holdout ?? null)
         : (liveRevision.holdout ?? null),
     metadata: {
-      description: feature.description ?? "",
-      owner: feature.owner ?? "",
-      project: feature.project ?? "",
-      tags: feature.tags ?? [],
-      jsonSchema: feature.jsonSchema,
-      valueType: feature.valueType,
-      baseConfig: feature.baseConfig ?? null,
+      ...featureMetadataEnvelope(feature),
       ...(liveRevision.metadata ?? {}),
     },
   };
@@ -1567,13 +1606,18 @@ export function normalizeMetadataValue(
 function revisionHasGlobalChange(
   revision: RevisionFields,
   base: RevisionFields,
+  { ignoreArchived = false }: { ignoreArchived?: boolean } = {},
 ): boolean {
   if (
     revision.prerequisites !== undefined &&
     !isEqual(revision.prerequisites, base.prerequisites || [])
   )
     return true;
-  if (revision.archived !== undefined && revision.archived !== base.archived)
+  if (
+    !ignoreArchived &&
+    revision.archived !== undefined &&
+    revision.archived !== base.archived
+  )
     return true;
   if (
     "holdout" in revision &&
@@ -1597,7 +1641,7 @@ function revisionHasGlobalChange(
 
 // Returns true if the revision has a metadata-only global change (no
 // prerequisites, archived, holdout, or defaultValue changes).
-function revisionHasMetadataOnlyGlobalChange(
+export function revisionHasMetadataOnlyGlobalChange(
   revision: RevisionFields,
   base: RevisionFields,
 ): boolean {
@@ -1633,6 +1677,62 @@ function revisionHasMetadataOnlyGlobalChange(
 //
 // Returns the conflicts found (resolved or not) and the merged array — or
 // `merged: null` while any rule-level conflict remains unresolved.
+// Mutually-exclusive pairs; merged independently they can contradict.
+const RULE_MERGE_CHUNKS: string[][] = [
+  ["environments", "allEnvironments"],
+  ["projects", "allProjects"],
+];
+
+function ruleTypeFamily(type: string | undefined): string {
+  return type === "force" || type === "rollout"
+    ? "force-rollout"
+    : (type ?? "");
+}
+
+export type RuleMergeResult = ThreeWayMergeResult<FeatureRule>;
+
+export function featureRuleMergeConfig(
+  yours: FeatureRule,
+): ThreeWayMergeConfig<FeatureRule> {
+  // Type follows coverage here, so resolve coverage and derive it.
+  const derivesTypeFromCoverage =
+    ruleTypeFamily(yours.type) === "force-rollout";
+  return {
+    chunks: RULE_MERGE_CHUNKS,
+    // What absent means on legacy rules. allEnvironments is omitted: its
+    // absent meaning depends on whether an environments list is present.
+    absentDefaults: {
+      enabled: true,
+      allProjects: true,
+      coverage: 1,
+      hashAttribute: "id",
+      hashVersion: 1,
+    },
+    family: (r) => ruleTypeFamily(r.type),
+    ignoreFields: () => (derivesTypeFromCoverage ? ["id", "type"] : ["id"]),
+    derive: derivesTypeFromCoverage
+      ? (merged) => {
+          const coverage = merged.coverage;
+          merged.type =
+            typeof coverage === "number" && coverage < 1 ? "rollout" : "force";
+        }
+      : undefined,
+  };
+}
+
+export function threeWayMergeRule(
+  base: FeatureRule,
+  theirs: FeatureRule,
+  yours: FeatureRule,
+): RuleMergeResult {
+  return threeWayMerge<FeatureRule>(
+    base,
+    theirs,
+    yours,
+    featureRuleMergeConfig(yours),
+  );
+}
+
 function mergeRulesGranular(
   base: FeatureRule[],
   live: FeatureRule[],
@@ -2680,9 +2780,7 @@ export function getTargetingReviewMode(
 // a requireReviews rule can add a requirement beyond the primary. Lets us skip
 // enumerating every org project just to intersect it back down.
 function candidateReviewProjects(requireReviews: RequireReview[]): string[] {
-  return Array.from(new Set(requireReviews.flatMap((r) => r.projects))).filter(
-    Boolean,
-  );
+  return projectsWithOwnRule(requireReviews).filter(Boolean);
 }
 
 // Projects whose review rules govern a change: primary + strict-mode targeting
@@ -2698,22 +2796,56 @@ export function getGoverningReviewProjects(
   return Array.from(new Set([primary ?? "", ...strict]));
 }
 
+// Only `project` today; a tag or flag-id selector slots in as another layer.
+export type ReviewRuleEntity = {
+  project?: string;
+};
+
+// `projects` is the selector and `requireReviewOn` the override's own switch.
+const INHERITABLE_FIELDS = [
+  "environments",
+  "resetReviewOnChange",
+  "featureRequireEnvironmentReview",
+  "featureRequireMetadataReview",
+  "blockSelfApproval",
+  "autopublishOnApproval",
+  "requiredApproverTeams",
+] as const;
+
+// Stricter wins, so the outcome never depends on rule order. Autopublish loosens
+// the flow, so it takes agreement rather than one vote.
+const REVIEW_COMBINERS: RuleCombiners<RequireReview> = {
+  requireReviewOn: (vals) => vals.some(Boolean),
+  resetReviewOnChange: (vals) => vals.some(Boolean),
+  blockSelfApproval: (vals) => vals.some(Boolean),
+  // These two gate unless turned off, so an unset value is already strict.
+  featureRequireEnvironmentReview: (vals) => vals.some((v) => v !== false),
+  featureRequireMetadataReview: (vals) => vals.some((v) => v !== false),
+  autopublishOnApproval: (vals) => vals.every(Boolean),
+  // No list means every environment, so it swallows narrower ones. Sorted so the
+  // fold is canonical rather than merely set-equal.
+  environments: (vals) =>
+    vals.some((v) => !v?.length)
+      ? []
+      : [...new Set(vals.flatMap((v) => v ?? []))].sort(),
+  // One OR-group: separate lists would demand an approver from each.
+  requiredApproverTeams: (vals) =>
+    [...new Set(vals.flatMap((v) => v ?? []))].sort(),
+};
+
+// Most specific wins, inheriting unset fields from the layers beneath. With one
+// rule it returns that rule unchanged. Mirrors getTargetingReviewMode.
 export function getReviewSetting(
   requireReviewSettings: RequireReview[],
-  // Any project-scoped entity (features, and constants which mirror the feature
-  // `project` field) — matched by its single project.
-  entity: { project?: string },
+  entity: ReviewRuleEntity,
 ): RequireReview | undefined {
-  // check projects
-  for (const reviewSetting of requireReviewSettings) {
-    // match first value found empty means all projects
-    if (
-      (entity?.project && reviewSetting.projects.includes(entity?.project)) ||
-      reviewSetting.projects.length === 0
-    ) {
-      return reviewSetting;
-    }
-  }
+  return resolveProjectScopedRule(
+    requireReviewSettings,
+    entity.project,
+    INHERITABLE_FIELDS,
+    REVIEW_COMBINERS,
+    (rule) => !!rule.requireReviewOn,
+  );
 }
 
 // `entity` is any project-scoped entity (a feature, or a constant which mirrors
@@ -2731,12 +2863,13 @@ export function checkEnvironmentsMatch(
   environments: string[],
   reviewSetting: RequireReview,
 ) {
-  for (const env of reviewSetting.environments) {
+  const gated = reviewSetting.environments ?? [];
+  for (const env of gated) {
     if (environments.includes(env)) {
       return true;
     }
   }
-  return reviewSetting.environments.length === 0;
+  return gated.length === 0;
 }
 export function featureRequiresReview(
   feature: FeatureInterface,
@@ -2815,6 +2948,76 @@ export function constantRequiresReview(
     return reviewSetting.featureRequireMetadataReview ?? true;
   }
   return false;
+}
+
+export type ReviewScope = { project: string | null; environments: string[] };
+
+// What a team gates, resolved not raw: an override inherits or replaces teams.
+export function reviewScopesRequiringTeam(
+  teamId: string,
+  settings?: OrganizationSettings,
+): ReviewScope[] {
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return [];
+
+  const demandingRule = (entity: ReviewRuleEntity) => {
+    const rule = getReviewSetting(requireReviews, entity);
+    return rule?.requireReviewOn && rule.requiredApproverTeams?.includes(teamId)
+      ? rule
+      : undefined;
+  };
+
+  const scopes: ReviewScope[] = [];
+  const base = demandingRule({});
+  if (base) {
+    scopes.push({ project: null, environments: base.environments ?? [] });
+  }
+  const overridden = projectsWithOwnRule(requireReviews);
+  for (const project of overridden) {
+    const rule = demandingRule({ project });
+    if (rule) {
+      scopes.push({ project, environments: rule.environments ?? [] });
+    }
+  }
+  return scopes;
+}
+
+// Config form — carries the flavor scope.
+export function getConfigReviewRequirement(
+  config: { project?: string },
+  change: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  flavorEnvironments: string[] | null,
+  settings?: OrganizationSettings,
+): ReviewRequirement {
+  if (!configRequiresReview(config, change, flavorEnvironments, settings)) {
+    return { required: false, rules: [] };
+  }
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return { required: true, rules: [] };
+  const rule = getReviewSetting(requireReviews, config);
+  return { required: true, rules: rule ? [rule] : [] };
+}
+
+export function getConstantReviewRequirement(
+  constant: { project?: string },
+  change: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  settings?: OrganizationSettings,
+): ReviewRequirement {
+  if (!constantRequiresReview(constant, change, settings)) {
+    return { required: false, rules: [] };
+  }
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return { required: true, rules: [] };
+  const rule = getReviewSetting(requireReviews, constant);
+  return { required: true, rules: rule ? [rule] : [] };
 }
 
 // Constant analogue of `resetReviewOnChange` + `getFeatureAutopublishOnApproval`
@@ -2998,11 +3201,185 @@ function normalizeRuleForDiff(
   return rest as Omit<FeatureRule, "scheduleType">;
 }
 
+// The publish footprint for a live ramp-schedule action: the environments the
+// schedule touches, with "all" resolved to every environment rather than an
+// empty list (which would satisfy the environment check vacuously).
+export function rampSchedulePublishEnvironments(
+  schedule: Parameters<typeof getEnvsFromRampSchedule>[0],
+  allEnvironments: string[],
+): string[] {
+  const envs = getEnvsFromRampSchedule(schedule);
+  return envs === "all" ? allEnvironments : envs;
+}
+
 /**
- * Returns the union of all environments explicitly targeted by a ramp
- * schedule's patch actions (startActions, steps, endActions).  Returns "all"
- * if any patch sets `allEnvironments: true`.
+ * Every rule id one ramp target can reach: its own, plus every `ruleId` its patches
+ * name. The executor resolves what it writes from `patch.ruleId` and ignores the
+ * target's, so anything deciding authority has to consider both.
  */
+export function rampTargetRuleIds(
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >,
+  target: { id: string; ruleId?: string | null },
+): string[] {
+  const ids = new Set<string>();
+  if (target.ruleId) ids.add(target.ruleId);
+  for (const patch of rampPatchesForTarget(schedule, target.id)) {
+    if (patch.ruleId) ids.add(patch.ruleId);
+  }
+  return [...ids];
+}
+
+/**
+ * The environments ONE ramp target is acted on in, given what its rules serve.
+ *
+ * Per-target on purpose: the union across targets would demand authority in
+ * combinations the schedule never acts on, so callers do their own grouping
+ * (the gate by feature, the control over the one feature it renders).
+ */
+export function rampTargetFootprint({
+  schedule,
+  target,
+  currentRuleEnvs,
+  allEnvironments,
+}: {
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >;
+  target: { id: string; ruleId?: string | null };
+  /** What the target's rules serve now — `"all"` widens. */
+  currentRuleEnvs: string[] | "all";
+  allEnvironments: string[];
+}): string[] {
+  const envs = getEnvsForRampTarget(schedule, target.id, currentRuleEnvs);
+  return envs === "all" ? [...allEnvironments] : envs;
+}
+
+/**
+ * The footprint a live ramp CONTROL action answers for — the client's mirror of
+ * `assertCanControlRampSchedule`.
+ *
+ * Per target, unioned, with each target measured against what its rule
+ * currently serves. Not `rampSchedulePublishEnvironments`: that widens every
+ * unscoped patch to "all", disabling controls for publishers scoped to the
+ * only environments the ramp touches.
+ *
+ * A target whose rule the caller cannot resolve contributes "all" — fail-closed,
+ * since the gate checks every target and the client may only hold one.
+ */
+export function rampControlFootprint({
+  schedule,
+  allEnvironments,
+  ruleEnvsForTarget,
+}: {
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions" | "targets"
+  >;
+  allEnvironments: string[];
+  /** What the target's rule serves now, or undefined when it can't be resolved. */
+  ruleEnvsForTarget: (target: {
+    id: string;
+    ruleId?: string | null;
+    environment?: string | null;
+    // So a caller holding one feature can widen for a target on another.
+    entityId?: string;
+  }) => string[] | "all" | undefined;
+}): string[] {
+  const targets = schedule.targets ?? [];
+  if (!targets.length) {
+    const envs = getEnvsFromRampSchedule(schedule);
+    return envs === "all" ? [...allEnvironments] : envs;
+  }
+
+  const out = new Set<string>();
+  for (const target of targets) {
+    const current = ruleEnvsForTarget(target);
+    if (current === undefined) return [...allEnvironments];
+    for (const e of rampTargetFootprint({
+      schedule,
+      target,
+      currentRuleEnvs: current,
+      allEnvironments,
+    })) {
+      out.add(e);
+    }
+  }
+  return [...out];
+}
+
+/**
+ * Whether the schedule is acting on live traffic right now. Everything else —
+ * not started yet, or already finished — is inert, which is what separates a
+ * live ramp control from housekeeping.
+ */
+export function isRampScheduleServing(
+  schedule: Pick<RampScheduleInterface, "status">,
+): boolean {
+  return schedule.status === "running" || schedule.status === "paused";
+}
+
+/**
+ * Every patch a schedule aims at one target. Exported for the control gate,
+ * which needs the patches' own `ruleId`s (see `rampTargetRuleIds`).
+ */
+export function rampPatchesForTarget(
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >,
+  targetId: string,
+) {
+  return [
+    ...(schedule.startActions ?? []),
+    ...schedule.steps.flatMap((s) => s.actions),
+    ...(schedule.endActions ?? []),
+  ]
+    .filter((a) => a.targetId === targetId)
+    .map((a) => a.patch);
+}
+
+export function getEnvsForRampTarget(
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >,
+  targetId: string,
+  // The environments the target rule CURRENTLY serves. A patch's `environments`
+  // REPLACES the rule's (`applyPatchToRule`), so narrowing a rule from
+  // production to dev is a production change — the footprint unions patch envs
+  // with current envs, the same rule `getDraftAffectedEnvironments` applies to
+  // revision-embedded ramps.
+  currentRuleEnvs?: string[] | "all",
+): string[] | "all" {
+  if (currentRuleEnvs === "all") return "all";
+  const envs = new Set<string>();
+  const patches = rampPatchesForTarget(schedule, targetId);
+  for (const patch of patches) {
+    if (patch.allEnvironments) return "all";
+    const scoped = patch.environments ?? [];
+    // A patch without environments retains the rule's current scope.
+    for (const env of scoped) envs.add(env);
+  }
+  // Union the rule's own envs before the empty check below, so a target no
+  // patch names keeps its known envs rather than widening.
+  for (const env of currentRuleEnvs ?? []) envs.add(env);
+  // Nothing known from either source. A target no patch names is still acted on
+  // (start actions enable every active target), and an empty footprint SKIPS
+  // the environment check rather than narrowing it — so widen.
+  if (!envs.size) return "all";
+  return Array.from(envs);
+}
+
+// The environments a ramp schedule's patches reach, or "all".
+//
+// A patch naming neither `environments` nor `allEnvironments` inherits the
+// rule's scope at apply time, which can't be resolved here — so unscoped
+// patches widen to "all". Returning [] would hand the permission layer an
+// empty footprint, which SKIPS the environment check (NO_ENVIRONMENT_BINDING).
 export function getEnvsFromRampSchedule(
   schedule: Pick<
     RampScheduleInterface,
@@ -3017,11 +3394,40 @@ export function getEnvsFromRampSchedule(
   ];
   for (const patch of allPatches) {
     if (patch.allEnvironments) return "all";
-    for (const env of patch.environments ?? []) {
+    const scoped = patch.environments ?? [];
+    if (!scoped.length) return "all";
+    for (const env of scoped) {
       envs.add(env);
     }
   }
+  // A schedule with zero patches (armed with only a start date) skips the loop
+  // but still fires and enables every attached target — widen, don't return [].
+  if (!envs.size) return "all";
   return [...envs];
+}
+
+/** Whether this draft flips `archived` in either direction. */
+export function revisionFlipsArchived(
+  revision: RevisionFields,
+  base: RevisionFields,
+): boolean {
+  return revision.archived !== undefined && revision.archived !== base.archived;
+}
+
+// The environments an `archived` flip actually touches: the ones the flag
+// serves in. Archiving a flag that is live nowhere removes nothing from any
+// payload, so it isn't treated as affecting every environment the way other
+// global changes are.
+export function archiveAffectedEnvironments(
+  revision: RevisionFields,
+  base: RevisionFields,
+  allEnvironments: string[],
+): string[] {
+  return allEnvironments.filter(
+    (env) =>
+      (base.environmentsEnabled?.[env] ?? false) ||
+      (revision.environmentsEnabled?.[env] ?? false),
+  );
 }
 
 export function getDraftAffectedEnvironments(
@@ -3030,7 +3436,17 @@ export function getDraftAffectedEnvironments(
   allEnvironments: string[],
   liveRampScheduleEnvs?: Map<string, string[] | "all">,
 ): string[] | "all" {
-  if (revisionHasGlobalChange(revision, baseRevision)) return "all";
+  // A global change other than `archived` reaches every environment.
+  if (revisionHasGlobalChange(revision, baseRevision, { ignoreArchived: true }))
+    return "all";
+
+  // An `archived` flip only reaches the environments the flag serves in, so it
+  // seeds the set rather than short-circuiting to "all".
+  const envs = new Set<string>(
+    revisionFlipsArchived(revision, baseRevision)
+      ? archiveAffectedEnvironments(revision, baseRevision, allEnvironments)
+      : [],
+  );
 
   // Per-environment changes. v2 `rules` is a flat array, so derive the per-env
   // projection via `getRulesForEnvironment`. This preserves the env-granular
@@ -3039,7 +3455,6 @@ export function getDraftAffectedEnvironments(
   // with `environments: ["prod"]` counts only as touching prod.
   const revRulesAll = naiveFlattenV1Rules(revision.rules);
   const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
-  const envs = new Set<string>();
   for (const env of allEnvironments) {
     const revRules = getRulesForEnvironment(revRulesAll, env).map(
       normalizeRuleForDiff,
@@ -3167,31 +3582,32 @@ export function getNewDraftExperimentsToPublish({
   return [...new Set(draftExperiments)];
 }
 
-export function checkIfRevisionNeedsReview({
-  feature,
-  baseRevision,
-  revision,
-  allEnvironments,
-  settings,
-  requireApprovalsLicensed = true,
-  liveRampScheduleEnvs,
-}: {
-  feature: FeatureInterface;
-  baseRevision: FeatureRevisionInterface;
-  revision: FeatureRevisionInterface;
-  allEnvironments: string[];
-  settings?: OrganizationSettings;
-  requireApprovalsLicensed?: boolean;
-  liveRampScheduleEnvs?: Map<string, string[] | "all">;
-}) {
-  if (!requireApprovalsLicensed) return false;
-  const requireReviews = settings?.requireReviews;
-  // Boolean format: true = all changes require review, false/undefined = none do.
-  if (!Array.isArray(requireReviews)) return !!requireReviews;
+// Only the field per-rule policy hangs off, so both rule families fit.
+export type PolicyRule = { requiredApproverTeams?: string[] };
 
-  // Govern by primary + strict-mode targeting over the current+staged union (so
-  // adding and removing a project are both governed). All-projects (live or
-  // staged) uses the requireReviews-named projects instead of an explicit list.
+// `required` can be true with no rules: the legacy boolean setting has none.
+export type ReviewRequirement = {
+  required: boolean;
+  rules: PolicyRule[];
+};
+
+// Primary + strict targeting over current+staged, so adds and removes are both
+// governed. All-projects uses the rule-named ones.
+export function governingReviewProjectsForFeature({
+  feature,
+  revision,
+  settings,
+}: {
+  feature: Pick<
+    FeatureInterface,
+    "project" | "targetingAllProjects" | "targetingProjects"
+  >;
+  revision: Pick<FeatureRevisionInterface, "metadata">;
+  settings?: OrganizationSettings;
+}): string[] {
+  const requireReviews = Array.isArray(settings?.requireReviews)
+    ? settings.requireReviews
+    : [];
   const usesAllProjects =
     !!feature.targetingAllProjects || !!revision.metadata?.targetingAllProjects;
   const stagedTargeting =
@@ -3201,14 +3617,51 @@ export function checkIfRevisionNeedsReview({
     : Array.from(
         new Set([...(feature.targetingProjects ?? []), ...stagedTargeting]),
       );
-  const reviewSettings = getGoverningReviewProjects(
+  return getGoverningReviewProjects(
     feature.project,
     targetingUnion,
     settings?.targetingReviewMode,
-  )
+  );
+}
+
+export function getRevisionReviewRequirement({
+  feature,
+  baseRevision,
+  revision,
+  orgEnvironments,
+  settings,
+  requireApprovalsLicensed = true,
+  liveRampScheduleEnvs,
+}: {
+  feature: FeatureInterface;
+  baseRevision: FeatureRevisionInterface;
+  revision: FeatureRevisionInterface;
+  orgEnvironments: Environment[];
+  settings?: OrganizationSettings;
+  requireApprovalsLicensed?: boolean;
+  liveRampScheduleEnvs?: Map<string, string[] | "all">;
+}): ReviewRequirement {
+  // Filtered here, not by the caller: several paths once judged review against
+  // environments the feature cannot serve.
+  const allEnvironments = filterEnvironmentsByFeature(
+    orgEnvironments,
+    feature,
+  ).map((e) => e.id);
+  const none: ReviewRequirement = { required: false, rules: [] };
+  if (!requireApprovalsLicensed) return none;
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) {
+    return requireReviews ? { required: true, rules: [] } : none;
+  }
+
+  const reviewSettings = governingReviewProjectsForFeature({
+    feature,
+    revision,
+    settings,
+  })
     .map((project) => getReviewSetting(requireReviews, { project }))
     .filter((rs): rs is RequireReview => !!rs?.requireReviewOn);
-  if (!reviewSettings.length) return false;
+  if (!reviewSettings.length) return none;
 
   const affected = getDraftAffectedEnvironments(
     revision,
@@ -3222,6 +3675,13 @@ export function checkIfRevisionNeedsReview({
     affected === "all"
       ? revisionHasMetadataOnlyGlobalChange(revision, baseRevision)
       : false;
+  // Archiving pulls the flag out of every environment it serves in at once, so
+  // it gates like a rule change rather than a kill switch — it is not subject to
+  // `featureRequireEnvironmentReview`. A flag serving nowhere yields no
+  // environments here and so needs no approval.
+  const archiveEnvs = revisionFlipsArchived(revision, baseRevision)
+    ? archiveAffectedEnvironments(revision, baseRevision, allEnvironments)
+    : [];
   let envsWithRuleChanges: string[] = [];
   let envKillSwitchChanges: string[] = [];
   if (affected !== "all") {
@@ -3258,7 +3718,12 @@ export function checkIfRevisionNeedsReview({
     }
     if (affected.length === 0) return false;
 
-    const gatedEnvs = reviewSetting.environments;
+    const gatedEnvs = reviewSetting.environments ?? [];
+
+    if (archiveEnvs.length > 0) {
+      if (gatedEnvs.length === 0) return true;
+      if (archiveEnvs.some((env) => gatedEnvs.includes(env))) return true;
+    }
 
     // Rules/values always gate
     if (envsWithRuleChanges.length > 0) {
@@ -3295,7 +3760,23 @@ export function checkIfRevisionNeedsReview({
     return false;
   };
 
-  return reviewSettings.some(needsReviewForSetting);
+  const triggering = reviewSettings.filter(needsReviewForSetting);
+  // By content: merged rules are distinct objects, so identity would not dedupe.
+  const seen = new Set<string>();
+  const rules = triggering.filter((r) => {
+    const key = JSON.stringify(r);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return { required: rules.length > 0, rules };
+}
+
+// Boolean form, for callers that only ask whether review is needed.
+export function checkIfRevisionNeedsReview(
+  args: Parameters<typeof getRevisionReviewRequirement>[0],
+): boolean {
+  return getRevisionReviewRequirement(args).required;
 }
 
 // Entity pairing a single governance `project` with a secondary targeting scope.
@@ -3313,6 +3794,88 @@ export function getTargetingProjectIds(
   return Array.from(
     new Set([entity.project ?? "", ...(entity.targetingProjects ?? [])]),
   );
+}
+
+// Staged targeting fields from `FeatureRevisionInterface.metadata`;
+// undefined = unchanged.
+export type StagedTargetingScope = {
+  project?: string;
+  targetingAllProjects?: boolean;
+  targetingProjects?: string[];
+};
+
+// Attribute scope = primary + targetingProjects, unioned across live and
+// staged state while a draft is open. null = unscoped: the entity targets
+// all projects (live or staged), or its primary project is empty.
+export function getAttributeScopeProjectIds(
+  entity: TargetingScopedEntity,
+  staged?: StagedTargetingScope,
+): string[] | null {
+  if (entity.targetingAllProjects || staged?.targetingAllProjects) return null;
+  const primaries = [
+    entity.project ?? "",
+    staged?.project ?? entity.project ?? "",
+  ];
+  if (primaries.some((p) => !p)) return null;
+  return Array.from(
+    new Set([
+      ...primaries,
+      ...(entity.targetingProjects ?? []),
+      ...(staged?.targetingProjects ?? []),
+    ]),
+  ).filter(Boolean);
+}
+
+// A feature's attribute scope including every active draft's staged targeting.
+// null short-circuits (any unscoped state = unscoped feature).
+export function getFeatureAttributeScopeWithDrafts(
+  feature: TargetingScopedEntity,
+  stagedDrafts: Array<StagedTargetingScope | undefined>,
+): string[] | null {
+  let scope = getAttributeScopeProjectIds(feature);
+  for (const staged of stagedDrafts) {
+    if (scope === null) break;
+    if (!staged) continue;
+    const stagedScope = getAttributeScopeProjectIds(feature, staged);
+    if (stagedScope === null) return null;
+    scope = Array.from(new Set([...scope, ...stagedScope]));
+  }
+  return scope;
+}
+
+// Experiment scope: its project plus every linked feature's scope (targeting
+// evaluates wherever a linked feature is served); null = unscoped. The
+// persisted `attributeScopeAllProjects` picker preference never loosens this.
+export function getExperimentAttributeScopeProjectIds(
+  experiment: { project?: string },
+  linkedFeatureScopes: Array<string[] | null>,
+): string[] | null {
+  if (!experiment.project) return null;
+  const ids = new Set<string>([experiment.project]);
+  for (const scope of linkedFeatureScopes) {
+    if (scope === null) return null;
+    scope.forEach((id) => ids.add(id));
+  }
+  return Array.from(ids);
+}
+
+// `enforcement` mirrors the back-end check (null when any linked feature is
+// unscoped); `dropdown` is the stricter picker default where unscoped linked
+// features contribute nothing.
+export function getExperimentAttributeScopes(
+  project: string | undefined,
+  linkedFeatureScopes: Array<string[] | null>,
+): { enforcement: string[] | null; dropdown: string[] | null } {
+  return {
+    enforcement: getExperimentAttributeScopeProjectIds(
+      { project },
+      linkedFeatureScopes,
+    ),
+    dropdown: getExperimentAttributeScopeProjectIds(
+      { project },
+      linkedFeatureScopes.filter((s) => s !== null),
+    ),
+  };
 }
 
 export function entityTargetsProject(
@@ -3420,23 +3983,45 @@ export function filterProjectsByEnvironmentWithNull(
   return filteredProjects;
 }
 
+export type EnvironmentApplicabilityScope = {
+  project?: string;
+  targetingProjects?: string[];
+  targetingAllProjects?: boolean;
+};
+
+// The one definition of which environments can serve an entity. Publish and
+// review expand "all environments" against this set, never the org's full list.
+export function environmentAppliesToScope(
+  environment: Environment,
+  scope: EnvironmentApplicabilityScope,
+): boolean {
+  if (scope.targetingAllProjects) return true;
+  const projects = [scope.project, ...(scope.targetingProjects ?? [])].filter(
+    (p): p is string => !!p,
+  );
+  if (projects.length === 0) return true;
+  return filterProjectsByEnvironment(projects, environment, true).length > 0;
+}
+
+export function getApplicableEnvIds(
+  orgEnvs: Environment[],
+  // A single project id (legacy callers) or a full targeting scope.
+  scope?: string | EnvironmentApplicabilityScope,
+): string[] {
+  const resolved =
+    typeof scope === "string" || scope == null
+      ? { project: scope ?? undefined }
+      : scope;
+  return orgEnvs
+    .filter((env) => environmentAppliesToScope(env, resolved))
+    .map((env) => env.id);
+}
+
 export function featureHasEnvironment(
   feature: FeatureInterface,
   environment: Environment,
 ): boolean {
-  // Allowed envs = union across every project the feature delivers to (all when targeting all projects).
-  if (feature.targetingAllProjects) return true;
-  const featureProjects = [
-    feature.project,
-    ...(feature.targetingProjects ?? []),
-  ].filter((p): p is string => !!p);
-  if (featureProjects.length === 0) return true;
-  const filteredProjects = filterProjectsByEnvironment(
-    featureProjects,
-    environment,
-    true,
-  );
-  return filteredProjects.length > 0;
+  return environmentAppliesToScope(environment, feature);
 }
 
 export function filterEnvironmentsByExperiment(
@@ -3905,4 +4490,188 @@ export function computeHoldoutExperimentLinkageDelta({
       (id) => contributed.has(id) && !desiredSet.has(id) && !elsewhere.has(id),
     ),
   };
+}
+
+// Accepts legacy v1 (Record<env, rules>) as well as v2 arrays, same as
+// `getExperimentIdsFromRules`.
+export function getContextualBanditIdsFromRules(rules: unknown): string[] {
+  return Array.from(
+    new Set(
+      naiveFlattenV1Rules(rules)
+        .filter(isContextualBanditRefRule)
+        .map((r) => r.contextualBanditId)
+        .filter(Boolean),
+    ),
+  );
+}
+
+/** A contextual bandit's linkage as it stands, narrowed to one feature's entries. */
+export type ContextualBanditLinkageState = {
+  linkedFeatures: string[];
+  pendingFeatureDrafts: { featureId: string; revisionVersion: number }[];
+};
+
+export type ContextualBanditLinkageDelta = {
+  contextualBanditId: string;
+  link: boolean;
+  unlink: boolean;
+  draftsToQueue: number[];
+  draftsToDrop: number[];
+};
+
+/**
+ * - `linkedFeatures`: the feature's live revision serves a rule for this
+ *   contextual bandit.
+ * - `pendingFeatureDrafts`: open drafts that reference the contextual bandit, keyed by
+ *   revision version. These are the drafts the bandit publishes when it starts.
+ *
+ * Only CBs present in `currentStateByBandit` are considered — the caller
+ * decides which of the referenced bandits exist and are writable, and includes
+ * the ones that still hold entries for this feature so stale linkage is swept.
+ * Bandits with nothing to change are left out of the result.
+ */
+export function computeContextualBanditLinkageDelta({
+  featureId,
+  liveRules,
+  openDrafts,
+  currentStateByBandit,
+}: {
+  featureId: string;
+  liveRules: unknown;
+  openDrafts: { version: number; rules: unknown }[];
+  currentStateByBandit: Record<string, ContextualBanditLinkageState>;
+}): ContextualBanditLinkageDelta[] {
+  const liveIds = new Set(getContextualBanditIdsFromRules(liveRules));
+
+  const draftVersionsByBandit = new Map<string, Set<number>>();
+  for (const draft of openDrafts) {
+    for (const cbId of getContextualBanditIdsFromRules(draft.rules)) {
+      if (!draftVersionsByBandit.has(cbId)) {
+        draftVersionsByBandit.set(cbId, new Set());
+      }
+      const versions = draftVersionsByBandit.get(cbId);
+      if (versions) {
+        versions.add(draft.version);
+      }
+    }
+  }
+
+  const deltas: ContextualBanditLinkageDelta[] = [];
+  for (const [contextualBanditId, state] of Object.entries(
+    currentStateByBandit,
+  )) {
+    const isLive = liveIds.has(contextualBanditId);
+    const isLinked = state.linkedFeatures.includes(featureId);
+
+    const desiredVersions =
+      draftVersionsByBandit.get(contextualBanditId) ?? new Set<number>();
+    const currentVersions = new Set(
+      state.pendingFeatureDrafts
+        .filter((d) => d.featureId === featureId)
+        .map((d) => d.revisionVersion),
+    );
+
+    const delta: ContextualBanditLinkageDelta = {
+      contextualBanditId,
+      link: isLive && !isLinked,
+      unlink: !isLive && isLinked,
+      draftsToQueue: Array.from(desiredVersions)
+        .filter((v) => !currentVersions.has(v))
+        .sort((a, b) => a - b),
+      draftsToDrop: Array.from(currentVersions)
+        .filter((v) => !desiredVersions.has(v))
+        .sort((a, b) => a - b),
+    };
+
+    if (
+      delta.link ||
+      delta.unlink ||
+      delta.draftsToQueue.length ||
+      delta.draftsToDrop.length
+    ) {
+      deltas.push(delta);
+    }
+  }
+
+  return deltas;
+}
+
+// What a reviewer must hold authority over to sanction a draft.
+export type ReviewAuthorityFootprint =
+  | { scope: "environments"; environments: string[] }
+  | { scope: "everywhere" }
+  // Not sanctioning anything — reads, comments, withdrawing an approval.
+  | { scope: "any" }
+  // Unbound metadata: an empty environment list would pass vacuously.
+  | { scope: "unbound" };
+
+// The non-sanctioning footprint: holds the review atom at all, anywhere. For
+// reads, comments, withdrawals, and coarse pre-fetch gates.
+export const ANY_REVIEW_FOOTPRINT: ReviewAuthorityFootprint = { scope: "any" };
+
+// Per governing project: an unrelated rule must not widen a metadata change.
+function requiresMetadataReview(
+  settings?: OrganizationSettings,
+  governingProjects?: string[],
+): boolean {
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return !!requireReviews;
+  const projects = governingProjects?.length ? governingProjects : [undefined];
+  return projects.some((project) => {
+    const rule = getReviewSetting(requireReviews, { project });
+    return (
+      !!rule?.requireReviewOn && rule.featureRequireMetadataReview !== false
+    );
+  });
+}
+
+// `bases` unions live and the draft's base, so drift only ever demands more.
+// Deliberately NOT narrowed to serving environments the way publish is: a rule
+// edited while an environment is off still applies once it is switched on.
+export function getReviewAuthorityFootprint({
+  revision,
+  bases,
+  allEnvironments,
+  settings,
+  governingProjects,
+  liveRampScheduleEnvs,
+}: {
+  revision: RevisionFields;
+  bases: RevisionFields[];
+  allEnvironments: string[];
+  settings?: OrganizationSettings;
+  governingProjects?: string[];
+  liveRampScheduleEnvs?: Map<string, string[] | "all">;
+}): ReviewAuthorityFootprint {
+  const environments = new Set<string>();
+  let metadataOnlyGlobal = false;
+
+  for (const base of bases) {
+    const affected = getDraftAffectedEnvironments(
+      revision,
+      base,
+      allEnvironments,
+      liveRampScheduleEnvs,
+    );
+
+    if (affected !== "all") {
+      affected.forEach((env) => environments.add(env));
+      continue;
+    }
+
+    // A non-metadata global change lands everywhere, so nothing narrower fits.
+    if (!revisionHasMetadataOnlyGlobalChange(revision, base)) {
+      return { scope: "everywhere" };
+    }
+    metadataOnlyGlobal = true;
+  }
+
+  if (
+    metadataOnlyGlobal &&
+    requiresMetadataReview(settings, governingProjects)
+  ) {
+    return { scope: "unbound" };
+  }
+
+  return { scope: "environments", environments: [...environments] };
 }

@@ -24,7 +24,7 @@ export default function SetupRunCallout() {
 
   return (
     <Callout status={unfinished ? "warning" : "success"} size="md" mb="4">
-      <Text size="medium">
+      <Text size="md">
         {unfinished
           ? `Your GrowthBook setup${where} has ${unfinished} step${
               unfinished === 1 ? "" : "s"

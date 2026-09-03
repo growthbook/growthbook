@@ -8,6 +8,8 @@ import {
   blockUsesDashboardDateControl,
   DashboardInterface,
   isDashboardGlobalControlSupportedBlock,
+  isDashboardExperimentBlock,
+  experimentBlockOptedOutOfGlobalFilters,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import { PiDotsSixVertical, PiPencilSimpleFill } from "react-icons/pi";
@@ -91,6 +93,7 @@ export type BlockProps<T extends DashboardBlockInterface> = {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<T>;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
+  dashboardComparison?: DashboardInterface["comparison"];
   blockIndex?: number;
   setBlock: undefined | React.Dispatch<DashboardBlockInterfaceOrData<T>>;
   snapshot: ExperimentSnapshotInterface;
@@ -104,6 +107,7 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<DashboardBlock>;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
+  dashboardComparison?: DashboardInterface["comparison"];
   blockIndex?: number;
   isFocused: boolean;
   isEditing: boolean;
@@ -151,6 +155,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   isTabActive,
   block,
   dashboardGlobalControls,
+  dashboardComparison,
   blockIndex,
   isEditing,
   isFocused,
@@ -199,6 +204,12 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     Boolean(dashboardGlobalControls?.dateRange) &&
     isDashboardGlobalControlSupportedBlock(block) &&
     !blockUsesDashboardDateControl(block);
+  // Experiment blocks follow the dashboard's experiment filters via a single
+  // per-block toggle; surface a badge when a block has opted out while the
+  // dashboard has active filters it could follow.
+  const shouldShowExperimentFilterOptOutBadge =
+    isDashboardExperimentBlock(block) &&
+    experimentBlockOptedOutOfGlobalFilters(block, dashboardGlobalControls);
 
   // Type guards for sql-explorer blocks
   const isSqlExplorerWithDataVizIndex = (
@@ -541,6 +552,15 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 ml="2"
               />
             ) : null}
+            {shouldShowExperimentFilterOptOutBadge ? (
+              <Badge
+                label="Uses block filters"
+                color="gray"
+                variant="soft"
+                size="xs"
+                ml="2"
+              />
+            ) : null}
 
             <div style={{ flexGrow: 1, marginRight: 30 }} />
           </>
@@ -684,6 +704,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
             isTabActive={isTabActive}
             block={block}
             dashboardGlobalControls={dashboardGlobalControls}
+            dashboardComparison={dashboardComparison}
             blockIndex={blockIndex}
             setBlock={setBlock}
             isEditing={isEditing}

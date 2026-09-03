@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useRef } from "react";
 import { Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
+import { radixSize, Size } from "@/ui/sizes";
 import styles from "./Table.module.scss";
 
 /** Standard top offset (px) for sticky table headers. Must be >= top nav height (56px) so the header's top border isn't covered. */
@@ -8,10 +9,11 @@ export const DEFAULT_STICKY_TOP_OFFSET_PX = 56;
 
 export type TableProps = Omit<
   React.ComponentProps<typeof RadixTable.Root>,
-  "variant"
+  "variant" | "size"
 > & {
   /** "list" enables list-table wrapper, scroll, and styling; "surface" | "ghost" are passed to Radix */
   variant?: "list" | "surface" | "ghost";
+  size?: Size<"sm" | "md" | "lg">;
   /** When true (or when variant="list"), header row is sticky; when false, list variant keeps styling but header does not stick */
   stickyHeader?: boolean;
   /** Top offset in px for sticky header (default DEFAULT_STICKY_TOP_OFFSET_PX). Used as CSS var --table-sticky-top. */
@@ -23,6 +25,7 @@ export type TableProps = Omit<
 export default function Table({
   children,
   variant,
+  size,
   stickyHeader,
   stickyTopOffset = DEFAULT_STICKY_TOP_OFFSET_PX,
   roundedCorners,
@@ -64,6 +67,7 @@ export default function Table({
     <RadixTable.Root
       {...props}
       variant={radixVariant}
+      size={size !== undefined ? radixSize(size) : undefined}
       className={clsx(className, isListVariant && styles.tableList)}
     >
       {children}

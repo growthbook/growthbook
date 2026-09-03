@@ -1,6 +1,7 @@
 import isEqual from "lodash/isEqual";
 import {
   resetReviewOnChange,
+  getAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
 } from "shared/util";
@@ -52,10 +53,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -262,7 +260,11 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     if (attrPatch.fallbackAttribute !== undefined)
       changedAttributes.fallbackAttribute = attrPatch.fallbackAttribute;
     if (Object.keys(changedAttributes).length > 0) {
-      validateRuleAttributes(changedAttributes, req.context, feature.project);
+      validateRuleAttributes(
+        changedAttributes,
+        req.context,
+        getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+      );
     }
     if (
       basePatch.condition !== undefined ||

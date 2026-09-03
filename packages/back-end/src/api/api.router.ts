@@ -16,6 +16,8 @@ import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplate
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
+import { LearningModel } from "back-end/src/models/LearningModel";
+import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SetupRunModel } from "back-end/src/models/SetupRunModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
@@ -71,6 +73,8 @@ const API_MODELS: ModelClass[] = [
   AnalyticsExplorationModel,
   RampScheduleTemplateModel,
   RampScheduleModel,
+  LearningModel,
+  HoldoutModel,
   SetupRunModel,
 ];
 

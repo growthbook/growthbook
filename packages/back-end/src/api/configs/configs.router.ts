@@ -25,11 +25,14 @@ import { postConfigRevisionRebase } from "./postConfigRevisionRebase";
 import { postConfigRevisionRevert } from "./postConfigRevisionRevert";
 import { postConfigRevisionRequestReview } from "./postConfigRevisionRequestReview";
 import { postConfigRevisionSubmitReview } from "./postConfigRevisionSubmitReview";
+import { postConfigRevisionUndoReview } from "./postConfigRevisionUndoReview";
 import { postConfigRevisionReopen } from "./postConfigRevisionReopen";
 import { postConfigRevisionRecallReview } from "./postConfigRevisionRecallReview";
 import { postConfigRevisionSchedulePublish } from "./postConfigRevisionSchedulePublish";
 import { putConfigRevisionMetadata } from "./putConfigRevisionMetadata";
 import { putConfigRevisionValue } from "./putConfigRevisionValue";
+import { putConfigRevisionProperty } from "./putConfigRevisionProperty";
+import { deleteConfigRevisionProperty } from "./deleteConfigRevisionProperty";
 import { putConfigRevisionSchema } from "./putConfigRevisionSchema";
 import { putConfigRevisionProjection } from "./putConfigRevisionProjection";
 import { deleteConfigRevisionProjection } from "./deleteConfigRevisionProjection";
@@ -63,6 +66,8 @@ export const configsRoutes: OpenApiRoute[] = [
   // Field-level edits accept `version: "new"` to auto-create a draft.
   putConfigRevisionMetadata,
   putConfigRevisionValue,
+  putConfigRevisionProperty,
+  deleteConfigRevisionProperty,
   putConfigRevisionSchema,
   putConfigRevisionProjection,
   deleteConfigRevisionProjection,
@@ -70,6 +75,7 @@ export const configsRoutes: OpenApiRoute[] = [
 
   postConfigRevisionRequestReview,
   postConfigRevisionSubmitReview,
+  postConfigRevisionUndoReview,
   postConfigRevisionRecallReview,
   postConfigRevisionReopen,
   postConfigRevisionSchedulePublish,

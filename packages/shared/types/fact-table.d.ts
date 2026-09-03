@@ -17,7 +17,6 @@ import {
   cappingSettingsValidator,
   windowSettingsValidator,
   cappingTypeValidator,
-  factMetricValidator,
   quantileSettingsValidator,
   priorSettingsValidator,
   columnAggregationValidator,
@@ -25,11 +24,23 @@ import {
   jsonColumnFieldsValidator,
   rowFilterValidator,
   aggregatedFactTableSettingsValidator,
+  StandardFactMetric,
+  FunnelFactMetric,
+  conversionWindowValidator,
+  funnelStepValidator,
+  funnelOrderingValidator,
+  funnelSettingsValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
+
+// Funnel step / settings types (validators live in validators/fact-table).
+export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
+export type FunnelStep = z.infer<typeof funnelStepValidator>;
+export type FunnelOrdering = z.infer<typeof funnelOrderingValidator>;
+export type FunnelSettings = z.infer<typeof funnelSettingsValidator>;
 export type NumberFormat = z.infer<typeof numberFormatValidator>;
 
 export type JSONColumnFields = z.infer<typeof jsonColumnFieldsValidator>;
@@ -83,13 +94,16 @@ export interface FactTableInterface {
   datasource: string;
   userIdTypes: string[];
   sql: string;
+  // Column in the fact table SQL holding the event timestamp. Empty/undefined
+  // means "timestamp". SQL generation aliases it to `timestamp` in the first CTE
+  // that selects from the fact table, so everything downstream is unchanged.
+  timestampColumn?: string;
   eventName: string;
   columns: ColumnInterface[];
   columnsError?: string | null;
   columnRefreshPending?: boolean;
   filters: FactFilterInterface[];
   archived?: boolean;
-  timestampColumn?: string;
   autoSliceUpdatesEnabled?: boolean;
   // Null/undefined means the pipeline is disabled for this fact table.
   aggregatedFactTableSettings?: z.infer<
@@ -142,7 +156,12 @@ export type LegacyMetricWindowSettings = z.infer<
 >;
 export type MetricPriorSettings = z.infer<typeof priorSettingsValidator>;
 
-export type FactMetricInterface = z.infer<typeof factMetricValidator>;
+export type StandardFactMetricInterface = StandardFactMetric;
+export type FunnelFactMetricInterface = FunnelFactMetric;
+
+export type FactMetricInterface =
+  | StandardFactMetricInterface
+  | FunnelFactMetricInterface;
 
 export type LegacyColumnRef = ColumnRef & {
   filters?: string[];

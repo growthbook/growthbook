@@ -1,4 +1,11 @@
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   Revision,
@@ -7,15 +14,27 @@ import {
   applyTopLevelPatchOps,
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
+  entityProjects,
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
+  entityPublishFootprint,
+  entityReviewFootprint,
+  isInReviewCycle,
 } from "shared/enterprise";
+import { serveFootprint } from "shared/permissions";
+import type { RevisionStatus } from "shared/validators";
 import type { PublishGovernanceResult } from "shared/util";
+import {
+  isArchiveTransition,
+  isPureArchiveRevision,
+  proposedArchivedValue,
+} from "shared/util";
 import { datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCaretDownBold, PiGitMergeBold, PiLockSimple } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
+import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import useURLHash from "@/hooks/useURLHash";
 import Button from "@/ui/Button";
@@ -24,6 +43,7 @@ import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
+import PermissionBlocker from "@/ui/PermissionBlocker";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -34,7 +54,9 @@ import EventUser from "@/components/Avatar/EventUser";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
+import ApprovalStatusBand from "@/components/Reviews/ApprovalStatusBand";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
+import { useApprovalCoverage } from "@/components/Reviews/useApprovalCoverage";
 import {
   PersonRow,
   ReviewerVerdictIcon,
@@ -80,9 +102,7 @@ const ACTIVE_STATUSES = [
 // The feature state machine types `status` against the feature-revision
 // union; the active statuses are identical across both systems, and the
 // terminal "merged" maps onto "published".
-function toBadgeStatus(
-  status: Revision["status"],
-): Parameters<typeof revisionStatusColor>[0] {
+function toBadgeStatus(status: Revision["status"]): RevisionStatus {
   return status === "merged" ? "published" : status;
 }
 
@@ -143,8 +163,50 @@ export interface ReviewAndPublishTabProps<T> {
   // Per-revision approval gate (caller applies org settings + e.g. the
   // metadata-only shortcut).
   requiresApproval: boolean;
+  // The caller already resolves these for `requiresApproval`.
+  reviewRules?: { requiredApproverTeams?: string[] }[];
   // The viewer can edit the underlying entity (manage drafts / review).
   canEditEntity: boolean;
+  // Reverting is its own authority, so a revert-only role holds no edit rights.
+  // Defaults to canEditEntity for callers that don't distinguish them.
+  canRevertEntity?: boolean;
+  // Revert authority over the environments a landed restore touches. Proposing a
+  // revert is project-scoped; landing one is not. Defaults to `canRevertEntity`
+  // for entities with no environment footprint.
+  canLandRevertEntity?: boolean;
+  // Delete authority in the entity's PROJECT. Enough to stage an archive as a
+  // draft, which publishes nothing.
+  canDeleteEntity?: boolean;
+  // Delete authority over the environments an archive takes out of service. A
+  // draft that archives LANDS everywhere the entity serves, so the
+  // project-scoped atom above must not decide it. Defaults to
+  // `canDeleteEntity` for entities with no environment footprint (Saved
+  // Groups).
+  canLandArchiveEntity?: boolean;
+  // Commenting is participation, gated by addComments rather than by authority
+  // over the entity. Defaults to canEditEntity for callers that don't pass it.
+  canCommentOnEntity?: boolean;
+  // Reviewing and draft authoring are separate authorities too. Both default to
+  // canEditEntity for callers that don't distinguish them.
+  canReviewEntity?: boolean;
+  canManageDraftsEntity?: boolean;
+  // Publishing. The backend also narrows this per environment; this is the
+  // project-level approximation used to decide whether to offer the action.
+  canPublishEntity?: boolean;
+  /**
+   * Publish authority over the LIVE entity, without the revision's destination
+   * term. `canPublishEntity` is change-aware, which is right for offering
+   * Publish and wrong for offering CANCEL: the cancel endpoint judges a
+   * pending schedule on coarse live-entity publish authority. Defaults to
+   * `canPublishEntity` for callers that don't distinguish them.
+   */
+  canPublishEntityCoarse?: boolean;
+  // Whether the viewer holds the DESTINATION side of this revision's relocation.
+  // Publishing a draft is a publish wherever it lands, so the question is always
+  // about the publish atom there — the narrow atoms below carry only the source
+  // side. Pages own environment footprints, so they answer it with
+  // `holdsRevisionDestination`; defaults to permitted for entities that never move.
+  holdsLandingDestination?: boolean;
   // The viewer can bypass the approval requirement (admin).
   canBypassApproval: boolean;
   // When set, publishing is blocked and this reason is shown (e.g. the entity is
@@ -190,8 +252,19 @@ function ReviewAndPublishRevision<T>({
   entityName = "",
   entityNoun = "revision",
   requiresApproval,
+  reviewRules,
   canEditEntity,
+  canRevertEntity,
+  canLandRevertEntity,
+  canDeleteEntity,
+  canLandArchiveEntity,
+  canCommentOnEntity,
+  canReviewEntity,
+  canManageDraftsEntity,
+  canPublishEntity,
+  canPublishEntityCoarse,
   canBypassApproval,
+  holdsLandingDestination,
   publishBlockedReason,
   selectRevision,
   onPublish,
@@ -204,6 +277,8 @@ function ReviewAndPublishRevision<T>({
   const { apiCall } = useAuth();
   const { users, userId, getUserDisplay, organization, hasCommercialFeature } =
     useUser();
+  const allEnvironments = useEnvironments();
+  const envIds = allEnvironments.map((e) => e.id);
   // Adapt the generic revision's baked reviews[] + activityLog[] into the
   // shared timeline's RevisionLog shape.
   const timelineLogs = useMemo(
@@ -437,6 +512,47 @@ function ReviewAndPublishRevision<T>({
   }, [revision.activityLog, revision.reviews]);
   const isReviewer = !!userId && reviewers.some((r) => r.id === userId);
 
+  // Same footprint the server authorizes publishing with.
+  const entityProject = (revision.target.snapshot as { project?: string })
+    .project;
+  const projects = entityProjects(revision.target.snapshot);
+  const reviewFootprint = useMemo(
+    () =>
+      entityReviewFootprint(
+        entityPublishFootprint(
+          revision.target.type,
+          revision.target.snapshot,
+          revision.target.proposedChanges,
+        ),
+        serveFootprint(allEnvironments, {
+          project: entityProject,
+        }),
+      ),
+    [
+      revision.target.type,
+      revision.target.snapshot,
+      revision.target.proposedChanges,
+      allEnvironments,
+      entityProject,
+    ],
+  );
+
+  const {
+    insufficientApprovers,
+    insufficientApproverReasons,
+    uncoveredFootprintEnvs,
+    approvalsCoverFootprint,
+    hasUncoveredApproval,
+    requiredTeams,
+  } = useApprovalCoverage({
+    reviewers,
+    footprint: reviewFootprint,
+    envIds,
+    model: revision.target.type,
+    projects,
+    reviewRules,
+  });
+
   // For the stale-approval banner: when the surviving approval was given (the
   // latest non-stale "approved" verdict in the current cycle). A revisions-since
   // count can't be passed — generic revisions track no base version
@@ -493,17 +609,76 @@ function ReviewAndPublishRevision<T>({
     isAutopublishOnApprovalEnabled(
       organization?.settings,
       revision.target.type,
-      // Constants match their per-project `requireReviews` rule, so the
-      // entity's project must be passed; ignored for approvalFlows entities.
-      (revision.target.snapshot as { project?: string }).project,
+      projects,
     ) && hasCommercialFeature("require-approvals");
   const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;
 
-  const isPendingReview =
-    revision.status === "pending-review" ||
-    revision.status === "changes-requested";
-  const canReview = isPendingReview && !isAuthor && canEditEntity;
-  const approved = revision.status === "approved" || adminPublish;
+  const canReviewOrEdit = canReviewEntity ?? canEditEntity;
+  const canDraftOrEdit = canManageDraftsEntity ?? canEditEntity;
+  const hasRevertAuthority = canRevertEntity ?? canEditEntity;
+  // Commenting is participation, not authority over the entity: the server
+  // accepts the addComments atom OR draft OR review authority.
+  const canComment =
+    (canCommentOnEntity ?? canEditEntity) || canDraftOrEdit || canReviewOrEdit;
+  // Revert authority alone is enough — a revert-only role holds no draft rights
+  // — and draft authority is enough to PROPOSE one. Mirrors the Feature pane;
+  // the revert modal narrows the routes to the ones actually held.
+  const canRevertOrEdit = hasRevertAuthority || canDraftOrEdit;
+  // Advancing a draft (request review / recall / discard) is not editing its
+  // content. Mirrors the server's canAdvanceRevision, which re-checks purity.
+  const draftStagesRevert = !!revision.revertedFrom;
+  // Same predicates the server applies, so the button and the endpoint agree:
+  // whether the draft archives the entity at all, and whether that's all it does.
+  const liveArchived = !!(currentState as { archived?: boolean }).archived;
+  const draftArchives = isArchiveTransition({
+    proposed: proposedArchivedValue(revision.target.proposedChanges),
+    current: liveArchived,
+  });
+  const draftIsPureArchive = isPureArchiveRevision({
+    proposedChanges: revision.target.proposedChanges,
+    current: liveArchived,
+  });
+  const narrowAtom = hasRevertAuthority || !!canDeleteEntity;
+  const canAdvanceDraft =
+    canDraftOrEdit ||
+    (isAuthor && narrowAtom) ||
+    (hasRevertAuthority && draftStagesRevert) ||
+    (!!canDeleteEntity && draftIsPureArchive);
+  // DISCARDING is narrower than advancing, matching `canDiscardRevision`: draft
+  // authority or authorship only. A narrow atom lets you land a draft or leave it —
+  // not throw away someone else's work, possibly mid-review.
+  const canDiscardDraft = canDraftOrEdit || isAuthor;
+  // Publish authority, or a narrow atom that could land this exact change in
+  // one step: a pure revert under revert, a pure archive under delete.
+  // Archiving needs delete whatever else it carries; unarchiving is an
+  // ordinary publish. Landing a revert answers for the environments it
+  // restores, so this arm takes the landing value, not the project-scoped
+  // `canRevertEntity`.
+  const canLandRevert = canLandRevertEntity ?? hasRevertAuthority;
+  // A draft that relocates the entity also takes publish authority in the
+  // DESTINATION, so the narrow-atom fallbacks must not offer Publish on source
+  // authority alone.
+  const holdsDestination = holdsLandingDestination ?? true;
+  const canLandArchive = canLandArchiveEntity ?? canDeleteEntity;
+  // `holdsDestination` gates EVERY landing route, not just the narrow-atom
+  // fallbacks: landing a relocating draft is a publish wherever it lands, and
+  // it is vacuously true for a draft that relocates nothing, so ANDing it once
+  // is both safe and structural.
+  const canPublishOrEdit =
+    (!draftArchives || !!canLandArchive) &&
+    holdsDestination &&
+    ((canPublishEntity ?? canEditEntity) ||
+      (draftStagesRevert && canLandRevert) ||
+      (!!canLandArchive && draftIsPureArchive));
+  // Whether the viewer holds any authority at all — for the overflow menu and
+  // the no-permission notice. Each individual action gates on its own atom.
+  const hasAnyAuthority =
+    canDraftOrEdit || canReviewOrEdit || canRevertOrEdit || canPublishOrEdit;
+  // The whole review cycle accepts verdicts, "approved" included (matching the
+  // server): an approval that doesn't satisfy coverage or a required team must
+  // not lock out the one that would.
+  const canReview =
+    isInReviewCycle(revision.status) && !isAuthor && canReviewOrEdit;
 
   // ── Comments: posted as `comment`-decision reviews on the generic
   // revision endpoint; diff-ref blocks in the markdown resolve to gutter
@@ -532,21 +707,40 @@ function ReviewAndPublishRevision<T>({
   const diffComments = useMemo<DiffCommentsProps>(
     () => ({
       anchors: diffCommentAnchors,
-      onSubmitNew: isActiveDraft && canEditEntity ? submitComment : undefined,
+      onSubmitNew: isActiveDraft && canComment ? submitComment : undefined,
     }),
-    [diffCommentAnchors, isActiveDraft, canEditEntity, submitComment],
+    [diffCommentAnchors, isActiveDraft, canComment, submitComment],
   );
+
+  // A dated schedule the user configured that the schedule endpoint would refuse
+  // until review is requested, so it rides THIS request instead. A ref rather than
+  // state: it is read at submit and never rendered, so re-rendering on every
+  // keystroke of the date picker would be pure cost.
+  const stagedSchedule = useRef<{
+    scheduledPublishAt: string;
+    lockEdits: boolean;
+    lockOthers: boolean;
+  } | null>(null);
 
   // ── Lifecycle actions ──
   const doRequestReview = async () => {
     setSubmitError(null);
     setSubmitting(true);
     try {
+      const staged = stagedSchedule.current;
       await apiCall(`/revision/${revision.id}/submit`, {
         method: "POST",
-        // Preserve whatever arming the user set via ScheduledPublishControl.
+        // Preserve whatever arming the user set via ScheduledPublishControl —
+        // including a staged DATE, which has nowhere else to be persisted from.
         body: JSON.stringify({
           autoPublishOnApproval: !!revision.autoPublishOnApproval,
+          ...(staged
+            ? {
+                scheduledPublishAt: staged.scheduledPublishAt,
+                scheduledPublishLockEdits: staged.lockEdits,
+                scheduledPublishLockOthers: staged.lockOthers,
+              }
+            : {}),
         }),
       });
       await mutate();
@@ -654,16 +848,20 @@ function ReviewAndPublishRevision<T>({
   // are neutralized: no experiments, ramps, scheduled-publish locks, or
   // rebase governance here — conflicts gate publishing via `mergeSuccess`. ──
   const state = getReviewAndPublishState({
+    // The generic engine leaves status alone on edit, so `changes-requested`
+    // re-submits rather than dead-ending.
+    editsResetStatus: false,
     requireReviews: requiresApproval,
-    status: toBadgeStatus(revision.status) as Parameters<
-      typeof getReviewAndPublishState
-    >[0]["status"],
+    status: toBadgeStatus(revision.status),
     mergeSuccess,
     hasChanges,
-    hasReviewPermission: canEditEntity,
-    canManageDraft: canEditEntity,
+    hasReviewPermission: canReviewOrEdit,
+    canManageDraft: canAdvanceDraft,
     isReviewRequester: isAuthor,
     isContributor,
+    // The generic engine grants recall to the AUTHOR only — contributors go
+    // through the permission arm.
+    isDraftOwner: isAuthor,
     isReviewer,
     adminPublish,
     hasSelectedExperiments: false,
@@ -671,20 +869,65 @@ function ReviewAndPublishRevision<T>({
     experimentsStep: false,
     featureLockedByRamp: false,
     featureLockedBySchedule,
+    checklistIncomplete: false,
     checklistBlocked: false,
-    governanceCanPublish: !mustRebase,
+    checklistAcknowledged: false,
+    governanceCanPublish:
+      !mustRebase &&
+      (!requiresApproval ||
+        (approvalsCoverFootprint && requiredTeams.satisfied)),
   });
 
   // The publish controls (admin-bypass checkbox + Publish button) show only when
   // the revision is publishable or an admin can bypass — mirrors the feature's
   // showPublishSection, so a disabled Publish button isn't shown prematurely on a
   // not-yet-approved draft.
+  // Approved-but-uncovered is the state that most needs the bypass affordance.
   const adminBypassAvailable =
     canBypassApproval &&
     requiresApproval &&
     mergeSuccess &&
     hasChanges &&
-    (revision.status !== "approved" || adminPublish);
+    (revision.status !== "approved" ||
+      !approvalsCoverFootprint ||
+      !requiredTeams.satisfied ||
+      adminPublish);
+
+  // Renders in every phase, so it must claim no status: an uncovered approval
+  // can still stand after a later "changes requested" verdict.
+  const coverageBlockMessage = hasUncoveredApproval
+    ? uncoveredFootprintEnvs.length
+      ? `None of this draft's approvals cover ${uncoveredFootprintEnvs.join(", ")}. Someone with review access there must approve it.`
+      : `None of this draft's approvals cover everything it changes.`
+    : null;
+  const approvalGateUnmet =
+    requiresApproval && (!requiredTeams.satisfied || hasUncoveredApproval);
+  // An approved revision warrants the band only while a gate is unmet —
+  // otherwise "Publishing is blocked" would contradict an enabled CTA.
+  const showApprovalBand =
+    requiresApproval &&
+    state.submitAction !== "publish" &&
+    isActiveDraft &&
+    (revision.status !== "approved" || approvalGateUnmet);
+
+  // Whether the publish section below has anything to show. Each term mirrors
+  // one child's own condition; without this the divider rendered around an
+  // empty box.
+  const publishSectionHasContent =
+    governance.divergence !== "current" ||
+    staleApproval ||
+    (isActiveDraft &&
+      (!publishBlockedReason ||
+        isScheduledPublishPending(revision) ||
+        !!revision.autoPublishOnApproval)) ||
+    adminBypassAvailable ||
+    state.submitAction === "publish" ||
+    !canPublishOrEdit ||
+    !!publishBlockedReason ||
+    featureLockedBySchedule ||
+    !!submitError ||
+    !hasChanges ||
+    !requiresApproval;
 
   const doSubmit = async () => {
     if (state.submitAction === "request-review") return doRequestReview();
@@ -772,7 +1015,7 @@ function ReviewAndPublishRevision<T>({
       {subTab === "overview" && (
         <RevisionDescription
           description={revision.comment}
-          canEdit={isActiveDraft && canEditEntity}
+          canEdit={isActiveDraft && canDraftOrEdit}
           onEdit={async (value) => {
             await apiCall(`/revision/${revision.id}/description`, {
               method: "PATCH",
@@ -809,7 +1052,7 @@ function ReviewAndPublishRevision<T>({
                 </OverflowText>
               )}
               <Box flexShrink="0" style={{ whiteSpace: "nowrap" }}>
-                <Text size="small" color="text-low">
+                <Text size="sm" color="text-low">
                   {" · "}
                   {datetime(revision.dateUpdated)}
                 </Text>
@@ -847,6 +1090,7 @@ function ReviewAndPublishRevision<T>({
       <Box mb="4">
         <RevisionTimeline
           logs={timelineLogs}
+          uncoveredApproverReasons={insufficientApproverReasons}
           onRetractVerdict={state.canUndoReview ? doUndoReview : undefined}
           collapseFilter={
             subTab === "overview"
@@ -854,7 +1098,7 @@ function ReviewAndPublishRevision<T>({
               : undefined
           }
           onEditComment={
-            isActiveDraft && canEditEntity
+            isActiveDraft && canComment
               ? async (logId, comment) => {
                   await apiCall(`/revision/${revision.id}/comment/${logId}`, {
                     method: "PUT",
@@ -865,7 +1109,7 @@ function ReviewAndPublishRevision<T>({
               : undefined
           }
           onDeleteComment={
-            isActiveDraft && canEditEntity
+            isActiveDraft && canComment
               ? async (logId) => {
                   await apiCall(`/revision/${revision.id}/comment/${logId}`, {
                     method: "DELETE",
@@ -878,7 +1122,7 @@ function ReviewAndPublishRevision<T>({
 
         {/* Composer below the timeline — entries are chronological (newest
             at the bottom), so new comments appear right above it. */}
-        {isActiveDraft && canEditEntity && (
+        {isActiveDraft && canComment && (
           <Flex align="start" gap="3" mt="4">
             <Box flexShrink="0">
               <EventUser
@@ -894,7 +1138,7 @@ function ReviewAndPublishRevision<T>({
             </Box>
             <Box flexGrow="1" style={{ minWidth: 0 }}>
               <Flex align="center" style={{ height: 32 }}>
-                <Heading as="h4" size="small" mb="0">
+                <Heading as="h4" size="sm" mb="0">
                   Add a comment
                 </Heading>
               </Flex>
@@ -913,7 +1157,7 @@ function ReviewAndPublishRevision<T>({
     <>
       {contributorIds.length > 0 && (
         <Box mb="3">
-          <Text size="medium" weight="medium" color="text-high" as="div" mb="2">
+          <Text size="md" weight="medium" color="text-high" as="div" mb="2">
             Contributors
           </Text>
           <Flex direction="column" gap="2">
@@ -934,7 +1178,7 @@ function ReviewAndPublishRevision<T>({
 
       {requiresApproval && reviewers.length > 0 && (
         <Box mb="3">
-          <Text size="medium" weight="medium" color="text-high" as="div" mb="2">
+          <Text size="md" weight="medium" color="text-high" as="div" mb="2">
             Reviewers
           </Text>
           <Flex direction="column" gap="2">
@@ -958,6 +1202,11 @@ function ReviewAndPublishRevision<T>({
                       name={name || email}
                       timestamp={timestamp}
                       stale={stale}
+                      uncoveredReason={
+                        insufficientApprovers.has(id)
+                          ? insufficientApproverReasons.get(id)
+                          : undefined
+                      }
                     />
                   }
                 />
@@ -981,15 +1230,20 @@ function ReviewAndPublishRevision<T>({
             {headerStatusIcon}
           </Box>
         )}
-        <Heading as="h4" size="small">
+        <Heading as="h4" size="sm">
           <span style={{ color: `var(--${headerStatusColor}-11)` }}>
             {headerStatusLabel}
           </span>
         </Heading>
       </Flex>
 
+      {/* Exactly the disjunction of the items below — anything wider renders
+          an empty menu. */}
       {isActiveDraft &&
-        (state.canRecallReview || state.canUndoReview || canEditEntity) && (
+        (state.canRecallReview ||
+          state.canUndoReview ||
+          canAdvanceDraft ||
+          canDiscardDraft) && (
           <Box ml="auto" style={{ marginRight: -6 }}>
             <DropdownMenu
               trigger={
@@ -1032,16 +1286,18 @@ function ReviewAndPublishRevision<T>({
                     Retract review
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem
-                  color="red"
-                  disabled={submitting}
-                  onClick={() => {
-                    setActionsDropdownOpen(false);
-                    setConfirmDiscard(true);
-                  }}
-                >
-                  Discard draft
-                </DropdownMenuItem>
+                {canDiscardDraft && (
+                  <DropdownMenuItem
+                    color="red"
+                    disabled={submitting}
+                    onClick={() => {
+                      setActionsDropdownOpen(false);
+                      setConfirmDiscard(true);
+                    }}
+                  >
+                    Discard draft
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuGroup>
             </DropdownMenu>
           </Box>
@@ -1068,7 +1324,7 @@ function ReviewAndPublishRevision<T>({
               </>
             ) : isLive ? (
               <>
-                This revision is currently live. Rolling back reverts to the
+                This revision is currently live. Rolling back reverts to a
                 previously published revision.
               </>
             ) : (
@@ -1083,7 +1339,9 @@ function ReviewAndPublishRevision<T>({
         {revision.status === "discarded" ? (
           <Button
             onClick={() => setConfirmReopen(true)}
-            disabled={!canEditEntity}
+            // The endpoint asks author-or-draft, NOT the widened advance rule —
+            // reopen has no narrow-atom exemption.
+            disabled={!canDraftOrEdit && !isAuthor}
             style={{ width: "100%" }}
           >
             Reopen as draft
@@ -1096,7 +1354,7 @@ function ReviewAndPublishRevision<T>({
               onClick={() =>
                 previousPublishedRevision && onRevert(previousPublishedRevision)
               }
-              disabled={!canEditEntity || !previousPublishedRevision}
+              disabled={!canRevertOrEdit || !previousPublishedRevision}
               style={{ width: "100%" }}
             >
               Roll back
@@ -1107,23 +1365,40 @@ function ReviewAndPublishRevision<T>({
             color="red"
             variant="outline"
             onClick={() => onRevert(revision)}
-            disabled={!canEditEntity}
+            disabled={!canRevertOrEdit}
             style={{ width: "100%" }}
           >
             Revert to this revision
           </Button>
         ) : null}
 
-        {!canEditEntity && (
-          <HelperText status="info" size="md" mt="5">
+        {/* Each button above greys out on its own atom, so a viewer holding
+            some other authority needs the reason spelled out — otherwise the
+            disabled control reads as a bug. */}
+        {revision.status === "discarded" && !canDraftOrEdit && !isAuthor && (
+          <PermissionBlocker mt="2">
+            You don&apos;t have permission to edit drafts for this {entityNoun}.
+          </PermissionBlocker>
+        )}
+        {revision.status !== "discarded" && onRevert && !canRevertOrEdit && (
+          <PermissionBlocker mt="2">
+            You don&apos;t have permission to revert this {entityNoun}.
+          </PermissionBlocker>
+        )}
+
+        {!hasAnyAuthority && !canComment && (
+          <PermissionBlocker size="md" mt="5">
             You don&apos;t have permission to manage revisions for this entity.
-          </HelperText>
+          </PermissionBlocker>
         )}
-        {isLive && canEditEntity && onRevert && !previousPublishedRevision && (
-          <HelperText status="info" size="md" mt="5">
-            There is no previously published revision to roll back to.
-          </HelperText>
-        )}
+        {isLive &&
+          canRevertOrEdit &&
+          onRevert &&
+          !previousPublishedRevision && (
+            <HelperText status="info" size="md" mt="5">
+              There is no previously published revision to roll back to.
+            </HelperText>
+          )}
       </Box>
     </Box>
   );
@@ -1138,174 +1413,292 @@ function ReviewAndPublishRevision<T>({
       <Box p="4">
         {peopleSection}
 
-        <Box mt="6">
-          {/* Submit review — reviewer action, opens the comment/decision
+        {/* Right under the Reviewers status. The waiting phase is suppressed
+            when the publish section renders below — "waiting for a reviewer"
+            next to a working Publish button reads as a contradiction. */}
+        {showApprovalBand && (
+          <Box mt="4">
+            <ApprovalStatusBand
+              phase={
+                revision.status === "approved"
+                  ? "gated"
+                  : // Suppressed only when a working Publish CTA renders below
+                    // (admin bypass) — "waiting" next to it reads as a
+                    // contradiction. publishSectionHasContent is too broad: it
+                    // is true for any active draft.
+                    state.waitingForReview &&
+                      !canReview &&
+                      !adminBypassAvailable
+                    ? "waiting"
+                    : "draft"
+              }
+              footprint={reviewFootprint}
+              unmet={requiredTeams.unmet}
+              coverageMessage={coverageBlockMessage}
+              showSelfApprovalNote={!!isBlockedContributor && canReview}
+              canRecallReview={state.canRecallReview}
+              recallDisabled={submitting}
+              onRecallReview={doRecallReview}
+            />
+          </Box>
+        )}
+
+        {/* Mirrors every child's render condition — an empty box still draws
+            its margin. */}
+        {((canReview && requiresApproval && !adminPublish) ||
+          (state.hasSubmit && state.submitAction === "request-review") ||
+          publishSectionHasContent) && (
+          <Box mt={showApprovalBand ? "0" : "6"}>
+            {/* Submit review — reviewer action, opens the comment/decision
               popover */}
-          {canReview && requiresApproval && !approved && (
-            <Flex direction="column" gap="3" mb="4">
-              <ReviewCommentPopover
-                onSubmit={submitReviewDecision}
-                allowPublishOnApprove={autopublishOnApproval}
-                autoPublishArmed={revisionAutoPublishArmed}
-                autoPublishScheduled={scheduledPending}
-                canReviewerPublish={canEditEntity}
-                publishBlocked={
-                  !mergeSuccess ||
-                  !hasChanges ||
-                  mustRebase ||
-                  !!publishBlockedReason
-                }
-                isBlockedContributor={!!isBlockedContributor}
-                storageKey={`review-comment:${revision.target.type}:${revision.id}`}
-                onSuccess={() => {}}
-                trigger={
-                  <Button
-                    style={{ width: "100%" }}
-                    icon={<PiCaretDownBold />}
-                    iconPosition="right"
-                  >
-                    Submit review
-                  </Button>
-                }
-                side="bottom"
-                align="center"
-              />
-            </Flex>
-          )}
-
-          {/* Step CTA: Request Review */}
-          {state.hasSubmit && state.submitAction === "request-review" && (
-            <Box mt="4">
-              <Button
-                variant="soft"
-                onClick={doSubmit}
-                loading={submitting}
-                disabled={!state.ctaEnabled || !canEditEntity}
-                style={{ width: "100%" }}
-              >
-                {state.ctaLabel}
-              </Button>
-            </Box>
-          )}
-
-          {/* Publish section */}
-          <Box mt="4" pt="4" style={{ borderTop: "1px solid var(--gray-a5)" }}>
-            {/* Conflict / divergence / stale-approval banners — shared with the
-                feature flow so the revision tab reads identically. */}
-            {(governance.divergence !== "current" || staleApproval) && (
-              <Box mb="3">
-                <DivergenceNotice
-                  governance={governance}
-                  liveVersion={liveVersion}
-                  baseVersion={liveVersion}
-                  canRebase={canEditEntity}
-                  updating={submitting}
-                  onResolveConflicts={() => setShowFixConflicts(true)}
-                  onUpdateFromLive={doRebase}
-                  approvedAt={approvedAt}
-                />
-              </Box>
-            )}
-
-            {/* Auto-publish / scheduled-publish arming (also works post-request).
-                Mirrors the feature publish section: directly under the
-                divergence notice, above the admin-bypass + Publish button.
-                Hidden when publishing is blocked (e.g. a locked config) — a
-                schedule would just fail to fire. */}
-            {isActiveDraft && !publishBlockedReason && (
-              <ScheduledPublishControl
-                revision={revision}
-                pending={isScheduledPublishPending(revision)}
-                lockActive={isScheduledPublishLockActive(revision)}
-                schedulePublishPath={`/revision/${revision.id}/schedule-publish`}
-                toggleAutoPublishPath={`/revision/${revision.id}/toggle-auto-publish`}
-                entityNoun={entityNoun}
-                canEdit={canEditEntity}
-                canBypassApproval={canBypassApproval}
-                requiresApproval={requiresApproval}
-                autopublishOnApproval={autopublishOnApproval}
-                isReviewRequester={isAuthor}
-                mutate={mutate}
-              />
-            )}
-
-            {adminBypassAvailable && !publishBlockedReason && (
-              <Box mb="3">
-                <Checkbox
-                  label={
-                    <span style={{ color: "var(--red-11)" }}>
-                      Admin: bypass approval and publish now
-                    </span>
+            {canReview && requiresApproval && !adminPublish && (
+              <Flex direction="column" gap="3" mb="4">
+                <ReviewCommentPopover
+                  onSubmit={submitReviewDecision}
+                  allowPublishOnApprove={autopublishOnApproval}
+                  autoPublishArmed={revisionAutoPublishArmed}
+                  autoPublishScheduled={scheduledPending}
+                  canReviewerPublish={canPublishOrEdit}
+                  publishBlocked={
+                    !mergeSuccess ||
+                    !hasChanges ||
+                    mustRebase ||
+                    !!publishBlockedReason
                   }
-                  weight="regular"
-                  value={adminPublish}
-                  setValue={(val) => setAdminPublish(!!val)}
+                  isBlockedContributor={!!isBlockedContributor}
+                  storageKey={`review-comment:${revision.target.type}:${revision.id}`}
+                  onSuccess={() => {}}
+                  trigger={
+                    <Button
+                      // Outline once publishing is live or armed on a schedule —
+                      // either way review is no longer the primary action.
+                      variant={
+                        state.submitAction === "publish" &&
+                        state.ctaEnabled &&
+                        canPublishOrEdit
+                          ? "outline"
+                          : undefined
+                      }
+                      style={{ width: "100%" }}
+                      icon={<PiCaretDownBold />}
+                      iconPosition="right"
+                    >
+                      Submit review
+                    </Button>
+                  }
+                  side="bottom"
+                  align="center"
                 />
-              </Box>
+              </Flex>
             )}
 
-            {!scheduleBlocksPublish &&
-              !publishBlockedReason &&
-              (state.submitAction === "publish" || adminBypassAvailable) && (
+            {/* Step CTA: Request Review */}
+            {state.hasSubmit && state.submitAction === "request-review" && (
+              <Box mt="4">
                 <Button
-                  onClick={
-                    state.submitAction === "publish" &&
-                    state.ctaEnabled &&
-                    canEditEntity
-                      ? doSubmit
-                      : undefined
-                  }
-                  loading={submitting && state.submitAction === "publish"}
-                  disabled={
-                    state.submitAction !== "publish" ||
-                    !state.ctaEnabled ||
-                    !canEditEntity
-                  }
-                  icon={state.ctaLocked ? <PiLockSimple /> : undefined}
+                  variant="soft"
+                  onClick={doSubmit}
+                  loading={submitting}
+                  disabled={!state.ctaEnabled || !canAdvanceDraft}
                   style={{ width: "100%" }}
                 >
                   {state.ctaLabel}
                 </Button>
-              )}
+                {/* A greyed-out button with no reason reads as a bug — mirrors
+                  the Feature flow. */}
+                {!canAdvanceDraft && (
+                  <PermissionBlocker mt="2">
+                    You don&apos;t have permission to request review for this
+                    draft.
+                  </PermissionBlocker>
+                )}
+              </Box>
+            )}
 
-            <Flex direction="column" gap="2" mt="3">
-              {/* Entity-level publish lock (e.g. a locked config). */}
-              {publishBlockedReason && (
-                <Callout status="warning" size="sm">
-                  {publishBlockedReason}
-                </Callout>
-              )}
+            {/* Publish section. The divider and its padding belong to the
+              section — rendered unconditionally they draw a separator around
+              nothing (e.g. a deleter on a pure-archive draft pending review). */}
+            {publishSectionHasContent && (
+              <Box
+                mt="4"
+                pt="4"
+                style={{ borderTop: "1px solid var(--gray-a5)" }}
+              >
+                {/* Post-approval gates — the band above covers pre-approval.
+                  Shown regardless of publish authority: what gates the draft is
+                  worth knowing even to someone who can't publish it. Hidden
+                  while the admin bypass is checked — "blocked" next to an
+                  enabled Publish button reads as a contradiction. */}
+                {requiresApproval &&
+                  !adminPublish &&
+                  state.submitAction === "publish" &&
+                  (!requiredTeams.satisfied || hasUncoveredApproval) && (
+                    <Box mb="4">
+                      <ApprovalStatusBand
+                        phase="gated"
+                        footprint={reviewFootprint}
+                        unmet={
+                          requiredTeams.satisfied ? [] : requiredTeams.unmet
+                        }
+                        coverageMessage={coverageBlockMessage}
+                      />
+                    </Box>
+                  )}
 
-              {/* A sibling draft's committed lock-others schedule freezes publish. */}
-              {featureLockedBySchedule && !adminPublish && (
-                <Callout status="warning" size="sm">
-                  Another draft (Revision {lockingScheduledSibling?.version}) is
-                  scheduled to publish and has locked publishing of other
-                  drafts. Cancel that schedule to publish this one.
-                </Callout>
-              )}
+                {/* Conflict / divergence / stale-approval banners — shared with the
+                feature flow so the revision tab reads identically. */}
+                {(governance.divergence !== "current" || staleApproval) && (
+                  <Box mb="3">
+                    <DivergenceNotice
+                      governance={governance}
+                      liveVersion={liveVersion}
+                      baseVersion={liveVersion}
+                      canRebase={canDraftOrEdit}
+                      updating={submitting}
+                      onResolveConflicts={() => setShowFixConflicts(true)}
+                      onUpdateFromLive={doRebase}
+                      approvedAt={approvedAt}
+                    />
+                  </Box>
+                )}
 
-              {submitError && (
-                <Callout status="error" size="sm">
-                  {submitError}
-                </Callout>
-              )}
+                {/* Auto-publish / scheduled-publish arming (also works post-request).
+                Mirrors the feature publish section: directly under the
+                divergence notice, above the admin-bypass + Publish button.
+                Hidden when publishing is blocked (e.g. a locked config) — a
+                schedule would just fail to fire. */}
+                {isActiveDraft &&
+                  // Anything ARMED keeps the control reachable so it can be called off,
+                  // not just a dated schedule: "publish when approved" carries no date, so
+                  // `isScheduledPublishPending` is false for it and blocking publish would
+                  // otherwise strand it with no way to disarm.
+                  (!publishBlockedReason ||
+                    isScheduledPublishPending(revision) ||
+                    !!revision.autoPublishOnApproval) && (
+                    <ScheduledPublishControl
+                      revision={revision}
+                      pending={isScheduledPublishPending(revision)}
+                      lockActive={isScheduledPublishLockActive(revision)}
+                      schedulePublishPath={`/revision/${revision.id}/schedule-publish`}
+                      toggleAutoPublishPath={`/revision/${revision.id}/toggle-auto-publish`}
+                      entityNoun={entityNoun}
+                      // Arming a schedule commits a future publish, and the
+                      // endpoint requires the publish atom itself — the
+                      // narrow-atom landing fallbacks in canPublishOrEdit do not
+                      // arm schedules.
+                      canEdit={canPublishEntity ?? canEditEntity}
+                      // A blocked publish (a locked Config) refuses NEW schedules
+                      // but still allows cancelling one already armed.
+                      canArm={!publishBlockedReason}
+                      // The cancel endpoint judges on coarse live-entity publish
+                      // authority, so a change-aware `canEdit` failing for THIS
+                      // revision must not hide the one action still permitted.
+                      canCancel={
+                        canPublishEntityCoarse ??
+                        canPublishEntity ??
+                        canEditEntity
+                      }
+                      canDraft={canDraftOrEdit}
+                      onStagedScheduleChange={(staged) => {
+                        stagedSchedule.current = staged;
+                      }}
+                      canBypassApproval={canBypassApproval}
+                      requiresApproval={requiresApproval}
+                      autopublishOnApproval={autopublishOnApproval}
+                      approvalsCoverChange={approvalsCoverFootprint}
+                      mutate={mutate}
+                    />
+                  )}
 
-              {!hasChanges && (
-                <Callout status="info" size="sm">
-                  No changes to publish. Discard the draft or add changes first.
-                </Callout>
-              )}
+                {adminBypassAvailable && !publishBlockedReason && (
+                  <Box mb="3">
+                    <Checkbox
+                      label={
+                        <span style={{ color: "var(--red-11)" }}>
+                          Admin: bypass approval and publish now
+                        </span>
+                      }
+                      weight="regular"
+                      value={adminPublish}
+                      setValue={(val) => setAdminPublish(!!val)}
+                    />
+                  </Box>
+                )}
 
-              {!requiresApproval && hasChanges && (
-                <Text size="small" color="text-mid" as="p">
-                  No approval necessary — these changes can be published
-                  directly.
-                </Text>
-              )}
-            </Flex>
+                {!scheduleBlocksPublish &&
+                  !publishBlockedReason &&
+                  (state.submitAction === "publish" ||
+                    adminBypassAvailable) && (
+                    <Button
+                      onClick={
+                        state.submitAction === "publish" &&
+                        state.ctaEnabled &&
+                        canPublishOrEdit
+                          ? doSubmit
+                          : undefined
+                      }
+                      loading={submitting && state.submitAction === "publish"}
+                      disabled={
+                        state.submitAction !== "publish" ||
+                        !state.ctaEnabled ||
+                        !canPublishOrEdit
+                      }
+                      icon={state.ctaLocked ? <PiLockSimple /> : undefined}
+                      style={{ width: "100%" }}
+                    >
+                      {state.ctaLabel}
+                    </Button>
+                  )}
+
+                <Flex direction="column" gap="2" mt="3">
+                  {/* First in the stack: a disabled CTA with no reason reads as
+                  a bug. */}
+                  {!canPublishOrEdit && (
+                    <PermissionBlocker>
+                      You don&apos;t have permission to publish this draft.
+                    </PermissionBlocker>
+                  )}
+
+                  {/* Entity-level publish lock (e.g. a locked config). */}
+                  {publishBlockedReason && (
+                    <Callout status="warning" size="sm">
+                      {publishBlockedReason}
+                    </Callout>
+                  )}
+
+                  {/* A sibling draft's committed lock-others schedule freezes publish. */}
+                  {featureLockedBySchedule && !adminPublish && (
+                    <Callout status="warning" size="sm">
+                      Another draft (Revision {lockingScheduledSibling?.version}
+                      ) is scheduled to publish and has locked publishing of
+                      other drafts. Cancel that schedule to publish this one.
+                    </Callout>
+                  )}
+
+                  {submitError && (
+                    <Callout status="error" size="sm">
+                      {submitError}
+                    </Callout>
+                  )}
+
+                  {!hasChanges && (
+                    <Callout status="info" size="sm">
+                      No changes to publish. Discard the draft or add changes
+                      first.
+                    </Callout>
+                  )}
+
+                  {!requiresApproval && hasChanges && (
+                    <Text size="sm" color="text-mid" as="p">
+                      No approval necessary — these changes can be published
+                      directly.
+                    </Text>
+                  )}
+                </Flex>
+              </Box>
+            )}
           </Box>
-        </Box>
+        )}
       </Box>
     </Box>
   );

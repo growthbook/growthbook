@@ -31,10 +31,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import {
   generateVariationId,
   useAttributeSchema,
@@ -48,8 +45,8 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import { useUser } from "@/services/UserContext";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
@@ -57,6 +54,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "@/components/Experiment/HashVersionSelector";
+import { useAttributeScopePicker } from "@/components/Experiment/useAttributeScopePicker";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
@@ -272,7 +270,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
-  const hasHashAttributes = hashAttributes.length > 0;
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
@@ -293,6 +290,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
+      attributeScopeAllProjects: initialValue?.attributeScopeAllProjects,
       trackingKey: initialValue?.trackingKey || "",
       ...getNewExperimentDatasourceDefaults({
         datasources,
@@ -308,7 +306,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       hashAttribute: initialHashAttribute,
       hashVersion:
         initialValue?.hashVersion || (initialHasSDKWithNoBucketingV2 ? 1 : 2),
-      disableStickyBucketing: initialValue?.disableStickyBucketing ?? false,
+      disableStickyBucketing:
+        initialValue?.disableStickyBucketing ??
+        !settings.stickyBucketingOnByDefault,
       attributionModel:
         initialValue?.attributionModel ??
         settings?.attributionModel ??
@@ -379,16 +379,35 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const selectedProject = form.watch("project");
+
+  // Filter by the form-selected project — the page's project goes stale when
+  // the selector changes.
+  const { strictScoping, effectiveAttributeProjects, attributeScopeToggle } =
+    useAttributeScopePicker({
+      project: selectedProject,
+      scopeProjects: selectedProject ? [selectedProject] : null,
+      allProjects: form.watch("attributeScopeAllProjects"),
+      setAllProjects: (v) => form.setValue("attributeScopeAllProjects", v),
+    });
+  const scopedAttributeSchema = useAttributeSchema(
+    false,
+    effectiveAttributeProjects,
+  );
+  const hasScopedHashAttributes = scopedAttributeSchema.some(
+    (a) => a.hashAttribute,
+  );
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
     selectedProject,
   );
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "experiment",
-    selectedProject,
-  );
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "experiment",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -533,7 +552,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         {
           attributeSchema: allAttributesSchema,
           requireRegisteredAttributes: settings.requireRegisteredAttributes,
-          project: data.project || project || undefined,
+          project:
+            data.attributeScopeAllProjects && !strictScoping
+              ? null
+              : data.project || undefined,
         },
       );
 
@@ -899,7 +921,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       return (
                         <Flex as="div" align="baseline">
                           <Text>{value.label}</Text>
-                          <Text size="small" color="text-mid" ml="auto">
+                          <Text size="sm" color="text-mid" ml="auto">
                             Created {date(t.dateCreated)}
                           </Text>
                         </Flex>
@@ -1157,7 +1179,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                                       </span>
                                     </Flex>
                                     <Flex gap="3" align="center">
-                                      <Text size="small" color="text-mid">
+                                      <Text size="sm" color="text-mid">
                                         {date(s.experiment.dateCreated)}
                                       </Text>
                                       <ExperimentStatusIndicator
@@ -1243,18 +1265,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 )}
               </>
             )}
-            {hasCommercialFeature("custom-metadata") &&
-              !!customFields?.length && (
-                <CustomFieldInput
-                  customFields={customFields}
-                  currentCustomFields={form.watch("customFields") || {}}
-                  setCustomFields={(value) => {
-                    form.setValue("customFields", value);
-                  }}
-                  section={"experiment"}
-                  project={selectedProject}
-                />
-              )}
+            {customFields.length > 0 && (
+              <CustomFieldInput
+                fields={customFields}
+                value={customFieldValues}
+                onChange={(value) => form.setValue("customFields", value)}
+              />
+            )}
           </div>
         </Page>
 
@@ -1270,6 +1287,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       step={i}
                       source="experiment"
                       project={selectedProject}
+                      attributeProjects={effectiveAttributeProjects}
+                      attributeSelectIndicator={attributeScopeToggle}
                       environments={envs}
                       noSchedule={true}
                       prerequisiteValue={
@@ -1323,6 +1342,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       step={i}
                       source="experiment"
                       project={selectedProject}
+                      attributeProjects={effectiveAttributeProjects}
+                      attributeSelectIndicator={attributeScopeToggle}
                       environments={envs}
                       prerequisiteValue={
                         form.watch("phases.0.prerequisites") || []
@@ -1383,36 +1404,24 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       <SelectField
                         size="legacy"
                         withRadixThemedPortal
-                        options={attributeSchema
-                          .filter((s) => !hasHashAttributes || s.hashAttribute)
-                          .map((s) => ({
-                            label: s.property,
-                            value: s.property,
-                            description: s.description,
-                            tags: s.tags,
-                            datatype: s.datatype,
-                            hashAttribute: s.hashAttribute,
-                          }))}
+                        extraIndicator={attributeScopeToggle}
+                        options={scopedAttributeSchema
+                          .filter(
+                            (s) => !hasScopedHashAttributes || s.hashAttribute,
+                          )
+                          .map(toAttributeOption)}
                         sort={false}
                         value={form.watch("hashAttribute") || ""}
                         onChange={(v) => {
                           form.setValue("hashAttribute", v);
                         }}
-                        formatOptionLabel={(o, meta) => {
-                          return (
-                            <AttributeOptionWithTooltip
-                              option={o as AttributeOptionForTooltip}
-                              context={meta.context}
-                            >
-                              {o.label}
-                            </AttributeOptionWithTooltip>
-                          );
-                        }}
+                        formatOptionLabel={formatAttributeOptionLabel}
                       />
                     </div>
                     <FallbackAttributeSelector
                       form={form}
-                      attributeSchema={attributeSchema}
+                      attributeSchema={scopedAttributeSchema}
+                      extraIndicator={attributeScopeToggle}
                     />
                   </div>
 
@@ -1440,6 +1449,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     }
                     key={conditionKey}
                     project={project}
+                    attributeProjects={effectiveAttributeProjects}
+                    attributeSelectIndicator={attributeScopeToggle}
                   />
                   <Separator size="4" my="5" />
                   <PrerequisiteInput

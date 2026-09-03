@@ -227,7 +227,7 @@ const OptInModal = ({
                 mt="2"
                 size="md"
                 label="I agree"
-                labelSize="3"
+                labelSize="lg"
                 value={checked}
                 setValue={(v) => {
                   setChecked(v);

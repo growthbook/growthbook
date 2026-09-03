@@ -288,7 +288,7 @@ export default function FeatureDiagnostics({
               <Button
                 onClick={onRunFeatureUsageQuery}
                 disabled={loading || !datasourceHasFeatureUsageQuery}
-                size="md"
+                size="lg"
               >
                 {loading
                   ? "Running..."

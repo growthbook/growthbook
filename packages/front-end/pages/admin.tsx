@@ -41,6 +41,11 @@ import SelectField from "@/components/Forms/SelectField";
 import StringArrayField from "@/ui/StringArrayField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import {
+  DEFAULT_DATA_REGION,
+  DataRegion,
+  useDataRegionOptions,
+} from "@/services/dataRegions";
 
 interface memberOrgProps {
   id: string;
@@ -80,6 +85,9 @@ function OrganizationRow({
   const [licenseLoading, setLicenseLoading] = useState(false);
   const { apiCall } = useAuth();
   const [clickhouseModalOpen, setClickhouseModalOpen] = useState(false);
+  const [clickhouseRegion, setClickhouseRegion] =
+    useState<DataRegion>(DEFAULT_DATA_REGION);
+  const dataRegionOptions = useDataRegionOptions();
   const [managedWarehouseId, setManagedWarehouseId] = useState(
     datasources.find((ds) => ds.type === "growthbook_clickhouse")?.id || null,
   );
@@ -135,6 +143,7 @@ function OrganizationRow({
       {
         method: "POST",
         headers: { "X-Organization": organization.id },
+        body: JSON.stringify({ region: clickhouseRegion }),
       },
     );
     setClickhouseModalOpen(false);
@@ -164,6 +173,17 @@ function OrganizationRow({
         >
           Are you sure you want to create a Managed Warehouse data source for
           this organization?
+          <Box mt="3">
+            <SelectField
+              size="small"
+              legacyLabelFormatting={false}
+              label="Data region"
+              value={clickhouseRegion}
+              onChange={(value) => setClickhouseRegion(value as DataRegion)}
+              options={dataRegionOptions}
+              helpText="Where this org's event data is stored. This cannot be changed later."
+            />
+          </Box>
         </Modal>
       )}
       {editSSOOpen && (
@@ -245,10 +265,7 @@ function OrganizationRow({
         <tr>
           <td colSpan={8} className="bg-light">
             <h3>Summary</h3>
-            <div
-              className="mb-3 bg-white border p-3"
-              style={{ border: "1px solid var(--border-color-200)" }}
-            >
+            <div className="appbox mb-3 p-3">
               <div className="row">
                 <div className="col-2 text-right">Name:</div>
                 <div className="col-auto font-weight-bold">
@@ -279,7 +296,9 @@ function OrganizationRow({
                   {ssoInfo
                     ? `yes (${
                         ssoInfo.id
-                      } for domains: ${ssoInfo.emailDomains?.join(", ")})`
+                      } for domains: ${ssoInfo.emailDomains?.join(", ")})${
+                        ssoInfo.disabled ? " — DISABLED" : ""
+                      }`
                     : "no"}
                 </div>
                 {isCloud() && (
@@ -533,7 +552,7 @@ function MemberRow({
                 )}
                 {memberOrgs.map((o) => (
                   <div className="mb-2 col-3" key={o.id + member.id}>
-                    <div className="mx-2  border bg-white p-3 rounded-lg">
+                    <div className="appbox mx-2 mb-0 p-3">
                       <div>
                         <span className="font-weight-bold">Name:</span> {o.name}
                       </div>
@@ -678,10 +697,7 @@ const Admin: FC = () => {
       <h1>GrowthBook Admin</h1>
       {!isCloud() && (
         <>
-          <div
-            className="p-3 bg-white"
-            style={{ border: "1px solid var(--border-color-200)" }}
-          >
+          <div className="appbox p-3">
             <ShowLicenseInfo showInput={false} />{" "}
           </div>
           <div className="divider border-bottom mb-3 mt-3" />
@@ -1212,7 +1228,7 @@ function EditSSOModal({
       />
 
       <StringArrayField
-        size="legacy"
+        legacyHeight
         label="Email Domains"
         value={form.watch("emailDomains") || []}
         onChange={(emailDomains) => form.setValue("emailDomains", emailDomains)}

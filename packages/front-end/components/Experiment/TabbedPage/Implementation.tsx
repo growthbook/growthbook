@@ -9,6 +9,7 @@ import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { experimentHasLiveLinkedChanges } from "shared/util";
+import { getActivePhaseIndex } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -161,7 +162,7 @@ export default function Implementation({
         />
       )}
       <div className="my-4">
-        <Heading as="h2" size="large" color="text-high" mb="2">
+        <Heading as="h2" size="lg" color="text-high" mb="2">
           Implementation
         </Heading>
         {showTrafficFunnel ? (
@@ -182,7 +183,7 @@ export default function Implementation({
             experiment={experiment}
             editTraffic={pendingScheduledStart ? null : editTraffic}
             editTargeting={pendingScheduledStart ? null : editTargeting}
-            phaseIndex={phases.length - 1}
+            phaseIndex={getActivePhaseIndex(experiment)}
           />
         )}
         {!isHoldout &&
@@ -215,7 +216,7 @@ export default function Implementation({
         ) : null}
         {isHoldout && holdout ? (
           <Frame>
-            <Heading color="text-high" as="h4" size="small" mb="0">
+            <Heading color="text-high" as="h4" size="sm" mb="0">
               Included Experiments & Features
             </Heading>
             {/* TODO: Add a state for a stopped holdout with no experiments or features? */}
@@ -241,7 +242,7 @@ export default function Implementation({
                     setTab(value as "experiments" | "features")
                   }
                 >
-                  <TabsList size="2">
+                  <TabsList size="md">
                     <TabsTrigger value="experiments">
                       Experiments
                       {!!holdoutExperiments?.length && (

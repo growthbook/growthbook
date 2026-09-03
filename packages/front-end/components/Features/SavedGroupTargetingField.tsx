@@ -12,6 +12,7 @@ import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import Link from "@/ui/Link";
+import { AttributeOptionProjectsLabel } from "@/components/Features/AttributeOptionTooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import {
@@ -62,11 +63,11 @@ export default function SavedGroupTargetingField({
   const savedGroupsLabel =
     label &&
     (slimMode ? (
-      <Text as="div" size="medium" weight="semibold" color="text-mid">
+      <Text as="div" size="md" weight="semibold" color="text-mid">
         {label}
       </Text>
     ) : (
-      <Text as="div" size="medium" weight="semibold">
+      <Text as="div" size="md" weight="semibold">
         {label}
       </Text>
     ));
@@ -82,7 +83,7 @@ export default function SavedGroupTargetingField({
         { value: "set", label: setModeLabel ?? "Set targeting" },
         { value: "remove", label: removeModeLabel ?? "Remove targeting" },
       ]}
-      labelSize="2"
+      labelSize="md"
     />
   ) : null;
   useEffect(() => {
@@ -150,7 +151,7 @@ export default function SavedGroupTargetingField({
               color="text-low"
               fontStyle="italic"
               mb="2"
-              size={slimMode ? "small" : undefined}
+              size={slimMode ? "sm" : undefined}
             >
               {emptyText || "No saved group targeting applied."}
             </Text>
@@ -171,7 +172,7 @@ export default function SavedGroupTargetingField({
               >
                 <Text
                   weight="semibold"
-                  size="medium"
+                  size="md"
                   color={locked ? "text-low" : undefined}
                 >
                   <PiPlusCircleBold className="mr-1" />
@@ -279,7 +280,7 @@ export default function SavedGroupTargetingField({
                   }
                   valueSlot={
                     <MultiSelectField
-                      size="legacy"
+                      legacyHeight
                       disabled={locked}
                       value={v.ids}
                       onChange={(ids) => {
@@ -290,7 +291,16 @@ export default function SavedGroupTargetingField({
                       }}
                       options={options}
                       formatOptionLabel={(o, meta) => {
-                        if (meta.context !== "value") return o.label;
+                        if (meta.context !== "value") {
+                          return (
+                            <Flex align="center" gap="3">
+                              <span>{o.label}</span>
+                              <AttributeOptionProjectsLabel
+                                projects={getSavedGroupById(o.value)?.projects}
+                              />
+                            </Flex>
+                          );
+                        }
                         const group = getSavedGroupById(o.value);
                         if (!group) return o.label;
                         return (

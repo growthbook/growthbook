@@ -5,11 +5,13 @@ import {
   Link as RadixLink,
   LinkProps as RadixLinkProps,
 } from "@radix-ui/themes";
+import { radixSize, Size } from "@/ui/sizes";
 import styles from "./Link.module.scss";
 
-type RadixProps = Omit<RadixLinkProps, "color" | "href"> & {
+type RadixProps = Omit<RadixLinkProps, "color" | "href" | "size"> & {
   type?: "submit" | "reset" | "button";
   color?: RadixLinkProps["color"] | "dark";
+  size?: Size<"sm" | "md" | "lg" | "xl">;
   // Mirrors the naming of LinkButton's own `external` prop, but actually
   // bakes in `rel="noopener noreferrer"` too — LinkButton's only sets
   // `target`. When true, opens in a new tab with the safe rel attributes;
@@ -38,7 +40,16 @@ type Props = RadixProps & ConditionalProps;
 
 const Link = forwardRef<HTMLAnchorElement, Props>(
   (
-    { children, className, color, href, type = "button", external, ...props },
+    {
+      children,
+      className,
+      color,
+      href,
+      size,
+      type = "button",
+      external,
+      ...props
+    },
     ref: ForwardedRef<HTMLAnchorElement>,
   ) => {
     const isCustomDarkColor = color === "dark";
@@ -86,6 +97,7 @@ const Link = forwardRef<HTMLAnchorElement, Props>(
           [styles.darkLink]: isCustomDarkColor,
         })}
         color={isCustomDarkColor ? undefined : color}
+        size={size !== undefined ? radixSize(size) : undefined}
         {...radixProps}
         asChild
       >

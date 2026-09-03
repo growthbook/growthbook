@@ -4,6 +4,10 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Switch from "@/ui/Switch";
 import { GBInfo } from "@/components/Icons";
 import FileInput from "@/components/FileInput";
+import {
+  KEEP_EXISTING_PLACEHOLDER,
+  useCanKeepExistingCredentials,
+} from "@/components/Forms/secretInput";
 
 const SnowflakeForm: FC<{
   params: Partial<SnowflakeConnectionParams>;
@@ -12,9 +16,12 @@ const SnowflakeForm: FC<{
   onManualParamChange: (name: string, value: string) => void;
 }> = ({ params, existing, onParamChange, onManualParamChange }) => {
   const [useAccessUrl, setUseAccessUrl] = useState(!!params.accessUrl);
-  const [originalAuthMethod] = useState(params.authMethod);
-  // Convenience variable for the auth method to handle undefined
-  const authMethod = params.authMethod ?? "password";
+  // Saved connections without authMethod used password; new ones default to key-pair.
+  const authMethod = params.authMethod ?? (existing ? "password" : "key-pair");
+  const canKeepExistingCredentials = useCanKeepExistingCredentials(
+    existing,
+    authMethod,
+  );
 
   return (
     <div className="row">
@@ -48,11 +55,11 @@ const SnowflakeForm: FC<{
           className="form-control"
           autoComplete="off"
           name="authMethod"
-          value={params.authMethod ?? "password"}
+          value={authMethod}
           onChange={(e) => onManualParamChange("authMethod", e.target.value)}
         >
-          <option value="password">Password</option>
           <option value="key-pair">Key Pair</option>
+          <option value="password">Password</option>
         </select>
       </div>
 
@@ -64,13 +71,11 @@ const SnowflakeForm: FC<{
             className="form-control password-presentation"
             autoComplete="off"
             name="password"
-            required={!existing || authMethod !== originalAuthMethod}
+            required={!canKeepExistingCredentials}
             value={params.password || ""}
             onChange={onParamChange}
             placeholder={
-              existing && authMethod === originalAuthMethod
-                ? "(Keep existing)"
-                : ""
+              canKeepExistingCredentials ? KEEP_EXISTING_PLACEHOLDER : ""
             }
           />
         </div>
@@ -82,7 +87,7 @@ const SnowflakeForm: FC<{
             <label>Private Key File</label>
             <FileInput
               name="privateKey"
-              required={!existing || authMethod !== originalAuthMethod}
+              required={!canKeepExistingCredentials}
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {
@@ -94,8 +99,8 @@ const SnowflakeForm: FC<{
                 }
               }}
               placeholder={
-                existing && authMethod === originalAuthMethod
-                  ? "(Keep existing)"
+                canKeepExistingCredentials
+                  ? KEEP_EXISTING_PLACEHOLDER
                   : "Select a private key file"
               }
             />
@@ -116,9 +121,7 @@ const SnowflakeForm: FC<{
               value={params.privateKeyPassword || ""}
               onChange={onParamChange}
               placeholder={
-                existing && authMethod === originalAuthMethod
-                  ? "(Keep existing)"
-                  : ""
+                canKeepExistingCredentials ? KEEP_EXISTING_PLACEHOLDER : ""
               }
             />
           </div>

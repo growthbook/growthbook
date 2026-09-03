@@ -111,7 +111,7 @@ export function ConditionGroupHeader({
       align="center"
       justify="between"
     >
-      <Text size="medium" weight="medium" color="text-mid">
+      <Text size="md" weight="medium" color="text-mid">
         {label}
       </Text>
       {advancedToggle && <Box>{advancedToggle}</Box>}
@@ -203,7 +203,9 @@ export function ConditionRow({
         )}
         <Box
           style={{
-            minWidth: 300,
+            // Wrap threshold, not display width — 260 keeps the condition on
+            // one row inside the Radix lg dialog.
+            minWidth: 260,
             flex:
               operatorSlot !== undefined
                 ? "2 1 0"
@@ -225,7 +227,7 @@ export function ConditionRow({
 
 export function ConditionRowLabel({ label }: { label: string }) {
   return (
-    <Text size="medium" weight="medium" color="text-mid">
+    <Text size="md" weight="medium" color="text-mid">
       {label}
     </Text>
   );
@@ -246,7 +248,7 @@ export function ConditionRowHeader({
       mb="2"
       style={{ minHeight: 24 }}
     >
-      <Text size="medium" weight="medium" color="text-mid">
+      <Text size="md" weight="medium" color="text-mid">
         {label}
       </Text>
       {advancedToggle && <Box>{advancedToggle}</Box>}
@@ -263,7 +265,7 @@ export function OrSeparator({ slimMode }: { slimMode?: boolean }) {
       className="gb-or-separator"
     >
       <Separator style={{ flexGrow: 1 }} />
-      <Text size="medium" weight="medium">
+      <Text size="md" weight="medium">
         OR
       </Text>
       <Separator style={{ flexGrow: 1 }} />
@@ -292,7 +294,7 @@ export function AddConditionButton({
         cursor: disabled ? "not-allowed" : "pointer",
       }}
     >
-      <Text weight="semibold" size="medium">
+      <Text weight="semibold" size="md">
         <PiPlusBold className="mr-1" />
         {children ?? "Add condition"}
       </Text>
@@ -322,7 +324,7 @@ export function AddOrGroupButton({
           cursor: disabled ? "not-allowed" : "pointer",
         }}
       >
-        <Text weight="semibold" size="medium">
+        <Text weight="semibold" size="md">
           <PiPlusBold className="mr-1" />
           Add OR group
         </Text>

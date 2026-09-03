@@ -4,29 +4,31 @@ import {
   ParentConditionInterface,
 } from "@growthbook/growthbook";
 import {
+  ExperimentDependencyIndex,
+  NamespaceValue,
+  ReverseDependencyIndex,
+  buildExperimentDependencyIndex,
+  buildReverseDependencyIndex,
+  deepMergePatch,
+  ensureConfigBacking,
+  filterEnvironmentsByFeature,
+  getApplicableEnvIds,
+  getFeatureBaseConfigKey,
+  getNamespaceHashAttribute,
+  getNamespaceRanges,
   getRulesForEnvironment,
+  getTargetingProjectIds,
   includeExperimentInPayload,
   isDefined,
   isMultiRangeNamespaceFormat,
   namespacesToMap,
-  recursiveWalk,
-  ruleServedToConnection,
-  ruleProjectScope,
-  ruleFootprint,
-  stemRuleId,
-  getNamespaceRanges,
-  getNamespaceHashAttribute,
-  NamespaceValue,
-  buildReverseDependencyIndex,
-  ReverseDependencyIndex,
-  buildExperimentDependencyIndex,
-  ExperimentDependencyIndex,
   parsePlainJSONObject,
-  getFeatureBaseConfigKey,
-  ensureConfigBacking,
+  recursiveWalk,
+  ruleFootprint,
+  ruleProjectScope,
+  ruleServedToConnection,
+  stemRuleId,
   stripConfigExtends,
-  deepMergePatch,
-  getTargetingProjectIds,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { resolveScheduleStopAfter } from "shared/dates";
@@ -66,10 +68,10 @@ import {
 } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
-import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 export function pairedWeightsToPositional(
@@ -366,6 +368,40 @@ export function isRuleEnabled(
   return true;
 }
 
+// Environments an archive takes the flag out of service in: the ones it both
+// applies to and is enabled in. A disabled environment already omits the feature
+// from its payload, so archiving changes nothing there — the same reason the
+// review gate scopes an archive to its enabled environments. Shared by every
+// path that can land an archive so they demand identical authority.
+// The environments a REST create will actually switch on. An omitted
+// environment still lands enabled when its `defaultState` says so — mirroring
+// `createInterfaceEnvSettingsFromApiEnvSettings` — so a footprint built only
+// from explicit `enabled: true` entries under-counts, and a caller with Create
+// in dev could omit environments entirely and produce a production-enabled flag.
+export function getApiCreateEnabledEnvironments(
+  baseEnvs: Environment[],
+  // Only `enabled` is read, so both the v1 and v2 request bodies fit.
+  incomingEnvs?: Record<string, { enabled?: boolean } | undefined>,
+): string[] {
+  return baseEnvs
+    .filter((e) => incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState)
+    .map((e) => e.id);
+}
+
+export function getArchiveFootprint(
+  feature: FeatureInterface,
+  org: OrganizationInterface,
+): string[] {
+  return Array.from(
+    getEnabledEnvironments(
+      feature,
+      filterEnvironmentsByFeature(getEnvironments(org), feature).map(
+        (e) => e.id,
+      ),
+    ),
+  );
+}
+
 export function getEnabledEnvironments(
   features: FeatureInterface | FeatureInterface[],
   allowedEnvs: string[],
@@ -395,6 +431,33 @@ export function getEnabledEnvironments(
   });
 
   return environments;
+}
+
+// The environment footprint a project-delete cascade must hold delete + publish
+// authority over: the union of enabled environments across the project's OWNED
+// (project === id) features. Deleting a live feature drops it from the SDK
+// payload in the envs it is enabled in — the same footprint the single-feature
+// delete demands, applied to exactly the features the cascade deletes (features
+// merely TARGETING the project are owned elsewhere and are not deleted here).
+// Callers pass already-non-archived features (archived contribute no footprint).
+export function projectFeatureDeleteFootprint(
+  features: FeatureInterface[],
+  projectId: string,
+  orgEnvs: Environment[],
+): string[] {
+  const owned = features.filter((feature) => feature.project === projectId);
+  return Array.from(
+    new Set(
+      owned.flatMap((feature) =>
+        Array.from(
+          getEnabledEnvironments(
+            feature,
+            filterEnvironmentsByFeature(orgEnvs, feature).map((e) => e.id),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 export function getSDKPayloadKeys(
@@ -527,6 +590,202 @@ export function getSDKPayloadKeysByDiff(
   }
 
   return getSDKPayloadKeys(environments, projects);
+}
+
+type RefRuleType = "experiment-ref" | "contextual-bandit-ref";
+
+const REF_ID: Record<RefRuleType, (rule: FeatureRule) => string | undefined> = {
+  "experiment-ref": (r) =>
+    r?.type === "experiment-ref" ? r.experimentId : undefined,
+  "contextual-bandit-ref": (r) =>
+    r?.type === "contextual-bandit-ref" ? r.contextualBanditId : undefined,
+};
+
+export function getReferenceIdsInRules(
+  rules: FeatureRule[] | undefined,
+  type: RefRuleType,
+  { skipDisabled = false }: { skipDisabled?: boolean } = {},
+): string[] {
+  const ids = new Set<string>();
+  (rules ?? []).forEach((rule) => {
+    if (skipDisabled && rule?.enabled === false) return;
+    const id = REF_ID[type](rule);
+    if (id) ids.add(id);
+  });
+  return [...ids];
+}
+
+// Disabled rules never render, so what they reference is not needed.
+export function getReferenceIdsInFeatures(
+  features: FeatureInterface[],
+  type: RefRuleType,
+): string[] {
+  return [
+    ...new Set(
+      features.flatMap((f) =>
+        getReferenceIdsInRules(f.rules, type, { skipDisabled: true }),
+      ),
+    ),
+  ];
+}
+
+// An experiment a delivered feature references belongs in that feature's payload
+// even when the experiment itself lives in another project.
+export function experimentMapForFeatures(
+  experimentMap: Map<string, ExperimentInterface>,
+  features: FeatureInterface[],
+  projects: string[],
+): Map<string, ExperimentInterface> {
+  if (!projects.length) return experimentMap;
+  const referenced = new Set(
+    getReferenceIdsInFeatures(features, "experiment-ref"),
+  );
+  return new Map(
+    [...experimentMap.entries()].filter(
+      ([id, exp]) => projects.includes(exp.project || "") || referenced.has(id),
+    ),
+  );
+}
+
+// Gates live in three places — the feature, its rules, and the phases of any
+// experiment those rules reference — and all three become `parentConditions`.
+export function getPrerequisiteIdsInFeatures(
+  features: FeatureInterface[],
+  experimentMap?: Map<string, ExperimentInterface>,
+): string[] {
+  const ids = new Set<string>();
+
+  features.forEach((feature) => {
+    (feature.prerequisites ?? []).forEach((p) => p?.id && ids.add(p.id));
+
+    (feature.rules ?? []).forEach((rule) => {
+      if (!rule || typeof rule !== "object") return;
+      if (rule.enabled === false) return;
+
+      (rule.prerequisites ?? []).forEach((p) => p?.id && ids.add(p.id));
+
+      if (!experimentMap || rule.type !== "experiment-ref") return;
+      const phase = experimentMap
+        .get(rule.experimentId)
+        ?.phases?.slice(-1)?.[0];
+      (phase?.prerequisites ?? []).forEach((p) => p?.id && ids.add(p.id));
+    });
+  });
+
+  return [...ids];
+}
+
+// A gate whose parent is absent from the payload can never pass, so a delivered
+// feature's prerequisites travel with it even when they target other projects.
+export function featuresWithPrerequisiteClosure(
+  features: FeatureInterface[],
+  featuresMap: Map<string, FeatureInterface>,
+  experimentMap?: Map<string, ExperimentInterface>,
+): { features: FeatureInterface[]; carried: Set<string> } {
+  const carried = new Set<string>();
+  const present = new Set(features.map((f) => f.id));
+
+  let frontier = features;
+  while (frontier.length) {
+    const next: FeatureInterface[] = [];
+    for (const id of getPrerequisiteIdsInFeatures(frontier, experimentMap)) {
+      if (present.has(id)) continue;
+      const parent = featuresMap.get(id);
+      if (!parent) continue;
+      present.add(id);
+      carried.add(id);
+      next.push(parent);
+    }
+    frontier = next;
+  }
+
+  return {
+    features: carried.size
+      ? [...features, ...[...carried].map((id) => featuresMap.get(id)!)]
+      : features,
+    carried,
+  };
+}
+
+// Closure delivers a parent into payloads its own projects don't name, so a
+// change to it produces keys that miss them. Maps a project to the projects
+// whose payloads may carry a feature from it, so keys can be widened without
+// knowing which feature changed.
+export function buildPrerequisiteProjectReach(
+  features: FeatureInterface[],
+  allProjectIds: string[] = [],
+  experimentMap?: Map<string, ExperimentInterface>,
+): Map<string, Set<string>> {
+  const featuresMap = new Map(features.map((f) => [f.id, f]));
+  const reach = new Map<string, Set<string>>();
+
+  const link = (from: string, to: string) => {
+    if (!from || !to || from === to) return;
+    const set = reach.get(from) ?? new Set<string>();
+    set.add(to);
+    reach.set(from, set);
+  };
+
+  for (const dependent of features) {
+    // An all-projects dependent carries its prerequisites everywhere. The ""
+    // key doesn't cover that — it only reaches connections with no project
+    // filter unless treatEmptyProjectAsGlobal.
+    const dependentProjects =
+      getTargetingProjectIds(dependent) ?? allProjectIds;
+
+    for (const parentId of getPrerequisiteIdsInFeatures(
+      [dependent],
+      experimentMap,
+    )) {
+      const parent = featuresMap.get(parentId);
+      if (!parent) continue;
+      const parentProjects = getTargetingProjectIds(parent);
+      if (parentProjects === null) continue;
+      parentProjects.forEach((from) =>
+        dependentProjects.forEach((to) => link(from, to)),
+      );
+    }
+  }
+
+  // A grandparent reaches wherever its parent reaches.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [from, tos] of reach) {
+      for (const to of [...tos]) {
+        for (const onward of reach.get(to) ?? []) {
+          if (onward !== from && !tos.has(onward)) {
+            tos.add(onward);
+            changed = true;
+          }
+        }
+      }
+    }
+  }
+
+  return reach;
+}
+
+export function expandPayloadKeysForPrerequisites(
+  payloadKeys: SDKPayloadKey[],
+  reach: Map<string, Set<string>>,
+): SDKPayloadKey[] {
+  if (!reach.size) return payloadKeys;
+
+  const out = [...payloadKeys];
+  const seen = new Set(payloadKeys.map((k) => JSON.stringify(k)));
+
+  payloadKeys.forEach(({ environment, project }) => {
+    (reach.get(project) ?? []).forEach((p) => {
+      const key = { environment, project: p };
+      const s = JSON.stringify(key);
+      if (seen.has(s)) return;
+      seen.add(s);
+      out.push(key);
+    });
+  });
+
+  return out;
 }
 
 export function getAffectedSDKPayloadKeys(
@@ -933,9 +1192,14 @@ export function getFeatureDefinition({
           const exp = experimentMap.get(r.experimentId);
           if (!exp) return null;
 
-          if (!includeExperimentInPayload(exp)) return null;
-
           if (exp.status === "draft" && !includeDraftExperimentRefs)
+            return null;
+
+          if (
+            !includeExperimentInPayload(exp, [], {
+              includeDrafts: includeDraftExperimentRefs,
+            })
+          )
             return null;
 
           // Get current experiment phase and use it to set rule properties
@@ -1099,9 +1363,7 @@ export function getFeatureDefinition({
           if (cb.hashAttribute) {
             rule.hashAttribute = cb.hashAttribute;
           }
-          if (cb.seed) {
-            rule.seed = cb.seed;
-          }
+          rule.seed = cb.seed;
           rule.hashVersion = 2;
           // contextual bandits do not currently use sticky bucketing
           rule.disableStickyBucketing = true;
@@ -1464,12 +1726,10 @@ export function getFeatureDefinition({
   return def;
 }
 
-/**
- * Populate `environmentRecord` values for env keys whose `Environment.parent`
- * chain has a defined ancestor. Only used for non-rule env fields (`enabled`,
- * `prerequisites`); rules declare their own scope on the unified array.
- * Pure.
- */
+// Populate `environmentRecord` values for env keys whose `Environment.parent`
+// chain has a defined ancestor. Only used for non-rule env fields (`enabled`,
+// `prerequisites`); rules declare their own scope on the unified array.
+// Pure.
 export function applyEnvironmentInheritance<T>(
   environments: Environment[],
   environmentRecord: Record<string, T>,

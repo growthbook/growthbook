@@ -57,6 +57,7 @@ export default class ClickHouse extends SqlIntegration {
   params!: ClickHouseConnectionParams;
   requiresDatabase = false;
   requiresSchema = false;
+  columnNamesAreCaseSensitive = true;
   setParams(encryptedParams: string) {
     this.params =
       decryptDataSourceParams<ClickHouseConnectionParams>(encryptedParams);
@@ -69,9 +70,6 @@ export default class ClickHouse extends SqlIntegration {
       this.params.url = this.params.host;
       delete this.params.host;
     }
-  }
-  getSensitiveParamKeys(): string[] {
-    return ["password"];
   }
   getSqlDialect(): SqlDialect {
     return clickHouseDialect;

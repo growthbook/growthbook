@@ -1,4 +1,5 @@
 import {
+  DEPRECATED_POLICIES,
   POLICIES,
   POLICY_DISPLAY_GROUPS,
   POLICY_METADATA_MAP,
@@ -26,13 +27,17 @@ describe("policy display groups", () => {
     expect(settingsGroup?.policies).toContain("CustomHooksFullAccess");
   });
 
-  it("includes every policy in at least one display group", () => {
+  it("includes every non-deprecated policy in at least one display group, and hides deprecated ones", () => {
     const allGroupedPolicies = POLICY_DISPLAY_GROUPS.flatMap(
       (group) => group.policies,
     );
 
     for (const policy of POLICIES) {
-      expect(allGroupedPolicies).toContain(policy);
+      if (DEPRECATED_POLICIES.includes(policy)) {
+        expect(allGroupedPolicies).not.toContain(policy);
+      } else {
+        expect(allGroupedPolicies).toContain(policy);
+      }
     }
   });
 });

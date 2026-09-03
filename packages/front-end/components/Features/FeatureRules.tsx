@@ -13,7 +13,9 @@ import {
 } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { Box, Flex, TextField } from "@radix-ui/themes";
-import RuleModal from "@/components/Features/RuleModal/index";
+import RuleModal, {
+  type RampToNewValueSeed,
+} from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
 import {
@@ -159,6 +161,8 @@ export default function FeatureRules({
     ruleId?: string;
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
+    rampToNewValue?: boolean;
+    rampToNewValueSeed?: RampToNewValueSeed;
     detachRampOnSave?: boolean;
   } | null>(null);
   const [holdoutModal, setHoldoutModal] = useState<boolean>(false);
@@ -442,11 +446,11 @@ export default function FeatureRules({
             >
               <Box px="3">
                 <Flex align="center" gap="2" justify="end" py="2">
-                  <Text size="small" color="text-low">
+                  <Text size="sm" color="text-low">
                     Show inactive rules
                   </Text>
                   <Switch
-                    size="1"
+                    size="sm"
                     value={!hasInactiveRules ? false : !hideInactive}
                     onChange={(v) => setHideInactive(!v)}
                     disabled={!hasInactiveRules}
@@ -454,11 +458,11 @@ export default function FeatureRules({
                 </Flex>
                 {env === null && hasOrphanedRules && (
                   <Flex align="center" gap="2" justify="end" py="2">
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       Show missing environment rules
                     </Text>
                     <Switch
-                      size="1"
+                      size="sm"
                       value={showOrphaned}
                       onChange={(v) => setShowOrphaned(v)}
                     />
@@ -504,7 +508,7 @@ export default function FeatureRules({
               ))}
               {showOverflowSearch && filteredOverflowLabels.length === 0 && (
                 <Box px="3" py="2">
-                  <Text size="small" color="text-low">
+                  <Text size="sm" color="text-low">
                     No matches
                   </Text>
                 </Box>
@@ -548,10 +552,9 @@ export default function FeatureRules({
                 <em>No rules have been added yet</em>
               </Box>
             )}
-            {!isLocked && (
+            {!isLocked && canEditDrafts && (
               <Flex mt="5" mb="1" justify="end">
                 <Button
-                  disabled={!canEditDrafts}
                   onClick={() => {
                     // environment="" → rule modal defaults to allEnvironments scope
                     setRuleModal({
@@ -602,14 +605,13 @@ export default function FeatureRules({
                 <em>No rules have been added to this environment yet</em>
               </Box>
             )}
-            {!isLocked && (
+            {!isLocked && canEditDrafts && (
               <>
                 <Flex pt="4" justify="between" align="center">
-                  <Text weight="semibold" size="large">
+                  <Text weight="semibold" size="lg">
                     Add rule to {activeEnv.id}
                   </Text>
                   <Button
-                    disabled={!canEditDrafts}
                     onClick={() => {
                       setRuleModal({
                         environment: activeEnv.id,
@@ -628,6 +630,8 @@ export default function FeatureRules({
       </Box>
       {ruleModal !== null && (
         <RuleModal
+          // Remount when the ramp-to-new-value switch retargets the open modal.
+          key={`${ruleModal.mode}-${ruleModal.ruleId ?? "new"}`}
           feature={feature}
           baseFeature={baseFeature}
           close={() => setRuleModal(null)}
@@ -639,6 +643,18 @@ export default function FeatureRules({
           defaultType={ruleModal.defaultType || ""}
           setVersion={setVersion}
           mode={ruleModal.mode}
+          rampToNewValue={ruleModal.rampToNewValue}
+          rampToNewValueSeed={ruleModal.rampToNewValueSeed}
+          onSwitchToRampToNewValue={(sourceRuleId, seed) =>
+            setRuleModal({
+              i: ruleModal.i,
+              environment: ruleModal.environment,
+              ruleId: sourceRuleId,
+              mode: "duplicate",
+              rampToNewValue: true,
+              rampToNewValueSeed: seed,
+            })
+          }
           revisionList={revisionList}
           rampSchedules={rampSchedules}
           detachRampOnSave={ruleModal.detachRampOnSave}

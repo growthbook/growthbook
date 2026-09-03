@@ -677,7 +677,7 @@ pre {
 .experiment-results,
 .bandit-summary-results {
   tbody {
-    &.slice-row {
+    &.child-row {
       background-color: var(--slate-a2);
     }
     tr {
@@ -1515,6 +1515,15 @@ main.main {
   &.no-hover:hover {
     background-color: var(--violet-a3);
   }
+  &.has-conflict {
+    background-color: var(--amber-a3);
+    &:hover {
+      background-color: var(--amber-a4);
+    }
+    &.no-hover:hover {
+      background-color: var(--amber-a3);
+    }
+  }
 }
 
 .draft-selector-collapsible-content {
@@ -2042,43 +2051,6 @@ main.main {
     colors.$variant-0, colors.$variant-1, colors.$variant-2, colors.$variant-3,
     colors.$variant-4, colors.$variant-5, colors.$variant-6, colors.$variant-7,
     colors.$variant-8;
-
-  &.with-variation-label {
-    .label {
-      display: inline-flex;
-      flex-shrink: 0;
-      align-items: center;
-      justify-content: center;
-      width: 24px;
-      height: 24px;
-      line-height: 24px;
-      color: var(--slate-11);
-      font-weight: 600;
-      border: 1.5px solid var(--slate-a11);
-      border-radius: 20px;
-      margin-right: var(--space-2);
-    }
-
-    .name {
-      color: var(--slate-11);
-      margin-right: 4px;
-    }
-
-    @for $i from 0 through 99 {
-      $color-index: $i % length($colors);
-      $color: nth($colors, $color-index + 1);
-      &.variation#{$i} {
-        .label {
-          border-color: $color;
-          color: $color;
-        }
-
-        .name {
-          color: $color;
-        }
-      }
-    }
-  }
 
   &.with-small-border {
     border-top: 4px solid var(--slate-11);

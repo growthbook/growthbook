@@ -29,6 +29,7 @@ import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
 import { useAnalysisResultSummary } from "@/ui/hooks/useAnalysisResultSummary";
 import {
   ExperimentTableRow,
+  getComputeErrorMessage,
   getRowResults,
   RowResults,
 } from "@/services/experiments";
@@ -41,6 +42,7 @@ import useApi from "@/hooks/useApi";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import Callout from "@/ui/Callout";
+import VariationLabel from "@/ui/VariationLabel";
 import StatusColumn from "./StatusColumn";
 
 export type ResultsTableProps = {
@@ -387,6 +389,7 @@ export default function ResultsTable({
                 users: 0,
               };
               let alreadyShownQueryError = false;
+              let alreadyShownComputeError = false;
 
               return (
                 <tbody className={clsx("results-group-row")} key={i}>
@@ -437,6 +440,37 @@ export default function ResultsTable({
                       } else {
                         return null;
                       }
+                    }
+
+                    const computeError =
+                      getComputeErrorMessage(stats) ||
+                      getComputeErrorMessage(baseline);
+                    if (computeError && !stats.users) {
+                      if (alreadyShownComputeError) {
+                        return null;
+                      }
+                      alreadyShownComputeError = true;
+                      return drawEmptyRow({
+                        key: j,
+                        className:
+                          "results-variation-row align-items-center error-row",
+                        label: (
+                          <>
+                            {compactResults ? (
+                              <div className="mb-1">
+                                {renderLabelColumn({
+                                  label: row.label,
+                                  metric: row.metric,
+                                  row,
+                                })}
+                              </div>
+                            ) : null}
+                            <Callout status="error" mb="1" ml="1" size="sm">
+                              {computeError}
+                            </Callout>
+                          </>
+                        ),
+                      });
                     }
 
                     const hideScaledImpact =
@@ -495,29 +529,17 @@ export default function ResultsTable({
                           key={j}
                         >
                           <td
-                            className={`variation with-variation-label variation${v.index} py-4`}
+                            className="py-4"
                             style={{
                               width: 220 * tableCellScale,
                             }}
                           >
                             {!compactResults ? (
-                              <div className="d-flex align-items-center">
-                                <span
-                                  className="label ml-1"
-                                  style={{ width: 20, height: 20 }}
-                                >
-                                  {v.index}
-                                </span>
-                                <span
-                                  className="d-inline-block text-ellipsis"
-                                  title={v.name}
-                                  style={{
-                                    width: 165 * tableCellScale,
-                                  }}
-                                >
-                                  {v.name}
-                                </span>
-                              </div>
+                              <VariationLabel
+                                number={v.index}
+                                name={v.name}
+                                size="md"
+                              />
                             ) : (
                               renderLabelColumn({
                                 label: row.label,

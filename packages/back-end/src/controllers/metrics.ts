@@ -1,5 +1,8 @@
 import { Response } from "express";
-import { isFactMetricId } from "shared/experiments";
+import {
+  isFactMetricId,
+  getFactMetricPrimaryFactTableId,
+} from "shared/experiments";
 import { daysBetween } from "shared/dates";
 import { isDefined } from "shared/util";
 import { IdeaInterface } from "shared/types/idea";
@@ -55,7 +58,8 @@ import { getFactTable } from "back-end/src/models/FactTableModel";
 import {
   cosineSimilarity,
   generateEmbeddings,
-  secondsUntilAICanBeUsedAgain,
+  secondsUntilAICanBeUsedAgainForEmbeddings,
+  secondsUntilAICanBeUsedAgainForPrompt,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 
@@ -603,7 +607,7 @@ export const getMetricExperimentResults = async (
     dateUpdated: e.dateUpdated.toISOString(),
     phases: e.phases.map((p) => ({
       ...p,
-      dateStarted: p.dateStarted.toISOString(),
+      dateStarted: p.dateStarted?.toISOString(),
       dateEnded: p.dateEnded?.toISOString(),
     })),
     nextScheduledStatusUpdate: e.nextScheduledStatusUpdate
@@ -703,7 +707,7 @@ export const getMetricNorthstarData = async (
     dateUpdated: e.dateUpdated.toISOString(),
     phases: e.phases.map((p) => ({
       ...p,
-      dateStarted: p.dateStarted.toISOString(),
+      dateStarted: p.dateStarted?.toISOString(),
       dateEnded: p.dateEnded?.toISOString(),
     })),
     nextScheduledStatusUpdate: e.nextScheduledStatusUpdate
@@ -747,7 +751,7 @@ export const getGeneratedDescription = async (
 ) => {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!aiEnabled) {
     return res.status(404).json({
@@ -755,7 +759,10 @@ export const getGeneratedDescription = async (
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgainForPrompt(
+    context,
+    "metric-description",
+  );
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -781,7 +788,7 @@ export const getGeneratedDescription = async (
     // get the fact table:
     const factTable = await getFactTable(
       context,
-      factMetric.numerator.factTableId,
+      getFactMetricPrimaryFactTableId(factMetric),
     );
 
     const factTableSQL = factTable?.sql ?? "";
@@ -1036,7 +1043,7 @@ export async function postSimilarMetrics(
 ) {
   const context = getContextFromReq(req);
   const { name, description, full } = req.body;
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!aiEnabled) {
     return res.status(404).json({
@@ -1044,7 +1051,8 @@ export async function postSimilarMetrics(
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset =
+    await secondsUntilAICanBeUsedAgainForEmbeddings(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -1147,7 +1155,7 @@ export async function postRegenerateEmbeddings(
 ) {
   const context = getContextFromReq(req);
 
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!aiEnabled) {
     return res.status(404).json({
@@ -1155,7 +1163,8 @@ export async function postRegenerateEmbeddings(
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset =
+    await secondsUntilAICanBeUsedAgainForEmbeddings(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,

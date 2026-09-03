@@ -25,10 +25,13 @@ import track from "@/services/track";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import useApi from "@/hooks/useApi";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
+import { ConflictProvider } from "@/components/DraftConflicts/ConflictContext";
+import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import PermissionBlocker from "@/ui/PermissionBlocker";
 
 function EnvStateIcon({ enabled }: { enabled: boolean }) {
   return enabled ? (
@@ -111,7 +114,7 @@ function EnvStateGrid({
                 value={getSwitchDisplayState(env.id)}
                 onChange={(val) => onToggle(env.id, val)}
                 disabled={!canToggle(env.id)}
-                size="3"
+                size="lg"
               />
             </Flex>
           ))}
@@ -249,7 +252,10 @@ export default function KillSwitchModal({
   const ctx = useFeatureRevisionsContext();
 
   const liveDoc = baseFeature ?? ctx?.baseFeature ?? feature;
-  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
+    liveDoc,
+    "feature",
+  );
 
   const rawRequireReviews = settings?.requireReviews;
   const reviewSetting = Array.isArray(rawRequireReviews)
@@ -273,7 +279,6 @@ export default function KillSwitchModal({
     (r) => r.version === currentVersion,
   );
 
-  // Pre-select: currentVersion if active draft, else mine, else most recent, else null
   const userId = organization?.ownerEmail;
   const defaultDraft = useMemo((): number | null => {
     if (activeDrafts.find((r) => r.version === currentVersion))
@@ -288,9 +293,11 @@ export default function KillSwitchModal({
     return activeDrafts[0]?.version ?? null;
   }, [activeDrafts, currentVersion, userId]);
 
-  const [mode, setMode] = useState<DraftMode>(
-    viewingActiveDraft ? "existing" : "new",
-  );
+  const canDraft = permissionsUtil.canEditFeatureDrafts(liveDoc);
+  let defaultMode: DraftMode = "new";
+  if (!canDraft) defaultMode = "publish";
+  else if (viewingActiveDraft) defaultMode = "existing";
+  const [mode, setMode] = useState<DraftMode>(defaultMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
@@ -363,8 +370,7 @@ export default function KillSwitchModal({
     return baseEnvEnabled[envId] ?? false;
   };
 
-  // Which envs have an approval policy for kill-switch changes (badge coloring).
-  // featureRequireEnvironmentReview=false means kill-switch changes bypass env approvals.
+  // Environments gated by kill-switch approval policy.
   const gatedEnvSet: Set<string> | "all" | "none" = (() => {
     if (rawRequireReviews === true) return "all";
     if (!reviewSetting?.requireReviewOn) return "none";
@@ -373,7 +379,6 @@ export default function KillSwitchModal({
     return gatedEnvs.length === 0 ? "all" : new Set(gatedEnvs);
   })();
 
-  // Gated only when the proposal actually flips a gated env's switch from live.
   const liveEnvSettings = liveDoc.environmentSettings ?? {};
   const envIsGated =
     gatedEnvSet !== "none" &&
@@ -383,14 +388,27 @@ export default function KillSwitchModal({
       return getEffectiveState(env.id) !== !!liveEnvSettings[env.id]?.enabled;
     });
 
-  const canAutoPublish = isAdmin || !envIsGated;
+  const canPublishFlippedEnvs = visibleEnvs.every(
+    (env) =>
+      getEffectiveState(env.id) === !!liveEnvSettings[env.id]?.enabled ||
+      permissionsUtil.canPublishFeature(liveDoc, [env.id]),
+  );
 
-  // Reset mode if "publish now" becomes unavailable due to a newly gated change.
+  // Require at least one visible environment the user may publish.
+  const canPublishAnyVisibleEnv = visibleEnvs.some((env) =>
+    permissionsUtil.canPublishFeature(liveDoc, [env.id]),
+  );
+  const canAutoPublish =
+    (isAdmin || !envIsGated) &&
+    canPublishFlippedEnvs &&
+    canPublishAnyVisibleEnv;
+  const noRouteAvailable = !canDraft && !canAutoPublish;
+
   useEffect(() => {
-    if (!canAutoPublish && mode === "publish") {
+    if (!canAutoPublish && canDraft && mode === "publish") {
       setMode("new");
     }
-  }, [canAutoPublish, mode]);
+  }, [canAutoPublish, canDraft, mode]);
 
   // Delay the switch animation for pre-toggled envs so users see it animate in.
   const [uiReady, setUiReady] = useState(false);
@@ -406,7 +424,19 @@ export default function KillSwitchModal({
   };
 
   const canToggleEnv = (envId: string) =>
-    permissionsUtil.canPublishFeature(feature, [envId]);
+    canDraft || permissionsUtil.canPublishFeature(liveDoc, [envId]);
+
+  const conflict = useDraftConflict<Record<string, boolean>>({
+    initial: baseEnvEnabled,
+    labels: Object.fromEntries(visibleEnvs.map((e) => [e.id, e.id])),
+    applyField: (field, value) => {
+      // Overrides are pruned to touched envs when the draft target changes.
+      setTouchedEnvs((prev) => new Set([...prev, field]));
+      setEnvOverrides((o) => ({ ...o, [field]: !!value }));
+    },
+    isNewDraft: mode === "new",
+    entityNoun: "feature",
+  });
 
   const submit = async () => {
     const environments: Record<string, boolean> = {};
@@ -426,13 +456,28 @@ export default function KillSwitchModal({
           ? { draftVersion: selectedDraft }
           : { forceNewDraft: true };
 
-    const res = await apiCall<{ status: 200; draftVersion?: number }>(
-      `/feature/${feature.id}/toggle`,
-      {
-        method: "POST",
-        body: JSON.stringify({ environments, ...modePayload }),
-      },
+    const guard = conflict.guard(environments);
+    const res = await conflict.guarded(() =>
+      apiCall<{ status: 200; draftVersion?: number }>(
+        `/feature/${feature.id}/toggle`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            environments,
+            // Only the envs being changed; the rest are untouched either way.
+            baseline: Object.fromEntries(
+              Object.keys(environments).map((env) => [
+                env,
+                baseEnvEnabled[env] ?? false,
+              ]),
+            ),
+            ...modePayload,
+          }),
+        },
+        guard.onError,
+      ),
     );
+    conflict.clear();
 
     track("Feature Environment Toggle", {
       environments,
@@ -463,62 +508,90 @@ export default function KillSwitchModal({
   const changedEnvs = visibleEnvs.filter(
     (env) => getEffectiveState(env.id) !== !!liveEnvSettings[env.id]?.enabled,
   );
+  // Selected "Publish now" but the flip set includes an environment this user
+  // can't publish. The switch was legitimately theirs to flip; the route isn't.
+  const cannotLandSelectedRoute =
+    mode === "publish" && !noRouteAvailable && !canAutoPublish;
   const modalHeader =
     changedEnvs.length === 1
       ? `${getEffectiveState(changedEnvs[0].id) ? "Enable" : "Disable"} ${changedEnvs[0].id}`
       : "Change enabled environments";
 
   return (
-    <ModalStandard
-      trackingEventModalType="kill-switch-toggle"
-      header={modalHeader}
-      close={close}
-      open={true}
-      cta={mode === "publish" ? "Publish now" : "Save to draft"}
-      size="lg"
-      submit={submit}
-    >
-      <div style={{ minHeight: 300 }}>
-        <DraftSelectorForChanges
-          feature={feature}
-          baseFeature={baseFeature}
-          revisionList={revisionList}
-          mode={mode}
-          setMode={handleSetMode}
-          selectedDraft={selectedDraft}
-          setSelectedDraft={handleSetSelectedDraft}
-          canAutoPublish={canAutoPublish}
-          gatedEnvSet={envIsGated ? gatedEnvSet : "none"}
-          defaultExpanded
-        />
-        <EnvStateGrid
-          liveFeature={liveDoc}
-          visibleEnvs={visibleEnvs}
-          getEffectiveState={getEffectiveState}
-          getSwitchDisplayState={getSwitchDisplayState}
-          onToggle={(envId, val) => {
-            setTouchedEnvs((prev) => new Set([...prev, envId]));
-            setEnvOverrides((prev) => ({ ...prev, [envId]: val }));
-          }}
-          canToggle={canToggleEnv}
-          scrollToEnvId={environment}
-        />
+    <ConflictProvider {...conflict.providerProps}>
+      <ModalStandard
+        trackingEventModalType="kill-switch-toggle"
+        header={modalHeader}
+        close={close}
+        open={true}
+        cta={mode === "publish" ? "Publish now" : "Save to draft"}
+        size="lg"
+        // Without draft rights, publishing is the only route — and an
+        // approval-gated change closes it, leaving nothing to submit.
+        submit={noRouteAvailable ? undefined : submit}
+        // The switches are open to anyone with either route, so the CTA is where
+        // the chosen route is enforced: publishing environments this user can't
+        // publish is refused here rather than by the server.
+        ctaEnabled={!cannotLandSelectedRoute && conflict.resolved}
+      >
+        <div style={{ minHeight: 300 }}>
+          {cannotLandSelectedRoute ? (
+            <PermissionBlocker mb="4">
+              You don&apos;t have permission to publish every environment you
+              changed. Save it to a draft instead.
+            </PermissionBlocker>
+          ) : null}
+          {noRouteAvailable ? (
+            <PermissionBlocker mb="4">
+              This change needs review before it can be published, and you
+              don&apos;t have permission to put it in a draft.
+            </PermissionBlocker>
+          ) : null}
+          <DraftSelectorForChanges
+            feature={feature}
+            baseFeature={baseFeature}
+            revisionList={revisionList}
+            mode={mode}
+            setMode={handleSetMode}
+            selectedDraft={selectedDraft}
+            setSelectedDraft={handleSetSelectedDraft}
+            canAutoPublish={canAutoPublish}
+            canDraft={canDraft}
+            gatedEnvSet={envIsGated ? gatedEnvSet : "none"}
+            defaultExpanded
+            alert={conflict.alert}
+            alertActive={conflict.alertActive}
+          />
+          {conflict.callouts}
+          <EnvStateGrid
+            liveFeature={liveDoc}
+            visibleEnvs={visibleEnvs}
+            getEffectiveState={getEffectiveState}
+            getSwitchDisplayState={getSwitchDisplayState}
+            onToggle={(envId, val) => {
+              setTouchedEnvs((prev) => new Set([...prev, envId]));
+              setEnvOverrides((prev) => ({ ...prev, [envId]: val }));
+            }}
+            canToggle={canToggleEnv}
+            scrollToEnvId={environment}
+          />
 
-        <Flex justify="center" style={{ minHeight: 50 }} mt="2">
-          {noNetChange &&
-            (touchedEnvs.size > 0 || environment !== undefined) && (
-              <Text as="p" color="text-low">
-                <em>
-                  {draftHadPendingChanges
-                    ? "This undoes pending draft changes — no net change from live."
-                    : mode === "publish"
-                      ? "Already matches live — nothing will be published."
-                      : "Already matches live — this will have no effect."}
-                </em>
-              </Text>
-            )}
-        </Flex>
-      </div>
-    </ModalStandard>
+          <Flex justify="center" style={{ minHeight: 50 }} mt="2">
+            {noNetChange &&
+              (touchedEnvs.size > 0 || environment !== undefined) && (
+                <Text as="p" color="text-low">
+                  <em>
+                    {draftHadPendingChanges
+                      ? "This undoes pending draft changes — no net change from live."
+                      : mode === "publish"
+                        ? "Already matches live — nothing will be published."
+                        : "Already matches live — this will have no effect."}
+                  </em>
+                </Text>
+              )}
+          </Flex>
+        </div>
+      </ModalStandard>
+    </ConflictProvider>
   );
 }

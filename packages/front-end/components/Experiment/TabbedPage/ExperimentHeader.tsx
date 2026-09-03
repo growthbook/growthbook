@@ -7,7 +7,7 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
-import { experimentHasLiveLinkedChanges } from "shared/util";
+import { experimentHasLiveLinkedChanges, getHoldoutStage } from "shared/util";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
@@ -266,6 +266,9 @@ export default function ExperimentHeader({
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
+  const holdoutStage = holdout
+    ? getHoldoutStage(holdout, experiment)
+    : undefined;
 
   const hasResults = !!analysis?.results?.[0];
 
@@ -823,7 +826,13 @@ export default function ExperimentHeader({
       >
         <Flex direction="row" align="start" justify="between" gap="5">
           <Flex align="center" gap="2">
-            <Heading as="h1" size="2x-large" color="text-high" weight="medium">
+            <Heading
+              as="h1"
+              size="2xl"
+              color="text-high"
+              overflowWrap="anywhere"
+              weight="medium"
+            >
               {experiment.name}
             </Heading>
             <Box style={{ userSelect: "none" }}>
@@ -855,7 +864,7 @@ export default function ExperimentHeader({
                     editTargeting={canRunExperiment ? editTargeting : undefined}
                     isBandit={isBandit}
                     runningExperimentStatus={runningExperimentStatus}
-                    holdout={holdout}
+                    holdoutStage={holdoutStage}
                   />
                 ) : experiment.status === "draft" && nextScheduledStartDate ? (
                   <Button
@@ -1022,10 +1031,10 @@ export default function ExperimentHeader({
                           }}
                         >
                           <Tooltip
-                            body={`Override Holdout schedule and manually ${!holdout?.analysisStartDate ? "start next phase" : "stop Holdout"} now`}
+                            body={`Override Holdout schedule and manually ${holdoutStage === "running" ? "start next phase" : "stop Holdout"} now`}
                             tipPosition="left"
                           >
-                            {!holdout?.analysisStartDate
+                            {holdoutStage === "running"
                               ? "Start Analysis Phase"
                               : "Stop Holdout"}
                           </Tooltip>
@@ -1283,7 +1292,7 @@ export default function ExperimentHeader({
                   onValueChange={setTab}
                   style={{ width: "100%" }}
                 >
-                  <TabsList size="3">
+                  <TabsList size="lg">
                     <Flex align="center" className="flex-1">
                       <TabsTrigger value="overview">Overview</TabsTrigger>
                       <TabsTrigger value="results">Results</TabsTrigger>
@@ -1317,7 +1326,7 @@ export default function ExperimentHeader({
                       {hasMultiplePhases ? (
                         <>
                           <div className="flex-1" />
-                          <Text size="medium" weight="medium">
+                          <Text size="md" weight="medium">
                             <PhaseSelector
                               phase={phase}
                               phases={experiment.phases}

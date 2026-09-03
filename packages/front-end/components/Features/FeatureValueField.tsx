@@ -291,7 +291,7 @@ export default function FeatureValueField({
           disabled={disabled}
         />
         {helpText && (
-          <Text as="p" size="small" color="text-low">
+          <Text as="p" size="sm" color="text-low">
             {helpText}
           </Text>
         )}
@@ -343,7 +343,7 @@ export default function FeatureValueField({
           />
         </div>
         {helpText && (
-          <Text as="p" size="small" color="text-low">
+          <Text as="p" size="sm" color="text-low">
             {helpText}
           </Text>
         )}
@@ -460,7 +460,7 @@ export default function FeatureValueField({
           >
             <Flex align="center" gap="2">
               <Text as="label" weight="medium" mb="0">
-                Based on config:
+                Based on Config:
               </Text>
               {disabled ? (
                 <Text>{selectedConfigLabel}</Text>
@@ -527,8 +527,8 @@ export default function FeatureValueField({
                       <Text as="label" weight="medium">
                         Additional overrides
                       </Text>
-                      <Text as="p" size="small" color="text-low" mb="0">
-                        Nested objects deep-merge onto the config; arrays and
+                      <Text as="p" size="sm" color="text-low" mb="0">
+                        Nested objects deep-merge onto the Config; arrays and
                         scalars replace.
                       </Text>
                     </Box>
@@ -565,7 +565,7 @@ export default function FeatureValueField({
             )}
           </Box>
           {helpText && (
-            <Text as="p" size="small" color="text-low">
+            <Text as="p" size="sm" color="text-low">
               {helpText}
             </Text>
           )}
@@ -839,7 +839,7 @@ export default function FeatureValueField({
             disabled={disabled}
           />
           {helpText && (
-            <Text as="p" size="small" color="text-low">
+            <Text as="p" size="sm" color="text-low">
               {helpText}
             </Text>
           )}

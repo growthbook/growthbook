@@ -1382,7 +1382,7 @@ export default function ImportFromStatsig() {
                         Filter items by tags
                       </label>
                       <MultiSelectField
-                        size="legacy"
+                        legacyHeight
                         placeholder="All tags"
                         value={selectByTags}
                         options={getAllTags.map((tag) => ({

@@ -6,7 +6,10 @@ import {
   updateExperimentValidator,
 } from "shared/validators";
 import { DataSourceInterface } from "shared/types/datasource";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { isFactMetric } from "shared/experiments";
 import { ExperimentInterface, Variation } from "shared/types/experiment";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
 import { Context } from "back-end/src/models/BaseModel";
 import {
@@ -16,12 +19,14 @@ import {
 import {
   applyVariationWeightsToLatestPhase,
   fillEmptyVariationKeys,
+  getExperimentMetricById,
   normalizeStatusUpdateScheduleChanges,
   postExperimentApiPayloadToInterface,
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
+  updateExperimentBanditSettings,
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
@@ -1437,6 +1442,55 @@ describe("putMetricApiPayloadToMetricInterface", () => {
         { id: "v0", status: "active" },
       ]);
     });
+
+    it("clears the segment when segmentId is an empty string", () => {
+      const experiment = { ...makeExperiment(), segment: "seg_1" };
+      const changes = updateExperimentApiPayloadToInterface(
+        { segmentId: "" },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.segment).toBe("");
+    });
+
+    it("leaves the segment untouched when segmentId is omitted", () => {
+      const experiment = { ...makeExperiment(), segment: "seg_1" };
+      const changes = updateExperimentApiPayloadToInterface(
+        { name: "Renamed" },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.segment).toBe(undefined);
+      expect("segment" in changes).toBe(false);
+    });
+
+    it("clears the activation metric when activationMetric is an empty string", () => {
+      const experiment = { ...makeExperiment(), activationMetric: "met_1" };
+      const changes = updateExperimentApiPayloadToInterface(
+        { activationMetric: "" },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.activationMetric).toBe("");
+    });
+
+    it("leaves the activation metric untouched when it is omitted", () => {
+      const experiment = { ...makeExperiment(), activationMetric: "met_1" };
+      const changes = updateExperimentApiPayloadToInterface(
+        { name: "Renamed" },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect("activationMetric" in changes).toBe(false);
+    });
   });
 
   describe("applyVariationWeightsToLatestPhase", () => {
@@ -2144,5 +2198,87 @@ describe("validateScheduleUpdate", () => {
         incoming: { stopAfter: { value: 30, unit: "days" } },
       }),
     ).not.toThrow();
+  });
+});
+
+describe("getExperimentMetricById funnel steps", () => {
+  const funnelMetric = {
+    id: "fact__funnel",
+    name: "Signup Funnel",
+    metricType: "funnel",
+    numerator: null,
+    denominator: null,
+    funnelSettings: {
+      steps: [
+        { name: "View", factTableId: "ft_views", rowFilters: [] },
+        { name: "Signup", factTableId: "ft_events", rowFilters: [] },
+      ],
+    },
+  } as unknown as FactMetricInterface;
+
+  const context = {
+    models: {
+      factMetrics: {
+        getById: async (id: string) =>
+          id === funnelMetric.id ? funnelMetric : null,
+      },
+    },
+  } as unknown as Context;
+
+  it("resolves a step id to a proportion metric named after its step", async () => {
+    const step = await getExperimentMetricById(context, "fact__funnel?step=1");
+
+    expect(step?.name).toBe("Signup Funnel: Signup");
+    expect(step && isFactMetric(step) && step.metricType).toBe("proportion");
+  });
+
+  it("returns null for a step the funnel no longer has", async () => {
+    expect(
+      await getExperimentMetricById(context, "fact__funnel?step=7"),
+    ).toBeNull();
+  });
+
+  it("returns null when the step's parent is not a funnel", async () => {
+    expect(await getExperimentMetricById(context, "fact__other?step=0")).toBe(
+      null,
+    );
+  });
+});
+
+describe("updateExperimentBanditSettings", () => {
+  it("refuses to reweight when an analysis failed to compute", () => {
+    const experiment = {
+      phases: [{ variationWeights: [0.5, 0.5] }],
+    } as unknown as ExperimentInterface;
+    const snapshot = {
+      analyses: [
+        {
+          results: [
+            {
+              variations: [
+                {
+                  metrics: {
+                    decision: {
+                      computeFailed: true,
+                      errorMessage: "decision analysis failed",
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    } as unknown as ExperimentSnapshotInterface;
+
+    expect(() =>
+      updateExperimentBanditSettings({
+        experiment,
+        snapshot,
+        reweight: true,
+      }),
+    ).toThrow("Bandit analysis failed: decision analysis failed");
+    expect(experiment.phases[0].variationWeights).toEqual([0.5, 0.5]);
+    expect(experiment.phases[0].banditEvents).toBeUndefined();
   });
 });

@@ -3,7 +3,7 @@ import { findVisualChangesetById } from "back-end/src/models/VisualChangesetMode
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   parsePrompt,
-  secondsUntilAICanBeUsedAgain,
+  secondsUntilAICanBeUsedAgainForModel,
 } from "back-end/src/enterprise/services/ai";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -212,6 +212,11 @@ const mutationSchema = z.object({
   options: z
     .array(z.string())
     .nullable()
+    // Models routinely omit this key entirely rather than sending null — it
+    // reads as inapplicable on a normal edit. `.catch` treats a missing key
+    // as null while keeping the property in the schema's `required` list, so
+    // OpenAI strict mode is unaffected (it rejects optional properties).
+    .catch(null)
     .describe(
       'Alternative candidate values for `value`, shown to the user as a pick-one chooser in the UI. Populate ONLY when the user explicitly asks for multiple options/alternatives to choose from (e.g. "give me some alternative titles", "a few hero image options"). Include 2-5 entries. `value` must be your top recommendation AND must also be the first entry of this array. For text, each entry is an alternative string (plain text or HTML, matching the attribute). For images, each entry is a separate generated image URL — call generateImage once per option, never a collage. Null when not offering a choice.',
     ),
@@ -589,7 +594,11 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     context.permissions.throwPermissionError();
   }
 
-  if (await secondsUntilAICanBeUsedAgain(req.organization)) {
+  // Gated on the model this request will actually run: an org on its own key
+  // for that provider pays its own bill, so the managed cap doesn't apply.
+  const { visualEditorAIModel: cappedModel } =
+    await getAISettingsForOrg(context);
+  if (await secondsUntilAICanBeUsedAgainForModel(context, cappedModel)) {
     throw new Error(
       "Daily AI usage limit reached. Try again later or upgrade your plan.",
     );
@@ -644,10 +653,8 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   // visualEditorAIContext is the free-text brand guidelines admins set in
   // Settings → AI Settings. Appended to the system prompt (not the user
   // message) so the LLM treats it as instructions, not ignorable input.
-  const { visualEditorAIModel, visualEditorAIContext } = getAISettingsForOrg(
-    context,
-    true,
-  );
+  const { visualEditorAIModel, visualEditorAIContext } =
+    await getAISettingsForOrg(context, true);
   let effectiveInstructions = visualEditorAIContext
     ? `${instructions}\n\nAdditional brand guidelines / context provided by the organization (these MUST be respected unless they conflict with the JSON output schema):\n${visualEditorAIContext}`
     : instructions;
@@ -940,10 +947,13 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     maxSteps: VISUAL_EDITOR_MAX_STEPS,
     cacheSystemPrompt: true,
     maxOutputTokens: EDIT_MAX_OUTPUT_TOKENS,
-    // Attach the picked-element selectors to the structured-output failure
-    // logs so we can see which selectors (e.g. hashed classes) correlate
-    // with "couldn't format a valid response" errors. Diagnostic only.
-    logContext: { pickedSelectors: elementContext.map((e) => e.selector) },
+    // Diagnostic context for structured-output failure logs: which changeset
+    // and which selectors (e.g. hashed classes) correlate with failures.
+    logContext: {
+      visualChangesetId,
+      variationId,
+      pickedSelectors: elementContext.map((e) => e.selector),
+    },
     onStepFinish: ({ toolCalls }) => {
       if (toolCalls && toolCalls.length > 0) {
         logger.debug(

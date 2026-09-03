@@ -364,7 +364,7 @@ export default function EditSqlModal({
                         </Tooltip>
                         {canFormat ? (
                           <RadixButton
-                            size="sm"
+                            size="md"
                             variant="ghost"
                             onClick={handleFormatClick}
                             disabled={!form.watch("sql")}
@@ -557,7 +557,7 @@ export default function EditSqlModal({
                         form.setValue("sql", sql);
                       }}
                       datasource={datasource}
-                      cursorData={cursorData || undefined}
+                      sql={form.watch("sql")}
                     />
                   </Flex>
                   {/* </div> */}
