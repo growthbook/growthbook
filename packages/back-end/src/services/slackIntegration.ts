@@ -52,7 +52,7 @@ const slackOAuthAccessSuccessSchema = z
   .object({
     ok: z.literal(true),
     app_id: z.string().optional(),
-    access_token: z.string().optional(),
+    access_token: z.string().min(1),
     token_type: z.string().optional(),
     scope: z.string().optional(),
     bot_user_id: z.string().optional(),
@@ -141,10 +141,11 @@ const assertSlackOAuthState = ({
   state: string;
   context: ReqContext;
 }) => {
-  const [payload, signature] = state.split(".");
-  if (!payload || !signature) {
+  const parts = state.split(".");
+  if (parts.length !== 2) {
     throw new Error("Invalid Slack OAuth state");
   }
+  const [payload, signature] = parts;
 
   const expected = signSlackOAuthState(payload);
   const actualBuffer = Buffer.from(signature);
@@ -157,9 +158,15 @@ const assertSlackOAuthState = ({
     throw new Error("Invalid Slack OAuth state");
   }
 
-  const parsed = slackOAuthStateSchema.safeParse(
-    JSON.parse(Buffer.from(payload, "base64url").toString("utf8")),
-  );
+  let statePayload: unknown;
+  try {
+    statePayload = JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf8"),
+    );
+  } catch {
+    throw new Error("Invalid Slack OAuth state");
+  }
+  const parsed = slackOAuthStateSchema.safeParse(statePayload);
   if (!parsed.success) {
     throw new Error("Invalid Slack OAuth state");
   }
@@ -483,9 +490,8 @@ const attachSlackOAuthCode = async ({
   return slackEventWebhookToIntegration(updated || created);
 };
 
-// Attach a workspace-level install: one channel-less, DISABLED EventWebHook
-// doc per team+org holding the bot token + team metadata. Disabled keeps it
-// out of the event fan-out and digest scans until channels are added in the UI.
+// Attach a workspace-level install: one disabled, channel-less EventWebHook
+// per team and organization. Channels are added separately from GrowthBook.
 const attachSlackWorkspaceInstall = async ({
   context,
   slackOAuthResponse,
