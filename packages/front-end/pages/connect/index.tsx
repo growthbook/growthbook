@@ -96,7 +96,7 @@ const NO_WIZARD: ReadonlySet<string> = new Set([
 
 export default function ConnectPage() {
   const router = useRouter();
-  const { userId } = useUser();
+  const { userId, organization } = useUser();
   const [step, setStep] = useState<1 | 2>(1);
   const [language, setLanguage] = useState<SDKLanguage>("react");
   const [languageFilter, setLanguageFilter] =
@@ -109,7 +109,7 @@ export default function ConnectPage() {
 
   const apiHost = getApiBaseUrl();
   const wizardable = !NO_WIZARD.has(language);
-  const command = `npx ${PACKAGE} --language ${language} --${agent}`;
+  const command = `npx ${PACKAGE} --language ${language} --${agent}${organization.id ? ` --org ${organization.id}` : ""}`;
   const agentLabel = AGENTS.find((a) => a.id === agent)?.label ?? "your agent";
 
   // The wizard opens a setup run as soon as it has something to report, so a run by

@@ -244,12 +244,17 @@ export default function OAuthAuthorizePage() {
     },
   );
 
-  // Pre-select when there is only one org to choose from
+  // Pre-select the organization the caller asked for (the setup wizard passes the one the
+  // user was looking at), otherwise the only one there is
   useEffect(() => {
-    if (info?.organizations?.length === 1) {
+    if (!info?.organizations?.length) return;
+    const wanted = router.query.org ? String(router.query.org) : "";
+    if (wanted && info.organizations.some((o) => o.id === wanted)) {
+      setOrgId(wanted);
+    } else if (info.organizations.length === 1) {
       setOrgId(info.organizations[0].id);
     }
-  }, [info]);
+  }, [info, router.query.org]);
 
   const missingParamsError =
     router.isReady && !hasRequiredParams

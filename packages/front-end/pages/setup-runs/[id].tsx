@@ -185,6 +185,9 @@ export default function SetupRunPage() {
       <div className="contents container pagecontents">
         <Callout status="error">
           Couldn&apos;t load this setup run: {error.message}
+          {/not found/i.test(error.message)
+            ? ". If the setup ran in another of your organizations, switch to it and reload."
+            : ""}
         </Callout>
       </div>
     );

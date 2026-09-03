@@ -112,7 +112,9 @@ export class SetupRunModel extends BaseClass {
       // Deliberately not under /setup: _app.tsx derives <main class="main setup">
       // from the first path segment, and main.setup zeroes the padding that clears
       // the sidebar — correct for the full-screen setup wizard, wrong here.
-      url: `${APP_ORIGIN}/setup-runs/${doc.id}`,
+      // The page looks the run up in the browser's current organization, which need not be
+      // the one the run was created in when a user belongs to several. Name it in the URL.
+      url: `${APP_ORIGIN}/setup-runs/${doc.id}?org=${encodeURIComponent(doc.organization)}`,
     };
   }
 
