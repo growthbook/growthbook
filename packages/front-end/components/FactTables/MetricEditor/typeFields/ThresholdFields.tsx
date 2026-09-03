@@ -36,6 +36,10 @@ export function ThresholdBasisRow({
         label="Basis"
         value={shape}
         shapes={THRESHOLD_SHAPES}
+        factTable={factTable}
+        // THRESHOLD_SHAPES is count/sum only - distinct never appears, so
+        // this value never actually gates anything here.
+        hasCountDistinctHLL={false}
         onChange={(newShape) =>
           onChange({
             ...value,
@@ -50,6 +54,7 @@ export function ThresholdBasisRow({
       <ColumnSelect
         shape={shape}
         factTable={factTable}
+        hasCountDistinctHLL={false}
         value={value.aggregateFilterColumn || ""}
         onChange={(column) =>
           onChange({ ...value, aggregateFilterColumn: column })
