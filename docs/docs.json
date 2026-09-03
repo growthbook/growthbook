@@ -1029,7 +1029,11 @@
                   "api/AnalyticsExplorations/operation/postMetricExploration",
                   "api/AnalyticsExplorations/operation/postFactTableExploration",
                   "api/AnalyticsExplorations/operation/postDataSourceExploration",
-                  "api/AnalyticsExplorations/operation/postFunnelExploration"
+                  "api/AnalyticsExplorations/operation/postFunnelExploration",
+                  "api/AnalyticsExplorations/operation/searchProductAnalyticsResources",
+                  "api/AnalyticsExplorations/operation/getProductAnalyticsColumns",
+                  "api/AnalyticsExplorations/operation/getProductAnalyticsColumnValues",
+                  "api/AnalyticsExplorations/operation/getProductAnalyticsExploration"
                 ]
               },
               {
