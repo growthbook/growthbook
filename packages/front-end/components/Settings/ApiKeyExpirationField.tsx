@@ -7,6 +7,7 @@ import {
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
 import { date, datetimeAt } from "shared/dates";
+import { Box } from "@radix-ui/themes";
 import DatePicker from "@/components/DatePicker";
 import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import HelperText from "@/ui/HelperText";
@@ -97,14 +98,17 @@ const ApiKeyExpirationField: FC<{
       </Select>
 
       {selection === CUSTOM && (
-        <DatePicker
-          label="Expiration date"
-          date={value ?? undefined}
-          setDate={(d) => setValue(d ?? null)}
-          precision="date"
-          disableBefore={addDays(new Date(), 1)}
-          disableAfter={latest ?? undefined}
-        />
+        <Box mb="3">
+          <DatePicker
+            label="Expiration date"
+            date={value ?? undefined}
+            setDate={(d) => setValue(d ?? null)}
+            precision="date"
+            disableBefore={addDays(new Date(), 1)}
+            disableAfter={latest ?? undefined}
+            containerClassName=""
+          />
+        </Box>
       )}
 
       {value && (
