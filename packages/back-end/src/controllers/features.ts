@@ -2185,7 +2185,15 @@ export async function postFeaturePublish(
       base,
     });
 
-  if (!adminOverride && requiresReview && !hasCoveringApproval) {
+  // Status AND coverage: `status` aggregates every standing verdict (one
+  // reviewer's changes-requested outranks another's approval), so a covering
+  // approval alone must not publish over an open objection. Same condition as
+  // the REST publish handler.
+  if (
+    !adminOverride &&
+    requiresReview &&
+    !(revision.status === "approved" && hasCoveringApproval)
+  ) {
     throw new Error(
       revision.status === "approved"
         ? "This draft now changes environments its approvers cannot approve. It needs approval from someone with review rights across everything it changes."
