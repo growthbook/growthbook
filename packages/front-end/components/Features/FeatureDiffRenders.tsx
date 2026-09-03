@@ -2,11 +2,8 @@ import { ReactNode, ReactElement } from "react";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import isEqual from "lodash/isEqual";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import {
-  PiArrowSquareOut,
-  PiCheckCircleFill,
-  PiXCircleFill,
-} from "react-icons/pi";
+import { PiArrowSquareOut } from "react-icons/pi";
+import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import {
   FeatureRule,
   FeaturePrerequisite,
@@ -32,6 +29,7 @@ import Badge from "@/ui/Badge";
 import { useExperiments } from "@/hooks/useExperiments";
 import VariationLabel from "@/ui/VariationLabel";
 import VisuallyHidden from "@/ui/VisuallyHidden";
+import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import { useEnvironments } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -2017,19 +2015,22 @@ function EnvEnabledIndicator({
   enabled: boolean;
   tone?: "state" | "muted";
 }) {
+  // The Feature Flag overview's own environment icons, so a state reads the
+  // same wherever it is shown.
   const color =
     tone === "muted"
-      ? "var(--slate-9)"
+      ? "var(--color-text-low)"
       : enabled
-        ? "var(--green-11)"
-        : "var(--red-11)";
+        ? featureStatusColors.on
+        : featureStatusColors.off;
   const label = enabled ? "On" : "Off";
+  const Icon = enabled ? FaCircleCheck : FaCircleXmark;
   return (
     <span
-      style={{ display: "inline-flex", alignItems: "center", color }}
+      style={{ display: "inline-flex", alignItems: "center" }}
       title={label}
     >
-      {enabled ? <PiCheckCircleFill /> : <PiXCircleFill />}
+      <Icon size={20} style={{ color }} />
       {/* Real text, so a selection of this row copies as "production Off → On"
           rather than the env name alone. A title or aria-label would not. */}
       <VisuallyHidden>{label}</VisuallyHidden>
@@ -2079,17 +2080,21 @@ export function renderEnvironmentToggles(
   if (!toggles.length) return null;
   return (
     <Grid
-      gapX="5"
-      gapY="2"
+      gapX="4"
+      gapY="3"
       mb="2"
-      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}
+      // The name sits above its state, so a column only has to be as wide as
+      // the name — many more environments fit on a row than side-by-side.
+      style={{
+        gridTemplateColumns: "repeat(auto-fill, minmax(120px, max-content))",
+      }}
     >
       {toggles.map(({ envId, from, to }) => (
-        <Flex key={envId} align="center" gap="2" minWidth="0">
-          <Box className="text-ellipsis" title={envId} minWidth="0">
+        <Box key={envId} minWidth="0">
+          <Box className="text-ellipsis" title={envId} minWidth="0" mb="1">
             <Text weight="medium">{envId}</Text>
           </Box>
-          <Flex align="center" gap="2" flexShrink="0">
+          <Flex align="center" gap="2">
             {!endStateOnly && (
               <>
                 <EnvEnabledIndicator enabled={from} tone="muted" />
@@ -2098,7 +2103,7 @@ export function renderEnvironmentToggles(
             )}
             <EnvEnabledIndicator enabled={to} />
           </Flex>
-        </Flex>
+        </Box>
       ))}
     </Grid>
   );
