@@ -2,7 +2,7 @@ import { useMemo, ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { RevisionMetadata } from "shared/validators";
+import { RevisionMetadata, stripUnknownRuleFields } from "shared/validators";
 import type { MergeResultChanges } from "shared/util";
 import {
   renderFeatureDefaultValue,
@@ -418,8 +418,16 @@ export function useFeatureRevisionDiff({
     // footprint is empty (`environments: []`, pending) or universal
     // (`allEnvironments: true`) — all of which were invisible in the old
     // per-env projection layout.
-    const draftRulesArr = Array.isArray(draft.rules) ? draft.rules : [];
-    const currentRulesArr = Array.isArray(current.rules) ? current.rules : [];
+    // Through the rule's own schema: a rule that picked up fields its type
+    // never declared (the rule form used to send widget-only ones) would
+    // otherwise diff as "Hash Version: unset -> 2" on every later revision,
+    // reporting a change nobody made.
+    const draftRulesArr = (Array.isArray(draft.rules) ? draft.rules : []).map(
+      stripUnknownRuleFields,
+    );
+    const currentRulesArr = (
+      Array.isArray(current.rules) ? current.rules : []
+    ).map(stripUnknownRuleFields);
     const draftRampActions = draft.rampActions ?? undefined;
     // Force the Rules section to render when an unchanged rule has a pending
     // ramp create action queued — without this, a draft whose only change is

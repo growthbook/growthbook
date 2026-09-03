@@ -236,6 +236,38 @@ describe("useFeatureRevisionDiff", () => {
     expect(JSON.parse(toggleDiffs[0].b)).toEqual({ production: true });
   });
 
+  it("ignores rule fields the rule type does not declare", () => {
+    // A rule that picked up widget-only fields from the old rule form: they
+    // are not in the experiment-ref schema, so they are not a change.
+    const rule = {
+      type: "experiment-ref",
+      id: "r1",
+      description: "",
+      enabled: true,
+      allEnvironments: true,
+      condition: "",
+      scheduleRules: [],
+      experimentId: "exp_1",
+      variations: [{ variationId: "v0", value: "a" }],
+    };
+    const current: FeatureRevisionDiffInput = {
+      defaultValue: "a",
+      rules: [rule] as never,
+    };
+    const draft: FeatureRevisionDiffInput = {
+      defaultValue: "a",
+      rules: [
+        { ...rule, hashVersion: 2, disableStickyBucketing: false },
+      ] as never,
+    };
+
+    const { result } = renderHook(() =>
+      useFeatureRevisionDiff({ current, draft }),
+    );
+
+    expect(result.current.filter((d) => d.key === "rules")).toHaveLength(0);
+  });
+
   it("groups every toggled environment into one section", () => {
     const current: FeatureRevisionDiffInput = {
       defaultValue: "false",
