@@ -334,6 +334,26 @@ function activityLabel(item: ActivityTimelineItem): string {
       return "Reopened";
     case "recalled":
       return "Review recalled";
+    case "merge-recovered":
+      return "Merge recovered";
+    case "reviewed":
+      return "Reviewed";
+    case "approved":
+      return "Approved changes";
+    case "requested-changes":
+      return "Requested changes";
+    case "commented":
+      return "Commented";
+    case "review-requested":
+      return "Review requested";
+    case "review-retracted":
+      return "Review retracted";
+    case "scheduled-publish":
+      return "Publish scheduled";
+    case "scheduled-publish-updated":
+      return "Publish schedule updated";
+    case "scheduled-publish-canceled":
+      return "Publish schedule canceled";
     default:
       return item.action;
   }

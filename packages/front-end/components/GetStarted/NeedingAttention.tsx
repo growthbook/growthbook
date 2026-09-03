@@ -170,35 +170,88 @@ const NeedingAttention = (): React.ReactElement | null => {
       if (Object.keys(recentlyUsed).length >= 4) {
         return false;
       }
-      if (!recentlyUsed[event.entity.id]) {
-        switch (event.entity?.object) {
+      // Legacy audit docs may be missing the entity field entirely
+      const { entity } = event;
+      if (!entity) return false;
+      if (!recentlyUsed[entity.id]) {
+        switch (entity.object) {
           case "feature":
-            recentlyUsed[event.entity.id] = {
+            recentlyUsed[entity.id] = {
               type: "feature",
-              id: event.entity.id,
+              id: entity.id,
             };
             break;
           case "experiment":
-            if (!experiments.find((e) => e.id !== event.entity.id)) break;
-            recentlyUsed[event.entity.id] = {
+            if (!experiments.find((e) => e.id !== entity.id)) break;
+            recentlyUsed[entity.id] = {
               type: "experiment",
-              id: event.entity.id,
+              id: entity.id,
             };
             break;
           case "datasource":
-            if (!getDatasourceById(event.entity.id)) break;
-            recentlyUsed[event.entity.id] = {
+            if (!getDatasourceById(entity.id)) break;
+            recentlyUsed[entity.id] = {
               type: "datasource",
-              id: event.entity.id,
+              id: entity.id,
             };
             break;
           case "metric":
-            if (!getMetricById(event.entity.id)) break;
-            recentlyUsed[event.entity.id] = {
+            if (!getMetricById(entity.id)) break;
+            recentlyUsed[entity.id] = {
               type: "metric",
-              id: event.entity.id,
+              id: entity.id,
             };
             break;
+          case "agreement":
+          case "approvalFlow":
+          case "revision":
+          case "aiPrompt":
+          case "aiCredential":
+          case "attribute":
+          case "project":
+          case "environment":
+          case "featureRevisionLog":
+          case "urlRedirect":
+          case "metricAnalysis":
+          case "metricGroup":
+          case "populationData":
+          case "comment":
+          case "sdk-connection":
+          case "user":
+          case "organization":
+          case "apiKey":
+          case "oauthAuthCode":
+          case "oauthGrant":
+          case "oauthRefreshToken":
+          case "installation":
+          case "savedGroup":
+          case "constant":
+          case "config":
+          case "segment":
+          case "archetype":
+          case "team":
+          case "vercelNativeIntegration":
+          case "factTable":
+          case "customField":
+          case "experimentTemplate":
+          case "safeRollout":
+          case "decisionCriteria":
+          case "execReport":
+          case "holdout":
+          case "savedQuery":
+          case "dashboard":
+          case "dashboardTemplate":
+          case "incrementalRefresh":
+          case "vector":
+          case "customHook":
+          case "ssoConnection":
+          case "sqlResultChunk":
+          case "rampSchedule":
+          case "rampScheduleTemplate":
+          case "learning":
+          case "contextualBandit":
+          case "eventForwarderConfig":
+            return;
         }
       }
     });
@@ -246,6 +299,10 @@ const NeedingAttention = (): React.ReactElement | null => {
           break;
         case "changes-requested":
           dateAndStatus = parseInt(`1${dateAndStatus}`);
+          break;
+        case "discarded":
+        case "published":
+        case "pending-parent":
           break;
       }
       return {
@@ -482,6 +539,9 @@ const NeedingAttention = (): React.ReactElement | null => {
             Changes Requested
           </Flex>
         );
+      case "discarded":
+      case "published":
+      case "pending-parent":
       default:
         return;
     }

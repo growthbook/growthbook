@@ -1,9 +1,4 @@
 {
-  "packages/back-end/src/events/handlers/legacy.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Admin/EditOrganization.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -68,11 +63,6 @@
   "packages/front-end/components/AutoGenerateMetricsModal.tsx": {
     "no-restricted-syntax": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Configs/invariantConditions.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
     }
   },
   "packages/front-end/components/CustomFields/CustomFieldInput.tsx": {
@@ -186,11 +176,6 @@
   },
   "packages/front-end/components/Events/EventsPage/EventsPage.tsx": {
     "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Events/EventsPage/utils.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
     }
   },
@@ -753,11 +738,6 @@
       "count": 10
     }
   },
-  "packages/front-end/components/Features/RuleModal/RampScheduleSection.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/RuleModal/SafeRolloutFields.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -983,9 +963,6 @@
     }
   },
   "packages/front-end/components/GetStarted/NeedingAttention.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 3
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1165,9 +1142,6 @@
     }
   },
   "packages/front-end/components/MetricDrilldown/MetricDrilldownDebug.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 2
     }
@@ -1189,11 +1163,6 @@
   },
   "packages/front-end/components/MetricDrilldown/MetricDrilldownSlices.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Metrics/FactMetricTypeDisplayName.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
     }
   },
@@ -1306,16 +1275,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/RampSchedule/RampMonitoringSignals.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/RampSchedule/SafeRolloutRuleDashboard/MetricSection.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Report/ConfigureLegacyReport.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1357,16 +1316,6 @@
   },
   "packages/front-end/components/Reviews/Feature/RevertModal.tsx": {
     "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Reviews/RevisionStatusBadge.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 3
-    }
-  },
-  "packages/front-end/components/Revision/CompareRevisionsModal.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
     }
   },
@@ -1763,9 +1712,6 @@
     }
   },
   "packages/front-end/components/SqlExplorer/BigValueChart.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 2
     }
