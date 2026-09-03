@@ -62,10 +62,14 @@ export function columnWidthBounds<TRow>(def: TableColumnDef<TRow>): {
   min: number;
   max: number;
 } {
-  const min = Math.max(
-    def.minWidth ?? MIN_TABLE_COLUMN_WIDTH,
-    HARD_MIN_TABLE_COLUMN_WIDTH,
-  );
+  // An explicit 0 is honoured: a spacer column has no content to protect.
+  const min =
+    def.minWidth === 0
+      ? 0
+      : Math.max(
+          def.minWidth ?? MIN_TABLE_COLUMN_WIDTH,
+          HARD_MIN_TABLE_COLUMN_WIDTH,
+        );
   return { min, max: Math.max(min, def.maxWidth ?? MAX_TABLE_COLUMN_WIDTH) };
 }
 

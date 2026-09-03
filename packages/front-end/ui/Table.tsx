@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useRef } from "react";
+import React, { forwardRef, useEffect, useRef, useState } from "react";
 import { Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
@@ -27,6 +27,8 @@ export type TableProps = Omit<
    * overflow-x can't scroll without overflow-y doing the same.
    */
   scrollX?: boolean;
+  /** Pins the last column to the right edge while the rest scrolls under it. */
+  stickyLastColumn?: boolean;
   /**
    * px floor for the table itself. Under a fixed layout a column with no width
    * takes only the leftover space, so without a floor it collapses to zero once
@@ -43,6 +45,7 @@ export default function Table({
   stickyTopOffset = DEFAULT_STICKY_TOP_OFFSET_PX,
   roundedCorners,
   scrollX,
+  stickyLastColumn,
   minTableWidth,
   className,
   ...props
@@ -53,6 +56,23 @@ export default function Table({
     (variant === "list" && stickyHeader !== false) || stickyHeader === true;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const [overflowX, setOverflowX] = useState(false);
+
+  // A pinned column only earns its divider once there is something behind it.
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!scrollX || !stickyLastColumn || !wrapper) return;
+    const check = () =>
+      setOverflowX(wrapper.scrollWidth > wrapper.clientWidth + 1);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(wrapper);
+    // The table too: a drag-resize changes its width without changing the
+    // wrapper's.
+    const table = wrapper.querySelector("table");
+    if (table) observer.observe(table);
+    return () => observer.disconnect();
+  }, [scrollX, stickyLastColumn]);
 
   useEffect(() => {
     if (!isListVariant || !useStickyHeader) return;
@@ -114,6 +134,8 @@ export default function Table({
       data-table-list
       data-sticky-header={useStickyHeader ? "true" : "false"}
       data-scroll-x={scrollX ? "true" : undefined}
+      data-sticky-last-column={scrollX && stickyLastColumn ? "true" : undefined}
+      data-overflow-x={overflowX ? "true" : undefined}
     >
       {tableElement}
     </div>

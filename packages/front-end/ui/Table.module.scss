@@ -191,8 +191,11 @@
   &[data-scroll-x="true"] {
     overflow: auto;
     max-height: calc(100vh - var(--table-sticky-top, 56px) - 24px);
-    // Matches the header's rounded top corners, so scrolled content is clipped
-    // to the same shape. No border: the wrapper's is `none !important` above.
+    // The frame moves onto the scroll container, so it stays put while the
+    // content scrolls under it. No top edge: the header draws its own, as in
+    // the unbounded case.
+    border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12)) !important;
+    border-top: none !important;
     border-radius: var(--radius-4);
 
     :global(.rt-TableRootTable) {
@@ -202,6 +205,37 @@
 
     &[data-sticky-header="true"] :global(.rt-TableHeader) {
       top: 0;
+    }
+  }
+
+  // Pins the row-actions column while the rest scrolls under it. The colspan
+  // guard spares full-width rows such as the empty state.
+  &[data-sticky-last-column="true"] {
+    :global(.rt-TableRow > *:last-child:not([colspan])) {
+      position: sticky;
+      right: 0;
+      z-index: 1;
+      background-color: var(--color-panel-solid);
+    }
+
+    :global(.rt-TableHeader .rt-TableRow > *:last-child) {
+      z-index: 2;
+    }
+
+    // accent-a2 is translucent, so the opaque background has to stay under it.
+    :global(
+      .rt-TableBody
+        .rt-TableRow:not([data-no-hover]):hover
+        > *:last-child:not([colspan])
+    ) {
+      background-image: linear-gradient(var(--accent-a2), var(--accent-a2));
+    }
+
+    // Only once something is actually hidden behind it. box-sizing is
+    // border-box here, so this costs no layout width.
+    &[data-overflow-x="true"]
+      :global(.rt-TableRow > *:last-child:not([colspan])) {
+      border-left: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
     }
   }
 
