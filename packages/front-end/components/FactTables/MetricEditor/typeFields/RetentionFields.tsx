@@ -80,13 +80,14 @@ export default function RetentionFields({
               type="number"
               style={{ width: 70 }}
               value={windowSettings.delayValue + windowSettings.windowValue}
-              onChange={(e) => {
-                const end = Number(e.target.value);
-                onWindowSettingsChange({
-                  ...windowSettings,
-                  windowValue: Math.max(1, end - windowSettings.delayValue),
-                });
-              }}
+              onChange={(e) =>
+                onWindowSettingsChange(
+                  onRetentionDelayOrModeChange(windowSettings, {
+                    type: "end",
+                    value: Number(e.target.value),
+                  }),
+                )
+              }
             />
           </>
         )}
