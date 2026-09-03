@@ -2015,10 +2015,12 @@ function EnvEnabledIndicator({
   enabled: boolean;
   tone?: "state" | "muted";
 }) {
-  // The Feature Flag overview's own environment icons, so a state reads the
-  // same wherever it is shown. The before half keeps its colour and fades,
-  // rather than turning grey and reading as a third state.
-  const color = enabled ? featureStatusColors.on : featureStatusColors.off;
+  // The Feature Flag overview's icons, but a jade "on" rather than its green:
+  // a review sits inches from the approval verdicts, and two green circled
+  // checks a few lines apart read as the same signal. The before half keeps
+  // its colour and fades, rather than turning grey and reading as a third
+  // state.
+  const color = enabled ? "var(--jade-10)" : featureStatusColors.off;
   const label = enabled ? "On" : "Off";
   const Icon = enabled ? FaCircleCheck : FaCircleXmark;
   return (
