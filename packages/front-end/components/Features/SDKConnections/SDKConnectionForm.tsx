@@ -680,11 +680,8 @@ export default function SDKConnectionForm({
                 <Tooltip
                   body={
                     <p className="mb-0">
-                      When a feature in this payload is gated on a prerequisite
-                      that targets other projects, deliver that prerequisite
-                      too. Without it the gate can never pass, so the feature it
-                      gates is silently off. Turn this off to keep the payload
-                      strictly limited to the projects selected above.
+                      Deliver prerequisite features that target other projects.
+                      Without them, the features they gate are always off.
                     </p>
                   }
                 >
