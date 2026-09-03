@@ -160,6 +160,11 @@ export interface SqlDialect {
   ) => string;
   formatDate: (column: string) => string;
   formatDateTimeString: (column: string) => string;
+  // Renders a timestamp column at its full stored precision as the body of a
+  // zoneless literal (`YYYY-MM-DD HH:mm:ss.ffffff`) that the same engine will
+  // parse back to the identical instant. Used to persist exact incremental
+  // refresh watermarks. Dialects without a known-lossless format return NULL.
+  formatTimestampExact: (column: string) => string;
   selectStarLimit: (
     from: string,
     limit: number,
