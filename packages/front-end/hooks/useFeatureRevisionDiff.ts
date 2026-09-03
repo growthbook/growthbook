@@ -328,15 +328,23 @@ export function useFeatureRevisionDiff({
     if (toggled.length) {
       const asMap = (side: "from" | "to") =>
         Object.fromEntries(toggled.map((t) => [t.envId, t[side]]));
+      // A managed flag is born with every environment off, so its first draft
+      // turning them on is the flag arriving, not a change to one.
+      const arriving =
+        renderMode === "experiment" && !(current.rules ?? []).length;
       diffs.push({
         key: "environmentsEnabled",
         title:
-          toggled.length === 1
-            ? `Environment Toggle - ${toggled[0].envId}`
-            : "Environment Toggles",
+          renderMode === "experiment"
+            ? "Environments"
+            : toggled.length === 1
+              ? `Environment Toggle - ${toggled[0].envId}`
+              : "Environment Toggles",
         a: JSON.stringify(asMap("from"), null, 2),
         b: JSON.stringify(asMap("to"), null, 2),
-        customRender: renderEnvironmentToggles(toggled),
+        customRender: renderEnvironmentToggles(toggled, {
+          endStateOnly: arriving,
+        }),
         badges: toggled.map(({ envId, to }) => ({
           label: `Toggled ${envId} ${to ? "on" : "off"}`,
           action: `toggle environment ${envId}`,
@@ -433,7 +441,9 @@ export function useFeatureRevisionDiff({
     ) {
       diffs.push({
         key: "rules",
-        title: "Rules",
+        // The experiment surface has one rule and already names it, so the
+        // card carries the values without a "Rules" heading over them.
+        title: renderMode === "experiment" ? "" : "Rules",
         a: JSON.stringify(normalizeFeatureRules(currentRulesArr), null, 2),
         b: JSON.stringify(normalizeFeatureRules(draftRulesArr), null, 2),
         customRender: renderFeatureRules(currentRulesArr, draftRulesArr, {

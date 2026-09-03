@@ -2,7 +2,11 @@ import { ReactNode, ReactElement } from "react";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import isEqual from "lodash/isEqual";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
+import {
+  PiArrowSquareOut,
+  PiCheckCircleFill,
+  PiXCircleFill,
+} from "react-icons/pi";
 import {
   FeatureRule,
   FeaturePrerequisite,
@@ -26,6 +30,8 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 import { useExperiments } from "@/hooks/useExperiments";
+import VariationLabel from "@/ui/VariationLabel";
+import VisuallyHidden from "@/ui/VisuallyHidden";
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import { useEnvironments } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -60,6 +66,24 @@ function ExperimentLink({
   );
 }
 
+// Variation rows are labelled the way every other variation in the product is:
+// the design system's number chip plus the name from the linked experiment,
+// falling back to the index when the experiment isn't loaded.
+function VariationValueLabel({
+  experimentId,
+  index,
+}: {
+  experimentId?: string;
+  index: number;
+}) {
+  const { experimentsMap } = useExperiments();
+  const name = experimentId
+    ? experimentsMap.get(experimentId)?.variations?.[index]?.name
+    : undefined;
+  if (!name) return <>{`Variation ${index} value`}</>;
+  return <VariationLabel number={index} name={name} size="sm" />;
+}
+
 // Uses ChangeField for single-line values (booleans, numbers, short strings)
 // and an inline ReactDiffViewer for multi-line / JSON values.
 // When label is omitted the label row is suppressed (e.g. when the section
@@ -69,7 +93,7 @@ function ValueChangedField({
   pre,
   post,
 }: {
-  label?: string;
+  label?: ReactNode;
   pre: string | null | undefined;
   post: string | null | undefined;
 }) {
@@ -136,7 +160,7 @@ function ValueOnlyField({
   label,
   value,
 }: {
-  label?: string;
+  label?: ReactNode;
   value: string | null | undefined;
 }) {
   const isSimple =
@@ -1001,7 +1025,9 @@ function NewRuleDetails({
       );
     }
     rule.variations.forEach((v, i) => {
-      const label = `Variation ${i} value`;
+      const label = (
+        <VariationValueLabel experimentId={rule.experimentId} index={i} />
+      );
       const value = formatValue(v.value);
       rows.push(
         compact ? (
@@ -1054,6 +1080,7 @@ function NewRuleDetails({
       null,
       rule as unknown as Record<string, unknown>,
       handled,
+      compact,
     ),
   );
 
@@ -1064,7 +1091,7 @@ function NewRuleDetails({
   }
 
   if (!rows.length) return <></>;
-  return <div className="ml-3">{rows}</div>;
+  return <div className={compact ? undefined : "ml-3"}>{rows}</div>;
 }
 
 // Label omitted — revision/draft summary cards already use the section title "Default value".
@@ -1279,7 +1306,11 @@ export function renderFeatureRules(
         {added.map((r) => {
           const idx = postIndexById.get(r.id)!;
           return (
-            <Box key={r.id} mb="3" className={styles.ruleSummaryBox}>
+            <Box
+              key={r.id}
+              mb={compact ? "0" : "3"}
+              className={compact ? undefined : styles.ruleSummaryBox}
+            >
               {!compact && <RuleHeading rule={r} index={idx} />}
               <NewRuleDetails
                 renderMode={renderMode}
@@ -1332,7 +1363,11 @@ export function renderFeatureRules(
           const prev = preById.get(r.id)!;
           const idx = postIndexById.get(r.id)!;
           return (
-            <Box key={r.id} mb="3" className={styles.ruleSummaryBox}>
+            <Box
+              key={r.id}
+              mb={compact ? "0" : "3"}
+              className={compact ? undefined : styles.ruleSummaryBox}
+            >
               {!compact && <RuleHeading rule={r} index={idx} />}
               <RuleFieldDiffs
                 renderMode={renderMode}
@@ -1972,15 +2007,32 @@ export function renderPrerequisites(
 }
 
 // Text "On"/"Off" indicator for an environment toggle.
-function EnvEnabledIndicator({ enabled }: { enabled: boolean }) {
+// The circled check/cross the environment readouts use elsewhere. `tone`
+// "muted" is the before half of a diff: same glyph, no colour, so the eye goes
+// to the state being moved to rather than the one being left.
+function EnvEnabledIndicator({
+  enabled,
+  tone = "state",
+}: {
+  enabled: boolean;
+  tone?: "state" | "muted";
+}) {
+  const color =
+    tone === "muted"
+      ? "var(--slate-9)"
+      : enabled
+        ? "var(--green-11)"
+        : "var(--red-11)";
+  const label = enabled ? "On" : "Off";
   return (
     <span
-      style={{
-        fontSize: "var(--font-size-2)",
-        fontWeight: 500,
-      }}
+      style={{ display: "inline-flex", alignItems: "center", color }}
+      title={label}
     >
-      {enabled ? "On" : "Off"}
+      {enabled ? <PiCheckCircleFill /> : <PiXCircleFill />}
+      {/* Real text, so a selection of this row copies as "production Off → On"
+          rather than the env name alone. A title or aria-label would not. */}
+      <VisuallyHidden>{label}</VisuallyHidden>
     </span>
   );
 }
@@ -2022,6 +2074,7 @@ export function renderEnvironmentsEnabled(
 // twenty of them, so they share a grid that wraps into as many columns as fit.
 export function renderEnvironmentToggles(
   toggles: { envId: string; from: boolean; to: boolean }[],
+  { endStateOnly = false }: { endStateOnly?: boolean } = {},
 ): ReactNode {
   if (!toggles.length) return null;
   return (
@@ -2036,15 +2089,14 @@ export function renderEnvironmentToggles(
           <Box className="text-ellipsis" title={envId} minWidth="0">
             <Text weight="medium">{envId}</Text>
           </Box>
-          {/* The same red/green pairing the single-toggle renderer uses. */}
           <Flex align="center" gap="2" flexShrink="0">
-            <span className="text-danger">
-              <EnvEnabledIndicator enabled={from} />
-            </span>
-            <span className="text-success">→</span>
-            <span className="text-success">
-              <EnvEnabledIndicator enabled={to} />
-            </span>
+            {!endStateOnly && (
+              <>
+                <EnvEnabledIndicator enabled={from} tone="muted" />
+                <Text color="text-low">→</Text>
+              </>
+            )}
+            <EnvEnabledIndicator enabled={to} />
           </Flex>
         </Flex>
       ))}
