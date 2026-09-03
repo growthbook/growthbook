@@ -1089,7 +1089,7 @@ export async function postFeatureRebase(
     },
     resetReview,
     // Rebase is permitted while a "lock edits" schedule is active.
-    { bypassScheduleLock: true },
+    { bypassScheduleLock: true, rebase: true },
   );
 
   const rebased = await getRevision({

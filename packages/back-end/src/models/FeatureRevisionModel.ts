@@ -5,7 +5,9 @@ import isEqual from "lodash/isEqual";
 import {
   checkIfRevisionNeedsReview,
   featureMetadataEnvelope,
+  fillRevisionFromFeature,
   getApplicableEnvIds,
+  getRevisionReviewRequirement,
   isRevisionEditLockedBySchedule,
 } from "shared/util";
 import {
@@ -1233,6 +1235,47 @@ export async function createRevision({
   return toInterface(doc, context, feature);
 }
 
+// Whether an edit to an approved draft sends it back for review: it does when
+// the edit, judged on its own against the draft as approved, would need
+// approval under a rule that resets review on change. Reuses the publish-time
+// classification, so gated environments and the metadata and kill-switch
+// exemptions apply the same way here.
+function editResetsApproval(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  changes: RevisionChanges,
+): boolean {
+  // The legacy boolean setting has no reset-on-change switch.
+  if (!Array.isArray(context.org.settings?.requireReviews)) return false;
+
+  // A draft that predates full snapshots reads its absent fields from live, on
+  // both sides, so only what the edit sets can differ.
+  const before = fillRevisionFromFeature(revision, feature);
+  // Ramp actions already on the draft were approved with it; the classifier
+  // counts every action it is handed, so give it only the ones this edit adds
+  // or rewrites. Removing one is left to the caller's `resetReview`. Compared
+  // as stored, so an action rebuilt with explicit `undefined` keys still
+  // matches its persisted copy.
+  const stored = (action: unknown) => JSON.parse(JSON.stringify(action));
+  const priorActions = (revision.rampActions ?? []).map(stored);
+  const rampActions = (changes.rampActions ?? []).filter(
+    (action) => !priorActions.some((prior) => isEqual(prior, stored(action))),
+  );
+  const { rules } = getRevisionReviewRequirement({
+    feature,
+    baseRevision: { ...revision, ...before, rampActions: [] },
+    revision: { ...revision, ...before, ...changes, rampActions },
+    orgEnvironments: getEnvironments(context.org),
+    settings: context.org.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+  });
+  return rules.some(
+    (rule) =>
+      "resetReviewOnChange" in rule && rule.resetReviewOnChange === true,
+  );
+}
+
 // Pure computation of what updateRevision() will validate and persist; no writes
 export function computeRevisionUpdate(
   context: ReqContext | ApiReqContext,
@@ -1240,6 +1283,11 @@ export function computeRevisionUpdate(
   revision: FeatureRevisionInterface,
   changes: RevisionChanges,
   resetReview: boolean,
+  // A rebase re-sends every field merged with live, so diffing it against the
+  // draft would judge what was published upstream rather than the draft's own
+  // edit. Rebase callers compute `resetReview` from the draft's changes and
+  // opt out of the derivation here.
+  { rebase = false }: { rebase?: boolean } = {},
 ): {
   normalizedChanges: RevisionChanges;
   status: FeatureRevisionInterface["status"];
@@ -1286,9 +1334,6 @@ export function computeRevisionUpdate(
       status = "pending-review";
     }
   }
-  if (resetReview && revision.status === "approved") {
-    status = "pending-review";
-  }
 
   // Persistence chokepoint: rules go through `normalizeRulesInputToV2`
   // (also dedups ids and logs collisions). No-op on already-v2 arrays.
@@ -1302,6 +1347,19 @@ export function computeRevisionUpdate(
           }),
         }
       : changes;
+
+  // An approval was given for the draft as it stood. Derived here from the
+  // edit itself so no caller can add a gated change under a standing approval
+  // by forgetting the flag; `resetReview` can only add to it.
+  if (
+    revision.status === "approved" &&
+    (resetReview ||
+      (hasMutableChange &&
+        !rebase &&
+        editResetsApproval(context, feature, revision, normalizedChanges)))
+  ) {
+    status = "pending-review";
+  }
 
   // Compared by value, not presence: a rebase re-sends every mutable field.
   const clearRevertedFrom =
@@ -1390,7 +1448,12 @@ export async function updateRevision(
     // Compare-and-set on content via the caller's `dateUpdated`: an edit that
     // landed since their read wins. Opt-in, so other callers keep last-write-wins.
     guardDateUpdated = false,
-  }: { bypassScheduleLock?: boolean; guardDateUpdated?: boolean } = {},
+    rebase = false,
+  }: {
+    bypassScheduleLock?: boolean;
+    guardDateUpdated?: boolean;
+    rebase?: boolean;
+  } = {},
 ) {
   if (!bypassScheduleLock && isRevisionEditLockedBySchedule(revision)) {
     throw new Error(
@@ -1405,7 +1468,9 @@ export async function updateRevision(
     clearReviews,
     clearRevertedFrom,
     staleReviews,
-  } = computeRevisionUpdate(context, feature, revision, changes, resetReview);
+  } = computeRevisionUpdate(context, feature, revision, changes, resetReview, {
+    rebase,
+  });
 
   await runValidateFeatureRevisionHooks({
     context,
