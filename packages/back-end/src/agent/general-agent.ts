@@ -1,6 +1,10 @@
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import type { AIChatMessage } from "shared/ai-chat";
+import {
+  dashboardIdFromPagePath,
+  parseDashboardApiPath,
+} from "shared/enterprise";
 import type { AIAgentPendingAction } from "shared/validators";
 import { aiTool } from "back-end/src/enterprise/services/ai";
 import {
@@ -279,9 +283,6 @@ function requiresMutationConfirmation(input: DispatchInput): boolean {
   return true;
 }
 
-const DASHBOARD_UPDATE_RE = /^\/api\/v[12]\/dashboards\/([^/]+)\/?$/;
-const DASHBOARD_PAGE_RE = /^\/product-analytics\/dashboards\/([^/?#]+)/;
-
 /** The page the user was on for the newest message that carried one. */
 function latestPageContext(messages: AIChatMessage[]): string | undefined {
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -299,10 +300,11 @@ function offScreenDashboardUpdate(
   messages: AIChatMessage[],
 ): { status: "rejected"; message: string } | undefined {
   if (input.method !== "PUT") return undefined;
-  const target = normalizePath(input.path).match(DASHBOARD_UPDATE_RE)?.[1];
+  const target = parseDashboardApiPath(normalizePath(input.path))?.id;
   if (!target) return undefined;
 
-  const onScreen = latestPageContext(messages)?.match(DASHBOARD_PAGE_RE)?.[1];
+  const page = latestPageContext(messages);
+  const onScreen = page ? dashboardIdFromPagePath(page) : null;
   if (onScreen === target) return undefined;
 
   return {

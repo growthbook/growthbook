@@ -1,10 +1,5 @@
 import { z } from "zod";
-
-/** What a completed `callApi` step did to an Analytics dashboard. */
-export interface DashboardWrite {
-  kind: "created" | "updated";
-  id: string;
-}
+import { parseDashboardApiPath } from "shared/enterprise";
 
 const dashboardWriteEventSchema = z.object({
   toolName: z.literal("callApi"),
@@ -15,15 +10,11 @@ const dashboardWriteEventSchema = z.object({
   }),
 });
 
-// The dispatcher accepts three prefix shapes for the same route.
-const CREATE_PATH = /^(?:\/api)?(?:\/v[12])?\/dashboards\/?$/;
-const UPDATE_PATH = /^(?:\/api)?(?:\/v[12])?\/dashboards\/[^/]+\/?$/;
-
-/** A successful dashboard write in a `tool-call-end` event, or null. */
+/** What a successful `callApi` step did to a dashboard, or null. */
 export function dashboardWriteFromEvent(event: {
   type: string;
   data: Record<string, unknown>;
-}): DashboardWrite | null {
+}): { kind: "created" | "updated"; id: string } | null {
   if (event.type !== "tool-call-end") return null;
 
   const parsed = dashboardWriteEventSchema.safeParse(event.data);
@@ -31,20 +22,12 @@ export function dashboardWriteFromEvent(event: {
   const { input, output } = parsed.data;
   if (output.status < 200 || output.status >= 300) return null;
 
-  const path = input.path.split("?")[0];
+  const route = parseDashboardApiPath(input.path);
+  if (!route) return null;
+
   const method = input.method.toUpperCase();
   const id = output.body.dashboard.id;
-
-  if (method === "POST" && CREATE_PATH.test(path)) {
-    return { kind: "created", id };
-  }
-  if (method === "PUT" && UPDATE_PATH.test(path)) {
-    return { kind: "updated", id };
-  }
+  if (method === "POST" && !route.id) return { kind: "created", id };
+  if (method === "PUT" && route.id) return { kind: "updated", id };
   return null;
-}
-
-/** Where a dashboard lives in the app. */
-export function dashboardPath(id: string): string {
-  return `/product-analytics/dashboards/${id}`;
 }

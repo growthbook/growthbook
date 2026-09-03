@@ -1165,3 +1165,26 @@ export function chartTypeHasDisplaySettings(
   // As more display settings are added, add their checks here
   return chartTypeSupportsAnchorYAxisToZero(chartType);
 }
+
+/** Where a dashboard lives in the app. */
+export function dashboardPagePath(id: string): string {
+  return `/product-analytics/dashboards/${id}`;
+}
+
+const DASHBOARD_PAGE_RE = /^\/product-analytics\/dashboards\/([^/?#]+)/;
+// The agent dispatcher accepts `/dashboards`, `/v1/dashboards`, `/api/v1/dashboards`.
+const DASHBOARD_API_RE =
+  /^(?:\/api)?(?:\/v[12])?\/dashboards(?:\/([^/?#]+))?\/?$/;
+
+/** The dashboard a page path is showing, or null. */
+export function dashboardIdFromPagePath(path: string): string | null {
+  return path.match(DASHBOARD_PAGE_RE)?.[1] ?? null;
+}
+
+/** `null` when the path isn't a dashboards route; `id: null` for the collection itself. */
+export function parseDashboardApiPath(
+  path: string,
+): { id: string | null } | null {
+  const match = path.split("?")[0].match(DASHBOARD_API_RE);
+  return match ? { id: match[1] ?? null } : null;
+}

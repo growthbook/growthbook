@@ -4,6 +4,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiX, PiPlus, PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
 import { useSWRConfig } from "swr";
 import type { AIChatMessage } from "shared/ai-chat";
+import { dashboardPagePath } from "shared/enterprise";
 import Markdown from "@/components/Markdown/Markdown";
 import Text from "@/ui/Text";
 import track from "@/services/track";
@@ -50,7 +51,7 @@ import {
 } from "./agentMessageUtils";
 import AskUserCard, { type AskUserOption } from "./AskUserCard";
 import ConfirmActionCard from "./ConfirmActionCard";
-import { dashboardPath, dashboardWriteFromEvent } from "./dashboardWrite";
+import { dashboardWriteFromEvent } from "./dashboardWrite";
 
 const STORAGE_KEY = "growthbook.agent.conversationId";
 
@@ -230,7 +231,7 @@ export default function AgentPanel({
 
       if (write.kind === "created") {
         void mutateDashboards();
-        void routerRef.current?.push(dashboardPath(write.id));
+        void routerRef.current?.push(dashboardPagePath(write.id));
         return;
       }
 

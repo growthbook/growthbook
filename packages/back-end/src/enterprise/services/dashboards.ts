@@ -368,20 +368,23 @@ type ProductAnalyticsExplorationBlock = Extract<
   { type: (typeof PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES)[number] }
 >;
 
-function isProductAnalyticsExplorationBlock(
-  block: DashboardInterface["blocks"][number],
-): block is ProductAnalyticsExplorationBlock {
+/** An exploration type carrying a config. Its analysis id is what says run or already ran. */
+function isExplorationBlockWithConfig(block: { type: string }): boolean {
   return (
     PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES.includes(
       block.type as (typeof PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES)[number],
-    ) &&
-    "explorerAnalysisId" in block &&
-    typeof (block as { explorerAnalysisId?: string }).explorerAnalysisId ===
-      "string" &&
-    (block as { explorerAnalysisId: string }).explorerAnalysisId.length > 0 &&
-    "config" in block &&
-    (block as { config?: unknown }).config != null
+    ) && (block as { config?: unknown }).config != null
   );
+}
+
+function explorationAnalysisId(block: { type: string }): string {
+  return (block as { explorerAnalysisId?: string }).explorerAnalysisId ?? "";
+}
+
+function isProductAnalyticsExplorationBlock(
+  block: DashboardInterface["blocks"][number],
+): block is ProductAnalyticsExplorationBlock {
+  return isExplorationBlockWithConfig(block) && !!explorationAnalysisId(block);
 }
 
 /** Narrowed to what `getEffectiveExplorationConfig` reads. */
@@ -469,14 +472,7 @@ function isExplorationBlockNeedingRun<T extends { type: string }>(
   comparison?: ProductAnalyticsExplorationBlock["comparison"];
   globalControlSettings?: { dateRange?: boolean };
 } {
-  return (
-    PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES.includes(
-      block.type as (typeof PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES)[number],
-    ) &&
-    "config" in block &&
-    (block as { config?: unknown }).config != null &&
-    !(block as { explorerAnalysisId?: string }).explorerAnalysisId
-  );
+  return isExplorationBlockWithConfig(block) && !explorationAnalysisId(block);
 }
 
 // Returns a boolean indicating whether the blocks have been modified and will need to be saved to db

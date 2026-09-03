@@ -208,7 +208,8 @@ export type ExplorationDateRange = z.infer<
   typeof explorationDateRangeValidator
 >;
 
-export const baseExplorationConfigValidator = z.object({
+// Strict: a key on the wrong level (e.g. block-level `globalControlSettings`) must not vanish.
+export const baseExplorationConfigValidator = z.strictObject({
   datasource: z.string().describe("ID of the datasource to query"),
   dimensions: z.array(dimensionValidator),
   chartType: z.enum(chartTypes),
