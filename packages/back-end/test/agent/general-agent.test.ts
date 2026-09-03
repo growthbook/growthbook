@@ -11,11 +11,11 @@ jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
   createAgentHandler: () => async () => undefined,
 }));
 
-import { _buildGeneralAgentSystemPrompt } from "back-end/src/agent/general-agent";
 import {
+  _buildGeneralAgentSystemPrompt,
   _coerceBody,
   _requiresMutationConfirmation,
-} from "back-end/src/agent/shared-tools";
+} from "back-end/src/agent/general-agent";
 
 describe("general agent system prompt", () => {
   it("translates canonical skill runtime instructions", () => {
