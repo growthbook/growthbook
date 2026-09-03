@@ -31,6 +31,7 @@ import {
   createFactTable,
   getAllFactTablesForOrganization,
   getFactTable,
+  getFactTablesByIds,
   createColumn,
   updateColumn,
   deleteColumn as deleteColumnInDb,
@@ -82,6 +83,26 @@ export const getFactTables = async (
   const context = getContextFromReq(req);
 
   const factTables = await getAllFactTablesForOrganization(context);
+
+  res.status(200).json({
+    status: 200,
+    factTables,
+  });
+};
+
+// Full fact tables (real jsonFields) for a small, specific id set — unlike
+// getFactTables/the org-wide definitions endpoint, which strip jsonFields to
+// keep that payload light. Used by the Explorer's dimension picker, which
+// needs nested JSON column data for only the 1-2 fact tables relevant to the
+// current dataset selection.
+export const getFullFactTables = async (
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response<{ status: 200; factTables: FactTableInterface[] }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const ids = req.query.ids ? req.query.ids.split(",").filter(Boolean) : [];
+  const factTables = await getFactTablesByIds(context, ids);
 
   res.status(200).json({
     status: 200,

@@ -37,6 +37,8 @@ router.post(
 
 router.get("/fact-tables", factTableController.getFactTables);
 
+router.get("/fact-tables/full", factTableController.getFullFactTables);
+
 router.get(
   "/fact-tables/:id",
   validateRequestMiddleware({
