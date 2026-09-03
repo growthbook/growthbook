@@ -28,27 +28,30 @@ type RatioPartProps = {
   onChange: (value: ColumnRef) => void;
   factTable: FactTableDefinition | null;
   hasCountDistinctHLL: boolean;
-} & (
-  | { isDenominator?: false }
-  | {
-      // The fact-table override is denominator-only UI, so these two are
-      // required together rather than independently optional - passing one
-      // without the other used to silently empty the column instead of
-      // failing to compile.
-      isDenominator: true;
-      availableFactTables: FactTableDefinition[];
-      getFactTableById: (id: string) => FactTableDefinition | null;
-    }
-);
+  isDenominator?: boolean;
+  // RatioFields always has both on hand and passes them to every part, so
+  // these stay required rather than optional - passing one without the
+  // other used to silently empty the column instead of failing to compile.
+  availableFactTables: FactTableDefinition[];
+  getFactTableById: (id: string) => FactTableDefinition | null;
+};
 
 // Denominator's fact table override is a plain always-visible select here,
 // not the design's read-only-value-plus-Edit-action treatment - a smaller,
 // deliberate simplification for this pass, left for a later visual pass.
-function RatioPart(props: RatioPartProps) {
-  const { label, value, onChange, factTable, hasCountDistinctHLL } = props;
+function RatioPart({
+  label,
+  value,
+  onChange,
+  factTable,
+  hasCountDistinctHLL,
+  isDenominator,
+  availableFactTables,
+  getFactTableById,
+}: RatioPartProps) {
   const shape = shapeFromColumnRef(value) ?? "sum";
-  const partFactTable = props.isDenominator
-    ? (props.getFactTableById(value.factTableId) ?? factTable)
+  const partFactTable = isDenominator
+    ? (getFactTableById(value.factTableId) ?? factTable)
     : factTable;
 
   return (
@@ -82,7 +85,7 @@ function RatioPart(props: RatioPartProps) {
             onChange={(column) => onChange({ ...value, column })}
           />
         </Flex>
-        {props.isDenominator && shape !== "users" && (
+        {isDenominator && shape !== "users" && (
           <Select
             label="Fact table"
             value={value.factTableId}
@@ -91,13 +94,13 @@ function RatioPart(props: RatioPartProps) {
                 onFactTableChange(
                   value,
                   factTableId,
-                  props.getFactTableById(factTableId),
+                  getFactTableById(factTableId),
                   hasCountDistinctHLL,
                 ),
               )
             }
           >
-            {props.availableFactTables.map((ft) => (
+            {availableFactTables.map((ft) => (
               <SelectItem key={ft.id} value={ft.id}>
                 {ft.name}
               </SelectItem>
@@ -147,6 +150,8 @@ export default function RatioFields({
         onChange={onNumeratorChange}
         factTable={factTable}
         hasCountDistinctHLL={hasCountDistinctHLL}
+        availableFactTables={availableFactTables}
+        getFactTableById={getFactTableById}
       />
       <RatioPart
         label="Denominator"
