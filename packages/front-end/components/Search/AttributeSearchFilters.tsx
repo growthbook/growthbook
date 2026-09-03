@@ -125,7 +125,9 @@ const AttributeSearchFilters: FC<
   }, [attributes, customFields]);
 
   return (
-    <Flex gap="5" align="center" wrap="wrap">
+    // Wraps within itself rather than dropping the whole group below the
+    // search field: a custom field adds a dropdown, so this row is unbounded.
+    <Flex gapX="5" gapY="2" align="center" wrap="wrap" justify="end">
       {!project && availableProjects.length > 0 && (
         <FilterDropdown
           filter="project"

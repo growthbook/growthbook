@@ -592,7 +592,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
           </Flex>
           {attributeSchema?.length > 0 && (
             <Box mb="3">
-              <Flex justify="between" gap="3" align="center" wrap="wrap">
+              <Flex justify="between" gap="3" align="center">
                 <Box
                   className="relative"
                   style={{ width: "40%", minWidth: 240 }}
