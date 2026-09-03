@@ -439,7 +439,7 @@ export async function testQueryValidity(
     "experiment_id",
     "variation_id",
     "timestamp",
-    query.userIdType,
+    ...query.userIdTypes,
     ...query.dimensions,
     ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
   ]);

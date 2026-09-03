@@ -8,6 +8,7 @@ import {
   updateDataSource,
   validateExposureQueriesAndAddMissingIds,
   hasActualChanges,
+  toDataSourceApiInterface,
 } from "back-end/src/models/DataSourceModel";
 import { testQueryValidity } from "back-end/src/services/datasource";
 import { usingFileConfig } from "back-end/src/init/config";
@@ -35,6 +36,7 @@ describe("dataSourceModel", () => {
           {
             id: "anonymous_id",
             userIdType: "anonymous_id",
+            userIdTypes: ["anonymous_id"],
             dimensions: ["device", "browser"],
             name: "Anonymous Visitors",
             description: "",
@@ -43,6 +45,7 @@ describe("dataSourceModel", () => {
           {
             id: "user_id",
             userIdType: "user_id",
+            userIdTypes: ["user_id"],
             dimensions: ["device", "browser"],
             name: "Logged in Users",
             description: "",
@@ -115,6 +118,7 @@ describe("dataSourceModel", () => {
           exposure: [
             // @ts-expect-error - we are testing the case where id is missing
             {
+              userIdType: "user_id",
               query: "SELECT new_id FROM experiment_viewed",
             },
           ],
@@ -134,9 +138,66 @@ describe("dataSourceModel", () => {
               error: undefined,
               id: expect.any(String),
               query: "SELECT new_id FROM experiment_viewed",
+              userIdType: "user_id",
+              userIdTypes: ["user_id"],
             },
           ],
         },
+      });
+    });
+
+    it("throws when an exposure query declares no identifier type", async () => {
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "no_id",
+              userIdType: "",
+              userIdTypes: [],
+              dimensions: [],
+              name: "No identifier",
+              query: "SELECT 1 FROM experiment_viewed",
+            },
+          ],
+        },
+      };
+
+      await expect(
+        validateExposureQueriesAndAddMissingIds(
+          context,
+          datasource,
+          updates,
+          "skip",
+        ),
+      ).rejects.toThrow("must declare at least one identifier type");
+    });
+
+    it("normalizes multi-identifier exposure queries", async () => {
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "multi",
+              userIdType: "anonymous_id",
+              userIdTypes: ["user_id", "anonymous_id"],
+              dimensions: [],
+              name: "Multi",
+              query: "SELECT user_id, anonymous_id FROM experiment_viewed",
+            },
+          ],
+        },
+      };
+
+      const normalized = await validateExposureQueriesAndAddMissingIds(
+        context,
+        datasource,
+        updates,
+        "skip",
+      );
+
+      expect(normalized.queries?.exposure?.[0]).toMatchObject({
+        userIdType: "user_id",
+        userIdTypes: ["user_id", "anonymous_id"],
       });
     });
 
@@ -148,6 +209,7 @@ describe("dataSourceModel", () => {
             {
               id: "user_id",
               userIdType: "user_id",
+              userIdTypes: ["user_id"],
               dimensions: ["device", "browser"],
               name: "Logged in Users",
               description: "",
@@ -178,6 +240,7 @@ describe("dataSourceModel", () => {
             {
               id: "anonymous_id",
               userIdType: "anonymous_id",
+              userIdTypes: ["anonymous_id"],
               dimensions: ["device", "browser"],
               name: "Anonymous Visitors",
               description: "",
@@ -207,6 +270,7 @@ describe("dataSourceModel", () => {
             {
               id: "anonymous_id",
               userIdType: "anonymous_id",
+              userIdTypes: ["anonymous_id"],
               dimensions: ["device"],
               name: "Anonymous Visitors",
               description: "",
@@ -236,6 +300,7 @@ describe("dataSourceModel", () => {
             {
               id: "anonymous_id",
               userIdType: "anonymous_id",
+              userIdTypes: ["anonymous_id"],
               dimensions: ["device"],
               name: "Anonymous Visitors",
               hasNameCol: true,
@@ -266,6 +331,7 @@ describe("dataSourceModel", () => {
             {
               id: "anonymous_id",
               userIdType: "anonymous_id",
+              userIdTypes: ["anonymous_id"],
               dimensions: ["device", "browser"],
               name: "Anonymous Visitors",
               description: "",
@@ -280,10 +346,6 @@ describe("dataSourceModel", () => {
         updates,
       );
       expect(testQueryValidity).not.toHaveBeenCalled();
-      const expected = updates;
-      if (expected?.queries?.exposure) {
-        expected.queries.exposure[0].error = undefined;
-      }
       expect(new_updates).toEqual(updates);
     });
 
@@ -295,6 +357,7 @@ describe("dataSourceModel", () => {
             {
               id: "anonymous_id",
               userIdType: "anonymous_id",
+              userIdTypes: ["anonymous_id"],
               dimensions: ["device", "browser"],
               name: "Anonymous Visitors",
               description: "",
@@ -325,6 +388,7 @@ describe("dataSourceModel", () => {
             {
               id: "user_id",
               userIdType: "user_id",
+              userIdTypes: ["user_id"],
               dimensions: [],
               name: "user_id",
               description: "",
@@ -353,6 +417,7 @@ describe("dataSourceModel", () => {
             {
               id: "user_id",
               userIdType: "user_id",
+              userIdTypes: ["user_id"],
               dimensions: [],
               name: "user_id",
               description: "",
@@ -380,6 +445,7 @@ describe("dataSourceModel", () => {
             {
               id: "user_id",
               userIdType: "user_id",
+              userIdTypes: ["user_id"],
               dimensions: [],
               name: "user_id",
               description: "",
@@ -396,6 +462,33 @@ describe("dataSourceModel", () => {
       );
       expect(testQueryValidity).toHaveBeenCalled();
       expect(new_updates.queries?.exposure?.[0].error).toBe("Table not found");
+    });
+  });
+
+  it("maps assignment query identifier types to the API", () => {
+    const apiDatasource = toDataSourceApiInterface({
+      ...datasource,
+      settings: {
+        ...datasource.settings,
+        queries: {
+          ...datasource.settings.queries,
+          exposure: [
+            {
+              id: "multi",
+              userIdType: "user_id",
+              userIdTypes: ["user_id", "anonymous_id"],
+              dimensions: [],
+              name: "Multi",
+              query: "SELECT user_id, anonymous_id FROM experiment_viewed",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(apiDatasource.assignmentQueries[0]).toMatchObject({
+      identifierType: "user_id",
+      identifierTypes: ["user_id", "anonymous_id"],
     });
   });
 

@@ -177,7 +177,9 @@ export interface ExposureQuery {
   id: string;
   name: string;
   description?: string;
+  /** @deprecated use userIdTypes; kept as userIdTypes[0] for legacy readers */
   userIdType: string;
+  userIdTypes: string[];
   query: string;
   hasNameCol?: boolean;
   dimensions: string[];

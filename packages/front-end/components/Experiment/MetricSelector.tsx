@@ -8,6 +8,7 @@ import {
   isMetricJoinable,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getExposureQueryIdentifierType } from "@/services/datasources";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
 
@@ -28,6 +29,7 @@ const MetricSelector: FC<
   Omit<SelectFieldProps, "options"> & {
     datasource?: string;
     exposureQueryId?: string;
+    exposureQueryIdentifierType?: string;
     project?: string;
     projects?: string[]; // will only filter if project is not set
     includeFacts?: boolean;
@@ -42,6 +44,7 @@ const MetricSelector: FC<
 > = ({
   datasource,
   exposureQueryId,
+  exposureQueryIdentifierType,
   project,
   projects,
   includeFacts,
@@ -63,9 +66,12 @@ const MetricSelector: FC<
   const datasourceSettings = datasource
     ? getDatasourceById(datasource)?.settings
     : undefined;
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
+  const exposureQuery = datasourceSettings?.queries?.exposure?.find(
     (e) => e.id === exposureQueryId,
-  )?.userIdType;
+  );
+  const userIdType = exposureQuery
+    ? getExposureQueryIdentifierType(exposureQuery, exposureQueryIdentifierType)
+    : undefined;
 
   const options: MetricOption[] = [
     ...metrics.map((m) => ({

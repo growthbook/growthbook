@@ -1108,6 +1108,7 @@ export async function ensureSafeRolloutForMonitoredRamp(
     featureId: schedule.entityId,
     datasourceId: mc.datasourceId,
     exposureQueryId: mc.exposureQueryId,
+    exposureQueryIdentifierType: mc.exposureQueryIdentifierType,
     guardrailMetricIds: allMetricIds,
     maxDuration: { amount: 90, unit: "days" },
     autoRollback: false,

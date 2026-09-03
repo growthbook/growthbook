@@ -2044,7 +2044,12 @@ Triggered when an experiment is created
             }[];
             settings: {
                 datasourceId: string;
+                assignmentQuery?: {
+                    id: string;
+                    identifierType: string;
+                } | undefined;
                 assignmentQueryId: string;
+                assignmentQueryIdentifierType?: string | undefined;
                 experimentId: string;
                 segmentId: string;
                 queryFilter: string;
@@ -2315,7 +2320,12 @@ Triggered when an experiment is updated
             }[];
             settings: {
                 datasourceId: string;
+                assignmentQuery?: {
+                    id: string;
+                    identifierType: string;
+                } | undefined;
                 assignmentQueryId: string;
+                assignmentQueryIdentifierType?: string | undefined;
                 experimentId: string;
                 segmentId: string;
                 queryFilter: string;
@@ -2547,7 +2557,12 @@ Triggered when an experiment is updated
             }[] | undefined;
             settings?: {
                 datasourceId: string;
+                assignmentQuery?: {
+                    id: string;
+                    identifierType: string;
+                } | undefined;
                 assignmentQueryId: string;
+                assignmentQueryIdentifierType?: string | undefined;
                 experimentId: string;
                 segmentId: string;
                 queryFilter: string;
@@ -2823,7 +2838,12 @@ Triggered when an experiment is deleted
             }[];
             settings: {
                 datasourceId: string;
+                assignmentQuery?: {
+                    id: string;
+                    identifierType: string;
+                } | undefined;
                 assignmentQueryId: string;
+                assignmentQueryIdentifierType?: string | undefined;
                 experimentId: string;
                 segmentId: string;
                 queryFilter: string;

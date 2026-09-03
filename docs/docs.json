@@ -585,6 +585,8 @@
                   "api/data-sources/operation/listDataSources",
                   "api/data-sources/operation/getDataSource",
                   "api/data-sources/operation/getInformationSchema",
+                  "api/data-sources/operation/listDataSourcesV2",
+                  "api/data-sources/operation/getDataSourceV2",
                   "api/data-sources/operation/getInformationSchemaTable"
                 ]
               },

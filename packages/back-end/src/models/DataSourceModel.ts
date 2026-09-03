@@ -5,6 +5,7 @@ import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
   DataRegion,
   findEventForwarderManagedViolation,
+  getExposureQueriesWithChangedBaseIdentifier,
   isEventForwarderManaged,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
@@ -42,6 +43,7 @@ import { deleteClickhouseUser } from "back-end/src/services/licenseServerManaged
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarder/datasourceLifecycle";
 import { deleteEventForwarderEventsFactTableForDatasource } from "back-end/src/services/eventForwarder/factTable";
+import { pinLegacyExposureQueryIdentifierType } from "./ExperimentModel";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 import {
   definitionsScope,
@@ -451,6 +453,7 @@ export async function createDataSource(
     settings,
     "all",
   );
+  datasource.settings = settings;
 
   assertUniqueUserIdTypeNames(settings);
   validatePipelineSettingsInvariants(settings.pipelineSettings);
@@ -499,6 +502,20 @@ export async function validateExposureQueriesAndAddMissingIds(
         if (!exposure.id) {
           exposure.id = uniqid("exq_");
         }
+        if (!exposure.userIdTypes?.length) {
+          exposure.userIdTypes = [exposure.userIdType].filter(Boolean);
+        }
+        // Invariant relied on throughout analysis: every assignment query
+        // declares at least one identifier type, and the deprecated scalar
+        // mirrors the first declared type.
+        if (!exposure.userIdTypes.length) {
+          throw new Error(
+            `Experiment assignment query "${
+              exposure.name || exposure.id
+            }" must declare at least one identifier type`,
+          );
+        }
+        exposure.userIdType = exposure.userIdTypes[0];
         // Skip live validation while the warehouse can't serve queries — never
         // provisioned OR mid-migration (tables being recreated). Otherwise a
         // concurrent settings save would test-run against unavailable tables and
@@ -679,6 +696,26 @@ export async function updateDataSource(
     return;
   }
 
+  // Before persisting an assignment-query edit, preserve the analysis unit of
+  // experiments configured before multi-identifier support. When a query's first
+  // identifier type changes (removed or reordered), pin dependent legacy
+  // experiments (no stored identifier type) to the pre-edit identifier so they
+  // don't silently repoint to the new first identifier.
+  if (updates.settings?.queries?.exposure) {
+    const repointed = getExposureQueriesWithChangedBaseIdentifier(
+      datasource.settings.queries?.exposure ?? [],
+      updates.settings.queries.exposure,
+    );
+    for (const { id, previousIdentifierType } of repointed) {
+      await pinLegacyExposureQueryIdentifierType({
+        organization: context.org.id,
+        datasource: datasource.id,
+        exposureQueryId: id,
+        identifierType: previousIdentifierType,
+      });
+    }
+  }
+
   // Several service callers mutate `settings` without stamping dateUpdated;
   // stamp it here at the model choke point so every real change is recorded.
   updates = { ...updates, dateUpdated: new Date() };
@@ -728,16 +765,22 @@ export function toDataSourceApiInterface(
       id: identifier.userIdType,
       description: identifier.description || "",
     })),
-    assignmentQueries: (settings?.queries?.exposure || []).map((q) => ({
-      id: q.id,
-      name: q.name,
-      description: q.description || "",
-      identifierType: q.userIdType,
-      sql: q.query,
-      includesNameColumns: !!q.hasNameCol,
-      dimensionColumns: q.dimensions,
-      error: q.error,
-    })),
+    assignmentQueries: (settings?.queries?.exposure || []).map((q) => {
+      const identifierTypes = q.userIdTypes?.length
+        ? q.userIdTypes
+        : [q.userIdType].filter(Boolean);
+      return {
+        id: q.id,
+        name: q.name,
+        description: q.description || "",
+        identifierTypes,
+        identifierType: identifierTypes[0] ?? q.userIdType,
+        sql: q.query,
+        includesNameColumns: !!q.hasNameCol,
+        dimensionColumns: q.dimensions,
+        error: q.error,
+      };
+    }),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
       (q) => ({
         identifierTypes: q.ids,

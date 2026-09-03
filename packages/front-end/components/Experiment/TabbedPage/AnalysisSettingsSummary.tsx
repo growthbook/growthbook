@@ -148,9 +148,11 @@ export default function AnalysisSettingsSummary({
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId,
-  )?.userIdType;
+  const userIdType =
+    experiment.exposureQueryIdentifierType ??
+    datasourceSettings?.queries?.exposure?.find(
+      (e) => e.id === experiment.exposureQueryId,
+    )?.userIdType;
 
   const orgSettings = useOrgSettings();
   const pValueThreshold = usePValueThreshold(experiment.project);
@@ -306,6 +308,7 @@ export default function AnalysisSettingsSummary({
       skipPartialData: experiment.skipPartialData ?? false,
       datasourceId: experiment.datasource,
       exposureQueryId: experiment.exposureQueryId ?? "",
+      exposureQueryIdentifierType: experiment.exposureQueryIdentifierType,
       // Match isOutdated's commercial-feature gate for regression adjustment.
       regressionAdjustmentEnabled: hasRegressionAdjustmentFeature
         ? !!experiment.regressionAdjustmentEnabled
@@ -323,6 +326,8 @@ export default function AnalysisSettingsSummary({
       skipPartialData: dimensionless.settings.skipPartialData,
       datasourceId: dimensionless.settings.datasourceId,
       exposureQueryId: dimensionless.settings.exposureQueryId,
+      exposureQueryIdentifierType:
+        dimensionless.settings.exposureQueryIdentifierType,
       regressionAdjustmentEnabled:
         dimensionless.settings.regressionAdjustmentEnabled,
       experimentId: dimensionless.settings.experimentId,
@@ -704,6 +709,16 @@ export default function AnalysisSettingsSummary({
     }
     if (isDifferent(exp.exposureQueryId, snapshotSettings.exposureQueryId)) {
       reasons.push(getExperimentOutdatedReasonLabel("exposureQueryId"));
+    }
+    if (
+      isDifferent(
+        exp.exposureQueryIdentifierType,
+        snapshotSettings.exposureQueryIdentifierType,
+      )
+    ) {
+      reasons.push(
+        getExperimentOutdatedReasonLabel("exposureQueryIdentifierType"),
+      );
     }
     if (
       isDifferent(
