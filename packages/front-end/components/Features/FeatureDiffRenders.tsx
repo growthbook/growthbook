@@ -65,6 +65,23 @@ function ExperimentLink({
   );
 }
 
+// The rule heading is gone on the experiment surface, so the values need
+// something to sit under.
+function VariationsHeading() {
+  return (
+    <Text
+      key="variationsHeading"
+      size="md"
+      weight="medium"
+      color="text-mid"
+      as="div"
+      mb="2"
+    >
+      Variations
+    </Text>
+  );
+}
+
 // Variation rows are labelled the way every other variation in the product is:
 // the design system's number chip plus the name from the linked experiment,
 // falling back to the index when the experiment isn't loaded.
@@ -822,14 +839,24 @@ function RuleFieldDiffs({
       .variations;
     // match by index; variationId is stable across edits
     const maxLen = Math.max(preVars.length, postVars.length);
+    let headed = false;
     for (let i = 0; i < maxLen; i++) {
       const pv = preVars[i];
       const nv = postVars[i];
       if (isEqual(pv?.value, nv?.value)) continue;
+      if (compact && !headed) {
+        headed = true;
+        rows.push(<VariationsHeading key="variationsHeading" />);
+      }
       rows.push(
         <ValueChangedField
           key={`var-${i}`}
-          label={`Variation ${i} value`}
+          label={
+            <VariationValueLabel
+              experimentId={(post as { experimentId?: string }).experimentId}
+              index={i}
+            />
+          }
           pre={pv !== null && pv !== undefined ? formatValue(pv.value) : null}
           post={nv !== null && nv !== undefined ? formatValue(nv.value) : null}
         />,
@@ -1020,6 +1047,9 @@ function NewRuleDetails({
           newNode={<ExperimentLink experimentId={rule.experimentId} />}
         />,
       );
+    }
+    if (compact && rule.variations.length) {
+      rows.push(<VariationsHeading key="variationsHeading" />);
     }
     rule.variations.forEach((v, i) => {
       const label = (
