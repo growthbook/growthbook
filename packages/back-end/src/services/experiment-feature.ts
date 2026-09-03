@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  DRAFT_REVISION_STATUSES,
   requireFreshBaseForPublish,
   getReviewSetting,
   autoMerge,
@@ -40,10 +41,12 @@ import {
   getFeature,
   prevalidatePublishRevision,
   publishRevision,
+  updateFeature,
 } from "back-end/src/models/FeatureModel";
 import {
   discardRevision,
   getActiveDraft,
+  getFeatureRevisionsByStatus,
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -58,6 +61,7 @@ import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   assertCanAutoPublish,
   generateRuleId,
@@ -1285,4 +1289,159 @@ export async function updateExperimentRuleEnvironments({
   }
 
   return { version: updated.version };
+}
+
+// A deleted experiment's rules serve nothing (the payload skips a missing
+// experiment), so they come off the live flag and its open drafts. Fail-soft per
+// flag: a cleanup must never block the delete.
+export async function removeRulesForDeletedExperiment({
+  context,
+  experiment,
+  features,
+  eventAudit,
+  audit,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  features: FeatureInterface[];
+  eventAudit: EventUser;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
+}): Promise<void> {
+  const refersToExperiment = (r: FeatureRule) =>
+    r.type === "experiment-ref" && r.experimentId === experiment.id;
+  const logEntry = (removed: FeatureRule[]) => ({
+    user: eventAudit,
+    action: "remove experiment rule",
+    subject: `for deleted experiment "${experiment.name}"`,
+    value: JSON.stringify(removed),
+  });
+  const comment = `Remove rule for deleted experiment "${experiment.name}"`;
+
+  for (const feature of features) {
+    let cleanupDraft: FeatureRevisionInterface | null = null;
+    try {
+      const drafts = await getFeatureRevisionsByStatus({
+        context: context as ReqContext,
+        organization: context.org.id,
+        featureId: feature.id,
+        feature,
+        status: DRAFT_REVISION_STATUSES,
+        skipPagination: true,
+      });
+      for (const draft of drafts) {
+        const removed = (draft.rules ?? []).filter(refersToExperiment);
+        if (!removed.length) continue;
+        await updateRevision(
+          context,
+          feature,
+          draft,
+          { rules: (draft.rules ?? []).filter((r) => !refersToExperiment(r)) },
+          logEntry(removed),
+          false,
+        );
+      }
+
+      // Append-only for history, but a deleted experiment has none to show.
+      const unlink = async (current: FeatureInterface) => {
+        if (!current.linkedExperiments?.includes(experiment.id)) return;
+        await updateFeature(context, current, {
+          linkedExperiments: current.linkedExperiments.filter(
+            (id) => id !== experiment.id,
+          ),
+        });
+      };
+
+      const liveRemoved = (feature.rules ?? []).filter(refersToExperiment);
+      if (!liveRemoved.length) {
+        await unlink(feature);
+        continue;
+      }
+      // Landing needs publish authority and, under approvals, bypass authority;
+      // without either the rule stays and the flag page offers Delete rule.
+      const envs = Array.from(
+        getEnabledEnvironments(feature, context.environments),
+      );
+      const bypass = context.permissions.canBypassFlagApprovalChecks(
+        feature,
+        "feature",
+      );
+      if (
+        !context.permissions.canPublishFeature(feature, envs) ||
+        (!bypass && featureReviewRequired(context, feature))
+      ) {
+        logger.warn(
+          { featureId: feature.id, experimentId: experiment.id },
+          "Left a deleted experiment's rule on its Feature Flag: no authority to publish its removal",
+        );
+        continue;
+      }
+
+      cleanupDraft = await getDraftRevision(context, feature, feature.version);
+      const updated =
+        (await updateRevision(
+          context,
+          feature,
+          cleanupDraft,
+          {
+            rules: (cleanupDraft.rules ?? []).filter(
+              (r) => !refersToExperiment(r),
+            ),
+            title: comment,
+          },
+          logEntry(liveRemoved),
+          false,
+        )) ?? cleanupDraft;
+      const { live, base } = await getLiveAndBaseRevisionsForFeature({
+        context,
+        feature,
+        revision: updated,
+      });
+      const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+        feature,
+        live,
+        base,
+      );
+      const mergeResult = autoMerge(
+        mergeLive,
+        mergeBase,
+        updated,
+        context.environments,
+        {},
+      );
+      if (!mergeResult.success) {
+        throw new Error("the removal did not merge cleanly onto live");
+      }
+      const updatedFeature = await publishRevision({
+        context,
+        feature,
+        revision: updated,
+        result: mergeResult.result,
+        comment,
+        bypassLockdown: bypass,
+      });
+      cleanupDraft = null;
+      await audit({
+        event: "feature.publish",
+        entity: { object: "feature", id: feature.id },
+        details: auditDetailsUpdate(feature, updatedFeature, {
+          revision: updated.version,
+          comment,
+        }),
+      });
+      await unlink(updatedFeature);
+    } catch (e) {
+      logger.warn(
+        { featureId: feature.id, experimentId: experiment.id, err: e },
+        "Could not remove a deleted experiment's rule from its Feature Flag",
+      );
+      if (cleanupDraft) {
+        await discardRevision(
+          context,
+          cleanupDraft,
+          eventAudit,
+          feature.version,
+        ).catch(() => undefined);
+      }
+    }
+  }
 }

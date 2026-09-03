@@ -199,6 +199,7 @@ import {
 } from "back-end/src/services/features";
 import {
   ExperimentLinkedFeatureValueUpdate,
+  removeRulesForDeletedExperiment,
   updateExperimentRefVariations,
   updateExperimentRuleEnvironments,
   validateExperimentFeatureUpdates,
@@ -3407,6 +3408,17 @@ export async function deleteExperiment(
     context.permissions.throwPermissionError();
   }
 
+  // Shared flags lose the rule that would point at nothing; the managed flag
+  // is archived whole below.
+  await removeRulesForDeletedExperiment({
+    context,
+    experiment,
+    features: linkedFeatures.filter(
+      (f) => !isManagedByExperiment(f, experiment.id),
+    ),
+    eventAudit: res.locals.eventAudit,
+    audit: req.audit,
+  });
   // Release the flag first, or it survives pointing at a deleted experiment
   // with every write path refusing it and the eject route 404ing.
   await clearManagedMarkersForExperiment(context, experiment.id);
