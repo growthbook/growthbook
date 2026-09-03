@@ -125,16 +125,22 @@ function onExit(app, code, signal) {
   if (!running.size && !pendingRestarts) finish(2);
 }
 
+// The back-end's SIGTERM handler waits on `server.close()`, which never returns
+// while a long request is in flight, so every stop needs the SIGKILL fallback.
+function stop(child) {
+  if (child.stopping) return;
+  child.stopping = true;
+  child.kill("SIGTERM");
+  setTimeout(() => child.kill("SIGKILL"), KILL_TIMEOUT_MS).unref();
+}
+
 function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   log(`${signal} received, stopping ${running.size} app(s)`);
   if (!running.size) finish(0);
 
-  for (const child of running.values()) child.kill("SIGTERM");
-  setTimeout(() => {
-    for (const child of running.values()) child.kill("SIGKILL");
-  }, KILL_TIMEOUT_MS).unref();
+  for (const child of running.values()) stop(child);
 }
 
 process.on("SIGTERM", () => shutdown("SIGTERM"));
@@ -153,7 +159,7 @@ setInterval(() => {
     if (rss !== null && rss > limit) {
       log(`${name} over max_memory_restart (${rss} > ${limit}), restarting`);
       apps.find((app) => app.name === name).forceRestart = true;
-      child.kill("SIGTERM");
+      stop(child);
     }
   }
 }, MEMORY_POLL_MS).unref();
