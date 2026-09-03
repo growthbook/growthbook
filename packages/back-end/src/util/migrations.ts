@@ -682,10 +682,19 @@ export function upgradeExperimentDoc(
 
   // Populate phase names and targeting properties
   if (experiment.phases) {
-    experiment.phases.forEach((phase) => {
+    experiment.phases.forEach((phase, i) => {
       if (!phase.name) {
         const p = phase.phase || "main";
         phase.name = p.substring(0, 1).toUpperCase() + p.substring(1);
+      }
+
+      // Backfill a missing start date on legacy phases.
+      // Use the prior phase's `dateEnded`; for the first phase,
+      // fall back to the experiment's creation date.
+      if (!phase.dateStarted) {
+        const prevPhaseEnded =
+          i > 0 ? experiment.phases[i - 1].dateEnded : undefined;
+        phase.dateStarted = prevPhaseEnded ?? experiment.dateCreated;
       }
 
       phase.coverage = phase.coverage ?? 1;

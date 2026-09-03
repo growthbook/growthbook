@@ -615,6 +615,13 @@ export function getSnapshotSettings({
   if (!phase) {
     throw new Error("Invalid snapshot phase");
   }
+  // upgradeExperimentDoc backfills a missing phase start date.
+  // If the backfill fails, throw an error.
+  if (!phase.dateStarted) {
+    throw new Error(
+      "This experiment phase has no start date, so results can't be analyzed. Set a start date for the phase and try again.",
+    );
+  }
 
   const defaultPriorSettings = orgPriorSettings ?? {
     override: false,
