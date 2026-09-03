@@ -8,6 +8,7 @@ import {
   fillRevisionFromFeature,
   getReviewSetting,
   liveRevisionFromFeature,
+  requireFreshBaseForPublish,
 } from "shared/util";
 import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
 import {
@@ -194,7 +195,11 @@ export default function ManagedFlagApproval({
         mergeSuccess: !info.pendingDraft?.hasMergeConflict,
         liveChanges: [],
         approvedBaseVersion: revision.approvedBaseVersion ?? null,
-        requireRebaseBeforePublish: !!settings?.requireRebaseBeforePublish,
+        requireRebaseBeforePublish: requireFreshBaseForPublish({
+          feature: info.feature,
+          reviewRequired: requireReviews,
+          orgSetting: !!settings?.requireRebaseBeforePublish,
+        }),
       })
     : null;
   // Contributors can't approve their own draft when the org says so, which is
@@ -210,7 +215,8 @@ export default function ManagedFlagApproval({
   const adminBypassAvailable =
     !publishIsLaunch &&
     requireReviews &&
-    !(approval?.satisfied ?? status === "approved") &&
+    (!(approval?.satisfied ?? status === "approved") ||
+      !!governance?.rebaseRequired) &&
     !info.pendingDraft?.hasMergeConflict &&
     (info.pendingDraft?.hasChanges ?? true) &&
     permissionsUtil.canBypassFlagApprovalChecks(info.feature, "feature");

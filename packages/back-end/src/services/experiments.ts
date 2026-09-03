@@ -1,3 +1,27 @@
+import {
+  evaluatePublishGovernance,
+  requireFreshBaseForPublish,
+  autoMerge,
+  mergeResultHasChanges,
+  draftHasChangesOutsideTargetRef,
+  DRAFT_REVISION_STATUSES,
+  findAnalysisComputeFailure,
+  fillRevisionFromFeature,
+  generateVariationId,
+  getExperimentAttributeScopeProjectIds,
+  getFeatureAttributeScopeWithDrafts,
+  getMatchingRules,
+  getRequireRegisteredAttributesSettings,
+  getNamespaceRanges,
+  isManagedFeature,
+  getSnapshotAnalysis,
+  isAnalysisAllowed,
+  isDefined,
+  liveRevisionFromFeature,
+  MatchingRule,
+  naiveFlattenV1Rules,
+  validateCondition,
+} from "shared/util";
 import uniqid from "uniqid";
 import cronParser from "cron-parser";
 import { z } from "zod";
@@ -19,29 +43,6 @@ import {
   PRECOMPUTED_DIMENSION_PREFIX,
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
-import {
-  autoMerge,
-  mergeResultHasChanges,
-  draftHasChangesOutsideTargetRef,
-  DRAFT_REVISION_STATUSES,
-  findAnalysisComputeFailure,
-  fillRevisionFromFeature,
-  generateVariationId,
-  getExperimentAttributeScopeProjectIds,
-  getFeatureAttributeScopeWithDrafts,
-  getMatchingRules,
-  getRequireRegisteredAttributesSettings,
-  getNamespaceRanges,
-  getReviewSetting,
-  isManagedFeature,
-  getSnapshotAnalysis,
-  isAnalysisAllowed,
-  isDefined,
-  liveRevisionFromFeature,
-  MatchingRule,
-  naiveFlattenV1Rules,
-  validateCondition,
-} from "shared/util";
 import { getBanditSRMValue, getExperimentSRMValue } from "shared/health";
 import {
   expandMetricGroups,
@@ -189,7 +190,10 @@ import {
 } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { assessRevisionApprovalForAutoPublish } from "back-end/src/services/experiment-feature";
+import {
+  assessRevisionApprovalForAutoPublish,
+  featureReviewRequired,
+} from "back-end/src/services/experiment-feature";
 import type { RevisionApprovalState } from "back-end/src/services/featurePublishGates";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -5129,21 +5133,8 @@ export async function getRefLinkedFeatureInfo({
       // Also when `state` is "draft": the two can disagree when a live rule is
       // scoped to a deleted environment.
       const needsDraftFacts = hasPendingDraft || state === "draft";
-      let reviewRequired = false;
-      if (needsDraftFacts) {
-        const requiresReviews = context.org.settings?.requireReviews;
-        const requireApprovalsLicensed =
-          context.hasPremiumFeature("require-approvals");
-        const reviewSetting = requireApprovalsLicensed
-          ? Array.isArray(requiresReviews)
-            ? getReviewSetting(requiresReviews, feature)
-            : undefined
-          : undefined;
-        reviewRequired = requireApprovalsLicensed
-          ? requiresReviews === true ||
-            (!!reviewSetting && reviewSetting.requireReviewOn)
-          : false;
-      }
+      const reviewRequired =
+        needsDraftFacts && featureReviewRequired(context, feature);
       // Keyed on `state`, not `hasPendingDraft`: the pre-launch checklist
       // filters this without a state gate. `pendingDraft` carries the wider answer.
       const pendingApproval =
@@ -5159,6 +5150,8 @@ export async function getRefLinkedFeatureInfo({
       // The same test the publish gate uses, so a CTA can't offer a publish
       // that would change nothing.
       let draftHasChanges = true;
+      let draftRebaseRequired = false;
+      let draftStaleApproval = false;
       if (needsDraftFacts && matchedDraftRevision) {
         try {
           const { live, base } = await getLiveAndBaseRevisionsForFeature({
@@ -5175,6 +5168,23 @@ export async function getRefLinkedFeatureInfo({
             {},
           );
           draftHasChanges = mergeResultHasChanges(mergeResult);
+          const governance = evaluatePublishGovernance({
+            revisionStatus: matchedDraftRevision.status,
+            baseVersion: matchedDraftRevision.baseVersion,
+            liveVersion: live.version,
+            mergeSuccess: mergeResult.success,
+            liveChanges: [],
+            approvedBaseVersion:
+              matchedDraftRevision.approvedBaseVersion ?? null,
+            requireRebaseBeforePublish: requireFreshBaseForPublish({
+              feature,
+              reviewRequired,
+              orgSetting: !!context.org.settings?.requireRebaseBeforePublish,
+            }),
+          });
+          draftRebaseRequired =
+            mergeResult.success && governance.rebaseRequired;
+          draftStaleApproval = governance.staleApproval;
           if (!mergeResult.success) {
             draftHasMergeConflict = true;
           } else if (
@@ -5329,6 +5339,8 @@ export async function getRefLinkedFeatureInfo({
               hasChanges: draftHasChanges,
               hasMergeConflict: draftHasMergeConflict,
               hasUnrelatedDraftChanges: draftHasUnrelatedChanges,
+              rebaseRequired: draftRebaseRequired,
+              staleApproval: draftStaleApproval,
               // From the draft's own matches, so a running experiment can show
               // where its unpublished edit would run rather than where it runs now.
               environmentStates: buildEnvironmentStates(

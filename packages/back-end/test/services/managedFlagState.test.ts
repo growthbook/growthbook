@@ -300,6 +300,19 @@ describe("getManagedFlagState", () => {
     expect(state.pending?.canBypassApproval).toBe(true);
   });
 
+  it("withholds publish while the draft needs a fresh base", async () => {
+    mockLinkedInfo.mockResolvedValue([
+      {
+        feature: managedFeature(),
+        pendingDraft: pendingDraft({ rebaseRequired: true }),
+      },
+    ]);
+
+    expect(
+      (await getManagedFlagState(context, experiment())).pending?.canPublish,
+    ).toBe(false);
+  });
+
   it("withholds publish while the experiment is a draft", async () => {
     mockLinkedInfo.mockResolvedValue([
       { feature: managedFeature(), pendingDraft: pendingDraft() },

@@ -103,3 +103,18 @@ export function copyManagedVariationValues({
     value: byIndex[i] ?? seeded[i].value,
   }));
 }
+
+// A managed flag's live version moves through the experiment's own lifecycle
+// writes, so while approvals apply an approval must stand against the current
+// live state, whatever the org's rebase setting says.
+export function requireFreshBaseForPublish({
+  feature,
+  reviewRequired,
+  orgSetting,
+}: {
+  feature: Parameters<typeof isManagedFeature>[0];
+  reviewRequired: boolean;
+  orgSetting: boolean;
+}): boolean {
+  return orgSetting || (reviewRequired && isManagedFeature(feature));
+}

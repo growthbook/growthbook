@@ -1,7 +1,6 @@
-import isEqual from "lodash/isEqual";
-import omit from "lodash/omit";
-import cloneDeep from "lodash/cloneDeep";
 import {
+  requireFreshBaseForPublish,
+  getReviewSetting,
   autoMerge,
   AutoMergeResult,
   evaluatePublishGovernance,
@@ -14,6 +13,9 @@ import {
   reconcileMergeBaselines,
   resetReviewOnChange,
 } from "shared/util";
+import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
+import cloneDeep from "lodash/cloneDeep";
 import { isVariationWeightsSumValid } from "shared/experiments";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
@@ -684,13 +686,30 @@ export async function assessRevisionApprovalForAutoPublish(
   });
 }
 
+// Whether the org's approval rules apply to this flag at all.
+export function featureReviewRequired(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+): boolean {
+  if (!context.hasPremiumFeature("require-approvals")) return false;
+  const requireReviews = context.org.settings?.requireReviews;
+  if (requireReviews === true) return true;
+  return Array.isArray(requireReviews)
+    ? !!getReviewSetting(requireReviews, feature)?.requireReviewOn
+    : false;
+}
+
 export function mergeDraftForAutoPublish(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   live: FeatureRevisionInterface,
   base: FeatureRevisionInterface,
-): { mergeResult: AutoMergeResult; rebaseRequired: boolean } {
+): {
+  mergeResult: AutoMergeResult;
+  rebaseRequired: boolean;
+  staleApproval: boolean;
+} {
   const mergeResult = autoMerge(
     liveRevisionFromFeature(live, feature),
     fillRevisionFromFeature(base, feature),
@@ -705,12 +724,16 @@ export function mergeDraftForAutoPublish(
     mergeSuccess: mergeResult.success,
     liveChanges: [],
     approvedBaseVersion: revision.approvedBaseVersion ?? null,
-    requireRebaseBeforePublish:
-      !!context.org.settings?.requireRebaseBeforePublish,
+    requireRebaseBeforePublish: requireFreshBaseForPublish({
+      feature,
+      reviewRequired: featureReviewRequired(context, feature),
+      orgSetting: !!context.org.settings?.requireRebaseBeforePublish,
+    }),
   });
   return {
     mergeResult,
     rebaseRequired: mergeResult.success && governance.rebaseRequired,
+    staleApproval: governance.staleApproval,
   };
 }
 
@@ -823,7 +846,7 @@ export async function publishPendingFeatureDraftsForExperiment(
       continue;
     }
 
-    if (rebaseRequired) {
+    if (rebaseRequired && !bypassApproval) {
       logger.warn(
         { experimentId: experiment.id, featureId, revisionVersion },
         "Cannot auto-publish pending feature draft: rebase with live required before publishing",
@@ -901,7 +924,13 @@ export async function publishPendingFeatureDraftsForExperiment(
         base,
       );
       mergeResult = remerged.mergeResult;
-      if (remerged.rebaseRequired) {
+      if (
+        remerged.rebaseRequired &&
+        !(
+          bypassLockdown &&
+          context.permissions.canBypassFlagApprovalChecks(feature, "feature")
+        )
+      ) {
         logger.warn(
           { experimentId: experiment.id, featureId, revisionVersion },
           "Cannot auto-publish pending feature draft: rebase with live required after an earlier publish advanced the feature",

@@ -168,12 +168,18 @@ export default function TabbedPage({
     ? "conflict"
     : managedDraft?.hasUnrelatedDraftChanges
       ? "unrelated"
-      : null;
+      : managedDraft?.rebaseRequired
+        ? "stale"
+        : null;
   // Both gates together: approval alone publishes nothing on a draft.
   const managedNextStep = managedDraftBlocked
     ? managedDraftBlocked === "conflict"
       ? "The draft has a merge conflict and cannot publish until it is resolved."
-      : "The draft also changes things beyond this experiment, so it has to be published from the feature page."
+      : managedDraftBlocked === "unrelated"
+        ? "The draft also changes things beyond this experiment, so it has to be published from the feature page."
+        : managedDraft?.staleApproval
+          ? "The Feature Flag changed after these values were approved. Update them from live and get re-approval."
+          : "The Feature Flag changed since these values were drafted. Update them from live before publishing."
     : managedApprovalBlocking
       ? experiment.status === "draft"
         ? "They need approval, then go live when the experiment starts."
@@ -600,9 +606,9 @@ export default function TabbedPage({
           <Callout
             // Warning only while approval is holding the publish back.
             status={
-              managedDraftBlocked
+              managedDraftBlocked && managedDraftBlocked !== "stale"
                 ? "error"
-                : managedApprovalBlocking
+                : managedDraftBlocked || managedApprovalBlocking
                   ? "warning"
                   : "info"
             }
@@ -626,14 +632,15 @@ export default function TabbedPage({
             <Flex align="center" gap="2">
               This experiment has unpublished variation values.{" "}
               {managedNextStep}
-              {managedDraft?.pendingApproval && !managedDraftBlocked && (
-                <Badge
-                  label={revisionStatusLabel(managedDraft.status)}
-                  color={revisionStatusColor(managedDraft.status)}
-                  radius="full"
-                />
-              )}
-              {managedDraftBlocked && (
+              {managedDraft?.pendingApproval &&
+                (!managedDraftBlocked || managedDraftBlocked === "stale") && (
+                  <Badge
+                    label={revisionStatusLabel(managedDraft.status)}
+                    color={revisionStatusColor(managedDraft.status)}
+                    radius="full"
+                  />
+                )}
+              {managedDraftBlocked && managedDraftBlocked !== "stale" && (
                 <Link
                   href={`/features/${managedFlagWithDraft.feature.id}?v=${managedDraft?.version}`}
                   target="_blank"

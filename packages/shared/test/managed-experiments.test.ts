@@ -4,6 +4,7 @@ import {
   isManagedFeature,
   managedByExperimentId,
   managedFeatureKeyCandidate,
+  requireFreshBaseForPublish,
   seedManagedVariationValues,
 } from "../src/util/managed-experiments";
 
@@ -232,5 +233,49 @@ describe("copyManagedVariationValues", () => {
         targetVariations: [{ id: "new0", key: "control" }],
       }),
     ).toEqual([{ variationId: "new0", value: "old-control" }]);
+  });
+});
+
+describe("requireFreshBaseForPublish", () => {
+  const managed = {
+    managedBy: { type: "experiment" as const, experimentId: "exp_1" },
+  };
+  const shared = { managedBy: undefined };
+
+  it("always requires a fresh base on a managed flag under approvals", () => {
+    expect(
+      requireFreshBaseForPublish({
+        feature: managed,
+        reviewRequired: true,
+        orgSetting: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("follows the org setting when approvals do not apply", () => {
+    expect(
+      requireFreshBaseForPublish({
+        feature: managed,
+        reviewRequired: false,
+        orgSetting: false,
+      }),
+    ).toBe(false);
+    expect(
+      requireFreshBaseForPublish({
+        feature: managed,
+        reviewRequired: false,
+        orgSetting: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("leaves shared flags on the org setting", () => {
+    expect(
+      requireFreshBaseForPublish({
+        feature: shared,
+        reviewRequired: true,
+        orgSetting: false,
+      }),
+    ).toBe(false);
   });
 });

@@ -351,6 +351,9 @@ export interface LinkedFeatureInfo {
     };
     hasMergeConflict: boolean;
     hasUnrelatedDraftChanges: boolean;
+    /** Live moved past the draft (or its approval) and the flag's policy wants a fresh base. */
+    rebaseRequired: boolean;
+    staleApproval: boolean;
     /** Where the draft would run once published, keyed the same as the live map. */
     environmentStates: Record<string, LinkedFeatureEnvState>;
   };

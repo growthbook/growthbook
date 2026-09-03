@@ -698,12 +698,12 @@ export async function getManagedFlagState(
           valueType: pendingValueType,
           status: pendingDraft.status,
           approvalRequired: pendingDraft.pendingApproval,
-          // A draft experiment publishes its values by starting. Rebases are
-          // out of scope here, so a diverged draft reads as not publishable.
+          // A draft experiment publishes its values by starting.
           canPublish:
             experiment.status !== "draft" &&
             !pendingDraft.hasMergeConflict &&
             !pendingDraft.hasUnrelatedDraftChanges &&
+            !pendingDraft.rebaseRequired &&
             (!pendingDraft.pendingApproval ||
               (pendingDraft.approval?.satisfied ??
                 pendingDraft.status === "approved")),
@@ -1028,15 +1028,19 @@ export async function publishManagedDraft({
     live,
     base,
   );
-  // This surface has no rebase or conflict UI, so both messages name the way out.
+  const bypass =
+    bypassApproval &&
+    context.permissions.canBypassFlagApprovalChecks(feature, "feature");
   if (!mergeResult.success) {
     throw new Error(
-      "This Feature Flag's draft conflicts with its live version. Switch to a manual implementation to resolve the conflict on the Feature Flag page.",
+      "This Feature Flag's draft conflicts with its live version. Convert it to an unmanaged Feature Flag to resolve the conflict on the Feature Flag page.",
     );
   }
-  if (rebaseRequired) {
+  // Approvals on a managed flag must stand against the current live state; the
+  // same opt-in that skips approval skips this.
+  if (rebaseRequired && !bypass) {
     throw new Error(
-      "This Feature Flag's draft is behind its live version and your organization requires a rebase before publishing. Switch to a manual implementation to rebase it on the Feature Flag page.",
+      "The Feature Flag changed after these values were drafted or approved. Update them from live and get re-approval before publishing.",
     );
   }
 
@@ -1046,9 +1050,7 @@ export async function publishManagedDraft({
     revision,
     result: mergeResult.result,
     comment: "",
-    bypassLockdown:
-      bypassApproval &&
-      context.permissions.canBypassFlagApprovalChecks(feature, "feature"),
+    bypassLockdown: bypass,
   });
 }
 
