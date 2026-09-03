@@ -83,11 +83,34 @@ export function fitColumn(
     : (candidates[0] ?? "");
 }
 
-function aggregationForShape(shape: Shape): ColumnAggregation | undefined {
+function aggregationForShape(shape: RatioShape): ColumnAggregation | undefined {
   if (shape === "sum") return "sum";
   if (shape === "max") return "max";
   if (shape === "distinct") return "count distinct";
-  return undefined;
+  return undefined; // count / days / users carry no aggregation
+}
+
+const SHAPES_NEEDING_COLUMNS: readonly RatioShape[] = [
+  "sum",
+  "max",
+  "distinct",
+];
+
+// Which of the given shapes are actually selectable right now - "everything
+// else follows from columnsFor(shape).length > 0" (spec's Gates section).
+// count/days/users never need a real column, so they're always available;
+// sum/max/distinct need at least one matching column to exist (distinct
+// additionally needs hasCountDistinctHLL, already enforced by columnsForShape).
+export function availableShapes(
+  shapes: readonly RatioShape[],
+  factTable: MinimalFactTable,
+  hasCountDistinctHLL: boolean,
+): RatioShape[] {
+  return shapes.filter((shape) =>
+    SHAPES_NEEDING_COLUMNS.includes(shape)
+      ? columnsForShape(shape, factTable, hasCountDistinctHLL).length > 0
+      : true,
+  );
 }
 
 // Shape is never stored separately - always recoverable from column + aggregation.
@@ -115,8 +138,7 @@ export function onShapeChange(
   return {
     ...current,
     column: fitColumn(newShape, factTable, current.column, hasCountDistinctHLL),
-    aggregation:
-      newShape === "users" ? undefined : aggregationForShape(newShape as Shape),
+    aggregation: aggregationForShape(newShape),
   };
 }
 
@@ -156,13 +178,13 @@ export function onQuantileScopeChange(
   return {
     ...current,
     column: fitColumn(shape, factTable, current.column, hasCountDistinctHLL),
-    aggregation:
-      shape === "users" ? undefined : aggregationForShape(shape as Shape),
+    aggregation: aggregationForShape(shape),
   };
 }
 
 export type RetentionWindowChange =
   | { type: "delay"; value: number }
+  | { type: "end"; value: number }
   | { type: "mode"; value: "starting" | "between" };
 
 // No separate "mode" field in storage: windowValue > 0 IS "between" (spec).
@@ -182,6 +204,11 @@ export function onRetentionDelayOrModeChange(
     }
     if (windowSettings.windowValue > 0) return windowSettings;
     return { ...windowSettings, windowValue: 1 };
+  }
+
+  if (change.type === "end") {
+    const windowValue = Math.max(1, change.value - windowSettings.delayValue);
+    return { ...windowSettings, windowValue };
   }
 
   const newDelay = change.value;
@@ -356,7 +383,7 @@ export function formTypeFromStored(
 // same rule), or the shared five-shape system (Value types, ratio, quantile).
 type NumeratorSpec =
   | { kind: "none" }
-  | { kind: "fixed"; column: string }
+  | { kind: "fixed"; column: string; threshold?: boolean }
   | { kind: "shape"; shape: Shape };
 
 function storedTypeAndNumeratorFor(formType: FormMetricType): {
@@ -365,10 +392,18 @@ function storedTypeAndNumeratorFor(formType: FormMetricType): {
 } {
   switch (formType) {
     case "proportion":
-    case "threshold":
       return {
         metricType: "proportion",
         numerator: { kind: "fixed", column: "$$distinctUsers" },
+      };
+    case "threshold":
+      return {
+        metricType: "proportion",
+        numerator: {
+          kind: "fixed",
+          column: "$$distinctUsers",
+          threshold: true,
+        },
       };
     case "retention":
       return {
@@ -479,8 +514,18 @@ export function applyFormType<T extends MetricTypeSwitchState>(
           ...base,
           column: spec.column,
           aggregation: undefined,
-          aggregateFilterColumn: undefined,
-          aggregateFilter: undefined,
+          // Threshold is proportion + an aggregateFilter - keep whatever
+          // basis/comparison was already there (switching threshold ->
+          // something else -> threshold shouldn't lose it), or default to a
+          // fresh one so the metric actually classifies as "threshold"
+          // instead of silently reverting to "proportion" the moment it's
+          // selected. Every other fixed type clears both fields.
+          aggregateFilterColumn: spec.threshold
+            ? base.aggregateFilterColumn || "$$count"
+            : undefined,
+          aggregateFilter: spec.threshold
+            ? base.aggregateFilter || ""
+            : undefined,
         }
       : {
           ...base,
@@ -490,10 +535,7 @@ export function applyFormType<T extends MetricTypeSwitchState>(
             base.column,
             hasCountDistinctHLL,
           ),
-          aggregation:
-            spec.shape !== "count"
-              ? aggregationForShape(spec.shape)
-              : undefined,
+          aggregation: aggregationForShape(spec.shape),
           aggregateFilterColumn: undefined,
           aggregateFilter: undefined,
         };
