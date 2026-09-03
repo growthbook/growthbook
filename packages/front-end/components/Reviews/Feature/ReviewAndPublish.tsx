@@ -2358,13 +2358,18 @@ export default function ReviewAndPublish({
     : null;
   const approvalGateUnmet =
     requireReviews && (!requiredTeams.satisfied || hasUncoveredApproval);
+  // "Continue to Publish" is the same publish path with a checklist step in
+  // front, so selecting an experiment must not change which bands show.
+  const onPublishPath =
+    state.submitAction === "publish" ||
+    state.submitAction === "next-experiments";
   // An approved draft warrants the band only while a gate is unmet — otherwise
   // the publish section already carries the state, and "Publishing is blocked"
   // would contradict an enabled CTA.
   const showApprovalBand =
     requireReviews &&
     !!revision &&
-    state.submitAction !== "publish" &&
+    !onPublishPath &&
     (revision.status === "approved"
       ? approvalGateUnmet
       : revision.status === "draft" || isInReviewCycle(revision.status));
@@ -3041,7 +3046,7 @@ export default function ReviewAndPublish({
                         reads as a contradiction. */}
                       {requireReviews &&
                         !adminPublish &&
-                        state.submitAction === "publish" &&
+                        onPublishPath &&
                         (!requiredTeams.satisfied || hasUncoveredApproval) && (
                           <Box mb="4">
                             <ApprovalStatusBand
