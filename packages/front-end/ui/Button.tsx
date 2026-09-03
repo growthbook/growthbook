@@ -35,7 +35,12 @@ export type Props = {
 } & MarginProps &
   Pick<
     ButtonProps,
-    "title" | "type" | "aria-label" | "aria-pressed" | "className"
+    | "title"
+    | "type"
+    | "aria-label"
+    | "aria-disabled"
+    | "aria-pressed"
+    | "className"
   >;
 
 const Button = forwardRef<HTMLButtonElement, Props>(
