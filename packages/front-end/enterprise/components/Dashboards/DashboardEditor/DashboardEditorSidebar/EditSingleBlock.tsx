@@ -33,6 +33,7 @@ import {
 } from "react-icons/pi";
 import { UNSUPPORTED_METRIC_EXPLORER_TYPES } from "shared/constants";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { getValidDate } from "shared/dates";
 import { FormatOptionLabelMeta } from "react-select";
 import Collapsible from "react-collapsible";
 import {
@@ -60,7 +61,20 @@ import SqlExplorerModal, {
   SqlExplorerModalInitial,
 } from "@/components/SchemaBrowser/SqlExplorerModal";
 import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
-import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
+import {
+  CUSTOM_COMBO_OPTION,
+  CUSTOM_CUTOFF_OPTION,
+  buildCustomDimensionId,
+  draftFromDimensionId,
+  getCombinationConstituentOptions,
+  getDimensionDisplayName,
+  getDimensionOptions,
+} from "@/components/Dimensions/DimensionChooser";
+import CustomDimensionFields, {
+  CustomDimensionDraft,
+  CustomDimensionKind,
+  isCustomDimensionDraftValid,
+} from "@/components/Dimensions/CustomDimensionFields";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MetricName from "@/components/Metrics/MetricName";
 import Avatar from "@/ui/Avatar";
@@ -277,6 +291,7 @@ export default function EditSingleBlock({
     getExperimentMetricById,
     getMetricGroupById,
     getDatasourceById,
+    getDimensionById,
     getFactTableById,
     getTagById,
     factMetrics,
@@ -351,6 +366,31 @@ export default function EditSingleBlock({
   );
 
   const { incrementalRefresh } = useIncrementalRefresh(experiment?.id ?? "");
+
+  // Custom dimensions are configured inline: picking the sentinel option holds
+  // an incomplete draft locally until it is valid enough to build an id
+  const [customDimensionDraft, setCustomDimensionDraft] =
+    useState<CustomDimensionDraft | null>(null);
+
+  const customDimensionConstituentOptions = useMemo(() => {
+    if (!experiment) return [];
+    return getCombinationConstituentOptions({
+      incrementalRefresh,
+      datasource: getDatasourceById(experiment.datasource),
+      dimensions,
+      exposureQueryId: experiment.exposureQueryId,
+      userIdType: experiment.userIdType,
+    });
+  }, [experiment, incrementalRefresh, getDatasourceById, dimensions]);
+
+  const cutoffBounds = useMemo(() => {
+    const phase = experiment?.phases?.[experiment.phases.length - 1];
+    if (!phase) return { min: undefined, max: undefined };
+    return {
+      min: getValidDate(phase.dateStarted),
+      max: phase.dateEnded ? getValidDate(phase.dateEnded) : new Date(),
+    };
+  }, [experiment]);
 
   // TODO: does this need to handle metric groups
   const factMetricOptions = useMemo(() => {
@@ -652,6 +692,7 @@ export default function EditSingleBlock({
       exposureQueryId: experiment.exposureQueryId,
       userIdType: experiment.userIdType,
       activationMetric: !!experiment.activationMetric,
+      includeCustomDimensions: true,
     }).map((optionGroup) => ({
       label: optionGroup.label,
       // For now, remove the date cohorts time-series as the visualization isn't supported yet
@@ -1369,21 +1410,97 @@ export default function EditSingleBlock({
                     )}
                 </>
               )}
-            {blockHasFieldOfType(block, "dimensionId", isString) && (
-              <SelectField
-                size="legacy"
-                required
-                markRequired
-                label="Dimension"
-                labelClassName="font-weight-bold"
-                placeholder="Choose which dimension to use"
-                value={block.dimensionId}
-                containerClassName="mb-0"
-                onChange={(value) => setBlock({ ...block, dimensionId: value })}
-                options={dimensionOptions}
-                sort={false}
-              />
-            )}
+            {blockHasFieldOfType(block, "dimensionId", isString) &&
+              (() => {
+                const savedDraft = draftFromDimensionId(block.dimensionId);
+                const activeDraft = customDimensionDraft ?? savedDraft;
+                // A configured custom dimension isn't one of the standard
+                // options, so add it for the select to render its label
+                const options =
+                  savedDraft && !customDimensionDraft
+                    ? [
+                        ...dimensionOptions,
+                        {
+                          label: "Custom",
+                          options: [
+                            {
+                              label: getDimensionDisplayName(
+                                block.dimensionId,
+                                (id) => getDimensionById(id)?.name || undefined,
+                              ),
+                              value: block.dimensionId,
+                            },
+                          ],
+                        },
+                      ]
+                    : dimensionOptions;
+                return (
+                  <>
+                    <SelectField
+                      size="legacy"
+                      required
+                      markRequired
+                      label="Dimension"
+                      labelClassName="font-weight-bold"
+                      placeholder="Choose which dimension to use"
+                      value={
+                        customDimensionDraft
+                          ? customDimensionDraft.kind === "cutoff"
+                            ? CUSTOM_CUTOFF_OPTION
+                            : CUSTOM_COMBO_OPTION
+                          : block.dimensionId
+                      }
+                      containerClassName="mb-0"
+                      onChange={(value) => {
+                        if (
+                          value === CUSTOM_CUTOFF_OPTION ||
+                          value === CUSTOM_COMBO_OPTION
+                        ) {
+                          const kind: CustomDimensionKind =
+                            value === CUSTOM_CUTOFF_OPTION ? "cutoff" : "combo";
+                          setCustomDimensionDraft(
+                            savedDraft?.kind === kind
+                              ? savedDraft
+                              : { kind, constituentIds: [] },
+                          );
+                          return;
+                        }
+                        setCustomDimensionDraft(null);
+                        setBlock({ ...block, dimensionId: value });
+                      }}
+                      options={options}
+                      sort={false}
+                    />
+                    {activeDraft && (
+                      <CustomDimensionFields
+                        draft={activeDraft}
+                        setDraft={(next) => {
+                          // Hold the draft locally until it can build an id,
+                          // so the block never points at a half-built dimension
+                          if (
+                            isCustomDimensionDraftValid(
+                              next,
+                              cutoffBounds.min,
+                              cutoffBounds.max,
+                            )
+                          ) {
+                            setCustomDimensionDraft(null);
+                            setBlock({
+                              ...block,
+                              dimensionId: buildCustomDimensionId(next),
+                            });
+                          } else {
+                            setCustomDimensionDraft(next);
+                          }
+                        }}
+                        constituentOptions={customDimensionConstituentOptions}
+                        cutoffMin={cutoffBounds.min}
+                        cutoffMax={cutoffBounds.max}
+                      />
+                    )}
+                  </>
+                );
+              })()}
             {blockHasFieldOfType(block, "differenceType", isDifferenceType) &&
               shouldShowEditorField(block, "differenceType") && (
                 <SelectField

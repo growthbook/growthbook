@@ -343,6 +343,7 @@ export interface OrganizationSettings {
   testQueryDays?: number;
   disablePrecomputedDimensions?: boolean;
   useStickyBucketing?: boolean;
+  stickyBucketingOnByDefault?: boolean;
   useFallbackAttributes?: boolean;
   codeReferencesEnabled?: boolean;
   codeRefsBranchesToFilter?: string[];

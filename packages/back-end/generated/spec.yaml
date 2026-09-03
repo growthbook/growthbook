@@ -13714,6 +13714,11 @@ paths:
                     - type: number
                       const: 2
                 disableStickyBucketing:
+                  description: >-
+                    When true, disables Sticky Bucketing for this experiment. If
+                    omitted, defaults to your organization's Sticky Bucketing
+                    setting for new experiments. Sticky Bucketing only takes
+                    effect when it is also enabled at the organization level.
                   type: boolean
                 bucketVersion:
                   type: number
@@ -15520,7 +15525,15 @@ paths:
                     the dimension id (e.g. "dim_abc123"). For Experiment
                     Dimensions, use "exp:<dimensionName>" (e.g. "exp:country").
                     Built-in pre-exposure dimensions include "pre:date" and,
-                    when configured, "pre:activation". Omit this field to create
+                    when configured, "pre:activation". Use "cutoff:<ISO
+                    datetime>" (e.g. "cutoff:2026-01-15T00:12:00.000Z") to split
+                    units by whether they were first exposed before or after the
+                    cutoff; it must fall within the phase dates. Use
+                    "combo:<dimA>::<dimB>" (e.g.
+                    "combo:exp:country::dim_abc123") to break down by the
+                    intersection of two dimensions, each an Experiment Dimension
+                    or Unit Dimension id; values beyond the top 20 combined
+                    slices are merged into "(other)". Omit this field to create
                     a standard snapshot.
                   type: string
                 phase:
@@ -43911,6 +43924,11 @@ paths:
                     - datetime
                 values:
                   type: string
+                creatable:
+                  description: >-
+                    For enum and multiselect fields, allow users to enter values
+                    beyond the predefined list
+                  type: boolean
                 required:
                   type: boolean
                 projects:
@@ -44098,6 +44116,11 @@ paths:
                           ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
                 values:
                   type: string
+                creatable:
+                  description: >-
+                    For enum and multiselect fields, allow users to enter values
+                    beyond the predefined list
+                  type: boolean
                 required:
                   type: boolean
                 projects:
@@ -55698,6 +55721,18 @@ components:
               type: string
             id:
               type: string
+            dimensions:
+              type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  id:
+                    type: string
+                required:
+                  - type
+                additionalProperties: false
           required:
             - type
           additionalProperties: false
@@ -65373,6 +65408,8 @@ components:
             - datetime
         values:
           type: string
+        creatable:
+          type: boolean
         required:
           type: boolean
         creator:
