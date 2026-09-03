@@ -1,0 +1,147 @@
+apiVersion: v1
+items:
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{},"name":"growthbook-ui","namespace":"ot"},"spec":{"ingressClassName":"nginx","rules":[{"host":"growthbook-ui.deg-pp-rs.k8s.otenv.com","http":{"paths":[{"backend":{"service":{"name":"growthbook-ui","port":{"number":80}}},"path":"/","pathType":"Prefix"}]}}]}}
+    creationTimestamp: "2026-05-14T19:24:09Z"
+    generation: 1
+    name: growthbook-ui
+    namespace: ot
+    resourceVersion: "1734800223"
+    uid: cf0c80e4-6b96-41c6-9050-1418ed7dcac7
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: growthbook-ui.deg-pp-rs.k8s.otenv.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: growthbook-ui
+              port:
+                number: 80
+          path: /
+          pathType: Prefix
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{},"name":"growthbook-api","namespace":"ot"},"spec":{"ingressClassName":"nginx","rules":[{"host":"growthbook-api.deg-pp-rs.k8s.otenv.com","http":{"paths":[{"backend":{"service":{"name":"growthbook-api","port":{"number":80}}},"path":"/","pathType":"Prefix"}]}}]}}
+    creationTimestamp: "2026-05-14T19:24:09Z"
+    generation: 1
+    name: growthbook-api
+    namespace: ot
+    resourceVersion: "1734800228"
+    uid: 3688ee90-ea8f-49b4-9bb5-d885a9981320
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: growthbook-api.deg-pp-rs.k8s.otenv.com
+      http:
+        paths:
+        - backend:
+            service:
+              name: growthbook-api
+              port:
+                number: 80
+          path: /
+          pathType: Prefix
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"growthbook-ui","namespace":"ot"},"spec":{"ports":[{"port":80,"protocol":"TCP","targetPort":3000}]}}
+    creationTimestamp: "2026-05-14T19:24:08Z"
+    name: growthbook-ui
+    namespace: ot
+    resourceVersion: "1734800208"
+    uid: 5567815c-ad29-4ea3-a93d-3cc8f5e1293b
+  spec:
+    clusterIP: 10.249.198.48
+    clusterIPs:
+    - 10.249.198.48
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 3000
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"growthbook-api","namespace":"ot"},"spec":{"ports":[{"port":80,"protocol":"TCP","targetPort":3100}]}}
+    creationTimestamp: "2026-05-14T19:24:09Z"
+    name: growthbook-api
+    namespace: ot
+    resourceVersion: "1734800216"
+    uid: e71b00fa-6a64-47cc-8b66-8a3457b5093d
+  spec:
+    clusterIP: 10.249.248.250
+    clusterIPs:
+    - 10.249.248.250
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 3100
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Endpoints","metadata":{"annotations":{},"name":"growthbook-ui","namespace":"ot"},"subsets":[{"addresses":[{"ip":"10.241.209.30"}],"ports":[{"port":3000,"protocol":"TCP"}]}]}
+    creationTimestamp: "2026-05-14T19:24:09Z"
+    name: growthbook-ui
+    namespace: ot
+    resourceVersion: "1734800212"
+    uid: 09fef515-e33d-4713-ad39-88bbb9a8361c
+  subsets:
+  - addresses:
+    - ip: 10.241.209.30
+    ports:
+    - port: 3000
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Endpoints","metadata":{"annotations":{},"name":"growthbook-api","namespace":"ot"},"subsets":[{"addresses":[{"ip":"10.241.253.178"}],"ports":[{"port":3100,"protocol":"TCP"}]}]}
+    creationTimestamp: "2026-05-14T19:24:09Z"
+    name: growthbook-api
+    namespace: ot
+    resourceVersion: "1734800219"
+    uid: 81c67320-6af4-4e99-bbf6-1a4288201810
+  subsets:
+  - addresses:
+    - ip: 10.241.253.178
+    ports:
+    - port: 3100
+      protocol: TCP
+kind: List
+metadata:
+  resourceVersion: ""

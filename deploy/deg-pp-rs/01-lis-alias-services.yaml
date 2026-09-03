@@ -1,0 +1,59 @@
+# Port-80 alias Services for the `lis` frontdoor.
+#
+# WHY THESE EXIST
+#   `lis` routes https://<name>.deg-pp-rs.k8s.otenv.com -> Service `<name>` in namespace `ot`,
+#   and it connects on port 80. An ExternalName Service carries no port, so whatever it points
+#   at must listen on 80. GrowthBook's chart-managed Services listen on 3000/3100, so these
+#   aliases republish them on 80.
+#
+#   They are SEPARATE from the chart-managed `growthbook-frontend` / `growthbook-backend`
+#   Services on purpose: those are owned by the Helm release, so adding a port to them would be
+#   reverted by the next `helm upgrade`. These live outside the release and survive upgrades.
+#
+#   The `selector` below is what makes this self-healing. Kubernetes' endpoint controller
+#   watches for pods matching it and rewrites the endpoints within seconds of any pod change.
+#   Never hardcode a pod IP here.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: growthbook-frontend-lis
+  namespace: growthbook
+  labels:
+    app.kubernetes.io/name: growthbook
+    app.kubernetes.io/instance: growthbook
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http # named container port -> 3000
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: growthbook
+    app.kubernetes.io/instance: growthbook
+    app.kubernetes.io/component: frontend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: growthbook-backend-lis
+  namespace: growthbook
+  labels:
+    app.kubernetes.io/name: growthbook
+    app.kubernetes.io/instance: growthbook
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http # named container port -> 3100
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: growthbook
+    app.kubernetes.io/instance: growthbook
+    app.kubernetes.io/component: backend

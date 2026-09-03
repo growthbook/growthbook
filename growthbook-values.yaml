@@ -1,0 +1,46 @@
+global:
+  env:
+    - name: APP_ORIGIN
+      value: "https://growthbook-ui.deg-pp-rs.k8s.otenv.com"
+    - name: NODE_ENV
+      value: "production"
+
+frontend:
+  image:
+    tag: "4.3.0"
+  env:
+    - name: API_HOST
+      value: "https://growthbook-api.deg-pp-rs.k8s.otenv.com"
+
+backend:
+  image:
+    tag: "4.3.0"
+  mongodbEnabled: false
+  volumeClaim:
+    enabled: false
+  env:
+    - name: MONGODB_URI
+      valueFrom:
+        secretKeyRef:
+          name: mongodb-uri
+          key: uri
+    - name: JWT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: jwt-secret
+          key: jwt-secret
+    - name: ENCRYPTION_KEY
+      valueFrom:
+        secretKeyRef:
+          name: encryption-key
+          key: encryption-key
+    - name: EMAIL_ENABLED
+      value: "false"
+    - name: UPLOAD_METHOD
+      value: local
+
+mongodb:
+  enabled: false
+
+ingress:
+  enabled: false

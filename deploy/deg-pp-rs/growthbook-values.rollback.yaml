@@ -1,0 +1,51 @@
+# Last-known-good Helm values, exported from the live release on 2026-09-02
+# (before SMTP). Restore with:
+#
+#   helm upgrade --install growthbook oci://ghcr.io/growthbook/charts/growthbook \
+#     --namespace growthbook \
+#     -f deploy/deg-pp-rs/growthbook-values.rollback.yaml
+#
+# Or: ./deploy/deg-pp-rs/rollback-smtp.sh
+
+backend:
+  env:
+  - name: MONGODB_URI
+    valueFrom:
+      secretKeyRef:
+        key: uri
+        name: mongodb-uri
+  - name: JWT_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: jwt-secret
+        name: jwt-secret
+  - name: ENCRYPTION_KEY
+    valueFrom:
+      secretKeyRef:
+        key: encryption-key
+        name: encryption-key
+  - name: EMAIL_ENABLED
+    value: "false"
+  - name: UPLOAD_METHOD
+    value: local
+  image:
+    tag: 4.3.0
+  mongodbEnabled: false
+  volumeClaim:
+    enabled: false
+frontend:
+  env:
+  - name: API_HOST
+    value: https://growthbook-api.deg-pp-rs.k8s.otenv.com
+  image:
+    tag: 4.3.0
+global:
+  env:
+  - name: APP_ORIGIN
+    value: https://growthbook-ui.deg-pp-rs.k8s.otenv.com
+  - name: NODE_ENV
+    value: production
+ingress:
+  enabled: false
+mongodb:
+  enabled: false

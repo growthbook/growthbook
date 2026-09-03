@@ -1,0 +1,35 @@
+# Public routing entries for the `lis` frontdoor.
+#
+# `lis` maps https://<name>.deg-pp-rs.k8s.otenv.com -> Service `<name>` in namespace `ot`.
+# The Service name MUST equal the first label of the hostname:
+#   growthbook-ui.deg-pp-rs.k8s.otenv.com  -> ot/growthbook-ui
+#   growthbook-api.deg-pp-rs.k8s.otenv.com -> ot/growthbook-api
+#
+# ExternalName points at a DNS *name*, resolved fresh on every lookup, so it can never go stale
+# when a pod is rescheduled. This is the same pattern used by grafana, dag-airflow, dw-airflow,
+# gcbi-airflow, flux-operator-ui and whisker.
+#
+# The cluster DNS domain is `deg-pp-rs` (per the CoreDNS Corefile), NOT `cluster.local`.
+# No `ports:` block -- none of the working entries in `ot` declare one; `lis` uses port 80.
+#
+# DO NOT replace these with a ClusterIP + hand-written Endpoints object. That pins a pod IP,
+# which orphans itself the next time a pod is rescheduled and returns 502 with pods Running.
+# That is the outage this file exists to prevent.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: growthbook-ui
+  namespace: ot
+spec:
+  type: ExternalName
+  externalName: growthbook-frontend-lis.growthbook.svc.deg-pp-rs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: growthbook-api
+  namespace: ot
+spec:
+  type: ExternalName
+  externalName: growthbook-backend-lis.growthbook.svc.deg-pp-rs
