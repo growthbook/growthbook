@@ -619,7 +619,7 @@ export function getSnapshotSettings({
   // If the backfill fails, throw an error.
   if (!phase.dateStarted) {
     throw new Error(
-      "This experiment phase has no start date, so results can't be analyzed. Set a start date for the phase and try again.",
+      "This experiment phase has no start date, so results cannot be analyzed. Set a start date for the phase and try again.",
     );
   }
 

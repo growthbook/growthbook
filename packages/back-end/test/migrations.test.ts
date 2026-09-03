@@ -1904,6 +1904,55 @@ describe("Experiment Migration", () => {
     });
     expect(result.phases[0].dateStarted).toEqual(existing);
   });
+
+  it("backfills a missing dateCreated from the earliest phase start", () => {
+    const early = new Date("2024-01-01T00:00:00.000Z");
+    const late = new Date("2024-03-01T00:00:00.000Z");
+    const result = upgradeExperimentDoc({
+      ...exp,
+      dateCreated: undefined,
+      phases: [
+        { ...exp.phases[0], dateStarted: late },
+        { ...exp.phases[1], dateStarted: early },
+      ],
+    });
+    expect(result.dateCreated).toEqual(early);
+  });
+
+  it("falls back to dateUpdated for dateCreated when no phase has a start", () => {
+    const dateUpdated = new Date("2024-05-01T00:00:00.000Z");
+    const result = upgradeExperimentDoc({
+      ...exp,
+      dateCreated: undefined,
+      dateUpdated,
+    });
+    expect(result.dateCreated).toEqual(dateUpdated);
+  });
+
+  it("derives dateCreated from a phase start, which then resolves that phase's dateStarted", () => {
+    // Mirrors the heal path: a user sets the phase start on a doc missing
+    // dateCreated; on the next read dateCreated derives from it and analysis
+    // (which needs dateCreated) can proceed.
+    const phaseStart = new Date("2024-02-01T00:00:00.000Z");
+    const result = upgradeExperimentDoc({
+      ...exp,
+      dateCreated: undefined,
+      phases: [{ ...exp.phases[0], dateStarted: phaseStart }],
+    });
+    expect(result.dateCreated).toEqual(phaseStart);
+    expect(result.phases[0].dateStarted).toEqual(phaseStart);
+  });
+
+  it("does not overwrite an existing dateCreated", () => {
+    const dateCreated = new Date("2022-01-01T00:00:00.000Z");
+    const phaseStart = new Date("2024-02-01T00:00:00.000Z");
+    const result = upgradeExperimentDoc({
+      ...exp,
+      dateCreated,
+      phases: [{ ...exp.phases[0], dateStarted: phaseStart }],
+    });
+    expect(result.dateCreated).toEqual(dateCreated);
+  });
   it("upgrades stopped experiments with results", () => {
     expect(
       upgradeExperimentDoc({
