@@ -61,6 +61,7 @@ export default function RetentionFields({
         />
         <Text size="sm">Event must occur</Text>
         <TextField
+          aria-label="Delay value"
           type="number"
           style={{ width: 70 }}
           value={windowSettings.delayValue}
@@ -77,6 +78,7 @@ export default function RetentionFields({
           <>
             <Text size="sm">and</Text>
             <TextField
+              aria-label="End value"
               type="number"
               style={{ width: 70 }}
               value={windowSettings.delayValue + windowSettings.windowValue}
