@@ -1286,11 +1286,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Projects/ProjectModal.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/Queries/AsyncQueriesModal.tsx": {
     "no-restricted-imports": {
       "count": 1

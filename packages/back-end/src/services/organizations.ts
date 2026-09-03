@@ -124,6 +124,7 @@ import {
 } from "back-end/src/enterprise";
 import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
   encryptParams,
@@ -227,6 +228,7 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     },
     teams: req.teams,
     req: req as Request,
+    restrictedProjects: req.restrictedProjects,
   });
 }
 
@@ -1678,6 +1680,13 @@ export async function getContextForAgendaJobByOrgId(
 export async function getContextForUserIdInOrg(
   org: OrganizationInterface,
   userId: string,
+  {
+    // Deferred and scheduled executions err permissive: they run on the
+    // authority the user held when they enabled the action, so a project
+    // restricting access later must not strand them. Live request contexts
+    // (e.g. OAuth) keep the default and apply restrictions.
+    applyProjectRestrictions = true,
+  }: { applyProjectRestrictions?: boolean } = {},
 ): Promise<ApiReqContext | null> {
   const user = await getUserById(userId);
   if (!user) return null;
@@ -1685,7 +1694,12 @@ export async function getContextForUserIdInOrg(
   const isMember = org.members.some((m) => m.id === user.id);
   if (!isMember) return null;
 
-  const teams = await TeamModel.dangerousGetTeamsForOrganization(org.id);
+  const [teams, restrictedProjects] = await Promise.all([
+    TeamModel.dangerousGetTeamsForOrganization(org.id),
+    applyProjectRestrictions
+      ? ProjectModel.dangerousGetRestrictedProjectIds(org.id)
+      : [],
+  ]);
 
   return new ReqContextClass({
     org,
@@ -1702,5 +1716,6 @@ export async function getContextForUserIdInOrg(
       superAdmin: user.superAdmin,
     },
     teams,
+    restrictedProjects,
   });
 }
