@@ -67,20 +67,4 @@ export function ThresholdBasisRow({
   );
 }
 
-export default function ThresholdFields({
-  value,
-  onChange,
-  factTable,
-}: {
-  value: ThresholdBasisValue;
-  onChange: (value: ThresholdBasisValue) => void;
-  factTable: FactTableDefinition | null;
-}) {
-  return (
-    <ThresholdBasisRow
-      value={value}
-      onChange={onChange}
-      factTable={factTable}
-    />
-  );
-}
+export default ThresholdBasisRow;
