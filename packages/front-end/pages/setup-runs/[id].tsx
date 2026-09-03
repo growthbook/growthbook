@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Box, Container, Flex, Grid } from "@radix-ui/themes";
 import { ApiSetupRun, setupRunMetaString } from "shared/validators";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
@@ -69,10 +69,8 @@ function NameCell({
 
 function ReviewCell({ href }: { href: string }) {
   return (
-    <TableCell style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-      <UiLink href={href} external>
-        Review
-      </UiLink>
+    <TableCell justify="end" style={{ whiteSpace: "nowrap" }}>
+      <UiLink href={href}>Review</UiLink>
     </TableCell>
   );
 }
@@ -88,7 +86,7 @@ function Section({
 }) {
   return (
     <Box mb="5">
-      <Heading as="h3" size="large" weight="semibold" mb="2">
+      <Heading as="h2" size="large" weight="semibold" mb="2">
         {title}
       </Heading>
       <Text as="p" color="text-mid" mb="4">
@@ -182,25 +180,33 @@ export default function SetupRunPage() {
   // which makes it impossible to tell a failed request from a missing record.
   if (error) {
     return (
-      <div className="contents container pagecontents">
+      <Container
+        size="3"
+        px={{ initial: "2", xs: "4", sm: "7" }}
+        py={{ initial: "1", xs: "3", sm: "6" }}
+      >
         <Callout status="error">
           Couldn&apos;t load this setup run: {error.message}
           {/not found/i.test(error.message)
             ? ". If the setup ran in another of your organizations, switch to it and reload."
             : ""}
         </Callout>
-      </div>
+      </Container>
     );
   }
   if (!router.isReady || isLoading) return <LoadingOverlay />;
   if (!run) {
     return (
-      <div className="contents container pagecontents">
+      <Container
+        size="3"
+        px={{ initial: "2", xs: "4", sm: "7" }}
+        py={{ initial: "1", xs: "3", sm: "6" }}
+      >
         <Callout status="warning">
           No setup run with id <code>{String(id)}</code>. It may belong to
           another organization.
         </Callout>
-      </div>
+      </Container>
     );
   }
 
@@ -210,7 +216,11 @@ export default function SetupRunPage() {
   const environment = setupRunMetaString(run.metadata, "environment");
 
   return (
-    <div className="container pagecontents" style={{ maxWidth: 885 }}>
+    <Container
+      size="3"
+      px={{ initial: "2", xs: "4", sm: "7" }}
+      py={{ initial: "1", xs: "3", sm: "6" }}
+    >
       <PageHead
         breadcrumb={[{ display: "Get Started", href: "/getstarted" }]}
       />
@@ -225,8 +235,8 @@ export default function SetupRunPage() {
         <Callout status="warning" size="md" mb="5">
           <Text weight="medium" as="div">
             {failing.length === 1
-              ? "1 thing still to finish"
-              : `${failing.length} things still to finish`}
+              ? "1 step still to finish"
+              : `${failing.length} steps still to finish`}
           </Text>
           <Box mt="1">
             {failing.map((c) => (
@@ -241,7 +251,7 @@ export default function SetupRunPage() {
       {byDeveloper.length > 0 && (
         <Section
           title="What You Created"
-          description="The SDK connection and feature flag created during setup."
+          description="The SDK Connection and Feature Flag created during setup."
         >
           <CreatedTable artifacts={byDeveloper} environment={environment} />
         </Section>
@@ -256,8 +266,8 @@ export default function SetupRunPage() {
         </Section>
       )}
 
-      <Heading as="h3" mt="5" mb="2">
-        What do you want to do next?
+      <Heading as="h2" mt="5" mb="2">
+        What Do You Want to Do Next?
       </Heading>
       {/* Both cards hang a decorative image off their right edge with mr="-9".
           Clipped here so that negative margin cannot widen the page and push
@@ -270,8 +280,8 @@ export default function SetupRunPage() {
       </Box>
 
       <Flex justify="end" mt="4">
-        <LinkButton href="/getstarted">Exit Setup</LinkButton>
+        <LinkButton href="/getstarted">Exit setup</LinkButton>
       </Flex>
-    </div>
+    </Container>
   );
 }

@@ -1,7 +1,6 @@
-import Link from "next/link";
-
 import { ApiSetupRun, setupRunMetaString } from "shared/validators";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
@@ -27,7 +26,7 @@ export default function SetupRunCallout() {
     <Callout status={unfinished ? "warning" : "success"} size="md" mb="4">
       <Text size="medium">
         {unfinished
-          ? `Your GrowthBook setup${where} has ${unfinished} thing${
+          ? `Your GrowthBook setup${where} has ${unfinished} step${
               unfinished === 1 ? "" : "s"
             } left to finish.`
           : `You set up GrowthBook${where}. Here's everything it created.`}{" "}

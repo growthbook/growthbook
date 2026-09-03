@@ -109,6 +109,22 @@ function NoOrganization({ onCreated }: { onCreated: () => void }) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const create = async () => {
+    setError(null);
+    setCreating(true);
+    try {
+      await apiCall("/organization", {
+        method: "POST",
+        body: JSON.stringify({ company: name.trim() }),
+      });
+      onCreated();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not create it");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (!allowSelfOrgCreation()) {
     return (
       <Callout status="warning">
@@ -123,35 +139,28 @@ function NoOrganization({ onCreated }: { onCreated: () => void }) {
       <Callout status="info" mb="3">
         You are not a member of any organization yet. Create one to continue.
       </Callout>
-      <TextField
-        label="Organization name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Acme Inc."
-        error={error ?? undefined}
-      />
-      <Button
-        mt="3"
-        disabled={name.trim().length < 3}
-        loading={creating}
-        onClick={async () => {
-          setError(null);
-          setCreating(true);
-          try {
-            await apiCall("/organization", {
-              method: "POST",
-              body: JSON.stringify({ company: name.trim() }),
-            });
-            onCreated();
-          } catch (e) {
-            setError(e instanceof Error ? e.message : "Could not create it");
-          } finally {
-            setCreating(false);
-          }
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          create();
         }}
       >
-        Create organization
-      </Button>
+        <TextField
+          label="Organization name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Acme Inc."
+          error={error ?? undefined}
+        />
+        <Button
+          type="submit"
+          mt="3"
+          disabled={name.trim().length < 3}
+          loading={creating}
+        >
+          Create organization
+        </Button>
+      </form>
     </Box>
   );
 }
