@@ -6,9 +6,12 @@ import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   getAllFactTablesForOrganization,
+  getFactTable,
   getFactTablesForDatasource,
 } from "back-end/src/models/FactTableModel";
+import { runColumnsTopValuesQuery } from "back-end/src/services/factTableColumns";
 import {
+  getProductAnalyticsColumnValues,
   getProductAnalyticsColumns,
   searchProductAnalyticsResources,
 } from "back-end/src/services/product-analytics-tools";
@@ -38,7 +41,11 @@ const metric = (id: string, name: string): FactMetricInterface =>
     numerator: { factTableId: "ft_1", column: "value" },
   }) as FactMetricInterface;
 
-const factTable = (id: string, name: string): FactTableInterface =>
+const factTable = (
+  id: string,
+  name: string,
+  overrides: Partial<FactTableInterface> = {},
+): FactTableInterface =>
   ({
     id,
     name,
@@ -47,6 +54,7 @@ const factTable = (id: string, name: string): FactTableInterface =>
     eventName: null,
     columns: [],
     userIdTypes: ["user_id"],
+    ...overrides,
   }) as FactTableInterface;
 
 describe("product analytics tools", () => {
@@ -126,5 +134,75 @@ describe("product analytics tools", () => {
     ).rejects.toThrow(
       "One or more Fact Metrics were not found or are not accessible.",
     );
+  });
+
+  it("returns only user ID types shared by every selected metric", async () => {
+    const firstMetric = {
+      ...metric("fact__first", "First"),
+      metricType: "proportion",
+      numerator: { factTableId: "ft_1", column: "value" },
+    } as FactMetricInterface;
+    const secondMetric = {
+      ...metric("fact__second", "Second"),
+      metricType: "proportion",
+      numerator: { factTableId: "ft_2", column: "value" },
+    } as FactMetricInterface;
+    context.models.factMetrics.getByIds = jest
+      .fn()
+      .mockResolvedValue([firstMetric, secondMetric]);
+    jest.mocked(getFactTable).mockImplementation(async (_context, id) => {
+      if (id === "ft_1") {
+        return factTable("ft_1", "First", {
+          userIdTypes: ["user_id", "anonymous_id"],
+        });
+      }
+      return factTable("ft_2", "Second", {
+        userIdTypes: ["anonymous_id", "device_id"],
+      });
+    });
+
+    const result = await getProductAnalyticsColumns(context, {
+      source: "metric",
+      metricIds: ["fact__first", "fact__second"],
+    });
+
+    expect(result.userIdTypes).toEqual(["anonymous_id"]);
+    expect(result.unitNote).toContain('default: "anonymous_id"');
+  });
+
+  it("passes search terms into the warehouse query before limiting", async () => {
+    const countryColumn = {
+      column: "country",
+      name: "Country",
+      datatype: "string",
+      deleted: false,
+    } as FactTableInterface["columns"][number];
+    jest.mocked(getFactTable).mockResolvedValue(
+      factTable("ft_1", "Events", {
+        sql: "SELECT country, timestamp FROM events",
+        timestampColumn: "timestamp",
+        columns: [countryColumn],
+      }),
+    );
+    jest
+      .mocked(runColumnsTopValuesQuery)
+      .mockResolvedValue({ country: ["United States"] });
+
+    const result = await getProductAnalyticsColumnValues(context, {
+      source: "fact_table",
+      factTableId: "ft_1",
+      columns: ["country"],
+      searchTerm: "states",
+      limit: 5,
+    });
+
+    expect(runColumnsTopValuesQuery).toHaveBeenCalledWith(
+      context,
+      expect.objectContaining({ id: "ds_1" }),
+      expect.objectContaining({ timestampColumn: "timestamp" }),
+      [countryColumn],
+      { limit: 5, searchTerm: "states" },
+    );
+    expect(result.values).toEqual({ country: ["United States"] });
   });
 });

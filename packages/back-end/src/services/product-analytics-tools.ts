@@ -306,7 +306,7 @@ export async function getProductAnalyticsColumns(
 
   const metrics = await getRequestedMetrics(context, input.metricIds);
   let columns: FactTableInterface["columns"] | null = null;
-  let userIdTypes: string[] = [];
+  let userIdTypes: string[] | null = null;
   const metricUnitInfo: ProductAnalyticsMetricUnitInfo[] = [];
   const factTableIds = Array.from(
     new Set(
@@ -343,9 +343,13 @@ export async function getProductAnalyticsColumns(
         `Fact Table "${factTableId}" was not found or is not accessible.`,
       );
     }
-    if (!userIdTypes.length && factTable.userIdTypes?.length) {
-      userIdTypes = factTable.userIdTypes;
-    }
+    const factTableUserIdTypes = factTable.userIdTypes ?? [];
+    userIdTypes =
+      userIdTypes === null
+        ? [...factTableUserIdTypes]
+        : userIdTypes.filter((userIdType) =>
+            factTableUserIdTypes.includes(userIdType),
+          );
     const factTableColumns = (factTable.columns ?? []).filter(
       (column) => !column.deleted,
     );
@@ -357,15 +361,16 @@ export async function getProductAnalyticsColumns(
     }
   }
 
+  const commonUserIdTypes = userIdTypes ?? [];
   return {
     columns: (columns ?? [])
       .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
       .map(({ column, name, datatype }) => ({ column, name, datatype })),
-    userIdTypes,
+    userIdTypes: commonUserIdTypes,
     metrics: metricUnitInfo,
-    unitNote: userIdTypes.length
-      ? `For metrics where needsUnit is true, set unit to one of userIdTypes (default: "${userIdTypes[0]}"). For other metrics, set unit to null.`
-      : "No userIdTypes were found. Set unit to null for all metrics.",
+    unitNote: commonUserIdTypes.length
+      ? `For metrics where needsUnit is true, set unit to one of userIdTypes (default: "${commonUserIdTypes[0]}"). For other metrics, set unit to null.`
+      : "The selected Fact Metrics have no common user ID type. Request each metric separately to find its valid units.",
   };
 }
 
@@ -466,6 +471,10 @@ export async function getProductAnalyticsColumnValues(
       timestampColumn: factTable.timestampColumn,
     },
     columnsToQuery,
+    {
+      limit: input.limit,
+      searchTerm: input.searchTerm,
+    },
   );
   const searchTerm = input.searchTerm?.toLowerCase();
   const values = Object.fromEntries(

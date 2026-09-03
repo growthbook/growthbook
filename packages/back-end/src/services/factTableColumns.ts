@@ -99,6 +99,10 @@ export async function runColumnsTopValuesQuery(
   datasource: DataSourceInterface,
   factTable: Pick<FactTableInterface, "sql" | "eventName" | "timestampColumn">,
   columns: ColumnInterface[],
+  options?: {
+    limit?: number;
+    searchTerm?: string;
+  },
 ): Promise<Record<string, string[]>> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -120,11 +124,13 @@ export async function runColumnsTopValuesQuery(
   const sql = integration.getColumnsTopValuesQuery({
     factTable,
     columns,
-    limit: Math.max(
-      100,
-      context.org.settings?.maxMetricSliceLevels ??
-        DEFAULT_MAX_METRIC_SLICE_LEVELS,
-    ),
+    limit:
+      options?.limit ??
+      Math.max(
+        100,
+        context.org.settings?.maxMetricSliceLevels ??
+          DEFAULT_MAX_METRIC_SLICE_LEVELS,
+      ),
     lookbackDays: getTopValuesLookbackDays(
       context.org.settings?.topValuesLookbackValue ??
         DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
@@ -132,6 +138,7 @@ export async function runColumnsTopValuesQuery(
         DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
     ),
     maxValueLength: MAX_TOP_VALUE_LENGTH,
+    searchTerm: options?.searchTerm,
   });
   const result = await integration.runColumnsTopValuesQuery(sql);
 
