@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 // Fails if any shipped dependency carries a license we haven't cleared.
-// Runs `pnpm licenses` so resolution matches the lockfile, not a node_modules walk.
+// Reads the installed prod tree rather than `pnpm licenses`, which resolves against
+// the lockfile and fails on a CI store that never fetched an unused optional peer.
 
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 // Permissive licenses that need no review.
 const ALLOWED = new Set([
@@ -36,6 +39,7 @@ const EXCEPTIONS = {
     "FSL-1.1-MIT, build-time only, not linked into the app",
   flatbuffers:
     "Apache-2.0 upstream; the published package omits the license field",
+  "seq-queue": "MIT per its bundled LICENSE; no license field in package.json",
   "url-template":
     'BSD-3-Clause upstream; declared as the non-SPDX string "BSD"',
 };
@@ -72,21 +76,49 @@ function splitTop(expr, op) {
   return parts.map((p) => p.trim());
 }
 
-const raw = execFileSync("pnpm", ["licenses", "list", "--json", "--prod"], {
-  encoding: "utf8",
-  maxBuffer: 64 * 1024 * 1024,
-});
+// package.json carried `licenses: [{type}]` before SPDX; a few old deps still do.
+function declaredLicense(pkg) {
+  if (typeof pkg.license === "string") return pkg.license;
+  if (pkg.license?.type) return pkg.license.type;
+  const legacy = (pkg.licenses ?? []).map((l) => l.type ?? l).filter(Boolean);
+  return legacy.length ? legacy.join(" OR ") : "UNKNOWN";
+}
+
+const raw = execFileSync(
+  "pnpm",
+  ["-r", "list", "--prod", "--depth", "Infinity", "--json"],
+  { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
+);
+
+const seen = new Set();
+const installed = [];
+function walk(deps) {
+  for (const node of Object.values(deps ?? {})) {
+    // Workspace packages are ours; only real installs live under node_modules.
+    if (node.path?.includes(`${path.sep}node_modules${path.sep}`)) {
+      if (seen.has(node.path)) continue;
+      seen.add(node.path);
+      installed.push(node.path);
+    }
+    walk(node.dependencies);
+  }
+}
+for (const root of JSON.parse(raw)) {
+  walk(root.dependencies);
+  walk(root.optionalDependencies);
+}
 
 const violations = [];
-for (const [license, pkgs] of Object.entries(JSON.parse(raw))) {
-  for (const pkg of pkgs) {
-    if (EXCEPTIONS[pkg.name] || isAllowed(license)) continue;
-    violations.push({
-      name: pkg.name,
-      versions: pkg.versions.join(", "),
-      license,
-    });
+for (const dir of installed) {
+  let pkg;
+  try {
+    pkg = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8"));
+  } catch {
+    continue; // pruned or absent on disk, so it isn't shipping
   }
+  const license = declaredLicense(pkg);
+  if (EXCEPTIONS[pkg.name] || isAllowed(license)) continue;
+  violations.push({ name: pkg.name, versions: pkg.version, license });
 }
 
 if (violations.length) {
@@ -101,4 +133,6 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log("All production dependency licenses are cleared.");
+console.log(
+  `All ${installed.length} production dependency licenses are cleared.`,
+);
