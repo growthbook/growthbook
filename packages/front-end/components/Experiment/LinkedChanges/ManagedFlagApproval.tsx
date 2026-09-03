@@ -27,7 +27,10 @@ import {
 import { revisionStatusLabel } from "@/components/Reviews/RevisionStatusBadge";
 import ApprovalStatusBand from "@/components/Reviews/ApprovalStatusBand";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
-import { getVariationValueChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
+import {
+  environmentStatesDiffer,
+  getVariationValueChanges,
+} from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import {
   EnvironmentStateChips,
   getEnvironmentStates,
@@ -53,8 +56,7 @@ import Field from "@/components/Forms/Field";
 import RadioGroup from "@/ui/RadioGroup";
 import VariationLabel from "@/ui/VariationLabel";
 import ForceSummary from "@/components/Features/ForceSummary";
-import { formatValue } from "@/components/Features/FeatureDiffRenders";
-import { TextChangedField } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
+import { ChangeField } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -416,6 +418,13 @@ export default function ManagedFlagApproval({
   const environmentStates = getEnvironmentStates(info.pendingDraft ?? {}, {
     future: publishIsLaunch ? "started" : "published",
   });
+  // Where the rule runs today, as the "before" half of the diff. A first draft
+  // has no live rule, so there is nothing to compare and only the result shows.
+  const liveEnvironmentStates = getEnvironmentStates({
+    environmentStates: info.liveEnvironmentStates,
+  });
+  const environmentsChanged =
+    liveEnvironmentStates.length > 0 && environmentStatesDiffer(info);
 
   // Only a value that moved earns the before/after treatment; a first draft has
   // no live rule to compare against, and an unchanged one reads as "Δ x → x".
@@ -430,6 +439,18 @@ export default function ManagedFlagApproval({
   }));
   const hasValueChanges = variationValues.some((r) => r.changed);
   const typeChanged = draftFeature.valueType !== info.feature.valueType;
+
+  // One renderer for every value in this column, changed or not, so a diff and
+  // a steady value read the same way — and the same way the flag's own page
+  // reads them.
+  const renderValue = (value: string | undefined) => (
+    <ForceSummary
+      label={null}
+      value={value ?? ""}
+      feature={draftFeature}
+      sparse={info.pendingDraft?.sparse ?? info.sparse}
+    />
+  );
 
   const changesColumn = (
     <Flex
@@ -448,9 +469,10 @@ export default function ManagedFlagApproval({
             Value type
           </Text>
           <Box mt="1">
-            <TextChangedField
-              pre={info.feature.valueType}
-              post={draftFeature.valueType}
+            <ChangeField
+              changed
+              oldNode={info.feature.valueType}
+              newNode={draftFeature.valueType}
             />
           </Box>
         </Box>
@@ -460,19 +482,13 @@ export default function ManagedFlagApproval({
           <VariationLabel number={i} name={v.name} size="sm" />
           <Box mt="1">
             {changed ? (
-              <TextChangedField
-                pre={formatValue(before)}
-                post={formatValue(after)}
+              <ChangeField
+                changed
+                oldNode={renderValue(before)}
+                newNode={renderValue(after)}
               />
             ) : (
-              // The rule renderer, so a value reads the same here as on the
-              // Feature Flag page.
-              <ForceSummary
-                label={null}
-                value={after}
-                feature={draftFeature}
-                sparse={info.pendingDraft?.sparse ?? info.sparse}
-              />
+              renderValue(after)
             )}
           </Box>
         </Box>
@@ -482,7 +498,17 @@ export default function ManagedFlagApproval({
           <Text as="div" size="md" weight="semibold" color="text-high" mb="2">
             Environments
           </Text>
-          <EnvironmentStateChips states={environmentStates} />
+          {environmentsChanged ? (
+            // The markers the value rows use, so a moved environment reads as
+            // the same kind of change as a moved value.
+            <ChangeField
+              changed
+              oldNode={<EnvironmentStateChips states={liveEnvironmentStates} />}
+              newNode={<EnvironmentStateChips states={environmentStates} />}
+            />
+          ) : (
+            <EnvironmentStateChips states={environmentStates} />
+          )}
         </Box>
       )}
     </Flex>
