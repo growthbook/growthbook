@@ -130,15 +130,10 @@ export const FilterDropdown: FC<{
   syntaxFilters: SyntaxFilter[];
   open: string;
   setOpen: (value: string) => void;
-  updateQuery: (
-    filter: SyntaxFilter,
-    options?: { exclusive?: boolean },
-  ) => void;
+  updateQuery: (filter: SyntaxFilter) => void;
   operator?: string;
   heading?: string;
   menuPlacement?: "start" | "center" | "end";
-  /** Radio semantics: picking a value replaces the current one instead of adding to it. */
-  exclusive?: boolean;
 }> = ({
   filter,
   items,
@@ -149,7 +144,6 @@ export const FilterDropdown: FC<{
   operator = "",
   heading,
   menuPlacement = "start",
-  exclusive,
 }) => {
   const [filterSearch, setFilterSearch] = useState<string>("");
   const filterLabel = heading ?? filter;
@@ -227,7 +221,7 @@ export const FilterDropdown: FC<{
                 operator: i?.operator ?? "",
                 negated: i?.negated ?? false,
               };
-              updateQuery(f, { exclusive });
+              updateQuery(f);
             }}
           >
             <FilterItem
@@ -335,7 +329,7 @@ export const useSearchFiltersBase = ({
   );
 
   const updateQuery = useCallback(
-    (filter: SyntaxFilter, { exclusive = false } = {}) => {
+    (filter: SyntaxFilter) => {
       const existingFilter = syntaxFilters.find(
         (f) =>
           f.field === filter.field &&
@@ -363,9 +357,7 @@ export const useSearchFiltersBase = ({
             updateFilterToSearch(existingFilter);
           }
         } else {
-          existingFilter.values = exclusive
-            ? filter.values
-            : existingFilter.values.concat(filter.values);
+          existingFilter.values = existingFilter.values.concat(filter.values);
           updateFilterToSearch(existingFilter);
         }
       } else {
