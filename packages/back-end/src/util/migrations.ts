@@ -680,14 +680,15 @@ export function upgradeExperimentDoc(
     experiment.secondaryMetrics = [];
   }
 
-  // Backfill a missing creation date (a required field that legacy/corrupt docs
-  // may lack).
+  // Backfill a missing creation date.
   if (!experiment.dateCreated) {
     const earliestPhaseStart = (experiment.phases ?? [])
       .map((p) => p.dateStarted)
       .filter((d): d is Date => !!d)
       .sort((a, b) => +new Date(a) - +new Date(b))[0];
-    experiment.dateCreated = earliestPhaseStart ?? experiment.dateUpdated;
+    if (earliestPhaseStart) {
+      experiment.dateCreated = earliestPhaseStart;
+    }
   }
 
   // Populate phase names and targeting properties

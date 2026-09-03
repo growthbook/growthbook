@@ -1919,14 +1919,17 @@ describe("Experiment Migration", () => {
     expect(result.dateCreated).toEqual(early);
   });
 
-  it("falls back to dateUpdated for dateCreated when no phase has a start", () => {
+  it("leaves dateCreated unset when no phase has a start (no dateUpdated fallback)", () => {
+    // "Last modified" is a poor proxy for creation, so dateUpdated is not used.
+    // Leaving dateCreated (and the phase start) absent lets the analysis guard
+    // fire rather than analyzing against a fabricated window.
     const dateUpdated = new Date("2024-05-01T00:00:00.000Z");
     const result = upgradeExperimentDoc({
       ...exp,
       dateCreated: undefined,
       dateUpdated,
     });
-    expect(result.dateCreated).toEqual(dateUpdated);
+    expect(result.dateCreated).toBeUndefined();
   });
 
   it("derives dateCreated from a phase start, which then resolves that phase's dateStarted", () => {
