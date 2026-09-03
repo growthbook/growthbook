@@ -311,9 +311,13 @@ export default function AnalysisSettingsSummary({
         ? !!experiment.regressionAdjustmentEnabled
         : false,
       experimentId: experiment.id,
+      // Leave absent when there's no started phase so it stays symmetric with an
+      // absent baseline; fabricating `new Date()` here would spuriously flag a change.
       startDate: phaseStart
         ? new Date(phaseStart)
-        : getValidDate(experiment.phases?.[0]?.dateStarted ?? ""),
+        : experiment.phases?.[0]?.dateStarted
+          ? new Date(experiment.phases[0].dateStarted)
+          : undefined,
     };
     const baselineComparable: IncrementalFullRefreshComparable = {
       activationMetric: dimensionless.settings.activationMetric,

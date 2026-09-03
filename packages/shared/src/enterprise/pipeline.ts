@@ -33,10 +33,17 @@ export const INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS = [
   "experimentId",
 ] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
 
-export type IncrementalFullRefreshComparable = Pick<
-  ExperimentSnapshotSettings,
-  (typeof INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS)[number]
->;
+export type IncrementalFullRefreshComparable = Omit<
+  Pick<
+    ExperimentSnapshotSettings,
+    (typeof INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS)[number]
+  >,
+  "startDate"
+> & {
+  // Legacy snapshots (and experiments without a started phase) may lack a
+  // start date, so treat it as optional even though the snapshot type requires it.
+  startDate?: ExperimentSnapshotSettings["startDate"];
+};
 
 // Keep this aligned with snapshotSettings so UI labels match backend hash checks.
 export function normalizeIncrementalFullRefreshField(
@@ -44,7 +51,14 @@ export function normalizeIncrementalFullRefreshField(
   settings: IncrementalFullRefreshComparable,
 ): string | number | boolean | null {
   if (field === "startDate") {
-    return getValidDate(settings.startDate).getTime();
+    // getValidDate() falls
+    // back to a fresh `new Date()` on every call, so two absent dates would
+    // resolve to different wall-clock timestamps and never compare equal,
+    // deterministically reporting "Analysis start date changed" even when
+    // neither side has a start date.
+    return settings.startDate
+      ? getValidDate(settings.startDate).getTime()
+      : null;
   }
   if (field === "attributionModel") {
     return settings.attributionModel || "firstExposure";
