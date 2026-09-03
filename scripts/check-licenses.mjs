@@ -90,31 +90,37 @@ const raw = execFileSync(
   { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
 );
 
+// Collect every node carrying a path. `pnpm list` prints a repeated subtree in
+// full at one position and bare elsewhere, so recursion can't stop at a package
+// already recorded — only the recording is deduped.
 const seen = new Set();
 const installed = [];
-function walk(deps) {
-  for (const node of Object.values(deps ?? {})) {
-    // Workspace packages are ours; only real installs live under node_modules.
-    if (node.path?.includes(`${path.sep}node_modules${path.sep}`)) {
-      if (seen.has(node.path)) continue;
-      seen.add(node.path);
-      installed.push(node.path);
-    }
-    walk(node.dependencies);
+function collect(value) {
+  if (Array.isArray(value)) return value.forEach(collect);
+  if (!value || typeof value !== "object") return;
+  // Workspace packages are ours; only real installs live under node_modules.
+  const dir = value.path;
+  if (
+    typeof dir === "string" &&
+    dir.includes(`${path.sep}node_modules${path.sep}`) &&
+    !seen.has(dir)
+  ) {
+    seen.add(dir);
+    installed.push(dir);
   }
+  for (const child of Object.values(value)) collect(child);
 }
-for (const root of JSON.parse(raw)) {
-  walk(root.dependencies);
-  walk(root.optionalDependencies);
-}
+collect(JSON.parse(raw));
 
 const violations = [];
+let unread = 0;
 for (const dir of installed) {
   let pkg;
   try {
     pkg = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8"));
   } catch {
-    continue; // pruned or absent on disk, so it isn't shipping
+    unread++; // another platform's optional binary; nothing on disk to read
+    continue;
   }
   const license = declaredLicense(pkg);
   if (EXCEPTIONS[pkg.name] || isAllowed(license)) continue;
@@ -134,5 +140,7 @@ if (violations.length) {
 }
 
 console.log(
-  `All ${installed.length} production dependency licenses are cleared.`,
+  `All ${installed.length - unread} production dependency licenses are cleared` +
+    // Not a hole this check can close: their package.json only exists on that platform.
+    `, plus ${unread} not installed for this platform and so unread.`,
 );
