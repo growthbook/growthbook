@@ -33,6 +33,7 @@ import {
   getConfigDatasources,
 } from "back-end/src/init/config";
 import { upgradeDatasourceObject } from "back-end/src/util/migrations";
+import { closeMssqlPool } from "back-end/src/util/mssqlPoolManager";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
@@ -294,6 +295,8 @@ export async function deleteDatasource(
     id: datasource.id,
     organization: context.org.id,
   });
+
+  await closeMssqlPool(datasource.id);
 
   await audit.logDelete(context, datasource);
   await touchDefinitionsVersion(
