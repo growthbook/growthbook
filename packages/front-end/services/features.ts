@@ -891,9 +891,8 @@ export function validateFeatureRule(
     }
   }
 
-  // The form carries widget-only fields (hashing, sticky bucketing, coverage)
-  // for every rule type. Drop the ones this type does not store, or they
-  // persist and read as changes in every later revision diff.
+  // The form carries widget-only fields for every rule type; drop the ones
+  // this type does not store, or they persist and diff forever.
   const stripped = stripUnknownRuleFields(ruleCopy);
   if (Object.keys(stripped).length !== Object.keys(ruleCopy).length) {
     return stripped;

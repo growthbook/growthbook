@@ -498,9 +498,8 @@ export default function FeaturesHeader({
           </Flex>
           <Flex gap="4" align="center">
             {managedByExperimentId && (
-              // Why the edit and publish controls are missing, stated where
-              // someone scanning the page will see it — the overview callout
-              // says the same thing, but only once you scroll to it.
+              // Why the edit/publish controls are missing, visible without
+              // scrolling to the overview callout.
               <Box>
                 <Text weight="medium">Managed by: </Text>
                 <Link href={`/experiment/${managedByExperimentId}`}>

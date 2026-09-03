@@ -111,10 +111,8 @@ export const featureToFeatureRevisionDiffInput = (
       neverStale: feature.neverStale,
       customFields: feature.customFields,
       jsonSchema: feature.jsonSchema,
-      // Was excluded as immutable, which a managed flag broke: it re-types
-      // through the draft's `metadata.valueType` and only applies on publish.
-      // Without the live type here a re-type reads as "unset -> json", or
-      // vanishes entirely when the draft inherits this envelope wholesale.
+      // Not immutable after all: a managed flag re-types through the draft's
+      // metadata, and without the live type here the diff reads "unset -> json".
       valueType: feature.valueType,
     }),
   };
@@ -421,10 +419,8 @@ export function useFeatureRevisionDiff({
     // footprint is empty (`environments: []`, pending) or universal
     // (`allEnvironments: true`) — all of which were invisible in the old
     // per-env projection layout.
-    // Through the rule's own schema: a rule that picked up fields its type
-    // never declared (the rule form used to send widget-only ones) would
-    // otherwise diff as "Hash Version: unset -> 2" on every later revision,
-    // reporting a change nobody made.
+    // Fields a rule's type never declared (the old rule form wrote widget-only
+    // ones) would otherwise diff as changes nobody made.
     const draftRulesArr = (Array.isArray(draft.rules) ? draft.rules : []).map(
       stripUnknownRuleFields,
     );

@@ -168,11 +168,8 @@ function ValueChangedField({
   );
 }
 
-// A field that has no "before" worth showing: the end state on its own. An
-// added rule diffed against nothing is a column of "unset -> value" rows and
-// empty panes, which reads as a change when it is really just the content.
-// Mirrors ValueChangedField's two branches so the only visible difference is
-// the missing red pane.
+// The end state on its own, for a field with no "before": an added rule diffed
+// against nothing is a column of "unset -> value" rows. Mirrors ValueChangedField.
 function ValueOnlyField({
   label,
   value,
@@ -916,8 +913,7 @@ function NewRuleDetails({
   renderMode?: DiffRenderMode;
 }) {
   const rows: ReactNode[] = [];
-  // The experiment surface names the flag and the experiment itself, and its
-  // rule always spans every environment — both rows would restate the page.
+  // Same scrub as RuleFieldDiffs.
   const compact = renderMode === "experiment";
 
   // Combined env-scope row (matches `RuleFieldDiffs`); raw fields are
@@ -1244,11 +1240,8 @@ export function featureRuleChangeBadges(
   return badges;
 }
 
-// How much feature framing a diff needs. "feature" is the flag's own review:
-// rules are one of several things a revision can change, so each is named and
-// numbered. "experiment" is a surface where the rule IS the subject and the
-// page already says which flag and experiment it belongs to, so the rule
-// chrome and the fields restating that context are dropped.
+// "feature": the flag's own review, where each rule is named and numbered.
+// "experiment": the rule is the subject and the page already names its flag.
 export type DiffRenderMode = "feature" | "experiment";
 
 export function renderFeatureRules(
@@ -2048,9 +2041,7 @@ export function renderPrerequisites(
 }
 
 // Text "On"/"Off" indicator for an environment toggle.
-// The circled check/cross the environment readouts use elsewhere. `tone`
-// "muted" is the before half of a diff: same glyph, no colour, so the eye goes
-// to the state being moved to rather than the one being left.
+// `tone` "muted" is the before half of a diff: same glyph, faded.
 function EnvEnabledIndicator({
   enabled,
   tone = "state",
@@ -2058,11 +2049,8 @@ function EnvEnabledIndicator({
   enabled: boolean;
   tone?: "state" | "muted";
 }) {
-  // The Feature Flag overview's icons, but a teal "on" rather than its green:
-  // a review sits inches from the approval verdicts, and two green circled
-  // checks a few lines apart read as the same signal. The before half keeps
-  // its colour and fades, rather than turning grey and reading as a third
-  // state.
+  // The overview's icons, but teal for "on": a green check inches from the
+  // approval verdicts reads as another approval.
   const color = enabled ? "var(--teal-10)" : featureStatusColors.off;
   const label = enabled ? "On" : "Off";
   const Icon = enabled ? FaCircleCheck : FaCircleXmark;
@@ -2114,9 +2102,8 @@ export function renderEnvironmentsEnabled(
   );
 }
 
-// Every environment whose kill switch moved, as one section. A per-environment
-// section each would push the rest of the diff off the screen on an org with
-// twenty of them, so they share a grid that wraps into as many columns as fit.
+// One section for every toggled environment; a grid that wraps, so twenty of
+// them don't bury the rest of the diff.
 export function renderEnvironmentToggles(
   toggles: { envId: string; from: boolean; to: boolean }[],
   { endStateOnly = false }: { endStateOnly?: boolean } = {},
@@ -2127,8 +2114,7 @@ export function renderEnvironmentToggles(
       gapX="4"
       gapY="3"
       mb="2"
-      // The name sits above its state, so a column only has to be as wide as
-      // the name — many more environments fit on a row than side-by-side.
+      // Name above state: a column is only as wide as the name.
       style={{
         gridTemplateColumns: "repeat(auto-fill, minmax(120px, max-content))",
       }}

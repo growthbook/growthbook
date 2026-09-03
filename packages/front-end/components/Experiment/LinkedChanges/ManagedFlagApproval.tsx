@@ -144,9 +144,8 @@ export default function ManagedFlagApproval({
 
   // Starting the experiment is the publish, so a draft runs review only.
   const publishIsLaunch = experiment.status === "draft";
-  // A managed flag hides the Feature Flag's own Review & Publish tab, so this
-  // modal is the only place a diverged draft can be brought up to live. Same
-  // merge the feature page computes for the same call.
+  // A managed flag has no Review & Publish tab of its own, so this is the only
+  // place a diverged draft can be rebased. Same merge and call as that page.
   const liveRevision = data?.revisions?.find(
     (r) => r.version === info.feature.version,
   );
