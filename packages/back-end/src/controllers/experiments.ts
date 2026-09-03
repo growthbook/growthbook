@@ -127,6 +127,7 @@ import {
 import { IdeaModel } from "back-end/src/models/IdeasModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
+import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
@@ -3445,6 +3446,16 @@ export async function postSnapshot(
 
   if (!context.permissions.canCreateExperimentSnapshot(datasource)) {
     context.permissions.throwPermissionError();
+  }
+
+  if (dimension) {
+    await validateSnapshotDimension({
+      experiment,
+      datasource,
+      dimension,
+      organization: context.org.id,
+      phase,
+    });
   }
 
   const force = !!req.query["force"];

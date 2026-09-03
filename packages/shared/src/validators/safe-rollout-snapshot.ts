@@ -96,6 +96,7 @@ const safeRolloutSnapshotTrafficObject = z.object({
     .enum(["NO_ROWS_IN_UNIT_QUERY", "TOO_MANY_ROWS"])
     .or(z.string())
     .optional(),
+  multipleExposures: z.number().optional(),
 });
 
 const safeRolloutSnapshotHealthObject = z.object({

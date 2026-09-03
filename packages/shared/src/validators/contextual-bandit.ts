@@ -60,7 +60,6 @@ export const contextualBanditValidator = baseSchema
     banditVersion: z.number().int().nonnegative(),
 
     contextualAttributes: z.array(z.string()),
-    targetingAttributeColumns: z.array(z.string()).optional(),
 
     decisionMetric: z.string().optional(),
     minUsersPerLeaf: z.number().int().positive(),
