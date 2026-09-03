@@ -16145,6 +16145,46 @@ paths:
                                   minimum: 0
                                 totalSse:
                                   type: number
+                                split:
+                                  type: object
+                                  properties:
+                                    leafClauses:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          attribute:
+                                            type: string
+                                          levels:
+                                            type: array
+                                            items:
+                                              type: string
+                                          operator:
+                                            type: string
+                                            enum:
+                                              - in
+                                              - not in
+                                        required:
+                                          - attribute
+                                          - levels
+                                          - operator
+                                        additionalProperties: false
+                                    attribute:
+                                      type: string
+                                    leftLevels:
+                                      type: array
+                                      items:
+                                        type: string
+                                    rightLevels:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - leafClauses
+                                    - attribute
+                                    - leftLevels
+                                    - rightLevels
+                                  additionalProperties: false
                               required:
                                 - numSplits
                                 - totalSse
@@ -16165,6 +16205,10 @@ paths:
                                       anyOf:
                                         - type: number
                                         - type: 'null'
+                                    mean:
+                                      anyOf:
+                                        - type: number
+                                        - type: 'null'
                                     users:
                                       anyOf:
                                         - type: number
@@ -16172,6 +16216,7 @@ paths:
                                   required:
                                     - variationId
                                     - weight
+                                    - mean
                                     - users
                                   additionalProperties: false
                             required:
@@ -18356,6 +18401,13 @@ paths:
                       description: Frequentist p-value threshold (e.g. 0.05).
                       type: number
                   additionalProperties: false
+                restrictAccess:
+                  description: >-
+                    When true, only members with an explicit role on this
+                    Project (directly or via a team) can access it. Members with
+                    the manageTeam permission retain access. Requires a Pro or
+                    Enterprise plan.
+                  type: boolean
               required:
                 - name
               additionalProperties: false
@@ -18447,6 +18499,13 @@ paths:
                       description: Frequentist p-value threshold (e.g. 0.05).
                       type: number
                   additionalProperties: false
+                restrictAccess:
+                  description: >-
+                    When true, only members with an explicit role on this
+                    Project (directly or via a team) can access it. Members with
+                    the manageTeam permission retain access. Requires a Pro or
+                    Enterprise plan.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -18977,6 +19036,12 @@ paths:
                   type: boolean
                 savedGroupReferencesEnabled:
                   type: boolean
+                includeReferencedPrerequisites:
+                  description: >-
+                    Carry prerequisite Feature Flags into this payload even when
+                    they target other Projects. Defaults to true for new
+                    connections.
+                  type: boolean
               required:
                 - name
                 - language
@@ -19091,6 +19156,12 @@ paths:
                 remoteEvalEnabled:
                   type: boolean
                 savedGroupReferencesEnabled:
+                  type: boolean
+                includeReferencedPrerequisites:
+                  description: >-
+                    Carry prerequisite Feature Flags into this payload even when
+                    they target other Projects. Defaults to true for new
+                    connections.
                   type: boolean
               additionalProperties: false
       responses:
@@ -56759,6 +56830,12 @@ components:
             URL-safe slug used in SDK payload metadata. Auto-generated from name
             if not provided.
           type: string
+        restrictAccess:
+          description: >-
+            When true, only members with an explicit role on this Project
+            (directly or via a team) can access it. Members with the manageTeam
+            permission retain access.
+          type: boolean
         settings:
           type: object
           properties:
@@ -56925,6 +57002,8 @@ components:
         remoteEvalEnabled:
           type: boolean
         savedGroupReferencesEnabled:
+          type: boolean
+        includeReferencedPrerequisites:
           type: boolean
       required:
         - id

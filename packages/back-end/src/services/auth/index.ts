@@ -48,6 +48,7 @@ import {
   hashOrganizationId,
 } from "back-end/src/services/growthbook";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -148,6 +149,7 @@ export async function processJWT(
       req.currentUser,
       req.organization,
       req.teams,
+      req.restrictedProjects,
     );
 
     if (
@@ -251,9 +253,10 @@ export async function processJWT(
           }
         }
 
-        req.teams = await TeamModel.dangerousGetTeamsForOrganization(
-          req.organization.id,
-        );
+        [req.teams, req.restrictedProjects] = await Promise.all([
+          TeamModel.dangerousGetTeamsForOrganization(req.organization.id),
+          ProjectModel.dangerousGetRestrictedProjectIds(req.organization.id),
+        ]);
 
         // Make sure this is a valid login method for the organization
         try {
