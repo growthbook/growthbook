@@ -343,13 +343,15 @@ export async function getProductAnalyticsColumns(
         `Fact Table "${factTableId}" was not found or is not accessible.`,
       );
     }
-    const factTableUserIdTypes = factTable.userIdTypes ?? [];
-    userIdTypes =
-      userIdTypes === null
-        ? [...factTableUserIdTypes]
-        : userIdTypes.filter((userIdType) =>
-            factTableUserIdTypes.includes(userIdType),
-          );
+    if (needsUnit) {
+      const factTableUserIdTypes = factTable.userIdTypes ?? [];
+      userIdTypes =
+        userIdTypes === null
+          ? [...factTableUserIdTypes]
+          : userIdTypes.filter((userIdType) =>
+              factTableUserIdTypes.includes(userIdType),
+            );
+    }
     const factTableColumns = (factTable.columns ?? []).filter(
       (column) => !column.deleted,
     );
@@ -370,7 +372,9 @@ export async function getProductAnalyticsColumns(
     metrics: metricUnitInfo,
     unitNote: commonUserIdTypes.length
       ? `For metrics where needsUnit is true, set unit to one of userIdTypes (default: "${commonUserIdTypes[0]}"). For other metrics, set unit to null.`
-      : "The selected Fact Metrics have no common user ID type. Request each metric separately to find its valid units.",
+      : metricUnitInfo.some(({ needsUnit }) => needsUnit)
+        ? "The selected Fact Metrics that require units have no common user ID type. Request each metric separately to find its valid units."
+        : "The selected Fact Metrics do not require a unit. Set unit to null.",
   };
 }
 

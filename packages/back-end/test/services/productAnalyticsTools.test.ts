@@ -136,7 +136,7 @@ describe("product analytics tools", () => {
     );
   });
 
-  it("returns only user ID types shared by every selected metric", async () => {
+  it("returns only user ID types shared by every unit-requiring metric", async () => {
     const firstMetric = {
       ...metric("fact__first", "First"),
       metricType: "proportion",
@@ -168,6 +168,43 @@ describe("product analytics tools", () => {
 
     expect(result.userIdTypes).toEqual(["anonymous_id"]);
     expect(result.unitNote).toContain('default: "anonymous_id"');
+  });
+
+  it("does not let a no-unit metric restrict valid user ID types", async () => {
+    const unitMetric = {
+      ...metric("fact__unit", "Unit Metric"),
+      metricType: "proportion",
+      numerator: { factTableId: "ft_1", column: "value" },
+    } as FactMetricInterface;
+    const noUnitMetric = {
+      ...metric("fact__no_unit", "No Unit Metric"),
+      metricType: "mean",
+      numerator: { factTableId: "ft_2", column: "value" },
+    } as FactMetricInterface;
+    context.models.factMetrics.getByIds = jest
+      .fn()
+      .mockResolvedValue([unitMetric, noUnitMetric]);
+    jest.mocked(getFactTable).mockImplementation(async (_context, id) => {
+      if (id === "ft_1") {
+        return factTable("ft_1", "First", {
+          userIdTypes: ["user_id"],
+        });
+      }
+      return factTable("ft_2", "Second", {
+        userIdTypes: ["account_id"],
+      });
+    });
+
+    const result = await getProductAnalyticsColumns(context, {
+      source: "metric",
+      metricIds: ["fact__unit", "fact__no_unit"],
+    });
+
+    expect(result.userIdTypes).toEqual(["user_id"]);
+    expect(result.metrics).toEqual([
+      expect.objectContaining({ metricId: "fact__unit", needsUnit: true }),
+      expect.objectContaining({ metricId: "fact__no_unit", needsUnit: false }),
+    ]);
   });
 
   it("passes search terms into the warehouse query before limiting", async () => {
