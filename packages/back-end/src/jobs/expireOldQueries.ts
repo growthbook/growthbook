@@ -40,6 +40,8 @@ import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { ApiReqContext } from "back-end/types/api";
+
 const JOB_NAME = "expireOldQueries";
 
 // The time after which a snapshot is considered stalled
@@ -296,10 +298,27 @@ async function reapStalledSnapshots() {
           // statuses describe a stale query set. Skip rather than error
           if (!sameQueries) continue;
 
+          // Results runners never hold the lock, so a fresh heartbeat means
+          // the incremental runner is still alive (including analysis).
+          // TODO: have a proper heartbeat for all queryRunners
+          if (
+            await context.models.incrementalRefresh.hasFreshLockHeartbeat(
+              snapshot.experiment,
+              snapshot.id,
+            )
+          ) {
+            logger.info(
+              `Deferring stalled snapshot ${snapshot.id}: its runner is still heartbeating the incremental refresh lock`,
+            );
+            continue;
+          }
+
           if (await recoverStalledSnapshot(context, freshSnapshot)) {
             logger.info(
               `Recovered stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}) from persisted results`,
             );
+            // Retry in case the runner's own release failed.
+            await releaseStalledSnapshotLock(context, snapshot);
             continue;
           }
         }
@@ -381,15 +400,20 @@ async function reapStalledSnapshots() {
       }
     }
 
-    await context.models.incrementalRefresh
-      .releaseLock(snapshot.experiment, snapshot.id)
-      .catch((e) =>
-        logger.warn(
-          e,
-          "Failed to release incremental lock for stalled snapshot",
-        ),
-      );
+    await releaseStalledSnapshotLock(context, snapshot);
   }
+}
+
+// No-op if a newer run has taken the lock (releaseLock filters on snapshot id).
+async function releaseStalledSnapshotLock(
+  context: ApiReqContext,
+  snapshot: { experiment: string; id: string },
+) {
+  await context.models.incrementalRefresh
+    .releaseLock(snapshot.experiment, snapshot.id)
+    .catch((e) =>
+      logger.warn(e, "Failed to release incremental lock for stalled snapshot"),
+    );
 }
 
 export default async function (agenda: Agenda) {

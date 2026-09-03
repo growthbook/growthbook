@@ -93,10 +93,11 @@ jest.mock("back-end/src/util/logger", () => ({
 
 describe("expireOldQueries stalled snapshot reaper", () => {
   const releaseLock = jest.fn().mockResolvedValue(undefined);
+  const hasFreshLockHeartbeat = jest.fn();
   const context = {
     org: { id: "org_1" },
     models: {
-      incrementalRefresh: { releaseLock },
+      incrementalRefresh: { releaseLock, hasFreshLockHeartbeat },
       metricAnalysis: { update: jest.fn() },
     },
   };
@@ -118,6 +119,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(context);
     (findSnapshotById as jest.Mock).mockResolvedValue(null);
     (recoverStalledSnapshot as jest.Mock).mockResolvedValue(false);
+    hasFreshLockHeartbeat.mockResolvedValue(false);
   });
 
   async function runJob() {
@@ -260,6 +262,19 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       expect.objectContaining({ id: "snp_1" }),
     );
     expect(errorSnapshotIfStillRunning).not.toHaveBeenCalled();
+    expect(releaseLock).toHaveBeenCalledWith("exp_1", "snp_1");
+  });
+
+  it("leaves an all-succeeded snapshot alone while its runner still heartbeats the lock", async () => {
+    mockStalledSnapshot([{ id: "qry_1", status: "succeeded" }]);
+    hasFreshLockHeartbeat.mockResolvedValue(true);
+
+    await runJob();
+
+    expect(hasFreshLockHeartbeat).toHaveBeenCalledWith("exp_1", "snp_1");
+    expect(recoverStalledSnapshot).not.toHaveBeenCalled();
+    expect(errorSnapshotIfStillRunning).not.toHaveBeenCalled();
+    expect(releaseLock).not.toHaveBeenCalled();
   });
 
   it("still errors a stalled snapshot with a mixed succeeded/failed roster", async () => {
