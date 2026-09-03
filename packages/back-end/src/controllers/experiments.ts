@@ -4299,7 +4299,8 @@ export async function postExperimentFeatureValues(
   req: AuthRequest<
     {
       variations: Variation[];
-      variationWeights: number[];
+      /** Required while the experiment is a draft; ignored once it has started. */
+      variationWeights?: number[];
       features: Record<string, ExperimentLinkedFeatureValueUpdate>;
     },
     { id: string }
@@ -4378,19 +4379,29 @@ export async function postExperimentFeatureValues(
     experiment.variations.map((v) => v.key),
   );
   validateVariationIds(variations);
+
+  const latestPhase = experiment.phases[experiment.phases.length - 1];
+  const effectiveWeights = structureLocked
+    ? latestPhase.variationWeights
+    : variationWeights;
+  if (!effectiveWeights) {
+    res.status(400).json({
+      status: 400,
+      message: "variationWeights is required for a draft experiment",
+    });
+    return;
+  }
   validateExperimentFeatureVariations({
     variations,
-    variationWeights,
+    variationWeights: effectiveWeights,
     experiment,
     features,
   });
 
-  const latestPhase = experiment.phases[experiment.phases.length - 1];
-
   const variationsChanged = !isEqual(variations, experiment.variations);
   const variationWeightsChanged =
     !structureLocked &&
-    !isEqual(variationWeights, latestPhase.variationWeights);
+    !isEqual(effectiveWeights, latestPhase.variationWeights);
 
   const changes: Changeset = {};
 
@@ -4422,7 +4433,7 @@ export async function postExperimentFeatureValues(
     const updatedPhases = [...basePhases];
     updatedPhases[lastIndex] = {
       ...updatedPhases[lastIndex],
-      variationWeights,
+      variationWeights: effectiveWeights,
     };
     changes.phases = updatedPhases;
   }

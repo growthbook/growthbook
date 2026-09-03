@@ -581,10 +581,16 @@ function ManagedTrafficForm({
       }
     }
 
-    // Experiment state first, then values; the second call re-sends the
-    // variations so the server checks each has one. A locked structure still
-    // carries names and descriptions — only traffic and ids are read-only
-    // there — so send the variations alone rather than the whole shape.
+    // Once started, only variation names and descriptions leave this modal.
+    // Traffic and structure belong to Make Changes, so they are never sent
+    // rather than sent and refused.
+    const lockedVariations = experiment.variations.map((live) => {
+      const edited = data.variations.find((v) => v.id === live.id);
+      return edited
+        ? { ...live, name: edited.name, description: edited.description }
+        : live;
+    });
+    const sentVariations = safeToEdit ? data.variations : lockedVariations;
     if (safeToEdit) {
       await apiCall(`/experiment/${experiment.id}`, {
         method: "POST",
@@ -593,7 +599,7 @@ function ManagedTrafficForm({
     } else if (experimentDirty) {
       await apiCall(`/experiment/${experiment.id}`, {
         method: "POST",
-        body: JSON.stringify({ variations: data.variations }),
+        body: JSON.stringify({ variations: lockedVariations }),
       });
     }
 
@@ -644,8 +650,8 @@ function ManagedTrafficForm({
       await apiCall(`/experiment/${experiment.id}/features`, {
         method: "POST",
         body: JSON.stringify({
-          variations: data.variations,
-          variationWeights: data.variationWeights,
+          variations: sentVariations,
+          ...(safeToEdit && { variationWeights: data.variationWeights }),
           features: {
             [feature.id]: {
               variations: values,
