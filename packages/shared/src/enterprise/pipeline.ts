@@ -44,7 +44,10 @@ export function normalizeIncrementalFullRefreshField(
   settings: IncrementalFullRefreshComparable,
 ): string | number | boolean | null {
   if (field === "startDate") {
-    return getValidDate(settings.startDate).getTime();
+    // Use a stable epoch fallback so absent/invalid startDates normalize
+    // deterministically; the default `getValidDate` fallback is `new Date()`,
+    // which makes two absent values compare unequal across separate calls.
+    return getValidDate(settings.startDate, new Date(0)).getTime();
   }
   if (field === "attributionModel") {
     return settings.attributionModel || "firstExposure";
