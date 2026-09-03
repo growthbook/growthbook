@@ -2109,9 +2109,7 @@ export default function ReviewAndPublish({
           <Box mb={scheduledExperiments.length > 0 ? "3" : "0"}>
             <Flex align="center" gap="1" mb="2">
               <PiFlaskBold />
-              <Text weight="medium">
-                Start running experiments upon publishing:
-              </Text>
+              <Text>Start running experiments upon publishing:</Text>
             </Flex>
             {immediateStartExperiments.map((experiment) => (
               <Box key={experiment.id}>
@@ -2134,9 +2132,7 @@ export default function ReviewAndPublish({
           <Box>
             <Flex align="center" gap="1" mb="2">
               <PiFlaskBold />
-              <Text weight="medium">
-                Approve scheduled start for experiments:
-              </Text>
+              <Text>Approve scheduled start for experiments:</Text>
             </Flex>
             {scheduledExperiments.map((experiment) => (
               <Box key={experiment.id}>
