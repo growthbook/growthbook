@@ -69,32 +69,30 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
         </thead>
         <tbody>
           {keys.map((key) => {
-            // A PAT disabled by an admin can only be re-enabled by an admin;
-            // mirrors the model's canUpdate rule.
-            const adminLocked =
+            const disabledByAdmin =
               !!key.userId &&
               !!key.disabled &&
               !!key.disabledBy &&
-              key.disabledBy !== userId &&
-              !canManageTokens;
+              key.disabledBy !== userId;
+            // Only an admin can re-enable such a token; mirrors canUpdate.
+            const adminLocked = disabledByAdmin && !canManageTokens;
+            // Data cells dim, never the actions cell that holds Enable.
+            const dimmed = key.disabled ? { opacity: 0.55 } : undefined;
             return (
-              <tr
-                key={key.id}
-                style={key.disabled ? { opacity: 0.55 } : undefined}
-              >
-                <td>
+              <tr key={key.id}>
+                <td style={dimmed}>
                   {key.description}
                   {key.disabled && (
                     <Badge
                       ml="2"
                       color="red"
                       variant="soft"
-                      label={adminLocked ? "Disabled by admin" : "Disabled"}
+                      label={disabledByAdmin ? "Disabled by admin" : "Disabled"}
                       title={adminLocked ? ADMIN_LOCKED_REASON : undefined}
                     />
                   )}
                 </td>
-                <td style={{ minWidth: 270 }}>
+                <td style={{ minWidth: 270, ...dimmed }}>
                   {canCreateKeys ? (
                     <ClickToReveal
                       valueWhenHidden="secret_abcdefghijklmnop123"
@@ -104,10 +102,10 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     <em>hidden</em>
                   )}
                 </td>
-                <td>
+                <td style={dimmed}>
                   {key.role ? getRoleDisplayName(key.role, organization) : "-"}
                 </td>
-                <td>
+                <td style={dimmed}>
                   {key.projectRoles?.map((pr) => {
                     const p = projects.find((p) => p.id === pr.project);
                     if (p?.name) {
@@ -146,7 +144,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                         organization,
                       );
                   return (
-                    <td key={env.id}>
+                    <td key={env.id} style={dimmed}>
                       {access === "N/A" ? (
                         <span className="text-muted">N/A</span>
                       ) : access === "yes" ? (
@@ -157,7 +155,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     </td>
                   );
                 })}
-                <td>
+                <td style={dimmed}>
                   {key.lastUsed ? (
                     <Tooltip
                       content={
