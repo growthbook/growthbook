@@ -98,9 +98,7 @@ export interface SDKConnectionInterface {
   includeTagsInMetadata?: boolean;
   includeExperimentScheduleInMetadata?: boolean;
   // Carry prerequisite features into this payload even when they target other
-  // projects. Without them the gate they back can never pass, so the dependent
-  // silently fails closed. Absent = off, which is every connection that predates
-  // the setting; new connections are created with it on.
+  // projects. Absent = off; new connections are created with it on.
   includeReferencedPrerequisites?: boolean;
 
   // URL slug for fetching features from the API

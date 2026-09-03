@@ -520,8 +520,7 @@ export async function getAllFeatures(
   }: { projects?: string[]; ids?: string[]; includeArchived?: boolean } = {},
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
-  // An explicit id list is its own scope — used to pull in prerequisites that a
-  // project filter would otherwise hide (see loadMissingPrerequisites).
+  // An explicit id list is its own scope, ignoring `projects`.
   if (ids) {
     if (!ids.length) return [];
     q.id = { $in: ids };

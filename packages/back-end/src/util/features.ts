@@ -647,10 +647,8 @@ export function experimentMapForFeatures(
   );
 }
 
-// Prerequisite feature ids a set of features gates on: top-level gates, gates on
-// an enabled rule, and the phase gates of any experiment those rules reference.
-// All three become `parentConditions` in the payload, so all three need the
-// parent present for the gate to be evaluable.
+// Gates live in three places — the feature, its rules, and the phases of any
+// experiment those rules reference — and all three become `parentConditions`.
 export function getPrerequisiteIdsInFeatures(
   features: FeatureInterface[],
   experimentMap?: Map<string, ExperimentInterface>,
@@ -662,7 +660,6 @@ export function getPrerequisiteIdsInFeatures(
 
     (feature.rules ?? []).forEach((rule) => {
       if (!rule || typeof rule !== "object") return;
-      // Disabled rules never render, so what they gate on is not needed.
       if (rule.enabled === false) return;
 
       (rule.prerequisites ?? []).forEach((p) => p?.id && ids.add(p.id));
@@ -678,14 +675,8 @@ export function getPrerequisiteIdsInFeatures(
   return [...ids];
 }
 
-// A prerequisite a delivered feature gates on belongs in that feature's payload
-// even when the parent targets other projects. Without it the gate resolves
-// against a missing feature, which can never pass, and the dependent silently
-// fails closed. Transitive: a parent's own prerequisites come too.
-//
-// `carried` is the set of ids pulled in this way. They are delivered outside
-// their own targeting, so their rules must be built against their own delivery
-// scope rather than the connection's — see `getFeatureDefinition`.
+// A gate whose parent is absent from the payload can never pass, so a delivered
+// feature's prerequisites travel with it even when they target other projects.
 export function featuresWithPrerequisiteClosure(
   features: FeatureInterface[],
   featuresMap: Map<string, FeatureInterface>,
@@ -700,7 +691,6 @@ export function featuresWithPrerequisiteClosure(
     for (const id of getPrerequisiteIdsInFeatures(frontier, experimentMap)) {
       if (present.has(id)) continue;
       const parent = featuresMap.get(id);
-      // A missing parent is a dangling reference, not something to carry.
       if (!parent) continue;
       present.add(id);
       carried.add(id);
@@ -717,15 +707,10 @@ export function featuresWithPrerequisiteClosure(
   };
 }
 
-// Feature A gating on prerequisite B means every payload that delivers A also
-// carries B (see featuresWithPrerequisiteClosure). A change to B only produces
-// payload keys for B's own projects, so those payloads would go stale. This maps
-// a project to the projects whose payloads may carry a feature from it, so the
-// affected keys can be widened.
-//
-// Project-level rather than feature-level so it can be built once per refresh
-// and applied without knowing which feature changed. Orgs with no cross-project
-// prerequisites get an empty map and no extra work.
+// Closure delivers a parent into payloads its own projects don't name, and a
+// change to it only produces keys for those projects. Maps a project to the
+// projects whose payloads may carry a feature from it, so the keys can be
+// widened without knowing which feature changed.
 export function buildPrerequisiteProjectReach(
   features: FeatureInterface[],
 ): Map<string, Set<string>> {
@@ -740,8 +725,7 @@ export function buildPrerequisiteProjectReach(
   };
 
   for (const dependent of features) {
-    // A dependent that targets all projects is in every payload already; the
-    // parent still needs to reach those payloads, so leave it to the "" key.
+    // All-projects entities are served by the "" key already.
     const dependentProjects = getTargetingProjectIds(dependent);
     if (dependentProjects === null) continue;
 
@@ -756,8 +740,7 @@ export function buildPrerequisiteProjectReach(
     }
   }
 
-  // Chains: a grandparent reaches wherever its parent reaches. The project graph
-  // is small, so a simple fixpoint is cheaper than tracking the feature graph.
+  // A grandparent reaches wherever its parent reaches.
   let changed = true;
   while (changed) {
     changed = false;
@@ -776,8 +759,6 @@ export function buildPrerequisiteProjectReach(
   return reach;
 }
 
-// Widen payload keys so a change to a feature that something gates on also
-// refreshes the payloads carrying it as a prerequisite.
 export function expandPayloadKeysForPrerequisites(
   payloadKeys: SDKPayloadKey[],
   reach: Map<string, Set<string>>,

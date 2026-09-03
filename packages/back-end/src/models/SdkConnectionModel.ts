@@ -237,9 +237,8 @@ export async function createSDKConnection(
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
     ...otherParams,
-    // Written explicitly rather than left absent, so "absent" keeps a single
-    // meaning (off, every connection predating the setting) instead of one that
-    // depends on when the connection was created.
+    // Written explicitly so "absent" keeps one meaning: off, for the connections
+    // that predate the setting.
     includeReferencedPrerequisites:
       otherParams.includeReferencedPrerequisites ?? true,
     organization: context.org.id,

@@ -234,9 +234,8 @@ export function generateFeaturesPayload({
   includeDraftExperimentRefs?: boolean;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
   payloadProjects?: string[];
-  // Features pulled in by prerequisite closure. They are delivered outside their
-  // own targeting, so the connection's project set would filter away every rule
-  // they have; they are built against their own delivery scope instead.
+  // Carried by prerequisite closure: built against their own delivery scope,
+  // since the connection's projects would filter away every rule they have.
   carriedPrerequisiteIds?: Set<string>;
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
@@ -942,13 +941,17 @@ export async function refreshSDKPayloadCache({
     getAllURLRedirectExperiments(context, experimentMap),
   ]);
 
-  // Prerequisite closure delivers a feature into payloads its own projects don't
-  // name, so a change to it produces keys that miss them. Widen before matching
-  // connections. Costs nothing when no prerequisite crosses a project boundary.
+  // Widen before matching connections; a no-op when no prerequisite crosses a
+  // project boundary. Re-applies the skip, which reach can otherwise undo.
   payloadKeys = expandPayloadKeysForPrerequisites(
     payloadKeys,
     buildPrerequisiteProjectReach(allFeatures),
   );
+  if (skipRefreshForProject) {
+    payloadKeys = payloadKeys.filter(
+      (k) => k.project !== skipRefreshForProject,
+    );
+  }
 
   const rawData: Omit<SDKPayloadRawData, "holdoutsMap"> = {
     features: allFeatures,
@@ -1374,9 +1377,8 @@ export type SDKPayloadRawData = {
   // holdoutsMapByEnv) instead of re-parsing every JSON constant for every
   // connection. When omitted, generateFeaturesPayload builds it from `constants`.
   constantMap?: ConstantValueMap | null;
-  // Pre-built id -> feature lookup over `features`. Hoisted for the same reason
-  // as `constantMap`: prerequisite closure needs it per connection, and the bulk
-  // refresh would otherwise rebuild it for every one. Built here when omitted.
+  // Hoisted for the same reason as `constantMap`: prerequisite closure needs it
+  // per connection. Built in generateFeaturesPayload when omitted.
   featuresMap?: Map<string, FeatureInterface>;
 };
 
@@ -1469,10 +1471,8 @@ export async function buildSDKPayloadForConnection(
         )
       : data.features;
 
-  // Prerequisites a delivered feature gates on ride along even when they target
-  // other projects. Skipped when the connection can't evaluate prerequisites at
-  // all (those features are folded or excluded downstream, so carrying parents
-  // would be waste), and when nothing was filtered out to begin with.
+  // Skipped when the connection can't evaluate prerequisites at all — those
+  // features are folded or excluded downstream, so carrying parents is waste.
   const canEvaluatePrerequisites =
     capabilities === undefined || capabilities.includes("prerequisites");
   const { features: filteredFeatures, carried: carriedPrerequisiteIds } =
@@ -1673,14 +1673,12 @@ export type FeatureDefinitionSDKPayload = {
   encryptedContextualBandits?: string;
 };
 
-// Chains are shallow in practice; the bound only stops a pathological one from
-// issuing a query per hop forever.
+// Bounds a pathological chain issuing a query per hop.
 const MAX_PREREQUISITE_LOAD_ROUNDS = 10;
 
-// Project-filtered loads can't see a prerequisite that targets other projects, so
-// closure at payload-build time would find nothing to carry. Pull the missing
-// parents in, then their parents, until the graph closes. Costs no extra query
-// when nothing crosses a project boundary.
+// A project-filtered load can't see a prerequisite targeting other projects, so
+// closure would find nothing to carry. Costs no extra query when nothing crosses
+// a project boundary.
 async function loadMissingPrerequisites(
   context: ReqContext | ApiReqContext,
   features: FeatureInterface[],
@@ -1725,18 +1723,32 @@ export async function getFeatureDefinitions(
     allFeatures = await loadMissingPrerequisites(context, allFeatures);
   }
   const groupMap = await getSavedGroupMap(context, allSavedGroups);
-  const experimentMap = await getAllPayloadExperiments(
+  let experimentMap = await getAllPayloadExperiments(
     context,
     projectFilter,
     getReferenceIdsInFeatures(allFeatures, "experiment-ref"),
   );
-  // Experiment phase gates are only visible once the experiments are loaded.
+  // Phase gates are only visible once the experiments are loaded.
   if (projectFilter && args.includeReferencedPrerequisites) {
-    allFeatures = await loadMissingPrerequisites(
+    const expanded = await loadMissingPrerequisites(
       context,
       allFeatures,
       getPrerequisiteIdsInFeatures(allFeatures, experimentMap),
     );
+    if (expanded.length !== allFeatures.length) {
+      allFeatures = expanded;
+      const referenced = getReferenceIdsInFeatures(
+        allFeatures,
+        "experiment-ref",
+      );
+      if (referenced.some((id) => !experimentMap.has(id))) {
+        experimentMap = await getAllPayloadExperiments(
+          context,
+          projectFilter,
+          referenced,
+        );
+      }
+    }
   }
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
