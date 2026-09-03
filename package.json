@@ -9,6 +9,7 @@
     "pretty": "prettier --write './**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx,mjs}'",
     "pretty:check": "prettier --check './**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx,mjs}'",
     "type-check": "pnpm -r run type-check",
+    "check-licenses": "node scripts/check-licenses.mjs",
     "clean": "pnpm -r run clean && rimraf node_modules",
     "doc-gen": "cd docs && pnpm install && pnpm gen",
     "unused-export-check": "pnpm -r --workspace-concurrency=1 run unused-export-check",
