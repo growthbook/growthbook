@@ -58,10 +58,15 @@ export const IMPLEMENTATION_TYPE_OPTIONS: Record<ImplementationType, Option> = {
 /** The bare icon with the picker's wording as its tooltip, for list rows. */
 export function ImplementationTypeIcon({
   type,
+  title,
+  description,
   className,
   style,
 }: {
   type: ImplementationType;
+  /** Override for surfaces that read from the other side, e.g. a flag's row. */
+  title?: string;
+  description?: string;
   className?: string;
   style?: CSSProperties;
 }) {
@@ -73,9 +78,9 @@ export function ImplementationTypeIcon({
       style={style}
       body={
         <>
-          <div>{option.header} implementation</div>
+          <div>{title ?? `${option.header} implementation`}</div>
           <Text size="sm" color="text-mid">
-            {option.description}
+            {description ?? option.description}
           </Text>
         </>
       }

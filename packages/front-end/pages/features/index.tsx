@@ -412,7 +412,11 @@ export default function FeaturesPage() {
                         <Flex align="center" gap="2">
                           {feature.id}
                           {isManagedFeature(feature) && (
-                            <ImplementationTypeIcon type="values" />
+                            <ImplementationTypeIcon
+                              type="values"
+                              title="Managed by an experiment"
+                              description="Its values are edited, reviewed and published from the experiment"
+                            />
                           )}
                         </Flex>
                       </Link>
