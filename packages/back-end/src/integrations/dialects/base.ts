@@ -118,6 +118,10 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
 
   formatDateTimeString: (col: string) => baseDialect.castToString(col),
 
+  // A truncated-but-plausible string here would silently re-load rows on every
+  // incremental refresh, so only dialects with a verified format opt in.
+  formatTimestampExact: () => "NULL",
+
   selectStarLimit: (
     from: string,
     limit: number,

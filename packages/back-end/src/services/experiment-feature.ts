@@ -15,13 +15,11 @@ import {
   MatchingRule,
   mergeResultHasChanges,
   reconcileMergeBaselines,
-  resetReviewOnChange,
 } from "shared/util";
 import { isVariationWeightsSumValid } from "shared/experiments";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import { Variation } from "shared/types/experiment";
-import { OrganizationSettings } from "shared/types/organization";
 import {
   ContextualBanditInterface,
   ExperimentInterface,
@@ -104,7 +102,7 @@ export async function linkFeatureToExperiment({
   draftVersion,
   forceNewDraft,
 }: ExperimentFeatureLinkOptions): Promise<ExperimentFeatureLinkResult> {
-  const { org, environments } = context;
+  const { environments } = context;
 
   if (
     rule.type !== "experiment-ref" ||
@@ -221,29 +219,16 @@ export async function linkFeatureToExperiment({
         : "Publish experiment";
   }
 
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments: ruleEnvFootprint,
-    defaultValueChanged: false,
-    settings: org?.settings,
-  });
   const auditSubject = scopedRule.allEnvironments
     ? "to all environments"
     : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
   const updatedRevision =
-    (await updateRevision(
-      context,
-      feature,
-      revision,
-      combinedChanges,
-      {
-        user: eventAudit,
-        action: "add experiment rule",
-        subject: auditSubject,
-        value: JSON.stringify(scopedRule),
-      },
-      resetReview,
-    )) ?? revision;
+    (await updateRevision(context, feature, revision, combinedChanges, {
+      user: eventAudit,
+      action: "add experiment rule",
+      subject: auditSubject,
+      value: JSON.stringify(scopedRule),
+    })) ?? revision;
   await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
     environments: ruleEnvFootprint,
   });
@@ -429,7 +414,6 @@ export async function updateExperimentRefVariations({
   updatedVariationValues,
   sparse,
   user,
-  orgSettings,
 }: {
   context: ReqContext;
   feature: FeatureInterface;
@@ -438,7 +422,6 @@ export async function updateExperimentRefVariations({
   updatedVariationValues: ExperimentRefVariation[];
   sparse?: boolean;
   user: EventUser;
-  orgSettings?: OrganizationSettings;
 }): Promise<FeatureRevisionInterface> {
   // Experiment-served values must satisfy the backing Config's schema +
   // invariants, the same as a direct feature publish — enforced here at
@@ -461,14 +444,6 @@ export async function updateExperimentRefVariations({
     rules: rulesToValidate,
   });
 
-  const changedEnvironments = matchingRules.map((m) => m.environmentId);
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments,
-    defaultValueChanged: false,
-    settings: orgSettings,
-  });
-
   // `matchingRules` can duplicate a rule across envs; `editFeatureRules`
   // dedupes by ruleId so the overlay runs once per rule.
   const updatedRevision = await editFeatureRules(
@@ -484,7 +459,6 @@ export async function updateExperimentRefVariations({
       ...(sparse !== undefined && { sparse }),
     },
     user,
-    resetReview,
   );
 
   if (!updatedRevision) {
@@ -1202,7 +1176,7 @@ export async function updateExperimentRuleEnvironments({
   targetVersion?: number;
   eventAudit: EventUser;
 }): Promise<{ version: number }> {
-  const { org, environments } = context;
+  const { environments } = context;
 
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
@@ -1260,29 +1234,17 @@ export async function updateExperimentRuleEnvironments({
     };
   }
 
-  const updated = await updateRevision(
-    context,
-    feature,
-    revision,
-    changes,
-    {
-      user: eventAudit,
-      action: "update experiment environments",
-      subject: allEnvironments
-        ? "to all environments"
-        : `to ${scopedEnvironments.join(", ") || "no environments"}`,
-      value: JSON.stringify({
-        allEnvironments,
-        environments: scopedEnvironments,
-      }),
-    },
-    resetReviewOnChange({
-      feature,
-      changedEnvironments: scopedEnvironments,
-      defaultValueChanged: false,
-      settings: org?.settings,
+  const updated = await updateRevision(context, feature, revision, changes, {
+    user: eventAudit,
+    action: "update experiment environments",
+    subject: allEnvironments
+      ? "to all environments"
+      : `to ${scopedEnvironments.join(", ") || "no environments"}`,
+    value: JSON.stringify({
+      allEnvironments,
+      environments: scopedEnvironments,
     }),
-  );
+  });
 
   if (!updated) {
     throw new Error(`Could not stage environment changes on "${feature.id}"`);
@@ -1337,7 +1299,6 @@ export async function removeRulesForDeletedExperiment({
           draft,
           { rules: (draft.rules ?? []).filter((r) => !refersToExperiment(r)) },
           logEntry(removed),
-          false,
         );
       }
 
@@ -1389,7 +1350,6 @@ export async function removeRulesForDeletedExperiment({
             title: comment,
           },
           logEntry(liveRemoved),
-          false,
         )) ?? cleanupDraft;
       const { live, base } = await getLiveAndBaseRevisionsForFeature({
         context,

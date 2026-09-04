@@ -48,7 +48,6 @@ import {
   normalizeTargetingInUpdates,
   normalizeTargetingProjects,
   pruneOrphanedRampActions,
-  resetReviewOnChange,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -376,7 +375,6 @@ async function createOrUpdateDraftWithChanges(
       existingDraft,
       merged,
       logEntry,
-      false,
     );
     if (!updatedDraft) {
       throw new Error(
@@ -423,6 +421,7 @@ export type SDKPayloadParams = Pick<
   | "includeCustomFieldsInMetadata"
   | "allowedCustomFieldsInMetadata"
   | "includeTagsInMetadata"
+  | "includeReferencedPrerequisites"
 > &
   Partial<Pick<SDKConnectionInterface, "organization">> & {
     // Extend languages to allow "legacy" for old API keys
@@ -469,6 +468,7 @@ export async function getPayloadParamsFromApiKey(
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+      includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
       languages: connection.languages,
       sdkVersion: connection.sdkVersion,
     };
@@ -589,6 +589,7 @@ export async function getFeatureDefinitionsWithCache({
           ? params.savedGroupReferencesEnabled &&
             capabilities.includes("savedGroupReferences")
           : undefined,
+      includeReferencedPrerequisites: params.includeReferencedPrerequisites,
     });
 
     // Write back to cache to populate it for future reads (fire and forget)
@@ -1045,25 +1046,6 @@ export async function postFeatureRebase(
   const { kept: keptRampActions, pruned: prunedRampActions } =
     pruneOrphanedRampActions(revision.rampActions, newRules);
 
-  // A rebase that actually pulls in upstream changes must re-trigger review
-  // per org policy — the prior approval was for pre-rebase content. Mirrors
-  // the v2 REST rebase path (postFeatureRevisionRebase). The merged result
-  // carries rules as a whole array, so when the rebase produced a new one we
-  // treat every env the feature is in as potentially changed.
-  const rulesChanged = mergeResult.result.rules !== undefined;
-  const changedEnvsFromRebase = Array.from(
-    new Set([
-      ...(rulesChanged ? environmentIds : []),
-      ...Object.keys(mergeResult.result.environmentsEnabled ?? {}),
-    ]),
-  );
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments: changedEnvsFromRebase,
-    defaultValueChanged: mergeResult.result.defaultValue !== undefined,
-    settings: org.settings,
-  });
-
   await updateRevision(
     context,
     feature,
@@ -1093,9 +1075,8 @@ export async function postFeatureRebase(
           : mergeResult.result,
       ),
     },
-    resetReview,
     // Rebase is permitted while a "lock edits" schedule is active.
-    { bypassScheduleLock: true },
+    { bypassScheduleLock: true, rebase: { live, merged: mergeResult.result } },
   );
 
   const rebased = await getRevision({
@@ -2057,7 +2038,15 @@ export async function postFeaturePublish(
       base,
     });
 
-  if (!adminOverride && requiresReview && !hasCoveringApproval) {
+  // Status AND coverage: `status` aggregates every standing verdict (one
+  // reviewer's changes-requested outranks another's approval), so a covering
+  // approval alone must not publish over an open objection. Same condition as
+  // the REST publish handler.
+  if (
+    !adminOverride &&
+    requiresReview &&
+    !(revision.status === "approved" && hasCoveringApproval)
+  ) {
     throw new Error(
       revision.status === "approved"
         ? "This draft now changes environments its approvers cannot approve. It needs approval from someone with review rights across everything it changes."
@@ -3129,7 +3118,6 @@ export async function postFeatureRule(
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id, version } = req.params;
   const {
     environments: selectedEnvironments = [],
@@ -3229,13 +3217,6 @@ export async function postFeatureRule(
       });
     }
   }
-
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments: selectedEnvironments,
-    defaultValueChanged: false,
-    settings: org?.settings,
-  });
 
   // Stamp id + rollout seed via the shared chokepoint (safe-rollout seed set above).
   addIdsToFlatRules([rule], feature.id);
@@ -3350,13 +3331,7 @@ export async function postFeatureRule(
   });
 
   // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them
-  await prevalidateRevisionUpdate(
-    context,
-    feature,
-    revision,
-    combinedChanges,
-    resetReview,
-  );
+  await prevalidateRevisionUpdate(context, feature, revision, combinedChanges);
 
   if (rule.type === "safe-rollout" && validatedSafeRolloutFields) {
     const safeRollout = await context.models.safeRollout.create({
@@ -3400,7 +3375,6 @@ export async function postFeatureRule(
       subject: auditSubject,
       value: JSON.stringify(rule),
     },
-    resetReview,
   );
   await recordRevisionUpdate(
     context,
@@ -3773,7 +3747,6 @@ export async function putRevisionComment(
       subject: "",
       value: JSON.stringify({ comment }),
     },
-    false,
   );
   await recordRevisionUpdate(
     context,
@@ -3829,7 +3802,6 @@ export async function putRevisionTitle(
       subject: "",
       value: JSON.stringify({ title }),
     },
-    false,
   );
   await recordRevisionUpdate(
     context,
@@ -3861,7 +3833,6 @@ export async function postFeatureDefaultValue(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { environments, org } = context;
   const { id, version } = req.params;
   const { defaultValue, baseline } = req.body;
 
@@ -3893,12 +3864,6 @@ export async function postFeatureDefaultValue(
     });
   }
 
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments: environments,
-    defaultValueChanged: true,
-    settings: org?.settings,
-  });
   // The baseline check above closes the stale-editor window; this closes the
   // request-overlap one, as on the rule path.
   let updatedRevisionAfterDefaultValue: FeatureRevisionInterface | null;
@@ -3909,7 +3874,6 @@ export async function postFeatureDefaultValue(
       revision,
       resolution.merged.defaultValue,
       res.locals.eventAudit,
-      resetReview,
       { guardDateUpdated: !!baseline },
     );
   } catch (e) {
@@ -4037,7 +4001,7 @@ export async function putSafeRolloutStatus(
   const context = getContextFromReq(req);
   const { id } = req.params;
   // `environment` names the one environment this status flip reaches — it scopes
-  // the publish gate below as well as audit context and reset-review scoping.
+  // the publish gate below as well as the audit context.
   const { status, environment, ruleId } = req.body;
   const { org } = context;
   const feature = await getFeature(context, id);
@@ -4059,12 +4023,6 @@ export async function putSafeRolloutStatus(
     baseVersion: feature.version,
     org,
   });
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments: [environment],
-    defaultValueChanged: false,
-    settings: org?.settings,
-  });
 
   await editFeatureRule(
     context,
@@ -4073,7 +4031,6 @@ export async function putSafeRolloutStatus(
     ruleId,
     { status },
     res.locals.eventAudit,
-    resetReview,
     environment,
   );
 
@@ -4189,7 +4146,6 @@ export async function putFeatureRule(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id, version } = req.params;
   const {
     rule,
@@ -4347,13 +4303,6 @@ export async function putFeatureRule(
     existingRule.allEnvironments || existingRule.environments === undefined
       ? environmentIds
       : (existingRule.environments ?? []);
-
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments: ruleChangedEnvs,
-    defaultValueChanged: false,
-    settings: org?.settings,
-  });
 
   // Opt-in attribute registration check — only validate fields that actually
   // changed from the revision so pre-existing violations don't block unrelated edits.
@@ -4554,7 +4503,6 @@ export async function putFeatureRule(
         subject: `rule ${ruleId}`,
         value: JSON.stringify(effectiveRule),
       },
-      resetReview,
       { guardDateUpdated: !!baseline },
     );
   } catch (e) {
@@ -4938,7 +4886,7 @@ export async function postFeatureMoveRule(
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
-  const { environments, org } = context;
+  const { environments } = context;
   const { id, version } = req.params;
   const { from, to } = req.body;
   const feature = await getFeature(context, id);
@@ -4967,12 +4915,6 @@ export async function postFeatureMoveRule(
   const auditSubject = `from position ${from + 1} to ${to + 1}`;
 
   const changes = { rules: nextRules };
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments,
-    defaultValueChanged: false,
-    settings: org?.settings,
-  });
   const updatedRevisionAfterMove = await updateRevision(
     context,
     feature,
@@ -4984,7 +4926,6 @@ export async function postFeatureMoveRule(
       subject: auditSubject,
       value: JSON.stringify(rule),
     },
-    resetReview,
   );
   await recordRevisionUpdate(
     context,
@@ -5030,7 +4971,6 @@ export async function deleteFeatureRule(
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id, version } = req.params;
   const { ruleId } = req.body;
 
@@ -5076,12 +5016,6 @@ export async function deleteFeatureRule(
     changes.rampActions = filteredRampActions;
   }
 
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments: ruleChangedEnvs,
-    defaultValueChanged: false,
-    settings: org?.settings,
-  });
   const updatedRevisionAfterRuleDelete = await updateRevision(
     context,
     feature,
@@ -5093,7 +5027,6 @@ export async function deleteFeatureRule(
       subject: `rule ${ruleId}`,
       value: JSON.stringify(rule),
     },
-    resetReview,
   );
   await recordRevisionUpdate(
     context,
@@ -5250,6 +5183,7 @@ export async function putFeature(
   ) {
     await validateCustomFieldsForSection({
       customFieldValues: updates.customFields,
+      existingCustomFieldValues: feature.customFields,
       customFieldsModel: context.models.customFields,
       section: "feature",
       project: "project" in updates ? updates.project : feature.project,
@@ -5733,11 +5667,9 @@ export async function postFeatureArchive(
   }
   // Writing `archived` into an EXISTING draft is a write into someone else's
   // work: it makes that draft delete-class (its publisher-without-delete author
-  // can no longer publish it), and `createOrUpdateDraftWithChanges` does NOT
-  // reset review, so an approved draft would keep approvals that never saw the
-  // archive. Authority to stage a NEW archive draft never reaches into a draft
-  // this caller does not own — and with no `draftVersion` this falls through to
-  // the active draft, so there is no version to guess.
+  // can no longer publish it). Authority to stage a NEW archive draft never
+  // reaches into a draft this caller does not own — and with no `draftVersion`
+  // this falls through to the active draft, so there is no version to guess.
   // Resolved exactly as the write below resolves it (`autoPublish` forces a new
   // revision and clears the pinned version), so check and write can't disagree.
   const targetDraft = await getDraftForArchiveInjectionCheck(

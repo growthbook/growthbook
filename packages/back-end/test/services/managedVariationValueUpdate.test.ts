@@ -362,18 +362,6 @@ describe("updateManagedVariationValues value type", () => {
     });
   });
 
-  it("resets the review, because the type governs every value", async () => {
-    await update({
-      valueType: "number",
-      variations: [
-        { variationId: "v0", value: "1" },
-        { variationId: "v1", value: "2" },
-      ],
-    });
-
-    expect(mockUpdateRevision.mock.calls[0][5]).toBe(true);
-  });
-
   it("validates the values against the new type, not the old one", async () => {
     // "true" is a fine string but not a number.
     await expect(

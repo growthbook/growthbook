@@ -27,8 +27,9 @@ import { Size as SharedSize } from "@/ui/sizes";
 import ErrorDisplay from "../ErrorDisplay";
 import styles from "./Modal.module.scss";
 
-// "max" is not a step on the t-shirt scale; it fills the viewport.
-export type Size = SharedSize<"md" | "lg" | "xl"> | "max";
+// "max" and "fill" are not steps on the t-shirt scale; both fill the viewport
+// ("fill" with no chrome at all).
+export type Size = SharedSize<"md" | "lg" | "xl"> | "max" | "fill";
 
 // "gutter" leaves the right edge unpadded for Modal.Body's scrollbar, and each
 // section adds it back. "even" pads the content box on all four sides.
@@ -45,6 +46,7 @@ function getRadixSize(size: Size): Responsive<"3" | "4"> {
     case "lg":
     case "xl":
     case "max":
+    case "fill":
       return "4";
   }
 }
@@ -59,6 +61,8 @@ function getMaxWidth(size: Size) {
       return "1100px";
     case "max":
       return "95vw";
+    case "fill":
+      return "calc(100vw - 32px)";
   }
 }
 
@@ -213,7 +217,13 @@ function Root({
         maxWidth={getMaxWidth(size)}
         // Claim the height too, so the body sizes against the viewport.
         height={size === "max" ? "95vh" : undefined}
-        maxHeight={size === "max" ? "95vh" : "85vh"}
+        maxHeight={
+          size === "max"
+            ? "95vh"
+            : size === "fill"
+              ? "calc(100vh - 32px)"
+              : "85vh"
+        }
         {...ariaDescribedBy}
         onOpenAutoFocus={onOpenAutoFocus}
         onEscapeKeyDown={(e) => {
@@ -227,10 +237,18 @@ function Root({
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
-            paddingTop: padding === "even" ? "20px" : "32px",
-            paddingLeft: padding === "even" ? "20px" : "40px",
+            paddingTop:
+              size === "fill" ? "0" : padding === "even" ? "20px" : "32px",
+            paddingLeft:
+              size === "fill" ? "0" : padding === "even" ? "20px" : "40px",
             paddingRight: padding === "even" ? "20px" : "0",
-            paddingBottom: "20px",
+            paddingBottom: size === "fill" ? "0" : "20px",
+            ...(size === "fill"
+              ? {
+                  width: "calc(100vw - 32px)",
+                  height: "calc(100vh - 32px)",
+                }
+              : {}),
             "--inset-padding-left": padding === "even" ? "20px" : "40px",
           } as CSSProperties
         }

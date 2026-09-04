@@ -28,9 +28,12 @@ const aggregatedFactTable = z
     // Warehouse table this doc mirrors (null until first created)
     tableFullName: z.string().nullable(),
 
-    // Event-time high-water mark. The next incremental run slices events with
-    // `timestamp > lastMaxTimestamp` (append-only disjoint deltas).
+    // Event-time high-water mark. The next incremental run slices events
+    // after it (append-only disjoint deltas). `Raw` is the same instant at
+    // the warehouse's own precision (see rawWatermark); absent on
+    // documents written before it was captured.
     lastMaxTimestamp: z.date().nullable(),
+    lastMaxTimestampRaw: z.string().nullable().optional(),
     firstEventDate: z.date().nullable(),
     lastEventDate: z.date().nullable(),
 

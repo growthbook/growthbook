@@ -260,11 +260,33 @@ function getSingleRolePermission(
   };
 }
 
+// Access-restricted projects deny by default: a principal with no explicit
+// role there gets an empty project entry, which project-scoped checks resolve
+// to instead of the global fall-through. manageTeam holders are exempt — they
+// could grant themselves a project role anyway.
+function applyProjectAccessRestrictions(
+  permissions: UserPermissions,
+  restrictedProjects: string[] | undefined,
+): void {
+  if (!restrictedProjects?.length) return;
+  if (permissions.global.permissions.manageTeam) return;
+  for (const project of restrictedProjects) {
+    if (!permissions.projects[project]) {
+      permissions.projects[project] = {
+        limitAccessByEnvironment: false,
+        environments: [],
+        permissions: {},
+      };
+    }
+  }
+}
+
 // Used for both org API keys and member records.
 export function getRolePermissions(
   roleInfo: MemberRoleWithProjects,
   org: OrganizationInterface,
   allTeams: RoleSourceTeam[],
+  restrictedProjects?: string[],
 ): UserPermissions {
   const permissions: UserPermissions = {
     global: getUserPermission(roleInfo, org),
@@ -302,6 +324,8 @@ export function getRolePermissions(
       }
     }
   }
+
+  applyProjectAccessRestrictions(permissions, restrictedProjects);
 
   return permissions;
 }
@@ -414,7 +438,10 @@ export function nonContributingApproverIds({
   });
 }
 
-// Uses CURRENT rules — an approval is not a snapshot of authority.
+// Uses CURRENT rules — an approval is not a snapshot of authority. One
+// deliberate exception: restricted-project denial is NOT applied here, so an
+// approval keeps counting when a project later restricts access and the
+// approver has no role on it. Deferred and scheduled actions err permissive.
 export function assessApprovalCoverage({
   org,
   teams,

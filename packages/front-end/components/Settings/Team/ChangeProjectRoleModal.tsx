@@ -1,7 +1,9 @@
 import React, { FC, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { ProjectMemberRole } from "shared/types/organization";
+import { roleSupportsEnvLimit } from "shared/permissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectField from "@/components/Forms/SelectField";
 import Text from "@/ui/Text";
@@ -23,7 +25,22 @@ const ChangeProjectRoleModal: FC<{
 }> = ({ memberName, projectRole, close, onConfirm }) => {
   const [value, setValue] = useState(projectRole);
   const { getProjectById } = useDefinitions();
+  const { organization } = useUser();
   const roleOptions = useRoleOptions({ includeProjectAdminRole: true });
+
+  const setRole = (role: string) => {
+    // The server rejects env restrictions on roles with nothing env-scoped
+    if (roleSupportsEnvLimit(role, organization)) {
+      setValue({ ...value, role });
+    } else {
+      setValue({
+        ...value,
+        role,
+        limitAccessByEnvironment: false,
+        environments: [],
+      });
+    }
+  };
 
   return (
     <ModalStandard
@@ -38,7 +55,13 @@ const ChangeProjectRoleModal: FC<{
       open={true}
       size="lg"
       submit={async () => {
-        await onConfirm(value);
+        // Normalize even when the role wasn't changed this session — a stored
+        // rule can already carry an env restriction its role doesn't support.
+        await onConfirm(
+          roleSupportsEnvLimit(value.role, organization)
+            ? value
+            : { ...value, limitAccessByEnvironment: false, environments: [] },
+        );
       }}
     >
       <Flex align="center" gap="2" mb="2" minHeight="32px">
@@ -63,7 +86,7 @@ const ChangeProjectRoleModal: FC<{
                 <SelectField
                   value={value.role}
                   options={roleOptions}
-                  onChange={(role) => setValue({ ...value, role })}
+                  onChange={setRole}
                   sort={false}
                   containerClassName="mb-0"
                 />

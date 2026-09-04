@@ -20,7 +20,7 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
-import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
+import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import DataVizConfigPanel from "./DataVizConfigPanel";
 import PivotTable from "./PivotTable";

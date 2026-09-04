@@ -134,6 +134,7 @@ import {
 import { IdeaModel } from "back-end/src/models/IdeasModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
+import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
@@ -1686,6 +1687,7 @@ export async function postExperiment(
   ) {
     await validateCustomFieldsForSection({
       customFieldValues: data.customFields,
+      existingCustomFieldValues: experiment.customFields,
       customFieldsModel: context.models.customFields,
       section: "experiment",
       project: "project" in data ? data.project : experiment.project,
@@ -3547,6 +3549,16 @@ export async function postSnapshot(
     context.permissions.throwPermissionError();
   }
 
+  if (dimension) {
+    await validateSnapshotDimension({
+      experiment,
+      datasource,
+      dimension,
+      organization: context.org.id,
+      phase,
+    });
+  }
+
   const force = !!req.query["force"];
   if (
     dimension &&
@@ -4334,7 +4346,6 @@ export async function postExperimentFeatureValues(
   const context = getContextFromReq(req);
   const { id } = req.params;
   const { variations, variationWeights, features } = req.body;
-  const { org } = context;
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
@@ -4555,7 +4566,6 @@ export async function postExperimentFeatureValues(
       updatedVariationValues,
       sparse: features[feature.id].sparse,
       user: res.locals.eventAudit,
-      orgSettings: org.settings,
     });
 
     if (

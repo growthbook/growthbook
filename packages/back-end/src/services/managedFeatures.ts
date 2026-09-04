@@ -886,9 +886,6 @@ export async function stageManagedFeatureFields({
         ...(defaultChanged && { defaultValue }),
       }),
     },
-    // Both fields govern what the flag serves beyond this experiment's rule, so
-    // a standing approval no longer covers what is about to publish.
-    true,
   );
   if (!updated) {
     throw new Error(
@@ -979,7 +976,6 @@ export async function updateManagedVariationValues({
     updatedVariationValues: values,
     sparse,
     user: eventAudit,
-    orgSettings: context.org.settings,
   });
 
   if (

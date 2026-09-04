@@ -1,6 +1,5 @@
 import { postFeatureRevisionRulesReorderV2Validator } from "shared/validators";
 import type { FeatureRule } from "shared/types/feature";
-import { resetReviewOnChange } from "shared/util";
 import { toApiRevisionV2 } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -81,7 +80,7 @@ export const postFeatureRevisionRulesReorderV2 = createApiRequestHandler(
       return { revision: toApiRevisionV2(revision) };
     }
 
-    // Collect affected envs for review reset.
+    // Affected envs for the revision-update record.
     const allEnvs = Object.keys(feature.environmentSettings ?? {});
 
     await updateRevision(
@@ -95,12 +94,6 @@ export const postFeatureRevisionRulesReorderV2 = createApiRequestHandler(
         subject: "all environments",
         value: JSON.stringify(ruleIds),
       },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: allEnvs,
-        defaultValueChanged: false,
-        settings: req.organization.settings,
-      }),
     );
 
     const updated = await getRevision({

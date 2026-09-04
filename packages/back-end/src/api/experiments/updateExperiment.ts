@@ -148,6 +148,9 @@ export const updateExperiment = createApiRequestHandler(
       req.body.customFields ?? experiment.customFields,
       req.context,
       req.body.project ?? experiment.project,
+      // A project change must re-validate all values against the new
+      // project's fields, so only grandfather unchanged values in place
+      projectChanged ? undefined : experiment.customFields,
     );
   }
 
