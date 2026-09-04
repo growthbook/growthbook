@@ -1,13 +1,13 @@
+import { each, isEqual, pick, uniqWith } from "lodash";
+import mongoose, { FilterQuery } from "mongoose";
+import uniqid from "uniqid";
+import cloneDeep from "lodash/cloneDeep";
 import {
   getImplementationType,
   implementationTypeAfterUnlink,
   includeExperimentInPayload,
   hasVisualChanges,
 } from "shared/util";
-import { each, isEqual, pick, uniqWith } from "lodash";
-import mongoose, { FilterQuery } from "mongoose";
-import uniqid from "uniqid";
-import cloneDeep from "lodash/cloneDeep";
 import {
   generateTrackingKey,
   getLatestPhaseVariations,
@@ -815,17 +815,13 @@ export async function updateExperiment({
     return experiment;
   }
 
-  // The linkages are the truth; a stored type they disagree with is corrected
-  // on the next write.
-  const effectiveImplementationType = getImplementationType({
-    ...experiment,
-    ...changes,
-  });
+  // Linkages outrank a stored implementationType; a stale one is fixed on write.
+  const merged = { ...experiment, ...changes };
+  const effectiveImplementationType = getImplementationType(merged);
   const allChanges = {
     ...changes,
     ...(effectiveImplementationType &&
-    effectiveImplementationType !==
-      { ...experiment, ...changes }.implementationType
+    effectiveImplementationType !== merged.implementationType
       ? { implementationType: effectiveImplementationType }
       : {}),
     dateUpdated: new Date(),

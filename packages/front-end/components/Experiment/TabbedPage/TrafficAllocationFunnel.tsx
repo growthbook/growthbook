@@ -55,14 +55,11 @@ export interface Props {
   editTraffic?: ((variationId?: string) => void) | null;
   editNamespace?: (() => void) | null;
   addVariation?: (() => void) | null;
-  // Offered only while the experiment can still adopt a managed flag.
-  setEditVariationIndex?: (index: number) => void;
   /** Opens the values editor; offered per variation while no flag exists yet. */
   addVariationValues?: (() => void) | null;
+  setEditVariationIndex?: (index: number) => void;
   /** The sole linked Feature Flag, when the cards can show its values. */
   servedValueFeature?: LinkedFeatureInfo | null;
-  // Names the flag beneath the split, when no Linked Changes panel does.
-  /** Offered when the experiment has no implementation yet; adopts a managed flag. */
   canEditExperiment?: boolean;
   safeToEdit: boolean;
   mutate?: () => void;
@@ -210,8 +207,8 @@ export default function TrafficAllocationFunnel({
   editTraffic,
   editNamespace,
   addVariation,
-  setEditVariationIndex,
   addVariationValues,
+  setEditVariationIndex,
   servedValueFeature,
   canEditExperiment = false,
   safeToEdit = false,

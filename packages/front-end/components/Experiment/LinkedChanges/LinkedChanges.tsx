@@ -1,8 +1,4 @@
 import { useState } from "react";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { IconButton } from "@radix-ui/themes";
-import { getImplementationType, isManagedByExperiment } from "shared/util";
-import { PiInfo } from "react-icons/pi";
 import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
@@ -10,7 +6,16 @@ import {
 } from "shared/types/experiment";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
+import { getImplementationType, isManagedByExperiment } from "shared/util";
+import {
+  Box,
+  Flex,
+  IconButton,
+  Separator,
+  type AvatarProps,
+} from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiInfo } from "react-icons/pi";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import { ManagedFlagName } from "@/components/Experiment/ManagedFlagSummary";
 import { useAuth } from "@/services/auth";
@@ -94,8 +99,7 @@ export default function LinkedChanges({
     linkedFeatures.find((f) =>
       isManagedByExperiment(f.feature, experiment.id),
     ) ?? null;
-  // The managed flag is handled inside the change flow; anything else has to
-  // be removed from this card first.
+  // The change flow handles the managed flag itself; anything else blocks it.
   const otherLinkages = numLinkedChanges - (managedFeature ? 1 : 0);
   const changeTypeLockedReason =
     experiment.status !== "draft"
@@ -105,13 +109,11 @@ export default function LinkedChanges({
         : null;
   const showTypeMenu = !isPublic && canEditExperiment && !experiment.archived;
 
-  // "values" owns the box: it names the managed flag (or offers to create it)
-  // and carries the eject action.
   const effectiveType = managedFeature
     ? "values"
     : getImplementationType(experiment);
   const valuesMode = effectiveType === "values";
-  // Named for its kind; "Linked Changes" is reserved for legacy mixes.
+  // Titled by kind; "Linked Changes" is reserved for legacy mixes.
   const boxTitle = valuesMode
     ? "Managed Feature Flag"
     : !(isPublic || hideVariations)

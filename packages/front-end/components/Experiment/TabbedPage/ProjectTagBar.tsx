@@ -1,9 +1,9 @@
-import { getImplementationType } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
 import { HoldoutInterfaceStringDates } from "shared/validators";
+import { getImplementationType } from "shared/util";
 import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
 import Text from "@/ui/Text";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -52,7 +52,7 @@ export default function ProjectTagBar({
   const permissionsUtil = usePermissionsUtil();
   const canUpdateExperimentProject = (project) =>
     permissionsUtil.canUpdateExperiment({ project }, {});
-  // Adopted before the type was stored: the flag's marker is the truth.
+  // Experiments adopted before the type was stored only carry the flag's marker.
   const implementationType = isManaged
     ? "values"
     : getImplementationType(experiment);

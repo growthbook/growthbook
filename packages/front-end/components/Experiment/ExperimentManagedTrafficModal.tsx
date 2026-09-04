@@ -410,8 +410,7 @@ function ManagedTrafficForm({
     coverage: v.coverage,
   });
 
-  // Values was already chosen as the implementation, so the flag is the plan;
-  // no separate opt-in click before it exists.
+  // Choosing "values" is the opt-in; no extra click before the flag exists.
   const valuesChosen = getImplementationType(experiment) === "values";
   const didAutoAdopt = useRef(false);
   useEffect(() => {

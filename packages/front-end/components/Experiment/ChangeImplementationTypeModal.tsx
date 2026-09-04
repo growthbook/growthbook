@@ -17,8 +17,6 @@ import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
 
-// Only reachable while nothing else is wired up: a managed flag is the one
-// implementation this flow removes itself (or ejects, when moving to Feature Flag).
 export default function ChangeImplementationTypeModal({
   experiment,
   managedFeature,
@@ -31,8 +29,7 @@ export default function ChangeImplementationTypeModal({
   mutate: () => void;
 }) {
   const { apiCall } = useAuth();
-  // The managed marker outranks a derived type on experiments adopted before
-  // the type was stored.
+  // Experiments adopted before the type was stored only carry the flag's marker.
   const current = managedFeature ? "values" : getImplementationType(experiment);
   const [next, setNext] = useState<ImplementationType | "">(
     current && SELECTABLE_IMPLEMENTATION_TYPES.includes(current) ? current : "",

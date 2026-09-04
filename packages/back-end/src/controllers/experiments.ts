@@ -1,3 +1,9 @@
+import { Response } from "express";
+import uniqid from "uniqid";
+import format from "date-fns/format";
+import cloneDeep from "lodash/cloneDeep";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { getValidDate } from "shared/dates";
 import {
   canChangeImplementationType,
   getImplementationType,
@@ -10,12 +16,6 @@ import {
   isManagedByExperiment,
   isManagedFeature,
 } from "shared/util";
-import { Response } from "express";
-import uniqid from "uniqid";
-import format from "date-fns/format";
-import cloneDeep from "lodash/cloneDeep";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import { getValidDate } from "shared/dates";
 import {
   expandDerivedMetricsInMap,
   expandMetricGroups,
@@ -1284,8 +1284,6 @@ export async function postExperiments(
   const experimentType = data.type ?? "standard";
   const holdoutId = data.holdoutId;
 
-  // Some entry points decide the implementation for the user: a rule on a flag
-  // is "feature", an import is analysis only, a duplicate keeps its source's.
   if (data.implementationType === "multi") {
     res.status(400).json({
       status: 400,
@@ -1293,6 +1291,7 @@ export async function postExperiments(
     });
     return;
   }
+  // Some entry points choose for the user: a flag rule, an import, a duplicate's source.
   if (!data.implementationType) {
     if (req.query.originalId) {
       const original = await getExperimentById(context, req.query.originalId);
@@ -1665,7 +1664,6 @@ export async function postExperiment(
     context.permissions.throwPermissionError();
   }
 
-  // Free to change until something is wired up; locked after that.
   if (
     data.implementationType !== undefined &&
     data.implementationType !== experiment.implementationType &&

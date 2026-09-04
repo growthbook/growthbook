@@ -1,9 +1,3 @@
-import {
-  getImplementationType,
-  isManagedByExperiment,
-  getAffectedEnvsForExperiment,
-  experimentHasLiveLinkedChanges,
-} from "shared/util";
 import { getLatestPhaseVariations, getAllVariations } from "shared/experiments";
 import { getValidDate, resolveScheduledStop } from "shared/dates";
 import {
@@ -16,6 +10,12 @@ import {
   ChecklistStatus,
   ExperimentStartChecklistStatus,
 } from "shared/validators";
+import {
+  getAffectedEnvsForExperiment,
+  experimentHasLiveLinkedChanges,
+  getImplementationType,
+  isManagedByExperiment,
+} from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   customHooksActive,
@@ -230,7 +230,6 @@ export async function getExperimentStartChecklistStatus(
 
   const items: StartChecklistItemStatus[] = [];
 
-  // A managed flag is the experiment's own values; say so instead of "linked feature".
   const isManaged = (f: LinkedFeatureInfo) =>
     isManagedByExperiment(f.feature, experiment.id);
   const valuesMode =

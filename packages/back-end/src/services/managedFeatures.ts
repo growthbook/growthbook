@@ -1136,8 +1136,6 @@ export async function clearManagedMarkersForExperiment(
   }
 }
 
-// Deletes the managed flag outright so the experiment can be implemented some
-// other way. Delete-class on the flag; the experiment side is authored.
 export async function removeManagedFeatureForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,

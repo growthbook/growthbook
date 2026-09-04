@@ -181,8 +181,6 @@ export function getChecklistItems({
     }
   }
 
-  // A managed flag is the experiment's own values, so the checklist talks
-  // about values, not about linking a flag.
   const isManaged = (f: LinkedFeatureInfo) =>
     isManagedByExperiment(f.feature, experiment.id);
   const valuesMode =

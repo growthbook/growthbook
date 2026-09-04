@@ -1,10 +1,10 @@
-import { implementationTypeAfterUnlink, hasVisualChanges } from "shared/util";
 import { keyBy } from "lodash";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
 import pickBy from "lodash/pickBy";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { hasVisualChanges, implementationTypeAfterUnlink } from "shared/util";
 import {
   VisualChange,
   VisualChangesetInterface,

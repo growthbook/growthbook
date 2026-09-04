@@ -279,7 +279,6 @@ export function VariationBox({
   servedValueDraftNote?: string;
   /** Offered on each card while a values experiment has no flag yet. */
   onAddValue?: () => void;
-  /** Offered instead of a value when there is no Feature Flag yet. */
 }) {
   const { blockFileUploads } = useOrgSettings();
   const isBandit = experiment.type === "multi-armed-bandit";

@@ -142,8 +142,6 @@ const BanditExperimentPage = (): ReactElement => {
         setTrafficModalOpen(true);
       }
     : null;
-  // Same modal already in adoption mode; whether it is offered is decided
-  // where it renders.
   const addVariationValues = canRunExperiment
     ? () => {
         setTrafficFocusVariation(null);

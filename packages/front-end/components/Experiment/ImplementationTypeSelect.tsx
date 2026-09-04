@@ -118,7 +118,6 @@ export default function ImplementationTypeSelect({
           (o as { value: string }).value as ImplementationType,
         )
       }
-      // The list explains each choice; the closed control just names it.
       formatOptionLabel={(option, { context }) => (
         <ImplementationTypeLabel
           type={option.value as ImplementationType}

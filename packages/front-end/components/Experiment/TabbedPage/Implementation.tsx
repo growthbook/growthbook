@@ -1,8 +1,4 @@
 import {
-  getImplementationType,
-  experimentHasLiveLinkedChanges,
-} from "shared/util";
-import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
@@ -12,6 +8,10 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import {
+  experimentHasLiveLinkedChanges,
+  getImplementationType,
+} from "shared/util";
 import { getActivePhaseIndex } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
@@ -121,12 +121,13 @@ export default function Implementation({
     linkedFeatures,
   });
   const managedMode = isManaged;
+  const implementationType = getImplementationType(experiment);
 
   // Keyed on the resolved implementation count, so a flag deleted out of band
   // leaves adoption offered rather than stuck.
   const canAdoptManagedFlag =
     !isManaged &&
-    (getImplementationType(experiment) ?? "values") === "values" &&
+    (implementationType ?? "values") === "values" &&
     linkedFeatures.length === 0 &&
     !experiment.hasVisualChangesets &&
     !experiment.hasURLRedirects &&
@@ -212,12 +213,12 @@ export default function Implementation({
             editTargeting={pendingScheduledStart ? null : editTargeting}
             editNamespace={pendingScheduledStart ? null : editNamespace}
             addVariation={pendingScheduledStart ? null : addVariation}
-            setEditVariationIndex={setEditMetadataIndex}
             addVariationValues={
               canAdoptManagedFlag && !pendingScheduledStart
                 ? addVariationValues
                 : null
             }
+            setEditVariationIndex={setEditMetadataIndex}
             canEditExperiment={canEditExperiment}
             safeToEdit={safeToEdit}
             mutate={mutate}
@@ -237,7 +238,7 @@ export default function Implementation({
           hasLinkedChanges ||
           canAddLinkedChanges ||
           managedSoleImplementation ||
-          getImplementationType(experiment) === "values") ? (
+          implementationType === "values") ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
             experiment={experiment}

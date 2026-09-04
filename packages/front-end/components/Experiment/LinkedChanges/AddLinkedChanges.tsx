@@ -16,6 +16,12 @@ import Avatar from "@/ui/Avatar";
 import Button from "@/ui/Button";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
 
+const KIND_FOR_TYPE: Partial<Record<ImplementationType, LinkedChange>> = {
+  feature: "feature-flag",
+  visual: "visual-editor",
+  urlredirect: "redirects",
+};
+
 export const LINKED_CHANGES: Record<
   LinkedChange,
   {
@@ -172,7 +178,6 @@ export default function AddLinkedChanges({
   const implementationType = getImplementationType(experiment);
   // Values are wired up from the traffic card, not from here.
   if (implementationType === "values") return null;
-  // The kind comes first; the rows below only make sense once it is chosen.
   if (!implementationType || implementationType === "none") {
     return (
       <Box className="appbox mb-0" p="4" mt="2" mb="0">
@@ -209,15 +214,7 @@ export default function AddLinkedChanges({
     },
   };
 
-  // A chosen implementation narrows the card to its own kind.
-  const KIND_FOR_TYPE: Partial<Record<ImplementationType, LinkedChange>> = {
-    feature: "feature-flag",
-    visual: "visual-editor",
-    urlredirect: "redirects",
-  };
-  const onlyKind = implementationType
-    ? KIND_FOR_TYPE[implementationType]
-    : undefined;
+  const onlyKind = KIND_FOR_TYPE[implementationType];
   const possibleSections = Object.keys(sections).filter(
     (s) => !onlyKind || s === onlyKind,
   );
