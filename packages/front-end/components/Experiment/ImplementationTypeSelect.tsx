@@ -80,7 +80,7 @@ export function ImplementationTypeIcon({
         </>
       }
     >
-      <span style={{ color: `var(--${option.color}-9)`, display: "flex" }}>
+      <span style={{ display: "flex", color: "var(--color-text-mid)" }}>
         {option.icon}
       </span>
     </Tooltip>
