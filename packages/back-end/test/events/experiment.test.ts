@@ -999,11 +999,11 @@ describe("experiments events", () => {
     });
   });
 
-  it("dispatches experiment.warning event when a snapshot returns no data", async () => {
+  it("dispatches experiment.health.noData event when a snapshot returns no data", async () => {
     let rawPayload;
 
     jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
-      if (data.event === "experiment.warning") rawPayload = data;
+      if (data.event === "experiment.health.noData") rawPayload = data;
       return { toJSON: () => "" };
     });
 
@@ -1039,7 +1039,7 @@ describe("experiments events", () => {
         containsSecrets: false,
         created: expect.any(Number),
         environments: [],
-        event: "experiment.warning",
+        event: "experiment.health.noData",
         object: "experiment",
         projects: [],
         tags: [],
@@ -1060,11 +1060,11 @@ describe("experiments events", () => {
     );
   });
 
-  it("does not dispatch experiment.warning no-data event when the snapshot has data", async () => {
+  it("does not dispatch experiment.health.noData event when the snapshot has data", async () => {
     let rawPayload;
 
     jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
-      if (data.event === "experiment.warning") rawPayload = data;
+      if (data.event === "experiment.health.noData") rawPayload = data;
       return { toJSON: () => "" };
     });
 
