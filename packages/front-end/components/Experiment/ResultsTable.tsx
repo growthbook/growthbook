@@ -822,8 +822,9 @@ export default function ResultsTable({
                               effectiveOnRowClick
                                 ? (e) => {
                                     const target = e.target as HTMLElement;
+                                    // Always cancel the drilldown tooltip: prevents stranding a pending tooltip
+                                    onRowClick_();
                                     if (!isInteractiveElement(target)) {
-                                      onRowClick_();
                                       effectiveOnRowClick(row);
                                     }
                                   }
