@@ -1,5 +1,5 @@
 import { Request, RequestHandler } from "express";
-import { z, ZodType, ZodNever, output } from "zod";
+import { z, ZodType, ZodNever, output, core } from "zod";
 import { ApiPaginationFields, ApiErrorCode } from "shared/validators";
 import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
@@ -63,6 +63,42 @@ export type BackEndApiEndpointSpec<
   possibleErrors?: readonly ApiErrorCode[];
 };
 
+/** How far into a branch the value validated before failing. */
+function branchDepth(branch: readonly core.$ZodIssue[]): number {
+  return Math.max(0, ...branch.map((issue) => issue.path.length));
+}
+
+/**
+ * The branch the value was most plausibly trying to be: it complained least,
+ * and among equals matched deepest. Reporting every branch of a union buries
+ * the real error under the shapes the value was never meant to satisfy — on a
+ * new dashboard block that meant four "add an id" errors around one bad field.
+ */
+function bestBranch(
+  branches: readonly (readonly core.$ZodIssue[])[],
+): readonly core.$ZodIssue[] {
+  return branches.reduce((best, branch) => {
+    if (branch.length !== best.length) {
+      return branch.length < best.length ? branch : best;
+    }
+    return branchDepth(branch) > branchDepth(best) ? branch : best;
+  });
+}
+
+/** A union issue's own message is just "Invalid input"; the real ones are per-branch in `errors`. */
+function describeIssue(
+  issue: core.$ZodIssue,
+  prefix: PropertyKey[] = [],
+): string[] {
+  const path = [...prefix, ...issue.path];
+  if (issue.code === "invalid_union" && issue.errors.length) {
+    return bestBranch(issue.errors).flatMap((inner) =>
+      describeIssue(inner, path),
+    );
+  }
+  return ["[" + path.join(".") + "] " + issue.message];
+}
+
 function validate<T extends ZodType>(
   schema: T,
   value: unknown,
@@ -79,9 +115,9 @@ function validate<T extends ZodType>(
   if (!result.success) {
     return {
       success: false,
-      errors: result.error.issues.map((i) => {
-        return "[" + i.path.join(".") + "] " + i.message;
-      }),
+      errors: [
+        ...new Set(result.error.issues.flatMap((i) => describeIssue(i))),
+      ],
     };
   }
 

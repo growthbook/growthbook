@@ -82,6 +82,8 @@ export const PA_AI_CHAT_INITIAL_MODEL_KEY = "pa-ai-chat-initial-model";
 export interface PAInitialChatMessage {
   text: string;
   mentions: AIChatMention[];
+  /** Skills picked from the composer's `/` menu before the handoff. */
+  skills: string[];
 }
 
 export function takeInitialChatMessage(): PAInitialChatMessage | null {
@@ -99,18 +101,19 @@ export function parseInitialChatMessage(
   try {
     const parsed: unknown = JSON.parse(stored);
     if (parsed && typeof parsed === "object" && "text" in parsed) {
-      const { text, mentions } = parsed as PAInitialChatMessage;
+      const { text, mentions, skills } = parsed as PAInitialChatMessage;
       if (typeof text !== "string") return null;
       return {
         text: text.trim(),
         mentions: Array.isArray(mentions) ? mentions : [],
+        skills: Array.isArray(skills) ? skills : [],
       };
     }
     return typeof parsed === "string"
-      ? { text: parsed.trim(), mentions: [] }
+      ? { text: parsed.trim(), mentions: [], skills: [] }
       : null;
   } catch {
-    return { text: stored.trim(), mentions: [] };
+    return { text: stored.trim(), mentions: [], skills: [] };
   }
 }
 

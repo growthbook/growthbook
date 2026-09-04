@@ -1,5 +1,6 @@
 import { Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
+import Markdown from "@/components/Markdown/Markdown";
 import Button from "@/ui/Button";
 import { AssistantBubble } from "@/enterprise/components/AIChat/AIChatPrimitives";
 import ToolUsageDetails from "@/enterprise/components/AIChat/ToolUsageDetails";
@@ -73,9 +74,7 @@ export default function ConfirmActionCard({
         </Flex>
         {prompt.summary &&
           prompt.summary !== `${prompt.method} ${prompt.path}` && (
-            <Text size="sm" color="text-low">
-              {prompt.summary}
-            </Text>
+            <Markdown>{prompt.summary}</Markdown>
           )}
         {(prompt.body !== undefined || prompt.query) && (
           <ToolUsageDetails

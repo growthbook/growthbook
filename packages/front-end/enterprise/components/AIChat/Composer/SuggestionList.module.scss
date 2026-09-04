@@ -41,10 +41,10 @@
   }
 }
 
-// Names are short; give them what they need and let the description truncate.
+// Shrinks (and truncates) when the row is tight, but never grows — a short
+// name keeps its secondary right beside it instead of across the row.
 .name {
-  flex-shrink: 0;
-  max-width: 60%;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
@@ -53,8 +53,9 @@
   color: var(--gray-12);
 }
 
+// Takes whatever the name leaves, so it truncates at the row edge, not at a fixed fraction of it.
 .type {
-  flex-shrink: 1;
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;

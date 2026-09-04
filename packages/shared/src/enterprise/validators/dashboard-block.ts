@@ -679,6 +679,22 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   sqlExplorationBlockInterface.omit(createOmits),
   funnelExplorationBlockInterface.omit(createOmits),
 ]);
+// Optional here: an API caller can send `config` alone and let the write run it.
+const apiCreateExplorationOmits = {
+  ...createOmits,
+  explorerAnalysisId: true,
+} as const;
+
+const optionalExplorerAnalysisId = {
+  explorerAnalysisId: z
+    .string()
+    .optional()
+    .describe(
+      "The exploration run this block renders. Omit it to send `config` alone " +
+        "and have the query run when the dashboard is written.",
+    ),
+};
+
 export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
   markdownBlockInterface.omit(createOmits),
   experimentMetadataBlockInterface.omit(createOmits),
@@ -692,10 +708,21 @@ export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
   experimentTrafficBlockInterface.omit(createOmits),
   sqlExplorerBlockInterface.omit(createOmits),
   apiMetricExplorerBlockInterface.omit(createOmits),
-  metricExplorationBlockInterface.omit(createOmits),
-  factTableExplorationBlockInterface.omit(createOmits),
-  dataSourceExplorationBlockInterface.omit(createOmits),
-  sqlExplorationBlockInterface.omit(createOmits),
+  metricExplorationBlockInterface
+    .omit(apiCreateExplorationOmits)
+    .extend(optionalExplorerAnalysisId),
+  factTableExplorationBlockInterface
+    .omit(apiCreateExplorationOmits)
+    .extend(optionalExplorerAnalysisId),
+  dataSourceExplorationBlockInterface
+    .omit(apiCreateExplorationOmits)
+    .extend(optionalExplorerAnalysisId),
+  funnelExplorationBlockInterface
+    .omit(apiCreateExplorationOmits)
+    .extend(optionalExplorerAnalysisId),
+  sqlExplorationBlockInterface
+    .omit(apiCreateExplorationOmits)
+    .extend(optionalExplorerAnalysisId),
 ]);
 export type CreateDashboardBlockInterface = z.infer<
   typeof createDashboardBlockInterface
@@ -703,6 +730,14 @@ export type CreateDashboardBlockInterface = z.infer<
 export type ApiCreateDashboardBlockInterface = z.infer<
   typeof apiCreateDashboardBlockInterface
 >;
+
+/** The same block with its analysis id settled. Distributes; only `config` types change. */
+export type DashboardBlockWithAnalysisId<T> = T extends {
+  config: unknown;
+  explorerAnalysisId?: string;
+}
+  ? Omit<T, "explorerAnalysisId"> & { explorerAnalysisId: string }
+  : T;
 
 // Allow templates to specify a partial of the individual block fields
 export const dashboardBlockPartial = z.discriminatedUnion("type", [

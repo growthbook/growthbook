@@ -11,6 +11,7 @@ import {
   getBlockSnapshotSettings,
   getEffectiveExplorationConfig,
   snapshotSatisfiesBlock,
+  DashboardBlockWithAnalysisId,
   DashboardInterface,
   MetricExplorerBlockInterface,
   DashboardBlockInterface,
@@ -42,6 +43,7 @@ import {
 } from "back-end/src/services/experiments";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
+import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
 /**
@@ -367,20 +369,121 @@ type ProductAnalyticsExplorationBlock = Extract<
   { type: (typeof PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES)[number] }
 >;
 
-function isProductAnalyticsExplorationBlock(
-  block: DashboardInterface["blocks"][number],
-): block is ProductAnalyticsExplorationBlock {
+/** An exploration type carrying a config. Its analysis id is what says run or already ran. */
+function isExplorationBlockWithConfig(block: { type: string }): boolean {
   return (
     PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES.includes(
       block.type as (typeof PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES)[number],
-    ) &&
-    "explorerAnalysisId" in block &&
-    typeof (block as { explorerAnalysisId?: string }).explorerAnalysisId ===
-      "string" &&
-    (block as { explorerAnalysisId: string }).explorerAnalysisId.length > 0 &&
-    "config" in block &&
-    (block as { config?: unknown }).config != null
+    ) && (block as { config?: unknown }).config != null
   );
+}
+
+function explorationAnalysisId(block: { type: string }): string {
+  return (block as { explorerAnalysisId?: string }).explorerAnalysisId ?? "";
+}
+
+function isProductAnalyticsExplorationBlock(
+  block: DashboardInterface["blocks"][number],
+): block is ProductAnalyticsExplorationBlock {
+  return isExplorationBlockWithConfig(block) && !!explorationAnalysisId(block);
+}
+
+/** Narrowed to what `getEffectiveExplorationConfig` reads. */
+type EffectiveConfigInput = Parameters<typeof getEffectiveExplorationConfig>[0];
+
+/** Runs blocks sent as a bare `config`. Throws: a new tile has no previous result to fall back on. */
+export async function runNewApiExplorationBlocks<
+  T extends { type: string; title: string },
+>(
+  context: ReqContext | ApiReqContext,
+  blocks: T[],
+  dashboard: Pick<DashboardInterface, "globalControls" | "comparison">,
+): Promise<DashboardBlockWithAnalysisId<T>[]> {
+  // In parallel: serial runs on a six-tile dashboard risk the request timing out.
+  return Promise.all(
+    blocks.map(async (block): Promise<DashboardBlockWithAnalysisId<T>> => {
+      // Casts: the conditional return type states what TS can't infer per branch.
+      if (!isExplorationBlockNeedingRun(block)) {
+        return block as DashboardBlockWithAnalysisId<T>;
+      }
+
+      // Enroll before querying, or the tile renders "click Update" forever.
+      const enrolled =
+        dashboard.globalControls?.dateRange &&
+        block.globalControlSettings?.dateRange === undefined
+          ? {
+              ...block,
+              globalControlSettings: {
+                ...block.globalControlSettings,
+                dateRange: true,
+              },
+            }
+          : block;
+
+      // Reads only type/config/globalControlSettings; a create block has no id.
+      const config = dashboard.globalControls
+        ? getEffectiveExplorationConfig(
+            enrolled as unknown as EffectiveConfigInput,
+            dashboard,
+          )
+        : block.config;
+      // Dashboard-wide wins over the block's own — the precedence tiles render under.
+      const comparison = resolveBlockComparison(block, dashboard);
+
+      // Never cached: a fuzzy hit stores a dateRange the tile reads as stale.
+      const exploration = await runProductAnalyticsExploration(
+        context,
+        config,
+        {
+          cache: "never",
+        },
+      );
+      if (!exploration) {
+        throw new BadRequestError(
+          `Could not run the query for "${block.title}". Check the block's datasource, metrics, and date range.`,
+        );
+      }
+      // A failed run still returns an exploration, so a truthy check alone saves
+      // a broken tile. `running` is legitimate — the sync budget — so only a
+      // reported error rejects, carrying the warehouse's own words.
+      if (exploration.status === "error") {
+        throw new BadRequestError(
+          `The query for "${block.title}" failed: ${
+            exploration.error || "no error reported"
+          }`,
+        );
+      }
+
+      const previous = comparison
+        ? await runProductAnalyticsExploration(
+            context,
+            buildComparisonExplorationConfig(
+              config,
+              resolveComparisonPreviousTimeFrame(config.dateRange, comparison),
+            ),
+            { cache: "never" },
+          )
+        : null;
+
+      return {
+        ...enrolled,
+        explorerAnalysisId: exploration.id,
+        ...(previous ? { comparisonExplorerAnalysisId: previous.id } : {}),
+      } as DashboardBlockWithAnalysisId<T>;
+    }),
+  );
+}
+
+/** Structural, not a union guard: covers both shapes, where the id is optional and required. */
+function isExplorationBlockNeedingRun<T extends { type: string }>(
+  block: T,
+): block is T & {
+  title: string;
+  config: ProductAnalyticsExplorationBlock["config"];
+  comparison?: ProductAnalyticsExplorationBlock["comparison"];
+  globalControlSettings?: { dateRange?: boolean };
+} {
+  return isExplorationBlockWithConfig(block) && !explorationAnalysisId(block);
 }
 
 // Returns a boolean indicating whether the blocks have been modified and will need to be saved to db

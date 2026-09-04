@@ -2,10 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiX, PiPlus, PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
+import { useSWRConfig } from "swr";
 import type { AIChatMessage } from "shared/ai-chat";
+import { dashboardPagePath } from "shared/enterprise";
 import Markdown from "@/components/Markdown/Markdown";
 import Text from "@/ui/Text";
 import track from "@/services/track";
+import { useAuth } from "@/services/auth";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import type { ActiveTurnItem } from "@/enterprise/hooks/useAIChat/types";
@@ -36,7 +39,8 @@ import ChatComposer, {
   type ComposerSubmission,
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
 import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
-import { useSkillCommandItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
+import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
+import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
 import AgentChatHistory from "./AgentChatHistory";
 import {
   type MessageTurn,
@@ -45,14 +49,9 @@ import {
   assistantText,
   getUserText,
 } from "./agentMessageUtils";
-import AskUserCard, {
-  type AskUserOption,
-  type AskUserPrompt,
-} from "./AskUserCard";
-import ConfirmActionCard, {
-  type ConfirmActionPrompt,
-  type ConfirmDecisionBody,
-} from "./ConfirmActionCard";
+import AskUserCard, { type AskUserOption } from "./AskUserCard";
+import ConfirmActionCard from "./ConfirmActionCard";
+import { dashboardWriteFromEvent } from "./dashboardWrite";
 
 const STORAGE_KEY = "growthbook.agent.conversationId";
 
@@ -149,7 +148,6 @@ export default function AgentPanel({
 }: AgentPanelProps) {
   const composerRef = useRef<ChatComposerHandle>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const askSeqRef = useRef(0);
   // Preserves each tool-detail disclosure's open/closed state across the
   // active-turn → persisted-message remount so it doesn't snap shut mid-turn.
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
@@ -167,13 +165,17 @@ export default function AgentPanel({
   const datasourceId = useDefaultDataSourceId();
   const datasourceIdRef = useRef(datasourceId);
   datasourceIdRef.current = datasourceId;
-  const [askPrompt, setAskPrompt] = useState<AskUserPrompt | null>(null);
-  const [confirmPrompt, setConfirmPrompt] =
-    useState<ConfirmActionPrompt | null>(null);
-  const confirmSeqRef = useRef(0);
-  // Holds the decision to attach to the next outgoing message. Consumed (and
-  // cleared) by buildRequestBody so it only rides along with one request.
-  const pendingDecisionRef = useRef<ConfirmDecisionBody | null>(null);
+  const {
+    askPrompt,
+    confirmPrompt,
+    handleSSEEvent,
+    syncFromConversation,
+    takePendingDecision,
+    resolveOnUserMessage,
+    resolveAsk,
+    resolveConfirm,
+    reset: resetTransientState,
+  } = useAgentInteractionPrompts();
   const pendingSubmissionRef = useRef<ComposerSubmission>({
     text: "",
     mentions: [],
@@ -182,7 +184,7 @@ export default function AgentPanel({
 
   const { items: mentionItems, ready: mentionItemsReady } =
     useMetricMentionItems();
-  const skillItems = useSkillCommandItems();
+  const skillItems = useSkillMenuItems();
 
   const {
     feedbackMap,
@@ -211,130 +213,78 @@ export default function AgentPanel({
     void routerRef.current?.push(href);
   }, []);
 
-  const buildRequestBody = useCallback((message: string, cid: string) => {
-    // router.asPath is the path + search (no host); cap to match the
-    // back-end validator (z.string().max(2048)).
-    const path = (routerRef.current?.asPath ?? "").slice(0, 2048);
-    const dsId = datasourceIdRef.current;
-    const decision = pendingDecisionRef.current;
-    pendingDecisionRef.current = null;
-    const { mentions, skills } = pendingSubmissionRef.current;
-    pendingSubmissionRef.current = { text: "", mentions: [], skills: [] };
-    return {
-      message,
-      conversationId: cid,
-      ...(path ? { currentPage: path } : {}),
-      ...(dsId ? { datasourceId: dsId } : {}),
-      ...(mentions.length ? { mentions } : {}),
-      ...(skills.length ? { skills } : {}),
-      ...(decision ?? {}),
-    };
-  }, []);
+  const { mutate } = useSWRConfig();
+  const { apiCall } = useAuth();
 
-  const handleSSEEvent = useCallback(
-    (event: { type: string; data: Record<string, unknown> }) => {
-      if (event.type === "ask-user") {
-        const question =
-          typeof event.data.question === "string" ? event.data.question : "";
-        const rawOptions = Array.isArray(event.data.options)
-          ? (event.data.options as Array<Record<string, unknown>>)
-          : [];
-        const options: AskUserOption[] = rawOptions
-          .map((o) => ({
-            id: typeof o.id === "string" ? o.id : "",
-            label: typeof o.label === "string" ? o.label : "",
-            description:
-              typeof o.description === "string" ? o.description : undefined,
-          }))
-          .filter((o) => o.id && o.label);
-        if (!question || options.length === 0) return;
-        askSeqRef.current += 1;
-        setAskPrompt({
-          seq: askSeqRef.current,
-          question,
-          options,
-          allowMultiple: event.data.allowMultiple === true,
-          resolved: false,
-        });
-        return;
-      }
-      if (event.type === "confirm-action") {
-        const actionId =
-          typeof event.data.actionId === "string" ? event.data.actionId : "";
-        const method =
-          typeof event.data.method === "string" ? event.data.method : "";
-        const path = typeof event.data.path === "string" ? event.data.path : "";
-        const summary =
-          typeof event.data.summary === "string" ? event.data.summary : "";
-        const query =
-          event.data.query && typeof event.data.query === "object"
-            ? (event.data.query as Record<string, unknown>)
-            : undefined;
-        const body = "body" in event.data ? event.data.body : undefined;
-        if (!actionId) return;
-        confirmSeqRef.current += 1;
-        setConfirmPrompt({
-          seq: confirmSeqRef.current,
-          actionId,
-          method,
-          path,
-          summary,
-          query,
-          body,
-          resolved: false,
-        });
-      }
-    },
-    [],
+  /** Every cached dashboard is stale once the agent has written one. */
+  const mutateDashboards = useCallback(
+    () =>
+      mutate((key) => typeof key === "string" && key.includes("::/dashboards")),
+    [mutate],
   );
 
-  // When a conversation is (re)loaded from the server, re-render the
-  // confirmation prompt from any persisted pending action so a gated request
-  // survives a page reload / switching back to the chat. A non-null
-  // pendingAction always means "still awaiting" — the server clears it the
-  // moment the user confirms or cancels.
-  const syncConfirmFromLoad = useCallback((data: unknown) => {
-    const pending =
-      data && typeof data === "object" && "pendingAction" in data
-        ? (data as { pendingAction?: unknown }).pendingAction
-        : null;
-    if (pending && typeof pending === "object") {
-      const p = pending as Record<string, unknown>;
-      const actionId = typeof p.id === "string" ? p.id : "";
-      if (!actionId) return;
-      setConfirmPrompt((prev) => {
-        // Already tracking this action (resolved or not) — leave it so we
-        // don't re-open a prompt the user just answered.
-        if (prev && prev.actionId === actionId) return prev;
-        confirmSeqRef.current += 1;
-        return {
-          seq: confirmSeqRef.current,
-          actionId,
-          method: typeof p.method === "string" ? p.method : "",
-          path: typeof p.path === "string" ? p.path : "",
-          summary: typeof p.summary === "string" ? p.summary : "",
-          query:
-            p.query && typeof p.query === "object"
-              ? (p.query as Record<string, unknown>)
-              : undefined,
-          body: "body" in p ? p.body : undefined,
-          resolved: false,
-        };
-      });
-    } else {
-      // Server reports no parked action — drop any prompt we were showing.
-      setConfirmPrompt((prev) => (prev ? null : prev));
-    }
-  }, []);
+  /** Open a new dashboard (which becomes the next turn's page context); refresh an edited one. */
+  const handleDashboardWrite = useCallback(
+    (event: { type: string; data: Record<string, unknown> }) => {
+      const write = dashboardWriteFromEvent(event);
+      if (!write) return;
+
+      if (write.kind === "created") {
+        void mutateDashboards();
+        void routerRef.current?.push(dashboardPagePath(write.id));
+        return;
+      }
+
+      void (async () => {
+        try {
+          await apiCall(`/dashboards/${write.id}/refresh`, { method: "POST" });
+        } catch {
+          // The edit landed; its Update button can retry the refresh.
+        }
+        await mutateDashboards();
+      })();
+    },
+    [apiCall, mutateDashboards],
+  );
+
+  const handleAgentSSEEvent = useCallback(
+    (event: { type: string; data: Record<string, unknown> }) => {
+      handleSSEEvent(event);
+      handleDashboardWrite(event);
+    },
+    [handleSSEEvent, handleDashboardWrite],
+  );
+
+  const buildRequestBody = useCallback(
+    (message: string, cid: string) => {
+      // router.asPath is the path + search (no host); cap to match the
+      // back-end validator (z.string().max(2048)).
+      const path = (routerRef.current?.asPath ?? "").slice(0, 2048);
+      const dsId = datasourceIdRef.current;
+      const decision = takePendingDecision();
+      const { mentions, skills } = pendingSubmissionRef.current;
+      pendingSubmissionRef.current = { text: "", mentions: [], skills: [] };
+      return {
+        message,
+        conversationId: cid,
+        ...(path ? { currentPage: path } : {}),
+        ...(dsId ? { datasourceId: dsId } : {}),
+        ...(mentions.length ? { mentions } : {}),
+        ...(skills.length ? { skills } : {}),
+        ...(decision ?? {}),
+      };
+    },
+    [takePendingDecision],
+  );
 
   // On load, hydrate both the parked confirmation prompt and any persisted
   // message feedback from the same raw conversation payload.
   const handleConversationLoaded = useCallback(
     (data: unknown) => {
-      syncConfirmFromLoad(data);
+      syncFromConversation(data);
       loadFeedbackFromConversation(data);
     },
-    [syncConfirmFromLoad, loadFeedbackFromConversation],
+    [syncFromConversation, loadFeedbackFromConversation],
   );
 
   const {
@@ -358,7 +308,7 @@ export default function AgentPanel({
     toolStatusLabels: TOOL_STATUS_LABELS,
     getConversationEndpoint: (cid) => `/agent/chat/${cid}`,
     getCancelEndpoint: (cid) => `/agent/chat/${cid}/cancel`,
-    onSSEEvent: handleSSEEvent,
+    onSSEEvent: handleAgentSSEEvent,
     onConversationLoaded: handleConversationLoaded,
     conversationStorageKey: STORAGE_KEY,
     onMessageComplete: (info) => {
@@ -432,57 +382,36 @@ export default function AgentPanel({
       const text = submission.text.trim();
       if (!text || loading) return;
       pendingSubmissionRef.current = submission;
-      if (askPrompt && !askPrompt.resolved) {
-        // Typing a free-text reply also resolves the active question.
-        setAskPrompt({ ...askPrompt, resolved: true });
-      }
-      if (confirmPrompt && !confirmPrompt.resolved) {
-        // Typing instead of clicking supersedes the parked mutation server-side.
-        setConfirmPrompt({ ...confirmPrompt, resolved: true });
-      }
+      resolveOnUserMessage();
       trackMessageSent();
       sendMessage(text, {
         mentions: submission.mentions,
         skills: submission.skills,
       });
     },
-    [input, loading, sendMessage, askPrompt, confirmPrompt, trackMessageSent],
+    [input, loading, sendMessage, resolveOnUserMessage, trackMessageSent],
   );
 
   const handleAskOption = useCallback(
     (option: AskUserOption) => {
-      if (!askPrompt || askPrompt.resolved || loading) return;
-      setAskPrompt({ ...askPrompt, resolved: true });
+      if (loading || !resolveAsk()) return;
       trackMessageSent();
       sendMessage(option.label);
     },
-    [askPrompt, sendMessage, loading, trackMessageSent],
+    [resolveAsk, sendMessage, loading, trackMessageSent],
   );
 
   const handleConfirmAction = useCallback(
     (decision: "confirm" | "cancel") => {
-      if (!confirmPrompt || confirmPrompt.resolved || loading) return;
-      setConfirmPrompt({ ...confirmPrompt, resolved: true });
-      pendingDecisionRef.current = {
-        confirmActionId: confirmPrompt.actionId,
-        confirmDecision: decision,
-      };
+      if (loading || !resolveConfirm(decision)) return;
       // The decision is a control signal — don't render it as a user bubble.
       trackMessageSent();
       sendMessage(decision === "confirm" ? "Confirm" : "Cancel", {
         suppressUserMessage: true,
       });
     },
-    [confirmPrompt, sendMessage, loading, trackMessageSent],
+    [resolveConfirm, sendMessage, loading, trackMessageSent],
   );
-
-  const resetTransientState = useCallback(() => {
-    setAskPrompt(null);
-    askSeqRef.current = 0;
-    setConfirmPrompt(null);
-    confirmSeqRef.current = 0;
-    pendingDecisionRef.current = null;
-  }, []);
 
   const handleNewChat = useCallback(() => {
     track("AI Assistant New Conversation", {
