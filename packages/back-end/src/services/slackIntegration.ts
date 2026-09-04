@@ -44,7 +44,8 @@ import {
 
 const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
-const SLACK_OAUTH_SCOPE = "chat:write,channels:read,groups:read,channels:join";
+const SLACK_OAUTH_SCOPE =
+  "chat:write,files:write,channels:read,groups:read,channels:join";
 const SLACK_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 const DEFAULT_SLACK_EVENTS = ["experiment.*", "feature.*"];
 
@@ -394,6 +395,7 @@ export const slackEventWebhookToIntegration = (
   tags: eventWebHook.tags,
   lastRunAt: eventWebHook.lastRunAt,
   lastState: eventWebHook.lastState,
+  slackOptions: eventWebHook.slackOptions,
   slack: eventWebHook.slack,
 });
 
@@ -487,7 +489,7 @@ export const updateSlackOAuthIntegration = async ({
   id: string;
   updates: Pick<
     EventWebHookInterface,
-    "enabled" | "events" | "projects" | "environments" | "tags"
+    "enabled" | "events" | "projects" | "environments" | "tags" | "slackOptions"
   >;
 }): Promise<SlackOAuthIntegrationInterface | null> => {
   const eventWebHook = await getEventWebHookById(id, context.org.id);
@@ -599,6 +601,7 @@ const attachSlackOAuthCode = async ({
       method: "POST",
       headers: {},
       slack: getSlackMetadata(slackOAuthResponse),
+      slackOptions: { experimentCardFormat: "compact" },
     });
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;
@@ -900,6 +903,7 @@ export const addSlackChannelToWorkspace = async ({
         channelId: channel.id,
         channelName: channel.name,
       },
+      slackOptions: { experimentCardFormat: "compact" },
     });
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;

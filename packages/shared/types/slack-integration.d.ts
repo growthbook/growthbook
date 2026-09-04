@@ -29,6 +29,7 @@ export interface SlackOAuthIntegrationInterface {
   tags: string[];
   lastRunAt: Date | null;
   lastState: "none" | "success" | "error";
+  slackOptions?: import("../src/validators/event-webhook").SlackEventWebHookOptions;
   slack?: {
     appId?: string;
     teamId?: string;

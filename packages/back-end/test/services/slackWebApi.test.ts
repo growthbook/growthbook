@@ -3,11 +3,13 @@ import {
   joinSlackConversation,
   listSlackConversations,
   postSlackMessageResult,
+  uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
-import { cancellableFetch } from "back-end/src/util/http.util";
+import { cancellableFetch, fetch } from "back-end/src/util/http.util";
 
 jest.mock("back-end/src/util/http.util", () => ({
   cancellableFetch: jest.fn(),
+  fetch: jest.fn(),
 }));
 
 const slackResponse = (body: Record<string, unknown>) => ({
@@ -68,6 +70,49 @@ describe("Slack Web API", () => {
         },
         body: JSON.stringify({ channel: "C123", text: "Hello", blocks }),
       },
+      { maxTimeMs: 15000, maxContentSize: 1024 * 256 },
+    );
+  });
+
+  it("uploads and shares a private notification card", async () => {
+    cancellableFetch
+      .mockResolvedValueOnce(
+        slackResponse({
+          ok: true,
+          upload_url: "https://files.slack.test/upload",
+          file_id: "F123",
+        }),
+      )
+      .mockResolvedValueOnce(slackResponse({ ok: true }));
+    fetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+    const png = Buffer.from("png");
+    await expect(
+      uploadSlackImageFile({
+        token: "xoxb-token",
+        png,
+        filename: "experiment-card.png",
+        title: "Experiment stopped",
+        channelId: "C123",
+        initialComment: "Experiment stopped",
+      }),
+    ).resolves.toBe("F123");
+
+    expect(fetch).toHaveBeenCalledWith("https://files.slack.test/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: png,
+    });
+    expect(cancellableFetch).toHaveBeenLastCalledWith(
+      "https://slack.com/api/files.completeUploadExternal",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          files: [{ id: "F123", title: "Experiment stopped" }],
+          channel_id: "C123",
+          initial_comment: "Experiment stopped",
+        }),
+      }),
       { maxTimeMs: 15000, maxContentSize: 1024 * 256 },
     );
   });

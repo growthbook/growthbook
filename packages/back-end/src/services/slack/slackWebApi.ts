@@ -1,4 +1,4 @@
-import { cancellableFetch } from "back-end/src/util/http.util";
+import { cancellableFetch, fetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 
 const SLACK_API_URL = "https://slack.com/api";
@@ -135,6 +135,60 @@ export async function postSlackMessage(args: {
   blocks?: unknown[];
 }): Promise<string | null> {
   return (await postSlackMessageResult(args)).ts;
+}
+
+/**
+ * Upload a PNG as a private Slack file and share it into a channel. Slack's
+ * external-upload flow keeps experiment data off public object storage.
+ */
+export async function uploadSlackImageFile({
+  token,
+  png,
+  filename,
+  title,
+  channelId,
+  initialComment,
+}: {
+  token: string;
+  png: Buffer;
+  filename: string;
+  title?: string;
+  channelId: string;
+  initialComment?: string;
+}): Promise<string | null> {
+  const getRes = await slackApiGet<
+    SlackApiResponse & { upload_url?: string; file_id?: string }
+  >(token, "files.getUploadURLExternal", {
+    filename,
+    length: String(png.length),
+  });
+  if (!getRes?.ok || !getRes.upload_url || !getRes.file_id) return null;
+
+  try {
+    const uploadRes = await fetch(getRes.upload_url, {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: png,
+    });
+    if (!uploadRes.ok) {
+      logger.warn(`Slack file upload POST returned HTTP ${uploadRes.status}`);
+      return null;
+    }
+  } catch (error) {
+    logger.error(error, "Slack file upload POST threw");
+    return null;
+  }
+
+  const completeRes = await slackApiCall<SlackApiResponse>(
+    token,
+    "files.completeUploadExternal",
+    {
+      files: [{ id: getRes.file_id, title: title || filename }],
+      channel_id: channelId,
+      ...(initialComment ? { initial_comment: initialComment } : {}),
+    },
+  );
+  return completeRes?.ok ? getRes.file_id : null;
 }
 
 export async function getSlackConversationName({
