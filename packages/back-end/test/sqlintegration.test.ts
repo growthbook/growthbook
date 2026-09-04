@@ -513,6 +513,77 @@ describe("bigquery integration", () => {
     expect(result).not.toContain("m.timestamp");
   });
 
+  it("maps identifier columns and aliases them back to the id type", () => {
+    const factTable = factTableFactory.build({
+      sql: "SELECT userId, anonId, props, timestamp, value FROM events",
+      userIdColumns: { user_id: "userId", anonymous_id: "anonId" },
+    });
+    const factMetric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: factTable.id,
+        column: "value",
+        aggregation: "sum",
+      },
+    });
+
+    const params = {
+      metricsWithIndices: [{ metric: factMetric, index: 0 }],
+      factTable,
+      startDate: new Date("2023-01-01"),
+      endDate: new Date("2023-01-31"),
+    };
+
+    // Base id type is on the fact table: select the mapped column directly.
+    const result = getFactMetricCTE(bigQueryDialect, {
+      ...params,
+      baseIdType: "user_id",
+      idJoinMap: {},
+    });
+    expect(result).toContain("userId as user_id");
+    expect(result).not.toContain("user_id as user_id");
+
+    // Base id type isn't on the fact table: join on the mapped column instead.
+    const joined = getFactMetricCTE(bigQueryDialect, {
+      ...params,
+      baseIdType: "device_id",
+      idJoinMap: { anonymous_id: "__identities" },
+    });
+    expect(joined).toContain(
+      "JOIN __identities i ON (i.anonymous_id = m.anonId)",
+    );
+
+    // A mapped virtual column inlines its expression in the identifier position.
+    const virtual = getFactMetricCTE(bigQueryDialect, {
+      ...params,
+      factTable: factTableFactory.build({
+        id: factTable.id,
+        sql: "SELECT userId, anonId, timestamp, value FROM events",
+        userIdColumns: { user_id: "combined_id" },
+        columns: [
+          {
+            column: "combined_id",
+            name: "combined_id",
+            description: "",
+            datatype: "string",
+            numberFormat: "",
+            deleted: false,
+            dateCreated: new Date(0),
+            dateUpdated: new Date(0),
+            isVirtual: true,
+            sql: "COALESCE(userId, anonId)",
+          },
+        ],
+      }),
+      baseIdType: "user_id",
+      idJoinMap: {},
+    });
+    // No alias prefix here: the expression sits directly in the SELECT over
+    // the fact table subquery, same as the plain mapped column above.
+    expect(virtual).toContain("(COALESCE(userId, anonId)) as user_id");
+    expect(virtual).toContain("m.value as m0_value");
+  });
+
   it("substitutes {{experimentId}} in fact table SQL when experimentId is provided", () => {
     const factTable = factTableFactory.build({
       sql: "SELECT user_id, timestamp, value FROM events WHERE sample_type = CONCAT('experiment:', '{{experimentId}}')",

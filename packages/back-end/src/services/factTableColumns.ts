@@ -64,13 +64,15 @@ function getTopValuesLookbackDays(
 export function selectColumnsForTopValues({
   columns,
   userIdTypes,
+  userIdColumns,
   maxColumns = MAX_COLUMNS_WITH_TOP_VALUES,
 }: {
   columns: ColumnInterface[];
   userIdTypes: string[];
+  userIdColumns?: Record<string, string>;
   maxColumns?: number;
 }): ColumnInterface[] {
-  const factTableLike = { columns, userIdTypes };
+  const factTableLike = { columns, userIdTypes, userIdColumns };
 
   const eligible = columns.filter(
     (col) =>
@@ -175,10 +177,12 @@ export function populateAutoSlices(
 export function mergeRefreshedTopValues({
   currentColumns,
   currentUserIdTypes,
+  currentUserIdColumns,
   refreshedColumns,
 }: {
   currentColumns: ColumnInterface[];
   currentUserIdTypes: string[];
+  currentUserIdColumns?: Record<string, string>;
   refreshedColumns: ColumnInterface[];
 }): ColumnInterface[] {
   const refreshedColumnsById = new Map(
@@ -188,6 +192,7 @@ export function mergeRefreshedTopValues({
     selectColumnsForTopValues({
       columns: currentColumns,
       userIdTypes: currentUserIdTypes,
+      userIdColumns: currentUserIdColumns,
     }).map((column) => column.column),
   );
 
@@ -400,7 +405,7 @@ export async function refreshColumnTopValues(
   datasource: DataSourceInterface,
   factTable: Pick<
     FactTableInterface,
-    "sql" | "eventName" | "userIdTypes" | "timestampColumn"
+    "sql" | "eventName" | "userIdTypes" | "userIdColumns" | "timestampColumn"
   >,
   columns: ColumnInterface[],
 ): Promise<ColumnInterface[]> {
@@ -408,6 +413,7 @@ export async function refreshColumnTopValues(
   const columnsNeedingTopValues = selectColumnsForTopValues({
     columns,
     userIdTypes: factTable.userIdTypes,
+    userIdColumns: factTable.userIdColumns,
   });
 
   // Batch query for all columns that need top values. Datasources

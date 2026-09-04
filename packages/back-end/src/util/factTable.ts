@@ -5,6 +5,7 @@ import {
   AggregatedFactTableSettings,
   ColumnInterface,
   CreateColumnProps,
+  FactTableInterface,
   JSONColumnFields,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
@@ -148,14 +149,23 @@ export function normalizeJSONFieldsInput(
 export function deriveUserIdTypesFromColumns(
   datasource: DataSourceInterface,
   columns: ColumnInterface[],
+  userIdColumns?: FactTableInterface["userIdColumns"],
 ): string[] {
-  const activeColumns = new Set(
-    columns.filter((c) => !c.deleted).map((c) => c.column),
-  );
+  const activeColumns = columns.filter((c) => !c.deleted);
+  const activeColumnNames = new Set(activeColumns.map((c) => c.column));
+
+  const isResolvable = (column: string): boolean => {
+    if (activeColumnNames.has(column)) return true;
+    const [root, ...path] = column.split(".");
+    return (
+      path.length > 0 &&
+      activeColumns.some((c) => c.column === root && c.datatype === "json")
+    );
+  };
 
   return (datasource.settings?.userIdTypes || [])
     .map((u) => u.userIdType)
-    .filter((id) => activeColumns.has(id));
+    .filter((id) => isResolvable(userIdColumns?.[id] || id));
 }
 
 export function columnsHaveAutoSlices(

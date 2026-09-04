@@ -13,10 +13,15 @@ import {
   stripIncompatibleFields,
 } from "back-end/src/util/factTable";
 
-function makeColumn(column: string, deleted = false): ColumnInterface {
+function makeColumn(
+  column: string,
+  deleted = false,
+  datatype?: string,
+): ColumnInterface {
   return {
     column,
     deleted,
+    datatype,
   } as unknown as ColumnInterface;
 }
 
@@ -395,6 +400,55 @@ describe("deriveUserIdTypesFromColumns", () => {
         { columnName: "user_id", type: "identifier" },
       ]);
       expect(deriveUserIdTypesFromColumns(ds, [])).toEqual([]);
+    });
+
+    it("keeps a remapped id type whose mapped column is present", () => {
+      const ds = makeClickhouseDatasource([
+        { columnName: "user_id", type: "identifier" },
+        { columnName: "device_id", type: "identifier" },
+      ]);
+      const cols = [makeColumn("userId"), makeColumn("device_id")];
+      expect(
+        deriveUserIdTypesFromColumns(ds, cols, { user_id: "userId" }),
+      ).toEqual(["user_id", "device_id"]);
+    });
+
+    it("keeps an id type mapped to a JSON field path", () => {
+      const ds = makeClickhouseDatasource([
+        { columnName: "user_id", type: "identifier" },
+      ]);
+      // Only the root `properties` column is detected; query generation
+      // resolves the path with a JSON extract, so the id type must survive.
+      const cols = [makeColumn("properties", false, "json")];
+      expect(
+        deriveUserIdTypesFromColumns(ds, cols, {
+          user_id: "properties.userId",
+        }),
+      ).toEqual(["user_id"]);
+    });
+
+    it("drops a JSON-path mapping when the root column isn't a json column", () => {
+      const ds = makeClickhouseDatasource([
+        { columnName: "user_id", type: "identifier" },
+      ]);
+      const cols = [makeColumn("properties", false, "string")];
+      expect(
+        deriveUserIdTypesFromColumns(ds, cols, {
+          user_id: "properties.userId",
+        }),
+      ).toEqual([]);
+    });
+
+    it("drops a remapped id type whose mapped column is gone", () => {
+      const ds = makeClickhouseDatasource([
+        { columnName: "user_id", type: "identifier" },
+      ]);
+      // A column literally named after the id type doesn't count once the id
+      // type is mapped elsewhere -- SQL generation reads the mapped column.
+      const cols = [makeColumn("user_id"), makeColumn("userId", true)];
+      expect(
+        deriveUserIdTypesFromColumns(ds, cols, { user_id: "userId" }),
+      ).toEqual([]);
     });
   });
 
