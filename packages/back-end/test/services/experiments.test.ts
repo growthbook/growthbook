@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+import { MongoMemoryServer } from "mongodb-memory-server";
 import { z } from "zod";
 import {
   postExperimentValidator,
@@ -18,6 +20,7 @@ import {
 } from "back-end/src/services/experimentScheduling";
 import {
   applyVariationWeightsToLatestPhase,
+  createMetric,
   fillEmptyVariationKeys,
   getExperimentMetricById,
   normalizeStatusUpdateScheduleChanges,
@@ -30,6 +33,46 @@ import {
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+
+describe("createMetric", () => {
+  let mongod: MongoMemoryServer;
+
+  beforeAll(async () => {
+    mongod = await MongoMemoryServer.create();
+    await mongoose.connect(mongod.getUri());
+  });
+
+  afterAll(async () => {
+    await mongoose.connection.close();
+    await mongod.stop();
+  });
+
+  it("does not register tags when metric creation is denied", async () => {
+    const organizationId = "org_metric_create_order";
+    const context = {
+      org: { id: organizationId },
+      permissions: {
+        canCreateMetric: () => false,
+        throwPermissionError: () => {
+          throw new Error("Permission denied");
+        },
+      },
+    } as unknown as Context;
+
+    await expect(
+      createMetric(context, {
+        name: "Denied metric",
+        tags: ["must-not-persist"],
+      }),
+    ).rejects.toThrow("Permission denied");
+
+    expect(
+      await mongoose.connection
+        .db!.collection("tags")
+        .countDocuments({ organization: organizationId }),
+    ).toBe(0);
+  });
+});
 
 describe("experiments utils", () => {
   describe("validateVariationIds", () => {
