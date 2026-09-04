@@ -2104,6 +2104,29 @@ export const postExperimentStartValidator = {
   ] as const,
 };
 
+const postExperimentCommentBody = z
+  .object({
+    comment: z.string().trim().min(1, "Comment cannot be empty"),
+  })
+  .strict();
+
+export const postExperimentCommentValidator = {
+  bodySchema: postExperimentCommentBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.strictObject({ status: z.number() }),
+  summary: "Post a comment on an experiment",
+  description: "Adds a new comment to an experiment's discussion thread.",
+  operationId: "postExperimentComment",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/comment",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: { comment: "This looks good to ship." },
+  },
+};
+
 export const postExperimentStartChecklistManualCompleteValidator = {
   bodySchema: postExperimentStartChecklistManualCompleteBody,
   querySchema: z.never(),
