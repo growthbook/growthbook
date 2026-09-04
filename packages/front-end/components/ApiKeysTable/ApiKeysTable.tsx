@@ -73,8 +73,10 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
             <th>Key</th>
             <th>Global Role</th>
             <th>Project Roles</th>
-            <th>Last Used</th>
-            <th>Expires</th>
+            {/* Relative spans like "in about 2 months" otherwise wrap and
+                double every row's height. */}
+            <th style={{ whiteSpace: "nowrap" }}>Last Used</th>
+            <th style={{ whiteSpace: "nowrap" }}>Expires</th>
             {environments.map((env) => (
               <th key={env.id}>{env.id}</th>
             ))}
@@ -141,7 +143,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   return null;
                 })}
               </td>
-              <td style={dimStyle(key)}>
+              <td style={{ whiteSpace: "nowrap", ...dimStyle(key) }}>
                 {key.lastUsed ? (
                   <Tooltip
                     content={
@@ -160,7 +162,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   </Tooltip>
                 )}
               </td>
-              <td style={dimStyle(key)}>
+              <td style={{ whiteSpace: "nowrap", ...dimStyle(key) }}>
                 <ExpiresCell expiresAt={key.expiresAt} />
               </td>
               {environments.map((env) => {

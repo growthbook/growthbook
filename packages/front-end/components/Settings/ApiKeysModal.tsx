@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { getRoles } from "shared/permissions";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
+import { getExpirationProblem } from "shared/api-key-expiration";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -33,6 +34,8 @@ const ApiKeysModal: FC<{
     ? settings?.maxPatLifetimeDays
     : settings?.maxApiKeyLifetimeDays;
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
+  // The field explains each of these inline, so Create just stays out of reach.
+  const expirationProblem = getExpirationProblem(expiresAt, maxLifetimeDays);
 
   // When an existing key is passed in, the modal edits that key in place
   // instead of creating a new one. Only org secret keys can be edited.
@@ -119,6 +122,7 @@ const ApiKeysModal: FC<{
       open={true}
       submit={onSubmit}
       cta={editMode ? "Save" : "Create"}
+      ctaEnabled={editMode || !expirationProblem}
     >
       <TextField
         label="Description"

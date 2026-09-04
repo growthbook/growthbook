@@ -18,6 +18,7 @@ import Field from "@/components/Forms/Field";
 import { RadixTheme } from "@/services/RadixTheme";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import HelperText from "@/ui/HelperText";
 import styles from "./DatePicker.module.scss";
 
 type Props = {
@@ -30,6 +31,13 @@ type Props = {
   /** When using a range (`setDate2`), shown if `label` is omitted. */
   label2?: ReactNode;
   helpText?: ReactNode;
+  /** Invalid-state message, shown in place of `helpText`. */
+  error?: ReactNode;
+  /**
+   * Snap a typed date onto the nearest bound. Off lets an out-of-range date
+   * through so the caller can flag it rather than silently rewriting it.
+   */
+  clampInput?: boolean;
   inputWidth?: number;
   precision?: "datetime" | "date";
   disableBefore?: Date | string;
@@ -104,6 +112,8 @@ export default function DatePicker({
   label,
   label2,
   helpText,
+  error,
+  clampInput = true,
   inputWidth,
   precision = "datetime",
   disableBefore,
@@ -284,12 +294,19 @@ export default function DatePicker({
   const debouncedSetDate = useMemo(() => {
     return debounce((value: string) => {
       const parsedDate = parseDateInput(value);
-      const finalDate = clampParsedDate(parsedDate);
+      const finalDate = clampInput ? clampParsedDate(parsedDate) : parsedDate;
       setDate(finalDate);
       setBufferedDate(format(finalDate, dateFormat));
       setCalendarMonth(new Date(finalDate.getFullYear(), finalDate.getMonth()));
     }, 500);
-  }, [clampParsedDate, setDate, setCalendarMonth, dateFormat, parseDateInput]);
+  }, [
+    clampInput,
+    clampParsedDate,
+    setDate,
+    setCalendarMonth,
+    dateFormat,
+    parseDateInput,
+  ]);
 
   const debouncedApplyRange = useMemo(() => {
     return debounce((startStr: string, endStr: string) => {
@@ -384,7 +401,9 @@ export default function DatePicker({
                 }
               >
                 <div
-                  className="form-control p-0"
+                  className={clsx("form-control p-0", {
+                    "form-control--error": !!error,
+                  })}
                   style={{
                     flex: 1,
                     minWidth: 0,
@@ -582,7 +601,13 @@ export default function DatePicker({
           </RadixTheme>
         </Popover.Portal>
       </Popover.Root>
-      {helpText && <small className="form-text text-muted">{helpText}</small>}
+      {error ? (
+        <HelperText status="error" mt="1">
+          {error}
+        </HelperText>
+      ) : helpText ? (
+        <small className="form-text text-muted">{helpText}</small>
+      ) : null}
     </div>
   );
 }
