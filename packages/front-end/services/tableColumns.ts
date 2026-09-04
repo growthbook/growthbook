@@ -140,7 +140,14 @@ export function resolveTableColumns<TRow>(
     return {
       ...def,
       visible,
-      width: clampWidth(def, entry?.width ?? def.defaultWidth),
+      // A column the user can't resize has no stored width worth honouring —
+      // it is a stale copy of a past default, and it would shadow the current
+      // one forever for anyone who has already saved a layout.
+      width: clampWidth(
+        def,
+        (def.resizable === false ? undefined : entry?.width) ??
+          def.defaultWidth,
+      ),
     };
   });
 

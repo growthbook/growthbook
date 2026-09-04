@@ -363,7 +363,12 @@ const FeatureAttributesPage = (): React.ReactElement => {
         header: null,
         locked: true,
         resizable: false,
-        defaultWidth: 56,
+        // Sized to the control it holds rather than to the shared padding,
+        // which would otherwise take more room than the icon itself.
+        defaultWidth: 40,
+        minWidth: 40,
+        headerProps: { style: { paddingLeft: 4, paddingRight: 4 } },
+        cellProps: () => ({ style: { paddingLeft: 4, paddingRight: 4 } }),
         render: (v) => (
           <Flex justify="center">
             <AttributeRowMenu
