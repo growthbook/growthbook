@@ -1,6 +1,8 @@
 import { Flex } from "@radix-ui/themes";
+import { CommercialFeature } from "shared/enterprise";
 import { Select, SelectGroup, SelectItem, SelectLabel } from "@/ui/Select";
 import Text from "@/ui/Text";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { FormMetricType } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 
 const TYPE_LABELS: Record<FormMetricType, string> = {
@@ -58,9 +60,17 @@ const GROUPS: { label: string; types: readonly FormMetricType[] }[] = [
   { label: "Special", types: ["ratio", "quantile", "dailyParticipation"] },
 ];
 
+type Gate =
+  | { kind: "commercial"; feature: CommercialFeature }
+  | { kind: "datasource"; suffix: string };
+
 // Premium items are disabled (not silently swallowed on click, as today's
 // flat ButtonSelectField does) - a stricter, more accessible upgrade the
-// native Select's disabled state gives us for free.
+// native Select's disabled state gives us for free. The commercial-gated
+// label is wrapped in PremiumTooltip (the app's standard upgrade-path
+// pattern) rather than a plain "(premium)" suffix - it renders a visible
+// premium badge regardless of whether hover works on a disabled item, so
+// the upgrade path survives even if a hover tooltip doesn't fire there.
 export default function MetricTypeSelect({
   value,
   onChange,
@@ -77,16 +87,23 @@ export default function MetricTypeSelect({
   quantileAvailableForDatasource: boolean;
 }) {
   // Quantile can be disabled for two different reasons - a commercial gate
-  // or a datasource that can't run it - and they need different copy, since
-  // "(premium)" is factually wrong (and points at the wrong upgrade path)
+  // or a datasource that can't run it - and they need different treatment:
+  // "premium" copy/upsell is factually wrong (and points at the wrong fix)
   // for a customer who already has the feature but is on the wrong warehouse.
-  const disabledSuffix: Partial<Record<FormMetricType, string>> = {
-    retention: !hasRetentionMetrics ? " (premium)" : undefined,
-    funnel: !hasFunnelMetrics ? " (premium)" : undefined,
+  const gate: Partial<Record<FormMetricType, Gate>> = {
+    retention: !hasRetentionMetrics
+      ? { kind: "commercial", feature: "retention-metrics" }
+      : undefined,
+    funnel: !hasFunnelMetrics
+      ? { kind: "commercial", feature: "funnel-metrics" }
+      : undefined,
     quantile: !hasQuantileMetrics
-      ? " (premium)"
+      ? { kind: "commercial", feature: "quantile-metrics" }
       : !quantileAvailableForDatasource
-        ? " (not available for this Data Source)"
+        ? {
+            kind: "datasource",
+            suffix: " (not available for this Data Source)",
+          }
         : undefined,
   };
 
@@ -100,16 +117,23 @@ export default function MetricTypeSelect({
         {GROUPS.map((group) => (
           <SelectGroup key={group.label}>
             <SelectLabel>{group.label}</SelectLabel>
-            {group.types.map((type) => (
-              <SelectItem
-                key={type}
-                value={type}
-                disabled={!!disabledSuffix[type]}
-              >
-                {TYPE_LABELS[type]}
-                {disabledSuffix[type] || ""}
-              </SelectItem>
-            ))}
+            {group.types.map((type) => {
+              const g = gate[type];
+              return (
+                <SelectItem key={type} value={type} disabled={!!g}>
+                  {g?.kind === "commercial" ? (
+                    <PremiumTooltip commercialFeature={g.feature}>
+                      {TYPE_LABELS[type]}
+                    </PremiumTooltip>
+                  ) : (
+                    <>
+                      {TYPE_LABELS[type]}
+                      {g?.kind === "datasource" ? g.suffix : ""}
+                    </>
+                  )}
+                </SelectItem>
+              );
+            })}
           </SelectGroup>
         ))}
       </Select>
