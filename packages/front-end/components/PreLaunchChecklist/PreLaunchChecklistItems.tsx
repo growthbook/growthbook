@@ -9,7 +9,12 @@ import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunc
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
+import {
+  experimentHasLiveLinkedChanges,
+  getImplementationType,
+  hasVisualChanges,
+  isManagedByExperiment,
+} from "shared/util";
 import track from "@/services/track";
 import Link from "@/ui/Link";
 
@@ -176,6 +181,14 @@ export function getChecklistItems({
     }
   }
 
+  // A managed flag is the experiment's own values, so the checklist talks
+  // about values, not about linking a flag.
+  const isManaged = (f: LinkedFeatureInfo) =>
+    isManagedByExperiment(f.feature, experiment.id);
+  const valuesMode =
+    linkedFeatures.some(isManaged) ||
+    getImplementationType(experiment) === "values";
+
   if (checkLinkedChanges) {
     const hasLiveLinkedChanges = experimentHasLiveLinkedChanges(
       experiment,
@@ -185,8 +198,19 @@ export function getChecklistItems({
       linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
       experiment.hasVisualChangesets ||
       experiment.hasURLRedirects;
+    const linkedChangesDone =
+      (isBandit && hasLiveLinkedChanges) || (!isBandit && hasLinkedChanges);
     items.push({
-      display: (
+      display: valuesMode ? (
+        <>
+          Add{" "}
+          {openSetupTab && !linkedChangesDone ? (
+            <Link onClick={openSetupTab}>variation values</Link>
+          ) : (
+            "variation values"
+          )}
+        </>
+      ) : (
         <>
           Add at least one{isBandit && " live"}{" "}
           {openSetupTab &&
@@ -201,10 +225,7 @@ export function getChecklistItems({
         </>
       ),
       required: true,
-      status:
-        (isBandit && hasLiveLinkedChanges) || (!isBandit && hasLinkedChanges)
-          ? "complete"
-          : "incomplete",
+      status: linkedChangesDone ? "complete" : "incomplete",
       type: "auto",
     });
 
@@ -240,7 +261,17 @@ export function getChecklistItems({
             required: true,
             hardBlock: true,
             hideDescription: true,
-            display: (
+            display: isManaged(f) ? (
+              <>
+                Resolve the merge conflict in this experiment&apos;s{" "}
+                {openSetupTab ? (
+                  <Link onClick={openSetupTab}>variation values</Link>
+                ) : (
+                  "variation values"
+                )}{" "}
+                before it can start
+              </>
+            ) : (
               <>
                 Resolve merge conflict in{" "}
                 <Link
@@ -277,7 +308,17 @@ export function getChecklistItems({
             required: true,
             hardBlock: true,
             hideDescription: true,
-            display: (
+            display: isManaged(f) ? (
+              <>
+                Get this experiment&apos;s{" "}
+                {openSetupTab ? (
+                  <Link onClick={openSetupTab}>variation values</Link>
+                ) : (
+                  "variation values"
+                )}{" "}
+                approved
+              </>
+            ) : (
               <>
                 Approve the feature draft revision in{" "}
                 <Link
