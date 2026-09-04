@@ -74,6 +74,8 @@ export function buildVisualEditorTools({
 }
 
 // How many LLM round-trips the chat handler permits before forcing a
-// final structured output. Each tool call adds a step. Default room for
-// e.g. 2-3 image gens + a design-tokens fetch + the final answer.
-export const VISUAL_EDITOR_MAX_STEPS = 8;
+// final structured output. Each tool call adds a step. Raised from 8 after
+// real edits exhausted the budget exploring the DOM and returned no change
+// at all — every extra step is a full round-trip with the conversation
+// resent, so this trades worst-case cost and latency for fewer dead ends.
+export const VISUAL_EDITOR_MAX_STEPS = 14;
