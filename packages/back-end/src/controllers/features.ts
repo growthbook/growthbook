@@ -175,6 +175,7 @@ import {
   isArchiveTransition,
 } from "back-end/src/revisions/archiveTransition";
 import {
+  insertRuleBefore,
   moveFlatRule,
   stampRuleForEnvs,
   updateRuleById,
@@ -421,6 +422,7 @@ export type SDKPayloadParams = Pick<
   | "includeCustomFieldsInMetadata"
   | "allowedCustomFieldsInMetadata"
   | "includeTagsInMetadata"
+  | "includeReferencedPrerequisites"
 > &
   Partial<Pick<SDKConnectionInterface, "organization">> & {
     // Extend languages to allow "legacy" for old API keys
@@ -467,6 +469,7 @@ export async function getPayloadParamsFromApiKey(
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+      includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
       languages: connection.languages,
       sdkVersion: connection.sdkVersion,
     };
@@ -587,6 +590,7 @@ export async function getFeatureDefinitionsWithCache({
           ? params.savedGroupReferencesEnabled &&
             capabilities.includes("savedGroupReferences")
           : undefined,
+      includeReferencedPrerequisites: params.includeReferencedPrerequisites,
     });
 
     // Write back to cache to populate it for future reads (fire and forget)
@@ -2181,7 +2185,15 @@ export async function postFeaturePublish(
       base,
     });
 
-  if (!adminOverride && requiresReview && !hasCoveringApproval) {
+  // Status AND coverage: `status` aggregates every standing verdict (one
+  // reviewer's changes-requested outranks another's approval), so a covering
+  // approval alone must not publish over an open objection. Same condition as
+  // the REST publish handler.
+  if (
+    !adminOverride &&
+    requiresReview &&
+    !(revision.status === "approved" && hasCoveringApproval)
+  ) {
     throw new Error(
       revision.status === "approved"
         ? "This draft now changes environments its approvers cannot approve. It needs approval from someone with review rights across everything it changes."
@@ -3260,6 +3272,7 @@ export async function postFeatureRule(
     rule,
     safeRolloutFields,
     rampSchedule: rampSchedulePayload,
+    insertBeforeRuleId,
   } = req.body;
 
   const feature = await getFeature(context, id);
@@ -3448,7 +3461,7 @@ export async function postFeatureRule(
     await context.models.projects.ensureProjectsExist(ruleScopeProjects);
   }
   const ruleAdditionChanges = {
-    rules: [...existingRules, stampedRule],
+    rules: insertRuleBefore(existingRules, stampedRule, insertBeforeRuleId),
   };
 
   const combinedChanges: Record<string, unknown> = ruleAdditionChanges;
@@ -5575,6 +5588,7 @@ export async function putFeature(
   ) {
     await validateCustomFieldsForSection({
       customFieldValues: updates.customFields,
+      existingCustomFieldValues: feature.customFields,
       customFieldsModel: context.models.customFields,
       section: "feature",
       project: "project" in updates ? updates.project : feature.project,

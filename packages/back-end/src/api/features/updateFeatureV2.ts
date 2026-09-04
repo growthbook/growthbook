@@ -141,6 +141,9 @@ export const updateFeatureV2 = createApiRequestHandler(
       customFields ?? feature.customFields,
       req.context,
       effectiveProject,
+      // A project change must re-validate all values against the new
+      // project's fields, so only grandfather unchanged values in place
+      projectChanged ? undefined : feature.customFields,
     );
   }
 

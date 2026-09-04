@@ -16,6 +16,7 @@ const licenseSchema = new mongoose.Schema({
   fullMemberSeatsInUse: { type: Number }, // Number of member seats currently in use
   readOnlySeatsInUse: { type: Number }, // Number of read only seats currently in use
   inviteSeatsInUse: { type: Number }, // Number of invite seats currently in use
+  stripeCustomerId: String, // The Stripe customer ID for the license
   remoteDowngrade: { type: Boolean, default: false }, // True if this license was downgraded remotely
   message: {
     text: String, // The text to show in the account notice

@@ -81,7 +81,6 @@ export const contextualBanditValidator = baseSchema
     banditVersion: z.number().int().nonnegative(),
 
     contextualAttributes: z.array(z.string()),
-    targetingAttributeColumns: z.array(z.string()).optional(),
 
     decisionMetric: z.string().optional(),
     minUsersPerLeaf: z.number().int().positive(),
@@ -523,6 +522,14 @@ export const getContextualBanditResultsValidator = {
             z.object({
               numSplits: z.number().int().nonnegative(),
               totalSse: z.number(),
+              split: z
+                .object({
+                  leafClauses: z.array(contextualLeafClauseValidator),
+                  attribute: z.string(),
+                  leftLevels: z.array(z.string()),
+                  rightLevels: z.array(z.string()),
+                })
+                .optional(),
             }),
           ),
           overall: z.object({
@@ -531,6 +538,7 @@ export const getContextualBanditResultsValidator = {
                 variationId: z.string(),
                 variationName: z.string().optional(),
                 weight: z.number().nullable(),
+                mean: z.number().nullable(),
                 users: z.number().nullable(),
               }),
             ),
