@@ -322,11 +322,9 @@ export async function refreshColumns(
     throw new Error("Testing not supported on this data source");
   }
 
-  // Check if datasource supports LIMIT 0 for fast column metadata
-  if (
-    !forceColumnRefresh &&
-    integration.supportsLimitZeroColumnValidation?.()
-  ) {
+  // Reading the output schema needs no data, so it's the default. An explicit
+  // force falls through to the slow path, which also reads top values inline.
+  if (!forceColumnRefresh) {
     const timestampColumn = getFactTableTimestampColumn(factTable);
 
     // Fast path: LIMIT 0 query
