@@ -148,6 +148,17 @@ export default function MetricEditor({
   }
 
   const isRatioOrFunnel = formType === "ratio" || formType === "funnel";
+  const thresholdValue: ThresholdBasisValue = {
+    aggregateFilterColumn: numerator.aggregateFilterColumn,
+    aggregateFilter: numerator.aggregateFilter,
+  };
+  const onThresholdChange = (v: ThresholdBasisValue) =>
+    form.setValue("numerator", { ...numerator, ...v });
+  const valueShape = VALUE_TYPE_SHAPE[formType];
+  const showsGoalAndSlices = formType !== "funnel";
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment",
+  );
 
   return (
     <Grid columns={{ initial: "1", md: "2fr 1fr" }} gap="4">
@@ -195,13 +206,8 @@ export default function MetricEditor({
 
             {formType === "threshold" && (
               <ThresholdFields
-                value={{
-                  aggregateFilterColumn: numerator.aggregateFilterColumn,
-                  aggregateFilter: numerator.aggregateFilter,
-                }}
-                onChange={(v: ThresholdBasisValue) =>
-                  form.setValue("numerator", { ...numerator, ...v })
-                }
+                value={thresholdValue}
+                onChange={onThresholdChange}
                 factTable={factTable}
               />
             )}
@@ -212,27 +218,22 @@ export default function MetricEditor({
                 onWindowSettingsChange={(v) =>
                   form.setValue("windowSettings", v)
                 }
-                threshold={{
-                  aggregateFilterColumn: numerator.aggregateFilterColumn,
-                  aggregateFilter: numerator.aggregateFilter,
-                }}
-                onThresholdChange={(v: ThresholdBasisValue) =>
-                  form.setValue("numerator", { ...numerator, ...v })
-                }
+                threshold={thresholdValue}
+                onThresholdChange={onThresholdChange}
                 factTable={factTable}
               />
             )}
 
-            {VALUE_TYPE_SHAPE[formType] && (
+            {valueShape && (
               <ColumnSelect
-                shape={VALUE_TYPE_SHAPE[formType] as RatioShape}
+                shape={valueShape}
                 factTable={factTable}
                 hasCountDistinctHLL={hasCountDistinctHLL}
                 value={numerator.column}
                 onChange={(column) => {
                   const refit = onShapeChange(
                     numerator,
-                    VALUE_TYPE_SHAPE[formType] as RatioShape,
+                    valueShape,
                     factTable,
                     hasCountDistinctHLL,
                   );
@@ -340,7 +341,7 @@ export default function MetricEditor({
               {windowOk(formType) && (
                 <MetricWindowSettingsForm form={form} type={metricType} />
               )}
-              {formType !== "funnel" && (
+              {showsGoalAndSlices && (
                 <SelectField
                   label="Metric Goal"
                   value={form.watch("inverse") ? "1" : "0"}
@@ -351,7 +352,7 @@ export default function MetricEditor({
                   ]}
                 />
               )}
-              {formType !== "funnel" &&
+              {showsGoalAndSlices &&
                 hasCommercialFeature("metric-slices") &&
                 factTable && (
                   <Flex direction="column" gap="1" mt="3" mb="4">
@@ -417,9 +418,7 @@ export default function MetricEditor({
                         setValue={(v) =>
                           form.setValue("regressionAdjustmentOverride", v)
                         }
-                        disabled={
-                          !hasCommercialFeature("regression-adjustment")
-                        }
+                        disabled={!hasRegressionAdjustmentFeature}
                       />
                       {form.watch("regressionAdjustmentOverride") && (
                         <Flex direction="column" gap="2" mt="2">
@@ -429,18 +428,14 @@ export default function MetricEditor({
                             setValue={(v) =>
                               form.setValue("regressionAdjustmentEnabled", v)
                             }
-                            disabled={
-                              !hasCommercialFeature("regression-adjustment")
-                            }
+                            disabled={!hasRegressionAdjustmentFeature}
                           />
                           <Field
                             label="Pre-exposure lookback period (days)"
                             type="number"
                             append="days"
                             min="0"
-                            disabled={
-                              !hasCommercialFeature("regression-adjustment")
-                            }
+                            disabled={!hasRegressionAdjustmentFeature}
                             {...form.register("regressionAdjustmentDays", {
                               valueAsNumber: true,
                             })}
