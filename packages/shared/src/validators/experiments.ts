@@ -172,10 +172,8 @@ export const legacyImplementation = [
 ] as const;
 export type LegacyImplementation = (typeof legacyImplementation)[number];
 
-// How the experiment reaches users. "values" is a managed Feature Flag owned by
-// the experiment; "multi" only ever comes from legacy experiments carrying more
-// than one kind; "none" is deliberate (analysis only, e.g. imports). Absent
-// means undecided — the effective value is derived from the linkages on read.
+// How the experiment reaches users. "multi" is derived for legacy experiments
+// with several kinds; "none" is deliberate; absent means undecided.
 export const implementationType = [
   "values",
   "feature",

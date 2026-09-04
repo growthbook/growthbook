@@ -824,7 +824,6 @@ export async function adoptManagedFlagForExperiment({
     throw e;
   }
 
-  // The marker lives on the flag, so the experiment records the choice itself.
   await updateExperiment({
     context,
     experiment,
@@ -1102,7 +1101,6 @@ export async function ejectManagedFeature({
   ) {
     context.permissions.throwPermissionError();
   }
-  // The flag stays linked as an ordinary one.
   const experiment = await getExperimentById(context, experimentId);
   if (experiment) {
     await updateExperiment({

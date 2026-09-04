@@ -85,7 +85,6 @@ export function ImplementationTypeLabel({
   );
 }
 
-// Free to change until something is wired up; the caller says why it is not.
 export default function ImplementationTypeSelect({
   value,
   setValue,
