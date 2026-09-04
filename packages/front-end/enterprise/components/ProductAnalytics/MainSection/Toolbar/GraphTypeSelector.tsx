@@ -8,6 +8,7 @@ import {
   PiChartBarHorizontalDuotone,
   PiChartLine,
   PiHash,
+  PiListBullets,
   PiTable,
 } from "react-icons/pi";
 import {
@@ -62,7 +63,7 @@ const chartTypes: {
   },
   {
     groupLabel: "Results",
-    items: [{ value: "rawTable", label: "Raw table", icon: PiTable }],
+    items: [{ value: "rawTable", label: "Raw table", icon: PiListBullets }],
   },
 ];
 

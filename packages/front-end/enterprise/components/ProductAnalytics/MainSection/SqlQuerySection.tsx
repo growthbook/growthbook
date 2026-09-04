@@ -14,7 +14,6 @@ import type { ImperativePanelHandle } from "react-resizable-panels";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/ui/Button";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -44,12 +43,6 @@ const SQL_PLACEHOLDER = `SELECT
     userId
 FROM
     orders`;
-
-const CTA_LINK_STYLE = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 4,
-} as const;
 
 function SqlQueryActions({
   aiTrigger,
@@ -247,24 +240,24 @@ export default function SqlQuerySection({
               </Text>
               {exploreReady ? (
                 <Flex align="center" gap="3">
-                  <Link
+                  <Button
+                    variant="ghost"
                     size="sm"
-                    weight="medium"
                     onClick={() => openExplore("rawTable")}
-                    style={CTA_LINK_STYLE}
+                    icon={<PiArrowRight size={14} aria-hidden />}
+                    iconPosition="right"
                   >
                     Customize table
-                    <PiArrowRight size={14} aria-hidden />
-                  </Link>
-                  <Link
+                  </Button>
+                  <Button
+                    variant="ghost"
                     size="sm"
-                    weight="medium"
                     onClick={() => openExplore("visualization")}
-                    style={CTA_LINK_STYLE}
+                    icon={<PiArrowRight size={14} aria-hidden />}
+                    iconPosition="right"
                   >
                     Create visualization
-                    <PiArrowRight size={14} aria-hidden />
-                  </Link>
+                  </Button>
                 </Flex>
               ) : null}
             </Flex>

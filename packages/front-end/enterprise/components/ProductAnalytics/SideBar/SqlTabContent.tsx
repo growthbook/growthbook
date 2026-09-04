@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { Flex, Separator } from "@radix-ui/themes";
-import { PiPlus } from "react-icons/pi";
+import { Box, Flex, Separator } from "@radix-ui/themes";
+import { PiEye, PiEyeSlash, PiPlus } from "react-icons/pi";
+import clsx from "clsx";
 import type { SqlValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
-import Checkbox from "@/ui/Checkbox";
 import {
   generateUniqueValueName,
   getValueTypeLabel,
@@ -13,6 +13,7 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import Text from "@/ui/Text";
 import TimestampColumnSelector from "./TimestampColumnSelector";
 import ValueCard from "./ValueCard";
+import styles from "./SqlTabContent.module.scss";
 
 const VALUE_TYPE_OPTIONS: {
   value: "count" | "sum";
@@ -77,8 +78,12 @@ export default function SqlTabContent() {
           allowNone
           selectTooltip={
             timestampOptions.length === 0
-              ? "Update your SQL query to return a date or timestamp column to use date filtering, comparisons, and time-series charts."
-              : "Selecting a timestamp column enables date filtering, comparisons, and time-series charts."
+              ? isRawTable
+                ? "Update your SQL query to return a date or timestamp column to filter by date."
+                : "Update your SQL query to return a date or timestamp column to use date filtering, comparisons, and time-series charts."
+              : isRawTable
+                ? "Selecting a timestamp column enables date filtering."
+                : "Selecting a timestamp column enables date filtering, comparisons, and time-series charts."
           }
         />
       </Flex>
@@ -94,42 +99,64 @@ export default function SqlTabContent() {
             backgroundColor: "var(--color-panel-translucent)",
           }}
         >
-          <Text weight="medium">Columns</Text>
-          {columnOptions.map(({ value, label }) => {
-            const isVisible = !dataset?.hiddenColumns?.includes(value);
-            return (
-              <Checkbox
-                key={value}
-                value={isVisible}
-                label={label}
-                weight="regular"
-                disabled={isVisible && visibleColumnCount === 1}
-                disabledMessage="Tables need at least one visible column."
-                setValue={(visible) => {
-                  setDraftExploreState((prev) => {
-                    if (prev.type !== "sql" || prev.dataset.type !== "sql") {
-                      return prev;
-                    }
-                    const hiddenColumns = new Set(
-                      prev.dataset.hiddenColumns ?? [],
-                    );
-                    if (visible) {
-                      hiddenColumns.delete(value);
-                    } else {
-                      hiddenColumns.add(value);
-                    }
-                    return {
-                      ...prev,
-                      dataset: {
-                        ...prev.dataset,
-                        hiddenColumns: Array.from(hiddenColumns),
-                      },
-                    };
-                  });
-                }}
-              />
-            );
-          })}
+          <Text weight="medium">Configure Columns</Text>
+          <Flex direction="column" gap="1" width="100%">
+            {columnOptions.map(({ value, label }) => {
+              const isVisible = !dataset?.hiddenColumns?.includes(value);
+              const isLastVisible = isVisible && visibleColumnCount === 1;
+              const toggleLabel = isVisible ? "Hide column" : "Show column";
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  className={styles.columnRow}
+                  disabled={isLastVisible}
+                  aria-pressed={isVisible}
+                  aria-label={toggleLabel}
+                  onClick={() => {
+                    setDraftExploreState((prev) => {
+                      if (prev.type !== "sql" || prev.dataset.type !== "sql") {
+                        return prev;
+                      }
+                      const hiddenColumns = new Set(
+                        prev.dataset.hiddenColumns ?? [],
+                      );
+                      if (isVisible) {
+                        hiddenColumns.add(value);
+                      } else {
+                        hiddenColumns.delete(value);
+                      }
+                      return {
+                        ...prev,
+                        dataset: {
+                          ...prev.dataset,
+                          hiddenColumns: Array.from(hiddenColumns),
+                        },
+                      };
+                    });
+                  }}
+                >
+                  <Box style={{ flex: 1, minWidth: 0 }}>
+                    <Text
+                      as="div"
+                      size="sm"
+                      color={isVisible ? "text-high" : "text-low"}
+                      truncate
+                    >
+                      {label}
+                    </Text>
+                  </Box>
+                  <span
+                    className={clsx(styles.eyeIcon, {
+                      [styles.eyeIconHidden]: !isVisible,
+                    })}
+                  >
+                    {isVisible ? <PiEye size={16} /> : <PiEyeSlash size={16} />}
+                  </span>
+                </button>
+              );
+            })}
+          </Flex>
         </Flex>
       ) : null}
       {!isRawTable ? (
