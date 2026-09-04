@@ -72,8 +72,6 @@ export interface Props {
   safeToEdit: boolean;
   focusVariationId?: string | null;
   addVariationOnOpen?: boolean;
-  // Open straight into adoption, from the overview's "add variation values".
-  adoptOnOpen?: boolean;
 }
 
 // Edit Traffic & Variations when the only implementation is a Feature Flag.
@@ -86,7 +84,6 @@ export default function ExperimentManagedTrafficModal({
   safeToEdit,
   focusVariationId,
   addVariationOnOpen,
-  adoptOnOpen,
 }: Props) {
   const permissionsUtil = usePermissionsUtil();
   const managedFeature =
@@ -116,13 +113,15 @@ export default function ExperimentManagedTrafficModal({
 
   const targetFeature = managedFeature ?? editableSoleFeature;
 
-  // Nothing wired up yet: this modal is the only route to adopting one.
+  // Choosing "values" is the opt-in: the editor opens straight into adoption
+  // until the flag exists. Other implementations get the plain traffic editor.
   const hasNoImplementations =
     (linkedFeatures ?? []).length === 0 &&
     !experiment.hasVisualChangesets &&
     !experiment.hasURLRedirects;
   const canAdopt =
     !targetFeature &&
+    getImplementationType(experiment) === "values" &&
     hasNoImplementations &&
     experiment.status === "draft" &&
     !experiment.archived &&
@@ -154,7 +153,6 @@ export default function ExperimentManagedTrafficModal({
       safeToEdit={safeToEdit}
       focusVariationId={focusVariationId}
       addVariationOnOpen={addVariationOnOpen}
-      adoptOnOpen={adoptOnOpen}
     />
   );
 }
@@ -169,7 +167,6 @@ function ManagedTrafficForm({
   safeToEdit,
   focusVariationId,
   addVariationOnOpen,
-  adoptOnOpen,
 }: {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
@@ -184,7 +181,6 @@ function ManagedTrafficForm({
   safeToEdit: boolean;
   focusVariationId?: string | null;
   addVariationOnOpen?: boolean;
-  adoptOnOpen?: boolean;
 }) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -405,22 +401,13 @@ function ManagedTrafficForm({
     coverage: v.coverage,
   });
 
-  // Choosing "values" is the opt-in; no extra click before the flag exists.
-  const valuesChosen = getImplementationType(experiment) === "values";
   const didAutoAdopt = useRef(false);
   useEffect(() => {
-    if (
-      didAutoAdopt.current ||
-      !(adoptOnOpen || valuesChosen) ||
-      !canAdopt ||
-      adopting
-    ) {
-      return;
-    }
+    if (didAutoAdopt.current || !canAdopt || adopting) return;
     didAutoAdopt.current = true;
     startAdopting();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adoptOnOpen, valuesChosen, canAdopt]);
+  }, [canAdopt]);
 
   const openedWith = useRef<{ core: string; values: string } | null>(null);
   if (openedWith.current === null) {
@@ -912,7 +899,6 @@ function ManagedTrafficForm({
               isManaged || adopting ? undefined : "Feature Flag value"
             }
             hideFeatureValue={!valuesShown}
-            onAddValues={canAdopt && !adopting ? startAdopting : undefined}
             valueDisabled={!editingValues && !adopting}
             valueTooltip={
               // A managed flag publishes from this experiment, so its staging

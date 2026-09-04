@@ -51,7 +51,6 @@ const ExperimentPage = (): ReactElement => {
     string | null
   >(null);
   const [addVariationOnOpen, setAddVariationOnOpen] = useState(false);
-  const [adoptOnOpen, setAdoptOnOpen] = useState(false);
   const [namespaceModalOpen, setNamespaceModalOpen] = useState(false);
   const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
 
@@ -154,12 +153,9 @@ const ExperimentPage = (): ReactElement => {
         setTrafficModalOpen(true);
       }
     : null;
-  // Opens the same modal already in adoption mode; whether it is offered is
-  // decided where it renders.
   const addVariationValues = canRunExperiment
     ? () => {
         setTrafficFocusVariation(null);
-        setAdoptOnOpen(true);
         setTrafficModalOpen(true);
       }
     : null;
@@ -277,7 +273,6 @@ const ExperimentPage = (): ReactElement => {
             setTrafficModalOpen(false);
             setTrafficFocusVariation(null);
             setAddVariationOnOpen(false);
-            setAdoptOnOpen(false);
           }}
           mutate={mutate}
           experiment={experiment}
@@ -285,7 +280,6 @@ const ExperimentPage = (): ReactElement => {
           safeToEdit={safeToEdit}
           focusVariationId={trafficFocusVariation}
           addVariationOnOpen={addVariationOnOpen}
-          adoptOnOpen={adoptOnOpen}
         />
       )}
       {namespaceModalOpen && (

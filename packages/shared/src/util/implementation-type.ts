@@ -7,7 +7,7 @@ export type ImplementationLinkages = {
   implementationType?: ImplementationType | null;
 };
 
-// "multi" is only ever derived; "none" only assigned (import, or last linkage removed).
+// "multi" is only ever derived; "none" is only assigned by an import.
 export const SELECTABLE_IMPLEMENTATION_TYPES: ImplementationType[] = [
   "values",
   "feature",
@@ -15,15 +15,14 @@ export const SELECTABLE_IMPLEMENTATION_TYPES: ImplementationType[] = [
   "visual",
 ];
 
-// "values" chosen before its flag exists is kept; other kinds settle to "none".
+// Removing the last implementation keeps the chosen kind, so the card still
+// offers that kind; only a legacy mix has no single kind to keep.
 export function implementationTypeAfterUnlink(
   exp: ImplementationLinkages,
 ): ImplementationType | undefined {
-  if (hasImplementationLinkages(exp))
-    return exp.implementationType ?? undefined;
-  return exp.implementationType && exp.implementationType !== "values"
-    ? "none"
-    : (exp.implementationType ?? undefined);
+  if (exp.implementationType === "multi" && !hasImplementationLinkages(exp))
+    return undefined;
+  return exp.implementationType ?? undefined;
 }
 
 export function hasImplementationLinkages(

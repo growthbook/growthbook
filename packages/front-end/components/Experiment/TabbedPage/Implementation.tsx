@@ -127,7 +127,7 @@ export default function Implementation({
   // leaves adoption offered rather than stuck.
   const canAdoptManagedFlag =
     !isManaged &&
-    (implementationType ?? "values") === "values" &&
+    implementationType === "values" &&
     linkedFeatures.length === 0 &&
     !experiment.hasVisualChangesets &&
     !experiment.hasURLRedirects &&

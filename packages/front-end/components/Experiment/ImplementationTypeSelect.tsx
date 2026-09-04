@@ -18,7 +18,7 @@ type Option = {
 export const IMPLEMENTATION_TYPE_OPTIONS: Record<ImplementationType, Option> = {
   values: {
     header: "Values",
-    description: "Set a value per variation",
+    description: "A Feature Flag managed by this experiment",
     icon: <PiTag />,
     color: "violet",
   },

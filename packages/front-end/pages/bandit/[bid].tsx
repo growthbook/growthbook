@@ -51,7 +51,6 @@ const BanditExperimentPage = (): ReactElement => {
     string | null
   >(null);
   const [addVariationOnOpen, setAddVariationOnOpen] = useState(false);
-  const [adoptOnOpen, setAdoptOnOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -145,7 +144,6 @@ const BanditExperimentPage = (): ReactElement => {
   const addVariationValues = canRunExperiment
     ? () => {
         setTrafficFocusVariation(null);
-        setAdoptOnOpen(true);
         setTrafficModalOpen(true);
       }
     : null;
@@ -303,7 +301,6 @@ const BanditExperimentPage = (): ReactElement => {
             setTrafficModalOpen(false);
             setTrafficFocusVariation(null);
             setAddVariationOnOpen(false);
-            setAdoptOnOpen(false);
           }}
           mutate={mutate}
           experiment={experiment}
@@ -311,7 +308,6 @@ const BanditExperimentPage = (): ReactElement => {
           safeToEdit={safeToEdit}
           focusVariationId={trafficFocusVariation}
           addVariationOnOpen={addVariationOnOpen}
-          adoptOnOpen={adoptOnOpen}
         />
       )}
 

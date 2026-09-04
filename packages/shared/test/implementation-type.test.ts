@@ -104,19 +104,34 @@ describe("canChangeImplementationType", () => {
 });
 
 describe("implementationTypeAfterUnlink", () => {
-  it("settles to none once the last implementation is gone", () => {
+  it("keeps the chosen kind once the last implementation is gone", () => {
     expect(
       implementationTypeAfterUnlink({
         implementationType: "feature",
         linkedFeatures: [],
       }),
-    ).toBe("none");
+    ).toBe("feature");
+    expect(
+      implementationTypeAfterUnlink({
+        implementationType: "urlredirect",
+        hasURLRedirects: false,
+      }),
+    ).toBe("urlredirect");
+  });
+
+  it("leaves a legacy mix undecided once nothing is linked", () => {
     expect(
       implementationTypeAfterUnlink({
         implementationType: "multi",
         hasVisualChangesets: false,
       }),
-    ).toBe("none");
+    ).toBeUndefined();
+    expect(
+      implementationTypeAfterUnlink({
+        implementationType: "multi",
+        linkedFeatures: ["f"],
+      }),
+    ).toBe("multi");
   });
 
   it("keeps a chosen kind that is still wired, or never was", () => {
