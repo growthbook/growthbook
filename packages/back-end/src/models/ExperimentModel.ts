@@ -814,8 +814,19 @@ export async function updateExperiment({
     return experiment;
   }
 
+  // The linkages are the truth; a stored type they disagree with is corrected
+  // on the next write.
+  const effectiveImplementationType = getImplementationType({
+    ...experiment,
+    ...changes,
+  });
   const allChanges = {
     ...changes,
+    ...(effectiveImplementationType &&
+    effectiveImplementationType !==
+      { ...experiment, ...changes }.implementationType
+      ? { implementationType: effectiveImplementationType }
+      : {}),
     dateUpdated: new Date(),
   };
   if (allChanges.name === "")

@@ -51,11 +51,17 @@ export function deriveImplementationType(
   return kinds[0];
 }
 
-/** Stored value first; legacy experiments fall back to their linkages. */
+// What is actually wired up wins over what was stored; the stored value only
+// speaks while nothing is linked. A managed flag is one linked flag, so
+// "values" stands beside a single feature.
 export function getImplementationType(
   exp: ImplementationLinkages,
 ): ImplementationType | undefined {
-  return exp.implementationType ?? deriveImplementationType(exp);
+  const stored = exp.implementationType ?? undefined;
+  const derived = deriveImplementationType(exp);
+  if (!derived) return stored === "multi" ? undefined : stored;
+  if (stored === "values" && derived === "feature") return "values";
+  return derived;
 }
 
 // Free to change until something is wired up; then locked until every linkage

@@ -33,14 +33,45 @@ describe("deriveImplementationType", () => {
 });
 
 describe("getImplementationType", () => {
-  it("prefers the stored value", () => {
+  it("keeps values beside its one managed flag", () => {
     expect(
       getImplementationType({
         implementationType: "values",
         linkedFeatures: ["f"],
       }),
     ).toBe("values");
+  });
+
+  it("uses the stored value while nothing is linked", () => {
     expect(getImplementationType({ implementationType: "none" })).toBe("none");
+    expect(getImplementationType({ implementationType: "visual" })).toBe(
+      "visual",
+    );
+    expect(
+      getImplementationType({ implementationType: "multi" }),
+    ).toBeUndefined();
+  });
+
+  it("lets what is wired up override a stale stored value", () => {
+    expect(
+      getImplementationType({
+        implementationType: "feature",
+        hasVisualChangesets: true,
+      }),
+    ).toBe("visual");
+    expect(
+      getImplementationType({
+        implementationType: "none",
+        linkedFeatures: ["f"],
+      }),
+    ).toBe("feature");
+    expect(
+      getImplementationType({
+        implementationType: "values",
+        linkedFeatures: ["f"],
+        hasURLRedirects: true,
+      }),
+    ).toBe("multi");
   });
 
   it("derives for legacy experiments", () => {

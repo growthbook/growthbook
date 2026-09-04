@@ -1,4 +1,4 @@
-import { deriveImplementationType } from "shared/util";
+import { getImplementationType } from "shared/util";
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -657,11 +657,13 @@ export function upgradeExperimentDoc(
 ): ExperimentInterface {
   const experiment = cloneDeep(orig);
 
-  // Legacy experiments never chose one; read what they wired up. Left unset
-  // when nothing is linked so the picker stays open.
-  if (!experiment.implementationType) {
-    const derived = deriveImplementationType(experiment);
-    if (derived) experiment.implementationType = derived;
+  // What is wired up wins over what was stored (legacy experiments never chose
+  // one); left unset when nothing is linked so the picker stays open.
+  const effectiveImplementationType = getImplementationType(experiment);
+  if (effectiveImplementationType) {
+    experiment.implementationType = effectiveImplementationType;
+  } else {
+    delete experiment.implementationType;
   }
 
   // Add missing variation keys and ids
