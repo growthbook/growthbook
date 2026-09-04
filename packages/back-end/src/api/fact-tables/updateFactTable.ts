@@ -25,6 +25,34 @@ import {
   validateVirtualColumnProps,
   validateVirtualColumnSql,
 } from "back-end/src/util/factTable";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/request";
+
+export async function authorizeAndPersistFactTableUpdate({
+  context,
+  factTable,
+  parentUpdateData,
+  incomingColumns,
+}: {
+  context: ReqContext | ApiReqContext;
+  factTable: FactTableInterface;
+  parentUpdateData: UpdateFactTableProps;
+  incomingColumns: UpdateFactTableProps["columns"];
+}): Promise<void> {
+  if (!context.permissions.canUpdateFactTable(factTable, parentUpdateData)) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (incomingColumns) {
+    await upsertColumns({
+      context,
+      factTable,
+      columns: incomingColumns,
+    });
+  }
+
+  await updateFactTableInDb(context, factTable, parentUpdateData);
+}
 
 export const updateFactTable = createApiRequestHandler(
   updateFactTableValidator,
@@ -178,21 +206,12 @@ export const updateFactTable = createApiRequestHandler(
     parentUpdateData.columnRefreshPending = true;
   }
 
-  if (
-    !req.context.permissions.canUpdateFactTable(factTable, parentUpdateData)
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  if (incomingColumns) {
-    await upsertColumns({
-      context: req.context,
-      factTable,
-      columns: incomingColumns,
-    });
-  }
-
-  await updateFactTableInDb(req.context, factTable, parentUpdateData);
+  await authorizeAndPersistFactTableUpdate({
+    context: req.context,
+    factTable,
+    parentUpdateData,
+    incomingColumns,
+  });
   if (willRefresh) {
     await queueFactTableColumnsRefresh(factTable);
   }

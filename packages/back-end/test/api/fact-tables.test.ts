@@ -1,13 +1,16 @@
 import mongoose from "mongoose";
-import request from "supertest";
+import { MongoMemoryServer } from "mongodb-memory-server";
 import {
   ColumnInterface,
   FactTableInterface,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
-import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
+import {
+  authorizeAndPersistFactTableUpdate,
+  needsColumnRefresh,
+} from "back-end/src/api/fact-tables/updateFactTable";
 import { columnsNeedDetection } from "back-end/src/util/factTable";
-import { setupApp } from "./api.setup";
+import { ReqContext } from "back-end/types/request";
 
 const existing: Pick<FactTableInterface, "sql" | "eventName"> = {
   sql: "SELECT user_id, timestamp FROM events",
@@ -98,8 +101,8 @@ describe("columnsNeedDetection", () => {
   });
 });
 
-describe("fact table API updates", () => {
-  const { app, setReqContext } = setupApp();
+describe("authorizeAndPersistFactTableUpdate", () => {
+  let mongod: MongoMemoryServer;
   const organization = {
     id: "org_fact_table_update",
     settings: {},
@@ -125,31 +128,40 @@ describe("fact table API updates", () => {
     columnRefreshPending: false,
   };
 
-  beforeEach(() => {
-    setReqContext({
-      org: organization,
-      permissions: {
-        canReadMultiProjectResource: () => true,
-        canUpdateFactTable: () => false,
-        throwPermissionError: () => {
-          throw new Error("Permission denied");
-        },
+  const context = {
+    org: organization,
+    permissions: {
+      canUpdateFactTable: () => false,
+      throwPermissionError: () => {
+        throw new Error("Permission denied");
       },
-    });
+    },
+  } as unknown as ReqContext;
+
+  beforeAll(async () => {
+    mongod = await MongoMemoryServer.create();
+    await mongoose.connect(mongod.getUri());
+  });
+
+  afterAll(async () => {
+    await mongoose.connection.close();
+    await mongod.stop();
   });
 
   it("does not persist columns when the parent update is denied", async () => {
     await mongoose.connection.db!.collection("facttables").insertOne(factTable);
 
-    const response = await request(app)
-      .post(`/api/v1/fact-tables/${factTable.id}`)
-      .send({
-        columns: [{ column: "country", name: "Country", datatype: "string" }],
-      })
-      .set("Authorization", "Bearer test-key");
+    await expect(
+      authorizeAndPersistFactTableUpdate({
+        context,
+        factTable,
+        parentUpdateData: {},
+        incomingColumns: [
+          { column: "country", name: "Country", datatype: "string" },
+        ],
+      }),
+    ).rejects.toThrow("Permission denied");
 
-    expect(response.status).toBe(400);
-    expect(response.body.message).toContain("Permission denied");
     expect(
       await mongoose.connection
         .db!.collection("facttables")
