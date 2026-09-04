@@ -415,7 +415,7 @@ export default function FeaturesPage() {
                             <ImplementationTypeIcon
                               type="values"
                               title="Managed by an experiment"
-                              description="Its values are edited, reviewed and published from the experiment"
+                              description="Flag is edited, reviewed, and published from an experiment"
                             />
                           )}
                         </Flex>
