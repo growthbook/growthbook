@@ -9,6 +9,8 @@ import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import {
   experimentHasLiveLinkedChanges,
+  getImplementationType,
+  hasStartReadyManagedFlag,
   getHoldoutStage,
   isManagedByExperiment,
 } from "shared/util";
@@ -273,6 +275,14 @@ export default function ExperimentHeader({
   const disableHealthTab = isUsingHealthUnsupportDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const banditImplementationReady =
+    !isBandit ||
+    experimentHasLiveLinkedChanges(experiment, linkedFeatures) ||
+    hasStartReadyManagedFlag(experiment.id, linkedFeatures);
+  const banditBlockedReason =
+    getImplementationType(experiment) === "values"
+      ? "Add variation values before starting."
+      : "Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting.";
   const isHoldout = experiment.type === "holdout";
   const holdoutStage = holdout
     ? getHoldoutStage(holdout, experiment)
@@ -898,28 +908,15 @@ export default function ExperimentHeader({
                   </Button>
                 ) : experiment.status === "draft" ? (
                   <Tooltip
-                    shouldDisplay={
-                      isBandit &&
-                      !experimentHasLiveLinkedChanges(
-                        experiment,
-                        linkedFeatures,
-                      )
-                    }
-                    body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
+                    shouldDisplay={!banditImplementationReady}
+                    body={banditBlockedReason}
                   >
                     <Button
                       variant={checklistReady ? "solid" : "soft"}
                       onClick={() => {
                         setShowStartExperiment(true);
                       }}
-                      disabled={
-                        !canRunExperiment ||
-                        (isBandit &&
-                          !experimentHasLiveLinkedChanges(
-                            experiment,
-                            linkedFeatures,
-                          ))
-                      }
+                      disabled={!canRunExperiment || !banditImplementationReady}
                       icon={
                         hasExperimentSchedule ? undefined : <MdRocketLaunch />
                       }

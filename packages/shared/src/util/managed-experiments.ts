@@ -1,4 +1,5 @@
 import type { FeatureInterface, FeatureValueType } from "shared/types/feature";
+import type { LinkedFeatureInfo } from "shared/types/experiment";
 
 // Managed mode: the experiment owns one Feature Flag holding one experiment-ref
 // rule, edited only from the experiment page while the marker is set.
@@ -34,6 +35,19 @@ export function isManagedByExperiment(
   return (
     feature.managedBy?.type === "experiment" &&
     feature.managedBy.experimentId === experimentId
+  );
+}
+
+// A managed flag publishes when the experiment starts, so its draft is as good
+// as a live linked change for the start gates.
+export function hasStartReadyManagedFlag(
+  experimentId: string,
+  linkedFeatures: Pick<LinkedFeatureInfo, "feature" | "state">[],
+): boolean {
+  return linkedFeatures.some(
+    (f) =>
+      isManagedByExperiment(f.feature, experimentId) &&
+      (f.state === "live" || f.state === "draft"),
   );
 }
 

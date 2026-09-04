@@ -14,6 +14,7 @@ import {
   getAffectedEnvsForExperiment,
   experimentHasLiveLinkedChanges,
   getImplementationType,
+  hasStartReadyManagedFlag,
   isManagedByExperiment,
   PENDING_APPROVAL_ITEM_PREFIX,
 } from "shared/util";
@@ -233,11 +234,6 @@ export async function getExperimentStartChecklistStatus(
   const implementationType = getImplementationType(experiment);
   const valuesMode =
     linkedFeatures.some(isManaged) || implementationType === "values";
-  // A managed flag publishes when the experiment starts, so its draft is as
-  // good as live for a bandit.
-  const managedReady = linkedFeatures.some(
-    (f) => isManaged(f) && (f.state === "live" || f.state === "draft"),
-  );
 
   if (implementationType !== "none") {
     items.push({
@@ -245,7 +241,7 @@ export async function getExperimentStartChecklistStatus(
       required: true,
       status:
         (isBandit &&
-          (managedReady ||
+          (hasStartReadyManagedFlag(experiment.id, linkedFeatures) ||
             experimentHasLiveLinkedChanges(experiment, linkedFeatures))) ||
         (!isBandit && getHasLinkedChanges(experiment, linkedFeatures))
           ? "complete"

@@ -12,6 +12,7 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import {
   experimentHasLiveLinkedChanges,
   getImplementationType,
+  hasStartReadyManagedFlag,
   hasVisualChanges,
   isManagedByExperiment,
   PENDING_APPROVAL_ITEM_PREFIX,
@@ -189,13 +190,9 @@ export function getChecklistItems({
     linkedFeatures.some(isManaged) || implementationType === "values";
 
   if (checkLinkedChanges && implementationType !== "none") {
-    // A managed flag publishes when the experiment starts, so its draft is as
-    // good as live for a bandit.
     const hasLiveLinkedChanges =
       experimentHasLiveLinkedChanges(experiment, linkedFeatures) ||
-      linkedFeatures.some(
-        (f) => isManaged(f) && (f.state === "live" || f.state === "draft"),
-      );
+      hasStartReadyManagedFlag(experiment.id, linkedFeatures);
     const hasLinkedChanges =
       linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
       experiment.hasVisualChangesets ||
