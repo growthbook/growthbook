@@ -377,13 +377,16 @@ export default function TrafficAllocationFunnel({
           Traffic Allocation
         </Heading>
         <Flex align="center" gap="3">
-          {servedValueFeature ? (
+          {servedValueFeature && !hasDraftChanges ? (
+            <Text size="sm" color="text-mid">
+              Live values
+            </Text>
+          ) : servedValueFeature ? (
             <SplitButton variant="outline" className="roomy-segments">
               <Button
                 size="sm"
                 variant={preferDraft ? "solid" : "outline"}
-                disabled={!hasDraftChanges}
-                icon={hasDraftChanges ? <UnpublishedDot /> : undefined}
+                icon={<UnpublishedDot />}
                 onClick={() => setShowDraftValues(true)}
               >
                 Unpublished

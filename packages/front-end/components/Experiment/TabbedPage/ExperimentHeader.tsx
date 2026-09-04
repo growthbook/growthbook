@@ -56,6 +56,7 @@ import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
@@ -186,10 +187,51 @@ export default function ExperimentHeader({
 
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  // Deleting the experiment archives the flag that existed only for it.
+  const [deleteAcknowledged, setDeleteAcknowledged] = useState(false);
+  // Deleting the experiment archives the flag that existed only for it and
+  // strips its rule from every other linked flag.
   const managedFlagToArchive = linkedFeatures.find((f) =>
     isManagedByExperiment(f.feature, experiment.id),
   )?.feature.id;
+  const sharedLinkedFlags = linkedFeatures
+    .filter(
+      (f) =>
+        !isManagedByExperiment(f.feature, experiment.id) &&
+        (f.state === "live" || f.state === "draft"),
+    )
+    .map((f) => f.feature.id);
+  const deleteConsequences = [
+    ...(managedFlagToArchive
+      ? [
+          <li key="managed">
+            Managed Feature Flag <strong>{managedFlagToArchive}</strong> will be
+            archived.
+          </li>,
+        ]
+      : []),
+    ...sharedLinkedFlags.map((id) => (
+      <li key={id}>
+        The experiment rule will be removed from Feature Flag{" "}
+        <strong>{id}</strong>.
+      </li>
+    )),
+    ...(visualChangesets.length
+      ? [
+          <li key="visual">
+            {visualChangesets.length} Visual Editor change
+            {visualChangesets.length === 1 ? "" : "s"} will be deleted.
+          </li>,
+        ]
+      : []),
+    ...(urlRedirects.length
+      ? [
+          <li key="redirects">
+            {urlRedirects.length} URL Redirect
+            {urlRedirects.length === 1 ? "" : "s"} will stop serving.
+          </li>,
+        ]
+      : []),
+  ];
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showBanditModal, setShowBanditModal] = useState(false);
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
@@ -651,9 +693,13 @@ export default function ExperimentHeader({
           trackingEventModalType="delete-experiment"
           trackingEventModalSource="experiment-more-menu"
           open={true}
-          close={() => setShowDeleteModal(false)}
+          close={() => {
+            setShowDeleteModal(false);
+            setDeleteAcknowledged(false);
+          }}
           cta="Delete"
           ctaColor="red"
+          ctaEnabled={!deleteConsequences.length || deleteAcknowledged}
           submit={async () => {
             try {
               await apiCall<{ status: number; message?: string }>(
@@ -684,18 +730,22 @@ export default function ExperimentHeader({
               Are you sure you want to delete this{" "}
               {isHoldout ? "holdout" : "experiment"}?
             </Text>
-            {managedFlagToArchive && (
-              <Text as="p">
-                Its managed Feature Flag <strong>{managedFlagToArchive}</strong>{" "}
-                will be archived.
-              </Text>
-            )}
-            {!safeToEdit ? (
+            {deleteConsequences.length > 0 && (
               <Callout status="warning">
-                This will immediately stop all linked Feature Flags, Visual
-                Editor Changes, and URL Redirects from running
+                <Text as="p" mb="2" weight="semibold">
+                  {safeToEdit
+                    ? "This experiment has linked implementations:"
+                    : "This experiment is running. Deleting it takes effect immediately:"}
+                </Text>
+                <ul className="mb-3 pl-4">{deleteConsequences}</ul>
+                <Checkbox
+                  label="I understand the linked implementations will be changed"
+                  weight="regular"
+                  value={deleteAcknowledged}
+                  setValue={(v) => setDeleteAcknowledged(!!v)}
+                />
               </Callout>
-            ) : null}
+            )}
           </Box>
         </ModalStandard>
       ) : null}
