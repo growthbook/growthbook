@@ -34,7 +34,6 @@ export default function QuantileFields({
   onQuantileSettingsChange,
   numerator,
   onNumeratorChange,
-  onScopeChange,
   factTable,
   hasCountDistinctHLL,
 }: {
@@ -42,13 +41,6 @@ export default function QuantileFields({
   onQuantileSettingsChange: (value: MetricQuantileSettings) => void;
   numerator: ColumnRef;
   onNumeratorChange: (value: ColumnRef) => void;
-  // Scope touches both the numerator (refit) and quantileSettings.type
-  // together - one callback instead of two, so a caller can't observe (or
-  // accidentally introduce) a numerator/settings pair from different scopes.
-  onScopeChange: (result: {
-    numerator: ColumnRef;
-    quantileSettings: MetricQuantileSettings;
-  }) => void;
   factTable: FactTableDefinition | null;
   hasCountDistinctHLL: boolean;
 }) {
@@ -74,15 +66,15 @@ export default function QuantileFields({
           value={scope}
           setValue={(value) => {
             const newScope = value as "unit" | "event";
-            onScopeChange({
-              numerator: onQuantileScopeChange(
+            onNumeratorChange(
+              onQuantileScopeChange(
                 numerator,
                 newScope,
                 factTable,
                 hasCountDistinctHLL,
               ),
-              quantileSettings: { ...quantileSettings, type: newScope },
-            });
+            );
+            onQuantileSettingsChange({ ...quantileSettings, type: newScope });
           }}
           options={[
             { value: "event", label: "All events" },
@@ -157,6 +149,17 @@ export default function QuantileFields({
                 quantile: Number(e.target.value),
               })
             }
+            onBlur={(e) => {
+              // Common mistake: entering 90 instead of 0.9 (matches
+              // FactMetricModal's QuantileSelector).
+              const value = Number(e.target.value);
+              if (value > 10 && value < 100) {
+                onQuantileSettingsChange({
+                  ...quantileSettings,
+                  quantile: value / 100,
+                });
+              }
+            }}
           />
         )}
         <Switch
