@@ -18,10 +18,6 @@ import {
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
-import {
-  decryptSlackBotToken,
-  encryptSlackBotToken,
-} from "back-end/src/util/slackToken";
 import { ReqContext } from "back-end/types/request";
 import { createEvent } from "./EventModel";
 
@@ -55,7 +51,6 @@ const eventWebHookSchema = new mongoose.Schema({
     configurationUrl: String,
     botUserId: String,
     authedUserId: String,
-    botAccessToken: String,
     scope: String,
     isEnterpriseInstall: Boolean,
   },
@@ -189,22 +184,6 @@ const eventWebHookSchema = new mongoose.Schema({
 });
 
 eventWebHookSchema.index({ organizationId: 1 });
-eventWebHookSchema.index(
-  {
-    organizationId: 1,
-    "slack.teamId": 1,
-    "slack.channelId": 1,
-  },
-  {
-    name: "unique_slack_channel_per_organization",
-    unique: true,
-    partialFilterExpression: {
-      payloadType: "slack",
-      "slack.teamId": { $type: "string" },
-      "slack.channelId": { $type: "string" },
-    },
-  },
-);
 
 type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
 
@@ -257,6 +236,7 @@ export const EventWebHookModel = mongoose.model<EventWebHookInterface>(
 );
 
 type CreateEventWebHookOptions = {
+  id?: string;
   name: string;
   url: string;
   organizationId: string;
@@ -277,6 +257,7 @@ type CreateEventWebHookOptions = {
  * @returns Promise<EventWebHookInterface>
  */
 export const createEventWebHook = async ({
+  id,
   name,
   url,
   organizationId,
@@ -294,7 +275,7 @@ export const createEventWebHook = async ({
   const signingKey = "ewhk_" + md5(randomUUID()).substr(0, 32);
 
   const doc = await EventWebHookModel.create({
-    id: `ewh-${randomUUID()}`,
+    id: id || `ewh-${randomUUID()}`,
     organizationId,
     name,
     dateCreated: now,
@@ -457,57 +438,6 @@ export const getAllEventWebHooks = async (
   return docs.map(toInterface);
 };
 
-export const getSlackBotAccessTokenForWebhook = async ({
-  eventWebHookId,
-  organizationId,
-}: {
-  eventWebHookId: string;
-  organizationId: string;
-}): Promise<string | null> => {
-  const doc = await EventWebHookModel.findOne({
-    id: eventWebHookId,
-    organizationId,
-    payloadType: "slack",
-  }).lean();
-  const slack = doc?.slack as
-    | { botAccessToken?: string; teamId?: string }
-    | undefined;
-  if (slack?.botAccessToken) {
-    return decryptSlackBotToken(slack.botAccessToken);
-  }
-
-  if (!slack?.teamId) return null;
-  const teamDoc = await EventWebHookModel.findOne({
-    organizationId,
-    payloadType: "slack",
-    "slack.teamId": slack.teamId,
-    "slack.botAccessToken": { $exists: true, $nin: [null, ""] },
-  }).lean();
-  const teamSlack = teamDoc?.slack as { botAccessToken?: string } | undefined;
-  return teamSlack?.botAccessToken
-    ? decryptSlackBotToken(teamSlack.botAccessToken)
-    : null;
-};
-
-export const findSlackWorkspaceEventWebhook = async ({
-  organizationId,
-  teamId,
-}: {
-  organizationId: string;
-  teamId: string;
-}): Promise<EventWebHookInterface | null> => {
-  const doc = await EventWebHookModel.findOne({
-    organizationId,
-    payloadType: "slack",
-    "slack.teamId": teamId,
-    $or: [
-      { "slack.channelId": { $exists: false } },
-      { "slack.channelId": { $in: [null, ""] } },
-    ],
-  });
-  return doc ? toInterface(doc) : null;
-};
-
 export const findSlackChannelEventWebhook = async ({
   organizationId,
   teamId,
@@ -524,30 +454,6 @@ export const findSlackChannelEventWebhook = async ({
     "slack.channelId": channelId,
   });
   return doc ? toInterface(doc) : null;
-};
-
-export const propagateSlackTeamCredentials = async ({
-  organizationId,
-  teamId,
-  botAccessToken,
-  scope,
-}: {
-  organizationId: string;
-  teamId: string;
-  botAccessToken?: string;
-  scope?: string;
-}): Promise<void> => {
-  const set: Record<string, unknown> = {
-    ...(botAccessToken
-      ? { "slack.botAccessToken": encryptSlackBotToken(botAccessToken) }
-      : {}),
-    ...(scope ? { "slack.scope": scope } : {}),
-  };
-  if (!Object.keys(set).length) return;
-  await EventWebHookModel.updateMany(
-    { organizationId, payloadType: "slack", "slack.teamId": teamId },
-    { $set: set },
-  );
 };
 
 export const updateSlackChannelName = async ({
@@ -570,14 +476,12 @@ export const reconnectSlackEventWebhook = async ({
   organizationId,
   url,
   slack,
-  botAccessToken,
   enabled,
 }: {
   eventWebHookId: string;
   organizationId: string;
   url?: string;
   slack: NonNullable<EventWebHookInterface["slack"]>;
-  botAccessToken?: string;
   enabled?: boolean;
 }): Promise<void> => {
   const set: Record<string, unknown> = {
@@ -588,10 +492,6 @@ export const reconnectSlackEventWebhook = async ({
   for (const [key, value] of Object.entries(slack)) {
     if (value !== undefined) set[`slack.${key}`] = value;
   }
-  if (botAccessToken) {
-    set["slack.botAccessToken"] = encryptSlackBotToken(botAccessToken);
-  }
-
   await EventWebHookModel.updateOne(
     { id: eventWebHookId, organizationId, payloadType: "slack" },
     { $set: set },

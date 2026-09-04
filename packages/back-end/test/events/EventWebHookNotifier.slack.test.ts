@@ -2,7 +2,6 @@ import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/Even
 import { getEvent } from "back-end/src/models/EventModel";
 import {
   getEventWebHookById,
-  getSlackBotAccessTokenForWebhook,
   updateEventWebHookStatus,
 } from "back-end/src/models/EventWebhookModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
@@ -23,7 +22,6 @@ jest.mock("back-end/src/models/EventModel", () => ({
 
 jest.mock("back-end/src/models/EventWebhookModel", () => ({
   getEventWebHookById: jest.fn(),
-  getSlackBotAccessTokenForWebhook: jest.fn(),
   updateEventWebHookStatus: jest.fn(),
 }));
 
@@ -68,6 +66,8 @@ jest.mock("back-end/src/events/handlers/webhooks/event-webhooks-utils", () => ({
   getEventWebHookSignatureForPayload: jest.fn(),
 }));
 
+const getSlackWorkspaceConnectionByTeamId = jest.fn();
+
 const runAgendaJob = async () => {
   const job = {
     attrs: {
@@ -94,7 +94,7 @@ const setWebhook = ({
   slack,
 }: {
   url: string;
-  slack?: { channelId: string };
+  slack?: { channelId: string; teamId?: string };
 }) => {
   jest.mocked(getEventWebHookById).mockResolvedValue({
     id: "webhook-1",
@@ -126,9 +126,12 @@ describe("Slack EventWebHook delivery compatibility", () => {
       text: "Feature updated",
       blocks: [],
     });
-    jest.mocked(getSlackBotAccessTokenForWebhook).mockResolvedValue(null);
+    getSlackWorkspaceConnectionByTeamId.mockResolvedValue(null);
     jest.mocked(getContextForAgendaJobByOrgObject).mockReturnValue({
       models: {
+        slackWorkspaceConnections: {
+          getByTeamId: getSlackWorkspaceConnectionByTeamId,
+        },
         webhookSecrets: {
           getBackEndSecretsReplacer: jest
             .fn()
@@ -178,15 +181,12 @@ describe("Slack EventWebHook delivery compatibility", () => {
 
   it("keeps using an incoming webhook after OAuth metadata is added", async () => {
     const url = "https://hooks.slack.com/services/T000/B000/hybrid";
-    setWebhook({ url, slack: { channelId: "C123" } });
-    jest
-      .mocked(getSlackBotAccessTokenForWebhook)
-      .mockResolvedValue("xoxb-token");
+    setWebhook({ url, slack: { channelId: "C123", teamId: "T123" } });
 
     await runAgendaJob();
 
     expect(postSlackMessageResult).not.toHaveBeenCalled();
-    expect(getSlackBotAccessTokenForWebhook).not.toHaveBeenCalled();
+    expect(getSlackWorkspaceConnectionByTeamId).not.toHaveBeenCalled();
     expect(cancellableFetch).toHaveBeenCalledWith(
       url,
       expect.objectContaining({ method: "POST" }),
@@ -203,11 +203,12 @@ describe("Slack EventWebHook delivery compatibility", () => {
   it("does not post the workspace placeholder when bot delivery fails", async () => {
     setWebhook({
       url: SLACK_WORKSPACE_PLACEHOLDER_URL,
-      slack: { channelId: "C123" },
+      slack: { channelId: "C123", teamId: "T123" },
     });
-    jest
-      .mocked(getSlackBotAccessTokenForWebhook)
-      .mockResolvedValue("xoxb-token");
+    getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
+      teamId: "T123",
+      encryptedBotAccessToken: "xoxb-token",
+    });
     jest.mocked(postSlackMessageResult).mockResolvedValue({
       ok: false,
       ts: null,

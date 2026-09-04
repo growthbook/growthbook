@@ -9,7 +9,6 @@ import { getAgendaInstance } from "back-end/src/services/queueing";
 import { getEvent } from "back-end/src/models/EventModel";
 import {
   getEventWebHookById,
-  getSlackBotAccessTokenForWebhook,
   updateEventWebHookStatus,
 } from "back-end/src/models/EventWebhookModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
@@ -27,6 +26,7 @@ import {
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { SecretsReplacer } from "back-end/src/util/secrets";
+import { decryptSlackBotToken } from "back-end/src/util/slackToken";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
@@ -176,15 +176,19 @@ export class EventWebHookNotifier implements Notifier {
 
     const method = eventWebHook.method || "POST";
     const logPayload = payload as Record<string, unknown>;
+    const context = getContextForAgendaJobByOrgObject(organization);
 
     if (
       (eventWebHook.payloadType || "raw") === "slack" &&
       isSlackWorkspacePlaceholderUrl(eventWebHook.url)
     ) {
-      const botToken = await getSlackBotAccessTokenForWebhook({
-        eventWebHookId,
-        organizationId: organization.id,
-      });
+      const teamId = eventWebHook.slack?.teamId;
+      const connection = teamId
+        ? await context.models.slackWorkspaceConnections.getByTeamId(teamId)
+        : null;
+      const botToken = connection
+        ? decryptSlackBotToken(connection.encryptedBotAccessToken)
+        : null;
       const channelId = eventWebHook.slack?.channelId;
 
       if (botToken && channelId) {
@@ -248,8 +252,6 @@ export class EventWebHookNotifier implements Notifier {
         payload: logPayload,
       });
     }
-
-    const context = getContextForAgendaJobByOrgObject(organization);
 
     const origin = new URL(eventWebHook.url).origin;
 

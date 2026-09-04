@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { ReqContext } from "back-end/types/request";
 import {
   connectSlackOAuthIntegration,
+  getSlackChannelEventWebhookId,
   getSlackOAuthAuthorizeUrl,
 } from "back-end/src/services/slackIntegration";
 import { fetch } from "back-end/src/util/http.util";
@@ -19,10 +20,17 @@ jest.mock("back-end/src/util/secrets", () => ({
   SLACK_CLIENT_SECRET: "slack-client-secret",
 }));
 
+const upsertSlackWorkspaceConnection = jest.fn();
+
 const context = {
   org: { id: "org-1" },
   userId: "user-1",
-} as ReqContext;
+  models: {
+    slackWorkspaceConnections: {
+      upsertForTeam: upsertSlackWorkspaceConnection,
+    },
+  },
+} as unknown as ReqContext;
 
 const getValidState = () => {
   const state = new URL(getSlackOAuthAuthorizeUrl(context)).searchParams.get(
@@ -83,5 +91,94 @@ describe("Slack OAuth validation", () => {
         state: getValidState(),
       }),
     ).rejects.toThrow("Slack returned an invalid OAuth response");
+  });
+
+  it("stores workspace credentials outside EventWebHooks", async () => {
+    const dateCreated = new Date("2026-09-03T12:00:00Z");
+    const dateUpdated = new Date("2026-09-03T12:00:00Z");
+    jest.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      statusText: "OK",
+      json: async () => ({
+        ok: true,
+        app_id: "A123",
+        access_token: "xoxb-secret",
+        scope: "chat:write",
+        team: { id: "T123", name: "GrowthBook" },
+      }),
+    } as unknown as Awaited<ReturnType<typeof fetch>>);
+    upsertSlackWorkspaceConnection.mockResolvedValueOnce({
+      organization: "org-1",
+      teamId: "T123",
+      teamName: "GrowthBook",
+      appId: "A123",
+      encryptedBotAccessToken: "encrypted:v1:ciphertext",
+      scope: "chat:write",
+      dateCreated,
+      dateUpdated,
+    });
+
+    await expect(
+      connectSlackOAuthIntegration({
+        context,
+        code: "code",
+        state: getValidState(),
+      }),
+    ).resolves.toEqual({
+      slackConnection: {
+        teamId: "T123",
+        teamName: "GrowthBook",
+        appId: "A123",
+        scope: "chat:write",
+        dateCreated,
+        dateUpdated,
+      },
+      slackIntegration: null,
+    });
+
+    expect(upsertSlackWorkspaceConnection).toHaveBeenCalledWith(
+      "T123",
+      expect.objectContaining({
+        encryptedBotAccessToken: expect.stringMatching(/^encrypted:v1:/),
+      }),
+    );
+    expect(upsertSlackWorkspaceConnection).not.toHaveBeenCalledWith(
+      "T123",
+      expect.objectContaining({
+        encryptedBotAccessToken: expect.stringContaining("xoxb-secret"),
+      }),
+    );
+  });
+});
+
+describe("Slack channel webhook ids", () => {
+  it("is deterministic and scoped to the organization, workspace, and channel", () => {
+    const first = getSlackChannelEventWebhookId({
+      organizationId: "org-1",
+      teamId: "T123",
+      channelId: "C123",
+    });
+
+    expect(
+      getSlackChannelEventWebhookId({
+        organizationId: "org-1",
+        teamId: "T123",
+        channelId: "C123",
+      }),
+    ).toBe(first);
+    expect(
+      getSlackChannelEventWebhookId({
+        organizationId: "org-2",
+        teamId: "T123",
+        channelId: "C123",
+      }),
+    ).not.toBe(first);
+    expect(
+      getSlackChannelEventWebhookId({
+        organizationId: "org-1",
+        teamId: "T123",
+        channelId: "C456",
+      }),
+    ).not.toBe(first);
   });
 });

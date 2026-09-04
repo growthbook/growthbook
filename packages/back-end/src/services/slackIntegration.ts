@@ -1,7 +1,16 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  createHash,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 import { z } from "zod";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { EventWebHookInterface } from "shared/types/event-webhook";
+import {
+  SlackWorkspaceConnectionFrontEndInterface,
+  SlackWorkspaceConnectionInterface,
+} from "shared/validators";
 import {
   APP_ORIGIN,
   JWT_SECRET,
@@ -12,13 +21,9 @@ import { ReqContext } from "back-end/types/request";
 import {
   createEventWebHook,
   deleteEventWebHookById,
-  EventWebHookModel,
   findSlackChannelEventWebhook,
-  findSlackWorkspaceEventWebhook,
   getAllEventWebHooks,
   getEventWebHookById,
-  getSlackBotAccessTokenForWebhook,
-  propagateSlackTeamCredentials,
   reconnectSlackEventWebhook,
   updateSlackChannelName,
 } from "back-end/src/models/EventWebhookModel";
@@ -31,7 +36,10 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { fetch } from "back-end/src/util/http.util";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
-import { encryptSlackBotToken } from "back-end/src/util/slackToken";
+import {
+  decryptSlackBotToken,
+  encryptSlackBotToken,
+} from "back-end/src/util/slackToken";
 
 const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
@@ -257,26 +265,74 @@ const getSlackMetadata = (slackOAuthResponse: SlackOAuthAccessSuccess) => ({
   isEnterpriseInstall: slackOAuthResponse.is_enterprise_install,
 });
 
-const persistSlackBotAccessToken = async ({
-  eventWebHookId,
-  organizationId,
-  accessToken,
-}: {
-  eventWebHookId: string;
-  organizationId: string;
-  accessToken?: string;
-}) => {
-  if (!accessToken) return;
+const slackWorkspaceConnectionToFrontEnd = (
+  connection: SlackWorkspaceConnectionInterface,
+): SlackWorkspaceConnectionFrontEndInterface => ({
+  teamId: connection.teamId,
+  dateCreated: connection.dateCreated,
+  dateUpdated: connection.dateUpdated,
+  appId: connection.appId,
+  teamName: connection.teamName,
+  enterpriseId: connection.enterpriseId,
+  enterpriseName: connection.enterpriseName,
+  botUserId: connection.botUserId,
+  authedUserId: connection.authedUserId,
+  scope: connection.scope,
+  isEnterpriseInstall: connection.isEnterpriseInstall,
+});
 
-  await EventWebHookModel.updateOne(
-    { id: eventWebHookId, organizationId },
-    {
-      $set: {
-        "slack.botAccessToken": encryptSlackBotToken(accessToken),
-      },
-    },
-  );
+const upsertSlackWorkspaceConnection = async ({
+  context,
+  slackOAuthResponse,
+}: {
+  context: ReqContext;
+  slackOAuthResponse: SlackOAuthAccessSuccess;
+}): Promise<SlackWorkspaceConnectionInterface> => {
+  const teamId = slackOAuthResponse.team?.id;
+  if (!teamId) {
+    throw new Error("Slack did not return a workspace id");
+  }
+
+  return context.models.slackWorkspaceConnections.upsertForTeam(teamId, {
+    encryptedBotAccessToken: encryptSlackBotToken(
+      slackOAuthResponse.access_token,
+    ),
+    appId: slackOAuthResponse.app_id,
+    teamName: slackOAuthResponse.team?.name,
+    enterpriseId: slackOAuthResponse.enterprise?.id,
+    enterpriseName: slackOAuthResponse.enterprise?.name,
+    botUserId: slackOAuthResponse.bot_user_id,
+    authedUserId: slackOAuthResponse.authed_user?.id,
+    scope: slackOAuthResponse.scope,
+    isEnterpriseInstall: slackOAuthResponse.is_enterprise_install,
+  });
 };
+
+const getSlackWorkspaceToken = (
+  connection: SlackWorkspaceConnectionInterface,
+): string => {
+  const token = decryptSlackBotToken(connection.encryptedBotAccessToken);
+  if (!token) {
+    throw new Error(
+      "Slack bot token unavailable. Reconnect the Slack workspace.",
+    );
+  }
+  return token;
+};
+
+export const getSlackChannelEventWebhookId = ({
+  organizationId,
+  teamId,
+  channelId,
+}: {
+  organizationId: string;
+  teamId: string;
+  channelId: string;
+}): string =>
+  `ewh-slack-${createHash("sha256")
+    .update(`${organizationId}\0${teamId}\0${channelId}`)
+    .digest("hex")
+    .slice(0, 32)}`;
 
 const getSlackWebhookName = (slackOAuthResponse: SlackOAuthAccessSuccess) => {
   const team = slackOAuthResponse.team?.name;
@@ -329,14 +385,27 @@ export const slackEventWebhookToIntegration = (
   slack: eventWebHook.slack,
 });
 
-export const getSlackOAuthIntegrations = async (
+export const listSlackOAuthConnections = async (
   context: ReqContext,
-): Promise<SlackOAuthIntegrationInterface[]> => {
-  const eventWebHooks = await getAllEventWebHooks(context.org.id);
+): Promise<{
+  slackConnections: SlackWorkspaceConnectionFrontEndInterface[];
+  slackIntegrations: SlackOAuthIntegrationInterface[];
+}> => {
+  const [eventWebHooks, connections] = await Promise.all([
+    getAllEventWebHooks(context.org.id),
+    context.models.slackWorkspaceConnections.getAll(),
+  ]);
 
   const integrations = eventWebHooks
-    .filter((eventWebHook) => eventWebHook.payloadType === "slack")
+    .filter(
+      (eventWebHook) =>
+        eventWebHook.payloadType === "slack" &&
+        (eventWebHook.slack?.channelId || !eventWebHook.slack?.teamId),
+    )
     .map(slackEventWebhookToIntegration);
+  const connectionsByTeamId = new Map(
+    connections.map((connection) => [connection.teamId, connection]),
+  );
 
   // Resolve each channel's live name (handles renames / missing names),
   // caching a changed name back for future loads. Best-effort and fully
@@ -347,12 +416,11 @@ export const getSlackOAuthIntegrations = async (
   ) => {
     try {
       const channelId = integration.slack?.channelId;
-      if (!channelId) return;
-      const token = await getSlackBotAccessTokenForWebhook({
-        eventWebHookId: integration.eventWebHookId,
-        organizationId: context.org.id,
-      });
-      if (!token) return;
+      const teamId = integration.slack?.teamId;
+      if (!channelId || !teamId) return;
+      const connection = connectionsByTeamId.get(teamId);
+      if (!connection) return;
+      const token = getSlackWorkspaceToken(connection);
       const name = await getSlackConversationName({ token, channelId });
       if (!name || name === integration.slack?.channelName) return;
       if (integration.slack) integration.slack.channelName = name;
@@ -378,7 +446,10 @@ export const getSlackOAuthIntegrations = async (
     );
   }
 
-  return integrations;
+  return {
+    slackConnections: connections.map(slackWorkspaceConnectionToFrontEnd),
+    slackIntegrations: integrations,
+  };
 };
 
 export const getSlackOAuthIntegrationById = async ({
@@ -400,13 +471,18 @@ export const getSlackOAuthIntegrationById = async ({
  * already authorized the attach (see {@link connectSlackOAuthIntegration} and
  * {@link connectSlackOAuthInstallFromSession}).
  */
+export type SlackOAuthConnectionResult = {
+  slackConnection: SlackWorkspaceConnectionFrontEndInterface;
+  slackIntegration: SlackOAuthIntegrationInterface | null;
+};
+
 const attachSlackOAuthCode = async ({
   context,
   code,
 }: {
   context: ReqContext;
   code: string;
-}) => {
+}): Promise<SlackOAuthConnectionResult> => {
   const slackOAuthResponse = await exchangeSlackOAuthCode(code);
   const teamId = slackOAuthResponse.team?.id;
   if (!teamId) {
@@ -414,12 +490,14 @@ const attachSlackOAuthCode = async ({
       "Slack did not return a workspace id. Install the GrowthBook app into a specific workspace (org-wide enterprise installs are not supported).",
     );
   }
+  const connection = await upsertSlackWorkspaceConnection({
+    context,
+    slackOAuthResponse,
+  });
+  const slackConnection = slackWorkspaceConnectionToFrontEnd(connection);
 
-  // Workspace-level install (current manifest, no incoming-webhook scope):
-  // no channel was picked on Slack's consent screen — attach a channel-less
-  // workspace connection; channels are added afterward from the GrowthBook UI.
   if (!slackOAuthResponse.incoming_webhook) {
-    return attachSlackWorkspaceInstall({ context, slackOAuthResponse });
+    return { slackConnection, slackIntegration: null };
   }
 
   const channelId = slackOAuthResponse.incoming_webhook.channel_id;
@@ -435,14 +513,11 @@ const attachSlackOAuthCode = async ({
   });
 
   if (existing) {
-    // Refresh url + metadata in one write; only overwrite the stored bot token
-    // if Slack returned a new one (otherwise the existing token is preserved).
     await reconnectSlackEventWebhook({
       eventWebHookId: existing.id,
       organizationId: context.org.id,
       url: slackOAuthResponse.incoming_webhook.url,
       slack: getSlackMetadata(slackOAuthResponse),
-      botAccessToken: slackOAuthResponse.access_token,
     });
 
     const updated = await getEventWebHookById(existing.id, context.org.id);
@@ -450,12 +525,20 @@ const attachSlackOAuthCode = async ({
       throw new Error("Unable to load updated Slack integration");
     }
 
-    return slackEventWebhookToIntegration(updated);
+    return {
+      slackConnection,
+      slackIntegration: slackEventWebhookToIntegration(updated),
+    };
   }
 
   let created: EventWebHookInterface;
   try {
     created = await createEventWebHook({
+      id: getSlackChannelEventWebhookId({
+        organizationId: context.org.id,
+        teamId,
+        channelId,
+      }),
       name: getSlackWebhookName(slackOAuthResponse),
       url: slackOAuthResponse.incoming_webhook.url,
       organizationId: context.org.id,
@@ -478,87 +561,16 @@ const attachSlackOAuthCode = async ({
       channelId,
     });
     if (!concurrent) throw error;
-    return slackEventWebhookToIntegration(concurrent);
-  }
-  await persistSlackBotAccessToken({
-    eventWebHookId: created.id,
-    organizationId: context.org.id,
-    accessToken: slackOAuthResponse.access_token,
-  });
-
-  const updated = await getEventWebHookById(created.id, context.org.id);
-  return slackEventWebhookToIntegration(updated || created);
-};
-
-// Attach a workspace-level install: one disabled, channel-less EventWebHook
-// per team and organization. Channels are added separately from GrowthBook.
-const attachSlackWorkspaceInstall = async ({
-  context,
-  slackOAuthResponse,
-}: {
-  context: ReqContext;
-  slackOAuthResponse: SlackOAuthAccessSuccess;
-}) => {
-  const teamId = slackOAuthResponse.team?.id;
-  if (!teamId) {
-    throw new Error(
-      "Slack did not return a workspace id. Install the GrowthBook app into a specific workspace (org-wide enterprise installs are not supported).",
-    );
+    return {
+      slackConnection,
+      slackIntegration: slackEventWebhookToIntegration(concurrent),
+    };
   }
 
-  const existing = await findSlackWorkspaceEventWebhook({
-    organizationId: context.org.id,
-    teamId,
-  });
-
-  let eventWebHookId: string;
-  if (existing) {
-    await reconnectSlackEventWebhook({
-      eventWebHookId: existing.id,
-      organizationId: context.org.id,
-      slack: getSlackMetadata(slackOAuthResponse),
-      botAccessToken: slackOAuthResponse.access_token,
-      enabled: false,
-    });
-    eventWebHookId = existing.id;
-  } else {
-    const created = await createEventWebHook({
-      name: getSlackWebhookName(slackOAuthResponse),
-      url: SLACK_WORKSPACE_PLACEHOLDER_URL,
-      organizationId: context.org.id,
-      enabled: false,
-      events: DEFAULT_SLACK_EVENTS,
-      projects: [],
-      tags: [],
-      environments: [],
-      payloadType: "slack",
-      method: "POST",
-      headers: {},
-      slack: getSlackMetadata(slackOAuthResponse),
-    });
-    await persistSlackBotAccessToken({
-      eventWebHookId: created.id,
-      organizationId: context.org.id,
-      accessToken: slackOAuthResponse.access_token,
-    });
-    eventWebHookId = created.id;
-  }
-
-  // Channel docs no longer get their own OAuth exchange — push the fresh
-  // token + scope onto every same-team doc so they keep delivering and their
-  // settings-page reconnect banner clears.
-  await propagateSlackTeamCredentials({
-    organizationId: context.org.id,
-    teamId,
-    botAccessToken: slackOAuthResponse.access_token,
-    scope: slackOAuthResponse.scope,
-  });
-
-  const updated = await getEventWebHookById(eventWebHookId, context.org.id);
-  if (!updated) {
-    throw new Error("Unable to load Slack workspace connection");
-  }
-  return slackEventWebhookToIntegration(updated);
+  return {
+    slackConnection,
+    slackIntegration: slackEventWebhookToIntegration(created),
+  };
 };
 
 /**
@@ -614,9 +626,7 @@ export const deleteSlackOAuthIntegration = async ({
   });
 };
 
-// Disconnect a whole Slack workspace: remove its channel-less connection doc
-// AND every channel doc for that team. GrowthBook-side only — to fully revoke
-// access the user also removes the app from Slack's "Manage apps".
+// GrowthBook-side only — users must remove the app in Slack to revoke access.
 export const disconnectSlackWorkspace = async ({
   context,
   teamId,
@@ -624,11 +634,16 @@ export const disconnectSlackWorkspace = async ({
   context: ReqContext;
   teamId?: string;
 }): Promise<{ deleted: number }> => {
-  const slackDocs = (await getAllEventWebHooks(context.org.id)).filter(
-    (w) => w.payloadType === "slack",
-  );
+  const [eventWebHooks, connections] = await Promise.all([
+    getAllEventWebHooks(context.org.id),
+    context.models.slackWorkspaceConnections.getAll(),
+  ]);
+  const slackDocs = eventWebHooks.filter((w) => w.payloadType === "slack");
   const teams = new Set(
-    slackDocs.map((w) => w.slack?.teamId).filter((t): t is string => !!t),
+    [
+      ...connections.map((connection) => connection.teamId),
+      ...slackDocs.map((w) => w.slack?.teamId),
+    ].filter((candidate): candidate is string => !!candidate),
   );
   const target = teamId ?? (teams.size === 1 ? [...teams][0] : undefined);
   if (!target) {
@@ -640,15 +655,15 @@ export const disconnectSlackWorkspace = async ({
   }
 
   let deleted = 0;
+  if (await context.models.slackWorkspaceConnections.deleteForTeam(target)) {
+    deleted++;
+  }
   for (const doc of slackDocs.filter((w) => w.slack?.teamId === target)) {
     if (await deleteSlackOAuthIntegration({ context, id: doc.id })) deleted++;
   }
   return { deleted };
 };
 
-// Resolve the org's workspace connection (channel-less doc) and its bot token.
-// `teamId` selects between multiple connected workspaces; it may be omitted
-// when the org has exactly one.
 const resolveSlackWorkspace = async ({
   context,
   teamId,
@@ -656,40 +671,27 @@ const resolveSlackWorkspace = async ({
   context: ReqContext;
   teamId?: string;
 }) => {
-  const eventWebHooks = await getAllEventWebHooks(context.org.id);
-  const slackWebhooks = eventWebHooks.filter((w) => w.payloadType === "slack");
-  const workspaceDocs = slackWebhooks.filter(
-    (w) => w.slack?.teamId && !w.slack?.channelId,
-  );
-  // Legacy installs predate the channel-less workspace doc — any same-team
-  // channel doc works as the team/credentials source (the bot token lookup
-  // falls back across the team's docs).
-  const teamDocs = workspaceDocs.length
-    ? workspaceDocs
-    : slackWebhooks.filter((w) => w.slack?.teamId);
-  const distinctTeams = new Set(teamDocs.map((w) => w.slack?.teamId));
-  const workspace = teamId
-    ? teamDocs.find((w) => w.slack?.teamId === teamId)
-    : distinctTeams.size === 1
-      ? teamDocs[0]
+  const [connections, eventWebHooks] = await Promise.all([
+    context.models.slackWorkspaceConnections.getAll(),
+    getAllEventWebHooks(context.org.id),
+  ]);
+  const connection = teamId
+    ? connections.find((candidate) => candidate.teamId === teamId)
+    : connections.length === 1
+      ? connections[0]
       : undefined;
-  if (!workspace) {
+  if (!connection) {
     throw new Error(
-      distinctTeams.size > 1 && !teamId
+      connections.length > 1 && !teamId
         ? "Multiple Slack workspaces are connected — specify which one."
         : "No Slack workspace connection found. Connect to Slack first.",
     );
   }
-  const token = await getSlackBotAccessTokenForWebhook({
-    eventWebHookId: workspace.id,
-    organizationId: context.org.id,
-  });
-  if (!token) {
-    throw new Error(
-      "Slack bot token unavailable. Reconnect the Slack workspace.",
-    );
-  }
-  return { workspace, token, slackWebhooks };
+  return {
+    connection,
+    token: getSlackWorkspaceToken(connection),
+    slackWebhooks: eventWebHooks.filter((w) => w.payloadType === "slack"),
+  };
 };
 
 export type SlackChannelOption = {
@@ -719,11 +721,11 @@ export const listSlackWorkspaceChannels = async ({
   nextCursor: string | null;
   teamId: string;
 }> => {
-  const { workspace, token, slackWebhooks } = await resolveSlackWorkspace({
+  const { connection, token, slackWebhooks } = await resolveSlackWorkspace({
     context,
     teamId,
   });
-  const wsTeamId = workspace.slack?.teamId as string;
+  const wsTeamId = connection.teamId;
 
   const connected = new Set(
     slackWebhooks
@@ -756,7 +758,7 @@ export const listSlackWorkspaceChannels = async ({
 /**
  * Connect a channel picked in the GrowthBook UI: join it (public channels;
  * private ones require a prior /invite) and create its per-channel
- * EventWebHook doc with the workspace's team metadata + bot token copied on.
+ * EventWebHook doc that references the workspace by team id.
  * Idempotent — an already-connected channel returns its existing connection.
  */
 export const addSlackChannelToWorkspace = async ({
@@ -768,11 +770,11 @@ export const addSlackChannelToWorkspace = async ({
   teamId?: string;
   channelId: string;
 }): Promise<SlackOAuthIntegrationInterface> => {
-  const { workspace, token, slackWebhooks } = await resolveSlackWorkspace({
+  const { connection, token, slackWebhooks } = await resolveSlackWorkspace({
     context,
     teamId,
   });
-  const wsTeamId = workspace.slack?.teamId as string;
+  const wsTeamId = connection.teamId;
 
   const existing = slackWebhooks.find(
     (w) => w.slack?.teamId === wsTeamId && w.slack?.channelId === channelId,
@@ -815,8 +817,13 @@ export const addSlackChannelToWorkspace = async ({
   let created: EventWebHookInterface;
   try {
     created = await createEventWebHook({
-      name: workspace.slack?.teamName
-        ? `Slack #${channel.name} (${workspace.slack.teamName})`
+      id: getSlackChannelEventWebhookId({
+        organizationId: context.org.id,
+        teamId: wsTeamId,
+        channelId,
+      }),
+      name: connection.teamName
+        ? `Slack #${channel.name} (${connection.teamName})`
         : `Slack #${channel.name}`,
       url: SLACK_WORKSPACE_PLACEHOLDER_URL,
       organizationId: context.org.id,
@@ -829,7 +836,15 @@ export const addSlackChannelToWorkspace = async ({
       method: "POST",
       headers: {},
       slack: {
-        ...workspace.slack,
+        appId: connection.appId,
+        teamId: connection.teamId,
+        teamName: connection.teamName,
+        enterpriseId: connection.enterpriseId,
+        enterpriseName: connection.enterpriseName,
+        botUserId: connection.botUserId,
+        authedUserId: connection.authedUserId,
+        scope: connection.scope,
+        isEnterpriseInstall: connection.isEnterpriseInstall,
         channelId: channel.id,
         channelName: channel.name,
       },
@@ -845,14 +860,5 @@ export const addSlackChannelToWorkspace = async ({
     if (!concurrent) throw error;
     return slackEventWebhookToIntegration(concurrent);
   }
-  // Copy the workspace bot token onto the channel doc so per-doc token reads
-  // keep working even if the workspace connection is later deleted.
-  await persistSlackBotAccessToken({
-    eventWebHookId: created.id,
-    organizationId: context.org.id,
-    accessToken: token,
-  });
-
-  const updated = await getEventWebHookById(created.id, context.org.id);
-  return slackEventWebhookToIntegration(updated || created);
+  return slackEventWebhookToIntegration(created);
 };

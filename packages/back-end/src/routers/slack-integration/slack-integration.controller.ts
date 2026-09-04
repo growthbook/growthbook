@@ -3,6 +3,7 @@ import {
   SlackIntegrationInterface,
   SlackOAuthIntegrationInterface,
 } from "shared/types/slack-integration";
+import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { NotificationEventName } from "shared/types/events/base-types";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
@@ -16,8 +17,8 @@ import {
   disconnectSlackWorkspace,
   getSlackOAuthAuthorizeUrl,
   getSlackOAuthIntegrationById,
-  getSlackOAuthIntegrations,
   isSlackOAuthConfigured,
+  listSlackOAuthConnections,
   listSlackWorkspaceChannels,
   type SlackChannelOption,
 } from "back-end/src/services/slackIntegration";
@@ -35,6 +36,7 @@ type GetSlackIntegrationsResponse = {
 };
 
 type GetSlackOAuthIntegrationsResponse = {
+  slackConnections: SlackWorkspaceConnectionFrontEndInterface[];
   slackIntegrations: SlackOAuthIntegrationInterface[];
   oauthConfigured: boolean;
 };
@@ -74,8 +76,9 @@ export const getSlackOAuthConnections = async (
     context.permissions.throwPermissionError();
   }
 
+  const connections = await listSlackOAuthConnections(context);
   return res.json({
-    slackIntegrations: await getSlackOAuthIntegrations(context),
+    ...connections,
     oauthConfigured: isSlackOAuthConfigured(),
   });
 };
@@ -86,9 +89,13 @@ type GetSlackOAuthConnectionRequest = AuthRequest<
   Record<string, never>
 >;
 
+type GetSlackOAuthConnectionResponse = {
+  slackIntegration: SlackOAuthIntegrationInterface;
+};
+
 export const getSlackOAuthConnection = async (
   req: GetSlackOAuthConnectionRequest,
-  res: Response<PostSlackOAuthCallbackResponse | ApiErrorResponse>,
+  res: Response<GetSlackOAuthConnectionResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -144,7 +151,8 @@ type PostSlackOAuthCallbackRequest = AuthRequest<{
 }>;
 
 type PostSlackOAuthCallbackResponse = {
-  slackIntegration: SlackOAuthIntegrationInterface;
+  slackConnection: SlackWorkspaceConnectionFrontEndInterface;
+  slackIntegration: SlackOAuthIntegrationInterface | null;
 };
 
 export const postSlackOAuthCallback = async (
@@ -157,15 +165,13 @@ export const postSlackOAuthCallback = async (
     context.permissions.throwPermissionError();
   }
 
-  const slackIntegration = await connectSlackOAuthIntegration({
+  const result = await connectSlackOAuthIntegration({
     context,
     code: req.body.code,
     state: req.body.state,
   });
 
-  return res.json({
-    slackIntegration,
-  });
+  return res.json(result);
 };
 
 // endregion POST /integrations/slack/oauth-callback
@@ -180,7 +186,8 @@ type PostSlackOAuthInstallRequest = AuthRequest<{
 }>;
 
 type PostSlackOAuthInstallResponse = {
-  slackIntegration: SlackOAuthIntegrationInterface;
+  slackConnection: SlackWorkspaceConnectionFrontEndInterface;
+  slackIntegration: SlackOAuthIntegrationInterface | null;
 };
 
 export const postSlackOAuthInstall = async (
@@ -193,14 +200,12 @@ export const postSlackOAuthInstall = async (
     context.permissions.throwPermissionError();
   }
 
-  const slackIntegration = await connectSlackOAuthInstallFromSession({
+  const result = await connectSlackOAuthInstallFromSession({
     context,
     code: req.body.code,
   });
 
-  return res.json({
-    slackIntegration,
-  });
+  return res.json(result);
 };
 
 // endregion POST /integrations/slack/oauth-install
