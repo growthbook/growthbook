@@ -4,10 +4,8 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiGitMerge, PiXBold } from "react-icons/pi";
-import { isManagedByExperiment } from "shared/util";
 import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
 import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
 import ForceSummary from "@/components/Features/ForceSummary";
@@ -20,14 +18,11 @@ import {
   revisionStatusLabel,
 } from "@/components/Reviews/RevisionStatusBadge";
 import Badge from "@/ui/Badge";
-import ConfirmDialog from "@/ui/ConfirmDialog";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 
 type Props = {
   info: LinkedFeatureInfo;
@@ -49,10 +44,7 @@ export default function LinkedFeatureFlag({
 }: Props) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
-  const allEnvironments = useEnvironments();
   const [removing, setRemoving] = useState(false);
-  const [ejecting, setEjecting] = useState(false);
-  const [ejectConfirm, setEjectConfirm] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const canEditExperiment =
@@ -60,14 +52,6 @@ export default function LinkedFeatureFlag({
 
   const canUpdateLinkedFeature =
     canEditExperiment && permissionsUtil.canEditFeatureDrafts(info.feature);
-
-  // The server takes publish authority on eject; mirror it or the menu 403s.
-  const canEject =
-    canEditExperiment &&
-    permissionsUtil.canPublishFeature(
-      info.feature,
-      getEnabledEnvironments(info.feature, allEnvironments),
-    );
 
   const canEditFeatureDraft =
     canUpdateLinkedFeature &&
@@ -94,21 +78,6 @@ export default function LinkedFeatureFlag({
       mutate?.();
     } finally {
       setRemoving(false);
-    }
-  };
-
-  const isManaged = isManagedByExperiment(info.feature, experiment.id);
-
-  const handleEject = async () => {
-    setEjecting(true);
-    try {
-      await apiCall(`/experiment/${experiment.id}/managed-flag/eject`, {
-        method: "POST",
-      });
-      setEjectConfirm(false);
-      mutate?.();
-    } finally {
-      setEjecting(false);
     }
   };
 
@@ -149,10 +118,7 @@ export default function LinkedFeatureFlag({
   const hasValueWarnings =
     (info.state === "live" || info.state === "draft") &&
     (info.inconsistentValues || info.rulesAbove);
-  // A managed flag renders no value rows, so it would otherwise be empty.
-  const showValueSection = isManaged
-    ? hasValueWarnings
-    : !valuesShownOnVariations || hasValueWarnings;
+  const showValueSection = !valuesShownOnVariations || hasValueWarnings;
 
   const showEditButton =
     canEditFeatureDraft &&
@@ -164,15 +130,6 @@ export default function LinkedFeatureFlag({
 
   return (
     <>
-      {ejectConfirm && (
-        <ConfirmDialog
-          title="Convert to unmanaged Feature Flag?"
-          content="This experiment keeps using the linked Feature Flag, but you'll manage and review it directly from its own page instead of from here."
-          yesText="Convert"
-          onConfirm={handleEject}
-          onCancel={() => setEjectConfirm(false)}
-        />
-      )}
       {editModalOpen && (
         <EditFeatureFlagValuesModal
           feature={info.feature}
@@ -189,58 +146,20 @@ export default function LinkedFeatureFlag({
         feature={info.feature}
         canEdit={showEditButton}
         onEdit={showEditButton ? () => setEditModalOpen(true) : undefined}
-        managedBadge={
-          isManaged ? (
-            <Badge label="Managed by experiment" radius="full" color="violet" />
-          ) : undefined
-        }
-        actions={
-          isManaged ? (
-            // Set even when empty, or the default cluster offers Edit/Remove.
-            <>
-              {canEject && (
-                <DropdownMenu
-                  trigger={
-                    <IconButton
-                      variant="ghost"
-                      color="gray"
-                      radius="full"
-                      size="2"
-                      highContrast
-                    >
-                      <BsThreeDotsVertical size={16} />
-                    </IconButton>
-                  }
-                  menuPlacement="end"
-                >
-                  <DropdownMenuItem
-                    disabled={ejecting}
-                    onClick={() => setEjectConfirm(true)}
-                  >
-                    Convert to unmanaged Feature Flag
-                  </DropdownMenuItem>
-                </DropdownMenu>
-              )}
-            </>
-          ) : undefined
-        }
         additionalBadge={(() => {
           if (info.state === "archived") {
             return <Badge label="Archived" radius="full" color="gray" />;
           }
-          // Review status: live/draft is implied, and would fight the CTA.
           const revisionStatus =
-            isManaged && info.pendingDraft
-              ? info.pendingDraft.status
-              : info.state === "live"
-                ? "live"
-                : info.state === "draft"
-                  ? "draft"
-                  : info.state === "locked"
-                    ? "published"
-                    : info.state === "discarded"
-                      ? "discarded"
-                      : null;
+            info.state === "live"
+              ? "live"
+              : info.state === "draft"
+                ? "draft"
+                : info.state === "locked"
+                  ? "published"
+                  : info.state === "discarded"
+                    ? "discarded"
+                    : null;
           if (!revisionStatus) return null;
           return (
             <Badge
@@ -313,9 +232,7 @@ export default function LinkedFeatureFlag({
               </Link>
             </Callout>
           )}
-        {/* A managed flag says this once, page-level, above the fold. */}
-        {!isManaged &&
-          info.state === "draft" &&
+        {info.state === "draft" &&
           !info.hasMergeConflict &&
           !info.hasUnrelatedDraftChanges && (
             <Callout
@@ -370,30 +287,28 @@ export default function LinkedFeatureFlag({
           <Box className="appbox" style={{ backgroundColor: "transparent" }}>
             {showValueSection && (
               <Flex width="100%" gap="4" py="4" px="5" direction="column">
-                {!isManaged && (
-                  <Box flexGrow="1">
-                    <LinkedChangeVariationRows
-                      alignContent={
-                        info.feature.valueType === "json" ? "start" : "center"
-                      }
-                      experiment={experiment}
-                      renderContent={(j) =>
-                        !configuredVariationIds.has(variations[j].id) ? (
-                          <HelperText status="warning">
-                            Define missing values
-                          </HelperText>
-                        ) : (
-                          <ForceSummary
-                            value={orderedValues[j]}
-                            feature={info.feature}
-                            sparse={info.sparse}
-                            maxHeight={60}
-                          />
-                        )
-                      }
-                    />
-                  </Box>
-                )}
+                <Box flexGrow="1">
+                  <LinkedChangeVariationRows
+                    alignContent={
+                      info.feature.valueType === "json" ? "start" : "center"
+                    }
+                    experiment={experiment}
+                    renderContent={(j) =>
+                      !configuredVariationIds.has(variations[j].id) ? (
+                        <HelperText status="warning">
+                          Define missing values
+                        </HelperText>
+                      ) : (
+                        <ForceSummary
+                          value={orderedValues[j]}
+                          feature={info.feature}
+                          sparse={info.sparse}
+                          maxHeight={60}
+                        />
+                      )
+                    }
+                  />
+                </Box>
 
                 {(info.state === "live" || info.state === "draft") && (
                   <>
