@@ -323,6 +323,7 @@ export type ColumnTopValuesParams = {
   limit?: number;
   lookbackDays: number;
   maxValueLength?: number;
+  searchTerm?: string;
 };
 
 /** Rows are returned most-frequent-first per column. */

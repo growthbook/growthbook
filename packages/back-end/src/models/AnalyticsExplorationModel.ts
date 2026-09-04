@@ -26,7 +26,17 @@ import analyticsExplorationApiSpec, {
   postFactTableExplorationEndpoint,
   postDataSourceExplorationEndpoint,
   postFunnelExplorationEndpoint,
+  searchProductAnalyticsResourcesEndpoint,
+  getProductAnalyticsColumnsEndpoint,
+  getProductAnalyticsColumnValuesEndpoint,
+  getProductAnalyticsExplorationEndpoint,
 } from "back-end/src/api/specs/analytics-exploration.spec";
+import {
+  getProductAnalyticsColumns,
+  getProductAnalyticsColumnValues,
+  searchProductAnalyticsResources,
+} from "back-end/src/services/product-analytics-tools";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { MakeModelClass } from "./BaseModel";
 
 function toApiInterface(
@@ -97,6 +107,55 @@ const BaseClass = MakeModelClass({
       makeExplorationHandler(postFactTableExplorationEndpoint),
       makeExplorationHandler(postDataSourceExplorationEndpoint),
       makeExplorationHandler(postFunnelExplorationEndpoint),
+      defineCustomApiHandler({
+        ...searchProductAnalyticsResourcesEndpoint,
+        reqHandler: async (req) => {
+          const result = await searchProductAnalyticsResources(
+            req.context,
+            req.query,
+          );
+          return {
+            ...result,
+            matches: await resolveOwnerEmails(result.matches, req.context),
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...getProductAnalyticsColumnsEndpoint,
+        reqHandler: (req) => getProductAnalyticsColumns(req.context, req.query),
+      }),
+      defineCustomApiHandler({
+        ...getProductAnalyticsColumnValuesEndpoint,
+        reqHandler: (req) =>
+          getProductAnalyticsColumnValues(req.context, req.body),
+      }),
+      defineCustomApiHandler({
+        ...getProductAnalyticsExplorationEndpoint,
+        reqHandler: async (req) => {
+          // Avoid a recursive type dependency through RequestContext while this
+          // model's BaseClass initializer is being inferred.
+          const { analyticsExplorations } = req.context.models as unknown as {
+            analyticsExplorations: {
+              getById(id: string): Promise<ProductAnalyticsExploration | null>;
+            };
+          };
+          const exploration = await analyticsExplorations.getById(
+            req.params.id,
+          );
+          if (!exploration) return req.context.throwNotFoundError();
+          const queryId = exploration.queries?.[0]?.query;
+          const query = queryId
+            ? await getQueryById(req.context, queryId)
+            : null;
+          return {
+            exploration: toApiInterface(exploration),
+            query: query ? toQueryApiInterface(query) : null,
+            explorationUrl: getProductAnalyticsExplorationUrl(
+              exploration.config,
+            ),
+          };
+        },
+      }),
     ],
   },
 });
