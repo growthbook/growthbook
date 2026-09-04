@@ -1,6 +1,7 @@
 import {
   addDays,
   allowedExpirationPresets,
+  getExpirationProblem,
   getExpirationStatus,
   isExpired,
   maxExpirationDate,
@@ -107,5 +108,30 @@ describe("allowedExpirationPresets", () => {
 
   it("collapses to a single choice at the shortest possible policy", () => {
     expect(allowedExpirationPresets(1)).toEqual([1]);
+  });
+});
+
+describe("getExpirationProblem", () => {
+  it("accepts no expiry only when no policy demands one", () => {
+    expect(getExpirationProblem(null, null, NOW)).toBeNull();
+    expect(getExpirationProblem(null, 30, NOW)).toBe("required");
+  });
+
+  it("rejects a date in the past even with no policy", () => {
+    expect(getExpirationProblem(addDays(NOW, -1), null, NOW)).toBe("past");
+    expect(getExpirationProblem(NOW, null, NOW)).toBe("past");
+  });
+
+  it("rejects a date beyond the maximum", () => {
+    expect(getExpirationProblem(addDays(NOW, 31), 30, NOW)).toBe("too-late");
+  });
+
+  it("accepts the maximum itself and anything under it", () => {
+    expect(getExpirationProblem(addDays(NOW, 30), 30, NOW)).toBeNull();
+    expect(getExpirationProblem(addDays(NOW, 1), 30, NOW)).toBeNull();
+  });
+
+  it("reports the past before the policy, since the date is unusable either way", () => {
+    expect(getExpirationProblem(addDays(NOW, -1), 30, NOW)).toBe("past");
   });
 });
