@@ -24,7 +24,7 @@ import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
-import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
+import ExperimentManagedTrafficModal from "@/components/Experiment/ExperimentManagedTrafficModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -51,6 +51,7 @@ const BanditExperimentPage = (): ReactElement => {
     string | null
   >(null);
   const [addVariationOnOpen, setAddVariationOnOpen] = useState(false);
+  const [adoptOnOpen, setAdoptOnOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -138,6 +139,15 @@ const BanditExperimentPage = (): ReactElement => {
     ? () => {
         setTrafficFocusVariation(null);
         setAddVariationOnOpen(true);
+        setTrafficModalOpen(true);
+      }
+    : null;
+  // Same modal already in adoption mode; whether it is offered is decided
+  // where it renders.
+  const addVariationValues = canRunExperiment
+    ? () => {
+        setTrafficFocusVariation(null);
+        setAdoptOnOpen(true);
         setTrafficModalOpen(true);
       }
     : null;
@@ -290,11 +300,12 @@ const BanditExperimentPage = (): ReactElement => {
         />
       )}
       {trafficModalOpen && (
-        <EditTrafficModal
+        <ExperimentManagedTrafficModal
           close={() => {
             setTrafficModalOpen(false);
             setTrafficFocusVariation(null);
             setAddVariationOnOpen(false);
+            setAdoptOnOpen(false);
           }}
           mutate={mutate}
           experiment={experiment}
@@ -302,6 +313,7 @@ const BanditExperimentPage = (): ReactElement => {
           safeToEdit={safeToEdit}
           focusVariationId={trafficFocusVariation}
           addVariationOnOpen={addVariationOnOpen}
+          adoptOnOpen={adoptOnOpen}
         />
       )}
 
@@ -334,6 +346,7 @@ const BanditExperimentPage = (): ReactElement => {
           editTargeting={editTargeting}
           editTraffic={editTraffic}
           addVariation={addVariation}
+          addVariationValues={addVariationValues}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}
         />
