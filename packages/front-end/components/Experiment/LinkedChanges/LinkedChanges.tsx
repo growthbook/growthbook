@@ -223,8 +223,8 @@ export default function LinkedChanges({
               No Feature Flag yet. Adding variation values creates one.
             </Text>
             {onAddValues && (
-              <Button variant="outline" onClick={onAddValues}>
-                Add variation values
+              <Button variant="ghost" onClick={onAddValues}>
+                Add values
               </Button>
             )}
           </Flex>
