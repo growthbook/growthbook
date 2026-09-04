@@ -10,6 +10,7 @@ import {
   onRetentionDelayOrModeChange,
   onShapeChange,
   retentionModeFromWindow,
+  shapeForValueType,
   shapeFromColumnRef,
   typeHasShape,
   THRESHOLD_SHAPES,
@@ -689,6 +690,106 @@ describe("applyFormType", () => {
     const result = applyFormType(customized, "proportion", factTable);
     expect(result.numerator?.aggregateFilterColumn).toBeUndefined();
     expect(result.numerator?.aggregateFilter).toBeUndefined();
+  });
+
+  it("clears capping when switching to a type cappingOk forbids", () => {
+    const withCapping = {
+      ...current,
+      cappingSettings: { type: "percentile" as const, value: 0.99 },
+    };
+    const result = applyFormType(withCapping, "quantile", factTable);
+    expect(result.cappingSettings?.type).toBe("");
+  });
+
+  it("clears absolute capping when switching to ratio (only percentile is supported)", () => {
+    const withCapping = {
+      ...current,
+      cappingSettings: { type: "absolute" as const, value: 100 },
+    };
+    const result = applyFormType(withCapping, "ratio", factTable);
+    expect(result.cappingSettings?.type).toBe("");
+  });
+
+  it("preserves capping when switching between two cappingOk types", () => {
+    const withCapping = {
+      ...current,
+      cappingSettings: { type: "percentile" as const, value: 0.99 },
+    };
+    const result = applyFormType(withCapping, "colSum", factTable);
+    expect(result.cappingSettings?.type).toBe("percentile");
+  });
+
+  it("resets the delay to a neutral value when switching away from retention", () => {
+    const retentionState: MetricTypeSwitchState = {
+      metricType: "retention",
+      numerator: {
+        factTableId: "ft1",
+        column: "$$distinctUsers",
+        rowFilters: [],
+      },
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "days",
+        windowValue: 3,
+        delayUnit: "days",
+        delayValue: 7,
+      },
+    };
+    const result = applyFormType(retentionState, "proportion", factTable);
+    expect(result.windowSettings).toMatchObject({
+      delayValue: 0,
+      delayUnit: "hours",
+    });
+  });
+
+  it("seeds a non-zero delay when switching into retention with a zero delay", () => {
+    const withZeroDelay = {
+      ...current,
+      windowSettings: {
+        type: "conversion" as const,
+        windowUnit: "hours" as const,
+        windowValue: 1,
+        delayUnit: "hours" as const,
+        delayValue: 0,
+      },
+    };
+    const result = applyFormType(withZeroDelay, "retention", factTable);
+    expect(result.windowSettings).toMatchObject({
+      delayValue: 7,
+      delayUnit: "days",
+    });
+  });
+
+  it("leaves a non-zero delay alone when switching into retention", () => {
+    const withDelay = {
+      ...current,
+      windowSettings: {
+        type: "conversion" as const,
+        windowUnit: "hours" as const,
+        windowValue: 1,
+        delayUnit: "hours" as const,
+        delayValue: 12,
+      },
+    };
+    const result = applyFormType(withDelay, "retention", factTable);
+    expect(result.windowSettings?.delayValue).toBe(12);
+  });
+});
+
+describe("shapeForValueType", () => {
+  it("returns the pinned shape for each Value-group type", () => {
+    expect(shapeForValueType("rowCount")).toBe("count");
+    expect(shapeForValueType("colSum")).toBe("sum");
+    expect(shapeForValueType("colMax")).toBe("max");
+    expect(shapeForValueType("countDist")).toBe("distinct");
+    expect(shapeForValueType("activeDays")).toBe("days");
+  });
+
+  it("returns undefined for types with no pinned shape", () => {
+    expect(shapeForValueType("proportion")).toBeUndefined();
+    expect(shapeForValueType("ratio")).toBeUndefined();
+    expect(shapeForValueType("quantile")).toBeUndefined();
+    expect(shapeForValueType("funnel")).toBeUndefined();
   });
 });
 
