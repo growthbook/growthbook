@@ -9,7 +9,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
-import { featureHasEnvironment } from "shared/util";
+import { featureHasEnvironment, isManagedFeature } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { AppFeatures } from "shared/types/app-features";
 import Link from "@/ui/Link";
@@ -26,6 +26,7 @@ import {
 } from "@/services/features";
 import { tagFilterOnClick, tagLinkProps } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { ImplementationTypeIcon } from "@/components/Experiment/ImplementationTypeSelect";
 import Pagination from "@/ui/Pagination";
 import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
@@ -408,7 +409,12 @@ export default function FeaturesPage() {
                             : undefined,
                         }}
                       >
-                        {feature.id}
+                        <Flex align="center" gap="2">
+                          {feature.id}
+                          {isManagedFeature(feature) && (
+                            <ImplementationTypeIcon type="values" />
+                          )}
+                        </Flex>
                       </Link>
                     </TableCell>
                     {showProjectColumn && (
