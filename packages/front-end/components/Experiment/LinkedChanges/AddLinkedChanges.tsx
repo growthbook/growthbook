@@ -152,10 +152,13 @@ export default function AddLinkedChanges({
   setFeatureModal,
   setVisualEditorModal,
   setUrlRedirectModal,
+  onChooseType,
 }: {
   experiment: ExperimentInterfaceStringDates;
   numLinkedChanges: number;
   hasLinkedFeatures?: boolean;
+  /** Opens the type chooser; absent when the type is locked. */
+  onChooseType?: () => void;
   setVisualEditorModal: (state: boolean) => unknown;
   setFeatureModal: (state: boolean) => unknown;
   setUrlRedirectModal: (state: boolean) => unknown;
@@ -169,14 +172,24 @@ export default function AddLinkedChanges({
   const implementationType = getImplementationType(experiment);
   // Values are wired up from the traffic card, not from here.
   if (implementationType === "values") return null;
-  if (implementationType === "none") {
+  // The kind comes first; the rows below only make sense once it is chosen.
+  if (!implementationType || implementationType === "none") {
     return (
       <Box className="appbox mb-0" p="4" mt="2" mb="0">
-        <Text color="text-mid">
-          This experiment is analysis only. Change its implementation from the
-          experiment info to add a Feature Flag, Visual Editor change or URL
-          Redirect.
-        </Text>
+        <Flex justify="between" align="center" gap="4">
+          <Text color="text-mid">
+            {implementationType === "none"
+              ? "This experiment is analysis only."
+              : "Choose how this experiment delivers its variations."}
+          </Text>
+          {onChooseType && (
+            <Button variant="outline" onClick={onChooseType}>
+              {implementationType === "none"
+                ? "Change experiment type"
+                : "Select implementation type"}
+            </Button>
+          )}
+        </Flex>
       </Box>
     );
   }

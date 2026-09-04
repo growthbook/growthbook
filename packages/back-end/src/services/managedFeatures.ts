@@ -1136,6 +1136,38 @@ export async function clearManagedMarkersForExperiment(
   }
 }
 
+// Deletes the managed flag outright so the experiment can be implemented some
+// other way. Delete-class on the flag; the experiment side is authored.
+export async function removeManagedFeatureForExperiment(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  const feature = await getManagedFeatureForExperiment(context, experiment);
+  if (!feature) {
+    throw new NotFoundError("This experiment does not manage a Feature Flag.");
+  }
+  if (experiment.status !== "draft") {
+    throw new BadRequestError(
+      "The managed Feature Flag can only be removed while the experiment is a draft.",
+    );
+  }
+  if (
+    !context.permissions.canDeleteFeature(
+      feature,
+      Array.from(
+        getEnabledEnvironments(
+          feature,
+          getEnvironments(context.org).map((e) => e.id),
+        ),
+      ),
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+  await deleteFeature(context, feature);
+  await unlinkFeatureFromExperiment(context, experiment.id, feature.id);
+}
+
 /** Eject from the flag's side; the only write the lockdown lets through. */
 export async function ejectManagedFeatureFromFlag(
   context: ReqContext | ApiReqContext,

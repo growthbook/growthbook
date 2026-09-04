@@ -39,6 +39,7 @@ import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import ChangeImplementationTypeModal from "@/components/Experiment/ChangeImplementationTypeModal";
 import SplitButton from "@/ui/SplitButton";
 import Button from "@/ui/Button";
 import {
@@ -370,7 +371,13 @@ export default function TrafficAllocationFunnel({
     safeToEdit &&
     !hasNamespace &&
     !!namespaces?.length;
-  const hasMenuActions = canAddNamespace || canEject;
+  const canChangeType =
+    !!managedFeature &&
+    canEditExperiment &&
+    experiment.status === "draft" &&
+    !experiment.archived;
+  const [changingType, setChangingType] = useState(false);
+  const hasMenuActions = canAddNamespace || canEject || canChangeType;
 
   const hasConfiguredTargeting = hasTargetingConfigured(phase);
   const targetsEveryone = !hasConfiguredTargeting && reachesAllEnvironments;
@@ -460,6 +467,11 @@ export default function TrafficAllocationFunnel({
                   Add namespace
                 </DropdownMenuItem>
               )}
+              {canChangeType && (
+                <DropdownMenuItem onClick={() => setChangingType(true)}>
+                  Change experiment type
+                </DropdownMenuItem>
+              )}
               {canEject && (
                 <DropdownMenuItem
                   disabled={ejecting}
@@ -469,6 +481,14 @@ export default function TrafficAllocationFunnel({
                 </DropdownMenuItem>
               )}
             </DropdownMenu>
+          )}
+          {changingType && managedFeature && (
+            <ChangeImplementationTypeModal
+              experiment={experiment}
+              managedFeature={managedFeature}
+              close={() => setChangingType(false)}
+              mutate={() => mutate?.()}
+            />
           )}
         </Flex>
       </Flex>

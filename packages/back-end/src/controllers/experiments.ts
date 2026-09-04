@@ -174,6 +174,7 @@ import {
   createManagedFlagForNewExperiment,
   discardManagedDraftIfNoop,
   moveManagedFlagWithExperiment,
+  removeManagedFeatureForExperiment,
   managedFlagAdoptionBlocker,
   planManagedFlagKey,
   type ManagedFlagKeyPlan,
@@ -4880,6 +4881,22 @@ export async function postExperimentManagedFlagPublish(
   });
 
   res.status(200).json({ status: 200, feature });
+}
+
+export async function postExperimentManagedFlagRemove(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
+) {
+  const context = getContextFromReq(req);
+  const experiment = await getExperimentById(context, req.params.id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+  await removeManagedFeatureForExperiment(context, experiment);
+  res.status(200).json({ status: 200 });
 }
 
 export async function postExperimentManagedFlagEject(

@@ -18,6 +18,7 @@ const featuresController = wrapController(rawFeaturesController);
 router.get("/key-plan", experimentsController.getExperimentManagedFlagKeyPlan);
 router.post("/", experimentsController.postExperimentManagedFlag);
 router.post("/eject", experimentsController.postExperimentManagedFlagEject);
+router.post("/remove", experimentsController.postExperimentManagedFlagRemove);
 
 router.post(
   "/request-review",

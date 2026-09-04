@@ -1,3 +1,7 @@
+import { useState } from "react";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { IconButton } from "@radix-ui/themes";
+import { isManagedByExperiment } from "shared/util";
 import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
@@ -6,6 +10,9 @@ import {
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
+import ChangeImplementationTypeModal from "@/components/Experiment/ChangeImplementationTypeModal";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedChanges/LinkedFeatureFlag";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import Avatar from "@/ui/Avatar";
@@ -69,6 +76,22 @@ export default function LinkedChanges({
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
 
+  const [changingType, setChangingType] = useState(false);
+  const managedFeature =
+    linkedFeatures.find((f) =>
+      isManagedByExperiment(f.feature, experiment.id),
+    ) ?? null;
+  // The managed flag is handled inside the change flow; anything else has to
+  // be removed from this card first.
+  const otherLinkages = numLinkedChanges - (managedFeature ? 1 : 0);
+  const changeTypeLockedReason =
+    experiment.status !== "draft"
+      ? "The type can't be changed after the experiment starts."
+      : otherLinkages > 0
+        ? "Remove the linked Feature Flags, Visual Editor changes and URL Redirects first."
+        : null;
+  const showTypeMenu = !isPublic && canEditExperiment && !experiment.archived;
+
   const publicLinkedChangeSummary: { id: LinkedChange; count: number }[] = [
     { id: "feature-flag", count: linkedFeatures.length },
     { id: "visual-editor", count: visualChangesets.length },
@@ -83,12 +106,52 @@ export default function LinkedChanges({
             ? "Linked Changes"
             : "Variations & Values"}
         </Heading>
-        {!isPublic && onAddVariation && !hideVariations ? (
-          <Button variant="ghost" onClick={onAddVariation}>
-            Edit Variations
-          </Button>
-        ) : null}
+        <Flex align="center" gap="2">
+          {!isPublic && onAddVariation && !hideVariations ? (
+            <Button variant="ghost" onClick={onAddVariation}>
+              Edit Variations
+            </Button>
+          ) : null}
+          {showTypeMenu && (
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  aria-label="Linked changes actions"
+                >
+                  <BsThreeDotsVertical size={16} />
+                </IconButton>
+              }
+              menuPlacement="end"
+              variant="soft"
+            >
+              {changeTypeLockedReason ? (
+                <Tooltip body={changeTypeLockedReason}>
+                  <DropdownMenuItem disabled>
+                    Change experiment type
+                  </DropdownMenuItem>
+                </Tooltip>
+              ) : (
+                <DropdownMenuItem onClick={() => setChangingType(true)}>
+                  Change experiment type
+                </DropdownMenuItem>
+              )}
+            </DropdownMenu>
+          )}
+        </Flex>
       </Flex>
+      {changingType && mutate && (
+        <ChangeImplementationTypeModal
+          experiment={experiment}
+          managedFeature={managedFeature}
+          close={() => setChangingType(false)}
+          mutate={mutate}
+        />
+      )}
       {isPublic ? (
         <Flex direction="column" gap="3" mx="1" mb="2" mt="4">
           {publicLinkedChangeSummary
@@ -202,6 +265,11 @@ export default function LinkedChanges({
                 setFeatureModal={setFeatureModal}
                 setVisualEditorModal={setVisualEditorModal}
                 setUrlRedirectModal={setUrlRedirectModal}
+                onChooseType={
+                  changeTypeLockedReason
+                    ? undefined
+                    : () => setChangingType(true)
+                }
               />
             )}
         </>

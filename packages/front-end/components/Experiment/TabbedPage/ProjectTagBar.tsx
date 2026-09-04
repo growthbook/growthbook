@@ -50,8 +50,6 @@ export default function ProjectTagBar({
   const canUpdateExperimentProject = (project) =>
     permissionsUtil.canUpdateExperiment({ project }, {});
   const implementationType = getImplementationType(experiment);
-  const canEditImplementation =
-    !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const canUpdateHoldoutProjects = (projects) =>
     permissionsUtil.canUpdateHoldout({ projects }, { projects: [] });
@@ -282,31 +280,9 @@ export default function ProjectTagBar({
           <Metadata
             label="Implementation"
             value={
-              implementationType ? (
-                canEditImplementation ? (
-                  <Link
-                    onClick={() => {
-                      setEditInfoFocusSelector("implementation");
-                      setShowEditInfoModal(true);
-                    }}
-                  >
-                    {IMPLEMENTATION_TYPE_OPTIONS[implementationType].header}
-                  </Link>
-                ) : (
-                  IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
-                )
-              ) : canEditImplementation ? (
-                <Link
-                  onClick={() => {
-                    setEditInfoFocusSelector("implementation");
-                    setShowEditInfoModal(true);
-                  }}
-                >
-                  Choose
-                </Link>
-              ) : (
-                "None"
-              )
+              implementationType
+                ? IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
+                : "Not set"
             }
           />
         )}
