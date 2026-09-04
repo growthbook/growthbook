@@ -5,6 +5,7 @@ import {
   FactTableColumnType,
   FunnelSettings,
   FunnelStep,
+  MetricCappingSettings,
   MetricQuantileSettings,
   MetricWindowSettings,
 } from "shared/types/fact-table";
@@ -258,6 +259,16 @@ export function typeHasShape(type: FormMetricType): boolean {
   return SHAPE_FORM_TYPES.has(type);
 }
 
+// The shape a Value-group type pins its numerator to, for callers (e.g.
+// MetricEditor) that need to show a bare ColumnSelect with no ShapeSelect.
+// Single source of truth with SHAPE_FORM_TYPES/storedTypeAndNumeratorFor
+// below - reuses both rather than re-encoding the five types a third time.
+export function shapeForValueType(type: FormMetricType): Shape | undefined {
+  if (!typeHasShape(type)) return undefined;
+  const spec = storedTypeAndNumeratorFor(type).numerator;
+  return spec.kind === "shape" ? spec.shape : undefined;
+}
+
 export function cappingOk(type: FormMetricType): boolean {
   return type === "ratio" || typeHasShape(type);
 }
@@ -455,6 +466,8 @@ export type MetricTypeSwitchState = {
   denominator?: ColumnRef | null;
   quantileSettings?: MetricQuantileSettings | null;
   funnelSettings?: FunnelSettings | null;
+  cappingSettings?: MetricCappingSettings;
+  windowSettings?: MetricWindowSettings;
 };
 
 const DEFAULT_QUANTILE = 0.5;
@@ -479,6 +492,46 @@ function defaultFunnelStep(name: string, factTableId: string): FunnelStep {
  * — but never overwrites one that's already there, so switching away and
  * back doesn't lose it.
  */
+// Capping only applies to ratio + the five Value types (cappingOk); ratio
+// itself only supports percentile capping (MetricCappingSettingsForm already
+// hides "absolute" for it). Without this, a capping setting left over from a
+// previous type sits in the stored metric invisibly, since cappingOk(type)
+// already hides the field it would need to be edited back to "".
+function resetCappingForTypeSwitch(
+  cappingSettings: MetricCappingSettings | undefined,
+  newFormType: FormMetricType,
+): MetricCappingSettings | undefined {
+  if (!cappingSettings) return cappingSettings;
+  const clear =
+    !cappingOk(newFormType) ||
+    (newFormType === "ratio" && cappingSettings.type === "absolute");
+  return clear ? { ...cappingSettings, type: "" } : cappingSettings;
+}
+
+// Retention states its delay in the Window sentence itself; every other type
+// edits it via the separate Metric Delay field. Reset to a neutral value
+// leaving retention (so it doesn't inherit a "days after exposure" delay
+// meant for the Window sentence) and seed a sensible non-zero default
+// entering it (so the Window sentence doesn't start at "0 days").
+function resetWindowForTypeSwitch(
+  windowSettings: MetricWindowSettings | undefined,
+  currentMetricType: FactMetricType,
+  newFormType: FormMetricType,
+): MetricWindowSettings | undefined {
+  if (!windowSettings) return windowSettings;
+  if (currentMetricType === "retention" && newFormType !== "retention") {
+    return { ...windowSettings, delayValue: 0, delayUnit: "hours" };
+  }
+  if (
+    currentMetricType !== "retention" &&
+    newFormType === "retention" &&
+    windowSettings.delayValue === 0
+  ) {
+    return { ...windowSettings, delayValue: 7, delayUnit: "days" };
+  }
+  return windowSettings;
+}
+
 export function applyFormType<T extends MetricTypeSwitchState>(
   current: T,
   newFormType: FormMetricType,
@@ -488,6 +541,15 @@ export function applyFormType<T extends MetricTypeSwitchState>(
   const { metricType, numerator: spec } =
     storedTypeAndNumeratorFor(newFormType);
   const sourceFactTableId = current.numerator?.factTableId ?? "";
+  const cappingSettings = resetCappingForTypeSwitch(
+    current.cappingSettings,
+    newFormType,
+  );
+  const windowSettings = resetWindowForTypeSwitch(
+    current.windowSettings,
+    current.metricType,
+    newFormType,
+  );
 
   if (spec.kind === "none") {
     const funnelSettings =
@@ -499,7 +561,14 @@ export function applyFormType<T extends MetricTypeSwitchState>(
               defaultFunnelStep("Step 2", sourceFactTableId),
             ],
           };
-    return { ...current, metricType, numerator: null, funnelSettings };
+    return {
+      ...current,
+      metricType,
+      numerator: null,
+      funnelSettings,
+      ...(cappingSettings !== undefined && { cappingSettings }),
+      ...(windowSettings !== undefined && { windowSettings }),
+    };
   }
 
   const base: ColumnRef = current.numerator ?? {
@@ -544,6 +613,8 @@ export function applyFormType<T extends MetricTypeSwitchState>(
     ...current,
     metricType,
     numerator,
+    ...(cappingSettings !== undefined && { cappingSettings }),
+    ...(windowSettings !== undefined && { windowSettings }),
     ...(newFormType === "ratio" && {
       denominator: current.denominator ?? {
         factTableId: numerator.factTableId,
