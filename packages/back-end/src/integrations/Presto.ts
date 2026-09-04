@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Client, ClientOptions, QueryOptions } from "presto-client";
 import { format } from "shared/sql";
 import { parseIntWithDefault } from "shared/util";
@@ -12,6 +13,7 @@ import {
 import { QueryStatistics, RunQueryMetadata } from "shared/types/query";
 import { PrestoConnectionParams } from "shared/types/integrations/presto";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { getKerberosHeader } from "back-end/src/util/kerberos.util";
 import { getQueryTagString } from "back-end/src/util/integration";
 import { logger } from "back-end/src/util/logger";
@@ -26,6 +28,31 @@ type Row = any;
 const PRESTO_QUERY_TAG_MAX_LENGTH = 2000;
 
 const DEFAULT_PRESTO_REQUEST_TIMEOUT_SEC = 3600;
+
+// Query-info payload from GET /v1/query/{id}. Only the fields we read.
+const prestoQueryInfoSchema = z.object({
+  state: z.string().min(1),
+  failureInfo: z.object({ message: z.string().nullish() }).nullish(),
+  errorCode: z.object({ name: z.string().nullish() }).nullish(),
+});
+
+// FINISHED, FAILED, and FAILING are terminal (FAILING is a failed query whose
+// tasks are still being torn down); every other reported state is still
+// executing. An unparseable payload means we can't tell, so return unknown
+// rather than assuming the query is alive.
+export function prestoStateToStatus(info: unknown): ExternalQueryStatus {
+  const parsed = prestoQueryInfoSchema.safeParse(info);
+  if (!parsed.success) return { state: "unknown", reason: "unrecognized" };
+  const { state, failureInfo, errorCode } = parsed.data;
+  if (state === "FINISHED") return { state: "succeeded" };
+  if (state === "FAILED" || state === "FAILING") {
+    return {
+      state: "failed",
+      error: failureInfo?.message || errorCode?.name || "Query failed",
+    };
+  }
+  return { state: "running" };
+}
 
 export default class Presto extends SqlIntegration {
   params!: PrestoConnectionParams;
@@ -101,7 +128,7 @@ export default class Presto extends SqlIntegration {
 
   async cancelQuery(externalId: string): Promise<void> {
     const client = this.createClient();
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       client.kill(externalId, (error) => {
         if (error) {
           logger.debug(
@@ -112,6 +139,28 @@ export default class Presto extends SqlIntegration {
           logger.debug(`Cancelled Presto/Trino query ${externalId}`);
           resolve();
         }
+      });
+    });
+  }
+
+  async getExternalQueryStatus(
+    externalId: string,
+  ): Promise<ExternalQueryStatus> {
+    const client = this.createClient();
+    return new Promise<ExternalQueryStatus>((resolve) => {
+      client.query(externalId, (error, data) => {
+        if (error) {
+          // Trino returns 404/410 once a query id has aged out of the
+          // coordinator's memory.
+          const code = error.code;
+          resolve(
+            code === 404 || code === 410
+              ? { state: "unknown", reason: "expired" }
+              : { state: "unknown", reason: "unreachable" },
+          );
+          return;
+        }
+        resolve(prestoStateToStatus(data));
       });
     });
   }

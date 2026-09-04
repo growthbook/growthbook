@@ -1,6 +1,7 @@
 import Snowflake from "back-end/src/integrations/Snowflake";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
+import { snowflakeStatusToExternalStatus } from "back-end/src/services/snowflake";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 
 describe("Snowflake quantile sketch methods", () => {
@@ -196,5 +197,79 @@ describe("Snowflake quantile sketch methods", () => {
     expect(metadata.reAggregationFunction("col")).toBe(
       "APPROX_PERCENTILE_COMBINE(col)",
     );
+  });
+});
+
+describe("snowflakeStatusToExternalStatus (status-only mapping)", () => {
+  it("maps a running status to running (regardless of the raw string)", () => {
+    expect(
+      snowflakeStatusToExternalStatus("RUNNING", {
+        isRunning: true,
+        isError: false,
+      }),
+    ).toEqual({ state: "running" });
+    expect(
+      snowflakeStatusToExternalStatus("QUEUED", {
+        isRunning: true,
+        isError: false,
+      }),
+    ).toEqual({ state: "running" });
+    expect(
+      snowflakeStatusToExternalStatus("RESUMING_WAREHOUSE", {
+        isRunning: true,
+        isError: false,
+      }),
+    ).toEqual({ state: "running" });
+  });
+
+  it("maps an error status to failed carrying the raw status", () => {
+    expect(
+      snowflakeStatusToExternalStatus("FAILED_WITH_ERROR", {
+        isRunning: false,
+        isError: true,
+      }),
+    ).toEqual({ state: "failed", error: "FAILED_WITH_ERROR" });
+    expect(
+      snowflakeStatusToExternalStatus("ABORTED", {
+        isRunning: false,
+        isError: true,
+      }),
+    ).toEqual({ state: "failed", error: "ABORTED" });
+  });
+
+  it("maps SUCCESS to succeeded", () => {
+    expect(
+      snowflakeStatusToExternalStatus("SUCCESS", {
+        isRunning: false,
+        isError: false,
+      }),
+    ).toEqual({ state: "succeeded" });
+  });
+
+  it("maps NO_QUERY_DATA to unknown/expired", () => {
+    expect(
+      snowflakeStatusToExternalStatus("NO_QUERY_DATA", {
+        isRunning: false,
+        isError: false,
+      }),
+    ).toEqual({ state: "unknown", reason: "expired" });
+  });
+
+  it("maps an unrecognized non-running, non-error status to unknown/unrecognized", () => {
+    expect(
+      snowflakeStatusToExternalStatus("SOMETHING_NEW", {
+        isRunning: false,
+        isError: false,
+      }),
+    ).toEqual({ state: "unknown", reason: "unrecognized" });
+  });
+
+  it("prioritizes running over error when both flags are set", () => {
+    expect(
+      snowflakeStatusToExternalStatus("RUNNING", {
+        isRunning: true,
+        isError: true,
+      }),
+    ).toEqual({ state: "running" });
   });
 });
