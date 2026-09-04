@@ -91,8 +91,9 @@ How to use skills:
 - The turn may already **open** with one or more completed \`loadSkill\` calls you
   did not make. Those are skills the user picked explicitly from the composer's
   slash-command menu, so treat them as their stated intent: follow them rather
-  than routing to a different skill, and don't re-load them. If one is a domain
-  router, still \`loadSkill\` the leaf it points you to.
+  than routing to a different skill, and don't re-load them. Each leaf arrives
+  with its domain router alongside it, for the shared conventions — that router
+  is context, not a prompt to load anything further.
 - When several arrive together, the user is chaining a multi-step request (e.g.
   \`feature-flags/references/flag-create\` then
   \`feature-flags/references/flag-targeting\`). Work through them in the order given,
