@@ -213,18 +213,16 @@ export default function LinkedChanges({
         managedFeature ? (
           <ManagedFlagName featureId={managedFeature.feature.id} />
         ) : (
-          <Box className="appbox mb-0" p="4" mb="0">
-            <Flex justify="between" align="center" gap="4">
-              <Text color="text-mid">
-                No Feature Flag yet. Adding variation values creates one.
-              </Text>
-              {onAddValues && (
-                <Button variant="outline" onClick={onAddValues}>
-                  Add variation values
-                </Button>
-              )}
-            </Flex>
-          </Box>
+          <Flex justify="between" align="center" gap="4">
+            <Text color="text-mid">
+              No Feature Flag yet. Adding variation values creates one.
+            </Text>
+            {onAddValues && (
+              <Button variant="outline" onClick={onAddValues}>
+                Add variation values
+              </Button>
+            )}
+          </Flex>
         )
       ) : isPublic ? (
         <Flex direction="column" gap="3" mx="1" mb="2" mt="4">

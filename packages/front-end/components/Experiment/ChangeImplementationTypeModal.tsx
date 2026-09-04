@@ -31,7 +31,9 @@ export default function ChangeImplementationTypeModal({
   mutate: () => void;
 }) {
   const { apiCall } = useAuth();
-  const current = getImplementationType(experiment);
+  // The managed marker outranks a derived type on experiments adopted before
+  // the type was stored.
+  const current = managedFeature ? "values" : getImplementationType(experiment);
   const [next, setNext] = useState<ImplementationType | "">(
     current && SELECTABLE_IMPLEMENTATION_TYPES.includes(current) ? current : "",
   );
