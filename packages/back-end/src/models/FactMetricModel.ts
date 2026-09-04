@@ -11,6 +11,7 @@ import {
 } from "shared/experiments";
 import { getFunnelRuleViolations } from "shared/funnels";
 import { UpdateProps } from "shared/types/base-model";
+import { PermissionError } from "shared/util";
 import { factMetricValidator, ApiFactMetric } from "shared/validators";
 import {
   ColumnRef,
@@ -181,11 +182,7 @@ export class FactMetricModel extends BaseClass {
   }
 
   // Every fact metric in the org, ignoring the caller's read permissions. Only
-  // for authoritative dependency scans (e.g. blocking deletion of a fact table
-  // column a metric still references), where missing a metric in a project the
-  // caller cannot read would let the delete through and leave that metric
-  // generating SQL for a column that no longer exists. Never return these to
-  // the caller.
+  // use for dependency scans and cleanup preflights; never return these rows.
   public async dangerousGetAllForDependencyScan(): Promise<
     FactMetricInterface[]
   > {
@@ -369,13 +366,29 @@ export class FactMetricModel extends BaseClass {
     }
   }
 
-  protected async beforeUpdate(existing: FactMetricInterface) {
-    // Check the admin permission here?
+  public preflightAutoSliceCleanup(
+    existing: FactMetricInterface,
+    metricAutoSlices: string[],
+  ): void {
+    const updates: UpdateProps<FactMetricInterface> = { metricAutoSlices };
+    if (!this.canUpdate(existing, updates)) {
+      throw new PermissionError(
+        "You do not have access to update this resource",
+      );
+    }
+    this.assertUpdateChannel(existing);
+  }
+
+  private assertUpdateChannel(existing: FactMetricInterface): void {
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
       throw new Error(
         "Cannot update fact metric managed by API if the request isn't from the API.",
       );
     }
+  }
+
+  protected async beforeUpdate(existing: FactMetricInterface) {
+    this.assertUpdateChannel(existing);
   }
 
   protected async beforeDelete(existing: FactMetricInterface) {
