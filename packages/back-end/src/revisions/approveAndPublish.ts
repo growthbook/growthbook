@@ -50,7 +50,9 @@ export async function isArmedWithAuthorizedPublisher(
 ): Promise<boolean> {
   const id = armedPublisherId(revision);
   if (!id) return false;
-  const publisherContext = await getContextForUserIdInOrg(context.org, id);
+  const publisherContext = await getContextForUserIdInOrg(context.org, id, {
+    applyProjectRestrictions: false,
+  });
   if (!publisherContext) return false;
   return !!(await stillHoldsPublishAuthority(publisherContext));
 }

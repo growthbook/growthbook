@@ -4,6 +4,7 @@ import {
   DashboardBlockInterface,
   DashboardBlockType,
   DashboardInterface,
+  SqlExplorationBlockInterface,
   blockHasFieldOfType,
   isDifferenceType,
   isDashboardExperimentBlock,
@@ -20,6 +21,7 @@ import {
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
   MetricExplorationConfig,
+  SqlExplorationConfig,
   FunnelExplorationConfig,
   SavedQuery,
 } from "shared/validators";
@@ -100,6 +102,7 @@ import MetricExperimentsSettings from "./MetricExperimentsSettings";
 import ExperimentsScaledImpactSettings from "./ExperimentsScaledImpactSettings";
 import ExperimentsWinRateSettings from "./ExperimentsWinRateSettings";
 import ExperimentsStatusSettings from "./ExperimentsStatusSettings";
+import SqlExplorationExternalEditor from "./SqlExplorationExternalEditor";
 import DashboardFilterSummary from "./DashboardFilterSummary";
 
 type RequiredField = {
@@ -156,6 +159,13 @@ const REQUIRED_FIELDS: {
         isSubmittableConfig(config as DataSourceExplorationConfig),
     },
   ],
+  "sql-exploration": [
+    {
+      field: "config",
+      validation: (config) =>
+        isSubmittableConfig(config as SqlExplorationConfig),
+    },
+  ],
   "funnel-exploration": [
     {
       field: "config",
@@ -182,7 +192,9 @@ interface Props {
   experiment: ExperimentInterfaceStringDates | null;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
   cancel: () => void;
-  submit: () => void;
+  submit: (
+    blockOverride?: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  ) => void;
   block?: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
   setBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>
@@ -336,7 +348,12 @@ export default function EditSingleBlock({
     block?.type === "metric-exploration" ||
     block?.type === "fact-table-exploration" ||
     block?.type === "data-source-exploration" ||
+    block?.type === "sql-exploration" ||
     block?.type === "funnel-exploration";
+  const isEmptySqlExploration =
+    block?.type === "sql-exploration" &&
+    block.config.dataset.sql.trim().length === 0;
+
   const prevMetricTagFilterRef = useRef(
     blockHasFieldOfType(block, "metricTagFilter", isStringArray)
       ? block.metricTagFilter?.length || 0
@@ -1916,6 +1933,37 @@ export default function EditSingleBlock({
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
               />
+            )}
+            {block.type === "sql-exploration" && (
+              <>
+                {isEmptySqlExploration ? (
+                  <SqlExplorationExternalEditor
+                    block={block}
+                    dashboardGlobalControls={dashboardGlobalControls}
+                    onUpdate={(updatedBlock) => submit(updatedBlock)}
+                    emptyState
+                  />
+                ) : (
+                  <ProductAnalyticsExplorerSettings
+                    block={block}
+                    setBlock={setBlock}
+                    dashboardGlobalControls={dashboardGlobalControls}
+                    saveAndCloseTrigger={saveAndCloseTrigger}
+                    onSaveAndClose={submit}
+                    hideDataSourceSelector
+                    sqlExploreConfigOnly
+                    dashboardHeaderLeadingContent={
+                      <SqlExplorationExternalEditor
+                        block={
+                          block as DashboardBlockInterfaceOrData<SqlExplorationBlockInterface>
+                        }
+                        dashboardGlobalControls={dashboardGlobalControls}
+                        onUpdate={(updatedBlock) => submit(updatedBlock)}
+                      />
+                    }
+                  />
+                )}
+              </>
             )}
           </Flex>
           <Flex mt="5" gap="3" align="center" justify="center">

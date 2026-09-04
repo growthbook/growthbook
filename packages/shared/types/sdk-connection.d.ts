@@ -97,6 +97,9 @@ export interface SDKConnectionInterface {
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
   includeExperimentScheduleInMetadata?: boolean;
+  // Carry prerequisite features into this payload even when they target other
+  // projects. Absent = off; new connections are created with it on.
+  includeReferencedPrerequisites?: boolean;
 
   // URL slug for fetching features from the API
   key: string;

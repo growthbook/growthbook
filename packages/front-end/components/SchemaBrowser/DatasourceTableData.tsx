@@ -22,7 +22,7 @@ import {
   columnInsertDisabledReason,
   insertColumnIntoSelect,
 } from "@/services/schemaBrowserSql";
-import { AreaWithHeader } from "./SqlExplorerModal";
+import AreaWithHeader from "./AreaWithHeader";
 import {
   SchemaCopyButton,
   SchemaSqlInsertButton,

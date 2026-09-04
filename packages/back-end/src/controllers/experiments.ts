@@ -4314,7 +4314,6 @@ export async function postExperimentFeatureValues(
   const context = getContextFromReq(req);
   const { id } = req.params;
   const { variations, variationWeights, features } = req.body;
-  const { org } = context;
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
@@ -4468,7 +4467,6 @@ export async function postExperimentFeatureValues(
       updatedVariationValues,
       sparse: features[feature.id].sparse,
       user: res.locals.eventAudit,
-      orgSettings: org.settings,
     });
 
     if (autoPublish) {
