@@ -10,11 +10,12 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
+import Switch from "@/ui/Switch";
+import { Select, SelectItem } from "@/ui/Select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
 import { MetricWindowSettingsForm } from "@/components/Metrics/MetricForm/MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "@/components/Metrics/MetricForm/MetricCappingSettingsForm";
 import { MetricDelaySettings } from "@/components/Metrics/MetricForm/MetricDelaySettings";
@@ -53,9 +54,7 @@ export default function AdvancedSettings({
   if (!open) {
     return (
       <Frame>
-        <Link href="#" onClick={() => setOpen(true)}>
-          Show advanced settings
-        </Link>
+        <Link onClick={() => setOpen(true)}>Show advanced settings</Link>
       </Frame>
     );
   }
@@ -66,24 +65,21 @@ export default function AdvancedSettings({
         <MetricWindowSettingsForm form={form} type={metricType} />
       )}
       {showsGoalAndSlices && (
-        <SelectField
-          label="Metric Goal"
+        <Select
+          label="Metric goal"
           value={form.watch("inverse") ? "1" : "0"}
-          onChange={(v) => form.setValue("inverse", v === "1")}
-          options={[
-            { value: "0", label: "Increase the metric value" },
-            { value: "1", label: "Decrease the metric value" },
-          ]}
-        />
+          setValue={(v) => form.setValue("inverse", v === "1")}
+        >
+          <SelectItem value="0">Increase the metric value</SelectItem>
+          <SelectItem value="1">Decrease the metric value</SelectItem>
+        </Select>
       )}
       {showsGoalAndSlices &&
         hasCommercialFeature("metric-slices") &&
         factTable && (
-          <Flex direction="column" gap="1" mt="3" mb="4">
-            <Text weight="semibold" size="sm" as="div">
-              Auto Slices
-            </Text>
+          <Flex direction="column" mt="3" mb="4">
             <MultiSelectField
+              label="Auto Slices"
               value={form.watch("metricAutoSlices") || []}
               onChange={(metricAutoSlices) =>
                 form.setValue("metricAutoSlices", metricAutoSlices)
@@ -91,15 +87,15 @@ export default function AdvancedSettings({
               options={factTable.columns
                 .filter((c) => c.isAutoSliceColumn && !c.deleted)
                 .map((c) => ({ label: c.name || c.column, value: c.column }))}
-              placeholder="Select auto slice columns..."
+              placeholder="Select Auto Slice columns..."
             />
           </Flex>
         )}
 
       <Tabs defaultValue="query">
         <TabsList>
-          <TabsTrigger value="query">Analysis Settings</TabsTrigger>
-          <TabsTrigger value="display">Display Settings</TabsTrigger>
+          <TabsTrigger value="query">Analysis settings</TabsTrigger>
+          <TabsTrigger value="display">Display settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="query">
@@ -131,12 +127,12 @@ export default function AdvancedSettings({
           {formType !== "quantile" && (
             <>
               <Text weight="semibold" as="div" mb="1">
-                Regression Adjustment (CUPED)
+                Regression adjustment (CUPED)
               </Text>
-              <Checkbox
+              <Switch
                 label="Override organization-level settings"
                 value={form.watch("regressionAdjustmentOverride")}
-                setValue={(v) =>
+                onChange={(v) =>
                   form.setValue("regressionAdjustmentOverride", v)
                 }
                 disabled={!hasRegressionAdjustmentFeature}
@@ -171,15 +167,15 @@ export default function AdvancedSettings({
           <Field
             label={
               formType === "ratio"
-                ? "Minimum Numerator Total"
-                : "Minimum Metric Total"
+                ? "Minimum numerator total"
+                : "Minimum metric total"
             }
             type="number"
             {...form.register("minSampleSize", { valueAsNumber: true })}
             helpText={`Required in an experiment variation before showing results (default ${metricDefaults.minimumSampleSize})`}
           />
           <Field
-            label="Max Percent Change"
+            label="Max percent change"
             type="number"
             step="any"
             append="%"
@@ -189,7 +185,7 @@ export default function AdvancedSettings({
             }%)`}
           />
           <Field
-            label="Min Percent Change"
+            label="Min percent change"
             type="number"
             step="any"
             append="%"
@@ -215,7 +211,7 @@ export default function AdvancedSettings({
       ) &&
         hasCommercialFeature("manage-official-resources") && (
           <Checkbox
-            label="Mark as Official Metric"
+            label="Mark as official metric"
             disabled={form.watch("managedBy") === "api"}
             disabledMessage="This Metric is managed by the API, so it can not be edited in the UI."
             description="Official Metrics can only be modified by Admins or users with the ManageOfficialResources policy."
@@ -225,6 +221,10 @@ export default function AdvancedSettings({
             }
           />
         )}
+
+      <Flex mt="3">
+        <Link onClick={() => setOpen(false)}>Hide advanced settings</Link>
+      </Flex>
     </Frame>
   );
 }
