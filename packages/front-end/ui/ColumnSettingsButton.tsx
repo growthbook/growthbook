@@ -54,8 +54,8 @@ export default function ColumnSettingsButton({
         <Box style={{ width: 260 }}>
           <Box mb="2">
             <Text size="sm" color="text-low">
-              Drag to reorder or toggle visibility.
-              {note ? ` ${note}` : ""}
+              Drag to reorder; check to show or hide. Saved in this browser
+              only, not shared with your team.{note ? ` ${note}` : ""}
             </Text>
           </Box>
           <ColumnSettings
