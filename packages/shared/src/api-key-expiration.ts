@@ -79,6 +79,26 @@ export function violatesExpirationPolicy(
   return date.getTime() > max.getTime();
 }
 
+/**
+ * Why a chosen expiration can't be submitted, or null when it's fine. Separate
+ * from `violatesExpirationPolicy`, which asks only about policy compliance: a
+ * date in the past is a bad choice under any policy, including none.
+ */
+export type ExpirationProblem = "required" | "past" | "too-late";
+
+export function getExpirationProblem(
+  expiresAt: ExpiresAt,
+  maxLifetimeDays: MaxLifetimeDays,
+  now: Date = new Date(),
+): ExpirationProblem | null {
+  const date = toDate(expiresAt);
+  if (!date) return (maxLifetimeDays ?? null) === null ? null : "required";
+  if (date.getTime() <= now.getTime()) return "past";
+  const max = maxExpirationDate(maxLifetimeDays, now);
+  if (max && date.getTime() > max.getTime()) return "too-late";
+  return null;
+}
+
 /** Preset durations the policy still allows, longest last. */
 export function allowedExpirationPresets(
   maxLifetimeDays: MaxLifetimeDays,
