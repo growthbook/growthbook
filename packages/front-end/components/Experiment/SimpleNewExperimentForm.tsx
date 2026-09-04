@@ -13,6 +13,7 @@ import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import { withHtmlName } from "@/components/Forms/withHtmlName";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import {
@@ -480,7 +481,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         label="Experiment Name"
         required
         minLength={2}
-        {...form.register("name")}
+        autoComplete="off"
+        {...withHtmlName(form.register("name"), "experimentTitle")}
       />
 
       {projects.length >= 1 && (
