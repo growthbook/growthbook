@@ -1,4 +1,5 @@
 import { Flex } from "@radix-ui/themes";
+import { ReactNode } from "react";
 import { ColumnRef, FactTableDefinition } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
@@ -22,37 +23,30 @@ const RATIO_SHAPES: readonly RatioShape[] = [
   "users",
 ];
 
-type RatioPartProps = {
-  label: string;
-  value: ColumnRef;
-  onChange: (value: ColumnRef) => void;
-  factTable: FactTableDefinition | null;
-  hasCountDistinctHLL: boolean;
-  isDenominator?: boolean;
-  // RatioFields always has both on hand and passes them to every part, so
-  // these stay required rather than optional - passing one without the
-  // other used to silently empty the column instead of failing to compile.
-  availableFactTables: FactTableDefinition[];
-  getFactTableById: (id: string) => FactTableDefinition | null;
-};
-
 // Denominator's fact table override is a plain always-visible select here,
 // not the design's read-only-value-plus-Edit-action treatment - a smaller,
 // deliberate simplification for this pass, left for a later visual pass.
+//
+// `extra` is a single optional slot for the denominator's fact-table
+// override, rendered between Shape/Column and Row filters - only the
+// denominator caller passes it, so the numerator caller never receives
+// props it wouldn't use.
 function RatioPart({
   label,
   value,
   onChange,
   factTable,
   hasCountDistinctHLL,
-  isDenominator,
-  availableFactTables,
-  getFactTableById,
-}: RatioPartProps) {
+  extra,
+}: {
+  label: string;
+  value: ColumnRef;
+  onChange: (value: ColumnRef) => void;
+  factTable: FactTableDefinition | null;
+  hasCountDistinctHLL: boolean;
+  extra?: ReactNode;
+}) {
   const shape = shapeFromColumnRef(value) ?? "sum";
-  const partFactTable = isDenominator
-    ? (getFactTableById(value.factTableId) ?? factTable)
-    : factTable;
 
   return (
     <Frame p="3" mb="0">
@@ -64,52 +58,26 @@ function RatioPart({
           <ShapeSelect
             value={shape}
             shapes={RATIO_SHAPES}
-            factTable={partFactTable}
+            factTable={factTable}
             hasCountDistinctHLL={hasCountDistinctHLL}
             onChange={(newShape) =>
               onChange(
-                onShapeChange(
-                  value,
-                  newShape,
-                  partFactTable,
-                  hasCountDistinctHLL,
-                ),
+                onShapeChange(value, newShape, factTable, hasCountDistinctHLL),
               )
             }
           />
           <ColumnSelect
             shape={shape}
-            factTable={partFactTable}
+            factTable={factTable}
             hasCountDistinctHLL={hasCountDistinctHLL}
             value={value.column}
             onChange={(column) => onChange({ ...value, column })}
           />
         </Flex>
-        {isDenominator && shape !== "users" && (
-          <Select
-            label="Fact table"
-            value={value.factTableId}
-            setValue={(factTableId) =>
-              onChange(
-                onFactTableChange(
-                  value,
-                  factTableId,
-                  getFactTableById(factTableId),
-                  hasCountDistinctHLL,
-                ),
-              )
-            }
-          >
-            {availableFactTables.map((ft) => (
-              <SelectItem key={ft.id} value={ft.id}>
-                {ft.name}
-              </SelectItem>
-            ))}
-          </Select>
-        )}
-        {partFactTable && (
+        {extra}
+        {factTable && (
           <RowFilterInput
-            factTable={partFactTable}
+            factTable={factTable}
             value={value.rowFilters || []}
             setValue={(rowFilters) => onChange({ ...value, rowFilters })}
           />
@@ -142,6 +110,10 @@ export default function RatioFields({
   getFactTableById: (id: string) => FactTableDefinition | null;
   hasCountDistinctHLL: boolean;
 }) {
+  const denominatorShape = shapeFromColumnRef(denominator) ?? "sum";
+  const denominatorFactTable =
+    getFactTableById(denominator.factTableId) ?? factTable;
+
   return (
     <Flex direction="column" gap="3">
       <RatioPart
@@ -150,18 +122,37 @@ export default function RatioFields({
         onChange={onNumeratorChange}
         factTable={factTable}
         hasCountDistinctHLL={hasCountDistinctHLL}
-        availableFactTables={availableFactTables}
-        getFactTableById={getFactTableById}
       />
       <RatioPart
         label="Denominator"
         value={denominator}
         onChange={onDenominatorChange}
-        factTable={factTable}
+        factTable={denominatorFactTable}
         hasCountDistinctHLL={hasCountDistinctHLL}
-        isDenominator
-        availableFactTables={availableFactTables}
-        getFactTableById={getFactTableById}
+        extra={
+          denominatorShape !== "users" ? (
+            <Select
+              label="Fact table"
+              value={denominator.factTableId}
+              setValue={(factTableId) =>
+                onDenominatorChange(
+                  onFactTableChange(
+                    denominator,
+                    factTableId,
+                    getFactTableById(factTableId),
+                    hasCountDistinctHLL,
+                  ),
+                )
+              }
+            >
+              {availableFactTables.map((ft) => (
+                <SelectItem key={ft.id} value={ft.id}>
+                  {ft.name}
+                </SelectItem>
+              ))}
+            </Select>
+          ) : undefined
+        }
       />
     </Flex>
   );

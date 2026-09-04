@@ -15,8 +15,9 @@ export type ThresholdBasisValue = {
 };
 
 // The ONE row (spec): Shape (count|sum only) + Column (if applicable) +
-// comparison text. Shared by ThresholdFields and RetentionFields' optional
-// threshold - both write the same aggregateFilterColumn/aggregateFilter pair.
+// comparison text. Shared by the standalone Threshold type and
+// RetentionFields' optional threshold - both write the same
+// aggregateFilterColumn/aggregateFilter pair.
 export function ThresholdBasisRow({
   value,
   onChange,
