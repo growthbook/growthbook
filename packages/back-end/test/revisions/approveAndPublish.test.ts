@@ -148,6 +148,8 @@ describe("isArmedWithAuthorizedPublisher", () => {
     expect(resolveArmerContext).toHaveBeenCalledWith(
       { id: "org_armed" },
       "u_armer",
+      // Deferred publishes run on enable-time authority
+      { applyProjectRestrictions: false },
     );
     expect(sawUser).toBe("u_armer");
   });

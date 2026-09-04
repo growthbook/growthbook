@@ -31,11 +31,10 @@ export default function PaymentInfo() {
   const [loading, setLoading] = useState(false);
   const { subscription, organization } = useUser();
   const { apiCall } = useAuth();
-  // TODO: Remove once all orgs have moved license info off of the org - only limit by isCloud()
-  // The licenseKey is required to look up payment methods
   const canShowPaymentInfo =
     isCloud() &&
     !!organization.licenseKey &&
+    !!subscription?.stripeCustomerId &&
     growthbook.getFeatureValue("ff_payment-info", false);
 
   const fetchPaymentMethods = useCallback(async () => {

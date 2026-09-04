@@ -307,7 +307,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       hashAttribute: initialHashAttribute,
       hashVersion:
         initialValue?.hashVersion || (initialHasSDKWithNoBucketingV2 ? 1 : 2),
-      disableStickyBucketing: initialValue?.disableStickyBucketing ?? false,
+      disableStickyBucketing:
+        initialValue?.disableStickyBucketing ??
+        !settings.stickyBucketingOnByDefault,
       attributionModel:
         initialValue?.attributionModel ??
         settings?.attributionModel ??

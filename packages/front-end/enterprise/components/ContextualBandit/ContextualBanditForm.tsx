@@ -9,6 +9,7 @@ import {
 import {
   ApiContextualBanditInterface,
   ApiCreateContextualBanditBody,
+  getEligibleContextualAttributes,
 } from "shared/validators";
 import { useRouter } from "next/router";
 import { datetime, getValidDate } from "shared/dates";
@@ -70,6 +71,7 @@ type ContextualBanditFormValues = Partial<ExperimentInterfaceStringDates> &
     >
   > & {
     decisionMetric?: string;
+    contextualAttributes?: string[];
   };
 
 export type ContextualBanditFormProps = {
@@ -159,6 +161,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       name: initialValue?.name || "",
       hashAttribute: initialHashAttribute,
       decisionMetric: initialValue?.decisionMetric ?? "",
+      contextualAttributes: initialValue?.contextualAttributes ?? [],
       tags: initialValue?.tags || [],
       targetURLRegex: initialValue?.targetURLRegex || "",
       description: initialValue?.description || "",
@@ -393,9 +396,19 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       }
     }
 
-    const submitContextualAttributes =
-      cbQueries.find((q) => q.id === data.exposureQueryId)
-        ?.targetingAttributeColumns ?? [];
+    const eligibleAttributes = getEligibleContextualAttributes(
+      selectedCbQuery.targetingAttributeColumns,
+      allAttributesSchema,
+    );
+    const submitContextualAttributes = (data.contextualAttributes ?? []).filter(
+      (a) => eligibleAttributes.includes(a),
+    );
+    if (submitContextualAttributes.length === 0) {
+      setStep(1);
+      throw new Error(
+        "Select at least one contextual attribute for this Contextual Bandit.",
+      );
+    }
 
     const banditConversionWindowValue =
       shouldIncludeConversionWindow && data.banditConversionWindowValue

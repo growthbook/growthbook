@@ -1,5 +1,8 @@
 import React, { FC, ReactNode, useEffect, useState } from "react";
-import { ExpandedMember } from "shared/types/organization";
+import {
+  ExpandedMember,
+  OrganizationInterface,
+} from "shared/types/organization";
 import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -8,6 +11,8 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   EffectiveRoleSource,
   getEffectiveRolesForProject,
+  getRolePermissions,
+  Permissions,
 } from "shared/permissions";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -26,6 +31,8 @@ import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRoleModal";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
+import { FilterHeading, FilterItem } from "@/components/Search/SearchFilters";
 import Text from "@/ui/Text";
 import Table, {
   TableHeader,
@@ -38,6 +45,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
 } from "@/ui/DropdownMenu";
 
 // Keyed by the rule, not just the role: the same role can apply with different
@@ -112,7 +120,7 @@ const MemberList: FC<{
 }) => {
   const [inviting, setInviting] = useState(!!router.query["just-subscribed"]);
   const { apiCall } = useAuth();
-  const { userId, users, organization, teams } = useUser();
+  const { userId, users, organization, teams = [] } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
   const [projectRoleModal, setProjectRoleModal] = useState<string>("");
   const [passwordResetModal, setPasswordResetModal] =
@@ -142,17 +150,41 @@ const MemberList: FC<{
       ...(member.projectRoles || []).map((pr) => pr.project),
       ...(member.teams || []).flatMap(
         (id) =>
-          (teams || [])
+          teams
             .find((t) => t.id === id)
             ?.projectRoles?.map((pr) => pr.project) || [],
       ),
     ]),
   ];
 
-  const membersList: ExpandedMember[] = members.map(([, member]) => ({
-    ...member,
-    numTeams: member.teams?.length || 0,
-  }));
+  const [scopedRolesOnly, setScopedRolesOnly] = useState(false);
+  const [roleFilterOpen, setRoleFilterOpen] = useState(false);
+
+  const membersList: ExpandedMember[] = members
+    .map(([, member]) => ({
+      ...member,
+      numTeams: member.teams?.length || 0,
+    }))
+    .filter(
+      (member) =>
+        !project ||
+        !scopedRolesOnly ||
+        scopedProjectIds(member).includes(project),
+    );
+
+  // Resolve through the real permission pipeline so the table shows
+  // restricted-access denials (and their exemptions) exactly as the server does.
+  const restrictAccess = !!projects.find((p) => p.id === project)
+    ?.restrictAccess;
+  const deniedByRestrictedAccess = (member: ExpandedMember): boolean => {
+    if (!project || !restrictAccess) return false;
+    const resolved = new Permissions(
+      getRolePermissions(member, organization as OrganizationInterface, teams, [
+        project,
+      ]),
+    );
+    return !resolved.canReadSingleProjectResource(project);
+  };
 
   const {
     items,
@@ -209,9 +241,7 @@ const MemberList: FC<{
             projectRoles: roleModalUser.projectRoles,
             additionalRoles: roleModalUser.additionalRoles,
           }}
-          teams={(teams || []).filter((t) =>
-            roleModalUser.teams?.includes(t.id),
-          )}
+          teams={teams.filter((t) => roleModalUser.teams?.includes(t.id))}
           close={() => setRoleModal("")}
           onConfirm={async (value) => {
             await apiCall(`/member/${roleModal}/role`, {
@@ -232,7 +262,10 @@ const MemberList: FC<{
       <div className="my-4">
         <Flex align="center" justify="between" gap="3" mt="4" mb="2">
           <Flex align="center" gap="3">
-            <h5 className="mb-0">Active Members{` (${users.size})`}</h5>
+            <Heading as="h5" size="sm" mb="0">
+              {project ? "Organization Members" : "Active Members"}
+              {` (${membersList.length})`}
+            </Heading>
             <Box width="250px" flexShrink="0">
               <Field
                 placeholder="Search..."
@@ -241,6 +274,30 @@ const MemberList: FC<{
                 {...searchInputProps}
               />
             </Box>
+            {project ? (
+              <DropdownMenu
+                trigger={FilterHeading({
+                  heading: scopedRolesOnly
+                    ? "Project-scoped roles"
+                    : "All members",
+                  open: roleFilterOpen,
+                })}
+                variant="soft"
+                open={roleFilterOpen}
+                onOpenChange={setRoleFilterOpen}
+              >
+                <DropdownMenuLabel>Show</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setScopedRolesOnly(false)}>
+                  <FilterItem item="All members" exists={!scopedRolesOnly} />
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setScopedRolesOnly(true)}>
+                  <FilterItem
+                    item="Project-scoped roles"
+                    exists={scopedRolesOnly}
+                  />
+                </DropdownMenuItem>
+              </DropdownMenu>
+            ) : null}
             {filters}
           </Flex>
           {canInviteMembers && (
@@ -264,13 +321,19 @@ const MemberList: FC<{
               </SortableTableColumnHeader>
               <SortableTableColumnHeader
                 field="dateCreated"
-                style={{ width: MEMBER_COLUMN_WIDTHS.date }}
+                style={{
+                  width: MEMBER_COLUMN_WIDTHS.date,
+                  whiteSpace: "nowrap",
+                }}
               >
                 Date Joined
               </SortableTableColumnHeader>
               <SortableTableColumnHeader
                 field="lastLoginDate"
-                style={{ width: MEMBER_COLUMN_WIDTHS.date }}
+                style={{
+                  width: MEMBER_COLUMN_WIDTHS.date,
+                  whiteSpace: "nowrap",
+                }}
               >
                 Last Login
               </SortableTableColumnHeader>
@@ -298,12 +361,12 @@ const MemberList: FC<{
               const effectiveRoles = getEffectiveRolesForProject(
                 member,
                 project || null,
-                teams || [],
+                teams,
               );
               return (
                 <TableRow key={member.id}>
                   <TableCell>{member.name}</TableCell>
-                  <TableCell>
+                  <TableCell style={{ overflowWrap: "anywhere" }}>
                     <Flex align="center" gap="2">
                       {member.managedByIdp && (
                         <Tooltip body="This user is managed by an external identity provider.">
@@ -332,10 +395,20 @@ const MemberList: FC<{
                     {member.lastLoginDate && date(member.lastLoginDate)}
                   </TableCell>
                   <TableCell>
-                    <RuleLines
-                      roles={effectiveRoles}
-                      organization={organization}
-                    />
+                    {deniedByRestrictedAccess(member) ? (
+                      <RoleRuleLabel
+                        role="noaccess"
+                        limitAccessByEnvironment={false}
+                        environments={[]}
+                        organization={organization}
+                        sources="Project restricted access"
+                      />
+                    ) : (
+                      <RuleLines
+                        roles={effectiveRoles}
+                        organization={organization}
+                      />
+                    )}
                   </TableCell>
                   {!project && (
                     <TableCell>
@@ -345,7 +418,7 @@ const MemberList: FC<{
                         const roles = getEffectiveRolesForProject(
                           member,
                           projectId,
-                          teams || [],
+                          teams,
                         );
                         return (
                           <div key={`project-tags-${p.id}`}>
@@ -365,7 +438,7 @@ const MemberList: FC<{
 
                   <TableCell>
                     {(member.teams ?? []).map((teamId) => {
-                      const team = (teams ?? []).find((t) => t.id === teamId);
+                      const team = teams.find((t) => t.id === teamId);
                       if (!team) return null;
                       return (
                         <div key={teamId}>

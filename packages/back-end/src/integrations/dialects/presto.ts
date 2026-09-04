@@ -19,6 +19,8 @@ export const prestoDialect: SqlDialect = {
   ) => `${col} ${sign} INTERVAL '${amount}' ${unit}`,
   formatDate: (col: string) => `substr(to_iso8601(${col}),1,10)`,
   formatDateTimeString: (col: string) => `to_iso8601(${col})`,
+  // Casting preserves the precision of TIMESTAMP(p); date_format truncates it.
+  formatTimestampExact: (col: string) => prestoDialect.castToString(col),
   dateDiff: (startCol: string, endCol: string) =>
     `date_diff('day', ${startCol}, ${endCol})`,
   castToFloat: (col: string) => `CAST(${col} AS DOUBLE)`,
