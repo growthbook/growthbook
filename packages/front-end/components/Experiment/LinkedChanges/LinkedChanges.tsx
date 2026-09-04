@@ -17,6 +17,7 @@ import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import ChangeImplementationTypeModal from "@/components/Experiment/ChangeImplementationTypeModal";
+import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedChanges/LinkedFeatureFlag";
@@ -106,8 +107,20 @@ export default function LinkedChanges({
 
   // "values" owns the box: it names the managed flag (or offers to create it)
   // and carries the eject action.
-  const valuesMode =
-    !!managedFeature || getImplementationType(experiment) === "values";
+  const effectiveType = managedFeature
+    ? "values"
+    : getImplementationType(experiment);
+  const valuesMode = effectiveType === "values";
+  // Named for its kind; "Linked Changes" is reserved for legacy mixes.
+  const boxTitle = valuesMode
+    ? "Managed Feature Flag"
+    : !(isPublic || hideVariations)
+      ? "Variations & Values"
+      : effectiveType === "multi"
+        ? "Linked Changes"
+        : effectiveType && effectiveType !== "none"
+          ? IMPLEMENTATION_TYPE_OPTIONS[effectiveType].header
+          : "Implementation";
   const canEject =
     !!managedFeature &&
     !!canEditExperiment &&
@@ -135,11 +148,7 @@ export default function LinkedChanges({
       <Flex justify="between" align="center" mb="4" gap="3">
         <Flex align="center" gap="1">
           <Heading color="text-high" as="h4" size="sm" mb="0">
-            {valuesMode
-              ? "Managed Feature Flag"
-              : isPublic || hideVariations
-                ? "Linked Changes"
-                : "Variations & Values"}
+            {boxTitle}
           </Heading>
           {valuesMode && (
             <Tooltip body="This experiment owns the Feature Flag: it serves the variation values above and is edited from here rather than from its own page.">
