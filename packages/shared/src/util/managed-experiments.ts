@@ -1,5 +1,6 @@
 import type { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import type { LinkedFeatureInfo } from "shared/types/experiment";
+import { validateFeatureValue } from "./features";
 
 // Managed mode: the experiment owns one Feature Flag holding one experiment-ref
 // rule, edited only from the experiment page while the marker is set.
@@ -49,6 +50,71 @@ export function hasStartReadyManagedFlag(
       isManagedByExperiment(f.feature, experimentId) &&
       (f.state === "live" || f.state === "draft"),
   );
+}
+
+export type ManagedValueProblem = {
+  variationId: string;
+  variationName: string;
+  problem: "missing" | "malformed";
+  detail?: string;
+};
+
+// Every arm of a managed flag has to carry a value that parses as the type the
+// draft lands as, or the publish at start fails.
+export function getManagedValueProblems({
+  variations,
+  values,
+  valueType,
+}: {
+  variations: { id: string; name: string }[];
+  values: { variationId: string; value: string }[];
+  valueType: FeatureValueType;
+}): ManagedValueProblem[] {
+  const byId = new Map(values.map((v) => [v.variationId, v.value]));
+  const problems: ManagedValueProblem[] = [];
+  variations.forEach((v, i) => {
+    const value = byId.get(v.id);
+    const variationName = v.name || `Variation ${i}`;
+    if (value === undefined) {
+      problems.push({ variationId: v.id, variationName, problem: "missing" });
+      return;
+    }
+    if (valueType === "boolean" && value !== "true" && value !== "false") {
+      problems.push({
+        variationId: v.id,
+        variationName,
+        problem: "malformed",
+        detail: "Must be true or false",
+      });
+      return;
+    }
+    // Strict, not the lenient repair `validateFeatureValue` applies on save:
+    // the SDK parses what is stored.
+    if (valueType === "json") {
+      try {
+        JSON.parse(value);
+      } catch {
+        problems.push({
+          variationId: v.id,
+          variationName,
+          problem: "malformed",
+          detail: "Must be valid JSON",
+        });
+      }
+      return;
+    }
+    try {
+      validateFeatureValue({ valueType }, value);
+    } catch (e) {
+      problems.push({
+        variationId: v.id,
+        variationName,
+        problem: "malformed",
+        detail: e instanceof Error ? e.message : String(e),
+      });
+    }
+  });
+  return problems;
 }
 
 /** The experiment that manages this flag, or null when nothing does. */

@@ -12,6 +12,7 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import {
   experimentHasLiveLinkedChanges,
   getImplementationType,
+  getManagedValueProblems,
   hasStartReadyManagedFlag,
   hasVisualChanges,
   isManagedByExperiment,
@@ -374,6 +375,43 @@ export function getChecklistItems({
       linkedFeatures
         .filter((f) => f.state !== "discarded" && f.state !== "archived")
         .forEach((f) => {
+          if (isManaged(f)) {
+            // The values live on this page, so there is nowhere to link out to.
+            const problems = getManagedValueProblems({
+              variations: latestVariations,
+              values: f.pendingDraft?.values ?? f.values,
+              valueType: f.pendingDraft?.valueType ?? f.feature.valueType,
+            });
+            const missing = problems.filter((p) => p.problem === "missing");
+            const malformed = problems.filter((p) => p.problem === "malformed");
+            if (missing.length) {
+              items.push({
+                status: "incomplete",
+                type: "auto",
+                required: true,
+                hideDescription: true,
+                display: `Add a variation value for ${missing
+                  .map((p) => p.variationName)
+                  .join(", ")}`,
+              });
+            }
+            if (malformed.length) {
+              items.push({
+                status: "incomplete",
+                type: "auto",
+                required: true,
+                hardBlock: true,
+                hideDescription: true,
+                display: `Fix the variation value for ${malformed
+                  .map((p) => p.variationName)
+                  .join(", ")}`,
+                tooltip: malformed
+                  .map((p) => `${p.variationName}: ${p.detail}`)
+                  .join("; "),
+              });
+            }
+            return;
+          }
           const configuredVariationIds = new Set(
             f.values.map((v) => v.variationId),
           );

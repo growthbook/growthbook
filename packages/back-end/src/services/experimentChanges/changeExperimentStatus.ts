@@ -14,6 +14,7 @@ import {
   getAffectedEnvsForExperiment,
   experimentHasLiveLinkedChanges,
   getImplementationType,
+  getManagedValueProblems,
   hasStartReadyManagedFlag,
   isManagedByExperiment,
   PENDING_APPROVAL_ITEM_PREFIX,
@@ -285,6 +286,36 @@ export async function getExperimentStartChecklistStatus(
   linkedFeatures
     .filter((f) => f.state !== "discarded" && f.state !== "archived")
     .forEach((f) => {
+      if (isManaged(f)) {
+        const problems = getManagedValueProblems({
+          variations: latestVariations,
+          values: f.pendingDraft?.values ?? f.values,
+          valueType: f.pendingDraft?.valueType ?? f.feature.valueType,
+        });
+        if (problems.some((p) => p.problem === "missing")) {
+          items.push({
+            key: `missingVariationValues:${f.feature.id}`,
+            required: true,
+            status: "incomplete",
+            manual: false,
+            reason: "Fill in the missing variation values before starting.",
+          });
+        }
+        const malformed = problems.filter((p) => p.problem === "malformed");
+        if (malformed.length) {
+          items.push({
+            key: `malformedVariationValues:${f.feature.id}`,
+            required: true,
+            status: "incomplete",
+            manual: false,
+            hardBlock: true,
+            reason: `Fix the variation values before starting: ${malformed
+              .map((p) => `${p.variationName}: ${p.detail}`)
+              .join("; ")}`,
+          });
+        }
+        return;
+      }
       const configuredVariationIds = new Set(
         f.values.map((v) => v.variationId),
       );
@@ -297,9 +328,7 @@ export async function getExperimentStartChecklistStatus(
           required: true,
           status: "incomplete",
           manual: false,
-          reason: isManaged(f)
-            ? "Fill in the missing variation values before starting."
-            : `Fill in missing variation values for linked feature ${f.feature.id} before starting.`,
+          reason: `Fill in missing variation values for linked feature ${f.feature.id} before starting.`,
         });
       }
     });

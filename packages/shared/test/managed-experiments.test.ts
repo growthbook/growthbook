@@ -1,5 +1,6 @@
 import {
   copyManagedVariationValues,
+  getManagedValueProblems,
   isManagedByExperiment,
   isManagedFeature,
   managedByExperimentId,
@@ -277,5 +278,77 @@ describe("requireFreshBaseForPublish", () => {
         orgSetting: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe("getManagedValueProblems", () => {
+  const variations = [
+    { id: "v0", name: "Control" },
+    { id: "v1", name: "Variation 1" },
+    { id: "v2", name: "" },
+  ];
+
+  it("is empty when every arm carries a value of the right type", () => {
+    expect(
+      getManagedValueProblems({
+        variations,
+        values: [
+          { variationId: "v0", value: "1" },
+          { variationId: "v1", value: "2.5" },
+          { variationId: "v2", value: "-3" },
+        ],
+        valueType: "number",
+      }),
+    ).toEqual([]);
+  });
+
+  it("names arms with no value, falling back to their index", () => {
+    expect(
+      getManagedValueProblems({
+        variations,
+        values: [{ variationId: "v0", value: "a" }],
+        valueType: "string",
+      }),
+    ).toEqual([
+      { variationId: "v1", variationName: "Variation 1", problem: "missing" },
+      { variationId: "v2", variationName: "Variation 2", problem: "missing" },
+    ]);
+  });
+
+  it("flags values that do not parse as the draft's type", () => {
+    const problems = getManagedValueProblems({
+      variations,
+      values: [
+        { variationId: "v0", value: "{" },
+        { variationId: "v1", value: '{"ok": true}' },
+        { variationId: "v2", value: "" },
+      ],
+      valueType: "json",
+    });
+    expect(problems.map((p) => [p.variationId, p.problem])).toEqual([
+      ["v0", "malformed"],
+      ["v2", "malformed"],
+    ]);
+    expect(problems[0].detail).toBeTruthy();
+  });
+
+  it("treats anything but true/false as malformed for booleans", () => {
+    expect(
+      getManagedValueProblems({
+        variations: variations.slice(0, 2),
+        values: [
+          { variationId: "v0", value: "true" },
+          { variationId: "v1", value: "yes" },
+        ],
+        valueType: "boolean",
+      }),
+    ).toEqual([
+      {
+        variationId: "v1",
+        variationName: "Variation 1",
+        problem: "malformed",
+        detail: "Must be true or false",
+      },
+    ]);
   });
 });
