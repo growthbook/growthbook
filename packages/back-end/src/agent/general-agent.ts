@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { setTimeout as delay } from "timers/promises";
 import { z } from "zod";
 import type { AIAgentPendingAction } from "shared/validators";
 import { aiTool } from "back-end/src/enterprise/services/ai";
@@ -33,6 +34,12 @@ How to use the \`callApi\` tool:
 - The response is { status, body }: treat 2xx as success; 4xx/5xx carry an
   error \`message\`. On a non-2xx, fix the request and retry; if the same error
   recurs 3+ times, stop and explain to the user.
+- Product Analytics results are the exception: use
+  \`body.exploration.status\`, not the HTTP status, to determine whether the
+  query succeeded. If an exploration is still running, follow the loaded
+  workflow's bounded \`wait\` and GET polling instructions.
+- If a response is too large, retry with narrower filters, pagination, fewer
+  dimensions, or a shorter date range.
 - Never invent endpoints — only call paths documented in a skill you've loaded.
 - When a write is the right next step, just issue the call. You do NOT need to
   ask the user to confirm writes before making them — issuing the call is how
@@ -61,9 +68,9 @@ How to use skills:
 - Canonical skills were originally written for external, shell-capable agents.
   Treat their HTTP methods, paths, bodies, sequencing, and safety guardrails as
   authoritative, but translate every \`gb-call METHOD PATH [body]\` example into
-  a \`callApi\` request. Never run shell commands. Ignore API-key, host,
-  \`gb-setup\`, and credential instructions because this assistant uses the
-  logged-in session.
+  a \`callApi\` request and every polling \`sleep\` into a \`wait\` call. Never
+  run shell commands. Ignore API-key, host, \`gb-setup\`, and credential
+  instructions because this assistant uses the logged-in session.
 - **Two-step workflow** for domain routers that have sub-skills:
   1. \`loadSkill('<domain>')\` — read orientation, shared guardrails, and the
      workflow table (leaf names + when to use each).
@@ -109,8 +116,9 @@ without listing or asking unless the user names a different one.
 
 For analytics, produce at most one successful chart per turn. Failed or empty
 runs may be corrected, but stop after the first successful exploration. The UI
-renders the chart automatically from the full response; the tool result omits
-raw rows, so do not invent a numeric summary when no numbers are visible.
+renders the chart automatically from the tool result. Use
+\`exploration.result.rows\` for specific numeric insights, and reuse
+\`exploration.config\` when modifying a previous chart.
 
 One of these lines is authoritative rather than a hint:
 
@@ -233,21 +241,10 @@ function buildGeneralAgentSystemPrompt(): string {
 // Path matchers & helpers
 // =============================================================================
 
-const EXPLORATION_PATH_RE =
-  /^\/api\/v[12]\/product-analytics\/(metric|fact-table|data-source|funnel)-exploration\/?$/;
-
-function isExplorationPath(path: string): boolean {
-  // Normalize first so we match the canonical `/api/v1/...` form the
-  // dispatcher routes to, regardless of the prefix shape the LLM sent
-  // (`/api/v1/...`, `/v1/...`, or `/...`). Also strips any query string.
-  return EXPLORATION_PATH_RE.test(normalizePath(path));
-}
-
 /**
  * Deterministic mutation gate. Any non-GET call mutates configuration and is
  * parked for explicit user confirmation, except a small allowlist of
- * read-only POSTs (experiment snapshot refreshes and product-analytics
- * explorations) that compute data without changing configuration.
+ * read-only POSTs that compute data without changing configuration.
  *
  * The path is normalized first (via the dispatcher's `normalizePath`) so the
  * allowlist matches regardless of whether the LLM sends `/api/v1/...`,
@@ -259,7 +256,12 @@ function requiresMutationConfirmation(input: DispatchInput): boolean {
   if (/^\/api\/v[12]\/experiments\/[^/]+\/snapshot\/?$/.test(path)) {
     return false;
   }
-  if (isExplorationPath(path)) {
+  if (
+    input.method === "POST" &&
+    /^\/api\/v1\/product-analytics\/(metric|fact-table|data-source|funnel)-exploration\/?$/.test(
+      path,
+    )
+  ) {
     return false;
   }
   return true;
@@ -287,68 +289,30 @@ function coerceBody(body: unknown): unknown {
   }
 }
 
-/**
- * Trim the response body the agent sees for two reasons: keep token usage
- * sane on big list endpoints, and keep the agent focused on actionable parts
- * (status, message, the relevant top-level fields).
- *
- * For successful exploration responses we elide `exploration.result.rows`
- * (which the chart UI uses but the agent doesn't read row-by-row) and
- * surface only summary fields.
- */
-const MAX_BODY_CHARS = 16_000;
+/** Bound every callApi result before it reaches the model, SSE, or storage. */
+const MAX_BODY_CHARS = 64_000;
 
 function summarizeResult(result: DispatchResult): {
   status: number;
   body: unknown;
 } {
-  const { status, body } = result;
-  if (
-    status >= 200 &&
-    status < 300 &&
-    body &&
-    typeof body === "object" &&
-    !Array.isArray(body)
-  ) {
-    const b = body as Record<string, unknown>;
-    if (b.exploration && typeof b.exploration === "object") {
-      const exp = b.exploration as Record<string, unknown>;
-      const result = exp.result as { rows?: unknown[] } | undefined;
-      const rowCount = Array.isArray(result?.rows) ? result.rows.length : 0;
-      // Keep config but elide row data — the chart UI gets the full body
-      // through the chart-result SSE event.
-      return {
-        status,
-        body: {
-          ...b,
-          exploration: {
-            ...exp,
-            result: {
-              ...(result ?? {}),
-              rows: undefined,
-              rowCount,
-            },
-          },
-        },
-      };
-    }
-  }
-
-  // Fall-through: cap body size as a guardrail against runaway responses.
-  const serialized = safeStringify(body);
+  const serialized = safeStringify(result);
   if (serialized.length > MAX_BODY_CHARS) {
     return {
-      status,
+      status: result.status,
       body: {
         truncated: true,
         message:
-          "Response was too large to include in full. Re-call with narrower filters or pagination params.",
-        preview: serialized.slice(0, MAX_BODY_CHARS),
+          "Response was too large to return. Try reducing the request scope with narrower filters, pagination, fewer dimensions, or a shorter date range.",
       },
     };
   }
 
   return result;
+}
+
+function shapeCallApiResult(result: DispatchResult): DispatchResult {
+  return summarizeResult(result);
 }
 
 function safeStringify(v: unknown): string {
@@ -477,6 +441,22 @@ const ASK_USER_DESCRIPTION =
   "message. Use only when the request is ambiguous and you cannot pick a " +
   "sensible default. After calling this, end your turn.";
 
+// --- wait ------------------------------------------------------------------
+
+const waitInputSchema = z.object({
+  seconds: z
+    .number()
+    .int()
+    .min(1)
+    .max(30)
+    .describe("Number of seconds to wait before continuing, from 1 to 30."),
+});
+
+const WAIT_DESCRIPTION =
+  "Wait briefly before checking an asynchronous operation again. Use only " +
+  "when a loaded workflow explicitly instructs you to poll, and obey that " +
+  "workflow's attempt limit.";
+
 // =============================================================================
 // AgentConfig
 // =============================================================================
@@ -573,23 +553,23 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
             return AWAITING_CONFIRMATION_RESULT;
           }
 
-          const result = await dispatchInternal(ctx, dispatchInput, {
-            onSuccess: (i, res) => {
-              if (
-                emit &&
-                res.status >= 200 &&
-                res.status < 300 &&
-                isExplorationPath(i.path) &&
-                res.body &&
-                typeof res.body === "object" &&
-                "exploration" in (res.body as Record<string, unknown>) &&
-                (res.body as { exploration: unknown }).exploration
-              ) {
-                emit("chart-result", res.body);
-              }
-            },
+          const result = await dispatchInternal(ctx, dispatchInput);
+          return shapeCallApiResult(result);
+        },
+      }),
+
+      wait: aiTool({
+        description: WAIT_DESCRIPTION,
+        inputSchema: waitInputSchema,
+        execute: async (input, { abortSignal }) => {
+          await delay(input.seconds * 1000, undefined, {
+            signal: abortSignal,
+            ref: false,
           });
-          return summarizeResult(result);
+          return {
+            status: "completed",
+            waitedSeconds: input.seconds,
+          };
         },
       }),
 
@@ -621,7 +601,7 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
   },
 
   temperature: 0.1,
-  maxSteps: 20,
+  maxSteps: 30,
   maxConsecutiveToolErrors: 5,
 };
 
@@ -635,3 +615,4 @@ export const postGeneralAgentChat = createAgentHandler(generalAgentConfig);
 export const _buildGeneralAgentSystemPrompt = buildGeneralAgentSystemPrompt;
 export const _coerceBody = coerceBody;
 export const _requiresMutationConfirmation = requiresMutationConfirmation;
+export const _shapeCallApiResult = shapeCallApiResult;

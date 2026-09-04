@@ -11,10 +11,15 @@ jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
   createAgentHandler: () => async () => undefined,
 }));
 
+jest.mock("back-end/src/enterprise/services/ai", () => ({
+  aiTool: (definition: unknown) => definition,
+}));
+
 import {
   _buildGeneralAgentSystemPrompt,
   _coerceBody,
   _requiresMutationConfirmation,
+  _shapeCallApiResult,
 } from "back-end/src/agent/general-agent";
 
 describe("general agent system prompt", () => {
@@ -24,9 +29,10 @@ describe("general agent system prompt", () => {
     expect(prompt).toContain(
       "translate every `gb-call METHOD PATH [body]` example into",
     );
-    expect(prompt).toContain("Never run shell commands");
+    expect(prompt).toContain("every polling `sleep` into a `wait` call");
+    expect(prompt).toContain("run shell commands");
     expect(prompt).toMatch(
-      /Ignore API-key, host,\s+`gb-setup`, and credential instructions/,
+      /Ignore API-key, host,.*`gb-setup`, and credential\s+instructions/s,
     );
   });
 });
@@ -182,5 +188,57 @@ describe("requiresMutationConfirmation (deterministic mutation gate)", () => {
         path: "/api/v1/experiments/exp_123/snapshot?force=true",
       }),
     ).toBe(false);
+  });
+});
+
+describe("callApi Product Analytics result shaping", () => {
+  it("retains complete exploration rows", () => {
+    const result = {
+      status: 200,
+      body: {
+        exploration: {
+          id: "ae_1",
+          status: "success",
+          result: {
+            rows: [
+              {
+                dimensions: ["2026-09-01"],
+                values: [
+                  { metricId: "fact__1", numerator: 42, denominator: 7 },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    expect(_shapeCallApiResult(result)).toBe(result);
+  });
+
+  it("replaces an oversized result with a retryable message", () => {
+    const result = {
+      status: 200,
+      body: {
+        exploration: {
+          id: "ae_1",
+          status: "success",
+          config: { type: "metric" },
+          result: {
+            rows: Array.from({ length: 100 }, () => ({
+              payload: "x".repeat(1_000),
+            })),
+          },
+        },
+      },
+    };
+
+    expect(_shapeCallApiResult(result)).toEqual({
+      status: 200,
+      body: {
+        truncated: true,
+        message: expect.stringContaining("reducing the request scope"),
+      },
+    });
   });
 });
