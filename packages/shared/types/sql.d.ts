@@ -72,8 +72,13 @@ export type DateTruncGranularity = "hour" | "day" | "week" | "month" | "year";
 // reference another column) or a string literal (which must be left alone).
 export type SqlIdentifierQuote = '"' | "`";
 
+// How the warehouse folds unquoted identifiers. Quoted identifiers must use
+// this case to match columns the user wrote without quotes (Snowflake: UPPER).
+export type UnquotedIdentifierFold = "upper" | "lower";
+
 export interface SqlDialect {
   identifierQuote: SqlIdentifierQuote;
+  unquotedIdentifierFold?: UnquotedIdentifierFold;
   escapeStringLiteral: (s: string) => string;
   stringMatch: StringMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;

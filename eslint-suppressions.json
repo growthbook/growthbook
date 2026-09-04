@@ -1440,9 +1440,6 @@
   "packages/front-end/components/SchemaBrowser/SqlExplorerModal.tsx": {
     "no-restricted-imports": {
       "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/Search/SearchFilters.tsx": {
