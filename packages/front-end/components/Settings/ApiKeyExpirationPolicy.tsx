@@ -11,6 +11,7 @@ import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -19,17 +20,19 @@ type Kind = "pat" | "secret";
 
 const COPY: Record<
   Kind,
-  { noun: string; nounPlural: string; subject: string }
+  { noun: string; nounPlural: string; subject: string; short: string }
 > = {
   pat: {
     noun: "personal access token",
     nounPlural: "personal access tokens",
     subject: "Tokens",
+    short: "tokens",
   },
   secret: {
     noun: "secret API key",
     nounPlural: "secret API keys",
     subject: "Keys",
+    short: "keys",
   },
 };
 
@@ -112,9 +115,11 @@ const ExpirationPolicyModal: FC<{
               weight="regular"
               value={applyToExisting}
               setValue={setApplyToExisting}
-              label={`Also update ${nonCompliant.length === 1 ? "it" : "them"} now`}
-              description={`${COPY[kind].subject} stop working on the new date unless they are replaced first, and clearing the policy later won't undo it.`}
+              label={`Apply this maximum lifetime to non-compliant ${COPY[kind].short}`}
             />
+          </Box>
+          <Box mt="1">
+            {`Applying it stops them working on the new date unless they are replaced first, and clearing the policy later won't undo it.`}
           </Box>
         </Callout>
       )}
@@ -145,6 +150,7 @@ const ApiKeyExpirationPolicy: FC<{
   const nonCompliant = keys.filter((k) =>
     violatesExpirationPolicy(k.expiresAt, saved),
   );
+  const nonCompliantReason = `${countKeys(nonCompliant.length, kind)} have no expiration date or expire later than the maximum.`;
   const locked = hasFileConfig();
 
   return (
@@ -158,14 +164,28 @@ const ApiKeyExpirationPolicy: FC<{
                 ? `${COPY[kind].subject} last indefinitely`
                 : `${COPY[kind].subject} last up to ${saved} day${saved === 1 ? "" : "s"}`}
             </Text>
-            {nonCompliant.length > 0 && (
-              <Badge
-                color="amber"
-                variant="soft"
-                label={`${nonCompliant.length} not covered`}
-                title={`${countKeys(nonCompliant.length, kind)} have no expiration date or expire later than the maximum.`}
-              />
-            )}
+            {nonCompliant.length > 0 &&
+              // The count is the reason to open the modal, so it opens it.
+              (locked ? (
+                <Badge
+                  color="amber"
+                  variant="soft"
+                  label={`${nonCompliant.length} non-compliant`}
+                  title={nonCompliantReason}
+                />
+              ) : (
+                <Link
+                  onClick={() => setEditing(true)}
+                  title={nonCompliantReason}
+                >
+                  <Badge
+                    color="amber"
+                    variant="soft"
+                    label={`${nonCompliant.length} non-compliant`}
+                    style={{ cursor: "pointer" }}
+                  />
+                </Link>
+              ))}
           </Flex>
           <Button
             variant="outline"
