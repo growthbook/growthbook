@@ -84,7 +84,7 @@ export default function EnvironmentModal({
       <UpgradeModal
         close={close}
         source="environment limit"
-        commercialFeature={null}
+        commercialFeature="custom-environments"
       />
     );
   }
@@ -193,7 +193,7 @@ export default function EnvironmentModal({
       )}
       {!existing.id && !customEnvironmentsAllowed && (
         <PremiumCallout
-          commercialFeature="advanced-permissions"
+          commercialFeature="custom-environments"
           id="environment-plan-limit"
           mb="3"
         >
