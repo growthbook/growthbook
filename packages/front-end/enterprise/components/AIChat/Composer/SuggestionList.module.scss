@@ -53,9 +53,10 @@
   color: var(--gray-12);
 }
 
+// Takes whatever the name leaves, so it truncates at the row edge, not at a fixed fraction of it.
 .type {
-  flex: 0 0 auto;
-  max-width: 40%;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;

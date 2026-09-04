@@ -46,4 +46,34 @@ describe("runApiHandler validation errors", () => {
 
     expect(res.status).toBe(200);
   });
+
+  it("reports only the branch the value matched deepest, not every branch", async () => {
+    // A new block, wrong only in a nested field. The other branches complain
+    // about the ids a new block is not supposed to have — following those would
+    // send a caller to invent one.
+    const nested = z.object({ dateRange: z.enum(["last30Days"]) });
+    const create = z.strictObject({ type: z.literal("b"), config: nested });
+    const saved = z.strictObject({
+      type: z.literal("b"),
+      id: z.string(),
+      uid: z.string(),
+      config: nested,
+    });
+    const schema = z.object({ blocks: z.array(z.union([create, saved])) });
+
+    const res = await runApiHandler(
+      {
+        params: {},
+        query: {},
+        body: { blocks: [{ type: "b", config: { dateRange: "last6Months" } }] },
+      },
+      { body: schema },
+      async () => ({ ok: true }),
+    );
+
+    const message = (res.body as { message: string }).message;
+    expect(message).toContain("[blocks.0.config.dateRange]");
+    expect(message).not.toContain("blocks.0.id");
+    expect(message).not.toContain("blocks.0.uid");
+  });
 });
