@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { NotificationEventName } from "shared/types/events/base-types";
 import { zodNotificationEventNamesEnum } from "./events";
+import { experimentCardFormats } from "./notification-card";
 
 export const eventWebHookPayloadTypes = [
   "raw",
@@ -31,6 +32,14 @@ export const slackEventWebHookMetadata = z
     isEnterpriseInstall: z.boolean().optional(),
   })
   .strict();
+
+export const slackEventWebHookOptions = z
+  .object({
+    experimentCardFormat: z.enum(experimentCardFormats).optional(),
+  })
+  .strict();
+
+export type SlackEventWebHookOptions = z.infer<typeof slackEventWebHookOptions>;
 
 // Matches multi-level wildcard patterns like "feature.*", "feature.revision.*",
 // or "savedGroup.revision.*" (resource names may be camelCase).
@@ -82,6 +91,7 @@ export const eventWebHookInterface = z
     method: z.enum(eventWebHookMethods),
     headers: z.record(z.string(), z.string()),
     slack: slackEventWebHookMetadata.optional(),
+    slackOptions: slackEventWebHookOptions.optional(),
     signingKey: z.string().min(2),
     lastRunAt: z.union([z.date(), z.null()]),
     lastState: z.enum(["none", "success", "error"]),

@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
-import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
+import {
+  experimentCardFormats,
+  SlackWorkspaceConnectionFrontEndInterface,
+} from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiTrash } from "react-icons/pi";
 import {
@@ -18,14 +21,25 @@ import ConfirmDialog from "@/ui/ConfirmDialog";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import MultiSelectField from "@/ui/MultiSelectField";
+import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 
 const REQUIRED_SCOPES = [
   "chat:write",
+  "files:write",
   "channels:read",
   "groups:read",
   "channels:join",
 ];
+
+const CARD_FORMAT_LABELS: Record<
+  (typeof experimentCardFormats)[number],
+  string
+> = {
+  none: "No card — text only",
+  compact: "Compact card",
+  detailed: "Detailed card",
+};
 
 export const getSlackChannelLabel = (
   integration: SlackOAuthIntegrationInterface,
@@ -62,6 +76,9 @@ export default function SlackChannelSettings({
   const environments = useEnvironments();
   const [enabled, setEnabled] = useState(integration.enabled);
   const [events, setEvents] = useState(integration.events);
+  const [cardFormat, setCardFormat] = useState(
+    integration.slackOptions?.experimentCardFormat ?? "compact",
+  );
   const [filterProjects, setFilterProjects] = useState(
     integration.projects || [],
   );
@@ -107,6 +124,7 @@ export default function SlackChannelSettings({
           projects: filterProjects,
           environments: filterEnvironments,
           tags: filterTags,
+          slackOptions: { experimentCardFormat: cardFormat },
         }),
       });
       await onSaved();
@@ -235,6 +253,29 @@ export default function SlackChannelSettings({
               Select at least one event before saving.
             </Callout>
           )}
+        </Box>
+
+        <Box pt="5" style={{ borderTop: "1px solid var(--gray-a4)" }}>
+          <Heading as="h3" size="sm" mb="1">
+            Experiment Cards
+          </Heading>
+          <Text as="p" color="text-mid" mb="3">
+            Choose how experiment results appear in notifications.
+          </Text>
+          <Select
+            label="Card format"
+            value={cardFormat}
+            setValue={(value) => {
+              setCardFormat(value as (typeof experimentCardFormats)[number]);
+              setSaved(false);
+            }}
+          >
+            {experimentCardFormats.map((format) => (
+              <SelectItem key={format} value={format}>
+                {CARD_FORMAT_LABELS[format]}
+              </SelectItem>
+            ))}
+          </Select>
         </Box>
 
         <Box pt="5" style={{ borderTop: "1px solid var(--gray-a4)" }}>

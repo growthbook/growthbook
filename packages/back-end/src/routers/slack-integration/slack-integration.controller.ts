@@ -3,7 +3,10 @@ import {
   SlackIntegrationInterface,
   SlackOAuthIntegrationInterface,
 } from "shared/types/slack-integration";
-import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
+import {
+  SlackEventWebHookOptions,
+  SlackWorkspaceConnectionFrontEndInterface,
+} from "shared/validators";
 import { NotificationEventName } from "shared/types/events/base-types";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
@@ -122,6 +125,7 @@ type PutSlackOAuthConnectionRequest = AuthRequest<
     projects: string[];
     environments: string[];
     tags: string[];
+    slackOptions: SlackEventWebHookOptions;
   },
   { id: string }
 >;

@@ -57,6 +57,7 @@ type WorkspaceGroup = {
 
 const REQUIRED_SCOPES = [
   "chat:write",
+  "files:write",
   "channels:read",
   "groups:read",
   "channels:join",
@@ -596,9 +597,10 @@ const SlackIntegrationsPage: NextPage = () => {
           <Callout status="warning">
             Slack OAuth is not configured. Set <code>SLACK_CLIENT_ID</code> and{" "}
             <code>SLACK_CLIENT_SECRET</code> for an app with the{" "}
-            <code>chat:write</code>, <code>channels:read</code>,{" "}
-            <code>groups:read</code>, and <code>channels:join</code> bot scopes.
-            A Slack signing secret is not required for outgoing notifications.
+            <code>chat:write</code>, <code>files:write</code>,{" "}
+            <code>channels:read</code>, <code>groups:read</code>, and{" "}
+            <code>channels:join</code> bot scopes. A Slack signing secret is not
+            required for outgoing notifications.
           </Callout>
         )}
 

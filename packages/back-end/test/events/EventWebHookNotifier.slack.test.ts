@@ -10,7 +10,9 @@ import { getSlackMessageForNotificationEvent } from "back-end/src/events/handler
 import {
   postSlackMessageResult,
   SLACK_WORKSPACE_PLACEHOLDER_URL,
+  uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
+import { renderExperimentNotificationCard } from "back-end/src/services/notificationCards/experimentEventCard";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { getEventWebHookSignatureForPayload } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
@@ -44,7 +46,15 @@ jest.mock(
 jest.mock("back-end/src/services/slack/slackWebApi", () => ({
   ...jest.requireActual("back-end/src/services/slack/slackWebApi"),
   postSlackMessageResult: jest.fn(),
+  uploadSlackImageFile: jest.fn(),
 }));
+
+jest.mock(
+  "back-end/src/services/notificationCards/experimentEventCard",
+  () => ({
+    renderExperimentNotificationCard: jest.fn(),
+  }),
+);
 
 jest.mock("back-end/src/services/organizations", () => ({
   getContextForAgendaJobByOrgObject: jest.fn(),
@@ -92,9 +102,11 @@ const runAgendaJob = async () => {
 const setWebhook = ({
   url,
   slack,
+  slackOptions,
 }: {
   url: string;
   slack?: { channelId: string; teamId?: string };
+  slackOptions?: { experimentCardFormat?: "none" | "compact" | "detailed" };
 }) => {
   jest.mocked(getEventWebHookById).mockResolvedValue({
     id: "webhook-1",
@@ -106,6 +118,7 @@ const setWebhook = ({
     signingKey: "signing-key",
     headers: {},
     slack,
+    slackOptions,
   });
 };
 
@@ -126,6 +139,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
       text: "Feature updated",
       blocks: [],
     });
+    jest.mocked(renderExperimentNotificationCard).mockResolvedValue(null);
     getSlackWorkspaceConnectionByTeamId.mockResolvedValue(null);
     jest.mocked(getContextForAgendaJobByOrgObject).mockReturnValue({
       models: {
@@ -230,5 +244,46 @@ describe("Slack EventWebHook delivery compatibility", () => {
       }),
     );
     expect(job.save).toHaveBeenCalled();
+  });
+
+  it("uploads an experiment card instead of posting the text message", async () => {
+    setWebhook({
+      url: SLACK_WORKSPACE_PLACEHOLDER_URL,
+      slack: { channelId: "C123", teamId: "T123" },
+      slackOptions: { experimentCardFormat: "detailed" },
+    });
+    getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
+      teamId: "T123",
+      encryptedBotAccessToken: "xoxb-token",
+    });
+    jest.mocked(renderExperimentNotificationCard).mockResolvedValue({
+      png: Buffer.from("png"),
+      altText: "Checkout test — experiment results",
+      caption: "Experiment stopped",
+      experimentId: "exp-1",
+    });
+    jest.mocked(uploadSlackImageFile).mockResolvedValue("F123");
+
+    await runAgendaJob();
+
+    expect(renderExperimentNotificationCard).toHaveBeenCalledWith(
+      {},
+      "org-1",
+      "detailed",
+    );
+    expect(uploadSlackImageFile).toHaveBeenCalledWith({
+      token: "xoxb-token",
+      png: Buffer.from("png"),
+      filename: "experiment-card.png",
+      title: "Experiment stopped",
+      channelId: "C123",
+      initialComment: "Experiment stopped",
+    });
+    expect(postSlackMessageResult).not.toHaveBeenCalled();
+    expect(updateEventWebHookStatus).toHaveBeenCalledWith(
+      "webhook-1",
+      "org-1",
+      { state: "success", responseBody: "F123" },
+    );
   });
 });

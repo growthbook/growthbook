@@ -22,7 +22,9 @@ import {
 import {
   isSlackWorkspacePlaceholderUrl,
   postSlackMessageResult,
+  uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
+import { renderExperimentNotificationCard } from "back-end/src/services/notificationCards/experimentEventCard";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { SecretsReplacer } from "back-end/src/util/secrets";
@@ -192,6 +194,41 @@ export class EventWebHookNotifier implements Notifier {
       const channelId = eventWebHook.slack?.channelId;
 
       if (botToken && channelId) {
+        const card = event.version
+          ? await renderExperimentNotificationCard(
+              event.data,
+              organization.id,
+              eventWebHook.slackOptions?.experimentCardFormat ?? "compact",
+            )
+          : null;
+        if (card) {
+          const fileId = await uploadSlackImageFile({
+            token: botToken,
+            png: card.png,
+            filename: "experiment-card.png",
+            title: card.caption,
+            channelId,
+            initialComment: card.caption,
+          });
+          if (fileId) {
+            return EventWebHookNotifier.handleWebHookSuccess({
+              job,
+              webHookResult: {
+                result: "success",
+                statusCode: 200,
+                responseBody: fileId,
+              },
+              organizationId: organization.id,
+              event: event.event,
+              url: eventWebHook.url,
+              method,
+              payload: logPayload,
+            });
+          }
+        }
+
+        // Text remains the compatibility fallback for events without cards and
+        // workspaces whose existing token does not yet include files:write.
         const text =
           typeof logPayload.text === "string" ? logPayload.text : null;
         if (!text) return;
