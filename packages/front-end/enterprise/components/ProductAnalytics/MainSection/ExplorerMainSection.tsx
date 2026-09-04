@@ -71,8 +71,14 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
     submittedExploreState,
   });
 
+  // The raw-table empty state carries its own "Load full table" button, so the
+  // floating callout would be a duplicate. Every other empty canvas needs it —
+  // on the SQL Explore page its Refresh button is the only way to submit.
+  const draftIsRawTable =
+    draftExploreState.type === "sql" &&
+    draftExploreState.chartType === "rawTable";
   const suppressStaleFloatingCallout =
-    !hasSubmittablePayload(submittedExploreState) ||
+    (draftIsRawTable && !hasSubmittablePayload(submittedExploreState)) ||
     (!loading && needsFetch && !isSubmittable);
 
   return (
