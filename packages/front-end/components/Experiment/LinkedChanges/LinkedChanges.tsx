@@ -188,7 +188,7 @@ export default function LinkedChanges({
                 tooltip={changeTypeLockedReason ?? undefined}
                 onClick={() => setChangingType(true)}
               >
-                Change experiment type
+                Change implementation type
               </DropdownMenuItem>
               {canEject && (
                 <DropdownMenuItem onClick={() => setEjectConfirm(true)}>

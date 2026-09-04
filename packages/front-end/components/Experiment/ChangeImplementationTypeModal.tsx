@@ -65,7 +65,7 @@ export default function ChangeImplementationTypeModal({
       open={true}
       close={close}
       trackingEventModalType="change-implementation-type"
-      header="Change Experiment Type"
+      header="Change Implementation Type"
       cta="Change Type"
       ctaEnabled={
         changed && !blockedReason && (!removesManagedFlag || acknowledged)

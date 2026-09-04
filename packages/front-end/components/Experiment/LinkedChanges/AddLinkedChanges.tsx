@@ -190,7 +190,7 @@ export default function AddLinkedChanges({
           {onChooseType && (
             <Button variant="outline" onClick={onChooseType}>
               {implementationType === "none"
-                ? "Change experiment type"
+                ? "Change implementation type"
                 : "Select implementation type"}
             </Button>
           )}
