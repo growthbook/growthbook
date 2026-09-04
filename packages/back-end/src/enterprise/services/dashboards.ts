@@ -443,6 +443,16 @@ export async function runNewApiExplorationBlocks<
           `Could not run the query for "${block.title}". Check the block's datasource, metrics, and date range.`,
         );
       }
+      // A failed run still returns an exploration, so a truthy check alone saves
+      // a broken tile. `running` is legitimate — the sync budget — so only a
+      // reported error rejects, carrying the warehouse's own words.
+      if (exploration.status === "error") {
+        throw new BadRequestError(
+          `The query for "${block.title}" failed: ${
+            exploration.error || "no error reported"
+          }`,
+        );
+      }
 
       const previous = comparison
         ? await runProductAnalyticsExploration(

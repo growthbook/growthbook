@@ -108,6 +108,13 @@ export async function runProductAnalyticsExploration(
       throw new BadRequestError("No metrics provided");
     }
     const factMetrics = await context.models.factMetrics.getByIds(metricIds);
+    // `getByIds` just omits what it cannot find, and an id that resolves to
+    // nothing contributes no datasource — which reads downstream as a mismatch.
+    const foundIds = new Set(factMetrics.map((fm) => fm.id));
+    const missingIds = metricIds.filter((id) => !foundIds.has(id));
+    if (missingIds.length) {
+      throw new NotFoundError(`Metric not found: ${missingIds.join(", ")}`);
+    }
     factMetrics.forEach((fm) => metricMap.set(fm.id, fm));
 
     // Populate fact table map
