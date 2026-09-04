@@ -322,6 +322,7 @@ export default function LinkedChanges({
                 </Text>
                 <AddLinkedChangeButton
                   experiment={experiment}
+                  allowOtherKinds={!effectiveType || effectiveType === "multi"}
                   linkedFeatures={linkedFeatures}
                   visualChangesets={visualChangesets}
                   urlRedirects={urlRedirects}
