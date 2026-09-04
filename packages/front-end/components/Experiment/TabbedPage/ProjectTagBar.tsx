@@ -1,8 +1,10 @@
+import { getImplementationType } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
 import { HoldoutInterfaceStringDates } from "shared/validators";
+import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
 import Text from "@/ui/Text";
 import SortedTags from "@/components/Tags/SortedTags";
 import { tagLinkProps } from "@/services/search";
@@ -47,6 +49,9 @@ export default function ProjectTagBar({
   const permissionsUtil = usePermissionsUtil();
   const canUpdateExperimentProject = (project) =>
     permissionsUtil.canUpdateExperiment({ project }, {});
+  const implementationType = getImplementationType(experiment);
+  const canEditImplementation =
+    !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const canUpdateHoldoutProjects = (projects) =>
     permissionsUtil.canUpdateHoldout({ projects }, { projects: [] });
@@ -272,6 +277,38 @@ export default function ProjectTagBar({
         {renderProject()}
         {experiment.type !== "holdout" && (
           <Metadata label="Experiment Key" value={trackingKey || "None"} />
+        )}
+        {experiment.type !== "holdout" && (
+          <Metadata
+            label="Implementation"
+            value={
+              implementationType ? (
+                canEditImplementation ? (
+                  <Link
+                    onClick={() => {
+                      setEditInfoFocusSelector("implementation");
+                      setShowEditInfoModal(true);
+                    }}
+                  >
+                    {IMPLEMENTATION_TYPE_OPTIONS[implementationType].header}
+                  </Link>
+                ) : (
+                  IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
+                )
+              ) : canEditImplementation ? (
+                <Link
+                  onClick={() => {
+                    setEditInfoFocusSelector("implementation");
+                    setShowEditInfoModal(true);
+                  }}
+                >
+                  Choose
+                </Link>
+              ) : (
+                "None"
+              )
+            }
+          />
         )}
         <Metadata label="Owner" value={renderOwner()} />
         <Metadata label="Created" value={createdDate} />

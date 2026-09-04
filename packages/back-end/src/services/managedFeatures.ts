@@ -620,6 +620,11 @@ export async function createManagedFlagForNewExperiment({
     );
     await create(seeded);
   }
+  await updateExperiment({
+    context,
+    experiment,
+    changes: { implementationType: "values" },
+  });
 }
 
 export type ManagedFlagReview = {
@@ -818,6 +823,13 @@ export async function adoptManagedFlagForExperiment({
     }
     throw e;
   }
+
+  // The marker lives on the flag, so the experiment records the choice itself.
+  await updateExperiment({
+    context,
+    experiment,
+    changes: { implementationType: "values" },
+  });
 
   return created;
 }
@@ -1089,6 +1101,15 @@ export async function ejectManagedFeature({
     )
   ) {
     context.permissions.throwPermissionError();
+  }
+  // The flag stays linked as an ordinary one.
+  const experiment = await getExperimentById(context, experimentId);
+  if (experiment) {
+    await updateExperiment({
+      context,
+      experiment,
+      changes: { implementationType: "feature" },
+    });
   }
   return clearManagedMarker(context, feature);
 }

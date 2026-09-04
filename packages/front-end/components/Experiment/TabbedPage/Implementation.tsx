@@ -1,4 +1,8 @@
 import {
+  getImplementationType,
+  experimentHasLiveLinkedChanges,
+} from "shared/util";
+import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
@@ -8,7 +12,6 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { experimentHasLiveLinkedChanges } from "shared/util";
 import { getActivePhaseIndex } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
@@ -123,6 +126,7 @@ export default function Implementation({
   // leaves adoption offered rather than stuck.
   const canAdoptManagedFlag =
     !isManaged &&
+    (getImplementationType(experiment) ?? "values") === "values" &&
     linkedFeatures.length === 0 &&
     !experiment.hasVisualChangesets &&
     !experiment.hasURLRedirects &&

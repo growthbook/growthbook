@@ -1,6 +1,7 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
+import { getImplementationType, hasImplementationLinkages } from "shared/util";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -12,8 +13,14 @@ import { useAuth } from "@/services/auth";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
+import ImplementationTypeSelect from "@/components/Experiment/ImplementationTypeSelect";
 
-export type FocusSelector = "project" | "tags" | "name" | "projects";
+export type FocusSelector =
+  | "project"
+  | "tags"
+  | "name"
+  | "projects"
+  | "implementation";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -41,8 +48,11 @@ export default function EditExperimentInfoModal({
       owner: experiment.owner || "",
       tags: experiment.tags,
       project: experiment.project || "",
+      implementationType: getImplementationType(experiment),
     },
   });
+  // Free until something is wired up; then the linkages have to go first.
+  const implementationLocked = hasImplementationLinkages(experiment);
 
   return (
     <ModalStandard
@@ -74,6 +84,16 @@ export default function EditExperimentInfoModal({
         {...form.register("trackingKey")}
         required
       />
+      {experiment.type !== "holdout" && (
+        <Box mb="4">
+          <ImplementationTypeSelect
+            value={form.watch("implementationType")}
+            setValue={(v) => form.setValue("implementationType", v)}
+            disabled={implementationLocked}
+            lockedReason="Remove the linked Feature Flags, Visual Editor changes and URL Redirects to change how this experiment is implemented."
+          />
+        </Box>
+      )}
       <SelectOwner
         value={form.watch("owner")}
         onChange={(v) => form.setValue("owner", v)}

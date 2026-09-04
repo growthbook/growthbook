@@ -14,6 +14,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
+import ImplementationTypeSelect from "@/components/Experiment/ImplementationTypeSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import {
   formatAttributeOptionLabel,
@@ -182,6 +183,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       templateId: "",
       holdoutId: undefined,
       customFields: undefined,
+      implementationType: "values",
     },
   });
 
@@ -382,6 +384,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     data = {
       ...data,
       type: "standard",
+      implementationType: rawValue.implementationType ?? "values",
       status: "draft",
       project,
       name,
@@ -557,6 +560,11 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         minRows={2}
         placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
         {...form.register("hypothesis")}
+      />
+
+      <ImplementationTypeSelect
+        value={form.watch("implementationType")}
+        setValue={(v) => form.setValue("implementationType", v)}
       />
 
       <SelectField

@@ -1,3 +1,4 @@
+import { canChangeImplementationType } from "shared/util";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   ExperimentInterfaceExcludingHoldouts,
@@ -364,6 +365,15 @@ export const updateExperiment = createApiRequestHandler(
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";
 
+  if (
+    changes.implementationType !== undefined &&
+    changes.implementationType !== experiment.implementationType &&
+    !canChangeImplementationType(experiment, changes.implementationType)
+  ) {
+    throw new Error(
+      "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing implementationType.",
+    );
+  }
   if (changes.project !== undefined) {
     await assertManagedFlagCanMove(req.context, experiment, changes.project);
   }

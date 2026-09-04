@@ -13653,6 +13653,19 @@ paths:
                   enum:
                     - standard
                     - multi-armed-bandit
+                implementationType:
+                  description: >-
+                    How the experiment reaches users. "values" is a Feature Flag
+                    managed by the experiment; "none" is analysis only. Fixed
+                    once a Feature Flag, Visual Editor change or URL Redirect is
+                    linked.
+                  type: string
+                  enum:
+                    - values
+                    - feature
+                    - urlredirect
+                    - visual
+                    - none
                 project:
                   description: Project ID which the experiment belongs to
                   type: string
@@ -14358,6 +14371,19 @@ paths:
                   enum:
                     - standard
                     - multi-armed-bandit
+                implementationType:
+                  description: >-
+                    How the experiment reaches users. "values" is a Feature Flag
+                    managed by the experiment; "none" is analysis only. Fixed
+                    once a Feature Flag, Visual Editor change or URL Redirect is
+                    linked.
+                  type: string
+                  enum:
+                    - values
+                    - feature
+                    - urlredirect
+                    - visual
+                    - none
                 project:
                   description: Project ID which the experiment belongs to
                   type: string
@@ -57618,6 +57644,17 @@ components:
           type: boolean
         hasURLRedirects:
           type: boolean
+        implementationType:
+          anyOf:
+            - type: string
+              enum:
+                - values
+                - feature
+                - urlredirect
+                - visual
+                - multi
+                - none
+            - type: 'null'
         customFields:
           type: object
           propertyNames:
@@ -58421,6 +58458,17 @@ components:
               type: boolean
             hasURLRedirects:
               type: boolean
+            implementationType:
+              anyOf:
+                - type: string
+                  enum:
+                    - values
+                    - feature
+                    - urlredirect
+                    - visual
+                    - multi
+                    - none
+                - type: 'null'
             customFields:
               type: object
               propertyNames:

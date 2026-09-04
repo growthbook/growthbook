@@ -1,24 +1,5 @@
-import uniqid from "uniqid";
-import cronParser from "cron-parser";
-import { z } from "zod";
-import { isEqual } from "lodash";
-import uniq from "lodash/uniq";
-import cloneDeep from "lodash/cloneDeep";
 import {
-  DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
-  DEFAULT_METRIC_CAPPING,
-  DEFAULT_METRIC_CAPPING_VALUE,
-  DEFAULT_METRIC_WINDOW,
-  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-  DEFAULT_P_VALUE_THRESHOLD,
-  DEFAULT_POST_STRATIFICATION_ENABLED,
-  DEFAULT_PROPER_PRIOR_STDDEV,
-  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  DEFAULT_STATS_ENGINE,
-} from "shared/constants";
-import { getScopedSettings, ScopedSettings } from "shared/settings";
-import {
+  getImplementationType,
   evaluatePublishGovernance,
   requireFreshBaseForPublish,
   autoMerge,
@@ -42,6 +23,26 @@ import {
   naiveFlattenV1Rules,
   validateCondition,
 } from "shared/util";
+import uniqid from "uniqid";
+import cronParser from "cron-parser";
+import { z } from "zod";
+import { isEqual } from "lodash";
+import uniq from "lodash/uniq";
+import cloneDeep from "lodash/cloneDeep";
+import {
+  DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
+  DEFAULT_METRIC_CAPPING,
+  DEFAULT_METRIC_CAPPING_VALUE,
+  DEFAULT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
+import { getScopedSettings, ScopedSettings } from "shared/settings";
 import { getBanditSRMValue, getExperimentSRMValue } from "shared/health";
 import {
   expandMetricGroups,
@@ -3182,6 +3183,7 @@ export async function toExperimentApiInterface(
     attributeScopeAllProjects: experiment.attributeScopeAllProjects || false,
     hasVisualChangesets: experiment.hasVisualChangesets || false,
     hasURLRedirects: experiment.hasURLRedirects || false,
+    implementationType: getImplementationType(experiment) ?? null,
     customFields: experiment.customFields ?? {},
     customMetricSlices: experiment.customMetricSlices ?? [],
     precomputedUnitDimensionIds: experiment.precomputedUnitDimensionIds ?? [],
@@ -4460,6 +4462,9 @@ export function postExperimentApiPayloadToInterface(
       "",
     name: payload.name || "",
     type: payload.type || "standard",
+    ...(payload.implementationType
+      ? { implementationType: payload.implementationType }
+      : {}),
     phases,
     tags: payload.tags || [],
     description: payload.description || "",
@@ -4787,6 +4792,7 @@ export function updateExperimentApiPayloadToInterface(
     minBucketVersion,
     name,
     type,
+    implementationType,
     tags,
     description,
     hypothesis,
@@ -4844,6 +4850,7 @@ export function updateExperimentApiPayloadToInterface(
     ...(minBucketVersion !== undefined ? { minBucketVersion } : {}),
     ...(name ? { name } : {}),
     ...(type ? { type } : {}),
+    ...(implementationType ? { implementationType } : {}),
     ...(tags ? { tags } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(hypothesis !== undefined ? { hypothesis } : {}),

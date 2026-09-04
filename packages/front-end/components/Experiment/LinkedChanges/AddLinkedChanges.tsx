@@ -5,6 +5,8 @@ import {
   getConnectionsSDKCapabilities,
 } from "shared/sdk-versioning";
 import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
+import { ImplementationType } from "shared/validators";
+import { getImplementationType } from "shared/util";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -164,6 +166,21 @@ export default function AddLinkedChanges({
   // Already has linked changes
   if (numLinkedChanges && numLinkedChanges > 0) return null;
 
+  const implementationType = getImplementationType(experiment);
+  // Values are wired up from the traffic card, not from here.
+  if (implementationType === "values") return null;
+  if (implementationType === "none") {
+    return (
+      <Box className="appbox mb-0" p="4" mt="2" mb="0">
+        <Text color="text-mid">
+          This experiment is analysis only. Change its implementation from the
+          experiment info to add a Feature Flag, Visual Editor change or URL
+          Redirect.
+        </Text>
+      </Box>
+    );
+  }
+
   const sections = {
     "feature-flag": {
       render: !hasLinkedFeatures,
@@ -179,7 +196,18 @@ export default function AddLinkedChanges({
     },
   };
 
-  const possibleSections = Object.keys(sections);
+  // A chosen implementation narrows the card to its own kind.
+  const KIND_FOR_TYPE: Partial<Record<ImplementationType, LinkedChange>> = {
+    feature: "feature-flag",
+    visual: "visual-editor",
+    urlredirect: "redirects",
+  };
+  const onlyKind = implementationType
+    ? KIND_FOR_TYPE[implementationType]
+    : undefined;
+  const possibleSections = Object.keys(sections).filter(
+    (s) => !onlyKind || s === onlyKind,
+  );
 
   return (
     <Box className="appbox mb-0" p="4" mt="2" mb="0">

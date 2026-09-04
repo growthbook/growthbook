@@ -1,10 +1,6 @@
-import { Response } from "express";
-import uniqid from "uniqid";
-import format from "date-fns/format";
-import cloneDeep from "lodash/cloneDeep";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import { getValidDate } from "shared/dates";
 import {
+  canChangeImplementationType,
+  getImplementationType,
   getAffectedEnvsForExperiment,
   getSnapshotAnalysis,
   isDefined,
@@ -14,6 +10,12 @@ import {
   isManagedByExperiment,
   isManagedFeature,
 } from "shared/util";
+import { Response } from "express";
+import uniqid from "uniqid";
+import format from "date-fns/format";
+import cloneDeep from "lodash/cloneDeep";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { getValidDate } from "shared/dates";
 import {
   expandDerivedMetricsInMap,
   expandMetricGroups,
@@ -1281,6 +1283,29 @@ export async function postExperiments(
   const experimentType = data.type ?? "standard";
   const holdoutId = data.holdoutId;
 
+  // Some entry points decide the implementation for the user: a rule on a flag
+  // is "feature", an import is analysis only, a duplicate keeps its source's.
+  if (data.implementationType === "multi") {
+    res.status(400).json({
+      status: 400,
+      message: "implementationType cannot be set to multi",
+    });
+    return;
+  }
+  if (!data.implementationType) {
+    if (req.query.originalId) {
+      const original = await getExperimentById(context, req.query.originalId);
+      const inherited = original ? getImplementationType(original) : undefined;
+      if (inherited && inherited !== "multi") {
+        data.implementationType = inherited;
+      }
+    } else if (data.linkedFeatures?.length) {
+      data.implementationType = "feature";
+    } else if (req.query.autoRefreshResults) {
+      data.implementationType = "none";
+    }
+  }
+
   // TODO: Added as a hotfix. Remove when issue #5316 is fixed.
   // Filter out invalid metric ids from the data
   if (invalidMetricIds.length) {
@@ -1636,6 +1661,21 @@ export async function postExperiment(
 
   if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
     context.permissions.throwPermissionError();
+  }
+
+  // Free to change until something is wired up; locked after that.
+  if (
+    data.implementationType !== undefined &&
+    data.implementationType !== experiment.implementationType &&
+    (data.implementationType === "multi" ||
+      !canChangeImplementationType(experiment, data.implementationType))
+  ) {
+    res.status(400).json({
+      status: 400,
+      message:
+        "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing how it is implemented.",
+    });
+    return;
   }
 
   const attributeScope = lazyAttributeScope(() =>

@@ -163,11 +163,26 @@ export const attributionModel = [
 ] as const;
 export type AttributionModel = (typeof attributionModel)[number];
 
-export const implementationType = [
+/** @deprecated The old `implementation` field; always "code" today. */
+export const legacyImplementation = [
   "visual",
   "code",
   "configuration",
   "custom",
+] as const;
+export type LegacyImplementation = (typeof legacyImplementation)[number];
+
+// How the experiment reaches users. "values" is a managed Feature Flag owned by
+// the experiment; "multi" only ever comes from legacy experiments carrying more
+// than one kind; "none" is deliberate (analysis only, e.g. imports). Absent
+// means undecided — the effective value is derived from the linkages on read.
+export const implementationType = [
+  "values",
+  "feature",
+  "urlredirect",
+  "visual",
+  "multi",
+  "none",
 ] as const;
 export type ImplementationType = (typeof implementationType)[number];
 
@@ -457,7 +472,7 @@ export const experimentInterface = z
     project: z.string().optional(),
     owner: ownerField,
     /** @deprecated Always set to 'code' */
-    implementation: z.enum(implementationType),
+    implementation: z.enum(legacyImplementation),
     /** @deprecated */
     userIdType: z.enum(["anonymous", "user"]).optional(),
     hashAttribute: z.string(),
@@ -494,6 +509,7 @@ export const experimentInterface = z
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
     linkedFeatures: z.array(z.string()).optional(),
+    implementationType: z.enum(implementationType).optional(),
     attributeScopeAllProjects: z.boolean().optional(),
     // Drafts queued for auto-publish on `status -> running`. Each
     // (featureId, revisionVersion) pair is its own row — multiple drafts of
@@ -976,6 +992,7 @@ const apiExperimentShape = z.object({
   attributeScopeAllProjects: z.boolean().optional(),
   hasVisualChangesets: z.boolean().optional(),
   hasURLRedirects: z.boolean().optional(),
+  implementationType: z.enum(implementationType).nullable().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
   customMetricSlices: apiCustomMetricSlices.optional(),
   precomputedUnitDimensionIds: z
@@ -1420,6 +1437,12 @@ const postExperimentBody = z
       .optional(),
     name: z.string().describe("Name of the experiment"),
     type: z.enum(["standard", "multi-armed-bandit"]).optional(),
+    implementationType: z
+      .enum(["values", "feature", "urlredirect", "visual", "none"])
+      .describe(
+        'How the experiment reaches users. "values" is a Feature Flag managed by the experiment; "none" is analysis only. Fixed once a Feature Flag, Visual Editor change or URL Redirect is linked.',
+      )
+      .optional(),
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")
@@ -1555,6 +1578,12 @@ const updateExperimentBody = z
       .optional(),
     name: z.string().describe("Name of the experiment").optional(),
     type: z.enum(["standard", "multi-armed-bandit"]).optional(),
+    implementationType: z
+      .enum(["values", "feature", "urlredirect", "visual", "none"])
+      .describe(
+        'How the experiment reaches users. "values" is a Feature Flag managed by the experiment; "none" is analysis only. Fixed once a Feature Flag, Visual Editor change or URL Redirect is linked.',
+      )
+      .optional(),
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")

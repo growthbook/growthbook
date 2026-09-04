@@ -610,6 +610,8 @@ const ImportExperimentList: FC<{
                                     },
                                   },
                                 ],
+                                // Analysis only: nothing to implement.
+                                implementationType: "none",
                                 // Default to stopped if the last data was more than 3 days ago
                                 status:
                                   getValidDate(e.endDate).getTime() <
