@@ -210,7 +210,7 @@ export function ProductAnalyticsExplorerVisualization({
     );
   }
 
-  const shouldShowTable = ["table", "timeseries-table"].includes(
+  const shouldShowTable = ["table", "timeseries-table", "rawTable"].includes(
     block.config?.chartType ?? "",
   );
 

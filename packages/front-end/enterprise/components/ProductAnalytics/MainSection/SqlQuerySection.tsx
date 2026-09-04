@@ -28,7 +28,10 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { canFormatSql, formatSql } from "@/services/sqlFormatter";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import {
+  useExplorerContext,
+  type SqlExploreDefault,
+} from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -41,6 +44,12 @@ const SQL_PLACEHOLDER = `SELECT
     userId
 FROM
     orders`;
+
+const CTA_LINK_STYLE = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+} as const;
 
 function SqlQueryActions({
   aiTrigger,
@@ -125,7 +134,8 @@ export default function SqlQuerySection({
   const { getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { aiEnabled } = useAISettings();
-  const { draftExploreState, ensureDefaultSqlValue } = useExplorerContext();
+  const { draftExploreState, ensureDefaultSqlExploreConfig } =
+    useExplorerContext();
   const dataset =
     draftExploreState.dataset.type === "sql" ? draftExploreState.dataset : null;
   const datasource = draftExploreState.datasource
@@ -199,6 +209,11 @@ export default function SqlQuerySection({
     canRunQueries;
   const canFormat =
     !loading && datasource ? canFormatSql(datasource.type) : false;
+  const openExplore = (mode: SqlExploreDefault) => {
+    ensureDefaultSqlExploreConfig(mode);
+    markExploreSeen();
+    setViewMode("explore");
+  };
   const showContent = open || !showHeader;
   const previewRowCount = previewResult?.results?.length ?? 0;
   const previewContent =
@@ -231,23 +246,26 @@ export default function SqlQuerySection({
                   : `${previewRowCount} rows`}
               </Text>
               {exploreReady ? (
-                <Link
-                  size="sm"
-                  weight="medium"
-                  onClick={() => {
-                    ensureDefaultSqlValue();
-                    markExploreSeen();
-                    setViewMode("explore");
-                  }}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                  }}
-                >
-                  Customize table or create visualization
-                  <PiArrowRight size={14} aria-hidden />
-                </Link>
+                <Flex align="center" gap="3">
+                  <Link
+                    size="sm"
+                    weight="medium"
+                    onClick={() => openExplore("rawTable")}
+                    style={CTA_LINK_STYLE}
+                  >
+                    Customize table
+                    <PiArrowRight size={14} aria-hidden />
+                  </Link>
+                  <Link
+                    size="sm"
+                    weight="medium"
+                    onClick={() => openExplore("visualization")}
+                    style={CTA_LINK_STYLE}
+                  >
+                    Create visualization
+                    <PiArrowRight size={14} aria-hidden />
+                  </Link>
+                </Flex>
               ) : null}
             </Flex>
           ) : undefined

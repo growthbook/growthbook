@@ -415,16 +415,40 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
   }
 }
 
-/** Seed Count and line-vs-table when entering Explore Dataset, not when a test query first returns columns. */
-export function withDefaultSqlCountValue(
+/** True when a SQL dataset has been tested but not yet configured to explore. */
+function isUnconfiguredSqlDataset(config: ExplorerDraftConfig): boolean {
+  if (config.dataset.type !== "sql") return false;
+  if (config.dataset.values.length > 0) return false;
+  return (
+    !!config.dataset.sql.trim() &&
+    Object.keys(config.dataset.columnTypes).length > 0
+  );
+}
+
+/** Default a tested SQL dataset to its unaggregated result table on first Explore entry. */
+export function withDefaultSqlRawTable(
   config: ExplorerDraftConfig,
 ): ExplorerDraftConfig {
-  if (config.dataset.type !== "sql") return config;
-  if (config.dataset.values.length > 0) return config;
-  if (
-    !config.dataset.sql.trim() ||
-    Object.keys(config.dataset.columnTypes).length === 0
-  ) {
+  if (!isUnconfiguredSqlDataset(config)) return config;
+
+  const {
+    previousTimeFrame: _,
+    comparisonMode: __,
+    ...withoutComparison
+  } = config;
+
+  return {
+    ...withoutComparison,
+    chartType: "rawTable",
+    dimensions: [],
+  } as ExplorerDraftConfig;
+}
+
+/** Seed Count and line-vs-table when entering Explore Dataset to build a chart. */
+export function withDefaultSqlVisualization(
+  config: ExplorerDraftConfig,
+): ExplorerDraftConfig {
+  if (!isUnconfiguredSqlDataset(config) || config.dataset.type !== "sql") {
     return config;
   }
 
@@ -1007,7 +1031,10 @@ export function applyTimestampColumn<T extends ExplorerDraftConfig>(
     if (chartType === "bar" || chartType === "table") {
       chartType = "line";
     }
-    if (!dimensions.some((dimension) => dimension.dimensionType === "date")) {
+    if (
+      chartType !== "rawTable" &&
+      !dimensions.some((dimension) => dimension.dimensionType === "date")
+    ) {
       dimensions = [DEFAULT_DATE_DIMENSION, ...dimensions];
     }
   } else if (!hasTime) {
@@ -1125,6 +1152,9 @@ export function applySqlPreviewMetadata(
         ...config.dataset,
         sql,
         columnTypes,
+        hiddenColumns: config.dataset.hiddenColumns?.filter((column) =>
+          valueColumns.has(column),
+        ),
         values: config.dataset.values.map((value) => ({
           ...value,
           valueColumn:
@@ -1143,6 +1173,7 @@ export function applySqlPreviewMetadata(
 function getChartCategory(chartType: ExplorationConfig["chartType"]): string {
   if (CUMULATIVE_CHART_TYPES.has(chartType)) return "cumulative";
   if (TIMESERIES_CHART_TYPES.has(chartType)) return "timeseries";
+  if (chartType === "rawTable") return "results";
   throw new Error(`Invalid chart type: ${chartType}`);
 }
 
@@ -1156,13 +1187,22 @@ export function toFetchKey(
       : config;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { showAs, ...rest } = base;
+  if (base.dataset.type === "sql" && base.chartType === "rawTable") {
+    return {
+      ...rest,
+      dateRange: isTimelessSqlExploration(base) ? null : base.dateRange,
+      chartType: getChartCategory(base.chartType),
+      dataset: omit(base.dataset, ["hiddenColumns", "values"]),
+      dimensions: [],
+    };
+  }
   if (isTimelessSqlExploration(base) && base.dataset.type === "sql") {
     return {
       ...rest,
       dateRange: null,
       chartType: getChartCategory(base.chartType),
       dataset: {
-        ...base.dataset,
+        ...omit(base.dataset, "hiddenColumns"),
         values: base.dataset.values.map((value) => omit(value, "name")),
       },
     };
@@ -1187,7 +1227,9 @@ export function toFetchKey(
     ...rest,
     chartType: getChartCategory(base.chartType),
     dataset: {
-      ...base.dataset,
+      ...(base.dataset.type === "sql"
+        ? omit(base.dataset, "hiddenColumns")
+        : base.dataset),
       values: base.dataset.values.map((value) => omit(value, "name")),
     },
   };
@@ -1266,7 +1308,10 @@ export function isSubmittableConfig(
         if (!ft.userIdTypes?.includes(unit)) return false;
       }
     }
-  } else {
+  } else if (
+    cleanedConfig.dataset.type !== "sql" ||
+    cleanedConfig.chartType !== "rawTable"
+  ) {
     if (!Array.isArray(cleanedConfig.dataset.values)) return false;
     if (cleanedConfig.dataset.values.length === 0) return false;
     if (
@@ -1435,6 +1480,12 @@ export function hasSubmittablePayload(
   if (config.dataset.type === "funnel") {
     return (config.dataset.steps?.length ?? 0) >= 2;
   }
+  if (config.dataset.type === "sql" && config.chartType === "rawTable") {
+    return (
+      config.dataset.sql.trim().length > 0 &&
+      Object.keys(config.dataset.columnTypes).length > 0
+    );
+  }
   return (config.dataset.values?.length ?? 0) > 0;
 }
 
@@ -1451,7 +1502,7 @@ export function shouldChartSectionShow(params: {
   // Chart renders empty box for table-only types; table view handles display
   if (
     submittedExploreState &&
-    ["table", "timeseries-table"].includes(
+    ["table", "timeseries-table", "rawTable"].includes(
       submittedExploreState.chartType ?? "",
     )
   ) {

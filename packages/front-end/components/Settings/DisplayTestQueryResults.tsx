@@ -287,12 +287,14 @@ export default function DisplayTestQueryResults({
                           <div className="mr-1">
                             Showing {page * pageSize - pageSize + 1} -{" "}
                             {Math.min(page * pageSize, results.length)} of{" "}
-                            <Tooltip
-                              body={`GrowthBook limits the result to ${SQL_ROW_LIMIT} rows max`}
-                              shouldDisplay={results.length >= SQL_ROW_LIMIT}
-                            >
-                              <strong>{results.length}</strong> rows
-                            </Tooltip>
+                            {rowsLabel ?? (
+                              <Tooltip
+                                body={`GrowthBook limits the result to ${SQL_ROW_LIMIT} rows max`}
+                                shouldDisplay={results.length >= SQL_ROW_LIMIT}
+                              >
+                                <strong>{results.length}</strong> rows
+                              </Tooltip>
+                            )}
                           </div>
                           <Button
                             variant="ghost"

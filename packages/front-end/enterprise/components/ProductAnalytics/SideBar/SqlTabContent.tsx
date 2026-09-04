@@ -4,6 +4,7 @@ import { PiPlus } from "react-icons/pi";
 import type { SqlValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
+import Checkbox from "@/ui/Checkbox";
 import {
   generateUniqueValueName,
   getValueTypeLabel,
@@ -27,6 +28,7 @@ export default function SqlTabContent() {
     addValueToDataset,
     updateValueInDataset,
     updateTimestampColumn,
+    setDraftExploreState,
   } = useExplorerContext();
 
   const dataset =
@@ -34,6 +36,7 @@ export default function SqlTabContent() {
       ? draftExploreState.dataset
       : null;
   const values: SqlValue[] = dataset?.values || [];
+  const isRawTable = draftExploreState.chartType === "rawTable";
 
   const columnOptions = useMemo(() => {
     return Object.entries(dataset?.columnTypes ?? {}).map(([name]) => ({
@@ -75,83 +78,132 @@ export default function SqlTabContent() {
           }
         />
       </Flex>
-      <Flex direction="column">
-        {columnOptions.length > 0 && !values.length && (
-          <Flex
-            justify="center"
-            align="center"
-            height="100%"
-            style={{
-              border: "1px solid var(--gray-a3)",
-              borderRadius: "var(--radius-3)",
-              padding: "var(--space-3)",
-              backgroundColor: "var(--color-panel-translucent)",
-              width: "100%",
-            }}
-          >
-            <Text size="sm" color="text-low">
-              Add at least one value to explore
-            </Text>
-          </Flex>
-        )}
-      </Flex>
-      {columnOptions.length > 0 && (
-        <Flex direction="column" gap="4">
-          {values.map((v, idx) => (
-            <ValueCard key={idx} index={idx}>
-              <Flex direction="column" gap="2">
-                <Separator style={{ width: "100%" }} />
-                <Text weight="medium" mt="2">
-                  Value type
-                </Text>
-                <SelectField
-                  value={v.valueType}
-                  onChange={(val) =>
-                    updateValueInDataset(idx, {
-                      ...v,
-                      valueType: val as "count" | "sum",
-                      name: generateUniqueValueName(
-                        getValueTypeLabel(val as "count" | "sum"),
-                        values,
-                      ),
-                    } as SqlValue)
+      {isRawTable && columnOptions.length > 0 ? (
+        <Flex
+          width="100%"
+          direction="column"
+          p="3"
+          gap="3"
+          style={{
+            border: "1px solid var(--gray-a3)",
+            borderRadius: "var(--radius-4)",
+            backgroundColor: "var(--color-panel-translucent)",
+          }}
+        >
+          <Text weight="medium">Columns</Text>
+          {columnOptions.map(({ value, label }) => (
+            <Checkbox
+              key={value}
+              value={!dataset?.hiddenColumns?.includes(value)}
+              label={label}
+              weight="regular"
+              setValue={(visible) => {
+                setDraftExploreState((prev) => {
+                  if (prev.type !== "sql" || prev.dataset.type !== "sql") {
+                    return prev;
                   }
-                  options={VALUE_TYPE_OPTIONS}
-                  placeholder="Select..."
-                />
-                {v.valueType === "sum" && (
-                  <>
+                  const hiddenColumns = new Set(
+                    prev.dataset.hiddenColumns ?? [],
+                  );
+                  if (visible) {
+                    hiddenColumns.delete(value);
+                  } else {
+                    hiddenColumns.add(value);
+                  }
+                  return {
+                    ...prev,
+                    dataset: {
+                      ...prev.dataset,
+                      hiddenColumns: Array.from(hiddenColumns),
+                    },
+                  };
+                });
+              }}
+            />
+          ))}
+        </Flex>
+      ) : null}
+      {!isRawTable ? (
+        <>
+          <Flex direction="column">
+            {columnOptions.length > 0 && !values.length && (
+              <Flex
+                justify="center"
+                align="center"
+                height="100%"
+                style={{
+                  border: "1px solid var(--gray-a3)",
+                  borderRadius: "var(--radius-3)",
+                  padding: "var(--space-3)",
+                  backgroundColor: "var(--color-panel-translucent)",
+                  width: "100%",
+                }}
+              >
+                <Text size="sm" color="text-low">
+                  Add at least one value to explore
+                </Text>
+              </Flex>
+            )}
+          </Flex>
+          {columnOptions.length > 0 && (
+            <Flex direction="column" gap="4">
+              {values.map((v, idx) => (
+                <ValueCard key={idx} index={idx}>
+                  <Flex direction="column" gap="2">
+                    <Separator style={{ width: "100%" }} />
                     <Text weight="medium" mt="2">
-                      Value column
+                      Value type
                     </Text>
                     <SelectField
-                      value={v.valueColumn ?? ""}
+                      value={v.valueType}
                       onChange={(val) =>
                         updateValueInDataset(idx, {
                           ...v,
-                          valueColumn: val,
+                          valueType: val as "count" | "sum",
+                          name: generateUniqueValueName(
+                            getValueTypeLabel(val as "count" | "sum"),
+                            values,
+                          ),
                         } as SqlValue)
                       }
-                      options={columnOptions}
-                      placeholder="Select column..."
+                      options={VALUE_TYPE_OPTIONS}
+                      placeholder="Select..."
                     />
-                  </>
-                )}
-              </Flex>
-            </ValueCard>
-          ))}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => addValueToDataset("sql")}
-          >
-            <Flex align="center" gap="2">
-              <PiPlus size={14} />
-              Add value
+                    {v.valueType === "sum" && (
+                      <>
+                        <Text weight="medium" mt="2">
+                          Value column
+                        </Text>
+                        <SelectField
+                          value={v.valueColumn ?? ""}
+                          onChange={(val) =>
+                            updateValueInDataset(idx, {
+                              ...v,
+                              valueColumn: val,
+                            } as SqlValue)
+                          }
+                          options={columnOptions}
+                          placeholder="Select column..."
+                        />
+                      </>
+                    )}
+                  </Flex>
+                </ValueCard>
+              ))}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => addValueToDataset("sql")}
+              >
+                <Flex align="center" gap="2">
+                  <PiPlus size={14} />
+                  Add value
+                </Flex>
+              </Button>
             </Flex>
-          </Button>
-        </Flex>
-      )}
+          )}
+        </>
+      ) : null}
     </Flex>
   );
 }

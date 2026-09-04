@@ -2,6 +2,7 @@ import { getValidDate } from "shared/dates";
 import {
   buildMinimalOrCondition,
   format,
+  SQL_ROW_LIMIT,
   stripTrailingSemicolon,
 } from "shared/sql";
 import {
@@ -1827,6 +1828,12 @@ export function generateProductAnalyticsSQL(
     const { sql } = buildFunnelSql(config, factTableMap, dialect);
     return { sql, orderedMetricIds: [] };
   }
+  if (config.chartType === "rawTable") {
+    return {
+      sql: generateProductAnalyticsRawTableSQL(config, dialect),
+      orderedMetricIds: [],
+    };
+  }
 
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
 
@@ -2027,6 +2034,32 @@ export function generateProductAnalyticsSQL(
     sql,
     orderedMetricIds,
   };
+}
+
+function generateProductAnalyticsRawTableSQL(
+  config: ExplorationConfig,
+  dialect: SqlDialect,
+): string {
+  if (config.dataset.type !== "sql") {
+    throw new Error("Raw tables require a SQL dataset");
+  }
+
+  const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
+  const timestampColumn = hasTimestampColumn(config.dataset.timestampColumn)
+    ? quoteSqlIdentifier(config.dataset.timestampColumn, dialect)
+    : null;
+  const whereClause = timestampColumn
+    ? `WHERE ${timestampColumn} >= ${dialect.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${dialect.toTimestamp(dateRange.endDate)}`
+    : "";
+
+  return format(
+    dialect.selectStarLimit(
+      `(\n${stripTrailingSemicolon(config.dataset.sql)}\n) t`,
+      SQL_ROW_LIMIT + 1,
+      whereClause,
+    ),
+    dialect.formatDialect,
+  );
 }
 
 function parseStringValue(value: unknown): string | null {

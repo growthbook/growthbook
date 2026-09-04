@@ -60,11 +60,19 @@ const chartTypes: {
       { value: "bigNumber", label: "Big Numbers", icon: PiHash },
     ],
   },
+  {
+    groupLabel: "Results",
+    items: [{ value: "rawTable", label: "Raw table", icon: PiTable }],
+  },
 ];
 
 export default function GraphTypeSelector() {
   const { draftExploreState, changeChartType } = useExplorerContext();
   const timelessSql = isTimelessSqlExploration(draftExploreState);
+  const groups =
+    draftExploreState.dataset.type === "sql"
+      ? chartTypes
+      : chartTypes.filter((group) => group.groupLabel !== "Results");
 
   return (
     <Select
@@ -73,7 +81,7 @@ export default function GraphTypeSelector() {
       placeholder="Select value"
       setValue={(v) => changeChartType(v as (typeof chartTypeValues)[number])}
     >
-      {chartTypes.map((group, groupIndex) => (
+      {groups.map((group, groupIndex) => (
         <div key={group.groupLabel}>
           {groupIndex > 0 && <SelectSeparator />}
           <SelectGroup>

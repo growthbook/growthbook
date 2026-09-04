@@ -360,9 +360,11 @@ export default function ExplorerMainSection({
         <>
           <PiChartLineUp size={48} style={{ color: "var(--gray-a9)" }} />
           <Text size="lg" weight="medium">
-            {isSql
-              ? "Add a value in the sidebar, then click Update to explore"
-              : "Configure your explorer to visualize data"}
+            {isSql && draftExploreState.chartType === "rawTable"
+              ? "Configure table columns or a date range, then click Update to get started"
+              : isSql
+                ? "Add a value in the sidebar, then click Update to explore"
+                : "Configure your explorer to visualize data"}
           </Text>
         </>
       )}
