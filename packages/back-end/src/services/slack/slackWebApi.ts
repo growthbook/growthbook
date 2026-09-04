@@ -3,10 +3,25 @@ import { logger } from "back-end/src/util/logger";
 
 const SLACK_API_URL = "https://slack.com/api";
 
-export const SLACK_INCOMING_WEBHOOK_PREFIX = "https://hooks.slack.com/";
-export const isSlackIncomingWebhookUrl = (
+export const SLACK_WORKSPACE_PLACEHOLDER_URL = "https://slack.com";
+
+export const isSlackWorkspacePlaceholderUrl = (
   url: string | undefined | null,
-): boolean => !!url && url.startsWith(SLACK_INCOMING_WEBHOOK_PREFIX);
+): boolean => {
+  if (!url) return false;
+
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.origin === SLACK_WORKSPACE_PLACEHOLDER_URL &&
+      parsed.pathname === "/" &&
+      !parsed.search &&
+      !parsed.hash
+    );
+  } catch {
+    return false;
+  }
+};
 
 type SlackApiResponse = { ok: boolean; error?: string } & Record<
   string,

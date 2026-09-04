@@ -21,7 +21,7 @@ import {
   getSlackMessageForLegacyNotificationEvent,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import {
-  isSlackIncomingWebhookUrl,
+  isSlackWorkspacePlaceholderUrl,
   postSlackMessageResult,
 } from "back-end/src/services/slack/slackWebApi";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
@@ -177,7 +177,10 @@ export class EventWebHookNotifier implements Notifier {
     const method = eventWebHook.method || "POST";
     const logPayload = payload as Record<string, unknown>;
 
-    if ((eventWebHook.payloadType || "raw") === "slack") {
+    if (
+      (eventWebHook.payloadType || "raw") === "slack" &&
+      isSlackWorkspacePlaceholderUrl(eventWebHook.url)
+    ) {
       const botToken = await getSlackBotAccessTokenForWebhook({
         eventWebHookId,
         organizationId: organization.id,
@@ -230,22 +233,20 @@ export class EventWebHookNotifier implements Notifier {
         });
       }
 
-      if (!isSlackIncomingWebhookUrl(eventWebHook.url)) {
-        return EventWebHookNotifier.handleWebHookError({
-          job,
-          webHookResult: {
-            result: "error",
-            statusCode: null,
-            error:
-              "Slack delivery failed: no bot token or channel for this connection (reconnect the Slack workspace)",
-          },
-          organizationId: organization.id,
-          event: event.event,
-          url: eventWebHook.url,
-          method,
-          payload: logPayload,
-        });
-      }
+      return EventWebHookNotifier.handleWebHookError({
+        job,
+        webHookResult: {
+          result: "error",
+          statusCode: null,
+          error:
+            "Slack delivery failed: no bot token or channel for this connection (reconnect the Slack workspace)",
+        },
+        organizationId: organization.id,
+        event: event.event,
+        url: eventWebHook.url,
+        method,
+        payload: logPayload,
+      });
     }
 
     const context = getContextForAgendaJobByOrgObject(organization);

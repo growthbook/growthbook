@@ -26,6 +26,7 @@ import {
   getSlackConversationName,
   joinSlackConversation,
   listSlackConversations,
+  SLACK_WORKSPACE_PLACEHOLDER_URL,
 } from "back-end/src/services/slack/slackWebApi";
 import { logger } from "back-end/src/util/logger";
 import { fetch } from "back-end/src/util/http.util";
@@ -37,7 +38,6 @@ const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
 const SLACK_OAUTH_SCOPE = "chat:write,channels:read,groups:read,channels:join";
 const SLACK_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 const DEFAULT_SLACK_EVENTS = ["experiment.*", "feature.*"];
-const SLACK_PLACEHOLDER_URL = "https://slack.com";
 
 const slackOAuthStateSchema = z
   .object({
@@ -524,7 +524,7 @@ const attachSlackWorkspaceInstall = async ({
   } else {
     const created = await createEventWebHook({
       name: getSlackWebhookName(slackOAuthResponse),
-      url: SLACK_PLACEHOLDER_URL,
+      url: SLACK_WORKSPACE_PLACEHOLDER_URL,
       organizationId: context.org.id,
       enabled: false,
       events: DEFAULT_SLACK_EVENTS,
@@ -818,7 +818,7 @@ export const addSlackChannelToWorkspace = async ({
       name: workspace.slack?.teamName
         ? `Slack #${channel.name} (${workspace.slack.teamName})`
         : `Slack #${channel.name}`,
-      url: SLACK_PLACEHOLDER_URL,
+      url: SLACK_WORKSPACE_PLACEHOLDER_URL,
       organizationId: context.org.id,
       enabled: true,
       events: DEFAULT_SLACK_EVENTS,
