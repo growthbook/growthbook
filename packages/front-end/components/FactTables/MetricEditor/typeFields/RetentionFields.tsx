@@ -12,7 +12,7 @@ import {
   onRetentionDelayOrModeChange,
   retentionModeFromWindow,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
-import { ThresholdBasisRow, ThresholdBasisValue } from "./ThresholdFields";
+import { ThresholdBasisRow, ThresholdBasisValue } from "./ThresholdBasisRow";
 
 const UNIT_OPTIONS = [
   { value: "minutes", label: "Minutes" },
