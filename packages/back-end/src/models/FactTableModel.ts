@@ -41,6 +41,7 @@ import {
   normalizeJSONFieldsInput,
   normalizePersistedColumn,
 } from "back-end/src/util/factTable";
+import { logger } from "back-end/src/util/logger";
 
 const audit = createModelAuditLogger({
   entity: "factTable",
@@ -620,10 +621,39 @@ async function applyMetricAutoSliceCleanup(
   context: ReqContext | ApiReqContext,
   cleanup: MetricAutoSliceCleanup[],
 ): Promise<void> {
-  for (const { metric, metricAutoSlices } of cleanup) {
-    await context.models.factMetrics.updateIfUnchanged(metric, {
-      metricAutoSlices,
-    });
+  const applied: {
+    before: FactMetricInterface;
+    written: FactMetricInterface;
+  }[] = [];
+
+  try {
+    for (const { metric, metricAutoSlices } of cleanup) {
+      await context.models.factMetrics.updateIfUnchanged(
+        metric,
+        { metricAutoSlices },
+        undefined,
+        {
+          // Capture the write before audit/hooks so later failures can undo it.
+          onWritten: (written) => {
+            applied.push({ before: metric, written });
+          },
+        },
+      );
+    }
+  } catch (error) {
+    for (const { before, written } of applied.reverse()) {
+      try {
+        await context.models.factMetrics.updateIfUnchanged(written, {
+          metricAutoSlices: before.metricAutoSlices ?? [],
+        });
+      } catch (rollbackError) {
+        logger.error(
+          rollbackError,
+          `Failed to restore Fact Metric ${before.id} after auto-slice cleanup failed`,
+        );
+      }
+    }
+    throw error;
   }
 }
 

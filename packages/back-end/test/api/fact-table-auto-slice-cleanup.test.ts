@@ -156,17 +156,18 @@ it("checks every affected metric before writing cleanup changes", async () => {
   });
 });
 
-it("does not overwrite a concurrent metric update during cleanup", async () => {
+it("restores earlier cleanup when a later metric changes concurrently", async () => {
+  const firstMetric = makeMetric("fact__a_first_cleanup");
   const metric = makeMetric("fact__concurrent_update");
-  await seed([metric]);
+  await seed([firstMetric, metric]);
   const context = useContext();
   const factMetrics = context.models.factMetrics;
   const updateIfUnchanged = factMetrics.updateIfUnchanged.bind(factMetrics);
 
   jest
     .spyOn(factMetrics, "updateIfUnchanged")
-    .mockImplementationOnce(
-      async (existing, updates, writeOptions, options) => {
+    .mockImplementation(async (existing, updates, writeOptions, options) => {
+      if (existing.id === metric.id) {
         await mongoose.connection.db!.collection("factmetrics").updateOne(
           { id: metric.id, organization: organization.id },
           {
@@ -177,13 +178,20 @@ it("does not overwrite a concurrent metric update during cleanup", async () => {
             },
           },
         );
-        return updateIfUnchanged(existing, updates, writeOptions, options);
-      },
-    );
+      }
+      return updateIfUnchanged(existing, updates, writeOptions, options);
+    });
 
   const response = await updateColumns();
 
   expect(response.status).toBe(409);
+  expect(
+    await mongoose.connection
+      .db!.collection("factmetrics")
+      .findOne({ id: firstMetric.id }),
+  ).toMatchObject({
+    metricAutoSlices: ["country"],
+  });
   expect(
     await mongoose.connection
       .db!.collection("factmetrics")
