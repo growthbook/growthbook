@@ -73,6 +73,7 @@ export default function ChangeImplementationTypeModal({
         Choose how this experiment delivers its variations.
       </Text>
       <RadioCards
+        width="100%"
         value={next}
         setValue={(v) => {
           setNext(v as ImplementationType);
