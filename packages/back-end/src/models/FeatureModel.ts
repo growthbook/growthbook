@@ -1551,7 +1551,6 @@ export async function addFeatureRule(
   envs: string[] | undefined,
   rule: FeatureRule,
   user: EventUser,
-  resetReview: boolean,
 ) {
   addIdsToFlatRules([rule], feature.id);
 
@@ -1580,7 +1579,6 @@ export async function addFeatureRule(
       subject: isAllEnvs ? "to all environments" : `to ${envs!.join(", ")}`,
       value: JSON.stringify(scopedRule),
     },
-    resetReview,
   );
 }
 
@@ -1593,7 +1591,6 @@ export async function editFeatureRule(
   ruleId: string,
   updates: Partial<FeatureRule>,
   user: EventUser,
-  resetReview: boolean,
   auditEnvironment?: string,
 ) {
   return await editFeatureRules(
@@ -1603,7 +1600,6 @@ export async function editFeatureRule(
     [{ ruleId, environmentId: auditEnvironment }],
     updates,
     user,
-    resetReview,
   );
 }
 
@@ -1619,7 +1615,6 @@ export async function editFeatureRules(
   matches: { ruleId: string; environmentId?: string }[],
   updates: Partial<FeatureRule>,
   user: EventUser,
-  resetReview: boolean,
 ) {
   const projected = applyPartialFeatureRuleUpdatesToRevision(
     revision,
@@ -1652,7 +1647,6 @@ export async function editFeatureRules(
       subject,
       value: JSON.stringify(updates),
     },
-    resetReview,
   );
   return updatedRevision;
 }
@@ -1774,7 +1768,6 @@ export async function setDefaultValue(
   revision: FeatureRevisionInterface,
   defaultValue: string,
   user: EventUser,
-  requireReview: boolean,
   { guardDateUpdated = false }: { guardDateUpdated?: boolean } = {},
 ) {
   // Fail early on the internal draft-edit path (the REST default-value endpoint
@@ -1792,7 +1785,6 @@ export async function setDefaultValue(
       subject: ``,
       value: JSON.stringify({ defaultValue }),
     },
-    requireReview,
     { guardDateUpdated },
   );
 }
