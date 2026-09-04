@@ -1639,8 +1639,10 @@ function revisionHasGlobalChange(
   return false;
 }
 
-// Returns true if the revision has a metadata-only global change (no
-// prerequisites, archived, holdout, or defaultValue changes).
+// Returns true if the revision's only *global* change is metadata (no
+// prerequisites, archived, holdout, or defaultValue changes). Says nothing
+// about environment-scoped changes (rules, kill switches, ramp actions) that
+// may ride in the same draft; see `getDraftEnvironmentScopedChanges`.
 export function revisionHasMetadataOnlyGlobalChange(
   revision: RevisionFields,
   base: RevisionFields,
@@ -3439,7 +3441,25 @@ export function getDraftAffectedEnvironments(
   // A global change other than `archived` reaches every environment.
   if (revisionHasGlobalChange(revision, baseRevision, { ignoreArchived: true }))
     return "all";
+  return getDraftEnvironmentScopedChanges(
+    revision,
+    baseRevision,
+    allEnvironments,
+    liveRampScheduleEnvs,
+  );
+}
 
+// The environments reached by the draft's environment-scoped changes alone
+// (archive flip, per-environment rules, kill switches, ramp actions), ignoring
+// the global fields other than `archived`. A metadata edit makes
+// `getDraftAffectedEnvironments` answer "all" without looking at these, so
+// review gating asks for them separately.
+function getDraftEnvironmentScopedChanges(
+  revision: RevisionFields,
+  baseRevision: RevisionFields,
+  allEnvironments: string[],
+  liveRampScheduleEnvs?: Map<string, string[] | "all">,
+): string[] | "all" {
   // An `archived` flip only reaches the environments the flag serves in, so it
   // seeds the set rather than short-circuiting to "all".
   const envs = new Set<string>(
@@ -3675,6 +3695,17 @@ export function getRevisionReviewRequirement({
     affected === "all"
       ? revisionHasMetadataOnlyGlobalChange(revision, baseRevision)
       : false;
+  // A metadata edit makes `affected` "all" on its own, hiding any rule, kill
+  // switch, or ramp changes in the same draft. Those still gate on their own
+  // terms even when metadata is exempt, so recover them here.
+  const scoped = metadataOnlyGlobal
+    ? getDraftEnvironmentScopedChanges(
+        revision,
+        baseRevision,
+        allEnvironments,
+        liveRampScheduleEnvs,
+      )
+    : affected;
   // Archiving pulls the flag out of every environment it serves in at once, so
   // it gates like a rule change rather than a kill switch — it is not subject to
   // `featureRequireEnvironmentReview`. A flag serving nowhere yields no
@@ -3684,14 +3715,14 @@ export function getRevisionReviewRequirement({
     : [];
   let envsWithRuleChanges: string[] = [];
   let envKillSwitchChanges: string[] = [];
-  if (affected !== "all") {
+  if (scoped !== "all") {
     // Env-specific changes split into rules/values vs kill switches.
     // Rules/values always require approval; kill switches only when
     // `featureRequireEnvironmentReview` is true (default when unset).
     // Project rules per-env to account for `allEnvironments`/`environments` scopes.
     const revRulesAll = naiveFlattenV1Rules(revision.rules);
     const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
-    envsWithRuleChanges = affected.filter((env) => {
+    envsWithRuleChanges = scoped.filter((env) => {
       const revRules = getRulesForEnvironment(revRulesAll, env).map(
         normalizeRuleForDiff,
       );
@@ -3700,7 +3731,7 @@ export function getRevisionReviewRequirement({
       );
       return !isEqual(revRules, baseRules);
     });
-    envKillSwitchChanges = affected.filter(
+    envKillSwitchChanges = scoped.filter(
       (env) =>
         revision.environmentsEnabled?.[env] !== undefined &&
         revision.environmentsEnabled[env] !==
@@ -3709,14 +3740,19 @@ export function getRevisionReviewRequirement({
   }
 
   const needsReviewForSetting = (reviewSetting: RequireReview): boolean => {
-    if (affected === "all") {
-      // Metadata-only changes respect the featureRequireMetadataReview gate; all
-      // other global changes (prerequisites, archived, holdout, defaultValue)
-      // always require review.
-      if (!metadataOnlyGlobal) return true;
-      return reviewSetting.featureRequireMetadataReview !== false;
-    }
-    if (affected.length === 0) return false;
+    // Global changes other than metadata (prerequisites, archived, holdout,
+    // defaultValue) always require review.
+    if (affected === "all" && !metadataOnlyGlobal) return true;
+    // The metadata part respects the featureRequireMetadataReview gate...
+    if (
+      metadataOnlyGlobal &&
+      reviewSetting.featureRequireMetadataReview !== false
+    )
+      return true;
+    // ...and whatever else rides in the same draft is judged as if the
+    // metadata edit were not there.
+    if (scoped === "all") return true;
+    if (scoped.length === 0) return false;
 
     const gatedEnvs = reviewSetting.environments ?? [];
 
@@ -3746,7 +3782,7 @@ export function getRevisionReviewRequirement({
     // across environments. They are treated like rule changes and always require
     // approval when any of the targeted environments are gated.
     if ((revision.rampActions ?? []).length > 0) {
-      const rampEnvs = affected.filter(
+      const rampEnvs = scoped.filter(
         (env) =>
           !envsWithRuleChanges.includes(env) &&
           !envKillSwitchChanges.includes(env),
@@ -4664,6 +4700,17 @@ export function getReviewAuthorityFootprint({
       return { scope: "everywhere" };
     }
     metadataOnlyGlobal = true;
+    // The metadata edit answered "all" before the environment-scoped changes
+    // were looked at; a rule or kill-switch change in the same draft still
+    // needs authority over its environments.
+    const scoped = getDraftEnvironmentScopedChanges(
+      revision,
+      base,
+      allEnvironments,
+      liveRampScheduleEnvs,
+    );
+    if (scoped === "all") return { scope: "everywhere" };
+    scoped.forEach((env) => environments.add(env));
   }
 
   if (
