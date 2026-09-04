@@ -1,6 +1,5 @@
-import { useId } from "react";
 import { UseFormReturn } from "react-hook-form";
-import { Flex, Grid, TextArea } from "@radix-ui/themes";
+import { Flex, Grid } from "@radix-ui/themes";
 import { ColumnRef, FunnelSettings } from "shared/types/fact-table";
 import { CreateFactMetricFormProps } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -11,6 +10,7 @@ import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
 import Callout from "@/ui/Callout";
+import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FunnelStepsInput from "@/components/FactTables/FunnelStepsInput";
@@ -62,7 +62,6 @@ export default function MetricEditor({
   const { getFactTableById, getDatasourceById, factTables, project } =
     useDefinitions();
   const { hasCommercialFeature } = useUser();
-  const descriptionId = useId();
 
   const metricType = form.watch("metricType");
   const numerator = form.watch("numerator");
@@ -310,21 +309,12 @@ export default function MetricEditor({
               onChange={(e) => form.setValue("name", e.target.value)}
               required
             />
-            <Flex direction="column" gap="1">
-              <Text
-                as="label"
-                htmlFor={descriptionId}
-                weight="semibold"
-                size="sm"
-              >
-                Description
-              </Text>
-              <TextArea
-                id={descriptionId}
-                value={form.watch("description")}
-                onChange={(e) => form.setValue("description", e.target.value)}
-              />
-            </Flex>
+            <Field
+              label="Description"
+              textarea
+              value={form.watch("description")}
+              onChange={(e) => form.setValue("description", e.target.value)}
+            />
             <Flex direction="column" gap="1">
               <Text weight="semibold" size="sm" as="div">
                 Tags
