@@ -1,6 +1,6 @@
 import Ajv from "ajv";
 import { subMonths, subWeeks } from "date-fns";
-import dJSON from "dirty-json";
+import { jsonrepair } from "jsonrepair";
 import stringify from "json-stringify-pretty-compact";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
@@ -252,9 +252,9 @@ export function validateJSONFeatureValue(
       try {
         parsedValue = JSON.parse(value);
       } catch (e) {
-        // If the JSON is invalid, try to parse it with 'dirty-json' instead
+        // If the JSON is invalid, try repairing it instead
         try {
-          parsedValue = dJSON.parse(value);
+          parsedValue = parseLooseJSON(value);
         } catch (e) {
           return {
             valid: false,
@@ -333,10 +333,10 @@ export function validateFeatureValue(
     try {
       parsedValue = JSON.parse(value);
     } catch (e) {
-      // If the JSON is invalid, try to parse it with 'dirty-json' instead
+      // If the JSON is invalid, try repairing it instead
       validJSON = false;
       try {
-        parsedValue = dJSON.parse(value);
+        parsedValue = parseLooseJSON(value);
       } catch (e) {
         throw new Error(prefix + (e instanceof Error ? e.message : String(e)));
       }
@@ -352,13 +352,19 @@ export function validateFeatureValue(
     // directive (≥1 ref/inline object), so a pre-existing flag that used
     // `$extends` as a plain data key still saves.
     assertValidExtendsEntries(parsedValue, prefix, true);
-    // If the JSON was invalid but could be parsed by 'dirty-json', return the fixed JSON
+    // If the JSON was invalid but could be repaired, return the fixed JSON
     if (!validJSON) {
       return stringify(parsedValue);
     }
   }
 
   return value;
+}
+
+// Repairs and parses JSON a user hand-wrote (single quotes, unquoted keys,
+// trailing commas, comments). Throws when the input is too broken to repair.
+export function parseLooseJSON(value: string): unknown {
+  return JSON.parse(jsonrepair(value));
 }
 
 // Parses a string into a plain JSON object. Returns null when it doesn't parse
@@ -2274,9 +2280,9 @@ export function validateCondition(
     return { success: true, empty: false };
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
-    // Try parsing with dJSON and see if it can be fixed automatically
+    // See if it can be repaired automatically
     try {
-      const fixed = dJSON.parse(condition);
+      const fixed = parseLooseJSON(condition);
       return {
         success: false,
         empty: false,

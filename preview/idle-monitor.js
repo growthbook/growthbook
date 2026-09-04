@@ -3,10 +3,10 @@
 // Shuts the container down after a period with no traffic on ports 3000/3100,
 // so idle Fly preview machines stop themselves. The distroless runtime has no
 // `ss`/`pkill`, so connections are counted by reading /proc/net/tcp{,6}
-// directly, and shutdown is triggered by signaling pm2-runtime (our parent),
+// directly, and shutdown is triggered by signaling the supervisor (our parent),
 // which stops all apps and exits gracefully.
 //
-// Launched by pm2 (ecosystem.config.js) as a fork-mode app when
+// Launched by scripts/run-apps.js (ecosystem.config.js) when
 // PREVIEW_IDLE_TIMEOUT_SECONDS is set.
 
 const fs = require("node:fs");
@@ -70,10 +70,10 @@ setInterval(() => {
     console.log(
       `[idle-monitor] Idle for ${idleSeconds}s (>= ${TIMEOUT}s). Shutting down.`,
     );
-    // Signal pm2-runtime (our parent) to gracefully stop all apps and exit.
+    // Signal the supervisor (our parent) to gracefully stop all apps and exit.
     // Targeting ppid rather than PID 1 is correct regardless of init topology
     // (e.g. Fly may run its own init as PID 1). We stay alive afterwards and let
-    // pm2 terminate us, so it sees an intentional shutdown, not a crashed app.
+    // the supervisor terminate us, so it sees an intentional shutdown, not a crash.
     process.kill(process.ppid, "SIGTERM");
   }
 }, CHECK_INTERVAL_MS);

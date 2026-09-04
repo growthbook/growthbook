@@ -6,7 +6,6 @@ import {
   SimpleSchema,
 } from "shared/types/feature";
 import React, { useMemo, useState } from "react";
-import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
 import {
   getJSONValidator,
@@ -14,6 +13,7 @@ import {
   simpleToJSONSchema,
   getReviewSetting,
   assertSchemaMatchesValueType,
+  parseLooseJSON,
 } from "shared/util";
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
@@ -361,8 +361,8 @@ export default function EditSchemaModal({
               try {
                 parsedSchema = JSON.parse(schemaString);
               } catch (e) {
-                // Fall back to dirty-json for lenient parsing
-                parsedSchema = dJSON.parse(schemaString);
+                // Fall back to a repair pass for lenient parsing
+                parsedSchema = parseLooseJSON(schemaString);
                 schemaString = stringify(parsedSchema);
               }
               const ajv = getJSONValidator();
