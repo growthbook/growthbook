@@ -13,6 +13,7 @@ import {
   CreateFactTableProps,
   ColumnRef,
   FactFilterInterface,
+  FactMetricInterface,
   FactTableDefinition,
   FactTableInterface,
   UpdateFactFilterProps,
@@ -40,6 +41,7 @@ import {
   normalizeJSONFieldsInput,
   normalizePersistedColumn,
 } from "back-end/src/util/factTable";
+import { logger } from "back-end/src/util/logger";
 
 const audit = createModelAuditLogger({
   entity: "factTable",
@@ -398,21 +400,15 @@ export async function updateFactTable(
   );
   if (!changed) return;
 
-  // Clean up auto slices from metrics if columns were deleted or modified
-  if (changes.columns) {
-    const removedColumns = detectRemovedColumns(
-      factTable.columns || [],
-      changes.columns,
-    );
+  const autoSliceCleanup = await prepareMetricAutoSliceCleanup({
+    context,
+    factTableId: factTable.id,
+    removedColumns: changes.columns
+      ? detectRemovedColumns(factTable.columns || [], changes.columns)
+      : [],
+  });
 
-    if (removedColumns.length > 0) {
-      await cleanupMetricAutoSlices({
-        context,
-        factTableId: factTable.id,
-        removedColumns,
-      });
-    }
-  }
+  await applyMetricAutoSliceCleanup(context, autoSliceCleanup);
 
   await FactTableModel.updateOne(
     {
@@ -462,6 +458,14 @@ export async function updateFactTableColumns(
     ),
   );
 
+  const autoSliceCleanup = await prepareMetricAutoSliceCleanup({
+    context,
+    factTableId: factTable.id,
+    removedColumns: changes.columns
+      ? detectRemovedColumns(factTable.columns || [], changes.columns)
+      : [],
+  });
+
   await FactTableModel.updateOne(
     {
       id: factTable.id,
@@ -485,21 +489,7 @@ export async function updateFactTableColumns(
     );
   }
 
-  // Clean up auto slices from metrics if columns were refreshed and some were deleted
-  if (changes.columns) {
-    const removedColumns = detectRemovedColumns(
-      factTable.columns || [],
-      changes.columns,
-    );
-
-    if (removedColumns.length > 0) {
-      await cleanupMetricAutoSlices({
-        context,
-        factTableId: factTable.id,
-        removedColumns,
-      });
-    }
-  }
+  await applyMetricAutoSliceCleanup(context, autoSliceCleanup);
 }
 
 // System-driven update of the managed-warehouse events fact table (managedBy "api").
@@ -521,19 +511,15 @@ export async function dangerouslySyncManagedWarehouseFactTable(
     return;
   }
 
-  if (changes.columns) {
-    const removedColumns = detectRemovedColumns(
-      factTable.columns || [],
-      changes.columns,
-    );
-    if (removedColumns.length > 0) {
-      await cleanupMetricAutoSlices({
-        context,
-        factTableId: factTable.id,
-        removedColumns,
-      });
-    }
-  }
+  const autoSliceCleanup = await prepareMetricAutoSliceCleanup({
+    context,
+    factTableId: factTable.id,
+    removedColumns: changes.columns
+      ? detectRemovedColumns(factTable.columns || [], changes.columns)
+      : [],
+  });
+
+  await applyMetricAutoSliceCleanup(context, autoSliceCleanup);
 
   await FactTableModel.updateOne(
     {
@@ -589,8 +575,12 @@ export function detectRemovedColumns(
   return [...deletedColumns, ...disabledAutoSliceColumns];
 }
 
-// Clean up auto slices from fact metrics when columns are "deleted" or dropped
-export async function cleanupMetricAutoSlices({
+type MetricAutoSliceCleanup = {
+  metric: FactMetricInterface;
+  metricAutoSlices: string[];
+};
+
+async function prepareMetricAutoSliceCleanup({
   context,
   factTableId,
   removedColumns,
@@ -598,28 +588,72 @@ export async function cleanupMetricAutoSlices({
   context: ReqContext | ApiReqContext;
   factTableId: string;
   removedColumns: string[];
-}) {
-  // Get all fact metrics that use this fact table
-  const allFactMetrics = await context.models.factMetrics.getAll();
-  const affectedMetrics = allFactMetrics.filter(
-    (metric) => metric.numerator?.factTableId === factTableId,
-  );
+}): Promise<MetricAutoSliceCleanup[]> {
+  if (removedColumns.length === 0) return [];
 
-  // For each affected metric, remove auto slices that reference removed columns
-  for (const metric of affectedMetrics) {
-    if (!metric.metricAutoSlices?.length) continue;
-
-    const originalAutoSlices = [...metric.metricAutoSlices];
-    const cleanedAutoSlices = metric.metricAutoSlices.filter(
+  const allFactMetrics =
+    await context.models.factMetrics.dangerousGetAllForDependencyScan();
+  const cleanup = allFactMetrics.flatMap((metric) => {
+    if (
+      metric.numerator?.factTableId !== factTableId ||
+      !metric.metricAutoSlices?.length
+    ) {
+      return [];
+    }
+    const metricAutoSlices = metric.metricAutoSlices.filter(
       (sliceColumn) => !removedColumns.includes(sliceColumn),
     );
+    return metricAutoSlices.length === metric.metricAutoSlices.length
+      ? []
+      : [{ metric, metricAutoSlices }];
+  });
 
-    // Only update if there were changes
-    if (cleanedAutoSlices.length !== originalAutoSlices.length) {
-      await context.models.factMetrics.update(metric, {
-        metricAutoSlices: cleanedAutoSlices,
-      });
+  for (const { metric, metricAutoSlices } of cleanup) {
+    context.models.factMetrics.preflightAutoSliceCleanup(
+      metric,
+      metricAutoSlices,
+    );
+  }
+  return cleanup;
+}
+
+async function applyMetricAutoSliceCleanup(
+  context: ReqContext | ApiReqContext,
+  cleanup: MetricAutoSliceCleanup[],
+): Promise<void> {
+  const applied: {
+    before: FactMetricInterface;
+    written: FactMetricInterface;
+  }[] = [];
+
+  try {
+    for (const { metric, metricAutoSlices } of cleanup) {
+      await context.models.factMetrics.updateIfUnchanged(
+        metric,
+        { metricAutoSlices },
+        undefined,
+        {
+          // Capture the write before audit/hooks so later failures can undo it.
+          onWritten: (written) => {
+            applied.push({ before: metric, written });
+          },
+        },
+      );
     }
+  } catch (error) {
+    for (const { before, written } of applied.reverse()) {
+      try {
+        await context.models.factMetrics.updateIfUnchanged(written, {
+          metricAutoSlices: before.metricAutoSlices ?? [],
+        });
+      } catch (rollbackError) {
+        logger.error(
+          rollbackError,
+          `Failed to restore Fact Metric ${before.id} after auto-slice cleanup failed`,
+        );
+      }
+    }
+    throw error;
   }
 }
 
@@ -656,7 +690,20 @@ export async function updateColumn({
     dateUpdated: new Date(),
   });
 
-  factTable.columns[columnIndex] = updatedColumn;
+  const nextColumns = factTable.columns.map((existingColumn, index) =>
+    index === columnIndex ? updatedColumn : existingColumn,
+  );
+  const autoSliceCleanup = context
+    ? await prepareMetricAutoSliceCleanup({
+        context,
+        factTableId: factTable.id,
+        removedColumns:
+          updatedColumn.deleted ||
+          (!updatedColumn.isAutoSliceColumn && originalColumn.isAutoSliceColumn)
+            ? [column]
+            : [],
+      })
+    : [];
 
   await FactTableModel.updateOne(
     {
@@ -666,26 +713,18 @@ export async function updateColumn({
     {
       $set: {
         dateUpdated: new Date(),
-        columns: factTable.columns,
+        columns: nextColumns,
       },
     },
   );
+  factTable.columns = nextColumns;
   await touchDefinitionsVersion(
     factTable.organization,
     definitionsScope(factTable.projects),
   );
 
-  // Clean up auto slices from metrics if column was deleted or isAutoSliceColumn was disabled
-  if (
-    context &&
-    (updatedColumn.deleted ||
-      (!updatedColumn.isAutoSliceColumn && originalColumn.isAutoSliceColumn))
-  ) {
-    await cleanupMetricAutoSlices({
-      context,
-      factTableId: factTable.id,
-      removedColumns: [column],
-    });
+  if (context) {
+    await applyMetricAutoSliceCleanup(context, autoSliceCleanup);
   }
 }
 
@@ -932,6 +971,11 @@ export async function deleteColumn(
   }
 
   const columns = factTable.columns.filter((c) => c.column !== columnName);
+  const autoSliceCleanup = await prepareMetricAutoSliceCleanup({
+    context,
+    factTableId: factTable.id,
+    removedColumns: [columnName],
+  });
 
   await FactTableModel.updateOne(
     {
@@ -946,12 +990,7 @@ export async function deleteColumn(
     },
   );
 
-  // A virtual column may be referenced by metric auto-slices; remove those.
-  await cleanupMetricAutoSlices({
-    context,
-    factTableId: factTable.id,
-    removedColumns: [columnName],
-  });
+  await applyMetricAutoSliceCleanup(context, autoSliceCleanup);
 }
 
 export function mergeUpsertColumns(
@@ -1025,8 +1064,13 @@ export async function upsertColumns({
     factTable.columns,
     columns,
   );
-
-  factTable.columns = nextColumns;
+  const autoSliceCleanup = context
+    ? await prepareMetricAutoSliceCleanup({
+        context,
+        factTableId: factTable.id,
+        removedColumns: removedAutoSliceColumns,
+      })
+    : [];
 
   await FactTableModel.updateOne(
     {
@@ -1040,18 +1084,15 @@ export async function upsertColumns({
       },
     },
   );
+  factTable.columns = nextColumns;
 
   await touchDefinitionsVersion(
     factTable.organization,
     definitionsScope(factTable.projects),
   );
 
-  if (context && removedAutoSliceColumns.length > 0) {
-    await cleanupMetricAutoSlices({
-      context,
-      factTableId: factTable.id,
-      removedColumns: removedAutoSliceColumns,
-    });
+  if (context) {
+    await applyMetricAutoSliceCleanup(context, autoSliceCleanup);
   }
 }
 
