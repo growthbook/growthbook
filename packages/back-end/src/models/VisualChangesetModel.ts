@@ -1,10 +1,10 @@
+import { implementationTypeAfterUnlink, hasVisualChanges } from "shared/util";
 import { keyBy } from "lodash";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
 import pickBy from "lodash/pickBy";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { hasVisualChanges } from "shared/util";
 import {
   VisualChange,
   VisualChangesetInterface,
@@ -572,10 +572,14 @@ export const deleteVisualChangesetById = async ({
   );
   if (remainingVisualChangesets.length === 0) {
     if (experiment && experiment.hasVisualChangesets) {
+      const after = { ...experiment, hasVisualChangesets: false };
       await updateExperiment({
         context,
         experiment,
-        changes: { hasVisualChangesets: false },
+        changes: {
+          hasVisualChangesets: false,
+          implementationType: implementationTypeAfterUnlink(after),
+        },
         bypassWebhooks: true,
       });
     }

@@ -1,16 +1,12 @@
 import { Flex, type AvatarProps } from "@radix-ui/themes";
 import { ImplementationType } from "shared/validators";
 import { SELECTABLE_IMPLEMENTATION_TYPES } from "shared/util";
-import { PiChartBar, PiTag } from "react-icons/pi";
+import { PiChartBar, PiDesktop, PiFlag, PiLink, PiTag } from "react-icons/pi";
 import Avatar from "@/ui/Avatar";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ICON_PROPERTIES } from "@/components/Experiment/LinkedChanges/constants";
-
-const FlagIcon = ICON_PROPERTIES["feature-flag"].component;
-const VisualIcon = ICON_PROPERTIES["visual-editor"].component;
-const RedirectIcon = ICON_PROPERTIES.redirects.component;
 
 type Option = {
   header: string;
@@ -29,19 +25,19 @@ export const IMPLEMENTATION_TYPE_OPTIONS: Record<ImplementationType, Option> = {
   visual: {
     header: "Visual Editor",
     description: "No-code browser extension",
-    icon: <VisualIcon />,
+    icon: <PiDesktop />,
     color: ICON_PROPERTIES["visual-editor"].radixColor,
   },
   urlredirect: {
     header: "URL Redirect",
     description: "A/B test URL redirects",
-    icon: <RedirectIcon />,
+    icon: <PiLink />,
     color: ICON_PROPERTIES.redirects.radixColor,
   },
   feature: {
     header: "Feature Flag",
     description: "Make code changes in your app",
-    icon: <FlagIcon />,
+    icon: <PiFlag />,
     color: ICON_PROPERTIES["feature-flag"].radixColor,
   },
   none: {
@@ -66,14 +62,24 @@ export function ImplementationTypeLabel({
   compact?: boolean;
 }) {
   const option = IMPLEMENTATION_TYPE_OPTIONS[type];
+  if (compact) {
+    return (
+      <Flex align="center" gap="2">
+        <span style={{ color: `var(--${option.color}-9)`, display: "flex" }}>
+          {option.icon}
+        </span>
+        <Text>{option.header}</Text>
+      </Flex>
+    );
+  }
   return (
-    <Flex align="center" gap="2" py={compact ? "0" : "1"}>
+    <Flex align="center" gap="2" py="1">
       <Avatar radius="small" color={option.color} size="sm" variant="soft">
         {option.icon}
       </Avatar>
       <Flex direction="column">
-        <Text weight={compact ? "regular" : "semibold"}>{option.header}</Text>
-        {!compact && <Text color="text-mid">{option.description}</Text>}
+        <Text weight="semibold">{option.header}</Text>
+        <Text color="text-mid">{option.description}</Text>
       </Flex>
     </Flex>
   );
@@ -98,10 +104,19 @@ export default function ImplementationTypeSelect({
       label={label}
       value={value ?? ""}
       onChange={(v) => setValue(v as ImplementationType)}
-      options={SELECTABLE_IMPLEMENTATION_TYPES.map((type) => ({
+      // The current value stays visible even when it is not offered.
+      options={[
+        ...SELECTABLE_IMPLEMENTATION_TYPES,
+        ...(value && !SELECTABLE_IMPLEMENTATION_TYPES.includes(value)
+          ? [value]
+          : []),
+      ].map((type) => ({
         value: type,
         label: IMPLEMENTATION_TYPE_OPTIONS[type].header,
       }))}
+      isOptionDisabled={(o) =>
+        !SELECTABLE_IMPLEMENTATION_TYPES.includes(o.value as ImplementationType)
+      }
       // The list explains each choice; the closed control just names it.
       formatOptionLabel={(option, { context }) => (
         <ImplementationTypeLabel

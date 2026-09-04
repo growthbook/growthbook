@@ -1,5 +1,6 @@
 import {
   canChangeImplementationType,
+  implementationTypeAfterUnlink,
   deriveImplementationType,
   getImplementationType,
   hasImplementationLinkages,
@@ -68,5 +69,35 @@ describe("canChangeImplementationType", () => {
     expect(
       canChangeImplementationType({ linkedFeatures: ["f"] }, "feature"),
     ).toBe(true);
+  });
+});
+
+describe("implementationTypeAfterUnlink", () => {
+  it("settles to none once the last implementation is gone", () => {
+    expect(
+      implementationTypeAfterUnlink({
+        implementationType: "feature",
+        linkedFeatures: [],
+      }),
+    ).toBe("none");
+    expect(
+      implementationTypeAfterUnlink({
+        implementationType: "multi",
+        hasVisualChangesets: false,
+      }),
+    ).toBe("none");
+  });
+
+  it("keeps a chosen kind that is still wired, or never was", () => {
+    expect(
+      implementationTypeAfterUnlink({
+        implementationType: "feature",
+        linkedFeatures: ["f"],
+      }),
+    ).toBe("feature");
+    expect(
+      implementationTypeAfterUnlink({ implementationType: "values" }),
+    ).toBe("values");
+    expect(implementationTypeAfterUnlink({})).toBeUndefined();
   });
 });

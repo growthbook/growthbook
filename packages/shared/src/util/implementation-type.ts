@@ -7,14 +7,26 @@ export type ImplementationLinkages = {
   implementationType?: ImplementationType | null;
 };
 
-/** The kinds a user may pick; "multi" is only ever derived. */
+// The kinds a user may pick. "multi" is only ever derived; "none" is only ever
+// assigned — by an import, or when the last implementation is removed.
 export const SELECTABLE_IMPLEMENTATION_TYPES: ImplementationType[] = [
   "values",
   "feature",
   "urlredirect",
   "visual",
-  "none",
 ];
+
+// What an experiment is left as once nothing is wired up any more. A chosen
+// kind that was never wired ("values" before its flag exists) is kept.
+export function implementationTypeAfterUnlink(
+  exp: ImplementationLinkages,
+): ImplementationType | undefined {
+  if (hasImplementationLinkages(exp))
+    return exp.implementationType ?? undefined;
+  return exp.implementationType && exp.implementationType !== "values"
+    ? "none"
+    : (exp.implementationType ?? undefined);
+}
 
 export function hasImplementationLinkages(
   exp: ImplementationLinkages,

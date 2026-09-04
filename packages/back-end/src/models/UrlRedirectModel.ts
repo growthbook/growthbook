@@ -1,5 +1,8 @@
+import {
+  implementationTypeAfterUnlink,
+  getAffectedEnvsForExperiment,
+} from "shared/util";
 import { keyBy } from "lodash";
-import { getAffectedEnvsForExperiment } from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -143,10 +146,14 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     const remaining = await this.findByExperiment(doc.experiment);
     if (remaining.length === 0) {
       if (experiment.hasURLRedirects) {
+        const after = { ...experiment, hasURLRedirects: false };
         await updateExperiment({
           context: this.context,
           experiment,
-          changes: { hasURLRedirects: false },
+          changes: {
+            hasURLRedirects: false,
+            implementationType: implementationTypeAfterUnlink(after),
+          },
           bypassWebhooks: true,
         });
       }
