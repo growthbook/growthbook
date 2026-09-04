@@ -959,6 +959,19 @@ export function cleanConfigForSubmission(
   const configWithoutPrevious = stripExplorerDraftFields(
     normalizeTimelessSqlConfig(config),
   );
+  // Raw tables return unaggregated rows. The draft keeps any values and
+  // dimensions the user configured for a visualization so switching chart
+  // types is reversible, but the query itself must not carry them.
+  if (
+    configWithoutPrevious.type === "sql" &&
+    configWithoutPrevious.chartType === "rawTable"
+  ) {
+    return {
+      ...configWithoutPrevious,
+      dimensions: [],
+      dataset: { ...configWithoutPrevious.dataset, values: [] },
+    };
+  }
   const cleanedDataset = removeIncompleteInputs(configWithoutPrevious.dataset);
   const cleanedDimensions = configWithoutPrevious.dimensions.filter((d) => {
     if (d.dimensionType === "date" || d.dimensionType === "slice") return true;
