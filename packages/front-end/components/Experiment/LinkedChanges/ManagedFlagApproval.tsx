@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import isEqual from "lodash/isEqual";
-import omit from "lodash/omit";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { datetime } from "shared/dates";
 import {
@@ -498,26 +496,23 @@ export default function ManagedFlagApproval({
 
   // Environments and value type are always shown, changed or not: a reviewer
   // judges the values against where they will be live and what type they are.
+  // Where the experiment actually runs: the rule's environment scope and the
+  // flag's kill switches together, live against draft.
+  const liveEnvStates = info.liveEnvironmentStates ?? {};
+  const draftEnvStates = info.pendingDraft?.environmentStates ?? liveEnvStates;
   const envToggles = filterEnvironmentsByFeature(
     allEnvironments,
     info.feature,
-  ).map((env) => {
-    const from = liveDiffInput.environmentsEnabled?.[env.id] ?? false;
-    return {
-      envId: env.id,
-      from,
-      to: draftDiffInput.environmentsEnabled?.[env.id] ?? from,
-    };
-  });
+  ).map((env) => ({
+    envId: env.id,
+    from: liveEnvStates[env.id] === "active",
+    to: (draftEnvStates[env.id] ?? liveEnvStates[env.id]) === "active",
+  }));
   // A managed flag is born with every environment off; its first draft is the
   // flag arriving, not a toggle.
-  const arriving = !(liveDiffInput.rules ?? []).length;
+  const arriving = !info.liveEnvironmentStates;
   const liveValueType = info.feature.valueType;
   const draftValueType = draftDiffInput.metadata?.valueType ?? liveValueType;
-  const metadataOnlyRetypes = isEqual(
-    omit(liveDiffInput.metadata ?? {}, "valueType"),
-    omit(draftDiffInput.metadata ?? {}, "valueType"),
-  );
   const sections: FormattedChangeItem[] = [
     {
       title: envToggles.length === 1 ? "Environment" : "Environments",
@@ -543,11 +538,15 @@ export default function ManagedFlagApproval({
         </Flex>
       ),
     },
+    // The experiment can only re-type the flag's settings, and the card above
+    // already says so.
     ...revisionDiffs.filter(
       (d) =>
         d.a !== d.b &&
         d.key !== "environmentsEnabled" &&
-        !(d.key === "metadata" && metadataOnlyRetypes),
+        d.key !== "metadata" &&
+        // A rule that only moved its environments has no human render here.
+        !(d.key === "rules" && !d.customRender),
     ),
   ];
 

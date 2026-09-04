@@ -1,6 +1,7 @@
 import { ReactNode, ReactElement } from "react";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
@@ -1257,10 +1258,19 @@ export function renderFeatureRules(
     renderMode?: DiffRenderMode;
   },
 ): ReactNode | null {
-  const { added, removed, modified, reordered } = analyzeRuleChanges(
-    preRules,
-    postRules,
-  );
+  const analysis = analyzeRuleChanges(preRules, postRules);
+  const renderMode = options?.renderMode ?? "feature";
+  const compact = renderMode === "experiment";
+  // The experiment surface states the environments itself, so a rule that only
+  // moved its environment scope has nothing left to show here.
+  const preById = new Map(preRules.map((r) => [r.id, r]));
+  const ENV_SCOPE = ["environments", "allEnvironments"];
+  const modified = compact
+    ? analysis.modified.filter(
+        (r) => !isEqual(omit(preById.get(r.id), ENV_SCOPE), omit(r, ENV_SCOPE)),
+      )
+    : analysis.modified;
+  const { added, removed, reordered } = analysis;
 
   const postOffset = options?.postHasHoldout ? 2 : 1;
   const preOffset = options?.preHasHoldout ? 2 : 1;
@@ -1268,10 +1278,7 @@ export function renderFeatureRules(
     postRules.map((r, i) => [r.id, i + postOffset]),
   );
   const preIndexById = new Map(preRules.map((r, i) => [r.id, i + preOffset]));
-  const preById = new Map(preRules.map((r) => [r.id, r]));
   const pendingRampActions = options?.pendingRampActions;
-  const renderMode = options?.renderMode ?? "feature";
-  const compact = renderMode === "experiment";
 
   // Rules that aren't add/modify/reorder but do have a pending ramp action —
   // surface them as a "modified" entry so the user sees the per-rule pending
