@@ -1,4 +1,8 @@
-import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
+import type { Agenda } from "agenda";
+import {
+  EVENT_WEBHOOK_COALESCE_FLUSH_JOB,
+  EventWebHookNotifier,
+} from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
 import { getEventWebHookSignatureForPayload } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { secretsReplacer } from "back-end/src/util/secrets";
@@ -16,6 +20,32 @@ const applySecrets = secretsReplacer({});
 describe("EventWebHookNotifier", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("registers delivery jobs once per Agenda instance", () => {
+    const define = jest.fn();
+    const agenda = { define } as unknown as Agenda;
+
+    EventWebHookNotifier.registerAgendaJobs(agenda);
+    EventWebHookNotifier.registerAgendaJobs(agenda);
+
+    expect(define).toHaveBeenCalledTimes(2);
+    expect(define).toHaveBeenNthCalledWith(
+      1,
+      "eventWebHook",
+      expect.any(Function),
+    );
+    expect(define).toHaveBeenNthCalledWith(
+      2,
+      EVENT_WEBHOOK_COALESCE_FLUSH_JOB,
+      expect.any(Function),
+    );
+
+    const secondDefine = jest.fn();
+    EventWebHookNotifier.registerAgendaJobs({
+      define: secondDefine,
+    } as unknown as Agenda);
+    expect(secondDefine).toHaveBeenCalledTimes(2);
   });
 
   it("sends data to webhook", async () => {

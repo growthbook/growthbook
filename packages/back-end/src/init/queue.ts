@@ -27,8 +27,10 @@ import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
 import updateAggregatedFactTablesJob from "back-end/src/jobs/updateAggregatedFactTables";
 import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
+import addWeeklyScorecardJob from "back-end/src/jobs/eventWebhookWeeklyDigest";
 import addSyncManagedWarehouseJsonErgonomicsJob from "back-end/src/jobs/syncManagedWarehouseJsonErgonomics";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
+import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
 
 export async function queueInit() {
   const agenda = getAgendaInstance();
@@ -56,6 +58,8 @@ export async function queueInit() {
   updateAggregatedFactTablesJob(agenda);
   addRampScheduleJob(agenda);
   addScheduledPublishJob(agenda);
+  addWeeklyScorecardJob(agenda);
+  EventWebHookNotifier.registerAgendaJobs(agenda);
   await addSyncManagedWarehouseJsonErgonomicsJob(agenda);
   initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently
