@@ -1,4 +1,9 @@
 import EventEmitter from "events";
+import uniqid from "uniqid";
+import {
+  QueryRunnerRunInterface,
+  QueryRunnerRunTargetType,
+} from "shared/validators";
 import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import {
   Queries,
@@ -16,8 +21,8 @@ import {
   getQueriesByIds,
   getRecentQuery,
   markPendingQueriesAsFailed,
+  startQueryIfQueued,
   updateQuery,
-  updateQueryIfPending,
   updateQueryIfRunning,
 } from "back-end/src/models/QueryModel";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -223,6 +228,9 @@ export abstract class QueryRunner<
   private useCache: boolean;
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
   private lockHeartbeatTimer: null | NodeJS.Timeout = null;
+  abstract readonly targetType: QueryRunnerRunTargetType;
+  private queryRunnerRunLockToken = uniqid("qrrt_");
+  private queryRunnerRun: QueryRunnerRunInterface | null = null;
   private refreshWatchdogTimer: null | NodeJS.Timeout = null;
   /** Non-null while a refresh pass is in flight; watchdog skips re-arm then. */
   private refreshStartedAt: number | null = null;
@@ -300,17 +308,86 @@ export abstract class QueryRunner<
     return this.status === "finishing" || this.isFinished();
   }
 
+  private async touchRunLockHeartbeat(): Promise<boolean> {
+    if (!this.queryRunnerRun) return true;
+    try {
+      return await this.context.models.queryRunnerRuns.touchLockHeartbeat(
+        this.queryRunnerRun.id,
+        this.queryRunnerRunLockToken,
+      );
+    } catch (e) {
+      logger.warn(
+        { err: e, queryRunnerRunId: this.queryRunnerRun.id },
+        "QueryRunner failed to touch the run lock heartbeat; will retry",
+      );
+      // A failed heartbeat does not prove that this runner lost its lease.
+      return true;
+    }
+  }
+
+  private async recordQueryRunnerRunQueryIds(
+    queries: Queries,
+  ): Promise<boolean> {
+    if (!this.queryRunnerRun) return true;
+    const queryIds = [...new Set(queries.map((query) => query.query))];
+    const persisted = await this.context.models.queryRunnerRuns.setQueryIds(
+      this.queryRunnerRun.id,
+      this.queryRunnerRunLockToken,
+      queryIds,
+    );
+    if (!persisted) {
+      this.standDown("QueryRunner run lock lost before storing query ids");
+    }
+    return persisted;
+  }
+
+  private async canWriteTarget(): Promise<boolean> {
+    const stillHeld = await this.touchRunLockHeartbeat();
+    if (!stillHeld) {
+      this.standDown("QueryRunner run lock lost before updating target");
+    }
+    return stillHeld;
+  }
+
+  private releaseRunLock(): void {
+    if (!this.queryRunnerRun) return;
+    void this.context.models.queryRunnerRuns
+      .releaseLock(this.queryRunnerRun.id, this.queryRunnerRunLockToken)
+      .catch((e) =>
+        logger.warn(
+          { err: e, queryRunnerRunId: this.queryRunnerRun?.id },
+          "Failed to release query runner run lock",
+        ),
+      );
+  }
+
   /**
    * Called periodically while the runner is active. Override to refresh an
    * external lock; default is a no-op.
+   * Note: The QueryRunner has its own lock and heartbeat, this is used for external locks.
    */
-  protected onHeartbeat(): void {}
+  protected async onHeartbeat(): Promise<void> {}
+
+  private async runHeartbeat(): Promise<void> {
+    const stillHeld = await this.touchRunLockHeartbeat();
+    if (!stillHeld) {
+      logger.warn(
+        { queryRunnerRunId: this.queryRunnerRun?.id },
+        "QueryRunner run lock lost while process is running; stopping the run",
+      );
+      this.standDown("QueryRunner run lock lost while process is running");
+      return;
+    }
+    await this.onHeartbeat();
+  }
 
   private startLockHeartbeat(): void {
     if (this.lockHeartbeatTimer) return;
     this.lockHeartbeatTimer = setInterval(() => {
-      this.onHeartbeat();
-    }, 30000);
+      void this.runHeartbeat().catch((e) =>
+        logger.error({ err: e }, "QueryRunner onHeartbeat failed"),
+      );
+    }, 30_000);
   }
 
   private stopLockHeartbeat(): void {
@@ -392,7 +469,6 @@ export abstract class QueryRunner<
     });
   }
 
-  /** Clear timers, persist the error, and finish the runner. */
   private async shutDownWithError(error: string): Promise<void> {
     this.setStatus("finishing");
     this.stopRefreshWatchdog();
@@ -402,6 +478,7 @@ export abstract class QueryRunner<
     }
     this.clearAllTimers();
     const fullError = "Error finalizing query results: " + error;
+    if (!(await this.canWriteTarget())) return;
     try {
       await this.writeErrorIfStillActive(fullError);
     } catch (writeErr) {
@@ -413,12 +490,10 @@ export abstract class QueryRunner<
     this.setStatus("finished", fullError);
   }
 
-  /** Enqueue one refresh pass on the serialized chain. */
   private queueRefreshPass(): void {
     this.refreshChain = this.refreshChain
       .then(() => this.runRefreshPass())
       .catch(async (e) => {
-        // Keep the chain alive; count toward the failure budget.
         if (this.isFinished()) return;
         this.consecutiveRefreshFailures++;
         logger.error(
@@ -467,11 +542,6 @@ export abstract class QueryRunner<
     );
   }
 
-  /**
-   * One refresh pass: re-fetch the model, reconcile pointers, start ready
-   * queries, finalize when done. Retried by the watchdog until the failure
-   * budget is exhausted.
-   */
   private async runRefreshPass(): Promise<void> {
     if (this.isFinished()) return;
     this.refreshStartedAt = Date.now();
@@ -566,72 +636,94 @@ export abstract class QueryRunner<
 
   public async startAnalysis(params: Params): Promise<Model> {
     logger.debug(this.model.id + " runner: Starting queries");
-    const queries = await this.withExperimentUpdateTiming("generateSql", () =>
-      this.startQueries(params),
-    );
-    this.experimentUpdateExecutionLogger?.startPhase("runQueries");
-    this.model.queries = queries;
+    this.queryRunnerRun =
+      await this.context.models.queryRunnerRuns.createForRun({
+        targetType: this.targetType,
+        targetId: this.model.id,
+        datasourceId: this.integration.datasource.id,
+        token: this.queryRunnerRunLockToken,
+      });
+    this.startLockHeartbeat();
 
-    if (queries.length === 0) {
-      this.experimentUpdateExecutionLogger?.endPhase("runQueries");
-      const noQueriesError = "No queries were generated for this analysis";
-      logger.debug(this.model.id + " runner: " + noQueriesError);
+    try {
+      const queries = await this.withExperimentUpdateTiming("generateSql", () =>
+        this.startQueries(params),
+      );
+      this.experimentUpdateExecutionLogger?.startPhase("runQueries");
+      this.model.queries = queries;
+
+      if (queries.length === 0) {
+        this.experimentUpdateExecutionLogger?.endPhase("runQueries");
+        const noQueriesError = "No queries were generated for this analysis";
+        logger.debug(this.model.id + " runner: " + noQueriesError);
+        if (!(await this.canWriteTarget())) return this.model;
+        const newModel = await this.updateModel({
+          status: "failed",
+          queries: [],
+          runStarted: new Date(),
+          error: noQueriesError,
+        });
+        this.model = newModel;
+        this.setStatus("finished", noQueriesError);
+        return newModel;
+      }
+
+      if (!(await this.recordQueryRunnerRunQueryIds(queries)))
+        return this.model;
+
+      // If already finished (queries were cached)
+      let error = "";
+      let result: Result | undefined = undefined;
+
+      const queryStatus = this.getOverallQueryStatus();
+      if (queryStatus === "succeeded") {
+        logger.debug(
+          this.model.id + " runner: Query already succeeded (cached)",
+        );
+        const queryMap = await this.getQueryMap(queries);
+        try {
+          // No refresh loop yet; incomplete cached results fail the run now.
+          assertQueryMapComplete(queries, queryMap);
+          this.experimentUpdateExecutionLogger?.endPhase("runQueries");
+          result = await this.withExperimentUpdateTiming("analyze", () =>
+            this.runAnalysis(queryMap),
+          );
+          logger.debug(this.model.id + " runner: Ran analysis successfully");
+        } catch (e) {
+          logger.error(e, this.model.id + " runner: Error running analysis");
+          error = "Error running analysis: " + e.message;
+        }
+      } else if (queryStatus === "failed") {
+        this.experimentUpdateExecutionLogger?.endPhase("runQueries");
+        logger.debug(this.model.id + " runner: Query failed immediately");
+        error = "Error running one or more database queries";
+      }
+
+      if (!(await this.canWriteTarget())) return this.model;
+
       const newModel = await this.updateModel({
-        status: "failed",
-        queries: [],
+        status: error ? "failed" : queryStatus,
+        queries,
         runStarted: new Date(),
-        error: noQueriesError,
+        result: result,
+        error: error,
       });
       this.model = newModel;
-      this.setStatus("finished", noQueriesError);
-      return newModel;
-    }
+      this.dagPersisted = true;
 
-    // If already finished (queries were cached)
-    let error = "";
-    let result: Result | undefined = undefined;
-
-    const queryStatus = this.getOverallQueryStatus();
-    if (queryStatus === "succeeded") {
-      logger.debug(this.model.id + " runner: Query already succeeded (cached)");
-      const queryMap = await this.getQueryMap(queries);
-      try {
-        // No refresh loop yet; incomplete cached results fail the run now.
-        assertQueryMapComplete(queries, queryMap);
-        this.experimentUpdateExecutionLogger?.endPhase("runQueries");
-        result = await this.withExperimentUpdateTiming("analyze", () =>
-          this.runAnalysis(queryMap),
-        );
-        logger.debug(this.model.id + " runner: Ran analysis successfully");
-      } catch (e) {
-        logger.error(e, this.model.id + " runner: Error running analysis");
-        error = "Error running analysis: " + e.message;
+      if (error || result) {
+        this.setStatus("finished", error, result);
+      } else {
+        this.setStatus("running");
+        // Pick up any query completions that happened before the DAG write.
+        this.onQueryFinish();
       }
-    } else if (queryStatus === "failed") {
-      this.experimentUpdateExecutionLogger?.endPhase("runQueries");
-      logger.debug(this.model.id + " runner: Query failed immediately");
-      error = "Error running one or more database queries";
+
+      return newModel;
+    } catch (e) {
+      this.standDown("startAnalysis failed before startup completed");
+      throw e;
     }
-
-    const newModel = await this.updateModel({
-      status: error ? "failed" : queryStatus,
-      queries,
-      runStarted: new Date(),
-      result: result,
-      error: error,
-    });
-    this.model = newModel;
-    this.dagPersisted = true;
-
-    if (error || result) {
-      this.setStatus("finished", error, result);
-    } else {
-      this.setStatus("running");
-      // Pick up any query completions that happened before the DAG write.
-      this.onQueryFinish();
-    }
-
-    return newModel;
   }
 
   private setStatus(
@@ -654,6 +746,7 @@ export abstract class QueryRunner<
     if (this.status === "finished") {
       this.stopLockHeartbeat();
       this.stopRefreshWatchdog();
+      this.releaseRunLock();
       this.emitter.emit(FINISH_EVENT);
     }
   }
@@ -860,6 +953,10 @@ export abstract class QueryRunner<
       }
     }
 
+    if ((error || result) && !(await this.canWriteTarget())) {
+      return queryMap;
+    }
+
     const newModel = await this.updateModel({
       status: error ? "failed" : newStatus,
       queries: this.model.queries,
@@ -892,8 +989,8 @@ export abstract class QueryRunner<
       .map((q) => q.query);
 
     // Mark failed BEFORE issuing warehouse cancels. The original runner is
-    // still alive with pending timers; paired with updateQueryIfPending in
-    // executeQuery, this stops a queued query from being promoted (and
+    // still alive with pending timers; paired with startQueryIfQueued in
+    // executeQuery, this stops a queued query from being started (and
     // firing a fresh external job) while parallel cancel calls are in
     // flight. Also reflects the cancel in the queries-log UI immediately.
     if (pendingIds.length) {
@@ -981,6 +1078,7 @@ export abstract class QueryRunner<
     }
 
     this.clearAllTimers();
+    if (!(await this.canWriteTarget())) return;
     const newModel = await this.updateModel({
       queries: [],
       status: "failed",
@@ -1070,29 +1168,29 @@ export abstract class QueryRunner<
       onSuccess?: (rows: Rows) => void | Promise<void>;
     },
   ): Promise<void> {
+    if (!(await this.touchRunLockHeartbeat())) {
+      this.standDown("query runner lease reclaimed");
+      return;
+    }
     // Update heartbeat for the query once every 30 seconds
     // This lets us detect orphaned queries where the thread died
     const timer = setInterval(() => {
       updateQuery(this.context, doc, { heartbeat: new Date() }).catch((e) => {
         logger.error(e);
       });
-    }, 30000);
+    }, 30_000);
 
     // Run the query in the background
     logger.debug(`Start executing query in background: ${doc.id}`);
     // Conditional fence: bail if a concurrent cancel marked the doc failed
     // between scheduling and here — otherwise we'd fire a fresh external
     // job for a cancelled query.
-    const stillPending = await updateQueryIfPending(this.context, doc, {
-      status: "running",
-      heartbeat: new Date(),
-      startedAt: new Date(),
-    });
-    if (!stillPending) {
+    const started = await startQueryIfQueued(this.context, doc);
+    if (!started) {
       clearInterval(timer);
       logger.debug(
         { queryId: doc.id, modelId: this.model.id },
-        "Skipping execution — query no longer pending (likely cancelled)",
+        "Skipping execution. Query not queued (likely cancelled or already started by another driver)",
       );
       this.onQueryFinish();
       return;
@@ -1126,13 +1224,18 @@ export abstract class QueryRunner<
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
         logger.debug("Query succeeded: " + doc.id);
-        await updateQuery(this.context, doc, {
+        const updated = await updateQueryIfRunning(this.context, doc, {
           finishedAt: new Date(),
           status: "succeeded",
           rawResult: rows,
           result: process ? process(rows) : rows,
           statistics: statistics,
         });
+        if (!updated) {
+          logger.debug(`Query ${doc.id} success not written: already terminal`);
+          this.onQueryFinish();
+          return;
+        }
         if (onSuccess) {
           await onSuccess(rows);
         }
@@ -1254,10 +1357,7 @@ export abstract class QueryRunner<
 
     // Create a new query in mongo
     logger.debug("Creating query for: " + name);
-    const concurrencyLimitReached = await this.concurrencyLimitReached();
     const dependenciesComplete = dependencies.length === 0;
-    const readyToRun =
-      dependenciesComplete && !runAtEnd && !concurrencyLimitReached;
     const doc = await createNewQuery({
       query,
       queryType,
@@ -1266,7 +1366,6 @@ export abstract class QueryRunner<
       organization: this.integration.context.org.id,
       language: this.integration.getSourceProperties().queryLanguage,
       dependencies: dependencies,
-      running: readyToRun,
       runAtEnd: runAtEnd,
     });
 
@@ -1282,14 +1381,9 @@ export abstract class QueryRunner<
         | ((rows: RowsType) => void | Promise<void>)
         | undefined,
     };
-    if (readyToRun) {
-      this.executeQuery(doc, { run, process, onFailure, onSuccess });
-    } else if (dependenciesComplete && !runAtEnd) {
-      this.runCallbacks[doc.id] = runCallbacksEntry;
+    this.runCallbacks[doc.id] = runCallbacksEntry;
+    if (dependenciesComplete && !runAtEnd) {
       this.queueQueryExecution(doc);
-    } else {
-      // save callback methods for execution later
-      this.runCallbacks[doc.id] = runCallbacksEntry;
     }
 
     return {

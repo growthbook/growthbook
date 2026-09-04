@@ -1,3 +1,4 @@
+import { QueryRunnerRunTargetType } from "shared/validators";
 import {
   ExperimentDimension,
   DimensionSlicesQueryResponseRows,
@@ -22,6 +23,8 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
   DimensionSlicesParams,
   DimensionSlicesResult[]
 > {
+  readonly targetType: QueryRunnerRunTargetType = "dimensionSlices";
+
   checkPermissions(): boolean {
     return this.context.permissions.canRunHealthQueries(
       this.integration.datasource,

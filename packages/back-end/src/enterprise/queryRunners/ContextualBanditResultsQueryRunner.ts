@@ -5,6 +5,7 @@ import {
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
   queryHasContextualBanditSrmColumns,
+  QueryRunnerRunTargetType,
 } from "shared/validators";
 import { buildUnitsQuerySettingsFromCb } from "shared/util";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
@@ -62,6 +63,8 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
   private variationNames: string[] = [];
   private cachedCb?: ContextualBanditInterface;
   private cachedMetricMap?: Map<string, ExperimentMetricInterface>;
+
+  readonly targetType: QueryRunnerRunTargetType = "contextualBanditSnapshot";
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(

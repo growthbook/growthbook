@@ -2,6 +2,7 @@ import { ProductAnalyticsExplorationParams } from "shared/types/integrations";
 import {
   ProductAnalyticsExploration,
   ProductAnalyticsResult,
+  QueryRunnerRunTargetType,
 } from "shared/validators";
 import { FactMetricInterface, FactTableMap } from "shared/types/fact-table";
 import { Queries, QueryStatus } from "shared/types/query";
@@ -17,6 +18,8 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
 > {
   private factTableMap?: FactTableMap;
   private factMetricMap?: Map<string, FactMetricInterface>;
+
+  readonly targetType: QueryRunnerRunTargetType = "productAnalyticsExploration";
 
   checkPermissions(): boolean {
     const datasetType = this.model.config?.dataset?.type;

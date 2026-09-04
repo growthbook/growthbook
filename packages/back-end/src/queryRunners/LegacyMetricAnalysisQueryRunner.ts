@@ -1,4 +1,5 @@
 import { getValidDateOffsetByUTC } from "shared/dates";
+import { QueryRunnerRunTargetType } from "shared/validators";
 import { meanVarianceFromSums } from "shared/util";
 import {
   MetricValueParams,
@@ -15,6 +16,8 @@ export class LegacyMetricAnalysisQueryRunner extends QueryRunner<
   MetricValueParams,
   LegacyMetricAnalysis
 > {
+  readonly targetType: QueryRunnerRunTargetType = "metric";
+
   checkPermissions(): boolean {
     return this.context.permissions.canRunMetricQueries(
       this.integration.datasource,

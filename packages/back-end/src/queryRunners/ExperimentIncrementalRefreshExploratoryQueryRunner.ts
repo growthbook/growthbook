@@ -1,3 +1,4 @@
+import { QueryRunnerRunTargetType } from "shared/validators";
 import {
   ExperimentMetricInterface,
   isFactMetric,
@@ -400,13 +401,15 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
+  readonly targetType: QueryRunnerRunTargetType = "experimentSnapshot";
+
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
     );
   }
 
-  protected override onHeartbeat(): void {
+  protected override async onHeartbeat(): Promise<void> {
     this.context.models.incrementalRefresh
       .touchLockHeartbeat(this.model.experiment, this.model.id)
       .catch((e) =>
