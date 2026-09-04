@@ -427,7 +427,7 @@ m.player.subtitles = playerSettings.subtitles
 
 ## Experimentation (A/B Testing)
 
-There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
+In order for a user to enter a feature flag experiment, you need to evaluate the feature in your application (for example with `getFeatureValue`). That is also when `trackingCallback` runs so you can record the exposure in your analytics. If they are not included, you still get a value and `trackingCallback` does not run.
 
 ```js
 result = m.global.gb.getFeatureValue("pricing-experiment")
