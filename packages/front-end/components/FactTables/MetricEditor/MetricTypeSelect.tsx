@@ -1,3 +1,4 @@
+import { Flex } from "@radix-ui/themes";
 import { Select, SelectGroup, SelectItem, SelectLabel } from "@/ui/Select";
 import Text from "@/ui/Text";
 import { FormMetricType } from "@/components/FactTables/MetricEditor/metricFormTranslation";
@@ -75,34 +76,50 @@ export default function MetricTypeSelect({
   hasQuantileMetrics: boolean;
   quantileAvailableForDatasource: boolean;
 }) {
-  const disabled: Partial<Record<FormMetricType, boolean>> = {
-    retention: !hasRetentionMetrics,
-    funnel: !hasFunnelMetrics,
-    quantile: !hasQuantileMetrics || !quantileAvailableForDatasource,
+  // Quantile can be disabled for two different reasons - a commercial gate
+  // or a datasource that can't run it - and they need different copy, since
+  // "(premium)" is factually wrong (and points at the wrong upgrade path)
+  // for a customer who already has the feature but is on the wrong warehouse.
+  const disabledSuffix: Partial<Record<FormMetricType, string>> = {
+    retention: !hasRetentionMetrics ? " (premium)" : undefined,
+    funnel: !hasFunnelMetrics ? " (premium)" : undefined,
+    quantile: !hasQuantileMetrics
+      ? " (premium)"
+      : !quantileAvailableForDatasource
+        ? " (not available for this data source)"
+        : undefined,
   };
 
   return (
-    <Select
-      label="What are you measuring?"
-      value={value}
-      setValue={(v) => onChange(v as FormMetricType)}
-    >
-      {GROUPS.map((group) => (
-        <SelectGroup key={group.label}>
-          <SelectLabel>{group.label}</SelectLabel>
-          {group.types.map((type) => (
-            <SelectItem key={type} value={type} disabled={disabled[type]}>
-              <Text weight="semibold" as="div">
+    <Flex direction="column" gap="1">
+      <Select
+        label="What are you measuring?"
+        value={value}
+        setValue={(v) => onChange(v as FormMetricType)}
+      >
+        {GROUPS.map((group) => (
+          <SelectGroup key={group.label}>
+            <SelectLabel>{group.label}</SelectLabel>
+            {group.types.map((type) => (
+              <SelectItem
+                key={type}
+                value={type}
+                disabled={!!disabledSuffix[type]}
+              >
                 {TYPE_LABELS[type]}
-                {disabled[type] ? " (premium)" : ""}
-              </Text>
-              <Text size="sm" color="text-mid" as="div">
-                {TYPE_DESCRIPTIONS[type]}
-              </Text>
-            </SelectItem>
-          ))}
-        </SelectGroup>
-      ))}
-    </Select>
+                {disabledSuffix[type] || ""}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        ))}
+      </Select>
+      {/* One description line below the selected type (spec) - keeping
+          SelectItem's children to a plain label avoids Select mirroring a
+          multi-line description into the closed trigger, where Radix has no
+          room for it and it would overflow or truncate. */}
+      <Text size="sm" color="text-mid" as="div">
+        {TYPE_DESCRIPTIONS[value]}
+      </Text>
+    </Flex>
   );
 }
