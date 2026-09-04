@@ -12,6 +12,11 @@ type RadixProps = Omit<RadixLinkProps, "color" | "href" | "size"> & {
   type?: "submit" | "reset" | "button";
   color?: RadixLinkProps["color"] | "dark";
   size?: Size<"sm" | "md" | "lg" | "xl">;
+  // Mirrors the naming of LinkButton's own `external` prop, but actually
+  // bakes in `rel="noopener noreferrer"` too — LinkButton's only sets
+  // `target`. When true, opens in a new tab with the safe rel attributes;
+  // when omitted, behavior is unchanged for existing callers.
+  external?: boolean;
 };
 
 type NextProps = Omit<
@@ -35,7 +40,16 @@ type Props = RadixProps & ConditionalProps;
 
 const Link = forwardRef<HTMLAnchorElement, Props>(
   (
-    { children, className, color, href, size, type = "button", ...props },
+    {
+      children,
+      className,
+      color,
+      href,
+      size,
+      type = "button",
+      external,
+      ...props
+    },
     ref: ForwardedRef<HTMLAnchorElement>,
   ) => {
     const isCustomDarkColor = color === "dark";
@@ -56,7 +70,9 @@ const Link = forwardRef<HTMLAnchorElement, Props>(
         legacyBehavior,
         ...rest
       } = props as NextProps;
-      radixProps = rest;
+      radixProps = external
+        ? { ...rest, target: "_blank", rel: "noopener noreferrer" }
+        : rest;
 
       childrenWrapper = (
         <NextLink

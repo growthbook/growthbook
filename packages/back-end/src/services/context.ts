@@ -78,6 +78,7 @@ import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/ExperimentSnapshotAnalysisChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
+import { SetupRunModel } from "back-end/src/models/SetupRunModel";
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
@@ -153,6 +154,7 @@ export type ModelName =
   | "oauthGrants"
   | "oauthRefreshTokens"
   | "rampSchedules"
+  | "setupRuns"
   | "rampScheduleTemplates"
   | "aiConversations"
   | "learnings"
@@ -209,6 +211,7 @@ export const modelClasses = {
   oauthGrants: OAuthGrantModel,
   oauthRefreshTokens: OAuthRefreshTokenModel,
   rampSchedules: RampScheduleModel,
+  setupRuns: SetupRunModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
   learnings: LearningModel,
@@ -368,6 +371,7 @@ export class ReqContextClass {
       oauthGrants: new OAuthGrantModel(this),
       oauthRefreshTokens: new OAuthRefreshTokenModel(this),
       rampSchedules: new RampScheduleModel(this),
+      setupRuns: new SetupRunModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
       learnings: new LearningModel(this),

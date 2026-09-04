@@ -3,6 +3,7 @@ node_modules
 *.log
 .idea
 .env.local
+.env.local.*
 dist
 .next
 out

@@ -1,0 +1,163 @@
+import { z } from "zod";
+import {
+  setupRunValidator,
+  apiUpdateSetupRunBody,
+  SetupRunArtifact,
+  ApiSetupRun,
+} from "shared/validators";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  setupRunApiSpec,
+  appendSetupRunArtifactEndpoint,
+} from "back-end/src/api/specs/setup-run.spec";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { MakeModelClass } from "./BaseModel";
+
+const BaseClass = MakeModelClass({
+  schema: setupRunValidator,
+  collectionName: "setupruns",
+  idPrefix: "setr_",
+  auditLog: {
+    entity: "setupRun",
+    createEvent: "setupRun.create",
+    updateEvent: "setupRun.update",
+    deleteEvent: "setupRun.delete",
+  },
+  globallyUniquePrimaryKeys: false,
+  defaultValues: {
+    source: "cli-wizard",
+    agent: null,
+    createdBy: null,
+    metadata: {},
+    artifacts: [],
+    checks: [],
+    outcome: null,
+    failureReason: null,
+    dateCompleted: null,
+  },
+  apiConfig: {
+    modelKey: "setupRuns",
+    openApiSpec: setupRunApiSpec,
+    customHandlers: [
+      defineCustomApiHandler({
+        ...appendSetupRunArtifactEndpoint,
+        reqHandler: async (req): Promise<ApiSetupRun> =>
+          req.context.models.setupRuns.appendArtifactsApi(req.params.id, [
+            req.body,
+          ]),
+      }),
+    ],
+  },
+});
+
+type SetupRunDoc = z.infer<typeof setupRunValidator>;
+
+export class SetupRunModel extends BaseClass {
+  // A record of the team's own onboarding activity, like an audit entry: readable
+  // by any member, creatable by anyone who could have run the wizard.
+  protected canRead(): boolean {
+    return true;
+  }
+
+  protected canCreate(): boolean {
+    return true;
+  }
+
+  // Only the developer who ran the wizard, or an org admin, may rewrite a run's
+  // checks and outcome. Runs created with an org-level key carry no owner and
+  // stay open to any member, as before.
+  protected canUpdate(existing: SetupRunDoc): boolean {
+    if (this.context.permissions.canManageOrgSettings()) return true;
+    const owner = existing.createdBy ?? null;
+    return owner === null || owner === this.context.userId;
+  }
+
+  protected canDelete(): boolean {
+    return this.context.permissions.canManageOrgSettings();
+  }
+
+  // Stamped from the session, never accepted from the caller, so "my last run" is
+  // trustworthy and a client cannot attribute a run to someone else.
+  protected async processApiCreateBody(rawBody: unknown) {
+    return {
+      ...(rawBody as object),
+      createdBy: this.context.userId || null,
+    } as never;
+  }
+
+  // A run stops being in-progress the moment an outcome is recorded.
+  protected async processApiUpdateBody(rawBody: unknown) {
+    const body = rawBody as z.infer<typeof apiUpdateSetupRunBody>;
+    return {
+      ...body,
+      ...(body.outcome ? { dateCompleted: new Date() } : {}),
+    } as never;
+  }
+
+  protected toApiInterface(doc: SetupRunDoc): ApiSetupRun {
+    return {
+      id: doc.id,
+      dateCreated: doc.dateCreated.toISOString(),
+      dateUpdated: doc.dateUpdated.toISOString(),
+      source: doc.source,
+      agent: doc.agent,
+      createdBy: doc.createdBy,
+      // Documents written before metadata existed have no such field, and the API
+      // declares it required — returning undefined would break every reader that
+      // trusts the type rather than re-checking it.
+      metadata: doc.metadata ?? {},
+      artifacts: doc.artifacts.map((a) => ({
+        ...a,
+        dateCreated: a.dateCreated.toISOString(),
+      })),
+      checks: doc.checks,
+      outcome: doc.outcome,
+      failureReason: doc.failureReason,
+      dateCompleted: doc.dateCompleted ? doc.dateCompleted.toISOString() : null,
+      // Deliberately not under /setup: _app.tsx derives <main class="main setup">
+      // from the first path segment, and main.setup zeroes the padding that clears
+      // the sidebar — correct for the full-screen setup wizard, wrong here.
+      // The page looks the run up in the browser's current organization, which need not be
+      // the one the run was created in when a user belongs to several. Name it in the URL.
+      url: `${APP_ORIGIN}/setup-runs/${doc.id}?org=${encodeURIComponent(doc.organization)}`,
+    };
+  }
+
+  // toApiInterface is protected; the internal router needs a public way in.
+  public toApi(doc: SetupRunDoc): ApiSetupRun {
+    return this.toApiInterface(doc);
+  }
+
+  public async appendArtifactsApi(
+    id: string,
+    incoming: Omit<SetupRunArtifact, "dateCreated">[],
+  ): Promise<ApiSetupRun> {
+    return this.toApiInterface(await this.appendArtifacts(id, incoming));
+  }
+
+  // Idempotent on (kind, id) so a retried append, or the reconcile at the end of a
+  // run resending one that already landed, does not produce a duplicate row. The
+  // compare-and-swap on the array keeps two overlapping appends (an agent running
+  // its tool calls in parallel) from each storing a copy that lacks the other's.
+  public async appendArtifacts(
+    id: string,
+    incoming: Omit<SetupRunArtifact, "dateCreated">[],
+  ) {
+    const run = await this.updateWithCas(id, ["artifacts"], (existing) => {
+      const artifacts = [...existing.artifacts];
+      for (const a of incoming) {
+        const index = artifacts.findIndex(
+          (x) => x.kind === a.kind && x.id === a.id,
+        );
+        if (index >= 0) {
+          artifacts[index] = { ...artifacts[index], ...a };
+        } else {
+          artifacts.push({ ...a, dateCreated: new Date() });
+        }
+      }
+      return { artifacts };
+    });
+    if (!run) throw new Error(`Setup Run ${id} not found`);
+    return run;
+  }
+}

@@ -1064,6 +1064,16 @@
                   "api/Holdouts/operation/startHoldoutAnalysis",
                   "api/Holdouts/operation/stopHoldout"
                 ]
+              },
+              {
+                "group": "Setup Runs",
+                "pages": [
+                  "api/SetupRuns/operation/listSetupRuns",
+                  "api/SetupRuns/operation/createSetupRun",
+                  "api/SetupRuns/operation/getSetupRun",
+                  "api/SetupRuns/operation/updateSetupRun",
+                  "api/SetupRuns/operation/appendSetupRunArtifact"
+                ]
               }
             ]
           },
@@ -1171,6 +1181,7 @@
               "api/SdkConnection_model",
               "api/Segment_model",
               "api/Settings_model",
+              "api/SetupRun_model",
               "api/Targeting Rule_model",
               "api/Team_model",
               "api/VisualChange_model",

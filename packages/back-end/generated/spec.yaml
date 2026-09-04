@@ -413,6 +413,9 @@ tags:
     description: >-
       Hold a share of traffic out of all experiments to measure their combined
       effect.
+  - name: SetupRuns
+    x-displayName: Setup Runs
+    description: ''
   - name: AggregatedFactTable_model
     x-displayName: Aggregated Fact Table
     description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />
@@ -760,6 +763,9 @@ tags:
   - name: Settings_model
     x-displayName: Settings
     description: <SchemaDefinition schemaRef="#/components/schemas/Settings" />
+  - name: SetupRun_model
+    x-displayName: Setup Run
+    description: <SchemaDefinition schemaRef="#/components/schemas/SetupRun" />
   - name: Targeting Rule_model
     x-displayName: Targeting Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/Targeting Rule" />
@@ -50352,6 +50358,332 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/holdouts/{id}/stop' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/setup-runs:
+    post:
+      operationId: createSetupRun
+      summary: Create a single setupRun
+      tags:
+        - SetupRuns
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              description: Open a setup run. Everything it creates is appended afterwards
+              type: object
+              properties:
+                source:
+                  type: string
+                  enum:
+                    - cli-wizard
+                    - skill
+                agent:
+                  type: string
+                  maxLength: 50
+                metadata:
+                  type: object
+                  propertyNames:
+                    type: string
+                    maxLength: 60
+                  additionalProperties:
+                    anyOf:
+                      - type: string
+                        maxLength: 500
+                      - type: number
+                      - type: boolean
+                      - type: 'null'
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  setupRun:
+                    $ref: '#/components/schemas/SetupRun'
+                required:
+                  - setupRun
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/setup-runs' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listSetupRuns
+      summary: Get all setupRuns
+      tags:
+        - SetupRuns
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  setupRuns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SetupRun'
+                required:
+                  - setupRuns
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/setup-runs' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/setup-runs/{id}:
+    get:
+      operationId: getSetupRun
+      summary: Get a single setupRun
+      tags:
+        - SetupRuns
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  setupRun:
+                    $ref: '#/components/schemas/SetupRun'
+                required:
+                  - setupRun
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/setup-runs/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: updateSetupRun
+      summary: Update a single setupRun
+      tags:
+        - SetupRuns
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              description: Record the outcome of a setup run
+              type: object
+              properties:
+                metadata:
+                  type: object
+                  propertyNames:
+                    type: string
+                    maxLength: 60
+                  additionalProperties:
+                    anyOf:
+                      - type: string
+                        maxLength: 500
+                      - type: number
+                      - type: boolean
+                      - type: 'null'
+                checks:
+                  maxItems: 50
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        maxLength: 100
+                      ok:
+                        type: boolean
+                      required:
+                        type: boolean
+                    required:
+                      - name
+                      - ok
+                      - required
+                    additionalProperties: false
+                outcome:
+                  type: string
+                  enum:
+                    - completed
+                    - partial
+                    - failed
+                failureReason:
+                  type: string
+                  maxLength: 1000
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  setupRun:
+                    $ref: '#/components/schemas/SetupRun'
+                required:
+                  - setupRun
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/setup-runs/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/setup-runs/{id}/artifacts:
+    post:
+      operationId: appendSetupRunArtifact
+      summary: Record something a setup run created
+      tags:
+        - SetupRuns
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              description: Record something the run created
+              type: object
+              properties:
+                kind:
+                  type: string
+                  enum:
+                    - sdk-connection
+                    - feature
+                    - experiment
+                    - attribute
+                    - metric
+                    - fact-table
+                id:
+                  description: Id, or key for Feature Flags
+                  type: string
+                  maxLength: 200
+                label:
+                  type: string
+                  maxLength: 200
+                by:
+                  type: string
+                  enum:
+                    - developer
+                    - growthbook
+                detail:
+                  description: Evidence or summary, e.g. 'boolean, off in dev'
+                  anyOf:
+                    - type: string
+                      maxLength: 500
+                    - type: 'null'
+              required:
+                - kind
+                - id
+                - label
+                - by
+                - detail
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                id: SetupRun
+                type: object
+                properties:
+                  id:
+                    type: string
+                  dateCreated:
+                    type: string
+                    format: date-time
+                  dateUpdated:
+                    type: string
+                    format: date-time
+                  source:
+                    type: string
+                    enum:
+                      - cli-wizard
+                      - skill
+                  agent:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  createdBy:
+                    description: Id of the user who ran the wizard
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  metadata:
+                    $ref: '#/components/schemas/metadata'
+                  artifacts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/artifacts'
+                  checks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/checks'
+                  outcome:
+                    anyOf:
+                      - type: string
+                        enum:
+                          - completed
+                          - partial
+                          - failed
+                      - type: 'null'
+                  failureReason:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  dateCompleted:
+                    anyOf:
+                      - type: string
+                        format: date-time
+                      - type: 'null'
+                  url:
+                    description: >-
+                      Absolute URL of the run's page in the app. Built
+                      server-side so callers never guess the app origin
+                    type: string
+                required:
+                  - id
+                  - dateCreated
+                  - dateUpdated
+                  - source
+                  - agent
+                  - createdBy
+                  - metadata
+                  - artifacts
+                  - checks
+                  - outcome
+                  - failureReason
+                  - dateCompleted
+                  - url
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/setup-runs/{id}/artifacts' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
     limit:
@@ -66410,6 +66742,139 @@ components:
         - linkedFeatures
         - linkedExperiments
       additionalProperties: false
+    SetupRun:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        source:
+          type: string
+          enum:
+            - cli-wizard
+            - skill
+        agent:
+          anyOf:
+            - type: string
+            - type: 'null'
+        createdBy:
+          description: Id of the user who ran the wizard
+          anyOf:
+            - type: string
+            - type: 'null'
+        metadata:
+          description: >-
+            What the wizard learned about the environment it ran in — language,
+            packageManager, framework, versions. Open by design; do not rely on
+            any single key being present
+          type: object
+          propertyNames:
+            type: string
+            maxLength: 60
+          additionalProperties:
+            anyOf:
+              - type: string
+                maxLength: 500
+              - type: number
+              - type: boolean
+              - type: 'null'
+        artifacts:
+          type: array
+          items:
+            type: object
+            properties:
+              kind:
+                type: string
+                enum:
+                  - sdk-connection
+                  - feature
+                  - experiment
+                  - attribute
+                  - metric
+                  - fact-table
+              id:
+                type: string
+              label:
+                type: string
+              by:
+                type: string
+                enum:
+                  - developer
+                  - growthbook
+              detail:
+                anyOf:
+                  - type: string
+                  - type: 'null'
+              dateCreated:
+                type: string
+                format: date-time
+            required:
+              - kind
+              - id
+              - label
+              - by
+              - detail
+              - dateCreated
+            additionalProperties: false
+        checks:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                maxLength: 100
+              ok:
+                type: boolean
+              required:
+                type: boolean
+            required:
+              - name
+              - ok
+              - required
+            additionalProperties: false
+        outcome:
+          anyOf:
+            - type: string
+              enum:
+                - completed
+                - partial
+                - failed
+            - type: 'null'
+        failureReason:
+          anyOf:
+            - type: string
+            - type: 'null'
+        dateCompleted:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        url:
+          description: >-
+            Absolute URL of the run's page in the app. Built server-side so
+            callers never guess the app origin
+          type: string
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - source
+        - agent
+        - createdBy
+        - metadata
+        - artifacts
+        - checks
+        - outcome
+        - failureReason
+        - dateCompleted
+        - url
+      additionalProperties: false
     ExperimentSnapshot:
       type: object
       properties:
@@ -70559,6 +71024,73 @@ components:
         - source
         - similarity
       additionalProperties: false
+    metadata:
+      description: >-
+        What the wizard learned about the environment it ran in — language,
+        packageManager, framework, versions. Open by design; do not rely on any
+        single key being present
+      type: object
+      propertyNames:
+        type: string
+        maxLength: 60
+      additionalProperties:
+        anyOf:
+          - type: string
+            maxLength: 500
+          - type: number
+          - type: boolean
+          - type: 'null'
+    artifacts:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+            - sdk-connection
+            - feature
+            - experiment
+            - attribute
+            - metric
+            - fact-table
+        id:
+          type: string
+        label:
+          type: string
+        by:
+          type: string
+          enum:
+            - developer
+            - growthbook
+        detail:
+          anyOf:
+            - type: string
+            - type: 'null'
+        dateCreated:
+          type: string
+          format: date-time
+      required:
+        - kind
+        - id
+        - label
+        - by
+        - detail
+        - dateCreated
+      additionalProperties: false
+    checks:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        ok:
+          type: boolean
+        required:
+          type: boolean
+      required:
+        - name
+        - ok
+        - required
+      additionalProperties: false
   securitySchemes:
     bearerAuth:
       type: http
@@ -70636,6 +71168,7 @@ x-tagGroups:
       - RampScheduleTemplates
       - Learnings
       - Holdouts
+      - SetupRuns
   - name: Models
     tags:
       - AggregatedFactTable_model
@@ -70739,6 +71272,7 @@ x-tagGroups:
       - SdkConnection_model
       - Segment_model
       - Settings_model
+      - SetupRun_model
       - Targeting Rule_model
       - Team_model
       - VisualChange_model
