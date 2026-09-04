@@ -111,12 +111,13 @@ export default function ChangeImplementationTypeModal({
       )}
       {removesManagedFlag && (
         <Callout status="warning" mt="3">
-          <Text as="p" mb="2">
+          <Text as="p" mb="3">
             This deletes the managed Feature Flag <code>{managedKey}</code> and
             its pending values.
           </Text>
           <Checkbox
             label="Delete the Feature Flag"
+            weight="regular"
             value={acknowledged}
             setValue={(v) => setAcknowledged(!!v)}
           />
