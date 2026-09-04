@@ -1271,14 +1271,6 @@ export abstract class BaseModel<
       .map(([k]) => k) as (keyof z.infer<T>)[];
     updates = pick(updates, updatedFields);
 
-    // If no updates are needed, return immediately — UNLESS the write is
-    // guarded. A guarded write is a CAS fence as much as a mutation: skipping
-    // it would confirm "the doc I read is still current" without checking it
-    // or advancing the token. The fence writes only the advanced stamp.
-    if (!updatedFields.length && !options?.guard) {
-      return doc;
-    }
-
     // Make sure the updates don't include any fields that shouldn't be updated
     if (
       ["id", "uid", "organization", "dateCreated", "dateUpdated"].some(
@@ -1328,6 +1320,11 @@ export abstract class BaseModel<
       throw new PermissionError(
         "You do not have access to update this resource",
       );
+    }
+
+    // A guarded write is a CAS fence even when no fields changed.
+    if (!updatedFields.length && !options?.guard) {
+      return doc;
     }
 
     await this.validateProjectFields(updates as Partial<z.infer<T>>);
