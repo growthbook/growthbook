@@ -23,6 +23,10 @@ import ProjectBadges from "@/components/ProjectBadges";
 import Modal from "@/components/Modal";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
+import DataList from "@/ui/DataList";
+import { useCustomFields } from "@/hooks/useCustomFields";
+import { filterCustomFieldsForSectionAndProjects } from "@/services/customFields";
+import { customFieldDataListItems } from "@/components/CustomFields/renderCustomFieldValue";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import SortedTags from "@/components/Tags/SortedTags";
 import {
@@ -67,7 +71,19 @@ export default function AttributeDetailPage() {
   const referencesLoading =
     savedGroupsLoading || featuresLoading || experimentsLoading;
   const { apiCall } = useAuth();
-  const { refreshOrganization } = useUser();
+  const { refreshOrganization, hasCommercialFeature } = useUser();
+  const allCustomFields = useCustomFields();
+  const attributeCustomFields = useMemo(
+    () =>
+      hasCommercialFeature("custom-metadata")
+        ? (filterCustomFieldsForSectionAndProjects(
+            allCustomFields,
+            "attribute",
+            attribute?.projects,
+          ) ?? [])
+        : [],
+    [allCustomFields, hasCommercialFeature, attribute?.projects],
+  );
   const permissionsUtil = usePermissionsUtil();
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -393,6 +409,8 @@ export default function AttributeDetailPage() {
                   if (payload.enum === null) delete payload.enum;
                   if (payload.disableEqualityConditions === null)
                     delete payload.disableEqualityConditions;
+                  if (payload.customFields === null)
+                    delete payload.customFields;
                   await apiCall("/attribute", {
                     method: "PUT",
                     body: JSON.stringify(payload),
@@ -409,6 +427,23 @@ export default function AttributeDetailPage() {
             </div>
           </Frame>
         </Box>
+
+        {attributeCustomFields.length > 0 && (
+          <Box mb="4">
+            <Frame>
+              <Heading as="h4" size="sm" mb="3">
+                Additional Fields
+              </Heading>
+              <DataList
+                data={customFieldDataListItems(
+                  attributeCustomFields,
+                  attribute.customFields,
+                )}
+                maxColumns={3}
+              />
+            </Frame>
+          </Box>
+        )}
       </div>
     </>
   );
