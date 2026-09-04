@@ -97,6 +97,8 @@
 | **[config.revision.publishScheduleChanged](#config-revision-publishschedulechanged)**                         | Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change.                                                                                                                                                                                                                  |
 | **[config.revision.publishFailed](#config-revision-publishfailed)**                                           | Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.                                                                                                                      |
 | **[user.login](#user-login)**                                                                                 | Triggered when a user logs in                                                                                                                                                                                                                                                                                                 |
+| **[apiKey.expiring](#apikey-expiring)**                                                                       | Triggered once when an API key or personal access token is within a week of expiring                                                                                                                                                                                                                                          |
+| **[apiKey.expired](#apikey-expired)**                                                                         | Triggered once when an API key or personal access token passes its expiration date                                                                                                                                                                                                                                            |
 
 ### feature.created
 
@@ -11233,6 +11235,96 @@ Triggered when a user logs in
             userAgent: string;
             os: string;
             device: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+
+</Accordion>
+
+### apiKey.expiring
+
+Triggered once when an API key or personal access token is within a week of expiring
+
+<Accordion title="Payload">
+
+```typescript
+{
+    event: "apiKey.expiring";
+    object: "apiKey";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            description?: string | undefined;
+            kind: "personalAccessToken" | "secretApiKey";
+            expiresAt: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+
+</Accordion>
+
+### apiKey.expired
+
+Triggered once when an API key or personal access token passes its expiration date
+
+<Accordion title="Payload">
+
+```typescript
+{
+    event: "apiKey.expired";
+    object: "apiKey";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            description?: string | undefined;
+            kind: "personalAccessToken" | "secretApiKey";
+            expiresAt: string;
         };
     };
     user: {

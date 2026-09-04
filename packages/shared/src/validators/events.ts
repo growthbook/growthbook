@@ -132,6 +132,18 @@ export const eventData = <T extends z.ZodTypeAny>(data: T) =>
 
 const webhookTestEventSchema = z.object({ webhookId: z.string() }).strict();
 
+// Deliberately omits the token value and the owning user's identity: these are
+// delivered to customer-configured webhooks, so they carry only what is needed
+// to find the key in the UI.
+const apiKeyExpirationEventSchema = z
+  .object({
+    id: z.string(),
+    description: z.string().optional(),
+    kind: z.enum(["personalAccessToken", "secretApiKey"]),
+    expiresAt: z.string(),
+  })
+  .strict();
+
 export const notificationEvents = {
   feature: {
     created: {
@@ -578,6 +590,20 @@ export const notificationEvents = {
     login: {
       schema: userLoginInterface,
       description: "Triggered when a user logs in",
+      isDiff: false,
+    },
+  },
+  apiKey: {
+    expiring: {
+      schema: apiKeyExpirationEventSchema,
+      description:
+        "Triggered once when an API key or personal access token is within a week of expiring",
+      isDiff: false,
+    },
+    expired: {
+      schema: apiKeyExpirationEventSchema,
+      description:
+        "Triggered once when an API key or personal access token passes its expiration date",
       isDiff: false,
     },
   },

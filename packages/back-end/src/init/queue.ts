@@ -28,6 +28,7 @@ import updateAggregatedFactTablesJob from "back-end/src/jobs/updateAggregatedFac
 import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
 import addSyncManagedWarehouseJsonErgonomicsJob from "back-end/src/jobs/syncManagedWarehouseJsonErgonomics";
+import addApiKeyExpirationJob from "back-end/src/jobs/apiKeyExpiration";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
 
 export async function queueInit() {
@@ -53,6 +54,7 @@ export async function queueInit() {
   addHoldoutUpdateJob(agenda);
   addExperimentStatusUpdateJob(agenda);
   updateAutoSlicesJob(agenda);
+  addApiKeyExpirationJob(agenda);
   updateAggregatedFactTablesJob(agenda);
   addRampScheduleJob(agenda);
   addScheduledPublishJob(agenda);
