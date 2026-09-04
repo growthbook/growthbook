@@ -13,6 +13,8 @@ interface ApiKeyRowMenuProps {
   onDelete: (keyId: string | undefined) => () => Promise<void>;
   onEdit?: (key: ApiKeyInterface) => void;
   onToggleClick?: (key: ApiKeyInterface) => void;
+  /** Keeps Enable/Disable visible but inert, with this as the explanation. */
+  toggleLockedReason?: string;
   onShowAuditLog?: (key: ApiKeyInterface) => void;
 }
 
@@ -22,6 +24,7 @@ export default function ApiKeyRowMenu({
   onDelete,
   onEdit,
   onToggleClick,
+  toggleLockedReason,
   onShowAuditLog,
 }: ApiKeyRowMenuProps) {
   return (
@@ -49,7 +52,11 @@ export default function ApiKeyRowMenu({
           </DropdownMenuItem>
         )}
         {onToggleClick && (
-          <DropdownMenuItem onClick={() => onToggleClick(apiKey)}>
+          <DropdownMenuItem
+            disabled={!!toggleLockedReason}
+            tooltip={toggleLockedReason}
+            onClick={() => onToggleClick(apiKey)}
+          >
             {apiKey.disabled ? "Enable key" : "Disable key"}
           </DropdownMenuItem>
         )}

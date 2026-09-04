@@ -46,7 +46,12 @@ export class ApiKeyModel extends BaseClass {
   }
   protected canRead(apiKey: ApiKeyInterface): boolean {
     if (apiKey.userId) {
-      return apiKey.userId === this.context.userId;
+      // Admins need an inventory of members' PATs to revoke a compromised one.
+      // `sanitize` still strips the token value, and reveal stays owner-only.
+      return (
+        apiKey.userId === this.context.userId ||
+        this.context.permissions.canDeleteApiKey()
+      );
     } else {
       return this.context.permissions.canReadSingleProjectResource(
         apiKey.project,
@@ -60,8 +65,25 @@ export class ApiKeyModel extends BaseClass {
     // API keys are immutable except for toggling `disabled`.
     // Anything else (key value, role, etc.) must never be edited.
     // `lastUsed` is written by auth middleware via the dangerous bypass and never hits this path.
+    const editable = new Set(["disabled", "disabledBy"]);
     const keys = Object.keys(updates);
-    if (keys.length !== 1 || keys[0] !== "disabled") return false;
+    if (!keys.length || keys.some((k) => !editable.has(k))) return false;
+    if (apiKey.userId) {
+      // Admins can revoke another member's PAT without being able to delete it —
+      // the disabled doc keeps `lastUsed` ticking so they can see continued use.
+      if (apiKey.userId !== this.context.userId) {
+        return this.context.permissions.canDeleteApiKey();
+      }
+      // The owner can undo their own disable but not an admin's. Any write is
+      // blocked, not just enabling, or re-disabling would take over `disabledBy`.
+      if (
+        apiKey.disabled &&
+        apiKey.disabledBy &&
+        apiKey.disabledBy !== this.context.userId
+      ) {
+        return this.context.permissions.canDeleteApiKey();
+      }
+    }
     return this.canDelete(apiKey);
   }
   protected canDelete(apiKey: ApiKeyInterface): boolean {
@@ -98,11 +120,14 @@ export class ApiKeyModel extends BaseClass {
     return {
       id: doc.id,
       description: doc.description,
+      // Records whose PAT an admin revoked; absent for org keys.
+      userId: doc.userId,
       role: doc.role,
       limitAccessByEnvironment: doc.limitAccessByEnvironment,
       environments: doc.environments,
       projectRoles: doc.projectRoles,
       disabled: doc.disabled,
+      disabledBy: doc.disabledBy,
     };
   }
 
@@ -301,7 +326,10 @@ export class ApiKeyModel extends BaseClass {
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
     if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
-    const after = await this.update(doc, { disabled });
+    const after = await this.update(doc, {
+      disabled,
+      disabledBy: disabled ? this.context.userId : null,
+    });
     return { before: doc, after };
   }
 
@@ -442,6 +470,17 @@ export class ApiKeyModel extends BaseClass {
       { id },
       { bypassSanitization: true },
     )) as SecretApiKey;
+  }
+
+  // Every member's PAT, for the admin revocation list. OAuth access tokens are
+  // excluded: they're short-lived and revoked by disconnecting the app instead.
+  public async getAllPersonalAccessTokens(): Promise<ApiKeyInterface[]> {
+    // `$ne: null` rather than `$exists`: org keys persist an explicit
+    // `userId: null`, which `$exists: true` would match.
+    return await this._find({
+      userId: { $ne: null },
+      oauthClientId: { $exists: false },
+    });
   }
 
   public async dangerousGetAllApiKeysInOrg() {
