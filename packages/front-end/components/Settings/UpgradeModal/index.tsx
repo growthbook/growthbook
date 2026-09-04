@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { date } from "shared/dates";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { FaCheckCircle } from "react-icons/fa";
-import { PiCaretRight, PiArrowSquareOut } from "react-icons/pi";
+import { PiCaretRight } from "react-icons/pi";
 import { CommercialFeature } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
 import { getGrowthBookBuild, isCloud } from "@/services/env";
@@ -17,6 +17,7 @@ import CloudProUpgradeModal from "@/enterprise/components/Billing/CloudProUpgrad
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import Callout from "@/ui/Callout";
 import styles from "./index.module.scss";
+import CloudProPricing from "./CloudProPricing";
 import CloudTrialConfirmationModal from "./CloudTrialConfirmationModal";
 import LicenseSuccessModal from "./LicenseSuccessModal";
 import PleaseVerifyEmailModal from "./PleaseVerifyEmailModal";
@@ -512,125 +513,18 @@ export default function UpgradeModal({
           </Flex>
         </div>
         {isCloud() && permissionsUtil.canManageBilling() && (
-          <>
-            <Box
-              className="mb-4"
-              style={{
-                backgroundColor: "var(--violet-2)",
-                padding: "20px 20px 24px 20px",
-              }}
-            >
-              <Flex
-                align="center"
-                justify="between"
-                style={{ color: "var(--color-text-high)" }}
-                mb={"1"}
-              >
-                <Text size="3" weight={"bold"}>
-                  Base price
-                </Text>
-                <Text size="3" weight={"bold"}>
-                  ${numOfCurrentMembers * 40} / month
-                </Text>
-              </Flex>
-              <Box mb="5">
-                <Text size="2">
-                  $40 per seat per month, {numOfCurrentMembers} current seat
-                  {numOfCurrentMembers > 1 ? "s" : ""}
-                </Text>
-              </Box>
-
-              <table className="table table-sm border-bottom mb-3">
-                <thead>
-                  <tr>
-                    <th>Usage Breakdown</th>
-                    <th>
-                      Included <small>(per month)</small>
-                    </th>
-                    <th>Additional</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {commercialFeature ===
-                    "unlimited-managed-warehouse-usage" && (
-                    <tr>
-                      <td>
-                        Managed Warehouse{" "}
-                        <Tooltip
-                          body={
-                            <>
-                              <div className="mb-2">
-                                Use our fully-managed data warehouse and event
-                                pipeline.
-                              </div>
-                              <div>
-                                OR bring your own for free (no usage charges).
-                              </div>
-                            </>
-                          }
-                        />
-                      </td>
-                      <td>2 million tracked events</td>
-                      <td>$0.03 per thousand</td>
-                    </tr>
-                  )}
-                  <tr style={{ borderBottom: 0 }}>
-                    <td rowSpan={2}>
-                      Global CDN{" "}
-                      <Tooltip body="Stream feature flags to users with minimal latency. You also have the option to cache locally to reduce usage and costs." />
-                    </td>
-                    <td>2 million requests</td>
-                    <td>$10 per million</td>
-                  </tr>
-                  <tr>
-                    <td>20GB bandwidth</td>
-                    <td>$1 per GB</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p className="mb-0">
-                <a
-                  href="/settings/usage"
-                  className="text-decoration-none pl-1"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => {
-                    track(
-                      "Clicked See Recent Usage From Upgrade Modal",
-                      trackContext,
-                    );
-                  }}
-                >
-                  <Text size="1" weight="bold" className="a link-purple">
-                    See your recent usage{" "}
-                    <PiArrowSquareOut
-                      style={{ position: "relative", top: "-2px" }}
-                    />
-                  </Text>
-                </a>
-              </p>
-            </Box>
-            <Callout status="info">
-              Interested in an Enterprise Plan with volume discounts?
-              <a
-                href="https://www.growthbook.io/demo"
-                className="text-decoration-none pl-1"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => {
-                  track("Start Enterprise Checkout", trackContext);
-                }}
-              >
-                <strong className="a link-purple">
-                  Talk to Sales{" "}
-                  <PiArrowSquareOut
-                    style={{ position: "relative", top: "-2px" }}
-                  />{" "}
-                </strong>
-              </a>
-            </Callout>
-          </>
-        )}{" "}
+          <CloudProPricing
+            onSeeRecentUsage={() => {
+              track(
+                "Clicked See Recent Usage From Upgrade Modal",
+                trackContext,
+              );
+            }}
+            onTalkToSales={() => {
+              track("Start Enterprise Checkout", trackContext);
+            }}
+          />
+        )}
         {!isCloud() && permissionsUtil.canManageBilling() && (
           <div>
             <div
@@ -663,13 +557,11 @@ export default function UpgradeModal({
   async function onSubmit() {
     if (showEnterpriseTreatment) {
       startEnterprise();
+    } else if (trialAndUpgradePreference === "upgrade") {
+      await startPro();
+      //MKTODO: Clean up this else block and simplify logic to remove trial option
     } else {
-      if (trialAndUpgradePreference === "upgrade") {
-        await startPro();
-        //MKTODO: Clean up this else block and simplify logic to remove trial option
-      } else {
-        await startProTrial(name, email);
-      }
+      await startProTrial(name, email);
     }
   }
 
