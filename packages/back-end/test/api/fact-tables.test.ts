@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+import request from "supertest";
 import {
   ColumnInterface,
   FactTableInterface,
@@ -5,6 +7,7 @@ import {
 } from "shared/types/fact-table";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 import { columnsNeedDetection } from "back-end/src/util/factTable";
+import { setupApp } from "./api.setup";
 
 const existing: Pick<FactTableInterface, "sql" | "eventName"> = {
   sql: "SELECT user_id, timestamp FROM events",
@@ -92,5 +95,70 @@ describe("columnsNeedDetection", () => {
         makeColumn("country", ""),
       ]),
     ).toBe(true);
+  });
+});
+
+describe("fact table API updates", () => {
+  const { app, setReqContext } = setupApp();
+  const organization = {
+    id: "org_fact_table_update",
+    settings: {},
+    members: [],
+  };
+  const factTable: FactTableInterface = {
+    organization: organization.id,
+    id: "ftb_update",
+    managedBy: "",
+    dateCreated: new Date("2026-01-01"),
+    dateUpdated: new Date("2026-01-01"),
+    name: "Fact Table",
+    description: "",
+    owner: "",
+    projects: [],
+    tags: [],
+    datasource: "ds_update",
+    userIdTypes: [],
+    sql: "SELECT 1",
+    eventName: "",
+    columns: [],
+    filters: [],
+    columnRefreshPending: false,
+  };
+
+  beforeEach(() => {
+    setReqContext({
+      org: organization,
+      permissions: {
+        canReadMultiProjectResource: () => true,
+        canUpdateFactTable: () => false,
+        throwPermissionError: () => {
+          throw new Error("Permission denied");
+        },
+      },
+    });
+  });
+
+  it("does not persist columns when the parent update is denied", async () => {
+    await mongoose.connection.db!.collection("facttables").insertOne(factTable);
+
+    const response = await request(app)
+      .post(`/api/v1/fact-tables/${factTable.id}`)
+      .send({
+        columns: [{ column: "country", name: "Country", datatype: "string" }],
+      })
+      .set("Authorization", "Bearer test-key");
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toContain("Permission denied");
+    expect(
+      await mongoose.connection
+        .db!.collection("facttables")
+        .findOne({ id: factTable.id }),
+    ).toMatchObject({ columns: [] });
+    expect(
+      await mongoose.connection
+        .db!.collection("definitionsversions")
+        .countDocuments({ organization: organization.id }),
+    ).toBe(0);
   });
 });
