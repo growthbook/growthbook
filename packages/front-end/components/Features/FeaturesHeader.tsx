@@ -27,7 +27,6 @@ import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
 import Callout from "@/ui/Callout";
 import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
-import { useExperiments } from "@/hooks/useExperiments";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
@@ -213,12 +212,16 @@ export default function FeaturesHeader({
   // Editing an existing flag takes draft authority, not the create gate:
   // `canViewFeatureModal` answers "may this user create a feature".
   // Managed flags refuse direct writes, so offer no edit/publish/archive/delete.
-  const { experimentsMap } = useExperiments();
   const isManagedFlag = isManagedFeature(feature);
   const managedByExperimentId =
     feature.managedBy?.type === "experiment"
       ? feature.managedBy.experimentId
       : null;
+  const { data: managingExperiment } = useApi<{
+    experiment: { name: string };
+  }>(`/experiment/${managedByExperimentId}`, {
+    shouldRun: () => !!managedByExperimentId,
+  });
   const canEdit =
     !isManagedFlag && permissionsUtil.canEditFeatureDrafts(feature);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
@@ -503,8 +506,7 @@ export default function FeaturesHeader({
               <Box>
                 <Text weight="medium">Managed by: </Text>
                 <Link href={`/experiment/${managedByExperimentId}`}>
-                  {experimentsMap.get(managedByExperimentId)?.name ??
-                    managedByExperimentId}
+                  {managingExperiment?.experiment.name ?? managedByExperimentId}
                 </Link>
               </Box>
             )}

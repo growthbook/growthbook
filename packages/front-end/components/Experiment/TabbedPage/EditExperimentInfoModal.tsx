@@ -74,7 +74,6 @@ export default function EditExperimentInfoModal({
         {...form.register("trackingKey")}
         required
       />
-
       <SelectOwner
         value={form.watch("owner")}
         onChange={(v) => form.setValue("owner", v)}

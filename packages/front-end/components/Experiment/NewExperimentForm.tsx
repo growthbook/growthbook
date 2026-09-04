@@ -303,7 +303,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       name: initialValue?.name || "",
       type: initialValue?.type ?? "standard",
       implementationType:
-        initialValue?.implementationType ?? (isImport ? "none" : "values"),
+        initialValue?.implementationType === "multi"
+          ? undefined
+          : (initialValue?.implementationType ??
+            (isImport ? "none" : "values")),
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
       hashAttribute: initialHashAttribute,

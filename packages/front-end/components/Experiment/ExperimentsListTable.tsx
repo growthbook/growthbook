@@ -66,8 +66,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   useEffect(() => {
     if (!visibleIdsKey) return;
     fetchSome(visibleIdsKey.split(","));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleIdsKey]);
+  }, [visibleIdsKey, fetchSome]);
 
   const needsStatusColumn = tab === "all" || tab === "running";
   const needsResultColumn =

@@ -21,6 +21,7 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
   validateFeatureValue,
+  type ManagedFlagKeyPlan,
 } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -35,6 +36,7 @@ import DraftSelectorDropdown, {
   DraftMode,
 } from "@/components/Features/DraftSelectorDropdown";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import { distributeWeights } from "@/services/utils";
 import { formatJSON } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -48,14 +50,6 @@ import track from "@/services/track";
 import EditTrafficModal from "./EditTrafficModal";
 import ExperimentManagedFeatureVariationEditor from "./ExperimentManagedFeatureVariationEditor";
 import { ManagedSortableVariation } from "./ExperimentManagedFeatureVariationRow";
-
-type KeyPlan = {
-  derivedId: string;
-  derivedIdAvailable: boolean;
-  sanitized: boolean;
-  suggestedPair: { trackingKey: string; featureId: string } | null;
-  regexError: string | null;
-};
 
 type FeatureRevisionResponse = {
   revisionList: MinimalFeatureRevisionInterface[];
@@ -193,6 +187,7 @@ function ManagedTrafficForm({
   adoptOnOpen?: boolean;
 }) {
   const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const isBandit = experiment.type === "multi-armed-bandit";
   const feature = targetFeature?.feature ?? null;
@@ -236,7 +231,7 @@ function ManagedTrafficForm({
   const [manualKey, setManualKey] = useState<string | null>(null);
   const { data: keyPlanData } = useApi<{
     blocker: string | null;
-    keyPlan: KeyPlan;
+    keyPlan: ManagedFlagKeyPlan;
   }>(`/experiment/${experiment.id}/managed-flag/key-plan`, {
     shouldRun: () => canAdopt,
   });
@@ -443,6 +438,11 @@ function ManagedTrafficForm({
         coverage: form.watch("coverage"),
       }),
     ) !== openedWith.current.core;
+  // Two values only: a third boolean variation would duplicate one of them.
+  const booleanBlocked =
+    (form.watch("variations")?.length ?? 0) > 2
+      ? { boolean: "needs exactly two variations" }
+      : undefined;
   // With no flag the rows still rebuild `featureValues`, which would read as an edit.
   const valuesDirty =
     adopting ||
@@ -452,7 +452,8 @@ function ManagedTrafficForm({
 
   // `gatedEnvSet` resolves the review rules for the project this flag is (or
   // will be) in, so adoption and editing ask the same question.
-  const approvalRequired = gatedEnvSet !== "none";
+  const approvalRequired =
+    gatedEnvSet !== "none" && hasCommercialFeature("require-approvals");
 
   const cta =
     !valuesDirty || !approvalRequired
@@ -717,7 +718,11 @@ function ManagedTrafficForm({
       trackingEventModalType="edit-traffic-modal"
       open={true}
       close={close}
-      header="Edit Traffic & Variations"
+      header={
+        experiment.status === "draft"
+          ? "Edit Traffic & Variations"
+          : "Edit Variations"
+      }
       headerAction={
         // One draft matters at a time for a managed flag, and the defaults
         // already resolve to it.
@@ -766,6 +771,7 @@ function ManagedTrafficForm({
                       size="md"
                       value={valueType}
                       order={VALUE_TYPE_ORDER}
+                      disabledOptions={booleanBlocked}
                       onChange={(v) => {
                         if (v !== "config") handleValueTypeChange(v);
                       }}
@@ -884,6 +890,7 @@ function ManagedTrafficForm({
                       containerClassName="mb-0"
                       value={valueType}
                       order={VALUE_TYPE_ORDER}
+                      disabledOptions={booleanBlocked}
                       onChange={(v) => {
                         if (v !== "config" && canEditValues)
                           handleValueTypeChange(v);

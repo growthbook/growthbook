@@ -15,7 +15,6 @@ import { FaChartBar } from "react-icons/fa";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
 import {
   getAvailableMetricsFilters,
   getAvailableMetricTags,
@@ -166,20 +165,16 @@ export default function TabbedPage({
   // Auto-publish refuses these outright, so they outrank the approval state.
   const managedDraftBlocked = managedDraft?.hasMergeConflict
     ? "conflict"
-    : managedDraft?.hasUnrelatedDraftChanges
-      ? "unrelated"
-      : managedDraft?.rebaseRequired
-        ? "stale"
-        : null;
+    : managedDraft?.rebaseRequired
+      ? "stale"
+      : null;
   // Both gates together: approval alone publishes nothing on a draft.
   const managedNextStep = managedDraftBlocked
     ? managedDraftBlocked === "conflict"
-      ? "The draft has a merge conflict and cannot publish until it is resolved."
-      : managedDraftBlocked === "unrelated"
-        ? "The draft also changes things beyond this experiment, so it has to be published from the feature page."
-        : managedDraft?.staleApproval
-          ? "The Feature Flag changed after these values were approved. Update them from live and get re-approval."
-          : "The Feature Flag changed since these values were drafted. Update them from live before publishing."
+      ? "The draft has a merge conflict. Discard it from the review menu, or convert the Feature Flag to unmanaged and resolve it on its page."
+      : managedDraft?.staleApproval
+        ? "The Feature Flag changed after these values were approved. Update them from live and get re-approval."
+        : "The Feature Flag changed since these values were drafted. Update them from live before publishing."
     : managedApprovalBlocking
       ? experiment.status === "draft"
         ? "They need approval, then go live when the experiment starts."
@@ -640,17 +635,6 @@ export default function TabbedPage({
                     radius="full"
                   />
                 )}
-              {managedDraftBlocked && managedDraftBlocked !== "stale" && (
-                <Link
-                  href={`/features/${managedFlagWithDraft.feature.id}?v=${managedDraft?.version}`}
-                  target="_blank"
-                >
-                  {managedDraftBlocked === "conflict"
-                    ? "Fix conflicts"
-                    : "Review draft"}
-                  <PiArrowSquareOut className="ml-1" />
-                </Link>
-              )}
             </Flex>
           </Callout>
         )}

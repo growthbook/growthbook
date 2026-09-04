@@ -17,7 +17,7 @@ import {
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiInfo } from "react-icons/pi";
 import ConfirmDialog from "@/ui/ConfirmDialog";
-import { ManagedFlagName } from "@/components/Experiment/ManagedFlagSummary";
+import { ManagedFlagName } from "@/components/Experiment/ManagedFlagName";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";

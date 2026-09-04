@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { datetime } from "shared/dates";
 import {
@@ -6,6 +8,7 @@ import {
   autoMerge,
   evaluatePublishGovernance,
   fillRevisionFromFeature,
+  filterEnvironmentsByFeature,
   getReviewSetting,
   liveRevisionFromFeature,
   requireFreshBaseForPublish,
@@ -28,7 +31,11 @@ import {
   revisionToFeatureRevisionDiffInput,
   useFeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
-import { DiffContent } from "@/components/Reviews/Feature/RevisionDiffUtils";
+import {
+  FormattedChanges,
+  type FormattedChangeItem,
+} from "@/components/Reviews/Feature/RevisionDiffUtils";
+import { renderEnvironmentToggles } from "@/components/Features/FeatureDiffRenders";
 import {
   PersonRow,
   ReviewerVerdictIcon,
@@ -489,6 +496,61 @@ export default function ManagedFlagApproval({
     variations.map((v) => v.id),
   ).some((c) => c.changed);
 
+  // Environments and value type are always shown, changed or not: a reviewer
+  // judges the values against where they will be live and what type they are.
+  const envToggles = filterEnvironmentsByFeature(
+    allEnvironments,
+    info.feature,
+  ).map((env) => {
+    const from = liveDiffInput.environmentsEnabled?.[env.id] ?? false;
+    return {
+      envId: env.id,
+      from,
+      to: draftDiffInput.environmentsEnabled?.[env.id] ?? from,
+    };
+  });
+  // A managed flag is born with every environment off; its first draft is the
+  // flag arriving, not a toggle.
+  const arriving = !(liveDiffInput.rules ?? []).length;
+  const liveValueType = info.feature.valueType;
+  const draftValueType = draftDiffInput.metadata?.valueType ?? liveValueType;
+  const metadataOnlyRetypes = isEqual(
+    omit(liveDiffInput.metadata ?? {}, "valueType"),
+    omit(draftDiffInput.metadata ?? {}, "valueType"),
+  );
+  const sections: FormattedChangeItem[] = [
+    {
+      title: envToggles.length === 1 ? "Environment" : "Environments",
+      a: "",
+      b: "",
+      customRender: renderEnvironmentToggles(envToggles, {
+        endStateOnly: arriving,
+      }),
+    },
+    {
+      title: "Value type",
+      a: "",
+      b: "",
+      customRender: (
+        <Flex align="center" gap="2">
+          {draftValueType !== liveValueType && (
+            <>
+              <Text color="text-low">{liveValueType}</Text>
+              <span className="font-weight-bold text-success">→</span>
+            </>
+          )}
+          <Text weight="medium">{draftValueType}</Text>
+        </Flex>
+      ),
+    },
+    ...revisionDiffs.filter(
+      (d) =>
+        d.a !== d.b &&
+        d.key !== "environmentsEnabled" &&
+        !(d.key === "metadata" && metadataOnlyRetypes),
+    ),
+  ];
+
   const changesColumn = (
     <Flex
       direction="column"
@@ -500,27 +562,16 @@ export default function ManagedFlagApproval({
       <Text size="lg" weight="semibold" color="text-high">
         Changes
       </Text>
-      <DiffContent
-        diffs={revisionDiffs}
-        feature={info.feature}
-        outOfOrderWarning={false}
-        variant="card"
-        // Human-readable only: this modal is a review, not the export surface.
-        formats={["formatted"]}
-        // A section with no human render falls back to its JSON diff. Linking
-        // out to a Changes tab, as the feature's Conversation tab does, would
-        // be a dead control here — nothing in this modal listens for it.
-        jsonFallback
-        showCopyAs={false}
-        showSummaryHeader={false}
-      />
+      <FormattedChanges diffs={sections} />
     </Flex>
   );
 
   // Approval is the first gate, so say so — otherwise the notice reads as
   // though starting the experiment is all that stands in the way.
   const awaitingApproval =
-    requireReviews && !(approval?.satisfied ?? status === "approved");
+    requireReviews &&
+    !adminOverride &&
+    !(approval?.satisfied ?? status === "approved");
   // "Once approved" contradicts an "Approved" label.
   const unblocks = approvalGated
     ? "Once the requirements above are met"
@@ -814,7 +865,7 @@ export default function ManagedFlagApproval({
         </Button>
         {/* Beside the CTA rather than inside the modal: recalling the request
             is an alternative to reviewing it, not part of reviewing it. */}
-        {state.canRecallReview && (
+        {(state.canRecallReview || canManage) && (
           <DropdownMenu
             trigger={
               <IconButton
@@ -831,12 +882,27 @@ export default function ManagedFlagApproval({
             menuPlacement="end"
             variant="soft"
           >
-            <DropdownMenuItem
-              disabled={submitting}
-              onClick={() => post("recall-review")}
-            >
-              Return to draft
-            </DropdownMenuItem>
+            {state.canRecallReview && (
+              <DropdownMenuItem
+                disabled={submitting}
+                onClick={() => post("recall-review")}
+              >
+                Return to draft
+              </DropdownMenuItem>
+            )}
+            {canManage && (
+              <DropdownMenuItem
+                color="red"
+                disabled={submitting}
+                onClick={() => {
+                  if (confirm("Discard the unpublished variation values?")) {
+                    post("discard");
+                  }
+                }}
+              >
+                Discard draft
+              </DropdownMenuItem>
+            )}
           </DropdownMenu>
         )}
       </Flex>

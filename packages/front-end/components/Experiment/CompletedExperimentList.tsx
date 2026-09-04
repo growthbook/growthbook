@@ -63,8 +63,7 @@ const CompletedExperimentList = ({
   useEffect(() => {
     if (!managedLookupKey) return;
     fetchSome(managedLookupKey.split(","));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [managedLookupKey]);
+  }, [managedLookupKey, fetchSome]);
 
   // Batch-fetch comment counts for the current page of experiments so each
   // card doesn't fire its own discussion fetch just to render a count.

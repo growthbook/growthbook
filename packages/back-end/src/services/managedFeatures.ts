@@ -1,4 +1,5 @@
 import { RequestHandler } from "express";
+import type { z } from "zod";
 import {
   copyManagedVariationValues,
   isManagedFeature,
@@ -9,12 +10,14 @@ import {
   mergeResultHasChanges,
   seedManagedVariationValues,
   validateFeatureValue,
+  type ManagedFlagKeyPlan,
 } from "shared/util";
 import {
   ExperimentInterface,
   ExperimentRefVariation,
   FeatureInterface,
   FeatureValueType,
+  apiExperimentVariationValues,
 } from "shared/validators";
 import { EventUser } from "shared/types/events/event-types";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -206,19 +209,6 @@ export async function managedFlagAdoptionBlocker(
   }
   return null;
 }
-
-export type ManagedFlagKeyPlan = {
-  /** The id the tracking key sanitizes to — what gets created if it is free. */
-  derivedId: string;
-  derivedIdAvailable: boolean;
-  /** True when sanitizing changed the key, so the two cannot match exactly. */
-  sanitized: boolean;
-  // Offered only when `derivedId` is taken; adopting it renames the tracking
-  // key so the two match exactly.
-  suggestedPair: { trackingKey: string; featureId: string } | null;
-  /** Set when the org's feature key format rejects `derivedId`. */
-  regexError: string | null;
-};
 
 const MAX_PAIR_SUGGESTIONS = 25;
 
@@ -627,31 +617,10 @@ export async function createManagedFlagForNewExperiment({
   });
 }
 
-export type ManagedFlagReview = {
-  userId: string;
-  status: string;
-  date: string;
-};
-
-export type ManagedFlagState = {
-  managed: boolean;
-  featureKey: string | null;
-  valueType: FeatureValueType | null;
-  /** What is serving now. Empty until the first publish. */
-  liveValues: ExperimentRefVariation[];
-  pending: {
-    values: ExperimentRefVariation[];
-    /** The type these values land as, which a re-type moves. */
-    valueType: FeatureValueType;
-    status: string;
-    approvalRequired: boolean;
-    /** Whether a plain publish would succeed right now. */
-    canPublish: boolean;
-    /** Whether this caller may publish with `bypassApproval` while approval is outstanding. */
-    canBypassApproval: boolean;
-    reviews: ManagedFlagReview[];
-  } | null;
-};
+export type ManagedFlagState = z.infer<typeof apiExperimentVariationValues>;
+export type ManagedFlagReview = NonNullable<
+  ManagedFlagState["pending"]
+>["reviews"][number];
 
 // The whole managed-flag picture in one read. Every action returns it, so a
 // caller never has to stitch two requests together.
@@ -670,9 +639,9 @@ export async function getManagedFlagState(
     };
   }
 
-  const info = (
-    await getLinkedFeatureInfo(context as ReqContext, experiment)
-  ).find((f) => f.feature.id === feature.id);
+  const info = (await getLinkedFeatureInfo(context, experiment)).find(
+    (f) => f.feature.id === feature.id,
+  );
   const pendingDraft = info?.pendingDraft ?? null;
 
   let reviews: ManagedFlagReview[] = [];
@@ -931,8 +900,11 @@ export async function updateManagedVariationValues({
     context.permissions.throwPermissionError();
   }
 
-  const targetType = valueType ?? feature.valueType;
-  const typeChanged = targetType !== feature.valueType;
+  // An open draft may already have re-typed the flag; measure against it, not live.
+  const openDraft = await getActiveDraft(context, feature);
+  const baseType = openDraft?.metadata?.valueType ?? feature.valueType;
+  const targetType = valueType ?? baseType;
+  const typeChanged = targetType !== baseType;
 
   // Against the type the values are landing as, not the one being replaced.
   const values = normalizeManagedVariationValues({
@@ -941,7 +913,6 @@ export async function updateManagedVariationValues({
     variations,
   });
 
-  const openDraft = await getActiveDraft(context, feature);
   const plans = await validateExperimentFeatureUpdates({
     context,
     experiment,

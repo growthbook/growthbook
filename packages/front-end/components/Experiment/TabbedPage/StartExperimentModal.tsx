@@ -6,7 +6,10 @@ import { ApiErrorDetails } from "shared/validators";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { hasAttributeCondition } from "shared/experiments";
-import { isManagedByExperiment } from "shared/util";
+import {
+  isManagedByExperiment,
+  PENDING_APPROVAL_ITEM_PREFIX,
+} from "shared/util";
 import { format } from "date-fns-tz";
 import { ReactNode, useState } from "react";
 import { Box, Flex, type AvatarProps } from "@radix-ui/themes";
@@ -45,9 +48,7 @@ import {
   type LinkedChange,
 } from "@/components/Experiment/LinkedChanges/constants";
 import { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
-import { ManagedFlagName } from "@/components/Experiment/ManagedFlagSummary";
-
-const PENDING_APPROVAL_ITEM_PREFIX = "pendingApproval:";
+import { ManagedFlagName } from "@/components/Experiment/ManagedFlagName";
 
 export type PendingDraftFailure =
   ApiErrorDetails<"pending_draft_publish_failed">["failedFeatureDrafts"][number];
@@ -296,6 +297,9 @@ export default function StartExperimentModal({
   const softBlockerItems = incompleteChecklistItems.filter(
     (item) => !item.hardBlock && item.required && !bypassedItems.includes(item),
   );
+  const visibleItems = incompleteChecklistItems.filter(
+    (item) => !bypassedItems.includes(item),
+  );
   // Only group when we actually have hard-blocker items in the rendered list,
   // not just a non-zero count from props, so we never render an empty section.
   const shouldGroupBlockers = hardBlockerItems.length > 0;
@@ -465,7 +469,7 @@ export default function StartExperimentModal({
                   Tasks to Complete
                 </Text>
               </Flex>
-              {incompleteChecklistItems.length > 0 && (
+              {visibleItems.length > 0 && (
                 <Box
                   mt="3"
                   style={{
@@ -531,7 +535,7 @@ export default function StartExperimentModal({
                     </Flex>
                   ) : (
                     <Flex direction="column" gap="2">
-                      {incompleteChecklistItems.map((item, i) => (
+                      {visibleItems.map((item, i) => (
                         <Flex key={item.key ?? i} gap="2" align="baseline">
                           <Text color="text-mid">•</Text>
                           <Text as="div" weight="semibold" color="text-mid">

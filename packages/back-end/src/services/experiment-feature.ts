@@ -1283,7 +1283,7 @@ export async function removeRulesForDeletedExperiment({
     let cleanupDraft: FeatureRevisionInterface | null = null;
     try {
       const drafts = await getFeatureRevisionsByStatus({
-        context: context as ReqContext,
+        context,
         organization: context.org.id,
         featureId: feature.id,
         feature,

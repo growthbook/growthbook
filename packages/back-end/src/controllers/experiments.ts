@@ -15,6 +15,8 @@ import {
   includeExperimentInPayload,
   isManagedByExperiment,
   isManagedFeature,
+  type ManagedFlagKeyPlan,
+  validateFeatureValue,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -177,7 +179,6 @@ import {
   removeManagedFeatureForExperiment,
   managedFlagAdoptionBlocker,
   planManagedFlagKey,
-  type ManagedFlagKeyPlan,
   ejectManagedFeature,
   getManagedFeatureForExperiment,
   publishManagedDraft,
@@ -1674,6 +1675,19 @@ export async function postExperiment(
       status: 400,
       message:
         "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing how it is implemented.",
+    });
+    return;
+  }
+  if (
+    data.implementationType !== undefined &&
+    data.implementationType !== "values" &&
+    data.implementationType !== experiment.implementationType &&
+    (await getManagedFeatureForExperiment(context, experiment))
+  ) {
+    res.status(400).json({
+      status: 400,
+      message:
+        "This experiment manages a Feature Flag. Convert or remove it before changing how the experiment is implemented.",
     });
     return;
   }
@@ -4587,6 +4601,15 @@ export async function postExperimentFeatureValues(
       );
     }
     if (managedHere) {
+      const landingType =
+        requestedType ?? revision.metadata?.valueType ?? feature.valueType;
+      updatedVariationValues.forEach((v, i) => {
+        v.value = validateFeatureValue(
+          { valueType: landingType },
+          v.value,
+          `Variation ${i}`,
+        );
+      });
       // Control drives a managed flag's default. A shared flag's belongs to the
       // flag, so it is left alone.
       revision = await stageManagedFeatureFields({

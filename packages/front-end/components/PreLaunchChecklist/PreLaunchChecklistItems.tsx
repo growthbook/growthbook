@@ -14,6 +14,7 @@ import {
   getImplementationType,
   hasVisualChanges,
   isManagedByExperiment,
+  PENDING_APPROVAL_ITEM_PREFIX,
 } from "shared/util";
 import track from "@/services/track";
 import Link from "@/ui/Link";
@@ -183,15 +184,18 @@ export function getChecklistItems({
 
   const isManaged = (f: LinkedFeatureInfo) =>
     isManagedByExperiment(f.feature, experiment.id);
+  const implementationType = getImplementationType(experiment);
   const valuesMode =
-    linkedFeatures.some(isManaged) ||
-    getImplementationType(experiment) === "values";
+    linkedFeatures.some(isManaged) || implementationType === "values";
 
-  if (checkLinkedChanges) {
-    const hasLiveLinkedChanges = experimentHasLiveLinkedChanges(
-      experiment,
-      linkedFeatures,
-    );
+  if (checkLinkedChanges && implementationType !== "none") {
+    // A managed flag publishes when the experiment starts, so its draft is as
+    // good as live for a bandit.
+    const hasLiveLinkedChanges =
+      experimentHasLiveLinkedChanges(experiment, linkedFeatures) ||
+      linkedFeatures.some(
+        (f) => isManaged(f) && (f.state === "live" || f.state === "draft"),
+      );
     const hasLinkedChanges =
       linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
       experiment.hasVisualChangesets ||
@@ -297,7 +301,7 @@ export function getChecklistItems({
         )
         .forEach((f) => {
           items.push({
-            key: `pendingApproval:${f.feature.id}`,
+            key: `${PENDING_APPROVAL_ITEM_PREFIX}${f.feature.id}`,
             status:
               (f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved")
                 ? "complete"

@@ -15,6 +15,8 @@ import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
 
 export default function ChangeImplementationTypeModal({
@@ -29,6 +31,8 @@ export default function ChangeImplementationTypeModal({
   mutate: () => void;
 }) {
   const { apiCall } = useAuth();
+  const permissionsUtil = usePermissionsUtil();
+  const allEnvironments = useEnvironments();
   // Experiments adopted before the type was stored only carry the flag's marker.
   const current = managedFeature ? "values" : getImplementationType(experiment);
   const [next, setNext] = useState<ImplementationType | "">(
@@ -41,6 +45,20 @@ export default function ChangeImplementationTypeModal({
   const removesManagedFlag =
     !!managedFeature && changed && next !== "feature" && next !== "values";
   const managedKey = managedFeature?.feature.id;
+  const managedEnvs = managedFeature
+    ? getEnabledEnvironments(managedFeature.feature, allEnvironments)
+    : [];
+  // The server takes publish authority to convert and delete authority to remove.
+  const blockedReason =
+    ejectsManagedFlag &&
+    managedFeature &&
+    !permissionsUtil.canPublishFeature(managedFeature.feature, managedEnvs)
+      ? "Converting the Feature Flag requires permission to publish it."
+      : removesManagedFlag &&
+          managedFeature &&
+          !permissionsUtil.canDeleteFeature(managedFeature.feature, managedEnvs)
+        ? "Removing the Feature Flag requires permission to delete it."
+        : null;
 
   return (
     <ModalStandard
@@ -49,7 +67,9 @@ export default function ChangeImplementationTypeModal({
       trackingEventModalType="change-implementation-type"
       header="Change Experiment Type"
       cta="Change Type"
-      ctaEnabled={changed && (!removesManagedFlag || acknowledged)}
+      ctaEnabled={
+        changed && !blockedReason && (!removesManagedFlag || acknowledged)
+      }
       submit={async () => {
         if (!next) return;
         if (ejectsManagedFlag) {
@@ -100,13 +120,18 @@ export default function ChangeImplementationTypeModal({
           };
         })}
       />
-      {ejectsManagedFlag && (
+      {blockedReason && (
+        <Callout status="error" mt="3">
+          {blockedReason}
+        </Callout>
+      )}
+      {ejectsManagedFlag && !blockedReason && (
         <Callout status="info" mt="3">
           <code>{managedKey}</code> becomes an ordinary linked Feature Flag,
           edited from its own page.
         </Callout>
       )}
-      {removesManagedFlag && (
+      {removesManagedFlag && !blockedReason && (
         <Callout status="warning" mt="3">
           <Text as="p" mb="3">
             This deletes the managed Feature Flag <code>{managedKey}</code> and

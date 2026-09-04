@@ -33,6 +33,8 @@ const ValueTypeField: FC<{
   size?: SelectFieldSize;
   /** Class on the form-group wrapper, e.g. "mb-0" when laid out in a row. */
   containerClassName?: string;
+  /** Types that cannot be chosen right now, with the reason shown beside them. */
+  disabledOptions?: Partial<Record<FeatureAuthoringType, string>>;
 }> = ({
   onChange,
   value,
@@ -40,6 +42,7 @@ const ValueTypeField: FC<{
   order,
   size = "legacy",
   containerClassName,
+  disabledOptions,
 }) => {
   const { hasCommercialFeature } = useUser();
   const canUseConfig = hasCommercialFeature("feature-configs");
@@ -60,6 +63,16 @@ const ValueTypeField: FC<{
         ...(allowConfig ? [{ label: "Config", value: "config" }] : []),
       ]}
       formatOptionLabel={(option) => {
+        const blockedReason =
+          disabledOptions?.[option.value as FeatureAuthoringType];
+        if (blockedReason && option.value !== value) {
+          return (
+            <span>
+              {option.label}{" "}
+              <span style={{ color: "var(--slate-9)" }}>({blockedReason})</span>
+            </span>
+          );
+        }
         if (option.value !== "config") return option.label;
         return (
           <Flex as="span" align="center" gap="2" display="inline-flex">
@@ -87,7 +100,10 @@ const ValueTypeField: FC<{
         );
       }}
       isOptionDisabled={(o) =>
-        isSingleValue(o) && o.value === "config" && !canUseConfig
+        isSingleValue(o) &&
+        ((o.value === "config" && !canUseConfig) ||
+          (!!disabledOptions?.[o.value as FeatureAuthoringType] &&
+            o.value !== value))
       }
       required
       sort={false}

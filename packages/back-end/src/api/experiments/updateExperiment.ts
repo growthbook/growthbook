@@ -6,6 +6,7 @@ import {
 } from "shared/validators";
 import {
   assertManagedFlagCanMove,
+  getManagedFeatureForExperiment,
   moveManagedFlagWithExperiment,
 } from "back-end/src/services/managedFeatures";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -372,6 +373,16 @@ export const updateExperiment = createApiRequestHandler(
   ) {
     throw new Error(
       "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing implementationType.",
+    );
+  }
+  if (
+    changes.implementationType !== undefined &&
+    changes.implementationType !== "values" &&
+    changes.implementationType !== experiment.implementationType &&
+    (await getManagedFeatureForExperiment(req.context, experiment))
+  ) {
+    throw new Error(
+      "This experiment manages a Feature Flag. Convert or remove it before changing implementationType.",
     );
   }
   if (changes.project !== undefined) {

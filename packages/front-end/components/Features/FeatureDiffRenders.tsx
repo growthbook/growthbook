@@ -2070,38 +2070,6 @@ function EnvEnabledIndicator({
   );
 }
 
-export function renderEnvironmentsEnabled(
-  current: boolean | undefined,
-  draft: boolean | undefined,
-): ReactNode {
-  if (current === undefined && draft === undefined) return null;
-  if (current === draft) return null;
-  return (
-    <div className="d-flex align-items-center mb-2">
-      <div className="text-danger d-flex align-items-center">
-        <div className="text-center mr-2" style={{ width: 16 }}>
-          Δ
-        </div>
-        {current === undefined ? (
-          <em>unset</em>
-        ) : (
-          <EnvEnabledIndicator enabled={current} />
-        )}
-      </div>
-      <div className="text-success d-flex align-items-center ml-4">
-        <div className="text-center mx-2" style={{ width: 16 }}>
-          →
-        </div>
-        {draft === undefined ? (
-          <em>unset</em>
-        ) : (
-          <EnvEnabledIndicator enabled={draft} />
-        )}
-      </div>
-    </div>
-  );
-}
-
 // One section for every toggled environment; a grid that wraps, so twenty of
 // them don't bury the rest of the diff.
 export function renderEnvironmentToggles(
@@ -2127,7 +2095,7 @@ export function renderEnvironmentToggles(
             </Text>
           </Box>
           <Flex align="center" gap="2">
-            {!endStateOnly && (
+            {!endStateOnly && from !== to && (
               <>
                 <EnvEnabledIndicator enabled={from} tone="muted" />
                 {/* The arrow ChangeField draws between the two halves. */}

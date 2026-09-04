@@ -15,6 +15,7 @@ import {
   experimentHasLiveLinkedChanges,
   getImplementationType,
   isManagedByExperiment,
+  PENDING_APPROVAL_ITEM_PREFIX,
 } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
@@ -46,9 +47,6 @@ import {
 } from "back-end/src/util/errors";
 import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 import { trackEventForContext } from "back-end/src/services/growthbook";
-
-// The one hard blocker an admin bypass can waive.
-export const PENDING_APPROVAL_ITEM_PREFIX = "pendingApproval:";
 
 export type StartChecklistItemStatus = {
   key: string;
@@ -232,26 +230,34 @@ export async function getExperimentStartChecklistStatus(
 
   const isManaged = (f: LinkedFeatureInfo) =>
     isManagedByExperiment(f.feature, experiment.id);
+  const implementationType = getImplementationType(experiment);
   const valuesMode =
-    linkedFeatures.some(isManaged) ||
-    getImplementationType(experiment) === "values";
+    linkedFeatures.some(isManaged) || implementationType === "values";
+  // A managed flag publishes when the experiment starts, so its draft is as
+  // good as live for a bandit.
+  const managedReady = linkedFeatures.some(
+    (f) => isManaged(f) && (f.state === "live" || f.state === "draft"),
+  );
 
-  items.push({
-    key: "linkedChanges",
-    required: true,
-    status:
-      (isBandit &&
-        experimentHasLiveLinkedChanges(experiment, linkedFeatures)) ||
-      (!isBandit && getHasLinkedChanges(experiment, linkedFeatures))
-        ? "complete"
-        : "incomplete",
-    manual: false,
-    reason: valuesMode
-      ? "Add variation values before starting."
-      : isBandit
-        ? "Add at least one live linked change before starting a bandit."
-        : "Add at least one linked feature, visual changeset, or URL redirect before starting.",
-  });
+  if (implementationType !== "none") {
+    items.push({
+      key: "linkedChanges",
+      required: true,
+      status:
+        (isBandit &&
+          (managedReady ||
+            experimentHasLiveLinkedChanges(experiment, linkedFeatures))) ||
+        (!isBandit && getHasLinkedChanges(experiment, linkedFeatures))
+          ? "complete"
+          : "incomplete",
+      manual: false,
+      reason: valuesMode
+        ? "Add variation values before starting."
+        : isBandit
+          ? "Add at least one live linked change before starting a bandit."
+          : "Add at least one linked feature, visual changeset, or URL redirect before starting.",
+    });
+  }
 
   if (isBandit) {
     items.push({

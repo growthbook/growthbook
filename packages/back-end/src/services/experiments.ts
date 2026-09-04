@@ -5422,7 +5422,7 @@ export async function getRefLinkedFeatureInfo({
 }
 
 export async function getLinkedFeatureInfo(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) {
   return getRefLinkedFeatureInfo({

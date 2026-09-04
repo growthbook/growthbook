@@ -637,30 +637,6 @@ export function expandSparseToFull(
   return serializeExtendsObject(mergedRefs, ownKeys);
 }
 
-// The feature as a revision would leave it, for rendering that revision's
-// values. A draft can re-type the flag (staged in `metadata.valueType`) while
-// the live feature still carries the old type, so rendering a draft value
-// against the live feature quotes JSON as a string.
-export function featureAsOfRevision<
-  T extends Pick<FeatureInterface, "valueType" | "defaultValue" | "jsonSchema">,
->(
-  feature: T,
-  revision:
-    | Pick<FeatureRevisionInterface, "defaultValue" | "metadata">
-    | null
-    | undefined,
-): T {
-  if (!revision) return feature;
-  const retyped = revision.metadata?.valueType;
-  return {
-    ...feature,
-    valueType: retyped ?? feature.valueType,
-    defaultValue: revision.defaultValue ?? feature.defaultValue,
-    // The live schema describes the type it was written for.
-    jsonSchema: retyped ? revision.metadata?.jsonSchema : feature.jsonSchema,
-  };
-}
-
 // Validate the values a revert restores against the value type / JSON schema
 // that will be live afterward. Returns one warning per value that no longer
 // parses/validates; callers surface these as a bypassable soft warning.

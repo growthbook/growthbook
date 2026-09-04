@@ -6,6 +6,21 @@ import type { FeatureInterface, FeatureValueType } from "shared/types/feature";
 /** Characters a feature id may contain (see `postFeatures`). */
 const FEATURE_KEY_ALLOWED = /[^a-zA-Z0-9_.:|-]+/g;
 
+/** Start-checklist item key prefix for a linked flag's outstanding approval; the one hard blocker an admin may bypass. */
+export const PENDING_APPROVAL_ITEM_PREFIX = "pendingApproval:";
+
+export type ManagedFlagKeyPlan = {
+  /** The id the tracking key sanitizes to — what gets created if it is free. */
+  derivedId: string;
+  derivedIdAvailable: boolean;
+  /** True when sanitizing changed the key, so the two cannot match exactly. */
+  sanitized: boolean;
+  /** Offered only when `derivedId` is taken; adopting it renames the tracking key so the two match. */
+  suggestedPair: { trackingKey: string; featureId: string } | null;
+  /** Set when the org's feature key format rejects `derivedId`. */
+  regexError: string | null;
+};
+
 export function isManagedFeature(
   feature: Pick<FeatureInterface, "managedBy">,
 ): boolean {
