@@ -114,7 +114,9 @@ export default function ImplementationTypeSelect({
         label: IMPLEMENTATION_TYPE_OPTIONS[type].header,
       }))}
       isOptionDisabled={(o) =>
-        !SELECTABLE_IMPLEMENTATION_TYPES.includes(o.value as ImplementationType)
+        !SELECTABLE_IMPLEMENTATION_TYPES.includes(
+          (o as { value: string }).value as ImplementationType,
+        )
       }
       // The list explains each choice; the closed control just names it.
       formatOptionLabel={(option, { context }) => (

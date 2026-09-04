@@ -1,4 +1,5 @@
 import {
+  getImplementationType,
   implementationTypeAfterUnlink,
   includeExperimentInPayload,
   hasVisualChanges,
