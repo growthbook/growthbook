@@ -154,6 +154,19 @@ describe("resolveTableColumns", () => {
     expect(resolved[0].width).toBe(150);
   });
 
+  it("ignores a stored width for a column the user cannot resize", () => {
+    // The bug this guards: the row-actions column narrowed in code, but anyone
+    // with a saved layout kept the old width, which they could never undo.
+    const defs = [
+      col("actions", { resizable: false, defaultWidth: 40, minWidth: 40 }),
+    ];
+    const resolved = resolveTableColumns(
+      defs,
+      layout([{ id: "actions", visible: true, width: 56 }]),
+    );
+    expect(resolved[0].width).toBe(40);
+  });
+
   it("clamps a stored width down to maxWidth", () => {
     const defs = [col("a", { maxWidth: 300 })];
     const resolved = resolveTableColumns(
