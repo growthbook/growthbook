@@ -14,6 +14,7 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import {
   hasSubmittablePayload,
+  isTimelessSqlExploration,
   shouldChartSectionShow,
 } from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
@@ -70,7 +71,15 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
     submittedExploreState,
   });
 
-  const suppressStaleFloatingCallout = !loading && needsFetch && !isSubmittable;
+  // The raw-table empty state carries its own "Load full table" button, so the
+  // floating callout would be a duplicate. Every other empty canvas needs it —
+  // on the SQL Explore page its Refresh button is the only way to submit.
+  const draftIsRawTable =
+    draftExploreState.type === "sql" &&
+    draftExploreState.chartType === "rawTable";
+  const suppressStaleFloatingCallout =
+    (draftIsRawTable && !hasSubmittablePayload(submittedExploreState)) ||
+    (!loading && needsFetch && !isSubmittable);
 
   return (
     <Flex
@@ -254,6 +263,7 @@ export default function ExplorerMainSection({
   } = useExplorerContext();
 
   const isSql = draftExploreState.type === "sql";
+  const isRawTable = isSql && draftExploreState.chartType === "rawTable";
   const sqlConfigIsReady =
     draftExploreState.type === "sql" &&
     draftExploreState.dataset.sql.trim().length > 0 &&
@@ -358,12 +368,37 @@ export default function ExplorerMainSection({
         </>
       ) : (
         <>
-          <PiChartLineUp size={48} style={{ color: "var(--gray-a9)" }} />
-          <Text size="lg" weight="medium">
-            {isSql
-              ? "Add a value in the sidebar, then click Update to explore"
-              : "Configure your explorer to visualize data"}
-          </Text>
+          {isRawTable ? (
+            <Flex direction="column" align="center" gap="3">
+              <Button
+                size="lg"
+                variant="solid"
+                loading={loading}
+                disabled={
+                  loading ||
+                  !hasSubmittablePayload(draftExploreState) ||
+                  !isSubmittable
+                }
+                onClick={() => handleSubmit({ force: true })}
+              >
+                Load Table
+              </Button>
+              <Text size="sm" color="text-low">
+                {isTimelessSqlExploration(draftExploreState)
+                  ? "Configure columns in the sidebar."
+                  : "Configure columns in the sidebar, or change the date range above."}
+              </Text>
+            </Flex>
+          ) : (
+            <>
+              <PiChartLineUp size={48} style={{ color: "var(--gray-a9)" }} />
+              <Text size="lg" weight="medium">
+                {isSql
+                  ? "Add a value in the sidebar, then click Update to explore"
+                  : "Configure your explorer to visualize data"}
+              </Text>
+            </>
+          )}
         </>
       )}
     </Flex>

@@ -37,6 +37,24 @@ function withRequestedDisplayConfig(
   existing: ProductAnalyticsExploration,
   requested: ExplorationConfig,
 ): ProductAnalyticsExploration {
+  if (
+    existing.config.type === "sql" &&
+    requested.type === "sql" &&
+    requested.chartType === "rawTable"
+  ) {
+    return {
+      ...existing,
+      config: {
+        ...existing.config,
+        chartType: requested.chartType,
+        dateRange: requested.dateRange,
+        dataset: {
+          ...existing.config.dataset,
+          hiddenColumns: requested.dataset.hiddenColumns,
+        },
+      },
+    };
+  }
   return {
     ...existing,
     config: {
@@ -63,6 +81,16 @@ export async function runProductAnalyticsExploration(
   const dataset = config.dataset;
   if (!dataset) {
     throw new BadRequestError("Dataset is required");
+  }
+  if (config.chartType === "rawTable") {
+    if (dataset.type !== "sql") {
+      throw new BadRequestError("Raw tables require a SQL dataset");
+    }
+    if (config.dimensions.length > 0 || dataset.values.length > 0) {
+      throw new BadRequestError(
+        "Raw tables cannot include grouped dimensions or aggregate values",
+      );
+    }
   }
 
   const datasource = await getDataSourceById(context, config.datasource);

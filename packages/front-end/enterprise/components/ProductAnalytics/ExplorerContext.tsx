@@ -15,6 +15,7 @@ import {
   DatasetType,
   ProductAnalyticsExploration,
   ExplorationDateRange,
+  SqlValue,
   type ComparisonMode,
   type ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
@@ -50,7 +51,8 @@ import {
   stripExplorerDraftFields,
   toFetchKey,
   validateDimensions,
-  withDefaultSqlCountValue,
+  withDefaultSqlRawTable,
+  withDefaultSqlVisualization,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import track from "@/services/track";
@@ -63,6 +65,9 @@ const MAX_TRACKED_ERROR_LENGTH = 500;
 type SetDraftStateAction =
   | ExplorerDraftConfig
   | ((prevState: ExplorerDraftConfig) => ExplorerDraftConfig);
+
+/** Which config a tested SQL dataset seeds on its first Explore Dataset visit. */
+export type SqlExploreDefault = "rawTable" | "visualization";
 
 export interface ExplorerContextValue {
   // ─── State ─────────────────────────────────────────────────────────────
@@ -102,7 +107,7 @@ export interface ExplorerContextValue {
     setDraft?: boolean;
   }) => Promise<void>;
   addValueToDataset: (datasetType: DatasetType) => void;
-  ensureDefaultSqlValue: () => void;
+  ensureDefaultSqlExploreConfig: (mode?: SqlExploreDefault) => void;
   updateValueInDataset: (index: number, value: ProductAnalyticsValue) => void;
   deleteValueFromDataset: (index: number) => void;
   updateTimestampColumn: (column: string | null) => void;
@@ -196,7 +201,7 @@ export function ExplorerProvider({
       getFactTableById,
       getFactMetricById,
     );
-    const normalizedInitial = withDefaultSqlCountValue(
+    const normalizedInitial = withDefaultSqlRawTable(
       normalizeTimelessSqlConfig(
         clearInapplicableShowAs(withUnits, getFactMetricById),
       ),
@@ -805,8 +810,8 @@ export function ExplorerProvider({
         !isManagedWarehouse
       ) {
         // SQL on customer warehouses: apply cached viz results if present,
-        // but don't kick off a new warehouse query (default Count on first
-        // Explore visit, or SQL edits after a visualization exists).
+        // but don't kick off a new warehouse query on first Explore visit or
+        // after SQL edits.
         doSubmit({ cache: "required" });
       } else {
         doSubmit();
@@ -891,9 +896,16 @@ export function ExplorerProvider({
     [createDefaultValue, setDraftExploreState, getFactTableById],
   );
 
-  const ensureDefaultSqlValue = useCallback(() => {
-    setDraftExploreState((prev) => withDefaultSqlCountValue(prev));
-  }, [setDraftExploreState]);
+  const ensureDefaultSqlExploreConfig = useCallback(
+    (mode: SqlExploreDefault = "rawTable") => {
+      setDraftExploreState((prev) =>
+        mode === "visualization"
+          ? withDefaultSqlVisualization(prev)
+          : withDefaultSqlRawTable(prev),
+      );
+    },
+    [setDraftExploreState],
+  );
 
   const updateValueInDataset = useCallback(
     (index: number, value: ProductAnalyticsValue) => {
@@ -972,6 +984,26 @@ export function ExplorerProvider({
       setDraftExploreState((prev) => {
         let dimensions = prev.dimensions;
         let dataset = prev.dataset;
+
+        if (chartType === "rawTable") {
+          if (prev.type !== "sql" || prev.dataset.type !== "sql") return prev;
+          // Dimensions and values stay on the draft so switching back to a
+          // visualization restores them; `cleanConfigForSubmission` drops
+          // them from the raw-table query.
+          const { previousTimeFrame: _, comparisonMode: __, ...rest } = prev;
+          return { ...rest, chartType };
+        }
+
+        if (
+          prev.dataset.type === "sql" &&
+          prev.chartType === "rawTable" &&
+          prev.dataset.values.length === 0
+        ) {
+          dataset = {
+            ...prev.dataset,
+            values: [createEmptyValue("sql") as SqlValue],
+          };
+        }
 
         // Big Number: no dimensions; keep full dataset values unchanged
         if (chartType === "bigNumber") {
@@ -1094,7 +1126,7 @@ export function ExplorerProvider({
       setDraftExploreState,
       handleSubmit,
       addValueToDataset,
-      ensureDefaultSqlValue,
+      ensureDefaultSqlExploreConfig,
       updateValueInDataset,
       deleteValueFromDataset,
       updateTimestampColumn,
@@ -1123,7 +1155,7 @@ export function ExplorerProvider({
     }),
     [
       addValueToDataset,
-      ensureDefaultSqlValue,
+      ensureDefaultSqlExploreConfig,
       changeChartType,
       clearAllDatasets,
       commonColumns,

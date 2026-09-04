@@ -88,6 +88,8 @@ export default function DisplayTestQueryResults({
   const [showQueryModal, setShowQueryModal] = useState(false);
   const cols = orderedColumnKeys ?? Object.keys(results?.[0] || {});
   const labels = columnLabels ?? cols;
+  const canDownload =
+    !!allowDownload && results.length > 0 && (csvColumnKeys ?? cols).length > 0;
   const useTwoRowHeader = headerStructure != null && orderedColumnKeys != null;
   const durationStatus = error ? "Query failed" : "Query succeeded";
   const showDurationStatus = showDuration && duration > 0;
@@ -125,6 +127,13 @@ export default function DisplayTestQueryResults({
 
   function handleDownload(rows: Record<string, unknown>[]) {
     const keys = csvColumnKeys ?? orderedColumnKeys;
+    // An explicitly empty selection means every column is hidden. Falling
+    // through would export the raw rows, including the hidden columns.
+    if (keys?.length === 0) {
+      throw new Error(
+        "Error downloading results. Reason: no columns are visible.",
+      );
+    }
 
     const labelsForCsv = ((): string[] | undefined => {
       if (!keys?.length) return undefined;
@@ -287,12 +296,14 @@ export default function DisplayTestQueryResults({
                           <div className="mr-1">
                             Showing {page * pageSize - pageSize + 1} -{" "}
                             {Math.min(page * pageSize, results.length)} of{" "}
-                            <Tooltip
-                              body={`GrowthBook limits the result to ${SQL_ROW_LIMIT} rows max`}
-                              shouldDisplay={results.length >= SQL_ROW_LIMIT}
-                            >
-                              <strong>{results.length}</strong> rows
-                            </Tooltip>
+                            {rowsLabel ?? (
+                              <Tooltip
+                                body={`GrowthBook limits the result to ${SQL_ROW_LIMIT} rows max`}
+                                shouldDisplay={results.length >= SQL_ROW_LIMIT}
+                              >
+                                <strong>{results.length}</strong> rows
+                              </Tooltip>
+                            )}
                           </div>
                           <Button
                             variant="ghost"
@@ -351,7 +362,7 @@ export default function DisplayTestQueryResults({
                         </span>
                       </Tooltip>
                     ) : null}
-                    {sql || (allowDownload && results.length) ? (
+                    {sql || canDownload ? (
                       <DropdownMenu
                         menuPlacement="end"
                         trigger={
@@ -373,7 +384,7 @@ export default function DisplayTestQueryResults({
                             View Rendered SQL
                           </DropdownMenuItem>
                         ) : null}
-                        {allowDownload && results.length ? (
+                        {canDownload ? (
                           <DropdownMenuItem
                             onClick={() => {
                               setDownloadError(null);

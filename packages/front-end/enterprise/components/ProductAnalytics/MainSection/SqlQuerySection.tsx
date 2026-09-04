@@ -14,7 +14,6 @@ import type { ImperativePanelHandle } from "react-resizable-panels";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/ui/Button";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -28,7 +27,10 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { canFormatSql, formatSql } from "@/services/sqlFormatter";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import {
+  useExplorerContext,
+  type SqlExploreDefault,
+} from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -125,7 +127,8 @@ export default function SqlQuerySection({
   const { getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { aiEnabled } = useAISettings();
-  const { draftExploreState, ensureDefaultSqlValue } = useExplorerContext();
+  const { draftExploreState, ensureDefaultSqlExploreConfig } =
+    useExplorerContext();
   const dataset =
     draftExploreState.dataset.type === "sql" ? draftExploreState.dataset : null;
   const datasource = draftExploreState.datasource
@@ -199,6 +202,11 @@ export default function SqlQuerySection({
     canRunQueries;
   const canFormat =
     !loading && datasource ? canFormatSql(datasource.type) : false;
+  const openExplore = (mode: SqlExploreDefault) => {
+    ensureDefaultSqlExploreConfig(mode);
+    markExploreSeen();
+    setViewMode("explore");
+  };
   const showContent = open || !showHeader;
   const previewRowCount = previewResult?.results?.length ?? 0;
   const previewContent =
@@ -231,23 +239,26 @@ export default function SqlQuerySection({
                   : `${previewRowCount} rows`}
               </Text>
               {exploreReady ? (
-                <Link
-                  size="sm"
-                  weight="medium"
-                  onClick={() => {
-                    ensureDefaultSqlValue();
-                    markExploreSeen();
-                    setViewMode("explore");
-                  }}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                  }}
-                >
-                  Customize table or create visualization
-                  <PiArrowRight size={14} aria-hidden />
-                </Link>
+                <Flex align="center" gap="3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openExplore("rawTable")}
+                    icon={<PiArrowRight size={14} aria-hidden />}
+                    iconPosition="right"
+                  >
+                    Customize table
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openExplore("visualization")}
+                    icon={<PiArrowRight size={14} aria-hidden />}
+                    iconPosition="right"
+                  >
+                    Create visualization
+                  </Button>
+                </Flex>
               ) : null}
             </Flex>
           ) : undefined

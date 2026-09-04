@@ -147,6 +147,7 @@ export class AnalyticsExplorationModel extends BaseClass {
         table: dataset.type === "data_source" ? dataset.table : null,
         path: dataset.type === "data_source" ? dataset.path : null,
         sql: dataset.type === "sql" ? dataset.sql : null,
+        rawTable: config.chartType === "rawTable",
         timestampColumn:
           dataset.type === "data_source" || dataset.type === "sql"
             ? dataset.timestampColumn
@@ -168,7 +169,9 @@ export class AnalyticsExplorationModel extends BaseClass {
     const valueHashes =
       dataset.type === "funnel"
         ? [md5(JSON.stringify(dataset.steps))]
-        : dataset.values.map((value) => md5(JSON.stringify(value)));
+        : config.chartType === "rawTable"
+          ? []
+          : dataset.values.map((value) => md5(JSON.stringify(value)));
 
     return {
       generalSettingsHash,
