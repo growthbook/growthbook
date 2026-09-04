@@ -1144,6 +1144,9 @@ export function applySqlPreviewMetadata(
       dimension.column === null ||
       valueColumns.has(dimension.column),
   );
+  const hiddenColumns = config.dataset.hiddenColumns?.filter((column) =>
+    valueColumns.has(column),
+  );
   return applyTimestampColumn(
     {
       ...config,
@@ -1152,9 +1155,10 @@ export function applySqlPreviewMetadata(
         ...config.dataset,
         sql,
         columnTypes,
-        hiddenColumns: config.dataset.hiddenColumns?.filter((column) =>
-          valueColumns.has(column),
-        ),
+        // A query rewrite can leave every remaining column hidden; reset
+        // rather than render an empty table.
+        hiddenColumns:
+          hiddenColumns?.length === valueColumns.size ? [] : hiddenColumns,
         values: config.dataset.values.map((value) => ({
           ...value,
           valueColumn:

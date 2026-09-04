@@ -45,6 +45,10 @@ export default function SqlTabContent() {
     }));
   }, [dataset?.columnTypes]);
 
+  const visibleColumnCount = columnOptions.filter(
+    ({ value }) => !dataset?.hiddenColumns?.includes(value),
+  ).length;
+
   const timestampOptions = useMemo(() => {
     return Object.entries(dataset?.columnTypes ?? {})
       .filter(([, type]) => type === "date")
@@ -91,36 +95,41 @@ export default function SqlTabContent() {
           }}
         >
           <Text weight="medium">Columns</Text>
-          {columnOptions.map(({ value, label }) => (
-            <Checkbox
-              key={value}
-              value={!dataset?.hiddenColumns?.includes(value)}
-              label={label}
-              weight="regular"
-              setValue={(visible) => {
-                setDraftExploreState((prev) => {
-                  if (prev.type !== "sql" || prev.dataset.type !== "sql") {
-                    return prev;
-                  }
-                  const hiddenColumns = new Set(
-                    prev.dataset.hiddenColumns ?? [],
-                  );
-                  if (visible) {
-                    hiddenColumns.delete(value);
-                  } else {
-                    hiddenColumns.add(value);
-                  }
-                  return {
-                    ...prev,
-                    dataset: {
-                      ...prev.dataset,
-                      hiddenColumns: Array.from(hiddenColumns),
-                    },
-                  };
-                });
-              }}
-            />
-          ))}
+          {columnOptions.map(({ value, label }) => {
+            const isVisible = !dataset?.hiddenColumns?.includes(value);
+            return (
+              <Checkbox
+                key={value}
+                value={isVisible}
+                label={label}
+                weight="regular"
+                disabled={isVisible && visibleColumnCount === 1}
+                disabledMessage="Tables need at least one visible column."
+                setValue={(visible) => {
+                  setDraftExploreState((prev) => {
+                    if (prev.type !== "sql" || prev.dataset.type !== "sql") {
+                      return prev;
+                    }
+                    const hiddenColumns = new Set(
+                      prev.dataset.hiddenColumns ?? [],
+                    );
+                    if (visible) {
+                      hiddenColumns.delete(value);
+                    } else {
+                      hiddenColumns.add(value);
+                    }
+                    return {
+                      ...prev,
+                      dataset: {
+                        ...prev.dataset,
+                        hiddenColumns: Array.from(hiddenColumns),
+                      },
+                    };
+                  });
+                }}
+              />
+            );
+          })}
         </Flex>
       ) : null}
       {!isRawTable ? (
