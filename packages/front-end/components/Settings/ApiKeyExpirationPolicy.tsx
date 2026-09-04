@@ -109,17 +109,16 @@ const ExpirationPolicyModal: FC<{
 
       {nonCompliant.length > 0 && (
         <Callout status="warning" mt="4">
-          {`${countKeys(nonCompliant.length, kind)} have no expiration date or expire later than this maximum. New ones follow the policy already.`}
-          <Box mt="2">
+          {/* One prose block, then the control — a checkbox between paragraphs
+              leaves its label indented against text on both sides. */}
+          {`${countKeys(nonCompliant.length, kind)} have no expiration date or expire later than this maximum. New ones follow the policy already. Updating them now stops them working on the new date unless they are replaced first, and clearing the policy later won't undo it.`}
+          <Box mt="3">
             <Checkbox
               weight="regular"
               value={applyToExisting}
               setValue={setApplyToExisting}
               label={`Apply this maximum lifetime to non-compliant ${COPY[kind].short}`}
             />
-          </Box>
-          <Box mt="1">
-            {`Applying it stops them working on the new date unless they are replaced first, and clearing the policy later won't undo it.`}
           </Box>
         </Callout>
       )}
