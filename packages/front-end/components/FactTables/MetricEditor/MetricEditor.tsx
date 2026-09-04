@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { Flex, Grid, TextArea } from "@radix-ui/themes";
 import { ColumnRef, FunnelSettings } from "shared/types/fact-table";
@@ -61,6 +62,7 @@ export default function MetricEditor({
   const { getFactTableById, getDatasourceById, factTables, project } =
     useDefinitions();
   const { hasCommercialFeature } = useUser();
+  const descriptionId = useId();
 
   const metricType = form.watch("metricType");
   const numerator = form.watch("numerator");
@@ -161,11 +163,10 @@ export default function MetricEditor({
       <Flex direction="column" gap="4">
         <Frame>
           <Heading as="h4" size="sm" mb="1">
-            Metric type
+            Metric Type
           </Heading>
           <Text color="text-mid" as="div" mb="3">
-            Pick how everyday activity should turn into one number: a total, a
-            percentage, an average.
+            Choose what kind of number this metric produces.
           </Text>
           <MetricTypeSelect
             value={formType}
@@ -310,10 +311,16 @@ export default function MetricEditor({
               required
             />
             <Flex direction="column" gap="1">
-              <Text weight="semibold" size="sm" as="div">
+              <Text
+                as="label"
+                htmlFor={descriptionId}
+                weight="semibold"
+                size="sm"
+              >
                 Description
               </Text>
               <TextArea
+                id={descriptionId}
                 value={form.watch("description")}
                 onChange={(e) => form.setValue("description", e.target.value)}
               />
