@@ -1,32 +1,34 @@
-import { Flex } from "@radix-ui/themes";
 import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import Button from "@/ui/Button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import DataList, { DataListItem } from "@/ui/DataList";
 
-// Visual shell only - no backend query, no live sample rows, so the
-// Preview/SQL toggle has nothing to switch between yet. Matches the design's
-// two-button layout without wiring state for content that doesn't exist.
+// Visual shell only - no backend query, no live sample rows. Preview/SQL
+// are real Tabs (not just a styled Button pair) so the control already has
+// correct keyboard/aria-selected behavior once real content lands here.
 export default function PreviewPanel() {
   return (
     <Frame>
-      <Flex justify="between" align="center" mb="3">
-        <Heading as="h4" size="sm">
-          Preview
-        </Heading>
-        <Flex gap="1">
-          <Button size="sm" variant="solid">
-            Preview
-          </Button>
-          <Button size="sm" variant="outline">
-            SQL
-          </Button>
-        </Flex>
-      </Flex>
-      <Text color="text-mid" as="div">
-        Finish the metric definition to see a preview.
-      </Text>
+      <Heading as="h4" size="sm" mb="3">
+        Preview
+      </Heading>
+      <Tabs defaultValue="preview">
+        <TabsList>
+          <TabsTrigger value="preview">Preview</TabsTrigger>
+          <TabsTrigger value="sql">SQL</TabsTrigger>
+        </TabsList>
+        <TabsContent value="preview">
+          <Text color="text-mid" as="div" mt="3">
+            Finish the metric definition to see a preview.
+          </Text>
+        </TabsContent>
+        <TabsContent value="sql">
+          <Text color="text-mid" as="div" mt="3">
+            Finish the metric definition to see the generated SQL.
+          </Text>
+        </TabsContent>
+      </Tabs>
     </Frame>
   );
 }
