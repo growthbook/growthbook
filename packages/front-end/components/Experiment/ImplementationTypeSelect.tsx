@@ -4,7 +4,7 @@ import { SELECTABLE_IMPLEMENTATION_TYPES } from "shared/util";
 import { PiChartBar, PiTag } from "react-icons/pi";
 import Avatar from "@/ui/Avatar";
 import Text from "@/ui/Text";
-import { Select, SelectItem } from "@/ui/Select";
+import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ICON_PROPERTIES } from "@/components/Experiment/LinkedChanges/constants";
 
@@ -94,19 +94,26 @@ export default function ImplementationTypeSelect({
   lockedReason?: string;
 }) {
   const select = (
-    <Select
+    <SelectField
       label={label}
-      value={value}
-      setValue={(v) => setValue(v as ImplementationType)}
+      value={value ?? ""}
+      onChange={(v) => setValue(v as ImplementationType)}
+      options={SELECTABLE_IMPLEMENTATION_TYPES.map((type) => ({
+        value: type,
+        label: IMPLEMENTATION_TYPE_OPTIONS[type].header,
+      }))}
+      // The list explains each choice; the closed control just names it.
+      formatOptionLabel={(option, { context }) => (
+        <ImplementationTypeLabel
+          type={option.value as ImplementationType}
+          compact={context === "value"}
+        />
+      )}
+      isSearchable={false}
+      sort={false}
       disabled={disabled}
       placeholder="Choose how this experiment reaches users"
-    >
-      {SELECTABLE_IMPLEMENTATION_TYPES.map((type) => (
-        <SelectItem key={type} value={type}>
-          <ImplementationTypeLabel type={type} />
-        </SelectItem>
-      ))}
-    </Select>
+    />
   );
   return disabled && lockedReason ? (
     <Tooltip body={lockedReason}>{select}</Tooltip>

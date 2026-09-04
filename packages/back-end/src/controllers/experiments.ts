@@ -2040,6 +2040,7 @@ export async function postExperiment(
     "sequentialTestingTuningParameter",
     "statsEngine",
     "type",
+    "implementationType",
     "banditStage",
     "banditScheduleValue",
     "banditScheduleUnit",

@@ -312,6 +312,7 @@ const experimentSchema = new mongoose.Schema({
   postStratificationEnabled: Boolean,
   hasVisualChangesets: Boolean,
   hasURLRedirects: Boolean,
+  implementationType: String,
   linkedFeatures: [String],
   attributeScopeAllProjects: Boolean,
   pendingFeatureDrafts: [
