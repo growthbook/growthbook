@@ -8,7 +8,6 @@ import {
   liveRevisionFromFeature,
   MergeStrategy,
   pruneOrphanedRampActions,
-  resetReviewOnChange,
 } from "shared/util";
 import type { FeatureRule } from "shared/types/feature";
 import {
@@ -180,26 +179,6 @@ export async function rebaseFeatureRevision(
   const { kept: keptRampActions, pruned: prunedRampActions } =
     pruneOrphanedRampActions(revision.rampActions, newRules);
 
-  // A rebase that actually pulls in upstream changes must re-trigger review
-  // per org policy — the prior approval was for pre-rebase content.
-  // The merged result carries rules as a whole array, so when the rebase
-  // produced a new one we treat every env the feature is in as potentially
-  // changed for review-reset purposes. (Per-env keys only reflected which
-  // envs had explicit overrides, not which rules actually changed.)
-  const rulesChanged = mergeResult.result.rules !== undefined;
-  const changedEnvsFromRebase = Array.from(
-    new Set([
-      ...(rulesChanged ? environmentIds : []),
-      ...Object.keys(mergeResult.result.environmentsEnabled ?? {}),
-    ]),
-  );
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments: changedEnvsFromRebase,
-    defaultValueChanged: mergeResult.result.defaultValue !== undefined,
-    settings: organization.settings,
-  });
-
   await updateRevision(
     context,
     feature,
@@ -229,9 +208,8 @@ export async function rebaseFeatureRevision(
           : mergeResult.result,
       ),
     },
-    resetReview,
     // Rebase is permitted while a "lock edits" schedule is active.
-    { bypassScheduleLock: true, rebase: true },
+    { bypassScheduleLock: true, rebase: { live, merged: mergeResult.result } },
   );
 
   const updated = await getRevision({

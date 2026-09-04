@@ -169,7 +169,6 @@ describe("feature revision status guards", () => {
         stale,
         { defaultValue: "true" },
         { user, action: "edit", subject: "", value: "{}" },
-        false,
       ),
     ).rejects.toThrow(/changed while the request was in flight/i);
 
@@ -297,7 +296,6 @@ describe("feature revision status guards", () => {
       asRead("changes-requested"),
       { defaultValue: "edited" },
       { user, action: "edit", subject: "", value: "{}" },
-      false,
     );
     expect((await stored())?.defaultValue).toBe("edited");
   });
@@ -323,7 +321,6 @@ describe("feature revision status guards", () => {
       asRead("draft"),
       { defaultValue: "true" },
       { user, action: "edit", subject: "", value: "{}" },
-      false,
     );
     expect((await stored())?.defaultValue).toBe("true");
   });

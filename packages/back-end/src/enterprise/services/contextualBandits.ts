@@ -24,11 +24,7 @@ import {
   RevisionRampAction,
 } from "shared/validators";
 import type { SDKAttributeSchema } from "shared/types/organization";
-import {
-  autoMerge,
-  reconcileMergeBaselines,
-  resetReviewOnChange,
-} from "shared/util";
+import { autoMerge, reconcileMergeBaselines } from "shared/util";
 import { conditionFromLeafClauses } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
@@ -270,7 +266,7 @@ export async function linkFeatureToContextualBandit({
   /** Start a new draft off live rather than reusing an open one. */
   forceNewDraft?: boolean;
 }): Promise<{ version: number; published: boolean; ruleId: string }> {
-  const { org, environments } = context;
+  const { environments } = context;
 
   if (
     rule.type !== "contextual-bandit-ref" ||
@@ -380,12 +376,6 @@ export async function linkFeatureToContextualBandit({
       combinedChanges.title = "Publish contextual bandit";
     }
 
-    const resetReview = resetReviewOnChange({
-      feature,
-      changedEnvironments: ruleEnvFootprint,
-      defaultValueChanged: false,
-      settings: org?.settings,
-    });
     const auditSubject = scopedRule.allEnvironments
       ? "to all environments"
       : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
@@ -400,7 +390,6 @@ export async function linkFeatureToContextualBandit({
         subject: auditSubject,
         value: JSON.stringify(scopedRule),
       },
-      resetReview,
     );
     await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
       environments: ruleEnvFootprint,
@@ -450,7 +439,7 @@ export async function updateContextualBanditFeatureRule({
   feature: FeatureInterface;
   rule: ContextualBanditRefRule;
 }): Promise<{ version: number; published: boolean; ruleIds: string[] }> {
-  const { org, environments } = context;
+  const { environments } = context;
 
   if (
     rule.type !== "contextual-bandit-ref" ||
@@ -559,12 +548,6 @@ export async function updateContextualBanditFeatureRule({
       throw new BadRequestError(noRuleMessage);
     }
 
-    const resetReview = resetReviewOnChange({
-      feature,
-      changedEnvironments: ruleChangedEnvs,
-      defaultValueChanged: false,
-      settings: org?.settings,
-    });
     const updatedRevision = await updateRevision(
       context,
       feature,
@@ -576,7 +559,6 @@ export async function updateContextualBanditFeatureRule({
         subject: `rule ${ruleIds.join(", ")}`,
         value: JSON.stringify(scopedRule),
       },
-      resetReview,
     );
     await recordRevisionUpdate(
       context,
@@ -628,7 +610,7 @@ export async function unlinkFeatureFromContextualBandit({
   revisionVersion: number | null;
   published: boolean;
 }> {
-  const { org, environments } = context;
+  const { environments } = context;
 
   const isRuleForBandit = (r: FeatureRule) =>
     isRuleForContextualBandit(r, contextualBandit.id);
@@ -712,12 +694,6 @@ export async function unlinkFeatureFromContextualBandit({
       changes.rampActions = filteredRampActions;
     }
 
-    const resetReview = resetReviewOnChange({
-      feature,
-      changedEnvironments: ruleChangedEnvs,
-      defaultValueChanged: false,
-      settings: org?.settings,
-    });
     const updatedRevision = await updateRevision(
       context,
       feature,
@@ -729,7 +705,6 @@ export async function unlinkFeatureFromContextualBandit({
         subject: `rule ${removedRuleIds.join(", ")}`,
         value: JSON.stringify(removedRules),
       },
-      resetReview,
     );
     await recordRevisionUpdate(
       context,

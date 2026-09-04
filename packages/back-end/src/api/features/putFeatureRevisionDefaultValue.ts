@@ -1,6 +1,6 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import { putFeatureRevisionDefaultValueValidator } from "shared/validators";
-import { resetReviewOnChange, validateFeatureValue } from "shared/util";
+import { validateFeatureValue } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -86,12 +86,6 @@ export async function setRevisionDefaultValue(
         subject: "",
         value: defaultValue,
       },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: [],
-        defaultValueChanged: true,
-        settings: organization.settings,
-      }),
     );
 
     const updated = await getRevision({
