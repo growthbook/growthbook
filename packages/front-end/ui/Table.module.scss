@@ -27,6 +27,12 @@
     overflow: visible !important;
   }
 
+  // Radix still measures the viewport it can no longer scroll and renders a
+  // scrollbar for it, which drags but moves nothing.
+  :global(.rt-ScrollAreaScrollbar) {
+    display: none;
+  }
+
   :global(.rt-TableBody .rt-TableRow .rt-TableCell) {
     box-sizing: border-box;
     overflow: visible;
@@ -183,5 +189,128 @@
         .rt-TableColumnHeaderCell:last-child
     ) {
     border-top-right-radius: 0;
+  }
+
+  // Opt-in bounded scroll region for wide tables. overflow-x can't scroll
+  // without overflow-y doing the same, so the header sticks to this region
+  // rather than to the viewport.
+  &[data-scroll-x="true"] {
+    overflow: auto;
+    max-height: calc(100vh - var(--table-sticky-top, 56px) - 24px);
+    // The frame moves onto the scroll container, so it stays put while the
+    // content scrolls under it. No top edge: the header draws its own, as in
+    // the unbounded case.
+    border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12)) !important;
+    border-top: none !important;
+    border-radius: var(--radius-4);
+
+    :global(.rt-TableRootTable) {
+      border: none;
+      border-radius: 0;
+    }
+
+    &[data-sticky-header="true"] :global(.rt-TableHeader) {
+      top: 0;
+    }
+  }
+
+  // Pins the row-actions column while the rest scrolls under it. The colspan
+  // guard spares full-width rows such as the empty state.
+  &[data-sticky-last-column="true"] {
+    :global(.rt-TableRow > *:last-child:not([colspan])) {
+      position: sticky;
+      right: 0;
+      z-index: 1;
+      background-color: var(--color-panel-solid);
+    }
+
+    :global(.rt-TableHeader .rt-TableRow > *:last-child) {
+      z-index: 2;
+    }
+
+    // The row-hover rule sets a translucent background-color on every cell and
+    // outranks the opaque one above, so restate it here and layer the tint on
+    // top as an image. Otherwise scrolled content shows through the hovered row.
+    :global(
+      .rt-TableBody
+        .rt-TableRow:not([data-no-hover]):hover
+        > *:last-child:not([colspan])
+    ) {
+      background-color: var(--color-panel-solid);
+      background-image: linear-gradient(var(--accent-a2), var(--accent-a2));
+    }
+
+    // Only once something is actually hidden behind it. A soft shadow rather
+    // than a rule: the neighbouring column's resize handle is already a crisp
+    // line, and two of those side by side read as a double border.
+    &[data-overflow-x="true"]
+      :global(.rt-TableRow > *:last-child:not([colspan]))::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      // Narrow: the peak sets how dark the edge is, the width how much tint is
+      // laid down overall — too wide and it reads as a wash, not a shadow.
+      width: 6px;
+      transform: translateX(-100%);
+      pointer-events: none;
+      // The same slate-alpha family as the table's own borders: it inverts for
+      // dark mode, where black leaves no cue and neutral grey doesn't blend.
+      background: linear-gradient(to right, transparent, var(--slate-a3));
+    }
+  }
+
+  // No-op until a caller sets the var. Applied to the table rather than the
+  // slack <col>, whose min-width the CSS Tables spec doesn't honour.
+  :global(.rt-TableRootTable) {
+    min-width: var(--table-min-width, 0);
+  }
+
+  // Anchor for the absolutely positioned resize handle.
+  :global(.rt-TableHeader .rt-TableRow .rt-TableColumnHeaderCell) {
+    position: relative;
+  }
+
+  &[data-resizing="true"] {
+    user-select: none;
+  }
+}
+
+.resizeHandle {
+  position: absolute;
+  // Kept fully inside the cell: the first and last header cells carry a
+  // border-radius, so a handle straddling the border can clip on edge columns.
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 1;
+  background: none;
+  border: none;
+  padding: 0;
+
+  // Faint at rest so the affordance is discoverable; accent while in use.
+  &::after {
+    content: "";
+    position: absolute;
+    top: 20%;
+    right: 2px;
+    width: 2px;
+    height: 60%;
+    border-radius: 1px;
+    background-color: var(--gray-a5);
+  }
+
+  &:hover::after,
+  &:focus-visible::after,
+  &[data-active="true"]::after {
+    background-color: var(--accent-9);
+  }
+
+  &:focus-visible {
+    outline: none;
   }
 }

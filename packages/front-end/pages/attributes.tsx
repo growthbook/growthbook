@@ -32,7 +32,12 @@ import Table, {
 import Heading from "@/ui/Heading";
 import ColumnSettingsButton from "@/ui/ColumnSettingsButton";
 import { useTableColumns } from "@/hooks/useTableColumns";
-import { ResolvedTableColumn, TableColumnDef } from "@/services/tableColumns";
+import {
+  columnWidthBounds,
+  ResolvedTableColumn,
+  TableColumnDef,
+} from "@/services/tableColumns";
+import ColumnResizeHandle from "@/ui/ColumnResizeHandle";
 
 // Rough char budget for a column of `width` px. Only settles after a resize
 // commits, which is why it takes the committed width rather than a live one.
@@ -43,8 +48,7 @@ function truncateCharsForWidth(width: number | undefined) {
 /**
  * Clamped content plus a tooltip that only appears once the text is actually
  * clipped. Measured rather than guessed from a character count: these columns
- * are resizable and one of them absorbs the table's slack, so the same string
- * clips at one width and fits at another.
+ * are resizable, so the same string clips at one width and fits at another.
  */
 const ClampedCell: FC<{
   tooltip: string;
@@ -220,10 +224,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
         ),
       },
       {
-        // The slack absorber: no defaultWidth, so it takes the remaining space.
         id: "description",
         label: "Description",
         sortField: "description",
+        defaultWidth: 240,
         cellProps: () => ({ className: "text-gray" }),
         render: (v) =>
           v.description ? (
@@ -358,13 +362,23 @@ const FeatureAttributesPage = (): React.ReactElement => {
         ),
       },
       {
+        // The one column that absorbs leftover width, so a resize elsewhere
+        // only moves the columns to its right. Renders nothing.
+        id: "spacer",
+        label: "",
+        header: null,
+        locked: true,
+        resizable: false,
+        minWidth: 0,
+        render: () => null,
+      },
+      {
         id: "actions",
         label: "Row actions",
         header: null,
         locked: true,
         resizable: false,
-        // Sized to the control it holds rather than to the shared padding,
-        // which would otherwise take more room than the icon itself.
+        // Fixed, so the pinned column can't grow over the data it covers.
         defaultWidth: 40,
         minWidth: 40,
         headerProps: { style: { paddingLeft: 4, paddingRight: 4 } },
@@ -389,7 +403,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
     hiddenCount,
     isCustomized,
     applySettings,
+    setWidth,
     reset,
+    colRefs,
+    minTableWidth,
     ColGroup,
   } = useTableColumns({ storageKey: "attributes", columns: columnDefs });
 
@@ -422,6 +439,31 @@ const FeatureAttributesPage = (): React.ReactElement => {
       : col.header !== undefined
         ? col.header
         : col.label;
+  const renderResizeHandle = (col: ResolvedTableColumn<AttributeRow>) => {
+    if (col.resizable === false) return null;
+    const { min, max } = columnWidthBounds(col);
+    return (
+      <ColumnResizeHandle
+        label={col.label}
+        width={col.width}
+        minWidth={min}
+        maxWidth={max}
+        onCommit={(w) => setWidth(col.id, w)}
+        setLiveWidth={(w) => {
+          const el = colRefs.current.get(col.id);
+          if (!el) return;
+          el.style.width = `${w}px`;
+          // Move the floor with the drag, or the auto column squeezes mid-drag
+          // and snaps back to its minimum on release.
+          const committed = col.width ?? columnWidthBounds(col).min;
+          el.closest<HTMLElement>("[data-table-list]")?.style.setProperty(
+            "--table-min-width",
+            `${minTableWidth - committed + w}px`,
+          );
+        }}
+      />
+    );
+  };
 
   return (
     <>
@@ -463,7 +505,15 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </Flex>
             </Box>
           )}
-          <Table variant="list" stickyHeader roundedCorners layout="fixed">
+          <Table
+            variant="list"
+            stickyHeader
+            roundedCorners
+            layout="fixed"
+            scrollX
+            stickyLastColumn
+            minTableWidth={minTableWidth}
+          >
             <ColGroup />
             <TableHeader>
               <TableRow>
@@ -477,6 +527,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                         textAlign: col.align,
                         ...col.headerProps?.style,
                       }}
+                      endAdornment={renderResizeHandle(col)}
                     >
                       {renderHeader(col)}
                     </SortableTableColumnHeader>
@@ -490,6 +541,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       }}
                     >
                       {renderHeader(col)}
+                      {renderResizeHandle(col)}
                     </TableColumnHeader>
                   ),
                 )}

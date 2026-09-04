@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useRef } from "react";
+import React, { forwardRef, useEffect, useRef, useState } from "react";
 import { Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
@@ -20,6 +20,21 @@ export type TableProps = Omit<
   stickyTopOffset?: number;
   /** When true (or when variant="list"), first header row gets rounded top corners */
   roundedCorners?: boolean;
+  /**
+   * Opt in to a bounded scroll region so wide tables scroll horizontally. The
+   * header then sticks to that region instead of the viewport — the list variant
+   * neutralises Radix's own scroll area to get viewport-sticky headers, and
+   * overflow-x can't scroll without overflow-y doing the same.
+   */
+  scrollX?: boolean;
+  /** Pins the last column to the right edge while the rest scrolls under it. */
+  stickyLastColumn?: boolean;
+  /**
+   * px floor for the table itself. Under a fixed layout a column with no width
+   * takes only the leftover space, so without a floor it collapses to zero once
+   * the specified widths fill the container. `useTableColumns` computes this.
+   */
+  minTableWidth?: number;
 };
 
 export default function Table({
@@ -29,6 +44,9 @@ export default function Table({
   stickyHeader,
   stickyTopOffset = DEFAULT_STICKY_TOP_OFFSET_PX,
   roundedCorners,
+  scrollX,
+  stickyLastColumn,
+  minTableWidth,
   className,
   ...props
 }: TableProps) {
@@ -38,11 +56,34 @@ export default function Table({
     (variant === "list" && stickyHeader !== false) || stickyHeader === true;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const [overflowX, setOverflowX] = useState(false);
+
+  // A pinned column only earns its divider once there is something behind it.
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!scrollX || !stickyLastColumn || !wrapper) return;
+    const check = () =>
+      setOverflowX(wrapper.scrollWidth > wrapper.clientWidth + 1);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(wrapper);
+    // The table too: a drag-resize changes its width without changing the
+    // wrapper's.
+    const table = wrapper.querySelector("table");
+    if (table) observer.observe(table);
+    return () => observer.disconnect();
+  }, [scrollX, stickyLastColumn]);
 
   useEffect(() => {
     if (!isListVariant || !useStickyHeader) return;
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
+    // In a scroll region the header is always stuck to the region's top, so
+    // there is no unstuck state to detect.
+    if (scrollX) {
+      wrapper.setAttribute("data-sticky-active", "true");
+      return;
+    }
     const header = wrapper.querySelector(".rt-TableHeader");
     if (!header) return;
 
@@ -59,7 +100,7 @@ export default function Table({
     check();
     window.addEventListener("scroll", check, { passive: true });
     return () => window.removeEventListener("scroll", check);
-  }, [isListVariant, useStickyHeader, stickyTopOffset]);
+  }, [isListVariant, useStickyHeader, stickyTopOffset, scrollX]);
 
   const radixVariant = variant === "list" ? "surface" : variant;
 
@@ -83,14 +124,18 @@ export default function Table({
       ref={wrapperRef}
       className={styles.wrapper}
       style={
-        useStickyHeader
-          ? ({
-              "--table-sticky-top": `${stickyTopOffset}px`,
-            } as React.CSSProperties)
-          : undefined
+        {
+          ...(useStickyHeader && {
+            "--table-sticky-top": `${stickyTopOffset}px`,
+          }),
+          ...(minTableWidth && { "--table-min-width": `${minTableWidth}px` }),
+        } as React.CSSProperties
       }
       data-table-list
       data-sticky-header={useStickyHeader ? "true" : "false"}
+      data-scroll-x={scrollX ? "true" : undefined}
+      data-sticky-last-column={scrollX && stickyLastColumn ? "true" : undefined}
+      data-overflow-x={overflowX ? "true" : undefined}
     >
       {tableElement}
     </div>
