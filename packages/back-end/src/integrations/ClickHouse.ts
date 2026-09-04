@@ -117,23 +117,31 @@ export default class ClickHouse extends SqlIntegration {
           : {}),
       },
     });
-    const results = await client.query({ query: sql, format: "JSON" });
-    // eslint-disable-next-line
-    const data: ResponseJSON<Record<string, any>[]> = await results.json();
-    const rows = data.data ? data.data : [];
-    if (isManagedWarehouse(this.datasource)) {
-      normalizeManagedWarehouseDatetimes(rows, data.meta);
+    try {
+      const results = await client.query({ query: sql, format: "JSON" });
+      // eslint-disable-next-line
+      const data: ResponseJSON<Record<string, any>[]> = await results.json();
+      const rows = data.data ? data.data : [];
+      if (isManagedWarehouse(this.datasource)) {
+        normalizeManagedWarehouseDatetimes(rows, data.meta);
+      }
+      return {
+        rows,
+        statistics: data.statistics
+          ? {
+              executionDurationMs: data.statistics.elapsed,
+              rowsProcessed: data.statistics.rows_read,
+              bytesProcessed: data.statistics.bytes_read,
+            }
+          : undefined,
+      };
+    } finally {
+      try {
+        await client.close();
+      } catch (e) {
+        logger.warn(e, "Failed to close ClickHouse client");
+      }
     }
-    return {
-      rows,
-      statistics: data.statistics
-        ? {
-            executionDurationMs: data.statistics.elapsed,
-            rowsProcessed: data.statistics.rows_read,
-            bytesProcessed: data.statistics.bytes_read,
-          }
-        : undefined,
-    };
   }
 
   getInformationSchemaWhereClause(): string {

@@ -41,29 +41,29 @@ export function buildDatabricksConnectionOptions(
   };
 }
 
-export async function runDatabricksQuery<T>(
+export async function runDatabricksQuery(
   conn: DatabricksConnectionParams,
   sql: string,
-): Promise<QueryResponse<T[]>> {
+): Promise<QueryResponse> {
   // Because of how Databrick's SDK is written, it may reject or resolve multiple times
   // So we have a quick boolean check to make sure we only do it the first time
   let finished = false;
 
+  const client = new DBSQLClient({
+    logger: {
+      log(level, message) {
+        if (ENVIRONMENT !== "production") {
+          logger.info({ db: "Databricks", level }, message);
+        }
+      },
+    },
+  });
+
   // Annoyingly, the `client.connect` method is async, but if there's an error,
   // it just hangs and never rejects. Instead, it emits an "error" event.
   // So we have to wrap everything in a `new Promise()` and handle errors manually
-
   try {
-    const result = await new Promise<T[]>((resolve, reject) => {
-      const client = new DBSQLClient({
-        logger: {
-          log(level, message) {
-            if (ENVIRONMENT !== "production") {
-              logger.info({ db: "Databricks", level }, message);
-            }
-          },
-        },
-      });
+    const rows = await new Promise<QueryResponse["rows"]>((resolve, reject) => {
       client
         .on("error", (error) => {
           if (!finished) {
@@ -79,20 +79,14 @@ export async function runDatabricksQuery<T>(
             // This is required to have the results returned immediately
             maxRows: 1000,
           });
-          const result = (await queryOperation.fetchAll({
+          const rows = (await queryOperation.fetchAll({
             progress: false,
-          })) as unknown as Promise<T[]>;
+          })) as QueryResponse["rows"];
 
-          // As soon as we have the reuslt, return it
           if (!finished) {
             finished = true;
-            resolve(result);
+            resolve(rows);
           }
-
-          // Do cleanup in the background and ignore errors
-          await queryOperation.close();
-          await session.close();
-          await client.close();
         })
         .catch((e) => {
           if (!finished) {
@@ -101,11 +95,17 @@ export async function runDatabricksQuery<T>(
           }
         });
     });
-    return { rows: result };
+    return { rows };
   } catch (e) {
     if (e.response?.displayMessage) {
       throw new Error(e.response.displayMessage);
     }
     throw new Error(e.message);
+  } finally {
+    try {
+      await client.close();
+    } catch (e) {
+      logger.warn(e, "Failed to close Databricks connection");
+    }
   }
 }
