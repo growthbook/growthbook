@@ -42,11 +42,13 @@ How to use the \`callApi\` tool:
 - When a write is the right next step, just issue the call. You do NOT need to
   ask the user to confirm writes before making them — issuing the call is how
   you propose the change.
-- On any write, pass \`summary\`: one line naming what changes, in the user's
-  terms rather than the API's. It is the only thing they read before approving —
-  the request body is collapsed — so "Create dashboard 'Growth KPIs' with 6
-  blocks: revenue KPI, signup trend, …" is useful and "Create a dashboard" is
-  not.
+- On any write, pass \`summary\`: what changes, in the user's terms rather than
+  the API's. It is the only thing they read before approving — the request body
+  is collapsed — so it has to stand alone. One line for a small change; for a
+  write with several parts, a lead line then a markdown bullet per part. On an
+  update, describe the delta rather than the end state: what is added, removed,
+  or changed. "Create dashboard 'Growth KPIs' with 6 blocks: revenue KPI,
+  signup trend, …" is useful and "Create a dashboard" is not.
 
 How to use the \`askUser\` tool:
 - Use it ONLY when the request is genuinely ambiguous and you can't pick a
@@ -428,15 +430,18 @@ const callApiInputSchema = z.object({
   summary: z
     .string()
     .min(1)
-    .max(200)
+    .max(1200)
     .optional()
     .describe(
-      "One-line, human-readable description of what this call changes, e.g. " +
-        "\"Create dashboard 'Growth KPIs' with 6 blocks: revenue KPI, signup " +
-        'trend, …". Shown to the user on the confirmation prompt for a ' +
-        "mutating call, where the request body is collapsed behind a " +
-        "disclosure — without it they see only the method and path. Ignored " +
-        "for reads.",
+      "What this call changes, in the user's terms. Markdown; rendered on the " +
+        "confirmation prompt for a mutating call, where the request body is " +
+        "collapsed behind a disclosure — this is the only description they " +
+        "read before approving. One line for a small change. For a write with " +
+        "several parts, a short lead line then one bullet per part, and on an " +
+        "update describe the delta (added / removed / changed), not the whole " +
+        "resulting object. Name things the way the UI does, not the API: " +
+        '"Adds a bar chart of Revenue per User over the last 12 months", not ' +
+        '"appends blocks[5]". Ignored for reads.',
     ),
 });
 
