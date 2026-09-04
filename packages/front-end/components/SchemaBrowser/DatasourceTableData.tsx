@@ -9,6 +9,7 @@ import { JSONColumnFields } from "shared/types/fact-table";
 import { useEffect, useMemo, useState } from "react";
 import { FaRedo, FaTable } from "react-icons/fa";
 import { Box } from "@radix-ui/themes";
+import clsx from "clsx";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import useFullFactTable from "@/hooks/useFullFactTable";
 import { useAuth } from "@/services/auth";
@@ -17,29 +18,40 @@ import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
-import { AreaWithHeader } from "./SqlExplorerModal";
+import {
+  columnInsertDisabledReason,
+  insertColumnIntoSelect,
+} from "@/services/schemaBrowserSql";
+import AreaWithHeader from "./AreaWithHeader";
+import {
+  SchemaCopyButton,
+  SchemaSqlInsertButton,
+} from "./SchemaBrowserSqlActions";
+import actionStyles from "./SchemaBrowserSqlActions.module.scss";
 
 type Props = {
   datasource: DataSourceInterfaceWithParams;
-  datasourceId: string;
-  tableId: string;
+  currentTable: { id: string; path: string };
   setError: (error: string | null) => void;
   canRunQueries: boolean;
+  sql?: string;
+  updateSqlInput?: (sql: string) => void;
 };
 
 export default function DatasourceSchema({
   datasource,
-  tableId,
-  datasourceId,
+  currentTable,
   setError,
   canRunQueries,
+  sql = "",
+  updateSqlInput,
 }: Props) {
   const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
 
   const { data, mutate } = useApi<{
     table: InformationSchemaTablesInterface;
-  }>(`/datasource/${datasourceId}/schema/table/${tableId}`, {
-    shouldRun: () => !!tableId && !managedWarehousePending,
+  }>(`/datasource/${datasource.id}/schema/table/${currentTable.id}`, {
+    shouldRun: () => !!currentTable.id && !managedWarehousePending,
   });
 
   const table = data?.table;
@@ -62,7 +74,7 @@ export default function DatasourceSchema({
       : null,
   );
   const jsonFieldsByColumn = useMemo<Record<string, JSONColumnFields>>(() => {
-    if (!eventsFactTable || eventsFactTable.datasource !== datasourceId) {
+    if (!eventsFactTable || eventsFactTable.datasource !== datasource.id) {
       return {};
     }
     const map: Record<string, JSONColumnFields> = {};
@@ -72,7 +84,7 @@ export default function DatasourceSchema({
       }
     }
     return map;
-  }, [eventsFactTable, datasourceId]);
+  }, [eventsFactTable, datasource.id]);
 
   // Information-schema columns with JSON sub-fields expanded into their own
   // pseudo-column rows (`attributes.<field>`).
@@ -136,7 +148,7 @@ export default function DatasourceSchema({
   useEffect(() => {
     setFetching(false);
     setColumnFilter("");
-  }, [tableId]);
+  }, [currentTable.id]);
 
   if (managedWarehousePending) {
     return (
@@ -152,7 +164,7 @@ export default function DatasourceSchema({
     );
   }
 
-  if (tableId && !table)
+  if (currentTable.id && !table)
     return (
       <div
         className="p-2"
@@ -224,7 +236,7 @@ export default function DatasourceSchema({
                             status: number;
                             table?: InformationSchemaTablesInterface;
                           }>(
-                            `/datasource/${datasourceId}/schema/table/${table.id}`,
+                            `/datasource/${datasource.id}/schema/table/${table.id}`,
                             {
                               method: "PUT",
                             },
@@ -256,24 +268,56 @@ export default function DatasourceSchema({
       }
     >
       <div style={{ overflow: "auto", height: "100%" }}>
-        <table className="table table-sm">
+        <table className={clsx("table", "table-sm", actionStyles.columnTable)}>
           <tbody>
             {filteredColumns.length > 0 ? (
               <>
                 {filteredColumns?.map((column) => {
+                  const insertDisabledReason = columnInsertDisabledReason(
+                    sql,
+                    currentTable.path,
+                    column.columnName,
+                  );
                   return (
                     <tr key={`${table.tableName}:${column.columnName}`}>
                       <td className="pl-3">
-                        {column.jsonField ? (
+                        <div className={actionStyles.row}>
                           <span
-                            className="text-muted"
-                            style={{ paddingLeft: 16 }}
+                            className={clsx(
+                              actionStyles.label,
+                              column.jsonField && "text-muted",
+                            )}
+                            style={
+                              column.jsonField ? { paddingLeft: 16 } : undefined
+                            }
                           >
                             {column.columnName}
                           </span>
-                        ) : (
-                          column.columnName
-                        )}
+                          <span className={actionStyles.actions}>
+                            <SchemaCopyButton
+                              value={column.columnName}
+                              tooltip="Copy column name"
+                            />
+                            {updateSqlInput && !column.jsonField ? (
+                              <SchemaSqlInsertButton
+                                tooltip="Add to SELECT"
+                                disabled={!!insertDisabledReason}
+                                disabledTooltip={
+                                  insertDisabledReason ?? undefined
+                                }
+                                onClick={() => {
+                                  updateSqlInput(
+                                    insertColumnIntoSelect(
+                                      sql,
+                                      column.columnName,
+                                      currentTable.path,
+                                    ),
+                                  );
+                                }}
+                              />
+                            ) : null}
+                          </span>
+                        </div>
                       </td>
                       <td className="pr-3 text-right text-muted">
                         {column.dataType}

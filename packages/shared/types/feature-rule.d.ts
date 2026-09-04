@@ -75,6 +75,9 @@ export type PostFeatureRuleBody = {
   environments: string[];
   safeRolloutFields?: CreateSafeRolloutInterface;
   rampSchedule?: InlineRampScheduleCreate | InlineRampScheduleDetach;
+  // Insert the new rule directly above this rule; appends when the id is
+  // missing from the revision.
+  insertBeforeRuleId?: string;
 };
 
 export type PutFeatureRuleConflict = DraftConflict<FeatureRule>;
