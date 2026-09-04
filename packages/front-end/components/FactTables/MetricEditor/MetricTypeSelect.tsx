@@ -48,7 +48,7 @@ const TYPE_DESCRIPTIONS: Record<FormMetricType, string> = {
 
 const GROUPS: { label: string; types: readonly FormMetricType[] }[] = [
   {
-    label: "Unit Count",
+    label: "Unit count",
     types: ["proportion", "threshold", "retention", "funnel"],
   },
   {
@@ -86,7 +86,7 @@ export default function MetricTypeSelect({
     quantile: !hasQuantileMetrics
       ? " (premium)"
       : !quantileAvailableForDatasource
-        ? " (not available for this data source)"
+        ? " (not available for this Data Source)"
         : undefined,
   };
 
