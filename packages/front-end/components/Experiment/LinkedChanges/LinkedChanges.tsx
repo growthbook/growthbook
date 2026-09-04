@@ -318,7 +318,9 @@ export default function LinkedChanges({
             setUrlRedirectModal && (
               <Flex justify="between" px="1">
                 <Text color="text-high" size="lg" weight="semibold">
-                  Add Feature, URL Redirect or Visual Editor
+                  {!effectiveType || effectiveType === "multi"
+                    ? "Add Feature, URL Redirect or Visual Editor"
+                    : `Add ${IMPLEMENTATION_TYPE_OPTIONS[effectiveType].header}`}
                 </Text>
                 <AddLinkedChangeButton
                   experiment={experiment}
