@@ -25,7 +25,8 @@ export interface ManagedColumn {
   id: string;
   label: string;
   visible: boolean;
-  /** Can still be reordered, but its checkbox is checked and disabled. */
+  /** Can still be reordered, but its checkbox is checked and disabled. The
+   * popover's helper copy is where that gets explained. */
   alwaysVisible?: boolean;
 }
 
@@ -78,7 +79,6 @@ function SortableColumnRow({
         value={column.visible}
         setValue={onToggle}
         disabled={column.alwaysVisible}
-        disabledMessage="This column is always shown"
       />
     </Flex>
   );
