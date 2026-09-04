@@ -1,7 +1,8 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect, useRef, useState } from "react";
 import {
   addDays,
   allowedExpirationPresets,
+  getExpirationProblem,
   maxExpirationDate,
   MaxLifetimeDays,
   violatesExpirationPolicy,
@@ -39,13 +40,21 @@ const ApiKeyExpirationField: FC<{
     value ? CUSTOM : required ? String(longest) : NEVER,
   );
 
+  const appliedPolicy = useRef(maxLifetimeDays);
+
   // The select shows a default under a policy, but the parent owns the value, so
   // without this a key created without touching the dropdown submits null.
   useEffect(() => {
     if (!required) return;
-    // A policy can tighten mid-modal. Clearing rather than clamping keeps Create
-    // from submitting a date the user never saw.
-    if (value && violatesExpirationPolicy(value, maxLifetimeDays)) {
+    // Only when the policy itself tightens — a date the user typed past the
+    // maximum is theirs to correct, and is flagged on the field instead.
+    const policyChanged = appliedPolicy.current !== maxLifetimeDays;
+    appliedPolicy.current = maxLifetimeDays;
+    if (
+      policyChanged &&
+      value &&
+      violatesExpirationPolicy(value, maxLifetimeDays)
+    ) {
       setSelection(UNSET);
       setValue(null);
       return;
@@ -60,6 +69,15 @@ const ApiKeyExpirationField: FC<{
 
   const latest = maxExpirationDate(maxLifetimeDays);
   const cleared = selection === UNSET;
+  // Typed dates aren't snapped onto the bounds, so an out-of-range one is
+  // flagged here instead of silently becoming a date the user never chose.
+  const problem = getExpirationProblem(value, maxLifetimeDays);
+  const dateError =
+    problem === "past"
+      ? "Enter or select a future date."
+      : problem === "too-late" && latest
+        ? `Enter or select a date on or before ${date(latest)}.`
+        : undefined;
 
   return (
     <>
@@ -106,12 +124,14 @@ const ApiKeyExpirationField: FC<{
             precision="date"
             disableBefore={addDays(new Date(), 1)}
             disableAfter={latest ?? undefined}
+            clampInput={false}
+            error={dateError}
             containerClassName=""
           />
         </Box>
       )}
 
-      {value && (
+      {value && !problem && (
         <HelperText status="info" mb="3">
           {`The newly created key will expire on ${datetimeAt(value)}.`}
         </HelperText>
