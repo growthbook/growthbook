@@ -213,6 +213,11 @@ export default function Implementation({
             editNamespace={pendingScheduledStart ? null : editNamespace}
             addVariation={pendingScheduledStart ? null : addVariation}
             setEditVariationIndex={setEditMetadataIndex}
+            addVariationValues={
+              canAdoptManagedFlag && !pendingScheduledStart
+                ? addVariationValues
+                : null
+            }
             canEditExperiment={canEditExperiment}
             safeToEdit={safeToEdit}
             mutate={mutate}

@@ -11,6 +11,7 @@ import {
 } from "shared/experiments";
 import {
   filterEnvironmentsByExperiment,
+  getImplementationType,
   isManagedByExperiment,
 } from "shared/util";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
@@ -56,6 +57,8 @@ export interface Props {
   addVariation?: (() => void) | null;
   // Offered only while the experiment can still adopt a managed flag.
   setEditVariationIndex?: (index: number) => void;
+  /** Opens the values editor; offered per variation while no flag exists yet. */
+  addVariationValues?: (() => void) | null;
   /** The sole linked Feature Flag, when the cards can show its values. */
   servedValueFeature?: LinkedFeatureInfo | null;
   // Names the flag beneath the split, when no Linked Changes panel does.
@@ -208,6 +211,7 @@ export default function TrafficAllocationFunnel({
   editNamespace,
   addVariation,
   setEditVariationIndex,
+  addVariationValues,
   servedValueFeature,
   canEditExperiment = false,
   safeToEdit = false,
@@ -599,6 +603,13 @@ export default function TrafficAllocationFunnel({
               onAddVariation={
                 canEditExperiment && !isRunning && addVariation
                   ? addVariation
+                  : undefined
+              }
+              onAddValue={
+                addVariationValues &&
+                !servedValueFeature &&
+                getImplementationType(experiment) === "values"
+                  ? addVariationValues
                   : undefined
               }
               servedValues={servedValueSource?.values}

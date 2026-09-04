@@ -10,10 +10,12 @@ import {
   PiCameraLight,
   PiCameraPlusLight,
   PiPencilSimpleFill,
+  PiPlus,
   PiPlusCircle,
 } from "react-icons/pi";
 import clsx from "clsx";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import Link from "@/ui/Link";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
@@ -155,6 +157,8 @@ interface Props {
   servedValueDraftName?: string;
   /** Other drafts this readout is not showing. */
   servedValueDraftNote?: string;
+  /** Offered on each card while a values experiment has no flag yet. */
+  onAddValue?: () => void;
 }
 
 function AddVariationButton({ onClick }: { onClick: () => void }) {
@@ -240,6 +244,7 @@ export function VariationBox({
   servedValueDraftIds,
   servedValueDraftName,
   servedValueDraftNote,
+  onAddValue,
 }: {
   i: number;
   v: Variation;
@@ -272,6 +277,8 @@ export function VariationBox({
   servedValueDraftName?: string;
   /** Other drafts this readout is not showing. */
   servedValueDraftNote?: string;
+  /** Offered on each card while a values experiment has no flag yet. */
+  onAddValue?: () => void;
   /** Offered instead of a value when there is no Feature Flag yet. */
 }) {
   const { blockFileUploads } = useOrgSettings();
@@ -435,6 +442,14 @@ export function VariationBox({
               draftNote={servedValueDraftNote}
             />
           ) : null}
+          {!servedValueFeature && onAddValue && !isPublic ? (
+            <Box mt="2">
+              <Link onClick={onAddValue} weight="medium">
+                <PiPlus style={{ marginRight: "var(--space-1)" }} />
+                Add value
+              </Link>
+            </Box>
+          ) : null}
         </Box>
       </Flex>
     </Box>
@@ -462,6 +477,7 @@ const VariationsTable: FC<Props> = ({
   servedValueDraftIds,
   servedValueDraftName,
   servedValueDraftNote,
+  onAddValue,
 }) => {
   const variations = getLatestPhaseVariations(experiment);
   const phases = experiment.phases || [];
@@ -535,6 +551,7 @@ const VariationsTable: FC<Props> = ({
               servedValueDraftIds={servedValueDraftIds}
               servedValueDraftName={servedValueDraftName}
               servedValueDraftNote={servedValueDraftNote}
+              onAddValue={onAddValue}
               showNoImage={
                 experiment.status === "draft" || someVariationHasImage
               }

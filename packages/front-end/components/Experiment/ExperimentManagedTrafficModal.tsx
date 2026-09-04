@@ -14,6 +14,7 @@ import {
   castFeatureValue,
   expandSparseToFull,
   getFeatureBaseConfigKey,
+  getImplementationType,
   getReviewSetting,
   isManagedByExperiment,
   naiveFlattenV1Rules,
@@ -409,13 +410,23 @@ function ManagedTrafficForm({
     coverage: v.coverage,
   });
 
+  // Values was already chosen as the implementation, so the flag is the plan;
+  // no separate opt-in click before it exists.
+  const valuesChosen = getImplementationType(experiment) === "values";
   const didAutoAdopt = useRef(false);
   useEffect(() => {
-    if (didAutoAdopt.current || !adoptOnOpen || !canAdopt || adopting) return;
+    if (
+      didAutoAdopt.current ||
+      !(adoptOnOpen || valuesChosen) ||
+      !canAdopt ||
+      adopting
+    ) {
+      return;
+    }
     didAutoAdopt.current = true;
     startAdopting();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adoptOnOpen, canAdopt]);
+  }, [adoptOnOpen, valuesChosen, canAdopt]);
 
   const openedWith = useRef<{ core: string; values: string } | null>(null);
   if (openedWith.current === null) {
