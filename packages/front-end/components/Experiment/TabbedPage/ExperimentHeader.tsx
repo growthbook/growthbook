@@ -1269,6 +1269,9 @@ export default function ExperimentHeader({
           setShowEditInfoModal={setShowEditInfoModal}
           setEditInfoFocusSelector={setEditInfoFocusSelector}
           editTags={editTags}
+          isManaged={linkedFeatures.some((f) =>
+            isManagedByExperiment(f.feature, experiment.id),
+          )}
         />
 
         {runningExperimentDecisionBanner ? (

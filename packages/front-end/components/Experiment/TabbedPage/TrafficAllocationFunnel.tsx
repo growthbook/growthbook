@@ -4,7 +4,6 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { FeatureInterface } from "shared/types/feature";
 import {
   getLatestPhaseVariations,
   hasAttributeCondition,
@@ -15,7 +14,7 @@ import {
   isManagedByExperiment,
 } from "shared/util";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
-import { PiCaretDownBold, PiPencilSimpleFill, PiPlus } from "react-icons/pi";
+import { PiCaretDownBold, PiPencilSimpleFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
@@ -26,20 +25,15 @@ import VariationsTable, {
   getVariationGridColumns,
 } from "@/components/Experiment/VariationsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { getEnabledEnvironments, useEnvironments } from "@/services/features";
+import { useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useAuth } from "@/services/auth";
-import ConfirmDialog from "@/ui/ConfirmDialog";
 import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
 import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperimentEnvironmentsModal";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import ManagedFlagSummary from "@/components/Experiment/ManagedFlagSummary";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
-import Link from "@/ui/Link";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import ChangeImplementationTypeModal from "@/components/Experiment/ChangeImplementationTypeModal";
 import SplitButton from "@/ui/SplitButton";
 import Button from "@/ui/Button";
 import {
@@ -61,12 +55,10 @@ export interface Props {
   editNamespace?: (() => void) | null;
   addVariation?: (() => void) | null;
   // Offered only while the experiment can still adopt a managed flag.
-  addVariationValues?: (() => void) | null;
   setEditVariationIndex?: (index: number) => void;
   /** The sole linked Feature Flag, when the cards can show its values. */
   servedValueFeature?: LinkedFeatureInfo | null;
   // Names the flag beneath the split, when no Linked Changes panel does.
-  namedFeature?: FeatureInterface | null;
   /** Offered when the experiment has no implementation yet; adopts a managed flag. */
   canEditExperiment?: boolean;
   safeToEdit: boolean;
@@ -215,8 +207,6 @@ export default function TrafficAllocationFunnel({
   editTraffic,
   editNamespace,
   addVariation,
-  addVariationValues,
-  namedFeature,
   setEditVariationIndex,
   servedValueFeature,
   canEditExperiment = false,
@@ -234,7 +224,6 @@ export default function TrafficAllocationFunnel({
   const isBandit = experiment.type === "multi-armed-bandit";
   const allEnvironments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
-  const { apiCall } = useAuth();
 
   // A draft differs from live across its whole rule, so each readout asks about
   // itself rather than trusting that a draft exists.
@@ -275,29 +264,7 @@ export default function TrafficAllocationFunnel({
     !!servedValueFeature &&
     canEditExperiment &&
     permissionsUtil.canEditFeatureDrafts(servedValueFeature.feature);
-  const canEject =
-    !!managedFeature &&
-    canEditExperiment &&
-    permissionsUtil.canPublishFeature(
-      managedFeature,
-      getEnabledEnvironments(managedFeature, allEnvironments),
-    );
   const [editEnvironments, setEditEnvironments] = useState(false);
-  const [ejectConfirm, setEjectConfirm] = useState(false);
-  const [ejecting, setEjecting] = useState(false);
-  const handleEject = async () => {
-    setEjecting(true);
-    try {
-      await apiCall(`/experiment/${experiment.id}/managed-flag/eject`, {
-        method: "POST",
-      });
-      setEjectConfirm(false);
-      mutate?.();
-    } finally {
-      setEjecting(false);
-    }
-  };
-
   // Each side reads its own fields: `info.values` and `info.environmentStates`
   // follow whichever revision resolved, so falling back shows draft under Live.
   const servedValueSource = preferDraft
@@ -371,13 +338,7 @@ export default function TrafficAllocationFunnel({
     safeToEdit &&
     !hasNamespace &&
     !!namespaces?.length;
-  const canChangeType =
-    !!managedFeature &&
-    canEditExperiment &&
-    experiment.status === "draft" &&
-    !experiment.archived;
-  const [changingType, setChangingType] = useState(false);
-  const hasMenuActions = canAddNamespace || canEject || canChangeType;
+  const hasMenuActions = canAddNamespace;
 
   const hasConfiguredTargeting = hasTargetingConfigured(phase);
   const targetsEveryone = !hasConfiguredTargeting && reachesAllEnvironments;
@@ -408,15 +369,6 @@ export default function TrafficAllocationFunnel({
           info={servedValueFeature}
           close={() => setEditEnvironments(false)}
           mutate={() => mutate?.()}
-        />
-      )}
-      {ejectConfirm && (
-        <ConfirmDialog
-          title="Convert to unmanaged Feature Flag?"
-          content="This experiment keeps using the linked Feature Flag, but you'll manage and review it directly from its own page instead of from here."
-          yesText="Convert"
-          onConfirm={handleEject}
-          onCancel={() => setEjectConfirm(false)}
         />
       )}
       <Flex justify="between" align="center" mb="4">
@@ -467,28 +419,7 @@ export default function TrafficAllocationFunnel({
                   Add namespace
                 </DropdownMenuItem>
               )}
-              {canChangeType && (
-                <DropdownMenuItem onClick={() => setChangingType(true)}>
-                  Change experiment type
-                </DropdownMenuItem>
-              )}
-              {canEject && (
-                <DropdownMenuItem
-                  disabled={ejecting}
-                  onClick={() => setEjectConfirm(true)}
-                >
-                  Convert to unmanaged Feature Flag
-                </DropdownMenuItem>
-              )}
             </DropdownMenu>
-          )}
-          {changingType && managedFeature && (
-            <ChangeImplementationTypeModal
-              experiment={experiment}
-              managedFeature={managedFeature}
-              close={() => setChangingType(false)}
-              mutate={() => mutate?.()}
-            />
           )}
         </Flex>
       </Flex>
@@ -680,23 +611,6 @@ export default function TrafficAllocationFunnel({
               servedValueDraftName={draftDetail.name}
               servedValueDraftNote={draftDetail.note}
             />
-            {namedFeature && (
-              <Box mt="7">
-                <ManagedFlagSummary
-                  featureId={namedFeature.id}
-                  tooltip="This experiment owns the Feature Flag: it serves the variation values above, and is edited from here rather than from its own page."
-                />
-              </Box>
-            )}
-            {addVariationValues && (
-              // One offer for the whole set; values are authored together.
-              <Flex justify="center" mt="3">
-                <Link onClick={addVariationValues} weight="medium">
-                  <PiPlus style={{ marginRight: "var(--space-1)" }} />
-                  Add variation values
-                </Link>
-              </Flex>
-            )}
           </>
         )}
       </Flex>

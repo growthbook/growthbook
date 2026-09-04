@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { IconButton } from "@radix-ui/themes";
-import { isManagedByExperiment } from "shared/util";
+import { getImplementationType, isManagedByExperiment } from "shared/util";
+import { PiInfo } from "react-icons/pi";
 import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
@@ -10,6 +11,11 @@ import {
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
+import ConfirmDialog from "@/ui/ConfirmDialog";
+import { ManagedFlagName } from "@/components/Experiment/ManagedFlagSummary";
+import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import ChangeImplementationTypeModal from "@/components/Experiment/ChangeImplementationTypeModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -50,6 +56,7 @@ export default function LinkedChanges({
   hideVariations,
   managedMode,
   valuesShownOnVariations,
+  onAddValues,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
@@ -72,7 +79,12 @@ export default function LinkedChanges({
   /** The variation cards above are already showing the flag's values. */
   valuesShownOnVariations?: boolean;
   hideVariations?: boolean;
+  /** Creates the managed flag for a "values" experiment that has none yet. */
+  onAddValues?: () => void;
 }) {
+  const { apiCall } = useAuth();
+  const permissionsUtil = usePermissionsUtil();
+  const allEnvironments = useEnvironments();
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
 
@@ -92,6 +104,26 @@ export default function LinkedChanges({
         : null;
   const showTypeMenu = !isPublic && canEditExperiment && !experiment.archived;
 
+  // "values" owns the box: it names the managed flag (or offers to create it)
+  // and carries the eject action.
+  const valuesMode =
+    !!managedFeature || getImplementationType(experiment) === "values";
+  const canEject =
+    !!managedFeature &&
+    !!canEditExperiment &&
+    permissionsUtil.canPublishFeature(
+      managedFeature.feature,
+      getEnabledEnvironments(managedFeature.feature, allEnvironments),
+    );
+  const [ejectConfirm, setEjectConfirm] = useState(false);
+  const eject = async () => {
+    await apiCall(`/experiment/${experiment.id}/managed-flag/eject`, {
+      method: "POST",
+    });
+    setEjectConfirm(false);
+    mutate?.();
+  };
+
   const publicLinkedChangeSummary: { id: LinkedChange; count: number }[] = [
     { id: "feature-flag", count: linkedFeatures.length },
     { id: "visual-editor", count: visualChangesets.length },
@@ -101,11 +133,22 @@ export default function LinkedChanges({
   return (
     <Frame>
       <Flex justify="between" align="center" mb="4" gap="3">
-        <Heading color="text-high" as="h4" size="sm">
-          {isPublic || hideVariations
-            ? "Linked Changes"
-            : "Variations & Values"}
-        </Heading>
+        <Flex align="center" gap="1">
+          <Heading color="text-high" as="h4" size="sm" mb="0">
+            {valuesMode
+              ? "Managed Feature Flag"
+              : isPublic || hideVariations
+                ? "Linked Changes"
+                : "Variations & Values"}
+          </Heading>
+          {valuesMode && (
+            <Tooltip body="This experiment owns the Feature Flag: it serves the variation values above and is edited from here rather than from its own page.">
+              <Flex align="center" style={{ color: "var(--color-text-low)" }}>
+                <PiInfo />
+              </Flex>
+            </Tooltip>
+          )}
+        </Flex>
         <Flex align="center" gap="2">
           {!isPublic && onAddVariation && !hideVariations ? (
             <Button variant="ghost" onClick={onAddVariation}>
@@ -140,10 +183,24 @@ export default function LinkedChanges({
                   Change experiment type
                 </DropdownMenuItem>
               )}
+              {canEject && (
+                <DropdownMenuItem onClick={() => setEjectConfirm(true)}>
+                  Convert to unmanaged Feature Flag
+                </DropdownMenuItem>
+              )}
             </DropdownMenu>
           )}
         </Flex>
       </Flex>
+      {ejectConfirm && (
+        <ConfirmDialog
+          title="Convert to unmanaged Feature Flag?"
+          content="This experiment keeps using the linked Feature Flag, but you'll manage and review it directly from its own page instead of from here."
+          yesText="Convert"
+          onConfirm={eject}
+          onCancel={() => setEjectConfirm(false)}
+        />
+      )}
       {changingType && mutate && (
         <ChangeImplementationTypeModal
           experiment={experiment}
@@ -152,7 +209,24 @@ export default function LinkedChanges({
           mutate={mutate}
         />
       )}
-      {isPublic ? (
+      {valuesMode && !isPublic ? (
+        managedFeature ? (
+          <ManagedFlagName featureId={managedFeature.feature.id} />
+        ) : (
+          <Box className="appbox mb-0" p="4" mb="0">
+            <Flex justify="between" align="center" gap="4">
+              <Text color="text-mid">
+                No Feature Flag yet. Adding variation values creates one.
+              </Text>
+              {onAddValues && (
+                <Button variant="outline" onClick={onAddValues}>
+                  Add variation values
+                </Button>
+              )}
+            </Flex>
+          </Box>
+        )
+      ) : isPublic ? (
         <Flex direction="column" gap="3" mx="1" mb="2" mt="4">
           {publicLinkedChangeSummary
             .filter(({ count }) => count > 0)

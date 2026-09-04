@@ -212,20 +212,12 @@ export default function Implementation({
             editTargeting={pendingScheduledStart ? null : editTargeting}
             editNamespace={pendingScheduledStart ? null : editNamespace}
             addVariation={pendingScheduledStart ? null : addVariation}
-            addVariationValues={
-              canAdoptManagedFlag && !pendingScheduledStart
-                ? addVariationValues
-                : null
-            }
             setEditVariationIndex={setEditMetadataIndex}
             canEditExperiment={canEditExperiment}
             safeToEdit={safeToEdit}
             mutate={mutate}
             phaseIndex={phases.length - 1}
             servedValueFeature={soleLinkedFeature}
-            namedFeature={
-              managedSoleImplementation ? soleLinkedFeature?.feature : null
-            }
           />
         ) : (
           <TrafficAndTargeting
@@ -236,8 +228,11 @@ export default function Implementation({
           />
         )}
         {!isHoldout &&
-        !managedSoleImplementation &&
-        (!showTrafficFunnel || hasLinkedChanges || canAddLinkedChanges) ? (
+        (!showTrafficFunnel ||
+          hasLinkedChanges ||
+          canAddLinkedChanges ||
+          managedSoleImplementation ||
+          getImplementationType(experiment) === "values") ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
             experiment={experiment}
@@ -257,6 +252,11 @@ export default function Implementation({
             hideVariations={showTrafficFunnel}
             managedMode={managedMode}
             valuesShownOnVariations={!!soleLinkedFeature && showTrafficFunnel}
+            onAddValues={
+              canAdoptManagedFlag && !pendingScheduledStart
+                ? (addVariationValues ?? undefined)
+                : undefined
+            }
           />
         ) : null}
 

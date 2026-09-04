@@ -19,6 +19,8 @@ import ProjectBadges from "@/components/ProjectBadges";
 import { FocusSelector } from "./EditExperimentInfoModal";
 
 export interface Props {
+  /** The experiment owns a managed Feature Flag. */
+  isManaged?: boolean;
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterfaceStringDates;
   setShowEditInfoModal: (value: boolean) => void;
@@ -32,6 +34,7 @@ export default function ProjectTagBar({
   setShowEditInfoModal,
   setEditInfoFocusSelector,
   editTags,
+  isManaged,
 }: Props) {
   const {
     projects,
@@ -49,7 +52,10 @@ export default function ProjectTagBar({
   const permissionsUtil = usePermissionsUtil();
   const canUpdateExperimentProject = (project) =>
     permissionsUtil.canUpdateExperiment({ project }, {});
-  const implementationType = getImplementationType(experiment);
+  // Adopted before the type was stored: the flag's marker is the truth.
+  const implementationType = isManaged
+    ? "values"
+    : getImplementationType(experiment);
 
   const canUpdateHoldoutProjects = (projects) =>
     permissionsUtil.canUpdateHoldout({ projects }, { projects: [] });
