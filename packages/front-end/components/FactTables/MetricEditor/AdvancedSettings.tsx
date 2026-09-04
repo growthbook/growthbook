@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Field from "@/components/Forms/Field";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { MetricWindowSettingsForm } from "@/components/Metrics/MetricForm/MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "@/components/Metrics/MetricForm/MetricCappingSettingsForm";
 import { MetricDelaySettings } from "@/components/Metrics/MetricForm/MetricDelaySettings";
@@ -126,9 +127,11 @@ export default function AdvancedSettings({
           />
           {formType !== "quantile" && (
             <>
-              <Text weight="semibold" as="div" mb="1">
-                Regression adjustment (CUPED)
-              </Text>
+              <PremiumTooltip commercialFeature="regression-adjustment">
+                <Text weight="semibold" as="div" mb="1">
+                  Regression adjustment (CUPED)
+                </Text>
+              </PremiumTooltip>
               <Switch
                 label="Override organization-level settings"
                 value={form.watch("regressionAdjustmentOverride")}
