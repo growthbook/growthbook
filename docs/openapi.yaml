@@ -34990,6 +34990,14 @@ paths:
                   type: array
                   items:
                     anyOf:
+                      - type: object
+                        properties:
+                          id:
+                            type: string
+                            minLength: 1
+                        required:
+                          - id
+                        additionalProperties: false
                       - anyOf:
                           - type: object
                             properties:

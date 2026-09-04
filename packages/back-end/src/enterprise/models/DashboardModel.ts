@@ -9,6 +9,8 @@ import {
   blockHasFieldOfType,
   resolveGlobalControlsBlockEnrollment,
   dashboardBlockHasIds,
+  isDashboardBlockRef,
+  DashboardBlockRef,
   apiCreateDashboardBody,
   DashboardBlockWithAnalysisId,
   ApiDashboardInterface,
@@ -51,6 +53,7 @@ import {
   runNewApiExplorationBlocks,
   shouldRecalculateNextUpdate,
 } from "back-end/src/enterprise/services/dashboards";
+import { BadRequestError } from "back-end/src/util/errors";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
@@ -513,11 +516,35 @@ export class DashboardModel extends BaseClass {
       apiUpdateDashboardBody.parse(rawBody);
     const updates: UpdateProps<DashboardInterface> = otherUpdates;
     if (blockUpdates) {
+      // A ref names a saved block to carry through as-is: nothing to run, nothing
+      // to convert. Kept positionally so the list still defines order.
+      const savedById = new Map(
+        (existingDashboard?.blocks ?? []).map((block) => [block.id, block]),
+      );
+      const carried = new Map<number, DashboardBlockInterface>();
+      const toProcess: {
+        index: number;
+        block: Exclude<(typeof blockUpdates)[number], DashboardBlockRef>;
+      }[] = [];
+      blockUpdates.forEach((block, index) => {
+        if (!isDashboardBlockRef(block)) {
+          toProcess.push({ index, block });
+          return;
+        }
+        const saved = savedById.get(block.id);
+        if (!saved) {
+          throw new BadRequestError(
+            `No block "${block.id}" on this dashboard. Reference one it already has, or send the block in full to add it.`,
+          );
+        }
+        carried.set(index, saved);
+      });
+
       // Absent controls mean the saved ones still apply, so a partial update
       // queries the window the tiles render under.
       const ranBlocks = await runNewApiExplorationBlocks(
         this.context,
-        blockUpdates,
+        toProcess.map((entry) => entry.block),
         {
           globalControls:
             updates.globalControls ?? existingDashboard?.globalControls,
@@ -527,13 +554,19 @@ export class DashboardModel extends BaseClass {
       const migratedBlocks = ranBlocks
         .map(fromBlockApiInterface)
         .map(migrateBlock);
-      const createdBlocks = await Promise.all(
+      const processed = await Promise.all(
         migratedBlocks.map((blockData) =>
           dashboardBlockHasIds(blockData)
             ? blockData
             : generateDashboardBlockIds(this.context.org.id, blockData),
         ),
       );
+      toProcess.forEach((entry, i) => carried.set(entry.index, processed[i]));
+      const createdBlocks = blockUpdates.map((_, index) => {
+        const block = carried.get(index);
+        if (!block) throw new Error("Unreachable: every block index resolved");
+        return block;
+      });
       updates.blocks = normalizeLayouts(
         resolveGlobalControlsBlockEnrollment({
           existingGlobalControls: existingDashboard?.globalControls,

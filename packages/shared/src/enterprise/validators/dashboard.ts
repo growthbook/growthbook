@@ -126,6 +126,20 @@ const apiCreateDashboardBlock = z.preprocess(
   apiCreateDashboardBlockInterface,
 );
 
+/**
+ * `{ "id": "dshblk_…" }` carries a saved block through untouched. An update
+ * replaces the whole list, and re-sending tiles verbatim just to keep them is a
+ * transcription job — write out only the blocks you are actually changing.
+ */
+export const dashboardBlockRef = z.strictObject({ id: z.string().min(1) });
+export type DashboardBlockRef = z.infer<typeof dashboardBlockRef>;
+
+export function isDashboardBlockRef(
+  block: unknown,
+): block is DashboardBlockRef {
+  return dashboardBlockRef.safeParse(block).success;
+}
+
 /** An `id` marks a block the dashboard already has; only a new one gets stripped. */
 const apiUpdateDashboardBlock = z.preprocess(
   (raw) => {
@@ -133,7 +147,12 @@ const apiUpdateDashboardBlock = z.preprocess(
     if (typeof id === "string" && id) return raw;
     return withoutKeys(raw, ["uid", "organization"]);
   },
-  z.union([apiCreateDashboardBlockInterface, apiDashboardBlockInterface]),
+  // Ref first: it is strict, so a full block falls through to the shapes below.
+  z.union([
+    dashboardBlockRef,
+    apiCreateDashboardBlockInterface,
+    apiDashboardBlockInterface,
+  ]),
 );
 
 const apiCreateDashboardFields = z

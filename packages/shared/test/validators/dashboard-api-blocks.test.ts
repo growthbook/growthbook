@@ -118,6 +118,22 @@ describe("dashboard API block validation", () => {
     expect(result.data?.title).toBe("Nhat's KPI Dashboard");
   });
 
+  it("takes a bare { id } as a reference to a saved block", () => {
+    const result = apiUpdateDashboardBody.safeParse({
+      blocks: [{ id: "dshblk_1" }, newBlockFromRoundTrip],
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.blocks?.[0]).toEqual({ id: "dshblk_1" });
+  });
+
+  it("reads a block with an id and other fields as a full block, not a reference", () => {
+    const parsed = apiUpdateDashboardBody.parse({ blocks: [existingBlock] });
+    expect(parsed.blocks?.[0]).toMatchObject({
+      id: "dshblk_1",
+      title: existingBlock.title,
+    });
+  });
+
   it("still rejects a key that is not merely server-owned", () => {
     const result = apiUpdateDashboardBody.safeParse({
       title: "D",
