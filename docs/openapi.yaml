@@ -27106,6 +27106,19 @@ paths:
                   type: array
                   items:
                     type: string
+                userIdColumns:
+                  description: >-
+                    Maps an identifier type to the column holding it, for SQL
+                    that does not alias its columns to the identifier type
+                    names, e.g. `{"user_id": "userId"}`. May also be a
+                    single-level field path into a JSON column
+                    (`properties.userId`). Unmapped types use the identifier
+                    type name as the column name.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
                 aggregatedFactTableSettings:
                   description: >-
                     Settings for maintaining shared daily aggregated tables (a
@@ -27143,6 +27156,12 @@ paths:
                   additionalProperties: false
                 sql:
                   description: The SQL query for this fact table
+                  type: string
+                timestampColumn:
+                  description: >-
+                    The column holding the event timestamp. Must be a date
+                    column on this fact table. Defaults to "timestamp" when
+                    unset.
                   type: string
                 eventName:
                   description: The event name used in SQL template variables
@@ -27259,6 +27278,19 @@ paths:
                   type: array
                   items:
                     type: string
+                userIdColumns:
+                  description: >-
+                    Maps an identifier type to the column holding it, for SQL
+                    that does not alias its columns to the identifier type
+                    names, e.g. `{"user_id": "userId"}`. May also be a
+                    single-level field path into a JSON column
+                    (`properties.userId`). Unmapped types use the identifier
+                    type name as the column name.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
                 aggregatedFactTableSettings:
                   description: >-
                     Settings for maintaining shared daily aggregated tables (a
@@ -27296,6 +27328,12 @@ paths:
                   additionalProperties: false
                 sql:
                   description: The SQL query for this fact table
+                  type: string
+                timestampColumn:
+                  description: >-
+                    The column holding the event timestamp. Must be a date
+                    column on this fact table. Defaults to "timestamp" when
+                    unset.
                   type: string
                 eventName:
                   description: The event name used in SQL template variables
@@ -59001,6 +59039,18 @@ components:
           type: array
           items:
             type: string
+        userIdColumns:
+          description: >-
+            Maps an identifier type to the column holding it, for SQL that does
+            not alias its columns to the identifier type names, e.g.
+            `{"user_id": "userId"}`. May also be a single-level field path into
+            a JSON column (`properties.userId`). Unmapped types use the
+            identifier type name as the column name.
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
         aggregatedFactTableSettings:
           description: >-
             Settings for maintaining shared daily aggregated tables (a subset of
@@ -59037,6 +59087,11 @@ components:
             - lookbackWindow
           additionalProperties: false
         sql:
+          type: string
+        timestampColumn:
+          description: >-
+            The column holding the event timestamp. Must be a date column on
+            this fact table. Defaults to "timestamp" when unset.
           type: string
         eventName:
           description: The event name used in SQL template variables
