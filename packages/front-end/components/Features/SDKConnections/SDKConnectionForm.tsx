@@ -162,6 +162,7 @@ export default function SDKConnectionForm({
       includeRedirectExperiments:
         initialValue.includeRedirectExperiments ?? false,
       includeRuleIds: initialValue.includeRuleIds ?? false,
+      includeExperimentIds: initialValue.includeExperimentIds ?? false,
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
@@ -1365,6 +1366,14 @@ export default function SDKConnectionForm({
               label="Include feature rule IDs in payload"
               value={!!form.watch("includeRuleIds")}
               setValue={(val) => form.setValue("includeRuleIds", val)}
+            />
+          </Box>
+          <Box>
+            <Checkbox
+              weight="regular"
+              label="Include experiment IDs in payload"
+              value={!!form.watch("includeExperimentIds")}
+              setValue={(val) => form.setValue("includeExperimentIds", val)}
             />
           </Box>
           <Box>
