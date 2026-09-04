@@ -1,16 +1,13 @@
 import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
-import { RxDesktop } from "react-icons/rx";
-import { BsFlag, BsFlagFill } from "react-icons/bs";
-import { PiArrowSquareOutBold, PiShuffle } from "react-icons/pi";
-import { TbCloudOff } from "react-icons/tb";
+import { PiArrowSquareOutBold } from "react-icons/pi";
 import React, { useEffect, useMemo, useState } from "react";
 import { isFactMetricId, getAllVariations } from "shared/experiments";
 import { date } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import EmptyState from "@/components/EmptyState";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import { ImplementationTypeIcon } from "@/components/Experiment/ImplementationTypeSelect";
 import Pagination from "@/components/Pagination";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -159,55 +156,39 @@ const CompletedExperimentList = ({
             const expTypes: JSX.Element[] = [];
             if (e.hasVisualChangesets) {
               expTypes.push(
-                <Tooltip
+                <ImplementationTypeIcon
                   key={e.id + "-visual"}
+                  type="visual"
                   className="d-flex align-items-center ml-2"
-                  body="Visual experiment"
-                >
-                  <RxDesktop className="text-purple" />
-                </Tooltip>,
+                />,
               );
             }
             if ((e.linkedFeatures || []).length > 0) {
               expTypes.push(
-                <Tooltip
+                <ImplementationTypeIcon
                   key={e.id + "-feature-flag"}
+                  type={getManagedFlag(e.id) ? "values" : "feature"}
                   className="d-flex align-items-center ml-2"
-                  body={
-                    getManagedFlag(e.id)
-                      ? "Feature Flag managed by this experiment"
-                      : "Linked Feature Flag"
-                  }
-                >
-                  {getManagedFlag(e.id) ? (
-                    <BsFlagFill className="text-purple" />
-                  ) : (
-                    <BsFlag className="text-purple" />
-                  )}
-                </Tooltip>,
+                />,
               );
             }
             if (e.hasURLRedirects) {
               expTypes.push(
-                <Tooltip
+                <ImplementationTypeIcon
                   key={e.id + "-url-redirect"}
+                  type="urlredirect"
                   className="d-flex align-items-center ml-2"
-                  body="URL Redirect experiment"
-                >
-                  <PiShuffle className="text-purple" />
-                </Tooltip>,
+                />,
               );
             }
 
             if (expTypes.length === 0) {
               expTypes.push(
-                <Tooltip
+                <ImplementationTypeIcon
                   key={e.id + "-no-type"}
+                  type="none"
                   className="d-flex align-items-center ml-2"
-                  body="Implemented outside of GrowthBook"
-                >
-                  <TbCloudOff className="text-blue" />
-                </Tooltip>,
+                />,
               );
             }
 

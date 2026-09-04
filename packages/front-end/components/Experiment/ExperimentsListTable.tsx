@@ -1,8 +1,5 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { RxDesktop } from "react-icons/rx";
-import { BsFlag, BsFlagFill } from "react-icons/bs";
-import { PiShuffle } from "react-icons/pi";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -11,6 +8,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Pagination from "@/ui/Pagination";
 import { useManagedExperimentFlagStates } from "@/hooks/useManagedExperimentFlagStates";
+import { ImplementationTypeIcon } from "@/components/Experiment/ImplementationTypeSelect";
 import Table, {
   TableHeader,
   TableBody,
@@ -35,6 +33,12 @@ interface ExperimentsListTableProps {
   setSearchValue: (value: string) => void;
   hrefBase?: string;
 }
+
+const LIST_ICON_STYLE = {
+  display: "flex",
+  alignItems: "center",
+  marginLeft: "var(--space-2)",
+} as const;
 
 const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   tab,
@@ -144,51 +148,22 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                     <div style={{ display: "flex", alignItems: "center" }}>
                       <span className="testname">{e.name}</span>
                       {e.hasVisualChangesets ? (
-                        <Tooltip
-                          flipTheme={false}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            marginLeft: "var(--space-2)",
-                          }}
-                          body="Visual experiment"
-                        >
-                          <RxDesktop className="text-purple" />
-                        </Tooltip>
+                        <ImplementationTypeIcon
+                          type="visual"
+                          style={LIST_ICON_STYLE}
+                        />
                       ) : null}
                       {(e.linkedFeatures || []).length > 0 ? (
-                        <Tooltip
-                          flipTheme={false}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            marginLeft: "var(--space-2)",
-                          }}
-                          body={
-                            getManagedFlag(e.id)
-                              ? "Feature Flag managed by this experiment"
-                              : "Linked Feature Flag"
-                          }
-                        >
-                          {getManagedFlag(e.id) ? (
-                            <BsFlagFill className="text-purple" />
-                          ) : (
-                            <BsFlag className="text-purple" />
-                          )}
-                        </Tooltip>
+                        <ImplementationTypeIcon
+                          type={getManagedFlag(e.id) ? "values" : "feature"}
+                          style={LIST_ICON_STYLE}
+                        />
                       ) : null}
                       {e.hasURLRedirects ? (
-                        <Tooltip
-                          flipTheme={false}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            marginLeft: "var(--space-2)",
-                          }}
-                          body="URL Redirect experiment"
-                        >
-                          <PiShuffle className="text-purple" />
-                        </Tooltip>
+                        <ImplementationTypeIcon
+                          type="urlredirect"
+                          style={LIST_ICON_STYLE}
+                        />
                       ) : null}
                     </div>
                     {isFiltered &&

@@ -1,3 +1,4 @@
+import { type CSSProperties } from "react";
 import { Flex, type AvatarProps } from "@radix-ui/themes";
 import { ImplementationType } from "shared/validators";
 import { SELECTABLE_IMPLEMENTATION_TYPES } from "shared/util";
@@ -53,6 +54,38 @@ export const IMPLEMENTATION_TYPE_OPTIONS: Record<ImplementationType, Option> = {
     color: "gray",
   },
 };
+
+/** The bare icon with the picker's wording as its tooltip, for list rows. */
+export function ImplementationTypeIcon({
+  type,
+  className,
+  style,
+}: {
+  type: ImplementationType;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const option = IMPLEMENTATION_TYPE_OPTIONS[type];
+  return (
+    <Tooltip
+      flipTheme={false}
+      className={className}
+      style={style}
+      body={
+        <>
+          <div>{option.header} implementation</div>
+          <Text size="sm" color="text-mid">
+            {option.description}
+          </Text>
+        </>
+      }
+    >
+      <span style={{ color: `var(--${option.color}-9)`, display: "flex" }}>
+        {option.icon}
+      </span>
+    </Tooltip>
+  );
+}
 
 export function ImplementationTypeLabel({
   type,
