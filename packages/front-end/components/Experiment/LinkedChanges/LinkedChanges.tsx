@@ -172,17 +172,13 @@ export default function LinkedChanges({
               menuPlacement="end"
               variant="soft"
             >
-              {changeTypeLockedReason ? (
-                <Tooltip body={changeTypeLockedReason}>
-                  <DropdownMenuItem disabled>
-                    Change experiment type
-                  </DropdownMenuItem>
-                </Tooltip>
-              ) : (
-                <DropdownMenuItem onClick={() => setChangingType(true)}>
-                  Change experiment type
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem
+                disabled={!!changeTypeLockedReason}
+                tooltip={changeTypeLockedReason ?? undefined}
+                onClick={() => setChangingType(true)}
+              >
+                Change experiment type
+              </DropdownMenuItem>
               {canEject && (
                 <DropdownMenuItem onClick={() => setEjectConfirm(true)}>
                   Convert to unmanaged Feature Flag
