@@ -1,6 +1,6 @@
 import type { ToolSet } from "ai";
 import type { ApiReqContext } from "back-end/types/api";
-import { generateImageTool } from "./generateImage";
+import { generateImageTool, type ImageTurnState } from "./generateImage";
 import { searchImageLibraryTool } from "./searchImageLibrary";
 import { getDesignTokensTool } from "./getDesignTokens";
 import { searchPastExperimentsTool } from "./searchPastExperiments";
@@ -34,6 +34,17 @@ export interface VisualEditorToolsetOptions {
   pageStructure?: PageStructureNode[];
   // Set to true to suppress tools entirely.
   disabled?: boolean;
+  imageState?: ImageTurnState;
+  quarantineImages?: boolean;
+}
+
+export function newImageTurnState(): ImageTurnState {
+  return {
+    count: 0,
+    max: IMAGE_GEN_PER_TURN_MAX,
+    generated: [],
+    warnings: [],
+  };
 }
 
 export function buildVisualEditorTools({
@@ -41,12 +52,18 @@ export function buildVisualEditorTools({
   job,
   pageStructure,
   disabled = false,
+  imageState,
+  quarantineImages = true,
 }: VisualEditorToolsetOptions): ToolSet | undefined {
   if (disabled) return undefined;
-  const turnCounter = { count: 0, max: IMAGE_GEN_PER_TURN_MAX };
+  const turnCounter = imageState ?? newImageTurnState();
   const hasStructure = !!pageStructure && pageStructure.length > 0;
   const serverTools = {
-    generateImage: generateImageTool({ context, turnCounter }),
+    generateImage: generateImageTool({
+      context,
+      turnCounter,
+      quarantine: quarantineImages,
+    }),
     searchImageLibrary: searchImageLibraryTool(context),
     getDesignTokens: getDesignTokensTool(context),
     searchPastExperiments: searchPastExperimentsTool(context),

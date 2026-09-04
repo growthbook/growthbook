@@ -20,24 +20,11 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
 
   checkPermissions(): boolean {
     const datasetType = this.model.config?.dataset?.type;
-
-    // Funnels read from fact tables (same backing data the fact-table
-    // explorer uses), so the metric/fact-query permission gate applies.
-    if (
-      datasetType === "metric" ||
-      datasetType === "fact_table" ||
-      datasetType === "funnel"
-    ) {
-      return this.context.permissions.canRunMetricAnalysisQueries(
-        this.integration.datasource,
-      );
-    }
-    // If custom SQL is being explored
-    else {
-      return this.context.permissions.canRunSqlExplorerQueries(
-        this.integration.datasource,
-      );
-    }
+    if (!datasetType) return false;
+    return this.context.permissions.canRunProductAnalyticsExplorationQueries(
+      this.integration.datasource,
+      datasetType,
+    );
   }
 
   async startQueries(

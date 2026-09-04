@@ -132,8 +132,8 @@ export function isExperimentIncrementalEnabled(
  * The highest-priority reason this experiment can't run in Incremental Pipeline
  * mode, or null when it can. Combines coverage (delegated to
  * `isExperimentIncrementalEnabled`) with the per-experiment support checks
- * (in-progress conversions, activation metric, metrics, quantile sketches),
- * returning the first reason that applies.
+ * (activation metric, metrics, quantile sketches), returning the first reason
+ * that applies.
  */
 export function getIncrementalPipelineUnsupportedReason(params: {
   datasourceProperties:
@@ -145,7 +145,6 @@ export function getIncrementalPipelineUnsupportedReason(params: {
   pipelineSettings: DataSourcePipelineSettings | undefined;
   experimentId: string;
   orgHasIncrementalPipelineFeature: boolean;
-  skipPartialData: boolean;
   activationMetric: string | null | undefined;
   metrics: ExperimentMetricDefinition[];
   experimentType: ExperimentInterface["type"];
@@ -166,10 +165,6 @@ export function getIncrementalPipelineUnsupportedReason(params: {
     )
   ) {
     return "Incremental Pipeline mode is not enabled for this experiment.";
-  }
-
-  if (params.skipPartialData) {
-    return "'Exclude In-Progress Conversions' is not supported with Incremental Pipeline mode while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.";
   }
 
   if (params.activationMetric) {

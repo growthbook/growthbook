@@ -19,6 +19,7 @@ export interface CrossFtPipelineRef {
 export interface CrossFtSubGroup<P> {
   pipelines: [P, P];
   metrics: CrossFtRatioMetric[];
+  windowKey: string | null;
 }
 
 // Build the set of cross-FT sub-groups for a fan-out. Each sub-group is keyed
@@ -26,6 +27,9 @@ export interface CrossFtSubGroup<P> {
 // metric that needs those two caches joined — regardless of which side is
 // numerator vs denominator. This lets `A/B` and `B/A` ratio metrics share a
 // single joined stats query.
+//
+// When getWindowKey is set, mixed-window metrics over the same two caches
+// split into one stats query per window.
 //
 // Source-0 privilege (CUPED / event-quantile threshold) is irrelevant for
 // cross-FT ratio metrics, so collapsing orientations is safe. The metric's
@@ -43,11 +47,13 @@ export function buildCrossFtSubGroups<P extends CrossFtPipelineRef>({
   metricSourceGroups,
   pipelineByGroupId,
   onMissingPipeline,
+  getWindowKey,
 }: {
   crossFtPairs: MetricFanOut["crossFtPairs"];
   metricSourceGroups: CrossFtMetricSourceGroupRef[];
   pipelineByGroupId: Map<string, P>;
   onMissingPipeline: "throw" | "skip";
+  getWindowKey?: (m: CrossFtRatioMetric) => string | null;
 }): CrossFtSubGroup<P>[] {
   const subGroupMap = new Map<string, CrossFtSubGroup<P>>();
 
@@ -84,7 +90,9 @@ export function buildCrossFtSubGroups<P extends CrossFtPipelineRef>({
         numPipeline.group.groupId < denomPipeline.group.groupId
           ? [numPipeline, denomPipeline]
           : [denomPipeline, numPipeline];
-      const subGroupKey = `${sortedPipelines[0].group.groupId}__${sortedPipelines[1].group.groupId}`;
+      const pairKey = `${sortedPipelines[0].group.groupId}__${sortedPipelines[1].group.groupId}`;
+      const windowKey = getWindowKey?.(crossFt) ?? null;
+      const subGroupKey = windowKey ? `${pairKey}__${windowKey}` : pairKey;
       const existing = subGroupMap.get(subGroupKey);
       if (existing) {
         existing.metrics.push(crossFt);
@@ -92,6 +100,7 @@ export function buildCrossFtSubGroups<P extends CrossFtPipelineRef>({
         subGroupMap.set(subGroupKey, {
           pipelines: sortedPipelines,
           metrics: [crossFt],
+          windowKey,
         });
       }
     }

@@ -23,6 +23,23 @@ export function processDimensions(
     experimentDimensions: [],
     activationDimension: null,
     dateDimension: null,
+    dateCutoffDimension: null,
+    comboDimension: null,
+  };
+
+  const compileUserDimension = (dimension: UserDimension): UserDimension => {
+    // Replace any placeholders in the user defined dimension SQL
+    const clonedDimension = cloneDeep<UserDimension>(dimension);
+    clonedDimension.dimension.sql = compileSqlTemplate(
+      dimension.dimension.sql,
+      {
+        startDate: settings.startDate,
+        endDate: settings.endDate,
+        experimentId: settings.experimentId,
+      },
+      dialect,
+    );
+    return clonedDimension;
   };
 
   dimensions.forEach((dimension) => {
@@ -31,22 +48,36 @@ export function processDimensions(
         processedDimensions.activationDimension = { type: "activation" };
       }
     } else if (dimension?.type === "user") {
-      // Replace any placeholders in the user defined dimension SQL
-      const clonedDimension = cloneDeep<UserDimension>(dimension);
-      clonedDimension.dimension.sql = compileSqlTemplate(
-        dimension.dimension.sql,
-        {
-          startDate: settings.startDate,
-          endDate: settings.endDate,
-          experimentId: settings.experimentId,
-        },
-        dialect,
-      );
-      processedDimensions.unitDimensions.push(clonedDimension);
+      processedDimensions.unitDimensions.push(compileUserDimension(dimension));
     } else if (dimension?.type === "experiment") {
       processedDimensions.experimentDimensions.push(dimension);
     } else if (dimension?.type === "date") {
       processedDimensions.dateDimension = dimension;
+    } else if (dimension?.type === "datecutoff") {
+      processedDimensions.dateCutoffDimension = dimension;
+    } else if (dimension?.type === "combo") {
+      processedDimensions.comboDimension = dimension;
+      // Register constituents so the units source materializes their columns;
+      // the combo's own value is computed downstream from those columns
+      dimension.dimensions.forEach((constituent) => {
+        if (constituent.type === "experiment") {
+          if (
+            !processedDimensions.experimentDimensions.some(
+              (d) => d.id === constituent.id,
+            )
+          ) {
+            processedDimensions.experimentDimensions.push(constituent);
+          }
+        } else if (
+          !processedDimensions.unitDimensions.some(
+            (d) => d.dimension.id === constituent.dimension.id,
+          )
+        ) {
+          processedDimensions.unitDimensions.push(
+            compileUserDimension(constituent),
+          );
+        }
+      });
     }
   });
   return processedDimensions;

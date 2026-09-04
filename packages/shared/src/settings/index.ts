@@ -127,6 +127,7 @@ export const resolvers: Record<
   topValuesLookbackValue: genDefaultResolver("topValuesLookbackValue"),
   topValuesLookbackUnit: genDefaultResolver("topValuesLookbackUnit"),
   useStickyBucketing: genDefaultResolver("useStickyBucketing"),
+  stickyBucketingOnByDefault: genDefaultResolver("stickyBucketingOnByDefault"),
   // TODO prior resolvers
 };
 
