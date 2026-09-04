@@ -128,7 +128,7 @@ type PutSlackOAuthConnectionRequest = AuthRequest<
 
 export const putSlackOAuthConnection = async (
   req: PutSlackOAuthConnectionRequest,
-  res: Response<PostSlackOAuthCallbackResponse | ApiErrorResponse>,
+  res: Response<GetSlackOAuthConnectionResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 

@@ -8,12 +8,12 @@ import React, {
 import { NextPage } from "next";
 import { useRouter } from "next/router";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
+import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaSlack } from "react-icons/fa";
 import { PiPlus, PiPlugs } from "react-icons/pi";
 import SlackChannelSettings, {
   getSlackChannelLabel,
-  getSlackWorkspaceLabel,
 } from "@/components/SlackIntegrations/SlackChannelSettings";
 import SelectField from "@/components/Forms/SelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -31,8 +31,14 @@ import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 
 type SlackConnectionsResponse = {
+  slackConnections: SlackWorkspaceConnectionFrontEndInterface[];
   slackIntegrations: SlackOAuthIntegrationInterface[];
   oauthConfigured: boolean;
+};
+
+type SlackOAuthConnectionResponse = {
+  slackConnection: SlackWorkspaceConnectionFrontEndInterface;
+  slackIntegration: SlackOAuthIntegrationInterface | null;
 };
 
 type SlackChannelOption = {
@@ -45,7 +51,7 @@ type SlackChannelOption = {
 
 type WorkspaceGroup = {
   teamId: string;
-  workspace: SlackOAuthIntegrationInterface;
+  workspace: SlackWorkspaceConnectionFrontEndInterface;
   channels: SlackOAuthIntegrationInterface[];
 };
 
@@ -65,16 +71,25 @@ const getSlackAuthorizationError = (error: string) =>
     : "Slack authorization failed. Try again.";
 
 const workspaceNeedsReconnect = (
-  integration: SlackOAuthIntegrationInterface,
+  connection: SlackWorkspaceConnectionFrontEndInterface,
 ) => {
   const scopes = new Set(
-    (integration.slack?.scope || "")
+    (connection.scope || "")
       .split(",")
       .map((scope) => scope.trim())
       .filter(Boolean),
   );
   return REQUIRED_SCOPES.some((scope) => !scopes.has(scope));
 };
+
+const getSlackWorkspaceLabel = (
+  connection: SlackWorkspaceConnectionFrontEndInterface,
+) =>
+  connection.teamName ||
+  connection.teamId ||
+  connection.enterpriseName ||
+  connection.enterpriseId ||
+  "Unknown workspace";
 
 function AddChannelModal({
   teamId,
@@ -235,29 +250,26 @@ const SlackIntegrationsPage: NextPage = () => {
     () => data?.slackIntegrations || [],
     [data?.slackIntegrations],
   );
+  const connections = useMemo(
+    () => data?.slackConnections || [],
+    [data?.slackConnections],
+  );
 
-  const workspaceGroups = useMemo(() => {
-    const groups = new Map<string, WorkspaceGroup>();
-    integrations.forEach((integration) => {
-      const teamId = integration.slack?.teamId;
-      if (!teamId) return;
-      const existing = groups.get(teamId);
-      if (!existing) {
-        groups.set(teamId, {
-          teamId,
-          workspace: integration,
-          channels: integration.slack?.channelId ? [integration] : [],
-        });
-        return;
-      }
-      if (integration.slack?.channelId) {
-        existing.channels.push(integration);
-      } else {
-        existing.workspace = integration;
-      }
-    });
-    return [...groups.values()];
-  }, [integrations]);
+  const workspaceGroups = useMemo(
+    () =>
+      connections.map(
+        (workspace): WorkspaceGroup => ({
+          teamId: workspace.teamId,
+          workspace,
+          channels: integrations.filter(
+            (integration) =>
+              integration.slack?.teamId === workspace.teamId &&
+              !!integration.slack.channelId,
+          ),
+        }),
+      ),
+    [connections, integrations],
+  );
 
   const selectedChannelId = getQueryStringValue(router.query.channel);
   const selectedWorkspaceId = getQueryStringValue(router.query.workspace);
@@ -275,6 +287,13 @@ const SlackIntegrationsPage: NextPage = () => {
       workspaceChannels[0]
     );
   }, [selectedChannelId, selectedWorkspaceGroup, workspaceGroups]);
+  const selectedChannelWorkspace = useMemo(
+    () =>
+      workspaceGroups.find(
+        (group) => group.teamId === selectedChannel?.slack?.teamId,
+      )?.workspace || null,
+    [selectedChannel, workspaceGroups],
+  );
 
   const selectChannel = useCallback(
     async (channelId: string | null) => {
@@ -315,19 +334,18 @@ const SlackIntegrationsPage: NextPage = () => {
 
     setConnecting(true);
     setConnectError(null);
-    apiCall<{ slackIntegration: SlackOAuthIntegrationInterface }>(
+    apiCall<SlackOAuthConnectionResponse>(
       "/integrations/slack/oauth-callback",
       {
         method: "POST",
         body: JSON.stringify({ code, state }),
       },
     )
-      .then(async ({ slackIntegration }) => {
+      .then(async ({ slackConnection, slackIntegration }) => {
         await mutate();
         setConnectedMessage("Slack workspace connected successfully.");
-        const teamId = slackIntegration.slack?.teamId;
-        if (teamId && !slackIntegration.slack?.channelId) {
-          setAddChannelTeamId(teamId);
+        if (!slackIntegration) {
+          setAddChannelTeamId(slackConnection.teamId);
         }
       })
       .catch((error: unknown) => {
@@ -387,18 +405,19 @@ const SlackIntegrationsPage: NextPage = () => {
     setInstalling(true);
     setConnectError(null);
     try {
-      const { slackIntegration } = await apiCall<{
-        slackIntegration: SlackOAuthIntegrationInterface;
-      }>("/integrations/slack/oauth-install", {
-        method: "POST",
-        body: JSON.stringify({ code: installCode }),
-      });
+      const { slackConnection, slackIntegration } =
+        await apiCall<SlackOAuthConnectionResponse>(
+          "/integrations/slack/oauth-install",
+          {
+            method: "POST",
+            body: JSON.stringify({ code: installCode }),
+          },
+        );
       await mutate();
       setInstallCode(null);
       setConnectedMessage("Slack workspace connected successfully.");
-      const teamId = slackIntegration.slack?.teamId;
-      if (teamId && !slackIntegration.slack?.channelId) {
-        setAddChannelTeamId(teamId);
+      if (!slackIntegration) {
+        setAddChannelTeamId(slackConnection.teamId);
       }
     } catch (error) {
       setConnectError(
@@ -598,7 +617,11 @@ const SlackIntegrationsPage: NextPage = () => {
                 notify.
               </Text>
               {data?.oauthConfigured && (
-                <Button icon={<FaSlack />} onClick={() => connectToSlack()}>
+                <Button
+                  icon={<FaSlack />}
+                  onClick={() => connectToSlack()}
+                  loading={connecting}
+                >
                   Connect to Slack
                 </Button>
               )}
@@ -724,10 +747,11 @@ const SlackIntegrationsPage: NextPage = () => {
               </Flex>
 
               <Box p="5" style={{ flex: 1, minWidth: 0 }}>
-                {selectedChannel ? (
+                {selectedChannel && selectedChannelWorkspace ? (
                   <SlackChannelSettings
                     key={selectedChannel.id}
                     integration={selectedChannel}
+                    workspace={selectedChannelWorkspace}
                     onSaved={async () => {
                       await mutate();
                     }}

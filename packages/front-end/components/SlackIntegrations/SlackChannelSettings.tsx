@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
+import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiTrash } from "react-icons/pi";
 import {
@@ -36,21 +37,23 @@ export const getSlackChannelLabel = (
   return integration.slack?.channelId || integration.name;
 };
 
-export const getSlackWorkspaceLabel = (
-  integration: SlackOAuthIntegrationInterface,
+const getSlackWorkspaceLabel = (
+  workspace: SlackWorkspaceConnectionFrontEndInterface,
 ) =>
-  integration.slack?.teamName ||
-  integration.slack?.teamId ||
-  integration.slack?.enterpriseName ||
-  integration.slack?.enterpriseId ||
+  workspace.teamName ||
+  workspace.teamId ||
+  workspace.enterpriseName ||
+  workspace.enterpriseId ||
   "Unknown workspace";
 
 export default function SlackChannelSettings({
   integration,
+  workspace,
   onSaved,
   onDeleted,
 }: {
   integration: SlackOAuthIntegrationInterface;
+  workspace: SlackWorkspaceConnectionFrontEndInterface;
   onSaved: () => Promise<void>;
   onDeleted: () => Promise<void>;
 }) {
@@ -76,12 +79,12 @@ export default function SlackChannelSettings({
   const grantedScopes = useMemo(
     () =>
       new Set(
-        (integration.slack?.scope || "")
+        (workspace.scope || "")
           .split(",")
           .map((scope) => scope.trim())
           .filter(Boolean),
       ),
-    [integration.slack?.scope],
+    [workspace.scope],
   );
   const needsReconnect = REQUIRED_SCOPES.some(
     (scope) => !grantedScopes.has(scope),
@@ -123,7 +126,10 @@ export default function SlackChannelSettings({
     try {
       const response = await apiCall<{ url: string }>(
         "/integrations/slack/connect",
-        { method: "POST" },
+        {
+          method: "POST",
+          body: JSON.stringify({ teamId: workspace.teamId }),
+        },
       );
       window.location.assign(response.url);
     } catch (error) {
@@ -161,7 +167,7 @@ export default function SlackChannelSettings({
             <Heading as="h2" size="md" mb="1">
               {getSlackChannelLabel(integration)}
             </Heading>
-            <Text color="text-mid">{getSlackWorkspaceLabel(integration)}</Text>
+            <Text color="text-mid">{getSlackWorkspaceLabel(workspace)}</Text>
           </Box>
           <Flex align="center" gap="4">
             <Checkbox
