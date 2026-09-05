@@ -755,6 +755,15 @@ describe("getIncrementalFullRefreshReasons", () => {
     ).toEqual([]);
   });
 
+  it("flags startDate when only one side is absent", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ startDate: new Date("2024-01-01T00:00:00.000Z") }),
+        makeComparable({ startDate: undefined }),
+      ),
+    ).toEqual(["Analysis start date changed"]);
+  });
+
   it("flags queryFilter 'a' vs 'b' as changed", () => {
     expect(
       getIncrementalFullRefreshReasons(
