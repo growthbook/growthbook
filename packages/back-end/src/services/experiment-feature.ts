@@ -1254,7 +1254,8 @@ export async function updateExperimentRuleEnvironments({
 }
 
 // Rewrites every rule pointing at the experiment on the live flag and its open
-// drafts, then publishes. Null `replacement` drops the rule; `failHard` throws.
+// drafts, then publishes. Null `replacement` drops the rule. `failHard` throws
+// on the first flag that cannot be rewritten instead of logging and moving on.
 async function resolveRulesForExperiment({
   context,
   experiment,
@@ -1407,7 +1408,7 @@ async function resolveRulesForExperiment({
         throw new Error(
           `Could not update Feature Flag "${feature.id}": ${
             e instanceof Error ? e.message : String(e)
-          }`,
+          }. Ask someone who can publish that Feature Flag, or remove the experiment rule from it first.`,
         );
       }
       logger.warn(
@@ -1419,7 +1420,9 @@ async function resolveRulesForExperiment({
 }
 
 // A deleted experiment's rules serve nothing (the payload skips a missing
-// experiment), so they come off the live flag and its open drafts.
+// experiment), so they come off the live flag and its open drafts. Runs before
+// the experiment is deleted and fails closed: a rule that cannot be removed
+// blocks the delete rather than outliving its experiment.
 export async function removeRulesForDeletedExperiment({
   context,
   experiment,
@@ -1439,6 +1442,7 @@ export async function removeRulesForDeletedExperiment({
     features,
     eventAudit,
     audit,
+    failHard: true,
     replacement: () => null,
     action: "remove experiment rule",
     comment: `Remove rule for deleted experiment "${experiment.name}"`,
