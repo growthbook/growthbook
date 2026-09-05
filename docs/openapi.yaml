@@ -15085,7 +15085,7 @@ paths:
   /v1/experiments/{id}/variation-values:
     get:
       operationId: getExperimentVariationValues
-      summary: Get an experiment's variation values
+      summary: Get variation values
       description: >-
         Returns the value each variation serves now (`liveValues`), the
         environments the experiment serves in, and any change waiting to go live
@@ -15117,7 +15117,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postExperimentVariationValues
-      summary: Create the managed Feature Flag for an experiment
+      summary: Create the managed Feature Flag
       description: >-
         Switches the experiment to the Values implementation. GrowthBook creates
         a Feature Flag keyed from the experiment key (or `featureKey`), links it
@@ -15125,6 +15125,14 @@ paths:
         per variation as pending values. The experiment must be a draft with no
         other Feature Flags, Visual Editor changes, or URL Redirects linked. The
         values go live when the experiment starts.
+
+
+        Keys are never suffixed automatically. If the derived key is already a
+        Feature Flag, the call fails with code `feature_key_taken` and `details`
+        naming the taken key plus a suggested key that is free as both a
+        tracking key and a flag key. Resolve it by passing `featureKey` (flag
+        under a different key) or `trackingKey` (rename the experiment first so
+        the two still match).
       tags:
         - experiment-values
       parameters:
@@ -15175,6 +15183,28 @@ paths:
                 required:
                   - variationValues
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  The Feature Flag key derived from the experiment is already in
+                  use
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - feature_key_taken
+                  details:
+                    $ref: '#/components/schemas/ApiErrorFeatureKeyTakenDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -15186,7 +15216,7 @@ paths:
               -d '{"valueType":"string","values":[{"variationId":"var_control","value":"control"},{"variationId":"var_treatment","value":"treatment"}]}'
     put:
       operationId: putExperimentVariationValues
-      summary: Update an experiment's pending variation values
+      summary: Update pending values
       description: >-
         Stages new values, a new value type, or new environments on the managed
         Feature Flag. Edits join the pending change when one exists and start
@@ -15263,7 +15293,7 @@ paths:
   /v1/experiments/{id}/variation-values/request-review:
     post:
       operationId: postExperimentVariationValuesRequestReview
-      summary: Send the pending variation values for review
+      summary: Request review for pending values
       description: >-
         Saving values already requests review when the flag needs one. Use this
         after `recall-review`, or after a `request-changes` review, to resubmit
@@ -15306,7 +15336,7 @@ paths:
   /v1/experiments/{id}/variation-values/submit-review:
     post:
       operationId: postExperimentVariationValuesSubmitReview
-      summary: Review the pending variation values
+      summary: Submit a review on pending values
       description: >-
         Records an `approve`, `request-changes`, or `comment` review on the
         pending values, the same review a Feature Flag revision receives. When
@@ -15360,7 +15390,7 @@ paths:
   /v1/experiments/{id}/variation-values/recall-review:
     post:
       operationId: postExperimentVariationValuesRecallReview
-      summary: Withdraw the pending variation values from review
+      summary: Recall a review request (revert to draft)
       description: >-
         Returns the pending values to a plain draft and clears any reviews
         recorded on them. They can be edited and sent for review again.
@@ -15399,7 +15429,7 @@ paths:
   /v1/experiments/{id}/variation-values/undo-review:
     post:
       operationId: postExperimentVariationValuesUndoReview
-      summary: Retract your own review of the pending variation values
+      summary: Undo a reviewer's own review verdict
       description: >-
         Removes the approve or request-changes review the caller recorded on the
         pending values. Other reviewers' verdicts are untouched.
@@ -15438,7 +15468,7 @@ paths:
   /v1/experiments/{id}/variation-values/publish:
     post:
       operationId: postExperimentVariationValuesPublish
-      summary: Publish the pending variation values now
+      summary: Publish pending values
       description: >-
         Makes the pending values live on the managed Feature Flag. Only for a
         running experiment: a draft experiment publishes its pending values when
@@ -15484,7 +15514,7 @@ paths:
   /v1/experiments/{id}/variation-values/discard:
     post:
       operationId: postExperimentVariationValuesDiscard
-      summary: Discard the pending variation values
+      summary: Discard pending values
       description: >-
         Throws away the pending values. The values currently serving are
         untouched. This is also the way out of a merge conflict without
@@ -15524,7 +15554,7 @@ paths:
   /v1/experiments/{id}/variation-values/detach:
     post:
       operationId: postExperimentVariationValuesDetach
-      summary: Convert the managed Feature Flag to an unmanaged one
+      summary: Detach the managed Feature Flag
       description: >-
         Stops managing the Feature Flag from the experiment. The flag keeps its
         experiment rule and stays linked, but from now on it is edited,
@@ -71803,6 +71833,24 @@ components:
             additionalProperties: false
       required:
         - failedFeatureDrafts
+      additionalProperties: false
+    ApiErrorFeatureKeyTakenDetails:
+      type: object
+      properties:
+        featureKey:
+          type: string
+        suggestedTrackingKey:
+          anyOf:
+            - type: string
+            - type: 'null'
+        suggestedFeatureKey:
+          anyOf:
+            - type: string
+            - type: 'null'
+      required:
+        - featureKey
+        - suggestedTrackingKey
+        - suggestedFeatureKey
       additionalProperties: false
     ApiErrorInvalidStatusDetails:
       type: object

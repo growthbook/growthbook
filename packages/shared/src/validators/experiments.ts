@@ -2719,7 +2719,7 @@ export const getExperimentVariationValuesValidator = {
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: variationValuesResponse,
-  summary: "Get an experiment's variation values",
+  summary: "Get variation values",
   description:
     "Returns the value each variation serves now (`liveValues`), the environments the experiment serves in, and any change waiting to go live (`pending`). `managed` is false when the experiment has no managed Feature Flag; the other fields are then null or empty.",
   operationId: "getExperimentVariationValues",
@@ -2752,10 +2752,11 @@ export const postExperimentVariationValuesValidator = {
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: variationValuesResponse,
-  summary: "Create the managed Feature Flag for an experiment",
+  summary: "Create the managed Feature Flag",
   description:
-    "Switches the experiment to the Values implementation. GrowthBook creates a Feature Flag keyed from the experiment key (or `featureKey`), links it to the experiment with a single experiment rule, and stages one value per variation as pending values. The experiment must be a draft with no other Feature Flags, Visual Editor changes, or URL Redirects linked. The values go live when the experiment starts.",
+    "Switches the experiment to the Values implementation. GrowthBook creates a Feature Flag keyed from the experiment key (or `featureKey`), links it to the experiment with a single experiment rule, and stages one value per variation as pending values. The experiment must be a draft with no other Feature Flags, Visual Editor changes, or URL Redirects linked. The values go live when the experiment starts.\n\nKeys are never suffixed automatically. If the derived key is already a Feature Flag, the call fails with code `feature_key_taken` and `details` naming the taken key plus a suggested key that is free as both a tracking key and a flag key. Resolve it by passing `featureKey` (flag under a different key) or `trackingKey` (rename the experiment first so the two still match).",
   operationId: "postExperimentVariationValues",
+  possibleErrors: ["feature_key_taken"] as const,
   tags: ["experiment-values"],
   method: "post" as const,
   path: "/experiments/:id/variation-values",
@@ -2804,7 +2805,7 @@ export const putExperimentVariationValuesValidator = {
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: variationValuesResponse,
-  summary: "Update an experiment's pending variation values",
+  summary: "Update pending values",
   description:
     "Stages new values, a new value type, or new environments on the managed Feature Flag. Edits join the pending change when one exists and start one otherwise, so pending values can be revised any number of times before they go live. When the flag requires review, the pending values are sent for review automatically. Publishing is separate: pending values go live when the experiment starts, or through `publish` once it is running.",
   operationId: "putExperimentVariationValues",
@@ -2841,7 +2842,7 @@ export const postExperimentVariationValuesSubmitReviewValidator = {
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: variationValuesResponse,
-  summary: "Review the pending variation values",
+  summary: "Submit a review on pending values",
   description:
     "Records an `approve`, `request-changes`, or `comment` review on the pending values, the same review a Feature Flag revision receives. When the flag requires review, approval is what allows the pending values to publish. Contributors cannot approve values they edited when self-approval is blocked.",
   operationId: "postExperimentVariationValuesSubmitReview",
@@ -2864,7 +2865,7 @@ export const postExperimentVariationValuesPublishValidator = {
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: variationValuesResponse,
-  summary: "Publish the pending variation values now",
+  summary: "Publish pending values",
   description:
     "Makes the pending values live on the managed Feature Flag. Only for a running experiment: a draft experiment publishes its pending values when it starts. Fails while a required approval is outstanding, unless `bypassApproval` is set and the caller may bypass approval checks.",
   operationId: "postExperimentVariationValuesPublish",
@@ -2878,7 +2879,7 @@ export const postExperimentVariationValuesDetachValidator = {
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: variationValuesResponse,
-  summary: "Convert the managed Feature Flag to an unmanaged one",
+  summary: "Detach the managed Feature Flag",
   description:
     "Stops managing the Feature Flag from the experiment. The flag keeps its experiment rule and stays linked, but from now on it is edited, reviewed, and published from its own page, and the experiment's implementation type becomes Feature Flag. The other endpoints in this group stop applying to the experiment.",
   operationId: "postExperimentVariationValuesDetach",
@@ -2892,7 +2893,7 @@ export const postExperimentVariationValuesRequestReviewValidator = {
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: variationValuesResponse,
-  summary: "Send the pending variation values for review",
+  summary: "Request review for pending values",
   description:
     "Saving values already requests review when the flag needs one. Use this after `recall-review`, or after a `request-changes` review, to resubmit the same values without editing them.",
   operationId: "postExperimentVariationValuesRequestReview",
@@ -2906,7 +2907,7 @@ export const postExperimentVariationValuesRecallReviewValidator = {
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: variationValuesResponse,
-  summary: "Withdraw the pending variation values from review",
+  summary: "Recall a review request (revert to draft)",
   description:
     "Returns the pending values to a plain draft and clears any reviews recorded on them. They can be edited and sent for review again.",
   operationId: "postExperimentVariationValuesRecallReview",
@@ -2920,7 +2921,7 @@ export const postExperimentVariationValuesUndoReviewValidator = {
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: variationValuesResponse,
-  summary: "Retract your own review of the pending variation values",
+  summary: "Undo a reviewer's own review verdict",
   description:
     "Removes the approve or request-changes review the caller recorded on the pending values. Other reviewers' verdicts are untouched.",
   operationId: "postExperimentVariationValuesUndoReview",
@@ -2934,7 +2935,7 @@ export const postExperimentVariationValuesDiscardValidator = {
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: variationValuesResponse,
-  summary: "Discard the pending variation values",
+  summary: "Discard pending values",
   description:
     "Throws away the pending values. The values currently serving are untouched. This is also the way out of a merge conflict without detaching the flag.",
   operationId: "postExperimentVariationValuesDiscard",

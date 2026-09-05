@@ -53,6 +53,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   BadRequestError,
+  FeatureKeyTakenError,
   ManagedFeatureError,
   NotFoundError,
 } from "back-end/src/util/errors";
@@ -796,6 +797,22 @@ export async function adoptManagedFlagForExperiment({
       : null;
   let created: { feature: FeatureInterface; version: number };
   try {
+    // No silent suffixing: the caller chose the key, so the caller resolves it.
+    if (featureId === undefined && !keyPlan.derivedIdAvailable) {
+      const pair = keyPlan.suggestedPair;
+      throw new FeatureKeyTakenError(
+        `Feature Flag "${keyPlan.derivedId}" already exists, so it cannot be created for this experiment. Pass featureKey to create the flag under a different key, or trackingKey to rename the experiment so the two still match.${
+          pair
+            ? ` Suggested: "${pair.trackingKey}" is free as both the tracking key and the Feature Flag key.`
+            : ""
+        }`,
+        {
+          featureKey: keyPlan.derivedId,
+          suggestedTrackingKey: pair?.trackingKey ?? null,
+          suggestedFeatureKey: pair?.featureId ?? null,
+        },
+      );
+    }
     created = await createManagedFeatureForExperiment({
       context,
       experiment,

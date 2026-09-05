@@ -172,6 +172,13 @@ export class ConflictError extends Error {
   }
 }
 
+export class FeatureKeyTakenError extends ApiError<"feature_key_taken"> {
+  constructor(message: string, details: ApiErrorDetails<"feature_key_taken">) {
+    super("feature_key_taken", message, details);
+    this.name = "FeatureKeyTakenError";
+  }
+}
+
 export class MergeConflictError extends ApiError<"conflict"> {
   constructor(message: string, conflicts: unknown[]) {
     super("conflict", message, { conflicts });

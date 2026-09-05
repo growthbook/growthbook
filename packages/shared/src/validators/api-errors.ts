@@ -44,6 +44,16 @@ export const apiErrorRegistry = {
       failedFeatureDrafts: z.array(pendingDraftFailureSchema),
     }),
   },
+  feature_key_taken: {
+    status: 409,
+    description:
+      "The Feature Flag key derived from the experiment is already in use",
+    detailsSchema: z.object({
+      featureKey: z.string(),
+      suggestedTrackingKey: z.string().nullable(),
+      suggestedFeatureKey: z.string().nullable(),
+    }),
+  },
   invalid_status: {
     status: 409,
     description: "Resource is not in a valid status for this operation",
