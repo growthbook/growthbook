@@ -5,6 +5,7 @@ import {
   postExperimentVariationValuesDetachValidator,
   postExperimentVariationValuesDiscardValidator,
   postExperimentVariationValuesPublishValidator,
+  postExperimentVariationValuesRebaseValidator,
   postExperimentVariationValuesRecallReviewValidator,
   postExperimentVariationValuesRequestReviewValidator,
   postExperimentVariationValuesSubmitReviewValidator,
@@ -50,6 +51,8 @@ import {
   updateManagedVariationValues,
 } from "back-end/src/services/managedFeatures";
 import { updateExperimentRuleEnvironments } from "back-end/src/services/experiment-feature";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import { rebaseFeatureRevision } from "back-end/src/api/features/postFeatureRevisionRebase";
 
 /** The one response shape every endpoint here returns. */
 async function respond(
@@ -76,7 +79,7 @@ async function requireManagedFlag(
   const feature = await getManagedFeatureForExperiment(context, experiment);
   if (!feature) {
     throw new BadRequestError(
-      "This experiment does not manage a Feature Flag. Start serving values automatically first.",
+      "This experiment does not manage a Feature Flag. Create one first with POST /experiments/{id}/variation-values.",
     );
   }
   return feature;
@@ -102,6 +105,7 @@ export const postExperimentVariationValues = createApiRequestHandler(
     experiment,
     valueType: req.body.valueType,
     variations: req.body.values,
+    sparse: req.body.sparse,
     featureId: req.body.featureKey,
     trackingKey: req.body.trackingKey,
     eventAudit: req.eventAudit,
@@ -262,6 +266,8 @@ export const postExperimentVariationValuesPublish = createApiRequestHandler(
     context: req.context,
     experiment,
     bypassApproval: !!req.body.bypassApproval,
+    restApiBypass: canUseRestApiBypassSetting(req),
+    comment: req.body.comment ?? "",
   });
 
   return respond(req.context, experiment);
@@ -368,6 +374,22 @@ export const postExperimentVariationValuesUndoReview = createApiRequestHandler(
   if (newStatus === "approved") {
     await maybeAutoPublishFeatureRevision(req.context, feature, afterUndo);
   }
+  return respond(req.context, experiment);
+});
+
+export const postExperimentVariationValuesRebase = createApiRequestHandler(
+  postExperimentVariationValuesRebaseValidator,
+)(async (req) => {
+  const experiment = await requireExperiment(req.context, req.params.id);
+  const feature = await requireManagedFlag(req.context, experiment);
+  const draft = await requirePendingDraft(req.context, feature);
+  await rebaseFeatureRevision(
+    req.context,
+    req.organization,
+    { id: feature.id, version: draft.version },
+    {},
+    req.audit,
+  );
   return respond(req.context, experiment);
 });
 

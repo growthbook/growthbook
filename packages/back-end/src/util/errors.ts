@@ -132,19 +132,26 @@ export class PlanDoesNotAllowError extends Error {
 
 // 403 rather than a permission error: no grant makes this allowed — ejecting
 // the flag is what makes it possible.
-export class ManagedFeatureError extends Error {
-  status = 403;
+export type ManagedFeatureErrorSurface = "app" | "rest";
+
+export class ManagedFeatureError extends ApiError<"feature_managed_by_experiment"> {
   readonly featureId: string;
   readonly experimentId: string;
   constructor({
     featureId,
     experimentId,
+    surface = "app",
   }: {
     featureId: string;
     experimentId: string;
+    surface?: ManagedFeatureErrorSurface;
   }) {
     super(
-      `Feature Flag "${featureId}" is managed by experiment "${experimentId}". Make changes from the experiment, or eject the Feature Flag first to edit it directly.`,
+      "feature_managed_by_experiment",
+      surface === "rest"
+        ? `Feature Flag "${featureId}" is managed by experiment "${experimentId}". Change it through the Experiment Values endpoints (/experiments/${experimentId}/variation-values), or detach it first (POST /experiments/${experimentId}/variation-values/detach) to edit it directly.`
+        : `Feature Flag "${featureId}" is managed by experiment "${experimentId}". Make changes from the experiment, or convert the Feature Flag to unmanaged first to edit it directly.`,
+      { featureId, experimentId },
     );
     this.name = "ManagedFeatureError";
     this.featureId = featureId;

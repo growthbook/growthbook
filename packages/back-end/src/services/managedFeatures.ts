@@ -22,8 +22,12 @@ import {
 } from "shared/validators";
 import { EventUser } from "shared/types/events/event-types";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import type { LinkedFeatureEnvState } from "shared/types/experiment";
+import type {
+  LinkedFeatureEnvState,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import type { AuditInterfaceInput } from "shared/types/audit";
+import { bypassApprovalPermission } from "shared/permissions";
 import { ApiReqContext } from "back-end/types/api";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
@@ -55,8 +59,14 @@ import {
   BadRequestError,
   FeatureKeyTakenError,
   ManagedFeatureError,
+  ManagedFeatureErrorSurface,
   NotFoundError,
 } from "back-end/src/util/errors";
+import {
+  makeBlockingGate,
+  PublishBlockedError,
+  type PublishGate,
+} from "back-end/src/revisions/publishGates";
 import {
   getContextFromReq,
   getEnvironments,
@@ -80,22 +90,27 @@ import {
 // Guarded at the request entry points, not the model: the model can't tell a
 // user edit from the experiment's own start/stop/holdout/ramp writes.
 
-export function assertLoadedFeatureNotManaged(feature: FeatureInterface): void {
+export function assertLoadedFeatureNotManaged(
+  feature: FeatureInterface,
+  surface: ManagedFeatureErrorSurface = "app",
+): void {
   if (!isManagedFeature(feature)) return;
   throw new ManagedFeatureError({
     featureId: feature.id,
     experimentId: managedByExperimentId(feature) ?? "",
+    surface,
   });
 }
 
 export async function assertFeatureNotManaged(
   context: ReqContext | ApiReqContext,
   featureId: string,
+  surface: ManagedFeatureErrorSurface = "app",
 ): Promise<void> {
   const feature = await getFeature(context, featureId);
   // Missing or unreadable is the handler's 404 to raise, not ours.
   if (!feature) return;
-  assertLoadedFeatureNotManaged(feature);
+  assertLoadedFeatureNotManaged(feature, surface);
 }
 
 const MAX_KEY_ATTEMPTS = 10;
@@ -637,6 +652,9 @@ export async function createManagedFlagForNewExperiment({
 }
 
 export type ManagedFlagState = z.infer<typeof apiExperimentVariationValues>;
+type ManagedPublishBlocker = NonNullable<
+  ManagedFlagState["pending"]
+>["publishBlockers"][number];
 export type ManagedFlagReview = NonNullable<
   ManagedFlagState["pending"]
 >["reviews"][number];
@@ -649,13 +667,25 @@ export async function getManagedFlagState(
 ): Promise<ManagedFlagState> {
   const feature = await getManagedFeatureForExperiment(context, experiment);
   if (!feature) {
+    const blocker = await managedFlagAdoptionBlocker(context, experiment);
+    const plan = await planManagedFlagKey({ context, experiment });
     return {
       managed: false,
       featureKey: null,
       valueType: null,
+      sparse: null,
       liveValues: [],
       environments: [],
+      allEnvironments: false,
       pending: null,
+      adoption: {
+        blocker,
+        derivedKey: plan.derivedId,
+        derivedKeyAvailable: plan.derivedIdAvailable,
+        suggestedTrackingKey: plan.suggestedPair?.trackingKey ?? null,
+        suggestedFeatureKey: plan.suggestedPair?.featureId ?? null,
+        keyRegexError: plan.regexError,
+      },
     };
   }
 
@@ -680,7 +710,7 @@ export async function getManagedFlagState(
     reviews = (revision?.reviews ?? []).map((r) => ({
       userId: r.userId,
       status: r.status,
-      date: new Date(r.timestamp).toISOString(),
+      timestamp: new Date(r.timestamp).toISOString(),
     }));
   }
 
@@ -689,28 +719,44 @@ export async function getManagedFlagState(
       .filter(([, s]) => s === "active")
       .map(([env]) => env);
 
+  const publishBlockers: ManagedPublishBlocker[] = pendingDraft
+    ? [
+        // A draft experiment publishes its values by starting.
+        ...(experiment.status === "draft"
+          ? (["experiment-not-started"] as const)
+          : []),
+        ...(pendingDraft.hasMergeConflict ? (["merge-conflict"] as const) : []),
+        ...(pendingDraft.hasUnrelatedDraftChanges
+          ? (["unrelated-draft-changes"] as const)
+          : []),
+        ...(pendingDraft.rebaseRequired ? (["stale-base"] as const) : []),
+        ...(managedApprovalSatisfied(pendingDraft)
+          ? []
+          : (["approval-required"] as const)),
+      ]
+    : [];
+
   return {
     managed: true,
     featureKey: feature.id,
     valueType: feature.valueType,
+    sparse: info?.liveSparse ?? null,
     liveValues: info?.liveValues ?? [],
     environments: activeEnvs(info?.liveEnvironmentStates),
+    allEnvironments: !!info?.liveAllEnvironments,
+    adoption: null,
     pending: pendingDraft
       ? {
+          version: pendingDraft.version,
           values: pendingDraft.values,
           valueType: pendingValueType,
+          sparse: pendingDraft.sparse,
           environments: activeEnvs(pendingDraft.environmentStates),
-          status: pendingDraft.status,
+          allEnvironments: !!pendingDraft.allEnvironments,
+          status: pendingValuesStatus(pendingDraft.status),
           approvalRequired: pendingDraft.pendingApproval,
-          // A draft experiment publishes its values by starting.
-          canPublish:
-            experiment.status !== "draft" &&
-            !pendingDraft.hasMergeConflict &&
-            !pendingDraft.hasUnrelatedDraftChanges &&
-            !pendingDraft.rebaseRequired &&
-            (!pendingDraft.pendingApproval ||
-              (pendingDraft.approval?.satisfied ??
-                pendingDraft.status === "approved")),
+          canPublish: publishBlockers.length === 0,
+          publishBlockers,
           canBypassApproval: context.permissions.canBypassFlagApprovalChecks(
             feature,
             "feature",
@@ -719,6 +765,29 @@ export async function getManagedFlagState(
         }
       : null,
   };
+}
+
+type PendingValuesStatus = NonNullable<ManagedFlagState["pending"]>["status"];
+const PENDING_VALUES_STATUSES: readonly PendingValuesStatus[] = [
+  "draft",
+  "pending-review",
+  "changes-requested",
+  "approved",
+];
+// An active draft is one of these; anything else has no business being pending.
+function pendingValuesStatus(status: string): PendingValuesStatus {
+  return (PENDING_VALUES_STATUSES as readonly string[]).includes(status)
+    ? (status as PendingValuesStatus)
+    : "draft";
+}
+
+function managedApprovalSatisfied(
+  pendingDraft: NonNullable<LinkedFeatureInfo["pendingDraft"]>,
+): boolean {
+  return (
+    !pendingDraft.pendingApproval ||
+    (pendingDraft.approval?.satisfied ?? pendingDraft.status === "approved")
+  );
 }
 
 // Shared by the internal route and the REST surface, so the rename ordering and
@@ -1026,11 +1095,16 @@ export async function publishManagedDraft({
   context,
   experiment,
   bypassApproval = false,
+  restApiBypass = false,
+  comment = "",
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
   /** Explicit per-publish opt-in; still needs bypass authority. */
   bypassApproval?: boolean;
+  /** The org's "REST API always bypasses approval requirements" setting. */
+  restApiBypass?: boolean;
+  comment?: string;
 }): Promise<FeatureInterface> {
   const feature = await getManagedFeatureForExperiment(context, experiment);
   if (!feature) {
@@ -1043,7 +1117,7 @@ export async function publishManagedDraft({
   }
   const revision = await getActiveDraft(context, feature);
   if (!revision) {
-    throw new NotFoundError("This Feature Flag has no draft to publish.");
+    throw new BadRequestError("There are no pending variation values.");
   }
 
   const { live, base } = await getLiveAndBaseRevisionsForFeature({
@@ -1059,27 +1133,75 @@ export async function publishManagedDraft({
     base,
   );
   const bypass =
-    bypassApproval &&
-    context.permissions.canBypassFlagApprovalChecks(feature, "feature");
-  if (!mergeResult.success) {
-    throw new Error(
-      "This Feature Flag's draft conflicts with its live version. Convert it to an unmanaged Feature Flag to resolve the conflict on the Feature Flag page.",
-    );
-  }
+    restApiBypass ||
+    (bypassApproval &&
+      context.permissions.canBypassFlagApprovalChecks(feature, "feature"));
+
+  // The same gate model as a Feature Revision publish, with resolutions that
+  // point at this surface's routes rather than the locked flag routes.
+  const routeBase = `/experiments/${experiment.id}/variation-values`;
+  const gates: PublishGate[] = [];
   // Approvals on a managed flag must stand against the current live state; the
-  // same opt-in that skips approval skips this.
+  // same authority that skips approval skips this.
   if (rebaseRequired && !bypass) {
-    throw new Error(
-      "The Feature Flag changed after these values were drafted or approved. Update them from live and get re-approval before publishing.",
+    gates.push(
+      makeBlockingGate({
+        type: "stale-base",
+        messages: [
+          "The Feature Flag changed after these values were drafted or approved.",
+        ],
+        requiresPermission: bypassApprovalPermission("feature"),
+        resolution: {
+          action: "rebase",
+          method: "POST",
+          path: `${routeBase}/rebase`,
+        },
+      }),
     );
   }
+  const pendingDraft = (await getLinkedFeatureInfo(context, experiment)).find(
+    (f) => f.feature.id === feature.id,
+  )?.pendingDraft;
+  if (pendingDraft && !managedApprovalSatisfied(pendingDraft) && !bypass) {
+    gates.push(
+      makeBlockingGate({
+        type: "approval-required",
+        messages: [
+          `Requires approval before publishing (status: "${revision.status}").`,
+        ],
+        requiresPermission: bypassApprovalPermission("feature"),
+        resolution: {
+          action: "request-review",
+          method: "POST",
+          path: `${routeBase}/request-review`,
+        },
+      }),
+    );
+  }
+  if (!mergeResult.success) {
+    gates.unshift(
+      makeBlockingGate({
+        type: "merge-conflict",
+        messages: [
+          "The pending values conflict with changes made directly on the Feature Flag.",
+        ],
+        resolution: {
+          action: "discard",
+          method: "POST",
+          path: `${routeBase}/discard`,
+        },
+      }),
+    );
+    throw new PublishBlockedError(gates);
+  }
+  if (gates.length) throw new PublishBlockedError(gates);
 
   return publishRevision({
     context,
     feature,
     revision,
     result: mergeResult.result,
-    comment: "",
+    comment,
     bypassLockdown: bypass,
   });
 }
@@ -1393,11 +1515,15 @@ export function guardManagedFeatureRoutes(
 ): OpenApiRoute[] {
   return routes.map((route) => {
     if (!route.method || !isMutatingMethod(route.method)) return route;
+    // Comments are conversation, not flag content, so they stay editable.
+    if (/\/log\/:logId$/.test(route.path ?? "")) return route;
 
     const inner = route.rawHandler;
     const rawHandler: OpenApiRoute["rawHandler"] = async (req) => {
       const featureId = (req.params as { id?: string } | undefined)?.id;
-      if (featureId) await assertFeatureNotManaged(req.context, featureId);
+      if (featureId) {
+        await assertFeatureNotManaged(req.context, featureId, "rest");
+      }
       return inner(req);
     };
 

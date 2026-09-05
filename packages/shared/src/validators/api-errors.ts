@@ -44,6 +44,15 @@ export const apiErrorRegistry = {
       failedFeatureDrafts: z.array(pendingDraftFailureSchema),
     }),
   },
+  feature_managed_by_experiment: {
+    status: 403,
+    description:
+      "The Feature Flag is managed by an experiment and can only be changed through that experiment",
+    detailsSchema: z.object({
+      featureId: z.string(),
+      experimentId: z.string(),
+    }),
+  },
   feature_key_taken: {
     status: 409,
     description:

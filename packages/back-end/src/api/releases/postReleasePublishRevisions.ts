@@ -125,7 +125,7 @@ export const postReleasePublishRevisions = createApiRequestHandler(
     // This endpoint addresses features by body, not by URL param, so the
     // route-level managed guard cannot see it. Both id shapes land here.
     if (item.entityType === "feature") {
-      await assertFeatureNotManaged(req.context, entityId);
+      await assertFeatureNotManaged(req.context, entityId, "rest");
     }
 
     callerIdByInternal.set(`${item.entityType}:${entityId}`, callerId);

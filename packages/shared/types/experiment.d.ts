@@ -308,6 +308,8 @@ export interface LinkedFeatureInfo {
   liveValues?: ExperimentRefVariation[];
   /** Live rule's sparse flag, alongside `liveValues`. */
   liveSparse?: boolean;
+  /** Live rule's `allEnvironments` flag. */
+  liveAllEnvironments?: boolean;
   /** Where the live rule runs, keyed the same as `environmentStates`. */
   liveEnvironmentStates?: Record<string, LinkedFeatureEnvState>;
   /**
@@ -331,6 +333,7 @@ export interface LinkedFeatureInfo {
     hasChanges: boolean;
     values: ExperimentRefVariation[];
     sparse: boolean;
+    allEnvironments?: boolean;
     pendingApproval: boolean;
     /** The type the draft would leave the flag as — it may re-type it. */
     valueType: FeatureValueType;

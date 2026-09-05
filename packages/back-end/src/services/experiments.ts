@@ -5358,6 +5358,8 @@ export async function getRefLinkedFeatureInfo({
         ...(liveMatches.length > 0 && {
           liveValues: refRuleValues(liveMatches[0]?.rule),
           liveSparse: !!(liveMatches[0]?.rule as ExperimentRefRule)?.sparse,
+          liveAllEnvironments: !!(liveMatches[0]?.rule as ExperimentRefRule)
+            ?.allEnvironments,
           // The live rule has no revision staging its enablement, so the
           // feature's own settings are already the right answer.
           liveEnvironmentStates: buildEnvironmentStates(liveMatches),
@@ -5369,6 +5371,8 @@ export async function getRefLinkedFeatureInfo({
               status: matchedDraftRevision.status,
               values: refRuleValues(draftMatches[0]?.rule),
               sparse: !!(draftMatches[0]?.rule as ExperimentRefRule)?.sparse,
+              allEnvironments: !!(draftMatches[0]?.rule as ExperimentRefRule)
+                ?.allEnvironments,
               title: matchedDraftRevision.title,
               otherDraftCount,
               pendingApproval: reviewRequired,
