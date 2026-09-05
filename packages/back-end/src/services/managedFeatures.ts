@@ -11,7 +11,6 @@ import {
   seedManagedVariationValues,
   validateFeatureValue,
   type ManagedFlagKeyPlan,
-  getImplementationType,
 } from "shared/util";
 import {
   ExperimentInterface,
@@ -188,13 +187,10 @@ export async function staleLinkedFeatureIds(
 
 // Managed mode owns the experiment's whole delivery, so it can only be adopted
 // while nothing else is wired up. Counts features that still exist, not ids.
-const IMPLEMENTATION_TYPE_NAMES: Record<ImplementationType, string> = {
-  values: "Values",
+const IMPLEMENTATION_TYPE_NAMES: Partial<Record<ImplementationType, string>> = {
   feature: "a linked Feature Flag",
   urlredirect: "URL Redirects",
   visual: "the Visual Editor",
-  multi: "several implementations",
-  none: "analysis only",
 };
 
 export async function managedFlagAdoptionBlocker(
@@ -204,10 +200,6 @@ export async function managedFlagAdoptionBlocker(
   if (experiment.archived) return "This experiment is archived.";
   if (experiment.status !== "draft") {
     return "Only a draft experiment can start managing a Feature Flag.";
-  }
-  const chosen = getImplementationType(experiment);
-  if (chosen && chosen !== "values" && chosen !== "none") {
-    return `This experiment is set up for ${IMPLEMENTATION_TYPE_NAMES[chosen]}. Set implementationType to "values" first.`;
   }
   if (experiment.hasVisualChangesets) {
     return "This experiment already has Visual Editor changes.";
@@ -221,6 +213,16 @@ export async function managedFlagAdoptionBlocker(
     if (linkedIds.some((id) => !stale.has(id))) {
       return "This experiment already has a linked Feature Flag.";
     }
+  }
+  // Nothing is linked, so only an explicit choice of another kind stands.
+  const chosen = experiment.implementationType;
+  if (
+    chosen &&
+    chosen !== "values" &&
+    chosen !== "none" &&
+    chosen !== "multi"
+  ) {
+    return `This experiment is set up for ${IMPLEMENTATION_TYPE_NAMES[chosen]}. Set implementationType to "values" first.`;
   }
   return null;
 }

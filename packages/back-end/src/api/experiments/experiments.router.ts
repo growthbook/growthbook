@@ -24,8 +24,12 @@ import {
   postExperimentVariationValuesApprove,
   postExperimentVariationValuesComment,
   postExperimentVariationValuesDetach,
+  postExperimentVariationValuesDiscard,
   postExperimentVariationValuesPublish,
+  postExperimentVariationValuesRecallReview,
   postExperimentVariationValuesRequestChanges,
+  postExperimentVariationValuesRequestReview,
+  postExperimentVariationValuesUndoReview,
   putExperimentVariationValues,
 } from "./variationValues";
 
@@ -43,6 +47,10 @@ export const experimentsRoutes: OpenApiRoute[] = [
   postExperimentVariationValuesComment,
   postExperimentVariationValuesPublish,
   postExperimentVariationValuesDetach,
+  postExperimentVariationValuesRequestReview,
+  postExperimentVariationValuesRecallReview,
+  postExperimentVariationValuesUndoReview,
+  postExperimentVariationValuesDiscard,
   getExperimentVariationValues,
   postExperimentVariationValues,
   putExperimentVariationValues,

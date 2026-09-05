@@ -2803,4 +2803,58 @@ export const postExperimentVariationValuesDetachValidator = {
   method: "post" as const,
   path: "/experiments/:id/variation-values/detach",
 };
+
+export const postExperimentVariationValuesRequestReviewValidator = {
+  bodySchema: commentBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Request review of the pending variation values",
+  description:
+    "Saving values already requests review when the flag needs one; use this after a recall or a change request to send the same values back for review.",
+  operationId: "postExperimentVariationValuesRequestReview",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/request-review",
+};
+
+export const postExperimentVariationValuesRecallReviewValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Withdraw the pending variation values from review",
+  description:
+    "Returns the pending values to a draft and clears their verdicts.",
+  operationId: "postExperimentVariationValuesRecallReview",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/recall-review",
+};
+
+export const postExperimentVariationValuesUndoReviewValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Retract your verdict on the pending variation values",
+  operationId: "postExperimentVariationValuesUndoReview",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/undo-review",
+};
+
+export const postExperimentVariationValuesDiscardValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Discard the pending variation values",
+  description:
+    "Drops the change waiting to go live; the values currently serving are untouched. The way out of a merge conflict short of detaching the flag.",
+  operationId: "postExperimentVariationValuesDiscard",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/discard",
+};
 // endregion Experiment variation values

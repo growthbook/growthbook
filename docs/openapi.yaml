@@ -15232,6 +15232,161 @@ paths:
             'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/detach'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/request-review:
+    post:
+      operationId: postExperimentVariationValuesRequestReview
+      summary: Request review of the pending variation values
+      description: >-
+        Saving values already requests review when the flag needs one; use this
+        after a recall or a change request to send the same values back for
+        review.
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  description: Recorded with the verdict.
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/request-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/recall-review:
+    post:
+      operationId: postExperimentVariationValuesRecallReview
+      summary: Withdraw the pending variation values from review
+      description: Returns the pending values to a draft and clears their verdicts.
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/recall-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/undo-review:
+    post:
+      operationId: postExperimentVariationValuesUndoReview
+      summary: Retract your verdict on the pending variation values
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/undo-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/discard:
+    post:
+      operationId: postExperimentVariationValuesDiscard
+      summary: Discard the pending variation values
+      description: >-
+        Drops the change waiting to go live; the values currently serving are
+        untouched. The way out of a merge conflict short of detaching the flag.
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/discard'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/variation-values:
     get:
       operationId: getExperimentVariationValues
