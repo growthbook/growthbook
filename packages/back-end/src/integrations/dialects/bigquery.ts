@@ -128,6 +128,14 @@ export const bigQueryDialect: SqlDialect = {
   // TIMESTAMP holds microseconds; %E6S prints all six, in UTC.
   formatTimestampExact: (col: string) =>
     `format_timestamp("%F %H:%M:%E6S", ${col})`,
+  // A fact table's timestamp column may be TIMESTAMP or DATETIME here (see
+  // castUserDateCol), and BigQuery has no implicit coercion between the two:
+  // `datetime_col > CAST('…' AS TIMESTAMP)` is a type error. A bare string
+  // literal instead coerces to whichever type the column has, at microsecond
+  // precision, like every other date bound this dialect renders (toTimestamp).
+  // The watermark is CAST(MAX(col) AS TIMESTAMP) printed in UTC, which for a
+  // DATETIME column is its own wall-clock value, so it round-trips exactly.
+  exactTimestampLiteral: (quoted: string) => quoted,
   castToString: (col: string) => `cast(${col} as string)`,
   stringMatch: createLikeStringMatchFn({
     escapeStringLiteral: bigQueryEscapeStringLiteral,

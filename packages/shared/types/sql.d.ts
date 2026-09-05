@@ -170,6 +170,13 @@ export interface SqlDialect {
   // parse back to the identical instant. Used to persist exact incremental
   // refresh watermarks. Dialects without a known-lossless format return NULL.
   formatTimestampExact: (column: string) => string;
+  // Writes a value printed by formatTimestampExact back into an incremental
+  // refresh filter (`<timestamp column> > <this>`). `quoted` is the value as
+  // a quoted SQL string literal. Defaults to castToTimestamp (an explicitly
+  // TIMESTAMP-typed bound); a dialect whose user timestamp columns may be of
+  // several temporal types that don't compare with TIMESTAMP overrides it with
+  // a form the engine coerces to the column's own type.
+  exactTimestampLiteral?: (quoted: string) => string;
   selectStarLimit: (
     from: string,
     limit: number,

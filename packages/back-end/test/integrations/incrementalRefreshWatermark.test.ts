@@ -26,7 +26,10 @@ import { factMetricFactory } from "../factories/FactMetric.factory";
 const watermark = new Date("2024-01-10T12:00:00.999Z");
 const NEXT_MS = "'2024-01-10 12:00:01.000'";
 const RAW = "2024-01-10 12:00:00.999999";
-const AFTER_RAW = `> CAST('${RAW}' AS TIMESTAMP)`;
+// BigQuery writes the exact value back as a bare literal, which coerces to
+// the column's own type (TIMESTAMP or DATETIME); the generic form is a CAST.
+const AFTER_RAW = `> '${RAW}'`;
+const AFTER_RAW_CAST = `> CAST('${RAW}' AS TIMESTAMP)`;
 
 const factTable = factTableFactory.build({
   id: "ft_events",
@@ -155,6 +158,20 @@ describe("afterWatermark", () => {
     expect(afterWatermark(bigQueryDialect, "m.timestamp", watermark, RAW)).toBe(
       `m.timestamp ${AFTER_RAW}`,
     );
+  });
+
+  it("writes the exact value back as a TIMESTAMP cast unless the dialect says otherwise", () => {
+    // A TIMESTAMP-typed bound is the default. BigQuery opts out because its
+    // fact-table timestamp columns may be DATETIME, which does not compare
+    // with TIMESTAMP, while a bare literal coerces to either type.
+    for (const dialect of [baseDialect, snowflakeDialect, prestoDialect]) {
+      expect(afterWatermark(dialect, "m.timestamp", watermark, RAW)).toBe(
+        `m.timestamp ${AFTER_RAW_CAST}`,
+      );
+    }
+    expect(
+      afterWatermark(bigQueryDialect, "m.timestamp", watermark, RAW),
+    ).not.toContain("CAST(");
   });
 
   it("starts from the millisecond after the watermark otherwise", () => {
