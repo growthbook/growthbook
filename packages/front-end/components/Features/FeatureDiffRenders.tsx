@@ -133,7 +133,11 @@ function ValueChangedField({
       );
     }
     return (
-      <div className="d-flex align-items-start mb-2">
+      <div
+        className={
+          dense ? "d-flex align-items-start" : "d-flex align-items-start mb-2"
+        }
+      >
         <div className="text-danger d-flex align-items-start">
           <div className="text-center mr-2" style={{ width: 16 }}>
             Δ
@@ -152,7 +156,7 @@ function ValueChangedField({
   // Multi-line content (e.g. pretty-printed JSON) — use inline diff viewer.
   // diff-wrapper applies theme-aware background/text (light/dark mode) from _bootstrap-theme-overrides.scss
   return (
-    <div className="mb-2">
+    <div className={dense ? undefined : "mb-2"}>
       {label && <div className="font-weight-bold mb-1">{label}</div>}
       <div
         className="diff-wrapper diff-wrapper-compact"
@@ -174,10 +178,14 @@ function ValueChangedField({
 function ValueOnlyField({
   label,
   value,
+  dense = false,
 }: {
   label?: ReactNode;
   value: string | null | undefined;
+  // No trailing margin: the surrounding stack spaces the rows.
+  dense?: boolean;
 }) {
+  const rowClass = dense ? undefined : "mb-2";
   const isSimple =
     value == null || (!value.includes("\n") && value.length <= 80);
   if (isSimple) {
@@ -188,9 +196,9 @@ function ValueOnlyField({
       // nothing to compare it against.
       <div className="font-weight-bold text-success">{display}</div>
     );
-    if (!label) return <div className="mb-2">{body}</div>;
+    if (!label) return <div className={rowClass}>{body}</div>;
     return (
-      <div className="mb-2">
+      <div className={rowClass}>
         <div className="mb-1">
           <Text size="md" weight="medium" color="text-mid">
             {label}
@@ -201,7 +209,7 @@ function ValueOnlyField({
     );
   }
   return (
-    <div className="mb-2">
+    <div className={rowClass}>
       {label && (
         <div className="mb-1">
           <Text size="md" weight="medium" color="text-mid">
@@ -903,7 +911,7 @@ function RuleFieldDiffs({
   if (!rows.length) return null;
   // The experiment surface stacks one row per variation; give them air.
   return compact ? (
-    <Flex direction="column" gap="2">
+    <Flex direction="column" gap="3">
       {rows}
     </Flex>
   ) : (
@@ -1075,7 +1083,7 @@ function NewRuleDetails({
       const value = formatValue(v.value);
       rows.push(
         compact ? (
-          <ValueOnlyField key={`var-${i}`} label={label} value={value} />
+          <ValueOnlyField key={`var-${i}`} label={label} value={value} dense />
         ) : (
           <ValueChangedField
             key={`var-${i}`}
@@ -1137,7 +1145,7 @@ function NewRuleDetails({
 
   if (!rows.length) return <></>;
   return compact ? (
-    <Flex direction="column" gap="2">
+    <Flex direction="column" gap="3">
       {rows}
     </Flex>
   ) : (
@@ -1351,7 +1359,7 @@ export function renderFeatureRules(
 
   if (added.length > 0) {
     sections.push(
-      <div key="added" className="mb-3">
+      <div key="added" className={compact ? undefined : "mb-3"}>
         {!compact && (
           <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
             Added
@@ -1407,7 +1415,7 @@ export function renderFeatureRules(
   const modifiedAll = [...modified, ...rampOnlyTouched];
   if (modifiedAll.length > 0) {
     sections.push(
-      <div key="modified" className="mb-2">
+      <div key="modified" className={compact ? undefined : "mb-2"}>
         {!compact && (
           <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
             Modified
