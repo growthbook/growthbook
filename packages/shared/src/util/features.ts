@@ -295,6 +295,99 @@ export function validateJSONFeatureValue(
   }
 }
 
+// Unwraps the `{ "value": X }` envelope `castFeatureValue` writes.
+function unwrapCastEnvelope(value: string): string {
+  try {
+    const parsed = JSON.parse(value);
+    if (typeof parsed === "string") return parsed;
+    if (
+      parsed === null ||
+      typeof parsed !== "object" ||
+      Array.isArray(parsed) ||
+      Object.keys(parsed).length !== 1 ||
+      !("value" in parsed)
+    ) {
+      return value;
+    }
+    const inner = (parsed as { value: unknown }).value;
+    return typeof inner === "string" ? inner : JSON.stringify(inner);
+  } catch (e) {
+    return value;
+  }
+}
+
+/** The value shape `validateFeatureValue` accepts for a number. */
+const NUMBER_VALUE_PATTERN = /^-?[0-9]+(\.[0-9]+)?$/;
+
+// The text as a JSON document when it already reads as an object or array.
+function asJsonDocument(plain: string): string | null {
+  const trimmed = plain.trim();
+  if (!/^[[{]/.test(trimmed)) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed === null || typeof parsed !== "object") return null;
+    return JSON.stringify(parsed, null, 2);
+  } catch (e) {
+    return null;
+  }
+}
+
+/** A JSON literal for `value`, quoting whatever would not parse on its own. */
+function asJsonLiteral(plain: string, from: FeatureValueType): string {
+  if (from === "string") return JSON.stringify(plain);
+  try {
+    JSON.parse(plain);
+    return plain;
+  } catch (e) {
+    return JSON.stringify(plain);
+  }
+}
+
+// Re-expresses a value under another type; `index` only when nothing survives (booleans: control off, rest on).
+export function castFeatureValue({
+  value,
+  from,
+  to,
+  index = 0,
+}: {
+  value: string;
+  from: FeatureValueType;
+  to: FeatureValueType;
+  index?: number;
+}): string {
+  if (from === to) return value;
+
+  const plain = from === "json" ? unwrapCastEnvelope(value) : value;
+
+  switch (to) {
+    case "boolean": {
+      const t = plain.trim().toLowerCase();
+      if (["", "0", "false", "null", "undefined"].includes(t)) return "false";
+      if (["1", "true"].includes(t)) return "true";
+      return index === 0 ? "false" : "true";
+    }
+    case "number": {
+      const trimmed = plain.trim();
+      const n = Number(trimmed);
+      const candidate = String(n);
+      return trimmed !== "" &&
+        Number.isFinite(n) &&
+        NUMBER_VALUE_PATTERN.test(candidate)
+        ? candidate
+        : String(index);
+    }
+    case "json": {
+      // Text that already reads as an object or array is the value.
+      return (
+        asJsonDocument(plain) ??
+        `{\n  "value": ${asJsonLiteral(plain, from)}\n}`
+      );
+    }
+    case "string":
+      return plain;
+  }
+}
+
 export function validateFeatureValue(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   value: string,
@@ -328,6 +421,9 @@ export function validateFeatureValue(
       throw new Error(prefix + errors.join(", "));
     }
   } else if (type === "json") {
+    if (value.trim() === "") {
+      throw new Error(prefix + "A JSON value is required");
+    }
     let parsedValue;
     let validJSON = true;
     try {

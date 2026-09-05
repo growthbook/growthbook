@@ -1,8 +1,10 @@
 import { ReactNode, ReactElement } from "react";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import isEqual from "lodash/isEqual";
-import { Box, Flex } from "@radix-ui/themes";
+import omit from "lodash/omit";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import {
   FeatureRule,
   FeaturePrerequisite,
@@ -26,6 +28,10 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 import { useExperiments } from "@/hooks/useExperiments";
+import VariationLabel from "@/ui/VariationLabel";
+import VisuallyHidden from "@/ui/VisuallyHidden";
+import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import { useEnvironments } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -37,7 +43,10 @@ import {
   ProjectName,
   OwnerName,
 } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
-import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
+import {
+  COMPACT_DIFF_STYLES,
+  DENSE_DIFF_STYLES,
+} from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import SortedTags from "@/components/Tags/SortedTags";
 import styles from "./FeatureDiffRenders.module.scss";
@@ -60,6 +69,30 @@ function ExperimentLink({
   );
 }
 
+function VariationsHeading() {
+  return (
+    <Heading as="h6" size="sm" color="text-mid" mb="2">
+      Variations
+    </Heading>
+  );
+}
+
+// Number chip plus the linked experiment's name, falling back to the index.
+function VariationValueLabel({
+  experimentId,
+  index,
+}: {
+  experimentId?: string;
+  index: number;
+}) {
+  const { experimentsMap } = useExperiments();
+  const name = experimentId
+    ? experimentsMap.get(experimentId)?.variations?.[index]?.name
+    : undefined;
+  if (!name) return <>{`Variation ${index} value`}</>;
+  return <VariationLabel number={index} name={name} size="sm" />;
+}
+
 // Uses ChangeField for single-line values (booleans, numbers, short strings)
 // and an inline ReactDiffViewer for multi-line / JSON values.
 // When label is omitted the label row is suppressed (e.g. when the section
@@ -68,10 +101,13 @@ function ValueChangedField({
   label,
   pre,
   post,
+  dense = false,
 }: {
-  label?: string;
+  label?: ReactNode;
   pre: string | null | undefined;
   post: string | null | undefined;
+  // Tighter leading, for a diff sharing a column with other content.
+  dense?: boolean;
 }) {
   if (isEqual(pre, post)) return null;
   // Treat null, undefined, and empty string as unset (matches GenericFieldChange precedent)
@@ -91,7 +127,11 @@ function ValueChangedField({
       );
     }
     return (
-      <div className="d-flex align-items-start mb-2">
+      <div
+        className={
+          dense ? "d-flex align-items-start" : "d-flex align-items-start mb-2"
+        }
+      >
         <div className="text-danger d-flex align-items-start">
           <div className="text-center mr-2" style={{ width: 16 }}>
             Δ
@@ -110,7 +150,7 @@ function ValueChangedField({
   // Multi-line content (e.g. pretty-printed JSON) — use inline diff viewer.
   // diff-wrapper applies theme-aware background/text (light/dark mode) from _bootstrap-theme-overrides.scss
   return (
-    <div className="mb-2">
+    <div className={dense ? undefined : "mb-2"}>
       {label && <div className="font-weight-bold mb-1">{label}</div>}
       <div
         className="diff-wrapper diff-wrapper-compact"
@@ -120,9 +160,60 @@ function ValueChangedField({
           oldValue={pre ?? ""}
           newValue={post ?? ""}
           compareMethod={DiffMethod.LINES}
-          styles={COMPACT_DIFF_STYLES}
+          styles={dense ? DENSE_DIFF_STYLES : COMPACT_DIFF_STYLES}
         />
       </div>
+    </div>
+  );
+}
+
+// The end state alone, for a field with no before.
+function ValueOnlyField({
+  label,
+  value,
+  dense = false,
+}: {
+  label?: ReactNode;
+  value: string | null | undefined;
+  // No trailing margin: the surrounding stack spaces the rows.
+  dense?: boolean;
+}) {
+  const rowClass = dense ? undefined : "mb-2";
+  const isSimple =
+    value == null || (!value.includes("\n") && value.length <= 80);
+  if (isSimple) {
+    const display: ReactNode =
+      value == null || value === "" ? <em>unset</em> : value;
+    const body = <div className="font-weight-bold text-success">{display}</div>;
+    if (!label) return <div className={rowClass}>{body}</div>;
+    return (
+      <div className={rowClass}>
+        <div className="mb-1">
+          <Text size="md" weight="medium" color="text-mid">
+            {label}
+          </Text>
+        </div>
+        {body}
+      </div>
+    );
+  }
+  return (
+    <div className={rowClass}>
+      {label && (
+        <div className="mb-1">
+          <Text size="md" weight="medium" color="text-mid">
+            {label}
+          </Text>
+        </div>
+      )}
+      <Box style={{ maxHeight: 250, overflowY: "auto" }}>
+        <InlineCode
+          language="json"
+          code={value ?? ""}
+          fontSize="0.75rem"
+          lineHeight={1.35}
+        />
+      </Box>
     </div>
   );
 }
@@ -149,7 +240,7 @@ function getRuleTypeLabel(type: FeatureRule["type"]): string {
   }
 }
 
-function formatValue(val: string | unknown): string {
+export function formatValue(val: string | unknown): string {
   if (typeof val === "string") {
     const trimmed = val.trim();
     if (
@@ -485,14 +576,18 @@ function RuleFieldDiffs({
   pre,
   post,
   pendingRampAction,
+  renderMode = "feature",
 }: {
   pre: FeatureRule;
   post: FeatureRule;
   pendingRampAction?: RevisionRampCreateAction;
+  renderMode?: DiffRenderMode;
 }) {
   if (isEqual(pre, post) && !pendingRampAction) return null;
 
   const rows: ReactNode[] = [];
+  // The experiment surface already names the flag and spans every environment.
+  const compact = renderMode === "experiment";
   // id/type/scheduleRules are structural; allEnvironments+environments render
   // together as a single "Environments" row below. The rest are explicit cases.
   const handled = new Set<string>([
@@ -518,7 +613,7 @@ function RuleFieldDiffs({
   const envScopeChanged =
     !!pre.allEnvironments !== !!post.allEnvironments ||
     !isEqual(sortedEnvs(pre), sortedEnvs(post));
-  if (envScopeChanged) {
+  if (envScopeChanged && !compact) {
     const renderScope = (r: FeatureRule): ReactNode =>
       r.allEnvironments || Array.isArray(r.environments) ? (
         <RuleEnvScope rule={r} />
@@ -748,14 +843,25 @@ function RuleFieldDiffs({
       .variations;
     // match by index; variationId is stable across edits
     const maxLen = Math.max(preVars.length, postVars.length);
+    let headed = false;
     for (let i = 0; i < maxLen; i++) {
       const pv = preVars[i];
       const nv = postVars[i];
       if (isEqual(pv?.value, nv?.value)) continue;
+      if (compact && !headed) {
+        headed = true;
+        rows.push(<VariationsHeading key="variationsHeading" />);
+      }
       rows.push(
         <ValueChangedField
           key={`var-${i}`}
-          label={`Variation ${i} value`}
+          dense={compact}
+          label={
+            <VariationValueLabel
+              experimentId={(post as { experimentId?: string }).experimentId}
+              index={i}
+            />
+          }
           pre={pv !== null && pv !== undefined ? formatValue(pv.value) : null}
           post={nv !== null && nv !== undefined ? formatValue(nv.value) : null}
         />,
@@ -789,21 +895,31 @@ function RuleFieldDiffs({
   }
 
   if (!rows.length) return null;
-  return <div className="mt-1 ml-3">{rows}</div>;
+  return compact ? (
+    <Flex direction="column" gap="3">
+      {rows}
+    </Flex>
+  ) : (
+    <div className="mt-1 ml-3">{rows}</div>
+  );
 }
 
 function NewRuleDetails({
+  renderMode = "feature",
   rule,
   pendingRampAction,
 }: {
   rule: FeatureRule;
   pendingRampAction?: RevisionRampCreateAction;
+  renderMode?: DiffRenderMode;
 }) {
   const rows: ReactNode[] = [];
+  // Same scrub as RuleFieldDiffs.
+  const compact = renderMode === "experiment";
 
   // Combined env-scope row (matches `RuleFieldDiffs`); raw fields are
   // suppressed via the `handled` set below.
-  if (rule.allEnvironments || Array.isArray(rule.environments)) {
+  if (!compact && (rule.allEnvironments || Array.isArray(rule.environments))) {
     rows.push(
       <ChangeField
         key="envScope"
@@ -931,23 +1047,37 @@ function NewRuleDetails({
   }
 
   if (rule.type === "experiment-ref") {
-    rows.push(
-      <ChangeField
-        key="experimentId"
-        label="Experiment"
-        changed
-        oldNode={<em>unset</em>}
-        newNode={<ExperimentLink experimentId={rule.experimentId} />}
-      />,
-    );
-    rule.variations.forEach((v, i) => {
+    if (!compact) {
       rows.push(
-        <ValueChangedField
-          key={`var-${i}`}
-          label={`Variation ${i} value`}
-          pre={null}
-          post={formatValue(v.value)}
+        <ChangeField
+          key="experimentId"
+          label="Experiment"
+          changed
+          oldNode={<em>unset</em>}
+          newNode={<ExperimentLink experimentId={rule.experimentId} />}
         />,
+      );
+    }
+    if (compact && rule.variations.length) {
+      rows.push(<VariationsHeading key="variationsHeading" />);
+    }
+    rule.variations.forEach((v, i) => {
+      const label = (
+        <VariationValueLabel experimentId={rule.experimentId} index={i} />
+      );
+      const value = formatValue(v.value);
+      rows.push(
+        compact ? (
+          <ValueOnlyField key={`var-${i}`} label={label} value={value} dense />
+        ) : (
+          <ValueChangedField
+            key={`var-${i}`}
+            dense={compact}
+            label={label}
+            pre={null}
+            post={value}
+          />
+        ),
       );
     });
   }
@@ -988,6 +1118,7 @@ function NewRuleDetails({
       null,
       rule as unknown as Record<string, unknown>,
       handled,
+      compact,
     ),
   );
 
@@ -998,7 +1129,13 @@ function NewRuleDetails({
   }
 
   if (!rows.length) return <></>;
-  return <div className="ml-3">{rows}</div>;
+  return compact ? (
+    <Flex direction="column" gap="3">
+      {rows}
+    </Flex>
+  ) : (
+    <div className="ml-3">{rows}</div>
+  );
 }
 
 // Label omitted — revision/draft summary cards already use the section title "Default value".
@@ -1110,6 +1247,10 @@ export function featureRuleChangeBadges(
   return badges;
 }
 
+// "feature": the flag's own review, where each rule is named and numbered.
+// "experiment": the rule is the subject and the page already names its flag.
+export type DiffRenderMode = "feature" | "experiment";
+
 export function renderFeatureRules(
   preRules: FeatureRule[],
   postRules: FeatureRule[],
@@ -1120,12 +1261,21 @@ export function renderFeatureRules(
     // each side with its own correct numbering.
     preHasHoldout?: boolean;
     postHasHoldout?: boolean;
+    renderMode?: DiffRenderMode;
   },
 ): ReactNode | null {
-  const { added, removed, modified, reordered } = analyzeRuleChanges(
-    preRules,
-    postRules,
-  );
+  const analysis = analyzeRuleChanges(preRules, postRules);
+  const renderMode = options?.renderMode ?? "feature";
+  const compact = renderMode === "experiment";
+  // The experiment surface states environments itself.
+  const preById = new Map(preRules.map((r) => [r.id, r]));
+  const ENV_SCOPE = ["environments", "allEnvironments"];
+  const modified = compact
+    ? analysis.modified.filter(
+        (r) => !isEqual(omit(preById.get(r.id), ENV_SCOPE), omit(r, ENV_SCOPE)),
+      )
+    : analysis.modified;
+  const { added, removed, reordered } = analysis;
 
   const postOffset = options?.postHasHoldout ? 2 : 1;
   const preOffset = options?.preHasHoldout ? 2 : 1;
@@ -1133,7 +1283,6 @@ export function renderFeatureRules(
     postRules.map((r, i) => [r.id, i + postOffset]),
   );
   const preIndexById = new Map(preRules.map((r, i) => [r.id, i + preOffset]));
-  const preById = new Map(preRules.map((r) => [r.id, r]));
   const pendingRampActions = options?.pendingRampActions;
 
   // Rules that aren't add/modify/reorder but do have a pending ramp action —
@@ -1172,9 +1321,11 @@ export function renderFeatureRules(
     if (movedRules.length > 0) {
       sections.push(
         <div key="reordered" className="mb-3">
-          <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
-            Reordered
-          </Text>
+          {!compact && (
+            <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
+              Reordered
+            </Text>
+          )}
           {movedRules.map(({ r, newPos, oldPos }) => (
             <Box key={r.id} mb="2" className={styles.ruleSummaryBox}>
               <Flex align="start" justify="between" gap="2">
@@ -1192,16 +1343,23 @@ export function renderFeatureRules(
 
   if (added.length > 0) {
     sections.push(
-      <div key="added" className="mb-3">
-        <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
-          Added
-        </Text>
+      <div key="added" className={compact ? undefined : "mb-3"}>
+        {!compact && (
+          <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
+            Added
+          </Text>
+        )}
         {added.map((r) => {
           const idx = postIndexById.get(r.id)!;
           return (
-            <Box key={r.id} mb="3" className={styles.ruleSummaryBox}>
-              <RuleHeading rule={r} index={idx} />
+            <Box
+              key={r.id}
+              mb={compact ? "0" : "3"}
+              className={compact ? undefined : styles.ruleSummaryBox}
+            >
+              {!compact && <RuleHeading rule={r} index={idx} />}
               <NewRuleDetails
+                renderMode={renderMode}
                 rule={r}
                 pendingRampAction={findPendingRampForRule(
                   r.id,
@@ -1218,9 +1376,11 @@ export function renderFeatureRules(
   if (removed.length > 0) {
     sections.push(
       <div key="removed" className="mb-3">
-        <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
-          Removed
-        </Text>
+        {!compact && (
+          <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
+            Removed
+          </Text>
+        )}
         {removed.map((r) => {
           const idx = preIndexById.get(r.id)!;
           return (
@@ -1239,17 +1399,24 @@ export function renderFeatureRules(
   const modifiedAll = [...modified, ...rampOnlyTouched];
   if (modifiedAll.length > 0) {
     sections.push(
-      <div key="modified" className="mb-2">
-        <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
-          Modified
-        </Text>
+      <div key="modified" className={compact ? undefined : "mb-2"}>
+        {!compact && (
+          <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
+            Modified
+          </Text>
+        )}
         {modifiedAll.map((r) => {
           const prev = preById.get(r.id)!;
           const idx = postIndexById.get(r.id)!;
           return (
-            <Box key={r.id} mb="3" className={styles.ruleSummaryBox}>
-              <RuleHeading rule={r} index={idx} />
+            <Box
+              key={r.id}
+              mb={compact ? "0" : "3"}
+              className={compact ? undefined : styles.ruleSummaryBox}
+            >
+              {!compact && <RuleHeading rule={r} index={idx} />}
               <RuleFieldDiffs
+                renderMode={renderMode}
                 pre={prev ?? r}
                 post={r}
                 pendingRampAction={findPendingRampForRule(
@@ -1886,48 +2053,67 @@ export function renderPrerequisites(
 }
 
 // Text "On"/"Off" indicator for an environment toggle.
-function EnvEnabledIndicator({ enabled }: { enabled: boolean }) {
+// `tone` "muted" is the before half of a diff: same glyph, faded.
+function EnvEnabledIndicator({
+  enabled,
+  tone = "state",
+}: {
+  enabled: boolean;
+  tone?: "state" | "muted";
+}) {
+  // Teal, not green: a check beside approval verdicts reads as one.
+  const color = enabled ? "var(--teal-10)" : featureStatusColors.off;
+  const label = enabled ? "On" : "Off";
+  const Icon = enabled ? FaCircleCheck : FaCircleXmark;
   return (
     <span
-      style={{
-        fontSize: "var(--font-size-2)",
-        fontWeight: 500,
-      }}
+      style={{ display: "inline-flex", alignItems: "center" }}
+      title={label}
     >
-      {enabled ? "On" : "Off"}
+      <Icon
+        size={20}
+        style={{ color, opacity: tone === "muted" ? 0.3 : undefined }}
+      />
+      {/* Real text, so a selection copies name and state. */}
+      <VisuallyHidden>{label}</VisuallyHidden>
     </span>
   );
 }
 
-export function renderEnvironmentsEnabled(
-  current: boolean | undefined,
-  draft: boolean | undefined,
+// A wrapping grid, so twenty environments don't bury the diff.
+export function renderEnvironmentToggles(
+  toggles: { envId: string; from: boolean; to: boolean }[],
+  { endStateOnly = false }: { endStateOnly?: boolean } = {},
 ): ReactNode {
-  if (current === undefined && draft === undefined) return null;
-  if (current === draft) return null;
+  if (!toggles.length) return null;
   return (
-    <div className="d-flex align-items-center mb-2">
-      <div className="text-danger d-flex align-items-center">
-        <div className="text-center mr-2" style={{ width: 16 }}>
-          Δ
-        </div>
-        {current === undefined ? (
-          <em>unset</em>
-        ) : (
-          <EnvEnabledIndicator enabled={current} />
-        )}
-      </div>
-      <div className="text-success d-flex align-items-center ml-4">
-        <div className="text-center mx-2" style={{ width: 16 }}>
-          →
-        </div>
-        {draft === undefined ? (
-          <em>unset</em>
-        ) : (
-          <EnvEnabledIndicator enabled={draft} />
-        )}
-      </div>
-    </div>
+    <Grid
+      gapX="4"
+      gapY="3"
+      mb="2"
+      style={{
+        gridTemplateColumns: "repeat(auto-fill, minmax(120px, max-content))",
+      }}
+    >
+      {toggles.map(({ envId, from, to }) => (
+        <Box key={envId} minWidth="0">
+          <Box minWidth="0" mb="1">
+            <Text weight="medium" truncate title={envId}>
+              {envId}
+            </Text>
+          </Box>
+          <Flex align="center" gap="2">
+            {!endStateOnly && from !== to && (
+              <>
+                <EnvEnabledIndicator enabled={from} tone="muted" />
+                <span className="font-weight-bold text-success">→</span>
+              </>
+            )}
+            <EnvEnabledIndicator enabled={to} />
+          </Flex>
+        </Box>
+      ))}
+    </Grid>
   );
 }
 
@@ -2066,6 +2252,11 @@ export function renderRevisionMetadata(
       );
     }
   };
+
+  // A re-type changes how every value reads; show it first.
+  if (draft.valueType !== undefined) {
+    stringField("valueType", "Value type", current?.valueType, draft.valueType);
+  }
 
   if (draft.description !== undefined) {
     stringField(

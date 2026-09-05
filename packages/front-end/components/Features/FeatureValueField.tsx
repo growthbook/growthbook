@@ -5,6 +5,7 @@ import {
   SimpleSchema,
 } from "shared/types/feature";
 import {
+  ComponentProps,
   ReactElement,
   ReactNode,
   useEffect,
@@ -92,6 +93,10 @@ export interface Props {
   // the field (top-aligned) instead of on a label row above it, and hides the
   // copy button. Used by the inline config field editor.
   inlineConstantButton?: boolean;
+  /** Pins the inline constant button to the first line of a tall field. */
+  inlineConstantButtonAlign?: "center" | "start";
+  /** Size for the inner text fields; defaults to `Field`'s. */
+  size?: ComponentProps<typeof Field>["size"];
   // JSON features only. Whether this rule value is a sparse patch (merged onto
   // the feature default). When `setSparse` is provided and the feature default
   // is a plain object, a "Sparse patch" toggle renders on the label row.
@@ -115,6 +120,9 @@ export interface Props {
   lockConfigBacking?: boolean;
 }
 
+// One size for both JSON editors so toggling sparse doesn't resize.
+const CODE_FONT_SIZE = "0.75rem";
+
 export default function FeatureValueField({
   valueType,
   label,
@@ -134,6 +142,8 @@ export default function FeatureValueField({
   codeInputDefaultHeight,
   hideCopyButton = false,
   inlineConstantButton = false,
+  inlineConstantButtonAlign = "center",
+  size,
   sparse,
   setSparse,
   condensed = false,
@@ -158,7 +168,7 @@ export default function FeatureValueField({
   // Constant-picker wiring. Only offered in a feature context (where `@const:`
   // references get resolved at payload build time) — not for standalone
   // experiment values. `pickerProject` scopes which constants are offered.
-  const showConstantPicker = !!feature || !!constantContext;
+  const showConstantPicker = (!!feature || !!constantContext) && !disabled;
   const pickerProject = constantContext?.project ?? project ?? feature?.project;
   const pickerExcludeKeys = constantContext?.excludeKeys;
   // Tags for the valid constants referenced in the current value, shown below
@@ -580,7 +590,7 @@ export default function FeatureValueField({
     // Edit/Preview tabs. Offered whenever the caller wires `setSparse` — when the
     // default isn't a plain object (array/null/primitive) there's nothing to
     // merge onto, so the patch simply replaces the value (see the toggle tooltip).
-    const showSparseToggle = !!setSparse;
+    const showSparseToggle = !!setSparse && !disabled;
     const isSparse = !!sparse;
 
     // Cursor-aware insertion targets the Ace editor (the code-editor path, or the
@@ -599,6 +609,7 @@ export default function FeatureValueField({
         />
       ) : null;
 
+    // Only where sparse is a per-value choice.
     const sparseHeader = showSparseToggle ? (
       <Flex
         align="center"
@@ -642,6 +653,15 @@ export default function FeatureValueField({
         <Box mb="3">
           {sparseHeader}
           <SparseTabbedEditor
+            fontSize={CODE_FONT_SIZE}
+            headerLeft={
+              !sparseHeader && label !== undefined ? (
+                <Text as="label" weight="semibold" mb="0">
+                  {label}
+                </Text>
+              ) : undefined
+            }
+            headerRight={!sparseHeader ? insertConstantButton : undefined}
             value={value}
             setValue={setValue}
             valueType={valueType}
@@ -650,7 +670,7 @@ export default function FeatureValueField({
             placeholder={placeholder}
             disabled={disabled}
             defaultHeight={codeInputDefaultHeight}
-            showInlineLabel={!showSparseToggle}
+            showInlineLabel={false}
             condensed={condensed}
             onEditorLoad={(e) => (jsonEditorRef.current = e)}
             usedConstantTags={usedConstantTags}
@@ -690,22 +710,23 @@ export default function FeatureValueField({
 
     const formatted = formatJSON(value);
 
-    const codeEditorToggleButton = useCodeInput ? (
-      <a
-        href="#"
-        className="text-purple"
-        onClick={(e) => {
-          e.preventDefault();
-          setCodeEditorToggledOn(!codeEditorToggledOn);
-        }}
-        style={{ whiteSpace: "nowrap" }}
-      >
-        <PiBracketsCurly />{" "}
-        {codeEditorToggledOn ? "Use text editor" : "Use code editor"}
-      </a>
-    ) : null;
+    const codeEditorToggleButton =
+      useCodeInput && !disabled ? (
+        <a
+          href="#"
+          className="text-purple"
+          onClick={(e) => {
+            e.preventDefault();
+            setCodeEditorToggledOn(!codeEditorToggledOn);
+          }}
+          style={{ whiteSpace: "nowrap" }}
+        >
+          <PiBracketsCurly />{" "}
+          {codeEditorToggledOn ? "Use text editor" : "Use code editor"}
+        </a>
+      ) : null;
 
-    const formatJSONButton = (
+    const formatJSONButton = disabled ? null : (
       <a
         href="#"
         className={clsx("text-purple", {
@@ -781,7 +802,7 @@ export default function FeatureValueField({
             defaultHeight={codeInputDefaultHeight}
             showCopyButton={!copyHidden}
             showFullscreenButton={showFullscreenButton}
-            fontSize="0.75rem"
+            fontSize={CODE_FONT_SIZE}
             slimGutter
             onEditorLoad={(e) => (jsonEditorRef.current = e)}
           />
@@ -890,6 +911,8 @@ export default function FeatureValueField({
       onInsert={insertStringConstant}
       disabled={disabled}
       iconOnly={inlineConstantButton}
+      // Inline has no label above to offset from.
+      iconMt={inlineConstantButton ? "0" : undefined}
     />
   ) : null;
   const stringLabelRow =
@@ -908,6 +931,7 @@ export default function FeatureValueField({
 
   const field = (
     <Field
+      size={size}
       ref={stringInputRef}
       label={stringLabelRow ? undefined : label}
       value={value}
@@ -940,12 +964,22 @@ export default function FeatureValueField({
     />
   );
 
-  // Inline layout: the picker rides to the right of the field, top-aligned.
+  // Pinned centres on the first line (32px at size="md").
+  const pinned = inlineConstantButtonAlign === "start";
   if (inlineConstantButton && stringInsertButton) {
     return (
-      <Flex align="start" gap="2" width="100%">
+      <Flex align={pinned ? "start" : "center"} gap="2" width="100%">
         <Box style={{ flex: 1, minWidth: 0 }}>{field}</Box>
-        <Box style={{ flexShrink: 0 }}>{stringInsertButton}</Box>
+        <Box
+          style={{
+            flexShrink: 0,
+            ...(pinned
+              ? { minHeight: 32, display: "flex", alignItems: "center" }
+              : {}),
+          }}
+        >
+          {stringInsertButton}
+        </Box>
       </Flex>
     );
   }

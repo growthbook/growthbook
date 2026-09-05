@@ -7,7 +7,16 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
-import { experimentHasLiveLinkedChanges, getHoldoutStage } from "shared/util";
+import {
+  experimentHasLiveLinkedChanges,
+  getImplementationType,
+  hasStartReadyManagedFlag,
+  getHoldoutStage,
+  isManagedByExperiment,
+  canMaterializeLinkedChanges,
+  getExperimentLinkageBlocker,
+  type LinkedChangesResolution,
+} from "shared/util";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
@@ -50,6 +59,8 @@ import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
+import RadioGroup from "@/ui/RadioGroup";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
@@ -87,7 +98,6 @@ export interface Props {
   setCompareModal: (open: boolean) => void;
   setWatchersModal: (open: boolean) => void;
   editResult?: () => void;
-  safeToEdit: boolean;
   mutateWatchers: () => void;
   usersWatching: (string | undefined)[];
   newPhase?: (() => void) | null;
@@ -147,7 +157,6 @@ export default function ExperimentHeader({
   setCompareModal,
   setStatusModal,
   setWatchersModal,
-  safeToEdit,
   usersWatching,
   mutateWatchers,
   editResult,
@@ -180,6 +189,113 @@ export default function ExperimentHeader({
 
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteAcknowledged, setDeleteAcknowledged] = useState(false);
+  const [linkedChanges, setLinkedChanges] = useState<
+    LinkedChangesResolution | ""
+  >("");
+  // Archiving or deleting takes the experiment out of the payload, so anything
+  // still serving through it has to be dealt with first.
+  const linkageBlocker = getExperimentLinkageBlocker(
+    experiment,
+    linkedFeatures,
+  );
+  const canMaterialize = canMaterializeLinkedChanges(
+    experiment,
+    linkageBlocker,
+  );
+  const materializing = linkedChanges === "materialize";
+  // With nothing to keep, the only answer is "remove", so an acknowledgement
+  // stands in for a one-option radio.
+  const linkedChangesResolution: LinkedChangesResolution | undefined =
+    linkageBlocker === "temporary-rollout" && canMaterialize
+      ? linkedChanges || undefined
+      : linkageBlocker && deleteAcknowledged
+        ? "remove"
+        : undefined;
+  const linkageResolved =
+    !linkageBlocker || linkedChangesResolution !== undefined;
+  const resetLinkageChoices = () => {
+    setDeleteAcknowledged(false);
+    setLinkedChanges("");
+  };
+  const linkageChoice =
+    linkageBlocker === "temporary-rollout" &&
+    (canMaterialize ? (
+      <RadioGroup
+        gap="1"
+        value={linkedChanges}
+        setValue={(v) => setLinkedChanges(v as LinkedChangesResolution)}
+        options={[
+          {
+            value: "materialize",
+            label: "Keep serving the released variation",
+            description:
+              "Each linked Feature Flag gets a permanent rule with this experiment's targeting.",
+          },
+          {
+            value: "remove",
+            label: "Stop serving it",
+            description:
+              "Users go back to the Feature Flags' other rules and defaults.",
+          },
+        ]}
+      />
+    ) : (
+      <Checkbox
+        label="I understand the temporary rollout ends and users go back to the Feature Flags' other rules and defaults"
+        weight="regular"
+        value={deleteAcknowledged}
+        setValue={(v) => setDeleteAcknowledged(!!v)}
+      />
+    ));
+  // Deleting the experiment archives the flag that existed only for it and
+  // strips its rule from every other linked flag.
+  const managedFlagToArchive = linkedFeatures.find((f) =>
+    isManagedByExperiment(f.feature, experiment.id),
+  )?.feature.id;
+  const sharedLinkedFlags = linkedFeatures
+    .filter(
+      (f) =>
+        !isManagedByExperiment(f.feature, experiment.id) &&
+        (f.state === "live" || f.state === "draft"),
+    )
+    .map((f) => f.feature.id);
+  const deleteConsequences = [
+    ...(managedFlagToArchive
+      ? [
+          <li key="managed">
+            Managed Feature Flag <strong>{managedFlagToArchive}</strong>{" "}
+            {materializing
+              ? "becomes an unmanaged Feature Flag serving the released variation."
+              : "will be archived."}
+          </li>,
+        ]
+      : []),
+    ...sharedLinkedFlags.map((id) => (
+      <li key={id}>
+        {materializing
+          ? "A permanent rule replaces the experiment rule on Feature Flag "
+          : "The experiment rule will be removed from Feature Flag "}
+        <strong>{id}</strong>.
+      </li>
+    )),
+    ...(visualChangesets.length
+      ? [
+          <li key="visual">
+            {visualChangesets.length} Visual Editor change
+            {visualChangesets.length === 1 ? "" : "s"} will be deleted.
+          </li>,
+        ]
+      : []),
+    ...(urlRedirects.length
+      ? [
+          <li key="redirects">
+            {urlRedirects.length} URL Redirect
+            {urlRedirects.length === 1 ? "" : "s"} will stop serving.
+          </li>,
+        ]
+      : []),
+  ];
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showBanditModal, setShowBanditModal] = useState(false);
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
@@ -265,6 +381,14 @@ export default function ExperimentHeader({
   const disableHealthTab = isUsingHealthUnsupportDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const banditImplementationReady =
+    !isBandit ||
+    experimentHasLiveLinkedChanges(experiment, linkedFeatures) ||
+    hasStartReadyManagedFlag(experiment.id, linkedFeatures);
+  const banditBlockedReason =
+    getImplementationType(experiment) === "values"
+      ? "Add variation values before starting."
+      : "Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting.";
   const isHoldout = experiment.type === "holdout";
   const holdoutStage = holdout
     ? getHoldoutStage(holdout, experiment)
@@ -324,7 +448,7 @@ export default function ExperimentHeader({
     setDropdownOpen(false);
   }
 
-  async function startExperiment() {
+  async function startExperiment(opts?: { bypassApproval?: boolean }) {
     if (!experiment.phases?.length) {
       if (newPhase) {
         newPhase();
@@ -350,6 +474,7 @@ export default function ExperimentHeader({
           method: "POST",
           body: JSON.stringify({
             status: "running",
+            bypassLockdown: !!opts?.bypassApproval,
           }),
         },
         (responseData) => {
@@ -632,32 +757,34 @@ export default function ExperimentHeader({
           trackingEventModalType="delete-experiment"
           trackingEventModalSource="experiment-more-menu"
           open={true}
-          close={() => setShowDeleteModal(false)}
+          close={() => {
+            setShowDeleteModal(false);
+            resetLinkageChoices();
+          }}
           cta="Delete"
           ctaColor="red"
+          ctaEnabled={
+            linkageResolved &&
+            (!deleteConsequences.length ||
+              deleteAcknowledged ||
+              linkageBlocker === "temporary-rollout")
+          }
           submit={async () => {
-            try {
-              await apiCall<{ status: number; message?: string }>(
-                `/${isHoldout ? "holdout" : "experiment"}/${
-                  isHoldout ? holdout?.id : experiment.id
-                }`,
-                {
-                  method: "DELETE",
-                  body: JSON.stringify({
-                    id: isHoldout ? holdout?.id : experiment.id,
-                  }),
-                },
-              );
-              router.push(
-                isBandit
-                  ? "/bandits"
-                  : isHoldout
-                    ? "/holdouts"
-                    : "/experiments",
-              );
-            } catch (e) {
-              console.error(e);
-            }
+            await apiCall<{ status: number; message?: string }>(
+              `/${isHoldout ? "holdout" : "experiment"}/${
+                isHoldout ? holdout?.id : experiment.id
+              }`,
+              {
+                method: "DELETE",
+                body: JSON.stringify({
+                  id: isHoldout ? holdout?.id : experiment.id,
+                  linkedChanges: linkedChangesResolution,
+                }),
+              },
+            );
+            router.push(
+              isBandit ? "/bandits" : isHoldout ? "/holdouts" : "/experiments",
+            );
           }}
         >
           <Box>
@@ -665,12 +792,42 @@ export default function ExperimentHeader({
               Are you sure you want to delete this{" "}
               {isHoldout ? "holdout" : "experiment"}?
             </Text>
-            {!safeToEdit ? (
-              <Callout status="warning">
-                This will immediately stop all linked Feature Flags, Visual
-                Editor Changes, and URL Redirects from running
+            {linkageBlocker === "temporary-rollout" && (
+              <Callout status="warning" mb="3">
+                <Text as="p" mb="2" weight="semibold">
+                  Its temporary rollout is still serving the released variation.
+                </Text>
+                {linkageChoice}
               </Callout>
-            ) : null}
+            )}
+            {deleteConsequences.length > 0 && (
+              <Callout status={materializing ? "info" : "warning"}>
+                <Text as="p" mb="2" weight="semibold">
+                  {linkageBlocker === "running"
+                    ? `This ${isHoldout ? "holdout" : "experiment"} is running. Deleting it takes effect immediately:`
+                    : "Linked implementations:"}
+                </Text>
+                <ul
+                  style={{
+                    paddingLeft: "var(--space-4)",
+                    marginBottom:
+                      linkageBlocker === "temporary-rollout"
+                        ? 0
+                        : "var(--space-3)",
+                  }}
+                >
+                  {deleteConsequences}
+                </ul>
+                {linkageBlocker !== "temporary-rollout" && (
+                  <Checkbox
+                    label="I understand the linked implementations will be changed"
+                    weight="regular"
+                    value={deleteAcknowledged}
+                    setValue={(v) => setDeleteAcknowledged(!!v)}
+                  />
+                )}
+              </Callout>
+            )}
           </Box>
         </ModalStandard>
       ) : null}
@@ -684,33 +841,57 @@ export default function ExperimentHeader({
           open={true}
           cta={experiment.archived ? "Unarchive" : "Archive"}
           ctaColor={experiment.archived ? "violet" : "red"}
-          close={() => setShowArchiveModal(false)}
+          ctaEnabled={experiment.archived || linkageResolved}
+          close={() => {
+            setShowArchiveModal(false);
+            resetLinkageChoices();
+          }}
           submit={async () => {
-            try {
-              await apiCall(
-                `/experiment/${experiment.id}/${
-                  experiment.archived ? "unarchive" : "archive"
-                }`,
-                {
-                  method: "POST",
-                },
-              );
-              mutate();
-            } catch (e) {
-              console.error(e);
-            }
+            await apiCall(
+              `/experiment/${experiment.id}/${
+                experiment.archived ? "unarchive" : "archive"
+              }`,
+              {
+                method: "POST",
+                body: JSON.stringify(
+                  experiment.archived
+                    ? {}
+                    : { linkedChanges: linkedChangesResolution },
+                ),
+              },
+            );
+            mutate();
           }}
         >
           <Box>
             <Text as="p">{`Are you sure you want to ${
               experiment.archived ? "unarchive" : "archive"
             } this ${isHoldout ? "holdout" : "experiment"}?`}</Text>
-            {!safeToEdit && !experiment.archived ? (
+            {!experiment.archived && linkageBlocker === "temporary-rollout" && (
               <Callout status="warning">
-                This will immediately stop all linked Feature Flags, Visual
-                Editor Changes, and URL Redirects from running
+                <Text as="p" mb="2" weight="semibold">
+                  Its temporary rollout is still serving the released variation.
+                  Archived experiments leave the SDK payload.
+                </Text>
+                {linkageChoice}
               </Callout>
-            ) : null}
+            )}
+            {!experiment.archived && linkageBlocker === "running" && (
+              <Callout status="warning">
+                <Text as="p" mb="2">
+                  This {isHoldout ? "holdout" : "experiment"} is running.
+                  Archiving takes it out of the SDK payload immediately, so its
+                  linked Feature Flags, Visual Editor changes and URL Redirects
+                  stop serving.
+                </Text>
+                <Checkbox
+                  label="I understand the linked changes stop serving"
+                  weight="regular"
+                  value={deleteAcknowledged}
+                  setValue={(v) => setDeleteAcknowledged(!!v)}
+                />
+              </Callout>
+            )}
           </Box>
         </ModalStandard>
       ) : null}
@@ -883,28 +1064,15 @@ export default function ExperimentHeader({
                   </Button>
                 ) : experiment.status === "draft" ? (
                   <Tooltip
-                    shouldDisplay={
-                      isBandit &&
-                      !experimentHasLiveLinkedChanges(
-                        experiment,
-                        linkedFeatures,
-                      )
-                    }
-                    body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
+                    shouldDisplay={!banditImplementationReady}
+                    body={banditBlockedReason}
                   >
                     <Button
                       variant={checklistReady ? "solid" : "soft"}
                       onClick={() => {
                         setShowStartExperiment(true);
                       }}
-                      disabled={
-                        !canRunExperiment ||
-                        (isBandit &&
-                          !experimentHasLiveLinkedChanges(
-                            experiment,
-                            linkedFeatures,
-                          ))
-                      }
+                      disabled={!canRunExperiment || !banditImplementationReady}
                       icon={
                         hasExperimentSchedule ? undefined : <MdRocketLaunch />
                       }
@@ -1254,6 +1422,9 @@ export default function ExperimentHeader({
           setShowEditInfoModal={setShowEditInfoModal}
           setEditInfoFocusSelector={setEditInfoFocusSelector}
           editTags={editTags}
+          isManaged={linkedFeatures.some((f) =>
+            isManagedByExperiment(f.feature, experiment.id),
+          )}
         />
 
         {runningExperimentDecisionBanner ? (

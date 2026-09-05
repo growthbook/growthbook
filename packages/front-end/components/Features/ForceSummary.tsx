@@ -13,11 +13,20 @@ export default function ForceSummary({
   sparse = false,
   isDefault = false,
   environment,
+  label = "SERVE",
+  fontSize,
+  lineHeight,
 }: {
   value: string;
   feature: FeatureInterface;
   maxHeight?: number;
   sparse?: boolean;
+  // The word before the value. Surfaces that already name it (a "Serves:"
+  // metadata row) pass null so the label isn't said twice.
+  label?: string | null;
+  // Denser type for a cramped surface; defaults are ValueDisplay's own.
+  fontSize?: string;
+  lineHeight?: number;
   // The feature's default value (vs a rule). A config-backed default is a pure
   // config with no overrides, so the "with overrides" tag never applies to it.
   isDefault?: boolean;
@@ -43,6 +52,7 @@ export default function ForceSummary({
         sparse={sparse}
         isDefault={isDefault}
         environment={environment}
+        label={label}
       />
     );
   }
@@ -50,7 +60,7 @@ export default function ForceSummary({
   return (
     <>
       <Flex direction="row" gap="2">
-        <Text weight="medium">SERVE</Text>
+        {label !== null && <Text weight="medium">{label}</Text>}
         <Box width="100%">
           <ValueDisplay
             value={value}
@@ -58,6 +68,8 @@ export default function ForceSummary({
             showFullscreenButton={true}
             sparse={sparse}
             defaultValue={feature.defaultValue}
+            fontSize={fontSize}
+            lineHeight={lineHeight}
             fullStyle={{
               maxHeight: maxHeight ?? 150,
               overflowY: "auto",

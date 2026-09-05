@@ -31,10 +31,17 @@ interface PreLaunchChecklistContextValue {
   setShowSdkForm: (value: boolean) => void;
   showScheduleModal: boolean;
   setShowScheduleModal: (value: boolean) => void;
+  /** Opens the managed flag's review modal, when the page has one. */
+  openManagedApproval?: () => void;
 }
 
 const PreLaunchChecklistContext =
   createContext<PreLaunchChecklistContextValue | null>(null);
+
+/** For surfaces that may render outside the provider. */
+export function useOptionalPreLaunchChecklist(): PreLaunchChecklistContextValue | null {
+  return useContext(PreLaunchChecklistContext);
+}
 
 export function usePreLaunchChecklist(): PreLaunchChecklistContextValue {
   const ctx = useContext(PreLaunchChecklistContext);
@@ -55,6 +62,8 @@ export interface PreLaunchChecklistProviderProps {
   mutateExperiment: () => unknown | Promise<unknown>;
   editTargeting?: (() => void) | null;
   openSetupTab?: () => void;
+  openManagedApproval?: () => void;
+  editVariationValues?: () => void;
   envs: string[];
   children: ReactNode;
 }
@@ -68,6 +77,8 @@ export function PreLaunchChecklistProvider({
   mutateExperiment,
   editTargeting,
   openSetupTab,
+  openManagedApproval,
+  editVariationValues,
   envs,
   children,
 }: PreLaunchChecklistProviderProps) {
@@ -115,6 +126,8 @@ export function PreLaunchChecklistProvider({
       setAnalysisModal: canEditExperiment ? setAnalysisModal : undefined,
       editTargeting,
       openSetupTab,
+      openManagedApproval,
+      editVariationValues,
       checkLinkedChanges: true,
       connections: projectConnections,
       setShowSdkForm,
@@ -127,6 +140,8 @@ export function PreLaunchChecklistProvider({
     data,
     editTargeting,
     openSetupTab,
+    openManagedApproval,
+    editVariationValues,
     experiment,
     linkedFeatures,
     visualChangesets,
@@ -167,6 +182,7 @@ export function PreLaunchChecklistProvider({
       setShowSdkForm,
       showScheduleModal,
       setShowScheduleModal,
+      openManagedApproval,
     }),
     [
       experiment,
@@ -182,6 +198,7 @@ export function PreLaunchChecklistProvider({
       analysisModal,
       showSdkForm,
       showScheduleModal,
+      openManagedApproval,
     ],
   );
 

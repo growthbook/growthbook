@@ -2,7 +2,12 @@ import { each, isEqual, pick, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
-import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
+import {
+  getImplementationType,
+  implementationTypeAfterUnlink,
+  includeExperimentInPayload,
+  hasVisualChanges,
+} from "shared/util";
 import {
   generateTrackingKey,
   getLatestPhaseVariations,
@@ -312,6 +317,7 @@ const experimentSchema = new mongoose.Schema({
   postStratificationEnabled: Boolean,
   hasVisualChangesets: Boolean,
   hasURLRedirects: Boolean,
+  implementationType: String,
   linkedFeatures: [String],
   attributeScopeAllProjects: Boolean,
   pendingFeatureDrafts: [
@@ -809,8 +815,15 @@ export async function updateExperiment({
     return experiment;
   }
 
+  // Linkages outrank a stored implementationType; a stale one is fixed on write.
+  const merged = { ...experiment, ...changes };
+  const effectiveImplementationType = getImplementationType(merged);
   const allChanges = {
     ...changes,
+    ...(effectiveImplementationType &&
+    effectiveImplementationType !== merged.implementationType
+      ? { implementationType: effectiveImplementationType }
+      : {}),
     dateUpdated: new Date(),
   };
   if (allChanges.name === "")
@@ -1371,17 +1384,16 @@ export async function deleteExperimentByIdForOrganization(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) {
+  await ExperimentModel.deleteOne({
+    id: experiment.id,
+    organization: context.org.id,
+  });
+  await VisualChangesetModel.deleteMany({
+    experiment: experiment.id,
+    organization: context.org.id,
+  });
+  // Event fan-out is best-effort; the delete itself is not.
   try {
-    await ExperimentModel.deleteOne({
-      id: experiment.id,
-      organization: context.org.id,
-    });
-
-    await VisualChangesetModel.deleteMany({
-      experiment: experiment.id,
-      organization: context.org.id,
-    });
-
     await onExperimentDelete(context, experiment);
   } catch (e) {
     logger.error(e);
@@ -1636,6 +1648,15 @@ export async function removeLinkedFeatureFromExperiment(
 
   if (!experiment.linkedFeatures?.includes(featureId)) return;
 
+  const newExperiment = {
+    ...experiment,
+    linkedFeatures: (experiment.linkedFeatures || []).filter(
+      (f) => f !== featureId,
+    ),
+  };
+  newExperiment.implementationType =
+    implementationTypeAfterUnlink(newExperiment);
+
   await ExperimentModel.updateOne(
     {
       id: experimentId,
@@ -1645,18 +1666,16 @@ export async function removeLinkedFeatureFromExperiment(
       $pull: {
         linkedFeatures: featureId,
       },
+      ...(newExperiment.implementationType
+        ? { $set: { implementationType: newExperiment.implementationType } }
+        : {}),
     },
   );
 
   onExperimentUpdate({
     context,
     oldExperiment: experiment,
-    newExperiment: {
-      ...experiment,
-      linkedFeatures: (experiment.linkedFeatures || []).filter(
-        (f) => f !== featureId,
-      ),
-    },
+    newExperiment,
   }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
@@ -1671,25 +1690,32 @@ export async function unlinkFeatureFromExperiment(
   const experiment = await findExperiment({ experimentId, context });
   if (!experiment) return;
 
+  const newExperiment = {
+    ...experiment,
+    linkedFeatures: (experiment.linkedFeatures || []).filter(
+      (f) => f !== featureId,
+    ),
+    pendingFeatureDrafts: (experiment.pendingFeatureDrafts || []).filter(
+      (d) => d.featureId !== featureId,
+    ),
+  };
+  newExperiment.implementationType =
+    implementationTypeAfterUnlink(newExperiment);
+
   await ExperimentModel.updateOne(
     { id: experimentId, organization: context.org.id },
     {
       $pull: { linkedFeatures: featureId, pendingFeatureDrafts: { featureId } },
+      ...(newExperiment.implementationType
+        ? { $set: { implementationType: newExperiment.implementationType } }
+        : {}),
     },
   );
 
   onExperimentUpdate({
     context,
     oldExperiment: experiment,
-    newExperiment: {
-      ...experiment,
-      linkedFeatures: (experiment.linkedFeatures || []).filter(
-        (f) => f !== featureId,
-      ),
-      pendingFeatureDrafts: (experiment.pendingFeatureDrafts || []).filter(
-        (d) => d.featureId !== featureId,
-      ),
-    },
+    newExperiment,
   }).catch((e) => {
     logger.error(e, "Error refreshing SDK payload on experiment update");
   });

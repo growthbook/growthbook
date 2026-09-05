@@ -27,6 +27,8 @@ import {
   stepHoldConditions,
 } from "./ramp-schedule";
 
+import { featureManagedByValidator } from "./managed-by";
+
 import { namedSchema } from "./openapi-helpers";
 
 export const simpleSchemaFieldValidator = z.object({
@@ -271,6 +273,23 @@ export const featureRule = z.union([
 ]);
 
 export type FeatureRule = z.infer<typeof featureRule>;
+
+// Only the keys the rule's type declares. The union members are `.strict()`,
+// which throws rather than strips, so unknown keys otherwise persist.
+export function stripUnknownRuleFields<T extends { type?: string }>(
+  rule: T,
+): T {
+  const schema = featureRule.options.find((o) =>
+    o.shape.type._def.values.includes(rule.type as never),
+  );
+  if (!schema) return rule;
+  const allowed = new Set(Object.keys(schema.shape));
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(rule)) {
+    if (allowed.has(k)) out[k] = v;
+  }
+  return out as T;
+}
 
 // Env-level settings only (kill switch + prerequisites). Rules live on
 // `featureInterface.rules`.
@@ -789,6 +808,10 @@ export const featureInterface = z
         value: z.string(),
       })
       .optional(),
+    // Set when this flag exists only to deliver one experiment and is edited
+    // exclusively from that experiment's page. Every direct write path refuses
+    // while it's set; see `assertFeatureNotManaged`.
+    managedBy: featureManagedByValidator.optional(),
   })
   .strict();
 
@@ -1349,6 +1372,11 @@ export const apiFeatureValidator = namedSchema(
       }),
       customFields: z.record(z.string(), z.any()).optional(),
       holdout: apiFeatureHoldout,
+      managedBy: featureManagedByValidator
+        .optional()
+        .describe(
+          "Set when an experiment owns this flag. Its values are edited, reviewed and published from that experiment, and every direct write to the flag is refused.",
+        ),
     })
     .strict(),
 );

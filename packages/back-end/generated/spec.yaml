@@ -168,7 +168,9 @@ tags:
 
       Rules are returned as a unified top-level array; each rule carries
       `allEnvironments` / `environments` scope fields instead of being bucketed
-      by environment.
+      by environment. A Feature Flag managed by an experiment refuses writes
+      here with 403 `feature_managed_by_experiment`; change it through the
+      Experiment Values endpoints.
   - name: feature-revisions-v2
     x-displayName: Feature Revisions
     description: >-
@@ -176,7 +178,10 @@ tags:
       approval workflows.
 
 
-      Revision `rules` is a flat array with per-rule scope fields.
+      Revision `rules` is a flat array with per-rule scope fields. A Feature
+      Flag managed by an experiment refuses writes here with 403
+      `feature_managed_by_experiment`; change it through the Experiment Values
+      endpoints.
   - name: features
     x-displayName: Feature Flags (legacy)
     description: >-
@@ -220,6 +225,33 @@ tags:
   - name: experiments
     x-displayName: Experiments
     description: Experiments (A/B Tests)
+  - name: experiment-values
+    x-displayName: Experiment Values
+    description: >-
+      An experiment with the **Values** implementation serves one value per
+      variation through a Feature Flag that GrowthBook creates and manages for
+      it (the *managed flag*). The flag carries a single experiment rule, and
+      its values, value type, and environments are edited through these
+      endpoints rather than through the Feature Flags endpoints, which refuse
+      writes to a managed flag.
+
+
+      Edits are staged as **pending values**, a draft on the managed flag. When
+      the flag requires review, pending values go through the same approval as
+      any Feature Flag revision. The usual flow is: `POST` to create the flag,
+      `PUT` to set values (this requests review automatically when one is
+      needed), reviewers call `submit-review`, then `POST
+      /experiments/{id}/start` publishes the values as the experiment starts. On
+      a running experiment, `PUT` again and call `publish`. `GET` returns the
+      live values, the pending change, and `publishBlockers` naming anything
+      that would stop a publish.
+
+
+      To back out: `recall-review` withdraws your review request but keeps the
+      values; `undo-review` withdraws a review you gave as a reviewer; `discard`
+      deletes the pending change and keeps the live values; `detach` keeps
+      everything and hands the flag over to the Feature Flags and Feature
+      Revisions endpoints.
   - name: namespaces
     x-displayName: Namespaces
     description: >-
@@ -533,6 +565,11 @@ tags:
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/ExperimentDecisionFrameworkSettings" />
+  - name: ExperimentManagedFlagAdoption_model
+    x-displayName: Experiment Managed Flag Adoption
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/ExperimentManagedFlagAdoption" />
   - name: ExperimentMetric_model
     x-displayName: Experiment Metric
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentMetric" />
@@ -541,6 +578,11 @@ tags:
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/ExperimentMetricOverrideEntry" />
+  - name: ExperimentPendingVariationValues_model
+    x-displayName: Experiment Pending Variation Values
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/ExperimentPendingVariationValues" />
   - name: ExperimentResults_model
     x-displayName: Experiment Results
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResults" />
@@ -550,6 +592,21 @@ tags:
   - name: ExperimentTemplate_model
     x-displayName: Experiment Template
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentTemplate" />
+  - name: ExperimentVariationValue_model
+    x-displayName: Experiment Variation Value
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/ExperimentVariationValue" />
+  - name: ExperimentVariationValues_model
+    x-displayName: Experiment Variation Values
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/ExperimentVariationValues" />
+  - name: ExperimentVariationValuesReview_model
+    x-displayName: Experiment Variation Values Review
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/ExperimentVariationValuesReview" />
   - name: ExperimentWithEnhancedStatus_model
     x-displayName: Experiment With Enhanced Status
     description: >-
@@ -658,6 +715,11 @@ tags:
   - name: LookbackOverride_model
     x-displayName: Lookback Override
     description: <SchemaDefinition schemaRef="#/components/schemas/LookbackOverride" />
+  - name: ManagedFeatureRevisionRef_model
+    x-displayName: Managed Feature Revision Ref
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/ManagedFeatureRevisionRef" />
   - name: Member_model
     x-displayName: Member
     description: <SchemaDefinition schemaRef="#/components/schemas/Member" />
@@ -13633,6 +13695,25 @@ paths:
                   enum:
                     - standard
                     - multi-armed-bandit
+                implementationType:
+                  description: >-
+                    How the experiment reaches users. "values" is a Feature Flag
+                    managed by the experiment; "none" is analysis only. Fixed
+                    once a Feature Flag, Visual Editor change or URL Redirect is
+                    linked. Changing a Values experiment: "feature" detaches the
+                    managed flag (it stays linked as an ordinary Feature Flag);
+                    any other value deletes the managed flag, which is allowed
+                    only while the experiment is a draft and the caller may
+                    delete the flag, and must be acknowledged with
+                    `ignoreWarnings: true` (without it the call returns 422
+                    naming the flag).
+                  type: string
+                  enum:
+                    - values
+                    - feature
+                    - urlredirect
+                    - visual
+                    - none
                 project:
                   description: Project ID which the experiment belongs to
                   type: string
@@ -14338,6 +14419,33 @@ paths:
                   enum:
                     - standard
                     - multi-armed-bandit
+                implementationType:
+                  description: >-
+                    How the experiment reaches users. "values" is a Feature Flag
+                    managed by the experiment; "none" is analysis only. Fixed
+                    once a Feature Flag, Visual Editor change or URL Redirect is
+                    linked. Changing a Values experiment: "feature" detaches the
+                    managed flag (it stays linked as an ordinary Feature Flag);
+                    any other value deletes the managed flag, which is allowed
+                    only while the experiment is a draft and the caller may
+                    delete the flag, and must be acknowledged with
+                    `ignoreWarnings: true` (without it the call returns 422
+                    naming the flag).
+                  type: string
+                  enum:
+                    - values
+                    - feature
+                    - urlredirect
+                    - visual
+                    - none
+                bypassApproval:
+                  description: >-
+                    Deprecated and ignored. Approval is bypassed automatically
+                    when the caller has Bypass draft approvals access for this
+                    resource or when the organization enables the REST API
+                    approval bypass. Otherwise, the revision must be approved
+                    before it can be published.
+                  type: boolean
                 project:
                   description: Project ID which the experiment belongs to
                   type: string
@@ -14948,6 +15056,38 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/experiments/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteExperiment
+      summary: Delete an experiment
+      description: >-
+        Archive first: a live experiment can only be deleted when the
+        organization allows the REST API to bypass approval requirements. Linked
+        Feature Flags lose their experiment rule and a managed flag is archived,
+        unless `linkedChanges` is "materialize".
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/linkedChanges'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    description: The ID of the deleted experiment
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/experiments/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/start-checklist:
     get:
       operationId: getExperimentStartChecklist
@@ -14984,6 +15124,597 @@ paths:
             'https://api.growthbook.io/api/v1/experiments/exp_abc123/start-checklist'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values:
+    get:
+      operationId: getExperimentVariationValues
+      summary: Get variation values
+      description: >-
+        Returns the value each variation serves now (`liveValues`), the
+        environments the experiment is active in, and any change waiting to go
+        live (`pending`, with `publishBlockers` saying what stands between it
+        and publishing). When the experiment does not use the Values
+        implementation, `managed` is false and `adoption` says whether `POST`
+        could create the managed Feature Flag.
+      tags:
+        - experiment-values
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postExperimentVariationValues
+      summary: Create the managed Feature Flag
+      description: >-
+        Switches the experiment to the Values implementation. GrowthBook creates
+        a Feature Flag keyed from the experiment key (or `featureKey`), links it
+        to the experiment with a single experiment rule, and stages one value
+        per variation as pending values. The experiment must be a draft with no
+        other Feature Flags, Visual Editor changes, or URL Redirects linked. The
+        values go live when the experiment starts.
+
+
+        The flag key is not adjusted automatically. If the derived key is
+        already a Feature Flag, the call fails with code `feature_key_taken` and
+        `details` naming the taken key plus a key that is free for both the
+        experiment and the flag. Retry with `featureKey` to create the flag
+        under a different key, or `trackingKey` to rename the experiment so the
+        flag can share its key. `GET` reports the same information ahead of time
+        in `adoption`.
+      tags:
+        - experiment-values
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                valueType:
+                  type: string
+                  enum:
+                    - string
+                    - number
+                    - boolean
+                    - json
+                values:
+                  description: One entry per experiment variation.
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ExperimentVariationValue'
+                sparse:
+                  description: >-
+                    `json` only: treat each value as a partial object merged
+                    over the flag's default value.
+                  type: boolean
+                featureKey:
+                  description: >-
+                    Create the Feature Flag under this key instead of one
+                    derived from the experiment key.
+                  type: string
+                trackingKey:
+                  description: >-
+                    Rename the experiment to this key first, so the Feature Flag
+                    key can match it.
+                  type: string
+              required:
+                - valueType
+                - values
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  The Feature Flag key derived from the experiment is already in
+                  use
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - feature_key_taken
+                  details:
+                    $ref: '#/components/schemas/ApiErrorFeatureKeyTakenDetails'
+                required:
+                  - message
+                  - code
+                  - details
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/variation-values'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"valueType":"string","values":[{"variationId":"var_control","value":"control"},{"variationId":"var_treatment","value":"treatment"}]}'
+    put:
+      operationId: putExperimentVariationValues
+      summary: Update pending values
+      description: >-
+        Stages new values, a new value type, or new environments on the managed
+        Feature Flag. If a pending change already exists the edits are added to
+        it; otherwise one is started. Pending values can be revised any number
+        of times before they go live. When the flag requires review, the pending
+        values are sent for review automatically. Publishing is separate:
+        pending values go live when the experiment starts, or through `publish`
+        once it is running.
+      tags:
+        - experiment-values
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                values:
+                  description: >-
+                    One entry per experiment variation. Omit to leave the values
+                    alone.
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ExperimentVariationValue'
+                valueType:
+                  description: >-
+                    Changes the flag's value type. Omit to keep the current
+                    type. Send `values` that are valid for the new type in the
+                    same request.
+                  type: string
+                  enum:
+                    - string
+                    - number
+                    - boolean
+                    - json
+                sparse:
+                  description: >-
+                    `json` only: treat each value as a partial object merged
+                    over the flag's default value. Applies to the `values` sent
+                    with it.
+                  type: boolean
+                environments:
+                  description: >-
+                    Environments to run the experiment in: "all" or a list of
+                    environment ids. Omit to leave unchanged.
+                  anyOf:
+                    - type: string
+                      const: all
+                    - minItems: 1
+                      type: array
+                      items:
+                        type: string
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/variation-values'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"values":[{"variationId":"var_control","value":"control"},{"variationId":"var_treatment","value":"treatment-b"}]}'
+  /v1/experiments/{id}/variation-values/request-review:
+    post:
+      operationId: postExperimentVariationValuesRequestReview
+      summary: Request review for pending values
+      description: >-
+        Saving values already requests review when the flag needs one. Use this
+        after `recall-review`, or after a `request-changes` review, to resubmit
+        the same values without editing them.
+      tags:
+        - experiment-values
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  description: Recorded with the review request.
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/request-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/submit-review:
+    post:
+      operationId: postExperimentVariationValuesSubmitReview
+      summary: Submit a review on pending values
+      description: >-
+        Records an `approve`, `request-changes`, or `comment` review on the
+        pending values. When the flag requires review, approval is what allows
+        the pending values to publish. Users who edited the pending values
+        cannot approve them when `blockSelfApproval` is enabled.
+      tags:
+        - experiment-values
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  description: The review to give.
+                  type: string
+                  enum:
+                    - approve
+                    - request-changes
+                    - comment
+                comment:
+                  description: Recorded with the review. Required for `comment`.
+                  type: string
+              required:
+                - action
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/submit-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/recall-review:
+    post:
+      operationId: postExperimentVariationValuesRecallReview
+      summary: Recall a review request (revert to draft)
+      description: >-
+        Withdraws the review request. The pending values return to `draft`
+        status and any reviews on them stop counting; edit and request review
+        again when ready.
+      tags:
+        - experiment-values
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/recall-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/undo-review:
+    post:
+      operationId: postExperimentVariationValuesUndoReview
+      summary: Undo a reviewer's own review verdict
+      description: >-
+        Removes the approve or request-changes review the caller gave on the
+        pending values. Other reviewers' reviews are untouched.
+      tags:
+        - experiment-values
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/undo-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/rebase:
+    post:
+      operationId: postExperimentVariationValuesRebase
+      summary: Rebase pending values onto the current live version
+      description: >-
+        Re-applies the pending values on top of the Feature Flag as it is live
+        now. Use when `publish` reports `stale-base`, or when `GET` lists it in
+        `pending.publishBlockers`. Reviews given before the rebase no longer
+        count when the flag requires review. Fails with 409 `conflict` when the
+        pending values and the live flag changed the same thing; `discard` is
+        then the way out.
+      tags:
+        - experiment-values
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/rebase'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/publish:
+    post:
+      operationId: postExperimentVariationValuesPublish
+      summary: Publish pending values
+      description: >-
+        Makes the pending values live on the managed Feature Flag. Use only
+        after the experiment has started; before that, pending values go live
+        automatically when it starts. A blocked publish returns 422 with `gates`
+        listing each blocker (`approval-required`, `stale-base`,
+        `merge-conflict`) and the route that resolves it. Approval is bypassed
+        automatically when the caller has Bypass draft approvals access or the
+        organization enables the REST API approval bypass. A stale base is
+        force-merged only with `ignoreWarnings: true` and that access; otherwise
+        call `rebase`. `GET` reports the blockers ahead of time in
+        `pending.publishBlockers`. To publish together with other changes, use
+        `POST /releases/publish-revisions` with `entityType: "managed-feature"`.
+      tags:
+        - experiment-values
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  description: Recorded on the published revision.
+                  type: string
+                bypassApproval:
+                  description: >-
+                    Deprecated and ignored. Approval is bypassed automatically
+                    when the caller has Bypass draft approvals access for this
+                    resource or when the organization enables the REST API
+                    approval bypass. Otherwise, the revision must be approved
+                    before it can be published.
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access.
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/publish'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/discard:
+    post:
+      operationId: postExperimentVariationValuesDiscard
+      summary: Discard pending values
+      description: >-
+        Throws away the pending values. The live values are untouched. Also use
+        this when the pending values conflict with edits made directly on the
+        flag and can no longer be published.
+      tags:
+        - experiment-values
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/discard'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/detach:
+    post:
+      operationId: postExperimentVariationValuesDetach
+      summary: Detach the managed Feature Flag
+      description: >-
+        Stops managing the Feature Flag from the experiment. The flag keeps its
+        experiment rule and stays linked, but from now on it is edited,
+        reviewed, and published through the Feature Flags and Feature Revisions
+        endpoints, and the experiment's `implementationType` becomes `feature`.
+        Any pending values stay on the flag as an ordinary draft. The other
+        endpoints in this group stop applying to the experiment.
+      tags:
+        - experiment-values
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/detach'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/results:
     get:
       operationId: getExperimentResults
@@ -15016,13 +15747,103 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/experiments/{id}/results' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/archive:
+    post:
+      operationId: postExperimentArchive
+      summary: Archive an experiment
+      description: >-
+        An archived experiment leaves the SDK payload. Refused while a running
+        experiment or a temporary rollout still serves through linked changes
+        unless `linkedChanges` says what happens to them.
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                linkedChanges:
+                  description: >-
+                    Required while the experiment still serves through linked
+                    changes. "materialize" keeps a stopped experiment's released
+                    variation as a permanent force rule on each linked Feature
+                    Flag; "remove" acknowledges that the linked changes stop
+                    serving.
+                  type: string
+                  enum:
+                    - materialize
+                    - remove
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/archive' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/unarchive:
+    post:
+      operationId: postExperimentUnarchive
+      summary: Unarchive an experiment
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/unarchive' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/start:
     post:
       operationId: postExperimentStart
       summary: Start/Stage an experiment
       description: >-
         Starts an experiment or stages it for a future start if a
-        `statusUpdateSchedule` is set on the experiment.
+        `statusUpdateSchedule` is set on the experiment. Starting publishes any
+        pending Feature Flag drafts linked to the experiment, including a Values
+        experiment's pending variation values; when those still need approval
+        the start fails with `pending_draft_publish_failed`, unless the caller
+        has Bypass draft approvals access or the organization enables the REST
+        API approval bypass, in which case approval is bypassed automatically.
       tags:
         - experiments
       parameters:
@@ -15038,6 +15859,14 @@ paths:
                   description: >-
                     If true, skips validating the experiment satisifies all
                     pre-launch checklist items
+                  type: boolean
+                bypassApproval:
+                  description: >-
+                    Deprecated and ignored. Approval is bypassed automatically
+                    when the caller has Bypass draft approvals access for this
+                    resource or when the organization enables the REST API
+                    approval bypass. Otherwise, the revision must be approved
+                    before it can be published.
                   type: boolean
                 ignoreWarnings:
                   description: >-
@@ -18385,8 +19214,8 @@ paths:
                   type: string
                 settings:
                   description: >-
-                    Project stats settings that, when set, override the
-                    organization settings.
+                    Project settings that, when set, override the organization
+                    settings.
                   type: object
                   properties:
                     statsEngine:
@@ -18483,8 +19312,8 @@ paths:
                   type: string
                 settings:
                   description: >-
-                    Project stats settings that, when set, override the
-                    organization settings.
+                    Project settings that, when set, override the organization
+                    settings.
                   type: object
                   properties:
                     statsEngine:
@@ -26290,7 +27119,10 @@ paths:
       description: >-
         Publishes a set of revisions — at most one per entity — across Feature
         Flags, Saved Groups, configs, and constants as a single all-or-nothing
-        operation.
+        operation. A Values experiment's managed Feature Flag is addressed by
+        experiment with `entityType: "managed-feature"`; the experiment must
+        already be running, since a draft experiment publishes its pending
+        values when it starts.
 
 
         Validation, guards, and custom hooks run against the combined end-state
@@ -26332,6 +27164,8 @@ paths:
                         $ref: '#/components/schemas/ConfigRevisionRef'
                       - title: Constant Revision Ref
                         $ref: '#/components/schemas/ConstantRevisionRef'
+                      - title: Managed Feature Revision Ref
+                        $ref: '#/components/schemas/ManagedFeatureRevisionRef'
                       - title: Revision Id Ref
                         $ref: '#/components/schemas/RevisionIdRef'
                 dryRun:
@@ -26409,6 +27243,7 @@ paths:
                             - saved-group
                             - config
                             - constant
+                            - managed-feature
                         id:
                           type: string
                         version:
@@ -52715,6 +53550,24 @@ components:
       description: ''
       schema:
         type: string
+    linkedChanges:
+      name: linkedChanges
+      in: query
+      description: >-
+        Required while the experiment still serves through linked changes.
+        "materialize" keeps a stopped experiment's released variation as a
+        permanent force rule on each linked Feature Flag; "remove" acknowledges
+        that the linked changes stop serving.
+      schema:
+        description: >-
+          Required while the experiment still serves through linked changes.
+          "materialize" keeps a stopped experiment's released variation as a
+          permanent force rule on each linked Feature Flag; "remove"
+          acknowledges that the linked changes stop serving.
+        type: string
+        enum:
+          - materialize
+          - remove
     variationId:
       name: variationId
       in: path
@@ -53172,6 +54025,23 @@ components:
                 - value
               additionalProperties: false
             - type: 'null'
+        managedBy:
+          description: >-
+            Set when an experiment owns this flag. Its values are edited,
+            reviewed and published from that experiment, and every direct write
+            to the flag is refused.
+          anyOf:
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: experiment
+                experimentId:
+                  type: string
+              required:
+                - type
+                - experimentId
+              additionalProperties: false
       required:
         - id
         - dateCreated
@@ -57249,6 +58119,17 @@ components:
           type: boolean
         hasURLRedirects:
           type: boolean
+        implementationType:
+          anyOf:
+            - type: string
+              enum:
+                - values
+                - feature
+                - urlredirect
+                - visual
+                - multi
+                - none
+            - type: 'null'
         customFields:
           type: object
           propertyNames:
@@ -58052,6 +58933,17 @@ components:
               type: boolean
             hasURLRedirects:
               type: boolean
+            implementationType:
+              anyOf:
+                - type: string
+                  enum:
+                    - values
+                    - feature
+                    - urlredirect
+                    - visual
+                    - multi
+                    - none
+                - type: 'null'
             customFields:
               type: object
               propertyNames:
@@ -58200,6 +59092,253 @@ components:
                 - status
               additionalProperties: false
           additionalProperties: false
+    ExperimentVariationValues:
+      type: object
+      properties:
+        managed:
+          description: >-
+            Whether the experiment uses the Values implementation. When false,
+            `adoption` says whether it could, and every other field is null or
+            empty.
+          type: boolean
+        featureKey:
+          description: Key of the managed Feature Flag, or null.
+          anyOf:
+            - type: string
+            - type: 'null'
+        valueType:
+          description: Live value type, or null.
+          anyOf:
+            - type: string
+              enum:
+                - string
+                - number
+                - boolean
+                - json
+            - type: 'null'
+        sparse:
+          description: >-
+            `json` only: whether live values are partial objects merged over the
+            flag's default value.
+          anyOf:
+            - type: boolean
+            - type: 'null'
+        liveValues:
+          description: >-
+            The value each variation serves right now. Empty until the first
+            publish.
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperimentVariationValue'
+        environments:
+          description: Environments where the experiment is currently active.
+          type: array
+          items:
+            type: string
+        allEnvironments:
+          description: >-
+            Whether the experiment follows every environment, including ones
+            added later.
+          type: boolean
+        pending:
+          description: Values waiting to go live, or null when nothing is pending.
+          anyOf:
+            - title: Experiment Pending Variation Values
+              $ref: '#/components/schemas/ExperimentPendingVariationValues'
+            - type: 'null'
+        adoption:
+          description: >-
+            Only when `managed` is false: whether `POST` can create the managed
+            Feature Flag and which key it would use.
+          anyOf:
+            - title: Experiment Managed Flag Adoption
+              $ref: '#/components/schemas/ExperimentManagedFlagAdoption'
+            - type: 'null'
+      required:
+        - managed
+        - featureKey
+        - valueType
+        - sparse
+        - liveValues
+        - environments
+        - allEnvironments
+        - pending
+        - adoption
+      additionalProperties: false
+    ExperimentVariationValue:
+      type: object
+      properties:
+        variationId:
+          type: string
+        value:
+          description: >-
+            The value as a string. Numbers and booleans are sent as strings;
+            `json` values as a JSON-encoded string.
+          type: string
+      required:
+        - variationId
+        - value
+      additionalProperties: false
+    ExperimentPendingVariationValues:
+      type: object
+      properties:
+        version:
+          description: >-
+            The Feature Revision holding these values. Use it with the read-only
+            Feature Revision endpoints (`diff`, `log`, `merge-status`) on the
+            managed flag.
+          type: integer
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperimentVariationValue'
+        valueType:
+          description: >-
+            Value type these values will publish as. Differs from the live
+            `valueType` while a type change is pending.
+          type: string
+          enum:
+            - string
+            - number
+            - boolean
+            - json
+        sparse:
+          description: >-
+            `json` only: each value is a partial object merged over the flag's
+            default value.
+          type: boolean
+        environments:
+          description: >-
+            Environments where the experiment will be active once these values
+            go live.
+          type: array
+          items:
+            type: string
+        allEnvironments:
+          description: >-
+            Whether the experiment follows every environment, including ones
+            added later.
+          type: boolean
+        status:
+          description: Where the pending values are in review.
+          type: string
+          enum:
+            - draft
+            - pending-review
+            - changes-requested
+            - approved
+        approvalRequired:
+          type: boolean
+        canPublish:
+          description: >-
+            Whether `publish` would succeed right now. `publishBlockers` lists
+            why not.
+          type: boolean
+        publishBlockers:
+          description: >-
+            Why `publish` would fail. `experiment-not-started`: pending values
+            go live when the experiment starts. `approval-required`: get the
+            values approved, or publish with Bypass draft approvals access.
+            `stale-base`: call `rebase`. `merge-conflict`: call `discard`, or
+            `detach` and resolve on the flag. `unrelated-draft-changes`: the
+            draft also changes something outside these values; `detach` to
+            publish it from the flag.
+          type: array
+          items:
+            type: string
+            enum:
+              - experiment-not-started
+              - approval-required
+              - stale-base
+              - merge-conflict
+              - unrelated-draft-changes
+        canBypassApproval:
+          description: >-
+            Whether this caller has Bypass draft approvals access and may
+            publish before approval is given.
+          type: boolean
+        reviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperimentVariationValuesReview'
+      required:
+        - version
+        - values
+        - valueType
+        - sparse
+        - environments
+        - allEnvironments
+        - status
+        - approvalRequired
+        - canPublish
+        - publishBlockers
+        - canBypassApproval
+        - reviews
+      additionalProperties: false
+    ExperimentVariationValuesReview:
+      type: object
+      properties:
+        userId:
+          type: string
+        status:
+          description: >-
+            `-stale` variants mean the values changed after this review was
+            given.
+          type: string
+          enum:
+            - approved
+            - changes-requested
+            - approved-stale
+            - changes-requested-stale
+        timestamp:
+          format: date-time
+          type: string
+      required:
+        - userId
+        - status
+        - timestamp
+      additionalProperties: false
+    ExperimentManagedFlagAdoption:
+      type: object
+      properties:
+        blocker:
+          description: >-
+            Why the experiment cannot create a managed Feature Flag right now,
+            or null when it can.
+          anyOf:
+            - type: string
+            - type: 'null'
+        derivedKey:
+          description: The Feature Flag key `POST` would use by default.
+          type: string
+        derivedKeyAvailable:
+          type: boolean
+        suggestedTrackingKey:
+          description: >-
+            When the derived key is taken: a key that is free for both the
+            experiment and the flag, or null when none was found.
+          anyOf:
+            - type: string
+            - type: 'null'
+        suggestedFeatureKey:
+          anyOf:
+            - type: string
+            - type: 'null'
+        keyRegexError:
+          description: >-
+            Set when the derived key fails the organization's Feature Flag key
+            format.
+          anyOf:
+            - type: string
+            - type: 'null'
+      required:
+        - blocker
+        - derivedKey
+        - derivedKeyAvailable
+        - suggestedTrackingKey
+        - suggestedFeatureKey
+        - keyRegexError
+      additionalProperties: false
     VisualChangeset:
       type: object
       properties:
@@ -60779,6 +61918,26 @@ components:
         - entityType
         - key
         - version
+      additionalProperties: false
+    ManagedFeatureRevisionRef:
+      type: object
+      properties:
+        entityType:
+          type: string
+          const: managed-feature
+        experimentId:
+          description: >-
+            Id of a Values experiment. Publishes the pending variation values of
+            the Feature Flag it manages, which the `feature` form refuses.
+          type: string
+        version:
+          description: >-
+            Revision version to publish. Defaults to the pending values reported
+            by `GET /experiments/{id}/variation-values`.
+          type: integer
+      required:
+        - entityType
+        - experimentId
       additionalProperties: false
     RevisionIdRef:
       type: object
@@ -70948,6 +72107,35 @@ components:
       required:
         - failedFeatureDrafts
       additionalProperties: false
+    ApiErrorFeatureManagedByExperimentDetails:
+      type: object
+      properties:
+        featureId:
+          type: string
+        experimentId:
+          type: string
+      required:
+        - featureId
+        - experimentId
+      additionalProperties: false
+    ApiErrorFeatureKeyTakenDetails:
+      type: object
+      properties:
+        featureKey:
+          type: string
+        suggestedTrackingKey:
+          anyOf:
+            - type: string
+            - type: 'null'
+        suggestedFeatureKey:
+          anyOf:
+            - type: string
+            - type: 'null'
+      required:
+        - featureKey
+        - suggestedTrackingKey
+        - suggestedFeatureKey
+      additionalProperties: false
     ApiErrorInvalidStatusDetails:
       type: object
       properties:
@@ -72398,6 +73586,7 @@ components:
             - saved-group
             - config
             - constant
+            - managed-feature
         id:
           description: The identifier used in the request.
           type: string
@@ -72428,6 +73617,7 @@ components:
             - saved-group
             - config
             - constant
+            - managed-feature
         id:
           description: The identifier used in the request.
           type: string
@@ -73219,6 +74409,7 @@ x-tagGroups:
       - fact-metrics
       - metrics
       - experiments
+      - experiment-values
       - namespaces
       - snapshots
       - dimensions
@@ -73292,11 +74483,16 @@ x-tagGroups:
       - Experiment Rule_model
       - ExperimentAnalysisSettings_model
       - ExperimentDecisionFrameworkSettings_model
+      - ExperimentManagedFlagAdoption_model
       - ExperimentMetric_model
       - ExperimentMetricOverrideEntry_model
+      - ExperimentPendingVariationValues_model
       - ExperimentResults_model
       - ExperimentSnapshot_model
       - ExperimentTemplate_model
+      - ExperimentVariationValue_model
+      - ExperimentVariationValues_model
+      - ExperimentVariationValuesReview_model
       - ExperimentWithEnhancedStatus_model
       - FactMetric_model
       - FactTable_model
@@ -73327,6 +74523,7 @@ x-tagGroups:
       - InformationSchemaTable_model
       - Learning_model
       - LookbackOverride_model
+      - ManagedFeatureRevisionRef_model
       - Member_model
       - Metric_model
       - MetricAnalysis_model

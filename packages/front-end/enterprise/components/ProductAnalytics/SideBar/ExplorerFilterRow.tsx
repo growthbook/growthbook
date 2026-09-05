@@ -243,7 +243,7 @@ export function ExplorerFilterRow({
 
   const columnSelect = (
     <SelectField
-      size="small"
+      size="md"
       value={
         filter.operator === "sql_expr"
           ? "$$sql_expr"
@@ -292,7 +292,7 @@ export function ExplorerFilterRow({
 
   const operatorSelect = operatorInputRequired && firstSelectCompleted && (
     <SelectField
-      size="small"
+      size="md"
       value={displayOperator}
       onChange={(v: RowFilter["operator"]) => {
         let newValues = filter.values || [];
@@ -350,7 +350,7 @@ export function ExplorerFilterRow({
         />
       ) : useValueOptions ? (
         <SelectField
-          size="small"
+          size="md"
           value={filter.values?.[0] || ""}
           onChange={(v) => onUpdate({ values: [v] })}
           options={valueOptions}

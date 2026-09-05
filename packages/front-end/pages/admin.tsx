@@ -175,7 +175,7 @@ function OrganizationRow({
           this organization?
           <Box mt="3">
             <SelectField
-              size="small"
+              size="md"
               legacyLabelFormatting={false}
               label="Data region"
               value={clickhouseRegion}

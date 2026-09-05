@@ -1,0 +1,39 @@
+// A scalar value never needs to grow — JSON has its own full-width row — and
+// the auto-sizing textarea's resize grip reads as clutter in a table row.
+.scalarValue {
+  :global(textarea.form-control) {
+    resize: none;
+    overflow-y: auto;
+  }
+
+  // Field always renders its helper <small>, and .form-text's margin applies
+  // even when empty (React leaves a text node, so :empty misses).
+  :global(small.form-text) {
+    margin-top: 0;
+  }
+}
+
+// The shared percent wrapper's 7em input and 36px baseline both overflow an md
+// field in a fixed-width column, so this row owns the styling.
+.percentInputWrap {
+  input {
+    width: 100%;
+  }
+
+  span {
+    position: absolute;
+    right: 26px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--slate-11);
+  }
+}
+
+// The row's own padding separates it from the next, so the field's trailing
+// margin just pads it out.
+.tightValueCell {
+  > :global(.rt-Box),
+  :global(.form-group) {
+    margin-bottom: 0;
+  }
+}

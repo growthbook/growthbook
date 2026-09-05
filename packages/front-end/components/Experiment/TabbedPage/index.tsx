@@ -4,7 +4,7 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { isDefined, experimentHasLiveLinkedChanges } from "shared/util";
+import { isDefined } from "shared/util";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -14,6 +14,7 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { Flex } from "@radix-ui/themes";
 import {
   getAvailableMetricsFilters,
   getAvailableMetricTags,
@@ -43,6 +44,13 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
+import Badge from "@/ui/Badge";
+import {
+  revisionStatusColor,
+  revisionStatusLabel,
+} from "@/components/Reviews/RevisionStatusBadge";
+import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
+import ManagedFlagApproval from "@/components/Experiment/LinkedChanges/ManagedFlagApproval";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
 import { PreLaunchChecklistProvider } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
@@ -84,6 +92,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editTraffic?: ((variationId?: string) => void) | null;
   addVariation?: (() => void) | null;
+  addVariationValues?: (() => void) | null;
   editNamespace?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
@@ -108,6 +117,7 @@ export default function TabbedPage({
   editTargeting,
   editTraffic,
   addVariation,
+  addVariationValues,
   editNamespace,
   newPhase,
   editPhases,
@@ -132,10 +142,51 @@ export default function TabbedPage({
   const { apiCall } = useAuth();
 
   const [compareModal, setCompareModal] = useState(false);
+  const [managedApprovalOpen, setManagedApprovalOpen] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
+
+  // Page-level, not buried in the implementation card.
+  const { managedFeature } = useManagedExperimentFlags({
+    experiment,
+    linkedFeatures,
+  });
+  // Keyed on `pendingDraft`, not `state`: a running experiment's unpublished
+  // edit still reports "live".
+  const managedFlagWithDraft = managedFeature?.pendingDraft
+    ? managedFeature
+    : null;
+  const managedDraft = managedFlagWithDraft?.pendingDraft;
+  // A draft that vanishes under the open modal must not leave the next one open.
+  useEffect(() => {
+    if (!managedFlagWithDraft) setManagedApprovalOpen(false);
+  }, [managedFlagWithDraft]);
+  // Not the revision status: approved can still be short of a team or an env.
+  const managedApprovalBlocking =
+    !!managedDraft?.pendingApproval &&
+    !(managedDraft.approval?.satisfied ?? managedDraft.status === "approved");
+  // Auto-publish refuses these outright, so they outrank the approval state.
+  const managedDraftBlocked = managedDraft?.hasMergeConflict
+    ? "conflict"
+    : managedDraft?.rebaseRequired
+      ? "stale"
+      : null;
+  // Both gates together: approval alone publishes nothing on a draft.
+  const managedNextStep = managedDraftBlocked
+    ? managedDraftBlocked === "conflict"
+      ? "The draft has a merge conflict. Discard it from the review menu, or convert the Feature Flag to unmanaged and resolve it on its page."
+      : managedDraft?.staleApproval
+        ? "The Feature Flag changed after these values were approved. Update them from live and get re-approval."
+        : "The Feature Flag changed since these values were drafted. Update them from live before publishing."
+    : managedApprovalBlocking
+      ? experiment.status === "draft"
+        ? "They need approval, then go live when the experiment starts."
+        : "They need approval before they go live."
+      : experiment.status === "draft"
+        ? "They go live when the experiment starts."
+        : "Publish them to go live.";
   const [urlRedirectModal, setUrlRedirectModal] = useState(false);
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
   const [showDashboardView, setShowDashboardView] = useState(
@@ -399,10 +450,6 @@ export default function TabbedPage({
   const isBandit = experiment.type === "multi-armed-bandit";
   const trackSource = "tabbed-page";
 
-  const safeToEdit =
-    experiment.status !== "running" ||
-    !experimentHasLiveLinkedChanges(experiment, linkedFeatures);
-
   const showMetricGroupPromo = (): boolean => {
     if (metricGroups.length) return false;
 
@@ -439,6 +486,10 @@ export default function TabbedPage({
       connections={connections}
       mutateExperiment={mutate}
       editTargeting={editTargeting}
+      openManagedApproval={
+        managedFlagWithDraft ? () => setManagedApprovalOpen(true) : undefined
+      }
+      editVariationValues={editTraffic ? () => editTraffic() : undefined}
       envs={envs}
     >
       {compareModal && (
@@ -536,7 +587,6 @@ export default function TabbedPage({
         visualChangesets={visualChangesets}
         urlRedirects={urlRedirects}
         showDashboardView={showDashboardView}
-        safeToEdit={safeToEdit}
         editSchedule={editSchedule}
       />
 
@@ -551,6 +601,49 @@ export default function TabbedPage({
           !showDashboardView && (
             <CustomMarkdown page={"experiment"} variables={variables} />
           )}
+        {managedFlagWithDraft && (
+          <Callout
+            // Warning only while approval is holding the publish back.
+            status={
+              managedDraftBlocked && managedDraftBlocked !== "stale"
+                ? "error"
+                : managedDraftBlocked || managedApprovalBlocking
+                  ? "warning"
+                  : "info"
+            }
+            mt="3"
+            contentAlign="center"
+            action={
+              <ManagedFlagApproval
+                experiment={experiment}
+                info={managedFlagWithDraft}
+                mutate={mutate}
+                open={managedApprovalOpen}
+                onOpenChange={setManagedApprovalOpen}
+                // Starting the experiment publishes it, so a draft offers
+                // review only and everyone gets the same wording. A running
+                // experiment can really publish, so let the CTA name the
+                // action this viewer actually has.
+                ctaLabel={
+                  experiment.status === "draft" ? "Review changes" : undefined
+                }
+              />
+            }
+          >
+            <Flex align="center" gap="2">
+              This experiment has unpublished variation values.{" "}
+              {managedNextStep}
+              {managedDraft?.pendingApproval &&
+                (!managedDraftBlocked || managedDraftBlocked === "stale") && (
+                  <Badge
+                    label={revisionStatusLabel(managedDraft.status)}
+                    color={revisionStatusColor(managedDraft.status)}
+                    radius="full"
+                  />
+                )}
+            </Flex>
+          </Callout>
+        )}
         {showStoppedBanner && (
           <div className="pt-3">
             <StoppedExperimentBanner
@@ -620,6 +713,7 @@ export default function TabbedPage({
             editTargeting={editTargeting}
             editTraffic={editTraffic}
             addVariation={addVariation}
+            addVariationValues={addVariationValues}
             editNamespace={editNamespace}
             linkedFeatures={linkedFeatures}
             envs={envs}

@@ -2075,6 +2075,12 @@ describe("validateFeatureValue", () => {
   beforeAll(() => {
     feature.valueType = "boolean";
   });
+
+  it("rejects an empty JSON value with a readable error", () => {
+    expect(() =>
+      validateFeatureValue({ valueType: "json" }, "   ", "Variation 2"),
+    ).toThrow("Variation 2: A JSON value is required");
+  });
   describe("boolean values", () => {
     it('returns "true" if value is truthy', () => {
       expect(validateFeatureValue(feature, "true", "testVal")).toEqual("true");

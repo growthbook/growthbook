@@ -1,9 +1,15 @@
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
+import cloneDeep from "lodash/cloneDeep";
 import {
+  DRAFT_REVISION_STATUSES,
+  requireFreshBaseForPublish,
+  getReviewSetting,
   autoMerge,
   AutoMergeResult,
   evaluatePublishGovernance,
   fillRevisionFromFeature,
+  getEffectiveRevisionHoldout,
   getMatchingRules,
   liveRevisionFromFeature,
   MatchingRule,
@@ -19,32 +25,284 @@ import {
   ExperimentInterface,
   ExperimentRefRule,
   ExperimentRefVariation,
+  FeatureValueType,
   FeatureInterface,
   FeatureRule,
 } from "shared/validators";
+import type { AuditInterfaceInput } from "shared/types/audit";
 import { ApiReqContext } from "back-end/types/api";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import { assessRevisionApproval } from "back-end/src/services/featurePublishGates";
 import {
+  addLinkedExperiment,
   editFeatureRules,
+  featureIdExists,
   getFeature,
   prevalidatePublishRevision,
   publishRevision,
+  updateFeature,
 } from "back-end/src/models/FeatureModel";
 import {
   discardRevision,
+  getActiveDraft,
+  getFeatureRevisionsByStatus,
   getRevision,
+  updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { removePendingFeatureDraftFromExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  addLinkedFeatureToExperiment,
+  addPendingFeatureDraftToExperiment,
+  removePendingFeatureDraftFromExperiment,
+} from "back-end/src/models/ExperimentModel";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
+import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
+import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   assertCanAutoPublish,
+  generateRuleId,
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
   getLiveRevisionForFeature,
 } from "back-end/src/services/features";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
+
+export type ExperimentFeatureLinkResult = {
+  version: number;
+  published: boolean;
+  ruleId: string;
+};
+
+type ExperimentFeatureLinkOptions = {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  feature: FeatureInterface;
+  rule: ExperimentRefRule;
+  eventAudit: EventUser;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
+  /** Land the rule immediately instead of leaving it staged in a draft. */
+  autoPublish?: boolean;
+  /** Bundle into this open draft rather than starting a new one. */
+  draftVersion?: number;
+  /** Start a new draft off live rather than reusing an open one. */
+  forceNewDraft?: boolean;
+};
+
+// Stage (or land) an experiment-ref rule. Mirrors `linkFeatureToContextualBandit`.
+export async function linkFeatureToExperiment({
+  context,
+  experiment,
+  feature,
+  rule,
+  eventAudit,
+  audit,
+  autoPublish,
+  draftVersion,
+  forceNewDraft,
+}: ExperimentFeatureLinkOptions): Promise<ExperimentFeatureLinkResult> {
+  const { environments } = context;
+
+  if (
+    rule.type !== "experiment-ref" ||
+    !rule.experimentId ||
+    !rule.variations ||
+    !rule.variations.length
+  ) {
+    throw new Error("Invalid experiment rule");
+  }
+
+  if (!environments.length) {
+    throw new Error(
+      "Must have at least one environment configured to use Feature Flags",
+    );
+  }
+
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+
+  // allEnvironments strips any stale environments[].
+  let scopedRule: FeatureRule;
+  if (rule.allEnvironments === true) {
+    scopedRule = {
+      ...omit(rule, ["environments"]),
+      id: generateRuleId(),
+      allEnvironments: true,
+    } as FeatureRule;
+  } else if (
+    rule.allEnvironments === false &&
+    Array.isArray(rule.environments)
+  ) {
+    scopedRule = { ...rule, id: generateRuleId() } as FeatureRule;
+  } else {
+    scopedRule = stampRuleForEnvs(
+      { ...rule, id: generateRuleId() } as FeatureRule,
+      environments,
+    );
+  }
+
+  const ruleEnvFootprint = scopedRule.allEnvironments
+    ? environments
+    : (scopedRule.environments ?? []);
+
+  // Landing authority only when this call lands.
+  if (
+    autoPublish &&
+    !context.permissions.canPublishFeature(feature, ruleEnvFootprint)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Same schema + invariants as a REST publish; no-op unless config-backed JSON.
+  await assertConfigBackedFeatureValuesValid(context, feature, {
+    rules: [scopedRule],
+  });
+
+  // autoPublish always starts from live so the merge stays clean.
+  const targetVersion =
+    autoPublish || forceNewDraft
+      ? feature.version
+      : (draftVersion ?? feature.version);
+
+  const revision = await getDraftRevision(context, feature, targetVersion);
+
+  // If posting to a different revision, use the holdout from that revision
+  // to check compatibility
+  const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
+
+  await resolveHoldoutExperimentToLink({
+    context,
+    feature,
+    experiment,
+    effectiveHoldout,
+  });
+
+  // One-way: a footprint env that is off flips on; we never turn one off.
+  const baseEnvEnabled: Record<string, boolean> = {
+    ...Object.fromEntries(
+      environments.map((e) => [
+        e,
+        feature.environmentSettings?.[e]?.enabled ?? false,
+      ]),
+    ),
+    ...(revision.environmentsEnabled ?? {}),
+  };
+  const envToggles: Record<string, boolean> = {};
+  for (const envId of ruleEnvFootprint) {
+    if (!environments.includes(envId)) continue;
+    if (!baseEnvEnabled[envId]) envToggles[envId] = true;
+  }
+
+  const existingRules = cloneDeep(revision.rules ?? []);
+  const nextRules = [...existingRules, scopedRule];
+
+  const combinedChanges: Partial<FeatureRevisionInterface> = {
+    rules: nextRules,
+  };
+  if (Object.keys(envToggles).length > 0) {
+    combinedChanges.environmentsEnabled = {
+      ...(revision.environmentsEnabled ?? {}),
+      ...envToggles,
+    };
+  }
+  // Title fresh drafts only — don't clobber a user's title on an existing draft.
+  const bundlingIntoExistingDraft =
+    !!draftVersion && !forceNewDraft && !autoPublish;
+  if (!bundlingIntoExistingDraft && !revision.title) {
+    combinedChanges.title =
+      experiment.type === "multi-armed-bandit"
+        ? "Publish bandit"
+        : "Publish experiment";
+  }
+
+  const auditSubject = scopedRule.allEnvironments
+    ? "to all environments"
+    : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
+  const updatedRevision =
+    (await updateRevision(context, feature, revision, combinedChanges, {
+      user: eventAudit,
+      action: "add experiment rule",
+      subject: auditSubject,
+      value: JSON.stringify(scopedRule),
+    })) ?? revision;
+  await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
+    environments: ruleEnvFootprint,
+  });
+
+  let published = false;
+  if (autoPublish) {
+    await assertCanAutoPublish(context, feature, updatedRevision);
+    const { live, base } = await getLiveAndBaseRevisionsForFeature({
+      context,
+      feature,
+      revision: updatedRevision,
+    });
+    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+      feature,
+      live,
+      base,
+    );
+    const mergeResult = autoMerge(
+      mergeLive,
+      mergeBase,
+      updatedRevision,
+      environments,
+      {},
+    );
+    if (!mergeResult.success) {
+      throw new Error(
+        `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
+      );
+    }
+    const updatedFeature = await publishRevision({
+      context,
+      feature,
+      revision: updatedRevision,
+      result: mergeResult.result,
+      comment: `Add experiment rule for "${experiment.name}"`,
+      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
+        feature,
+        "feature",
+      ),
+    });
+    await audit({
+      event: "feature.publish",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsUpdate(feature, updatedFeature, {
+        revision: updatedRevision.version,
+        comment: `Add experiment rule for "${experiment.name}"`,
+      }),
+    });
+    published = true;
+  } else {
+    // Queue the draft for auto-publish on `status -> running`.
+    await addPendingFeatureDraftToExperiment(
+      context,
+      rule.experimentId,
+      feature.id,
+      updatedRevision.version,
+    );
+  }
+
+  if (!feature.linkedExperiments?.includes(experiment.id)) {
+    await addLinkedExperiment(feature, experiment.id);
+  }
+  await addLinkedFeatureToExperiment(
+    context,
+    rule.experimentId,
+    feature.id,
+    experiment,
+  );
+
+  return {
+    version: updatedRevision.version,
+    published,
+    ruleId: scopedRule.id,
+  };
+}
 
 export type ExperimentFeatureUpdatePlan = {
   feature: FeatureInterface;
@@ -64,6 +322,8 @@ export type ExperimentLinkedFeatureValueUpdate = {
   // sparse flag (the variation values are partial objects merged onto the
   // feature default). Omitted = leave the rule's existing sparse flag untouched.
   sparse?: boolean;
+  /** Managed flags only. */
+  valueType?: FeatureValueType;
   revisionOptions: ExperimentFeatureValueRevisionOptions;
 };
 
@@ -268,7 +528,11 @@ export async function validateExperimentFeatureUpdates({
       return !isEqual(m.rule.variations, updatedVariationValues);
     });
 
-    if (!featureNeedsUpdate) continue;
+    // A type change counts even when every value reads the same under both types.
+    const typeChanging =
+      !!entry.valueType &&
+      entry.valueType !== (revision.metadata?.valueType ?? feature.valueType);
+    if (!featureNeedsUpdate && !typeChanging) continue;
 
     if (autoPublish) {
       if (
@@ -372,7 +636,7 @@ type ResolvedDraft = { featureId: string; revisionVersion: number };
 // approval went stale) — true conflicts are reported via `mergeResult`.
 // The live revision is both the merge baseline and the review baseline; any
 // ramp actions on the draft are judged by the shared assessment like any other.
-async function assessRevisionApprovalForAutoPublish(
+export async function assessRevisionApprovalForAutoPublish(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
@@ -398,13 +662,29 @@ async function assessRevisionApprovalForAutoPublish(
   });
 }
 
-function mergeDraftForAutoPublish(
+export function featureReviewRequired(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+): boolean {
+  if (!context.hasPremiumFeature("require-approvals")) return false;
+  const requireReviews = context.org.settings?.requireReviews;
+  if (requireReviews === true) return true;
+  return Array.isArray(requireReviews)
+    ? !!getReviewSetting(requireReviews, feature)?.requireReviewOn
+    : false;
+}
+
+export function mergeDraftForAutoPublish(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   live: FeatureRevisionInterface,
   base: FeatureRevisionInterface,
-): { mergeResult: AutoMergeResult; rebaseRequired: boolean } {
+): {
+  mergeResult: AutoMergeResult;
+  rebaseRequired: boolean;
+  staleApproval: boolean;
+} {
   const mergeResult = autoMerge(
     liveRevisionFromFeature(live, feature),
     fillRevisionFromFeature(base, feature),
@@ -419,12 +699,16 @@ function mergeDraftForAutoPublish(
     mergeSuccess: mergeResult.success,
     liveChanges: [],
     approvedBaseVersion: revision.approvedBaseVersion ?? null,
-    requireRebaseBeforePublish:
-      !!context.org.settings?.requireRebaseBeforePublish,
+    requireRebaseBeforePublish: requireFreshBaseForPublish({
+      feature,
+      reviewRequired: featureReviewRequired(context, feature),
+      orgSetting: !!context.org.settings?.requireRebaseBeforePublish,
+    }),
   });
   return {
     mergeResult,
     rebaseRequired: mergeResult.success && governance.rebaseRequired,
+    staleApproval: governance.staleApproval,
   };
 }
 
@@ -465,6 +749,11 @@ export async function publishPendingFeatureDraftsForExperiment(
   for (const { featureId, revisionVersion } of drafts) {
     const feature = await getCachedFeature(featureId);
     if (!feature) {
+      // Pruned only when deleted; unreadable fails the start.
+      if (await featureIdExists(context, featureId)) {
+        failed.push({ featureId, revisionVersion, reason: "publish-error" });
+        continue;
+      }
       await removePendingFeatureDraftFromExperiment(
         context,
         experiment.id,
@@ -507,6 +796,10 @@ export async function publishPendingFeatureDraftsForExperiment(
       live,
       base,
     );
+    // Re-derived per feature: the caller's opt-in is not authority on its own.
+    const bypassApproval =
+      bypassLockdown &&
+      context.permissions.canBypassFlagApprovalChecks(feature, "feature");
     // The same question the publish button and the REST endpoint ask, so an
     // autostart can never land a draft either of those would refuse.
     const approval = await assessRevisionApprovalForAutoPublish(
@@ -517,7 +810,7 @@ export async function publishPendingFeatureDraftsForExperiment(
       base,
       mergeResult,
     );
-    if (!approval.satisfied) {
+    if (!approval.satisfied && !bypassApproval) {
       logger.warn(
         {
           experimentId: experiment.id,
@@ -533,7 +826,7 @@ export async function publishPendingFeatureDraftsForExperiment(
       continue;
     }
 
-    if (rebaseRequired) {
+    if (rebaseRequired && !bypassApproval) {
       logger.warn(
         { experimentId: experiment.id, featureId, revisionVersion },
         "Cannot auto-publish pending feature draft: rebase with live required before publishing",
@@ -611,7 +904,13 @@ export async function publishPendingFeatureDraftsForExperiment(
         base,
       );
       mergeResult = remerged.mergeResult;
-      if (remerged.rebaseRequired) {
+      if (
+        remerged.rebaseRequired &&
+        !(
+          bypassLockdown &&
+          context.permissions.canBypassFlagApprovalChecks(feature, "feature")
+        )
+      ) {
         logger.warn(
           { experimentId: experiment.id, featureId, revisionVersion },
           "Cannot auto-publish pending feature draft: rebase with live required after an earlier publish advanced the feature",
@@ -854,4 +1153,359 @@ export async function publishPendingFeatureDraftsForContextualBandit(
   }
 
   return { published, failed };
+}
+
+// Enablement follows one way: entering the footprint switches on, leaving only loses the rule.
+export async function updateExperimentRuleEnvironments({
+  context,
+  experiment,
+  feature,
+  allEnvironments,
+  environments: selected,
+  targetVersion,
+  eventAudit,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  feature: FeatureInterface;
+  allEnvironments: boolean;
+  environments: string[];
+  /** Draft to stage onto. Omit to use the open draft, or start a new one. */
+  targetVersion?: number;
+  eventAudit: EventUser;
+}): Promise<{ version: number }> {
+  const { environments } = context;
+
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const scopedEnvironments = allEnvironments
+    ? environments
+    : selected.filter((e) => environments.includes(e));
+
+  const revision =
+    targetVersion !== undefined
+      ? await getDraftRevision(context, feature, targetVersion)
+      : ((await getActiveDraft(context, feature)) ??
+        (await getDraftRevision(context, feature, feature.version)));
+
+  let matched = false;
+  const nextRules = cloneDeep(revision.rules ?? []).map((rule) => {
+    if (rule.type !== "experiment-ref" || rule.experimentId !== experiment.id) {
+      return rule;
+    }
+    matched = true;
+    // Strips any stale environments[], as linking does.
+    return allEnvironments
+      ? { ...omit(rule, ["environments"]), allEnvironments: true }
+      : { ...rule, allEnvironments: false, environments: scopedEnvironments };
+  });
+
+  if (!matched) {
+    throw new Error(
+      `No experiment rule found on "${feature.id}" to re-scope. It may have been removed; set variation values first to recreate it.`,
+    );
+  }
+
+  const baseEnvEnabled: Record<string, boolean> = {
+    ...Object.fromEntries(
+      environments.map((e) => [
+        e,
+        feature.environmentSettings?.[e]?.enabled ?? false,
+      ]),
+    ),
+    ...(revision.environmentsEnabled ?? {}),
+  };
+  const envToggles: Record<string, boolean> = {};
+  for (const envId of scopedEnvironments) {
+    if (!baseEnvEnabled[envId]) envToggles[envId] = true;
+  }
+
+  const changes: Partial<FeatureRevisionInterface> = { rules: nextRules };
+  if (Object.keys(envToggles).length > 0) {
+    changes.environmentsEnabled = {
+      ...(revision.environmentsEnabled ?? {}),
+      ...envToggles,
+    };
+  }
+
+  const updated = await updateRevision(context, feature, revision, changes, {
+    user: eventAudit,
+    action: "update experiment environments",
+    subject: allEnvironments
+      ? "to all environments"
+      : `to ${scopedEnvironments.join(", ") || "no environments"}`,
+    value: JSON.stringify({
+      allEnvironments,
+      environments: scopedEnvironments,
+    }),
+  });
+
+  if (!updated) {
+    throw new Error(`Could not stage environment changes on "${feature.id}"`);
+  }
+
+  return { version: updated.version };
+}
+
+// Authority is checked for every flag before any write, and live lands before drafts.
+async function resolveRulesForExperiment({
+  context,
+  experiment,
+  features,
+  eventAudit,
+  audit,
+  replacement,
+  action,
+  comment,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  features: FeatureInterface[];
+  eventAudit: EventUser;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
+  replacement: (rule: ExperimentRefRule) => FeatureRule | null;
+  action: string;
+  comment: string;
+}): Promise<void> {
+  const refersToExperiment = (r: FeatureRule): r is ExperimentRefRule =>
+    r.type === "experiment-ref" && r.experimentId === experiment.id;
+  const rewrite = (rules: FeatureRule[]) =>
+    rules.flatMap((r) => {
+      if (!refersToExperiment(r)) return [r];
+      const next = replacement(r);
+      return next ? [next] : [];
+    });
+  const logEntry = (touched: FeatureRule[]) => ({
+    user: eventAudit,
+    action,
+    subject: `for experiment "${experiment.name}"`,
+    value: JSON.stringify(touched),
+  });
+
+  // Append-only for history, but a deleted experiment has none to show.
+  const unlink = async (current: FeatureInterface) => {
+    if (!current.linkedExperiments?.includes(experiment.id)) return;
+    await updateFeature(context, current, {
+      linkedExperiments: current.linkedExperiments.filter(
+        (id) => id !== experiment.id,
+      ),
+    });
+  };
+  const refuse = (feature: FeatureInterface, reason: string) =>
+    new Error(
+      `Could not update Feature Flag "${feature.id}": ${reason}. Ask someone who can publish that Feature Flag, or remove the experiment rule from it first.`,
+    );
+
+  const bypassFor = new Map<string, boolean>();
+  for (const feature of features) {
+    if (!(feature.rules ?? []).some(refersToExperiment)) continue;
+    const envs = Array.from(
+      getEnabledEnvironments(feature, context.environments),
+    );
+    const bypass = context.permissions.canBypassFlagApprovalChecks(
+      feature,
+      "feature",
+    );
+    if (
+      !context.permissions.canPublishFeature(feature, envs) ||
+      (!bypass && featureReviewRequired(context, feature))
+    ) {
+      throw refuse(feature, "no authority to publish the change");
+    }
+    bypassFor.set(feature.id, bypass);
+  }
+
+  for (const feature of features) {
+    const liveTouched = (feature.rules ?? []).filter(refersToExperiment);
+    let cleanupDraft: FeatureRevisionInterface | null = null;
+    let landed = feature;
+    try {
+      if (liveTouched.length) {
+        const bypass = bypassFor.get(feature.id) ?? false;
+        cleanupDraft = await getDraftRevision(
+          context,
+          feature,
+          feature.version,
+        );
+        const updated =
+          (await updateRevision(
+            context,
+            feature,
+            cleanupDraft,
+            { rules: rewrite(cleanupDraft.rules ?? []), title: comment },
+            logEntry(liveTouched),
+          )) ?? cleanupDraft;
+        const { live, base } = await getLiveAndBaseRevisionsForFeature({
+          context,
+          feature,
+          revision: updated,
+        });
+        const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+          feature,
+          live,
+          base,
+        );
+        const mergeResult = autoMerge(
+          mergeLive,
+          mergeBase,
+          updated,
+          context.environments,
+          {},
+        );
+        if (!mergeResult.success) {
+          throw new Error("the change did not merge cleanly onto live");
+        }
+        landed = await publishRevision({
+          context,
+          feature,
+          revision: updated,
+          result: mergeResult.result,
+          comment,
+          bypassLockdown: bypass,
+        });
+        cleanupDraft = null;
+        await audit({
+          event: "feature.publish",
+          entity: { object: "feature", id: feature.id },
+          details: auditDetailsUpdate(feature, landed, {
+            revision: updated.version,
+            comment,
+          }),
+        });
+      }
+
+      // Drafts only after live has landed: a refusal above then changes nothing.
+      const drafts = await getFeatureRevisionsByStatus({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        feature: landed,
+        status: DRAFT_REVISION_STATUSES,
+        skipPagination: true,
+      });
+      for (const draft of drafts) {
+        const touched = (draft.rules ?? []).filter(refersToExperiment);
+        if (!touched.length) continue;
+        await updateRevision(
+          context,
+          landed,
+          draft,
+          { rules: rewrite(draft.rules ?? []) },
+          logEntry(touched),
+        );
+      }
+      await unlink(landed);
+    } catch (e) {
+      if (cleanupDraft) {
+        await discardRevision(
+          context,
+          cleanupDraft,
+          eventAudit,
+          feature.version,
+        ).catch(() => undefined);
+      }
+      throw refuse(feature, e instanceof Error ? e.message : String(e));
+    }
+  }
+}
+
+// The payload skips a missing experiment. Fails closed, before the experiment is deleted.
+export async function removeRulesForDeletedExperiment({
+  context,
+  experiment,
+  features,
+  eventAudit,
+  audit,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  features: FeatureInterface[];
+  eventAudit: EventUser;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
+}): Promise<void> {
+  await resolveRulesForExperiment({
+    context,
+    experiment,
+    features,
+    eventAudit,
+    audit,
+    replacement: () => null,
+    action: "remove experiment rule",
+    comment: `Remove rule for deleted experiment "${experiment.name}"`,
+  });
+}
+
+// Freezes the temporary rollout into a permanent rule with the phase's targeting.
+export async function materializeExperimentRules({
+  context,
+  experiment,
+  features,
+  eventAudit,
+  audit,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  features: FeatureInterface[];
+  eventAudit: EventUser;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
+}): Promise<void> {
+  const releasedId = experiment.releasedVariationId;
+  if (!releasedId) {
+    throw new Error("The experiment has no released variation to keep.");
+  }
+  const phase = experiment.phases[experiment.phases.length - 1];
+  if (phase?.namespace?.enabled) {
+    throw new Error(
+      "A namespaced experiment cannot be kept as a permanent rule; stop the temporary rollout instead.",
+    );
+  }
+  const coverage = phase?.coverage ?? 1;
+  const released = experiment.variations.find((v) => v.id === releasedId);
+  const description = `Released from experiment "${experiment.name}"${
+    released ? ` (${released.name})` : ""
+  }`;
+
+  await resolveRulesForExperiment({
+    context,
+    experiment,
+    features,
+    eventAudit,
+    audit,
+    action: "replace experiment rule with a permanent rule",
+    comment: `Keep the released variation of "${experiment.name}"`,
+    replacement: (rule) => {
+      const value = rule.variations.find(
+        (v) => v.variationId === releasedId,
+      )?.value;
+      // The payload skips a rule whose released arm has no value, so dropping
+      // it changes nothing.
+      if (value === undefined) return null;
+      const kept = {
+        ...omit(rule, ["type", "experimentId", "variations", "sparse"]),
+        value,
+        description,
+        enabled: true,
+        ...(phase?.condition && phase.condition !== "{}"
+          ? { condition: phase.condition }
+          : {}),
+        ...(phase?.savedGroups?.length
+          ? { savedGroups: phase.savedGroups }
+          : {}),
+        ...(phase?.prerequisites?.length
+          ? { prerequisites: phase.prerequisites }
+          : {}),
+      };
+      // The payload applies the phase's coverage to the released value too.
+      return coverage < 1
+        ? {
+            ...kept,
+            type: "rollout" as const,
+            coverage,
+            hashAttribute: experiment.hashAttribute,
+          }
+        : { ...kept, type: "force" as const };
+    },
+  });
 }

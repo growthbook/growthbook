@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import React, { CSSProperties, Fragment } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentValue, FeatureValueType } from "shared/types/feature";
 import {
   getVariationColor,
@@ -7,7 +8,13 @@ import {
 } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import styles from "./ExperimentSplitVisual.module.scss";
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
 
 export interface Props {
   label?: string;
@@ -20,7 +27,7 @@ export interface Props {
   showPercentages?: boolean;
 }
 export default function ExperimentSplitVisual({
-  label = "Traffic Split Preview",
+  label = "Traffic split preview",
   unallocated = "Not included",
   coverage,
   values,
@@ -29,129 +36,110 @@ export default function ExperimentSplitVisual({
   stackLeft = false,
   showPercentages = true,
 }: Props) {
-  let previewLeft = 0;
   const totalWeights = parseFloat(
     values.reduce((partialSum, v) => partialSum + v.weight, 0).toFixed(3),
   );
 
   const coverageVal = coverage ? coverage : 0;
-  const totalUnallocatedPct = (1 - coverageVal) * 100;
+
+  // Geometry shared by the bar and the label row beneath it. A segment's left
+  // edge is the running total of the raw weights in both modes: a stacked
+  // segment plus its gap spans weight * coverage + weight * (1 - coverage).
+  let runningLeft = 0;
+  const segments = values.map((val, i) => {
+    const left = runningLeft;
+    runningLeft += 100 * val.weight;
+    const width = val.weight && coverage ? val.weight * coverage * 100 : 0;
+    return {
+      i,
+      left,
+      width,
+      gap: val.weight && coverage < 1 ? val.weight * (1 - coverage) * 100 : 0,
+      name: getVariationDefaultName(val, type),
+    };
+  });
 
   return (
-    <div className={`${totalWeights > 1 ? "overflow-hidden" : ""}`}>
+    <Box>
       {totalWeights !== 1 ? (
         <Callout status="error" size="sm" mb="3">
           Please adjust weights to sum to 100%.
         </Callout>
       ) : null}
-      <div className="row">
-        <div className="col">
-          <label>{label}</label>
-        </div>
+      <Flex align="center" gap="4">
+        <Box flexGrow="1">
+          <Text size="md" weight="medium">
+            {label}
+          </Text>{" "}
+          <Text as="span" size="md" color="text-low">
+            ({percentFormatter.format(coverageVal)} included)
+          </Text>
+        </Box>
         {coverage < 1 && (
-          <div className={clsx("col-auto", styles.legend)}>
-            <div
-              className={clsx(
-                styles.legend_box,
-                styles.used,
-                "progress-bar-striped",
-              )}
-              style={{ backgroundColor: "#e0e0e0" }}
-            />{" "}
-            {unallocated}{" "}
-            <strong className="nowrap">
-              ({parseFloat(totalUnallocatedPct.toPrecision(5)) + "%"})
-            </strong>
-          </div>
+          <Flex align="center" gap="2">
+            <Box className={styles.legend_box} />
+            <Text size="sm" color="text-mid">
+              {unallocated}
+            </Text>
+          </Flex>
         )}
-      </div>
-      <div
-        className="position-relative progress-bar-striped mb-5"
-        style={{
-          width: "100%",
-          textAlign: "right",
-          height: 20,
-          backgroundColor: "#e0e0e0",
-        }}
-      >
-        <div className="d-flex flex-row">
-          <div className="w-100 d-flex flex-row">
-            {values.map((val, i) => {
-              const thisLeft = previewLeft;
-              const percentVal =
-                val.weight && coverage ? val.weight * coverage * 100 : 0;
-              const gapPct =
-                val.weight && coverage < 1
-                  ? val.weight * (1 - coverage) * 100
-                  : 0;
-              previewLeft += 100 * val.weight;
-              const additionalStyles: CSSProperties = {
-                width: percentVal + "%",
-                height: 30,
-                backgroundColor: getVariationColor(i, true),
-              };
-              if (!stackLeft) {
-                additionalStyles.position = "absolute";
-                additionalStyles.left = thisLeft + "%";
-              }
+      </Flex>
+      <Box className={styles.bar_wrapper}>
+        <div className={clsx(styles.bar_holder, "d-flex flex-row")}>
+          {segments.map(({ i, left, width, gap, name }) => {
+            const additionalStyles: CSSProperties = {
+              width: width + "%",
+              backgroundColor: getVariationColor(i, true),
+            };
+            if (!stackLeft) {
+              additionalStyles.position = "absolute";
+              additionalStyles.left = left + "%";
+            }
 
-              const valueDisplay = getVariationDefaultName(val, type);
-
-              const variationLabel = `${valueDisplay} (${parseFloat(
-                percentVal.toPrecision(5),
-              )}%)`;
-
-              return (
-                <Fragment key={i}>
-                  <div
-                    className={`${styles.previewBar}`}
-                    style={additionalStyles}
+            return (
+              <Fragment key={i}>
+                <div className={styles.previewBar} style={additionalStyles}>
+                  <Tooltip
+                    body={`${name} (${parseFloat(width.toPrecision(5))}%)`}
+                    style={{ width: "100%", height: "100%" }}
                   >
+                    <></>
+                  </Tooltip>
+                </div>
+                {stackLeft && gap > 0 && (
+                  <div className={styles.gapBar} style={{ width: gap + "%" }}>
                     <Tooltip
-                      body={variationLabel}
+                      body={`Not included: ${parseFloat(gap.toPrecision(5))}%`}
                       style={{ width: "100%", height: "100%" }}
                     >
                       <></>
                     </Tooltip>
-                    {showPercentages && (
-                      <div className={styles.percentMarker}>
-                        <span className="nowrap">
-                          {parseFloat(percentVal.toPrecision(4)) + "%"}
-                        </span>
-                        {showValues && (
-                          <>
-                            {" "}
-                            - <strong>{valueDisplay}</strong>
-                          </>
-                        )}
-                      </div>
-                    )}
                   </div>
-                  {stackLeft && gapPct > 0 && (
-                    <div
-                      className={`${styles.previewBar}`}
-                      style={{
-                        position: "relative",
-                        width: gapPct + "%",
-                        height: 30,
-                      }}
-                    >
-                      <Tooltip
-                        body={`Not included: ${parseFloat(
-                          gapPct.toPrecision(5),
-                        )}%`}
-                        style={{ width: "100%", height: "100%" }}
-                      >
-                        <></>
-                      </Tooltip>
-                    </div>
-                  )}
-                </Fragment>
-              );
-            })}
-          </div>
+                )}
+              </Fragment>
+            );
+          })}
         </div>
-      </div>
-    </div>
+        {showPercentages && (
+          <div className={styles.labels_row}>
+            {segments.map(({ i, left, width, name }) => (
+              <span
+                key={i}
+                className={styles.segmentLabel}
+                style={{ left: left + width / 2 + "%" }}
+              >
+                {parseFloat(width.toPrecision(4)) + "%"}
+                {showValues && (
+                  <>
+                    {" "}
+                    - <strong>{name}</strong>
+                  </>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
+      </Box>
+    </Box>
   );
 }

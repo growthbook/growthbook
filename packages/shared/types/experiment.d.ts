@@ -10,7 +10,12 @@ import {
   HoldoutInterface,
   RevisionStatus,
 } from "shared/validators";
-import { ExperimentRefVariation, FeatureInterface } from "./feature";
+import type { ReviewAuthorityFootprint } from "shared/util";
+import {
+  ExperimentRefVariation,
+  FeatureInterface,
+  FeatureValueType,
+} from "./feature";
 
 export {
   AttributionModel,
@@ -299,28 +304,62 @@ export interface LinkedFeatureInfo {
    * experiment.
    */
   liveHasMatchingRule?: boolean;
+  /** Live rule's variation values — the "before" side of a pending edit. */
+  liveValues?: ExperimentRefVariation[];
+  /** Live rule's sparse flag, alongside `liveValues`. */
+  liveSparse?: boolean;
+  /** Live rule's `allEnvironments` flag. */
+  liveAllEnvironments?: boolean;
+  /** Where the live rule runs, keyed the same as `environmentStates`. */
+  liveEnvironmentStates?: Record<string, LinkedFeatureEnvState>;
+  /** The unpublished draft of this experiment's rule, if any. Populated regardless of `state`, which stays live-first. */
+  pendingDraft?: {
+    version: number;
+    status: RevisionStatus;
+    /** The revision's own title, for naming which draft a readout describes. */
+    title?: string;
+    /** Open drafts other than this one that also carry this experiment's rule. */
+    otherDraftCount: number;
+    /** Whether publishing would change anything, by the publish gate's own test. */
+    hasChanges: boolean;
+    values: ExperimentRefVariation[];
+    sparse: boolean;
+    allEnvironments?: boolean;
+    pendingApproval: boolean;
+    /** The type the draft would leave the flag as — it may re-type it. */
+    valueType: FeatureValueType;
+    /** The default value as of the draft, for expanding a sparse patch. */
+    defaultValue: string;
+    /** The publish gate's answer when review is required; "approved" can still be blocked. */
+    approval?: {
+      satisfied: boolean;
+      footprint: ReviewAuthorityFootprint;
+      /** One entry per rule; any team in an entry satisfies that rule. */
+      unmetTeams: { id: string; name: string }[][];
+      /** Approvals that stand but cannot sanction the publish, and why. */
+      insufficientApprovers: { id: string; reason: string }[];
+    };
+    hasMergeConflict: boolean;
+    hasUnrelatedDraftChanges: boolean;
+    /** Live moved past the draft (or its approval) and the flag's policy wants a fresh base. */
+    rebaseRequired: boolean;
+    staleApproval: boolean;
+    /** Where the draft would run once published, keyed the same as the live map. */
+    environmentStates: Record<string, LinkedFeatureEnvState>;
+  };
   /** True when the matching draft revision requires approval (regardless of whether it's been approved yet). */
   pendingApproval?: boolean;
   /** Version of the matching draft revision (present when state === "draft"). */
   draftRevisionVersion?: number;
   /** Status of the matching draft revision (present when state === "draft"). */
   draftRevisionStatus?: RevisionStatus;
+  /** Whether that draft actually clears the publish gate, not just its status. */
+  draftApprovalSatisfied?: boolean;
   /** True when the draft cannot be auto-merged into live due to conflicting changes. */
   hasMergeConflict?: boolean;
-  /**
-   * True when the draft would publish changes outside the target experiment's
-   * experiment-ref rule(s) — e.g. defaultValue, prerequisites, holdout, or
-   * other rules. Forces the user to publish from the feature page so they
-   * can review the full set of changes before they go live. Per-env kill
-   * switches and metadata are excluded (auto-toggled / typically no SDK impact).
-   */
+  /** The draft also changes something outside this experiment's rule; publish from the feature page. */
   hasUnrelatedDraftChanges?: boolean;
-  /**
-   * Environments currently disabled on the live feature that will be enabled
-   * when the pending draft is auto-published on experiment start. Only set for
-   * drafts queued in `pendingFeatureDrafts` — a draft created directly on the
-   * feature isn't published by the start flow.
-   */
+  /** Environments disabled live that the pending draft's auto-publish will enable. Only for `pendingFeatureDrafts` drafts. */
   environmentsToEnable?: string[];
 }
 

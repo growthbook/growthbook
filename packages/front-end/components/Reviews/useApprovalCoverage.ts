@@ -3,8 +3,8 @@ import {
   assessApprovalCoverage,
   assessRequiredApproverTeams,
   getRolePermissions,
+  nonContributingApproverIds,
   revisionActionPermission,
-  teamsForMember,
   userHasPermission,
 } from "shared/permissions";
 import type { ReviewAuthorityFootprint } from "shared/util";
@@ -152,28 +152,21 @@ export function useApprovalCoverage({
     [reviewRules, reviewers, uncoveredApprovers, organization, teams],
   );
 
-  // Required-team rules are summative — different rules can be satisfied by
-  // different approvers — so only an approval satisfying none is insufficient.
-  const nonContributingApprovers = useMemo(() => {
-    // The enforced sets, not the raw rules: a rule implied by a stricter one is
-    // never enforced, so satisfying only that rule contributes nothing.
-    const ruleTeams = requiredTeams.enforcedTeamIds.map((ids) => new Set(ids));
-    if (requiredTeams.satisfied || !ruleTeams.length) return new Set<string>();
-    const out = new Set<string>();
-    reviewers
-      .filter((r) => r.status === "approved")
-      .forEach((r) => {
-        const mine = teamsForMember(
-          r.id,
-          organization as OrganizationInterface,
-          (teams ?? []) as TeamInterface[],
-        ).map((t) => t.id);
-        if (!ruleTeams.some((ids) => mine.some((id) => ids.has(id)))) {
-          out.add(r.id);
-        }
-      });
-    return out;
-  }, [requiredTeams, reviewers, organization, teams]);
+  const nonContributingApprovers = useMemo(
+    () =>
+      new Set(
+        nonContributingApproverIds({
+          approvedIds: reviewers
+            .filter((r) => r.status === "approved")
+            .map((r) => r.id),
+          enforcedTeamIds: requiredTeams.enforcedTeamIds,
+          requiredTeamsSatisfied: requiredTeams.satisfied,
+          org: organization as OrganizationInterface,
+          teams: (teams ?? []) as TeamInterface[],
+        }),
+      ),
+    [requiredTeams, reviewers, organization, teams],
+  );
 
   const insufficientApprovers = useMemo(
     () => new Set([...uncoveredApprovers, ...nonContributingApprovers]),

@@ -338,7 +338,7 @@ export function teamsForMember(
 ): { id: string; name: string }[] {
   const member = (org.members ?? []).find((m) => m.id === userId);
   if (!member?.teams?.length) return [];
-  const byId = new Map(teams.map((t) => [t.id, t]));
+  const byId = new Map((teams ?? []).map((t) => [t.id, t]));
   return member.teams
     .map((id) => byId.get(id))
     .filter((t): t is { id: string; name: string } => !!t)
@@ -370,7 +370,7 @@ export function assessRequiredApproverTeams({
     ),
   );
 
-  const byId = new Map(teams.map((t) => [t.id, t]));
+  const byId = new Map((teams ?? []).map((t) => [t.id, t]));
 
   // Drop rules implied by a stricter one: satisfying a subset rule satisfies
   // the superset, so listing both reads as two sign-offs. Deleted teams are
@@ -413,6 +413,29 @@ export function assessRequiredApproverTeams({
     unmet: actionable,
     enforcedTeamIds: effective.map((set) => [...set]),
   };
+}
+
+// Approvals satisfying none of the enforced team rules. Rules are summative, so
+// only an approval contributing to no rule counts as non-contributing.
+export function nonContributingApproverIds({
+  approvedIds,
+  enforcedTeamIds,
+  requiredTeamsSatisfied,
+  org,
+  teams,
+}: {
+  approvedIds: string[];
+  enforcedTeamIds: string[][];
+  requiredTeamsSatisfied: boolean;
+  org: { members?: { id: string; teams?: string[] }[] };
+  teams: { id: string; name: string }[];
+}): string[] {
+  const ruleTeams = enforcedTeamIds.map((ids) => new Set(ids));
+  if (requiredTeamsSatisfied || !ruleTeams.length) return [];
+  return approvedIds.filter((id) => {
+    const mine = teamsForMember(id, org, teams).map((t) => t.id);
+    return !ruleTeams.some((ids) => mine.some((teamId) => ids.has(teamId)));
+  });
 }
 
 // Uses CURRENT rules — an approval is not a snapshot of authority. One

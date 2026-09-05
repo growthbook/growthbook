@@ -3,6 +3,8 @@ import { Flex } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
 import { HoldoutInterfaceStringDates } from "shared/validators";
+import { getImplementationType } from "shared/util";
+import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
 import Text from "@/ui/Text";
 import SortedTags from "@/components/Tags/SortedTags";
 import { tagLinkProps } from "@/services/search";
@@ -17,6 +19,8 @@ import ProjectBadges from "@/components/ProjectBadges";
 import { FocusSelector } from "./EditExperimentInfoModal";
 
 export interface Props {
+  /** The experiment owns a managed Feature Flag. */
+  isManaged?: boolean;
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterfaceStringDates;
   setShowEditInfoModal: (value: boolean) => void;
@@ -30,6 +34,7 @@ export default function ProjectTagBar({
   setShowEditInfoModal,
   setEditInfoFocusSelector,
   editTags,
+  isManaged,
 }: Props) {
   const {
     projects,
@@ -47,6 +52,10 @@ export default function ProjectTagBar({
   const permissionsUtil = usePermissionsUtil();
   const canUpdateExperimentProject = (project) =>
     permissionsUtil.canUpdateExperiment({ project }, {});
+  // Experiments adopted before the type was stored only carry the flag's marker.
+  const implementationType = isManaged
+    ? "values"
+    : getImplementationType(experiment);
 
   const canUpdateHoldoutProjects = (projects) =>
     permissionsUtil.canUpdateHoldout({ projects }, { projects: [] });
@@ -272,6 +281,16 @@ export default function ProjectTagBar({
         {renderProject()}
         {experiment.type !== "holdout" && (
           <Metadata label="Experiment Key" value={trackingKey || "None"} />
+        )}
+        {experiment.type !== "holdout" && (
+          <Metadata
+            label="Implementation"
+            value={
+              implementationType
+                ? IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
+                : "Not set"
+            }
+          />
         )}
         <Metadata label="Owner" value={renderOwner()} />
         <Metadata label="Created" value={createdDate} />

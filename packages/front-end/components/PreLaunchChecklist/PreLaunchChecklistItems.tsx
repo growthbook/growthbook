@@ -9,9 +9,19 @@ import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunc
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
+import {
+  experimentHasLiveLinkedChanges,
+  getImplementationType,
+  getManagedValueProblems,
+  hasStartReadyManagedFlag,
+  hasVisualChanges,
+  isManagedByExperiment,
+  PENDING_APPROVAL_ITEM_PREFIX,
+  type ManagedValueProblem,
+} from "shared/util";
 import track from "@/services/track";
 import Link from "@/ui/Link";
+import VariationLabel from "@/ui/VariationLabel";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -42,6 +52,8 @@ export function getChecklistItems({
   connections,
   editTargeting,
   openSetupTab,
+  openManagedApproval,
+  editVariationValues,
   setAnalysisModal,
   setShowSdkForm,
   checklist,
@@ -58,6 +70,8 @@ export function getChecklistItems({
   connections: SDKConnectionInterface[];
   editTargeting?: (() => void) | null;
   openSetupTab?: () => void;
+  openManagedApproval?: () => void;
+  editVariationValues?: () => void;
   className?: string;
   setAnalysisModal?: (value: boolean) => void;
   setShowSdkForm?: (value: boolean) => void;
@@ -176,17 +190,33 @@ export function getChecklistItems({
     }
   }
 
-  if (checkLinkedChanges) {
-    const hasLiveLinkedChanges = experimentHasLiveLinkedChanges(
-      experiment,
-      linkedFeatures,
-    );
+  const isManaged = (f: LinkedFeatureInfo) =>
+    isManagedByExperiment(f.feature, experiment.id);
+  const implementationType = getImplementationType(experiment);
+  const valuesMode =
+    linkedFeatures.some(isManaged) || implementationType === "values";
+
+  if (checkLinkedChanges && implementationType !== "none") {
+    const hasLiveLinkedChanges =
+      experimentHasLiveLinkedChanges(experiment, linkedFeatures) ||
+      hasStartReadyManagedFlag(experiment.id, linkedFeatures);
     const hasLinkedChanges =
       linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
       experiment.hasVisualChangesets ||
       experiment.hasURLRedirects;
+    const linkedChangesDone =
+      (isBandit && hasLiveLinkedChanges) || (!isBandit && hasLinkedChanges);
     items.push({
-      display: (
+      display: valuesMode ? (
+        <>
+          Add{" "}
+          {editVariationValues && !linkedChangesDone ? (
+            <Link onClick={editVariationValues}>variation values</Link>
+          ) : (
+            "variation values"
+          )}
+        </>
+      ) : (
         <>
           Add at least one{isBandit && " live"}{" "}
           {openSetupTab &&
@@ -201,10 +231,7 @@ export function getChecklistItems({
         </>
       ),
       required: true,
-      status:
-        (isBandit && hasLiveLinkedChanges) || (!isBandit && hasLinkedChanges)
-          ? "complete"
-          : "incomplete",
+      status: linkedChangesDone ? "complete" : "incomplete",
       type: "auto",
     });
 
@@ -240,7 +267,17 @@ export function getChecklistItems({
             required: true,
             hardBlock: true,
             hideDescription: true,
-            display: (
+            display: isManaged(f) ? (
+              <>
+                Resolve the merge conflict in this experiment&apos;s{" "}
+                {editVariationValues ? (
+                  <Link onClick={editVariationValues}>variation values</Link>
+                ) : (
+                  "variation values"
+                )}{" "}
+                before it can start
+              </>
+            ) : (
               <>
                 Resolve merge conflict in{" "}
                 <Link
@@ -268,13 +305,25 @@ export function getChecklistItems({
         )
         .forEach((f) => {
           items.push({
+            key: `${PENDING_APPROVAL_ITEM_PREFIX}${f.feature.id}`,
             status:
-              f.draftRevisionStatus === "approved" ? "complete" : "incomplete",
+              (f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved")
+                ? "complete"
+                : "incomplete",
             type: "auto",
             required: true,
             hardBlock: true,
             hideDescription: true,
-            display: (
+            display: isManaged(f) ? (
+              <>
+                {openManagedApproval ? (
+                  <Link onClick={openManagedApproval}>Review and approve</Link>
+                ) : (
+                  "Review and approve"
+                )}{" "}
+                variation values
+              </>
+            ) : (
               <>
                 Approve the feature draft revision in{" "}
                 <Link
@@ -331,6 +380,67 @@ export function getChecklistItems({
       linkedFeatures
         .filter((f) => f.state !== "discarded" && f.state !== "archived")
         .forEach((f) => {
+          if (isManaged(f)) {
+            const variationList = (list: ManagedValueProblem[]) =>
+              list.map((p, i) => (
+                <span key={p.variationId}>
+                  {i > 0 ? ", " : ""}
+                  <VariationLabel
+                    number={latestVariations.findIndex(
+                      (v) => v.id === p.variationId,
+                    )}
+                    name={p.variationName}
+                    size="sm"
+                  />
+                </span>
+              ));
+            const fixLink = (label: string) =>
+              editVariationValues ? (
+                <Link onClick={editVariationValues}>{label}</Link>
+              ) : (
+                label
+              );
+            const problems = getManagedValueProblems({
+              variations: latestVariations,
+              values: f.pendingDraft?.values ?? f.values,
+              valueType: f.pendingDraft?.valueType ?? f.feature.valueType,
+            });
+            const missing = problems.filter((p) => p.problem === "missing");
+            const malformed = problems.filter((p) => p.problem === "malformed");
+            if (missing.length) {
+              items.push({
+                status: "incomplete",
+                type: "auto",
+                required: true,
+                hideDescription: true,
+                display: (
+                  <>
+                    {fixLink("Add a variation value")} for{" "}
+                    {variationList(missing)}
+                  </>
+                ),
+              });
+            }
+            if (malformed.length) {
+              items.push({
+                status: "incomplete",
+                type: "auto",
+                required: true,
+                hardBlock: true,
+                hideDescription: true,
+                display: (
+                  <>
+                    {fixLink("Fix the variation value")} for{" "}
+                    {variationList(malformed)}
+                  </>
+                ),
+                tooltip: malformed
+                  .map((p) => `${p.variationName}: ${p.detail}`)
+                  .join("; "),
+              });
+            }
+            return;
+          }
           const configuredVariationIds = new Set(
             f.values.map((v) => v.variationId),
           );

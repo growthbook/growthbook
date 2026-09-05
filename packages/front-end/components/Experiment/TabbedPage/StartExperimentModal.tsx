@@ -6,6 +6,10 @@ import { ApiErrorDetails } from "shared/validators";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { hasAttributeCondition } from "shared/experiments";
+import {
+  isManagedByExperiment,
+  PENDING_APPROVAL_ITEM_PREFIX,
+} from "shared/util";
 import { format } from "date-fns-tz";
 import { ReactNode, useState } from "react";
 import { Box, Flex, type AvatarProps } from "@radix-ui/themes";
@@ -28,6 +32,8 @@ import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/ui/Tooltip";
 import Frame from "@/ui/Frame";
+import Checkbox from "@/ui/Checkbox";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   formatTrafficSplit,
   getHoldoutTrafficBreakdown,
@@ -42,6 +48,8 @@ import {
   type LinkedChange,
 } from "@/components/Experiment/LinkedChanges/constants";
 import { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
+import { useOptionalPreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
+import { ManagedFlagName } from "@/components/Experiment/ManagedFlagName";
 
 export type PendingDraftFailure =
   ApiErrorDetails<"pending_draft_publish_failed">["failedFeatureDrafts"][number];
@@ -49,7 +57,7 @@ export type PendingDraftFailure =
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   close: () => void;
-  startExperiment: () => Promise<void>;
+  startExperiment: (opts?: { bypassApproval?: boolean }) => Promise<void>;
   scheduleExperiment?: () => Promise<void>;
   checklistItemsRemaining: number;
   checklistHardBlockerCount?: number;
@@ -219,7 +227,8 @@ export default function StartExperimentModal({
   incompleteChecklistItems = [],
   pendingDraftFailures = [],
 }: Props) {
-  const checklistIncomplete = checklistItemsRemaining > 0;
+  const permissionsUtil = usePermissionsUtil();
+  const [adminBypass, setAdminBypass] = useState(false);
   const latestPhase = experiment.phases?.[experiment.phases.length - 1];
   const holdoutTraffic = getHoldoutTrafficBreakdown(latestPhase);
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -234,6 +243,17 @@ export default function StartExperimentModal({
   const featuresEnablingEnvsCount = linkedFeatures.filter(
     (f) => !!f.environmentsToEnable?.length,
   ).length;
+  // The experiment owns this flag, so it is not a "linked" change: name it.
+  const openManagedApproval =
+    useOptionalPreLaunchChecklist()?.openManagedApproval;
+  const managedFeature =
+    linkedFeatures.length === 1 &&
+    linkedFeatures[0].feature &&
+    isManagedByExperiment(linkedFeatures[0].feature, experiment.id)
+      ? linkedFeatures[0]
+      : null;
+  const managedFlagIsWholeChange =
+    !!managedFeature && !visualChangesets.length && !urlRedirects.length;
   const parsedScheduledDate = experiment.statusUpdateSchedule?.startAt
     ? new Date(experiment.statusUpdateSchedule.startAt)
     : null;
@@ -248,12 +268,40 @@ export default function StartExperimentModal({
   // Hard blockers (merge conflicts, missing approvals, unrelated draft edits)
   // can't be bypassed via "Start Anyway" — the auto-publish at start either
   // rejects them outright or would silently publish unreviewed changes.
-  const hasHardBlockers = checklistHardBlockerCount > 0;
-  const hardBlockerItems = incompleteChecklistItems.filter(
-    (item) => item.hardBlock,
+  // Mirrors the checklist's approval blocker; the server re-checks per feature.
+  const approvalBlockedFeatures = linkedFeatures.filter(
+    (f) =>
+      f.pendingApproval &&
+      !f.hasUnrelatedDraftChanges &&
+      !(f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved"),
   );
+  const adminBypassAvailable =
+    approvalBlockedFeatures.length > 0 &&
+    approvalBlockedFeatures.every((f) =>
+      permissionsUtil.canBypassFlagApprovalChecks(f.feature, "feature"),
+    );
+  const bypassingApproval = adminBypassAvailable && adminBypass;
+  // Counted off the items themselves, not the features: the checklist skips
+  // its own approval row in cases this list does not.
+  const bypassedItems = bypassingApproval
+    ? incompleteChecklistItems.filter((item) =>
+        item.key?.startsWith(PENDING_APPROVAL_ITEM_PREFIX),
+      )
+    : [];
+  const hasHardBlockers =
+    checklistHardBlockerCount -
+      bypassedItems.filter((i) => i.hardBlock).length >
+    0;
+  const hardBlockerItems = incompleteChecklistItems.filter(
+    (item) => item.hardBlock && !bypassedItems.includes(item),
+  );
+  const checklistIncomplete =
+    checklistItemsRemaining - bypassedItems.length > 0;
   const softBlockerItems = incompleteChecklistItems.filter(
-    (item) => !item.hardBlock && item.required,
+    (item) => !item.hardBlock && item.required && !bypassedItems.includes(item),
+  );
+  const visibleItems = incompleteChecklistItems.filter(
+    (item) => !bypassedItems.includes(item),
   );
   // Only group when we actually have hard-blocker items in the rendered list,
   // not just a non-zero count from props, so we never render an empty section.
@@ -306,9 +354,8 @@ export default function StartExperimentModal({
         ? "Once started, experiments and features can be added to the holdout."
         : null;
 
-  const primaryAction = useScheduledFlow
-    ? scheduleExperiment!
-    : startExperiment;
+  const start = () => startExperiment({ bypassApproval: bypassingApproval });
+  const primaryAction = useScheduledFlow ? scheduleExperiment! : start;
   const primaryDisabled =
     checklistIncomplete || !!needsUpgrade || scheduledStartDateIsInThePast;
 
@@ -320,7 +367,7 @@ export default function StartExperimentModal({
   if (!needsUpgrade && !hasHardBlockers) {
     if (scheduledStartDateIsInThePast) {
       secondaryLabel = "Start Now";
-      secondaryAction = startExperiment;
+      secondaryAction = start;
     } else if (
       scheduledStartDateIsInTheFuture &&
       checklistIncomplete &&
@@ -330,7 +377,7 @@ export default function StartExperimentModal({
       secondaryAction = scheduleExperiment;
     } else if (!hasSchedule && checklistIncomplete) {
       secondaryLabel = "Start Anyway";
-      secondaryAction = startExperiment;
+      secondaryAction = start;
     }
   }
 
@@ -359,16 +406,11 @@ export default function StartExperimentModal({
         {subHeader && <Modal.Description>{subHeader}</Modal.Description>}
         <Modal.Body>
           {pendingDraftFailures.length > 0 && (
-            <Box
-              mb="3"
-              p="3"
-              style={{
-                border: "1px solid var(--red-a6)",
-                borderRadius: "var(--radius-3)",
-              }}
-            >
+            <Callout status="error" mb="3">
               <Text size="sm" weight="semibold" color="text-high">
-                Linked feature drafts that could not be published
+                {managedFeature
+                  ? "Variation values that could not be published"
+                  : "Linked feature drafts that could not be published"}
               </Text>
               <Flex direction="column" gap="2" mt="2">
                 {pendingDraftFailures.map((failure) => (
@@ -378,20 +420,29 @@ export default function StartExperimentModal({
                     align="baseline"
                     wrap="wrap"
                   >
-                    <Link
-                      href={`/features/${failure.featureId}?v=${failure.revisionVersion}`}
-                      target="_blank"
-                    >
-                      <Text weight="semibold">{failure.featureId}</Text>
-                      <PiArrowSquareOut className="ml-1" />
-                    </Link>
+                    {managedFeature?.feature.id === failure.featureId &&
+                    openManagedApproval ? (
+                      // The flag page refuses writes on a managed flag; the
+                      // review modal is where these get resolved.
+                      <Link onClick={openManagedApproval}>
+                        <Text weight="semibold">Review changes</Text>
+                      </Link>
+                    ) : (
+                      <Link
+                        href={`/features/${failure.featureId}?v=${failure.revisionVersion}`}
+                        target="_blank"
+                      >
+                        <Text weight="semibold">{failure.featureId}</Text>
+                        <PiArrowSquareOut className="ml-1" />
+                      </Link>
+                    )}
                     <Text size="sm" color="text-mid">
                       {PENDING_DRAFT_FAILURE_LABELS[failure.reason]}
                     </Text>
                   </Flex>
                 ))}
               </Flex>
-            </Box>
+            </Callout>
           )}
           {scheduledStartDateIsInThePast && parsedScheduledDate && (
             <Callout status="warning" mb="3">
@@ -425,7 +476,7 @@ export default function StartExperimentModal({
                   Tasks to Complete
                 </Text>
               </Flex>
-              {incompleteChecklistItems.length > 0 && (
+              {visibleItems.length > 0 && (
                 <Box
                   mt="3"
                   style={{
@@ -491,7 +542,7 @@ export default function StartExperimentModal({
                     </Flex>
                   ) : (
                     <Flex direction="column" gap="2">
-                      {incompleteChecklistItems.map((item, i) => (
+                      {visibleItems.map((item, i) => (
                         <Flex key={item.key ?? i} gap="2" align="baseline">
                           <Text color="text-mid">•</Text>
                           <Text as="div" weight="semibold" color="text-mid">
@@ -612,58 +663,70 @@ export default function StartExperimentModal({
               }}
             >
               <Text weight="semibold" color="text-high">
-                {scheduledStartDateIsInTheFuture
-                  ? "Linked changes will activate at the scheduled time."
-                  : "Linked changes will activate. Users will see experiment variations immediately."}
+                {managedFlagIsWholeChange
+                  ? scheduledStartDateIsInTheFuture
+                    ? "This managed Feature Flag will activate at the scheduled time:"
+                    : "This managed Feature Flag will activate:"
+                  : scheduledStartDateIsInTheFuture
+                    ? "Linked changes will activate at the scheduled time."
+                    : "Linked changes will activate. Users will see experiment variations immediately."}
               </Text>
               <Flex direction="column" gap="4" mt="3">
-                {linkedFeatures.length > 0 && (
-                  <LinkedChangeSection
-                    type="feature-flag"
-                    count={linkedFeatures.length}
-                  >
-                    {featuresEnablingEnvsCount > 0 && (
-                      <Callout size="sm" status="warning" mb="3">
-                        Starting this experiment will enable{" "}
-                        {featuresEnablingEnvsCount} Feature Flag
-                        {featuresEnablingEnvsCount === 1 ? "" : "s"} in
-                        environments where{" "}
-                        {featuresEnablingEnvsCount === 1 ? "it is" : "they are"}{" "}
-                        currently off.
-                      </Callout>
-                    )}
-                    <Flex direction="column" gap="2">
-                      {linkedFeatures.map((info) =>
-                        info.feature?.id ? (
-                          <Frame key={info.feature.id} px="3" py="3" mb="0">
-                            <Flex align="center" justify="between" gap="3">
-                              <Link
-                                href={`/features/${info.feature.id}`}
-                                target="_blank"
-                                style={{ minWidth: 0 }}
-                              >
-                                <Flex align="center" gap="1" minWidth="0">
-                                  <Text
-                                    weight="semibold"
-                                    truncate
-                                    title={info.feature.id}
-                                  >
-                                    {info.feature.id}
-                                  </Text>
-                                  <PiArrowSquareOut style={{ flexShrink: 0 }} />
-                                </Flex>
-                              </Link>
-                              {!!info.environmentsToEnable?.length && (
-                                <EnvironmentBadges
-                                  environments={info.environmentsToEnable}
-                                />
-                              )}
-                            </Flex>
-                          </Frame>
-                        ) : null,
+                {managedFeature?.feature ? (
+                  <ManagedFlagName featureId={managedFeature.feature.id} />
+                ) : (
+                  linkedFeatures.length > 0 && (
+                    <LinkedChangeSection
+                      type="feature-flag"
+                      count={linkedFeatures.length}
+                    >
+                      {featuresEnablingEnvsCount > 0 && (
+                        <Callout size="sm" status="warning" mb="3">
+                          Starting this experiment will enable{" "}
+                          {featuresEnablingEnvsCount} Feature Flag
+                          {featuresEnablingEnvsCount === 1 ? "" : "s"} in
+                          environments where{" "}
+                          {featuresEnablingEnvsCount === 1
+                            ? "it is"
+                            : "they are"}{" "}
+                          currently off.
+                        </Callout>
                       )}
-                    </Flex>
-                  </LinkedChangeSection>
+                      <Flex direction="column" gap="2">
+                        {linkedFeatures.map((info) =>
+                          info.feature?.id ? (
+                            <Frame key={info.feature.id} px="3" py="3" mb="0">
+                              <Flex align="center" justify="between" gap="3">
+                                <Link
+                                  href={`/features/${info.feature.id}`}
+                                  target="_blank"
+                                  style={{ minWidth: 0 }}
+                                >
+                                  <Flex align="center" gap="1" minWidth="0">
+                                    <Text
+                                      weight="semibold"
+                                      truncate
+                                      title={info.feature.id}
+                                    >
+                                      {info.feature.id}
+                                    </Text>
+                                    <PiArrowSquareOut
+                                      style={{ flexShrink: 0 }}
+                                    />
+                                  </Flex>
+                                </Link>
+                                {!!info.environmentsToEnable?.length && (
+                                  <EnvironmentBadges
+                                    environments={info.environmentsToEnable}
+                                  />
+                                )}
+                              </Flex>
+                            </Frame>
+                          ) : null,
+                        )}
+                      </Flex>
+                    </LinkedChangeSection>
+                  )
                 )}
                 {visualChangesets.length > 0 && (
                   <LinkedChangeSection
@@ -703,6 +766,20 @@ export default function StartExperimentModal({
               </Flex>
             </Box>
           ) : null}
+          {adminBypassAvailable && (
+            <Box mt="3">
+              <Checkbox
+                label={
+                  <span style={{ color: "var(--red-11)" }}>
+                    Admin: bypass approval and publish now
+                  </span>
+                }
+                weight="regular"
+                value={adminBypass}
+                setValue={(val) => setAdminBypass(!!val)}
+              />
+            </Box>
+          )}
         </Modal.Body>
         <Modal.Footer justify="between">
           <Modal.Close>

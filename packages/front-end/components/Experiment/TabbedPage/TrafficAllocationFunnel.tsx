@@ -1,13 +1,28 @@
-import { ReactNode } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import clsx from "clsx";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import {
   getLatestPhaseVariations,
   hasAttributeCondition,
   hasTargetingConfigured,
 } from "shared/experiments";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
-import { PiCaretDownBold, PiPencilSimpleFill, PiPlus } from "react-icons/pi";
+import {
+  filterEnvironmentsByExperiment,
+  getImplementationType,
+  isManagedByExperiment,
+} from "shared/util";
+import {
+  Box,
+  Flex,
+  Grid,
+  IconButton,
+  SegmentedControl,
+} from "@radix-ui/themes";
+import { PiCaretDownBold, PiPencilSimpleFill } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { getHoldoutTrafficBreakdown } from "@/services/utils";
@@ -17,11 +32,24 @@ import VariationsTable, {
   getVariationGridColumns,
 } from "@/components/Experiment/VariationsTable";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useEnvironments } from "@/services/features";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
+import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperimentEnvironmentsModal";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
-import Link from "@/ui/Link";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  EnvironmentStateChips,
+  getEnvironmentStates,
+} from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import {
+  environmentStatesDiffer,
+  getVariationValueChanges,
+} from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
+import { revisionLabelText } from "@/components/Reviews/RevisionLabel";
 import styles from "./TrafficAllocationFunnel.module.scss";
 
 export interface Props {
@@ -31,7 +59,11 @@ export interface Props {
   editTraffic?: ((variationId?: string) => void) | null;
   editNamespace?: (() => void) | null;
   addVariation?: (() => void) | null;
+  /** Opens the values editor; offered per variation while no flag exists yet. */
+  addVariationValues?: (() => void) | null;
   setEditVariationIndex?: (index: number) => void;
+  /** The sole linked Feature Flag, when the cards can show its values. */
+  servedValueFeature?: LinkedFeatureInfo | null;
   canEditExperiment?: boolean;
   safeToEdit: boolean;
   mutate?: () => void;
@@ -44,14 +76,12 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 function FunnelCard({
   title,
-  titleColor = "text-high",
   inlineSummary,
   onEdit,
   children,
   disabled = false,
 }: {
   title: string;
-  titleColor?: "text-disabled" | "text-high";
   inlineSummary?: ReactNode;
   onEdit?: (() => void) | null;
   children?: ReactNode;
@@ -68,7 +98,7 @@ function FunnelCard({
     >
       <Flex justify="between" align="center" gap="3">
         <Flex align="baseline" gap="2" wrap="wrap">
-          <Text size="lg" weight="medium" color={titleColor}>
+          <Text size="lg" weight="medium" color="text-high">
             {title}
           </Text>
           {inlineSummary ? (
@@ -81,11 +111,12 @@ function FunnelCard({
           <IconButton
             variant="ghost"
             color="violet"
+            radius="full"
             onClick={() => onEdit()}
-            size="1"
+            size="2"
             aria-label={`Edit ${title}`}
           >
-            <PiPencilSimpleFill size="15" />
+            <PiPencilSimpleFill size="16" />
           </IconButton>
         ) : null}
       </Flex>
@@ -180,7 +211,9 @@ export default function TrafficAllocationFunnel({
   editTraffic,
   editNamespace,
   addVariation,
+  addVariationValues,
   setEditVariationIndex,
+  servedValueFeature,
   canEditExperiment = false,
   safeToEdit = false,
   mutate,
@@ -194,10 +227,120 @@ export default function TrafficAllocationFunnel({
     getNamespaceDisplayData(phase?.namespace, namespaces);
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const allEnvironments = useEnvironments();
+  const permissionsUtil = usePermissionsUtil();
+
+  // Each readout asks about itself.
+  const liveRule = servedValueFeature?.liveHasMatchingRule
+    ? servedValueFeature
+    : undefined;
+  const pendingDraft = servedValueFeature?.pendingDraft;
+  const draftValueIds = useMemo(() => {
+    if (!servedValueFeature || !pendingDraft) return null;
+    return new Set(
+      getVariationValueChanges(
+        servedValueFeature,
+        (pendingDraft.values ?? []).map((v) => v.variationId),
+      )
+        .filter((c) => c.unpublished)
+        .map((c) => c.variationId),
+    );
+  }, [servedValueFeature, pendingDraft]);
+  const environmentsDiffer = servedValueFeature
+    ? environmentStatesDiffer(servedValueFeature)
+    : false;
+
+  // The toggle offers a draft only when something it shows actually moved.
+  const hasDraftChanges =
+    !!draftValueIds && (draftValueIds.size > 0 || environmentsDiffer);
+  const [showDraftValues, setShowDraftValues] = useState(true);
+  const preferDraft = hasDraftChanges && showDraftValues;
+
+  // Mirror the server's publish authority on eject.
+  const managedFeature =
+    servedValueFeature &&
+    isManagedByExperiment(servedValueFeature.feature, experiment.id)
+      ? servedValueFeature.feature
+      : null;
+  // Re-scoping environments stages a draft without re-bucketing.
+  const canEditEnvironments =
+    !!servedValueFeature &&
+    canEditExperiment &&
+    permissionsUtil.canEditFeatureDrafts(servedValueFeature.feature);
+  const [editEnvironments, setEditEnvironments] = useState(false);
+  // Each side reads its own fields.
+  const servedValueSource = preferDraft
+    ? servedValueFeature?.pendingDraft
+    : liveRule && {
+        values: liveRule.liveValues,
+        sparse: liveRule.liveSparse,
+      };
+  // Against the draft's type and default; live keeps the old type until publish.
+  const servedValueDisplayFeature = useMemo(() => {
+    const feature = servedValueFeature?.feature;
+    if (!feature) return undefined;
+    const draft = servedValueFeature?.pendingDraft;
+    if (!preferDraft || !draft) return feature;
+    return {
+      ...feature,
+      valueType: draft.valueType,
+      defaultValue: draft.defaultValue,
+    };
+  }, [servedValueFeature, preferDraft]);
+
+  const envStateSource = preferDraft
+    ? servedValueFeature?.pendingDraft
+    : liveRule && { environmentStates: liveRule.liveEnvironmentStates };
+  const environmentsAreDraft = preferDraft && environmentsDiffer;
+
+  // A managed flag has one draft; the count is the others not shown.
+  const draftDetail = (() => {
+    const draft = servedValueFeature?.pendingDraft;
+    if (!draft || managedFeature) return { name: undefined, note: undefined };
+    const others = draft.otherDraftCount ?? 0;
+    return {
+      name: revisionLabelText(draft.version, draft.title),
+      note: others
+        ? `${others} other unpublished draft${others > 1 ? "s" : ""} affect this value`
+        : undefined,
+    };
+  })();
+  const environmentStates = getEnvironmentStates(
+    envStateSource || { environmentStates: {} },
+    {
+      // A draft experiment publishes its flag when it starts.
+      future:
+        experiment.status !== "running"
+          ? "started"
+          : environmentsAreDraft
+            ? "published"
+            : false,
+    },
+  );
+
+  // A subset of environments is a restriction even without attribute targeting.
+  const allowedEnvironments = filterEnvironmentsByExperiment(
+    allEnvironments,
+    experiment,
+  );
+  const ruleEnvironments = new Set(
+    environmentStates.filter((e) => e.state !== "missing").map((e) => e.env),
+  );
+  const reachesAllEnvironments =
+    !servedValueFeature ||
+    allowedEnvironments.every((e) => ruleEnvironments.has(e.id));
   const isHoldout = experiment.type === "holdout";
   const isRunning = experiment.status === "running";
+  const canAddNamespace =
+    !isHoldout &&
+    !!editNamespace &&
+    safeToEdit &&
+    !hasNamespace &&
+    !!namespaces?.length;
+  const hasMenuActions = canAddNamespace;
 
   const hasConfiguredTargeting = hasTargetingConfigured(phase);
+  const targetsEveryone = !hasConfiguredTargeting && reachesAllEnvironments;
   const hasCondition = hasAttributeCondition(phase?.condition);
   const hasSavedGroups = !!phase?.savedGroups?.length;
   const hasPrerequisites = !!phase?.prerequisites?.length && !isHoldout;
@@ -219,22 +362,67 @@ export default function TrafficAllocationFunnel({
 
   return (
     <Frame>
+      {editEnvironments && servedValueFeature && (
+        <EditExperimentEnvironmentsModal
+          experiment={experiment}
+          info={servedValueFeature}
+          close={() => setEditEnvironments(false)}
+          mutate={() => mutate?.()}
+        />
+      )}
       <Flex justify="between" align="center" mb="4">
         <Heading color="text-high" as="h4" size="sm" mb="0">
           Traffic Allocation
         </Heading>
-        {!isHoldout &&
-          editNamespace &&
-          safeToEdit &&
-          !hasNamespace &&
-          !!namespaces?.length && (
-            <Link onClick={editNamespace}>
-              <Flex align="center" gap="1">
-                <PiPlus size="15" />
-                <Text weight="semibold">Add Namespace</Text>
-              </Flex>
-            </Link>
+        <Flex align="center" gap="3">
+          {servedValueFeature && !hasDraftChanges ? (
+            <Text size="sm" color="text-mid">
+              Live values
+            </Text>
+          ) : servedValueFeature ? (
+            <SegmentedControl.Root
+              size="2"
+              value={preferDraft ? "draft" : "live"}
+              onValueChange={(v) => setShowDraftValues(v === "draft")}
+              aria-label="Values shown"
+            >
+              <SegmentedControl.Item value="draft">
+                <Flex align="center" gap="2">
+                  <UnpublishedDot />
+                  Unpublished
+                </Flex>
+              </SegmentedControl.Item>
+              <SegmentedControl.Item value="live">
+                Live values
+              </SegmentedControl.Item>
+            </SegmentedControl.Root>
+          ) : null}
+          {hasMenuActions && (
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  style={{ margin: 0 }}
+                  aria-label="Traffic allocation actions"
+                >
+                  <BsThreeDotsVertical size={16} />
+                </IconButton>
+              }
+              menuPlacement="end"
+              variant="soft"
+            >
+              {canAddNamespace && (
+                <DropdownMenuItem onClick={() => editNamespace?.()}>
+                  Add namespace
+                </DropdownMenuItem>
+              )}
+            </DropdownMenu>
           )}
+        </Flex>
       </Flex>
 
       <Flex direction="column">
@@ -255,16 +443,46 @@ export default function TrafficAllocationFunnel({
             </>
           )}
 
+          {environmentStates.length > 0 ? (
+            <Flex align="center" justify="center" gap="2" wrap="wrap" mb="3">
+              {environmentsAreDraft && (
+                <UnpublishedDot
+                  tooltip={
+                    draftDetail.name
+                      ? `Unpublished targeting in ${draftDetail.name}`
+                      : "Unpublished draft targeting"
+                  }
+                  note={draftDetail.note}
+                />
+              )}
+              <Text color="text-high" weight="semibold">
+                Environments:
+              </Text>
+              <EnvironmentStateChips states={environmentStates} />
+              {canEditEnvironments ? (
+                <IconButton
+                  variant="ghost"
+                  color="violet"
+                  radius="full"
+                  size="2"
+                  onClick={() => setEditEnvironments(true)}
+                  aria-label="Edit environments"
+                >
+                  <PiPencilSimpleFill size="16" />
+                </IconButton>
+              ) : null}
+            </Flex>
+          ) : null}
+
           <FunnelCard
             title="Targeting"
-            titleColor={!hasConfiguredTargeting ? "text-disabled" : undefined}
             onEdit={editTargeting}
             inlineSummary={
-              hasConfiguredTargeting ? undefined : (
+              targetsEveryone ? (
                 <Text size="lg">
                   <em>Everyone</em>
                 </Text>
-              )
+              ) : undefined
             }
             disabled={!safeToEdit}
           >
@@ -371,6 +589,7 @@ export default function TrafficAllocationFunnel({
                   ? (index) => setEditVariationIndex(index)
                   : undefined
               }
+              // Names and descriptions save at any status; values wherever there is a flag.
               onEditTraffic={
                 canEditExperiment && editTraffic ? editTraffic : undefined
               }
@@ -379,6 +598,22 @@ export default function TrafficAllocationFunnel({
                   ? addVariation
                   : undefined
               }
+              onAddValue={
+                addVariationValues &&
+                !servedValueFeature &&
+                getImplementationType(experiment) === "values"
+                  ? addVariationValues
+                  : undefined
+              }
+              servedValues={servedValueSource?.values}
+              servedValueFeature={
+                servedValueSource ? servedValueDisplayFeature : undefined
+              }
+              servedValueSparse={servedValueSource?.sparse}
+              servedValueIsDraft={preferDraft}
+              servedValueDraftIds={draftValueIds}
+              servedValueDraftName={draftDetail.name}
+              servedValueDraftNote={draftDetail.note}
             />
           </>
         )}

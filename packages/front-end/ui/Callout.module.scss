@@ -12,6 +12,14 @@
   flex-shrink: 0;
 }
 
+// Centered variant: the slot shares the row's vertical center rather than the
+// first text line, so it stays level with wrapped body copy.
+.centeredSlot {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .body {
   flex: 1 1 0%;
 }

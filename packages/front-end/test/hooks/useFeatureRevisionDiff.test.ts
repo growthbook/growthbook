@@ -158,7 +158,7 @@ describe("useFeatureRevisionDiff", () => {
     );
 
     const toggleDiffs = result.current.filter((d) =>
-      d.title.startsWith("Environment Toggle"),
+      d.title.startsWith("Environment"),
     );
     expect(toggleDiffs).toHaveLength(0);
   });
@@ -226,11 +226,81 @@ describe("useFeatureRevisionDiff", () => {
     );
 
     const toggleDiffs = result.current.filter((d) =>
-      d.title.startsWith("Environment Toggle"),
+      d.title.startsWith("Environment"),
     );
     expect(toggleDiffs).toHaveLength(1);
-    expect(toggleDiffs[0].title).toBe("Environment Toggle - production");
-    expect(toggleDiffs[0].a).toBe("false");
-    expect(toggleDiffs[0].b).toBe("true");
+    expect(toggleDiffs[0].title).toBe("Environment");
+    // The section carries every toggle it covers, so the raw view reads as a
+    // map even when only one environment moved.
+    expect(JSON.parse(toggleDiffs[0].a)).toEqual({ production: false });
+    expect(JSON.parse(toggleDiffs[0].b)).toEqual({ production: true });
+  });
+
+  it("ignores rule fields the rule type does not declare", () => {
+    // A rule that picked up widget-only fields from the old rule form: they
+    // are not in the experiment-ref schema, so they are not a change.
+    const rule = {
+      type: "experiment-ref",
+      id: "r1",
+      description: "",
+      enabled: true,
+      allEnvironments: true,
+      condition: "",
+      scheduleRules: [],
+      experimentId: "exp_1",
+      variations: [{ variationId: "v0", value: "a" }],
+    };
+    const current: FeatureRevisionDiffInput = {
+      defaultValue: "a",
+      rules: [rule] as never,
+    };
+    const draft: FeatureRevisionDiffInput = {
+      defaultValue: "a",
+      rules: [
+        { ...rule, hashVersion: 2, disableStickyBucketing: false },
+      ] as never,
+    };
+
+    const { result } = renderHook(() =>
+      useFeatureRevisionDiff({ current, draft }),
+    );
+
+    expect(result.current.filter((d) => d.key === "rules")).toHaveLength(0);
+  });
+
+  it("groups every toggled environment into one section", () => {
+    const current: FeatureRevisionDiffInput = {
+      defaultValue: "false",
+      rules: [],
+      environmentsEnabled: { production: false, staging: true, dev: false },
+    };
+    const draft: FeatureRevisionDiffInput = {
+      defaultValue: "false",
+      rules: [],
+      environmentsEnabled: { production: true, staging: false, dev: false },
+    };
+
+    const { result } = renderHook(() =>
+      useFeatureRevisionDiff({ current, draft }),
+    );
+
+    const toggleDiffs = result.current.filter((d) =>
+      d.title.startsWith("Environment"),
+    );
+    expect(toggleDiffs).toHaveLength(1);
+    expect(toggleDiffs[0].title).toBe("Environments");
+    // dev didn't move, so it stays out of the section entirely.
+    expect(JSON.parse(toggleDiffs[0].a)).toEqual({
+      production: false,
+      staging: true,
+    });
+    expect(JSON.parse(toggleDiffs[0].b)).toEqual({
+      production: true,
+      staging: false,
+    });
+    expect(toggleDiffs[0].badges?.map((b) => b.label)).toEqual([
+      "Toggled production on",
+      "Toggled staging off",
+    ]);
   });
 });
