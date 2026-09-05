@@ -113,7 +113,7 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   "experiment-values": {
     display: "Experiment Values",
     description:
-      "Variation values served by the Feature Flag an experiment manages. Values are drafted, reviewed, and published from the experiment; publishing happens when the experiment starts.",
+      "An experiment with the **Values** implementation serves one value per variation through a Feature Flag that GrowthBook creates and manages for it. The flag carries a single experiment rule, and its values, value type, and environments are edited here rather than on the flag's own page.\n\nEdits are staged as **pending values**, a draft on the managed flag. When the flag requires review, pending values go through the same approval as any Feature Flag revision (`request-review`, `submit-review`). Pending values go live when the experiment starts; on a running experiment, call `publish`. `GET` returns both the live values and the pending change.",
   },
   namespaces: {
     display: "Namespaces",

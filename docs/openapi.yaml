@@ -223,9 +223,17 @@ tags:
   - name: experiment-values
     x-displayName: Experiment Values
     description: >-
-      Variation values served by the Feature Flag an experiment manages. Values
-      are drafted, reviewed, and published from the experiment; publishing
-      happens when the experiment starts.
+      An experiment with the **Values** implementation serves one value per
+      variation through a Feature Flag that GrowthBook creates and manages for
+      it. The flag carries a single experiment rule, and its values, value type,
+      and environments are edited here rather than on the flag's own page.
+
+
+      Edits are staged as **pending values**, a draft on the managed flag. When
+      the flag requires review, pending values go through the same approval as
+      any Feature Flag revision (`request-review`, `submit-review`). Pending
+      values go live when the experiment starts; on a running experiment, call
+      `publish`. `GET` returns both the live values and the pending change.
   - name: namespaces
     x-displayName: Namespaces
     description: >-
@@ -15077,7 +15085,12 @@ paths:
   /v1/experiments/{id}/variation-values:
     get:
       operationId: getExperimentVariationValues
-      summary: Get the values an experiment's variations serve
+      summary: Get an experiment's variation values
+      description: >-
+        Returns the value each variation serves now (`liveValues`), the
+        environments the experiment serves in, and any change waiting to go live
+        (`pending`). `managed` is false when the experiment has no managed
+        Feature Flag; the other fields are then null or empty.
       tags:
         - experiment-values
       parameters:
@@ -15104,7 +15117,14 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postExperimentVariationValues
-      summary: Start serving variation values automatically
+      summary: Create the managed Feature Flag for an experiment
+      description: >-
+        Switches the experiment to the Values implementation. GrowthBook creates
+        a Feature Flag keyed from the experiment key (or `featureKey`), links it
+        to the experiment with a single experiment rule, and stages one value
+        per variation as pending values. The experiment must be a draft with no
+        other Feature Flags, Visual Editor changes, or URL Redirects linked. The
+        values go live when the experiment starts.
       tags:
         - experiment-values
       parameters:
@@ -15166,14 +15186,15 @@ paths:
               -d '{"valueType":"string","values":[{"variationId":"var_control","value":"control"},{"variationId":"var_treatment","value":"treatment"}]}'
     put:
       operationId: putExperimentVariationValues
-      summary: Update the values an experiment's variations serve
+      summary: Update an experiment's pending variation values
       description: >-
-        Stages the new values on the experiment's Feature Flag. Adds them to the
-        change already waiting to go live when there is one, and starts a new
-        one otherwise, so the values never need to be published before they can
-        be changed again. Pass `valueType` to re-type the flag at the same time,
-        or `environments` to change where the experiment serves. Publishing is a
-        separate call.
+        Stages new values, a new value type, or new environments on the managed
+        Feature Flag. Edits join the pending change when one exists and start
+        one otherwise, so pending values can be revised any number of times
+        before they go live. When the flag requires review, the pending values
+        are sent for review automatically. Publishing is separate: pending
+        values go live when the experiment starts, or through `publish` once it
+        is running.
       tags:
         - experiment-values
       parameters:
@@ -15242,11 +15263,11 @@ paths:
   /v1/experiments/{id}/variation-values/request-review:
     post:
       operationId: postExperimentVariationValuesRequestReview
-      summary: Request review of the pending variation values
+      summary: Send the pending variation values for review
       description: >-
-        Saving values already requests review when the flag needs one; use this
-        after a recall or a change request to send the same values back for
-        review.
+        Saving values already requests review when the flag needs one. Use this
+        after `recall-review`, or after a `request-changes` review, to resubmit
+        the same values without editing them.
       tags:
         - experiment-values
       parameters:
@@ -15285,11 +15306,13 @@ paths:
   /v1/experiments/{id}/variation-values/submit-review:
     post:
       operationId: postExperimentVariationValuesSubmitReview
-      summary: Submit a review on the pending variation values
+      summary: Review the pending variation values
       description: >-
-        Submits an `approve`, `request-changes`, or `comment` review on the
-        pending variation values. Contributors cannot approve their own drafts
-        when self-approval is blocked.
+        Records an `approve`, `request-changes`, or `comment` review on the
+        pending values, the same review a Feature Flag revision receives. When
+        the flag requires review, approval is what allows the pending values to
+        publish. Contributors cannot approve values they edited when
+        self-approval is blocked.
       tags:
         - experiment-values
       parameters:
@@ -15338,7 +15361,9 @@ paths:
     post:
       operationId: postExperimentVariationValuesRecallReview
       summary: Withdraw the pending variation values from review
-      description: Returns the pending values to a draft and clears their verdicts.
+      description: >-
+        Returns the pending values to a plain draft and clears any reviews
+        recorded on them. They can be edited and sent for review again.
       tags:
         - experiment-values
       parameters:
@@ -15374,7 +15399,10 @@ paths:
   /v1/experiments/{id}/variation-values/undo-review:
     post:
       operationId: postExperimentVariationValuesUndoReview
-      summary: Retract your verdict on the pending variation values
+      summary: Retract your own review of the pending variation values
+      description: >-
+        Removes the approve or request-changes review the caller recorded on the
+        pending values. Other reviewers' verdicts are untouched.
       tags:
         - experiment-values
       parameters:
@@ -15410,7 +15438,12 @@ paths:
   /v1/experiments/{id}/variation-values/publish:
     post:
       operationId: postExperimentVariationValuesPublish
-      summary: Publish the pending variation values
+      summary: Publish the pending variation values now
+      description: >-
+        Makes the pending values live on the managed Feature Flag. Only for a
+        running experiment: a draft experiment publishes its pending values when
+        it starts. Fails while a required approval is outstanding, unless
+        `bypassApproval` is set and the caller may bypass approval checks.
       tags:
         - experiment-values
       parameters:
@@ -15453,8 +15486,9 @@ paths:
       operationId: postExperimentVariationValuesDiscard
       summary: Discard the pending variation values
       description: >-
-        Drops the change waiting to go live; the values currently serving are
-        untouched. The way out of a merge conflict short of detaching the flag.
+        Throws away the pending values. The values currently serving are
+        untouched. This is also the way out of a merge conflict without
+        detaching the flag.
       tags:
         - experiment-values
       parameters:
@@ -15490,7 +15524,13 @@ paths:
   /v1/experiments/{id}/variation-values/detach:
     post:
       operationId: postExperimentVariationValuesDetach
-      summary: Stop managing the Feature Flag from this experiment
+      summary: Convert the managed Feature Flag to an unmanaged one
+      description: >-
+        Stops managing the Feature Flag from the experiment. The flag keeps its
+        experiment rule and stays linked, but from now on it is edited,
+        reviewed, and published from its own page, and the experiment's
+        implementation type becomes Feature Flag. The other endpoints in this
+        group stop applying to the experiment.
       tags:
         - experiment-values
       parameters:
@@ -58892,8 +58932,8 @@ components:
       properties:
         managed:
           description: >-
-            Whether this experiment manages its own Feature Flag. Everything
-            below is null or empty when false.
+            Whether the experiment has a managed Feature Flag (the Values
+            implementation). Every other field is null or empty when false.
           type: boolean
         featureKey:
           anyOf:
@@ -58909,7 +58949,9 @@ components:
                 - json
             - type: 'null'
         liveValues:
-          description: What is serving now. Empty until the first publish.
+          description: >-
+            The value each variation serves right now. Empty until the first
+            publish.
           type: array
           items:
             $ref: '#/components/schemas/ExperimentVariationValue'
@@ -58919,7 +58961,7 @@ components:
           items:
             type: string
         pending:
-          description: The change waiting to go live, or null when there is none.
+          description: Values waiting to go live, or null when nothing is pending.
           anyOf:
             - title: Experiment Pending Variation Values
               $ref: '#/components/schemas/ExperimentPendingVariationValues'
@@ -58952,7 +58994,9 @@ components:
           items:
             $ref: '#/components/schemas/ExperimentVariationValue'
         valueType:
-          description: The type these values land as, which a re-type moves.
+          description: >-
+            The value type the pending values publish as. Differs from the live
+            type after a re-type.
           type: string
           enum:
             - string
@@ -58960,12 +59004,12 @@ components:
             - boolean
             - json
         environments:
-          description: Environments the experiment will serve in once this lands.
+          description: Environments the experiment will serve in once these values go live.
           type: array
           items:
             type: string
         status:
-          description: draft, pending-review, changes-requested or approved
+          description: '`draft`, `pending-review`, `changes-requested`, or `approved`.'
           type: string
         approvalRequired:
           type: boolean
@@ -59002,8 +59046,8 @@ components:
           type: string
         status:
           description: >-
-            approved or changes-requested, suffixed -stale once the values moved
-            on
+            `approved` or `changes-requested`, suffixed `-stale` when the values
+            changed after the review.
           type: string
         date:
           type: string
