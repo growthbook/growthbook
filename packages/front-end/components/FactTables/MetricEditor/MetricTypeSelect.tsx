@@ -5,7 +5,7 @@ import Text from "@/ui/Text";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { FormMetricType } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 
-const TYPE_LABELS: Record<FormMetricType, string> = {
+export const TYPE_LABELS: Record<FormMetricType, string> = {
   proportion: "Simple proportion",
   threshold: "Threshold",
   retention: "Retention",
@@ -23,7 +23,7 @@ const TYPE_LABELS: Record<FormMetricType, string> = {
 // Descriptive copy adapted from [fmid].tsx's MetricType display and the one
 // Figma-confirmed string ("Row count"); the rest weren't individually pulled
 // from Figma - a cosmetic refinement for review, not a functional risk.
-const TYPE_DESCRIPTIONS: Record<FormMetricType, string> = {
+export const TYPE_DESCRIPTIONS: Record<FormMetricType, string> = {
   proportion:
     "Percent of experiment units who do something, e.g. sign up or click a button.",
   threshold:
