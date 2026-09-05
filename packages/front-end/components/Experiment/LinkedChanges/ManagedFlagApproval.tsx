@@ -539,7 +539,11 @@ export default function ManagedFlagApproval({
       {renderEnvironmentToggles(envToggles, { endStateOnly: arriving })}
       {envConflict && (
         <Box mt="2">
-          <Link onClick={() => setShowEnvDetails((v) => !v)} weight="medium">
+          <Link
+            onClick={() => setShowEnvDetails((v) => !v)}
+            weight="medium"
+            aria-expanded={showEnvDetails}
+          >
             {showEnvDetails ? "Hide details" : "Details"}
           </Link>
           {showEnvDetails && (

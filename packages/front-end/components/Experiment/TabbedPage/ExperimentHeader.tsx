@@ -242,7 +242,7 @@ export default function ExperimentHeader({
       />
     ) : (
       <Checkbox
-        label="I understand the temporary rollout ends and users go back to the other rules and defaults"
+        label="I understand the temporary rollout ends and users go back to the Feature Flags' other rules and defaults"
         weight="regular"
         value={deleteAcknowledged}
         setValue={(v) => setDeleteAcknowledged(!!v)}
