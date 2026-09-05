@@ -7,7 +7,10 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import EmptyState from "@/components/EmptyState";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import { ImplementationTypeIcon } from "@/components/Experiment/ImplementationTypeSelect";
+import {
+  ImplementationTypeIcon,
+  LIST_ICON_STYLE,
+} from "@/components/Experiment/ImplementationTypeSelect";
 import Pagination from "@/components/Pagination";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -26,12 +29,6 @@ const maxImageWidth = 300;
 const NUM_PER_PAGE = 20;
 
 const imageCache = {};
-
-const LIST_ICON_STYLE = {
-  display: "flex",
-  alignItems: "center",
-  marginLeft: "var(--space-2)",
-} as const;
 
 const CompletedExperimentList = ({
   experiments,

@@ -55,6 +55,12 @@ export const IMPLEMENTATION_TYPE_OPTIONS: Record<ImplementationType, Option> = {
   },
 };
 
+export const LIST_ICON_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  marginLeft: "var(--space-2)",
+};
+
 /** The bare icon with the picker's wording as its tooltip, for list rows. */
 export function ImplementationTypeIcon({
   type,
@@ -85,7 +91,11 @@ export function ImplementationTypeIcon({
         </>
       }
     >
-      <span style={{ display: "flex", color: "var(--color-text-mid)" }}>
+      <span
+        role="img"
+        aria-label={title ?? option.header}
+        style={{ display: "flex", color: "var(--color-text-mid)" }}
+      >
         {option.icon}
       </span>
     </Tooltip>

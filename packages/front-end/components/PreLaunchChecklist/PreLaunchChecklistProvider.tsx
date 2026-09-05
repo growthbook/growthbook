@@ -56,6 +56,7 @@ export interface PreLaunchChecklistProviderProps {
   editTargeting?: (() => void) | null;
   openSetupTab?: () => void;
   openManagedApproval?: () => void;
+  editVariationValues?: () => void;
   envs: string[];
   children: ReactNode;
 }
@@ -70,6 +71,7 @@ export function PreLaunchChecklistProvider({
   editTargeting,
   openSetupTab,
   openManagedApproval,
+  editVariationValues,
   envs,
   children,
 }: PreLaunchChecklistProviderProps) {
@@ -118,6 +120,7 @@ export function PreLaunchChecklistProvider({
       editTargeting,
       openSetupTab,
       openManagedApproval,
+      editVariationValues,
       checkLinkedChanges: true,
       connections: projectConnections,
       setShowSdkForm,
@@ -131,6 +134,7 @@ export function PreLaunchChecklistProvider({
     editTargeting,
     openSetupTab,
     openManagedApproval,
+    editVariationValues,
     experiment,
     linkedFeatures,
     visualChangesets,

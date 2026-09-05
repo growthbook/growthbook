@@ -159,6 +159,10 @@ export default function TabbedPage({
     ? managedFeature
     : null;
   const managedDraft = managedFlagWithDraft?.pendingDraft;
+  // A draft that vanishes under the open modal must not leave the next one open.
+  useEffect(() => {
+    if (!managedFlagWithDraft) setManagedApprovalOpen(false);
+  }, [managedFlagWithDraft]);
   // Not the revision status: approved can still be short of a team or an env.
   const managedApprovalBlocking =
     !!managedDraft?.pendingApproval &&
@@ -485,6 +489,7 @@ export default function TabbedPage({
       openManagedApproval={
         managedFlagWithDraft ? () => setManagedApprovalOpen(true) : undefined
       }
+      editVariationValues={editTraffic ? () => editTraffic() : undefined}
       envs={envs}
     >
       {compareModal && (

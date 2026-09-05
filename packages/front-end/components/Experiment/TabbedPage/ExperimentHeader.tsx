@@ -230,7 +230,7 @@ export default function ExperimentHeader({
             value: "materialize",
             label: "Keep serving the released variation",
             description:
-              "Each linked Feature Flag gets a permanent force rule with this experiment's targeting.",
+              "Each linked Feature Flag gets a permanent rule with this experiment's targeting.",
           },
           {
             value: "remove",
@@ -266,7 +266,7 @@ export default function ExperimentHeader({
           <li key="managed">
             Managed Feature Flag <strong>{managedFlagToArchive}</strong>{" "}
             {materializing
-              ? "becomes an ordinary Feature Flag serving the released variation."
+              ? "becomes an unmanaged Feature Flag serving the released variation."
               : "will be archived."}
           </li>,
         ]

@@ -17,6 +17,7 @@ import {
   hasVisualChanges,
   isManagedByExperiment,
   PENDING_APPROVAL_ITEM_PREFIX,
+  type ManagedValueProblem,
 } from "shared/util";
 import track from "@/services/track";
 import Link from "@/ui/Link";
@@ -52,6 +53,7 @@ export function getChecklistItems({
   editTargeting,
   openSetupTab,
   openManagedApproval,
+  editVariationValues,
   setAnalysisModal,
   setShowSdkForm,
   checklist,
@@ -69,6 +71,7 @@ export function getChecklistItems({
   editTargeting?: (() => void) | null;
   openSetupTab?: () => void;
   openManagedApproval?: () => void;
+  editVariationValues?: () => void;
   className?: string;
   setAnalysisModal?: (value: boolean) => void;
   setShowSdkForm?: (value: boolean) => void;
@@ -207,8 +210,8 @@ export function getChecklistItems({
       display: valuesMode ? (
         <>
           Add{" "}
-          {openSetupTab && !linkedChangesDone ? (
-            <Link onClick={openSetupTab}>variation values</Link>
+          {editVariationValues && !linkedChangesDone ? (
+            <Link onClick={editVariationValues}>variation values</Link>
           ) : (
             "variation values"
           )}
@@ -267,8 +270,8 @@ export function getChecklistItems({
             display: isManaged(f) ? (
               <>
                 Resolve the merge conflict in this experiment&apos;s{" "}
-                {openSetupTab ? (
-                  <Link onClick={openSetupTab}>variation values</Link>
+                {editVariationValues ? (
+                  <Link onClick={editVariationValues}>variation values</Link>
                 ) : (
                   "variation values"
                 )}{" "}
@@ -378,23 +381,25 @@ export function getChecklistItems({
         .filter((f) => f.state !== "discarded" && f.state !== "archived")
         .forEach((f) => {
           if (isManaged(f)) {
-            // The values live on this page, so there is nowhere to link out to.
-            const variationList = (ids: string[]) =>
-              ids.map((id, i) => {
-                const index = latestVariations.findIndex((v) => v.id === id);
-                return (
-                  <span key={id}>
-                    {i > 0 ? ", " : ""}
-                    <VariationLabel
-                      number={index}
-                      name={
-                        latestVariations[index]?.name || `Variation ${index}`
-                      }
-                      size="sm"
-                    />
-                  </span>
-                );
-              });
+            const variationList = (list: ManagedValueProblem[]) =>
+              list.map((p, i) => (
+                <span key={p.variationId}>
+                  {i > 0 ? ", " : ""}
+                  <VariationLabel
+                    number={latestVariations.findIndex(
+                      (v) => v.id === p.variationId,
+                    )}
+                    name={p.variationName}
+                    size="sm"
+                  />
+                </span>
+              ));
+            const fixLink = (label: string) =>
+              editVariationValues ? (
+                <Link onClick={editVariationValues}>{label}</Link>
+              ) : (
+                label
+              );
             const problems = getManagedValueProblems({
               variations: latestVariations,
               values: f.pendingDraft?.values ?? f.values,
@@ -410,8 +415,8 @@ export function getChecklistItems({
                 hideDescription: true,
                 display: (
                   <>
-                    Add a variation value for{" "}
-                    {variationList(missing.map((p) => p.variationId))}
+                    {fixLink("Add a variation value")} for{" "}
+                    {variationList(missing)}
                   </>
                 ),
               });
@@ -425,8 +430,8 @@ export function getChecklistItems({
                 hideDescription: true,
                 display: (
                   <>
-                    Fix the variation value for{" "}
-                    {variationList(malformed.map((p) => p.variationId))}
+                    {fixLink("Fix the variation value")} for{" "}
+                    {variationList(malformed)}
                   </>
                 ),
                 tooltip: malformed

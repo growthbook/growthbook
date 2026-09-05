@@ -610,6 +610,25 @@ export default function ManagedFlagApproval({
     ),
   ];
 
+  // Rendered in the review column, or under the changes when there is no
+  // review column: a stale draft still needs its Update from live.
+  const errorNotice = error && (
+    <Callout status="error" size="sm">
+      {error}
+    </Callout>
+  );
+  const divergenceNotice = governance && (
+    <DivergenceNotice
+      subtle
+      governance={governance}
+      onUpdateFromLive={updateFromLive}
+      updating={rebasing}
+      canRebase={permissionsUtil.canEditFeatureDrafts(info.feature)}
+      liveVersion={info.feature.version}
+      baseVersion={revision?.baseVersion ?? info.feature.version}
+    />
+  );
+
   const changesColumn = (
     <Flex
       direction="column"
@@ -717,11 +736,7 @@ export default function ManagedFlagApproval({
         </Flex>
       )}
 
-      {error && (
-        <Callout status="error" size="sm">
-          {error}
-        </Callout>
-      )}
+      {errorNotice}
 
       {showApprovalBand && (
         <ApprovalStatusBand
@@ -742,17 +757,7 @@ export default function ManagedFlagApproval({
         />
       )}
 
-      {governance && (
-        <DivergenceNotice
-          subtle
-          governance={governance}
-          onUpdateFromLive={updateFromLive}
-          updating={rebasing}
-          canRebase={permissionsUtil.canEditFeatureDrafts(info.feature)}
-          liveVersion={info.feature.version}
-          baseVersion={revision?.baseVersion ?? info.feature.version}
-        />
-      )}
+      {divergenceNotice}
 
       {adminBypassAvailable && (
         <Box>
@@ -834,6 +839,7 @@ export default function ManagedFlagApproval({
                             radius="full"
                             size="1"
                             highContrast
+                            aria-label="Comment actions"
                           >
                             <BsThreeDotsVertical size={14} />
                           </IconButton>
@@ -1009,8 +1015,10 @@ export default function ManagedFlagApproval({
         ) : (
           // Nothing to review, so the column would be a status line and a lot
           // of empty space; the notice sits under the changes instead.
-          <Flex direction="column" width="100%">
+          <Flex direction="column" width="100%" gap="3">
             {changesColumn}
+            {errorNotice}
+            {divergenceNotice}
           </Flex>
         )}
       </ModalStandard>

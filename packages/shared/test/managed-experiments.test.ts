@@ -1,6 +1,7 @@
 import {
   copyManagedVariationValues,
   getManagedValueProblems,
+  hasStartReadyManagedFlag,
   isManagedByExperiment,
   isManagedFeature,
   managedByExperimentId,
@@ -281,12 +282,75 @@ describe("requireFreshBaseForPublish", () => {
   });
 });
 
+describe("hasStartReadyManagedFlag", () => {
+  const managed = {
+    feature: {
+      managedBy: { type: "experiment" as const, experimentId: "exp_1" },
+    },
+  };
+  const shared = { feature: { managedBy: undefined } };
+
+  it("accepts the managed flag with a live rule or a pending draft", () => {
+    expect(
+      hasStartReadyManagedFlag("exp_1", [{ ...managed, state: "live" }]),
+    ).toBe(true);
+    expect(
+      hasStartReadyManagedFlag("exp_1", [{ ...managed, state: "draft" }]),
+    ).toBe(true);
+  });
+
+  it("rejects a managed flag whose draft is locked, discarded or archived", () => {
+    for (const state of ["locked", "discarded", "archived"] as const) {
+      expect(hasStartReadyManagedFlag("exp_1", [{ ...managed, state }])).toBe(
+        false,
+      );
+    }
+  });
+
+  it("ignores flags managed by another experiment and shared flags", () => {
+    expect(
+      hasStartReadyManagedFlag("exp_2", [{ ...managed, state: "live" }]),
+    ).toBe(false);
+    expect(
+      hasStartReadyManagedFlag("exp_1", [{ ...shared, state: "live" }]),
+    ).toBe(false);
+    expect(hasStartReadyManagedFlag("exp_1", [])).toBe(false);
+  });
+});
+
 describe("getManagedValueProblems", () => {
   const variations = [
     { id: "v0", name: "Control" },
     { id: "v1", name: "Variation 1" },
     { id: "v2", name: "" },
   ];
+
+  it("flags numbers that do not parse, and accepts any string", () => {
+    const numberProblems = getManagedValueProblems({
+      variations,
+      values: [
+        { variationId: "v0", value: "abc" },
+        { variationId: "v1", value: "" },
+        { variationId: "v2", value: "7" },
+      ],
+      valueType: "number",
+    });
+    expect(numberProblems.map((p) => [p.variationId, p.problem])).toEqual([
+      ["v0", "malformed"],
+      ["v1", "malformed"],
+    ]);
+    expect(
+      getManagedValueProblems({
+        variations,
+        values: [
+          { variationId: "v0", value: "" },
+          { variationId: "v1", value: "anything" },
+          { variationId: "v2", value: "{" },
+        ],
+        valueType: "string",
+      }),
+    ).toEqual([]);
+  });
 
   it("is empty when every arm carries a value of the right type", () => {
     expect(

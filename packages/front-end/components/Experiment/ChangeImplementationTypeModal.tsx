@@ -119,7 +119,7 @@ export default function ChangeImplementationTypeModal({
       )}
       {ejectsManagedFlag && !blockedReason && (
         <Callout status="info" mt="3">
-          <code>{managedKey}</code> becomes an ordinary linked Feature Flag,
+          <code>{managedKey}</code> becomes an unmanaged linked Feature Flag,
           edited from its own page.
         </Callout>
       )}

@@ -8,7 +8,10 @@ import SortedTags from "@/components/Tags/SortedTags";
 import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Pagination from "@/ui/Pagination";
 import { useManagedExperimentFlagStates } from "@/hooks/useManagedExperimentFlagStates";
-import { ImplementationTypeIcon } from "@/components/Experiment/ImplementationTypeSelect";
+import {
+  ImplementationTypeIcon,
+  LIST_ICON_STYLE,
+} from "@/components/Experiment/ImplementationTypeSelect";
 import Table, {
   TableHeader,
   TableBody,
@@ -33,12 +36,6 @@ interface ExperimentsListTableProps {
   setSearchValue: (value: string) => void;
   hrefBase?: string;
 }
-
-const LIST_ICON_STYLE = {
-  display: "flex",
-  alignItems: "center",
-  marginLeft: "var(--space-2)",
-} as const;
 
 const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   tab,

@@ -751,7 +751,7 @@ function ManagedTrafficForm({
             {...sharedVariationProps}
             coverageTooltip={coverageTooltip}
             belowCoverage={
-              canAdopt && !adopting ? null : canAdopt && adopting ? (
+              canAdopt ? (
                 <Box mb="3">
                   <Box mb="3" width="200px">
                     <ValueTypeField
