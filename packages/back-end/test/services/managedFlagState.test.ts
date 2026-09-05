@@ -9,6 +9,7 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
   deleteFeature: jest.fn(),
   featureIdExists: jest.fn(),
   getFeature: jest.fn(),
+  getFeaturesByIds: jest.fn(async () => []),
   getManagedFlagIdsUnfiltered: jest.fn(),
   publishRevision: jest.fn(),
   updateFeature: jest.fn(),
@@ -93,9 +94,19 @@ describe("getManagedFlagState", () => {
       managed: false,
       featureKey: null,
       valueType: null,
+      sparse: null,
       liveValues: [],
       environments: [],
+      allEnvironments: false,
       pending: null,
+      adoption: {
+        blocker: "Only a draft experiment can start managing a Feature Flag.",
+        derivedKey: "checkout-test",
+        derivedKeyAvailable: true,
+        suggestedTrackingKey: null,
+        suggestedFeatureKey: null,
+        keyRegexError: null,
+      },
     });
   });
 
@@ -121,9 +132,12 @@ describe("getManagedFlagState", () => {
       managed: true,
       featureKey: "checkout-test",
       valueType: "string",
+      sparse: null,
       liveValues: controlAndTreatment,
       environments: [],
+      allEnvironments: false,
       pending: null,
+      adoption: null,
     });
     expect(mockGetRevision).not.toHaveBeenCalled();
   });
@@ -239,7 +253,11 @@ describe("getManagedFlagState", () => {
 
     const state = await getManagedFlagState(context, experiment());
     expect(state.pending?.reviews).toEqual([
-      { userId: "u_1", status: "approved", date: "2026-08-19T12:00:00.000Z" },
+      {
+        userId: "u_1",
+        status: "approved",
+        timestamp: "2026-08-19T12:00:00.000Z",
+      },
     ]);
     expect(mockGetRevision).toHaveBeenCalledWith(
       expect.objectContaining({ featureId: "checkout-test", version: 3 }),
@@ -270,9 +288,12 @@ describe("getManagedFlagState", () => {
       managed: true,
       featureKey: "checkout-test",
       valueType: "string",
+      sparse: null,
       liveValues: [],
       environments: [],
+      allEnvironments: false,
       pending: null,
+      adoption: null,
     });
   });
 
@@ -301,6 +322,30 @@ describe("getManagedFlagState", () => {
     expect(state.pending?.approvalRequired).toBe(true);
     expect(state.pending?.canPublish).toBe(false);
     expect(state.pending?.canBypassApproval).toBe(true);
+  });
+
+  it("names every reason a publish would fail", async () => {
+    mockLinkedInfo.mockResolvedValue([
+      {
+        feature: managedFeature(),
+        pendingDraft: pendingDraft({
+          pendingApproval: true,
+          status: "pending-review",
+          rebaseRequired: true,
+        }),
+      },
+    ]);
+
+    const state = await getManagedFlagState(
+      context,
+      experiment({ status: "draft" }),
+    );
+    expect(state.pending?.publishBlockers).toEqual([
+      "experiment-not-started",
+      "stale-base",
+      "approval-required",
+    ]);
+    expect(state.pending?.version).toBe(3);
   });
 
   it("withholds publish while the draft needs a fresh base", async () => {

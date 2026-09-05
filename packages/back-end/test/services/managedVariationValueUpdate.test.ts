@@ -8,6 +8,7 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
+  linkFeatureToExperiment,
   mergeDraftForAutoPublish,
   updateExperimentRefVariations,
   validateExperimentFeatureUpdates,
@@ -16,6 +17,7 @@ import {
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
 } from "back-end/src/services/features";
+import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
   createFeature: jest.fn(),
@@ -61,6 +63,8 @@ const mockLiveAndBase = getLiveAndBaseRevisionsForFeature as jest.Mock;
 const mockMerge = mergeDraftForAutoPublish as jest.Mock;
 const mockDiscard = discardRevision as jest.Mock;
 const mockRequestReview = markRevisionAsReviewRequested as jest.Mock;
+const mockLinkedInfo = getLinkedFeatureInfo as jest.Mock;
+const mockLink = linkFeatureToExperiment as jest.Mock;
 
 const context = {
   org: { id: "org_1", settings: {} },
@@ -106,6 +110,7 @@ const update = (over: Record<string, unknown> = {}) =>
     variations: values,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     eventAudit: {} as any,
+    audit: async () => undefined,
     ...over,
   });
 
@@ -113,6 +118,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockGetFeature.mockResolvedValue(managedFeature());
   mockActiveDraft.mockResolvedValue(null);
+  // The live flag carries the experiment rule unless a test says otherwise.
+  mockLinkedInfo.mockResolvedValue([
+    { feature: managedFeature(), liveHasMatchingRule: true },
+  ]);
   mockValidate.mockResolvedValue([
     {
       feature: managedFeature(),
@@ -132,6 +141,31 @@ beforeEach(() => {
     mergeResult: { success: true, result: { rules: [] } },
     rebaseRequired: false,
     staleApproval: false,
+  });
+});
+
+describe("updateManagedVariationValues after a discarded first draft", () => {
+  it("recreates the experiment rule instead of refusing the edit", async () => {
+    mockLinkedInfo.mockResolvedValue([
+      { feature: managedFeature(), liveHasMatchingRule: false },
+    ]);
+    mockLink.mockResolvedValue({ version: 9, published: false, ruleId: "r1" });
+
+    const result = await update();
+
+    expect(mockLink).toHaveBeenCalledTimes(1);
+    expect(mockLink.mock.calls[0][0]).toMatchObject({
+      feature: expect.objectContaining({ id: "checkout-test" }),
+      rule: expect.objectContaining({
+        type: "experiment-ref",
+        experimentId: "exp_1",
+        variations: values,
+      }),
+      forceNewDraft: true,
+      autoPublish: false,
+    });
+    expect(mockValidate).not.toHaveBeenCalled();
+    expect(result.version).toBe(9);
   });
 });
 

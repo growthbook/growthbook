@@ -1342,15 +1342,19 @@ export async function clearManagedMarkersForExperiment(
   { archive = true }: { archive?: boolean } = {},
 ): Promise<void> {
   const ids = await getManagedFlagIdsUnfiltered(context, experimentId);
+  const features: FeatureInterface[] = [];
   for (const id of ids) {
     const feature = await getFeature(context, id);
-    // Runs before the experiment goes away, so refusing here keeps the flag
-    // from being locked to an experiment that no longer exists.
+    // Runs before the experiment goes away and before any flag is touched, so
+    // refusing here leaves nothing half-released or locked to a dead experiment.
     if (!feature) {
       throw new PermissionError(
         `Feature Flag "${id}" is managed by this experiment but you cannot access it, so the experiment cannot be removed. Ask someone with access to that Feature Flag's project.`,
       );
     }
+    features.push(feature);
+  }
+  for (const feature of features) {
     const released = await clearManagedMarker(context, feature);
     if (archive) await archiveFeature(context, released, true);
   }

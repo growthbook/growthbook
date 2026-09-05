@@ -186,22 +186,36 @@ describe("createManagedFeatureForExperiment variation validation", () => {
 });
 
 describe("clearManagedMarkersForExperiment", () => {
-  it("releases every flag the experiment owns, resolved without the read filter", async () => {
-    // An unreadable flag must still be released, or it can never be written.
+  it("releases every flag the experiment owns", async () => {
+    mockManagedIds.mockResolvedValue(["flag-a", "flag-b"]);
+    mockGetFeature.mockImplementation(async (_c, id: string) => ({
+      id,
+      managedBy: { type: "experiment" },
+    }));
+
+    await clearManagedMarkersForExperiment(context, "exp_1");
+
+    expect(mockUpdateFeature).toHaveBeenCalledTimes(2);
+    expect(mockUpdateFeature).toHaveBeenCalledWith(
+      context,
+      expect.objectContaining({ id: "flag-b" }),
+      {},
+      { unsetManagedBy: true },
+    );
+  });
+
+  it("refuses before touching anything when a managed flag is unreadable", async () => {
+    // The ids resolve without the read filter, so an unreadable flag is one the
+    // caller must not release; leaving it locked to a deleted experiment is worse.
     mockManagedIds.mockResolvedValue(["flag-a", "flag-b"]);
     mockGetFeature.mockImplementation(async (_c, id: string) =>
       id === "flag-a" ? { id, managedBy: { type: "experiment" } } : null,
     );
 
-    await clearManagedMarkersForExperiment(context, "exp_1");
-
-    expect(mockUpdateFeature).toHaveBeenCalledTimes(1);
-    expect(mockUpdateFeature).toHaveBeenCalledWith(
-      context,
-      expect.objectContaining({ id: "flag-a" }),
-      {},
-      { unsetManagedBy: true },
-    );
+    await expect(
+      clearManagedMarkersForExperiment(context, "exp_1"),
+    ).rejects.toThrow(/flag-b.*cannot access/);
+    expect(mockUpdateFeature).not.toHaveBeenCalled();
   });
 });
 
