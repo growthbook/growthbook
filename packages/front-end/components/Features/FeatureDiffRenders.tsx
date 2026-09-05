@@ -901,7 +901,14 @@ function RuleFieldDiffs({
   }
 
   if (!rows.length) return null;
-  return <div className="mt-1 ml-3">{rows}</div>;
+  // The experiment surface stacks one row per variation; give them air.
+  return compact ? (
+    <Flex direction="column" gap="2">
+      {rows}
+    </Flex>
+  ) : (
+    <div className="mt-1 ml-3">{rows}</div>
+  );
 }
 
 function NewRuleDetails({
@@ -1129,7 +1136,13 @@ function NewRuleDetails({
   }
 
   if (!rows.length) return <></>;
-  return <div className={compact ? undefined : "ml-3"}>{rows}</div>;
+  return compact ? (
+    <Flex direction="column" gap="2">
+      {rows}
+    </Flex>
+  ) : (
+    <div className="ml-3">{rows}</div>
+  );
 }
 
 // Label omitted — revision/draft summary cards already use the section title "Default value".
