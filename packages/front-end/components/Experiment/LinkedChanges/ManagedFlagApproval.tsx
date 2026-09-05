@@ -546,7 +546,7 @@ export default function ManagedFlagApproval({
             weight="medium"
             aria-expanded={showEnvDetails}
           >
-            {showEnvDetails ? "Hide details" : "Details"}
+            {showEnvDetails ? "Hide details" : "Show details"}
           </Link>
           {showEnvDetails && (
             <Flex direction="column" gap="1" mt="2">
