@@ -10,7 +10,11 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
+import {
+  getValidDate,
+  getValidDateOffsetByUTC,
+  timezoneShortLabel,
+} from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import { debounce } from "lodash";
@@ -30,6 +34,12 @@ type Props = {
   /** When using a range (`setDate2`), shown if `label` is omitted. */
   label2?: ReactNode;
   helpText?: ReactNode;
+  /**
+   * Note under the field that the time is interpreted in the viewer's local
+   * timezone. Use on datetime pickers that schedule a future action, where a
+   * viewer might otherwise assume UTC or a fixed server timezone.
+   */
+  showTimezone?: boolean;
   inputWidth?: number;
   precision?: "datetime" | "date";
   disableBefore?: Date | string;
@@ -104,6 +114,7 @@ export default function DatePicker({
   label,
   label2,
   helpText,
+  showTimezone,
   inputWidth,
   precision = "datetime",
   disableBefore,
@@ -578,6 +589,12 @@ export default function DatePicker({
         </Popover.Portal>
       </Popover.Root>
       {helpText && <small className="form-text text-muted">{helpText}</small>}
+      {showTimezone && (
+        <small className="form-text text-muted">
+          Time is in your local timezone (
+          {timezoneShortLabel(date ? parseDateInput(date) : new Date())})
+        </small>
+      )}
     </div>
   );
 }
