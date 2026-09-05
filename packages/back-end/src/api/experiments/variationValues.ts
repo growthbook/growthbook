@@ -153,20 +153,34 @@ export const putExperimentVariationValues = createApiRequestHandler(
     });
   }
   if (scope !== undefined) {
-    const { version } = await updateExperimentRuleEnvironments({
-      context: req.context,
-      experiment,
-      feature,
-      allEnvironments: scope === "all",
-      environments: scope === "all" ? [] : scope,
-      eventAudit: req.eventAudit,
-    });
-    await requestReviewForManagedDraft({
-      context: req.context,
-      feature,
-      version,
-      eventAudit: req.eventAudit,
-    });
+    try {
+      const { version } = await updateExperimentRuleEnvironments({
+        context: req.context,
+        experiment,
+        feature,
+        allEnvironments: scope === "all",
+        environments: scope === "all" ? [] : scope,
+        eventAudit: req.eventAudit,
+      });
+      await requestReviewForManagedDraft({
+        context: req.context,
+        feature,
+        version,
+        eventAudit: req.eventAudit,
+      });
+    } catch (e) {
+      // Both edits were validated up front, so only a concurrent change can
+      // fail here. The values already landed; say so rather than imply a
+      // clean failure, and a retry with the same body completes the change.
+      if (req.body.values) {
+        throw new BadRequestError(
+          `The values were saved but the environments were not: ${
+            e instanceof Error ? e.message : String(e)
+          }. Retry the request to apply the environments.`,
+        );
+      }
+      throw e;
+    }
   }
 
   return respond(req.context, experiment);
