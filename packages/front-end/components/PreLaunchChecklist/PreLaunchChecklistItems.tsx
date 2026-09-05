@@ -314,9 +314,9 @@ export function getChecklistItems({
             display: isManaged(f) ? (
               <>
                 {openManagedApproval ? (
-                  <Link onClick={openManagedApproval}>Approve</Link>
+                  <Link onClick={openManagedApproval}>Review and approve</Link>
                 ) : (
-                  "Approve"
+                  "Review and approve"
                 )}{" "}
                 variation values
               </>
