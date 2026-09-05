@@ -19,7 +19,8 @@ import {
 } from "back-end/src/models/ExperimentModel";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
-  archiveFeature: jest.fn(),
+  // Returns the archived document, as the real one does.
+  archiveFeature: jest.fn(async (_c: unknown, f: unknown) => f),
   featureIdExists: jest.fn(),
   getManagedFlagIdsUnfiltered: jest.fn(),
   createFeature: jest.fn(),

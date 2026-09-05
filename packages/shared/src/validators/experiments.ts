@@ -2887,9 +2887,14 @@ export const putExperimentVariationValuesValidator = {
     })
     .strict()
     .refine((b) => b.values !== undefined || b.environments !== undefined, {
-      message:
-        "Send values, environments, or both. valueType and sparse apply to the values sent with them.",
-    }),
+      message: "Send values, environments, or both.",
+    })
+    .refine(
+      (b) =>
+        b.values !== undefined ||
+        (b.valueType === undefined && b.sparse === undefined),
+      { message: "valueType and sparse apply to the values sent with them." },
+    ),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: variationValuesResponse,

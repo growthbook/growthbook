@@ -39,6 +39,8 @@ import {
   deleteFeature,
   featureIdExists,
   getFeature,
+  getFeatureProjectsByIds,
+  getFeaturesByIds,
   getManagedFlagIdsUnfiltered,
   publishRevision,
   updateFeature,
@@ -51,6 +53,7 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
+  experimentIdExists,
   getExperimentById,
   getExperimentByTrackingKey,
   unlinkFeatureFromExperiment,
@@ -87,6 +90,7 @@ import {
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { logger } from "back-end/src/util/logger";
 import {
+  assessRevisionApprovalForAutoPublish,
   ExperimentFeatureLinkResult,
   linkFeatureToExperiment,
   mergeDraftForAutoPublish,
@@ -641,16 +645,7 @@ export async function createManagedFlagForNewExperiment({
       audit,
     });
 
-  try {
-    await create(copied ?? seeded);
-  } catch (e) {
-    if (!copied) throw e;
-    logger.warn(
-      { experiment: experiment.id, error: e.message },
-      "Copying the managed Feature Flag for a duplicate failed; seeding a fresh one",
-    );
-    await create(seeded);
-  }
+  await create(copied ?? seeded);
   await updateExperiment({
     context,
     experiment,
@@ -835,6 +830,33 @@ export async function adoptManagedFlagForExperiment({
     );
   }
 
+  // Planned against the key the experiment will have, before anything is written.
+  const keyPlan = await planManagedFlagKey({
+    context,
+    experiment: {
+      ...experiment,
+      trackingKey: trackingKey ?? experiment.trackingKey,
+    },
+  });
+  if (featureId === undefined && keyPlan.regexError) {
+    throw new BadRequestError(keyPlan.regexError);
+  }
+  if (featureId === undefined && !keyPlan.derivedIdAvailable) {
+    const pair = keyPlan.suggestedPair;
+    throw new FeatureKeyTakenError(
+      `Feature Flag "${keyPlan.derivedId}" already exists, so it cannot be created for this experiment. Pass featureKey to create the flag under a different key, or trackingKey to rename the experiment so the two still match.${
+        pair
+          ? ` Suggested: "${pair.trackingKey}" is free as both the tracking key and the Feature Flag key.`
+          : ""
+      }`,
+      {
+        featureKey: keyPlan.derivedId,
+        suggestedTrackingKey: pair?.trackingKey ?? null,
+        suggestedFeatureKey: pair?.featureId ?? null,
+      },
+    );
+  }
+
   // Rename first: the key is derived at creation and a feature cannot be
   // renamed afterwards, so the order is load-bearing.
   if (trackingKey && trackingKey !== experiment.trackingKey) {
@@ -852,8 +874,6 @@ export async function adoptManagedFlagForExperiment({
       changes: { trackingKey },
     });
   }
-
-  const keyPlan = await planManagedFlagKey({ context, experiment });
 
   // A flag deleted out of band leaves its id behind; drop it while we write.
   const stale = await staleLinkedFeatureIds(context, experiment);
@@ -873,22 +893,6 @@ export async function adoptManagedFlagForExperiment({
       : null;
   let created: { feature: FeatureInterface; version: number };
   try {
-    // No silent suffixing: the caller chose the key, so the caller resolves it.
-    if (featureId === undefined && !keyPlan.derivedIdAvailable) {
-      const pair = keyPlan.suggestedPair;
-      throw new FeatureKeyTakenError(
-        `Feature Flag "${keyPlan.derivedId}" already exists, so it cannot be created for this experiment. Pass featureKey to create the flag under a different key, or trackingKey to rename the experiment so the two still match.${
-          pair
-            ? ` Suggested: "${pair.trackingKey}" is free as both the tracking key and the Feature Flag key.`
-            : ""
-        }`,
-        {
-          featureKey: keyPlan.derivedId,
-          suggestedTrackingKey: pair?.trackingKey ?? null,
-          suggestedFeatureKey: pair?.featureId ?? null,
-        },
-      );
-    }
     created = await createManagedFeatureForExperiment({
       context,
       experiment,
@@ -1073,16 +1077,19 @@ export async function updateManagedVariationValues({
       feature,
       version: linked.version,
     });
-    if (fresh) {
-      await stageManagedFeatureFields({
-        context,
-        feature,
-        revision: fresh,
-        ...(typeChanged && { valueType: targetType }),
-        defaultValue: values[0].value,
-        eventAudit,
-      });
+    if (!fresh) {
+      throw new Error(
+        `Could not read back the draft created on "${feature.id}"`,
+      );
     }
+    await stageManagedFeatureFields({
+      context,
+      feature,
+      revision: fresh,
+      ...(typeChanged && { valueType: targetType }),
+      defaultValue: values[0].value,
+      eventAudit,
+    });
     await requestReviewForManagedDraft({
       context,
       feature,
@@ -1226,10 +1233,19 @@ export async function publishManagedDraft({
       }),
     );
   }
-  const pendingDraft = (await getLinkedFeatureInfo(context, experiment)).find(
-    (f) => f.feature.id === feature.id,
-  )?.pendingDraft;
-  if (pendingDraft && !managedApprovalSatisfied(pendingDraft) && !bypass) {
+  // The same question the publish button and an auto-start ask, so a draft
+  // that only stages an environment toggle is judged too.
+  const approval = mergeResult.success
+    ? await assessRevisionApprovalForAutoPublish(
+        context,
+        feature,
+        revision,
+        live,
+        base,
+        mergeResult,
+      )
+    : null;
+  if (approval && !approval.satisfied && !bypass) {
     gates.push(
       makeBlockingGate({
         type: "approval-required",
@@ -1315,7 +1331,20 @@ export async function ejectManagedFeature({
   ) {
     context.permissions.throwPermissionError();
   }
+  // A deleted experiment leaves nothing to update; an unreadable one must not
+  // be left claiming a flag it no longer manages.
   const experiment = await getExperimentById(context, experimentId);
+  if (!experiment && (await experimentIdExists(context.org.id, experimentId))) {
+    throw new PermissionError(
+      `Experiment "${experimentId}" manages this Feature Flag but you cannot access it, so the flag cannot be converted from here.`,
+    );
+  }
+  // Both sides change: the flag stops being managed and the experiment's type
+  // moves, so the flag-side route needs the same experiment authority.
+  if (experiment && !context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+  const unmanaged = await clearManagedMarker(context, feature);
   if (experiment) {
     await updateExperiment({
       context,
@@ -1323,7 +1352,6 @@ export async function ejectManagedFeature({
       changes: { implementationType: "feature" },
     });
   }
-  const unmanaged = await clearManagedMarker(context, feature);
   await audit?.({
     event: "feature.update",
     entity: { object: "feature", id: feature.id },
@@ -1332,8 +1360,40 @@ export async function ejectManagedFeature({
   return unmanaged;
 }
 
+// Cleanup, moves and starts write to every flag the experiment touches, so a
+// flag the caller cannot read must stop the operation rather than be skipped:
+// skipping it is how rules and markers outlive their experiment.
+export async function assertLinkedFlagsReadable(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  const ids = Array.from(
+    new Set([
+      ...(experiment.linkedFeatures ?? []),
+      ...(await getManagedFlagIdsUnfiltered(context, experiment.id)),
+    ]),
+  );
+  if (!ids.length) return;
+  const existing = await getFeatureProjectsByIds(context, ids);
+  const readable = new Set(
+    (await getFeaturesByIds(context, ids)).map((f) => f.id),
+  );
+  const unreadable = Array.from(existing.keys()).filter(
+    (id) => !readable.has(id),
+  );
+  if (!unreadable.length) return;
+  const list = unreadable.map((id) => `"${id}"`).join(", ");
+  throw new PermissionError(
+    unreadable.length === 1
+      ? `Feature Flag ${list} is linked to this experiment but you cannot access it, so this change cannot be made. Ask someone with access to that Feature Flag's project.`
+      : `Feature Flags ${list} are linked to this experiment but you cannot access them, so this change cannot be made. Ask someone with access to those Feature Flags' projects.`,
+  );
+}
+
 // Includes flags the caller cannot read: deletion must never leave one pointing
-// at an experiment that no longer exists. The flag existed only for the
+// at an experiment that no longer exists. No flag-side authority check: the
+// flag existed only for the experiment, and the experiment's delete authority
+// was checked by the caller. The flag existed only for the
 // experiment, so it is archived rather than left serving control forever.
 export async function clearManagedMarkersForExperiment(
   context: ReqContext | ApiReqContext,
@@ -1354,9 +1414,13 @@ export async function clearManagedMarkersForExperiment(
     }
     features.push(feature);
   }
+  // Archive first: an archived flag that is still managed can be ejected later,
+  // an unmanaged live flag that failed to archive has no owner surface at all.
   for (const feature of features) {
-    const released = await clearManagedMarker(context, feature);
-    if (archive) await archiveFeature(context, released, true);
+    const toRelease = archive
+      ? await archiveFeature(context, feature, true)
+      : feature;
+    await clearManagedMarker(context, toRelease);
   }
 }
 
@@ -1488,6 +1552,7 @@ export async function assertManagedFlagCanMove(
   experiment: ExperimentInterface,
   project: string,
 ): Promise<void> {
+  await assertLinkedFlagsReadable(context, experiment);
   const feature = await getManagedFeatureForExperiment(context, experiment);
   if (!feature || (feature.project ?? "") === project) return;
   // Lands on the live document, so publish authority on both sides — the same

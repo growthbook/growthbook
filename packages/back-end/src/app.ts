@@ -120,6 +120,7 @@ import {
   SoftWarningError,
   SQLExecutionError,
 } from "./util/errors";
+import { PublishBlockedError } from "./revisions/publishGates";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
@@ -1367,6 +1368,7 @@ const errorHandler: ErrorRequestHandler = (
     code?: string;
     details?: unknown;
     sql?: string;
+    gates?: unknown;
   } = {
     status: status,
     message: err.message || "An error occurred",
@@ -1385,6 +1387,12 @@ const errorHandler: ErrorRequestHandler = (
   if (err instanceof ApiError) {
     body.code = err.code;
     body.details = err.details;
+  }
+  // Same shape the REST handler gives a blocked publish. Warnings only when
+  // some gate is actually clearable, or the client offers an empty "Save anyway".
+  if (err instanceof PublishBlockedError) {
+    body.gates = err.gates;
+    if (err.warnings.length) body.warnings = err.warnings;
   }
   res.status(status).json(body);
 };

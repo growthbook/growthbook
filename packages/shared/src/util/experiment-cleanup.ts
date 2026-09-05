@@ -13,6 +13,7 @@ type BlockerExperiment = {
   excludeFromPayload?: boolean;
   hasVisualChangesets?: boolean;
   hasURLRedirects?: boolean;
+  phases?: { namespace?: { enabled?: boolean } }[];
 };
 
 // Archiving or deleting drops the experiment from the SDK payload, so the caller
@@ -38,15 +39,17 @@ export function getExperimentLinkageBlocker(
   return null;
 }
 
-// Only a temporary rollout has a single released value to keep, and only a
-// Feature Flag rule can hold it.
+// Only a temporary rollout has a single released value to keep, only a
+// Feature Flag rule can hold it, and a force rule has no namespace to keep.
 export function canMaterializeLinkedChanges(
   experiment: BlockerExperiment,
   blocker: ExperimentLinkageBlocker | null,
 ): boolean {
+  const phase = experiment.phases?.[experiment.phases.length - 1];
   return (
     blocker === "temporary-rollout" &&
     !experiment.hasVisualChangesets &&
-    !experiment.hasURLRedirects
+    !experiment.hasURLRedirects &&
+    !phase?.namespace?.enabled
   );
 }

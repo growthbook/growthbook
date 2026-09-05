@@ -36,6 +36,7 @@ import { assessRevisionApproval } from "back-end/src/services/featurePublishGate
 import {
   addLinkedExperiment,
   editFeatureRules,
+  featureIdExists,
   getFeature,
   prevalidatePublishRevision,
   publishRevision,
@@ -754,6 +755,12 @@ export async function publishPendingFeatureDraftsForExperiment(
   for (const { featureId, revisionVersion } of drafts) {
     const feature = await getCachedFeature(featureId);
     if (!feature) {
+      // Deleted flags are pruned; a flag that exists but cannot be read must
+      // fail the start rather than silently drop its draft.
+      if (await featureIdExists(context, featureId)) {
+        failed.push({ featureId, revisionVersion, reason: "publish-error" });
+        continue;
+      }
       await removePendingFeatureDraftFromExperiment(
         context,
         experiment.id,
@@ -1254,8 +1261,9 @@ export async function updateExperimentRuleEnvironments({
 }
 
 // Rewrites every rule pointing at the experiment on the live flag and its open
-// drafts, then publishes. Null `replacement` drops the rule. `failHard` throws
-// on the first flag that cannot be rewritten instead of logging and moving on.
+// drafts, then publishes. Null `replacement` drops the rule. Authority is
+// checked for every flag before any of them is written, and each flag lands
+// live before its drafts are touched, so a refusal leaves nothing half done.
 async function resolveRulesForExperiment({
   context,
   experiment,
@@ -1265,7 +1273,6 @@ async function resolveRulesForExperiment({
   replacement,
   action,
   comment,
-  failHard = false,
 }: {
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
@@ -1275,7 +1282,6 @@ async function resolveRulesForExperiment({
   replacement: (rule: ExperimentRefRule) => FeatureRule | null;
   action: string;
   comment: string;
-  failHard?: boolean;
 }): Promise<void> {
   const refersToExperiment = (r: FeatureRule): r is ExperimentRefRule =>
     r.type === "experiment-ref" && r.experimentId === experiment.id;
@@ -1292,14 +1298,106 @@ async function resolveRulesForExperiment({
     value: JSON.stringify(touched),
   });
 
+  // Append-only for history, but a deleted experiment has none to show.
+  const unlink = async (current: FeatureInterface) => {
+    if (!current.linkedExperiments?.includes(experiment.id)) return;
+    await updateFeature(context, current, {
+      linkedExperiments: current.linkedExperiments.filter(
+        (id) => id !== experiment.id,
+      ),
+    });
+  };
+  const refuse = (feature: FeatureInterface, reason: string) =>
+    new Error(
+      `Could not update Feature Flag "${feature.id}": ${reason}. Ask someone who can publish that Feature Flag, or remove the experiment rule from it first.`,
+    );
+
+  // Landing needs publish authority and, under approvals, bypass authority.
+  // Every flag is checked before any is written.
+  const bypassFor = new Map<string, boolean>();
   for (const feature of features) {
+    if (!(feature.rules ?? []).some(refersToExperiment)) continue;
+    const envs = Array.from(
+      getEnabledEnvironments(feature, context.environments),
+    );
+    const bypass = context.permissions.canBypassFlagApprovalChecks(
+      feature,
+      "feature",
+    );
+    if (
+      !context.permissions.canPublishFeature(feature, envs) ||
+      (!bypass && featureReviewRequired(context, feature))
+    ) {
+      throw refuse(feature, "no authority to publish the change");
+    }
+    bypassFor.set(feature.id, bypass);
+  }
+
+  for (const feature of features) {
+    const liveTouched = (feature.rules ?? []).filter(refersToExperiment);
     let cleanupDraft: FeatureRevisionInterface | null = null;
+    let landed = feature;
     try {
+      if (liveTouched.length) {
+        const bypass = bypassFor.get(feature.id) ?? false;
+        cleanupDraft = await getDraftRevision(
+          context,
+          feature,
+          feature.version,
+        );
+        const updated =
+          (await updateRevision(
+            context,
+            feature,
+            cleanupDraft,
+            { rules: rewrite(cleanupDraft.rules ?? []), title: comment },
+            logEntry(liveTouched),
+          )) ?? cleanupDraft;
+        const { live, base } = await getLiveAndBaseRevisionsForFeature({
+          context,
+          feature,
+          revision: updated,
+        });
+        const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+          feature,
+          live,
+          base,
+        );
+        const mergeResult = autoMerge(
+          mergeLive,
+          mergeBase,
+          updated,
+          context.environments,
+          {},
+        );
+        if (!mergeResult.success) {
+          throw new Error("the change did not merge cleanly onto live");
+        }
+        landed = await publishRevision({
+          context,
+          feature,
+          revision: updated,
+          result: mergeResult.result,
+          comment,
+          bypassLockdown: bypass,
+        });
+        cleanupDraft = null;
+        await audit({
+          event: "feature.publish",
+          entity: { object: "feature", id: feature.id },
+          details: auditDetailsUpdate(feature, landed, {
+            revision: updated.version,
+            comment,
+          }),
+        });
+      }
+
+      // Drafts only after live has landed: a refusal above then changes nothing.
       const drafts = await getFeatureRevisionsByStatus({
         context,
         organization: context.org.id,
         featureId: feature.id,
-        feature,
+        feature: landed,
         status: DRAFT_REVISION_STATUSES,
         skipPagination: true,
       });
@@ -1308,93 +1406,13 @@ async function resolveRulesForExperiment({
         if (!touched.length) continue;
         await updateRevision(
           context,
-          feature,
+          landed,
           draft,
           { rules: rewrite(draft.rules ?? []) },
           logEntry(touched),
         );
       }
-
-      // Append-only for history, but a deleted experiment has none to show.
-      const unlink = async (current: FeatureInterface) => {
-        if (!current.linkedExperiments?.includes(experiment.id)) return;
-        await updateFeature(context, current, {
-          linkedExperiments: current.linkedExperiments.filter(
-            (id) => id !== experiment.id,
-          ),
-        });
-      };
-
-      const liveTouched = (feature.rules ?? []).filter(refersToExperiment);
-      if (!liveTouched.length) {
-        await unlink(feature);
-        continue;
-      }
-      // Landing needs publish authority and, under approvals, bypass authority;
-      // without either the rule stays and the flag page offers Delete rule.
-      const envs = Array.from(
-        getEnabledEnvironments(feature, context.environments),
-      );
-      const bypass = context.permissions.canBypassFlagApprovalChecks(
-        feature,
-        "feature",
-      );
-      if (
-        !context.permissions.canPublishFeature(feature, envs) ||
-        (!bypass && featureReviewRequired(context, feature))
-      ) {
-        throw new Error(
-          `no authority to publish the change to Feature Flag "${feature.id}"`,
-        );
-      }
-
-      cleanupDraft = await getDraftRevision(context, feature, feature.version);
-      const updated =
-        (await updateRevision(
-          context,
-          feature,
-          cleanupDraft,
-          { rules: rewrite(cleanupDraft.rules ?? []), title: comment },
-          logEntry(liveTouched),
-        )) ?? cleanupDraft;
-      const { live, base } = await getLiveAndBaseRevisionsForFeature({
-        context,
-        feature,
-        revision: updated,
-      });
-      const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
-        feature,
-        live,
-        base,
-      );
-      const mergeResult = autoMerge(
-        mergeLive,
-        mergeBase,
-        updated,
-        context.environments,
-        {},
-      );
-      if (!mergeResult.success) {
-        throw new Error("the change did not merge cleanly onto live");
-      }
-      const updatedFeature = await publishRevision({
-        context,
-        feature,
-        revision: updated,
-        result: mergeResult.result,
-        comment,
-        bypassLockdown: bypass,
-      });
-      cleanupDraft = null;
-      await audit({
-        event: "feature.publish",
-        entity: { object: "feature", id: feature.id },
-        details: auditDetailsUpdate(feature, updatedFeature, {
-          revision: updated.version,
-          comment,
-        }),
-      });
-      await unlink(updatedFeature);
+      await unlink(landed);
     } catch (e) {
       if (cleanupDraft) {
         await discardRevision(
@@ -1404,17 +1422,7 @@ async function resolveRulesForExperiment({
           feature.version,
         ).catch(() => undefined);
       }
-      if (failHard) {
-        throw new Error(
-          `Could not update Feature Flag "${feature.id}": ${
-            e instanceof Error ? e.message : String(e)
-          }. Ask someone who can publish that Feature Flag, or remove the experiment rule from it first.`,
-        );
-      }
-      logger.warn(
-        { featureId: feature.id, experimentId: experiment.id, err: e },
-        "Could not remove a deleted experiment's rule from its Feature Flag",
-      );
+      throw refuse(feature, e instanceof Error ? e.message : String(e));
     }
   }
 }
@@ -1442,7 +1450,6 @@ export async function removeRulesForDeletedExperiment({
     features,
     eventAudit,
     audit,
-    failHard: true,
     replacement: () => null,
     action: "remove experiment rule",
     comment: `Remove rule for deleted experiment "${experiment.name}"`,
@@ -1486,7 +1493,6 @@ export async function materializeExperimentRules({
     features,
     eventAudit,
     audit,
-    failHard: true,
     action: "replace experiment rule with a permanent rule",
     comment: `Keep the released variation of "${experiment.name}"`,
     replacement: (rule) => {

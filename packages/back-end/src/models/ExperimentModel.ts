@@ -663,6 +663,15 @@ export async function hasArchivedExperiments(
   return !!e;
 }
 
+// Raw: tells an unreadable experiment apart from a deleted one, for write
+// paths that must refuse rather than skip the former.
+export async function experimentIdExists(
+  organization: string,
+  id: string,
+): Promise<boolean> {
+  return !!(await ExperimentModel.exists({ organization, id }));
+}
+
 export async function getExperimentByTrackingKey(
   context: ReqContext | ApiReqContext,
   trackingKey: string,
@@ -1384,17 +1393,16 @@ export async function deleteExperimentByIdForOrganization(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) {
+  await ExperimentModel.deleteOne({
+    id: experiment.id,
+    organization: context.org.id,
+  });
+  await VisualChangesetModel.deleteMany({
+    experiment: experiment.id,
+    organization: context.org.id,
+  });
+  // Event fan-out is best-effort; the delete itself is not.
   try {
-    await ExperimentModel.deleteOne({
-      id: experiment.id,
-      organization: context.org.id,
-    });
-
-    await VisualChangesetModel.deleteMany({
-      experiment: experiment.id,
-      organization: context.org.id,
-    });
-
     await onExperimentDelete(context, experiment);
   } catch (e) {
     logger.error(e);

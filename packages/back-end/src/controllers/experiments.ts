@@ -177,18 +177,19 @@ import { getActiveDraft } from "back-end/src/models/FeatureRevisionModel";
 import {
   adoptManagedFlagForExperiment,
   assertManagedFlagCanMove,
+  clearManagedMarkersForExperiment,
   createManagedFlagForNewExperiment,
   discardManagedDraftIfNoop,
-  moveManagedFlagWithExperiment,
-  removeManagedFeatureForExperiment,
-  releaseManagedFlagForImplementationChange,
-  managedFlagAdoptionBlocker,
-  planManagedFlagKey,
   ejectManagedFeature,
   getManagedFeatureForExperiment,
+  managedFlagAdoptionBlocker,
+  moveManagedFlagWithExperiment,
+  planManagedFlagKey,
   publishManagedDraft,
-  stageManagedFeatureFields,
+  releaseManagedFlagForImplementationChange,
+  removeManagedFeatureForExperiment,
   requestReviewForManagedDraft,
+  stageManagedFeatureFields,
 } from "back-end/src/services/managedFeatures";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
@@ -1590,7 +1591,10 @@ export async function postExperiments(
           audit: req.audit,
         });
       } catch (e) {
-        // The flag half compensates itself; undo the experiment.
+        // Undo the experiment, and release any flag that already got its marker.
+        await clearManagedMarkersForExperiment(context, experiment.id).catch(
+          () => undefined,
+        );
         await deleteExperimentByIdForOrganization(context, experiment);
         throw new Error(
           `Could not create the managed Feature Flag for this experiment: ${e.message}`,
@@ -2425,26 +2429,27 @@ export async function postExperimentArchive(
       eventAudit: res.locals.eventAudit,
       audit: req.audit,
     });
-
-    res.status(200).json({
-      status: 200,
-    });
-
-    await req.audit({
-      event: "experiment.archive",
-      entity: {
-        object: "experiment",
-        id: experiment.id,
-      },
-    });
   } catch (e) {
-    if (e instanceof SoftWarningError) throw e;
-    res.status(400).json({
-      status: 400,
-      message: e.message || "Failed to archive experiment",
-      ...(e instanceof LinkedChangesBlockedError ? { blocker: e.blocker } : {}),
-    });
+    if (e instanceof LinkedChangesBlockedError) {
+      res
+        .status(400)
+        .json({ status: 400, message: e.message, blocker: e.blocker });
+      return;
+    }
+    throw e;
   }
+
+  await req.audit({
+    event: "experiment.archive",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
 }
 
 export async function postExperimentUnarchive(

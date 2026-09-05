@@ -66,4 +66,19 @@ describe("canMaterializeLinkedChanges", () => {
       ),
     ).toBe(false);
   });
+
+  it("refuses a namespaced rollout, which a force rule cannot reproduce", () => {
+    const exp = {
+      status: "stopped",
+      releasedVariationId: "v1",
+      phases: [{ namespace: { enabled: true } }],
+    };
+    expect(canMaterializeLinkedChanges(exp, "temporary-rollout")).toBe(false);
+    expect(
+      canMaterializeLinkedChanges(
+        { ...exp, phases: [{ namespace: { enabled: false } }] },
+        "temporary-rollout",
+      ),
+    ).toBe(true);
+  });
 });

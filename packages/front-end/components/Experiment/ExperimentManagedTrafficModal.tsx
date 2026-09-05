@@ -631,53 +631,59 @@ function ManagedTrafficForm({
         : live;
     });
     const sentVariations = safeToEdit ? data.variations : lockedVariations;
-    if (safeToEdit) {
-      await apiCall(`/experiment/${experiment.id}`, {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-    } else if (experimentDirty) {
-      await apiCall(`/experiment/${experiment.id}`, {
-        method: "POST",
-        body: JSON.stringify({ variations: lockedVariations }),
-      });
-    }
+    // Several requests in sequence: if a later one fails, the earlier ones
+    // have landed, so the page must refetch either way.
+    try {
+      if (safeToEdit) {
+        await apiCall(`/experiment/${experiment.id}`, {
+          method: "POST",
+          body: JSON.stringify(data),
+        });
+      } else if (experimentDirty) {
+        await apiCall(`/experiment/${experiment.id}`, {
+          method: "POST",
+          body: JSON.stringify({ variations: lockedVariations }),
+        });
+      }
 
-    if (adopting) {
-      // Same endpoint and server-side gates as the old add-flag modal.
-      await apiCall(`/experiment/${experiment.id}/managed-flag`, {
-        method: "POST",
-        body: JSON.stringify({
-          valueType,
-          variations: flagValues,
-          ...(sparse ? { sparse: true } : {}),
-          ...(manualKey ? { featureId: manualKey } : {}),
-          ...(renameTo && !manualKey ? { trackingKey: renameTo } : {}),
-        }),
-      });
-    }
+      if (adopting) {
+        // Same endpoint and server-side gates as the old add-flag modal.
+        await apiCall(`/experiment/${experiment.id}/managed-flag`, {
+          method: "POST",
+          body: JSON.stringify({
+            valueType,
+            variations: flagValues,
+            ...(sparse ? { sparse: true } : {}),
+            ...(manualKey ? { featureId: manualKey } : {}),
+            ...(renameTo && !manualKey ? { trackingKey: renameTo } : {}),
+          }),
+        });
+      }
 
-    if (feature && canEditValues && editingValues && flagValues) {
-      await apiCall(`/experiment/${experiment.id}/features`, {
-        method: "POST",
-        body: JSON.stringify({
-          variations: sentVariations,
-          ...(safeToEdit && { variationWeights: data.variationWeights }),
-          features: {
-            [feature.id]: {
-              variations: flagValues,
-              ...(sparseEligible && { sparse }),
-              ...(typeMoves && { valueType }),
-              revisionOptions:
-                mode === "existing" && selectedDraft != null
-                  ? { targetVersion: selectedDraft }
-                  : { forceNewDraft: true },
+      if (feature && canEditValues && editingValues && flagValues) {
+        await apiCall(`/experiment/${experiment.id}/features`, {
+          method: "POST",
+          body: JSON.stringify({
+            variations: sentVariations,
+            ...(safeToEdit && { variationWeights: data.variationWeights }),
+            features: {
+              [feature.id]: {
+                variations: flagValues,
+                ...(sparseEligible && { sparse }),
+                ...(typeMoves && { valueType }),
+                revisionOptions:
+                  mode === "existing" && selectedDraft != null
+                    ? { targetVersion: selectedDraft }
+                    : { forceNewDraft: true },
+              },
             },
-          },
-        }),
-      });
+          }),
+        });
+      }
+    } catch (e) {
+      mutate();
+      throw e;
     }
-
     mutate();
     track("edited-traffic");
 

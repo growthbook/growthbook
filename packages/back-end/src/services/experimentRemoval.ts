@@ -27,7 +27,10 @@ import {
   materializeExperimentRules,
   removeRulesForDeletedExperiment,
 } from "./experiment-feature";
-import { clearManagedMarkersForExperiment } from "./managedFeatures";
+import {
+  assertLinkedFlagsReadable,
+  clearManagedMarkersForExperiment,
+} from "./managedFeatures";
 
 export class LinkedChangesBlockedError extends BadRequestError {
   blocker: ExperimentLinkageBlocker;
@@ -78,6 +81,9 @@ async function resolveLinkedChanges(
   { context, experiment, linkedChanges, eventAudit, audit }: Args,
   verb: string,
 ): Promise<boolean> {
+  // Before any write: the blocker and the cleanup below only see readable
+  // flags, so an unreadable one must refuse the whole operation instead.
+  await assertLinkedFlagsReadable(context, experiment);
   const info = await getLinkedFeatureInfo(context, experiment);
   const blocker = getExperimentLinkageBlocker(experiment, info);
   if (blocker && !linkedChanges) {
@@ -86,7 +92,7 @@ async function resolveLinkedChanges(
   if (linkedChanges !== "materialize") return false;
   if (!canMaterializeLinkedChanges(experiment, blocker)) {
     throw new BadRequestError(
-      "Only a stopped experiment with a temporary rollout on Feature Flags can keep its released variation as a permanent rule.",
+      "Only a stopped experiment with a temporary rollout on Feature Flags, and no namespace, can keep its released variation as a permanent rule.",
     );
   }
   await materializeExperimentRules({

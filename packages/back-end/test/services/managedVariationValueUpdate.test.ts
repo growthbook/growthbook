@@ -4,6 +4,7 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   discardRevision,
   getActiveDraft,
+  getRevision,
   markRevisionAsReviewRequested,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -150,6 +151,7 @@ describe("updateManagedVariationValues after a discarded first draft", () => {
       { feature: managedFeature(), liveHasMatchingRule: false },
     ]);
     mockLink.mockResolvedValue({ version: 9, published: false, ruleId: "r1" });
+    (getRevision as jest.Mock).mockResolvedValue({ version: 9, rules: [] });
 
     const result = await update();
 

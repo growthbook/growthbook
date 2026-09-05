@@ -216,7 +216,7 @@ export default function LinkedChanges({
       {ejectConfirm && (
         <ConfirmDialog
           title="Convert to unmanaged Feature Flag?"
-          content="This experiment keeps using the linked Feature Flag, but you'll manage and review it directly from its own page instead of from here."
+          content="This experiment keeps using the linked Feature Flag, but you'll manage and review it directly from its own page instead of from here. This cannot be undone."
           yesText="Convert"
           onConfirm={eject}
           onCancel={() => setEjectConfirm(false)}

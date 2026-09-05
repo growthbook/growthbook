@@ -48,6 +48,7 @@ import {
   type LinkedChange,
 } from "@/components/Experiment/LinkedChanges/constants";
 import { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
+import { useOptionalPreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import { ManagedFlagName } from "@/components/Experiment/ManagedFlagName";
 
 export type PendingDraftFailure =
@@ -243,6 +244,8 @@ export default function StartExperimentModal({
     (f) => !!f.environmentsToEnable?.length,
   ).length;
   // The experiment owns this flag, so it is not a "linked" change: name it.
+  const openManagedApproval =
+    useOptionalPreLaunchChecklist()?.openManagedApproval;
   const managedFeature =
     linkedFeatures.length === 1 &&
     linkedFeatures[0].feature &&
@@ -402,7 +405,7 @@ export default function StartExperimentModal({
         </Modal.Header>
         {subHeader && <Modal.Description>{subHeader}</Modal.Description>}
         <Modal.Body>
-          {pendingDraftFailures.length > 0 && !managedFeature && (
+          {pendingDraftFailures.length > 0 && (
             <Box
               mb="3"
               p="3"
@@ -412,7 +415,9 @@ export default function StartExperimentModal({
               }}
             >
               <Text size="sm" weight="semibold" color="text-high">
-                Linked feature drafts that could not be published
+                {managedFeature
+                  ? "Variation values that could not be published"
+                  : "Linked feature drafts that could not be published"}
               </Text>
               <Flex direction="column" gap="2" mt="2">
                 {pendingDraftFailures.map((failure) => (
@@ -422,13 +427,22 @@ export default function StartExperimentModal({
                     align="baseline"
                     wrap="wrap"
                   >
-                    <Link
-                      href={`/features/${failure.featureId}?v=${failure.revisionVersion}`}
-                      target="_blank"
-                    >
-                      <Text weight="semibold">{failure.featureId}</Text>
-                      <PiArrowSquareOut className="ml-1" />
-                    </Link>
+                    {managedFeature?.feature.id === failure.featureId &&
+                    openManagedApproval ? (
+                      // The flag page refuses writes on a managed flag; the
+                      // review modal is where these get resolved.
+                      <Link onClick={openManagedApproval}>
+                        <Text weight="semibold">Review variation values</Text>
+                      </Link>
+                    ) : (
+                      <Link
+                        href={`/features/${failure.featureId}?v=${failure.revisionVersion}`}
+                        target="_blank"
+                      >
+                        <Text weight="semibold">{failure.featureId}</Text>
+                        <PiArrowSquareOut className="ml-1" />
+                      </Link>
+                    )}
                     <Text size="sm" color="text-mid">
                       {PENDING_DRAFT_FAILURE_LABELS[failure.reason]}
                     </Text>
