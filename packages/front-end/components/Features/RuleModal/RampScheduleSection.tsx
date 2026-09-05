@@ -51,7 +51,7 @@ import {
   resolveStartApproval,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
 } from "shared/validators";
-import { date as formatDate } from "shared/dates";
+import { date as formatDate, timezoneShortLabel } from "shared/dates";
 import { parsePlainJSONObject } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { HiBadgeCheck } from "react-icons/hi";
@@ -3683,6 +3683,9 @@ export default function RampScheduleSection({
         precision="datetime"
         disableBefore={new Date().toISOString()}
       />
+      <Text size="sm" color="text-low">
+        ({timezoneShortLabel(state.cutoffDate || new Date())})
+      </Text>
       <IconButton
         variant="ghost"
         color="gray"
@@ -3797,11 +3800,16 @@ export default function RampScheduleSection({
         containerStyle={{ width: 150 }}
       />
       {state.startDate && (
-        <DatePicker
-          date={state.startDate || undefined}
-          setDate={(d) => patchState({ startDate: d ? d.toISOString() : "" })}
-          precision="datetime"
-        />
+        <>
+          <DatePicker
+            date={state.startDate || undefined}
+            setDate={(d) => patchState({ startDate: d ? d.toISOString() : "" })}
+            precision="datetime"
+          />
+          <Text size="sm" color="text-low">
+            ({timezoneShortLabel(state.startDate)})
+          </Text>
+        </>
       )}
     </Flex>
   ) : null;

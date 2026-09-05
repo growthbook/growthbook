@@ -2,7 +2,11 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
-import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
+import {
+  getValidDate,
+  resolveScheduleStopAfter,
+  timezoneShortLabel,
+} from "shared/dates";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
@@ -409,17 +413,22 @@ export default function EditScheduleModal({
                 disabled={experiment.status !== "draft"}
               />
               {startAt && (
-                <DatePicker
-                  label=""
-                  date={startAt || undefined}
-                  setDate={(d) =>
-                    form.setValue("startAt", d ? d.toISOString() : "")
-                  }
-                  precision="datetime"
-                  scheduleEndDate={stopAt || undefined}
-                  disableBefore={now}
-                  disabled={experiment.status !== "draft"}
-                />
+                <>
+                  <DatePicker
+                    label=""
+                    date={startAt || undefined}
+                    setDate={(d) =>
+                      form.setValue("startAt", d ? d.toISOString() : "")
+                    }
+                    precision="datetime"
+                    scheduleEndDate={stopAt || undefined}
+                    disableBefore={now}
+                    disabled={experiment.status !== "draft"}
+                  />
+                  <Text size="sm" color="text-low">
+                    ({timezoneShortLabel(startAt)})
+                  </Text>
+                </>
               )}
             </ScheduleRow>
 
@@ -452,16 +461,21 @@ export default function EditScheduleModal({
                 containerStyle={{ width: 150 }}
               />
               {endMode === "on-date" && (
-                <DatePicker
-                  label=""
-                  date={stopAt || undefined}
-                  setDate={(d) =>
-                    form.setValue("stopAt", d ? d.toISOString() : "")
-                  }
-                  precision="datetime"
-                  scheduleStartDate={startAt || undefined}
-                  disableBefore={startAt ? new Date(startAt) : now}
-                />
+                <>
+                  <DatePicker
+                    label=""
+                    date={stopAt || undefined}
+                    setDate={(d) =>
+                      form.setValue("stopAt", d ? d.toISOString() : "")
+                    }
+                    precision="datetime"
+                    scheduleStartDate={startAt || undefined}
+                    disableBefore={startAt ? new Date(startAt) : now}
+                  />
+                  <Text size="sm" color="text-low">
+                    ({timezoneShortLabel(stopAt || new Date())})
+                  </Text>
+                </>
               )}
               {endMode === "after" && (
                 <Flex align="center" gap="3">

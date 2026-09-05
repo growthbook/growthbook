@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { format } from "date-fns";
+import { timezoneShortLabel } from "shared/dates";
 import { PiClockFill, PiLock } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -439,7 +440,8 @@ export default function ScheduledPublishControl({
           title="Scheduled to publish"
           body={
             <>
-              {format(new Date(scheduledAtIso), "PPp")}
+              {format(new Date(scheduledAtIso), "PPp")} (
+              {timezoneShortLabel(scheduledAtIso)})
               {pending && !lockActive ? " · pending approval" : ""}
             </>
           }
@@ -592,6 +594,7 @@ export default function ScheduledPublishControl({
                 setDate={(d) => onDateChange(d ? d.toISOString() : "")}
                 precision="datetime"
                 disableBefore={new Date().toISOString()}
+                showTimezone
               />
               <Flex align="center" gap="1" mt="2">
                 <Checkbox

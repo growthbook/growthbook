@@ -4,7 +4,9 @@
 // identical to the ramp schedule path.
 
 import { Flex } from "@radix-ui/themes";
+import { timezoneShortLabel } from "shared/dates";
 import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import DatePicker from "@/components/DatePicker";
 import ScheduleRow from "@/components/Schedule/ScheduleRow";
@@ -178,6 +180,16 @@ export default function ScheduleInputs({
           />
         )}
       </ScheduleRow>
+
+      {(state.startDate || endTriggerValue === "specific-time") && (
+        <Text size="sm" color="text-low">
+          Times are in your local timezone (
+          {timezoneShortLabel(
+            state.startDate || state.endScheduleAt || new Date(),
+          )}
+          )
+        </Text>
+      )}
     </Flex>
   );
 }
