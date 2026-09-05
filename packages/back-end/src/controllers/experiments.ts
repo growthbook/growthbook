@@ -2336,6 +2336,7 @@ export async function postExperiment(
       context,
       experiment,
       next: releaseManagedFlagFor,
+      audit: req.audit,
     });
   }
   const updated = await updateExperimentAndSync({
@@ -4869,6 +4870,7 @@ export async function postExperimentManagedFlagPublish(
     context,
     experiment,
     bypassApproval: !!req.body?.bypassApproval,
+    audit: req.audit,
   });
 
   res.status(200).json({ status: 200, feature });
@@ -4886,7 +4888,7 @@ export async function postExperimentManagedFlagRemove(
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
     context.permissions.throwPermissionError();
   }
-  await removeManagedFeatureForExperiment(context, experiment);
+  await removeManagedFeatureForExperiment(context, experiment, req.audit);
   res.status(200).json({ status: 200 });
 }
 
@@ -4918,6 +4920,7 @@ export async function postExperimentManagedFlagEject(
     context,
     feature: managed,
     experimentId: id,
+    audit: req.audit,
   });
 
   res.status(200).json({ status: 200, feature });

@@ -74,6 +74,11 @@ import {
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
 import {
+  auditDetailsCreate,
+  auditDetailsDelete,
+  auditDetailsUpdate,
+} from "back-end/src/services/audit";
+import {
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
 } from "back-end/src/services/features";
@@ -910,6 +915,11 @@ export async function adoptManagedFlagForExperiment({
     experiment,
     changes: { implementationType: "values" },
   });
+  await audit({
+    event: "feature.create",
+    entity: { object: "feature", id: created.feature.id },
+    details: auditDetailsCreate(created.feature),
+  });
 
   return created;
 }
@@ -994,6 +1004,7 @@ export async function updateManagedVariationValues({
   valueType,
   sparse,
   eventAudit,
+  audit,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -1002,6 +1013,7 @@ export async function updateManagedVariationValues({
   valueType?: FeatureValueType;
   sparse?: boolean;
   eventAudit: EventUser;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
 }): Promise<{ feature: FeatureInterface; version: number }> {
   const feature = await getManagedFeatureForExperiment(context, experiment);
   if (!feature) {
@@ -1024,6 +1036,59 @@ export async function updateManagedVariationValues({
     valueType: targetType,
     variations,
   });
+
+  // Discarding a flag's first draft leaves it with no experiment rule anywhere.
+  // Recreate the rule the way creation did instead of refusing every edit.
+  const liveInfo = (await getLinkedFeatureInfo(context, experiment)).find(
+    (f) => f.feature.id === feature.id,
+  );
+  if (!openDraft && !liveInfo?.liveHasMatchingRule) {
+    const linked = await linkFeatureToExperiment({
+      context,
+      experiment,
+      feature,
+      rule: {
+        type: "experiment-ref",
+        description: "",
+        id: "",
+        allEnvironments: true,
+        condition: "",
+        enabled: true,
+        scheduleRules: [],
+        experimentId: experiment.id,
+        variations: values,
+        ...(sparse ? { sparse: true } : {}),
+      },
+      eventAudit,
+      audit,
+      autoPublish: false,
+      forceNewDraft: true,
+    });
+    const fresh = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: linked.version,
+    });
+    if (fresh) {
+      await stageManagedFeatureFields({
+        context,
+        feature,
+        revision: fresh,
+        ...(typeChanged && { valueType: targetType }),
+        defaultValue: values[0].value,
+        eventAudit,
+      });
+    }
+    await requestReviewForManagedDraft({
+      context,
+      feature,
+      version: linked.version,
+      eventAudit,
+    });
+    return { feature, version: linked.version };
+  }
 
   const plans = await validateExperimentFeatureUpdates({
     context,
@@ -1097,6 +1162,7 @@ export async function publishManagedDraft({
   bypassApproval = false,
   restApiBypass = false,
   comment = "",
+  audit,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -1105,6 +1171,7 @@ export async function publishManagedDraft({
   /** The org's "REST API always bypasses approval requirements" setting. */
   restApiBypass?: boolean;
   comment?: string;
+  audit?: (data: AuditInterfaceInput) => Promise<void>;
 }): Promise<FeatureInterface> {
   const feature = await getManagedFeatureForExperiment(context, experiment);
   if (!feature) {
@@ -1196,7 +1263,7 @@ export async function publishManagedDraft({
   }
   if (gates.length) throw new PublishBlockedError(gates);
 
-  return publishRevision({
+  const published = await publishRevision({
     context,
     feature,
     revision,
@@ -1204,6 +1271,15 @@ export async function publishManagedDraft({
     comment,
     bypassLockdown: bypass,
   });
+  await audit?.({
+    event: "feature.publish",
+    entity: { object: "feature", id: feature.id },
+    details: auditDetailsUpdate(feature, published, {
+      revision: revision.version,
+      comment,
+    }),
+  });
+  return published;
 }
 
 /** Clears the ownership marker only; content and history are untouched. */
@@ -1211,10 +1287,12 @@ export async function ejectManagedFeature({
   context,
   feature,
   experimentId,
+  audit,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   experimentId: string;
+  audit?: (data: AuditInterfaceInput) => Promise<void>;
 }): Promise<FeatureInterface> {
   if (!isManagedByExperiment(feature, experimentId)) {
     throw new Error(
@@ -1245,7 +1323,13 @@ export async function ejectManagedFeature({
       changes: { implementationType: "feature" },
     });
   }
-  return clearManagedMarker(context, feature);
+  const unmanaged = await clearManagedMarker(context, feature);
+  await audit?.({
+    event: "feature.update",
+    entity: { object: "feature", id: feature.id },
+    details: auditDetailsUpdate(feature, unmanaged),
+  });
+  return unmanaged;
 }
 
 // Includes flags the caller cannot read: deletion must never leave one pointing
@@ -1280,10 +1364,12 @@ export async function releaseManagedFlagForImplementationChange({
   context,
   experiment,
   next,
+  audit,
 }: {
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
   next: ImplementationType;
+  audit?: (data: AuditInterfaceInput) => Promise<void>;
 }): Promise<ExperimentInterface> {
   if (next === "values") return experiment;
   const feature = await getManagedFeatureForExperiment(context, experiment);
@@ -1293,9 +1379,10 @@ export async function releaseManagedFlagForImplementationChange({
       context,
       feature,
       experimentId: experiment.id,
+      audit,
     });
   } else {
-    await removeManagedFeatureForExperiment(context, experiment);
+    await removeManagedFeatureForExperiment(context, experiment, audit);
   }
   return (await getExperimentById(context, experiment.id)) ?? experiment;
 }
@@ -1303,6 +1390,7 @@ export async function releaseManagedFlagForImplementationChange({
 export async function removeManagedFeatureForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
+  audit?: (data: AuditInterfaceInput) => Promise<void>,
 ): Promise<void> {
   const feature = await getManagedFeatureForExperiment(context, experiment);
   if (!feature) {
@@ -1328,12 +1416,18 @@ export async function removeManagedFeatureForExperiment(
   }
   await deleteFeature(context, feature);
   await unlinkFeatureFromExperiment(context, experiment.id, feature.id);
+  await audit?.({
+    event: "feature.delete",
+    entity: { object: "feature", id: feature.id },
+    details: auditDetailsDelete(feature),
+  });
 }
 
 /** Eject from the flag's side; the only write the lockdown lets through. */
 export async function ejectManagedFeatureFromFlag(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
+  audit?: (data: AuditInterfaceInput) => Promise<void>,
 ): Promise<FeatureInterface> {
   const experimentId = managedByExperimentId(feature);
   if (!experimentId) {
@@ -1341,7 +1435,7 @@ export async function ejectManagedFeatureFromFlag(
       `Feature Flag "${feature.id}" is not managed by an experiment.`,
     );
   }
-  return ejectManagedFeature({ context, feature, experimentId });
+  return ejectManagedFeature({ context, feature, experimentId, audit });
 }
 
 // A change edited back to what serves would otherwise leave a pending review

@@ -408,6 +408,7 @@ export const updateExperiment = createApiRequestHandler(
       context: req.context,
       experiment,
       next: releaseManagedFlagFor,
+      audit: req.audit,
     });
   }
 

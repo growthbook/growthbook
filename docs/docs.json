@@ -668,8 +668,8 @@
                   "api/experiment-values/operation/postExperimentVariationValuesRequestReview",
                   "api/experiment-values/operation/postExperimentVariationValuesSubmitReview",
                   "api/experiment-values/operation/postExperimentVariationValuesRecallReview",
-                  "api/experiment-values/operation/postExperimentVariationValuesRebase",
                   "api/experiment-values/operation/postExperimentVariationValuesUndoReview",
+                  "api/experiment-values/operation/postExperimentVariationValuesRebase",
                   "api/experiment-values/operation/postExperimentVariationValuesPublish",
                   "api/experiment-values/operation/postExperimentVariationValuesDiscard",
                   "api/experiment-values/operation/postExperimentVariationValuesDetach"

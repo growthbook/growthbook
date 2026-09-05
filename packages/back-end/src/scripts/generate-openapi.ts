@@ -76,12 +76,12 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   "features-v2": {
     display: "Feature Flags",
     description:
-      "Control your feature flags programatically.\n\nRules are returned as a unified top-level array; each rule carries `allEnvironments` / `environments` scope fields instead of being bucketed by environment.",
+      "Control your feature flags programatically.\n\nRules are returned as a unified top-level array; each rule carries `allEnvironments` / `environments` scope fields instead of being bucketed by environment. A Feature Flag managed by an experiment refuses writes here with 403 `feature_managed_by_experiment`; change it through the Experiment Values endpoints.",
   },
   "feature-revisions-v2": {
     display: "Feature Revisions",
     description:
-      "Draft revisions for feature flags, including rules, scheduling, and approval workflows.\n\nRevision `rules` is a flat array with per-rule scope fields.",
+      "Draft revisions for feature flags, including rules, scheduling, and approval workflows.\n\nRevision `rules` is a flat array with per-rule scope fields. A Feature Flag managed by an experiment refuses writes here with 403 `feature_managed_by_experiment`; change it through the Experiment Values endpoints.",
   },
   "ramp-schedules": {
     display: "Ramp Schedules",

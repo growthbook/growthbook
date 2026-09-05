@@ -136,6 +136,7 @@ export const putExperimentVariationValues = createApiRequestHandler(
       valueType: req.body.valueType,
       sparse: req.body.sparse,
       eventAudit: req.eventAudit,
+      audit: req.audit,
     });
   }
   const scope = req.body.environments;
@@ -268,6 +269,7 @@ export const postExperimentVariationValuesPublish = createApiRequestHandler(
     bypassApproval: !!req.body.bypassApproval,
     restApiBypass: canUseRestApiBypassSetting(req),
     comment: req.body.comment ?? "",
+    audit: req.audit,
   });
 
   return respond(req.context, experiment);
@@ -286,6 +288,7 @@ export const postExperimentVariationValuesDetach = createApiRequestHandler(
     context: req.context,
     feature,
     experimentId: experiment.id,
+    audit: req.audit,
   });
 
   return respond(req.context, experiment);

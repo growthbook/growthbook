@@ -1208,7 +1208,7 @@ export async function updateExperimentRuleEnvironments({
 
   if (!matched) {
     throw new Error(
-      `No experiment rule found on "${feature.id}" to re-scope. It may have been removed.`,
+      `No experiment rule found on "${feature.id}" to re-scope. It may have been removed; set variation values first to recreate it.`,
     );
   }
 

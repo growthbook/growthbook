@@ -7688,6 +7688,10 @@ export async function postFeatureEjectManaged(
   const context = getContextFromReq(req);
   const feature = await getFeature(context, req.params.id);
   if (!feature) throw new Error("Could not find feature");
-  const updated = await ejectManagedFeatureFromFlag(context, feature);
+  const updated = await ejectManagedFeatureFromFlag(
+    context,
+    feature,
+    req.audit,
+  );
   res.status(200).json({ status: 200, feature: updated });
 }

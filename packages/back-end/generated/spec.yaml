@@ -168,7 +168,9 @@ tags:
 
       Rules are returned as a unified top-level array; each rule carries
       `allEnvironments` / `environments` scope fields instead of being bucketed
-      by environment.
+      by environment. A Feature Flag managed by an experiment refuses writes
+      here with 403 `feature_managed_by_experiment`; change it through the
+      Experiment Values endpoints.
   - name: feature-revisions-v2
     x-displayName: Feature Revisions
     description: >-
@@ -176,7 +178,10 @@ tags:
       approval workflows.
 
 
-      Revision `rules` is a flat array with per-rule scope fields.
+      Revision `rules` is a flat array with per-rule scope fields. A Feature
+      Flag managed by an experiment refuses writes here with 403
+      `feature_managed_by_experiment`; change it through the Experiment Values
+      endpoints.
   - name: features
     x-displayName: Feature Flags (legacy)
     description: >-
@@ -15470,6 +15475,45 @@ paths:
             'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/recall-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/variation-values/undo-review:
+    post:
+      operationId: postExperimentVariationValuesUndoReview
+      summary: Undo a reviewer's own review verdict
+      description: >-
+        Removes the approve or request-changes review the caller gave on the
+        pending values. Other reviewers' reviews are untouched.
+      tags:
+        - experiment-values
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variationValues:
+                    $ref: '#/components/schemas/ExperimentVariationValues'
+                required:
+                  - variationValues
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/undo-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/variation-values/rebase:
     post:
       operationId: postExperimentVariationValuesRebase
@@ -15511,45 +15555,6 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/rebase'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/experiments/{id}/variation-values/undo-review:
-    post:
-      operationId: postExperimentVariationValuesUndoReview
-      summary: Undo a reviewer's own review verdict
-      description: >-
-        Removes the approve or request-changes review the caller gave on the
-        pending values. Other reviewers' reviews are untouched.
-      tags:
-        - experiment-values
-      parameters:
-        - $ref: '#/components/parameters/id'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
-      responses:
-        '200':
-          description: Resource created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  variationValues:
-                    $ref: '#/components/schemas/ExperimentVariationValues'
-                required:
-                  - variationValues
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/experiments/{id}/variation-values/undo-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/variation-values/publish:
