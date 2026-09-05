@@ -14384,6 +14384,12 @@ paths:
                     - urlredirect
                     - visual
                     - none
+                bypassApproval:
+                  description: >-
+                    When `status` moves to running, publish the linked Feature
+                    Flag drafts even without a satisfied approval. Ignored
+                    unless the caller may bypass approval checks.
+                  type: boolean
                 project:
                   description: Project ID which the experiment belongs to
                   type: string
@@ -15433,6 +15439,12 @@ paths:
                   description: >-
                     If true, skips validating the experiment satisifies all
                     pre-launch checklist items
+                  type: boolean
+                bypassApproval:
+                  description: >-
+                    Publish the linked Feature Flag drafts that start this
+                    experiment even without a satisfied approval. Ignored unless
+                    the caller may bypass approval checks.
                   type: boolean
                 ignoreWarnings:
                   description: >-
@@ -53567,6 +53579,23 @@ components:
                 - value
               additionalProperties: false
             - type: 'null'
+        managedBy:
+          description: >-
+            Set when an experiment owns this flag. Its values are edited,
+            reviewed and published from that experiment, and every direct write
+            to the flag is refused.
+          anyOf:
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: experiment
+                experimentId:
+                  type: string
+              required:
+                - type
+                - experimentId
+              additionalProperties: false
       required:
         - id
         - dateCreated

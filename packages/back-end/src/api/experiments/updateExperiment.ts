@@ -415,6 +415,12 @@ export const updateExperiment = createApiRequestHandler(
       experimentId: experiment.id,
       // behavior for patch endpoint is to skip pre-launch checklist
       skipChecklist: true,
+      bypassLockdown:
+        !!req.body.bypassApproval &&
+        req.context.permissions.canBypassFlagApprovalChecks(
+          experiment,
+          "feature",
+        ),
     });
     experimentForUpdate = updated;
     // All non-status changes were already persisted above; startExperiment

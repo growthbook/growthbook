@@ -11,6 +11,7 @@ import {
   seedManagedVariationValues,
   validateFeatureValue,
   type ManagedFlagKeyPlan,
+  getImplementationType,
 } from "shared/util";
 import {
   ExperimentInterface,
@@ -18,6 +19,7 @@ import {
   FeatureInterface,
   FeatureValueType,
   apiExperimentVariationValues,
+  type ImplementationType,
 } from "shared/validators";
 import { EventUser } from "shared/types/events/event-types";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -186,6 +188,15 @@ export async function staleLinkedFeatureIds(
 
 // Managed mode owns the experiment's whole delivery, so it can only be adopted
 // while nothing else is wired up. Counts features that still exist, not ids.
+const IMPLEMENTATION_TYPE_NAMES: Record<ImplementationType, string> = {
+  values: "Values",
+  feature: "a linked Feature Flag",
+  urlredirect: "URL Redirects",
+  visual: "the Visual Editor",
+  multi: "several implementations",
+  none: "analysis only",
+};
+
 export async function managedFlagAdoptionBlocker(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -193,6 +204,10 @@ export async function managedFlagAdoptionBlocker(
   if (experiment.archived) return "This experiment is archived.";
   if (experiment.status !== "draft") {
     return "Only a draft experiment can start managing a Feature Flag.";
+  }
+  const chosen = getImplementationType(experiment);
+  if (chosen && chosen !== "values" && chosen !== "none") {
+    return `This experiment is set up for ${IMPLEMENTATION_TYPE_NAMES[chosen]}. Set implementationType to "values" first.`;
   }
   if (experiment.hasVisualChangesets) {
     return "This experiment already has Visual Editor changes.";

@@ -97,6 +97,9 @@ export const postExperimentStart = createApiRequestHandler(
     context,
     experimentId: req.params.id,
     skipChecklist: req.body?.skipChecklist,
+    bypassLockdown:
+      !!req.body?.bypassApproval &&
+      context.permissions.canBypassFlagApprovalChecks(existing, "feature"),
   });
 
   await req.audit({

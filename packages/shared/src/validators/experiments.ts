@@ -1582,6 +1582,12 @@ const updateExperimentBody = z
         'How the experiment reaches users. "values" is a Feature Flag managed by the experiment; "none" is analysis only. Fixed once a Feature Flag, Visual Editor change or URL Redirect is linked.',
       )
       .optional(),
+    bypassApproval: z
+      .boolean()
+      .optional()
+      .describe(
+        "When `status` moves to running, publish the linked Feature Flag drafts even without a satisfied approval. Ignored unless the caller may bypass approval checks.",
+      ),
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")
@@ -1786,6 +1792,12 @@ const postExperimentStartBody = z
         "If true, skips validating the experiment satisifies all pre-launch checklist items",
       )
       .optional(),
+    bypassApproval: z
+      .boolean()
+      .optional()
+      .describe(
+        "Publish the linked Feature Flag drafts that start this experiment even without a satisfied approval. Ignored unless the caller may bypass approval checks.",
+      ),
     ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict()

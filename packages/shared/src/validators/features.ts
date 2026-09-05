@@ -1372,6 +1372,11 @@ export const apiFeatureValidator = namedSchema(
       }),
       customFields: z.record(z.string(), z.any()).optional(),
       holdout: apiFeatureHoldout,
+      managedBy: featureManagedByValidator
+        .optional()
+        .describe(
+          "Set when an experiment owns this flag. Its values are edited, reviewed and published from that experiment, and every direct write to the flag is refused.",
+        ),
     })
     .strict(),
 );
