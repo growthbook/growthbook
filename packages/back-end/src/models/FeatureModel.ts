@@ -804,6 +804,25 @@ export async function getFeatureProjectsByIds(
   return new Map(features.map((f) => [f.id, f.project || undefined]));
 }
 
+// Raw fetch, like `getFeatureProjectsByIds`: a write gate must refuse a managed
+// flag the caller cannot read, not skip it. Returns only the flags that are
+// managed, mapped to the owning experiment.
+export async function getManagedByExperimentForFeatureIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<Map<string, string>> {
+  if (!ids.length) return new Map();
+  const features = await FeatureModel.find(
+    {
+      organization: context.org.id,
+      id: { $in: ids },
+      "managedBy.type": "experiment",
+    },
+    { id: 1, "managedBy.experimentId": 1, _id: 0 },
+  );
+  return new Map(features.map((f) => [f.id, f.managedBy?.experimentId ?? ""]));
+}
+
 /**
  * The environments each named rule CURRENTLY serves, keyed by rampRuleEnvKey.
  *

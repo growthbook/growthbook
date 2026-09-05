@@ -23,9 +23,7 @@ import {
   filterEnvironmentsByFeature,
   getApplicableEnvIds,
   getEnvsFromRampSchedule,
-  isManagedFeature,
   isRampScheduleServing,
-  managedByExperimentId,
   rampRuleEnvKey,
   rampTargetFootprint,
   rampTargetRuleIds,
@@ -41,7 +39,7 @@ import {
   getFeatureRuleEnvironmentsByIds,
   getFeature,
   getFeatureProjectsByIds,
-  getFeaturesByIds,
+  getManagedByExperimentForFeatureIds,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
 // NOTE: rampScheduleEvaluator also imports from this module (advanceStep, etc).
@@ -3094,16 +3092,11 @@ export async function assertCanControlRampSchedule(
   schedule: RampScheduleInterface,
 ): Promise<void> {
   // A managed flag's rules belong to its experiment; no schedule may reach them.
-  const targetFeatures = await getFeaturesByIds(context, [
+  const managed = await getManagedByExperimentForFeatureIds(context, [
     ...new Set((schedule.targets ?? []).map((t) => t.entityId)),
   ]);
-  for (const feature of targetFeatures) {
-    if (isManagedFeature(feature)) {
-      throw new ManagedFeatureError({
-        featureId: feature.id,
-        experimentId: managedByExperimentId(feature) ?? "",
-      });
-    }
+  for (const [featureId, experimentId] of managed) {
+    throw new ManagedFeatureError({ featureId, experimentId });
   }
   const scheduleEnvs =
     context.models.rampSchedules.publishEnvironments(schedule);
