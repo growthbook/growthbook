@@ -14,7 +14,13 @@ import {
   getImplementationType,
   isManagedByExperiment,
 } from "shared/util";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import {
+  Box,
+  Flex,
+  Grid,
+  IconButton,
+  SegmentedControl,
+} from "@radix-ui/themes";
 import { PiCaretDownBold, PiPencilSimpleFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -35,8 +41,6 @@ import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import SplitButton from "@/ui/SplitButton";
-import Button from "@/ui/Button";
 import {
   EnvironmentStateChips,
   getEnvironmentStates,
@@ -382,23 +386,22 @@ export default function TrafficAllocationFunnel({
               Live values
             </Text>
           ) : servedValueFeature ? (
-            <SplitButton variant="outline" className="roomy-segments">
-              <Button
-                size="sm"
-                variant={preferDraft ? "solid" : "outline"}
-                icon={<UnpublishedDot />}
-                onClick={() => setShowDraftValues(true)}
-              >
-                Unpublished
-              </Button>
-              <Button
-                size="sm"
-                variant={preferDraft ? "outline" : "solid"}
-                onClick={() => setShowDraftValues(false)}
-              >
+            <SegmentedControl.Root
+              size="2"
+              value={preferDraft ? "draft" : "live"}
+              onValueChange={(v) => setShowDraftValues(v === "draft")}
+              aria-label="Values shown"
+            >
+              <SegmentedControl.Item value="draft">
+                <Flex align="center" gap="2">
+                  <UnpublishedDot />
+                  Unpublished
+                </Flex>
+              </SegmentedControl.Item>
+              <SegmentedControl.Item value="live">
                 Live values
-              </Button>
-            </SplitButton>
+              </SegmentedControl.Item>
+            </SegmentedControl.Root>
           ) : null}
           {hasMenuActions && (
             <DropdownMenu
