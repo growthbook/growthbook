@@ -1467,9 +1467,10 @@ export async function materializeExperimentRules({
   const phase = experiment.phases[experiment.phases.length - 1];
   if (phase?.namespace?.enabled) {
     throw new Error(
-      "A namespaced experiment cannot be kept as a force rule; stop the temporary rollout instead.",
+      "A namespaced experiment cannot be kept as a permanent rule; stop the temporary rollout instead.",
     );
   }
+  const coverage = phase?.coverage ?? 1;
   const released = experiment.variations.find((v) => v.id === releasedId);
   const description = `Released from experiment "${experiment.name}"${
     released ? ` (${released.name})` : ""
@@ -1482,20 +1483,17 @@ export async function materializeExperimentRules({
     eventAudit,
     audit,
     failHard: true,
-    action: "replace experiment rule with force rule",
+    action: "replace experiment rule with a permanent rule",
     comment: `Keep the released variation of "${experiment.name}"`,
     replacement: (rule) => {
       const value = rule.variations.find(
         (v) => v.variationId === releasedId,
       )?.value;
-      if (value === undefined) {
-        throw new Error(
-          "The released variation has no value on this Feature Flag.",
-        );
-      }
-      return {
+      // The payload skips a rule whose released arm has no value, so dropping
+      // it changes nothing.
+      if (value === undefined) return null;
+      const kept = {
         ...omit(rule, ["type", "experimentId", "variations", "sparse"]),
-        type: "force",
         value,
         description,
         enabled: true,
@@ -1509,6 +1507,15 @@ export async function materializeExperimentRules({
           ? { prerequisites: phase.prerequisites }
           : {}),
       };
+      // The payload applies the phase's coverage to the released value too.
+      return coverage < 1
+        ? {
+            ...kept,
+            type: "rollout" as const,
+            coverage,
+            hashAttribute: experiment.hashAttribute,
+          }
+        : { ...kept, type: "force" as const };
     },
   });
 }

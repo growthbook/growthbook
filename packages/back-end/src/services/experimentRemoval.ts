@@ -1,5 +1,6 @@
 import {
   canMaterializeLinkedChanges,
+  getAffectedEnvsForExperiment,
   getExperimentLinkageBlocker,
   isManagedByExperiment,
   type ExperimentLinkageBlocker,
@@ -37,6 +38,29 @@ export class LinkedChangesBlockedError extends BadRequestError {
         : `This experiment is running. Pass linkedChanges: "remove" to acknowledge that its linked changes stop serving when you ${verb} it.`,
     );
     this.blocker = blocker;
+  }
+}
+
+// Taking an experiment out of the payload, or putting it back, is a run-class
+// change on every environment its linked changes reach.
+export async function assertCanChangeServing(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  const linkedFeatures = await getFeaturesByIds(
+    context,
+    experiment.linkedFeatures ?? [],
+  );
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
+  });
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
   }
 }
 
@@ -125,9 +149,9 @@ export async function archiveExperimentWithCleanup(
   args: Args,
 ): Promise<ExperimentInterface> {
   const { context, experiment } = args;
-  await resolveLinkedChanges(args, "archive");
   const changes = { archived: true };
   await validateExperimentChange({ context, experiment, changes });
+  await resolveLinkedChanges(args, "archive");
   return updateExperiment({ context, experiment, changes });
 }
 

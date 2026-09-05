@@ -4,15 +4,15 @@ import {
   postExperimentArchiveValidator,
   postExperimentUnarchiveValidator,
 } from "shared/validators";
-import { getAffectedEnvsForExperiment, PermissionError } from "shared/util";
+import { PermissionError } from "shared/util";
 import { ExperimentInterface } from "shared/types/experiment";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 import {
   archiveExperimentWithCleanup,
+  assertCanChangeServing,
   deleteExperimentWithCleanup,
   unarchiveExperimentWithCleanup,
 } from "back-end/src/services/experimentRemoval";
@@ -32,29 +32,6 @@ async function requireExperiment(
   return experiment;
 }
 
-// Taking an experiment out of the payload is a run-class change on every
-// environment its linked changes reach.
-async function assertCanStopServing(
-  context: ApiReqContext,
-  experiment: ExperimentInterface,
-) {
-  const linkedFeatures = await getFeaturesByIds(
-    context,
-    experiment.linkedFeatures ?? [],
-  );
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-}
-
 export const postExperimentArchive = createApiRequestHandler(
   postExperimentArchiveValidator,
 )(async (req) => {
@@ -62,7 +39,7 @@ export const postExperimentArchive = createApiRequestHandler(
   if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
     req.context.permissions.throwPermissionError();
   }
-  await assertCanStopServing(req.context, experiment);
+  await assertCanChangeServing(req.context, experiment);
 
   const updated = await archiveExperimentWithCleanup({
     context: req.context,
@@ -90,6 +67,7 @@ export const postExperimentUnarchive = createApiRequestHandler(
   if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
     req.context.permissions.throwPermissionError();
   }
+  await assertCanChangeServing(req.context, experiment);
   const updated = await unarchiveExperimentWithCleanup({
     context: req.context,
     experiment,
@@ -113,7 +91,7 @@ export const deleteExperiment = createApiRequestHandler(
   if (!req.context.permissions.canDeleteExperiment(experiment)) {
     req.context.permissions.throwPermissionError();
   }
-  await assertCanStopServing(req.context, experiment);
+  await assertCanChangeServing(req.context, experiment);
   // Same rule as Feature Flags: archive first, unless the org lets the REST
   // API act on live objects outright.
   if (!experiment.archived && !canUseRestApiBypassSetting(req)) {

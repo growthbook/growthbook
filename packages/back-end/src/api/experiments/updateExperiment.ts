@@ -7,6 +7,7 @@ import {
 } from "shared/validators";
 import {
   assertManagedFlagCanMove,
+  getManagedFeatureForExperiment,
   moveManagedFlagWithExperiment,
   releaseManagedFlagForImplementationChange,
 } from "back-end/src/services/managedFeatures";
@@ -369,26 +370,46 @@ export const updateExperiment = createApiRequestHandler(
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";
 
-  if (
-    changes.implementationType !== undefined &&
-    changes.implementationType !== experiment.implementationType
-  ) {
-    // Leaving Values hands the managed flag back (Feature Flag) or deletes it.
-    experiment = await releaseManagedFlagForImplementationChange({
-      context: req.context,
+  // Compared against the flag actually managed, not the stored label; the
+  // release (eject or delete) waits until every check has passed.
+  let releaseManagedFlagFor: typeof changes.implementationType;
+  if (changes.implementationType !== undefined) {
+    const managed = await getManagedFeatureForExperiment(
+      req.context,
       experiment,
-      next: changes.implementationType,
-    });
-    if (!canChangeImplementationType(experiment, changes.implementationType)) {
-      throw new Error(
-        "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing implementationType.",
-      );
+    );
+    const current = managed ? "values" : experiment.implementationType;
+    if (changes.implementationType !== current) {
+      const afterRelease =
+        managed && changes.implementationType !== "feature"
+          ? {
+              ...experiment,
+              linkedFeatures: (experiment.linkedFeatures ?? []).filter(
+                (id) => id !== managed.id,
+              ),
+            }
+          : experiment;
+      if (
+        !canChangeImplementationType(afterRelease, changes.implementationType)
+      ) {
+        throw new Error(
+          "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing implementationType.",
+        );
+      }
+      if (managed) releaseManagedFlagFor = changes.implementationType;
     }
   }
   if (changes.project !== undefined) {
     await assertManagedFlagCanMove(req.context, experiment, changes.project);
   }
   await validateExperimentChange({ context: req.context, experiment, changes });
+  if (releaseManagedFlagFor) {
+    experiment = await releaseManagedFlagForImplementationChange({
+      context: req.context,
+      experiment,
+      next: releaseManagedFlagFor,
+    });
+  }
 
   let experimentForUpdate = experiment;
   let changesForUpdate = changes;

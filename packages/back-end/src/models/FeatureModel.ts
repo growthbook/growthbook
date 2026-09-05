@@ -4552,6 +4552,7 @@ export async function getFeatureMetaInfoByIds(
       valueType: 1,
       version: 1,
       linkedExperiments: 1,
+      managedBy: 1,
       neverStale: 1,
       "jsonSchema.enabled": 1,
       revision: 1,
@@ -4574,6 +4575,7 @@ export async function getFeatureMetaInfoByIds(
       valueType: f.valueType,
       version: f.version,
       linkedExperiments: f.linkedExperiments,
+      managedBy: f.managedBy,
       neverStale: f.neverStale,
       revision: f.revision as FeatureMetaInfo["revision"],
     }));

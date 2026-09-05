@@ -135,6 +135,7 @@ import {
   deleteExperimentWithCleanup,
   LinkedChangesBlockedError,
   unarchiveExperimentWithCleanup,
+  assertCanChangeServing,
 } from "back-end/src/services/experimentRemoval";
 import {
   createPastExperiments,
@@ -1644,16 +1645,17 @@ export async function postExperiment(
     ...data
   } = req.body;
 
-  let experiment = await getExperimentById(context, id);
+  const foundExperiment = await getExperimentById(context, id);
   const aiSettings = await getAISettingsForOrg(context);
 
-  if (!experiment) {
+  if (!foundExperiment) {
     res.status(403).json({
       status: 404,
       message: "Experiment not found",
     });
     return;
   }
+  let experiment: ExperimentInterface = foundExperiment;
 
   if (experiment.organization !== org.id) {
     res.status(403).json({
@@ -1674,22 +1676,32 @@ export async function postExperiment(
     });
     return;
   }
-  if (
-    data.implementationType !== undefined &&
-    data.implementationType !== experiment.implementationType
-  ) {
-    experiment = await releaseManagedFlagForImplementationChange({
-      context,
-      experiment,
-      next: data.implementationType,
-    });
-    if (!canChangeImplementationType(experiment, data.implementationType)) {
-      res.status(400).json({
-        status: 400,
-        message:
-          "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing how it is implemented.",
-      });
-      return;
+  // Compared against the flag actually managed, not the stored label: an
+  // adoption that predates the marker reads as "feature". The release itself
+  // waits until every check has passed, since it deletes or ejects the flag.
+  let releaseManagedFlagFor: typeof data.implementationType;
+  if (data.implementationType !== undefined) {
+    const managed = await getManagedFeatureForExperiment(context, experiment);
+    const current = managed ? "values" : experiment.implementationType;
+    if (data.implementationType !== current) {
+      const afterRelease =
+        managed && data.implementationType !== "feature"
+          ? {
+              ...experiment,
+              linkedFeatures: (experiment.linkedFeatures ?? []).filter(
+                (id) => id !== managed.id,
+              ),
+            }
+          : experiment;
+      if (!canChangeImplementationType(afterRelease, data.implementationType)) {
+        res.status(400).json({
+          status: 400,
+          message:
+            "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing how it is implemented.",
+        });
+        return;
+      }
+      if (managed) releaseManagedFlagFor = data.implementationType;
     }
   }
 
@@ -2319,6 +2331,13 @@ export async function postExperiment(
     await assertManagedFlagCanMove(context, experiment, changes.project ?? "");
   }
   await validateExperimentChange({ context, experiment, changes });
+  if (releaseManagedFlagFor) {
+    experiment = await releaseManagedFlagForImplementationChange({
+      context,
+      experiment,
+      next: releaseManagedFlagFor,
+    });
+  }
   const updated = await updateExperimentAndSync({
     context,
     experiment,
@@ -2394,21 +2413,7 @@ export async function postExperimentArchive(
     context.permissions.throwPermissionError();
   }
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  await assertCanChangeServing(context, experiment);
 
   try {
     await archiveExperimentWithCleanup({
@@ -2470,6 +2475,7 @@ export async function postExperimentUnarchive(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  await assertCanChangeServing(context, experiment);
 
   try {
     await unarchiveExperimentWithCleanup({ context, experiment });

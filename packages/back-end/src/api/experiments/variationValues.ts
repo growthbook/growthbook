@@ -19,6 +19,7 @@ import { EventUser } from "shared/types/events/event-types";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import {
   getExperimentById,
   clearPendingFeatureDraftsForRevision,
@@ -137,6 +138,15 @@ export const putExperimentVariationValues = createApiRequestHandler(
   }
   const scope = req.body.environments;
   if (scope !== undefined) {
+    if (scope !== "all") {
+      const known = getEnvironmentIdsFromOrg(req.context.org);
+      const unknown = scope.filter((e) => !known.includes(e));
+      if (unknown.length) {
+        throw new BadRequestError(
+          `Unknown environment${unknown.length > 1 ? "s" : ""}: ${unknown.join(", ")}`,
+        );
+      }
+    }
     const { version } = await updateExperimentRuleEnvironments({
       context: req.context,
       experiment,
