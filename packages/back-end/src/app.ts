@@ -144,6 +144,7 @@ import { savedQueriesRouter } from "./routers/saved-queries/saved-queries.router
 import { projectRouter } from "./routers/project/project.router";
 import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
+import { legacyMetricsRouter } from "./routers/legacy-metrics/legacy-metrics.router";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
@@ -926,6 +927,7 @@ app.use("/saved-queries", savedQueriesRouter);
 app.use("/projects", projectRouter);
 
 app.use(factTableRouter);
+app.use(legacyMetricsRouter);
 
 // Must be registered before mounting revisionRouter — the router's GET /:id
 // catch-all would otherwise consume this path and resolve `id = "feature"`.
