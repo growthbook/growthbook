@@ -73,10 +73,15 @@ export default function ChangeImplementationTypeModal({
       submit={async () => {
         if (!next) return;
         // The server converts or deletes the managed flag as part of the change.
-        await apiCall(`/experiment/${experiment.id}`, {
-          method: "POST",
-          body: JSON.stringify({ implementationType: next }),
-        });
+        // The checkbox above is the acknowledgement the server requires
+        // before it deletes the managed flag.
+        await apiCall(
+          `/experiment/${experiment.id}${removesManagedFlag ? "?ignoreWarnings=true" : ""}`,
+          {
+            method: "POST",
+            body: JSON.stringify({ implementationType: next }),
+          },
+        );
         mutate();
       }}
     >

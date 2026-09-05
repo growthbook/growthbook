@@ -11,6 +11,7 @@ import {
   paginationQueryFields,
   apiPaginationFieldsValidator,
   ignoreWarningsBodyField,
+  bypassApprovalPublishBodyField,
   booleanQueryField,
   csvQueryField,
 } from "./shared";
@@ -1438,7 +1439,7 @@ const postExperimentBody = z
     implementationType: z
       .enum(["values", "feature", "urlredirect", "visual", "none"])
       .describe(
-        'How the experiment reaches users. "values" is a Feature Flag managed by the experiment; "none" is analysis only. Fixed once a Feature Flag, Visual Editor change or URL Redirect is linked. Changing a Values experiment: "feature" detaches the managed flag (it stays linked as an ordinary Feature Flag); any other value deletes the managed flag, which is allowed only while the experiment is a draft and the caller may delete the flag.',
+        'How the experiment reaches users. "values" is a Feature Flag managed by the experiment; "none" is analysis only. Fixed once a Feature Flag, Visual Editor change or URL Redirect is linked. Changing a Values experiment: "feature" detaches the managed flag (it stays linked as an ordinary Feature Flag); any other value deletes the managed flag, which is allowed only while the experiment is a draft and the caller may delete the flag, and must be acknowledged with `ignoreWarnings: true` (without it the call returns 422 naming the flag).',
       )
       .optional(),
     project: z
@@ -1579,15 +1580,10 @@ const updateExperimentBody = z
     implementationType: z
       .enum(["values", "feature", "urlredirect", "visual", "none"])
       .describe(
-        'How the experiment reaches users. "values" is a Feature Flag managed by the experiment; "none" is analysis only. Fixed once a Feature Flag, Visual Editor change or URL Redirect is linked. Changing a Values experiment: "feature" detaches the managed flag (it stays linked as an ordinary Feature Flag); any other value deletes the managed flag, which is allowed only while the experiment is a draft and the caller may delete the flag.',
+        'How the experiment reaches users. "values" is a Feature Flag managed by the experiment; "none" is analysis only. Fixed once a Feature Flag, Visual Editor change or URL Redirect is linked. Changing a Values experiment: "feature" detaches the managed flag (it stays linked as an ordinary Feature Flag); any other value deletes the managed flag, which is allowed only while the experiment is a draft and the caller may delete the flag, and must be acknowledged with `ignoreWarnings: true` (without it the call returns 422 naming the flag).',
       )
       .optional(),
-    bypassApproval: z
-      .boolean()
-      .optional()
-      .describe(
-        "When `status` moves to running, publish the linked Feature Flag drafts even without a satisfied approval. Honored only when the caller has Bypass draft approvals access; otherwise ignored.",
-      ),
+    bypassApproval: bypassApprovalPublishBodyField,
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")
@@ -1792,12 +1788,7 @@ const postExperimentStartBody = z
         "If true, skips validating the experiment satisifies all pre-launch checklist items",
       )
       .optional(),
-    bypassApproval: z
-      .boolean()
-      .optional()
-      .describe(
-        "Publish the linked Feature Flag drafts that start this experiment even without a satisfied approval. Honored only when the caller has Bypass draft approvals access; otherwise ignored.",
-      ),
+    bypassApproval: bypassApprovalPublishBodyField,
     ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict()
@@ -2183,7 +2174,7 @@ export const postExperimentStartValidator = {
     .strict(),
   summary: "Start/Stage an experiment",
   description:
-    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment. Starting publishes any pending Feature Flag drafts linked to the experiment, including a Values experiment's pending variation values; when those still need approval the start fails with `pending_draft_publish_failed` unless `bypassApproval` applies.",
+    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment. Starting publishes any pending Feature Flag drafts linked to the experiment, including a Values experiment's pending variation values; when those still need approval the start fails with `pending_draft_publish_failed`, unless the caller has Bypass draft approvals access or the organization enables the REST API approval bypass, in which case approval is bypassed automatically.",
   operationId: "postExperimentStart",
   tags: ["experiments"],
   method: "post" as const,
@@ -2955,12 +2946,8 @@ export const postExperimentVariationValuesPublishValidator = {
         .string()
         .optional()
         .describe("Recorded on the published revision."),
-      bypassApproval: z
-        .boolean()
-        .optional()
-        .describe(
-          "Publish before required approval is given, and publish over a stale base. Honored only when the caller has Bypass draft approvals access; otherwise ignored. Not needed when the organization enables the REST API approval bypass, which applies automatically.",
-        ),
+      bypassApproval: bypassApprovalPublishBodyField,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -2968,7 +2955,7 @@ export const postExperimentVariationValuesPublishValidator = {
   responseSchema: variationValuesResponse,
   summary: "Publish pending values",
   description:
-    'Makes the pending values live on the managed Feature Flag. Use only after the experiment has started; before that, pending values go live automatically when it starts. A blocked publish returns 422 with `gates` listing each blocker (`approval-required`, `stale-base`, `merge-conflict`) and the route that resolves it. `GET` reports the same list ahead of time in `pending.publishBlockers`. To publish together with other changes, use `POST /releases/publish-revisions` with `entityType: "managed-feature"`.',
+    'Makes the pending values live on the managed Feature Flag. Use only after the experiment has started; before that, pending values go live automatically when it starts. A blocked publish returns 422 with `gates` listing each blocker (`approval-required`, `stale-base`, `merge-conflict`) and the route that resolves it. Approval is bypassed automatically when the caller has Bypass draft approvals access or the organization enables the REST API approval bypass. A stale base is force-merged only with `ignoreWarnings: true` and that access; otherwise call `rebase`. `GET` reports the blockers ahead of time in `pending.publishBlockers`. To publish together with other changes, use `POST /releases/publish-revisions` with `entityType: "managed-feature"`.',
   operationId: "postExperimentVariationValuesPublish",
   tags: ["experiment-values"],
   method: "post" as const,

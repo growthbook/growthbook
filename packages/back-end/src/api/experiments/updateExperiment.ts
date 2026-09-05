@@ -12,6 +12,7 @@ import {
   releaseManagedFlagForImplementationChange,
 } from "back-end/src/services/managedFeatures";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   updateExperiment as updateExperimentToDb,
   getExperimentById,
@@ -409,6 +410,7 @@ export const updateExperiment = createApiRequestHandler(
       experiment,
       next: releaseManagedFlagFor,
       audit: req.audit,
+      acknowledged: req.context.ignoreWarnings,
     });
   }
 
@@ -438,7 +440,7 @@ export const updateExperiment = createApiRequestHandler(
       // behavior for patch endpoint is to skip pre-launch checklist
       skipChecklist: true,
       bypassLockdown:
-        !!req.body.bypassApproval &&
+        canUseRestApiBypassSetting(req) ||
         req.context.permissions.canBypassFlagApprovalChecks(
           experiment,
           "feature",

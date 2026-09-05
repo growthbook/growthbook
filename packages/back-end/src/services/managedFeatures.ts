@@ -62,6 +62,7 @@ import {
   ManagedFeatureError,
   ManagedFeatureErrorSurface,
   NotFoundError,
+  SoftWarningError,
 } from "back-end/src/util/errors";
 import {
   makeBlockingGate,
@@ -1161,16 +1162,16 @@ export async function publishManagedDraft({
   context,
   experiment,
   bypassApproval = false,
-  restApiBypass = false,
+  forceStaleBase,
   comment = "",
   audit,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
-  /** Explicit per-publish opt-in; still needs bypass authority. */
+  /** Skip a required approval. Callers decide authority; the UI asks per publish. */
   bypassApproval?: boolean;
-  /** The org's "REST API always bypasses approval requirements" setting. */
-  restApiBypass?: boolean;
+  /** Publish over a stale base without rebasing. Defaults to `bypassApproval`. */
+  forceStaleBase?: boolean;
   comment?: string;
   audit?: (data: AuditInterfaceInput) => Promise<void>;
 }): Promise<FeatureInterface> {
@@ -1200,10 +1201,8 @@ export async function publishManagedDraft({
     live,
     base,
   );
-  const bypass =
-    restApiBypass ||
-    (bypassApproval &&
-      context.permissions.canBypassFlagApprovalChecks(feature, "feature"));
+  const bypass = bypassApproval;
+  const forceStale = forceStaleBase ?? bypass;
 
   // The same gate model as a Feature Revision publish, with resolutions that
   // point at this surface's routes rather than the locked flag routes.
@@ -1211,7 +1210,7 @@ export async function publishManagedDraft({
   const gates: PublishGate[] = [];
   // Approvals on a managed flag must stand against the current live state; the
   // same authority that skips approval skips this.
-  if (rebaseRequired && !bypass) {
+  if (rebaseRequired && !forceStale) {
     gates.push(
       makeBlockingGate({
         type: "stale-base",
@@ -1364,15 +1363,26 @@ export async function releaseManagedFlagForImplementationChange({
   experiment,
   next,
   audit,
+  acknowledged = false,
 }: {
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
   next: ImplementationType;
   audit?: (data: AuditInterfaceInput) => Promise<void>;
+  /** Deleting the flag is irreversible, so it must be acknowledged (`ignoreWarnings`). */
+  acknowledged?: boolean;
 }): Promise<ExperimentInterface> {
   if (next === "values") return experiment;
   const feature = await getManagedFeatureForExperiment(context, experiment);
   if (!feature) return experiment;
+  if (next !== "feature" && !acknowledged) {
+    throw new SoftWarningError(
+      "Changing the implementation type deletes the managed Feature Flag.",
+      [
+        `Changing the implementation type from Values deletes managed Feature Flag "${feature.id}" and any pending variation values.`,
+      ],
+    );
+  }
   if (next === "feature") {
     await ejectManagedFeature({
       context,

@@ -51,7 +51,7 @@ import {
   updateManagedVariationValues,
 } from "back-end/src/services/managedFeatures";
 import { updateExperimentRuleEnvironments } from "back-end/src/services/experiment-feature";
-import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import { canBypassReviewChecks } from "back-end/src/api/features/reviewBypass";
 import { rebaseFeatureRevision } from "back-end/src/api/features/postFeatureRevisionRebase";
 
 /** The one response shape every endpoint here returns. */
@@ -264,13 +264,17 @@ export const postExperimentVariationValuesPublish = createApiRequestHandler(
   if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
     req.context.permissions.throwPermissionError();
   }
-  await requireManagedFlag(req.context, experiment);
+  const feature = await requireManagedFlag(req.context, experiment);
 
   await publishManagedDraft({
     context: req.context,
     experiment,
-    bypassApproval: !!req.body.bypassApproval,
-    restApiBypass: canUseRestApiBypassSetting(req),
+    // Authority, not the body flag, bypasses approval; a stale base is only
+    // forced on request, as on a Feature Revision publish.
+    bypassApproval: canBypassReviewChecks(req, feature),
+    forceStaleBase:
+      req.body.ignoreWarnings === true &&
+      req.context.permissions.canBypassFlagApprovalChecks(feature, "feature"),
     comment: req.body.comment ?? "",
     audit: req.audit,
   });

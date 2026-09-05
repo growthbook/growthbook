@@ -2337,6 +2337,7 @@ export async function postExperiment(
       experiment,
       next: releaseManagedFlagFor,
       audit: req.audit,
+      acknowledged: context.ignoreWarnings,
     });
   }
   const updated = await updateExperimentAndSync({
@@ -4869,7 +4870,10 @@ export async function postExperimentManagedFlagPublish(
   const feature = await publishManagedDraft({
     context,
     experiment,
-    bypassApproval: !!req.body?.bypassApproval,
+    // The dashboard asks per publish; the opt-in only counts with the permission.
+    bypassApproval:
+      !!req.body?.bypassApproval &&
+      context.permissions.canBypassFlagApprovalChecks(experiment, "feature"),
     audit: req.audit,
   });
 

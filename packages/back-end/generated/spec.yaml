@@ -13704,7 +13704,9 @@ paths:
                     managed flag (it stays linked as an ordinary Feature Flag);
                     any other value deletes the managed flag, which is allowed
                     only while the experiment is a draft and the caller may
-                    delete the flag.
+                    delete the flag, and must be acknowledged with
+                    `ignoreWarnings: true` (without it the call returns 422
+                    naming the flag).
                   type: string
                   enum:
                     - values
@@ -14426,7 +14428,9 @@ paths:
                     managed flag (it stays linked as an ordinary Feature Flag);
                     any other value deletes the managed flag, which is allowed
                     only while the experiment is a draft and the caller may
-                    delete the flag.
+                    delete the flag, and must be acknowledged with
+                    `ignoreWarnings: true` (without it the call returns 422
+                    naming the flag).
                   type: string
                   enum:
                     - values
@@ -14436,10 +14440,11 @@ paths:
                     - none
                 bypassApproval:
                   description: >-
-                    When `status` moves to running, publish the linked Feature
-                    Flag drafts even without a satisfied approval. Honored only
-                    when the caller has Bypass draft approvals access; otherwise
-                    ignored.
+                    Deprecated and ignored. Approval is bypassed automatically
+                    when the caller has Bypass draft approvals access for this
+                    resource or when the organization enables the REST API
+                    approval bypass. Otherwise, the revision must be approved
+                    before it can be published.
                   type: boolean
                 project:
                   description: Project ID which the experiment belongs to
@@ -15566,10 +15571,13 @@ paths:
         after the experiment has started; before that, pending values go live
         automatically when it starts. A blocked publish returns 422 with `gates`
         listing each blocker (`approval-required`, `stale-base`,
-        `merge-conflict`) and the route that resolves it. `GET` reports the same
-        list ahead of time in `pending.publishBlockers`. To publish together
-        with other changes, use `POST /releases/publish-revisions` with
-        `entityType: "managed-feature"`.
+        `merge-conflict`) and the route that resolves it. Approval is bypassed
+        automatically when the caller has Bypass draft approvals access or the
+        organization enables the REST API approval bypass. A stale base is
+        force-merged only with `ignoreWarnings: true` and that access; otherwise
+        call `rebase`. `GET` reports the blockers ahead of time in
+        `pending.publishBlockers`. To publish together with other changes, use
+        `POST /releases/publish-revisions` with `entityType: "managed-feature"`.
       tags:
         - experiment-values
       parameters:
@@ -15586,11 +15594,22 @@ paths:
                   type: string
                 bypassApproval:
                   description: >-
-                    Publish before required approval is given, and publish over
-                    a stale base. Honored only when the caller has Bypass draft
-                    approvals access; otherwise ignored. Not needed when the
-                    organization enables the REST API approval bypass, which
-                    applies automatically.
+                    Deprecated and ignored. Approval is bypassed automatically
+                    when the caller has Bypass draft approvals access for this
+                    resource or when the organization enables the REST API
+                    approval bypass. Otherwise, the revision must be approved
+                    before it can be published.
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access.
                   type: boolean
               additionalProperties: false
       responses:
@@ -15822,8 +15841,9 @@ paths:
         `statusUpdateSchedule` is set on the experiment. Starting publishes any
         pending Feature Flag drafts linked to the experiment, including a Values
         experiment's pending variation values; when those still need approval
-        the start fails with `pending_draft_publish_failed` unless
-        `bypassApproval` applies.
+        the start fails with `pending_draft_publish_failed`, unless the caller
+        has Bypass draft approvals access or the organization enables the REST
+        API approval bypass, in which case approval is bypassed automatically.
       tags:
         - experiments
       parameters:
@@ -15842,10 +15862,11 @@ paths:
                   type: boolean
                 bypassApproval:
                   description: >-
-                    Publish the linked Feature Flag drafts that start this
-                    experiment even without a satisfied approval. Honored only
-                    when the caller has Bypass draft approvals access; otherwise
-                    ignored.
+                    Deprecated and ignored. Approval is bypassed automatically
+                    when the caller has Bypass draft approvals access for this
+                    resource or when the organization enables the REST API
+                    approval bypass. Otherwise, the revision must be approved
+                    before it can be published.
                   type: boolean
                 ignoreWarnings:
                   description: >-
