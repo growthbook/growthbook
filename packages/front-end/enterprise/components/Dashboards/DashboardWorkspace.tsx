@@ -10,10 +10,15 @@ import {
   getInitialConfigByBlockType,
   DASHBOARD_GRID_COLS,
   isDashboardGlobalControlSupportedBlock,
+  isDashboardExperimentBlock,
   autoEnrollDashboardBlocksInDateControl,
+  autoEnrollDashboardBlocksInGlobalFilter,
   blockUsesDashboardDateControl,
+  getDefaultExperimentBlockGlobalControlSettings,
   isEnablingDashboardDateControl,
   getEffectiveExplorationConfig,
+  globalFilterIsSet,
+  DASHBOARD_GLOBAL_FILTER_KEYS,
   resolveBlockComparison,
   resolveComparisonMode,
   resolveComparisonPreviousTimeFrame,
@@ -314,19 +319,22 @@ export default function DashboardWorkspace({
   >(undefined);
 
   useEffect(() => {
-    if (!globalControls?.dateRange) return;
+    const activeKeys = DASHBOARD_GLOBAL_FILTER_KEYS.filter((key) =>
+      globalFilterIsSet(globalControls, key),
+    );
+    if (activeKeys.length === 0) return;
+    const enroll = (
+      block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+    ) =>
+      activeKeys.reduce(
+        (b, key) => autoEnrollDashboardBlocksInGlobalFilter([b], key)[0],
+        block,
+      );
     setStagedInsert((insert) =>
-      insert
-        ? {
-            ...insert,
-            block: autoEnrollDashboardBlocksInDateControl([insert.block])[0],
-          }
-        : insert,
+      insert ? { ...insert, block: enroll(insert.block) } : insert,
     );
-    setStagedEditBlock((block) =>
-      block ? autoEnrollDashboardBlocksInDateControl([block])[0] : block,
-    );
-  }, [globalControls?.dateRange]);
+    setStagedEditBlock((block) => (block ? enroll(block) : block));
+  }, [globalControls]);
 
   // Whenever a block becomes staged (via add, duplicate, or edit), make sure
   // the editing drawer is open so the user can actually configure/save it.
@@ -359,6 +367,7 @@ export default function DashboardWorkspace({
       bType === "metric-exploration" ||
       bType === "fact-table-exploration" ||
       bType === "data-source-exploration" ||
+      bType === "sql-exploration" ||
       bType === "funnel-exploration";
     // TypeScript can't correlate block type with its config in a discriminated union
     const createBlock = CREATE_BLOCK_TYPE[bType] as (args: {
@@ -376,21 +385,33 @@ export default function DashboardWorkspace({
         : undefined,
     });
 
-    const blockWithGlobalControls = isDashboardGlobalControlSupportedBlock(
-      blockData,
-    )
-      ? {
-          ...blockData,
-          globalControlSettings: {
-            ...blockData.globalControlSettings,
-            dateRange: true,
-          },
-        }
-      : blockData;
+    // A new block inherits the dashboard by default: exploration blocks follow
+    // the date control, and experiment blocks inherit every filter they support —
+    // including ones the dashboard has no value for yet, so a filter set later
+    // applies without the block having to be edited.
+    let stagedBlock: DashboardBlockInterfaceOrData<DashboardBlockInterface> =
+      blockData;
+    if (isDashboardGlobalControlSupportedBlock(blockData)) {
+      stagedBlock = {
+        ...blockData,
+        globalControlSettings: {
+          ...blockData.globalControlSettings,
+          dateRange: true,
+        },
+      };
+    } else if (isDashboardExperimentBlock(blockData)) {
+      stagedBlock = {
+        ...blockData,
+        globalControlSettings: {
+          ...blockData.globalControlSettings,
+          ...getDefaultExperimentBlockGlobalControlSettings(blockData),
+        },
+      };
+    }
     setStagedInsert({
       block: initialLayout
-        ? { ...blockWithGlobalControls, layout: initialLayout }
-        : blockWithGlobalControls,
+        ? { ...stagedBlock, layout: initialLayout }
+        : stagedBlock,
       index,
       placement,
     });
@@ -720,23 +741,25 @@ export default function DashboardWorkspace({
               dashboardGlobalControls={globalControls}
               open={editSidebarExpanded}
               cancel={clearEditingState}
-              submit={() => {
-                if (stagedInsert) {
+              submit={(blockOverride) => {
+                const blockToSubmit =
+                  blockOverride ?? stagedInsert?.block ?? stagedEditBlock;
+                if (stagedInsert && isDefined(blockToSubmit)) {
                   setBlocksAndSubmit(
                     insertBlockAtIndex(
                       blocks,
-                      stagedInsert.block,
+                      blockToSubmit,
                       stagedInsert.index,
                       stagedInsert.placement,
                     ),
                   );
                 } else if (
                   isDefined(editingBlockIndex) &&
-                  isDefined(stagedEditBlock)
+                  isDefined(blockToSubmit)
                 ) {
                   setBlocksAndSubmit([
                     ...blocks.slice(0, editingBlockIndex),
-                    stagedEditBlock,
+                    blockToSubmit,
                     ...blocks.slice(editingBlockIndex + 1),
                   ]);
                 }

@@ -57,6 +57,7 @@ export interface SnapshotMetric {
   }[];
   chanceToWin?: number;
   errorMessage?: string;
+  computeFailed?: boolean;
   power?: MetricPowerResponseFromStatsEngine;
   realizedSettings?: RealizedSettings;
   supplementalResults?: SupplementalResults;
@@ -294,6 +295,8 @@ export interface ExperimentSnapshotTraffic {
     [dimension: string]: ExperimentSnapshotTrafficDimension[];
   };
   error?: "NO_ROWS_IN_UNIT_QUERY" | "TOO_MANY_ROWS" | string;
+  // Absent when the traffic query errored
+  multipleExposures?: number;
 }
 export interface ExperimentSnapshotTrafficDimension {
   name: string;

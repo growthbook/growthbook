@@ -5716,7 +5716,9 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
       projects: {},
     });
 
-    expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(true);
+    expect(
+      permissions.canReviewFeatureDrafts({ project: "" }, { scope: "any" }),
+    ).toEqual(true);
   });
 
   it("User with engineer role able to reviewFeatureDrafts", async () => {
@@ -5729,7 +5731,9 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
       projects: {},
     });
 
-    expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(true);
+    expect(
+      permissions.canReviewFeatureDrafts({ project: "" }, { scope: "any" }),
+    ).toEqual(true);
   });
 
   it("User with anaylst role able to reviewFeatureDrafts", async () => {
@@ -5742,7 +5746,9 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
       projects: {},
     });
 
-    expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(false);
+    expect(
+      permissions.canReviewFeatureDrafts({ project: "" }, { scope: "any" }),
+    ).toEqual(false);
   });
 
   it("User with global readonly role, but experimenter role on project 'abc123', should be able to reivew features in project 'abc123'", async () => {
@@ -5761,9 +5767,12 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
       },
     });
 
-    expect(permissions.canReviewFeatureDrafts({ project: "abc123" })).toEqual(
-      true,
-    );
+    expect(
+      permissions.canReviewFeatureDrafts(
+        { project: "abc123" },
+        { scope: "any" },
+      ),
+    ).toEqual(true);
   });
 
   it("User with global experimenter role, but readonly role on project 'abc123', should be able to reivew features in project 'abc123'", async () => {
@@ -5782,9 +5791,12 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
       },
     });
 
-    expect(permissions.canReviewFeatureDrafts({ project: "abc123" })).toEqual(
-      false,
-    );
+    expect(
+      permissions.canReviewFeatureDrafts(
+        { project: "abc123" },
+        { scope: "any" },
+      ),
+    ).toEqual(false);
   });
 
   it("User with admin role able to bypassApprovalCheck", async () => {
@@ -5797,7 +5809,9 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
       projects: {},
     });
 
-    expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(true);
+    expect(
+      permissions.canReviewFeatureDrafts({ project: "" }, { scope: "any" }),
+    ).toEqual(true);
   });
 });
 

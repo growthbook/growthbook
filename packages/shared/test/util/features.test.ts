@@ -29,7 +29,6 @@ import {
   rampControlFootprint,
   getEnvsFromRampSchedule,
   liveRevisionFromFeature,
-  resetReviewOnChange,
   simpleToJSONSchema,
   inferSchemaField,
   inferSchemaFields,
@@ -54,6 +53,8 @@ import {
   draftHasChangesOutsideTargetRef,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
+
+const toEnvs = (ids: string[]) => ids.map((id) => ({ id, description: "" }));
 
 const feature: FeatureInterface = {
   dateCreated: new Date("2020-04-20"),
@@ -2797,7 +2798,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -2818,7 +2819,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(false);
@@ -2852,7 +2853,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -2885,7 +2886,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(false);
@@ -2951,7 +2952,7 @@ describe("check revision needs review", () => {
         feature: newFeature,
         baseRevision: filledLive,
         revision: effectiveRevision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toEqual(false);
@@ -2965,7 +2966,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -2975,7 +2976,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(false);
@@ -3000,7 +3001,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(false);
@@ -3010,7 +3011,7 @@ describe("check revision needs review", () => {
         feature: { ...feature, targetingAllProjects: true },
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -3020,167 +3021,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision: { ...revision, metadata: { targetingAllProjects: true } },
-        allEnvironments: ["prod", "dev", "staging"],
-        settings,
-      }),
-    ).toEqual(true);
-  });
-});
-
-describe("reset review on change", () => {
-  it("require reset with single rule", () => {
-    const settings: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: ["prod"],
-          projects: [],
-        },
-      ],
-    };
-    const settingsOff: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: false,
-          environments: ["prod"],
-          projects: [],
-        },
-      ],
-    };
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(true);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings: settingsOff,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
-        settings: settingsOff,
-      }),
-    ).toEqual(false);
-  });
-
-  it("require reset with multiple rules", () => {
-    const settings: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: ["prod"],
-          projects: [],
-        },
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: [],
-          projects: [],
-        },
-      ],
-    };
-    const settingsOff: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: false,
-          environments: ["prod"],
-          projects: [],
-        },
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: [],
-          projects: [],
-        },
-      ],
-    };
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(true);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
-        settings: settingsOff,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings: settingsOff,
-      }),
-    ).toEqual(false);
-  });
-  it("turn off for first project", () => {
-    const settings: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: false,
-          resetReviewOnChange: false,
-          environments: [],
-          projects: ["a"],
-        },
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: [],
-          projects: [],
-        },
-      ],
-    };
-    feature.project = "a";
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["env"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(false);
-    feature.project = "b";
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -4169,7 +4010,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(true);
@@ -4202,7 +4043,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(false);
@@ -4259,7 +4100,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(true);
@@ -4306,7 +4147,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draftRemovesProd,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
         liveRampScheduleEnvs,
       }),
@@ -4353,7 +4194,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draftRemovesProd,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
         // no liveRampScheduleEnvs
       }),
@@ -4386,7 +4227,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draftDetach,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(true);
@@ -4398,7 +4239,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: { ...baseRev },
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: noReviewSettings,
       }),
     ).toBe(false);

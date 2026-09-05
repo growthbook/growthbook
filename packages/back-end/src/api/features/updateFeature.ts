@@ -1,8 +1,9 @@
 import {
-  validateFeatureValue,
+  getApplicableEnvIds,
   getRulesForEnvironment,
-  stemRuleId,
   normalizeTargetingInUpdates,
+  stemRuleId,
+  validateFeatureValue,
 } from "shared/util";
 import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
@@ -46,7 +47,6 @@ import {
   getEnvironments,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 import {
   dispatchFeatureRevisionEvent,
@@ -140,6 +140,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         customFields ?? feature.customFields,
         req.context,
         effectiveProject,
+        // A project change must re-validate all values against the new
+        // project's fields, so only grandfather unchanged values in place
+        projectChanged ? undefined : feature.customFields,
       );
     }
 
@@ -345,6 +348,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         feature,
         envSettings.rules,
         feature.rules ?? [],
+        {
+          project: project ?? feature.project,
+          targetingAllProjects:
+            targetingAllProjects ?? feature.targetingAllProjects,
+          targetingProjects: targetingProjects ?? feature.targetingProjects,
+        },
       );
       // Inherit stored seed/hashVersion first so the backfill can't re-bucket a legacy rollout.
       inheritStoredRolloutSeeds(converted, feature.rules ?? []);

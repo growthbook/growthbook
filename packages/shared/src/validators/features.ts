@@ -1407,11 +1407,22 @@ const postFeatureRuleProjectScopeShape = {
     .optional(),
 };
 
+const v1RuleSavedGroupInput = {
+  savedGroups: z.array(savedGroupTargeting).optional(),
+  savedGroupTargeting: z
+    .array(postFeatureSavedGroupTargeting)
+    .optional()
+    .describe(
+      "Deprecated — use `savedGroups`. Accepted so a GET response can be posted back unchanged; `savedGroups` takes precedence if both are sent.",
+    )
+    .meta({ deprecated: true }),
+};
+
 const postFeatureForceRule = z.object({
   ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
-  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
+  ...v1RuleSavedGroupInput,
   prerequisites: z.array(apiRevisionPrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRuleValidator).optional(),
   id: z.string().optional(),
@@ -1425,7 +1436,7 @@ const postFeatureRolloutRule = z.object({
   ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
-  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
+  ...v1RuleSavedGroupInput,
   prerequisites: z.array(postFeaturePrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRuleValidator).optional(),
   id: z.string().optional(),
@@ -1455,7 +1466,7 @@ const postFeatureExperimentRefRule = z.object({
   enabled: z.boolean().describe("Enabled by default").optional(),
   type: z.literal("experiment-ref"),
   condition: z.string().optional(),
-  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
+  ...v1RuleSavedGroupInput,
   prerequisites: z.array(postFeaturePrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRuleValidator).optional(),
   variations: z.array(

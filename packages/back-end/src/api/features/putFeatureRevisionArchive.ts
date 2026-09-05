@@ -1,6 +1,5 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import { putFeatureRevisionArchiveValidator } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
 import {
   canWriteArchiveIntoDraft,
   canStageArchiveDraft,
@@ -51,9 +50,7 @@ export async function archiveRevision(
 
   // Writing `archived` into a PINNED revision is a write into someone else's
   // draft: it makes that draft delete-class, so its author — a publisher without
-  // delete — can no longer publish their own work, and because
-  // `createOrUpdateDraftWithChanges` does not reset review, an APPROVED draft keeps
-  // its approvals while now carrying an archive nobody reviewed.
+  // delete — can no longer publish their own work.
   if (
     !created &&
     !canWriteArchiveIntoDraft({
@@ -97,12 +94,6 @@ export async function archiveRevision(
         subject: "",
         value: JSON.stringify({ archived: body.archived }),
       },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: [],
-        defaultValueChanged: false,
-        settings: organization.settings,
-      }),
     );
 
     const updated = await getRevision({

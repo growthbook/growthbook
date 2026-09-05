@@ -1094,6 +1094,15 @@ export function getFactTableTemplateVariables(
   };
 }
 
+// The timestamp column in a fact table's SQL is configurable, defaulting to
+// `timestamp`. Query generation aliases it to `timestamp` when it first selects
+// from the fact table, so nothing downstream has to know the real name.
+export function getFactTableTimestampColumn(
+  factTable: Pick<FactTableInterface, "timestampColumn"> | undefined | null,
+): string {
+  return factTable?.timestampColumn || "timestamp";
+}
+
 // TODO(sql): refactor to remove factTableMap
 export function getMetricTemplateVariables(
   m: ExperimentMetricInterface,
@@ -1137,6 +1146,24 @@ export function getFactMetricPrimaryFactTableId(
   return isFactFunnelMetric(m)
     ? (m.funnelSettings.steps[0]?.factTableId ?? "")
     : m.numerator.factTableId;
+}
+
+/**
+ * Every fact table the metric reads from, de-duplicated and in definition
+ * order (funnel step order; numerator before denominator). Order is load
+ * bearing: the SQL layer assigns source indices from it and source 0 is
+ * privileged.
+ */
+export function getFactMetricFactTableIds(m: FactMetricInterface): string[] {
+  const ids = isFactFunnelMetric(m)
+    ? m.funnelSettings.steps.map((step) => step.factTableId)
+    : [
+        m.numerator.factTableId,
+        ...(isRatioMetric(m) && m.denominator?.factTableId
+          ? [m.denominator.factTableId]
+          : []),
+      ];
+  return Array.from(new Set(ids.filter((id) => !!id)));
 }
 
 /**
@@ -1329,8 +1356,9 @@ export function parseSliceQueryString(
 
   for (const [key, value] of params.entries()) {
     if (key.startsWith("dim:")) {
-      const column = decodeURIComponent(key.substring(4)); // Remove 'dim:' prefix
-      const level = value === "" ? null : decodeURIComponent(value);
+      // URLSearchParams already percent-decodes keys and values
+      const column = key.substring(4); // Remove 'dim:' prefix
+      const level = value === "" ? null : value;
       // Look up datatype from factTableMap if available
       let datatype: "string" | "boolean" = "string";
       if (factTableMap) {
@@ -2572,6 +2600,26 @@ export function isMetricJoinable(
   }
 
   return false;
+}
+
+export function isFactMetricJoinable(
+  metric: FactMetricInterface,
+  userIdType: string,
+  getFactTable: (
+    id: string,
+  ) => Pick<FactTableInterface, "userIdTypes"> | null | undefined,
+  settings?: DataSourceSettings,
+): boolean {
+  const factTableIds = getFactMetricFactTableIds(metric);
+  // A malformed metric with no resolvable fact tables can't be queried.
+  if (!factTableIds.length) return false;
+  return factTableIds.every((factTableId) =>
+    isMetricJoinable(
+      getFactTable(factTableId)?.userIdTypes ?? [],
+      userIdType,
+      settings,
+    ),
+  );
 }
 
 export function adjustPValuesBenjaminiHochberg(

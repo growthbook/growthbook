@@ -41,6 +41,7 @@ import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  errorSnapshotIfStillRunning,
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -575,6 +576,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       result.health = {
         traffic: trafficHealth,
       };
+      result.multipleExposures =
+        trafficHealth.multipleExposures ?? result.multipleExposures;
 
       const relativeAnalysis = this.model.analyses.find(
         (a) => a.settings.differenceType === "relative",
@@ -631,6 +634,23 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     if (!obj)
       throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
+  }
+
+  /** True once another finalizer (reaper, cancel) has concluded this snapshot. */
+  protected override isModelTerminal(
+    model: ExperimentSnapshotInterface,
+  ): boolean {
+    return model.status !== "running";
+  }
+
+  /** Persist error only while the snapshot is still running. */
+  protected override async writeErrorIfStillActive(
+    error: string,
+  ): Promise<void> {
+    await errorSnapshotIfStillRunning(this.context, this.model.id, {
+      queries: this.model.queries,
+      error,
+    });
   }
 
   async updateModel({

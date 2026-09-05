@@ -85,6 +85,10 @@ export const postVariationImageUpload = createApiRequestHandler(
     throw new Error("Experiment not found");
   }
 
+  if (experiment.type === "holdout") {
+    throw new Error("Holdouts are not supported via this API");
+  }
+
   if (experiment.organization !== context.org.id) {
     throw new Error("You do not have access to this experiment");
   }

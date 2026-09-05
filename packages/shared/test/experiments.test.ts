@@ -1,6 +1,7 @@
 import normal from "@stdlib/stats/base/dists/normal";
 import {
   FactTableInterface,
+  FactMetricInterface,
   ColumnInterface,
   FactFilterInterface,
 } from "shared/types/fact-table";
@@ -23,6 +24,10 @@ import {
   getRowFilterSQL,
   getEffectiveLookbackOverride,
   getIntersectionBaseMetricIds,
+  isFactMetricJoinable,
+  parseSliceQueryString,
+  parseSliceMetricId,
+  generateSliceString,
   getAllExpandedMetricIdsFromExperiment,
   ExperimentMetricInterface,
 } from "../src/experiments";
@@ -2305,6 +2310,49 @@ describe("getIntersectionBaseMetricIds", () => {
   });
 });
 
+describe("parseSliceQueryString", () => {
+  it("parses a simple slice query string", () => {
+    expect(parseSliceQueryString("dim:browser=Chrome&dim:country=AU")).toEqual([
+      { column: "browser", datatype: "string", levels: ["Chrome"] },
+      { column: "country", datatype: "string", levels: ["AU"] },
+    ]);
+  });
+
+  it("treats an empty value as no levels", () => {
+    expect(parseSliceQueryString("dim:browser=")).toEqual([
+      { column: "browser", datatype: "string", levels: [] },
+    ]);
+  });
+
+  it("round-trips values containing % and other special characters", () => {
+    const slices = {
+      promo: "50% off",
+      pattern: "%foo%",
+      "col%name": "a&b=c",
+    };
+    expect(parseSliceQueryString(generateSliceString(slices))).toEqual([
+      { column: "col%name", datatype: "string", levels: ["a&b=c"] },
+      { column: "pattern", datatype: "string", levels: ["%foo%"] },
+      { column: "promo", datatype: "string", levels: ["50% off"] },
+    ]);
+  });
+
+  it("parses slice metric ids with % in the level without throwing", () => {
+    const sliceString = generateSliceString({ query: "LIKE '%checkout%'" });
+    expect(parseSliceMetricId(`m_goal?${sliceString}`)).toEqual({
+      isSliceMetric: true,
+      baseMetricId: "m_goal",
+      sliceLevels: [
+        {
+          column: "query",
+          datatype: "string",
+          levels: ["LIKE '%checkout%'"],
+        },
+      ],
+    });
+  });
+});
+
 describe("getAllExpandedMetricIdsFromExperiment", () => {
   // The collector only inspects ids, so the map values can be placeholders.
   const mapOf = (...ids: string[]) =>
@@ -2718,5 +2766,100 @@ describe("Virtual Columns", () => {
         '(m."price" * 2)',
       );
     });
+  });
+});
+
+describe("isFactMetricJoinable", () => {
+  const factTables = new Map<string, Pick<FactTableInterface, "userIdTypes">>([
+    ["ft_users", { userIdTypes: ["user_id"] }],
+    ["ft_anon", { userIdTypes: ["anonymous_id"] }],
+    ["ft_both", { userIdTypes: ["user_id", "anonymous_id"] }],
+  ]);
+  const getFactTable = (id: string) => factTables.get(id);
+
+  const funnelOnTables = (factTableIds: string[]) =>
+    ({
+      metricType: "funnel",
+      numerator: null,
+      denominator: null,
+      funnelSettings: {
+        steps: factTableIds.map((factTableId, i) => ({
+          name: `Step ${i + 1}`,
+          factTableId,
+          rowFilters: [],
+          optional: false,
+          conversionWindow: null,
+        })),
+      },
+    }) as unknown as FactMetricInterface;
+
+  const ratioOnTables = (numerator: string, denominator: string) =>
+    ({
+      metricType: "ratio",
+      numerator: { factTableId: numerator, column: "$$count" },
+      denominator: { factTableId: denominator, column: "$$count" },
+    }) as unknown as FactMetricInterface;
+
+  it("is joinable when every step's fact table reaches the id type", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_both"]),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(true);
+  });
+
+  it("is not joinable when a later step's fact table cannot reach the id type", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_anon"]),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(false);
+  });
+
+  it("is not joinable when a cross-table ratio's denominator cannot reach the id type", () => {
+    expect(
+      isFactMetricJoinable(
+        ratioOnTables("ft_users", "ft_anon"),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(false);
+  });
+
+  it("treats a missing fact table as not joinable", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_deleted"]),
+        "user_id",
+        getFactTable,
+      ),
+    ).toBe(false);
+  });
+
+  it("treats a metric with no resolvable fact tables as not joinable", () => {
+    expect(
+      isFactMetricJoinable(funnelOnTables(["", ""]), "user_id", getFactTable),
+    ).toBe(false);
+  });
+
+  it("honors identity joins from datasource settings", () => {
+    expect(
+      isFactMetricJoinable(
+        funnelOnTables(["ft_users", "ft_anon"]),
+        "user_id",
+        getFactTable,
+        {
+          queries: {
+            identityJoins: [
+              { ids: ["user_id", "anonymous_id"], query: "SELECT 1" },
+            ],
+          },
+        },
+      ),
+    ).toBe(true);
   });
 });

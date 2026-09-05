@@ -8,6 +8,8 @@ import {
   blockUsesDashboardDateControl,
   DashboardInterface,
   isDashboardGlobalControlSupportedBlock,
+  isDashboardExperimentBlock,
+  experimentBlockOptedOutOfGlobalFilters,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import { PiDotsSixVertical, PiPencilSimpleFill } from "react-icons/pi";
@@ -146,6 +148,7 @@ const BLOCK_COMPONENTS: {
   "metric-exploration": ProductAnalyticsExplorerBlock,
   "fact-table-exploration": ProductAnalyticsExplorerBlock,
   "data-source-exploration": ProductAnalyticsExplorerBlock,
+  "sql-exploration": ProductAnalyticsExplorerBlock,
   "funnel-exploration": ProductAnalyticsExplorerBlock,
 };
 
@@ -202,6 +205,12 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     Boolean(dashboardGlobalControls?.dateRange) &&
     isDashboardGlobalControlSupportedBlock(block) &&
     !blockUsesDashboardDateControl(block);
+  // Experiment blocks follow the dashboard's experiment filters via a single
+  // per-block toggle; surface a badge when a block has opted out while the
+  // dashboard has active filters it could follow.
+  const shouldShowExperimentFilterOptOutBadge =
+    isDashboardExperimentBlock(block) &&
+    experimentBlockOptedOutOfGlobalFilters(block, dashboardGlobalControls);
 
   // Type guards for sql-explorer blocks
   const isSqlExplorerWithDataVizIndex = (
@@ -393,6 +402,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     ((block.type === "metric-exploration" ||
       block.type === "fact-table-exploration" ||
       block.type === "data-source-exploration" ||
+      block.type === "sql-exploration" ||
       block.type === "funnel-exploration") &&
       !isSubmittableConfig(block.config));
 
@@ -538,6 +548,15 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
             {shouldShowGlobalControlOptOutBadge ? (
               <Badge
                 label="Uses block date filter"
+                color="gray"
+                variant="soft"
+                size="xs"
+                ml="2"
+              />
+            ) : null}
+            {shouldShowExperimentFilterOptOutBadge ? (
+              <Badge
+                label="Uses block filters"
                 color="gray"
                 variant="soft"
                 size="xs"

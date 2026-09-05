@@ -207,6 +207,7 @@ export type Props = CodeTextAreaFieldProps & {
   setCursorData?: (data: CursorData) => void;
   minLines?: number;
   maxLines?: number;
+  paddingTop?: number;
   // Editor font size (Ace accepts px number or any CSS size). Smaller values
   // also shrink line height, so a fixed line count takes less vertical space.
   fontSize?: string | number;
@@ -239,6 +240,7 @@ export default function CodeTextArea({
   placeholder,
   minLines = 10,
   maxLines = 50,
+  paddingTop = 0,
   fontSize = "1em",
   slimGutter = false,
   setCursorData,
@@ -288,6 +290,10 @@ export default function CodeTextArea({
       },
     );
   }, [editor, onCtrlEnter]);
+
+  useEffect(() => {
+    editor?.renderer.setScrollMargin(paddingTop, 0, 0, 0);
+  }, [editor, paddingTop]);
 
   // Auto-resize editor when container size changes
   useEffect(() => {
@@ -372,6 +378,7 @@ export default function CodeTextArea({
             `}</style>
             <div
               id={editorUid}
+              data-editor-uid={editorUid}
               className={clsx({
                 "ace-editor-disabled": fieldProps.disabled,
                 "h-100": fullHeight && !isFullscreen,

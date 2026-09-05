@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
+import {
+  findVisualChangesetById,
+  updateVisualChange,
+} from "back-end/src/models/VisualChangesetModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   parsePrompt,
@@ -12,8 +15,10 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
 import {
   buildVisualEditorTools,
+  newImageTurnState,
   VISUAL_EDITOR_MAX_STEPS,
 } from "back-end/src/api/visual-editor-ai/aiTools";
+import { requireDraftExperiment } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
 import { aiEditJobStore } from "back-end/src/api/visual-editor-ai/aiTools/clientJob";
 import {
   buildInsertJs,
@@ -130,6 +135,21 @@ const domDigestSchema = z.object({
   // On-demand container map for the `findElements` tool — not rendered into
   // the prompt (formatDigest ignores it).
   pageStructure: z.array(structureNodeSchema).max(400).optional(),
+  // Flat alternative to the typed arrays above; both may be populated.
+  elements: z
+    .array(
+      z.object({
+        selector: z.string(),
+        tag: z.string(),
+        text: z.string().optional(),
+        href: z.string().optional(),
+        src: z.string().optional(),
+        alt: z.string().optional(),
+        placeholder: z.string().optional(),
+      }),
+    )
+    .max(300)
+    .optional(),
 });
 
 // Capped at 12 turns + 4000 chars/turn to bound prompt size.
@@ -165,6 +185,8 @@ const bodySchema = z
     // When omitted/false, the response is the original unwrapped shape
     // and only server-side tools (generateImage, etc.) are available.
     streamingMode: z.boolean().optional(),
+    // Save the result rather than returning it for the caller to persist.
+    persist: z.boolean().optional(),
   })
   .strict();
 
@@ -212,6 +234,11 @@ const mutationSchema = z.object({
   options: z
     .array(z.string())
     .nullable()
+    // Models routinely omit this key entirely rather than sending null — it
+    // reads as inapplicable on a normal edit. `.catch` treats a missing key
+    // as null while keeping the property in the schema's `required` list, so
+    // OpenAI strict mode is unaffected (it rejects optional properties).
+    .catch(null)
     .describe(
       'Alternative candidate values for `value`, shown to the user as a pick-one chooser in the UI. Populate ONLY when the user explicitly asks for multiple options/alternatives to choose from (e.g. "give me some alternative titles", "a few hero image options"). Include 2-5 entries. `value` must be your top recommendation AND must also be the first entry of this array. For text, each entry is an alternative string (plain text or HTML, matching the attribute). For images, each entry is a separate generated image URL — call generateImage once per option, never a collage. Null when not offering a choice.',
     ),
@@ -463,6 +490,22 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
         `\`${img.selector}\`${img.alt ? ` alt="${img.alt}"` : ""} src=${img.src}`,
     ),
   );
+  section(
+    "Other elements",
+    (digest.elements ?? []).map((el) => {
+      const meta = [
+        el.href ? `→ ${el.href}` : "",
+        el.src ? `src=${el.src}` : "",
+        el.alt ? `alt="${el.alt}"` : "",
+        el.placeholder ? `placeholder="${el.placeholder}"` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return `\`${el.selector}\` <${el.tag}>${
+        el.text ? ` "${el.text}"` : ""
+      }${meta ? ` ${meta}` : ""}`;
+    }),
+  );
   if (lines.length === 0) {
     return "\n(No editable elements were detected on the page.)\n";
   }
@@ -481,6 +524,7 @@ const allDigestSelectors = (
   for (const l of digest.links) out.add(l.selector);
   for (const i of digest.inputs) out.add(i.selector);
   for (const img of digest.images) out.add(img.selector);
+  for (const el of digest.elements ?? []) out.add(el.selector);
   // html/body always resolve, even without a content-script digest.
   out.add("html");
   out.add("body");
@@ -567,6 +611,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     domDigest,
     conversationHistory,
     locale,
+    persist,
   } = req.body;
 
   // Carried inside domDigest (sent in the body, kept out of the prompt) and
@@ -575,6 +620,13 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
 
   const context = req.context;
   requireUserAuth(context);
+
+  // Streaming finalizes in postAIEditResume; one write path, not two.
+  if (persist && req.body.streamingMode) {
+    context.throwBadRequestError(
+      "`persist` cannot be combined with `streamingMode`.",
+    );
+  }
 
   const changeset = await findVisualChangesetById(
     visualChangesetId,
@@ -588,6 +640,8 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   if (!context.permissions.canUpdateVisualChange(experiment)) {
     context.permissions.throwPermissionError();
   }
+  // Before the generation, so a doomed save doesn't burn AI quota first.
+  if (persist) requireDraftExperiment(context, experiment);
 
   // Gated on the model this request will actually run: an org on its own key
   // for that provider pays its own bill, so the managed cap doesn't apply.
@@ -653,6 +707,11 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   let effectiveInstructions = visualEditorAIContext
     ? `${instructions}\n\nAdditional brand guidelines / context provided by the organization (these MUST be respected unless they conflict with the JSON output schema):\n${visualEditorAIContext}`
     : instructions;
+
+  // No chooser without a preview, so alternatives cost a paid call and are binned.
+  if (persist) {
+    effectiveInstructions = `${effectiveInstructions}\n\nThis request is saved directly, with no preview and no way for the user to pick between alternatives:\n- NEVER populate \`options\`. Return your single best \`value\`, even if the user asked for a few choices — say in the \`explanation\` that you picked one, and that they can ask again for a different take.\n- Call \`generateImage\` at most once per element you are changing. Never generate variants of the same image to choose from.`;
+  }
 
   if (locale && !locale.toLowerCase().startsWith("en")) {
     effectiveInstructions = `${effectiveInstructions}\n\nLanguage:\n- The user's interface is set to locale "${locale}". Write the \`explanation\` field in that language (the natural language the user reads on screen).\n- Keep the JSON keys, selectors, attribute names, mutation actions ("set"/"append"/"remove"), CSS, JS, and any code identifiers in English — only the explanation prose is localized.`;
@@ -854,7 +913,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
         // chooser of one. Dedupe defensively (the model occasionally
         // repeats its top pick).
         const opts =
-          !isPosition && m.options
+          !isPosition && !persist && m.options
             ? Array.from(new Set(m.options.filter((o) => o && o.length > 0)))
             : [];
         return {
@@ -908,10 +967,13 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   // extension's handling is unchanged.
   const useToolLoop = streamingMode && !IS_CLOUD;
   const job = aiEditJobStore.create();
+  const imageState = newImageTurnState();
   const tools = buildVisualEditorTools({
     context,
     job: useToolLoop ? job : undefined,
     pageStructure,
+    imageState,
+    quarantineImages: !persist,
   });
   // Cast through unknown — the job store is invariant in TFinal for
   // type-erasure reasons but each job is used with one schema only.
@@ -942,10 +1004,13 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     maxSteps: VISUAL_EDITOR_MAX_STEPS,
     cacheSystemPrompt: true,
     maxOutputTokens: EDIT_MAX_OUTPUT_TOKENS,
-    // Attach the picked-element selectors to the structured-output failure
-    // logs so we can see which selectors (e.g. hashed classes) correlate
-    // with "couldn't format a valid response" errors. Diagnostic only.
-    logContext: { pickedSelectors: elementContext.map((e) => e.selector) },
+    // Diagnostic context for structured-output failure logs: which changeset
+    // and which selectors (e.g. hashed classes) correlate with failures.
+    logContext: {
+      visualChangesetId,
+      variationId,
+      pickedSelectors: elementContext.map((e) => e.selector),
+    },
     onStepFinish: ({ toolCalls }) => {
       if (toolCalls && toolCalls.length > 0) {
         logger.debug(
@@ -1001,6 +1066,33 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   // outcome.kind === "final"
   const finalized = await finalizeOutput(outcome.payload);
   aiEditJobStore.delete(job.id);
+
+  if (persist) {
+    // Non-null: the handler fails fast above on a variationId not in the changeset.
+    const change = currentChange as NonNullable<typeof currentChange>;
+    await updateVisualChange({
+      changesetId: visualChangesetId,
+      visualChangeId: change.id,
+      organization: req.organization.id,
+      payload: {
+        // The model returns only new mutations, but complete css/js.
+        domMutations: [
+          ...(change.domMutations ?? []),
+          ...(finalized.mutations as typeof change.domMutations),
+        ],
+        ...(finalized.css !== undefined ? { css: finalized.css } : {}),
+        ...(finalized.js !== undefined ? { js: finalized.js } : {}),
+      },
+    });
+    return {
+      ...finalized,
+      saved: true as const,
+      visualChangeId: change.id,
+      images: imageState.generated,
+      warnings: imageState.warnings,
+    };
+  }
+
   return streamingMode
     ? { kind: "final" as const, payload: finalized }
     : finalized;

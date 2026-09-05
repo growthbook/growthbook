@@ -19,13 +19,14 @@ import {
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
 import {
+  MergeResultChanges,
+  filterEnvironmentsByFeature,
+  getApplicableEnvIds,
+  getEnvsFromRampSchedule,
+  isRampScheduleServing,
+  rampRuleEnvKey,
   rampTargetFootprint,
   rampTargetRuleIds,
-  rampRuleEnvKey,
-  getEnvsFromRampSchedule,
-  filterEnvironmentsByFeature,
-  MergeResultChanges,
-  isRampScheduleServing,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -52,7 +53,6 @@ import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import {
   resolveRampTargets,
   ruleFootprint,
-  getApplicableEnvIds,
 } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -2632,7 +2632,11 @@ export async function approveAndPublishStep(
   if (!ctx.permissions.canEditFeatureDrafts(feature)) {
     return { code: "permission_denied", detail: "Cannot update this feature" };
   }
-  if (!ctx.permissions.canReviewFeatureDrafts(feature)) {
+  // Granting an approval, so this must not use `any`. The step's footprint
+  // needs the revision this path never loads, so it fails closed for now.
+  if (
+    !ctx.permissions.canReviewFeatureDrafts(feature, { scope: "everywhere" })
+  ) {
     return {
       code: "permission_denied",
       detail: "Cannot review drafts for this feature",

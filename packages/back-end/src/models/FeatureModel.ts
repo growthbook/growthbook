@@ -5,15 +5,16 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import {
   MergeResultChanges,
-  checkIfRevisionNeedsReview,
-  autoMerge,
-  liveRevisionFromFeature,
   PermissionError,
-  rampRuleEnvKey,
-  stemRuleId,
-  resolveTargetingProjectIds,
+  autoMerge,
+  checkIfRevisionNeedsReview,
   computeHoldoutExperimentLinkageDelta,
+  getApplicableEnvIds,
   getExperimentIdsFromRules,
+  liveRevisionFromFeature,
+  rampRuleEnvKey,
+  resolveTargetingProjectIds,
+  stemRuleId,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -92,7 +93,6 @@ import {
   resolveRampTargets,
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
-  getApplicableEnvIds,
   isPlausibleFeatureRule,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
@@ -103,6 +103,7 @@ import {
   buildInheritedChildrenByAncestor,
   expandRuleEnvsForInheritance,
   getAffectedSDKPayloadKeys,
+  getReferenceIdsInRules,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
 import {
@@ -514,12 +515,28 @@ export async function getAllFeatures(
   context: ReqContext | ApiReqContext,
   {
     projects,
+    projectsAreReadAllowlist = false,
+    ids,
     includeArchived = false,
-  }: { projects?: string[]; includeArchived?: boolean } = {},
+  }: {
+    projects?: string[];
+    projectsAreReadAllowlist?: boolean;
+    ids?: string[];
+    includeArchived?: boolean;
+  } = {},
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
-  if (projects && projects.length) {
-    Object.assign(q, targetingScopedProjectClause(projects));
+  // An explicit id list is its own scope, ignoring `projects`.
+  if (ids) {
+    if (!ids.length) return [];
+    q.id = { $in: ids };
+  } else if (projects && projects.length) {
+    Object.assign(
+      q,
+      projectsAreReadAllowlist
+        ? readAllowlistClause(projects)
+        : targetingScopedProjectClause(projects),
+    );
   }
 
   if (!includeArchived) {
@@ -584,14 +601,29 @@ export async function getAllFeaturesWithoutEditorFields(
 
 // Mongo pre-filter mirroring canReadTargetingScopedResource (project,
 // targetingProjects, or all-projects flag), so targeting-only features survive.
+function targetingScopedProjectArms(projects: string[]) {
+  return [
+    { project: { $in: projects } },
+    { targetingProjects: { $in: projects } },
+    { targetingAllProjects: true },
+  ];
+}
+
 function targetingScopedProjectClause(
   projects: string[],
 ): FilterQuery<FeatureDocument> {
+  return { $or: targetingScopedProjectArms(projects) };
+}
+
+// For queries scoped by a READ ALLOWLIST (getProjectsWithPermission) rather
+// than a project filter: no-project features are org-wide and stay readable
+// whenever any project is, so they must survive the pre-filter. The post-query
+// permission filter stays authoritative.
+function readAllowlistClause(projects: string[]): FilterQuery<FeatureDocument> {
   return {
     $or: [
-      { project: { $in: projects } },
-      { targetingProjects: { $in: projects } },
-      { targetingAllProjects: true },
+      ...targetingScopedProjectArms(projects),
+      { project: { $in: ["", null] } },
     ],
   };
 }
@@ -605,7 +637,8 @@ function featureListQuery(
     project != null
       ? targetingScopedProjectClause([project])
       : projectIds != null
-        ? targetingScopedProjectClause(projectIds)
+        ? // projectIds is always a read allowlist, never a user filter
+          readAllowlistClause(projectIds)
         : {};
   return {
     organization: orgId,
@@ -1518,7 +1551,6 @@ export async function addFeatureRule(
   envs: string[] | undefined,
   rule: FeatureRule,
   user: EventUser,
-  resetReview: boolean,
 ) {
   addIdsToFlatRules([rule], feature.id);
 
@@ -1547,7 +1579,6 @@ export async function addFeatureRule(
       subject: isAllEnvs ? "to all environments" : `to ${envs!.join(", ")}`,
       value: JSON.stringify(scopedRule),
     },
-    resetReview,
   );
 }
 
@@ -1560,7 +1591,6 @@ export async function editFeatureRule(
   ruleId: string,
   updates: Partial<FeatureRule>,
   user: EventUser,
-  resetReview: boolean,
   auditEnvironment?: string,
 ) {
   return await editFeatureRules(
@@ -1570,7 +1600,6 @@ export async function editFeatureRule(
     [{ ruleId, environmentId: auditEnvironment }],
     updates,
     user,
-    resetReview,
   );
 }
 
@@ -1586,7 +1615,6 @@ export async function editFeatureRules(
   matches: { ruleId: string; environmentId?: string }[],
   updates: Partial<FeatureRule>,
   user: EventUser,
-  resetReview: boolean,
 ) {
   const projected = applyPartialFeatureRuleUpdatesToRevision(
     revision,
@@ -1619,7 +1647,6 @@ export async function editFeatureRules(
       subject,
       value: JSON.stringify(updates),
     },
-    resetReview,
   );
   return updatedRevision;
 }
@@ -1741,7 +1768,7 @@ export async function setDefaultValue(
   revision: FeatureRevisionInterface,
   defaultValue: string,
   user: EventUser,
-  requireReview: boolean,
+  { guardDateUpdated = false }: { guardDateUpdated?: boolean } = {},
 ) {
   // Fail early on the internal draft-edit path (the REST default-value endpoint
   // enforces the same lock at its handler); publish re-checks regardless.
@@ -1758,7 +1785,7 @@ export async function setDefaultValue(
       subject: ``,
       value: JSON.stringify({ defaultValue }),
     },
-    requireReview,
+    { guardDateUpdated },
   );
 }
 
@@ -4268,7 +4295,7 @@ export async function createAndPublishRevision({
     feature,
     baseRevision: liveBase,
     revision: preparedRevision,
-    allEnvironments,
+    orgEnvironments: getEnvironments(org),
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
@@ -4335,15 +4362,12 @@ export async function createAndPublishRevision({
 function getLinkedExperiments(feature: FeatureInterface) {
   // Keep existing links even when a rule is removed — past revisions need
   // them to render correctly.
-  const expIds: Set<string> = new Set(feature.linkedExperiments || []);
-
-  (feature.rules ?? []).forEach((rule) => {
-    if (rule?.type === "experiment-ref") {
-      expIds.add(rule.experimentId);
-    }
-  });
-
-  return [...expIds];
+  return [
+    ...new Set([
+      ...(feature.linkedExperiments || []),
+      ...getReferenceIdsInRules(feature.rules, "experiment-ref"),
+    ]),
+  ];
 }
 
 export async function toggleNeverStale(
@@ -4446,6 +4470,8 @@ export async function getFeatureMetaInfoById(
       return {
         id: f.id,
         project: f.project,
+        targetingProjects: f.targetingProjects,
+        targetingAllProjects: f.targetingAllProjects,
         archived: f.archived,
         description: f.description,
         dateCreated: f.dateCreated,
@@ -4498,6 +4524,8 @@ export async function getFeatureMetaInfoByIds(
     .map((f) => ({
       id: f.id,
       project: f.project,
+      targetingProjects: f.targetingProjects,
+      targetingAllProjects: f.targetingAllProjects,
       archived: f.archived,
       description: f.description,
       dateCreated: f.dateCreated,
@@ -4525,8 +4553,10 @@ export async function getFeatureEnvStatus(
 
   // Push project-level read restrictions into the query to avoid fetching
   // documents that will be filtered out anyway.
-  const allowedProjects =
-    context.permissions.getProjectsWithPermission("readData");
+  const allowedProjects = context.permissions.getProjectsWithPermission(
+    "readData",
+    await context.models.projects.getAllIdsForOrg(),
+  );
   if (allowedProjects !== null) {
     if (allowedProjects.length === 0) return [];
     // Also include features with no project — they're globally accessible

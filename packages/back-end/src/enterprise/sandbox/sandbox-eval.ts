@@ -1,3 +1,4 @@
+import type { EventUser } from "shared/validators";
 import {
   CustomHookInterface,
   CustomHookType,
@@ -10,6 +11,8 @@ import {
   withConfigExtends,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
+import { teamsForMember } from "shared/permissions";
+import { coauthorIds, toHookReviewerVerdicts } from "shared/enterprise";
 import {
   buildConstantValueMap,
   resolveConstantRefs,
@@ -22,11 +25,15 @@ import { SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { Context } from "back-end/src/models/BaseModel";
-import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import {
+  expandOrgMembers,
+  getContextForAgendaJobByOrgObject,
+} from "back-end/src/services/organizations";
 import {
   configToResolvable,
   ResolvableValue,
 } from "back-end/src/services/resolvableValues";
+import type { SandboxEvalResult } from "./sandbox-core";
 import { runInSandbox } from "./sandbox-pool";
 
 // Custom hook orchestration; sandboxed JS runs in the child-process pool (sandbox-pool.ts).
@@ -54,6 +61,91 @@ export async function runValidateFeatureHooks({
   );
 }
 
+// For hooks that gate on team rather than identity.
+// One member expansion per hook call. Still a member = user, else an API key.
+async function memberDirectory(context: Context) {
+  const members = await expandOrgMembers(context.org.members ?? []);
+  const byId = new Map(members.map((m) => [m.id, m]));
+  return (userId: string) => {
+    const user: EventUser = byId.has(userId)
+      ? {
+          type: "dashboard",
+          id: userId,
+          name: byId.get(userId)?.name || "",
+          email: byId.get(userId)?.email || "",
+        }
+      : { type: "api_key", apiKey: userId };
+    return {
+      user,
+      teams: teamsForMember(userId, context.org, context.teams ?? []),
+    };
+  };
+}
+
+// `coauthors` excludes the primary author, matching the product's wording.
+async function hookAuthorship(
+  context: Context,
+  authorId: string | undefined,
+  contributors: string[] | undefined,
+) {
+  const resolve = await memberDirectory(context);
+  return {
+    author: authorId ? { userId: authorId, ...resolve(authorId) } : null,
+    coauthors: coauthorIds(authorId, contributors).map((id) => ({
+      userId: id,
+      ...resolve(id),
+    })),
+  };
+}
+
+// Copied onto the args, never onto the stored revision — teams are current state.
+// Feature reviews are STORED in the documented verdict shape ({ userId, user,
+// status, ... }); adding teams here lands them where the config-revision hooks
+// arrive via toHookReviewerVerdicts.
+async function withHookRevisionContext<
+  T extends
+    | {
+        reviews?: { userId: string }[];
+        contributors?: string[];
+        createdBy?: { id?: string } | null;
+      }
+    | null
+    | undefined,
+>(context: Context, revision: T): Promise<T> {
+  if (!revision) return revision;
+  const authorship = await hookAuthorship(
+    context,
+    revision.createdBy?.id,
+    revision.contributors,
+  );
+  return {
+    ...revision,
+    ...authorship,
+    ...(revision.reviews?.length
+      ? {
+          reviews: revision.reviews.map((r) => ({
+            ...r,
+            teams: teamsForMember(r.userId, context.org, context.teams ?? []),
+          })),
+        }
+      : {}),
+  };
+}
+
+// Only called once a hook matches, so it never runs on the ordinary path.
+async function hookReviewerVerdicts(
+  context: Context,
+  reviews: {
+    userId: string;
+    decision: string;
+    stale?: boolean;
+    dateCreated: Date;
+  }[],
+) {
+  const resolve = await memberDirectory(context);
+  return toHookReviewerVerdicts(reviews, resolve);
+}
+
 export async function runValidateFeatureRevisionHooks({
   context,
   feature,
@@ -68,12 +160,12 @@ export async function runValidateFeatureRevisionHooks({
   return _runCustomHooks(
     context,
     "validateFeatureRevision",
-    { feature, revision },
+    { feature, revision: await withHookRevisionContext(context, revision) },
     feature.project,
     feature.id,
     {
       feature,
-      revision: original,
+      revision: await withHookRevisionContext(context, original),
     },
   );
 }
@@ -115,12 +207,12 @@ export async function collectValidateFeatureRevisionHookResults({
   return collectCustomHookResults(
     context,
     "validateFeatureRevision",
-    { feature, revision },
+    { feature, revision: await withHookRevisionContext(context, revision) },
     feature.project,
     feature.id,
     {
       feature,
-      revision: original,
+      revision: await withHookRevisionContext(context, original),
     },
   );
 }
@@ -399,6 +491,10 @@ export type ConfigRevisionHookInput = {
   comment?: string;
   authorId: string;
   contributors?: string[];
+  // Attached at call time by hookAuthorship; not stored on the revision.
+  author?: { userId: string } | null;
+  coauthors?: { userId: string }[];
+  // Stored as-is; the prep maps them to the feature-shaped entries hooks see.
   reviews: {
     userId: string;
     decision: string;
@@ -428,17 +524,28 @@ async function prepareConfigRevisionHookCall({
     return null;
   }
   const enriched = await prepareConfigHookArgs(context, config, original);
+  const revisionArg = revision
+    ? {
+        ...revision,
+        ...(await hookAuthorship(
+          context,
+          revision.authorId,
+          revision.contributors,
+        )),
+        reviews: await hookReviewerVerdicts(context, revision.reviews),
+      }
+    : null;
   // Args are injected by destructuring, so `revision` must always be bound —
   // an absent key makes `if (revision)` a ReferenceError inside the hook.
   // Direct publishes (REST value update, revert) have no revision → null.
   return [
     context,
     "validateConfigRevision",
-    { config: enriched.config, revision: revision ?? null },
+    { config: enriched.config, revision: revisionArg },
     config.project ?? "",
     config.key,
     enriched.original
-      ? { config: enriched.original, revision: revision ?? null }
+      ? { config: enriched.original, revision: revisionArg }
       : undefined,
     { parent: config.parent, extends: config.extends },
   ];
@@ -600,6 +707,104 @@ async function _runCustomHooks(
   }
 }
 
+// The incrementalChangesOnly rule: an outcome the previous state already
+// produced isn't this change's fault. Errors must match verbatim, so a message
+// carrying changing state never suppresses. Exported so the hook Test panel
+// applies the same rule instead of approximating it.
+export type IncrementalSuppression = {
+  errorSuppressed: boolean;
+  warnings: string[];
+};
+
+export async function applyIncrementalSuppression(
+  code: string,
+  res: SandboxEvalResult,
+  originalFunctionArgs: Record<string, unknown>,
+): Promise<IncrementalSuppression> {
+  const originalRes = await runInSandbox(code, originalFunctionArgs);
+  if (!res.ok) {
+    return {
+      errorSuppressed: !originalRes.ok && originalRes.error === res.error,
+      warnings: [],
+    };
+  }
+  return {
+    errorSuppressed: false,
+    warnings: originalRes.ok
+      ? res.warnings.filter((w) => !originalRes.warnings.includes(w))
+      : res.warnings,
+  };
+}
+
+// Warnings are only compared on a successful proposed run. A throw returns
+// warnings: [] (error wins); treating that as a comparison would mark every
+// proposed warning as suppressed.
+export function formatCustomHookTestResult(
+  result: SandboxEvalResult,
+  incremental: IncrementalSuppression | null,
+): {
+  success: boolean;
+  returnVal?: string;
+  error?: string;
+  warnings: string[];
+  log?: string;
+  suppressed?: { error?: string; warnings?: string[] };
+} {
+  const suppressedWarnings =
+    incremental && result.ok
+      ? result.warnings.filter((w) => !incremental.warnings.includes(w))
+      : [];
+  const suppressed =
+    incremental?.errorSuppressed || suppressedWarnings.length
+      ? {
+          ...(incremental?.errorSuppressed ? { error: result.error } : {}),
+          ...(suppressedWarnings.length
+            ? { warnings: suppressedWarnings }
+            : {}),
+        }
+      : undefined;
+
+  if (result.ok || incremental?.errorSuppressed) {
+    return {
+      success: true,
+      returnVal: result.returnVal
+        ? JSON.stringify(result.returnVal, null, 2)
+        : undefined,
+      warnings: incremental ? incremental.warnings : result.warnings,
+      log: result.log,
+      suppressed,
+    };
+  }
+
+  return {
+    success: false,
+    error: result.error || "Unknown error",
+    warnings: result.warnings,
+    log: result.log,
+    suppressed,
+  };
+}
+
+// Dry-run used by both the internal Test panel and the REST /custom-hooks/test
+// handler. Second sandbox run only happens when there is an outcome to hide,
+// matching _runCustomHook.
+export async function runCustomHookTest(
+  functionBody: string,
+  functionArgs: Record<string, unknown>,
+  originalFunctionArgs?: Record<string, unknown>,
+) {
+  const result = await runInSandbox(functionBody, functionArgs);
+  const incremental =
+    originalFunctionArgs && (!result.ok || result.warnings.length)
+      ? await applyIncrementalSuppression(
+          functionBody,
+          result,
+          originalFunctionArgs,
+        )
+      : null;
+  return formatCustomHookTestResult(result, incremental);
+}
+
 async function _runCustomHook(
   context: Context,
   hook: CustomHookInterface,
@@ -614,14 +819,18 @@ async function _runCustomHook(
     context.models.customHooks.logFailure(hook);
   }
 
+  // Only worth a second sandbox run when there's an outcome to suppress.
+  const checkPrior = !!originalFunctionArgs && !!hook.incrementalChangesOnly;
+
   // A thrown error is a hard block and always wins over any warnings.
   if (!res.ok) {
-    // Incremental: ignore the hook if this same error already existed before the change.
-    if (originalFunctionArgs && hook.incrementalChangesOnly) {
-      const originalRes = await runInSandbox(hook.code, originalFunctionArgs);
-      if (!originalRes.ok && originalRes.error === res.error) {
-        return { warnings: [] };
-      }
+    if (checkPrior) {
+      const { errorSuppressed } = await applyIncrementalSuppression(
+        hook.code,
+        res,
+        originalFunctionArgs!,
+      );
+      if (errorSuppressed) return { warnings: [] };
     }
 
     const error =
@@ -631,12 +840,12 @@ async function _runCustomHook(
 
   let warnings = res.warnings;
 
-  // Incremental: drop warnings that were already present before this change.
-  if (warnings.length && originalFunctionArgs && hook.incrementalChangesOnly) {
-    const originalRes = await runInSandbox(hook.code, originalFunctionArgs);
-    if (originalRes.ok) {
-      warnings = warnings.filter((w) => !originalRes.warnings.includes(w));
-    }
+  if (warnings.length && checkPrior) {
+    ({ warnings } = await applyIncrementalSuppression(
+      hook.code,
+      res,
+      originalFunctionArgs!,
+    ));
   }
 
   return { warnings };

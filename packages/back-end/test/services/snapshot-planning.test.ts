@@ -1411,15 +1411,19 @@ describe("snapshot planning", () => {
     expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
   });
 
-  it("throws ExperimentIncrementalPipelineRequiresFullRefreshError when the Overall units table requires a full refresh and prompting enabled", async () => {
-    wireIncrementalIntegration(makeIncrementalDatasource());
-    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
-      undefined as never,
-    );
-    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(true);
+  it.each([
+    ["cutoff:2020-01-15T00:12:00.000Z"],
+    ["combo:exp:country::dim_abc123"],
+  ])(
+    "plans an incremental-exploratory snapshot for custom dimension %s",
+    async (dimension) => {
+      wireIncrementalIntegration(makeIncrementalDatasource());
+      assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+        undefined as never,
+      );
+      exploratoryOverallRequiresFullRefreshMock.mockReturnValue(false);
 
-    await expect(
-      planSnapshot({
+      const plan = await planSnapshot({
         experiment: makeExperiment(),
         context: makeExploratoryContext(),
         type: "exploratory",
@@ -1427,14 +1431,48 @@ describe("snapshot planning", () => {
         phaseIndex: 0,
         useCache: true,
         defaultAnalysisSettings: makeAnalysisSettings({
-          dimensions: ["exp:country"],
+          dimensions: [dimension],
         }),
         additionalAnalysisSettings: [],
         settingsForSnapshotMetrics: [],
         metricMap: new Map<string, ExperimentMetricInterface>(),
         factTableMap: new Map() as FactTableMap,
+      });
+
+      expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
+      expect(plan.snapshot.dimension).toBe(dimension);
+    },
+  );
+
+  it("throws ExperimentIncrementalPipelineRequiresFullRefreshError when the Overall units table requires a full refresh and prompting enabled", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(true);
+
+    const planning = planSnapshot({
+      experiment: makeExperiment(),
+      context: makeExploratoryContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
       }),
-    ).rejects.toThrow(ExperimentIncrementalPipelineRequiresFullRefreshError);
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    await expect(planning).rejects.toThrow(
+      ExperimentIncrementalPipelineRequiresFullRefreshError,
+    );
+    await expect(planning).rejects.toThrow(
+      "Overall Results require a full refresh before Dimension Results can be updated.",
+    );
   });
 
   it("falls back to results runner when the Overall units table requires a full refresh and triggered by a background job", async () => {
@@ -1464,5 +1502,277 @@ describe("snapshot planning", () => {
     expect(plan.incrementalFallbackReason).toBe(
       "Overall Results need a full refresh; running non-incremental update instead of reading stale data.",
     );
+  });
+
+  function makeNeverMaterializedContext() {
+    const context = makeContext();
+    context.models.incrementalRefresh = {
+      getByExperimentIdAndPhase: jest.fn().mockResolvedValue(null),
+      getLegacyByExperimentIdWithoutPhase: jest.fn().mockResolvedValue(null),
+    } as never;
+    return context;
+  }
+
+  function makeNonLatestPhaseExperiment(): ExperimentInterface {
+    const experiment = makeExperiment();
+    return {
+      ...experiment,
+      phases: [experiment.phases[0], { ...experiment.phases[0] }],
+    };
+  }
+
+  function useRealIncrementalPrerequisites(): void {
+    assertIncrementalRefreshPrerequisitesMock.mockImplementation(
+      jest.requireActual<
+        typeof import("back-end/src/enterprise/services/data-pipeline")
+      >("back-end/src/enterprise/services/data-pipeline")
+        .assertIncrementalRefreshPrerequisites,
+    );
+  }
+
+  it("throws ExperimentIncrementalPipelineRequiresFullRefreshError for a manual dimension request when Overall Results were never materialized", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+
+    const planning = planSnapshot({
+      experiment: makeExperiment(),
+      context: makeNeverMaterializedContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    await expect(planning).rejects.toThrow(
+      ExperimentIncrementalPipelineRequiresFullRefreshError,
+    );
+    await expect(planning).rejects.toThrow(
+      "Overall Results have not been computed yet, so there is no units table for a dimension breakdown to read.",
+    );
+  });
+
+  it("does not block a dimensionless request on the Overall Results that request would itself materialize", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context: makeNeverMaterializedContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.snapshot.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBe(
+      "No materialized units table yet for Overall Results.",
+    );
+  });
+
+  it("does not demand an Overall Results refresh the pipeline would reject for the same experiment", async () => {
+    orgHasPremiumFeatureMock.mockReturnValue(true);
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    useRealIncrementalPrerequisites();
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment({ activationMetric: "fact_m1" }),
+      context: makeNeverMaterializedContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ analysisType: "main-fullRefresh" }),
+    );
+    expect(plan.snapshot.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBe(
+      "Activation metrics are not supported with Incremental Pipeline mode while in beta. Please remove the Activation Metric in the Analysis Settings.",
+    );
+  });
+
+  it("does not demand an Overall Results refresh for a non-latest phase that would never materialize one", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+
+    const plan = await planSnapshot({
+      experiment: makeNonLatestPhaseExperiment(),
+      context: makeNeverMaterializedContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.snapshot.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBe(
+      "No materialized units table yet for Overall Results.",
+    );
+  });
+
+  it("uses the phase-scoped units table for a non-latest phase when it is current", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(false);
+
+    const plan = await planSnapshot({
+      experiment: makeNonLatestPhaseExperiment(),
+      context: makeExploratoryContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
+    expect(plan.incrementalFallbackReason).toBeNull();
+  });
+
+  it("does not demand an Overall Results refresh for a settings-drifted non-latest phase", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+    exploratoryOverallRequiresFullRefreshMock.mockReturnValue(true);
+
+    const plan = await planSnapshot({
+      experiment: makeNonLatestPhaseExperiment(),
+      context: makeExploratoryContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(exploratoryOverallRequiresFullRefreshMock).toHaveBeenCalledTimes(1);
+    expect(plan.snapshot.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBe(
+      "The requested phase's materialized units table is stale; running a non-incremental update instead.",
+    );
+  });
+
+  it("falls back to results for a scheduled dimension request when Overall Results were never materialized", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context: makeNeverMaterializedContext(),
+      type: "exploratory",
+      triggeredBy: "schedule",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.snapshot.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBe(
+      "No materialized units table yet for Overall Results.",
+    );
+  });
+
+  it("throws for a scheduled dimension request from a request path when Overall Results were never materialized", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+
+    const planning = planSnapshot({
+      experiment: makeExperiment(),
+      context: makeNeverMaterializedContext(),
+      type: "exploratory",
+      triggeredBy: "schedule",
+      phaseIndex: 0,
+      useCache: true,
+      throwIfRequiresFullRefresh: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    await expect(planning).rejects.toThrow(
+      ExperimentIncrementalPipelineRequiresFullRefreshError,
+    );
+    await expect(planning).rejects.toThrow(
+      "Overall Results have not been computed yet, so there is no units table for a dimension breakdown to read.",
+    );
+  });
+
+  it("leaves a manual dimension request alone when the experiment is not covered by the Incremental Pipeline", async () => {
+    getDataSourceByIdMock.mockResolvedValue(makeDatasource());
+    getSourceIntegrationObjectMock.mockReturnValue({} as never);
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context: makeNeverMaterializedContext(),
+      type: "exploratory",
+      triggeredBy: "manual",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.snapshot.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBeNull();
+    expect(assertIncrementalRefreshPrerequisitesMock).not.toHaveBeenCalled();
   });
 });

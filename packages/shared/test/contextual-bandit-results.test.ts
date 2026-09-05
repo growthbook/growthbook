@@ -69,7 +69,16 @@ const snapshot: ContextualBanditSnapshot = {
   ],
   sse_trajectory: [
     { numSplits: 0, totalSse: 200 },
-    { numSplits: 1, totalSse: 150 },
+    {
+      numSplits: 1,
+      totalSse: 150,
+      split: {
+        leafClauses: [],
+        attribute: "country",
+        leftLevels: ["CA", "US"],
+        rightLevels: ["MX"],
+      },
+    },
   ],
 };
 
@@ -115,11 +124,21 @@ describe("buildContextualBanditResultsView", () => {
     expect(leaf.variations.map((v) => v.mean)).toEqual([0.121, 0.149]);
   });
 
-  it("exposes the total-SSE trajectory root-first", () => {
+  it("exposes the total-SSE trajectory root-first, passing through split metadata", () => {
     expect(view.sseTrajectory).toEqual([
       { numSplits: 0, totalSse: 200 },
-      { numSplits: 1, totalSse: 150 },
+      {
+        numSplits: 1,
+        totalSse: 150,
+        split: {
+          leafClauses: [],
+          attribute: "country",
+          leftLevels: ["CA", "US"],
+          rightLevels: ["MX"],
+        },
+      },
     ]);
+    expect(view.sseTrajectory[0].split).toBeUndefined();
   });
 
   it("defaults sseTrajectory to an empty array when absent", () => {
@@ -165,6 +184,15 @@ describe("buildContextualBanditResultsView", () => {
       1,
       10,
     );
+  });
+
+  it("computes population-weighted overall means per variation", () => {
+    // Population per context: US=970, CA=590, MX=210 (total 1770).
+    // v0: (970*0.118 + 590*0.126 + 210*0.2) / 1770 = 0.1303955...
+    // v1: (970*0.151 + 590*0.146 + 210*0.18) / 1770 = 0.1527740...
+    const overall = view.overall.variations;
+    expect(overall[0].mean).toBeCloseTo(0.1303955, 6);
+    expect(overall[1].mean).toBeCloseTo(0.152774, 6);
   });
 
   it("throws when a leaf is missing updatedWeights (no best-arm fallback)", () => {

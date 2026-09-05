@@ -24,8 +24,10 @@ import {
   computeExplorationComparisonPayload,
   getComparisonAlignmentStrategy,
   resolveLegacyExplorerComparisonMode,
+  hasTimestampColumn,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
+import { isFactFunnelMetric } from "shared/experiments";
 import { isManagedWarehouseUnavailable } from "shared/util";
 import {
   cleanConfigForSubmission,
@@ -40,14 +42,20 @@ import {
   getCommonColumns,
   getInitialInlineFilters,
   hasUnsatisfiedInlineFilters,
+  isTimelessSqlExploration,
+  isTimeSeriesChart,
   isSubmittableConfig,
+  normalizeTimelessSqlConfig,
+  applyTimestampColumn,
   stripExplorerDraftFields,
   toFetchKey,
   validateDimensions,
+  withDefaultSqlCountValue,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { SqlEditorProvider } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import { useExploreData, CacheOption } from "./useExploreData";
 
 const MAX_TRACKED_ERROR_LENGTH = 500;
@@ -85,8 +93,6 @@ export interface ExplorerContextValue {
   /** Comparison leg failed but the primary succeeded. Kept off `error`, which
    * would hide the results the user did get. */
   comparisonError: string | null;
-  setCompareEnabled: (value: boolean) => void;
-  setComparisonMode: (mode: ComparisonMode) => void;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: (action: SetDraftStateAction) => void;
@@ -96,14 +102,26 @@ export interface ExplorerContextValue {
     setDraft?: boolean;
   }) => Promise<void>;
   addValueToDataset: (datasetType: DatasetType) => void;
+  ensureDefaultSqlValue: () => void;
   updateValueInDataset: (index: number, value: ProductAnalyticsValue) => void;
   deleteValueFromDataset: (index: number) => void;
-  updateTimestampColumn: (column: string) => void;
+  updateTimestampColumn: (column: string | null) => void;
   changeChartType: (chartType: ExplorationConfig["chartType"]) => void;
   clearAllDatasets: (newDatasourceId?: string) => void;
   /** Funnel sidebar registers a handler; main empty-state CTA invokes before analyze. */
   registerFunnelAnalyzeCollapseHandler: (fn: (() => void) | null) => void;
   collapseFunnelStepsForAnalyze: () => void;
+
+  // ─── Funnel metric link ────────────────────────────────────────────────
+  /** Funnel fact metric this funnel was loaded from, if any. Cleared when the
+   *  datasource changes. Persisted in the URL as `?funnelMetricId=` (not inside
+   *  `?config=`, which would mean changing the strict funnel dataset schema),
+   *  so it survives a refresh and travels with a shared link. */
+  linkedFunnelMetricId: string | null;
+  setLinkedFunnelMetricId: (metricId: string | null) => void;
+  /** True when a metric is linked and its steps have since been edited,
+   *  false when nothing is linked. */
+  funnelLinkIsDirty: boolean;
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
@@ -129,6 +147,9 @@ interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig: ExplorerDraftConfig;
   initialSubmittedConfig?: ExplorerDraftConfig;
+  initialExploration?: ProductAnalyticsExploration | null;
+  initialComparisonExploration?: ProductAnalyticsExploration | null;
+  initialLinkedFunnelMetricId?: string | null;
   hasExistingResults?: boolean;
   onRunComplete?: (
     exploration: ProductAnalyticsExploration,
@@ -143,6 +164,9 @@ export function ExplorerProvider({
   children,
   initialConfig,
   initialSubmittedConfig,
+  initialExploration = null,
+  initialComparisonExploration = null,
+  initialLinkedFunnelMetricId = null,
   hasExistingResults = false,
   onRunComplete,
   trackingSource,
@@ -172,29 +196,35 @@ export function ExplorerProvider({
       getFactTableById,
       getFactMetricById,
     );
-    const normalizedInitial = clearInapplicableShowAs(
-      withUnits,
-      getFactMetricById,
+    const normalizedInitial = withDefaultSqlCountValue(
+      normalizeTimelessSqlConfig(
+        clearInapplicableShowAs(withUnits, getFactMetricById),
+      ),
     );
     const normalizedSubmitted = initialSubmittedConfig
-      ? clearInapplicableShowAs(
-          fillMissingUnits(
-            initialSubmittedConfig,
-            getFactTableById,
+      ? normalizeTimelessSqlConfig(
+          clearInapplicableShowAs(
+            fillMissingUnits(
+              initialSubmittedConfig,
+              getFactTableById,
+              getFactMetricById,
+            ),
             getFactMetricById,
           ),
-          getFactMetricById,
         )
       : normalizedInitial;
     return {
       draftState: normalizedInitial,
       submittedState: hasExistingResults ? normalizedSubmitted : null,
-      exploration: null,
+      exploration: initialExploration,
       error: null,
       query: null,
     };
   });
   const [isStale, setIsStale] = useState(false);
+  const [linkedFunnelMetricId, setLinkedFunnelMetricId] = useState<
+    string | null
+  >(initialLinkedFunnelMetricId);
   // True while polling a still-running exploration for completion (B4). Folded
   // into the exposed `loading` so the UI keeps showing a loading state.
   const [polling, setPolling] = useState(false);
@@ -206,7 +236,7 @@ export function ExplorerProvider({
     };
   }, []);
   const [comparisonExploration, setComparisonExploration] =
-    useState<ProductAnalyticsExploration | null>(null);
+    useState<ProductAnalyticsExploration | null>(initialComparisonExploration);
   const [comparisonQuery, setComparisonQuery] = useState<QueryInterface | null>(
     null,
   );
@@ -220,6 +250,23 @@ export function ExplorerProvider({
   const funnelAnalyzeCollapseRef = useRef<(() => void) | null>(null);
 
   const draftExploreState: ExplorerDraftConfig = explorerState.draftState;
+
+  // Compare against the metric's own steps rather than tracking edits, so the
+  // flag self-corrects if the user undoes a change back to the original.
+  // Deliberately ignores `unit` and `yAxisScale`: neither exists on a funnel
+  // fact metric, so changing them can't make the metric out of date.
+  const funnelLinkIsDirty = useMemo(() => {
+    if (!linkedFunnelMetricId) return false;
+    if (draftExploreState.dataset?.type !== "funnel") return false;
+    const metric = getFactMetricById(linkedFunnelMetricId);
+    if (!metric || !isFactFunnelMetric(metric)) return false;
+    const dataset = draftExploreState.dataset;
+    return (
+      !isEqual(dataset.steps, metric.funnelSettings.steps) ||
+      (dataset.concurrencyWindowSeconds ?? 0) !==
+        (metric.funnelSettings.concurrencyWindowSeconds ?? 0)
+    );
+  }, [linkedFunnelMetricId, draftExploreState.dataset, getFactMetricById]);
 
   const compareEnabled = draftExploreState.previousTimeFrame != null;
 
@@ -251,7 +298,7 @@ export function ExplorerProvider({
           getFactMetricById,
         );
         const validatedState = validateDimensions(
-          showAsNormalized,
+          normalizeTimelessSqlConfig(showAsNormalized),
           getFactTableById,
           getFactMetricById,
         );
@@ -278,7 +325,9 @@ export function ExplorerProvider({
         getFactTableById,
         getFactMetricById,
       );
-      const normalized = clearInapplicableShowAs(filled, getFactMetricById);
+      const normalized = normalizeTimelessSqlConfig(
+        clearInapplicableShowAs(filled, getFactMetricById),
+      );
       if (normalized === prev.draftState) return prev;
       return { ...prev, draftState: normalized };
     });
@@ -340,48 +389,6 @@ export function ExplorerProvider({
     setDraftExploreState,
   ]);
 
-  const setCompareEnabled = useCallback(
-    (value: boolean) => {
-      if (value) {
-        setDraftExploreState((prev) => ({
-          ...prev,
-          comparisonMode: "previousPeriod",
-          previousTimeFrame: buildComparisonDateRangeForMode(
-            prev.dateRange,
-            "previousPeriod",
-          ),
-        }));
-      } else {
-        setDraftExploreState((prev) => {
-          const { previousTimeFrame: _, comparisonMode: __, ...rest } = prev;
-          return rest;
-        });
-        setComparisonExploration(null);
-        setComparisonQuery(null);
-        setComparisonComputed(null);
-        setComparisonError(null);
-      }
-    },
-    [setDraftExploreState],
-  );
-
-  const setComparisonMode = useCallback(
-    (mode: ComparisonMode) => {
-      setDraftExploreState((prev) => ({
-        ...prev,
-        comparisonMode: mode,
-        // Seeding `custom` from the window already on screen keeps the manual
-        // field from jumping the moment it becomes editable.
-        previousTimeFrame: buildComparisonDateRangeForMode(
-          prev.dateRange,
-          mode,
-          prev.previousTimeFrame ?? null,
-        ),
-      }));
-    },
-    [setDraftExploreState],
-  );
-
   const commonColumns = useMemo(() => {
     return getCommonColumns(
       draftExploreState.dataset,
@@ -426,7 +433,9 @@ export function ExplorerProvider({
     async (options?: { cache?: CacheOption; config?: ExplorerDraftConfig }) => {
       const sourceConfig = options?.config ?? draftExploreState;
       const configToSubmit = cleanConfigForSubmission(sourceConfig);
-      const previousForRequest = sourceConfig.previousTimeFrame ?? null;
+      const previousForRequest = isTimelessSqlExploration(sourceConfig)
+        ? null
+        : (sourceConfig.previousTimeFrame ?? null);
       const modeForRequest = previousForRequest
         ? (sourceConfig.comparisonMode ??
           resolveLegacyExplorerComparisonMode(sourceConfig.dateRange))
@@ -791,6 +800,14 @@ export function ExplorerProvider({
     if (needsFetch) {
       if (deferFunnelFetchUntilManualRefresh) {
         setIsStale(true);
+      } else if (
+        cleanedDraftExploreState.type === "sql" &&
+        !isManagedWarehouse
+      ) {
+        // SQL on customer warehouses: apply cached viz results if present,
+        // but don't kick off a new warehouse query (default Count on first
+        // Explore visit, or SQL edits after a visualization exists).
+        doSubmit({ cache: "required" });
       } else {
         doSubmit();
       }
@@ -874,6 +891,10 @@ export function ExplorerProvider({
     [createDefaultValue, setDraftExploreState, getFactTableById],
   );
 
+  const ensureDefaultSqlValue = useCallback(() => {
+    setDraftExploreState((prev) => withDefaultSqlCountValue(prev));
+  }, [setDraftExploreState]);
+
   const updateValueInDataset = useCallback(
     (index: number, value: ProductAnalyticsValue) => {
       setDraftExploreState((prev) => {
@@ -920,22 +941,26 @@ export function ExplorerProvider({
   );
 
   const updateTimestampColumn = useCallback(
-    (column: string) => {
-      setDraftExploreState((prev) => {
-        if (!prev.dataset) {
-          return prev;
-        }
-        return {
-          ...prev,
-          dataset: { ...prev.dataset, timestampColumn: column },
-        } as ExplorationConfig;
-      });
+    (column: string | null) => {
+      setDraftExploreState((prev) => applyTimestampColumn(prev, column));
+      if (!hasTimestampColumn(column)) {
+        setComparisonExploration(null);
+        setComparisonQuery(null);
+        setComparisonComputed(null);
+        setComparisonError(null);
+      }
     },
     [setDraftExploreState],
   );
 
   const changeChartType = useCallback(
     (chartType: ExplorationConfig["chartType"]) => {
+      if (
+        isTimelessSqlExploration(draftExploreState) &&
+        isTimeSeriesChart(chartType)
+      ) {
+        return;
+      }
       if (trackingSource && draftExploreState.chartType !== chartType) {
         track("Product Analytics Explorer: Chart Type Changed", {
           source: trackingSource,
@@ -965,12 +990,12 @@ export function ExplorerProvider({
           }
         } else {
           // Time-series charts (line, area) need date dimensions
-          const isTimeSeriesChart =
+          const timeSeriesChart =
             chartType === "line" ||
             chartType === "area" ||
             chartType === "timeseries-table";
 
-          if (!isTimeSeriesChart) {
+          if (!timeSeriesChart) {
             dimensions = dimensions.filter((d) => d.dimensionType !== "date");
           } else if (!dimensions.some((d) => d.dimensionType === "date")) {
             dimensions = [
@@ -986,12 +1011,7 @@ export function ExplorerProvider({
         return { ...prev, chartType, dimensions, dataset } as ExplorationConfig;
       });
     },
-    [
-      setDraftExploreState,
-      trackingSource,
-      draftExploreState.chartType,
-      draftExploreState.type,
-    ],
+    [setDraftExploreState, trackingSource, draftExploreState],
   );
 
   const clearAllDatasets = useCallback(
@@ -1000,6 +1020,10 @@ export function ExplorerProvider({
       setComparisonQuery(null);
       setComparisonComputed(null);
       setComparisonError(null);
+      // The exploration is being wiped, so any metric it was loaded from no
+      // longer describes it. Leaving the link would offer to update a metric
+      // on another datasource with an unrelated funnel.
+      setLinkedFunnelMetricId(null);
       const datasourceId: string = newDatasourceId ?? datasources[0]?.id ?? "";
       setIsStale(false);
       if (datasourceId) {
@@ -1024,12 +1048,11 @@ export function ExplorerProvider({
       setExplorerState((prev) => {
         const type = prev.draftState.dataset.type;
         const emptyDataset = createEmptyDataset(type);
-        // Funnel datasets manage their own initial state (a single empty
-        // step) inside createEmptyDataset and have no `values`. For the
-        // other dataset types we still want to seed one default value so
-        // the sidebar opens with a ready-to-edit row.
+        // Funnel datasets seed their first step in createEmptyDataset. SQL
+        // starts without a value so raw query previews do not also run an
+        // exploration query.
         const dataset =
-          type === "funnel"
+          type === "funnel" || type === "sql"
             ? emptyDataset
             : ({
                 ...emptyDataset,
@@ -1071,6 +1094,7 @@ export function ExplorerProvider({
       setDraftExploreState,
       handleSubmit,
       addValueToDataset,
+      ensureDefaultSqlValue,
       updateValueInDataset,
       deleteValueFromDataset,
       updateTimestampColumn,
@@ -1085,6 +1109,9 @@ export function ExplorerProvider({
       trackingSource,
       registerFunnelAnalyzeCollapseHandler,
       collapseFunnelStepsForAnalyze,
+      linkedFunnelMetricId,
+      setLinkedFunnelMetricId,
+      funnelLinkIsDirty,
       compareEnabled,
       comparisonMode,
       submittedComparisonMode,
@@ -1093,18 +1120,16 @@ export function ExplorerProvider({
       comparisonQuery,
       comparisonComputed,
       comparisonError,
-      setCompareEnabled,
-      setComparisonMode,
     }),
     [
       addValueToDataset,
+      ensureDefaultSqlValue,
       changeChartType,
       clearAllDatasets,
       commonColumns,
       compareEnabled,
       comparisonMode,
       submittedComparisonMode,
-      setComparisonMode,
       comparisonComputed,
       comparisonError,
       comparisonExploration,
@@ -1122,13 +1147,14 @@ export function ExplorerProvider({
       needsFetch,
       needsUpdate,
       query,
-      setCompareEnabled,
       setDraftExploreState,
       submittedExploreState,
       submittedPreviousTimeFrame,
       trackingSource,
       registerFunnelAnalyzeCollapseHandler,
       collapseFunnelStepsForAnalyze,
+      linkedFunnelMetricId,
+      funnelLinkIsDirty,
       updateTimestampColumn,
       updateValueInDataset,
     ],
@@ -1136,7 +1162,22 @@ export function ExplorerProvider({
 
   return (
     <ExplorerContext.Provider value={value}>
-      {children}
+      {draftExploreState.dataset.type === "sql" ? (
+        <SqlEditorProvider
+          datasourceId={draftExploreState.datasource}
+          sql={draftExploreState.dataset.sql}
+          initialViewMode={
+            draftExploreState.dataset.sql.trim().length > 0 &&
+            Object.keys(draftExploreState.dataset.columnTypes).length > 0
+              ? "explore"
+              : "dataset"
+          }
+        >
+          {children}
+        </SqlEditorProvider>
+      ) : (
+        children
+      )}
     </ExplorerContext.Provider>
   );
 }

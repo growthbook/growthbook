@@ -7,6 +7,7 @@ import {
   normalizeProposedChanges,
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
+  entityProjects,
   isScheduledPublishPending,
   isScheduledPublishDue,
   ReviewDecision,
@@ -15,6 +16,10 @@ import {
 } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import uniqid from "uniqid";
+import {
+  assessApprovalCoverage,
+  assessRequiredApproverTeams,
+} from "shared/permissions";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   discardAuthorityOnRow,
@@ -72,6 +77,25 @@ export type RevisionActionKind =
   | "publish"
   | "delete";
 
+// The publish footprint of the same change: you cannot approve what you could
+// not publish. `[]` binds no environment, which the review branch fails closed.
+export function reviewFootprintFor(
+  context: Context,
+  revision: Pick<Revision, "target">,
+): string[] {
+  const adapter = getAdapter(revision.target.type);
+  const snapshot = revision.target.snapshot as Record<string, unknown>;
+  return resolvePublishFootprint(
+    context,
+    adapter.publishFootprint?.(
+      context,
+      snapshot,
+      revision.target.proposedChanges,
+    ),
+    snapshot,
+  );
+}
+
 /**
  * Authority for a verb that belongs to the REVISION rather than the live entity:
  * drafting, reviewing, commenting. Always judged on `target.snapshot` — a later
@@ -89,6 +113,7 @@ export function canRevisionOwnedAction(
     action,
     context,
     revision.target.snapshot as Record<string, unknown>,
+    action === "review" ? reviewFootprintFor(context, revision) : undefined,
   );
 }
 
@@ -104,6 +129,9 @@ export function canDoRevisionAction(
   // LIVE entity, because that is where the change lands. For draft/review prefer
   // `canRevisionOwnedAction`, which cannot be given the wrong one.
   snapshot: Record<string, unknown>,
+  // Review only. `null` skips the env constraint for union checks that are not
+  // sanctioning a change; omitted falls back to the adapter's own scope.
+  environments?: string[] | null,
 ): boolean {
   const adapter = getAdapter(type);
   // Exhaustive on purpose: a new action must fail the build rather than fall
@@ -130,7 +158,11 @@ export function canDoRevisionAction(
       }
     }
   };
-  return (hookFor(action) ?? adapter.canUpdate)(context, snapshot);
+  return (hookFor(action) ?? adapter.canUpdate)(
+    context,
+    snapshot,
+    environments,
+  );
 }
 
 // Commenting is participation, not authority over the entity: the addComments
@@ -148,7 +180,7 @@ export function canCommentOnRevision(
   return (
     context.permissions.canAddComment(projects) ||
     canDoRevisionAction(type, "draft", context, snapshot) ||
-    canDoRevisionAction(type, "review", context, snapshot)
+    canDoRevisionAction(type, "review", context, snapshot, null)
   );
 }
 
@@ -162,7 +194,14 @@ export function canTouchRevision(
   snapshot: Record<string, unknown>,
 ): boolean {
   return (["draft", "review", "revert", "publish", "delete"] as const).some(
-    (action) => canDoRevisionAction(type, action, context, snapshot),
+    (action) =>
+      canDoRevisionAction(
+        type,
+        action,
+        context,
+        snapshot,
+        action === "review" ? null : undefined,
+      ),
   );
 }
 
@@ -522,13 +561,25 @@ export async function approveRevision(
   const canReview = adapter.canReview ?? adapter.canUpdate;
   // On the revision's SNAPSHOT, like every other review check (the preflight,
   // `addReview`'s CAS, the REST twin): a review belongs to the revision, whose
-  // project a later move on the live entity does not change.
+  // project a later move on the live entity does not change. The ENVIRONMENTS,
+  // though, come from the change — approving is scoped to what would land.
   if (
-    !canReview(context, revision.target.snapshot as Record<string, unknown>)
+    !canReview(
+      context,
+      revision.target.snapshot as Record<string, unknown>,
+      reviewFootprintFor(context, revision),
+    )
   ) {
     context.permissions.throwPermissionError();
   }
 
+  // An approval is attributed to a member; an org key has none, so its
+  // approval could never satisfy coverage — refuse it instead of storing it.
+  if (!context.userId) {
+    throw new BadRequestError(
+      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
+    );
+  }
   if (mayBeRevisionAuthor(revision.authorId, context.userId)) {
     throw new BadRequestError("Cannot approve your own revision");
   }
@@ -578,6 +629,61 @@ export async function approveRevision(
   );
 
   return updated;
+}
+
+// `approved` was decided when given; a later edit can widen past its approver.
+// Only covering approvals count toward a team requirement.
+export function revisionRequiredApproverTeams(
+  context: Context,
+  revision: Revision,
+  coverage: { uncoveredApprovers: string[] },
+): { satisfied: boolean; unmet: { id: string; name: string }[][] } {
+  const adapter = getAdapter(revision.target.type);
+  const requirement = adapter.reviewRequirementForRevision?.(context, revision);
+  if (!requirement?.rules.length) return { satisfied: true, unmet: [] };
+  return assessRequiredApproverTeams({
+    rules: requirement.rules,
+    coveringApproverIds: (revision.reviews ?? [])
+      .filter((r) => r.decision === "approve" && !r.stale)
+      .map((r) => r.userId)
+      .filter((id) => !coverage.uncoveredApprovers.includes(id)),
+    org: context.org,
+    teams: context.teams ?? [],
+  });
+}
+
+export function revisionApprovalsCoverChange(
+  context: Context,
+  revision: Revision,
+): { hasCoveringApproval: boolean; uncoveredApprovers: string[] } {
+  const environments = reviewFootprintFor(context, revision);
+  const snapshot = revision.target.snapshot as {
+    project?: string;
+    projects?: string[];
+  };
+  // Authority over a multi-project entity is the intersection, not the first.
+  const projects = snapshot.projects?.length
+    ? snapshot.projects
+    : snapshot.project
+      ? [snapshot.project]
+      : [];
+  return assessApprovalCoverage({
+    org: context.org,
+    teams: context.teams ?? [],
+    model: revision.target.type,
+    projects,
+    footprint: environments.length
+      ? { scope: "environments", environments }
+      : { scope: "unbound" },
+    approvers: (revision.reviews ?? [])
+      .filter((r) => r.decision === "approve" && !r.stale)
+      .map((r) => ({
+        id: r.userId,
+        // Inside a publish gate: a context without members refuses, not 500s.
+        roleInfo:
+          (context.org.members ?? []).find((m) => m.id === r.userId) ?? null,
+      })),
+  });
 }
 
 export async function publishRevision(
@@ -637,13 +743,38 @@ async function publishRevisionInner(
   const canBypass =
     bypass || (!deferred && adapter.canBypassApproval(context, entity));
 
-  if (approvalRequired && revision.status !== "approved" && !canBypass) {
+  // Coverage, not just status: an approval given when the change was narrower
+  // does not sanction what it would land now.
+  const coverage = revisionApprovalsCoverChange(context, revision);
+  const approvedAndCovered =
+    revision.status === "approved" && coverage.hasCoveringApproval;
+
+  if (approvalRequired && !approvedAndCovered && !canBypass) {
     throw new BadRequestError(
-      "The revision must be approved before it can be published",
+      revision.status === "approved"
+        ? "This revision now changes environments its approvers cannot approve. It needs approval from someone with review rights across everything it changes."
+        : "The revision must be approved before it can be published",
     );
   }
 
-  const isBypass = approvalRequired && revision.status !== "approved";
+  const requiredTeams = revisionRequiredApproverTeams(
+    context,
+    revision,
+    coverage,
+  );
+  if (approvalRequired && !requiredTeams.satisfied && !canBypass) {
+    throw new BadRequestError(
+      requiredTeams.unmet
+        .map(
+          (teams) =>
+            `Requires approval from ${teams.map((t) => t.name).join(" or ")}.`,
+        )
+        .join(" "),
+    );
+  }
+
+  const isBypass =
+    approvalRequired && (!approvedAndCovered || !requiredTeams.satisfied);
 
   const conflictResult = checkMergeConflicts(
     revision.target.snapshot as Record<string, unknown>,
@@ -966,7 +1097,7 @@ export async function canEnableAutoPublishOnApproval(
     : isAutopublishOnApprovalEnabled(
         context.org.settings,
         entityType,
-        (entity as { project?: string }).project,
+        entityProjects(entity),
       );
   if (!enabled) return false;
   // Arming takes the SAME change-aware authority the eventual fire will: the
@@ -1023,7 +1154,13 @@ export async function maybeAutoPublishRevision(
   // Resolved BEFORE the try: the catch below deliberately swallows publish
   // failures to leave the draft approved for a manual publish, which would also
   // swallow this and let the caller believe the publish ran.
-  const enablerContext = await getContextForUserIdInOrg(context.org, enablerId);
+  const enablerContext = await getContextForUserIdInOrg(
+    context.org,
+    enablerId,
+    {
+      applyProjectRestrictions: false,
+    },
+  );
   if (!enablerContext) {
     logger.warn(
       { revisionId: revision.id, enablerId },
@@ -1178,6 +1315,9 @@ export async function maybePublishScheduledRevision(
     const enablerContext = await getContextForUserIdInOrg(
       context.org,
       enablerId,
+      {
+        applyProjectRestrictions: false,
+      },
     );
     if (!enablerContext) {
       // Transient: the user may resolve on a later tick.
@@ -1350,9 +1490,19 @@ export async function submitRevisionReview({
           entityType,
           "review",
           revision.target.snapshot as Record<string, unknown>,
+          // Scoped to what the change would land, like the internal route.
+          reviewFootprintFor(context, revision),
         ))
   ) {
     context.permissions.throwPermissionError();
+  }
+
+  // A verdict is attributed to a member; an org key has none, so its approval
+  // could never satisfy coverage — refuse it instead of storing it.
+  if (!isComment && !context.userId) {
+    throw new BadRequestError(
+      "Submitting a review requires a user identity. Use a Personal Access Token instead of an organization key.",
+    );
   }
 
   // The author may comment on their own draft, but not rule on it.

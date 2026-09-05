@@ -35,6 +35,7 @@ export function parseExperimentFactMetricsParams(
     settings: ExperimentSnapshotSettings;
     factTableMap: FactTableMap;
     lastMaxTimestamp: Date | null;
+    lastMaxTimestampRaw?: string | null;
     covariateTableAlias: string;
     forcedUserIdType?: string;
     // When set, restrict fact-table discovery to a single FT. Cross-FT
@@ -173,6 +174,9 @@ export function parseExperimentFactMetricsParams(
       metricStart: startDate,
       metricEnd,
       bindingLastMaxTimestamp,
+      lastMaxTimestampRaw: bindingLastMaxTimestamp
+        ? (params.lastMaxTimestampRaw ?? null)
+        : null,
       minCovariateStartDate,
       maxCovariateEndDate,
     };

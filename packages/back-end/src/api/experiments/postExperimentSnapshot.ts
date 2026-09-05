@@ -1,12 +1,27 @@
+import isEqual from "lodash/isEqual";
 import { postExperimentSnapshotValidator } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { createExperimentSnapshot } from "back-end/src/services/experiments";
+import {
+  createExperimentSnapshot,
+  createExperimentSnapshotFromPlan,
+  planExperimentSnapshot,
+  PlannedExperimentSnapshot,
+} from "back-end/src/services/experiments";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
-import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
+import {
+  DimensionAlreadyUpToDateError,
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+} from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
+
+const REQUIRES_FULL_REFRESH_RESUBMIT_INSTRUCTIONS =
+  'Send "dimension": "" to rebuild Overall Results, wait for that snapshot to finish, then resubmit this request unchanged.';
+const DIMENSION_ALREADY_UP_TO_DATE_RESUBMIT_INSTRUCTIONS =
+  'Send "dimension": "" to update Overall Results, wait for that snapshot to finish, then resubmit this request.';
 
 export const postExperimentSnapshot = createApiRequestHandler(
   postExperimentSnapshotValidator,
@@ -56,39 +71,110 @@ export const postExperimentSnapshot = createApiRequestHandler(
       datasource,
       dimension,
       organization: context.org.id,
+      phase: phaseIndex,
     });
   }
 
-  const createSnapshot = (useCache: boolean) =>
-    createExperimentSnapshot({
-      context,
-      experiment,
-      datasource,
-      triggeredBy,
-      phase: phaseIndex,
-      dimension,
-      useCache,
-    });
-
-  // A programmatic refresh is non-interactive. When the Incremental Pipeline
-  // requires a Full Refresh we run one transparently instead of surfacing an
-  // error the caller would have to act on. Lesser incremental shortfalls fall
-  // back to the non-incremental results runner during planning.
   let useCache = true;
-  let result: Awaited<ReturnType<typeof createSnapshot>>;
-  try {
-    result = await createSnapshot(useCache);
-  } catch (error) {
-    if (
-      !(error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError)
-    ) {
+  let result: Awaited<ReturnType<typeof createExperimentSnapshot>>;
+
+  if (dimension) {
+    let plan: PlannedExperimentSnapshot;
+    try {
+      plan = await planExperimentSnapshot({
+        context,
+        experiment,
+        datasource,
+        dimension,
+        phase: phaseIndex,
+        useCache: true,
+        triggeredBy,
+        throwIfRequiresFullRefresh: true,
+      });
+    } catch (error) {
+      if (
+        error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
+      ) {
+        // Rethrow with additional guidance
+        throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+          `${error.details.reason} ${REQUIRES_FULL_REFRESH_RESUBMIT_INSTRUCTIONS}`,
+        );
+      }
+
+      // Otherwise let original error propagate
       throw error;
     }
-    logger.info(
-      `Experiment ${experiment.id}: ${error.details.reason} Running a Full Refresh automatically.`,
-    );
-    useCache = false;
-    result = await createSnapshot(useCache);
+
+    // Check if the dimension is already up to date, if it was generated
+    // from the latest Overall Results
+    const latestDimensionSnapshot = await getLatestSuccessfulSnapshot({
+      context,
+      experiment: experiment.id,
+      phase: phaseIndex,
+      dimension,
+    });
+
+    if (
+      latestDimensionSnapshot &&
+      plan.snapshot.sourceSnapshotId &&
+      plan.snapshot.sourceSnapshotDateCreated &&
+      plan.snapshot.sourceSnapshotId ===
+        latestDimensionSnapshot.sourceSnapshotId &&
+      plan.snapshot.analyses.every(({ settings }) =>
+        latestDimensionSnapshot.analyses?.some(
+          (analysis) =>
+            analysis.status === "success" &&
+            isEqual(analysis.settings, settings),
+        ),
+      )
+    ) {
+      const overallResultsAsOf =
+        plan.snapshot.sourceSnapshotDateCreated.toISOString();
+      throw new DimensionAlreadyUpToDateError(
+        `These results were computed from Overall Results as of ${overallResultsAsOf}. ${DIMENSION_ALREADY_UP_TO_DATE_RESUBMIT_INSTRUCTIONS}`,
+        overallResultsAsOf,
+      );
+    }
+
+    result = await createExperimentSnapshotFromPlan({
+      plan,
+      context,
+      experiment,
+    });
+  } else {
+    try {
+      result = await createExperimentSnapshot({
+        context,
+        experiment,
+        datasource,
+        triggeredBy,
+        phase: phaseIndex,
+        dimension,
+        useCache: true,
+      });
+    } catch (error) {
+      if (
+        !(
+          error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
+        )
+      ) {
+        throw error;
+      }
+      // If it requires a full refresh, let's do it automatically.
+      logger.info(
+        `Experiment ${experiment.id}: ${error.details.reason} Running a Full Refresh automatically.`,
+      );
+      useCache = false;
+      result = await createExperimentSnapshot({
+        context,
+        experiment,
+        datasource,
+        triggeredBy,
+        phase: phaseIndex,
+        dimension,
+        useCache: false,
+      });
+    }
   }
   const { snapshot } = result;
 

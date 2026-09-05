@@ -21,7 +21,9 @@ import {
   SliceLevelsData,
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
+  getFactMetricFactTableIds,
   getFactMetricPrimaryFactTableId,
+  parseDimensionId,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { differenceInMinutes } from "date-fns";
@@ -875,15 +877,9 @@ export async function generateExperimentReportSSRData({
     {},
   );
 
-  let factTableIds: string[] = [];
-  factMetrics.forEach((m) => {
-    const primaryFactTableId = getFactMetricPrimaryFactTableId(m);
-    if (primaryFactTableId) factTableIds.push(primaryFactTableId);
-    if (m?.denominator?.factTableId)
-      factTableIds.push(m.denominator.factTableId);
-  });
-
-  factTableIds = uniq(factTableIds);
+  const factTableIds = uniq(
+    factMetrics.flatMap((m) => getFactMetricFactTableIds(m)),
+  );
 
   const factTables = await getFactTablesByIds(context, factTableIds);
   const factTableMap: Record<string, FactTableInterface> = factTables.reduce(
@@ -892,8 +888,17 @@ export async function generateExperimentReportSSRData({
   );
 
   const allDimensions = await findDimensionsByOrganization(organization);
-  const dimension = allDimensions.find((d) => d.id === snapshot?.dimension);
-  const dimensions = dimension ? [dimension] : [];
+  const parsedDimension = snapshot?.dimension
+    ? parseDimensionId(snapshot.dimension)
+    : null;
+  // Combos reference unit dimensions by id inside the combo id
+  const dimensionIds =
+    parsedDimension?.kind === "combo"
+      ? parsedDimension.constituentIds
+      : parsedDimension?.kind === "user"
+        ? [parsedDimension.id]
+        : [];
+  const dimensions = allDimensions.filter((d) => dimensionIds.includes(d.id));
 
   const settingsKeys = [
     "confidenceLevel",
