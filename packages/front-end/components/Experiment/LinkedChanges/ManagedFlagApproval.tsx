@@ -100,6 +100,7 @@ export default function ManagedFlagApproval({
   const [decision, setDecision] = useState<ReviewDecision>("Comment");
   const [adminBypass, setAdminBypass] = useState(false);
   const [discardConfirm, setDiscardConfirm] = useState(false);
+  const [showEnvDetails, setShowEnvDetails] = useState(false);
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -502,17 +503,57 @@ export default function ManagedFlagApproval({
   // flag's kill switches together, live against draft.
   const liveEnvStates = info.liveEnvironmentStates ?? {};
   const draftEnvStates = info.pendingDraft?.environmentStates ?? liveEnvStates;
-  const envToggles = filterEnvironmentsByFeature(
-    allEnvironments,
-    info.feature,
-  ).map((env) => ({
-    envId: env.id,
-    from: liveEnvStates[env.id] === "active",
-    to: (draftEnvStates[env.id] ?? liveEnvStates[env.id]) === "active",
+  const envIds = filterEnvironmentsByFeature(allEnvironments, info.feature).map(
+    (env) => env.id,
+  );
+  const draftStateOf = (envId: string) =>
+    draftEnvStates[envId] ?? liveEnvStates[envId];
+  const envToggles = envIds.map((envId) => ({
+    envId,
+    from: liveEnvStates[envId] === "active",
+    to: draftStateOf(envId) === "active",
   }));
   // A managed flag is born with every environment off; its first draft is the
   // flag arriving, not a toggle.
   const arriving = !info.liveEnvironmentStates;
+  // The grid shows the effective state. It only needs unpacking when the two
+  // knobs disagree: the rule covers an environment whose switch is off.
+  const envConflict = envIds.some(
+    (envId) => draftStateOf(envId) === "disabled-env",
+  );
+  const environmentsRender = (
+    <>
+      {renderEnvironmentToggles(envToggles, { endStateOnly: arriving })}
+      {envConflict && (
+        <Box mt="2">
+          <Link onClick={() => setShowEnvDetails((v) => !v)} weight="medium">
+            {showEnvDetails ? "Hide details" : "Details"}
+          </Link>
+          {showEnvDetails && (
+            <Flex direction="column" gap="1" mt="2">
+              {envIds.map((envId) => {
+                const state = draftStateOf(envId);
+                const ruleCovers =
+                  state === "active" || state === "disabled-env";
+                const switchOn =
+                  state === "active" || state === "disabled-rule";
+                return (
+                  <Text key={envId} size="sm" color="text-mid">
+                    <Text weight="medium">{envId}</Text>: experiment{" "}
+                    {ruleCovers ? "covers" : "does not cover"} it; the Feature
+                    Flag&apos;s environment switch is {switchOn ? "on" : "off"}
+                    {state === "disabled-env"
+                      ? " — nothing serves here until the switch is turned on."
+                      : "."}
+                  </Text>
+                );
+              })}
+            </Flex>
+          )}
+        </Box>
+      )}
+    </>
+  );
   const liveValueType = info.feature.valueType;
   const draftValueType = draftDiffInput.metadata?.valueType ?? liveValueType;
   const sections: FormattedChangeItem[] = [
@@ -520,9 +561,7 @@ export default function ManagedFlagApproval({
       title: envToggles.length === 1 ? "Environment" : "Environments",
       a: "",
       b: "",
-      customRender: renderEnvironmentToggles(envToggles, {
-        endStateOnly: arriving,
-      }),
+      customRender: environmentsRender,
     },
     {
       title: "Value type",
