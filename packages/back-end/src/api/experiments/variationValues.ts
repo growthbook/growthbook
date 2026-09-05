@@ -128,6 +128,19 @@ export const putExperimentVariationValues = createApiRequestHandler(
   }
   const feature = await requireManagedFlag(req.context, experiment);
 
+  // Validate everything before writing anything, so a bad environment list
+  // cannot leave the values half-applied.
+  const scope = req.body.environments;
+  if (scope !== undefined && scope !== "all") {
+    const known = getEnvironmentIdsFromOrg(req.context.org);
+    const unknown = scope.filter((e) => !known.includes(e));
+    if (unknown.length) {
+      throw new BadRequestError(
+        `Unknown environment${unknown.length > 1 ? "s" : ""}: ${unknown.join(", ")}`,
+      );
+    }
+  }
+
   if (req.body.values) {
     await updateManagedVariationValues({
       context: req.context,
@@ -139,17 +152,7 @@ export const putExperimentVariationValues = createApiRequestHandler(
       audit: req.audit,
     });
   }
-  const scope = req.body.environments;
   if (scope !== undefined) {
-    if (scope !== "all") {
-      const known = getEnvironmentIdsFromOrg(req.context.org);
-      const unknown = scope.filter((e) => !known.includes(e));
-      if (unknown.length) {
-        throw new BadRequestError(
-          `Unknown environment${unknown.length > 1 ? "s" : ""}: ${unknown.join(", ")}`,
-        );
-      }
-    }
     const { version } = await updateExperimentRuleEnvironments({
       context: req.context,
       experiment,

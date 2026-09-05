@@ -11,6 +11,7 @@ import {
   seedManagedVariationValues,
   validateFeatureValue,
   type ManagedFlagKeyPlan,
+  PermissionError,
 } from "shared/util";
 import {
   ExperimentInterface,
@@ -1344,14 +1345,12 @@ export async function clearManagedMarkersForExperiment(
   const ids = await getManagedFlagIdsUnfiltered(context, experimentId);
   for (const id of ids) {
     const feature = await getFeature(context, id);
-    // Unreadable here means the marker cannot be cleared through the model's
-    // own read path; log rather than fail the delete.
+    // Runs before the experiment goes away, so refusing here keeps the flag
+    // from being locked to an experiment that no longer exists.
     if (!feature) {
-      logger.warn(
-        { featureId: id, experimentId },
-        "Managed flag is not readable by the deleter; marker left in place",
+      throw new PermissionError(
+        `Feature Flag "${id}" is managed by this experiment but you cannot access it, so the experiment cannot be removed. Ask someone with access to that Feature Flag's project.`,
       );
-      continue;
     }
     const released = await clearManagedMarker(context, feature);
     if (archive) await archiveFeature(context, released, true);
