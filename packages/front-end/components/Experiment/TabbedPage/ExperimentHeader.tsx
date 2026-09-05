@@ -798,15 +798,17 @@ export default function ExperimentHeader({
               <Callout status={materializing ? "info" : "warning"}>
                 <Text as="p" mb="2" weight="semibold">
                   {linkageBlocker === "running"
-                    ? "This experiment is running. Deleting it takes effect immediately:"
+                    ? `This ${isHoldout ? "holdout" : "experiment"} is running. Deleting it takes effect immediately:`
                     : "Linked implementations:"}
                 </Text>
                 <ul
-                  className={
-                    linkageBlocker === "temporary-rollout"
-                      ? "mb-0 pl-4"
-                      : "mb-3 pl-4"
-                  }
+                  style={{
+                    paddingLeft: "var(--space-4)",
+                    marginBottom:
+                      linkageBlocker === "temporary-rollout"
+                        ? 0
+                        : "var(--space-3)",
+                  }}
                 >
                   {deleteConsequences}
                 </ul>
@@ -871,9 +873,10 @@ export default function ExperimentHeader({
             {!experiment.archived && linkageBlocker === "running" && (
               <Callout status="warning">
                 <Text as="p" mb="2">
-                  This experiment is running. Archiving takes it out of the SDK
-                  payload immediately, so its linked Feature Flags, Visual
-                  Editor changes and URL Redirects stop serving.
+                  This {isHoldout ? "holdout" : "experiment"} is running.
+                  Archiving takes it out of the SDK payload immediately, so its
+                  linked Feature Flags, Visual Editor changes and URL Redirects
+                  stop serving.
                 </Text>
                 <Checkbox
                   label="I understand the linked changes stop serving"

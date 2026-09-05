@@ -66,7 +66,7 @@ export default function ChangeImplementationTypeModal({
       close={close}
       trackingEventModalType="change-implementation-type"
       header="Change Implementation Type"
-      cta="Change Type"
+      cta="Change type"
       ctaEnabled={
         changed && !blockedReason && (!removesManagedFlag || acknowledged)
       }

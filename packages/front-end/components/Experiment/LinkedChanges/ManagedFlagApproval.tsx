@@ -58,6 +58,7 @@ import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import RadioGroup from "@/ui/RadioGroup";
@@ -98,6 +99,7 @@ export default function ManagedFlagApproval({
   const [comment, setComment] = useState("");
   const [decision, setDecision] = useState<ReviewDecision>("Comment");
   const [adminBypass, setAdminBypass] = useState(false);
+  const [discardConfirm, setDiscardConfirm] = useState(false);
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -893,16 +895,24 @@ export default function ManagedFlagApproval({
               <DropdownMenuItem
                 color="red"
                 disabled={submitting}
-                onClick={() => {
-                  if (confirm("Discard the unpublished variation values?")) {
-                    post("discard");
-                  }
-                }}
+                onClick={() => setDiscardConfirm(true)}
               >
                 Discard draft
               </DropdownMenuItem>
             )}
           </DropdownMenu>
+        )}
+        {discardConfirm && (
+          <ConfirmDialog
+            title="Discard unpublished variation values?"
+            content="This throws away the unpublished draft. Live values are unchanged."
+            yesText="Discard"
+            onConfirm={async () => {
+              setDiscardConfirm(false);
+              await post("discard");
+            }}
+            onCancel={() => setDiscardConfirm(false)}
+          />
         )}
       </Flex>
       <ModalStandard

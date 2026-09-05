@@ -27,6 +27,12 @@ const NUM_PER_PAGE = 20;
 
 const imageCache = {};
 
+const LIST_ICON_STYLE = {
+  display: "flex",
+  alignItems: "center",
+  marginLeft: "var(--space-2)",
+} as const;
+
 const CompletedExperimentList = ({
   experiments,
 }: {
@@ -159,7 +165,7 @@ const CompletedExperimentList = ({
                 <ImplementationTypeIcon
                   key={e.id + "-visual"}
                   type="visual"
-                  className="d-flex align-items-center ml-2"
+                  style={LIST_ICON_STYLE}
                 />,
               );
             }
@@ -168,7 +174,7 @@ const CompletedExperimentList = ({
                 <ImplementationTypeIcon
                   key={e.id + "-feature-flag"}
                   type={getManagedFlag(e.id) ? "values" : "feature"}
-                  className="d-flex align-items-center ml-2"
+                  style={LIST_ICON_STYLE}
                 />,
               );
             }
@@ -177,7 +183,7 @@ const CompletedExperimentList = ({
                 <ImplementationTypeIcon
                   key={e.id + "-url-redirect"}
                   type="urlredirect"
-                  className="d-flex align-items-center ml-2"
+                  style={LIST_ICON_STYLE}
                 />,
               );
             }
@@ -187,7 +193,9 @@ const CompletedExperimentList = ({
                 <ImplementationTypeIcon
                   key={e.id + "-no-type"}
                   type="none"
-                  className="d-flex align-items-center ml-2"
+                  title="Analysis only"
+                  description="Nothing to implement"
+                  style={LIST_ICON_STYLE}
                 />,
               );
             }

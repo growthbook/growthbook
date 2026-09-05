@@ -23,7 +23,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import ChangeImplementationTypeModal from "@/components/Experiment/ChangeImplementationTypeModal";
 import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedChanges/LinkedFeatureFlag";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
@@ -107,7 +107,6 @@ export default function LinkedChanges({
       : otherLinkages > 0
         ? "Remove the linked Feature Flags, Visual Editor changes and URL Redirects first."
         : null;
-  const showTypeMenu = !isPublic && canEditExperiment && !experiment.archived;
 
   const effectiveType = managedFeature
     ? "values"
@@ -123,6 +122,18 @@ export default function LinkedChanges({
         : effectiveType && effectiveType !== "none"
           ? IMPLEMENTATION_TYPE_OPTIONS[effectiveType].header
           : "Implementation";
+  // The empty state below already offers the type chooser; the kebab is for
+  // once the box has content or the choice is locked.
+  const emptyStateOffersType =
+    numLinkedChanges === 0 &&
+    (!effectiveType || effectiveType === "none") &&
+    !changeTypeLockedReason;
+  const showTypeMenu =
+    !isPublic &&
+    canEditExperiment &&
+    !experiment.archived &&
+    !emptyStateOffersType;
+
   const canEject =
     !!managedFeature &&
     !!canEditExperiment &&
@@ -153,7 +164,10 @@ export default function LinkedChanges({
             {boxTitle}
           </Heading>
           {valuesMode && (
-            <Tooltip body="This experiment owns the Feature Flag: it serves the variation values above and is edited from here rather than from its own page.">
+            <Tooltip
+              content="This experiment owns the Feature Flag: it serves the variation values above and is edited from here rather than from its own page."
+              side="top"
+            >
               <Flex align="center" style={{ color: "var(--color-text-low)" }}>
                 <PiInfo />
               </Flex>
@@ -175,7 +189,7 @@ export default function LinkedChanges({
                   radius="full"
                   size="2"
                   highContrast
-                  aria-label="Linked changes actions"
+                  aria-label={`${boxTitle} actions`}
                 >
                   <BsThreeDotsVertical size={16} />
                 </IconButton>
@@ -222,7 +236,7 @@ export default function LinkedChanges({
         ) : (
           <Flex justify="between" align="center" gap="4">
             <Text color="text-mid">
-              No Feature Flag yet. Adding variation values creates one.
+              No Feature Flag yet. Adding values creates one.
             </Text>
             {onAddValues && (
               <Button variant="ghost" onClick={onAddValues}>

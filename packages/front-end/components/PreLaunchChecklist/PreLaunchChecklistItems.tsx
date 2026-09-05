@@ -20,6 +20,7 @@ import {
 } from "shared/util";
 import track from "@/services/track";
 import Link from "@/ui/Link";
+import VariationLabel from "@/ui/VariationLabel";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -377,6 +378,22 @@ export function getChecklistItems({
         .forEach((f) => {
           if (isManaged(f)) {
             // The values live on this page, so there is nowhere to link out to.
+            const variationList = (ids: string[]) =>
+              ids.map((id, i) => {
+                const index = latestVariations.findIndex((v) => v.id === id);
+                return (
+                  <span key={id}>
+                    {i > 0 ? ", " : ""}
+                    <VariationLabel
+                      number={index}
+                      name={
+                        latestVariations[index]?.name || `Variation ${index}`
+                      }
+                      size="sm"
+                    />
+                  </span>
+                );
+              });
             const problems = getManagedValueProblems({
               variations: latestVariations,
               values: f.pendingDraft?.values ?? f.values,
@@ -390,9 +407,12 @@ export function getChecklistItems({
                 type: "auto",
                 required: true,
                 hideDescription: true,
-                display: `Add a variation value for ${missing
-                  .map((p) => p.variationName)
-                  .join(", ")}`,
+                display: (
+                  <>
+                    Add a variation value for{" "}
+                    {variationList(missing.map((p) => p.variationId))}
+                  </>
+                ),
               });
             }
             if (malformed.length) {
@@ -402,9 +422,12 @@ export function getChecklistItems({
                 required: true,
                 hardBlock: true,
                 hideDescription: true,
-                display: `Fix the variation value for ${malformed
-                  .map((p) => p.variationName)
-                  .join(", ")}`,
+                display: (
+                  <>
+                    Fix the variation value for{" "}
+                    {variationList(malformed.map((p) => p.variationId))}
+                  </>
+                ),
                 tooltip: malformed
                   .map((p) => `${p.variationName}: ${p.detail}`)
                   .join("; "),

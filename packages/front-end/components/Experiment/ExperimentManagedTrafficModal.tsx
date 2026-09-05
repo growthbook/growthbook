@@ -843,16 +843,16 @@ function ManagedTrafficForm({
                         <Callout status="error" mt="3">
                           <Box>{keyPlan.regexError}</Box>
                           {manualKey === null && (
-                            <Link
+                            <Button
+                              size="sm"
+                              variant="outline"
                               onClick={() => {
                                 setRenameTo(null);
                                 setManualKey("");
                               }}
-                              size="sm"
-                              weight="bold"
                             >
                               Choose a Feature Flag key instead
-                            </Link>
+                            </Button>
                           )}
                         </Callout>
                       )}

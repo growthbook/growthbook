@@ -9,7 +9,7 @@ import {
   getManagedWarehouseExposureQueryIdForAttribute,
   isProjectListValidForProject,
 } from "shared/util";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -562,10 +562,12 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         {...form.register("hypothesis")}
       />
 
-      <ImplementationTypeSelect
-        value={form.watch("implementationType")}
-        setValue={(v) => form.setValue("implementationType", v)}
-      />
+      <Box mb="4">
+        <ImplementationTypeSelect
+          value={form.watch("implementationType")}
+          setValue={(v) => form.setValue("implementationType", v)}
+        />
+      </Box>
 
       <SelectField
         required
