@@ -23,6 +23,7 @@ import {
 import { findPublishLockingScheduledRevision } from "shared/enterprise";
 import { RampScheduleInterface } from "shared/validators";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiCaretDownFill } from "react-icons/pi";
 import { getReviewAndPublishState } from "@/components/Reviews/reviewAndPublishState";
 import {
   featureToFeatureRevisionDiffInput,
@@ -53,6 +54,7 @@ import CommentCard from "@/components/Comments/CommentCard";
 import Avatar from "@/ui/Avatar";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
+import SplitButton from "@/ui/SplitButton";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -907,8 +909,42 @@ export default function ManagedFlagApproval({
 
   return (
     <>
-      <Flex align="center" gap="3">
-        <Button size="sm" onClick={() => setOpen(true)}>
+      <SplitButton
+        // Beside the CTA rather than inside the modal: recalling the request
+        // is an alternative to reviewing it, not part of reviewing it.
+        menu={
+          state.canRecallReview || canManage ? (
+            <DropdownMenu
+              trigger={
+                <Button aria-label="Review actions">
+                  <PiCaretDownFill />
+                </Button>
+              }
+              menuPlacement="end"
+              variant="soft"
+            >
+              {state.canRecallReview && (
+                <DropdownMenuItem
+                  disabled={submitting}
+                  onClick={() => post("recall-review")}
+                >
+                  Return to draft
+                </DropdownMenuItem>
+              )}
+              {canManage && (
+                <DropdownMenuItem
+                  color="red"
+                  disabled={submitting}
+                  onClick={() => setDiscardConfirm(true)}
+                >
+                  Discard draft
+                </DropdownMenuItem>
+              )}
+            </DropdownMenu>
+          ) : undefined
+        }
+      >
+        <Button onClick={() => setOpen(true)}>
           {/* A caller-supplied label wins for everyone, so one callout can't
               show two different CTAs. Otherwise name what the modal offers this
               viewer; with no action it is still worth opening to see the
@@ -920,57 +956,19 @@ export default function ManagedFlagApproval({
                 ? state.ctaLabel
                 : "Review changes")}
         </Button>
-        {/* Beside the CTA rather than inside the modal: recalling the request
-            is an alternative to reviewing it, not part of reviewing it. */}
-        {(state.canRecallReview || canManage) && (
-          <DropdownMenu
-            trigger={
-              <IconButton
-                variant="ghost"
-                color="gray"
-                radius="full"
-                size="2"
-                highContrast
-                aria-label="Review actions"
-              >
-                <BsThreeDotsVertical size={16} />
-              </IconButton>
-            }
-            menuPlacement="end"
-            variant="soft"
-          >
-            {state.canRecallReview && (
-              <DropdownMenuItem
-                disabled={submitting}
-                onClick={() => post("recall-review")}
-              >
-                Return to draft
-              </DropdownMenuItem>
-            )}
-            {canManage && (
-              <DropdownMenuItem
-                color="red"
-                disabled={submitting}
-                onClick={() => setDiscardConfirm(true)}
-              >
-                Discard draft
-              </DropdownMenuItem>
-            )}
-          </DropdownMenu>
-        )}
-        {discardConfirm && (
-          <ConfirmDialog
-            title="Discard unpublished variation values?"
-            content="This throws away the unpublished draft. Live values are unchanged."
-            yesText="Discard"
-            onConfirm={async () => {
-              setDiscardConfirm(false);
-              await post("discard");
-            }}
-            onCancel={() => setDiscardConfirm(false)}
-          />
-        )}
-      </Flex>
+      </SplitButton>
+      {discardConfirm && (
+        <ConfirmDialog
+          title="Discard unpublished variation values?"
+          content="This throws away the unpublished draft. Live values are unchanged."
+          yesText="Discard"
+          onConfirm={async () => {
+            setDiscardConfirm(false);
+            await post("discard");
+          }}
+          onCancel={() => setDiscardConfirm(false)}
+        />
+      )}
       <ModalStandard
         open={open}
         trackingEventModalType="managed-flag-approval"
