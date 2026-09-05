@@ -204,10 +204,12 @@ export default function ExperimentHeader({
     linkageBlocker,
   );
   const materializing = linkedChanges === "materialize";
+  // With nothing to keep, the only answer is "remove", so an acknowledgement
+  // stands in for a one-option radio.
   const linkedChangesResolution: LinkedChangesResolution | undefined =
-    linkageBlocker === "temporary-rollout"
+    linkageBlocker === "temporary-rollout" && canMaterialize
       ? linkedChanges || undefined
-      : linkageBlocker === "running" && deleteAcknowledged
+      : linkageBlocker && deleteAcknowledged
         ? "remove"
         : undefined;
   const linkageResolved =
@@ -216,32 +218,36 @@ export default function ExperimentHeader({
     setDeleteAcknowledged(false);
     setLinkedChanges("");
   };
-  const linkageChoice = linkageBlocker === "temporary-rollout" && (
-    <RadioGroup
-      gap="1"
-      value={linkedChanges}
-      setValue={(v) => setLinkedChanges(v as LinkedChangesResolution)}
-      options={[
-        ...(canMaterialize
-          ? [
-              {
-                value: "materialize",
-                label: "Keep serving the released variation",
-                description:
-                  "Each linked Feature Flag gets a permanent force rule with this experiment's targeting.",
-              },
-            ]
-          : []),
-        {
-          value: "remove",
-          label: "Stop serving it",
-          description: canMaterialize
-            ? "Users go back to the flags' other rules and defaults."
-            : "The temporary rollout ends; users go back to the other rules and defaults.",
-        },
-      ]}
-    />
-  );
+  const linkageChoice =
+    linkageBlocker === "temporary-rollout" &&
+    (canMaterialize ? (
+      <RadioGroup
+        gap="1"
+        value={linkedChanges}
+        setValue={(v) => setLinkedChanges(v as LinkedChangesResolution)}
+        options={[
+          {
+            value: "materialize",
+            label: "Keep serving the released variation",
+            description:
+              "Each linked Feature Flag gets a permanent force rule with this experiment's targeting.",
+          },
+          {
+            value: "remove",
+            label: "Stop serving it",
+            description:
+              "Users go back to the Feature Flags' other rules and defaults.",
+          },
+        ]}
+      />
+    ) : (
+      <Checkbox
+        label="I understand the temporary rollout ends and users go back to the other rules and defaults"
+        weight="regular"
+        value={deleteAcknowledged}
+        setValue={(v) => setDeleteAcknowledged(!!v)}
+      />
+    ));
   // Deleting the experiment archives the flag that existed only for it and
   // strips its rule from every other linked flag.
   const managedFlagToArchive = linkedFeatures.find((f) =>
@@ -260,7 +266,7 @@ export default function ExperimentHeader({
           <li key="managed">
             Managed Feature Flag <strong>{managedFlagToArchive}</strong>{" "}
             {materializing
-              ? "becomes an ordinary flag serving the released variation."
+              ? "becomes an ordinary Feature Flag serving the released variation."
               : "will be archived."}
           </li>,
         ]
