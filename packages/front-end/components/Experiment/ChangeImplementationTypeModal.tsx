@@ -72,15 +72,7 @@ export default function ChangeImplementationTypeModal({
       }
       submit={async () => {
         if (!next) return;
-        if (ejectsManagedFlag) {
-          await apiCall(`/experiment/${experiment.id}/managed-flag/eject`, {
-            method: "POST",
-          });
-        } else if (removesManagedFlag) {
-          await apiCall(`/experiment/${experiment.id}/managed-flag/remove`, {
-            method: "POST",
-          });
-        }
+        // The server converts or deletes the managed flag as part of the change.
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify({ implementationType: next }),

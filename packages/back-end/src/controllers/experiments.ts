@@ -177,6 +177,7 @@ import {
   discardManagedDraftIfNoop,
   moveManagedFlagWithExperiment,
   removeManagedFeatureForExperiment,
+  releaseManagedFlagForImplementationChange,
   managedFlagAdoptionBlocker,
   planManagedFlagKey,
   ejectManagedFeature,
@@ -1642,7 +1643,7 @@ export async function postExperiment(
     ...data
   } = req.body;
 
-  const experiment = await getExperimentById(context, id);
+  let experiment = await getExperimentById(context, id);
   const aiSettings = await getAISettingsForOrg(context);
 
   if (!experiment) {
@@ -1665,31 +1666,30 @@ export async function postExperiment(
     context.permissions.throwPermissionError();
   }
 
-  if (
-    data.implementationType !== undefined &&
-    data.implementationType !== experiment.implementationType &&
-    (data.implementationType === "multi" ||
-      !canChangeImplementationType(experiment, data.implementationType))
-  ) {
+  if (data.implementationType === "multi") {
     res.status(400).json({
       status: 400,
-      message:
-        "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing how it is implemented.",
+      message: "implementationType cannot be set to multi",
     });
     return;
   }
   if (
     data.implementationType !== undefined &&
-    data.implementationType !== "values" &&
-    data.implementationType !== experiment.implementationType &&
-    (await getManagedFeatureForExperiment(context, experiment))
+    data.implementationType !== experiment.implementationType
   ) {
-    res.status(400).json({
-      status: 400,
-      message:
-        "This experiment manages a Feature Flag. Convert or remove it before changing how the experiment is implemented.",
+    experiment = await releaseManagedFlagForImplementationChange({
+      context,
+      experiment,
+      next: data.implementationType,
     });
-    return;
+    if (!canChangeImplementationType(experiment, data.implementationType)) {
+      res.status(400).json({
+        status: 400,
+        message:
+          "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing how it is implemented.",
+      });
+      return;
+    }
   }
 
   const attributeScope = lazyAttributeScope(() =>

@@ -1,4 +1,5 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { ExperimentInterface } from "shared/types/experiment";
 import { canChangeImplementationType } from "shared/util";
 import {
   ExperimentInterfaceExcludingHoldouts,
@@ -6,8 +7,8 @@ import {
 } from "shared/validators";
 import {
   assertManagedFlagCanMove,
-  getManagedFeatureForExperiment,
   moveManagedFlagWithExperiment,
+  releaseManagedFlagForImplementationChange,
 } from "back-end/src/services/managedFeatures";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -48,10 +49,12 @@ import {
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
 )(async (req) => {
-  const experiment = await getExperimentById(req.context, req.params.id);
-  if (!experiment) {
+  const found = await getExperimentById(req.context, req.params.id);
+  if (!found) {
     throw new Error("Could not find the experiment to update");
   }
+  // Reassigned when leaving Values releases the managed flag.
+  let experiment: ExperimentInterface = found;
   if (experiment.type === "holdout") {
     throw new Error("Holdouts are not supported via this API");
   }
@@ -368,22 +371,19 @@ export const updateExperiment = createApiRequestHandler(
 
   if (
     changes.implementationType !== undefined &&
-    changes.implementationType !== experiment.implementationType &&
-    !canChangeImplementationType(experiment, changes.implementationType)
+    changes.implementationType !== experiment.implementationType
   ) {
-    throw new Error(
-      "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing implementationType.",
-    );
-  }
-  if (
-    changes.implementationType !== undefined &&
-    changes.implementationType !== "values" &&
-    changes.implementationType !== experiment.implementationType &&
-    (await getManagedFeatureForExperiment(req.context, experiment))
-  ) {
-    throw new Error(
-      "This experiment manages a Feature Flag. Convert or remove it before changing implementationType.",
-    );
+    // Leaving Values hands the managed flag back (Feature Flag) or deletes it.
+    experiment = await releaseManagedFlagForImplementationChange({
+      context: req.context,
+      experiment,
+      next: changes.implementationType,
+    });
+    if (!canChangeImplementationType(experiment, changes.implementationType)) {
+      throw new Error(
+        "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing implementationType.",
+      );
+    }
   }
   if (changes.project !== undefined) {
     await assertManagedFlagCanMove(req.context, experiment, changes.project);

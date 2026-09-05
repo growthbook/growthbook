@@ -1124,6 +1124,33 @@ export async function clearManagedMarkersForExperiment(
   }
 }
 
+// Leaving Values hands the flag back: Feature Flag keeps it as an ordinary
+// linked flag, anything else deletes it (draft experiments only). Returns the
+// experiment as it stands afterwards.
+export async function releaseManagedFlagForImplementationChange({
+  context,
+  experiment,
+  next,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  next: ImplementationType;
+}): Promise<ExperimentInterface> {
+  if (next === "values") return experiment;
+  const feature = await getManagedFeatureForExperiment(context, experiment);
+  if (!feature) return experiment;
+  if (next === "feature") {
+    await ejectManagedFeature({
+      context,
+      feature,
+      experimentId: experiment.id,
+    });
+  } else {
+    await removeManagedFeatureForExperiment(context, experiment);
+  }
+  return (await getExperimentById(context, experiment.id)) ?? experiment;
+}
+
 export async function removeManagedFeatureForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
