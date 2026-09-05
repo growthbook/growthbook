@@ -2711,7 +2711,7 @@ export const getExperimentVariationValuesValidator = {
   responseSchema: variationValuesResponse,
   summary: "Get the values an experiment's variations serve",
   operationId: "getExperimentVariationValues",
-  tags: ["experiments"],
+  tags: ["experiment-values"],
   method: "get" as const,
   path: "/experiments/:id/variation-values",
 };
@@ -2742,7 +2742,7 @@ export const postExperimentVariationValuesValidator = {
   responseSchema: variationValuesResponse,
   summary: "Start serving variation values automatically",
   operationId: "postExperimentVariationValues",
-  tags: ["experiments"],
+  tags: ["experiment-values"],
   method: "post" as const,
   path: "/experiments/:id/variation-values",
   exampleRequest: {
@@ -2794,7 +2794,7 @@ export const putExperimentVariationValuesValidator = {
   description:
     "Stages the new values on the experiment's Feature Flag. Adds them to the change already waiting to go live when there is one, and starts a new one otherwise, so the values never need to be published before they can be changed again. Pass `valueType` to re-type the flag at the same time, or `environments` to change where the experiment serves. Publishing is a separate call.",
   operationId: "putExperimentVariationValues",
-  tags: ["experiments"],
+  tags: ["experiment-values"],
   method: "put" as const,
   path: "/experiments/:id/variation-values",
   exampleRequest: {
@@ -2808,40 +2808,32 @@ export const putExperimentVariationValuesValidator = {
   },
 };
 
-export const postExperimentVariationValuesApproveValidator = {
-  bodySchema: commentBody,
+export const postExperimentVariationValuesSubmitReviewValidator = {
+  bodySchema: z
+    .object({
+      action: z
+        .enum(["approve", "request-changes", "comment"])
+        .describe("The verdict to record."),
+      comment: z
+        .string()
+        .optional()
+        .describe("Recorded with the verdict. Required for `comment`."),
+    })
+    .strict()
+    .refine((b) => b.action !== "comment" || !!b.comment?.trim(), {
+      message: "comment is required when action is comment",
+      path: ["comment"],
+    }),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: variationValuesResponse,
-  summary: "Approve the pending variation values",
-  operationId: "postExperimentVariationValuesApprove",
-  tags: ["experiments"],
+  summary: "Submit a review on the pending variation values",
+  description:
+    "Submits an `approve`, `request-changes`, or `comment` review on the pending variation values. Contributors cannot approve their own drafts when self-approval is blocked.",
+  operationId: "postExperimentVariationValuesSubmitReview",
+  tags: ["experiment-values"],
   method: "post" as const,
-  path: "/experiments/:id/variation-values/approve",
-};
-
-export const postExperimentVariationValuesRequestChangesValidator = {
-  bodySchema: commentBody,
-  querySchema: z.never(),
-  paramsSchema: idParams,
-  responseSchema: variationValuesResponse,
-  summary: "Request changes to the pending variation values",
-  operationId: "postExperimentVariationValuesRequestChanges",
-  tags: ["experiments"],
-  method: "post" as const,
-  path: "/experiments/:id/variation-values/request-changes",
-};
-
-export const postExperimentVariationValuesCommentValidator = {
-  bodySchema: z.object({ comment: z.string().min(1) }).strict(),
-  querySchema: z.never(),
-  paramsSchema: idParams,
-  responseSchema: variationValuesResponse,
-  summary: "Comment on the pending variation values",
-  operationId: "postExperimentVariationValuesComment",
-  tags: ["experiments"],
-  method: "post" as const,
-  path: "/experiments/:id/variation-values/comment",
+  path: "/experiments/:id/variation-values/submit-review",
 };
 
 export const postExperimentVariationValuesPublishValidator = {
@@ -2860,7 +2852,7 @@ export const postExperimentVariationValuesPublishValidator = {
   responseSchema: variationValuesResponse,
   summary: "Publish the pending variation values",
   operationId: "postExperimentVariationValuesPublish",
-  tags: ["experiments"],
+  tags: ["experiment-values"],
   method: "post" as const,
   path: "/experiments/:id/variation-values/publish",
 };
@@ -2872,7 +2864,7 @@ export const postExperimentVariationValuesDetachValidator = {
   responseSchema: variationValuesResponse,
   summary: "Stop managing the Feature Flag from this experiment",
   operationId: "postExperimentVariationValuesDetach",
-  tags: ["experiments"],
+  tags: ["experiment-values"],
   method: "post" as const,
   path: "/experiments/:id/variation-values/detach",
 };
@@ -2886,7 +2878,7 @@ export const postExperimentVariationValuesRequestReviewValidator = {
   description:
     "Saving values already requests review when the flag needs one; use this after a recall or a change request to send the same values back for review.",
   operationId: "postExperimentVariationValuesRequestReview",
-  tags: ["experiments"],
+  tags: ["experiment-values"],
   method: "post" as const,
   path: "/experiments/:id/variation-values/request-review",
 };
@@ -2900,7 +2892,7 @@ export const postExperimentVariationValuesRecallReviewValidator = {
   description:
     "Returns the pending values to a draft and clears their verdicts.",
   operationId: "postExperimentVariationValuesRecallReview",
-  tags: ["experiments"],
+  tags: ["experiment-values"],
   method: "post" as const,
   path: "/experiments/:id/variation-values/recall-review",
 };
@@ -2912,7 +2904,7 @@ export const postExperimentVariationValuesUndoReviewValidator = {
   responseSchema: variationValuesResponse,
   summary: "Retract your verdict on the pending variation values",
   operationId: "postExperimentVariationValuesUndoReview",
-  tags: ["experiments"],
+  tags: ["experiment-values"],
   method: "post" as const,
   path: "/experiments/:id/variation-values/undo-review",
 };
@@ -2926,7 +2918,7 @@ export const postExperimentVariationValuesDiscardValidator = {
   description:
     "Drops the change waiting to go live; the values currently serving are untouched. The way out of a merge conflict short of detaching the flag.",
   operationId: "postExperimentVariationValuesDiscard",
-  tags: ["experiments"],
+  tags: ["experiment-values"],
   method: "post" as const,
   path: "/experiments/:id/variation-values/discard",
 };

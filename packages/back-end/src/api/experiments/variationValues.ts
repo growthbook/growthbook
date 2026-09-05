@@ -2,14 +2,12 @@ import {
   ExperimentInterface,
   FeatureInterface,
   getExperimentVariationValuesValidator,
-  postExperimentVariationValuesApproveValidator,
-  postExperimentVariationValuesCommentValidator,
   postExperimentVariationValuesDetachValidator,
   postExperimentVariationValuesDiscardValidator,
   postExperimentVariationValuesPublishValidator,
   postExperimentVariationValuesRecallReviewValidator,
-  postExperimentVariationValuesRequestChangesValidator,
   postExperimentVariationValuesRequestReviewValidator,
+  postExperimentVariationValuesSubmitReviewValidator,
   postExperimentVariationValuesUndoReviewValidator,
   postExperimentVariationValuesValidator,
   putExperimentVariationValuesValidator,
@@ -230,41 +228,26 @@ async function submitManagedReview({
   return respond(context, experiment);
 }
 
-export const postExperimentVariationValuesApprove = createApiRequestHandler(
-  postExperimentVariationValuesApproveValidator,
-)(async (req) =>
-  submitManagedReview({
-    context: req.context,
-    experimentId: req.params.id,
-    review: "Approved",
-    comment: req.body.comment ?? "",
-    eventAudit: req.eventAudit,
-  }),
-);
+const REVIEW_BY_ACTION: Record<
+  "approve" | "request-changes" | "comment",
+  ReviewSubmittedType
+> = {
+  approve: "Approved",
+  "request-changes": "Requested Changes",
+  comment: "Comment",
+};
 
-export const postExperimentVariationValuesRequestChanges =
-  createApiRequestHandler(postExperimentVariationValuesRequestChangesValidator)(
+export const postExperimentVariationValuesSubmitReview =
+  createApiRequestHandler(postExperimentVariationValuesSubmitReviewValidator)(
     async (req) =>
       submitManagedReview({
         context: req.context,
         experimentId: req.params.id,
-        review: "Requested Changes",
+        review: REVIEW_BY_ACTION[req.body.action],
         comment: req.body.comment ?? "",
         eventAudit: req.eventAudit,
       }),
   );
-
-export const postExperimentVariationValuesComment = createApiRequestHandler(
-  postExperimentVariationValuesCommentValidator,
-)(async (req) =>
-  submitManagedReview({
-    context: req.context,
-    experimentId: req.params.id,
-    review: "Comment",
-    comment: req.body.comment,
-    eventAudit: req.eventAudit,
-  }),
-);
 
 export const postExperimentVariationValuesPublish = createApiRequestHandler(
   postExperimentVariationValuesPublishValidator,

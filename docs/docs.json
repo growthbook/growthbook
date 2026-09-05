@@ -645,18 +645,6 @@
                   "api/experiments/operation/updateExperiment",
                   "api/experiments/operation/deleteExperiment",
                   "api/experiments/operation/getExperimentStartChecklist",
-                  "api/experiments/operation/postExperimentVariationValuesApprove",
-                  "api/experiments/operation/postExperimentVariationValuesRequestChanges",
-                  "api/experiments/operation/postExperimentVariationValuesComment",
-                  "api/experiments/operation/postExperimentVariationValuesPublish",
-                  "api/experiments/operation/postExperimentVariationValuesDetach",
-                  "api/experiments/operation/postExperimentVariationValuesRequestReview",
-                  "api/experiments/operation/postExperimentVariationValuesRecallReview",
-                  "api/experiments/operation/postExperimentVariationValuesUndoReview",
-                  "api/experiments/operation/postExperimentVariationValuesDiscard",
-                  "api/experiments/operation/getExperimentVariationValues",
-                  "api/experiments/operation/postExperimentVariationValues",
-                  "api/experiments/operation/putExperimentVariationValues",
                   "api/experiments/operation/getExperimentResults",
                   "api/experiments/operation/postExperimentArchive",
                   "api/experiments/operation/postExperimentUnarchive",
@@ -669,6 +657,21 @@
                   "api/experiments/operation/postVariationImageUpload",
                   "api/experiments/operation/deleteVariationScreenshot",
                   "api/experiments/operation/getExperimentNames"
+                ]
+              },
+              {
+                "group": "Experiment Values",
+                "pages": [
+                  "api/experiment-values/operation/getExperimentVariationValues",
+                  "api/experiment-values/operation/postExperimentVariationValues",
+                  "api/experiment-values/operation/putExperimentVariationValues",
+                  "api/experiment-values/operation/postExperimentVariationValuesRequestReview",
+                  "api/experiment-values/operation/postExperimentVariationValuesSubmitReview",
+                  "api/experiment-values/operation/postExperimentVariationValuesRecallReview",
+                  "api/experiment-values/operation/postExperimentVariationValuesUndoReview",
+                  "api/experiment-values/operation/postExperimentVariationValuesPublish",
+                  "api/experiment-values/operation/postExperimentVariationValuesDiscard",
+                  "api/experiment-values/operation/postExperimentVariationValuesDetach"
                 ]
               },
               {

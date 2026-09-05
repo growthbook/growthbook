@@ -23,6 +23,7 @@ const openApiTags = [
   "fact-metrics",
   "metrics",
   "experiments",
+  "experiment-values",
   "namespaces",
   "snapshots",
   "dimensions",
@@ -108,6 +109,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   experiments: {
     display: "Experiments",
     description: "Experiments (A/B Tests)",
+  },
+  "experiment-values": {
+    display: "Experiment Values",
+    description:
+      "Variation values served by the Feature Flag an experiment manages. Values are drafted, reviewed, and published from the experiment; publishing happens when the experiment starts.",
   },
   namespaces: {
     display: "Namespaces",
