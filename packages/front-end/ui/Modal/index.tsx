@@ -364,9 +364,7 @@ function Footer({
   /** Cross-axis alignment, for footers holding more than a row of buttons. */
   align?: "start" | "center" | "end" | "baseline" | "stretch";
 }) {
-  // The offsets below add back the padding the content box leaves off in
-  // "gutter" mode. In "even" mode it is already there, and compensating again
-  // would push the footer off-centre.
+  // Adds back the padding gutter mode leaves off; even mode already has it.
   const { padding } = useModalContext();
   const evenlyPadded = padding === "even";
   return (

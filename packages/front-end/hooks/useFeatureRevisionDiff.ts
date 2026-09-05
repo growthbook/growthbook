@@ -40,8 +40,7 @@ export function normalizeRevisionMetadata(
   };
 }
 
-// Bookkeeping the human diff never renders. Not `valueType`: a section whose
-// raw JSON reads equal is dropped along with its rendered rows.
+// Bookkeeping the human diff never renders.
 const NON_SETTING_METADATA_FIELDS = new Set(["baseConfig"]);
 
 // Canonical JSON for the raw "Feature Settings" diff: keys sorted (so a differing
@@ -85,8 +84,7 @@ export const revisionToFeatureRevisionDiffInput = (
   };
 };
 
-// Snapshots older than the field carry no `valueType`; read it as unchanged
-// rather than removed.
+// Older snapshots carry no `valueType`; read it as unchanged.
 function withValueType(
   m: RevisionMetadata | undefined,
   fallbackValueType: RevisionMetadata["valueType"] | undefined,
@@ -125,8 +123,7 @@ export const featureToFeatureRevisionDiffInput = (
       neverStale: feature.neverStale,
       customFields: feature.customFields,
       jsonSchema: feature.jsonSchema,
-      // Not immutable after all: a managed flag re-types through the draft's
-      // metadata, and without the live type here the diff reads "unset -> json".
+      // A managed flag re-types through the draft's metadata.
       valueType: feature.valueType,
     }),
   };
@@ -225,8 +222,7 @@ export function useFeatureRevisionDiff({
 }: {
   current: FeatureRevisionDiffInput;
   draft: FeatureRevisionDiffInput;
-  // "experiment": the rule is the subject and the surface already names the
-  // flag, so the feature framing around it is dropped. See DiffRenderMode.
+  /** See DiffRenderMode. */
   renderMode?: DiffRenderMode;
 }): FeatureRevisionDiff[] {
   const orgEnvs = useEnvironments();
@@ -338,19 +334,15 @@ export function useFeatureRevisionDiff({
         to: inheritedDraft[envId] ?? false,
       }))
       .filter(({ from, to }) => from !== to);
-    // One section for every toggle, not one per environment: an org with
-    // twenty environments would otherwise bury the rest of the diff.
+    // One section for every toggle, so twenty environments don't bury the diff.
     if (toggled.length) {
       const asMap = (side: "from" | "to") =>
         Object.fromEntries(toggled.map((t) => [t.envId, t[side]]));
-      // A managed flag is born with every environment off, so its first draft
-      // turning them on is the flag arriving, not a change to one.
+      // A managed flag is born with every environment off; the first draft is the flag arriving.
       const arriving =
         renderMode === "experiment" && !(current.rules ?? []).length;
       diffs.push({
         key: "environmentsEnabled",
-        // The rows name the environments, so the heading doesn't repeat them,
-        // and "toggle" adds nothing a check/cross doesn't already say.
         title: toggled.length === 1 ? "Environment" : "Environments",
         a: JSON.stringify(asMap("from"), null, 2),
         b: JSON.stringify(asMap("to"), null, 2),
@@ -402,8 +394,7 @@ export function useFeatureRevisionDiff({
       }
     }
 
-    // 5. Default value. A managed flag's default IS its control value, which
-    // the rule below states — the section would only say it twice.
+    // A managed flag's default is its control value, stated by the rule below.
     const currentDefault = current.defaultValue ?? "";
     const draftDefault = draft.defaultValue ?? "";
     const aValue = parseDefaultValue(currentDefault);
@@ -433,8 +424,7 @@ export function useFeatureRevisionDiff({
     // footprint is empty (`environments: []`, pending) or universal
     // (`allEnvironments: true`) — all of which were invisible in the old
     // per-env projection layout.
-    // Fields a rule's type never declared (the old rule form wrote widget-only
-    // ones) would otherwise diff as changes nobody made.
+    // Fields the rule type never declared would diff as changes nobody made.
     const draftRulesArr = (Array.isArray(draft.rules) ? draft.rules : []).map(
       stripUnknownRuleFields,
     );
@@ -459,8 +449,7 @@ export function useFeatureRevisionDiff({
     ) {
       diffs.push({
         key: "rules",
-        // The experiment surface has one rule and already names it, so the
-        // card carries the values without a "Rules" heading over them.
+        // The experiment surface already names its one rule.
         title: renderMode === "experiment" ? "" : "Rules",
         a: JSON.stringify(normalizeFeatureRules(currentRulesArr), null, 2),
         b: JSON.stringify(normalizeFeatureRules(draftRulesArr), null, 2),

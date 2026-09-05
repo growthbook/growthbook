@@ -1203,8 +1203,7 @@ export async function getSnapshots(
  */
 export async function postExperiments(
   req: AuthRequest<
-    // A creation-time instruction, not a stored field — ownership lives on the
-    // Feature Flag it creates.
+    // Creation-time instruction; ownership lives on the flag.
     Partial<ExperimentInterfaceStringDates>,
     unknown,
     {
@@ -1572,8 +1571,7 @@ export async function postExperiments(
       type: "experiments",
     });
 
-    // A duplicate gets its OWN flag, keyed off its own tracking key. Without
-    // this it lands with no implementation and no way to add one.
+    // A duplicate gets its own flag.
     const originalExperiment = req.query.originalId
       ? await getExperimentById(context, req.query.originalId)
       : null;
@@ -1591,7 +1589,6 @@ export async function postExperiments(
           audit: req.audit,
         });
       } catch (e) {
-        // Undo the experiment, and release any flag that already got its marker.
         await clearManagedMarkersForExperiment(context, experiment.id).catch(
           () => undefined,
         );
@@ -1680,9 +1677,7 @@ export async function postExperiment(
     });
     return;
   }
-  // Compared against the flag actually managed, not the stored label: an
-  // adoption that predates the marker reads as "feature". The release itself
-  // waits until every check has passed, since it deletes or ejects the flag.
+  // Against the flag actually managed, not the stored label; the release waits until every check passes.
   let releaseManagedFlagFor: typeof data.implementationType;
   if (data.implementationType !== undefined) {
     const managed = await getManagedFeatureForExperiment(context, experiment);
@@ -4399,9 +4394,7 @@ export async function postExperimentFeatureValues(
 
   const featureObjects = await getFeaturesByIds(context, Object.keys(features));
 
-  // Once an experiment has started, this endpoint only stages drafts and edits
-  // variation metadata: traffic and variation ids are read-only, and a shared
-  // flag publishes from its own page.
+  // Once started: drafts and variation metadata only.
   const structureLocked = experiment.status !== "draft";
   if (structureLocked) {
     const autoPublishingShared = featureObjects.find(
@@ -4521,8 +4514,7 @@ export async function postExperimentFeatureValues(
     }
   }
 
-  // One draft matters on a managed flag, so the caller's revision choice is
-  // replaced with it — the same resolution the REST surface uses.
+  // One draft on a managed flag; the caller's revision choice is replaced with it.
   for (const f of featureObjects) {
     const entry = features[f.id];
     if (!entry || !isManagedByExperiment(f, experiment.id)) continue;
@@ -4587,8 +4579,7 @@ export async function postExperimentFeatureValues(
           `Variation ${i}`,
         );
       });
-      // Control drives a managed flag's default. A shared flag's belongs to the
-      // flag, so it is left alone.
+      // Control drives a managed flag's default.
       revision = await stageManagedFeatureFields({
         context,
         feature,
@@ -4622,8 +4613,6 @@ export async function postExperimentFeatureValues(
       continue;
     }
 
-    // A managed flag has no separate "request review" step — editing its values
-    // is the request.
     if (!autoPublish && isManagedFeature(feature)) {
       await requestReviewForManagedDraft({
         context,
@@ -4723,8 +4712,6 @@ export async function postExperimentLinkedFeatureEnvironments(
     throw new NotFoundError("Feature not found");
   }
 
-  // Edit-class: nothing reaches the payload until the draft publishes, and the
-  // service re-checks feature-side draft rights itself.
   const { version } = await updateExperimentRuleEnvironments({
     context,
     experiment,
@@ -4773,9 +4760,7 @@ export async function deleteExperimentLinkedFeature(
     context.permissions.throwPermissionError();
   }
 
-  // Unlinking would strand a locked-down flag with no experiment to edit it.
-  // Resolved unfiltered: an unreadable flag is still managed, and skipping the
-  // check would detach it from the only surface that can write to it.
+  // Unfiltered: an unreadable flag is still managed.
   const managedIds = await getManagedFlagIdsUnfiltered(context, id);
   if (managedIds.includes(featureId)) {
     throw new Error(
@@ -4875,7 +4860,6 @@ export async function postExperimentManagedFlagPublish(
   const feature = await publishManagedDraft({
     context,
     experiment,
-    // The dashboard asks per publish; the opt-in only counts with the permission.
     bypassApproval:
       !!req.body?.bypassApproval &&
       context.permissions.canBypassFlagApprovalChecks(experiment, "feature"),

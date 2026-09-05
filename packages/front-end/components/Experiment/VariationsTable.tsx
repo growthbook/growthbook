@@ -190,7 +190,6 @@ function NoImageBox({ canEdit }: { canEdit?: boolean }) {
       )}
       flexShrink="0"
       style={{
-        // Right-aligns it when it stands alone; the drop target has its own.
         marginLeft: "auto",
         width: NO_IMAGE_SIZE + "px",
         height: NO_IMAGE_SIZE + "px",
@@ -206,7 +205,6 @@ function NoImageBox({ canEdit }: { canEdit?: boolean }) {
     </Flex>
   );
 
-  // Only the upload target earns a tooltip.
   return canEdit ? (
     <Tooltip content="Upload image" side="top">
       {box}
@@ -323,8 +321,7 @@ export function VariationBox({
             <Box minWidth="0" flexGrow="1">
               <VariationLabel number={i} name={v.name} size="lg" />
             </Box>
-            {/* Radix ghost buttons carry a negative margin, so the gap alone
-                won't separate them. */}
+            {/* Radix ghost buttons carry a negative margin. */}
             <Flex align="center" gap="1" flexShrink="0" mr="-1">
               {canEdit && onEditTraffic ? (
                 <IconButton
@@ -367,9 +364,7 @@ export function VariationBox({
         {allowImages && (
           <Box
             mt={showNoImage ? "2" : "0"}
-            // Only a carousel earns the leftover height. With just the
-            // placeholder, growing here pushed adjacent cards out of step on
-            // where "Split" started.
+            // Only a carousel takes the leftover height, or cards fall out of step.
             flexGrow={v.screenshots.length > 0 ? "1" : "0"}
             style={{ display: "flex", flexDirection: "column", minHeight: 0 }}
           >
@@ -387,8 +382,6 @@ export function VariationBox({
                 shareType={shareType}
               />
             ) : !showNoImage ? null : (
-              // No screenshot: the description shares the row with the
-              // placeholder rather than leaving the space empty.
               <Flex align="start" gap="3">
                 <Box flexGrow="1" minWidth="0" mt="2">
                   {descriptionSnippet}

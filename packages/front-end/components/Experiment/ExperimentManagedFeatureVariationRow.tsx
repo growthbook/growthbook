@@ -36,11 +36,7 @@ import FeatureValueField from "@/components/Features/FeatureValueField";
 import Text from "@/ui/Text";
 import rowStyles from "./ExperimentManagedFeatureVariationRow.module.scss";
 
-// The one column template the header row and every variation row share.
-// Short cells centre on the field's first line, not the top of a row a tall
-// value stretched. 32px is size="md"'s control height.
-// `input.form-control--md`'s height, so a short cell centres on the field's
-// first line rather than the top of a row a tall value stretched.
+// One column template for the header and every row; 32px is size="md"'s control height.
 const FIRST_LINE_HEIGHT = "32px";
 
 export function gridColumns({
@@ -69,8 +65,7 @@ export function gridColumns({
     stackValue || hideFeatureValue ? undefined : "minmax(180px, 1.2fr)",
     showDescription ? "minmax(140px, 1fr)" : undefined,
     hideSplit ? undefined : "100px",
-    // Wider than the row menu needs: the header's Advanced switch is absolutely
-    // positioned in this column and would otherwise reach the Split label.
+    // Room for the header's absolutely positioned Advanced switch.
     "48px",
   ]
     .filter(Boolean)
@@ -80,8 +75,7 @@ export function gridColumns({
 export type ManagedSortableVariation = ExperimentValue & {
   id: string;
   description?: string;
-  // The value served on the linked Feature Flag. Separate from `value`,
-  // which stays the variation's own key.
+  /** The value served on the linked flag; `value` stays the variation key. */
   featureValue?: string;
 };
 
@@ -188,8 +182,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
       setVariations(newVariations);
     };
 
-    // Own picker rather than the shared field's, whose labels are upper case.
-    // Matches FeatureValueField's number field; two choices shouldn't stretch.
+    // Own picker: the shared field's labels are upper case.
     const booleanValueField = (label?: React.ReactNode) => (
       <Box style={{ width: 120 }}>
         <SelectField
@@ -325,7 +318,6 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             <strong>{variation.name || ""}</strong>
           )}
 
-          {/* Scalars sit in the row unless the layout stacks them below. */}
           {!stacked &&
             !hideFeatureValue &&
             (!setVariations ? (
@@ -345,7 +337,6 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   disabled={valueDisabled}
                   renderJSONInline={false}
                   inlineConstantButton
-                  // The row is top-aligned; a centred button floats beside it.
                   inlineConstantButtonAlign="start"
                   sparse={sparse}
                 />
@@ -479,8 +470,7 @@ export const ManagedVariationRow = forwardRef<HTMLDivElement, VariationProps>(
             <Box
               className={rowStyles.tightValueCell}
               style={{
-                // Start after the id gutter, then run to the row's right edge:
-                // the controls column has nothing to line up with on this row.
+                // From the id gutter to the right edge.
                 gridColumn: `${(showDragHandle ? 1 : 0) + 2} / -1`,
               }}
             >

@@ -5116,8 +5116,7 @@ export async function getRefLinkedFeatureInfo({
       let draftMatches: MatchingRule[] = [];
       let draftDiffersFromLive = false;
 
-      // Newest wins: preferring whichever draft differs from live would let an
-      // older one supply values while a newer one supplies something else.
+      // Newest wins.
       const draftsWithMatches = activeDrafts
         .map((r) => ({
           revision: r,
@@ -5128,13 +5127,11 @@ export async function getRefLinkedFeatureInfo({
         matchedDraftRevision = draftsWithMatches[0].revision;
         draftMatches = draftsWithMatches[0].matches;
       }
-      // How many other drafts a publish here would leave behind.
       const otherDraftCount = Math.max(0, draftsWithMatches.length - 1);
 
       if (matchedDraftRevision) {
         const draftRefRules = refRulesForEntity(matchedDraftRevision.rules);
-        // Re-typing is an unpublished change even when the values read the same
-        // under both types. Compared against live, not the draft's own base.
+        // A re-type is a change even when values read the same; compared against live.
         const draftRetypes =
           isManagedFeature(feature) &&
           matchedDraftRevision.metadata?.valueType !== undefined &&
@@ -5172,8 +5169,7 @@ export async function getRefLinkedFeatureInfo({
         matches = lockedMatches;
       }
 
-      // `state` stays live-first for existing consumers, so a running
-      // experiment's unpublished edit is only visible through this.
+      // `state` stays live-first for existing consumers.
       const hasPendingDraft =
         !!matchedDraftRevision &&
         (draftDiffersFromLive || liveRefRules.length === 0);
@@ -5184,8 +5180,7 @@ export async function getRefLinkedFeatureInfo({
       const needsDraftFacts = hasPendingDraft || state === "draft";
       const reviewRequired =
         needsDraftFacts && featureReviewRequired(context, feature);
-      // Keyed on `state`, not `hasPendingDraft`: the pre-launch checklist
-      // filters this without a state gate. `pendingDraft` carries the wider answer.
+      // Keyed on `state`: the checklist filters this without a state gate.
       const pendingApproval =
         state === "draft" && matchedDraftRevision && reviewRequired
           ? true
@@ -5196,8 +5191,7 @@ export async function getRefLinkedFeatureInfo({
       // Not `revision.status`: an approved draft can still be short of a
       // required team or an environment.
       let draftApproval: RevisionApprovalState | undefined;
-      // The same test the publish gate uses, so a CTA can't offer a publish
-      // that would change nothing.
+      // The publish gate's own test.
       let draftHasChanges = true;
       let draftRebaseRequired = false;
       let draftStaleApproval = false;
@@ -5237,10 +5231,7 @@ export async function getRefLinkedFeatureInfo({
           if (!mergeResult.success) {
             draftHasMergeConflict = true;
           } else if (
-            // A managed flag has nothing on it that is not the experiment's:
-            // its value type and default value move with its variation values.
-            // The check guards a SHARED flag, where someone else's edit could
-            // otherwise ride along in the draft this page publishes.
+            // Guards a shared flag: a managed flag has nothing that isn't the experiment's.
             !isManagedFeature(feature) &&
             draftHasChangesOutsideTargetRef(
               matchedDraftRevision,
@@ -5283,9 +5274,7 @@ export async function getRefLinkedFeatureInfo({
         ),
       );
 
-      // `getMatchingRules` reports the LIVE feature's environment enablement
-      // even when handed a revision, but a revision stages its own — a managed
-      // flag is born disabled everywhere and turned on by its first draft.
+      // `getMatchingRules` reports live enablement even for a revision, which stages its own.
       const envEnabledIn = (
         environmentId: string,
         revision?: FeatureRevisionInterface,
@@ -5360,8 +5349,6 @@ export async function getRefLinkedFeatureInfo({
           liveSparse: !!(liveMatches[0]?.rule as ExperimentRefRule)?.sparse,
           liveAllEnvironments: !!(liveMatches[0]?.rule as ExperimentRefRule)
             ?.allEnvironments,
-          // The live rule has no revision staging its enablement, so the
-          // feature's own settings are already the right answer.
           liveEnvironmentStates: buildEnvironmentStates(liveMatches),
         }),
         ...(hasPendingDraft &&
@@ -5376,8 +5363,7 @@ export async function getRefLinkedFeatureInfo({
               title: matchedDraftRevision.title,
               otherDraftCount,
               pendingApproval: reviewRequired,
-              // A re-typed draft restates the default; readouts render
-              // against those, not the live feature's.
+              // A re-typed draft restates the default.
               valueType:
                 matchedDraftRevision.metadata?.valueType ?? feature.valueType,
               defaultValue: matchedDraftRevision.defaultValue,
@@ -5394,8 +5380,7 @@ export async function getRefLinkedFeatureInfo({
               hasUnrelatedDraftChanges: draftHasUnrelatedChanges,
               rebaseRequired: draftRebaseRequired,
               staleApproval: draftStaleApproval,
-              // From the draft's own matches, so a running experiment can show
-              // where its unpublished edit would run rather than where it runs now.
+              // From the draft's matches: where the unpublished edit would run.
               environmentStates: buildEnvironmentStates(
                 draftMatches,
                 matchedDraftRevision,

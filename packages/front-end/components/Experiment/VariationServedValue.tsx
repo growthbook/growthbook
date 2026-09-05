@@ -4,8 +4,7 @@ import ForceSummary from "@/components/Features/ForceSummary";
 import Text from "@/ui/Text";
 import UnpublishedDot from "@/components/Experiment/UnpublishedDot";
 
-// The value a variation serves. Only meaningful when the experiment's sole
-// implementation is a Feature Flag; callers decide that.
+// Only meaningful when the sole implementation is a Feature Flag.
 export default function VariationServedValue({
   value,
   feature,
@@ -26,13 +25,10 @@ export default function VariationServedValue({
 }) {
   if (!feature) return null;
 
-  // A block value needs the full width of the card; a short scalar reads
-  // better on the label's own line.
+  // A block value needs the full width.
   const stacked = feature.valueType === "json" || (value ?? "").includes("\n");
 
   const label = (
-    // The dot belongs to the label, so it centres against "Serves:" while the
-    // pair as a whole sits at the top of a tall value.
     <Flex align="center" gap="1" flexShrink="0">
       {isDraft && (
         <UnpublishedDot
@@ -50,16 +46,14 @@ export default function VariationServedValue({
     </Flex>
   );
 
-  // The same renderer the Feature Flag rules use — config-backed values,
-  // sparse patches and JSON all read the same way there.
+  // The Feature Flag rules' renderer.
   const rendered = (
     <ForceSummary
       label={null}
       value={value ?? ""}
       feature={feature}
       sparse={sparse}
-      // Denser than the rules page: the card is a third of its width, and
-      // ValueDisplay caps the block at 150px with its own scrollbar.
+      // Denser than the rules page: the card is a third of the width.
       fontSize="0.75rem"
       lineHeight={1.35}
     />
@@ -75,9 +69,6 @@ export default function VariationServedValue({
           </Box>
         </>
       ) : (
-        // Centred, not start-aligned: a one-line value has no first line to
-        // pin to, and the value fills the row so its copy button — positioned
-        // to the block's right edge — lands at the edge of the card.
         <Flex align="center" gap="1" minWidth="0">
           {label}
           <Box flexGrow="1" minWidth="0">

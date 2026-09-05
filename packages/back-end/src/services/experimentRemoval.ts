@@ -75,14 +75,12 @@ type Args = {
   audit: (data: AuditInterfaceInput) => Promise<void>;
 };
 
-// Resolves the linked flags before the experiment leaves the payload. Returns
-// true when the rules were frozen in place, so the caller leaves them alone.
+// Returns true when the rules were frozen in place.
 async function resolveLinkedChanges(
   { context, experiment, linkedChanges, eventAudit, audit }: Args,
   verb: string,
 ): Promise<boolean> {
-  // Before any write: the blocker and the cleanup below only see readable
-  // flags, so an unreadable one must refuse the whole operation instead.
+  // The blocker and the cleanup only see readable flags.
   await assertLinkedFlagsReadable(context, experiment);
   const info = await getLinkedFeatureInfo(context, experiment);
   const blocker = getExperimentLinkageBlocker(experiment, info);
@@ -129,8 +127,7 @@ export async function deleteExperimentWithCleanup(args: Args): Promise<void> {
       eventAudit,
       audit,
     });
-    // Release the flag first, or it survives pointing at a deleted experiment
-    // with every write path refusing it and the eject route 404ing.
+    // Release first, or the flag survives pointing at a deleted experiment.
     await clearManagedMarkersForExperiment(context, experiment.id);
   }
 

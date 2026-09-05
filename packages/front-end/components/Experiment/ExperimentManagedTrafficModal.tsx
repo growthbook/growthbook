@@ -74,8 +74,7 @@ export interface Props {
   addVariationOnOpen?: boolean;
 }
 
-// Edit Traffic & Variations when the only implementation is a Feature Flag.
-// A fork of `EditTrafficModal`; anything else is delegated straight back.
+// A fork of `EditTrafficModal` for flag-only experiments.
 export default function ExperimentManagedTrafficModal({
   close,
   experiment,
@@ -99,8 +98,7 @@ export default function ExperimentManagedTrafficModal({
       ? (linkedFeatures ?? [])[0]
       : null;
 
-  // The server only accepts value edits for an unmanaged flag while the
-  // experiment is a draft; a managed one it accepts at any time.
+  // Unmanaged flag values are editable only while the experiment is a draft.
   const editableSoleFeature =
     soleFeature &&
     experiment.status === "draft" &&
@@ -113,8 +111,7 @@ export default function ExperimentManagedTrafficModal({
 
   const targetFeature = managedFeature ?? editableSoleFeature;
 
-  // Choosing "values" is the opt-in: the editor opens straight into adoption
-  // until the flag exists. Other implementations get the plain traffic editor.
+  // Choosing Values opens straight into adoption until the flag exists.
   const hasNoImplementations =
     (linkedFeatures ?? []).length === 0 &&
     !experiment.hasVisualChangesets &&
@@ -188,19 +185,14 @@ function ManagedTrafficForm({
   const isBandit = experiment.type === "multi-armed-bandit";
   const feature = targetFeature?.feature ?? null;
 
-  // Including the value a newly added variation needs.
   const canEditValues =
     !!feature && permissionsUtil.canEditFeatureDrafts(feature);
 
-  // The draft's staged type, not the live one: a re-typed draft has not
-  // published, so the live type would reopen the editor in the wrong mode.
+  // The draft's staged type, not live.
   const seedValueType =
     targetFeature?.pendingDraft?.valueType ?? feature?.valueType ?? "string";
   const [valueType, setValueType] = useState<FeatureValueType>(seedValueType);
-  // Formatted at seed time, so a compact value opens expanded. The dirty
-  // baseline reads the same state, so formatting alone is not an edit.
-  // Mirrors the linked-feature editor: JSON with a plain object default, and
-  // forced on for a config-backed flag, whose values merge onto the config.
+  // Formatted at seed time so the dirty baseline matches.
   const isConfigBacked = !!feature && getFeatureBaseConfigKey(feature) !== null;
   const [sparse, setSparse] = useState(
     (targetFeature?.pendingDraft?.sparse ?? !!targetFeature?.sparse) ||
@@ -221,7 +213,6 @@ function ManagedTrafficForm({
       ),
   );
 
-  // Adoption: the experiment takes on a managed flag when this modal saves.
   const [adopting, setAdopting] = useState(false);
   const [renameTo, setRenameTo] = useState<string | null>(null);
   const [manualKey, setManualKey] = useState<string | null>(null);
@@ -239,12 +230,10 @@ function ManagedTrafficForm({
     !renameTo &&
     (manualKey === null || manualKey.trim() === "");
 
-  // A flag the experiment doesn't own stays read-only until asked, so changing
-  // traffic alone never opens a draft on someone else's flag.
+  // Someone else's flag stays read-only until asked.
   const [editingValues, setEditingValues] = useState(isManaged);
   const valuesShown = !!feature || adopting;
 
-  // Seeded from the variation keys, so what is shown is what gets saved.
   const startAdopting = () => {
     setFeatureValues((current) => {
       const next = { ...current };
@@ -263,8 +252,7 @@ function ManagedTrafficForm({
   );
   const revisionList = revisionData?.revisionList ?? [];
 
-  // Mirrors the back end: a draft is selectable only if it already carries this
-  // experiment's rule, otherwise the submit fails opaquely.
+  // Mirrors the back end: a draft is selectable only if it carries this experiment's rule.
   const eligibleDraftVersions = useMemo(() => {
     const set = new Set<number>();
     for (const r of revisionData?.revisions ?? []) {
@@ -288,8 +276,7 @@ function ManagedTrafficForm({
     const raw = settings?.requireReviews;
     if (raw === true) return "all";
     if (!Array.isArray(raw)) return "none";
-    // Adoption has no Feature Flag yet, but the one it creates lands in the
-    // experiment's project, so the rules resolve against that instead.
+    // Adoption's flag lands in the experiment's project.
     const reviewSetting = getReviewSetting(
       raw,
       feature ?? { project: experiment.project },
@@ -299,8 +286,7 @@ function ManagedTrafficForm({
     return envList.length === 0 ? "all" : new Set(envList);
   }, [settings?.requireReviews, feature, experiment.project]);
 
-  // `draftRevisionVersion` is only set while the experiment is a draft, so a
-  // running managed experiment falls back to its pending draft.
+  // A running managed experiment falls back to its pending draft.
   const targetDraftVersion =
     targetFeature?.draftRevisionVersion ??
     (isManaged ? (targetFeature?.pendingDraft?.version ?? null) : null);
@@ -312,8 +298,7 @@ function ManagedTrafficForm({
     targetDraftVersion,
   );
 
-  // On first render the revisions haven't loaded, so the dropdown can't label
-  // them. Re-apply the defaults once they arrive.
+  // Re-apply defaults once revisions load.
   const initializedFromData = useRef(false);
   useEffect(() => {
     if (initializedFromData.current || !revisionData) return;
@@ -322,19 +307,15 @@ function ManagedTrafficForm({
     setSelectedDraft(targetDraftVersion);
   }, [revisionData, initialMode, targetDraftVersion]);
 
-  // The linking flow adds the experiment-ref rule in a draft, so live doesn't
-  // have it yet: only that draft can take the change.
+  // Linking stages the rule in a draft; live doesn't have it yet.
   const ruleOnlyOnDraft =
     targetFeature?.state === "draft" &&
     targetFeature.liveHasMatchingRule === false &&
     targetFeature.draftRevisionVersion != null;
 
   const typeChanged = !!feature && valueType !== feature.valueType;
-  // Also when undoing a re-type the draft already holds: live and the draft
-  // can disagree, and the server must hear about either move.
+  // Undoing a staged re-type is also a move.
   const typeMoves = !!feature && (typeChanged || valueType !== seedValueType);
-  // Judged on what the draft leaves behind: a re-typed draft stages the JSON
-  // default that the live feature does not have yet.
   const draftDefaultValue =
     targetFeature?.pendingDraft?.defaultValue ?? feature?.defaultValue;
   // Re-express what is already there rather than clearing it.
@@ -375,12 +356,9 @@ function ManagedTrafficForm({
     },
   });
 
-  // Structural so the shared editor's row type still satisfies it.
   const featureValueOf = (row: { id: string; featureValue?: string }) =>
     row.featureValue ?? "";
 
-  // Compared against what the modal opened with, not form dirtiness: the rows
-  // write values and experiment changes through one setter.
   const coreOf = (v: {
     variations?: {
       id: string;
@@ -430,15 +408,12 @@ function ManagedTrafficForm({
     (form.watch("variations")?.length ?? 0) > 2
       ? { boolean: "needs exactly two variations" }
       : undefined;
-  // With no flag the rows still rebuild `featureValues`, which would read as an edit.
   const valuesDirty =
     adopting ||
     (!!feature &&
       JSON.stringify({ valueType, sparse, featureValues }) !==
         openedWith.current.values);
 
-  // `gatedEnvSet` resolves the review rules for the project this flag is (or
-  // will be) in, so adoption and editing ask the same question.
   const approvalRequired =
     gatedEnvSet !== "none" && hasCommercialFeature("require-approvals");
 
@@ -449,8 +424,7 @@ function ManagedTrafficForm({
         ? "Save & Request Approval"
         : "Request Approval";
 
-  // What a patch is measured against. A managed flag stores values[0] as its
-  // default, so the control in the form beats anything already saved.
+  // A managed flag's default is values[0].
   const controlVariationId = form.watch("variations")?.[0]?.id;
   const sparseBase =
     ((isManaged || adopting) && controlVariationId
@@ -461,15 +435,11 @@ function ManagedTrafficForm({
 
   const sparseEligible =
     valueType === "json" &&
-    // A flag being created has no live type to consult, and its default will be
-    // whatever the control ends up holding.
     (adopting || seedValueType === "json") &&
     parsePlainJSONObject(sparseBase) !== null;
 
-  // Rewrites every value, the same conversion the rule editors run, so nothing
-  // is left as a default-laden patch (on) or a bare patch shown whole (off).
+  // Rewrites every value, like the rule editors.
   const sparseToggle =
-    // Adoption has no feature yet, so `canEditValues` is false while authoring.
     sparseEligible && !isConfigBacked && (canEditValues || adopting) ? (
       // 32px is the select's height, so the switch sits on its centre line.
       <Flex align="center" style={{ minHeight: 32 }}>
@@ -481,8 +451,7 @@ function ManagedTrafficForm({
             setFeatureValues((prev) =>
               Object.fromEntries(
                 Object.entries(prev).map(([id, v]) => {
-                  // The control is the default the others patch onto. Stripped
-                  // against itself it would leave {} and take the default too.
+                  // Control is the default the others patch onto.
                   if (isManaged && id === controlVariationId) return [id, v];
                   return [
                     id,
@@ -507,7 +476,6 @@ function ManagedTrafficForm({
     label: null,
     valueAsId: isBandit,
     lockStructure: !safeToEdit,
-    // Coverage only reaches the server on the safeToEdit branch of `submit`.
     hideCoverage: !safeToEdit,
     hideSplits: isBandit || !safeToEdit,
     coverage: form.watch("coverage"),
@@ -586,8 +554,7 @@ function ManagedTrafficForm({
       }
     }
 
-    // A row added in this session carries no value yet. A sparse patch that
-    // sets nothing is a valid variation; otherwise derive one from the key.
+    // A new row has no value yet; a sparse patch may be empty, otherwise derive one from the key.
     const valueFor = (v: { id: string; key?: string }, i: number) => {
       const typed = featureValues[v.id];
       if (
@@ -603,8 +570,7 @@ function ManagedTrafficForm({
         index: i,
       });
     };
-    // Validated before anything is sent: the experiment and the flag are two
-    // requests, and a bad value must not leave the first one applied alone.
+    // Validated before either request is sent.
     const flagValues =
       adopting || (feature && canEditValues && editingValues)
         ? data.variations.map((v, i) => ({
@@ -612,7 +578,6 @@ function ManagedTrafficForm({
             value: validateFeatureValue(
               {
                 valueType,
-                // A schema describes the type it was written for.
                 jsonSchema:
                   !feature || typeChanged ? undefined : feature.jsonSchema,
               },
@@ -622,8 +587,7 @@ function ManagedTrafficForm({
           }))
         : null;
 
-    // Once started, only names and descriptions leave this modal; traffic and
-    // structure belong to Make Changes.
+    // Once started only names and descriptions leave here.
     const lockedVariations = experiment.variations.map((live) => {
       const edited = data.variations.find((v) => v.id === live.id);
       return edited
@@ -631,8 +595,7 @@ function ManagedTrafficForm({
         : live;
     });
     const sentVariations = safeToEdit ? data.variations : lockedVariations;
-    // Several requests in sequence: if a later one fails, the earlier ones
-    // have landed, so the page must refetch either way.
+    // Later calls can fail after earlier ones landed; refetch regardless.
     try {
       if (safeToEdit) {
         await apiCall(`/experiment/${experiment.id}`, {
@@ -647,7 +610,6 @@ function ManagedTrafficForm({
       }
 
       if (adopting) {
-        // Same endpoint and server-side gates as the old add-flag modal.
         await apiCall(`/experiment/${experiment.id}/managed-flag`, {
           method: "POST",
           body: JSON.stringify({
@@ -700,10 +662,7 @@ function ManagedTrafficForm({
   return (
     <ModalStandard
       onOpenAutoFocus={(e) => {
-        // Radix walks to the first tabbable node on open, which here is the
-        // coverage tooltip's trigger — and a Radix tooltip opens on focus. A
-        // field carrying `autoFocus` has already claimed focus by now; if none
-        // did, park it on the dialog itself.
+        // Radix focuses the first tabbable node, which would open the coverage tooltip.
         const content = e.currentTarget as HTMLElement;
         e.preventDefault();
         if (!content.contains(document.activeElement)) content.focus();
@@ -717,8 +676,6 @@ function ManagedTrafficForm({
           : "Edit Variations"
       }
       headerAction={
-        // One draft matters at a time for a managed flag, and the defaults
-        // already resolve to it.
         isManaged || !feature || !editingValues ? undefined : (
           <DraftSelectorDropdown
             feature={feature ?? undefined}
@@ -750,8 +707,6 @@ function ManagedTrafficForm({
       size="lg"
     >
       <Box pt="2">
-        {/* The managed editor also drives the adoption case, where it owns the
-            opt-in button and the value column it reveals. */}
         {feature || canAdopt ? (
           <ExperimentManagedFeatureVariationEditor
             {...sharedVariationProps}
@@ -775,8 +730,7 @@ function ManagedTrafficForm({
                   ) : keyPlan ? (
                     <Box>
                       {keyPlan.derivedIdAvailable ? (
-                        // Only worth stating when it differs from the
-                        // Experiment Key shown above; otherwise it repeats it.
+                        // Only when it differs from the Experiment Key above.
                         keyPlan.sanitized ? (
                           <Metadata
                             label="Feature Flag key"
@@ -878,8 +832,6 @@ function ManagedTrafficForm({
                   <Box width="200px">
                     <ValueTypeField
                       size="md"
-                      // The row owns the spacing; the field's own form-group
-                      // margin would drop the switch beside it.
                       containerClassName="mb-0"
                       value={valueType}
                       order={VALUE_TYPE_ORDER}
@@ -893,8 +845,6 @@ function ManagedTrafficForm({
                   {sparseToggle}
                 </Flex>
               ) : (
-                // A flag the experiment doesn't own: name it, since the values
-                // below belong to it rather than to this experiment.
                 <Box mb="3">
                   <LinkedFeatureLabel featureId={feature.id} />
                   {sparseToggle && <Box mt="2">{sparseToggle}</Box>}
@@ -907,8 +857,6 @@ function ManagedTrafficForm({
             hideFeatureValue={!valuesShown}
             valueDisabled={!editingValues && !adopting}
             valueTooltip={
-              // A managed flag publishes from this experiment, so its staging
-              // needs no explaining; a shared flag's does.
               isManaged || adopting
                 ? null
                 : "Changes to feature values are saved to a draft revision. They are not published until the draft is."
@@ -919,15 +867,12 @@ function ManagedTrafficForm({
                 : undefined
             }
             valueType={valueType}
-            // Carries the base a patch is measured against, so the sparse
-            // Preview tab expands onto the same value the toggle stripped.
             feature={
               feature
                 ? { ...feature, valueType, defaultValue: sparseBase }
                 : undefined
             }
-            // While adopting there is no Feature Flag yet, so scope the
-            // constant picker to the project the flag will be created in.
+            // No flag yet while adopting; scope to the experiment's project.
             constantContext={
               feature ? undefined : { project: experiment.project || undefined }
             }

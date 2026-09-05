@@ -5,10 +5,7 @@ import {
   postExperimentUnarchiveValidator,
 } from "shared/validators";
 import { PermissionError } from "shared/util";
-import { ExperimentInterface } from "shared/types/experiment";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { NotFoundError } from "back-end/src/util/errors";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 import {
   archiveExperimentWithCleanup,
@@ -16,21 +13,9 @@ import {
   deleteExperimentWithCleanup,
   unarchiveExperimentWithCleanup,
 } from "back-end/src/services/experimentRemoval";
-import { ApiReqContext } from "back-end/types/api";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
-
-async function requireExperiment(
-  context: ApiReqContext,
-  id: string,
-): Promise<ExperimentInterface> {
-  const experiment = await getExperimentById(context, id);
-  if (!experiment) throw new NotFoundError("Experiment not found");
-  if (experiment.type === "holdout") {
-    throw new Error("Holdouts are not supported via this API");
-  }
-  return experiment;
-}
+import { requireExperiment } from "./requireExperiment";
 
 export const postExperimentArchive = createApiRequestHandler(
   postExperimentArchiveValidator,

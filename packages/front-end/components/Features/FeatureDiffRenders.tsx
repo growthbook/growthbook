@@ -69,11 +69,7 @@ function ExperimentLink({
   );
 }
 
-// The rule heading is gone on the experiment surface, so the values need
-// something to sit under.
 function VariationsHeading() {
-  // The section heading DiffContent draws, so it reads as a peer of
-  // "Environments" rather than as one more field label.
   return (
     <Heading as="h6" size="sm" color="text-mid" mb="2">
       Variations
@@ -81,9 +77,7 @@ function VariationsHeading() {
   );
 }
 
-// Variation rows are labelled the way every other variation in the product is:
-// the design system's number chip plus the name from the linked experiment,
-// falling back to the index when the experiment isn't loaded.
+// Number chip plus the linked experiment's name, falling back to the index.
 function VariationValueLabel({
   experimentId,
   index,
@@ -173,8 +167,7 @@ function ValueChangedField({
   );
 }
 
-// The end state on its own, for a field with no "before": an added rule diffed
-// against nothing is a column of "unset -> value" rows. Mirrors ValueChangedField.
+// The end state alone, for a field with no before.
 function ValueOnlyField({
   label,
   value,
@@ -191,11 +184,7 @@ function ValueOnlyField({
   if (isSimple) {
     const display: ReactNode =
       value == null || value === "" ? <em>unset</em> : value;
-    const body = (
-      // The colour the "after" half of a diff carries: this IS that half, with
-      // nothing to compare it against.
-      <div className="font-weight-bold text-success">{display}</div>
-    );
+    const body = <div className="font-weight-bold text-success">{display}</div>;
     if (!label) return <div className={rowClass}>{body}</div>;
     return (
       <div className={rowClass}>
@@ -217,8 +206,6 @@ function ValueOnlyField({
           </Text>
         </div>
       )}
-      {/* Syntax highlighting says more about a JSON body than a success colour
-          would, so it wins here. */}
       <Box style={{ maxHeight: 250, overflowY: "auto" }}>
         <InlineCode
           language="json"
@@ -599,8 +586,7 @@ function RuleFieldDiffs({
   if (isEqual(pre, post) && !pendingRampAction) return null;
 
   const rows: ReactNode[] = [];
-  // The experiment surface names the flag and the experiment itself, and its
-  // rule always spans every environment — both rows would restate the page.
+  // The experiment surface already names the flag and spans every environment.
   const compact = renderMode === "experiment";
   // id/type/scheduleRules are structural; allEnvironments+environments render
   // together as a single "Environments" row below. The rest are explicit cases.
@@ -909,7 +895,6 @@ function RuleFieldDiffs({
   }
 
   if (!rows.length) return null;
-  // The experiment surface stacks one row per variation; give them air.
   return compact ? (
     <Flex direction="column" gap="3">
       {rows}
@@ -1282,8 +1267,7 @@ export function renderFeatureRules(
   const analysis = analyzeRuleChanges(preRules, postRules);
   const renderMode = options?.renderMode ?? "feature";
   const compact = renderMode === "experiment";
-  // The experiment surface states the environments itself, so a rule that only
-  // moved its environment scope has nothing left to show here.
+  // The experiment surface states environments itself.
   const preById = new Map(preRules.map((r) => [r.id, r]));
   const ENV_SCOPE = ["environments", "allEnvironments"];
   const modified = compact
@@ -2077,8 +2061,7 @@ function EnvEnabledIndicator({
   enabled: boolean;
   tone?: "state" | "muted";
 }) {
-  // The overview's icons, but teal for "on": a green check inches from the
-  // approval verdicts reads as another approval.
+  // Teal, not green: a check beside approval verdicts reads as one.
   const color = enabled ? "var(--teal-10)" : featureStatusColors.off;
   const label = enabled ? "On" : "Off";
   const Icon = enabled ? FaCircleCheck : FaCircleXmark;
@@ -2091,15 +2074,13 @@ function EnvEnabledIndicator({
         size={20}
         style={{ color, opacity: tone === "muted" ? 0.3 : undefined }}
       />
-      {/* Real text, so a selection of this row copies as "production Off → On"
-          rather than the env name alone. A title or aria-label would not. */}
+      {/* Real text, so a selection copies name and state. */}
       <VisuallyHidden>{label}</VisuallyHidden>
     </span>
   );
 }
 
-// One section for every toggled environment; a grid that wraps, so twenty of
-// them don't bury the rest of the diff.
+// A wrapping grid, so twenty environments don't bury the diff.
 export function renderEnvironmentToggles(
   toggles: { envId: string; from: boolean; to: boolean }[],
   { endStateOnly = false }: { endStateOnly?: boolean } = {},
@@ -2110,7 +2091,6 @@ export function renderEnvironmentToggles(
       gapX="4"
       gapY="3"
       mb="2"
-      // Name above state: a column is only as wide as the name.
       style={{
         gridTemplateColumns: "repeat(auto-fill, minmax(120px, max-content))",
       }}
@@ -2126,7 +2106,6 @@ export function renderEnvironmentToggles(
             {!endStateOnly && from !== to && (
               <>
                 <EnvEnabledIndicator enabled={from} tone="muted" />
-                {/* The arrow ChangeField draws between the two halves. */}
                 <span className="font-weight-bold text-success">→</span>
               </>
             )}
@@ -2274,8 +2253,7 @@ export function renderRevisionMetadata(
     }
   };
 
-  // A re-type changes how every value in the draft is read, so it belongs at
-  // the top of the review rather than being implied by the values themselves.
+  // A re-type changes how every value reads; show it first.
   if (draft.valueType !== undefined) {
     stringField("valueType", "Value type", current?.valueType, draft.valueType);
   }

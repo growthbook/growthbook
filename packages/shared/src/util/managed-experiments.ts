@@ -5,10 +5,9 @@ import { validateFeatureValue } from "./features";
 // Managed mode: the experiment owns one Feature Flag holding one experiment-ref
 // rule, edited only from the experiment page while the marker is set.
 
-/** Characters a feature id may contain (see `postFeatures`). */
 const FEATURE_KEY_ALLOWED = /[^a-zA-Z0-9_.:|-]+/g;
 
-/** Start-checklist item key prefix for a linked flag's outstanding approval; the one hard blocker an admin may bypass. */
+/** Checklist key prefix for a flag's outstanding approval. */
 export const PENDING_APPROVAL_ITEM_PREFIX = "pendingApproval:";
 
 export type ManagedFlagKeyPlan = {
@@ -39,8 +38,7 @@ export function isManagedByExperiment(
   );
 }
 
-// A managed flag publishes when the experiment starts, so its draft is as good
-// as a live linked change for the start gates.
+// A managed draft publishes at start, so it counts as a live linked change.
 export function hasStartReadyManagedFlag(
   experimentId: string,
   linkedFeatures: Pick<LinkedFeatureInfo, "feature" | "state">[],
@@ -59,8 +57,7 @@ export type ManagedValueProblem = {
   detail?: string;
 };
 
-// Every arm of a managed flag has to carry a value that parses as the type the
-// draft lands as, or the publish at start fails.
+// Every arm must parse as the draft's type, or the publish at start fails.
 export function getManagedValueProblems({
   variations,
   values,
@@ -88,8 +85,7 @@ export function getManagedValueProblems({
       });
       return;
     }
-    // Strict, not the lenient repair `validateFeatureValue` applies on save:
-    // the SDK parses what is stored.
+    // Strict: the SDK parses what is stored.
     if (valueType === "json") {
       try {
         JSON.parse(value);
@@ -126,8 +122,7 @@ export function managedByExperimentId(
     : null;
 }
 
-// A candidate, not a reservation: callers bump `attempt` on duplicate-key
-// errors rather than probing for a free id and racing.
+// A candidate, not a reservation.
 export function managedFeatureKeyCandidate({
   trackingKey,
   experimentId,
@@ -156,8 +151,7 @@ export function seedManagedVariationValues(
   }));
 }
 
-// Boolean seeds control off and the rest on; a truthiness test on the key
-// would make every value true.
+// Control off, the rest on.
 function seedValueForType(
   valueType: FeatureValueType,
   key: string | undefined,
@@ -175,8 +169,7 @@ function seedValueForType(
   }
 }
 
-// By position, not id: a duplicate gets fresh ids, so an id match would seed
-// every variation.
+// By position: a duplicate gets fresh ids.
 export function copyManagedVariationValues({
   sourceValues,
   sourceVariations,
@@ -199,8 +192,7 @@ export function copyManagedVariationValues({
   }));
 }
 
-// The experiment's own lifecycle writes move a managed flag's live version, so
-// under approvals an approval must stand against current live regardless of org setting.
+// Lifecycle writes move a managed flag's live version, so approvals must stand against current live.
 export function requireFreshBaseForPublish({
   feature,
   reviewRequired,

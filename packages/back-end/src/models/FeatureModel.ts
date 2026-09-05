@@ -232,8 +232,7 @@ const featureSchema = new mongoose.Schema({
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
 featureSchema.index({ organization: 1, targetingProjects: 1 });
-// Partial: holds only managed flags, so a list can resolve ownership without
-// scanning features.
+// Partial: managed flags only.
 featureSchema.index(
   { organization: 1, "managedBy.experimentId": 1 },
   { partialFilterExpression: { "managedBy.type": "experiment" } },
@@ -804,9 +803,7 @@ export async function getFeatureProjectsByIds(
   return new Map(features.map((f) => [f.id, f.project || undefined]));
 }
 
-// Raw fetch, like `getFeatureProjectsByIds`: a write gate must refuse a managed
-// flag the caller cannot read, not skip it. Returns only the flags that are
-// managed, mapped to the owning experiment.
+// Raw: a write gate must refuse an unreadable managed flag, not skip it.
 export async function getManagedByExperimentForFeatureIds(
   context: ReqContext | ApiReqContext,
   ids: string[],
@@ -2047,8 +2044,7 @@ export function computeRevisionMergeChanges(
       changes.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;
     if (m.baseConfig !== undefined) changes.baseConfig = m.baseConfig;
-    // Staged by a revert or a managed flag's type change; both stage every
-    // value alongside it.
+    // Staged by a revert or a managed flag's type change.
     if (m.valueType !== undefined) changes.valueType = m.valueType;
     hasChanges = true;
   }
@@ -4600,8 +4596,7 @@ export async function getFeatureMetaInfoByIds(
     }));
 }
 
-// Not read-filtered: ownership must be answerable for a flag the caller cannot
-// read, or its marker can never be cleared. Callers must not leak the ids.
+// Unfiltered: ownership must be answerable for an unreadable flag. Don't leak the ids.
 export async function getManagedFlagIdsUnfiltered(
   context: ReqContext | ApiReqContext,
   experimentId: string,
@@ -4617,12 +4612,7 @@ export async function getManagedFlagIdsUnfiltered(
   return features.map((f) => f.id);
 }
 
-/**
- * Of the given experiments, the ones that manage a Feature Flag, mapped to the
- * flag they own. Served by the partial `managedBy.experimentId` index, and the
- * caller passes only the rows it is about to render, so the cost tracks what is
- * on screen rather than the size of either collection.
- */
+/** Managed flags for the given experiments, via the partial index. */
 export async function getManagedFlagsByExperiment(
   context: ReqContext | ApiReqContext,
   experimentIds: string[],

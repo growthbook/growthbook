@@ -124,8 +124,7 @@ export async function linkFeatureToExperiment({
     context.permissions.throwPermissionError();
   }
 
-  // allEnvironments:true strips any stale environments[]; neither field set
-  // defaults to every applicable org env.
+  // allEnvironments strips any stale environments[].
   let scopedRule: FeatureRule;
   if (rule.allEnvironments === true) {
     scopedRule = {
@@ -149,8 +148,7 @@ export async function linkFeatureToExperiment({
     ? environments
     : (scopedRule.environments ?? []);
 
-  // Landing authority only when this call lands. Staging the rule into a draft
-  // is authoring, already gated above; the draft reaches no one until published.
+  // Landing authority only when this call lands.
   if (
     autoPublish &&
     !context.permissions.canPublishFeature(feature, ruleEnvFootprint)
@@ -324,8 +322,7 @@ export type ExperimentLinkedFeatureValueUpdate = {
   // sparse flag (the variation values are partial objects merged onto the
   // feature default). Omitted = leave the rule's existing sparse flag untouched.
   sparse?: boolean;
-  // Managed flags only: on a shared flag every other rule's values would be
-  // left reading as the type that went away.
+  /** Managed flags only. */
   valueType?: FeatureValueType;
   revisionOptions: ExperimentFeatureValueRevisionOptions;
 };
@@ -531,9 +528,7 @@ export async function validateExperimentFeatureUpdates({
       return !isEqual(m.rule.variations, updatedVariationValues);
     });
 
-    // A type change counts even when every value reads the same under both
-    // ("0"/"1" as strings and numbers), so it must not be skipped. Judged
-    // against the draft's staged type so undoing a re-type is a change too.
+    // A type change counts even when every value reads the same under both types.
     const typeChanging =
       !!entry.valueType &&
       entry.valueType !== (revision.metadata?.valueType ?? feature.valueType);
@@ -667,7 +662,6 @@ export async function assessRevisionApprovalForAutoPublish(
   });
 }
 
-// Whether the org's approval rules apply to this flag at all.
 export function featureReviewRequired(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -755,8 +749,7 @@ export async function publishPendingFeatureDraftsForExperiment(
   for (const { featureId, revisionVersion } of drafts) {
     const feature = await getCachedFeature(featureId);
     if (!feature) {
-      // Deleted flags are pruned; a flag that exists but cannot be read must
-      // fail the start rather than silently drop its draft.
+      // Pruned only when deleted; unreadable fails the start.
       if (await featureIdExists(context, featureId)) {
         failed.push({ featureId, revisionVersion, reason: "publish-error" });
         continue;
@@ -1162,9 +1155,7 @@ export async function publishPendingFeatureDraftsForContextualBandit(
   return { published, failed };
 }
 
-// Re-scopes this experiment's rule, staged on the flag's draft. Enablement
-// follows one way, as linking does: an environment entering the footprint is
-// switched on, one leaving it only loses the rule.
+// Enablement follows one way: entering the footprint switches on, leaving only loses the rule.
 export async function updateExperimentRuleEnvironments({
   context,
   experiment,
@@ -1193,8 +1184,6 @@ export async function updateExperimentRuleEnvironments({
     ? environments
     : selected.filter((e) => environments.includes(e));
 
-  // `getDraftRevision` branches on the live version, covering both a named
-  // draft and a fresh one.
   const revision =
     targetVersion !== undefined
       ? await getDraftRevision(context, feature, targetVersion)
@@ -1260,10 +1249,7 @@ export async function updateExperimentRuleEnvironments({
   return { version: updated.version };
 }
 
-// Rewrites every rule pointing at the experiment on the live flag and its open
-// drafts, then publishes. Null `replacement` drops the rule. Authority is
-// checked for every flag before any of them is written, and each flag lands
-// live before its drafts are touched, so a refusal leaves nothing half done.
+// Authority is checked for every flag before any write, and live lands before drafts.
 async function resolveRulesForExperiment({
   context,
   experiment,
@@ -1312,8 +1298,6 @@ async function resolveRulesForExperiment({
       `Could not update Feature Flag "${feature.id}": ${reason}. Ask someone who can publish that Feature Flag, or remove the experiment rule from it first.`,
     );
 
-  // Landing needs publish authority and, under approvals, bypass authority.
-  // Every flag is checked before any is written.
   const bypassFor = new Map<string, boolean>();
   for (const feature of features) {
     if (!(feature.rules ?? []).some(refersToExperiment)) continue;
@@ -1427,10 +1411,7 @@ async function resolveRulesForExperiment({
   }
 }
 
-// A deleted experiment's rules serve nothing (the payload skips a missing
-// experiment), so they come off the live flag and its open drafts. Runs before
-// the experiment is deleted and fails closed: a rule that cannot be removed
-// blocks the delete rather than outliving its experiment.
+// The payload skips a missing experiment. Fails closed, before the experiment is deleted.
 export async function removeRulesForDeletedExperiment({
   context,
   experiment,
@@ -1456,8 +1437,7 @@ export async function removeRulesForDeletedExperiment({
   });
 }
 
-// Freezes a temporary rollout into a force rule with the same scope and the
-// phase's targeting, so removing the experiment changes nothing for users.
+// Freezes the temporary rollout into a permanent rule with the phase's targeting.
 export async function materializeExperimentRules({
   context,
   experiment,

@@ -230,8 +230,7 @@ export default function TrafficAllocationFunnel({
   const allEnvironments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
 
-  // A draft differs from live across its whole rule, so each readout asks about
-  // itself rather than trusting that a draft exists.
+  // Each readout asks about itself.
   const liveRule = servedValueFeature?.liveHasMatchingRule
     ? servedValueFeature
     : undefined;
@@ -257,29 +256,26 @@ export default function TrafficAllocationFunnel({
   const [showDraftValues, setShowDraftValues] = useState(true);
   const preferDraft = hasDraftChanges && showDraftValues;
 
-  // The server takes publish authority on eject; mirror it or the menu 403s.
+  // Mirror the server's publish authority on eject.
   const managedFeature =
     servedValueFeature &&
     isManagedByExperiment(servedValueFeature.feature, experiment.id)
       ? servedValueFeature.feature
       : null;
-  // Not gated on `safeToEdit`: that guards traffic biasing, and re-scoping
-  // environments stages to a draft without re-bucketing anyone.
+  // Re-scoping environments stages a draft without re-bucketing.
   const canEditEnvironments =
     !!servedValueFeature &&
     canEditExperiment &&
     permissionsUtil.canEditFeatureDrafts(servedValueFeature.feature);
   const [editEnvironments, setEditEnvironments] = useState(false);
-  // Each side reads its own fields: `info.values` and `info.environmentStates`
-  // follow whichever revision resolved, so falling back shows draft under Live.
+  // Each side reads its own fields.
   const servedValueSource = preferDraft
     ? servedValueFeature?.pendingDraft
     : liveRule && {
         values: liveRule.liveValues,
         sparse: liveRule.liveSparse,
       };
-  // Rendered against the draft's own type and default: a draft can re-type the
-  // flag, and the live feature still carries the old type until it publishes.
+  // Against the draft's type and default; live keeps the old type until publish.
   const servedValueDisplayFeature = useMemo(() => {
     const feature = servedValueFeature?.feature;
     if (!feature) return undefined;
@@ -297,8 +293,7 @@ export default function TrafficAllocationFunnel({
     : liveRule && { environmentStates: liveRule.liveEnvironmentStates };
   const environmentsAreDraft = preferDraft && environmentsDiffer;
 
-  // A managed flag has exactly one draft, so naming it there is noise. The
-  // count says how many others this readout is not showing.
+  // A managed flag has one draft; the count is the others not shown.
   const draftDetail = (() => {
     const draft = servedValueFeature?.pendingDraft;
     if (!draft || managedFeature) return { name: undefined, note: undefined };
@@ -323,8 +318,7 @@ export default function TrafficAllocationFunnel({
     },
   );
 
-  // A rule scoped to a subset of the allowed environments is a restriction,
-  // even with no attribute targeting. Project-scoped ones are already excluded.
+  // A subset of environments is a restriction even without attribute targeting.
   const allowedEnvironments = filterEnvironmentsByExperiment(
     allEnvironments,
     experiment,
@@ -450,8 +444,6 @@ export default function TrafficAllocationFunnel({
           )}
 
           {environmentStates.length > 0 ? (
-            // Above the card, not inside it: where the experiment runs frames
-            // everything below rather than being one more targeting rule.
             <Flex align="center" justify="center" gap="2" wrap="wrap" mb="3">
               {environmentsAreDraft && (
                 <UnpublishedDot
@@ -597,9 +589,7 @@ export default function TrafficAllocationFunnel({
                   ? (index) => setEditVariationIndex(index)
                   : undefined
               }
-              // The variation editor always has something to save: names and
-              // descriptions at any status, values wherever there is a flag.
-              // A running experiment only loses traffic and ids.
+              // Names and descriptions save at any status; values wherever there is a flag.
               onEditTraffic={
                 canEditExperiment && editTraffic ? editTraffic : undefined
               }

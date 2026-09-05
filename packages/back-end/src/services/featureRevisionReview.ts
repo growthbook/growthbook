@@ -15,8 +15,7 @@ import { getFeatureReviewFootprint } from "back-end/src/services/features";
 import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisionEvents";
 import { maybeAutoPublishFeatureRevision } from "back-end/src/api/features/autoPublishOnApproval";
 
-// Extracted so the internal route and the managed-flag route share one set of
-// rules, the self-approval block and review-cycle CAS in particular.
+// Shared by the internal and managed-flag routes.
 export async function submitFeatureRevisionReview({
   context,
   feature,
@@ -32,9 +31,7 @@ export async function submitFeatureRevisionReview({
   comment: string;
   eventAudit: EventUser;
 }): Promise<void> {
-  // A verdict is the review atom; a plain comment is participation, so the
-  // comment atom carries it. Judged on live: feature revisions carry no origin
-  // snapshot, unlike the other three engines.
+  // A verdict is the review atom; a comment is participation.
   const canCommentHere = canCommentOnRevisionEntity(
     context.permissions,
     "feature",
@@ -44,8 +41,7 @@ export async function submitFeatureRevisionReview({
   if (review === "Comment" && !canCommentHere) {
     context.permissions.throwPermissionError();
   }
-  // Coarse pre-fetch gate so callers without the review atom cannot probe
-  // which revision versions exist; the footprint check below still runs.
+  // Pre-fetch gate so callers can't probe revision versions.
   if (
     review !== "Comment" &&
     !context.permissions.canReviewFeatureDrafts(feature, ANY_REVIEW_FOOTPRINT)
@@ -64,8 +60,6 @@ export async function submitFeatureRevisionReview({
     throw new Error("Could not find feature revision");
   }
 
-  // A verdict is judged against what the draft changes, so it waits on the
-  // revision. Comments keep their pre-fetch refusal.
   if (review !== "Comment") {
     const footprint = await getFeatureReviewFootprint({
       context,
@@ -81,8 +75,7 @@ export async function submitFeatureRevisionReview({
     throw new Error("Comment cannot be empty");
   }
 
-  // `mayBeRevisionAuthor` rather than an id comparison, so an identityless
-  // principal cannot approve an authorless draft it may have created itself.
+  // `mayBeRevisionAuthor`: an identityless principal must not approve its own authorless draft.
   const creatorId =
     revision.createdBy != null && "id" in revision.createdBy
       ? revision.createdBy.id
@@ -91,16 +84,12 @@ export async function submitFeatureRevisionReview({
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
 
-  // Block contributors from self-approving when the org setting is enabled.
-  // Note: contributors[] is only populated on drafts created after contributor tracking was
-  // deployed. Legacy drafts with no contributors[] bypass this check — there is no way to
-  // retroactively determine co-authors without reading revision logs.
+  // contributors[] is empty on legacy drafts, which therefore bypass this.
   const requireReviews = context.org.settings?.requireReviews;
   const blockSelfApproval = Array.isArray(requireReviews)
     ? !!getReviewSetting(requireReviews, feature)?.blockSelfApproval
     : false;
-  // Re-applied inside the verdict's CAS: this reads a copy the contributor
-  // list can outrun.
+  // Re-applied inside the CAS.
   if (review === "Approved" && blockSelfApproval) {
     const isSelfApproval = (revision.contributors ?? []).some(
       (id) => id === context.userId,
@@ -132,9 +121,7 @@ export async function submitFeatureRevisionReview({
     blockSelfApproval,
   );
   if (!applied) {
-    // The verdict did not persist: a concurrent recall, discard or publish moved
-    // the revision out of the review cycle. Refuse rather than log, notify and
-    // report success for a review the document does not carry.
+    // Not persisted: a concurrent recall, discard or publish moved the revision on.
     throw new Error(
       "This revision is no longer in review — it was recalled, published or discarded while the request was in flight.",
     );

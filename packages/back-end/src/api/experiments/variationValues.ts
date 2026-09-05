@@ -17,12 +17,9 @@ import { ANY_REVIEW_FOOTPRINT } from "shared/util";
 import { EventUser } from "shared/types/events/event-types";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError } from "back-end/src/util/errors";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
-import {
-  getExperimentById,
-  clearPendingFeatureDraftsForRevision,
-} from "back-end/src/models/ExperimentModel";
+import { clearPendingFeatureDraftsForRevision } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
 import {
   discardRevision,
@@ -53,8 +50,8 @@ import {
 import { updateExperimentRuleEnvironments } from "back-end/src/services/experiment-feature";
 import { canBypassReviewChecks } from "back-end/src/api/features/reviewBypass";
 import { rebaseFeatureRevision } from "back-end/src/api/features/postFeatureRevisionRebase";
+import { requireExperiment } from "./requireExperiment";
 
-/** The one response shape every endpoint here returns. */
 async function respond(
   context: ApiReqContext,
   experiment: ExperimentInterface,
@@ -62,16 +59,6 @@ async function respond(
   return { variationValues: await getManagedFlagState(context, experiment) };
 }
 
-async function requireExperiment(
-  context: ApiReqContext,
-  id: string,
-): Promise<ExperimentInterface> {
-  const experiment = await getExperimentById(context, id);
-  if (!experiment) throw new NotFoundError("Experiment not found");
-  return experiment;
-}
-
-/** The Feature Flag this experiment owns, or a 400 when it owns none. */
 async function requireManagedFlag(
   context: ApiReqContext,
   experiment: ExperimentInterface,
@@ -128,8 +115,7 @@ export const putExperimentVariationValues = createApiRequestHandler(
   }
   const feature = await requireManagedFlag(req.context, experiment);
 
-  // Validate everything before writing anything, so a bad environment list
-  // cannot leave the values half-applied.
+  // Validate before any write.
   const scope = req.body.environments;
   if (scope !== undefined && scope !== "all") {
     const known = getEnvironmentIdsFromOrg(req.context.org);
@@ -169,9 +155,7 @@ export const putExperimentVariationValues = createApiRequestHandler(
         eventAudit: req.eventAudit,
       });
     } catch (e) {
-      // Both edits were validated up front, so only a concurrent change can
-      // fail here. The values already landed; say so rather than imply a
-      // clean failure, and a retry with the same body completes the change.
+      // Only a concurrent change fails here; the values already landed.
       if (req.body.values) {
         throw new BadRequestError(
           `The values were saved but the environments were not: ${
@@ -186,7 +170,6 @@ export const putExperimentVariationValues = createApiRequestHandler(
   return respond(req.context, experiment);
 });
 
-/** approve / request-changes / comment all land on the same review write. */
 /** The pending draft, or a 400 when there is nothing waiting. */
 async function requirePendingDraft(
   context: ApiReqContext,

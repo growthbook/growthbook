@@ -295,8 +295,7 @@ export function validateJSONFeatureValue(
   }
 }
 
-// Unwraps the `{ "value": X }` envelope `castFeatureValue` writes, so a round
-// trip through JSON returns what went in. A bare string literal unwraps too.
+// Unwraps the `{ "value": X }` envelope `castFeatureValue` writes.
 function unwrapCastEnvelope(value: string): string {
   try {
     const parsed = JSON.parse(value);
@@ -320,11 +319,7 @@ function unwrapCastEnvelope(value: string): string {
 /** The value shape `validateFeatureValue` accepts for a number. */
 const NUMBER_VALUE_PATTERN = /^-?[0-9]+(\.[0-9]+)?$/;
 
-/**
- * The text as a JSON document, when it already reads as an object or array.
- * Null for anything else — a bare scalar is ambiguous enough that the envelope
- * stays the safer reading.
- */
+// The text as a JSON document when it already reads as an object or array.
 function asJsonDocument(plain: string): string | null {
   const trimmed = plain.trim();
   if (!/^[[{]/.test(trimmed)) return null;
@@ -348,9 +343,7 @@ function asJsonLiteral(plain: string, from: FeatureValueType): string {
   }
 }
 
-// Re-expresses a value under a different type. `index` is used only when
-// nothing survives the move: booleans fall back to control-off/rest-on, since
-// one value for every variation would stop it being an experiment.
+// Re-expresses a value under another type; `index` only when nothing survives (booleans: control off, rest on).
 export function castFeatureValue({
   value,
   from,
@@ -364,7 +357,6 @@ export function castFeatureValue({
 }): string {
   if (from === to) return value;
 
-  // A value that went into JSON as `{"value": X}` comes back out as X.
   const plain = from === "json" ? unwrapCastEnvelope(value) : value;
 
   switch (to) {
@@ -378,8 +370,6 @@ export function castFeatureValue({
       const trimmed = plain.trim();
       const n = Number(trimmed);
       const candidate = String(n);
-      // Judged by the shape `validateFeatureValue` accepts, so a reading it
-      // rejects falls back to the position.
       return trimmed !== "" &&
         Number.isFinite(n) &&
         NUMBER_VALUE_PATTERN.test(candidate)
@@ -387,8 +377,7 @@ export function castFeatureValue({
         : String(index);
     }
     case "json": {
-      // Text that already reads as an object or array IS the value; wrapping
-      // would encode it twice. Everything else keeps the envelope.
+      // Text that already reads as an object or array is the value.
       return (
         asJsonDocument(plain) ??
         `{\n  "value": ${asJsonLiteral(plain, from)}\n}`

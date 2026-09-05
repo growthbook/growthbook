@@ -87,8 +87,6 @@ type Props = {
   onOpenChange?: (open: boolean) => void;
 };
 
-// CTA + reviewers only: a managed flag has one rule and one draft, so the
-// Review & Publish tab's deferral and diff machinery has nothing to act on.
 export default function ManagedFlagApproval({
   experiment,
   info,
@@ -133,15 +131,11 @@ export default function ManagedFlagApproval({
     () => data?.revisions?.find((r) => r.version === version),
     [data, version],
   );
-  // The values modal saves through the experiment's mutate, which does not
-  // touch this feature fetch; re-read on open or the diff shows the old draft.
+  // The values modal doesn't touch this fetch; re-read on open.
   useEffect(() => {
     if (open) mutateRevisions();
   }, [open, mutateRevisions]);
 
-  // The Feature Flag's own review engine. A managed flag's draft IS the
-  // experiment's change, so the whole-revision diff is the right unit — and if
-  // anything else ever lands in there, this is what would show it.
   const liveDiffInput = useMemo(
     () => featureToFeatureRevisionDiffInput(info.feature),
     [info.feature],
@@ -161,11 +155,9 @@ export default function ManagedFlagApproval({
 
   const status = info.pendingDraft?.status ?? "draft";
   const approval = info.pendingDraft?.approval;
-  // Approved on paper, blocked in practice.
   const approvalGated =
     !!approval && !approval.satisfied && status === "approved";
-  // A revision keeps the status it was left in, so a draft opened while
-  // approvals were on stays "pending-review" after the org turns them off.
+  // Status persists after the org turns approvals off.
   const requireReviews = !!info.pendingDraft?.pendingApproval;
   const approvalGateUnmet = requireReviews && !!approval && !approval.satisfied;
   const reviews = revision?.reviews ?? [];
@@ -173,8 +165,7 @@ export default function ManagedFlagApproval({
 
   // Starting the experiment is the publish, so a draft runs review only.
   const publishIsLaunch = experiment.status === "draft";
-  // A managed flag has no Review & Publish tab of its own, so this is the only
-  // place a diverged draft can be rebased. Same merge and call as that page.
+  // The only place a managed flag's diverged draft can be rebased.
   const liveRevision = data?.revisions?.find(
     (r) => r.version === info.feature.version,
   );
@@ -213,8 +204,6 @@ export default function ManagedFlagApproval({
     }
   };
 
-  // The same inputs the auto-publish path feeds the gate, so the notice and the
-  // refusal agree on whether live has moved past this draft.
   const governance = revision
     ? evaluatePublishGovernance({
         revisionStatus: revision.status,
@@ -230,8 +219,6 @@ export default function ManagedFlagApproval({
         }),
       })
     : null;
-  // Contributors can't approve their own draft when the org says so, which is
-  // not self-evident from a missing radio.
   const reviewSetting = Array.isArray(settings?.requireReviews)
     ? getReviewSetting(settings.requireReviews, info.feature)
     : undefined;
@@ -262,9 +249,7 @@ export default function ManagedFlagApproval({
   const stateInput = {
     requireReviews,
     status,
-    // Conflicts are surfaced by the card's callouts; never offer a failing CTA.
     mergeSuccess: !info.pendingDraft?.hasMergeConflict,
-    // The publish gate's own test, so the CTA can't offer a no-op publish.
     hasChanges: info.pendingDraft?.hasChanges ?? true,
     hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(
       info.feature,
@@ -287,7 +272,6 @@ export default function ManagedFlagApproval({
     governanceCanPublish: governance ? governance.canPublish : true,
     editsResetStatus: true,
   };
-  // Two reads: the bypass changes the CTA, the banners still say what it skips.
   const baseState = getReviewAndPublishState({
     ...stateInput,
     adminPublish: false,
@@ -297,10 +281,7 @@ export default function ManagedFlagApproval({
     ? getReviewAndPublishState({ ...stateInput, adminPublish: true })
     : baseState;
 
-  // "any": the precise footprint needs the live and base revisions, which this
-  // modal does not load (the full Review & Publish tab falls back the same way
-  // without them). The server recomputes it exactly and refuses if it does not
-  // hold, so the cost of being generous here is a 403, not a bad write.
+  // The exact footprint needs live and base revisions this modal doesn't load; the server recomputes it.
   const canReview =
     requireReviews &&
     permissionsUtil.canReviewFeatureDrafts(
@@ -311,20 +292,14 @@ export default function ManagedFlagApproval({
     !!revision &&
     revision.createdBy?.id !== userId;
 
-  // `getReviewAndPublishState` deliberately carries no authority — the full
-  // Review & Publish tab gates its CTA separately, and so must this one, or a
-  // viewer without rights gets an enabled button that 403s.
+  // `getReviewAndPublishState` carries no authority; gate here too.
   const canPublish = permissionsUtil.canPublishFeature(
     info.feature,
     getEnabledEnvironments(info.feature, allEnvironments),
   );
   const canManage = permissionsUtil.canEditFeatureDrafts(info.feature);
 
-  // Starting the experiment is the publish, so only publish is launch-gated.
-  // Request-review has to stay reachable: a draft can land back in `draft` or
-  // `changes-requested` after the auto-request, and without this CTA that state
-  // has no action at all.
-  // And while the gate is unmet: the state machine sees only the status.
+  // Only publish is launch-gated; request-review must stay reachable after a recall or change request.
   const submitAction =
     state.submitAction === "publish" &&
     (publishIsLaunch || (approvalGateUnmet && !adminOverride))
@@ -349,14 +324,10 @@ export default function ManagedFlagApproval({
       body: JSON.stringify(body),
     });
     setComment("");
-    // The parent mutate only refreshes /experiment/:id; this modal's own
-    // fetches need revalidating or it keeps its pre-action revision.
+    // The parent mutate only refreshes the experiment.
     await Promise.all([mutate(), mutateRevisions(), mutateLog()]);
   }
 
-  // Editing a comment or retracting a review happens inside the conversation,
-  // so those stay in the body and surface their own errors. The footer CTA runs
-  // `runAction` directly and lets Modal own its loading, error and close.
   async function post(
     path: string,
     body: Record<string, unknown> = {},
@@ -396,8 +367,7 @@ export default function ManagedFlagApproval({
         }
       : null;
 
-  // The author leads, then anyone who contributed to the draft — the same
-  // list the Review & Publish tab shows.
+  // Author first, then contributors, as on the Review & Publish tab.
   const contributorIds = (() => {
     const authorId = revision?.createdBy?.id;
     const ids = revision?.contributors ?? [];
@@ -417,7 +387,6 @@ export default function ManagedFlagApproval({
     );
   });
 
-  // An approval can stand and still not sanction the publish; the icon says so.
   const insufficientReasons = useMemo(
     () =>
       new Map(
@@ -430,8 +399,7 @@ export default function ManagedFlagApproval({
     const user = users.get(r.userId);
     const name = user?.name ?? "";
     const email = user?.email ?? "";
-    // "-stale" verdicts still count as this reviewer's position, but the icon
-    // mutes to show the draft moved on since they gave it.
+    // Stale verdicts still count; the icon mutes.
     const stale = r.status.endsWith("-stale");
     const verdict = stale
       ? (r.status.replace("-stale", "") as "approved" | "changes-requested")
@@ -455,15 +423,12 @@ export default function ManagedFlagApproval({
     );
   });
 
-  // Verdicts carry the reviewer's comment in the revision log, not on the
-  // verdict itself, so the conversation needs its own fetch.
+  // Comments live in the revision log.
   const { data: logData, mutate: mutateLog } = useApi<{ log: RevisionLog[] }>(
     `/feature/${info.feature.id}/${version}/log`,
     { shouldRun: () => open && (version ?? null) !== null },
   );
-  // Comments and verdicts. A retracted verdict stays in the thread with a
-  // badge, the way the feature timeline shows it — dropping it made a review
-  // vanish and reappear on re-approval.
+  // Retracted verdicts stay in the thread with a badge.
   const sortedLog = useMemo(
     () =>
       [...(logData?.log ?? [])].sort((a, b) =>
@@ -475,9 +440,7 @@ export default function ManagedFlagApproval({
     () => scanVerdictRetractions(sortedLog, userId),
     [sortedLog, userId],
   );
-  // `undo-review` always acts on the standing verdict, so only that row may
-  // offer to retract — otherwise retracting from an older row silently pulls
-  // back the newer one.
+  // `undo-review` acts on the standing verdict, so only that row offers it.
   const activeVerdict = useMemo(
     () => findActiveVerdict(sortedLog, userId, retractions),
     [sortedLog, userId, retractions],
@@ -506,16 +469,12 @@ export default function ManagedFlagApproval({
     });
 
   const variations = getLatestPhaseVariations(experiment);
-  // Only names the modal; the diff itself comes from the shared engine.
   const hasValueChanges = getVariationValueChanges(
     info,
     variations.map((v) => v.id),
   ).some((c) => c.changed);
 
-  // Environments and value type are always shown, changed or not: a reviewer
-  // judges the values against where they will be live and what type they are.
-  // Where the experiment actually runs: the rule's environment scope and the
-  // flag's kill switches together, live against draft.
+  // Environments and value type always shown: reviewers judge values against where and as what they go live.
   const liveEnvStates = info.liveEnvironmentStates ?? {};
   const draftEnvStates = info.pendingDraft?.environmentStates ?? liveEnvStates;
   const envIds = filterEnvironmentsByFeature(allEnvironments, info.feature).map(
@@ -531,8 +490,7 @@ export default function ManagedFlagApproval({
   // A managed flag is born with every environment off; its first draft is the
   // flag arriving, not a toggle.
   const arriving = !info.liveEnvironmentStates;
-  // The grid shows the effective state. It only needs unpacking when the two
-  // knobs disagree: the rule covers an environment whose switch is off.
+  // Unpacked only when the rule and the switch disagree.
   const envConflict = envIds.some(
     (envId) => draftStateOf(envId) === "disabled-env",
   );
@@ -598,8 +556,6 @@ export default function ManagedFlagApproval({
         </Flex>
       ),
     },
-    // The experiment can only re-type the flag's settings, and the card above
-    // already says so.
     ...revisionDiffs.filter(
       (d) =>
         d.a !== d.b &&
@@ -610,8 +566,7 @@ export default function ManagedFlagApproval({
     ),
   ];
 
-  // Rendered in the review column, or under the changes when there is no
-  // review column: a stale draft still needs its Update from live.
+  // Also rendered without a review column: a stale draft still needs Update from live.
   const errorNotice = error && (
     <Callout status="error" size="sm">
       {error}
@@ -644,8 +599,6 @@ export default function ManagedFlagApproval({
     </Flex>
   );
 
-  // Approval is the first gate, so say so — otherwise the notice reads as
-  // though starting the experiment is all that stands in the way.
   const awaitingApproval =
     requireReviews &&
     !adminOverride &&
@@ -662,16 +615,11 @@ export default function ManagedFlagApproval({
       ? `${unblocks}, you can publish to make these values live.`
       : "Publish to make these values live.";
 
-  // The Review & Publish tab's own band logic, so both surfaces explain a
-  // blocked publish at the same point in the cycle and in the same words.
   const showApprovalBand =
     requireReviews &&
     !!info.pendingDraft &&
     (status !== "approved" || approvalGateUnmet) &&
-    // The tab suppresses the band beside a working Publish CTA. Ours is not
-    // working while a gate is unmet — the state machine is not told about team
-    // or footprint coverage, so it offers a publish the server would refuse.
-    // baseState, not state: an armed admin override still shows what it skips.
+    // Suppressed beside a working CTA, but ours isn't working while a gate is unmet.
     (approvalGateUnmet || baseState.submitAction !== "publish");
   const coverageBlockMessage =
     approval &&
@@ -681,8 +629,6 @@ export default function ManagedFlagApproval({
       : null;
 
   const reviewColumn = (
-    // Held at the width it had before the modal grew, so the extra room goes
-    // to the diff rather than stretching a column of names.
     <Flex direction="column" gap="3" width="360px" flexShrink="0" minWidth="0">
       {contributorRows.length > 0 && (
         <Box>
@@ -705,11 +651,6 @@ export default function ManagedFlagApproval({
           </Flex>
         </Box>
       )}
-
-      {/* One block: the verdict and its note belong together, and the column's
-          own gap would otherwise push them apart. The comment shows only when
-          something will carry it — the footer CTA needs authority this viewer
-          may not have. */}
       {(canReview ||
         (!!primaryAction && submitAction === "request-review")) && (
         <Flex direction="column" gap="2" mt="2">
@@ -779,8 +720,6 @@ export default function ManagedFlagApproval({
           <Separator size="4" />
           <Flex direction="column" gap="3">
             {reviewComments.map((l, i) => {
-              // The Review & Publish tab's vocabulary, so an approval, a
-              // change request and a comment stay distinguishable.
               const visual = rowVisual(l.action);
               const verdictColor =
                 l.action === "Approved"
@@ -789,14 +728,10 @@ export default function ManagedFlagApproval({
                     ? "red"
                     : null;
               const isOwn = !!logUserId(l) && logUserId(l) === userId;
-              // Derived before the trigger renders: a row with neither action
-              // (an own review request carries no comment to edit) would
-              // otherwise open an empty menu.
+              // A row with neither action would open an empty menu.
               const canEditRow = isOwn && !!l.id && !!l.comment;
               const canRetractRow =
                 isOwn && !!l.isActiveVerdict && state.canUndoReview;
-              // An approval that cannot sanction the publish reads as one here
-              // too, so the thread and the Reviewers list agree.
               const uncoveredReason =
                 l.action === "Approved" && logUserId(l)
                   ? insufficientReasons.get(logUserId(l) as string)
@@ -805,8 +740,6 @@ export default function ManagedFlagApproval({
                 <CommentCard
                   key={l.id ?? i}
                   user={l.user}
-                  // Colon, not "on": this column is half a modal wide and the
-                  // phrase has to hold one line.
                   metadata={`${visual.verb}: ${datetime(l.timestamp)}`}
                   metadataExtra={
                     <VerdictTags
@@ -867,7 +800,6 @@ export default function ManagedFlagApproval({
                       </DropdownMenu>
                     ) : undefined
                   }
-                  // A bare verdict has no body — same chrome, header line only.
                   body={
                     editingLogId && editingLogId === l.id ? (
                       <Flex direction="column" gap="2">
@@ -916,8 +848,6 @@ export default function ManagedFlagApproval({
   return (
     <>
       <SplitButton
-        // Beside the CTA rather than inside the modal: recalling the request
-        // is an alternative to reviewing it, not part of reviewing it.
         menu={
           state.canRecallReview || canManage ? (
             <DropdownMenu
@@ -951,10 +881,6 @@ export default function ManagedFlagApproval({
         }
       >
         <Button onClick={() => setOpen(true)}>
-          {/* A caller-supplied label wins for everyone, so one callout can't
-              show two different CTAs. Otherwise name what the modal offers this
-              viewer; with no action it is still worth opening to see the
-              changes and who has reviewed. */}
           {ctaLabel ??
             (canReview
               ? "Review"
@@ -989,8 +915,6 @@ export default function ManagedFlagApproval({
           setOpen(false);
         }}
         closeCta={primaryAction ? "Cancel" : "Close"}
-        // Beside the CTAs, where it reads as a note on the action rather than
-        // a line of the content.
         secondaryAction={
           <HelperText status="info">
             {requireReviews
@@ -1013,8 +937,6 @@ export default function ManagedFlagApproval({
             {reviewColumn}
           </Flex>
         ) : (
-          // Nothing to review, so the column would be a status line and a lot
-          // of empty space; the notice sits under the changes instead.
           <Flex direction="column" width="100%" gap="3">
             {changesColumn}
             {errorNotice}

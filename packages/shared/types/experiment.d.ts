@@ -312,16 +312,7 @@ export interface LinkedFeatureInfo {
   liveAllEnvironments?: boolean;
   /** Where the live rule runs, keyed the same as `environmentStates`. */
   liveEnvironmentStates?: Record<string, LinkedFeatureEnvState>;
-  /**
-   * The unpublished draft of this experiment's rule, when one exists and isn't
-   * already identical to live.
-   *
-   * Populated regardless of `state`, which stays live-first: a running
-   * experiment with a pending edit reports `state: "live"`, so the sibling
-   * `draftRevision*` / `pendingApproval` / `hasMergeConflict` fields (all still
-   * gated on `state === "draft"` for their existing consumers) say nothing
-   * about it. This is the only field that does.
-   */
+  /** The unpublished draft of this experiment's rule, if any. Populated regardless of `state`, which stays live-first. */
   pendingDraft?: {
     version: number;
     status: RevisionStatus;
@@ -339,11 +330,7 @@ export interface LinkedFeatureInfo {
     valueType: FeatureValueType;
     /** The default value as of the draft, for expanding a sparse patch. */
     defaultValue: string;
-    /**
-     * The publish gate's own answer, present when review is required. A draft
-     * can read "approved" and still be blocked by an uncovered environment or
-     * an unmet required-approver team.
-     */
+    /** The publish gate's answer when review is required; "approved" can still be blocked. */
     approval?: {
       satisfied: boolean;
       footprint: ReviewAuthorityFootprint;
@@ -370,20 +357,9 @@ export interface LinkedFeatureInfo {
   draftApprovalSatisfied?: boolean;
   /** True when the draft cannot be auto-merged into live due to conflicting changes. */
   hasMergeConflict?: boolean;
-  /**
-   * True when the draft would publish changes outside the target experiment's
-   * experiment-ref rule(s) — e.g. defaultValue, prerequisites, holdout, or
-   * other rules. Forces the user to publish from the feature page so they
-   * can review the full set of changes before they go live. Per-env kill
-   * switches and metadata are excluded (auto-toggled / typically no SDK impact).
-   */
+  /** The draft also changes something outside this experiment's rule; publish from the feature page. */
   hasUnrelatedDraftChanges?: boolean;
-  /**
-   * Environments currently disabled on the live feature that will be enabled
-   * when the pending draft is auto-published on experiment start. Only set for
-   * drafts queued in `pendingFeatureDrafts` — a draft created directly on the
-   * feature isn't published by the start flow.
-   */
+  /** Environments disabled live that the pending draft's auto-publish will enable. Only for `pendingFeatureDrafts` drafts. */
   environmentsToEnable?: string[];
 }
 

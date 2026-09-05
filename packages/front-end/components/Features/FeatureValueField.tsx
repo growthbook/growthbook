@@ -93,14 +93,9 @@ export interface Props {
   // the field (top-aligned) instead of on a label row above it, and hides the
   // copy button. Used by the inline config field editor.
   inlineConstantButton?: boolean;
-  // Pins the inline constant button to the top of a tall field, where centring
-  // it against a multiline value leaves it floating in the middle.
+  /** Pins the inline constant button to the first line of a tall field. */
   inlineConstantButtonAlign?: "center" | "start";
-  /**
-   * Size for the inner text fields. Defaults to whatever `Field` defaults to
-   * (legacy), so existing callers are unchanged; pass a design-system size
-   * when this sits beside other sized fields.
-   */
+  /** Size for the inner text fields; defaults to `Field`'s. */
   size?: ComponentProps<typeof Field>["size"];
   // JSON features only. Whether this rule value is a sparse patch (merged onto
   // the feature default). When `setSparse` is provided and the feature default
@@ -125,8 +120,7 @@ export interface Props {
   lockConfigBacking?: boolean;
 }
 
-// One size for both JSON editors: the plain code editor and the sparse Edit /
-// Preview tabs that replace it, so toggling sparse doesn't resize the field.
+// One size for both JSON editors so toggling sparse doesn't resize.
 const CODE_FONT_SIZE = "0.75rem";
 
 export default function FeatureValueField({
@@ -615,8 +609,7 @@ export default function FeatureValueField({
         />
       ) : null;
 
-    // Only where sparse is a per-value choice. The other branches draw their own
-    // label and picker, so this must stay empty for them without a toggle.
+    // Only where sparse is a per-value choice.
     const sparseHeader = showSparseToggle ? (
       <Flex
         align="center"
@@ -661,8 +654,6 @@ export default function FeatureValueField({
           {sparseHeader}
           <SparseTabbedEditor
             fontSize={CODE_FONT_SIZE}
-            // Label, tabs and picker share the tab row. The toggle keeps its
-            // own row above when the caller owns it per value.
             headerLeft={
               !sparseHeader && label !== undefined ? (
                 <Text as="label" weight="semibold" mb="0">
@@ -920,8 +911,7 @@ export default function FeatureValueField({
       onInsert={insertStringConstant}
       disabled={disabled}
       iconOnly={inlineConstantButton}
-      // The default offset lines the icon up under a label row. Inline there
-      // is no label above the field, so it would just sit low.
+      // Inline has no label above to offset from.
       iconMt={inlineConstantButton ? "0" : undefined}
     />
   ) : null;
@@ -974,9 +964,7 @@ export default function FeatureValueField({
     />
   );
 
-  // Inline layout: the picker rides to the right of the field, centred on it.
-  // Pinned, it centres on the field's first line instead. The inline layout is
-  // only used at size="md", whose control height is 32px.
+  // Pinned centres on the first line (32px at size="md").
   const pinned = inlineConstantButtonAlign === "start";
   if (inlineConstantButton && stringInsertButton) {
     return (

@@ -83,11 +83,9 @@ export interface Props {
   autoFocusVariationId?: string | null;
   // Appends a variation once on mount and focuses its Name field.
   autoAddVariationOnMount?: boolean;
-  // JSON only: render each value as a sparse patch onto the feature default.
-  // Callers own the toggle, since it's a rule-level flag.
+  /** JSON only: a sparse patch onto the feature default. */
   sparse?: boolean;
-  // The first variation's value IS the feature default (a managed flag stores
-  // it as such), so it states the whole value and is never a patch.
+  /** The first variation's value is the feature default, never a patch. */
   controlIsDefault?: boolean;
 }
 
@@ -137,14 +135,11 @@ export default function ExperimentManagedFeatureVariationEditor({
     setVariations(variations.map((v, i) => ({ ...v, value: i + "" })));
   };
 
-  // Mirrors the Advanced switch's own condition: no warning about a control
-  // that isn't there.
   const canToggleAdvanced = !valueAsId && !!setVariations && !lockStructure;
 
   // Only a JSON value needs a row of its own.
   const stackValue = valueType === "json";
 
-  // The reorder gutter only earns its space while rows can actually be moved.
   const showDragHandle =
     !!setVariations && !lockStructure && (variations?.length ?? 0) > 1;
 
@@ -291,9 +286,6 @@ export default function ExperimentManagedFeatureVariationEditor({
       )}
 
       {belowCoverage}
-
-      {/* Only when the reset would actually change something: with ids
-          already at their position, leaving advanced mode is a no-op. */}
       {canToggleAdvanced &&
         editingIds &&
         !!variations?.length &&
