@@ -15000,6 +15000,38 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/experiments/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteExperiment
+      summary: Delete an experiment
+      description: >-
+        Archive first: a live experiment can only be deleted when the
+        organization allows the REST API to bypass approval requirements. Linked
+        Feature Flags lose their experiment rule and a managed flag is archived,
+        unless `linkedChanges` is "materialize".
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/linkedChanges'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    description: The ID of the deleted experiment
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/experiments/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/start-checklist:
     get:
       operationId: getExperimentStartChecklist
@@ -15583,6 +15615,91 @@ paths:
           source: >-
             curl -X GET
             'https://api.growthbook.io/api/v1/experiments/{id}/results' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/archive:
+    post:
+      operationId: postExperimentArchive
+      summary: Archive an experiment
+      description: >-
+        An archived experiment leaves the SDK payload. Refused while a running
+        experiment or a temporary rollout still serves through linked changes
+        unless `linkedChanges` says what happens to them.
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                linkedChanges:
+                  description: >-
+                    Required while the experiment still serves through linked
+                    changes. "materialize" keeps a stopped experiment's released
+                    variation as a permanent force rule on each linked Feature
+                    Flag; "remove" acknowledges that the linked changes stop
+                    serving.
+                  type: string
+                  enum:
+                    - materialize
+                    - remove
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/archive' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/unarchive:
+    post:
+      operationId: postExperimentUnarchive
+      summary: Unarchive an experiment
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/unarchive' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/start:
     post:
@@ -53289,6 +53406,24 @@ components:
       description: ''
       schema:
         type: string
+    linkedChanges:
+      name: linkedChanges
+      in: query
+      description: >-
+        Required while the experiment still serves through linked changes.
+        "materialize" keeps a stopped experiment's released variation as a
+        permanent force rule on each linked Feature Flag; "remove" acknowledges
+        that the linked changes stop serving.
+      schema:
+        description: >-
+          Required while the experiment still serves through linked changes.
+          "materialize" keeps a stopped experiment's released variation as a
+          permanent force rule on each linked Feature Flag; "remove"
+          acknowledges that the linked changes stop serving.
+        type: string
+        enum:
+          - materialize
+          - remove
     variationId:
       name: variationId
       in: path

@@ -2028,6 +2028,61 @@ export const getExperimentNamesValidator = {
   path: "/experiment-names",
 };
 
+const linkedChangesField = z
+  .enum(["materialize", "remove"])
+  .optional()
+  .describe(
+    'Required while the experiment still serves through linked changes. "materialize" keeps a stopped experiment\'s released variation as a permanent force rule on each linked Feature Flag; "remove" acknowledges that the linked changes stop serving.',
+  );
+
+export const postExperimentArchiveValidator = {
+  bodySchema: z.object({ linkedChanges: linkedChangesField }).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({ experiment: apiExperimentWithEnhancedStatus })
+    .strict(),
+  summary: "Archive an experiment",
+  description:
+    "An archived experiment leaves the SDK payload. Refused while a running experiment or a temporary rollout still serves through linked changes unless `linkedChanges` says what happens to them.",
+  operationId: "postExperimentArchive",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/archive",
+};
+
+export const postExperimentUnarchiveValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({ experiment: apiExperimentWithEnhancedStatus })
+    .strict(),
+  summary: "Unarchive an experiment",
+  operationId: "postExperimentUnarchive",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/unarchive",
+};
+
+export const deleteExperimentValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ linkedChanges: linkedChangesField }).strict(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      deletedId: z.string().describe("The ID of the deleted experiment"),
+    })
+    .strict(),
+  summary: "Delete an experiment",
+  description:
+    'Archive first: a live experiment can only be deleted when the organization allows the REST API to bypass approval requirements. Linked Feature Flags lose their experiment rule and a managed flag is archived, unless `linkedChanges` is "materialize".',
+  operationId: "deleteExperiment",
+  tags: ["experiments"],
+  method: "delete" as const,
+  path: "/experiments/:id",
+};
+
 export const getExperimentValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),

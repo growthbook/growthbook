@@ -32,6 +32,11 @@ import {
   postExperimentVariationValuesUndoReview,
   putExperimentVariationValues,
 } from "./variationValues";
+import {
+  deleteExperiment,
+  postExperimentArchive,
+  postExperimentUnarchive,
+} from "./archiveExperiment";
 
 export const experimentsRoutes: OpenApiRoute[] = [
   // Experiment Endpoints
@@ -57,6 +62,9 @@ export const experimentsRoutes: OpenApiRoute[] = [
   getExperimentResults,
   getExperimentBulkResults,
   updateExperiment,
+  postExperimentArchive,
+  postExperimentUnarchive,
+  deleteExperiment,
   postExperimentStart,
   postExperimentStartChecklistManualComplete,
   postExperimentStop,

@@ -1115,6 +1115,8 @@ export async function ejectManagedFeature({
 export async function clearManagedMarkersForExperiment(
   context: ReqContext | ApiReqContext,
   experimentId: string,
+  // A flag that now carries the released value as its own rule stays live.
+  { archive = true }: { archive?: boolean } = {},
 ): Promise<void> {
   const ids = await getManagedFlagIdsUnfiltered(context, experimentId);
   for (const id of ids) {
@@ -1129,7 +1131,7 @@ export async function clearManagedMarkersForExperiment(
       continue;
     }
     const released = await clearManagedMarker(context, feature);
-    await archiveFeature(context, released, true);
+    if (archive) await archiveFeature(context, released, true);
   }
 }
 

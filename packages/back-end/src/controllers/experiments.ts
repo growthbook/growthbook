@@ -17,6 +17,8 @@ import {
   isManagedFeature,
   type ManagedFlagKeyPlan,
   validateFeatureValue,
+  type ExperimentLinkageBlocker,
+  type LinkedChangesResolution,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -128,7 +130,12 @@ import {
   getContextForAgendaJobByOrgId,
   getContextFromReq,
 } from "back-end/src/services/organizations";
-import { removeExperimentFromPresentations } from "back-end/src/services/presentations";
+import {
+  archiveExperimentWithCleanup,
+  deleteExperimentWithCleanup,
+  LinkedChangesBlockedError,
+  unarchiveExperimentWithCleanup,
+} from "back-end/src/services/experimentRemoval";
 import {
   createPastExperiments,
   getPastExperimentsById,
@@ -165,14 +172,10 @@ import {
   getManagedFlagsByExperiment,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
-import {
-  getActiveDraft,
-  getLinkageSyncRevisionSummaries,
-} from "back-end/src/models/FeatureRevisionModel";
+import { getActiveDraft } from "back-end/src/models/FeatureRevisionModel";
 import {
   adoptManagedFlagForExperiment,
   assertManagedFlagCanMove,
-  clearManagedMarkersForExperiment,
   createManagedFlagForNewExperiment,
   discardManagedDraftIfNoop,
   moveManagedFlagWithExperiment,
@@ -186,7 +189,6 @@ import {
   stageManagedFeatureFields,
   requestReviewForManagedDraft,
 } from "back-end/src/services/managedFeatures";
-import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
   cosineSimilarity,
@@ -205,7 +207,6 @@ import {
 } from "back-end/src/services/features";
 import {
   ExperimentLinkedFeatureValueUpdate,
-  removeRulesForDeletedExperiment,
   updateExperimentRefVariations,
   updateExperimentRuleEnvironments,
   validateExperimentFeatureUpdates,
@@ -2359,7 +2360,10 @@ export async function postExperiment(
 }
 
 export async function postExperimentArchive(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<
+    { linkedChanges?: LinkedChangesResolution } | null,
+    { id: string }
+  >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -2406,14 +2410,13 @@ export async function postExperimentArchive(
     context.permissions.throwPermissionError();
   }
 
-  changes.archived = true;
-
   try {
-    await validateExperimentChange({ context, experiment, changes });
-    await updateExperiment({
+    await archiveExperimentWithCleanup({
       context,
       experiment,
-      changes,
+      linkedChanges: req.body?.linkedChanges,
+      eventAudit: res.locals.eventAudit,
+      audit: req.audit,
     });
 
     res.status(200).json({
@@ -2432,6 +2435,7 @@ export async function postExperimentArchive(
     res.status(400).json({
       status: 400,
       message: e.message || "Failed to archive experiment",
+      ...(e instanceof LinkedChangesBlockedError ? { blocker: e.blocker } : {}),
     });
   }
 }
@@ -2467,15 +2471,8 @@ export async function postExperimentUnarchive(
     context.permissions.throwPermissionError();
   }
 
-  changes.archived = false;
-
   try {
-    await validateExperimentChange({ context, experiment, changes });
-    await updateExperiment({
-      context,
-      experiment,
-      changes,
-    });
+    await unarchiveExperimentWithCleanup({ context, experiment });
 
     res.status(200).json({
       status: 200,
@@ -2488,26 +2485,6 @@ export async function postExperimentUnarchive(
         id: experiment.id,
       },
     });
-
-    // Restore pendingFeatureDrafts: archive clears them, so re-sync each
-    // linked feature's revisions to rebuild the queue. Fire-and-forget.
-    const linkedFeatureIds = experiment.linkedFeatures ?? [];
-    if (linkedFeatureIds.length > 0) {
-      Promise.all(
-        linkedFeatureIds.map(async (featureId) => {
-          const { openDrafts, liveRevision } =
-            await getLinkageSyncRevisionSummaries(context.org.id, featureId);
-          return syncFeatureExperimentLinkages(
-            context,
-            featureId,
-            openDrafts,
-            liveRevision,
-          );
-        }),
-      ).catch((e) => {
-        logger.error(e, "syncFeatureExperimentLinkages failed on unarchive");
-      });
-    }
   } catch (e) {
     if (e instanceof SoftWarningError) throw e;
     res.status(400).json({
@@ -3416,9 +3393,13 @@ export async function getWatchingUsers(
 }
 
 export async function deleteExperiment(
-  req: AuthRequest<ExperimentInterface, { id: string }>,
+  req: AuthRequest<
+    { linkedChanges?: LinkedChangesResolution } | null,
+    { id: string }
+  >,
   res: Response<
-    { status: 200 } | PrivateApiErrorResponse,
+    | { status: 200 }
+    | (PrivateApiErrorResponse & { blocker?: ExperimentLinkageBlocker }),
     EventUserForResponseLocals
   >,
 ) {
@@ -3448,9 +3429,10 @@ export async function deleteExperiment(
     context.permissions.throwPermissionError();
   }
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedFeatures = await getFeaturesByIds(
+    context,
+    experiment.linkedFeatures || [],
+  );
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -3465,40 +3447,22 @@ export async function deleteExperiment(
     context.permissions.throwPermissionError();
   }
 
-  // Shared flags lose the rule that would point at nothing; the managed flag
-  // is archived whole below.
-  await removeRulesForDeletedExperiment({
-    context,
-    experiment,
-    features: linkedFeatures.filter(
-      (f) => !isManagedByExperiment(f, experiment.id),
-    ),
-    eventAudit: res.locals.eventAudit,
-    audit: req.audit,
-  });
-  // Release the flag first, or it survives pointing at a deleted experiment
-  // with every write path refusing it and the eject route 404ing.
-  await clearManagedMarkersForExperiment(context, experiment.id);
-
-  const promises = [
-    // note: we might want to change this to change the status to
-    // 'deleted' instead of actually deleting the document.
-    deleteExperimentByIdForOrganization(context, experiment),
-    removeExperimentFromPresentations(experiment.id),
-  ];
-
-  await Promise.all(promises);
-
-  if (experiment.holdoutId) {
-    try {
-      await context.models.holdout.removeExperimentFromHoldout(
-        experiment.holdoutId,
-        experiment.id,
-      );
-    } catch (e) {
-      // This is not a fatal error, so don't block the request from happening
-      logger.warn(e, "Error removing experiment from holdout");
+  try {
+    await deleteExperimentWithCleanup({
+      context,
+      experiment,
+      linkedChanges: req.body?.linkedChanges,
+      eventAudit: res.locals.eventAudit,
+      audit: req.audit,
+    });
+  } catch (e) {
+    if (e instanceof LinkedChangesBlockedError) {
+      res
+        .status(400)
+        .json({ status: 400, message: e.message, blocker: e.blocker });
+      return;
     }
+    throw e;
   }
 
   await req.audit({

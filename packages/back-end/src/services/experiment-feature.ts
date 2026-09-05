@@ -1253,31 +1253,46 @@ export async function updateExperimentRuleEnvironments({
   return { version: updated.version };
 }
 
-// A deleted experiment's rules serve nothing (the payload skips a missing
-// experiment), so they come off the live flag and its open drafts. Fail-soft per
-// flag: a cleanup must never block the delete.
-export async function removeRulesForDeletedExperiment({
+// Rewrites every rule that points at the experiment, on the live flag and its
+// open drafts, then publishes. `replacement` returning null drops the rule.
+// Fail-soft by default (a cleanup must never block a delete); `failHard`
+// surfaces the first failure instead, for callers whose whole point is the
+// rewrite.
+async function resolveRulesForExperiment({
   context,
   experiment,
   features,
   eventAudit,
   audit,
+  replacement,
+  action,
+  comment,
+  failHard = false,
 }: {
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
   features: FeatureInterface[];
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
+  replacement: (rule: ExperimentRefRule) => FeatureRule | null;
+  action: string;
+  comment: string;
+  failHard?: boolean;
 }): Promise<void> {
-  const refersToExperiment = (r: FeatureRule) =>
+  const refersToExperiment = (r: FeatureRule): r is ExperimentRefRule =>
     r.type === "experiment-ref" && r.experimentId === experiment.id;
-  const logEntry = (removed: FeatureRule[]) => ({
+  const rewrite = (rules: FeatureRule[]) =>
+    rules.flatMap((r) => {
+      if (!refersToExperiment(r)) return [r];
+      const next = replacement(r);
+      return next ? [next] : [];
+    });
+  const logEntry = (touched: FeatureRule[]) => ({
     user: eventAudit,
-    action: "remove experiment rule",
-    subject: `for deleted experiment "${experiment.name}"`,
-    value: JSON.stringify(removed),
+    action,
+    subject: `for experiment "${experiment.name}"`,
+    value: JSON.stringify(touched),
   });
-  const comment = `Remove rule for deleted experiment "${experiment.name}"`;
 
   for (const feature of features) {
     let cleanupDraft: FeatureRevisionInterface | null = null;
@@ -1291,14 +1306,14 @@ export async function removeRulesForDeletedExperiment({
         skipPagination: true,
       });
       for (const draft of drafts) {
-        const removed = (draft.rules ?? []).filter(refersToExperiment);
-        if (!removed.length) continue;
+        const touched = (draft.rules ?? []).filter(refersToExperiment);
+        if (!touched.length) continue;
         await updateRevision(
           context,
           feature,
           draft,
-          { rules: (draft.rules ?? []).filter((r) => !refersToExperiment(r)) },
-          logEntry(removed),
+          { rules: rewrite(draft.rules ?? []) },
+          logEntry(touched),
         );
       }
 
@@ -1312,8 +1327,8 @@ export async function removeRulesForDeletedExperiment({
         });
       };
 
-      const liveRemoved = (feature.rules ?? []).filter(refersToExperiment);
-      if (!liveRemoved.length) {
+      const liveTouched = (feature.rules ?? []).filter(refersToExperiment);
+      if (!liveTouched.length) {
         await unlink(feature);
         continue;
       }
@@ -1330,11 +1345,9 @@ export async function removeRulesForDeletedExperiment({
         !context.permissions.canPublishFeature(feature, envs) ||
         (!bypass && featureReviewRequired(context, feature))
       ) {
-        logger.warn(
-          { featureId: feature.id, experimentId: experiment.id },
-          "Left a deleted experiment's rule on its Feature Flag: no authority to publish its removal",
+        throw new Error(
+          `no authority to publish the change to Feature Flag "${feature.id}"`,
         );
-        continue;
       }
 
       cleanupDraft = await getDraftRevision(context, feature, feature.version);
@@ -1343,13 +1356,8 @@ export async function removeRulesForDeletedExperiment({
           context,
           feature,
           cleanupDraft,
-          {
-            rules: (cleanupDraft.rules ?? []).filter(
-              (r) => !refersToExperiment(r),
-            ),
-            title: comment,
-          },
-          logEntry(liveRemoved),
+          { rules: rewrite(cleanupDraft.rules ?? []), title: comment },
+          logEntry(liveTouched),
         )) ?? cleanupDraft;
       const { live, base } = await getLiveAndBaseRevisionsForFeature({
         context,
@@ -1369,7 +1377,7 @@ export async function removeRulesForDeletedExperiment({
         {},
       );
       if (!mergeResult.success) {
-        throw new Error("the removal did not merge cleanly onto live");
+        throw new Error("the change did not merge cleanly onto live");
       }
       const updatedFeature = await publishRevision({
         context,
@@ -1390,10 +1398,6 @@ export async function removeRulesForDeletedExperiment({
       });
       await unlink(updatedFeature);
     } catch (e) {
-      logger.warn(
-        { featureId: feature.id, experimentId: experiment.id, err: e },
-        "Could not remove a deleted experiment's rule from its Feature Flag",
-      );
       if (cleanupDraft) {
         await discardRevision(
           context,
@@ -1402,6 +1406,114 @@ export async function removeRulesForDeletedExperiment({
           feature.version,
         ).catch(() => undefined);
       }
+      if (failHard) {
+        throw new Error(
+          `Could not update Feature Flag "${feature.id}": ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
+      }
+      logger.warn(
+        { featureId: feature.id, experimentId: experiment.id, err: e },
+        "Could not remove a deleted experiment's rule from its Feature Flag",
+      );
     }
   }
+}
+
+// A deleted experiment's rules serve nothing (the payload skips a missing
+// experiment), so they come off the live flag and its open drafts.
+export async function removeRulesForDeletedExperiment({
+  context,
+  experiment,
+  features,
+  eventAudit,
+  audit,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  features: FeatureInterface[];
+  eventAudit: EventUser;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
+}): Promise<void> {
+  await resolveRulesForExperiment({
+    context,
+    experiment,
+    features,
+    eventAudit,
+    audit,
+    replacement: () => null,
+    action: "remove experiment rule",
+    comment: `Remove rule for deleted experiment "${experiment.name}"`,
+  });
+}
+
+// A temporary rollout keeps serving the released variation only while the
+// experiment exists. This freezes it into a force rule with the same scope and
+// the phase's targeting, so archiving or deleting the experiment changes nothing
+// for users. Throws rather than leaving a flag half done.
+export async function materializeExperimentRules({
+  context,
+  experiment,
+  features,
+  eventAudit,
+  audit,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  features: FeatureInterface[];
+  eventAudit: EventUser;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
+}): Promise<void> {
+  const releasedId = experiment.releasedVariationId;
+  if (!releasedId) {
+    throw new Error("The experiment has no released variation to keep.");
+  }
+  const phase = experiment.phases[experiment.phases.length - 1];
+  if (phase?.namespace?.enabled) {
+    throw new Error(
+      "A namespaced experiment cannot be kept as a force rule; stop the temporary rollout instead.",
+    );
+  }
+  const released = experiment.variations.find((v) => v.id === releasedId);
+  const description = `Released from experiment "${experiment.name}"${
+    released ? ` (${released.name})` : ""
+  }`;
+
+  await resolveRulesForExperiment({
+    context,
+    experiment,
+    features,
+    eventAudit,
+    audit,
+    failHard: true,
+    action: "replace experiment rule with force rule",
+    comment: `Keep the released variation of "${experiment.name}"`,
+    replacement: (rule) => {
+      const value = rule.variations.find(
+        (v) => v.variationId === releasedId,
+      )?.value;
+      if (value === undefined) {
+        throw new Error(
+          "The released variation has no value on this Feature Flag.",
+        );
+      }
+      return {
+        ...omit(rule, ["type", "experimentId", "variations", "sparse"]),
+        type: "force",
+        value,
+        description,
+        enabled: true,
+        ...(phase?.condition && phase.condition !== "{}"
+          ? { condition: phase.condition }
+          : {}),
+        ...(phase?.savedGroups?.length
+          ? { savedGroups: phase.savedGroups }
+          : {}),
+        ...(phase?.prerequisites?.length
+          ? { prerequisites: phase.prerequisites }
+          : {}),
+      };
+    },
+  });
 }
