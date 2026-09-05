@@ -1,6 +1,6 @@
 import React from "react";
 import { isProjectListValidForProject } from "shared/util";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -12,6 +12,11 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTemplate";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
+
+const numberFormatter = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+});
 
 const MetricsPage = (): React.ReactElement => {
   const { metrics, factMetrics, factTables, datasources, project } =
@@ -44,9 +49,25 @@ const MetricsPage = (): React.ReactElement => {
         />
       )}
       <CreateMetricFromTemplate />
-      <Box mb="4">
+      {metrics.length > 0 && canCreateMetric && (
+        <Callout
+          mb="4"
+          status="info"
+          action={
+            <LinkButton href="/metrics/migrate" variant="soft">
+              Migrate legacy metrics
+            </LinkButton>
+          }
+          dismissible={true}
+          id="legacy-fact-migration-callout"
+        >
+          You have {numberFormatter.format(metrics.length)} legacy metrics.
+          Migrate them to fact metrics to get better query performance.
+        </Callout>
+      )}
+      <Flex mb="4" justify="between" align="center">
         <h1 style={{ margin: 0 }}>Metrics</h1>
-      </Box>
+      </Flex>
       {!hasMetrics ? (
         <Box className="appbox" p="5" style={{ textAlign: "center" }}>
           <h2>Define What Success Looks Like</h2>

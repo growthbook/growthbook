@@ -5,7 +5,6 @@ import {
   getFactTableTimestampColumn,
 } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
-import { cloneDeep } from "lodash";
 import {
   CreateVirtualColumnProps,
   CreateFactFilterProps,
@@ -19,7 +18,6 @@ import {
   TestVirtualColumnProps,
   FactFilterTestResults,
   ColumnInterface,
-  FactTableColumnType,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { QueryStatus } from "shared/types/query";
@@ -49,8 +47,7 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import {
-  runColumnDetectionQuery,
-  refreshColumnTopValues,
+  refreshColumns,
   runColumnsTopValuesQuery,
   populateAutoSlices,
 } from "back-end/src/services/factTableColumns";
@@ -62,7 +59,6 @@ import {
   validateVirtualColumnSql,
 } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
-import { columnNamesMatch, getColumnByName } from "back-end/src/util/sql";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 import {
   AggregatedFactTableStatus,
@@ -233,141 +229,6 @@ async function testVirtualColumnQuery(
       sql: testSql,
       error: e.message,
     };
-  }
-}
-
-// Helper to merge existing columns with new type map from LIMIT 0
-function mergeColumnsWithTypeMap(
-  existingColumns: ColumnInterface[],
-  typeMap: Map<string, FactTableColumnType>,
-  caseSensitive: boolean,
-): ColumnInterface[] {
-  const columns = cloneDeep(existingColumns);
-
-  // Update existing columns
-  columns.forEach((col) => {
-    // Virtual columns are user-defined and never appear in the SQL output
-    // schema, so preserve them instead of marking them deleted.
-    if (col.isVirtual) {
-      return;
-    }
-    const type = getColumnByName(typeMap, col.column, caseSensitive);
-    if (type === undefined) {
-      col.deleted = true;
-      col.dateUpdated = new Date();
-    } else {
-      if (col.deleted) {
-        col.deleted = false;
-        col.dateUpdated = new Date();
-      }
-      // Only update datatype if it was previously empty (preserve rich types)
-      if (col.datatype === "" && type !== "") {
-        col.datatype = type;
-        col.dateUpdated = new Date();
-      }
-    }
-  });
-
-  // Add new columns
-  typeMap.forEach((datatype, column) => {
-    if (
-      !columns.some((c) => columnNamesMatch(c.column, column, caseSensitive))
-    ) {
-      columns.push({
-        column,
-        datatype,
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        description: "",
-        name: column,
-        numberFormat: "",
-        deleted: false,
-      });
-    }
-  });
-
-  return columns;
-}
-
-// Result type for the unified refreshColumns function
-export type RefreshColumnsResult = {
-  columns: ColumnInterface[];
-  needsBackgroundRefresh: boolean; // True if LIMIT 0 was used and background job needed
-};
-
-/**
- * Unified function to refresh columns that handles both LIMIT 0 (fast) and LIMIT 20 (full) paths.
- * - For datasources supporting LIMIT 0: Returns basic columns from metadata, signals background refresh needed
- * - For other datasources: Returns full columns with type inference, no background refresh needed
- */
-export async function refreshColumns(
-  context: ReqContext,
-  datasource: DataSourceInterface,
-  factTable: Pick<
-    FactTableInterface,
-    "sql" | "eventName" | "columns" | "userIdTypes" | "timestampColumn"
-  >,
-  forceColumnRefresh?: boolean,
-): Promise<RefreshColumnsResult> {
-  if (!context.permissions.canRunFactQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
-
-  const integration = getSourceIntegrationObject(context, datasource, true);
-
-  if (!integration.getTestQuery || !integration.runTestQuery) {
-    throw new Error("Testing not supported on this data source");
-  }
-
-  // Check if datasource supports LIMIT 0 for fast column metadata
-  if (
-    !forceColumnRefresh &&
-    integration.supportsLimitZeroColumnValidation?.()
-  ) {
-    const timestampColumn = getFactTableTimestampColumn(factTable);
-
-    // Fast path: LIMIT 0 query
-    const sql = integration.getTestQuery({
-      query: factTable.sql,
-      templateVariables: { eventName: factTable.eventName },
-      testDays: context.org.settings?.testQueryDays,
-      limit: 0,
-      timestampColumn,
-    });
-
-    const result = await integration.runTestQuery(
-      sql,
-      [timestampColumn],
-      "factTableValidation",
-    );
-
-    if (!result.columns?.length) {
-      throw new Error("SQL did not return any columns");
-    }
-
-    // Build type map from metadata (includes "json" without fields)
-    const typeMap = new Map<string, FactTableColumnType>();
-    result.columns.forEach((col) => {
-      typeMap.set(col.name, col.dataType || "");
-    });
-
-    // Merge with existing columns (preserve rich types like json with jsonFields)
-    const columns = mergeColumnsWithTypeMap(
-      factTable.columns || [],
-      typeMap,
-      integration.columnNamesAreCaseSensitive,
-    );
-
-    return { columns, needsBackgroundRefresh: true };
-  } else {
-    // Slow path runs full detection plus top values inline
-    const columns = await runColumnDetectionQuery(
-      context,
-      datasource,
-      factTable,
-    );
-    await refreshColumnTopValues(context, datasource, factTable, columns);
-    return { columns, needsBackgroundRefresh: false };
   }
 }
 
