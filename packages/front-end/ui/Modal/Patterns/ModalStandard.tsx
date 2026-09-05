@@ -108,7 +108,11 @@ export default function ModalStandard({
         // Only with a secondary slot: buttons alone look the same either way.
         align={secondaryAction ? "center" : undefined}
       >
-        {secondaryAction ? <Box>{secondaryAction}</Box> : null}
+        {secondaryAction ? (
+          // The footer pulls left to meet the separator; bring this back to
+          // the body's left edge so it reads as a caption, not an overhang.
+          <Box ml={padding === "even" ? "0" : "3"}>{secondaryAction}</Box>
+        ) : null}
         <Flex gap="3" align="center">
           <Modal.Close>
             <Button variant="ghost" onClick={close}>
