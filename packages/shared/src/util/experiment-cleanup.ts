@@ -15,9 +15,8 @@ type BlockerExperiment = {
   hasURLRedirects?: boolean;
 };
 
-// Archiving or deleting drops the experiment from the SDK payload, so anything
-// still serving through it stops. Both cases need the caller to say what
-// happens to the linked changes first.
+// Archiving or deleting drops the experiment from the SDK payload, so the caller
+// must first say what happens to anything still serving through it.
 export function getExperimentLinkageBlocker(
   experiment: BlockerExperiment,
   linkedFeatures: Pick<LinkedFeatureInfo, "state">[],

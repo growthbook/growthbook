@@ -1136,8 +1136,7 @@ export async function clearManagedMarkersForExperiment(
 }
 
 // Leaving Values hands the flag back: Feature Flag keeps it as an ordinary
-// linked flag, anything else deletes it (draft experiments only). Returns the
-// experiment as it stands afterwards.
+// linked flag, anything else deletes it. Draft experiments only.
 export async function releaseManagedFlagForImplementationChange({
   context,
   experiment,

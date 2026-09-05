@@ -48,9 +48,8 @@ type Args = {
   audit: (data: AuditInterfaceInput) => Promise<void>;
 };
 
-// Decides what happens to the linked flags before the experiment goes away
-// from the payload. Returns true when the rules were frozen in place, so the
-// caller leaves the flags alone afterwards.
+// Resolves the linked flags before the experiment leaves the payload. Returns
+// true when the rules were frozen in place, so the caller leaves them alone.
 async function resolveLinkedChanges(
   { context, experiment, linkedChanges, eventAudit, audit }: Args,
   verb: string,

@@ -1253,11 +1253,8 @@ export async function updateExperimentRuleEnvironments({
   return { version: updated.version };
 }
 
-// Rewrites every rule that points at the experiment, on the live flag and its
-// open drafts, then publishes. `replacement` returning null drops the rule.
-// Fail-soft by default (a cleanup must never block a delete); `failHard`
-// surfaces the first failure instead, for callers whose whole point is the
-// rewrite.
+// Rewrites every rule pointing at the experiment on the live flag and its open
+// drafts, then publishes. Null `replacement` drops the rule; `failHard` throws.
 async function resolveRulesForExperiment({
   context,
   experiment,
@@ -1448,10 +1445,8 @@ export async function removeRulesForDeletedExperiment({
   });
 }
 
-// A temporary rollout keeps serving the released variation only while the
-// experiment exists. This freezes it into a force rule with the same scope and
-// the phase's targeting, so archiving or deleting the experiment changes nothing
-// for users. Throws rather than leaving a flag half done.
+// Freezes a temporary rollout into a force rule with the same scope and the
+// phase's targeting, so removing the experiment changes nothing for users.
 export async function materializeExperimentRules({
   context,
   experiment,
