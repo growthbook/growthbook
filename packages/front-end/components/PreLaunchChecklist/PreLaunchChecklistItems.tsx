@@ -51,6 +51,7 @@ export function getChecklistItems({
   connections,
   editTargeting,
   openSetupTab,
+  openManagedApproval,
   setAnalysisModal,
   setShowSdkForm,
   checklist,
@@ -67,6 +68,7 @@ export function getChecklistItems({
   connections: SDKConnectionInterface[];
   editTargeting?: (() => void) | null;
   openSetupTab?: () => void;
+  openManagedApproval?: () => void;
   className?: string;
   setAnalysisModal?: (value: boolean) => void;
   setShowSdkForm?: (value: boolean) => void;
@@ -311,13 +313,12 @@ export function getChecklistItems({
             hideDescription: true,
             display: isManaged(f) ? (
               <>
-                Get this experiment&apos;s{" "}
-                {openSetupTab ? (
-                  <Link onClick={openSetupTab}>variation values</Link>
+                {openManagedApproval ? (
+                  <Link onClick={openManagedApproval}>Approve</Link>
                 ) : (
-                  "variation values"
+                  "Approve"
                 )}{" "}
-                approved
+                variation values
               </>
             ) : (
               <>

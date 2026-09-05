@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { datetime } from "shared/dates";
 import {
@@ -80,6 +80,9 @@ type Props = {
   mutate: () => void;
   /** Overrides the trigger label when the surrounding copy already sets it up. */
   ctaLabel?: string;
+  /** Controlled open state, so other surfaces (the checklist) can pop the modal. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 // CTA + reviewers only: a managed flag has one rule and one draft, so the
@@ -89,13 +92,23 @@ export default function ManagedFlagApproval({
   info,
   mutate,
   ctaLabel,
+  open: openProp,
+  onOpenChange,
 }: Props) {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const settings = useOrgSettings();
   const allEnvironments = useEnvironments();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = openProp ?? uncontrolledOpen;
+  const setOpen = useCallback(
+    (next: boolean) => {
+      setUncontrolledOpen(next);
+      onOpenChange?.(next);
+    },
+    [onOpenChange],
+  );
   const [comment, setComment] = useState("");
   const [decision, setDecision] = useState<ReviewDecision>("Comment");
   const [adminBypass, setAdminBypass] = useState(false);

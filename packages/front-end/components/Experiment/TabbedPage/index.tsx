@@ -142,6 +142,7 @@ export default function TabbedPage({
   const { apiCall } = useAuth();
 
   const [compareModal, setCompareModal] = useState(false);
+  const [managedApprovalOpen, setManagedApprovalOpen] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
@@ -481,6 +482,9 @@ export default function TabbedPage({
       connections={connections}
       mutateExperiment={mutate}
       editTargeting={editTargeting}
+      openManagedApproval={
+        managedFlagWithDraft ? () => setManagedApprovalOpen(true) : undefined
+      }
       envs={envs}
     >
       {compareModal && (
@@ -609,6 +613,8 @@ export default function TabbedPage({
                 experiment={experiment}
                 info={managedFlagWithDraft}
                 mutate={mutate}
+                open={managedApprovalOpen}
+                onOpenChange={setManagedApprovalOpen}
                 // Starting the experiment publishes it, so a draft offers
                 // review only and everyone gets the same wording. A running
                 // experiment can really publish, so let the CTA name the

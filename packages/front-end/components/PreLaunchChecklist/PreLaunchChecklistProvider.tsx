@@ -55,6 +55,7 @@ export interface PreLaunchChecklistProviderProps {
   mutateExperiment: () => unknown | Promise<unknown>;
   editTargeting?: (() => void) | null;
   openSetupTab?: () => void;
+  openManagedApproval?: () => void;
   envs: string[];
   children: ReactNode;
 }
@@ -68,6 +69,7 @@ export function PreLaunchChecklistProvider({
   mutateExperiment,
   editTargeting,
   openSetupTab,
+  openManagedApproval,
   envs,
   children,
 }: PreLaunchChecklistProviderProps) {
@@ -115,6 +117,7 @@ export function PreLaunchChecklistProvider({
       setAnalysisModal: canEditExperiment ? setAnalysisModal : undefined,
       editTargeting,
       openSetupTab,
+      openManagedApproval,
       checkLinkedChanges: true,
       connections: projectConnections,
       setShowSdkForm,
@@ -127,6 +130,7 @@ export function PreLaunchChecklistProvider({
     data,
     editTargeting,
     openSetupTab,
+    openManagedApproval,
     experiment,
     linkedFeatures,
     visualChangesets,
