@@ -80,9 +80,15 @@ export type FeatureResultSource =
   | "prerequisite"
   | "cyclicPrerequisite";
 
+export type FeatureResultReason =
+  | FeatureResultSource
+  | "targetingMismatch"
+  | "coverageExcluded";
+
 export interface FeatureResult<T = any> {
   value: T | null;
   source: FeatureResultSource;
+  reason: FeatureResultReason;
   on: boolean;
   off: boolean;
   ruleId: string;

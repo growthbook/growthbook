@@ -3391,6 +3391,7 @@
         "on": false,
         "off": true,
         "source": "unknownFeature",
+        "reason": "unknownFeature",
         "ruleId": ""
       }
     ],
@@ -3403,6 +3404,7 @@
         "on": false,
         "off": true,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -3415,6 +3417,7 @@
         "on": true,
         "off": false,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -3427,6 +3430,7 @@
         "on": true,
         "off": false,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -3450,6 +3454,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -3474,6 +3479,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": "a"
       }
     ],
@@ -3497,6 +3503,7 @@
         "on": false,
         "off": true,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -3524,6 +3531,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -3551,6 +3559,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -3579,6 +3588,7 @@
         "on": true,
         "off": false,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -3604,6 +3614,7 @@
         "on": true,
         "off": false,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -3632,6 +3643,7 @@
         "on": false,
         "off": true,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -3663,6 +3675,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -3694,6 +3707,7 @@
         "on": true,
         "off": false,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -3722,6 +3736,7 @@
         "on": true,
         "off": false,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -3750,6 +3765,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -3778,6 +3794,7 @@
         "on": false,
         "off": true,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -3796,6 +3813,7 @@
         "on": false,
         "off": true,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -3837,6 +3855,7 @@
           "stickyBucketUsed": false
         },
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": ""
       }
     ],
@@ -3879,6 +3898,7 @@
           "stickyBucketUsed": false
         },
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "id"
       }
     ],
@@ -3920,6 +3940,7 @@
           "stickyBucketUsed": false
         },
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": ""
       }
     ],
@@ -3978,6 +3999,7 @@
         "on": false,
         "off": true,
         "source": "experiment",
+        "reason": "experiment",
         "experiment": {
           "coverage": 0.99,
           "ranges": [
@@ -4060,6 +4082,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -4098,6 +4121,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": "3"
       }
     ],
@@ -4133,6 +4157,7 @@
         "on": false,
         "off": true,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -4161,6 +4186,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -4189,6 +4215,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -4213,6 +4240,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "experiment": {
           "key": "feature",
           "variations": [0, 1]
@@ -4257,6 +4285,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -4287,6 +4316,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "experiment": {
           "key": "feature",
           "variations": [0, 1, 2, 3]
@@ -4330,6 +4360,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -4358,6 +4389,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -4385,6 +4417,7 @@
         "on": false,
         "off": true,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -4417,6 +4450,7 @@
         "on": false,
         "off": true,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -4446,6 +4480,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -4493,6 +4528,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "experiment": {
           "key": "experiment",
           "hashVersion": 2,
@@ -4561,6 +4597,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "experiment": {
           "hashVersion": 2,
           "ranges": [
@@ -4639,6 +4676,7 @@
         "on": false,
         "off": true,
         "source": "prerequisite",
+        "reason": "prerequisite",
         "ruleId": ""
       }
     ],
@@ -4677,6 +4715,7 @@
         "on": false,
         "off": true,
         "source": "prerequisite",
+        "reason": "prerequisite",
         "ruleId": ""
       }
     ],
@@ -4728,6 +4767,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -4797,6 +4837,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -4866,6 +4907,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -4919,6 +4961,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -4972,6 +5015,7 @@
         "on": false,
         "off": true,
         "source": "prerequisite",
+        "reason": "prerequisite",
         "ruleId": ""
       }
     ],
@@ -5018,6 +5062,7 @@
         "on": false,
         "off": true,
         "source": "cyclicPrerequisite",
+        "reason": "cyclicPrerequisite",
         "ruleId": ""
       }
     ],
@@ -5083,6 +5128,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -5113,6 +5159,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -5149,6 +5196,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "experiment": {
           "hashVersion": 2,
           "condition": { "id": { "$inGroup": "group_id" } },
@@ -5219,6 +5267,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -5302,6 +5351,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -5386,6 +5436,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -5463,6 +5514,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -5531,6 +5583,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -5599,6 +5652,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -5678,6 +5732,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -7850,6 +7905,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -7948,6 +8004,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -8046,6 +8103,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -8156,6 +8214,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -8266,6 +8325,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -8372,6 +8432,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -8469,6 +8530,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -8572,6 +8634,7 @@
         "on": true,
         "off": false,
         "source": "force",
+        "reason": "force",
         "ruleId": ""
       }
     ],
@@ -8636,6 +8699,7 @@
         "on": true,
         "off": false,
         "source": "defaultValue",
+        "reason": "targetingMismatch",
         "ruleId": ""
       }
     ],
@@ -8697,6 +8761,7 @@
         "on": true,
         "off": false,
         "source": "defaultValue",
+        "reason": "coverageExcluded",
         "ruleId": ""
       }
     ],
@@ -8761,6 +8826,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["c0", "c1", "c2"],
@@ -8882,6 +8948,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -8972,6 +9039,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -9062,6 +9130,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -9152,6 +9221,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -9242,6 +9312,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -9332,6 +9403,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -9430,6 +9502,7 @@
         "on": true,
         "off": false,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -9491,6 +9564,7 @@
         "on": true,
         "off": false,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -9551,6 +9625,7 @@
         "on": true,
         "off": false,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -9612,6 +9687,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -9713,6 +9789,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -9803,6 +9880,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -9893,6 +9971,7 @@
         "on": true,
         "off": false,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -9958,6 +10037,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -10048,6 +10128,7 @@
         "on": true,
         "off": false,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -10120,6 +10201,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": [
@@ -10217,6 +10299,7 @@
         "on": true,
         "off": false,
         "source": "defaultValue",
+        "reason": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -10282,6 +10365,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -10383,6 +10467,7 @@
         "on": true,
         "off": false,
         "source": "defaultValue",
+        "reason": "coverageExcluded",
         "ruleId": ""
       }
     ],
@@ -10444,6 +10529,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -10523,6 +10609,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -10600,6 +10687,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -10690,6 +10778,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
@@ -10781,6 +10870,7 @@
         "on": true,
         "off": false,
         "source": "experiment",
+        "reason": "experiment",
         "ruleId": "",
         "experiment": {
           "variations": ["control", "treatment"],
