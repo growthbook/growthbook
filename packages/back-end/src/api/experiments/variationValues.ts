@@ -47,8 +47,10 @@ import {
   getManagedFeatureForExperiment,
   getManagedFlagState,
   publishManagedDraft,
+  requestReviewForManagedDraft,
   updateManagedVariationValues,
 } from "back-end/src/services/managedFeatures";
+import { updateExperimentRuleEnvironments } from "back-end/src/services/experiment-feature";
 
 /** The one response shape every endpoint here returns. */
 async function respond(
@@ -121,16 +123,35 @@ export const putExperimentVariationValues = createApiRequestHandler(
   if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
     req.context.permissions.throwPermissionError();
   }
-  await requireManagedFlag(req.context, experiment);
+  const feature = await requireManagedFlag(req.context, experiment);
 
-  await updateManagedVariationValues({
-    context: req.context,
-    experiment,
-    variations: req.body.values,
-    valueType: req.body.valueType,
-    sparse: req.body.sparse,
-    eventAudit: req.eventAudit,
-  });
+  if (req.body.values) {
+    await updateManagedVariationValues({
+      context: req.context,
+      experiment,
+      variations: req.body.values,
+      valueType: req.body.valueType,
+      sparse: req.body.sparse,
+      eventAudit: req.eventAudit,
+    });
+  }
+  const scope = req.body.environments;
+  if (scope !== undefined) {
+    const { version } = await updateExperimentRuleEnvironments({
+      context: req.context,
+      experiment,
+      feature,
+      allEnvironments: scope === "all",
+      environments: scope === "all" ? [] : scope,
+      eventAudit: req.eventAudit,
+    });
+    await requestReviewForManagedDraft({
+      context: req.context,
+      feature,
+      version,
+      eventAudit: req.eventAudit,
+    });
+  }
 
   return respond(req.context, experiment);
 });

@@ -22,6 +22,7 @@ import {
 } from "shared/validators";
 import { EventUser } from "shared/types/events/event-types";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { LinkedFeatureEnvState } from "shared/types/experiment";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { ApiReqContext } from "back-end/types/api";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -652,6 +653,7 @@ export async function getManagedFlagState(
       featureKey: null,
       valueType: null,
       liveValues: [],
+      environments: [],
       pending: null,
     };
   }
@@ -681,15 +683,22 @@ export async function getManagedFlagState(
     }));
   }
 
+  const activeEnvs = (states?: Record<string, LinkedFeatureEnvState>) =>
+    Object.entries(states ?? {})
+      .filter(([, s]) => s === "active")
+      .map(([env]) => env);
+
   return {
     managed: true,
     featureKey: feature.id,
     valueType: feature.valueType,
     liveValues: info?.liveValues ?? [],
+    environments: activeEnvs(info?.liveEnvironmentStates),
     pending: pendingDraft
       ? {
           values: pendingDraft.values,
           valueType: pendingValueType,
+          environments: activeEnvs(pendingDraft.environmentStates),
           status: pendingDraft.status,
           approvalRequired: pendingDraft.pendingApproval,
           // A draft experiment publishes its values by starting.

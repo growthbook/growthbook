@@ -1167,7 +1167,7 @@ export async function updateExperimentRuleEnvironments({
   targetVersion,
   eventAudit,
 }: {
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
   feature: FeatureInterface;
   allEnvironments: boolean;

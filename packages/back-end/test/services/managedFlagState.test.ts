@@ -94,6 +94,7 @@ describe("getManagedFlagState", () => {
       featureKey: null,
       valueType: null,
       liveValues: [],
+      environments: [],
       pending: null,
     });
   });
@@ -121,6 +122,7 @@ describe("getManagedFlagState", () => {
       featureKey: "checkout-test",
       valueType: "string",
       liveValues: controlAndTreatment,
+      environments: [],
       pending: null,
     });
     expect(mockGetRevision).not.toHaveBeenCalled();
@@ -269,6 +271,7 @@ describe("getManagedFlagState", () => {
       featureKey: "checkout-test",
       valueType: "string",
       liveValues: [],
+      environments: [],
       pending: null,
     });
   });

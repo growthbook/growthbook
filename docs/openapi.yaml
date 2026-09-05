@@ -15484,8 +15484,9 @@ paths:
         Stages the new values on the experiment's Feature Flag. Adds them to the
         change already waiting to go live when there is one, and starts a new
         one otherwise, so the values never need to be published before they can
-        be changed again. Pass `valueType` to re-type the flag at the same time.
-        Publishing is a separate call.
+        be changed again. Pass `valueType` to re-type the flag at the same time,
+        or `environments` to change where the experiment serves. Publishing is a
+        separate call.
       tags:
         - experiments
       parameters:
@@ -15498,7 +15499,9 @@ paths:
               type: object
               properties:
                 values:
-                  description: One entry per experiment variation.
+                  description: >-
+                    One entry per experiment variation. Omit to leave the values
+                    alone.
                   type: array
                   items:
                     $ref: '#/components/schemas/ExperimentVariationValue'
@@ -15515,8 +15518,17 @@ paths:
                 sparse:
                   description: Serve the flag's default value for variations left unset.
                   type: boolean
-              required:
-                - values
+                environments:
+                  description: >-
+                    Where the experiment serves: "all" or a list of environment
+                    ids. Omit to leave unchanged.
+                  anyOf:
+                    - type: string
+                      const: all
+                    - minItems: 1
+                      type: array
+                      items:
+                        type: string
               additionalProperties: false
       responses:
         '200':
@@ -58827,6 +58839,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ExperimentVariationValue'
+        environments:
+          description: Environments the experiment serves in now.
+          type: array
+          items:
+            type: string
         pending:
           description: The change waiting to go live, or null when there is none.
           anyOf:
@@ -58838,6 +58855,7 @@ components:
         - featureKey
         - valueType
         - liveValues
+        - environments
         - pending
       additionalProperties: false
     ExperimentVariationValue:
@@ -58867,6 +58885,11 @@ components:
             - number
             - boolean
             - json
+        environments:
+          description: Environments the experiment will serve in once this lands.
+          type: array
+          items:
+            type: string
         status:
           description: draft, pending-review, changes-requested or approved
           type: string
@@ -58891,6 +58914,7 @@ components:
       required:
         - values
         - valueType
+        - environments
         - status
         - approvalRequired
         - canPublish

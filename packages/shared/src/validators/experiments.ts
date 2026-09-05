@@ -2593,6 +2593,9 @@ const apiPendingVariationValues = namedSchema(
       valueType: z
         .enum(["string", "number", "boolean", "json"])
         .describe("The type these values land as, which a re-type moves."),
+      environments: z
+        .array(z.string())
+        .describe("Environments the experiment will serve in once this lands."),
       status: z
         .string()
         .describe("draft, pending-review, changes-requested or approved"),
@@ -2626,6 +2629,9 @@ export const apiExperimentVariationValues = namedSchema(
       liveValues: z
         .array(apiVariationValue)
         .describe("What is serving now. Empty until the first publish."),
+      environments: z
+        .array(z.string())
+        .describe("Environments the experiment serves in now."),
       pending: apiPendingVariationValues
         .nullable()
         .describe("The change waiting to go live, or null when there is none."),
@@ -2701,7 +2707,10 @@ export const putExperimentVariationValuesValidator = {
     .object({
       values: z
         .array(apiVariationValue)
-        .describe("One entry per experiment variation."),
+        .optional()
+        .describe(
+          "One entry per experiment variation. Omit to leave the values alone.",
+        ),
       valueType: z
         .enum(["string", "number", "boolean", "json"])
         .optional()
@@ -2712,14 +2721,23 @@ export const putExperimentVariationValuesValidator = {
         .boolean()
         .optional()
         .describe("Serve the flag's default value for variations left unset."),
+      environments: z
+        .union([z.literal("all"), z.array(z.string()).min(1)])
+        .optional()
+        .describe(
+          'Where the experiment serves: "all" or a list of environment ids. Omit to leave unchanged.',
+        ),
     })
-    .strict(),
+    .strict()
+    .refine((b) => b.values !== undefined || b.environments !== undefined, {
+      message: "Send values, environments, or both.",
+    }),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: variationValuesResponse,
   summary: "Update the values an experiment's variations serve",
   description:
-    "Stages the new values on the experiment's Feature Flag. Adds them to the change already waiting to go live when there is one, and starts a new one otherwise, so the values never need to be published before they can be changed again. Pass `valueType` to re-type the flag at the same time. Publishing is a separate call.",
+    "Stages the new values on the experiment's Feature Flag. Adds them to the change already waiting to go live when there is one, and starts a new one otherwise, so the values never need to be published before they can be changed again. Pass `valueType` to re-type the flag at the same time, or `environments` to change where the experiment serves. Publishing is a separate call.",
   operationId: "putExperimentVariationValues",
   tags: ["experiments"],
   method: "put" as const,
