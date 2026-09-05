@@ -4,7 +4,7 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { isDefined, experimentHasLiveLinkedChanges } from "shared/util";
+import { isDefined } from "shared/util";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -445,10 +445,6 @@ export default function TabbedPage({
   const isBandit = experiment.type === "multi-armed-bandit";
   const trackSource = "tabbed-page";
 
-  const safeToEdit =
-    experiment.status !== "running" ||
-    !experimentHasLiveLinkedChanges(experiment, linkedFeatures);
-
   const showMetricGroupPromo = (): boolean => {
     if (metricGroups.length) return false;
 
@@ -582,7 +578,6 @@ export default function TabbedPage({
         visualChangesets={visualChangesets}
         urlRedirects={urlRedirects}
         showDashboardView={showDashboardView}
-        safeToEdit={safeToEdit}
         editSchedule={editSchedule}
       />
 
