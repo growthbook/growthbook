@@ -406,14 +406,7 @@ export default function StartExperimentModal({
         {subHeader && <Modal.Description>{subHeader}</Modal.Description>}
         <Modal.Body>
           {pendingDraftFailures.length > 0 && (
-            <Box
-              mb="3"
-              p="3"
-              style={{
-                border: "1px solid var(--red-a6)",
-                borderRadius: "var(--radius-3)",
-              }}
-            >
+            <Callout status="error" mb="3">
               <Text size="sm" weight="semibold" color="text-high">
                 {managedFeature
                   ? "Variation values that could not be published"
@@ -432,7 +425,7 @@ export default function StartExperimentModal({
                       // The flag page refuses writes on a managed flag; the
                       // review modal is where these get resolved.
                       <Link onClick={openManagedApproval}>
-                        <Text weight="semibold">Review variation values</Text>
+                        <Text weight="semibold">Review changes</Text>
                       </Link>
                     ) : (
                       <Link
@@ -449,7 +442,7 @@ export default function StartExperimentModal({
                   </Flex>
                 ))}
               </Flex>
-            </Box>
+            </Callout>
           )}
           {scheduledStartDateIsInThePast && parsedScheduledDate && (
             <Callout status="warning" mb="3">
