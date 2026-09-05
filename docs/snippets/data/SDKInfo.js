@@ -394,7 +394,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "3.0.0",
+    version: "3.1.0",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -409,6 +409,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBandits: "≥ v3.1.0",
       },
       {
         remoteEval: "≥ v2.3.0",
