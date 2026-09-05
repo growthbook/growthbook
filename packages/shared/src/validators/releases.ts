@@ -4,11 +4,17 @@ import { namedSchema } from "./openapi-helpers";
 // Releases — the REST namespace for coordinated multi-entity publishing. The
 // bare `POST /releases` slot stays free for a future full Release entity.
 
-const entityTypeField = z.enum([
+// Types a revision id can name. `managed-feature` is addressed by experiment
+// instead, so it is a request/response entity type but never a revision-id one.
+const revisionEntityTypeField = z.enum([
   "feature",
   "saved-group",
   "config",
   "constant",
+]);
+const entityTypeField = z.enum([
+  ...revisionEntityTypeField.options,
+  "managed-feature",
 ]);
 
 // An item names its revision by identifier + version, or by revision id —
@@ -61,10 +67,30 @@ export const publishRevisionsItem = z.union([
       .strict(),
   ),
   namedSchema(
+    "ManagedFeatureRevisionRef",
+    z
+      .object({
+        entityType: z.literal("managed-feature"),
+        experimentId: z
+          .string()
+          .describe(
+            "Id of a Values experiment. Publishes the pending variation values of the Feature Flag it manages, which the `feature` form refuses.",
+          ),
+        version: z
+          .number()
+          .int()
+          .optional()
+          .describe(
+            "Revision version to publish. Defaults to the pending values reported by `GET /experiments/{id}/variation-values`.",
+          ),
+      })
+      .strict(),
+  ),
+  namedSchema(
     "RevisionIdRef",
     z
       .object({
-        entityType: entityTypeField,
+        entityType: revisionEntityTypeField,
         revisionId: revisionIdField,
       })
       .strict(),
@@ -119,7 +145,7 @@ export const postReleasePublishRevisionsValidator = {
   operationId: "postReleasePublishRevisions",
   summary: "Atomically publish revisions across multiple entities",
   description:
-    "Publishes a set of revisions — at most one per entity — across Feature Flags, Saved Groups, configs, and constants as a single all-or-nothing operation.\n\n" +
+    'Publishes a set of revisions — at most one per entity — across Feature Flags, Saved Groups, configs, and constants as a single all-or-nothing operation. A Values experiment\'s managed Feature Flag is addressed by experiment with `entityType: "managed-feature"`; the experiment must already be running, since a draft experiment publishes its pending values when it starts.\n\n' +
     "Validation, guards, and custom hooks run against the combined end-state of the whole set, so interdependent changes (e.g. a config schema change plus the values that depend on it) publish together even when the in-between states would be invalid.\n\n" +
     "A blocked publish returns one 422 listing every gate across every item and the flag that clears each. A concurrent change to any target aborts with a 409 and nothing publishes. A failure after the commit starts rolls everything back and emits `revision.publishFailed` for each revision in the set. SDK payloads refresh once per request. Pass `dryRun: true` for the full gate report with zero writes.\n\n" +
     "Requires the `releases` commercial feature.",

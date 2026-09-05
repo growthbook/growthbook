@@ -710,6 +710,11 @@ tags:
   - name: LookbackOverride_model
     x-displayName: Lookback Override
     description: <SchemaDefinition schemaRef="#/components/schemas/LookbackOverride" />
+  - name: ManagedFeatureRevisionRef_model
+    x-displayName: Managed Feature Revision Ref
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/ManagedFeatureRevisionRef" />
   - name: Member_model
     x-displayName: Member
     description: <SchemaDefinition schemaRef="#/components/schemas/Member" />
@@ -15557,7 +15562,9 @@ paths:
         automatically when it starts. A blocked publish returns 422 with `gates`
         listing each blocker (`approval-required`, `stale-base`,
         `merge-conflict`) and the route that resolves it. `GET` reports the same
-        list ahead of time in `pending.publishBlockers`.
+        list ahead of time in `pending.publishBlockers`. To publish together
+        with other changes, use `POST /releases/publish-revisions` with
+        `entityType: "managed-feature"`.
       tags:
         - experiment-values
       parameters:
@@ -27086,7 +27093,10 @@ paths:
       description: >-
         Publishes a set of revisions — at most one per entity — across Feature
         Flags, Saved Groups, configs, and constants as a single all-or-nothing
-        operation.
+        operation. A Values experiment's managed Feature Flag is addressed by
+        experiment with `entityType: "managed-feature"`; the experiment must
+        already be running, since a draft experiment publishes its pending
+        values when it starts.
 
 
         Validation, guards, and custom hooks run against the combined end-state
@@ -27128,6 +27138,8 @@ paths:
                         $ref: '#/components/schemas/ConfigRevisionRef'
                       - title: Constant Revision Ref
                         $ref: '#/components/schemas/ConstantRevisionRef'
+                      - title: Managed Feature Revision Ref
+                        $ref: '#/components/schemas/ManagedFeatureRevisionRef'
                       - title: Revision Id Ref
                         $ref: '#/components/schemas/RevisionIdRef'
                 dryRun:
@@ -27205,6 +27217,7 @@ paths:
                             - saved-group
                             - config
                             - constant
+                            - managed-feature
                         id:
                           type: string
                         version:
@@ -61880,6 +61893,26 @@ components:
         - key
         - version
       additionalProperties: false
+    ManagedFeatureRevisionRef:
+      type: object
+      properties:
+        entityType:
+          type: string
+          const: managed-feature
+        experimentId:
+          description: >-
+            Id of a Values experiment. Publishes the pending variation values of
+            the Feature Flag it manages, which the `feature` form refuses.
+          type: string
+        version:
+          description: >-
+            Revision version to publish. Defaults to the pending values reported
+            by `GET /experiments/{id}/variation-values`.
+          type: integer
+      required:
+        - entityType
+        - experimentId
+      additionalProperties: false
     RevisionIdRef:
       type: object
       properties:
@@ -73527,6 +73560,7 @@ components:
             - saved-group
             - config
             - constant
+            - managed-feature
         id:
           description: The identifier used in the request.
           type: string
@@ -73557,6 +73591,7 @@ components:
             - saved-group
             - config
             - constant
+            - managed-feature
         id:
           description: The identifier used in the request.
           type: string
@@ -74462,6 +74497,7 @@ x-tagGroups:
       - InformationSchemaTable_model
       - Learning_model
       - LookbackOverride_model
+      - ManagedFeatureRevisionRef_model
       - Member_model
       - Metric_model
       - MetricAnalysis_model

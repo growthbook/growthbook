@@ -2968,7 +2968,7 @@ export const postExperimentVariationValuesPublishValidator = {
   responseSchema: variationValuesResponse,
   summary: "Publish pending values",
   description:
-    "Makes the pending values live on the managed Feature Flag. Use only after the experiment has started; before that, pending values go live automatically when it starts. A blocked publish returns 422 with `gates` listing each blocker (`approval-required`, `stale-base`, `merge-conflict`) and the route that resolves it. `GET` reports the same list ahead of time in `pending.publishBlockers`.",
+    'Makes the pending values live on the managed Feature Flag. Use only after the experiment has started; before that, pending values go live automatically when it starts. A blocked publish returns 422 with `gates` listing each blocker (`approval-required`, `stale-base`, `merge-conflict`) and the route that resolves it. `GET` reports the same list ahead of time in `pending.publishBlockers`. To publish together with other changes, use `POST /releases/publish-revisions` with `entityType: "managed-feature"`.',
   operationId: "postExperimentVariationValuesPublish",
   tags: ["experiment-values"],
   method: "post" as const,

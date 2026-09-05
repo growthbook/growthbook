@@ -1166,6 +1166,7 @@
               "api/InformationSchemaTable_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
+              "api/ManagedFeatureRevisionRef_model",
               "api/Member_model",
               "api/Metric_model",
               "api/MetricAnalysis_model",
