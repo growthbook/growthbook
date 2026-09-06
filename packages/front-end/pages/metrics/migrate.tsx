@@ -315,13 +315,17 @@ export default function MigrateLegacyMetricsPage() {
       }
       setProgress((i + 1) / batches.length);
     }
-    await Promise.all([
-      mutateDefinitions(),
-      mutateMetrics(),
-      mutateFactTables(),
-    ]);
-    setSummary(result);
-    setRunning(false);
+    // The migration already ran, so a failed refresh must not hide the summary
+    try {
+      await Promise.all([
+        mutateDefinitions(),
+        mutateMetrics(),
+        mutateFactTables(),
+      ]);
+    } finally {
+      setSummary(result);
+      setRunning(false);
+    }
   }
 
   if (!canMigrate) {
