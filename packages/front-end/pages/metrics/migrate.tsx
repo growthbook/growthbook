@@ -4,6 +4,7 @@ import { Box, Flex, Grid } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import {
   groupLegacyMetricsIntoFactTables,
+  legacyIdOf,
   LegacyMetricGroup,
 } from "shared/legacy-metrics";
 import { MetricInterface } from "shared/types/metric";
@@ -114,15 +115,19 @@ function toFactMetricProps(metric: FactMetricInterface) {
   return props;
 }
 
-// The legacy metric a fact metric was converted from. Funnels list the whole
-// chain in `replaces`, ending with the metric that was converted.
-function legacyIdOf(metric: FactMetricInterface): string {
-  return metric.replaces?.[metric.replaces.length - 1] || "";
-}
-
 type PlanItem = { group: LegacyMetricGroup; metrics: FactMetricInterface[] };
 
+function referencedTableIds(metric: FactMetricInterface): string[] {
+  return [
+    metric.denominator?.factTableId,
+    ...(metric.funnelSettings?.steps.map((s) => s.factTableId) || []),
+  ].filter((id): id is string => !!id);
+}
+
 function chunk(items: PlanItem[]): PlanItem[][] {
+  const groupsByTable = new Map(
+    items.map(({ group }) => [group.factTable.id, group]),
+  );
   const batches: PlanItem[][] = [];
   let current: PlanItem[] = [];
   let count = 0;
@@ -140,7 +145,20 @@ function chunk(items: PlanItem[]): PlanItem[][] {
     count += item.metrics.length;
   }
   if (current.length) batches.push(current);
-  return batches;
+  // Every batch carries the tables its metrics reference; creating one twice is a no-op
+  return batches.map((batch) => {
+    const included = new Set(batch.map(({ group }) => group.factTable.id));
+    const referenced = new Set(
+      batch.flatMap(({ metrics }) => metrics.flatMap(referencedTableIds)),
+    );
+    const dependencies = [...referenced]
+      .filter((id) => !included.has(id))
+      .flatMap((id) => {
+        const group = groupsByTable.get(id);
+        return group ? [{ group, metrics: [] }] : [];
+      });
+    return [...dependencies, ...batch];
+  });
 }
 
 export default function MigrateLegacyMetricsPage() {
@@ -233,16 +251,10 @@ export default function MigrateLegacyMetricsPage() {
       if (metrics.length) items.set(group.factTable.id, { group, metrics });
     }
     for (const { metrics } of [...items.values()]) {
-      for (const m of metrics) {
-        const refs = [
-          m.denominator?.factTableId,
-          ...(m.funnelSettings?.steps.map((s) => s.factTableId) || []),
-        ];
-        for (const ref of refs) {
-          const group = ref ? byId.get(ref) : undefined;
-          if (group && !items.has(group.factTable.id)) {
-            items.set(group.factTable.id, { group, metrics: [] });
-          }
+      for (const ref of metrics.flatMap(referencedTableIds)) {
+        const group = byId.get(ref);
+        if (group && !items.has(group.factTable.id)) {
+          items.set(group.factTable.id, { group, metrics: [] });
         }
       }
     }

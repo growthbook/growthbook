@@ -256,6 +256,8 @@ function parseAggregation(
   aggregatedValue?: SqlShape["aggregatedValue"],
 ): Pick<ColumnRef, "column" | "aggregation"> & {
   metricType: "proportion" | "mean";
+  // COUNT(value) counts rows with a value, unlike $$count
+  requireNonNullValue?: boolean;
 } {
   if (metric.type === "binomial") {
     return { column: "$$distinctUsers", metricType: "proportion" };
@@ -292,7 +294,11 @@ function parseAggregation(
   };
   const normalized = agg.toUpperCase().replace(/\s+/g, "");
   if (normalized === "COUNT(VALUE)" || normalized === "COUNT(*)") {
-    return { column: "$$count", metricType: "mean" };
+    return {
+      column: "$$count",
+      metricType: "mean",
+      requireNonNullValue: normalized === "COUNT(VALUE)",
+    };
   }
   const aggregation = known[normalized];
   if (!aggregation) fail(`Unsupported custom aggregation: ${agg}`);
@@ -332,7 +338,7 @@ function parseLegacyMetric(
   }
   if (!columns.has("timestamp")) fail("SQL does not select a timestamp column");
 
-  const { metricType, ...parsed } = parseAggregation(
+  const { metricType, requireNonNullValue, ...parsed } = parseAggregation(
     metric,
     shape.aggregatedValue,
   );
@@ -374,6 +380,13 @@ function parseLegacyMetric(
         }
       }
     }
+  }
+
+  if (requireNonNullValue && valueExpr && !isNumericLiteral(valueExpr)) {
+    shape.filters.push({
+      rowFilter: { operator: "not_null", column: valueExpr },
+      sql: `${valueExpr} IS NOT NULL`,
+    });
   }
 
   const groupKey = JSON.stringify([
@@ -584,6 +597,11 @@ function buildFactTable(
   };
 }
 
+// The legacy metric this was converted from; every conversion is 1:1
+export function legacyIdOf(metric: FactMetricInterface): string {
+  return metric.replaces?.[0] || "";
+}
+
 type Placed = { member: ParsedLegacyMetric; group: Group };
 
 function buildColumnRef({ member, group }: Placed): ColumnRef {
@@ -710,7 +728,6 @@ function buildFactMetric(
       denominator: null,
       cappingSettings: { type: "", value: 0 },
       funnelSettings: { steps: steps.map(buildFunnelStep) },
-      replaces: steps.map((s) => s.member.metric.id),
     };
   }
 

@@ -276,7 +276,9 @@ describe("groupLegacyMetricsIntoFactTables", () => {
       },
     });
     expect(byId["fact__cart"].funnelSettings?.steps).toHaveLength(2);
-    expect(byId["fact__buy"].replaces).toEqual(["view", "cart", "buy"]);
+    // A funnel replaces only the metric it was converted from
+    expect(byId["fact__buy"].replaces).toEqual(["buy"]);
+    expect(byId["fact__cart"].replaces).toEqual(["cart"]);
     expect(byId["fact__view"].replaces).toEqual(["view"]);
     expect(errors).toEqual([
       {
@@ -370,6 +372,9 @@ describe("groupLegacyMetricsIntoFactTables", () => {
         legacy("cnt", "SELECT user_id, timestamp, v AS value FROM t", {
           aggregation: "COUNT(*)",
         }),
+        legacy("cv", "SELECT user_id, timestamp, v AS value FROM t", {
+          aggregation: "COUNT(value)",
+        }),
         legacy("one", "SELECT user_id, timestamp, v AS value FROM t", {
           aggregation: "1",
         }),
@@ -396,6 +401,11 @@ describe("groupLegacyMetricsIntoFactTables", () => {
     expect(byId["fact__max"].numerator.aggregation).toBe("max");
     expect(byId["fact__cd"].numerator.aggregation).toBe("count distinct");
     expect(byId["fact__cnt"].numerator.column).toBe("$$count");
+    // COUNT(value) counts rows with a value, unlike COUNT(*)
+    expect(byId["fact__cv"].numerator).toMatchObject({
+      column: "$$count",
+      rowFilters: [{ operator: "not_null", column: "v" }],
+    });
     expect(byId["fact__one"]).toMatchObject({
       metricType: "proportion",
       numerator: { column: "$$distinctUsers" },

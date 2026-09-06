@@ -59,16 +59,17 @@ export const postMigrateLegacyMetrics = async (
   const factMetrics = await context.models.factMetrics.getAll();
   const factMetricIds = new Set(factMetrics.map((m) => m.id));
 
-  const results: MigrateLegacyMetricsResult[] = [];
-  for (const group of groups) {
-    const result: MigrateLegacyMetricsResult = {
-      factTableId: group.factTable.id,
-      created: [],
-      skipped: [],
-      errors: [],
-    };
-    results.push(result);
+  const results: MigrateLegacyMetricsResult[] = groups.map((group) => ({
+    factTableId: group.factTable.id,
+    created: [],
+    skipped: [],
+    errors: [],
+  }));
 
+  // Fact metric validation reads a cached table list, so create every table first
+  const failed = new Set<string>();
+  for (let i = 0; i < groups.length; i++) {
+    const group = groups[i];
     try {
       if (!factTableMap.has(group.factTable.id)) {
         if (group.existing) {
@@ -108,13 +109,17 @@ export const postMigrateLegacyMetrics = async (
         if (data.tags.length) await addTags(context.org.id, data.tags);
       }
     } catch (e) {
-      result.errors.push({ id: group.factTable.id, message: message(e) });
-      continue;
+      results[i].errors.push({ id: group.factTable.id, message: message(e) });
+      failed.add(group.factTable.id);
     }
+  }
 
+  for (let i = 0; i < groups.length; i++) {
+    const group = groups[i];
+    if (failed.has(group.factTable.id)) continue;
     for (const metric of group.metrics) {
       if (factMetricIds.has(metric.id)) {
-        result.skipped.push(metric.id);
+        results[i].skipped.push(metric.id);
         continue;
       }
       try {
@@ -123,9 +128,9 @@ export const postMigrateLegacyMetrics = async (
         );
         factMetrics.push(created);
         factMetricIds.add(created.id);
-        result.created.push(created.id);
+        results[i].created.push(created.id);
       } catch (e) {
-        result.errors.push({ id: metric.id, message: message(e) });
+        results[i].errors.push({ id: metric.id, message: message(e) });
       }
     }
   }
