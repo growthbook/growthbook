@@ -28,7 +28,8 @@ export const migrateLegacyMetricsValidator = z
           .strict(),
       )
       .min(1)
-      .max(25),
+      // Above the front-end batch size, which adds referenced tables on top
+      .max(50),
   })
   .strict();
 

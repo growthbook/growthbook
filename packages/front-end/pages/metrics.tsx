@@ -62,7 +62,7 @@ const MetricsPage = (): React.ReactElement => {
           id="legacy-fact-migration-callout"
         >
           You have {numberFormatter.format(metrics.length)} legacy metrics.
-          Migrate them to fact metrics to get better query performance.
+          Migrate them to Fact Metrics to get better query performance.
         </Callout>
       )}
       <Flex mb="4" justify="between" align="center">

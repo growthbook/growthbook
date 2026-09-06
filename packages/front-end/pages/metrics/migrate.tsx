@@ -20,6 +20,7 @@ import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Badge from "@/ui/Badge";
@@ -235,6 +236,7 @@ export default function MigrateLegacyMetricsPage() {
     );
   }, [conversion]);
 
+  const [confirming, setConfirming] = useState(false);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [summary, setSummary] = useState<RunSummary | null>(null);
@@ -445,10 +447,26 @@ export default function MigrateLegacyMetricsPage() {
                   metrics selected
                 </Box>
 
-                <Button onClick={run} disabled={running || selectedCount === 0}>
-                  Run Migration
+                <Button
+                  onClick={() => setConfirming(true)}
+                  disabled={running || selectedCount === 0}
+                >
+                  Run migration
                 </Button>
               </Flex>
+
+              {confirming && (
+                <ConfirmDialog
+                  title="Migrate selected metrics?"
+                  yesText="Run migration"
+                  content={`Creates ${plan.length} Fact Tables and ${selectedCount} Fact Metrics, then archives the legacy metrics they replace. Legacy metrics used by running experiments are migrated but left unarchived.`}
+                  onConfirm={async () => {
+                    setConfirming(false);
+                    await run();
+                  }}
+                  onCancel={() => setConfirming(false)}
+                />
+              )}
 
               {running && (
                 <Box mb="4">
@@ -743,7 +761,11 @@ function MetricDetails({
   ];
   return (
     <Grid columns="2" gap="5" width="100%">
-      <Box minWidth="0" pr="5" className="border-right">
+      <Box
+        minWidth="0"
+        pr="5"
+        style={{ borderRight: "1px solid var(--gray-a5)" }}
+      >
         <Text size="lg" weight="semibold" as="p">
           Legacy metric
         </Text>
