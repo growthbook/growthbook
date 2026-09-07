@@ -43,7 +43,7 @@ export const numberFormatValidator = z.enum([
 ]);
 
 export const factTableTypeValidator = z
-  .enum(["event", "model", "rollup"])
+  .enum(["event", "model", "rollup", "other"])
   .describe(
     'The shape of the underlying table. "event" is a stream of many event types told apart by a type column, "model" models one specific object type (orders, signups, etc.), "rollup" is pre-aggregated with one row per user per day.',
   );

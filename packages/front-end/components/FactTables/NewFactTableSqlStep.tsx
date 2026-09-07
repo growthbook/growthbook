@@ -1,7 +1,6 @@
 import { MutableRefObject, useCallback, useEffect, useState } from "react";
 import { FaExclamationTriangle, FaPlay } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   InformationSchemaInterfaceWithPaths,
@@ -15,7 +14,6 @@ import { validateSQL } from "@/services/datasources";
 import CodeTextArea, { AceCompletion } from "@/components/Forms/CodeTextArea";
 import Field from "@/components/Forms/Field";
 import { CursorData } from "@/components/Segments/SegmentForm";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import { usesEventName } from "@/components/Metrics/MetricForm";
 import {
@@ -37,8 +35,8 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 
-// Rows to read when the user asks to preview data. Always an explicit opt-in,
-// since the query can't be filtered by date until the timestamp column is set.
+// Rows to read when the user runs the query. Always an explicit opt-in, since
+// the query can't be filtered by date until the timestamp column is set.
 const SAMPLE_ROW_LIMIT = 20;
 
 type TestQueryResults = {
@@ -83,10 +81,6 @@ export default function NewFactTableSqlStep({
 
   const [testQueryResults, setTestQueryResults] =
     useState<TestQueryResults | null>(null);
-  // Rows from an explicit sample query, which running the SQL never returns
-  const [sample, setSample] = useState<TestQueryResults | null>(null);
-  const [sampleOpen, setSampleOpen] = useState(false);
-  const [sampleLoading, setSampleLoading] = useState(false);
   const [testingQuery, setTestingQuery] = useState(false);
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
@@ -111,84 +105,45 @@ export default function NewFactTableSqlStep({
     .filter((d) => isProjectListValidForProject(d.projects, project))
     .filter((d) => d.properties?.queryLanguage === "sql");
 
-  // limit 0 reads the query's output schema without reading any rows, which is
-  // what keeps this off the table: with no timestamp column yet the query
-  // can't be date-filtered, and LIMIT doesn't bound how much a warehouse scans.
-  const runQuery = useCallback(async (): Promise<TestQueryResults> => {
-    setTestingQuery(true);
-    try {
-      validateSQL(sql, []);
-      const res = await apiCall<TestQueryResults>("/query/test", {
-        method: "POST",
-        body: JSON.stringify({
-          query: sql,
-          datasourceId,
-          templateVariables: { eventName },
-          limit: 0,
-          detectColumns: true,
-        }),
-      });
-      const results = { ...res, error: res.error || "" };
-      setTestQueryResults(results);
-      // Any preview belongs to the SQL that produced it. Close the panel too --
-      // re-fetching rows is a scan, so it waits for another explicit click.
-      setSample(null);
-      setSampleOpen(false);
-      // Reported even when empty, so a run that stops returning columns
-      // clears the stale ones rather than leaving them on screen
-      if (!results.error) {
-        onColumnsDetected(results.columns || []);
+  // Reading rows lets detection narrow the types the schema couldn't pin down
+  // -- JSON held in a string column, or a warehouse that reports column names
+  // without types at all. limit 0 reads the output schema without reading any
+  // rows, which is all the Next button needs: with no timestamp column yet the
+  // query can't be date-filtered, and LIMIT doesn't bound how much a warehouse
+  // scans.
+  const runQuery = useCallback(
+    async (limit: number): Promise<TestQueryResults> => {
+      setTestingQuery(true);
+      try {
+        validateSQL(sql, []);
+        const res = await apiCall<TestQueryResults>("/query/test", {
+          method: "POST",
+          body: JSON.stringify({
+            query: sql,
+            datasourceId,
+            templateVariables: { eventName },
+            limit,
+            detectColumns: true,
+          }),
+        });
+        const results = { ...res, error: res.error || "" };
+        setTestQueryResults(results);
+        // Reported even when empty, so a run that stops returning columns
+        // clears the stale ones rather than leaving them on screen
+        if (!results.error) {
+          onColumnsDetected(results.columns || []);
+        }
+        return results;
+      } catch (e) {
+        const results = { sql, error: e.message };
+        setTestQueryResults(results);
+        return results;
+      } finally {
+        setTestingQuery(false);
       }
-      return results;
-    } catch (e) {
-      const results = { sql, error: e.message };
-      setTestQueryResults(results);
-      setSample(null);
-      setSampleOpen(false);
-      return results;
-    } finally {
-      setTestingQuery(false);
-    }
-  }, [apiCall, datasourceId, eventName, sql, onColumnsDetected]);
-
-  // Reading rows also lets detection narrow the types the schema couldn't
-  // pin down -- JSON held in a string column, or a warehouse that reports
-  // column names without types at all.
-  const runSampleQuery = useCallback(async () => {
-    setSampleLoading(true);
-    try {
-      const res = await apiCall<TestQueryResults>("/query/test", {
-        method: "POST",
-        body: JSON.stringify({
-          query: sql,
-          datasourceId,
-          templateVariables: { eventName },
-          limit: SAMPLE_ROW_LIMIT,
-          detectColumns: true,
-        }),
-      });
-      setSample({ ...res, error: res.error || "" });
-      if (!res.error && res.columns?.length) {
-        onColumnsDetected(res.columns);
-      }
-    } catch (e) {
-      setSample({ sql, error: e.message });
-    } finally {
-      setSampleLoading(false);
-    }
-  }, [apiCall, datasourceId, eventName, sql, onColumnsDetected]);
-
-  // Opening the panel runs the query -- the scan warning lives on the button's
-  // tooltip, so the click is the confirmation. Rows already fetched for this
-  // SQL are reused; running the SQL again clears them.
-  const toggleSample = useCallback(() => {
-    if (sampleOpen) {
-      setSampleOpen(false);
-      return;
-    }
-    setSampleOpen(true);
-    if (!sample && !sampleLoading) runSampleQuery();
-  }, [sampleOpen, sample, sampleLoading, runSampleQuery]);
+    },
+    [apiCall, datasourceId, eventName, sql, onColumnsDetected],
+  );
 
   // Update autocompletions when the cursor or schema changes
   useEffect(() => {
@@ -253,7 +208,7 @@ export default function NewFactTableSqlStep({
   useEffect(() => {
     validateRef.current = async () => {
       if (hasFreshResults) return;
-      const results = await runQuery();
+      const results = await runQuery(0);
       // Both failures are already spelled out in this step, so don't repeat
       // them in the modal's error bar
       if (results.error || !results.columns?.length) throw new Error("");
@@ -271,10 +226,7 @@ export default function NewFactTableSqlStep({
         <Flex direction="column" gap="2" height="100%">
           <Box flexGrow="1" style={{ minHeight: 0 }}>
             <PanelGroup direction="vertical">
-              <Panel
-                defaultSize={testQueryResults?.error || sampleOpen ? 60 : 100}
-                minSize={20}
-              >
+              <Panel defaultSize={testQueryResults ? 60 : 100} minSize={20}>
                 <AreaWithHeader
                   header={
                     <Flex align="center" justify="between">
@@ -306,14 +258,17 @@ export default function NewFactTableSqlStep({
                           </Button>
                         ) : null}
                         <Tooltip
-                          body="You do not have permission to run test queries"
-                          shouldDisplay={!canRunQueries}
+                          body={
+                            canRunQueries
+                              ? `Runs a LIMIT ${SAMPLE_ROW_LIMIT} query, which may trigger a full table scan`
+                              : "You do not have permission to run test queries"
+                          }
                         >
                           <Button
                             size="sm"
                             variant="soft"
                             icon={<FaPlay />}
-                            onClick={runQuery}
+                            onClick={() => runQuery(SAMPLE_ROW_LIMIT)}
                             loading={testingQuery}
                             disabled={!canRunQueries || !sql}
                           >
@@ -384,54 +339,27 @@ export default function NewFactTableSqlStep({
                       helpText={""}
                       fullHeight
                       setCursorData={setCursorData}
-                      onCtrlEnter={runQuery}
+                      onCtrlEnter={() => runQuery(SAMPLE_ROW_LIMIT)}
                       onEditorLoad={(editor) => editor.focus()}
                       completions={autoCompletions}
                     />
                   </Box>
                 </AreaWithHeader>
               </Panel>
-              {testQueryResults?.error ? (
-                <>
-                  <PanelResizeHandle />
-                  <Panel minSize={20}>
-                    <DisplayTestQueryResults
-                      duration={0}
-                      results={[]}
-                      sql={testQueryResults.sql || ""}
-                      error={testQueryResults.error}
-                      close={() => setTestQueryResults(null)}
-                    />
-                  </Panel>
-                </>
-              ) : sampleOpen && (sample || sampleLoading) ? (
+              {testQueryResults ? (
                 <>
                   <PanelResizeHandle />
                   <Panel defaultSize={40} minSize={15}>
-                    {sample ? (
-                      <DisplayTestQueryResults
-                        duration={parseIntWithDefault(sample.duration, 0)}
-                        results={sample.results || []}
-                        sql={sample.sql || ""}
-                        error={sample.error || ""}
-                        close={() => setSampleOpen(false)}
-                      />
-                    ) : (
-                      <AreaWithHeader
-                        header={
-                          <Text weight="semibold" color="text-mid">
-                            Sample rows
-                          </Text>
-                        }
-                      >
-                        <Flex align="center" gap="2" p="3">
-                          <LoadingSpinner />
-                          <Text color="text-mid">
-                            Running LIMIT {SAMPLE_ROW_LIMIT} query...
-                          </Text>
-                        </Flex>
-                      </AreaWithHeader>
-                    )}
+                    <DisplayTestQueryResults
+                      duration={parseIntWithDefault(
+                        testQueryResults.duration,
+                        0,
+                      )}
+                      results={testQueryResults.results || []}
+                      sql={testQueryResults.sql || ""}
+                      error={testQueryResults.error || ""}
+                      close={() => setTestQueryResults(null)}
+                    />
                   </Panel>
                 </>
               ) : null}
@@ -444,33 +372,6 @@ export default function NewFactTableSqlStep({
               Double-check the SQL, then run it again.
             </Callout>
           )}
-
-          <Flex align="center" justify="between" gap="3">
-            {detected?.length ? (
-              <Callout status="success" size="sm">
-                Query ran successfully
-              </Callout>
-            ) : (
-              <div />
-            )}
-            <Tooltip
-              body={
-                canRunQueries
-                  ? `Runs a LIMIT ${SAMPLE_ROW_LIMIT} query, which may trigger a full table scan`
-                  : "You do not have permission to run test queries"
-              }
-            >
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={sampleOpen ? <PiCaretDown /> : <PiCaretRight />}
-                onClick={toggleSample}
-                disabled={!canRunQueries || !sql}
-              >
-                View sample rows
-              </Button>
-            </Tooltip>
-          </Flex>
         </Flex>
       </Panel>
       <PanelResizeHandle />
