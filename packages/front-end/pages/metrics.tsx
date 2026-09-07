@@ -14,6 +14,7 @@ import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTe
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 const MetricsPage = (): React.ReactElement => {
   const { metrics, factMetrics, factTables, datasources, project } =
@@ -28,6 +29,15 @@ const MetricsPage = (): React.ReactElement => {
 
   const hasFactTables = factTables.some((f) =>
     isProjectListValidForProject(f.projects, project),
+  );
+
+  // Cheap proxy for eligibility; the migrate page does the real conversion
+  const hasLegacyMetricsToMigrate = metrics.some(
+    (m) =>
+      m.datasource &&
+      m.managedBy !== "config" &&
+      m.managedBy !== "api" &&
+      datasources.some((d) => d.id === m.datasource),
   );
 
   const permissionsUtil = usePermissionsUtil();
@@ -53,10 +63,12 @@ const MetricsPage = (): React.ReactElement => {
       <CreateMetricFromTemplate />
       <Flex mb="4" justify="between" align="center">
         <h1 style={{ margin: 0 }}>Metrics</h1>
-        {metrics.length > 0 && canMigrateMetrics && (
+        {hasLegacyMetricsToMigrate && canMigrateMetrics && (
           <Link href="/metrics/migrate">
-            Migrate legacy metrics
-            <PiArrowSquareOut className="ml-1" />
+            <Flex align="center" gap="1">
+              <Text>Migrate legacy metrics</Text>
+              <PiArrowSquareOut />
+            </Flex>
           </Link>
         )}
       </Flex>
