@@ -29,13 +29,14 @@ import {
   updateSlackChannelName,
 } from "back-end/src/models/EventWebhookModel";
 import {
+  getSlackConversation,
   getSlackConversationName,
   joinSlackConversation,
   listSlackConversations,
   SLACK_WORKSPACE_PLACEHOLDER_URL,
 } from "back-end/src/services/slack/slackWebApi";
 import { logger } from "back-end/src/util/logger";
-import { fetch } from "back-end/src/util/http.util";
+import { cancellableFetch } from "back-end/src/util/http.util";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 import {
   decryptSlackBotToken,
@@ -231,21 +232,31 @@ const exchangeSlackOAuthCode = async (
     throw new Error("Slack OAuth is not configured");
   }
 
-  const response = await fetch(SLACK_OAUTH_ACCESS_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(
-        `${SLACK_CLIENT_ID}:${SLACK_CLIENT_SECRET}`,
-      ).toString("base64")}`,
-      "Content-Type": "application/x-www-form-urlencoded",
+  const { responseWithoutBody: response, stringBody } = await cancellableFetch(
+    SLACK_OAUTH_ACCESS_URL,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(
+          `${SLACK_CLIENT_ID}:${SLACK_CLIENT_SECRET}`,
+        ).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        code,
+        redirect_uri: getSlackOAuthRedirectUri(),
+      }).toString(),
     },
-    body: new URLSearchParams({
-      code,
-      redirect_uri: getSlackOAuthRedirectUri(),
-    }).toString(),
-  });
+    { maxTimeMs: 15000, maxContentSize: 1024 * 256 },
+  );
 
-  const responseBody: unknown = await response.json();
+  let responseBody: unknown;
+  try {
+    if (Buffer.byteLength(stringBody) > 1024 * 256) throw new Error();
+    responseBody = JSON.parse(stringBody);
+  } catch {
+    throw new Error("Slack returned an invalid OAuth response");
+  }
   const parsed = slackOAuthAccessResponseSchema.safeParse(responseBody);
 
   if (!parsed.success) {
@@ -836,24 +847,8 @@ export const addSlackChannelToWorkspace = async ({
   );
   if (existing) return slackEventWebhookToIntegration(existing);
 
-  // Find the channel (name / privacy / membership) in the workspace list.
-  let channel:
-    | { id: string; name: string; isPrivate: boolean; isMember: boolean }
-    | undefined;
-  let cursor: string | undefined;
-  for (let page = 0; page < 5 && !channel; page++) {
-    const res = await listSlackConversations({ token, cursor });
-    if (!res) break;
-    channel = res.channels.find((c) => c.id === channelId);
-    if (!res.nextCursor) break;
-    cursor = res.nextCursor;
-  }
-  if (!channel) {
-    // Deep pagination fallback: resolve the name directly and attempt a join.
-    const name = await getSlackConversationName({ token, channelId });
-    if (!name) throw new Error("Slack channel not found in this workspace");
-    channel = { id: channelId, name, isPrivate: false, isMember: false };
-  }
+  const channel = await getSlackConversation({ token, channelId });
+  if (!channel) throw new Error("Slack channel not found in this workspace");
 
   if (!channel.isMember) {
     if (channel.isPrivate) {

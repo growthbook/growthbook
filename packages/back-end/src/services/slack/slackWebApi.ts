@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { cancellableFetch, fetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 
@@ -217,6 +218,42 @@ export type SlackConversation = {
   isPrivate: boolean;
   isMember: boolean;
 };
+
+const slackConversationInfoSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  is_private: z.boolean(),
+  is_member: z.boolean().optional(),
+  is_archived: z.boolean(),
+});
+
+export async function getSlackConversation({
+  token,
+  channelId,
+}: {
+  token: string;
+  channelId: string;
+}): Promise<SlackConversation | null> {
+  const res = await slackApiGet<SlackApiResponse>(token, "conversations.info", {
+    channel: channelId,
+  });
+  if (!res?.ok) return null;
+  const parsed = slackConversationInfoSchema.safeParse(res.channel);
+  if (
+    !parsed.success ||
+    parsed.data.is_archived ||
+    parsed.data.id !== channelId
+  )
+    return null;
+  return {
+    id: parsed.data.id,
+    name: parsed.data.name,
+    isPrivate: parsed.data.is_private,
+    // Bot tokens can only inspect private channels they have joined. Public
+    // channels without membership metadata are joined idempotently by the caller.
+    isMember: parsed.data.is_member ?? parsed.data.is_private,
+  };
+}
 
 export async function listSlackConversations({
   token,

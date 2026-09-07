@@ -1,4 +1,5 @@
 import {
+  getSlackConversation,
   isSlackWorkspacePlaceholderUrl,
   joinSlackConversation,
   listSlackConversations,
@@ -158,5 +159,79 @@ describe("Slack Web API", () => {
     await expect(
       joinSlackConversation({ token: "xoxb-token", channelId: "C123" }),
     ).resolves.toEqual({ ok: false, error: "method_not_supported" });
+  });
+});
+
+describe("Slack conversation details", () => {
+  it.each([true, false])(
+    "accepts info responses without membership (private: %s)",
+    async (isPrivate) => {
+      cancellableFetch.mockResolvedValueOnce(
+        slackResponse({
+          ok: true,
+          channel: {
+            id: "C1",
+            name: "alerts",
+            is_private: isPrivate,
+            is_archived: false,
+          },
+        }),
+      );
+      await expect(
+        getSlackConversation({ token: "xoxb-token", channelId: "C1" }),
+      ).resolves.toEqual({
+        id: "C1",
+        name: "alerts",
+        isPrivate,
+        isMember: isPrivate,
+      });
+    },
+  );
+
+  it("preserves private-channel membership", async () => {
+    cancellableFetch.mockResolvedValueOnce(
+      slackResponse({
+        ok: true,
+        channel: {
+          id: "C1",
+          name: "private-alerts",
+          is_private: true,
+          is_member: true,
+          is_archived: false,
+        },
+      }),
+    );
+    await expect(
+      getSlackConversation({ token: "xoxb-token", channelId: "C1" }),
+    ).resolves.toEqual({
+      id: "C1",
+      name: "private-alerts",
+      isPrivate: true,
+      isMember: true,
+    });
+  });
+  it.each([
+    {
+      id: "C1",
+      name: "archived",
+      is_private: false,
+      is_member: true,
+      is_archived: true,
+    },
+    { id: "C1", name: "missing-membership" },
+    {
+      id: "C2",
+      name: "wrong-channel",
+      is_private: false,
+      is_member: true,
+      is_archived: false,
+    },
+  ])("rejects archived or incomplete channel details", async (channel) => {
+    cancellableFetch.mockResolvedValueOnce(
+      slackResponse({ ok: true, channel }),
+    );
+    await expect(
+      getSlackConversation({ token: "xoxb-token", channelId: "C1" }),
+    ).resolves.toBeNull();
   });
 });
