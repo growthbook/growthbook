@@ -5,14 +5,14 @@ import { MetricInterface } from "shared/types/metric";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getDataSourcesByIds } from "back-end/src/models/DataSourceModel";
 import {
   createFactTable,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
 import {
+  archiveMetrics,
   getMetricsByOrganization,
-  updateMetric,
 } from "back-end/src/models/MetricModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
@@ -56,8 +56,18 @@ export const postMigrateLegacyMetrics = async (
     errors: [],
   }));
 
+  const toCreate = groups.filter((g) => !factTableMap.has(g.factTable.id));
+  const datasources = new Map(
+    (
+      await getDataSourcesByIds(context, [
+        ...new Set(toCreate.map((g) => g.factTable.datasource)),
+      ])
+    ).map((d) => [d.id, d]),
+  );
+
   // Fact metric validation reads a cached table list, so create tables first
   const failed = new Set<string>();
+  const newTags = new Set<string>();
   for (let i = 0; i < groups.length; i++) {
     const group = groups[i];
     try {
@@ -69,7 +79,7 @@ export const postMigrateLegacyMetrics = async (
         if (!context.permissions.canCreateFactTable(data)) {
           context.permissions.throwPermissionError();
         }
-        const datasource = await getDataSourceById(context, data.datasource);
+        const datasource = datasources.get(data.datasource);
         if (!datasource) throw new Error("Could not find Data Source");
 
         // Detected types win, but keep the migration's number formats
@@ -95,13 +105,15 @@ export const postMigrateLegacyMetrics = async (
         if (needsBackgroundRefresh) {
           await queueFactTableColumnsRefresh(factTable);
         }
-        if (data.tags.length) await addTags(context.org.id, data.tags);
+        data.tags.forEach((tag) => newTags.add(tag));
       }
     } catch (e) {
       results[i].errors.push({ id: group.factTable.id, message: message(e) });
       failed.add(group.factTable.id);
     }
   }
+
+  if (newTags.size) await addTags(context.org.id, [...newTags]);
 
   for (let i = 0; i < groups.length; i++) {
     const group = groups[i];
@@ -182,6 +194,7 @@ export const postMigrateLegacyMetrics = async (
       (await getMetricsByOrganization(context)).map((m) => [m.id, m]),
     );
     // Safe mid-experiment: analysis loads metrics by id, ignoring status
+    const toArchive: MetricInterface[] = [];
     for (const id of legacyIds) {
       const metric = legacyMetrics.get(id);
       if (!metric || metric.status === "archived") continue;
@@ -198,12 +211,14 @@ export const postMigrateLegacyMetrics = async (
         notArchived.push({ id, reason: "No permission to update this metric" });
         continue;
       }
-      try {
-        await updateMetric(context, metric, { status: "archived" });
-        archived.push(id);
-      } catch (e) {
-        notArchived.push({ id, reason: message(e) });
-      }
+      toArchive.push(metric);
+    }
+    try {
+      await archiveMetrics(context, toArchive);
+      archived.push(...toArchive.map((m) => m.id));
+    } catch (e) {
+      const reason = message(e);
+      notArchived.push(...toArchive.map((m) => ({ id: m.id, reason })));
     }
   }
 
