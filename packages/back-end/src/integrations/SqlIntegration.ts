@@ -176,6 +176,7 @@ import { getQuantileBoundsFromQueryResponse } from "back-end/src/integrations/sq
 import { getSampleUnitsCTE } from "back-end/src/integrations/sql/ctes/sample-units-cte";
 import { getSegmentCTE } from "back-end/src/integrations/sql/ctes/segment-cte";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
+import { afterWatermark } from "back-end/src/integrations/sql/primitives/watermark";
 import { getUserExperimentExposuresQuery as getUserExperimentExposuresQueryFromSql } from "back-end/src/integrations/sql/queries/user-experiment-exposures-query";
 export { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/services/experimentQueries/constants";
 export { MAX_ROWS_PAST_EXPERIMENTS_QUERY } from "back-end/src/integrations/sql/queries/past-experiment-query";
@@ -1662,8 +1663,8 @@ export default abstract class SqlIntegration
     const lastMaxTimestampBinds =
       params.lastMaxTimestamp && params.lastMaxTimestamp > settings.startDate;
 
-    // TODO(incremental-refresh): What if "skip partial data" is true?
-    // Does the conversionWindowsHour need to be set different?
+    // For the units table, we collect every exposure up to the phase end.
+    // conversionWindow / skipPartialData is applied at read time in the statistics query.
     const endDate = getExperimentEndDate(settings, 0);
 
     return format(
@@ -1735,7 +1736,7 @@ export default abstract class SqlIntegration
             e.experiment_id = '${settings.experimentId}'
             ${
               lastMaxTimestampBinds && params.lastMaxTimestamp
-                ? `AND e.timestamp > ${toTimestampWithMs(params.lastMaxTimestamp)}`
+                ? `AND ${afterWatermark(this.getSqlDialect(), "e.timestamp", params.lastMaxTimestamp, params.lastMaxTimestampRaw)}`
                 : `AND e.timestamp >= ${toTimestampWithMs(settings.startDate)}`
             }
             ${endDate ? `AND e.timestamp <= ${toTimestampWithMs(endDate)}` : ""}
@@ -1812,7 +1813,10 @@ export default abstract class SqlIntegration
   ): string {
     return format(
       `
-      SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.unitsTableFullName}
+      SELECT
+        MAX(max_timestamp) AS max_timestamp
+        , ${this.getSqlDialect().formatTimestampExact("MAX(max_timestamp)")} AS max_timestamp_raw
+      FROM ${params.unitsTableFullName}
       `,
       this.getSqlDialect().formatDialect,
     );
@@ -1839,7 +1843,12 @@ export default abstract class SqlIntegration
     }
 
     return {
-      rows: [{ max_timestamp: row.max_timestamp }],
+      rows: [
+        {
+          max_timestamp: row.max_timestamp,
+          max_timestamp_raw: row.max_timestamp_raw,
+        },
+      ],
       statistics,
     };
   }
@@ -1883,7 +1892,10 @@ export default abstract class SqlIntegration
   ): string {
     return format(
       `
-      SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.metricSourceTableFullName}
+      SELECT
+        MAX(max_timestamp) AS max_timestamp
+        , ${this.getSqlDialect().formatTimestampExact("MAX(max_timestamp)")} AS max_timestamp_raw
+      FROM ${params.metricSourceTableFullName}
       `,
       this.getSqlDialect().formatDialect,
     );
@@ -2095,9 +2107,6 @@ export default abstract class SqlIntegration
       a.id.localeCompare(b.id),
     );
 
-    // TODO(incremental-refresh): use max hours to convert from here
-    // for eventual "skipPartialData" feature
-    //
     // Scope FT discovery to this insert's target FT so a pipeline with
     // multiple cross-FT ratios that share a hub (e.g. `[A/B, A/C]`) only
     // populates the hub's data cache. The other FTs' data is populated by
@@ -2142,6 +2151,16 @@ export default abstract class SqlIntegration
       isRatioMetric(metric) &&
       metric.denominator?.factTableId === params.factTableId;
 
+    // A conversion window extends the scan past the phase end date, which for
+    // a running phase is the snapshot time, so it would admit rows stamped in
+    // the future. Those must not become the watermark (see
+    // InsertAggregatedFactTableDataQueryParams.windowEndDate), so never scan
+    // past the refresh's own clock.
+    const metricEnd =
+      source.metricEnd > params.incrementalRefreshStartTime
+        ? params.incrementalRefreshStartTime
+        : source.metricEnd;
+
     return format(
       `
     INSERT INTO ${params.metricSourceTableFullName}
@@ -2158,7 +2177,8 @@ export default abstract class SqlIntegration
           })),
           factTable: source.factTable,
           startDate: source.metricStart,
-          endDate: source.metricEnd,
+          startDateRaw: source.lastMaxTimestampRaw,
+          endDate: metricEnd,
           experimentId: params.settings.experimentId,
           phase: params.settings.phase,
           customFields: params.settings.customFields,
@@ -2373,6 +2393,21 @@ export default abstract class SqlIntegration
       }
     }
 
+    // Filter units whose conversion window is still open. Callers partition
+    // by window so this is the longest cutoff in the slice.
+    const maxHoursToConvert = Math.max(
+      0,
+      ...metricData.map((m) => m.maxHoursToConvert),
+    );
+    const unitsEndDate = getExperimentEndDate(
+      params.settings,
+      maxHoursToConvert,
+      params.asOf,
+    );
+    const unitsWhere = params.settings.skipPartialData
+      ? `WHERE e.first_exposure_timestamp <= ${this.getSqlDialect().toTimestamp(unitsEndDate)}`
+      : "";
+
     // Every FT that hosts at least one side of an RA metric must also have
     // a covariate cache. The metric-data layer unconditionally references
     // `c.<alias>_covariate_value` (and `_covariate_denominator` for ratio
@@ -2421,13 +2456,18 @@ export default abstract class SqlIntegration
     );
 
     // exploratory dimensions
-    const { experimentDimensions, unitDimensions, dateDimension } =
-      processDimensions(
-        this.getSqlDialect(),
-        params.dimensionsForAnalysis,
-        params.settings,
-        params.activationMetric,
-      );
+    const {
+      experimentDimensions,
+      unitDimensions,
+      dateDimension,
+      dateCutoffDimension,
+      comboDimension,
+    } = processDimensions(
+      this.getSqlDialect(),
+      params.dimensionsForAnalysis,
+      params.settings,
+      params.activationMetric,
+    );
 
     const idTypeObjects = [
       [exposureQuery.userIdType],
@@ -2473,13 +2513,30 @@ export default abstract class SqlIntegration
     const dateDimensionCol = dateDimension
       ? getDimensionCol(this.getSqlDialect(), dateDimension)
       : undefined;
+    const dateCutoffDimensionCol = dateCutoffDimension
+      ? getDimensionCol(this.getSqlDialect(), dateCutoffDimension)
+      : undefined;
+    // References constituent aliases, so it must be computed in a wrapper CTE
+    // on top of __experimentUnits rather than alongside them
+    const comboDimensionCol = comboDimension
+      ? getDimensionCol(this.getSqlDialect(), comboDimension)
+      : undefined;
 
     const nonUnitDimensionCols = [
       ...experimentDimensionCols,
       ...(dateDimensionCol ? [dateDimensionCol] : []),
+      ...(dateCutoffDimensionCol ? [dateCutoffDimensionCol] : []),
       ...precomputedDimensionCols,
     ];
     const allDimensionCols = [...nonUnitDimensionCols, ...unitDimensionCols];
+    // When analyzing a combo, its constituents exist only to be materialized
+    // in __experimentUnits; the analysis groups by the combined column alone
+    const analysisDimensionCols = comboDimensionCol
+      ? [{ value: comboDimensionCol.alias, alias: comboDimensionCol.alias }]
+      : allDimensionCols;
+    const unitsCteName = comboDimensionCol
+      ? "__experimentUnitsFinal"
+      : "__experimentUnits";
 
     // Source-index → alias suffix conventions: source 0 is "" (so its table
     // alias is `m` and CTE name is `__metricSourceData`/`__metricDataAggregated`),
@@ -2565,6 +2622,7 @@ export default abstract class SqlIntegration
           )`,
             )
             .join("\n")}
+          ${unitsWhere}
           GROUP BY
             e.${baseIdType}
       `
@@ -2573,8 +2631,19 @@ export default abstract class SqlIntegration
           , e.variation AS variation
           , e.first_exposure_timestamp AS first_exposure_timestamp
           ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
-        FROM ${params.unitsSourceTableFullName} e`
+        FROM ${params.unitsSourceTableFullName} e
+        ${unitsWhere}`
       })
+      ${
+        comboDimensionCol
+          ? `, __experimentUnitsFinal AS (
+        SELECT
+          u.*
+          , ${comboDimensionCol.value} AS ${comboDimensionCol.alias}
+        FROM __experimentUnits u
+      )`
+          : ""
+      }
       ${sources
         .map(
           (_, i) => `, __metricDataAggregated${sourceSuffix(i)} AS (
@@ -2602,7 +2671,7 @@ export default abstract class SqlIntegration
       , __eventQuantileSketch AS (
         SELECT
           u.variation AS variation
-          ${allDimensionCols.map((c) => `, u.${c.alias} AS ${c.alias}`).join("")}
+          ${analysisDimensionCols.map((c) => `, u.${c.alias} AS ${c.alias}`).join("")}
           ${metricData
             .filter((d) => d.quantileMetric === "event")
             .map(
@@ -2610,7 +2679,7 @@ export default abstract class SqlIntegration
                 `, ${this.getSqlDialect().quantileSketchMergePartial(`${tableAliasForSource(d.numeratorSourceIndex)}.${encodeMetricIdForColumnName(d.metric.id)}_value`)} AS ${d.alias}_sketch`,
             )
             .join("\n")}
-        FROM __experimentUnits u
+        FROM ${unitsCteName} u
         ${sources
           .map(
             (_, i) =>
@@ -2619,12 +2688,12 @@ export default abstract class SqlIntegration
           .join("\n")}
         GROUP BY
           u.variation
-          ${allDimensionCols.map((c) => `, u.${c.alias}`).join("")}
+          ${analysisDimensionCols.map((c) => `, u.${c.alias}`).join("")}
       )
       , __eventQuantileMetric AS (
         SELECT
           variation
-          ${allDimensionCols.map((c) => `, ${c.alias}`).join("")}
+          ${analysisDimensionCols.map((c) => `, ${c.alias}`).join("")}
           ${metricData
             .filter((d) => d.quantileMetric === "event")
             .map((d) =>
@@ -2782,7 +2851,7 @@ export default abstract class SqlIntegration
             isSource0 && eventQuantileData.length > 0
               ? `LEFT JOIN __eventQuantileMetric qm ON (
                     qm.variation = u.variation
-                    ${allDimensionCols.map((c) => `AND qm.${c.alias} = u.${c.alias}`).join("\n")}
+                    ${analysisDimensionCols.map((c) => `AND qm.${c.alias} = u.${c.alias}`).join("\n")}
                   )`
               : "";
 
@@ -2792,13 +2861,13 @@ export default abstract class SqlIntegration
               u.${baseIdType}
               ${
                 isSource0
-                  ? `${allDimensionCols.map((d) => `, u.${d.alias} AS ${d.alias}`).join("")}
+                  ? `${analysisDimensionCols.map((d) => `, u.${d.alias} AS ${d.alias}`).join("")}
               , u.variation`
                   : ""
               }
               ${metricColumns}
               ${covariateColumns}
-            FROM __experimentUnits u
+            FROM ${unitsCteName} u
             LEFT JOIN ${aggregatedTable} ${localAlias} ON u.${baseIdType} = ${localAlias}.${baseIdType}
             ${covariateJoin}
             ${eventQuantileJoin}
@@ -2819,7 +2888,7 @@ export default abstract class SqlIntegration
         )
         .join("")}
       ${getExperimentFactMetricStatisticsCTE(this.getSqlDialect(), {
-        dimensionCols: allDimensionCols,
+        dimensionCols: analysisDimensionCols,
         metricData,
         eventQuantileData,
         baseIdType,

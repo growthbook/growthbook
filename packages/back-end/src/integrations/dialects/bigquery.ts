@@ -125,6 +125,9 @@ export const bigQueryDialect: SqlDialect = {
     `date_diff(${endCol}, ${startCol}, DAY)`,
   formatDate: (col: string) => `format_date("%F", ${col})`,
   formatDateTimeString: (col: string) => `format_datetime("%F %T", ${col})`,
+  // TIMESTAMP holds microseconds; %E6S prints all six, in UTC.
+  formatTimestampExact: (col: string) =>
+    `format_timestamp("%F %H:%M:%E6S", ${col})`,
   castToString: (col: string) => `cast(${col} as string)`,
   stringMatch: createLikeStringMatchFn({
     escapeStringLiteral: bigQueryEscapeStringLiteral,

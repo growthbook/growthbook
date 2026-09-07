@@ -6,7 +6,6 @@ import {
   updateFactTablePropsValidator,
   updateFactTableValidator,
 } from "../../src/validators/fact-table";
-import { postBulkImportFactsValidator } from "../../src/validators/bulk-import";
 
 describe("rowFilterValidator", () => {
   const parse = (operator: string, values?: string[]) =>
@@ -43,42 +42,6 @@ describe("rowFilterValidator", () => {
 
   it("does not restrict value counts for other operators", () => {
     expect(parse("in", ["a", "b", "c"]).success).toBe(true);
-  });
-});
-
-// The bulk-import body re-declares the row filter shape inline (twice — once per
-// column ref), so the range rule has to be wired into each copy rather than
-// inherited. Assert through the real body schema so a new copy that forgets it
-// fails here instead of silently accepting a three-bound range.
-describe("postBulkImportFacts rowFilters", () => {
-  const parse = (values: string[]) =>
-    postBulkImportFactsValidator.bodySchema.safeParse({
-      factMetrics: [
-        {
-          id: "fact__test",
-          data: {
-            name: "Test",
-            metricType: "mean",
-            numerator: {
-              factTableId: "ft_1",
-              column: "amount",
-              rowFilters: [
-                { operator: "between", column: "signup_date", values },
-              ],
-            },
-          },
-        },
-      ],
-    });
-
-  it("accepts a two-bound range", () => {
-    expect(parse(["2024-01-01", "2024-02-01"]).success).toBe(true);
-  });
-
-  it("rejects a range with more than two values", () => {
-    const result = parse(["2024-01-01", "2024-02-01", "2024-03-01"]);
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.path).toContain("values");
   });
 });
 

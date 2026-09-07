@@ -388,6 +388,7 @@ export default function ConfigureLegacyReport({
         labelClassName="font-weight-bold"
         showHelp={true}
         newUi={false}
+        enableCustomDimensions={false}
       />
       <SelectField
         size="legacy"
