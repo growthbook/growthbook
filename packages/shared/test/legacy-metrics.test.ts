@@ -959,7 +959,6 @@ describe("groupLegacyMetricsIntoFactTables", () => {
           type: "binomial",
         }),
         legacy("noval", "SELECT user_id, timestamp FROM t"),
-        legacy("star", "SELECT * FROM t"),
         legacy("builder", "", { queryFormat: "builder" }),
       ],
       options(),
@@ -970,7 +969,6 @@ describe("groupLegacyMetricsIntoFactTables", () => {
       "nots",
       "nouid",
       "noval",
-      "star",
       "builder",
     ]);
   });
@@ -1070,5 +1068,85 @@ describe("groupLegacyMetricsIntoFactTables", () => {
       tags: ["x"],
       projects: ["p1"],
     });
+  });
+
+  it("keeps CTEs in the fact table SQL and in the grouping key", () => {
+    const cte = "WITH a AS (SELECT uid, ts FROM b)";
+    const other = "WITH a AS (SELECT uid, ts FROM c)";
+    const tail = "SELECT uid AS user_id, ts AS timestamp FROM a WHERE x = 'y'";
+    const { groups, errors } = groupLegacyMetricsIntoFactTables(
+      [
+        legacy("m1", `${cte} ${tail}`, { type: "binomial" }),
+        legacy("m2", `${cte} ${tail}`, { type: "binomial" }),
+        legacy("m3", `${other} ${tail}`, { type: "binomial" }),
+      ],
+      options(),
+    );
+    expect(errors).toEqual([]);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].metrics.map((m) => m.id)).toEqual([
+      "fact__m1",
+      "fact__m2",
+    ]);
+    expect(groups[0].factTable.sql).toBe(
+      `${cte}\nSELECT \n  uid AS user_id,\n  ts AS timestamp\nFROM a\nWHERE (x = 'y')`,
+    );
+    expect(groups[1].factTable.sql.startsWith(other)).toBe(true);
+  });
+
+  it("wraps a set operation as the fact table row source", () => {
+    const sql =
+      "SELECT a AS user_id, b AS timestamp FROM t WHERE x = 1 UNION ALL SELECT c AS user_id, d AS timestamp FROM v";
+    const { groups, errors } = groupLegacyMetricsIntoFactTables(
+      [legacy("m1", sql, { type: "binomial" })],
+      options(),
+    );
+    expect(errors).toEqual([]);
+    expect(groups[0].factTable.sql).toBe(
+      `SELECT \n  user_id,\n  timestamp\nFROM (${sql}) u`,
+    );
+    expect(groups[0].factTable.columns?.map((c) => c.column)).toEqual([
+      "user_id",
+      "timestamp",
+    ]);
+    // The branch filters are already applied inside, so none are re-applied
+    expect(groups[0].metrics[0].numerator.rowFilters ?? []).toEqual([]);
+  });
+
+  it("keeps SELECT * SQL verbatim and assumes the legacy column names", () => {
+    const { groups, errors } = groupLegacyMetricsIntoFactTables(
+      [
+        legacy("m1", "SELECT * FROM t WHERE a = 'b'", {
+          userIdTypes: ["user_id", "anonymous_id"],
+          aggregation: "COUNT(value)",
+        }),
+        legacy("m2", "SELECT * FROM t WHERE a = 'c'", { type: "binomial" }),
+      ],
+      options(),
+    );
+    expect(errors).toEqual([]);
+    // Different filters live inside the SQL, so the two cannot share a table
+    expect(groups).toHaveLength(2);
+    expect(groups[0].factTable.sql).toBe("SELECT * FROM t WHERE a = 'b'");
+    expect(groups[0].factTable.columns?.map((c) => c.column)).toEqual([
+      "user_id",
+      "anonymous_id",
+      "timestamp",
+      "value",
+    ]);
+    expect(groups[0].factTable.userIdTypes).toEqual([
+      "user_id",
+      "anonymous_id",
+    ]);
+    // COUNT(value) skips nulls, and verbatim SQL has no WHERE to elevate it to
+    expect(groups[0].metrics[0].numerator.rowFilters).toEqual([
+      { operator: "not_null", column: "value" },
+    ]);
+    expect(groups[1].factTable.sql).toBe("SELECT * FROM t WHERE a = 'c'");
+    // A binomial metric needs no value column
+    expect(groups[1].factTable.columns?.map((c) => c.column)).toEqual([
+      "user_id",
+      "timestamp",
+    ]);
   });
 });

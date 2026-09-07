@@ -328,7 +328,6 @@ describe("parseSelectSQL", () => {
 
   describe("rejects unsupported syntax", () => {
     const bad: [string, Parameters<typeof parseSelectSQL>[1]][] = [
-      ["WITH a AS (SELECT 1) SELECT * FROM a", "postgres"],
       ["SELECT *, x FROM t", "postgres"],
       ["SELECT t.* FROM t", "postgres"],
       ["SELECT COUNT(DISTINCT x) FROM t", "postgres"],
@@ -336,7 +335,6 @@ describe("parseSelectSQL", () => {
       ["SELECT uniqExact(x) FROM t", "clickhouse"],
       ["SELECT ROW_NUMBER() OVER (ORDER BY x) FROM t", "postgres"],
       ["SELECT x, y FROM t GROUP BY x", "postgres"],
-      ["SELECT x FROM t UNION SELECT y FROM u", "postgres"],
       ["SELECT x", "postgres"],
       ["SELECT x FROM", "postgres"],
       ["SELECT x FROM t WHERE", "postgres"],
@@ -347,7 +345,6 @@ describe("parseSelectSQL", () => {
       ["SELECT x FROM t WHERE a = 'unterminated", "postgres"],
       ["SELECT x /* open FROM t", "postgres"],
       ["SELECT $$x$$ FROM t", "postgres"],
-      ["SELECT x FROM t WHERE a > {{startDate}}", "postgres"],
       ["SELECT b'bytes' FROM t", "bigquery"],
       ["SELECT x FROM t; SELECT y FROM u", "postgres"],
       ["SELECT x FROM t OFFSET 5", "bigquery"],
@@ -361,6 +358,146 @@ describe("parseSelectSQL", () => {
     it.each(bad)("throws for %s (%s)", (sql, type) => {
       expect(() => parseSelectSQL(sql, type)).toThrow(SqlParseError);
     });
+  });
+});
+
+describe("parseSelectSQL template expressions", () => {
+  it("keeps a {{...}} expression opaque and out of typed filters", () => {
+    const r = pg(
+      "SELECT a, ts AS timestamp FROM t WHERE ts > {{startDate}} AND b = 'c'",
+    );
+    expect(r.select).toEqual([
+      { expr: "a", alias: "a" },
+      { expr: "ts", alias: "timestamp" },
+    ]);
+    expect(r.where).toEqual([
+      { operator: "sql_expr", values: ["ts > {{startDate}}"] },
+      { operator: "=", column: "b", values: ["c"] },
+    ]);
+  });
+  it("preserves helpers, inner spacing, and triple braces", () => {
+    expect(
+      pg('SELECT {{date startDate "%Y-%m-%d"}} AS a FROM t').select,
+    ).toEqual([{ expr: '{{date startDate "%Y-%m-%d"}}', alias: "a" }]);
+    expect(pg("SELECT {{{a}}} AS b FROM t").select).toEqual([
+      { expr: "{{{a}}}", alias: "b" },
+    ]);
+  });
+  it("allows them inside CTE bodies and FROM clauses", () => {
+    const r = pg(
+      "WITH a AS (SELECT x FROM b WHERE ts > {{startDate}}) SELECT x FROM a",
+    );
+    expect(r.cte).toBe("WITH a AS (SELECT x FROM b WHERE ts > {{startDate}})");
+  });
+  it("still reads a quoted one as a string literal", () => {
+    expect(pg("SELECT a FROM t WHERE ts > '{{startDate}}'").where).toEqual([
+      { operator: ">", column: "ts", values: ["{{startDate}}"] },
+    ]);
+  });
+  it("throws when the braces never close", () => {
+    expect(() => pg("SELECT a FROM t WHERE ts > {{startDate")).toThrow(
+      SqlParseError,
+    );
+  });
+});
+
+describe("parseSelectSQL set operations", () => {
+  it("treats the whole set operation as an opaque row source", () => {
+    const r = pg(
+      "SELECT a AS user_id, b AS timestamp FROM t WHERE x = 1 UNION ALL SELECT c AS user_id, d AS timestamp FROM v WHERE y = 2",
+    );
+    expect(r.select).toEqual([
+      { expr: "user_id", alias: "user_id" },
+      { expr: "timestamp", alias: "timestamp" },
+    ]);
+    // The branch filters stay inside, so nothing can be lifted out
+    expect(r.from).toBe(
+      "(SELECT a AS user_id, b AS timestamp FROM t WHERE x = 1 UNION ALL SELECT c AS user_id, d AS timestamp FROM v WHERE y = 2) u",
+    );
+    expect(r.where).toBeUndefined();
+    expect(r.dedupe).toBeUndefined();
+  });
+  it("handles parenthesized branches, EXCEPT, and a leading CTE", () => {
+    expect(
+      pg("(SELECT a AS user_id FROM t) UNION (SELECT b AS user_id FROM v)")
+        .select,
+    ).toEqual([{ expr: "user_id", alias: "user_id" }]);
+    expect(
+      pg("SELECT a AS user_id FROM t EXCEPT SELECT b AS user_id FROM v").from,
+    ).toBe("(SELECT a AS user_id FROM t EXCEPT SELECT b AS user_id FROM v) u");
+    const r = pg(
+      "WITH z AS (SELECT 1) SELECT a AS user_id FROM z UNION SELECT b AS user_id FROM v",
+    );
+    expect(r.cte).toBe("WITH z AS (SELECT 1)");
+    expect(r.from).toContain("UNION");
+  });
+  it("rejects branches that do not line up", () => {
+    expect(() =>
+      pg("SELECT a AS user_id FROM t UNION SELECT b AS other FROM v"),
+    ).toThrow(SqlParseError);
+    expect(() => pg("SELECT * FROM t UNION SELECT * FROM v")).toThrow(
+      SqlParseError,
+    );
+  });
+  it("does not mistake a BigQuery SELECT * EXCEPT for a set operation", () => {
+    expect(() =>
+      parseSelectSQL("SELECT * EXCEPT (b) FROM t", "bigquery"),
+    ).toThrow(/EXCEPT clause/);
+  });
+});
+
+describe("parseSelectSQL CTEs", () => {
+  it("keeps the WITH prefix and parses the outer query", () => {
+    const r = pg(
+      "WITH a AS (SELECT x, y FROM b WHERE y > 1) SELECT x, y AS timestamp FROM a WHERE x = 'c'",
+    );
+    expect(r.cte).toBe("WITH a AS (SELECT x, y FROM b WHERE y > 1)");
+    expect(r.from).toBe("a");
+    expect(r.select).toEqual([
+      { expr: "x", alias: "x" },
+      { expr: "y", alias: "timestamp" },
+    ]);
+    expect(r.where).toEqual([{ operator: "=", column: "x", values: ["c"] }]);
+  });
+  it("does not look inside the bodies", () => {
+    const r = pg(
+      "WITH a AS (SELECT x FROM b GROUP BY x HAVING COUNT(*) > 1 UNION SELECT y FROM c) SELECT x FROM a",
+    );
+    expect(r.cte).toContain("UNION");
+    expect(r.from).toBe("a");
+  });
+  it("handles multiple CTEs, column lists, and materialization hints", () => {
+    expect(
+      pg(
+        "WITH a AS (SELECT 1), b (x, y) AS NOT MATERIALIZED (SELECT 2) SELECT x FROM b",
+      ).cte,
+    ).toBe("WITH a AS (SELECT 1), b(x, y) AS NOT MATERIALIZED(SELECT 2)");
+    expect(pg("WITH RECURSIVE a AS (SELECT 1) SELECT x FROM a").cte).toBe(
+      "WITH RECURSIVE a AS (SELECT 1)",
+    );
+  });
+  it("ignores parentheses inside body strings and comments", () => {
+    const r = pg(
+      "WITH a AS (SELECT x FROM b WHERE y = ')' -- )\n AND z = 1) SELECT x FROM a",
+    );
+    expect(r.from).toBe("a");
+    expect(r.cte).toBe("WITH a AS (SELECT x FROM b WHERE y = ')' AND z = 1)");
+  });
+  it("case-folds the outer query but leaves the bodies alone", () => {
+    const r = pg("WITH A AS (SELECT Xyz FROM b) SELECT Xyz FROM A");
+    expect(r.cte).toBe("WITH A AS (SELECT Xyz FROM b)");
+    expect(r.select).toEqual([{ expr: "xyz", alias: "xyz" }]);
+  });
+  const bad = [
+    "WITH a SELECT x FROM a",
+    "WITH a AS SELECT x FROM a",
+    "WITH a AS (SELECT 1 SELECT x FROM a",
+    "WITH a AS (SELECT 1), SELECT x FROM a",
+    "WITH AS (SELECT 1) SELECT x FROM a",
+    "WITH a AS (SELECT 1) INSERT INTO b VALUES (1)",
+  ];
+  it.each(bad)("throws for %s", (sql) => {
+    expect(() => pg(sql)).toThrow(SqlParseError);
   });
 });
 

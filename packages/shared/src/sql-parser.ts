@@ -30,6 +30,8 @@ export interface ParsedSelectSQL {
   tableSuffix?: string;
   // SELECT DISTINCT, or an aggregate-free GROUP BY covering every expression
   dedupe?: boolean;
+  // Normalized `WITH ...` prefix; the bodies are opaque
+  cte?: string;
 }
 
 export class SqlParseError extends Error {
@@ -93,7 +95,14 @@ const DIALECTS: Partial<Record<DataSourceType, DialectRules>> = {
   growthbook_clickhouse: CLICKHOUSE,
 };
 
-type TokenType = "ident" | "quotedIdent" | "string" | "number" | "op";
+type TokenType =
+  | "ident"
+  | "quotedIdent"
+  | "string"
+  | "number"
+  | "op"
+  // A `{{...}}` handlebars expression, compiled long after this parser runs
+  | "template";
 interface Token {
   type: TokenType;
   text: string;
@@ -147,6 +156,8 @@ const KEYWORDS = new Set([
   "HAVING",
   "DISTINCT",
   "UNION",
+  "EXCEPT",
+  "INTERSECT",
   "ALL",
   "WITH",
   "OVER",
@@ -358,6 +369,13 @@ function tokenize(sql: string, rules: DialectRules): Token[] {
       const end = sql.indexOf("*/", i + 2);
       if (end < 0) fail("Unterminated block comment");
       i = end + 2;
+      continue;
+    }
+    if (c === "{" && next === "{") {
+      const close = sql.indexOf("}}", i + 2);
+      if (close < 0) fail("Unterminated {{ template expression");
+      const end = sql[close + 2] === "}" ? close + 3 : close + 2;
+      push({ type: "template", text: sql.slice(i, end) }, end);
       continue;
     }
     if (c === ";") {
@@ -906,16 +924,43 @@ function parseWhere(
   };
 }
 
-export function parseSelectSQL(
-  sql: string,
-  type: DataSourceType,
-  options: ParseSelectOptions = {},
-): ParsedSelectSQL {
-  const rules = DIALECTS[type];
-  if (!rules) fail(`Unsupported dialect: ${type}`);
+// CTE bodies are opaque; only the parens are balanced and the shape checked
+function splitCtePrefix(tokens: Token[]): { cte: Token[]; rest: Token[] } {
+  let i = 1;
+  if (isKw(tokens[i], "RECURSIVE")) i++;
+  const consumeGroup = () => {
+    let depth = 0;
+    for (; i < tokens.length; i++) {
+      depth += depthDelta(tokens[i]);
+      if (depth === 0) {
+        i++;
+        return;
+      }
+    }
+    fail("Unbalanced parentheses in CTE");
+  };
+  for (;;) {
+    if (!isName(tokens[i])) fail("Invalid CTE name");
+    i++;
+    // Optional column list: `name (a, b) AS (...)`
+    if (isOp(tokens[i], "(")) consumeGroup();
+    if (!isKw(tokens[i], "AS")) fail("Expected AS in CTE");
+    i++;
+    while (isKw(tokens[i], "NOT", "MATERIALIZED")) i++;
+    if (!isOp(tokens[i], "(")) fail("Expected ( after AS in CTE");
+    consumeGroup();
+    if (!isOp(tokens[i], ",")) break;
+    i++;
+  }
+  return { cte: tokens.slice(0, i), rest: tokens.slice(i) };
+}
 
-  const tokens = tokenize(sql, rules);
-  if (isKw(tokens[0], "WITH")) fail("CTEs (WITH) are not supported");
+function parseSingleSelect(
+  input: Token[],
+  rules: DialectRules,
+  options: ParseSelectOptions,
+): ParsedSelectSQL {
+  const tokens = [...input];
   if (!isKw(tokens[0], "SELECT")) fail("Statement must start with SELECT");
 
   const clauses: { keyword: string; tokens: Token[] }[] = [
@@ -1055,4 +1100,77 @@ export function parseSelectSQL(
   }
 
   return result;
+}
+
+const SET_OPERATORS = new Set(["UNION", "EXCEPT", "INTERSECT", "MINUS"]);
+
+// Branches of a set operation, or null when there is no top-level operator
+function splitSetOperation(tokens: Token[]): Token[][] | null {
+  const branches: Token[][] = [[]];
+  let depth = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    const u = upper(t);
+    if (depth === 0 && u !== null && SET_OPERATORS.has(u)) {
+      branches.push([]);
+      if (isKw(tokens[i + 1], "ALL", "DISTINCT")) i++;
+      continue;
+    }
+    depth += depthDelta(t);
+    if (depth < 0) fail("Unbalanced parentheses");
+    branches[branches.length - 1].push(t);
+  }
+  if (branches.length < 2) return null;
+  const stripped = branches.map(stripParens);
+  // `SELECT * EXCEPT (col)` is a BigQuery column filter, not a set operation
+  return stripped.every((b) => isKw(b[0], "SELECT")) ? stripped : null;
+}
+
+// A set operation is an opaque row source: the branches keep their own WHERE
+// clauses, so nothing can be lifted out of them
+function parseSetOperation(
+  branches: Token[][],
+  all: Token[],
+  rules: DialectRules,
+  options: ParseSelectOptions,
+): ParsedSelectSQL {
+  const parsed = branches.map((b) => parseSingleSelect(b, rules, options));
+  const aliases = parsed[0].select.map((c) => c.alias);
+  if (aliases.includes("*")) {
+    fail("SELECT * in a set operation has an unknown column list");
+  }
+  parsed.forEach((p) => {
+    const branch = p.select.map((c) => c.alias);
+    if (branch.join(",") !== aliases.join(",")) {
+      fail(
+        `Set operation branches select different columns (${aliases.join(", ")} vs ${branch.join(", ")})`,
+      );
+    }
+  });
+  return {
+    select: aliases.map((alias) => ({ expr: alias, alias })),
+    from: `(${normalize(all, rules.foldFrom)}) u`,
+  };
+}
+
+export function parseSelectSQL(
+  sql: string,
+  type: DataSourceType,
+  options: ParseSelectOptions = {},
+): ParsedSelectSQL {
+  const rules = DIALECTS[type];
+  if (!rules) fail(`Unsupported dialect: ${type}`);
+
+  let tokens = tokenize(sql, rules);
+  let cte: Token[] = [];
+  if (isKw(tokens[0], "WITH")) {
+    const split = splitCtePrefix(tokens);
+    cte = split.cte;
+    tokens = split.rest;
+  }
+  const branches = splitSetOperation(tokens);
+  const result = branches
+    ? parseSetOperation(branches, tokens, rules, options)
+    : parseSingleSelect(tokens, rules, options);
+  return cte.length ? { ...result, cte: normalize(cte, false) } : result;
 }

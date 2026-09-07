@@ -62,6 +62,9 @@ interface TypedFilter {
 
 interface SqlShape {
   from: string;
+  cte?: string;
+  // Kept verbatim because the column list is only knowable from the warehouse
+  sqlOverride?: string;
   sqlExprs: string[];
   columns: Map<string, string>;
   filters: TypedFilter[];
@@ -130,7 +133,17 @@ function parseSqlShape(
   allowAggregates = false,
 ): SqlShape {
   const parsed = parseSelectSQL(sql, datasourceType, { allowAggregates });
-  if (parsed.select[0].expr === "*") fail("SELECT * is not supported");
+  if (parsed.select[0].expr === "*") {
+    return {
+      from: parsed.from,
+      sqlOverride: sql.trim(),
+      sqlExprs: [],
+      columns: new Map(),
+      filters: [],
+      dedupe: false,
+      aggregatedAliases: [],
+    };
+  }
   const columns = new Map<string, string>();
   const filters: TypedFilter[] = [];
   const aggregatedAliases: string[] = [];
@@ -172,6 +185,7 @@ function parseSqlShape(
   });
   return {
     from: parsed.from,
+    ...(parsed.cte ? { cte: parsed.cte } : {}),
     sqlExprs: sqlExprs.sort(),
     columns,
     filters,
@@ -296,6 +310,13 @@ function parseLegacyMetric(
       `None of the metric's identifier types (${metric.userIdTypes.join(", ")}) are defined on the Data Source`,
     );
   }
+  // The legacy engine read these names off the wildcard rows, so they exist
+  if (shape.sqlOverride) {
+    configured.forEach((t) => columns.set(t, t));
+    columns.set("timestamp", "timestamp");
+    if (metric.type !== "binomial") columns.set("value", "value");
+  }
+
   const userIdTypes = configured.filter((t) => columns.has(t));
   if (!userIdTypes.length) {
     if (shape.aggregatedAliases.some((a) => configured.includes(a))) {
@@ -356,6 +377,8 @@ function parseLegacyMetric(
 
   const groupKey = JSON.stringify([
     shape.from,
+    shape.sqlOverride ?? null,
+    shape.cte ?? null,
     shape.sqlExprs,
     columns.get("timestamp"),
   ]);
@@ -398,11 +421,16 @@ function addSelectColumns(group: Group, member: ParsedLegacyMetric) {
 // What stays a row filter needs its source column in the SELECT
 function finalizeFilters(group: Group) {
   const [first, ...rest] = group.members;
-  group.elevated = new Set(
-    first.filters
-      .filter((f) => rest.every((m) => m.filters.some((g) => g.sql === f.sql)))
-      .map((f) => f.sql),
-  );
+  // Verbatim SQL has no outer SELECT to hold an elevated filter
+  group.elevated = first.sqlOverride
+    ? new Set()
+    : new Set(
+        first.filters
+          .filter((f) =>
+            rest.every((m) => m.filters.some((g) => g.sql === f.sql)),
+          )
+          .map((f) => f.sql),
+      );
   for (const member of group.members) {
     for (const { rowFilter, sql } of member.filters) {
       const expr = rowFilter.column;
@@ -426,6 +454,8 @@ function findExistingFactTable(
   const match = existing.find(
     (e) =>
       e.from === first.from &&
+      (e.cte ?? null) === (first.cte ?? null) &&
+      (e.sqlOverride ?? null) === (first.sqlOverride ?? null) &&
       JSON.stringify(e.sqlExprs) === JSON.stringify(first.sqlExprs) &&
       // Typed filters in the existing SQL would drop rows the metrics need
       e.filters.length === 0 &&
@@ -439,7 +469,8 @@ function findExistingFactTable(
 }
 
 function buildFactTableSql(group: Group): string {
-  const { from } = group.members[0];
+  const { from, cte, sqlOverride } = group.members[0];
+  if (sqlOverride) return sqlOverride;
   const cols = [...group.columns].map(([alias, expr]) =>
     bareColumnName(expr) === alias ? expr : `${expr} AS ${alias}`,
   );
@@ -465,6 +496,7 @@ function buildFactTableSql(group: Group): string {
   }
   const distinct = group.members.some((m) => m.dedupe) ? "DISTINCT " : "";
   return (
+    (cte ? `${cte}\n` : "") +
     `SELECT ${distinct}\n  ${cols.join(",\n  ")}\nFROM ${from}` +
     (where.length
       ? `\nWHERE ${where.map((w) => `(${w})`).join("\n  AND ")}`
