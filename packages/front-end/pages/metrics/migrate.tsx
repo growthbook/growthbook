@@ -282,6 +282,8 @@ export default function MigrateLegacyMetricsPage() {
   }, [conversion, selected]);
 
   const selectedCount = selected.size;
+  const migratableCount =
+    conversion?.groups.reduce((n, g) => n + g.metrics.length, 0) ?? 0;
 
   const planSummary = useMemo(() => {
     // Reused tables aren't created; referenced ones are counted separately
@@ -302,6 +304,7 @@ export default function MigrateLegacyMetricsPage() {
 
   const canMigrate =
     permissionsUtil.canCreateFactTable({ projects: [] }) &&
+    permissionsUtil.canCreateFactMetric({ projects: [] }) &&
     permissionsUtil.canCreateMetric({ projects: [] });
 
   async function run() {
@@ -367,7 +370,8 @@ export default function MigrateLegacyMetricsPage() {
     return (
       <div className="container-fluid pagecontents">
         <Callout status="error">
-          You do not have permission to create Fact Tables and Fact Metrics.
+          Migrating legacy metrics requires permission to create Fact Tables,
+          Fact Metrics and metrics in all projects.
         </Callout>
       </div>
     );
@@ -451,7 +455,13 @@ export default function MigrateLegacyMetricsPage() {
         </Callout>
       ) : (
         <>
-          {conversion && (
+          {conversion && migratableCount === 0 && (
+            <Callout status="success" mb="4">
+              All eligible legacy metrics have been migrated.
+            </Callout>
+          )}
+
+          {conversion && migratableCount > 0 && (
             <>
               <Flex align="center" mb="3">
                 <Flex gap="3" align="center">
@@ -481,9 +491,7 @@ export default function MigrateLegacyMetricsPage() {
 
                 <Box flexGrow={"1"} />
                 <Box mr="4">
-                  {selectedCount} /{" "}
-                  {conversion.groups.reduce((n, g) => n + g.metrics.length, 0)}{" "}
-                  metrics selected
+                  {selectedCount} / {migratableCount} metrics selected
                 </Box>
 
                 <Button
@@ -561,52 +569,45 @@ export default function MigrateLegacyMetricsPage() {
                   }}
                 />
               ))}
-
-              {conversion.errors.length > 0 && (
-                <Box mt="5">
-                  <Flex align="center" gap="3" mb="2">
-                    <Heading as="h2" size="md" mb="0">
-                      Cannot Be Migrated
-                    </Heading>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setShowErrors((v) => !v)}
-                    >
-                      {showErrors ? "Hide" : `Show ${conversion.errors.length}`}
-                    </Button>
-                  </Flex>
-                  <Text size="sm" as="p">
-                    These metrics stay as legacy metrics, either because their
-                    SQL does not map onto a Fact Table (CTEs, UNIONs, or
-                    aggregations that change which rows count) or because their
-                    definition is synced from config.yml or the API and has to
-                    be migrated at the source.
-                  </Text>
-                  {showErrors && (
-                    <Table variant="list">
-                      <TableHeader>
-                        <TableRow>
-                          <TableColumnHeader>Metric</TableColumnHeader>
-                          <TableColumnHeader>Reason</TableColumnHeader>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {conversion.errors.map(({ metric, error }) => (
-                          <TableRow key={metric.id}>
-                            <TableCell>
-                              <Link href={`/metric/${metric.id}`}>
-                                {metric.name}
-                              </Link>
-                            </TableCell>
-                            <TableCell>{error}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </Box>
-              )}
             </>
+          )}
+
+          {conversion && conversion.errors.length > 0 && (
+            <Box mt="5">
+              <Flex align="center" gap="3" mb="2">
+                <Heading as="h2" size="md" mb="0">
+                  Cannot Be Migrated
+                </Heading>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowErrors((v) => !v)}
+                >
+                  {showErrors ? "Hide" : `Show ${conversion.errors.length}`}
+                </Button>
+              </Flex>
+              {showErrors && (
+                <Table variant="list">
+                  <TableHeader>
+                    <TableRow>
+                      <TableColumnHeader>Metric</TableColumnHeader>
+                      <TableColumnHeader>Reason</TableColumnHeader>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {conversion.errors.map(({ metric, error }) => (
+                      <TableRow key={metric.id}>
+                        <TableCell>
+                          <Link href={`/metric/${metric.id}`}>
+                            {metric.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{error}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Box>
           )}
         </>
       )}

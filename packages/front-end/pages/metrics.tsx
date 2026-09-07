@@ -1,4 +1,5 @@
 import React from "react";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { isProjectListValidForProject } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import MetricsList from "@/components/Metrics/MetricsList";
@@ -12,11 +13,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTemplate";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Callout from "@/ui/Callout";
-
-const numberFormatter = new Intl.NumberFormat("en-US", {
-  notation: "compact",
-});
+import Link from "@/ui/Link";
 
 const MetricsPage = (): React.ReactElement => {
   const { metrics, factMetrics, factTables, datasources, project } =
@@ -34,9 +31,14 @@ const MetricsPage = (): React.ReactElement => {
   );
 
   const permissionsUtil = usePermissionsUtil();
-  const canCreateMetric = permissionsUtil.canCreateMetric({
-    projects: [project],
-  });
+  // The CTA opens the Fact Metric flow unless there are no Fact Tables
+  const canCreateMetric =
+    permissionsUtil.canCreateFactMetric({ projects: [project] }) ||
+    permissionsUtil.canCreateMetric({ projects: [project] });
+  const canMigrateMetrics =
+    permissionsUtil.canCreateFactTable({ projects: [] }) &&
+    permissionsUtil.canCreateFactMetric({ projects: [] }) &&
+    permissionsUtil.canCreateMetric({ projects: [] });
 
   const [showNewModal, setShowNewModal] = React.useState(false);
 
@@ -49,24 +51,14 @@ const MetricsPage = (): React.ReactElement => {
         />
       )}
       <CreateMetricFromTemplate />
-      {metrics.length > 0 && canCreateMetric && (
-        <Callout
-          mb="4"
-          status="info"
-          action={
-            <LinkButton href="/metrics/migrate" variant="soft">
-              Migrate legacy metrics
-            </LinkButton>
-          }
-          dismissible={true}
-          id="legacy-fact-migration-callout"
-        >
-          You have {numberFormatter.format(metrics.length)} legacy metrics.
-          Migrate them to Fact Metrics to get better query performance.
-        </Callout>
-      )}
       <Flex mb="4" justify="between" align="center">
         <h1 style={{ margin: 0 }}>Metrics</h1>
+        {metrics.length > 0 && canMigrateMetrics && (
+          <Link href="/metrics/migrate">
+            Migrate legacy metrics
+            <PiArrowSquareOut className="ml-1" />
+          </Link>
+        )}
       </Flex>
       {!hasMetrics ? (
         <Box className="appbox" p="5" style={{ textAlign: "center" }}>
