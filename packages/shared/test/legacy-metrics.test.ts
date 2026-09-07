@@ -1,3 +1,4 @@
+import { FactMetricInterface, FunnelStep } from "../types/fact-table";
 import { MetricInterface } from "../types/metric";
 import { groupLegacyMetricsIntoFactTables } from "../src/legacy-metrics";
 
@@ -43,6 +44,59 @@ function legacy(
     runStarted: null,
     queryFormat: "sql",
     ...overrides,
+  };
+}
+
+function step(name: string, factTableId: string): FunnelStep {
+  return {
+    name,
+    factTableId,
+    rowFilters: [],
+    optional: false,
+    conversionWindow: null,
+  };
+}
+
+function migrated(legacyId: string): FactMetricInterface {
+  return {
+    id: `fact__${legacyId}`,
+    organization: "org",
+    owner: "me",
+    datasource: "ds",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    name: `Fact ${legacyId}`,
+    description: "",
+    tags: [],
+    projects: [],
+    inverse: false,
+    replaces: [legacyId],
+    metricType: "proportion",
+    numerator: {
+      factTableId: "ftb_old",
+      column: "$$distinctUsers",
+      rowFilters: [{ column: "e", operator: "=", values: [legacyId] }],
+    },
+    denominator: null,
+    cappingSettings: { type: "", value: 0 },
+    windowSettings: {
+      type: "conversion",
+      delayValue: 0,
+      delayUnit: "hours",
+      windowValue: 72,
+      windowUnit: "hours",
+    },
+    priorSettings: { override: false, proper: false, mean: 0, stddev: 0.3 },
+    maxPercentChange: 0.5,
+    minPercentChange: 0.005,
+    minSampleSize: 150,
+    winRisk: 0.0025,
+    loseRisk: 0.0125,
+    regressionAdjustmentOverride: false,
+    regressionAdjustmentEnabled: false,
+    regressionAdjustmentDays: 14,
+    quantileSettings: null,
+    funnelSettings: null,
   };
 }
 
@@ -389,7 +443,7 @@ describe("groupLegacyMetricsIntoFactTables", () => {
         legacy("bad", "SELECT user_id, timestamp, v AS value FROM t", {
           aggregation: "AVG(value)",
         }),
-        legacy("funnel", "SELECT user_id, timestamp, v AS value FROM t", {
+        legacy("binden", "SELECT user_id, timestamp, v AS value FROM t", {
           denominator: "bin",
         }),
         legacy("bin", "SELECT user_id, timestamp FROM t", { type: "binomial" }),
@@ -425,13 +479,14 @@ describe("groupLegacyMetricsIntoFactTables", () => {
         aggregateFilter: "!= 0",
       },
     });
+    // One binomial denominator step keeps the value as a ratio
+    expect(byId["fact__binden"]).toMatchObject({
+      metricType: "ratio",
+      numerator: { column: "v", aggregation: "sum" },
+      denominator: { column: "$$distinctUsers" },
+    });
     expect(errors).toEqual([
       { metricId: "bad", error: "Unsupported custom aggregation: AVG(value)" },
-      {
-        metricId: "funnel",
-        error:
-          "A funnel counts users, so this count metric's value would be lost. Rebuild it by hand as a ratio if that is what you want.",
-      },
     ]);
   });
 
@@ -736,7 +791,11 @@ describe("groupLegacyMetricsIntoFactTables", () => {
     const byId = Object.fromEntries(
       groups.flatMap((g) => g.metrics).map((m) => [m.id, m]),
     );
-    expect(byId["fact__buy"]).toMatchObject({ metricType: "funnel" });
+    expect(byId["fact__buy"]).toMatchObject({
+      metricType: "funnel",
+      // A metric-level window would also cap each step from exposure
+      windowSettings: { type: "", windowValue: 0 },
+    });
     expect(byId["fact__buy"].funnelSettings?.steps.map((s) => s.name)).toEqual([
       "Metric spend",
       "Metric cart",
@@ -753,7 +812,113 @@ describe("groupLegacyMetricsIntoFactTables", () => {
     ]);
   });
 
-  it("explains when a denominator was migrated in an earlier run", () => {
+  it("converts a single binomial denominator step into a ratio", () => {
+    const { groups, errors } = groupLegacyMetricsIntoFactTables(
+      [
+        legacy("cart", "SELECT user_id, timestamp FROM t WHERE e = 'cart'", {
+          type: "binomial",
+        }),
+        legacy("rev", "SELECT user_id, timestamp, amount AS value FROM t", {
+          type: "revenue",
+          denominator: "cart",
+          cappingSettings: { type: "absolute", value: 100 },
+        }),
+      ],
+      options(),
+    );
+    expect(errors).toEqual([]);
+    const byId = Object.fromEntries(
+      groups.flatMap((g) => g.metrics).map((m) => [m.id, m]),
+    );
+    expect(byId["fact__rev"]).toMatchObject({
+      metricType: "ratio",
+      numerator: { column: "amount", aggregation: "sum" },
+      denominator: { column: "$$distinctUsers" },
+      cappingSettings: { type: "absolute", value: 100 },
+    });
+    expect(byId["fact__rev"].denominator?.rowFilters).toEqual([
+      { column: "e", operator: "=", values: ["cart"] },
+    ]);
+    expect(byId["fact__cart"]).toMatchObject({ metricType: "proportion" });
+  });
+
+  it("makes a ratio over a binomial denominator migrated in an earlier run", () => {
+    const { groups, errors } = groupLegacyMetricsIntoFactTables(
+      [
+        legacy("rev", "SELECT user_id, timestamp, v AS value FROM t", {
+          type: "revenue",
+          denominator: "cart",
+        }),
+      ],
+      {
+        ...options(),
+        getMigratedFactMetric: (id) =>
+          id === "cart" ? migrated("cart") : undefined,
+      },
+    );
+    expect(errors).toEqual([]);
+    expect(groups.flatMap((g) => g.metrics)[0]).toMatchObject({
+      metricType: "ratio",
+      denominator: { factTableId: "ftb_old", column: "$$distinctUsers" },
+    });
+  });
+
+  it("still refuses a non-binomial metric over a longer binomial chain", () => {
+    const { errors } = groupLegacyMetricsIntoFactTables(
+      [
+        legacy("view", "SELECT user_id, timestamp FROM t", {
+          type: "binomial",
+        }),
+        legacy("cart", "SELECT user_id, timestamp FROM t", {
+          type: "binomial",
+          denominator: "view",
+        }),
+        legacy("rev", "SELECT user_id, timestamp, v AS value FROM t", {
+          type: "revenue",
+          denominator: "cart",
+        }),
+      ],
+      options(),
+    );
+    expect(errors).toEqual([
+      {
+        metricId: "rev",
+        error:
+          "A funnel counts users, so this revenue metric's value would be lost. Rebuild it by hand as a ratio if that is what you want.",
+      },
+    ]);
+  });
+
+  it("rebuilds a funnel from a denominator migrated in an earlier run", () => {
+    const { groups, errors } = groupLegacyMetricsIntoFactTables(
+      [
+        legacy("buy", "SELECT user_id, timestamp FROM t WHERE e = 'buy'", {
+          type: "binomial",
+          denominator: "cart",
+        }),
+      ],
+      {
+        ...options(),
+        getMigratedFactMetric: (id) =>
+          id === "cart" ? migrated("cart") : undefined,
+      },
+    );
+    expect(errors).toEqual([]);
+    const buy = groups.flatMap((g) => g.metrics)[0];
+    expect(buy).toMatchObject({ metricType: "funnel" });
+    expect(buy.funnelSettings?.steps).toEqual([
+      {
+        name: "Fact cart",
+        factTableId: "ftb_old",
+        rowFilters: [{ column: "e", operator: "=", values: ["cart"] }],
+        optional: false,
+        conversionWindow: { unit: "hours", value: 72 },
+      },
+      expect.objectContaining({ name: "Metric buy", factTableId: "ft_1" }),
+    ]);
+  });
+
+  it("extends a funnel that was itself migrated in an earlier run", () => {
     const { groups, errors } = groupLegacyMetricsIntoFactTables(
       [
         legacy("buy", "SELECT user_id, timestamp FROM t", {
@@ -761,14 +926,96 @@ describe("groupLegacyMetricsIntoFactTables", () => {
           denominator: "cart",
         }),
       ],
-      { ...options(), isAlreadyMigrated: (id) => id === "cart" },
+      {
+        ...options(),
+        getMigratedFactMetric: (id) =>
+          id === "cart"
+            ? {
+                ...migrated("cart"),
+                metricType: "funnel" as const,
+                numerator: null,
+                funnelSettings: {
+                  steps: [
+                    step("Fact view", "ftb_a"),
+                    step("Fact cart", "ftb_old"),
+                  ],
+                },
+              }
+            : undefined,
+      },
+    );
+    expect(errors).toEqual([]);
+    const buy = groups.flatMap((g) => g.metrics)[0];
+    expect(buy.funnelSettings?.steps.map((s) => s.name)).toEqual([
+      "Fact view",
+      "Fact cart",
+      "Metric buy",
+    ]);
+  });
+
+  it("uses a migrated non-binomial denominator as a ratio denominator", () => {
+    const { groups, errors } = groupLegacyMetricsIntoFactTables(
+      [
+        legacy("rev", "SELECT user_id, timestamp, v AS value FROM t", {
+          type: "revenue",
+          denominator: "orders",
+        }),
+      ],
+      {
+        ...options(),
+        getMigratedFactMetric: (id) =>
+          id === "orders"
+            ? { ...migrated("orders"), metricType: "mean" as const }
+            : undefined,
+      },
+    );
+    expect(errors).toEqual([]);
+    const rev = groups.flatMap((g) => g.metrics)[0];
+    expect(rev).toMatchObject({
+      metricType: "ratio",
+      denominator: { factTableId: "ftb_old", column: "$$distinctUsers" },
+    });
+  });
+
+  it("still fails when a denominator has no Fact Metric to rebuild from", () => {
+    const { groups, errors } = groupLegacyMetricsIntoFactTables(
+      [
+        legacy("buy", "SELECT user_id, timestamp FROM t", {
+          type: "binomial",
+          denominator: "cart",
+        }),
+      ],
+      options(),
     );
     expect(groups).toHaveLength(0);
     expect(errors).toEqual([
       {
         metricId: "buy",
-        error:
-          "Denominator metric cart was already migrated on its own, so this metric cannot be rebuilt from it",
+        error: "Denominator metric cart could not be converted",
+      },
+    ]);
+  });
+
+  it("rejects a migrated denominator that is itself a ratio", () => {
+    const { errors } = groupLegacyMetricsIntoFactTables(
+      [
+        legacy("rev", "SELECT user_id, timestamp, v AS value FROM t", {
+          type: "revenue",
+          denominator: "orders",
+        }),
+      ],
+      {
+        ...options(),
+        getMigratedFactMetric: (id) =>
+          id === "orders"
+            ? { ...migrated("orders"), metricType: "ratio" as const }
+            : undefined,
+      },
+    );
+    expect(errors).toEqual([
+      {
+        metricId: "rev",
+        error: "Nested denominators are only supported for binomial funnels",
       },
     ]);
   });

@@ -24,6 +24,7 @@ import Button from "@/ui/Button";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+import Switch from "@/ui/Switch";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -38,6 +39,7 @@ import Table, {
   TableHeader,
   TableRow,
 } from "@/ui/Table";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -119,6 +121,11 @@ function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
 }
 
+// Ratios and funnels are the only shapes whose results move after migration
+function isDerived(metric: FactMetricInterface): boolean {
+  return metric.metricType === "ratio" || metric.metricType === "funnel";
+}
+
 function referencedTableIds(metric: FactMetricInterface): string[] {
   return [
     metric.denominator?.factTableId,
@@ -181,13 +188,18 @@ export default function MigrateLegacyMetricsPage() {
     factTables: FactTableInterface[];
   }>("/fact-tables");
 
-  const replacedLegacyIds = useMemo(
-    () => new Set(allFactMetrics.flatMap((m) => m.replaces || [])),
+  const migratedByLegacyId = useMemo(
+    () =>
+      new Map(
+        allFactMetrics.flatMap((m) =>
+          (m.replaces || []).map((id) => [id, m] as const),
+        ),
+      ),
     [allFactMetrics],
   );
 
   const eligibleByDatasource = useMemo(() => {
-    const replaced = replacedLegacyIds;
+    const replaced = migratedByLegacyId;
     const map = new Map<string, MetricInterface[]>();
     for (const m of metricsData?.metrics || []) {
       if (m.status === "archived" || replaced.has(m.id)) continue;
@@ -195,7 +207,7 @@ export default function MigrateLegacyMetricsPage() {
       map.set(m.datasource, [...(map.get(m.datasource) || []), m]);
     }
     return map;
-  }, [metricsData, replacedLegacyIds, getDatasourceById]);
+  }, [metricsData, migratedByLegacyId, getDatasourceById]);
 
   const datasourceOptions = datasources.filter((d) =>
     eligibleByDatasource.has(d.id),
@@ -220,7 +232,7 @@ export default function MigrateLegacyMetricsPage() {
       ),
       userIdTypes: allowedUserIdTypes(datasource),
       isKnownOwner: (id) => users.has(id),
-      isAlreadyMigrated: (id) => replacedLegacyIds.has(id),
+      getMigratedFactMetric: (id) => migratedByLegacyId.get(id),
     });
     const legacyById = new Map(eligible.map((m) => [m.id, m]));
     return {
@@ -237,18 +249,42 @@ export default function MigrateLegacyMetricsPage() {
     eligibleByDatasource,
     factTablesData,
     getDatasourceById,
-    replacedLegacyIds,
+    migratedByLegacyId,
     users,
   ]);
 
+  const [includeDerived, setIncludeDerived] = useState(false);
+
+  // Separate memo so toggling the switch does not re-run the SQL parsing
+  const groups = useMemo(() => {
+    if (!conversion) return [];
+    if (includeDerived) return conversion.groups;
+    return conversion.groups
+      .map((g) => ({ ...g, metrics: g.metrics.filter((m) => !isDerived(m)) }))
+      .filter((g) => g.metrics.length > 0);
+  }, [conversion, includeDerived]);
+
+  const derivedCount = useMemo(
+    () =>
+      conversion?.groups.reduce(
+        (n, g) => n + g.metrics.filter(isDerived).length,
+        0,
+      ) ?? 0,
+    [conversion],
+  );
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Nothing is selected by default; migrating a few at a time is the norm
+  useEffect(() => setSelected(new Set()), [conversion]);
+  // Turning the switch off must not leave a hidden ratio or funnel selected
   useEffect(() => {
-    setSelected(
-      new Set(
-        conversion?.groups.flatMap((g) => g.metrics.map((m) => m.id)) || [],
-      ),
-    );
-  }, [conversion]);
+    if (includeDerived) return;
+    setSelected((prev) => {
+      const ids = new Set(groups.flatMap((g) => g.metrics.map((m) => m.id)));
+      if ([...prev].every((id) => ids.has(id))) return prev;
+      return new Set([...prev].filter((id) => ids.has(id)));
+    });
+  }, [includeDerived, groups]);
 
   const [confirming, setConfirming] = useState(false);
   const [running, setRunning] = useState(false);
@@ -261,7 +297,7 @@ export default function MigrateLegacyMetricsPage() {
     if (!conversion) return [];
     const byId = new Map(conversion.groups.map((g) => [g.factTable.id, g]));
     const items = new Map<string, PlanItem>();
-    for (const group of conversion.groups) {
+    for (const group of groups) {
       const metrics = group.metrics.filter((m) => selected.has(m.id));
       if (metrics.length) items.set(group.factTable.id, { group, metrics });
     }
@@ -274,11 +310,12 @@ export default function MigrateLegacyMetricsPage() {
       }
     }
     return [...items.values()];
-  }, [conversion, selected]);
+  }, [conversion, groups, selected]);
 
   const selectedCount = selected.size;
-  const migratableCount =
-    conversion?.groups.reduce((n, g) => n + g.metrics.length, 0) ?? 0;
+  const migratableCount = groups.reduce((n, g) => n + g.metrics.length, 0);
+  // Derived metrics are already inside migratableCount once the switch is on
+  const totalCount = migratableCount + (includeDerived ? 0 : derivedCount);
 
   const planSummary = useMemo(() => {
     // Reused tables aren't created; referenced ones are counted separately
@@ -454,13 +491,13 @@ export default function MigrateLegacyMetricsPage() {
         </Callout>
       ) : (
         <>
-          {conversion && migratableCount === 0 && (
+          {conversion && totalCount === 0 && (
             <Callout status="success" mb="4">
               All eligible legacy metrics have been migrated.
             </Callout>
           )}
 
-          {conversion && migratableCount > 0 && (
+          {conversion && totalCount > 0 && (
             <>
               <Flex align="center" mb="3">
                 <Flex gap="3" align="center">
@@ -470,9 +507,7 @@ export default function MigrateLegacyMetricsPage() {
                     onClick={() =>
                       setSelected(
                         new Set(
-                          conversion.groups.flatMap((g) =>
-                            g.metrics.map((m) => m.id),
-                          ),
+                          groups.flatMap((g) => g.metrics.map((m) => m.id)),
                         ),
                       )
                     }
@@ -486,6 +521,57 @@ export default function MigrateLegacyMetricsPage() {
                   >
                     Select none
                   </Button>
+                  {derivedCount > 0 && (
+                    <Flex gap="1" align="center" ml="4">
+                      <Switch
+                        label={`Include ratios and funnels (${derivedCount})`}
+                        value={includeDerived}
+                        onChange={setIncludeDerived}
+                        disabled={running}
+                        size="sm"
+                      />
+                      <Tooltip
+                        body={
+                          <>
+                            <Text as="p" weight="medium" mb="1">
+                              Ratios and funnels are calculated slightly
+                              differently with fact tables.
+                            </Text>
+                            <Box asChild mb="0">
+                              <ul>
+                                <li>
+                                  In legacy ratio metrics, the numerator only
+                                  included users who first converted on the
+                                  denominator. Now they calculate numerator and
+                                  denominator independently.
+                                </li>
+                                <li>
+                                  Legacy funnel metrics reported the conversion
+                                  rate from the previous step. This introduced
+                                  bias to the results. Now they report the
+                                  conversion rate from experiment exposure.
+                                  Per-step conversions are still visible, but do
+                                  not report statistical significance.
+                                </li>
+                                <li>
+                                  A legacy metric using &apos;ignore nulls&apos;
+                                  is now a ratio metric. The value is unchanged,
+                                  but confidence intervals are computed
+                                  differently and may shift.
+                                </li>
+                                <li>
+                                  Legacy ratio metrics did not support CUPED.
+                                  Now, they do and apply it by default when
+                                  enabled for the organization.
+                                </li>
+                              </ul>
+                            </Box>
+                          </>
+                        }
+                        tipMinWidth="420px"
+                      />
+                    </Flex>
+                  )}
                 </Flex>
 
                 <Box flexGrow={"1"} />
@@ -500,6 +586,13 @@ export default function MigrateLegacyMetricsPage() {
                   Run migration
                 </Button>
               </Flex>
+
+              {migratableCount === 0 && (
+                <Callout status="info" mb="4">
+                  Only ratio and funnel metrics are left. Turn on{" "}
+                  <strong>Include ratios and funnels</strong> to migrate them.
+                </Callout>
+              )}
 
               {confirming && (
                 <ConfirmDialog
@@ -549,7 +642,7 @@ export default function MigrateLegacyMetricsPage() {
                 </Box>
               )}
 
-              {conversion.groups.map((group) => (
+              {groups.map((group) => (
                 <FactTableFrame
                   key={group.factTable.id}
                   group={group}
@@ -746,7 +839,11 @@ function FactTableFrame({
                 {isExpanded && (
                   <TableRow data-no-hover>
                     <TableCell colSpan={8}>
-                      <MetricDetails metric={metric} legacy={legacy} />
+                      <MetricDetails
+                        metric={metric}
+                        legacy={legacy}
+                        legacyById={legacyById}
+                      />
                     </TableCell>
                   </TableRow>
                 )}
@@ -762,18 +859,60 @@ function FactTableFrame({
 function MetricDetails({
   metric,
   legacy,
+  legacyById,
 }: {
   metric: FactMetricInterface;
   legacy?: MetricInterface;
+  legacyById: Map<string, MetricInterface>;
 }) {
   const numerator = metric.numerator;
-  const window = metric.windowSettings;
-  const legacySettings: [string, string][] = [
-    ["Type", legacy?.type || ""],
-    ...(legacy?.aggregation
-      ? [["Aggregation", legacy.aggregation] as [string, string]]
-      : []),
-  ];
+  // Same check the converter makes: no SQL means the query builder was used
+  const isBuilder =
+    !!legacy && (legacy.queryFormat === "builder" || !legacy.sql);
+  const templateVars = Object.entries(legacy?.templateVariables || {}).filter(
+    ([, value]) => !!value,
+  );
+
+  const legacySettings: [string, string][] = [["Type", legacy?.type || ""]];
+  if (legacy?.aggregation) {
+    legacySettings.push(["Aggregation", legacy.aggregation]);
+  }
+  if (legacy && isBuilder) {
+    legacySettings.push(["Query format", "builder"]);
+    legacySettings.push(["Table", legacy.table || ""]);
+    if (legacy.type !== "binomial" && legacy.column) {
+      legacySettings.push(["Column", legacy.column]);
+    }
+    legacySettings.push([
+      "Timestamp column",
+      legacy.timestampColumn || "received_at",
+    ]);
+    legacySettings.push([
+      "Conditions",
+      legacy.conditions?.length
+        ? legacy.conditions
+            .map((c) => `${c.column} ${c.operator} ${c.value}`)
+            .join("; ")
+        : "none",
+    ]);
+  }
+  if (legacy?.denominator) {
+    legacySettings.push([
+      "Denominator",
+      legacyById.get(legacy.denominator)?.name || legacy.denominator,
+    ]);
+  }
+  // Only drives the conversion (to a ratio) on non-binomial metrics
+  if (legacy?.ignoreNulls && legacy.type !== "binomial") {
+    legacySettings.push(["Ignore nulls", "yes"]);
+  }
+  if (templateVars.length) {
+    legacySettings.push([
+      "Template variables",
+      templateVars.map(([name, value]) => `${name} = ${value}`).join(", "),
+    ]);
+  }
+
   const settings: [string, string][] = [
     ["Type", metric.metricType],
     [
@@ -801,19 +940,6 @@ function MetricDetails({
           ] as [string, string],
         ]
       : []),
-    [
-      "Conversion window",
-      window.type
-        ? `${window.type}: ${window.windowValue} ${window.windowUnit}${window.delayValue ? `, delay ${window.delayValue} ${window.delayUnit}` : ""}`
-        : "none",
-    ],
-    [
-      "Capping",
-      metric.cappingSettings.type
-        ? `${metric.cappingSettings.type} ${metric.cappingSettings.value}`
-        : "none",
-    ],
-    ["Inverse", metric.inverse ? "yes" : "no"],
   ];
   return (
     <Grid columns="2" gap="5" width="100%">
@@ -826,7 +952,13 @@ function MetricDetails({
           Legacy metric
         </Text>
         <SettingList settings={legacySettings} />
-        <Code language="sql" code={legacy?.sql || ""} showLineNumbers={false} />
+        {!isBuilder && (
+          <Code
+            language="sql"
+            code={legacy?.sql || ""}
+            showLineNumbers={false}
+          />
+        )}
       </Box>
       <Box minWidth="0">
         <Text size="lg" weight="semibold" as="p">

@@ -6,6 +6,7 @@ import {
   FactMetricInterface,
   FactTableInterface,
   FunnelStep,
+  MetricWindowSettings,
   RowFilter,
 } from "../types/fact-table";
 import { MetricInterface } from "../types/metric";
@@ -49,8 +50,10 @@ export interface LegacyMetricConversionOptions {
   defaultSchema?: string;
   // Anything outside these can never join to an experiment
   userIdTypes?: string[];
-  // Migrated in an earlier run, so its chain can no longer be rebuilt
-  isAlreadyMigrated?: (legacyMetricId: string) => boolean;
+  // Rebuilds a denominator that an earlier run already migrated
+  getMigratedFactMetric?: (
+    legacyMetricId: string,
+  ) => FactMetricInterface | undefined;
   // Whether a `u_...` owner id still belongs to the organization
   isKnownOwner?: (ownerId: string) => boolean;
 }
@@ -635,31 +638,78 @@ function buildColumnRef({ member, group }: Placed): ColumnRef {
   };
 }
 
+type ChainLink =
+  | { kind: "pending"; placed: Placed }
+  | { kind: "migrated"; factMetric: FactMetricInterface };
+
+// Only what this converter itself produces; anything else was hand-edited
+function migratedIsBinomial(factMetric: FactMetricInterface): boolean {
+  return (
+    factMetric.metricType === "proportion" || factMetric.metricType === "funnel"
+  );
+}
+
+function linkIsBinomial(link: ChainLink): boolean {
+  return link.kind === "pending"
+    ? link.placed.member.metric.type === "binomial"
+    : migratedIsBinomial(link.factMetric);
+}
+
+function linkColumnRef(link: ChainLink): ColumnRef {
+  if (link.kind === "pending") return buildColumnRef(link.placed);
+  const { factMetric } = link;
+  // Its own denominator is a level of nesting the legacy path rejects too
+  if (factMetric.metricType === "ratio") {
+    fail("Nested denominators are only supported for binomial funnels");
+  }
+  if (!factMetric.numerator) {
+    fail(
+      `Denominator metric ${legacyIdOf(factMetric) || factMetric.id} was already migrated and cannot be used as a ratio denominator`,
+    );
+  }
+  return factMetric.numerator;
+}
+
+function linkFunnelSteps(link: ChainLink): FunnelStep[] {
+  if (link.kind === "pending") return [buildFunnelStep(link.placed)];
+  const { factMetric } = link;
+  if (factMetric.metricType === "funnel") {
+    return factMetric.funnelSettings?.steps ?? [];
+  }
+  return [migratedFunnelStep(factMetric)];
+}
+
 function denominatorChain(
   metric: MetricInterface,
   lookup: Map<string, Placed>,
   options: LegacyMetricConversionOptions,
-): Placed[] {
-  const chain: Placed[] = [];
+): ChainLink[] {
+  const chain: ChainLink[] = [];
   let id = metric.denominator;
   while (id) {
     if (chain.length >= MAX_FUNNEL_STEPS) fail("Denominator chain is too long");
     const den = lookup.get(id);
-    if (!den && options.isAlreadyMigrated?.(id)) {
-      fail(
-        `Denominator metric ${id} was already migrated on its own, so this metric cannot be rebuilt from it`,
-      );
+    if (den) {
+      chain.unshift({ kind: "pending", placed: den });
+      id = den.member.metric.denominator;
+      continue;
     }
-    if (!den) fail(`Denominator metric ${id} could not be converted`);
-    chain.unshift(den);
-    id = den.member.metric.denominator;
+    const factMetric = options.getMigratedFactMetric?.(id);
+    if (!factMetric) fail(`Denominator metric ${id} could not be converted`);
+    // Already migrated: its Fact Metric covers the rest of the chain
+    chain.unshift({ kind: "migrated", factMetric });
+    break;
   }
   return chain;
 }
 
 // A binomial denominator gated conversion on the previous step: a funnel
-function buildFunnelStep(placed: Placed): FunnelStep {
-  const { windowSettings, name } = placed.member.metric;
+function toFunnelStep(
+  name: string,
+  factTableId: string,
+  rowFilters: RowFilter[],
+  windowSettings: MetricWindowSettings,
+): FunnelStep {
   if (windowSettings.type === "lookback") {
     fail("Lookback windows are not supported in funnel steps");
   }
@@ -668,14 +718,39 @@ function buildFunnelStep(placed: Placed): FunnelStep {
   }
   return {
     name,
-    factTableId: placed.group.id,
-    rowFilters: buildColumnRef(placed).rowFilters ?? [],
+    factTableId,
+    rowFilters,
     optional: false,
     conversionWindow:
       windowSettings.type === "conversion"
         ? { unit: windowSettings.windowUnit, value: windowSettings.windowValue }
         : null,
   };
+}
+
+function buildFunnelStep(placed: Placed): FunnelStep {
+  const { windowSettings, name } = placed.member.metric;
+  return toFunnelStep(
+    name,
+    placed.group.id,
+    buildColumnRef(placed).rowFilters ?? [],
+    windowSettings,
+  );
+}
+
+function migratedFunnelStep(factMetric: FactMetricInterface): FunnelStep {
+  const { numerator, name, windowSettings } = factMetric;
+  if (!numerator) {
+    fail(
+      `Denominator metric ${legacyIdOf(factMetric) || factMetric.id} was already migrated and cannot be used as a funnel step`,
+    );
+  }
+  return toFunnelStep(
+    name,
+    numerator.factTableId,
+    numerator.rowFilters ?? [],
+    windowSettings,
+  );
 }
 
 function buildFactMetric(
@@ -720,15 +795,25 @@ function buildFactMetric(
   };
 
   const immediate = chain[chain.length - 1];
-  if (immediate && immediate.member.metric.type === "binomial") {
-    const steps = [...chain, placed];
-    // Legacy never read an intermediate step's value, only the final one's
+  // A binomial denominator gated conversion on the previous step: a funnel
+  const priorSteps =
+    immediate && linkIsBinomial(immediate)
+      ? chain.flatMap(linkFunnelSteps)
+      : [];
+  // Except over a single step, where a ratio keeps the metric's own value
+  const isRatioOverStep = priorSteps.length === 1 && metric.type !== "binomial";
+
+  if (priorSteps.length && !isRatioOverStep) {
     if (metric.type !== "binomial") {
       fail(
         `A funnel counts users, so this ${metric.type} metric's value would be lost. Rebuild it by hand as a ratio if that is what you want.`,
       );
     }
-    if (new Set(steps.map((s) => s.group.id)).size > MAX_FUNNEL_FACT_TABLES) {
+    const steps = [...priorSteps, buildFunnelStep(placed)];
+    if (steps.length > MAX_FUNNEL_STEPS) fail("Denominator chain is too long");
+    if (
+      new Set(steps.map((s) => s.factTableId)).size > MAX_FUNNEL_FACT_TABLES
+    ) {
       fail(`Funnels can span at most ${MAX_FUNNEL_FACT_TABLES} fact tables`);
     }
     return {
@@ -737,7 +822,15 @@ function buildFactMetric(
       numerator: null,
       denominator: null,
       cappingSettings: { type: "", value: 0 },
-      funnelSettings: { steps: steps.map(buildFunnelStep) },
+      // Steps carry the windows; a metric-level one would also cap from exposure
+      windowSettings: {
+        type: "",
+        delayValue: 0,
+        delayUnit: "hours",
+        windowValue: 0,
+        windowUnit: "hours",
+      },
+      funnelSettings: { steps },
     };
   }
 
@@ -750,7 +843,7 @@ function buildFactMetric(
       fail("Nested denominators are only supported for binomial funnels");
     }
     metricType = "ratio";
-    denominator = buildColumnRef(immediate);
+    denominator = linkColumnRef(immediate);
   }
 
   // ignoreNulls is exactly SUM(value) over users with a non-zero value
