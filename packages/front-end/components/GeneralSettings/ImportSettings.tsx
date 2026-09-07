@@ -73,7 +73,7 @@ export default function ImportSettings({
         </Callout>
       )}
 
-      <div className="bg-white p-3 border position-relative my-3">
+      <div className="appbox p-3 position-relative my-3">
         <h3>Import from Another Service</h3>
         <p>
           Import your data from another feature flag and/or experimentation

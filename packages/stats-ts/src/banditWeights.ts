@@ -5,6 +5,8 @@ const BANDIT_PRIOR_VARIANCE = 1e4;
 const BANDIT_PRIOR_PRECISION = 1 / BANDIT_PRIOR_VARIANCE;
 const MIN_VARIATION_WEIGHT = 0.01;
 const MIN_UNITS_PER_VARIATION = 100;
+// Minimum variance for a bandit variation.
+const BANDIT_MIN_VARIANCE = 1e-9;
 
 export type BanditArmStatistic = {
   n: number;
@@ -198,8 +200,8 @@ export function updateVariationWeights(
     };
   }
 
-  const dataPrecision = stats.map((s) =>
-    s.variance > 0 ? s.n / s.variance : 0,
+  const dataPrecision = stats.map(
+    (s) => s.n / Math.max(s.variance, BANDIT_MIN_VARIANCE),
   );
   const posteriorVariance = dataPrecision.map(
     (dp) => 1 / (BANDIT_PRIOR_PRECISION + dp),

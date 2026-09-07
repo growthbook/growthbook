@@ -369,7 +369,6 @@ const unsupportedReasonBaseParams = {
   pipelineSettings: makePipelineSettings(),
   experimentId,
   orgHasIncrementalPipelineFeature: true,
-  skipPartialData: false,
   activationMetric: null,
   metrics: [makeFactMetric()],
   experimentType: "standard",
@@ -409,17 +408,6 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
         orgHasIncrementalPipelineFeature: false,
       }),
     ).toBe("Organization does not have access to Incremental Pipeline mode.");
-  });
-
-  it("flags exclude in-progress conversions", () => {
-    expect(
-      getIncrementalPipelineUnsupportedReason({
-        ...unsupportedReasonBaseParams,
-        skipPartialData: true,
-      }),
-    ).toBe(
-      "'Exclude In-Progress Conversions' is not supported with Incremental Pipeline mode while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.",
-    );
   });
 
   it("flags a configured activation metric", () => {
@@ -497,7 +485,6 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
         }),
         experimentId,
         orgHasIncrementalPipelineFeature: false,
-        skipPartialData: true,
         activationMetric: "fact_m1",
         metrics: [],
         experimentType: undefined,

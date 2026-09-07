@@ -221,15 +221,47 @@ export type ContextualLeafStatsEntry = {
 };
 
 /**
+ * Metadata describing a single greedy regression-tree split.
+ */
+export type ContextualTreeSplit = {
+  /**
+   * The AND of per-attribute clauses defining the leaf node that was split,
+   * as it existed before this split (empty for the root node).
+   */
+  leafClauses: ContextualLeafClause[];
+  /** The attribute the tree split this node on. */
+  attribute: string;
+  /** Categories routed to the retained parent leaf (label 0). */
+  leftLevels: string[];
+  /** Categories routed to the new child leaf (label 1). */
+  rightLevels: string[];
+};
+
+/**
  * Total within-tree SSE captured at each stage of greedy regression-tree
- * growth: index 0 is the root (before the first split), the next entry is the
- * total SSE after the first split, then after the second split, etc.
+ * growth: index 0 is the root (before the first split), the next entry is
+ * total SSE after the first split, etc.
  */
 export type ContextualSseTrajectoryEntry = {
   /** Number of splits applied so far. 0 = root, before the first split. */
   numSplits: number;
   /** Total SSE summed across every leaf of the tree at this stage. */
   totalSse: number;
+  /** The split that produced this stage; absent on the root (`numSplits === 0`). */
+  split?: ContextualTreeSplit;
+};
+
+/**
+ * BIC model-selection statistic for one greedy regression-tree split, derived
+ * from the per-(split, variation) SSE trajectory.
+ */
+export type ContextualBicTrajectoryEntry = {
+  /** Number of splits after applying this split (>= 1). */
+  numSplits: number;
+  logLikelihoodRatio: number;
+  penalty: number;
+  /** `penalty - logLikelihoodRatio`; a negative value favors keeping the split. */
+  deltaBic: number;
 };
 
 /** Full contextual bandit output for a decision-metric run (mirrors gbstats `ContextualBanditResult`). */
@@ -239,6 +271,7 @@ export type ContextualBanditSnapshot = {
   leaf_map?: ContextualLeafMapEntry[];
   leaf_stats?: ContextualLeafStatsEntry[];
   sse_trajectory?: ContextualSseTrajectoryEntry[];
+  bic_trajectory?: ContextualBicTrajectoryEntry[];
 };
 
 export type MultipleExperimentMetricAnalysis = {
