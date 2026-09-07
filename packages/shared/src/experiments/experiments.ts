@@ -1104,6 +1104,13 @@ export function getFactTableTimestampColumn(
   return factTable?.timestampColumn || "timestamp";
 }
 
+export function getFactTableIdColumn(
+  factTable: Pick<FactTableInterface, "userIdColumns"> | undefined | null,
+  idType: string,
+): string {
+  return factTable?.userIdColumns?.[idType] || idType;
+}
+
 export function getFactTableIdColumnExpression(
   factTable:
     | Pick<FactTableInterface, "userIdColumns" | "columns">
@@ -1113,8 +1120,8 @@ export function getFactTableIdColumnExpression(
   dialect: Pick<SqlDialect, "jsonExtract" | "identifierQuote">,
   alias = "",
 ): string {
-  const column = factTable?.userIdColumns?.[idType];
-  if (!factTable || !column || column === idType) {
+  const column = getFactTableIdColumn(factTable, idType);
+  if (!factTable || column === idType) {
     return alias ? `${alias}.${idType}` : idType;
   }
   // Use getColumnExpression to support virtual columns and JSON field paths
@@ -1134,7 +1141,7 @@ function getFactTableIdColumns(
     ...new Set(
       factTable.userIdTypes.flatMap((idType) => [
         idType,
-        factTable.userIdColumns?.[idType] || idType,
+        getFactTableIdColumn(factTable, idType),
       ]),
     ),
   ];

@@ -1,3 +1,5 @@
+import { isEqual } from "lodash";
+import { getFactTableTimestampColumn } from "shared/experiments";
 import { updateFactTableValidator } from "shared/validators";
 import {
   FactTableInterface,
@@ -7,6 +9,7 @@ import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTable
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   updateFactTable as updateFactTableInDb,
+  mergeUpsertColumns,
   upsertColumns,
   toFactTableApiInterface,
   getFactTable,
@@ -21,6 +24,8 @@ import {
   columnsHaveAutoSlices,
   columnsNeedDetection,
   validateAggregatedFactTableSettings,
+  validateColumnMappingTargets,
+  validateNewUserIdColumnKeys,
   validateVirtualColumnProps,
   validateVirtualColumnSql,
 } from "back-end/src/util/factTable";
@@ -62,6 +67,28 @@ export const updateFactTable = createApiRequestHandler(
       }
     }
   }
+
+  if (req.body.userIdColumns) {
+    datasource ??= await getDataSourceById(req.context, factTable.datasource);
+    if (!datasource) {
+      throw new Error("Could not find datasource for this fact table");
+    }
+    validateNewUserIdColumnKeys({
+      datasource,
+      userIdColumns: req.body.userIdColumns,
+      existingUserIdColumns: factTable.userIdColumns,
+    });
+  }
+
+  // The post-upsert state, so a mapping can point at a column this same request
+  // adds, retypes, or deletes.
+  validateColumnMappingTargets({
+    columns: mergeUpsertColumns(factTable.columns, req.body.columns ?? [])
+      .columns,
+    timestampColumn: req.body.timestampColumn,
+    userIdColumns: req.body.userIdColumns,
+    existing: factTable,
+  });
 
   if (req.body.aggregatedFactTableSettings) {
     if (!req.context.hasPremiumFeature("pipeline-mode")) {
@@ -204,11 +231,30 @@ export const updateFactTable = createApiRequestHandler(
 });
 
 export function needsColumnRefresh(
-  existing: Pick<FactTableInterface, "sql" | "eventName">,
+  existing: Pick<
+    FactTableInterface,
+    "sql" | "eventName" | "timestampColumn" | "userIdColumns"
+  >,
   changes: UpdateFactTableProps,
 ): boolean {
   const sqlChanged = changes.sql !== undefined && changes.sql !== existing.sql;
   const eventNameChanged =
     changes.eventName !== undefined && changes.eventName !== existing.eventName;
-  return sqlChanged || eventNameChanged;
+  // A changed timestamp column changes the detection query's date filter, so
+  // re-running it clears an error left by a wrong column.
+  const timestampColumnChanged =
+    changes.timestampColumn !== undefined &&
+    getFactTableTimestampColumn(changes) !==
+      getFactTableTimestampColumn(existing);
+  // The refresh is what re-derives userIdTypes from the mapping, so without
+  // this a newly mapped identifier would stay missing from userIdTypes.
+  const userIdColumnsChanged =
+    changes.userIdColumns !== undefined &&
+    !isEqual(changes.userIdColumns, existing.userIdColumns ?? {});
+  return (
+    sqlChanged ||
+    eventNameChanged ||
+    timestampColumnChanged ||
+    userIdColumnsChanged
+  );
 }

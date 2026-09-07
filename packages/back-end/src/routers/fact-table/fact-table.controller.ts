@@ -29,6 +29,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createFactTable,
+  mergeUpsertColumns,
   getAllFactTablesForOrganization,
   getFactTable,
   createColumn,
@@ -57,6 +58,8 @@ import {
 import {
   deriveUserIdTypesFromColumns,
   validateAggregatedFactTableSettings,
+  validateColumnMappingTargets,
+  validateNewUserIdColumnKeys,
   getNextUpdateOccurrence,
   validateVirtualColumnProps,
   validateVirtualColumnSql,
@@ -401,6 +404,20 @@ export const postFactTable = async (
     data.columnRefreshPending = needsBackgroundRefresh;
   }
 
+  // Columns are resolved synchronously above, so a mapping is always checked
+  // against the real list before anything is persisted.
+  if (data.userIdColumns) {
+    validateNewUserIdColumnKeys({
+      datasource,
+      userIdColumns: data.userIdColumns,
+    });
+  }
+  validateColumnMappingTargets({
+    columns: mergeUpsertColumns([], data.columns ?? []).columns,
+    timestampColumn: data.timestampColumn,
+    userIdColumns: data.userIdColumns,
+  });
+
   if (data.aggregatedFactTableSettings) {
     if (!context.hasPremiumFeature("pipeline-mode")) {
       throw new Error(
@@ -505,6 +522,22 @@ export const putFactTable = async (
       effectiveUserIdTypes,
     );
   }
+
+  // A mapping change forces a refresh above, so this sees the new column list;
+  // an unchanged mapping is skipped via `existing`.
+  if (data.userIdColumns) {
+    validateNewUserIdColumnKeys({
+      datasource,
+      userIdColumns: data.userIdColumns,
+      existingUserIdColumns: factTable.userIdColumns,
+    });
+  }
+  validateColumnMappingTargets({
+    columns: columnRefreshResults?.columns ?? factTable.columns,
+    timestampColumn: data.timestampColumn,
+    userIdColumns: data.userIdColumns,
+    existing: factTable,
+  });
 
   await updateFactTable(context, factTable, data);
 
