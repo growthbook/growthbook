@@ -158,7 +158,7 @@ export function buildColumnInterface(
   return normalizePersistedColumn(columnInterface);
 }
 
-function createPropsToInterface(
+export function createPropsToInterface(
   context: ReqContext | ApiReqContext,
   rawProps: CreateFactTableProps,
 ): FactTableInterface {

@@ -157,6 +157,11 @@ describe("ensureLimit", () => {
       const result = ensureLimit(sql, 10);
       expect(result).toBe("SELECT * FROM users LIMIT 10");
     });
+    it("should strip a trailing semicolon even when a comment follows it", () => {
+      const sql = "SELECT * FROM users;\n-- note";
+      const result = ensureLimit(sql, 10);
+      expect(result).toBe("SELECT * FROM users\nLIMIT 10");
+    });
   });
 });
 

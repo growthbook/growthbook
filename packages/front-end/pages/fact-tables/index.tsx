@@ -345,7 +345,7 @@ export default function FactTablesPage() {
               <Flex gap="2" mt="5">
                 <Flex direction="column" gap="1">
                   <div>Fact Table</div>
-                  <Box className="border px-3 py-2 bg-white">
+                  <Box className="appbox px-3 py-2">
                     <InlineCode
                       language="sql"
                       code={`SELECT\n  timestamp,\n  user_id,\n  event_name,\n  device_type\nFROM\n  events`}
@@ -399,7 +399,7 @@ export default function FactTablesPage() {
               <Flex gap="2" mt="5">
                 <Flex direction="column" gap="1">
                   <div>Fact Table</div>
-                  <Box className="border px-3 py-2 bg-white">
+                  <Box className="appbox px-3 py-2">
                     <InlineCode
                       language="sql"
                       code={`SELECT\n  timestamp,\n  user_id,\n  amount,\n  numItems\nFROM\n  orders`}
@@ -610,7 +610,7 @@ function ExampleMetric({
         </Flex>
       }
     >
-      <Box className="border p-2 bg-white">
+      <Box className="appbox p-2">
         {name} <GBInfo />
       </Box>
     </Tooltip>
