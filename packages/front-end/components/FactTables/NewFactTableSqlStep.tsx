@@ -24,7 +24,7 @@ import {
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
-import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
+import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { getAutoCompletions } from "@/services/sqlAutoComplete";
@@ -497,7 +497,7 @@ export default function NewFactTableSqlStep({
               <SchemaBrowser
                 updateSqlInput={setSql}
                 datasource={datasource}
-                cursorData={cursorData || undefined}
+                sql={sql}
               />
             </Flex>
           ) : (
