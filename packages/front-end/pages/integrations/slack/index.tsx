@@ -15,6 +15,7 @@ import { PiPlus, PiPlugs } from "react-icons/pi";
 import SlackChannelSettings, {
   getSlackChannelLabel,
 } from "@/components/SlackIntegrations/SlackChannelSettings";
+import { SlackIntegrationsListViewContainer } from "@/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView";
 import SelectField from "@/components/Forms/SelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
@@ -787,6 +788,7 @@ const SlackIntegrationsPage: NextPage = () => {
             </Flex>
           </Frame>
         )}
+        <SlackIntegrationsListViewContainer key={orgId} legacyOnly />
       </Flex>
     </Box>
   );
