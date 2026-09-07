@@ -102,6 +102,7 @@ describe("Slack Web API", () => {
       method: "POST",
       headers: { "Content-Type": "application/octet-stream" },
       body: png,
+      signal: expect.any(AbortSignal),
     });
     expect(cancellableFetch).toHaveBeenLastCalledWith(
       "https://slack.com/api/files.completeUploadExternal",

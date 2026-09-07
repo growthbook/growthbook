@@ -28,6 +28,9 @@ type SlackApiResponse = { ok: boolean; error?: string } & Record<
   unknown
 >;
 
+// node-fetch v2's AbortSignal type is narrower than the global implementation.
+type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
+
 const SLACK_FETCH_OPTS = { maxTimeMs: 15000, maxContentSize: 1024 * 256 };
 
 function parseSlackResponse<T extends SlackApiResponse>(
@@ -169,6 +172,9 @@ export async function uploadSlackImageFile({
       method: "POST",
       headers: { "Content-Type": "application/octet-stream" },
       body: png,
+      signal: AbortSignal.timeout(
+        SLACK_FETCH_OPTS.maxTimeMs,
+      ) as FetchInit["signal"],
     });
     if (!uploadRes.ok) {
       logger.warn(`Slack file upload POST returned HTTP ${uploadRes.status}`);

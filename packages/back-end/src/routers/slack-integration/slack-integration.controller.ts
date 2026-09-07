@@ -125,7 +125,7 @@ type PutSlackOAuthConnectionRequest = AuthRequest<
     projects: string[];
     environments: string[];
     tags: string[];
-    slackOptions: SlackEventWebHookOptions;
+    slackOptions?: SlackEventWebHookOptions;
   },
   { id: string }
 >;

@@ -47,7 +47,7 @@ router.put(
         projects: z.array(z.string()),
         environments: z.array(z.string()),
         tags: z.array(z.string()),
-        slackOptions: slackEventWebHookOptions,
+        slackOptions: slackEventWebHookOptions.optional(),
       })
       .strict(),
   }),

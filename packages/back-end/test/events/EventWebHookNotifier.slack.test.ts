@@ -286,4 +286,42 @@ describe("Slack EventWebHook delivery compatibility", () => {
       { state: "success", responseBody: "F123" },
     );
   });
+
+  it("falls back to text when the workspace cannot upload files", async () => {
+    setWebhook({
+      url: SLACK_WORKSPACE_PLACEHOLDER_URL,
+      slack: { channelId: "C123", teamId: "T123" },
+    });
+    getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
+      teamId: "T123",
+      encryptedBotAccessToken: "xoxb-token",
+    });
+    jest.mocked(renderExperimentNotificationCard).mockResolvedValue({
+      png: Buffer.from("png"),
+      altText: "Checkout test — experiment results",
+      caption: "Health alert",
+      experimentId: "exp-1",
+    });
+    jest.mocked(uploadSlackImageFile).mockResolvedValue(null);
+    jest.mocked(postSlackMessageResult).mockResolvedValue({
+      ok: true,
+      ts: "123.456",
+      error: null,
+    });
+
+    await runAgendaJob();
+
+    expect(uploadSlackImageFile).toHaveBeenCalled();
+    expect(postSlackMessageResult).toHaveBeenCalledWith({
+      token: "xoxb-token",
+      channel: "C123",
+      text: "Feature updated",
+      blocks: [],
+    });
+    expect(updateEventWebHookStatus).toHaveBeenCalledWith(
+      "webhook-1",
+      "org-1",
+      { state: "success", responseBody: "123.456" },
+    );
+  });
 });

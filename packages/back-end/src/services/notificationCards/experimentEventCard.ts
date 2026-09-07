@@ -1,8 +1,5 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
-import {
-  experimentCardFormats,
-  notificationCardKindForEvent,
-} from "shared/validators";
+import { experimentCardFormats } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 import type { CompactEvent } from "back-end/src/services/notificationCards/cardImages";
 import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
@@ -10,8 +7,12 @@ import { renderExperimentCard } from "back-end/src/services/notificationCards/ex
 const compactEventForNotification = (
   event: NotificationEvent,
 ): CompactEvent | null => {
-  const kind = notificationCardKindForEvent(event.event);
-  return kind ?? null;
+  // The generic experiment warning event covers several semantically distinct
+  // cases. The current warning card specifically describes SRM, so other
+  // warning subtypes must retain their accurate text notification.
+  if (event.event !== "experiment.warning") return null;
+  const warning = event.data.object as { type?: string };
+  return warning.type === "srm" ? "warning" : null;
 };
 
 const CARD_CAPTION: Record<CompactEvent, string> = {

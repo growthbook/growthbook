@@ -260,7 +260,8 @@ export default function SlackChannelSettings({
             Experiment Cards
           </Heading>
           <Text as="p" color="text-mid" mb="3">
-            Choose how experiment results appear in notifications.
+            Choose how supported experiment notifications appear. Other events
+            remain text-only.
           </Text>
           <Select
             label="Card format"
