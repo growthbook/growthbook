@@ -112,12 +112,11 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
 
     const [_, setCounter] = useState(0);
 
-    const numFinished = model.queries.filter(
-      (q) => q.status === "succeeded",
-    ).length;
-    const numQueries = model.queries.length;
+    const queries = model.queries || [];
+    const numFinished = queries.filter((q) => q.status === "succeeded").length;
+    const numQueries = queries.length;
 
-    const { status } = getQueryStatus(model.queries || []);
+    const { status } = getQueryStatus(queries);
     const timeoutLength = getTimeoutLength(elapsed);
     // Mutate periodically to check for updates
     useEffect(() => {

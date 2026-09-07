@@ -283,7 +283,8 @@ describe("groupLegacyMetricsIntoFactTables", () => {
     expect(errors).toEqual([
       {
         metricId: "rev",
-        error: "Funnel with a non-binomial step (rev) is not supported",
+        error:
+          "A funnel counts users, so this count metric's value would be lost. Rebuild it by hand as a ratio if that is what you want.",
       },
       {
         metricId: "lb",
@@ -428,7 +429,8 @@ describe("groupLegacyMetricsIntoFactTables", () => {
       { metricId: "bad", error: "Unsupported custom aggregation: AVG(value)" },
       {
         metricId: "funnel",
-        error: "Funnel with a non-binomial step (funnel) is not supported",
+        error:
+          "A funnel counts users, so this count metric's value would be lost. Rebuild it by hand as a ratio if that is what you want.",
       },
     ]);
   });
@@ -608,6 +610,10 @@ describe("groupLegacyMetricsIntoFactTables", () => {
       column: "$$count",
       rowFilters: [{ operator: "not_null", column: "id" }],
     });
+    // count distinct is only valid on a string column
+    expect(
+      groups[0].factTable.columns?.find((c) => c.column === "sess"),
+    ).toMatchObject({ datatype: "string", numberFormat: "" });
     expect(byId["fact__cd"]).toMatchObject({
       column: "sess",
       aggregation: "count distinct",
@@ -664,6 +670,164 @@ describe("groupLegacyMetricsIntoFactTables", () => {
       column: "value_2",
       aggregation: "sum",
     });
+  });
+
+  it("makes Fact Table names unique against existing tables", () => {
+    const { groups } = groupLegacyMetricsIntoFactTables(
+      [
+        legacy("a", "SELECT user_id, ts AS timestamp FROM orders", {
+          type: "binomial",
+        }),
+        legacy("b", "SELECT user_id, created AS timestamp FROM orders", {
+          type: "binomial",
+        }),
+        legacy("c", "SELECT user_id, updated AS timestamp FROM orders", {
+          type: "binomial",
+        }),
+      ],
+      {
+        ...options(),
+        existingFactTables: [
+          {
+            id: "ftb_1",
+            name: "Orders",
+            sql: "SELECT user_id, other AS timestamp FROM orders",
+            userIdTypes: ["user_id"],
+          },
+          {
+            id: "ftb_2",
+            name: "orders (2)",
+            sql: "SELECT user_id, another AS timestamp FROM orders",
+            userIdTypes: ["user_id"],
+          },
+        ],
+      },
+    );
+    // "orders" and "orders (2)" are taken, case-insensitively
+    expect(groups.map((g) => g.factTable.name)).toEqual([
+      "orders (3)",
+      "orders (4)",
+      "orders (5)",
+    ]);
+  });
+
+  it("allows any metric type as an intermediate funnel step", () => {
+    const { groups, errors } = groupLegacyMetricsIntoFactTables(
+      [
+        // Legacy never read an intermediate step's value, only whether the
+        // user had a row, so a count metric mid-chain is a faithful gate
+        legacy("spend", "SELECT user_id, timestamp, v AS value FROM t"),
+        legacy("cart", "SELECT user_id, timestamp FROM t WHERE e = 'cart'", {
+          type: "binomial",
+          denominator: "spend",
+        }),
+        legacy("buy", "SELECT user_id, timestamp FROM t WHERE e = 'buy'", {
+          type: "binomial",
+          denominator: "cart",
+        }),
+        // The final metric's value IS used by legacy, so a funnel would lose it
+        legacy("rev", "SELECT user_id, timestamp, v AS value FROM t", {
+          type: "revenue",
+          denominator: "cart",
+        }),
+      ],
+      options(),
+    );
+    const byId = Object.fromEntries(
+      groups.flatMap((g) => g.metrics).map((m) => [m.id, m]),
+    );
+    expect(byId["fact__buy"]).toMatchObject({ metricType: "funnel" });
+    expect(byId["fact__buy"].funnelSettings?.steps.map((s) => s.name)).toEqual([
+      "Metric spend",
+      "Metric cart",
+      "Metric buy",
+    ]);
+    // Each Fact Metric replaces only the metric it was converted from
+    expect(byId["fact__buy"].replaces).toEqual(["buy"]);
+    expect(errors).toEqual([
+      {
+        metricId: "rev",
+        error:
+          "A funnel counts users, so this revenue metric's value would be lost. Rebuild it by hand as a ratio if that is what you want.",
+      },
+    ]);
+  });
+
+  it("explains when a denominator was migrated in an earlier run", () => {
+    const { groups, errors } = groupLegacyMetricsIntoFactTables(
+      [
+        legacy("buy", "SELECT user_id, timestamp FROM t", {
+          type: "binomial",
+          denominator: "cart",
+        }),
+      ],
+      { ...options(), isAlreadyMigrated: (id) => id === "cart" },
+    );
+    expect(groups).toHaveLength(0);
+    expect(errors).toEqual([
+      {
+        metricId: "buy",
+        error:
+          "Denominator metric cart was already migrated on its own, so this metric cannot be rebuilt from it",
+      },
+    ]);
+  });
+
+  it("drops owner ids that are no longer organization members", () => {
+    const { groups, errors } = groupLegacyMetricsIntoFactTables(
+      [
+        legacy("gone", "SELECT user_id, timestamp FROM t", {
+          type: "binomial",
+          owner: "u_gone",
+        }),
+        legacy("here", "SELECT user_id, ts AS timestamp FROM t", {
+          type: "binomial",
+          owner: "u_here",
+        }),
+        legacy("name", "SELECT user_id, created AS timestamp FROM t", {
+          type: "binomial",
+          owner: "Someone Legacy",
+        }),
+      ],
+      { ...options(), isKnownOwner: (id) => id === "u_here" },
+    );
+    expect(errors).toEqual([]);
+    const byId = Object.fromEntries(
+      groups.flatMap((g) => g.metrics).map((m) => [m.id, m.owner]),
+    );
+    expect(byId["fact__gone"]).toBe("");
+    expect(byId["fact__here"]).toBe("u_here");
+    // Emails and display names are left alone; only ids are validated
+    expect(byId["fact__name"]).toBe("Someone Legacy");
+  });
+
+  it("skips metrics whose definition is synced from elsewhere", () => {
+    const { groups, errors } = groupLegacyMetricsIntoFactTables(
+      [
+        legacy("cfg", "SELECT user_id, timestamp FROM t", {
+          type: "binomial",
+          managedBy: "config",
+        }),
+        legacy("api", "SELECT user_id, timestamp FROM t", {
+          type: "binomial",
+          managedBy: "api",
+        }),
+        legacy("ok", "SELECT user_id, timestamp FROM t", { type: "binomial" }),
+      ],
+      options(),
+    );
+    expect(groups).toHaveLength(1);
+    expect(groups[0].metrics.map((m) => m.id)).toEqual(["fact__ok"]);
+    expect(errors).toEqual([
+      {
+        metricId: "cfg",
+        error: "Defined in config.yml; migrate it there instead",
+      },
+      {
+        metricId: "api",
+        error: "Managed by the API; migrate it in the system that syncs it",
+      },
+    ]);
   });
 
   it("ignores identifier types the Data Source does not define", () => {
@@ -876,7 +1040,7 @@ describe("groupLegacyMetricsIntoFactTables", () => {
           status: "archived",
           winRisk: 0.1,
           regressionAdjustmentEnabled: true,
-          managedBy: "config",
+          managedBy: "admin",
         }),
         legacy("b", "SELECT user_id, timestamp FROM t", {
           type: "binomial",

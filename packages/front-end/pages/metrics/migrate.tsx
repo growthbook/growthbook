@@ -67,7 +67,7 @@ interface RunSummary {
   errors: { id: string; message: string }[];
 }
 
-// Keep each request well under the 2MB body limit and quick to run
+// Keeps each request under the 2MB body limit
 const MAX_GROUPS_PER_BATCH = 10;
 const MAX_METRICS_PER_BATCH = 40;
 
@@ -85,7 +85,6 @@ function allowedUserIdTypes(ds: DataSourceInterfaceWithParams): string[] {
     .filter(Boolean);
 }
 
-// Strip the server-owned fields from the util's output
 function toFactTableProps(
   factTable: LegacyMetricGroup["factTable"],
 ): CreateFactTableProps & { id: string } {
@@ -100,9 +99,12 @@ function toFactTableProps(
     userIdTypes: factTable.userIdTypes,
     sql: factTable.sql,
     eventName: "",
-    columns: factTable.columns
-      .filter((c) => c.numberFormat)
-      .map((c) => ({ column: c.column, numberFormat: c.numberFormat })),
+    // A guess from the legacy SQL; the server re-detects them
+    columns: factTable.columns.map((c) => ({
+      column: c.column,
+      datatype: c.datatype,
+      numberFormat: c.numberFormat,
+    })),
   };
 }
 
@@ -117,6 +119,10 @@ function toFactMetricProps(metric: FactMetricInterface) {
 }
 
 type PlanItem = { group: LegacyMetricGroup; metrics: FactMetricInterface[] };
+
+function plural(n: number, one: string, many = `${one}s`): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
 
 function referencedTableIds(metric: FactMetricInterface): string[] {
   return [
@@ -146,7 +152,7 @@ function chunk(items: PlanItem[]): PlanItem[][] {
     count += item.metrics.length;
   }
   if (current.length) batches.push(current);
-  // Every batch carries the tables its metrics reference; creating one twice is a no-op
+  // Each batch carries the tables it references; creating one twice is a no-op
   return batches.map((batch) => {
     const included = new Set(batch.map(({ group }) => group.factTable.id));
     const referenced = new Set(
@@ -170,6 +176,7 @@ export default function MigrateLegacyMetricsPage() {
     mutateDefinitions,
   } = useDefinitions();
   const { apiCall } = useAuth();
+  const { users } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   const { data: metricsData, mutate: mutateMetrics } = useApi<{
@@ -179,9 +186,13 @@ export default function MigrateLegacyMetricsPage() {
     factTables: FactTableInterface[];
   }>("/fact-tables");
 
-  // Legacy metrics still worth migrating, per datasource
+  const replacedLegacyIds = useMemo(
+    () => new Set(allFactMetrics.flatMap((m) => m.replaces || [])),
+    [allFactMetrics],
+  );
+
   const eligibleByDatasource = useMemo(() => {
-    const replaced = new Set(allFactMetrics.flatMap((m) => m.replaces || []));
+    const replaced = replacedLegacyIds;
     const map = new Map<string, MetricInterface[]>();
     for (const m of metricsData?.metrics || []) {
       if (m.status === "archived" || replaced.has(m.id)) continue;
@@ -189,7 +200,7 @@ export default function MigrateLegacyMetricsPage() {
       map.set(m.datasource, [...(map.get(m.datasource) || []), m]);
     }
     return map;
-  }, [metricsData, allFactMetrics, getDatasourceById]);
+  }, [metricsData, replacedLegacyIds, getDatasourceById]);
 
   const datasourceOptions = datasources.filter((d) =>
     eligibleByDatasource.has(d.id),
@@ -213,6 +224,8 @@ export default function MigrateLegacyMetricsPage() {
         (f) => f.datasource === datasourceId && !f.archived,
       ),
       userIdTypes: allowedUserIdTypes(datasource),
+      isKnownOwner: (id) => users.has(id),
+      isAlreadyMigrated: (id) => replacedLegacyIds.has(id),
     });
     const legacyById = new Map(eligible.map((m) => [m.id, m]));
     return {
@@ -224,9 +237,15 @@ export default function MigrateLegacyMetricsPage() {
       }),
       legacyById,
     };
-  }, [datasourceId, eligibleByDatasource, factTablesData, getDatasourceById]);
+  }, [
+    datasourceId,
+    eligibleByDatasource,
+    factTablesData,
+    getDatasourceById,
+    replacedLegacyIds,
+    users,
+  ]);
 
-  // Selection is per fact metric id
   const [selected, setSelected] = useState<Set<string>>(new Set());
   useEffect(() => {
     setSelected(
@@ -242,8 +261,7 @@ export default function MigrateLegacyMetricsPage() {
   const [summary, setSummary] = useState<RunSummary | null>(null);
   const [showErrors, setShowErrors] = useState(false);
 
-  // Every table with a selected metric, plus tables that selected ratio or
-  // funnel metrics reference (created with no metrics of their own)
+  // Tables holding selected metrics, plus any they reference
   const plan = useMemo(() => {
     if (!conversion) return [];
     const byId = new Map(conversion.groups.map((g) => [g.factTable.id, g]));
@@ -264,6 +282,23 @@ export default function MigrateLegacyMetricsPage() {
   }, [conversion, selected]);
 
   const selectedCount = selected.size;
+
+  const planSummary = useMemo(() => {
+    // Reused tables aren't created; referenced ones are counted separately
+    const toCreate = plan.filter((p) => !p.group.existing);
+    return {
+      created: toCreate.filter((p) => p.metrics.length > 0).length,
+      dependencies: toCreate.filter((p) => p.metrics.length === 0).length,
+    };
+  }, [plan]);
+
+  const confirmItems = [
+    planSummary.created > 0 ? plural(planSummary.created, "Fact Table") : "",
+    plural(selectedCount, "Fact Metric"),
+    planSummary.dependencies > 0
+      ? `${plural(planSummary.dependencies, "additional Fact Table")} required for selected funnel or ratio metrics`
+      : "",
+  ].filter(Boolean);
 
   const canMigrate =
     permissionsUtil.canCreateFactTable({ projects: [] }) &&
@@ -383,7 +418,7 @@ export default function MigrateLegacyMetricsPage() {
               <Box mt="2">
                 <Text weight="semibold">
                   {summary.notArchived.length} legacy metrics were migrated but
-                  not archived:
+                  could not be archived:
                 </Text>
                 <ul className="mb-0">
                   {summary.notArchived.map((n) => (
@@ -463,7 +498,21 @@ export default function MigrateLegacyMetricsPage() {
                 <ConfirmDialog
                   title="Migrate selected metrics?"
                   yesText="Run migration"
-                  content={`Creates ${plan.length} Fact Tables and ${selectedCount} Fact Metrics, then archives the legacy metrics they replace. Legacy metrics used by running experiments are migrated but left unarchived.`}
+                  content={
+                    <>
+                      <Text as="p">This creates:</Text>
+                      <ul className="mb-3">
+                        {confirmItems.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                      <Text as="p" mb="0">
+                        The legacy metrics they replace are then archived.
+                        Existing experiment results that reference them will
+                        continue to work.
+                      </Text>
+                    </>
+                  }
                   onConfirm={async () => {
                     setConfirming(false);
                     await run();
@@ -486,8 +535,7 @@ export default function MigrateLegacyMetricsPage() {
                   />
                   <Text size="sm">
                     Migrating in batches, {Math.round(progress * 100)}% done.
-                    Legacy metrics used by running experiments are migrated but
-                    left unarchived.
+                    Keep this page open until it finishes.
                   </Text>
                 </Box>
               )}
@@ -528,9 +576,11 @@ export default function MigrateLegacyMetricsPage() {
                     </Button>
                   </Flex>
                   <Text size="sm" as="p">
-                    These metrics use SQL that does not map onto a Fact Table,
-                    such as CTEs, UNIONs, or aggregations that change which rows
-                    count. They stay as legacy metrics.
+                    These metrics stay as legacy metrics, either because their
+                    SQL does not map onto a Fact Table (CTEs, UNIONs, or
+                    aggregations that change which rows count) or because their
+                    definition is synced from config.yml or the API and has to
+                    be migrated at the source.
                   </Text>
                   {showErrors && (
                     <Table variant="list">
@@ -576,7 +626,7 @@ function FactTableFrame({
   legacyById: Map<string, MetricInterface>;
   selected: Set<string>;
   disabled: boolean;
-  // Created with no metrics because a selected ratio or funnel references it
+  // Created only because a selected ratio or funnel references it
   requiredOnly: boolean;
   onToggle: (ids: string[], checked: boolean) => void;
 }) {

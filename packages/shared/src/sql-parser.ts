@@ -1,54 +1,34 @@
 import { DataSourceType } from "../types/datasource";
 import { RowFilter } from "../types/fact-table";
 
-/**
- * A deliberately small, conservative parser for simple non-aggregated
- * `SELECT ... FROM ... [JOIN ...] [WHERE ...] [ORDER BY ...] [LIMIT ...]`
- * statements. Anything it does not fully understand throws a SqlParseError;
- * it never guesses. Output is normalized (whitespace collapsed, keywords
- * uppercased, unquoted identifiers case-folded where the dialect allows) so
- * that equivalent spellings compare equal as strings.
- *
- * The SQL is expected to already have template variables compiled.
- */
+// Conservative parser for simple non-aggregated SELECT statements; never guesses
 
-// Aggregates accepted in the select list when `allowAggregates` is set
 export type SelectAggregation = "sum" | "count" | "count distinct" | "max";
 
 export interface SelectExpr {
   expr: string;
-  // If no explicit alias, this repeats `expr`
   alias: string;
-  // Set when the item is `AGG(expr)` over a GROUP BY. `expr` is then the
-  // aggregate's argument (`*` for COUNT(*)).
+  // Set for `AGG(expr)` over a GROUP BY; `expr` is the argument
   aggregation?: SelectAggregation;
 }
 
 export interface ParseSelectOptions {
-  // Accept `SUM(x)`, `COUNT(x)`, `COUNT(DISTINCT x)`, `MAX(x)` select items
-  // alongside a GROUP BY, reporting them via SelectExpr.aggregation.
+  // Accept SUM/COUNT/COUNT DISTINCT/MAX select items alongside a GROUP BY
   allowAggregates?: boolean;
 }
 
 export interface ParsedSelectSQL {
   select: SelectExpr[];
-  // Body of the FROM clause including joins, without the FROM keyword
   from: string;
-  // Top-level AND conjuncts of the WHERE clause
   where?: RowFilter[];
   // Normalized SQL of each `where` entry, index-aligned
   whereSql?: string[];
-  // Body of the ORDER BY clause
   orderBy?: string;
-  // Body of the LIMIT clause, e.g. "10", "10 OFFSET 5", "5, 10"
+  // e.g. "10", "10 OFFSET 5", "5, 10"
   limit?: string;
-  // BigQuery `_TABLE_SUFFIX BETWEEN ...` date-partition clause (optionally an
-  // OR of two such ranges, as in the GA4 intraday pattern). Pulled out of
-  // `where` since it belongs in the fact table SQL, not in a row filter.
+  // BigQuery date-partition clause; belongs in fact table SQL, not a row filter
   tableSuffix?: string;
-  // The statement removes duplicate rows: `SELECT DISTINCT`, or a GROUP BY
-  // with no aggregates that covers every select expression. Only matters for
-  // count/sum metrics, which would otherwise double count duplicate rows.
+  // SELECT DISTINCT, or an aggregate-free GROUP BY covering every expression
   dedupe?: boolean;
 }
 
@@ -68,9 +48,7 @@ interface DialectRules {
   rawStrings?: boolean;
   // Supports `col:path.to.field` semi-structured access (Snowflake)
   colonPath?: boolean;
-  // Unquoted identifiers are case-insensitive in column expressions
   foldColumns: boolean;
-  // Unquoted identifiers are case-insensitive in the FROM clause (table names)
   foldFrom: boolean;
 }
 
@@ -96,7 +74,7 @@ const CLICKHOUSE: DialectRules = {
   doubleQuoteIsString: false,
   backslashEscapes: true,
   hashComments: true,
-  // ClickHouse identifiers (and function names) are case-sensitive
+  // ClickHouse identifiers are case-sensitive
   foldColumns: false,
   foldFrom: false,
 };
@@ -118,15 +96,11 @@ const DIALECTS: Partial<Record<DataSourceType, DialectRules>> = {
 type TokenType = "ident" | "quotedIdent" | "string" | "number" | "op";
 interface Token {
   type: TokenType;
-  // Raw source text (quotes included for strings and quoted identifiers)
   text: string;
-  // Unescaped inner value for strings/quoted identifiers. Undefined when the
-  // string contains an escape sequence we don't understand.
+  // Unescaped value; undefined when an escape sequence isn't understood
   value?: string;
 }
 
-// Keywords that are uppercased during normalization and never treated as
-// identifiers or aliases.
 const KEYWORDS = new Set([
   "SELECT",
   "FROM",
@@ -179,7 +153,6 @@ const KEYWORDS = new Set([
   "PARTITION",
 ]);
 
-// Depth-0 keywords that start a clause of the outer statement
 const CLAUSE_KEYWORDS = new Set([
   "FROM",
   "WHERE",
@@ -190,8 +163,7 @@ const CLAUSE_KEYWORDS = new Set([
 ]);
 const CLAUSE_ORDER = ["SELECT", "FROM", "WHERE", "GROUP", "ORDER", "LIMIT"];
 
-// Keywords that make the statement something other than a simple select.
-// Rejected at depth 0 everywhere, and at any depth outside the FROM clause.
+// Rejected at depth 0 everywhere, and at any depth outside the FROM clause
 const FORBIDDEN = new Set([
   "SELECT",
   "UNION",
@@ -311,7 +283,6 @@ function isKw(t: Token | undefined, ...words: string[]): boolean {
 function isOp(t: Token | undefined, ...ops: string[]): boolean {
   return t?.type === "op" && ops.includes(t.text);
 }
-// An identifier usable as a column/alias name (not a keyword)
 function isName(t: Token | undefined): boolean {
   if (!t) return false;
   if (t.type === "quotedIdent") return true;
@@ -323,8 +294,6 @@ function depthDelta(t: Token): number {
   return 0;
 }
 
-// Reads a quote-delimited span starting at `start` (the opening quote).
-// Doubled quotes always escape; backslash escapes when enabled.
 function readQuoted(
   sql: string,
   start: number,
@@ -341,8 +310,7 @@ function readQuoted(
       if (next === "\\" || next === "'" || next === '"' || next === "`") {
         if (value !== undefined) value += next;
       } else {
-        // \n, \t, \x41, ... — we don't interpret these, so the literal value
-        // is unknown and the caller must keep the raw text instead.
+        // Uninterpreted escape, so the literal value is unknown
         value = undefined;
       }
       i += 2;
@@ -366,7 +334,6 @@ function tokenize(sql: string, rules: DialectRules): Token[] {
   const tokens: Token[] = [];
   const n = sql.length;
   let i = 0;
-  // End index of the previous token, to detect adjacency like r'...'
   let lastEnd = -1;
 
   const push = (t: Token, end: number) => {
@@ -402,16 +369,13 @@ function tokenize(sql: string, rules: DialectRules): Token[] {
     const isQuote =
       c === "'" || c === '"' || rules.identifierQuotes.includes(c);
     if (isQuote) {
-      // A short identifier glued to a quote is a literal prefix (r'..', b'..',
-      // x'..', e'..', n'..'). Longer words glued to a quote (`like'x'`,
-      // `interval'1 day'`) are just missing whitespace.
+      // A short identifier glued to a quote is a literal prefix, not `like'x'`
       const isPrefix =
         prev?.type === "ident" &&
         lastEnd === i &&
         /^[rbxenu]{1,2}$/i.test(prev.text);
       if (isPrefix) {
-        // BigQuery raw string: r'...' — no escape processing, but a
-        // backslash still prevents the following quote from terminating it.
+        // Raw string: no escape processing, but `\'` still doesn't terminate
         if (
           rules.rawStrings &&
           c === "'" &&
@@ -489,7 +453,7 @@ function normalize(tokens: Token[], fold: boolean): string {
       text = KEYWORDS.has(u) ? u : fold ? t.text.toLowerCase() : t.text;
     }
     const prev = tokens[i - 1];
-    // Function calls and subscripts: `lower(x)`, `CAST(x AS int)`, `arr[OFFSET(0)]`
+    // Calls and subscripts: `lower(x)`, `CAST(x AS int)`, `arr[OFFSET(0)]`
     const isCall =
       isOp(t, "(", "[") &&
       (prev?.type === "quotedIdent" ||
@@ -507,7 +471,6 @@ function normalize(tokens: Token[], fold: boolean): string {
   return out;
 }
 
-// Split at depth-0 tokens matching `isSeparator`
 function splitTopLevel(
   tokens: Token[],
   isSeparator: (t: Token, prevTokens: Token[]) => boolean,
@@ -527,10 +490,7 @@ function splitTopLevel(
   return parts;
 }
 
-// Reject constructs that make this more than a simple select (any depth).
-// A parenthesized `(SELECT ...)` is a per-row scalar expression (e.g. the GA4
-// `(SELECT value FROM UNNEST(event_params) WHERE key = 'x')` pattern), so its
-// contents are opaque, like the FROM clause.
+// A `(SELECT ...)` is a per-row scalar expression, so its contents are opaque
 function assertSimpleExpression(tokens: Token[], clause: string) {
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
@@ -559,7 +519,6 @@ function assertSimpleExpression(tokens: Token[], clause: string) {
   }
 }
 
-// Split a select item into its expression and optional alias token
 function splitAlias(tokens: Token[]): {
   exprTokens: Token[];
   aliasToken?: Token;
@@ -584,8 +543,7 @@ function splitAlias(tokens: Token[]): {
   } else if (tokens.length >= 2) {
     const last = tokens[tokens.length - 1];
     const prev = tokens[tokens.length - 2];
-    // Bare alias: `expr alias`. The token before it must be able to end an
-    // expression, otherwise `NOT x` or `a - b` would be misread as aliased.
+    // Guards against reading `NOT x` or `a - b` as aliased
     const prevEndsExpr =
       isName(prev) ||
       prev.type === "string" ||
@@ -608,8 +566,7 @@ function parseSelectItem(tokens: Token[], fold: boolean): SelectExpr {
     fail("Wildcard * must be the only select expression");
   }
   const expr = normalize(exprTokens, fold);
-  // A bare column reference is named after its last segment by every engine
-  // (`t.user_id` -> user_id), so mirror that for the implicit alias.
+  // Every engine names a bare column after its last segment
   const nameToken =
     aliasToken ??
     (isColumn(exprTokens) ? exprTokens[exprTokens.length - 1] : undefined);
@@ -622,8 +579,6 @@ const SELECT_AGGREGATES: Record<string, SelectAggregation> = {
   MAX: "max",
 };
 
-// `SUM(x) AS value` -> { expr: "x", alias: "value", aggregation: "sum" }.
-// Returns null when the item is not a whole-item aggregate call.
 function parseAggregateItem(tokens: Token[], fold: boolean): SelectExpr | null {
   const { exprTokens, aliasToken } = splitAlias(tokens);
   const fn = upper(exprTokens[0]);
@@ -635,7 +590,7 @@ function parseAggregateItem(tokens: Token[], fold: boolean): SelectExpr | null {
   ) {
     return null;
   }
-  // The opening paren must close at the very end: `SUM(x) + 1` is not an aggregate item
+  // The paren must close at the very end; `SUM(x) + 1` is not an aggregate
   let depth = 0;
   for (let i = 1; i < exprTokens.length - 1; i++) {
     depth += depthDelta(exprTokens[i]);
@@ -660,9 +615,7 @@ function parseAggregateItem(tokens: Token[], fold: boolean): SelectExpr | null {
   };
 }
 
-// Output column name for an alias or column token. Quotes are dropped when
-// they change nothing, so `"user_id"` and `user_id` match; a quoted name that
-// needs its quotes (mixed case, reserved word) keeps them.
+// Drops quotes that change nothing, so `"user_id"` and `user_id` match
 function aliasName(token: Token, fold: boolean): string {
   if (token.type === "quotedIdent" && token.value !== undefined) {
     const safe = fold
@@ -689,13 +642,11 @@ function literalValue(tokens: Token[]): string | undefined {
   return undefined;
 }
 
-// `col`, `t.col`, `"T"."Col"`
 function isColumn(tokens: Token[]): boolean {
   if (!tokens.length || tokens.length % 2 === 0) return false;
   return tokens.every((t, i) => (i % 2 === 0 ? isName(t) : isOp(t, ".")));
 }
 
-// Unwrap fully enclosing parentheses
 function stripParens(tokens: Token[]): Token[] {
   while (
     tokens.length >= 2 &&
@@ -740,7 +691,7 @@ function conjunctToRowFilter(tokens: Token[], fold: boolean): RowFilter {
     ...(values ? { values } : {}),
   });
 
-  // `col = 'a' OR col IN ('b', 'c')` on a single column is exactly an IN list
+  // `col = 'a' OR col IN ('b')` on one column is exactly an IN list
   const disjuncts = splitTopLevel(tokens, (t) => isKw(t, "OR"));
   if (disjuncts.length > 1) {
     if (disjuncts.some((d) => !d.length))
@@ -768,7 +719,6 @@ function conjunctToRowFilter(tokens: Token[], fold: boolean): RowFilter {
     return filter("is_false", tokens.slice(1));
   }
 
-  // Find the first depth-0 operator/keyword that splits left and right
   let depth = 0;
   let opIdx = -1;
   for (let i = 0; i < tokens.length; i++) {
@@ -787,7 +737,6 @@ function conjunctToRowFilter(tokens: Token[], fold: boolean): RowFilter {
 
   const left = tokens.slice(0, opIdx);
   if (!isColumn(left)) {
-    // `literal op col` → mirror the comparison
     const op = tokens[opIdx];
     const right = tokens.slice(opIdx + 1);
     const value = literalValue(left);
@@ -893,8 +842,7 @@ function conjunctToRowFilter(tokens: Token[], fold: boolean): RowFilter {
   return sqlExpr();
 }
 
-// Split on top-level AND (except the AND that belongs to a BETWEEN), then
-// unwrap parentheses and split again so `(a AND b) AND c` yields three parts.
+// Ignores BETWEEN's own AND and recurses into parens
 function splitConjuncts(tokens: Token[]): Token[][] {
   const parts = splitTopLevel(tokens, (t, prev) => {
     if (!isKw(t, "AND")) return false;
@@ -914,7 +862,6 @@ function splitConjuncts(tokens: Token[]): Token[][] {
   });
 }
 
-// `[t.]_TABLE_SUFFIX BETWEEN lit AND lit`, or an OR of several such ranges
 function isTableSuffixRange(tokens: Token[]): boolean {
   const disjuncts = splitTopLevel(tokens, (t) => isKw(t, "OR"));
   return disjuncts.every((d) => {
@@ -971,7 +918,6 @@ export function parseSelectSQL(
   if (isKw(tokens[0], "WITH")) fail("CTEs (WITH) are not supported");
   if (!isKw(tokens[0], "SELECT")) fail("Statement must start with SELECT");
 
-  // Split into clauses at depth-0 clause keywords
   const clauses: { keyword: string; tokens: Token[] }[] = [
     { keyword: "SELECT", tokens: [] },
   ];
@@ -1019,7 +965,6 @@ export function parseSelectSQL(
   if (!fromTokens) fail("Missing FROM clause");
   if (!fromTokens.length) fail("Empty FROM clause");
 
-  // SELECT
   const items = splitTopLevel(selectTokens, (t) => isOp(t, ","));
   // BigQuery and Snowflake allow a trailing comma before FROM
   if (items.length > 1 && items[items.length - 1].length === 0) items.pop();
@@ -1039,8 +984,7 @@ export function parseSelectSQL(
   }
   const aggregated = select.some((c) => c.aggregation);
 
-  // GROUP BY without aggregates is just DISTINCT, provided it covers every
-  // select expression. With aggregates it must cover every non-aggregated one.
+  // Must cover every non-aggregated select expression
   if (groupTokens) {
     if (!isKw(groupTokens[0], "BY") || groupTokens.length < 2) {
       fail("Invalid GROUP BY clause");
@@ -1062,14 +1006,13 @@ export function parseSelectSQL(
           : select.findIndex((c) => c.expr === text || c.alias === text);
         if (idx >= select.length)
           fail(`GROUP BY position ${position} is out of range`);
-        // With aggregates, grouping by an unselected column only changes the
-        // pre-aggregation granularity, which re-aggregating the rows undoes
+        // Grouping finer than the selected columns is undone by re-aggregating
         if (idx < 0 && !aggregated) {
           fail(`GROUP BY item is not a select expression: ${text}`);
         }
         if (idx >= 0) covered.add(idx);
       }
-      // Constant literals (`1 AS value`) don't need to be grouped
+      // Constant literals (`1 AS value`) don't need grouping
       const isConstant = (expr: string) =>
         /^-?\d+(\.\d+)?$/.test(expr) || /^'([^']|'')*'$/.test(expr);
       select.forEach((c, i) => {

@@ -14,7 +14,6 @@ import {
   getMetricsByOrganization,
   updateMetric,
 } from "back-end/src/models/MetricModel";
-import { getExperimentsUsingMetrics } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import { refreshColumns } from "back-end/src/services/factTableColumns";
@@ -22,9 +21,7 @@ import { MigrateLegacyMetricsBody } from "./legacy-metrics.validators";
 
 export interface MigrateLegacyMetricsResult {
   factTableId: string;
-  // Fact metric ids created by this request
   created: string[];
-  // Fact metric ids that already existed
   skipped: string[];
   errors: { id: string; message: string }[];
 }
@@ -40,14 +37,7 @@ export interface MigrateLegacyMetricsResponse {
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-/**
- * POST /legacy-metrics/migrate
- *
- * Creates the fact tables and fact metrics for one batch of groups, then swaps
- * the migrated ids into metric groups and experiment templates and archives
- * the legacy metrics. Every step is idempotent: existing fact tables and fact
- * metrics are reused, so a batch can be retried safely.
- */
+// Migrates one batch. Idempotent: existing tables and metrics are reused
 export const postMigrateLegacyMetrics = async (
   req: AuthRequest<MigrateLegacyMetricsBody>,
   res: Response<MigrateLegacyMetricsResponse>,
@@ -66,7 +56,7 @@ export const postMigrateLegacyMetrics = async (
     errors: [],
   }));
 
-  // Fact metric validation reads a cached table list, so create every table first
+  // Fact metric validation reads a cached table list, so create tables first
   const failed = new Set<string>();
   for (let i = 0; i < groups.length; i++) {
     const group = groups[i];
@@ -82,8 +72,7 @@ export const postMigrateLegacyMetrics = async (
         const datasource = await getDataSourceById(context, data.datasource);
         if (!datasource) throw new Error("Could not find Data Source");
 
-        // Detect real column types from the warehouse, keeping the number
-        // formats the migration derived from the legacy metric types
+        // Detected types win, but keep the migration's number formats
         const formats = new Map(
           (data.columns || []).map((c) => [c.column, c.numberFormat]),
         );
@@ -135,7 +124,7 @@ export const postMigrateLegacyMetrics = async (
     }
   }
 
-  // legacy metric id -> fact metric id, from every replacement that exists
+  // legacy metric id -> fact metric id
   const idMap = new Map<string, string>();
   for (const fm of factMetrics) {
     for (const legacyId of fm.replaces || []) idMap.set(legacyId, fm.id);
@@ -192,50 +181,16 @@ export const postMigrateLegacyMetrics = async (
     const legacyMetrics = new Map<string, MetricInterface>(
       (await getMetricsByOrganization(context)).map((m) => [m.id, m]),
     );
-    // One query for every experiment still referencing these metrics,
-    // directly or through a metric group
-    const metricToGroupIds = new Map<string, string[]>();
-    for (const mg of await context.models.metricGroups.getAll()) {
-      for (const id of mg.metrics) {
-        metricToGroupIds.set(id, [...(metricToGroupIds.get(id) || []), mg.id]);
-      }
-    }
-    const running = (
-      await getExperimentsUsingMetrics({
-        context,
-        metricIds: legacyIds,
-        metricToGroupIds,
-      })
-    ).filter((e) => e.status === "running");
-    const usedBy = (id: string) =>
-      running.filter((e) => {
-        const ids = [
-          ...(e.goalMetrics || []),
-          ...(e.secondaryMetrics || []),
-          ...(e.guardrailMetrics || []),
-          e.activationMetric || "",
-        ];
-        return (
-          ids.includes(id) ||
-          (metricToGroupIds.get(id) || []).some((g) => ids.includes(g))
-        );
-      });
-
+    // Safe mid-experiment: analysis loads metrics by id, ignoring status
     for (const id of legacyIds) {
       const metric = legacyMetrics.get(id);
       if (!metric || metric.status === "archived") continue;
+      // Defensive; the conversion never migrates these
       if (metric.managedBy === "config" || metric.managedBy === "api") {
         notArchived.push({
           id,
-          reason: `Managed by ${metric.managedBy}; archive it there instead`,
-        });
-        continue;
-      }
-      const blockers = usedBy(id);
-      if (blockers.length) {
-        notArchived.push({
-          id,
-          reason: `Used by running experiment(s): ${blockers.map((e) => e.name).join(", ")}`,
+          reason:
+            "Definition is synced from an external source; migrate it there instead",
         });
         continue;
       }

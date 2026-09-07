@@ -1,9 +1,7 @@
 import { z } from "zod";
 import { createFactTablePropsValidator } from "shared/validators";
 
-// One fact table plus the fact metrics that move onto it. The fact metric
-// bodies are validated by FactMetricModel on create, so only the fields the
-// migration itself relies on are pinned here.
+// Fact metric bodies are validated by FactMetricModel; only pin what is read here
 export const migrateLegacyMetricsValidator = z
   .object({
     archive: z.boolean(),
@@ -12,10 +10,8 @@ export const migrateLegacyMetricsValidator = z
         z
           .object({
             factTable: createFactTablePropsValidator.extend({ id: z.string() }),
-            // The fact table already exists; do not create it
             existing: z.boolean(),
-            // May be empty: a table can be created only because a selected
-            // ratio or funnel metric references it
+            // Empty when the table is only created for a referencing metric
             metrics: z.array(
               z
                 .object({

@@ -20,40 +20,17 @@ import {
 import { MAX_FUNNEL_FACT_TABLES, MAX_FUNNEL_STEPS } from "./funnels";
 import { parseSelectSQL, SqlParseError } from "./sql-parser";
 
-/**
- * Groups legacy metrics into fact tables. A fact table is uniquely defined by
- * the normalized FROM clause plus everything that has to live in the fact
- * table SQL rather than in a per-metric row filter: `sql_expr` filters and the
- * timestamp expression. Metrics also have to agree on the expression for any
- * user id type they share; a metric selecting a subset of another's id types
- * (or disjoint ones) joins the same table, which then carries the union.
- *
- * Legacy SQL contract: the query returns one column per user id type (named
- * after the type), a `timestamp` column and, for non-binomial metrics, a
- * `value` column. The value column is renamed back to its source column when
- * that is a plain column reference, and a constant one (`SELECT 1 AS value`)
- * is dropped in favor of the `$$count` fact metric column. Any other columns
- * are passed through to the fact table.
- * User id types the SQL does not select are dropped: they never worked for
- * that metric anyway. Query-builder metrics are converted to the equivalent
- * SQL first so both formats share one path.
- *
- * WHERE filters shared by every metric in a table are elevated into the fact
- * table SQL, where the warehouse can prune on them. The rest become fact metric
- * row filters, and the source columns they reference are added to the fact
- * table SELECT since row filters apply to the fact table's output columns.
- */
+// Groups legacy metrics into fact tables, keyed on what must live in the table SQL
 
 export type ExistingFactTable = Pick<
   FactTableInterface,
-  "id" | "sql" | "userIdTypes" | "timestampColumn"
+  "id" | "name" | "sql" | "userIdTypes" | "timestampColumn"
 >;
 
 export interface LegacyMetricGroup {
   factTable: Partial<FactTableInterface> &
     Pick<FactTableInterface, "id" | "sql" | "userIdTypes" | "columns">;
-  // True when the metrics were matched to one of `existingFactTables`; the
-  // factTable is that table and should not be created again.
+  // Matched an existing table, which should not be created again
   existing: boolean;
   metrics: FactMetricInterface[];
 }
@@ -67,34 +44,32 @@ export interface LegacyMetricConversionOptions {
   datasourceType: DataSourceType;
   generateFactTableId: () => string;
   generateFactMetricId: (metric: MetricInterface) => string;
-  // Reused instead of creating a new fact table when the SQL is compatible
   existingFactTables?: ExistingFactTable[];
-  // Datasource default schema, prepended to unqualified query-builder tables
+  // Prepended to unqualified query-builder tables
   defaultSchema?: string;
-  // Identifier types the Data Source defines. Metric id types outside this
-  // set can never join to an experiment, so they are ignored.
+  // Anything outside these can never join to an experiment
   userIdTypes?: string[];
+  // Migrated in an earlier run, so its chain can no longer be rebuilt
+  isAlreadyMigrated?: (legacyMetricId: string) => boolean;
+  // Whether a `u_...` owner id still belongs to the organization
+  isKnownOwner?: (ownerId: string) => boolean;
 }
 
-// A typed WHERE filter together with the SQL it was parsed from
 interface TypedFilter {
   rowFilter: RowFilter;
   sql: string;
 }
 
-// The parts of a SELECT that decide fact table identity and compatibility
 interface SqlShape {
   from: string;
   sqlExprs: string[];
-  // alias -> expression
   columns: Map<string, string>;
   filters: TypedFilter[];
   dedupe: boolean;
   tableSuffix?: string;
-  // `SUM(x) AS value` style aggregation over a GROUP BY; the fact metric
-  // re-aggregates the raw rows instead
+  // Aggregation over a GROUP BY; the fact metric re-aggregates the raw rows
   aggregatedValue?: Pick<ColumnRef, "column" | "aggregation">;
-  // Other aggregated select aliases (not carried into the fact table)
+  // Other aggregated aliases, not carried into the fact table
   aggregatedAliases: string[];
 }
 
@@ -104,7 +79,6 @@ interface ParsedLegacyMetric extends SqlShape {
   groupKey: string;
   numerator: Pick<ColumnRef, "column" | "aggregation">;
   metricType: "proportion" | "mean";
-  // Alias the metric's value column ends up under, when it is still selected
   valueAlias?: string;
 }
 
@@ -112,20 +86,15 @@ interface Group {
   id: string;
   existing: ExistingFactTable | null;
   members: ParsedLegacyMetric[];
-  // user id type -> expression, across all members
   userIdExprs: Map<string, string>;
-  // alias -> expr for the fact table SELECT
   columns: Map<string, string>;
-  // per metric id: original select alias -> fact table alias (after renaming)
   renames: Map<string, Map<string, string>>;
-  // filter column expression -> fact table alias
   filterAliases: Map<string, string>;
-  // Filters shared by every member, moved into the fact table WHERE
+  // Shared by every member, so moved into the fact table WHERE
   elevated: Set<string>;
 }
 
-// `t.event_name` -> event_name, `"Status"` -> Status; null when the expression
-// is not a plain column reference
+// `t.event_name` -> event_name; null when not a plain column reference
 function bareColumnName(expr: string): string | null {
   const bare = (expr.split(".").pop() || expr).replace(/^["`](.*)["`]$/, "$1");
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(bare) ? bare : null;
@@ -145,8 +114,7 @@ function isConversionError(e: unknown): e is Error {
   return e instanceof ConversionError || e instanceof SqlParseError;
 }
 
-// eventName / valueColumn are static per metric, so bake them in. Runtime
-// variables like startDate are left for the query engine.
+// These are static per metric; runtime ones like startDate are left alone
 function interpolateTemplateVariables(metric: MetricInterface): string {
   const vars = metric.templateVariables || {};
   return (metric.sql || "").replace(
@@ -178,9 +146,7 @@ function parseSqlShape(
       fail("Aggregated timestamp (first/last event per user) is not supported");
     }
     aggregatedAliases.push(key);
-    // Per-user (or per-user-per-day) SUM/COUNT/MAX re-aggregated by the fact
-    // metric gives the same total. Aggregated columns other than `value` are
-    // never read by a legacy metric, so they are simply not carried over.
+    // Re-aggregating raw rows gives the same total; other aliases are unused
     if (key !== "value") continue;
     if (aggregation === "count") {
       aggregatedValue = { column: "$$count" };
@@ -220,8 +186,7 @@ function isBuilderMetric(metric: MetricInterface): boolean {
   return metric.queryFormat === "builder" || !metric.sql;
 }
 
-// The deprecated query builder stores table/column/conditions; mirror the SQL
-// the legacy query engine generated from them (see metric-cte.ts).
+// Mirrors the SQL the legacy query engine generated from the builder fields
 function builderToSql(metric: MetricInterface, defaultSchema = ""): string {
   if (!metric.table) fail("Metric does not use SQL");
   const table =
@@ -233,7 +198,6 @@ function builderToSql(metric: MetricInterface, defaultSchema = ""): string {
   );
   cols.push(`${metric.timestampColumn || "received_at"} AS timestamp`);
   if (metric.type !== "binomial" && metric.column) {
-    // Duration metrics could reference the table alias in the expression
     if (/\{alias\}(?!\.)/.test(metric.column)) {
       fail("Unsupported {alias} placeholder in column");
     }
@@ -249,8 +213,7 @@ function builderToSql(metric: MetricInterface, defaultSchema = ""): string {
   );
 }
 
-// Map a legacy custom aggregation to a fact metric numerator. Legacy SQL runs
-// the aggregation over each user's `value` rows.
+// Legacy ran the aggregation over each user's `value` rows
 function parseAggregation(
   metric: MetricInterface,
   aggregatedValue?: SqlShape["aggregatedValue"],
@@ -268,8 +231,7 @@ function parseAggregation(
     }
     return { ...aggregatedValue, metricType: "mean" };
   }
-  // The builder ignored custom aggregations: count distinct of the column,
-  // row count without one, and MAX for revenue/duration.
+  // The builder ignored custom aggregations and used these instead
   if (isBuilderMetric(metric)) {
     if (metric.type === "count") {
       return metric.column
@@ -280,7 +242,6 @@ function parseAggregation(
   }
   const agg = (metric.aggregation || "").trim();
   if (!agg) return { column: "value", aggregation: "sum", metricType: "mean" };
-  // A hardcoded number counts each converting user once
   if (Number(agg) === 1) {
     return { column: "$$distinctUsers", metricType: "proportion" };
   }
@@ -309,6 +270,14 @@ function parseLegacyMetric(
   metric: MetricInterface,
   options: LegacyMetricConversionOptions,
 ): ParsedLegacyMetric {
+  // Synced from elsewhere, so a migration here is overwritten on next sync
+  if (metric.managedBy === "config") {
+    fail("Defined in config.yml; migrate it there instead");
+  }
+  if (metric.managedBy === "api") {
+    fail("Managed by the API; migrate it in the system that syncs it");
+  }
+
   const shape = parseSqlShape(
     isBuilderMetric(metric)
       ? builderToSql(metric, options.defaultSchema)
@@ -357,15 +326,11 @@ function parseLegacyMetric(
       numerator.column === "value" &&
       numerator.aggregation === "sum"
     ) {
-      // `SELECT 1 AS value` summed per user is just a row count
       numerator = { column: "$$count" };
     }
     if (constant && numerator.column !== "value") {
-      // A constant value column carries no information in a fact table
       columns.delete("value");
     } else {
-      // Legacy SQL forced the name `value`; fact tables don't, so restore the
-      // source column name when the expression is a plain column reference
       const name = bareColumnName(valueExpr);
       const alias = name && !columns.has(name) ? name : "value";
       valueAlias = alias;
@@ -407,8 +372,7 @@ function parseLegacyMetric(
   };
 }
 
-// Register `expr` under `alias` in the group's SELECT, renaming with a numeric
-// suffix when the alias is already taken by a different expression.
+// Renames with a numeric suffix when the alias is taken by another expression
 function addColumn(group: Group, alias: string, expr: string): string {
   let target = alias;
   for (
@@ -431,8 +395,7 @@ function addSelectColumns(group: Group, member: ParsedLegacyMetric) {
   group.renames.set(member.metric.id, renames);
 }
 
-// Filters that every member applies move into the fact table WHERE. Whatever
-// remains stays a row filter, so its source column must be selected.
+// What stays a row filter needs its source column in the SELECT
 function finalizeFilters(group: Group) {
   const [first, ...rest] = group.members;
   group.elevated = new Set(
@@ -452,8 +415,7 @@ function finalizeFilters(group: Group) {
   }
 }
 
-// An existing fact table can host the group when it reads the same rows and
-// already exposes every column the group needs under the same alias.
+// Reusable when it reads the same rows and exposes every column needed
 function findExistingFactTable(
   group: Group,
   existing: (SqlShape & { table: ExistingFactTable })[],
@@ -485,10 +447,7 @@ function buildFactTableSql(group: Group): string {
     ...group.elevated,
     ...new Set(group.members.flatMap((m) => m.sqlExprs)),
   ];
-  // _TABLE_SUFFIX is a partition-pruning optimization keyed to the experiment
-  // date range. In practice every variant is the same range spelled with a
-  // different template syntax, sometimes with the GA4 intraday tables added or
-  // a disjunct duplicated, so keep the single most permissive clause.
+  // Every variant is the same date range, so keep the most permissive
   const suffix = group.members
     .flatMap((m) => m.tableSuffix ?? [])
     .map((clause) => [
@@ -513,12 +472,10 @@ function buildFactTableSql(group: Group): string {
   );
 }
 
-// `schema.orders o` -> "orders"; with an elevated `event_name = 'purchase'`
-// filter -> "orders - purchase". Subquery FROMs fall back to the metric name.
+// `schema.orders o` -> "orders", or "orders - purchase" with an elevated filter
 function buildFactTableName(group: Group): string {
   const { from, metric, filters } = group.members[0];
   const table = from.split(/\s/)[0];
-  // Strip identifier quotes first: BigQuery quotes the whole dotted path
   const bare = table.replace(/^["`](.*)["`]$/, "$1");
   let name = table.startsWith("(")
     ? metric.name
@@ -537,10 +494,15 @@ function buildFactTableName(group: Group): string {
 function buildColumns(group: Group, now: Date): ColumnInterface[] {
   const userIdTypes = new Set(group.members.flatMap((m) => m.userIdTypes));
   const valueTypes = new Map<string, MetricInterface["type"]>();
+  // Fact metrics only allow `count distinct` on a string column
+  const countDistinct = new Set<string>();
   for (const m of group.members) {
     if (!m.valueAlias) continue;
     const alias = group.renames.get(m.metric.id)?.get(m.valueAlias);
     valueTypes.set(alias ?? m.valueAlias, m.metric.type);
+    if (m.numerator.aggregation === "count distinct") {
+      countDistinct.add(alias ?? m.valueAlias);
+    }
   }
   return [...group.columns.keys()].map((column) => {
     const valueType = valueTypes.get(column);
@@ -554,11 +516,14 @@ function buildColumns(group: Group, now: Date): ColumnInterface[] {
         ? "string"
         : column === "timestamp"
           ? "date"
-          : valueType
-            ? "number"
-            : "",
-      numberFormat:
-        valueType === "revenue"
+          : countDistinct.has(column)
+            ? "string"
+            : valueType
+              ? "number"
+              : "",
+      numberFormat: countDistinct.has(column)
+        ? ""
+        : valueType === "revenue"
           ? "currency"
           : valueType === "duration"
             ? "time:seconds"
@@ -568,10 +533,23 @@ function buildColumns(group: Group, now: Date): ColumnInterface[] {
   });
 }
 
+// Only a `u_...` id is validated on write, and fails once the user leaves
+function resolveOwner(
+  owner: string | undefined,
+  options: LegacyMetricConversionOptions,
+): string {
+  if (!owner) return "";
+  if (owner.startsWith("u_") && options.isKnownOwner?.(owner) === false) {
+    return "";
+  }
+  return owner;
+}
+
 function buildFactTable(
   group: Group,
   name: string,
   now: Date,
+  options: LegacyMetricConversionOptions,
 ): LegacyMetricGroup["factTable"] {
   const metrics = group.members.map((m) => m.metric);
   const first = metrics[0];
@@ -582,7 +560,7 @@ function buildFactTable(
     id: group.id,
     organization: first.organization,
     datasource: first.datasource,
-    owner: first.owner,
+    owner: resolveOwner(first.owner, options),
     name,
     description: "",
     projects,
@@ -597,7 +575,6 @@ function buildFactTable(
   };
 }
 
-// The legacy metric this was converted from; every conversion is 1:1
 export function legacyIdOf(metric: FactMetricInterface): string {
   return metric.replaces?.[0] || "";
 }
@@ -626,17 +603,21 @@ function buildColumnRef({ member, group }: Placed): ColumnRef {
   };
 }
 
-// Legacy metrics chain denominators: metric -> denominator -> its denominator.
-// Returns the chain from the outermost (first step) to the immediate one.
 function denominatorChain(
   metric: MetricInterface,
   lookup: Map<string, Placed>,
+  options: LegacyMetricConversionOptions,
 ): Placed[] {
   const chain: Placed[] = [];
   let id = metric.denominator;
   while (id) {
     if (chain.length >= MAX_FUNNEL_STEPS) fail("Denominator chain is too long");
     const den = lookup.get(id);
+    if (!den && options.isAlreadyMigrated?.(id)) {
+      fail(
+        `Denominator metric ${id} was already migrated on its own, so this metric cannot be rebuilt from it`,
+      );
+    }
     if (!den) fail(`Denominator metric ${id} could not be converted`);
     chain.unshift(den);
     id = den.member.metric.denominator;
@@ -644,9 +625,7 @@ function denominatorChain(
   return chain;
 }
 
-// A legacy binomial denominator gates the numerator on prior conversion, with
-// each metric's conversion window measured from the previous step. That is a
-// sequential funnel.
+// A binomial denominator gated conversion on the previous step: a funnel
 function buildFunnelStep(placed: Placed): FunnelStep {
   const { windowSettings, name } = placed.member.metric;
   if (windowSettings.type === "lookback") {
@@ -675,13 +654,13 @@ function buildFactMetric(
 ): FactMetricInterface {
   const { member, group } = placed;
   const { metric } = member;
-  const chain = denominatorChain(metric, lookup);
+  const chain = denominatorChain(metric, lookup, options);
 
   const base = {
     id: options.generateFactMetricId(metric),
     organization: metric.organization,
     managedBy: metric.managedBy === "api" ? ("api" as const) : ("" as const),
-    owner: metric.owner,
+    owner: resolveOwner(metric.owner, options),
     datasource: metric.datasource,
     dateCreated: now,
     dateUpdated: now,
@@ -705,17 +684,16 @@ function buildFactMetric(
     regressionAdjustmentDays:
       metric.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
     quantileSettings: null,
-    // Links back to the legacy metric so old snapshots still render
     replaces: [metric.id],
   };
 
   const immediate = chain[chain.length - 1];
   if (immediate && immediate.member.metric.type === "binomial") {
     const steps = [...chain, placed];
-    const nonBinomial = steps.find((s) => s.member.metric.type !== "binomial");
-    if (nonBinomial) {
+    // Legacy never read an intermediate step's value, only the final one's
+    if (metric.type !== "binomial") {
       fail(
-        `Funnel with a non-binomial step (${nonBinomial.member.metric.id}) is not supported`,
+        `A funnel counts users, so this ${metric.type} metric's value would be lost. Rebuild it by hand as a ratio if that is what you want.`,
       );
     }
     if (new Set(steps.map((s) => s.group.id)).size > MAX_FUNNEL_FACT_TABLES) {
@@ -743,8 +721,7 @@ function buildFactMetric(
     denominator = buildColumnRef(immediate);
   }
 
-  // ignoreNulls drops users whose aggregated value is 0 from the mean. That is
-  // exactly SUM(value) / users with a non-zero value.
+  // ignoreNulls is exactly SUM(value) over users with a non-zero value
   if (metric.ignoreNulls && metric.type !== "binomial") {
     if (denominator) fail("ignoreNulls is not supported on ratio metrics");
     metricType = "ratio";
@@ -785,8 +762,7 @@ export function groupLegacyMetricsIntoFactTables(
     }
   });
 
-  // Several groups can share a key when metrics map the same user id type to
-  // different expressions
+  // One key can hold several groups when metrics disagree on an id expression
   const groupsByKey = new Map<string, Group[]>();
   const lookup = new Map<string, Placed>();
   for (const metric of metrics) {
@@ -826,9 +802,7 @@ export function groupLegacyMetricsIntoFactTables(
     }
   }
 
-  // Shared filters, filter columns and ids are resolved once membership is
-  // final, since a later member changes what is shared and which columns the
-  // table needs.
+  // Resolved once membership is final: a later member changes both
   const groups = [...groupsByKey.values()].flat();
   for (const group of groups) {
     finalizeFilters(group);
@@ -837,7 +811,12 @@ export function groupLegacyMetricsIntoFactTables(
   }
 
   const result: LegacyMetricGroup[] = [];
-  const names = new Map<string, number>();
+  // Taken by existing tables and earlier groups; case-insensitive
+  const usedNames = new Set(
+    (options.existingFactTables || []).flatMap((t) =>
+      t.name ? [t.name.toLowerCase()] : [],
+    ),
+  );
   for (const group of groups) {
     const converted: FactMetricInterface[] = [];
     for (const member of group.members) {
@@ -860,14 +839,13 @@ export function groupLegacyMetricsIntoFactTables(
       continue;
     }
     const baseName = buildFactTableName(group);
-    const seen = (names.get(baseName) ?? 0) + 1;
-    names.set(baseName, seen);
+    let name = baseName;
+    for (let n = 2; usedNames.has(name.toLowerCase()); n++) {
+      name = `${baseName} (${n})`;
+    }
+    usedNames.add(name.toLowerCase());
     result.push({
-      factTable: buildFactTable(
-        group,
-        seen > 1 ? `${baseName} (${seen})` : baseName,
-        now,
-      ),
+      factTable: buildFactTable(group, name, now, options),
       existing: false,
       metrics: converted,
     });
