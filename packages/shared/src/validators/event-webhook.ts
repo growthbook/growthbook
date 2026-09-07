@@ -17,18 +17,11 @@ export type EventWebHookMethod = (typeof eventWebHookMethods)[number];
 
 export const slackEventWebHookMetadata = z
   .object({
-    appId: z.string().optional(),
+    // References SlackWorkspaceConnection within the webhook organization.
     teamId: z.string().optional(),
-    teamName: z.string().optional(),
-    enterpriseId: z.string().optional(),
-    enterpriseName: z.string().optional(),
     channelName: z.string().optional(),
     channelId: z.string().optional(),
     configurationUrl: z.string().url().optional(),
-    botUserId: z.string().optional(),
-    authedUserId: z.string().optional(),
-    scope: z.string().optional(),
-    isEnterpriseInstall: z.boolean().optional(),
   })
   .strict();
 

@@ -274,18 +274,10 @@ const exchangeSlackOAuthCode = async (
 };
 
 const getSlackMetadata = (slackOAuthResponse: SlackOAuthAccessSuccess) => ({
-  appId: slackOAuthResponse.app_id,
   teamId: slackOAuthResponse.team?.id,
-  teamName: slackOAuthResponse.team?.name,
-  enterpriseId: slackOAuthResponse.enterprise?.id,
-  enterpriseName: slackOAuthResponse.enterprise?.name,
   channelName: slackOAuthResponse.incoming_webhook?.channel,
   channelId: slackOAuthResponse.incoming_webhook?.channel_id,
   configurationUrl: slackOAuthResponse.incoming_webhook?.configuration_url,
-  botUserId: slackOAuthResponse.bot_user_id,
-  authedUserId: slackOAuthResponse.authed_user?.id,
-  scope: slackOAuthResponse.scope,
-  isEnterpriseInstall: slackOAuthResponse.is_enterprise_install,
 });
 
 const slackWorkspaceConnectionToFrontEnd = (
@@ -883,15 +875,7 @@ export const addSlackChannelToWorkspace = async ({
       method: "POST",
       headers: {},
       slack: {
-        appId: connection.appId,
         teamId: connection.teamId,
-        teamName: connection.teamName,
-        enterpriseId: connection.enterpriseId,
-        enterpriseName: connection.enterpriseName,
-        botUserId: connection.botUserId,
-        authedUserId: connection.authedUserId,
-        scope: connection.scope,
-        isEnterpriseInstall: connection.isEnterpriseInstall,
         channelId: channel.id,
         channelName: channel.name,
       },

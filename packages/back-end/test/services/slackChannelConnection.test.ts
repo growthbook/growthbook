@@ -25,7 +25,13 @@ const context = {
   models: {
     slackWorkspaceConnections: {
       getAll: async () => [
-        { teamId: "T1", encryptedBotAccessToken: "xoxb-token" },
+        {
+          teamId: "T1",
+          teamName: "Workspace",
+          appId: "A1",
+          scope: "chat:write",
+          encryptedBotAccessToken: "xoxb-token",
+        },
       ],
     },
   },
@@ -48,6 +54,11 @@ it("connects an invited private channel without pagination or joining", async ()
   expect(getSlackConversation).toHaveBeenCalledWith({
     token: "xoxb-token",
     channelId: "C1",
+  });
+  expect(jest.mocked(createEventWebHook).mock.calls[0][0].slack).toEqual({
+    teamId: "T1",
+    channelId: "C1",
+    channelName: "private-alerts",
   });
   expect(listSlackConversations).not.toHaveBeenCalled();
   expect(joinSlackConversation).not.toHaveBeenCalled();

@@ -1,3 +1,5 @@
+import type { EventWebHookInterface } from "../src/validators/event-webhook";
+
 export interface SlackIntegrationInterface {
   id: string;
   organizationId: string;
@@ -29,18 +31,5 @@ export interface SlackOAuthIntegrationInterface {
   tags: string[];
   lastRunAt: Date | null;
   lastState: "none" | "success" | "error";
-  slack?: {
-    appId?: string;
-    teamId?: string;
-    teamName?: string;
-    enterpriseId?: string;
-    enterpriseName?: string;
-    channelName?: string;
-    channelId?: string;
-    configurationUrl?: string;
-    botUserId?: string;
-    authedUserId?: string;
-    scope?: string;
-    isEnterpriseInstall?: boolean;
-  };
+  slack?: EventWebHookInterface["slack"];
 }
