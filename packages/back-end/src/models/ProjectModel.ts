@@ -7,6 +7,7 @@ import {
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { getCollection } from "back-end/src/util/mongo.util";
 import {
   pruneDefinitionsVersionProject,
   touchDefinitionsVersion,
@@ -37,6 +38,13 @@ const BaseClass = MakeModelClass({
     deleteEvent: "project.delete",
   },
   globallyUniquePrimaryKeys: true,
+  additionalIndexes: [
+    {
+      fields: { organization: 1, restrictAccess: 1 },
+      name: "org_restrict_access",
+      partialFilterExpression: { restrictAccess: true },
+    },
+  ],
   defaultValues: {
     description: "",
     settings: {},
@@ -46,6 +54,18 @@ const BaseClass = MakeModelClass({
 export class ProjectModel extends BaseClass {
   protected canRead(doc: ProjectInterface) {
     return this.context.permissions.canReadSingleProjectResource(doc.id);
+  }
+
+  // Runs during auth middleware, before any request context (and therefore any
+  // permission-checked model) exists — permission resolution needs this list.
+  public static async dangerousGetRestrictedProjectIds(
+    orgId: string,
+  ): Promise<string[]> {
+    const docs = await getCollection<ProjectInterface>("projects")
+      .find({ organization: orgId, restrictAccess: true })
+      .project<{ id: string }>({ id: 1 })
+      .toArray();
+    return docs.map((p) => p.id);
   }
 
   // Every org project id, unfiltered by read permissions (internal fan-out only).
@@ -80,7 +100,19 @@ export class ProjectModel extends BaseClass {
     return { ...doc, settings };
   }
 
+  private checkCanRestrictAccess() {
+    if (!this.context.hasPremiumFeature("advanced-permissions")) {
+      this.context.throwPlanDoesNotAllowError(
+        "Your plan does not support restricting Project access.",
+      );
+    }
+  }
+
   protected async beforeCreate(data: Partial<ProjectInterface>) {
+    if (data.restrictAccess) {
+      this.checkCanRestrictAccess();
+    }
+
     // Enforce the plan's project limit across every creation path. The demo
     // "Sample Data" project is exempt (it's created with a fixed id).
     const maxProjects = this.context.limits.getMaxProjects();
@@ -155,6 +187,10 @@ export class ProjectModel extends BaseClass {
     original: ProjectInterface,
     updates: Partial<ProjectInterface>,
   ) {
+    if (updates.restrictAccess && !original.restrictAccess) {
+      this.checkCanRestrictAccess();
+    }
+
     if (
       updates.publicId !== undefined &&
       updates.publicId !== original.publicId
@@ -237,6 +273,7 @@ export class ProjectModel extends BaseClass {
       name: project.name,
       description: project.description || "",
       publicId: project.publicId,
+      restrictAccess: project.restrictAccess,
       dateCreated: project.dateCreated.toISOString(),
       dateUpdated: project.dateUpdated.toISOString(),
       settings: {

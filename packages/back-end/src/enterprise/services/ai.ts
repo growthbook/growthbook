@@ -29,7 +29,7 @@ import {
   getProviderFromModel,
   getProviderFromEmbeddingModel,
   getProviderForAIModel,
-  isReasoningModel,
+  supportsTemperature,
 } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
@@ -317,11 +317,11 @@ export const simpleCompletion = async ({
 
   const messages = constructMessages(prompt, instructions);
 
-  // Reasoning models reject `temperature`; omit it rather than let the
-  // provider warn and drop it.
-  const effectiveTemperature = isReasoningModel(model)
-    ? undefined
-    : temperature;
+  // Some models reject `temperature` outright (400) and others silently drop
+  // it; omit it entirely for both.
+  const effectiveTemperature = supportsTemperature(model)
+    ? temperature
+    : undefined;
 
   const generateOptions = {
     model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
@@ -425,11 +425,11 @@ export const streamingChatCompletion = async ({
     throw new Error("AI provider not enabled or key not set");
   }
 
-  // Reasoning models reject `temperature`; omit it rather than let the
-  // provider warn and drop it.
-  const effectiveTemperature = isReasoningModel(model)
-    ? undefined
-    : temperature;
+  // Some models reject `temperature` outright (400) and others silently drop
+  // it; omit it entirely for both.
+  const effectiveTemperature = supportsTemperature(model)
+    ? temperature
+    : undefined;
 
   const recordUsage = async ({
     inputTokens,
@@ -649,11 +649,11 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     }
   }
 
-  // Reasoning models reject `temperature`; omit it rather than let the
-  // provider warn and drop it.
-  const effectiveTemperature = isReasoningModel(model)
-    ? undefined
-    : temperature;
+  // Some models reject `temperature` outright (400) and others silently drop
+  // it; omit it entirely for both.
+  const effectiveTemperature = supportsTemperature(model)
+    ? temperature
+    : undefined;
 
   const generateOnce = async () => {
     const result = await generateText({
@@ -728,6 +728,8 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       // Spread caller context FIRST so the authoritative error fields below
       // always win — a colliding logContext key can't mask the real signal.
       ...(logContext ?? {}),
+      orgId: context.org.id,
+      userId: context.userId,
       errorType: objErr ? "no-object" : "no-output",
       finishReason: objErr?.finishReason,
       cause: e.cause instanceof Error ? e.cause.message : String(e.cause ?? ""),
@@ -797,10 +799,15 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
           err.finishReason === "length") ||
         (NoObjectGeneratedError.isInstance(retryErr) &&
           retryErr.finishReason === "length");
+      // No output at all (burned its steps on tools, or answered in prose) —
+      // rephrasing won't help, narrowing the request will.
+      const ranOutOfSteps = NoOutputGeneratedError.isInstance(retryErr);
       throw new Error(
         truncated
           ? "Your request produced a response too large to return in one piece. Try a more focused request — for example, edit one section or a few elements at a time, then layer on more."
-          : "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
+          : ranOutOfSteps
+            ? "The AI didn't finish this request — it spent its time gathering page details instead of returning a change. Try pointing it at a specific element, or splitting this into smaller changes."
+            : "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
       );
     }
   }

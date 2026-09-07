@@ -6,6 +6,7 @@ import { ConfigInterface } from "shared/types/config";
 import {
   Revision,
   configPublishFootprint,
+  getConstantRevisionApprovalChange,
   getConstantRevisionChange,
   normalizeProposedChanges,
 } from "shared/enterprise";
@@ -247,19 +248,19 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     return canBypassApprovalForConfig(context, snapshot);
   },
 
-  shouldResetReviewOnChange(context: Context, revision: Revision): boolean {
+  shouldResetReviewOnChange(
+    context: Context,
+    before: Revision,
+    after: Revision,
+  ): boolean {
     if (!context.hasPremiumFeature("require-approvals")) return false;
-    const snapshot = revision.target.snapshot as ConfigInterface;
-    const { valueChanged, changedEnvironments } = getConstantRevisionChange(
-      snapshot,
-      revision.target.proposedChanges,
-    );
+    const snapshot = after.target.snapshot as ConfigInterface;
     const flavorEnvironments = snapshot.scopedConfig
       ? (snapshot.scopedConfig.environments ?? [])
       : null;
     return configResetReviewOnChange(
       { project: snapshot.project },
-      { valueChanged, changedEnvironments },
+      getConstantRevisionApprovalChange(before.target, after.target),
       flavorEnvironments,
       context.org.settings,
     );
