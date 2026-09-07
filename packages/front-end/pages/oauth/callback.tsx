@@ -15,7 +15,7 @@ const canAutoRestart = () => {
     if (Date.now() - last < 60_000) return false;
     window.sessionStorage.setItem("gb-login-restart", `${Date.now()}`);
     return true;
-  } catch (e) {
+  } catch {
     return false;
   }
 };

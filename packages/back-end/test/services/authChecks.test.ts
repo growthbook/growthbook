@@ -28,7 +28,11 @@ describe("deriveAuthChecks", () => {
   });
 
   it("expires stale, future, and malformed nonces", () => {
+    const twentyThreeHours = 23 * 60 * 60 * 1000;
     const twentyFiveHours = 25 * 60 * 60 * 1000;
+    expect(
+      isNonceExpired(`${(Date.now() - twentyThreeHours).toString(36)}.x`),
+    ).toBe(false);
     expect(
       isNonceExpired(`${(Date.now() - twentyFiveHours).toString(36)}.x`),
     ).toBe(true);
