@@ -1959,6 +1959,10 @@ function StandardFactMetricModal({
 
           onSave && onSave();
         }
+      }, (errors) => {
+        throw new Error(
+          `The following fields are invalid: ${Object.keys(errors).join(", ")}`,
+        );
       })}
       size={showSQLPreview ? "max" : "lg"}
     >
@@ -2755,6 +2759,13 @@ function StandardFactMetricModal({
                                       {
                                         valueAsNumber: true,
                                         validate: (v) => {
+                                          if (
+                                            !form.watch(
+                                              "regressionAdjustmentOverride",
+                                            )
+                                          ) {
+                                            return true;
+                                          }
                                           return v === undefined || v > 0;
                                         },
                                       },
