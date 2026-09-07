@@ -5,11 +5,11 @@ import {
   getSlackChannelEventWebhookId,
   getSlackOAuthAuthorizeUrl,
 } from "back-end/src/services/slackIntegration";
-import { fetch } from "back-end/src/util/http.util";
+import { cancellableFetch } from "back-end/src/util/http.util";
 import { JWT_SECRET } from "back-end/src/util/secrets";
 
 jest.mock("back-end/src/util/http.util", () => ({
-  fetch: jest.fn(),
+  cancellableFetch: jest.fn(),
 }));
 
 jest.mock("back-end/src/util/secrets", () => ({
@@ -54,7 +54,7 @@ describe("Slack OAuth validation", () => {
       }),
     ).rejects.toThrow("Invalid Slack OAuth state");
 
-    expect(fetch).not.toHaveBeenCalled();
+    expect(cancellableFetch).not.toHaveBeenCalled();
   });
 
   it("rejects a signed state containing malformed JSON", async () => {
@@ -71,18 +71,17 @@ describe("Slack OAuth validation", () => {
       }),
     ).rejects.toThrow("Invalid Slack OAuth state");
 
-    expect(fetch).not.toHaveBeenCalled();
+    expect(cancellableFetch).not.toHaveBeenCalled();
   });
 
   it("rejects successful Slack responses without a bot access token", async () => {
-    jest.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      statusText: "OK",
-      json: async () => ({
+    jest.mocked(cancellableFetch).mockResolvedValueOnce({
+      responseWithoutBody: { ok: true, statusText: "OK" },
+      stringBody: JSON.stringify({
         ok: true,
         team: { id: "T123", name: "GrowthBook" },
       }),
-    } as unknown as Awaited<ReturnType<typeof fetch>>);
+    } as unknown as Awaited<ReturnType<typeof cancellableFetch>>);
 
     await expect(
       connectSlackOAuthIntegration({
@@ -93,20 +92,67 @@ describe("Slack OAuth validation", () => {
     ).rejects.toThrow("Slack returned an invalid OAuth response");
   });
 
+  it("bounds OAuth requests through the proxy-aware HTTP helper", async () => {
+    jest
+      .mocked(cancellableFetch)
+      .mockRejectedValueOnce(new Error("request aborted"));
+    await expect(
+      connectSlackOAuthIntegration({
+        context,
+        code: "code",
+        state: getValidState(),
+      }),
+    ).rejects.toThrow("request aborted");
+    expect(upsertSlackWorkspaceConnection).not.toHaveBeenCalled();
+    expect(cancellableFetch).toHaveBeenCalledWith(
+      "https://slack.com/api/oauth.v2.access",
+      expect.objectContaining({
+        method: "POST",
+        body: "code=code&redirect_uri=https%3A%2F%2Fgrowthbook.example%2Fintegrations%2Fslack",
+      }),
+      { maxTimeMs: 15000, maxContentSize: 1024 * 256 },
+    );
+  });
+
+  it.each([
+    "",
+    "not json",
+    JSON.stringify({
+      ok: true,
+      access_token: "xoxb-token",
+      padding: "x".repeat(1024 * 256),
+    }),
+  ])(
+    "rejects incomplete, malformed, or oversized exchange responses",
+    async (stringBody) => {
+      jest.mocked(cancellableFetch).mockResolvedValueOnce({
+        responseWithoutBody: { ok: true },
+        stringBody,
+      } as never);
+      await expect(
+        connectSlackOAuthIntegration({
+          context,
+          code: "code",
+          state: getValidState(),
+        }),
+      ).rejects.toThrow("Slack returned an invalid OAuth response");
+      expect(upsertSlackWorkspaceConnection).not.toHaveBeenCalled();
+    },
+  );
+
   it("stores workspace credentials outside EventWebHooks", async () => {
     const dateCreated = new Date("2026-09-03T12:00:00Z");
     const dateUpdated = new Date("2026-09-03T12:00:00Z");
-    jest.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      statusText: "OK",
-      json: async () => ({
+    jest.mocked(cancellableFetch).mockResolvedValueOnce({
+      responseWithoutBody: { ok: true, statusText: "OK" },
+      stringBody: JSON.stringify({
         ok: true,
         app_id: "A123",
         access_token: "xoxb-secret",
         scope: "chat:write",
         team: { id: "T123", name: "GrowthBook" },
       }),
-    } as unknown as Awaited<ReturnType<typeof fetch>>);
+    } as unknown as Awaited<ReturnType<typeof cancellableFetch>>);
     upsertSlackWorkspaceConnection.mockResolvedValueOnce({
       organization: "org-1",
       teamId: "T123",
