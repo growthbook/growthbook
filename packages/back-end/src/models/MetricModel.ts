@@ -393,7 +393,11 @@ async function findMetrics(
     if (metricIds.has(doc.id)) {
       return;
     }
-    metrics.push(toInterface(doc));
+    // The doc migration fills in defaults, which can re-add an excluded field
+    const metric = toInterface(doc);
+    metrics.push(
+      excludeFields ? (omit(metric, excludeFields) as MetricInterface) : metric,
+    );
     metricIds.add(doc.id);
   });
 
