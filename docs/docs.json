@@ -347,6 +347,10 @@
                     "group": "Metrics",
                     "pages": ["kb/metrics/fact-metric-optimization"]
                   },
+                  {
+                    "group": "SDKs",
+                    "pages": ["kb/sdks/sticky-bucket-cookie-encoding"]
+                  },
                   "kb/glossary"
                 ]
               },
