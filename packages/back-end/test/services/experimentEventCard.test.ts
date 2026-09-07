@@ -1,6 +1,9 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
 import { renderExperimentNotificationCard } from "back-end/src/services/notificationCards/experimentEventCard";
-import { sampleCard } from "back-end/src/services/notificationCards/cardImages";
+import {
+  sampleCard,
+  type CardState,
+} from "back-end/src/services/notificationCards/cardImages";
 import { buildExperimentCardData } from "back-end/src/services/notificationCards/experimentCardData";
 import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
@@ -61,6 +64,26 @@ describe("renderExperimentNotificationCard", () => {
       "compact",
     );
   });
+
+  it.each<CardState>(["running", "stopped", "winner", "loser", "started"])(
+    "keeps a delayed SRM event text-only when current results are %s",
+    async (state) => {
+      jest.mocked(buildExperimentCardData).mockResolvedValue(sampleCard(state));
+      for (const format of ["compact", "detailed"] as const) {
+        await expect(
+          renderExperimentNotificationCard(
+            notification("experiment.warning", {
+              type: "srm",
+              experimentId: "exp-1",
+            }),
+            "org-1",
+            format,
+          ),
+        ).resolves.toBeNull();
+      }
+      expect(renderExperimentCard).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(["no-data", "underpowered", "multiple-exposures"])(
     "leaves the %s warning as an accurate text notification",

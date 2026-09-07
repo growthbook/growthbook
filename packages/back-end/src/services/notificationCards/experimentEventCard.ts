@@ -58,7 +58,9 @@ export async function renderExperimentNotificationCard(
     );
     const context = await getContextForAgendaJobByOrgId(organizationId);
     const card = await buildExperimentCardData(context, experimentId);
-    if (!card) return null;
+    // A delayed warning may now load healthy or stopped results. Preserve the
+    // event's text instead of presenting a contradictory current-state card.
+    if (!card || card.state !== "warning") return null;
 
     card.event = compactEvent;
     const png = await renderExperimentCard(

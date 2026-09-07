@@ -21,7 +21,7 @@ import ConfirmDialog from "@/ui/ConfirmDialog";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import MultiSelectField from "@/ui/MultiSelectField";
-import { Select, SelectItem } from "@/ui/Select";
+import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";
 
 const REQUIRED_SCOPES = [
@@ -34,11 +34,20 @@ const REQUIRED_SCOPES = [
 
 const CARD_FORMAT_LABELS: Record<
   (typeof experimentCardFormats)[number],
-  string
+  { label: string; description: string }
 > = {
-  none: "No card — text only",
-  compact: "Compact card",
-  detailed: "Detailed card",
+  none: {
+    label: "No card — text only",
+    description: "Send a text message only.",
+  },
+  compact: {
+    label: "Compact card",
+    description: "A short image highlighting the SRM warning.",
+  },
+  detailed: {
+    label: "Detailed card",
+    description: "A larger image with the SRM warning and a results table.",
+  },
 };
 
 export const getSlackChannelLabel = (
@@ -219,7 +228,8 @@ export default function SlackChannelSettings({
               }
             >
               Reconnect this workspace to grant the Slack permissions needed for
-              channel management and notifications.
+              channel management, notifications, and posting experiment card
+              images.
             </Callout>
             {reconnectError && (
               <HelperText status="error">{reconnectError}</HelperText>
@@ -260,23 +270,21 @@ export default function SlackChannelSettings({
             Experiment Cards
           </Heading>
           <Text as="p" color="text-mid" mb="3">
-            Choose how supported experiment notifications appear. Other events
-            remain text-only.
+            Choose how SRM warnings appear. Significance notifications and other
+            events remain text-only.
           </Text>
-          <Select
-            label="Card format"
+          <RadioGroup
+            gap="3"
             value={cardFormat}
+            options={experimentCardFormats.map((format) => ({
+              value: format,
+              ...CARD_FORMAT_LABELS[format],
+            }))}
             setValue={(value) => {
               setCardFormat(value as (typeof experimentCardFormats)[number]);
               setSaved(false);
             }}
-          >
-            {experimentCardFormats.map((format) => (
-              <SelectItem key={format} value={format}>
-                {CARD_FORMAT_LABELS[format]}
-              </SelectItem>
-            ))}
-          </Select>
+          />
         </Box>
 
         <Box pt="5" style={{ borderTop: "1px solid var(--gray-a4)" }}>
