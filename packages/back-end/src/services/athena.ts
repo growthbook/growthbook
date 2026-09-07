@@ -8,6 +8,8 @@ import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { parseEnvInt, parseOptionalInt } from "shared/util";
 import { logger } from "back-end/src/util/logger";
+// Athena's engine is Trino-based, so it reports the same type names
+import { getFactTableTypeFromTrinoType } from "back-end/src/util/warehouseColumnTypes";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 async function assumeRole(params: AthenaConnectionParams) {
@@ -206,7 +208,8 @@ export async function runAthenaQuery(
   for (let i = 0; i < 62; i++) {
     const result = await waitAndCheck(500 * Math.pow(1.1, i));
     if (result && result.Rows && result.ResultSetMetadata?.ColumnInfo) {
-      const keys = result.ResultSetMetadata.ColumnInfo.map((info) => info.Name);
+      const columnInfo = result.ResultSetMetadata.ColumnInfo;
+      const keys = columnInfo.map((info) => info.Name);
       return {
         rows: result.Rows.slice(1).map((row) => {
           // eslint-disable-next-line
@@ -218,6 +221,20 @@ export async function runAthenaQuery(
           }
           return obj;
         }),
+        // Athena reports every value as a string, so the declared types are the
+        // only way to tell a number or date column apart from a real string --
+        // and they're returned whether or not the query matched any rows.
+        columns: columnInfo
+          .filter((info) => info.Name !== undefined)
+          .map((info) => {
+            const dataType = info.Type
+              ? getFactTableTypeFromTrinoType(info.Type)
+              : undefined;
+            return {
+              name: info.Name as string,
+              ...(dataType && { dataType }),
+            };
+          }),
       };
     }
   }

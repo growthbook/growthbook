@@ -211,6 +211,17 @@ export type CreateVirtualColumnProps = z.infer<
 export type CreateFactMetricProps = CreateProps<FactMetricInterface>;
 export type UpdateFactMetricProps = UpdateProps<FactMetricInterface>;
 
+/**
+ * Columns detected by running a Fact Table's SQL, before anything is persisted.
+ * Returned by the test-query endpoint so the create flow can show the columns
+ * and their types, and post them back with the new Fact Table.
+ */
+export type DetectedFactTableColumn = {
+  column: string;
+  datatype: FactTableColumnType;
+  jsonFields?: JSONColumnFields;
+};
+
 export type FactTableMap = Map<string, FactTableInterface>;
 
 // Accepts both full fact tables and slimmed definitions. Use for utils that

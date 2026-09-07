@@ -1,8 +1,13 @@
 import { createPrivateKey } from "crypto";
-import { Connection, createConnection } from "snowflake-sdk";
+import { Column, Connection, createConnection } from "snowflake-sdk";
 import { version as SNOWFLAKE_SDK_VERSION } from "snowflake-sdk/package.json";
-import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
+import {
+  ExternalIdCallback,
+  QueryResponse,
+  QueryResponseColumnData,
+} from "shared/types/integrations";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import { FactTableColumnType } from "shared/types/fact-table";
 import { QueryMetadata } from "shared/types/query";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
 import { getQueryTagString } from "back-end/src/util/integration";
@@ -15,6 +20,20 @@ type ProxyOptions = {
   proxyPort?: number;
   proxyProtocol?: string;
 };
+// Snowflake reports each column's type on the statement, so the output schema is
+// available even when a query returns no rows. The SDK exposes type predicates
+// rather than a stable type string, so use those.
+function getColumnDataType(col: Column): FactTableColumnType {
+  if (col.isNumber()) return "number";
+  if (col.isBoolean()) return "boolean";
+  if (col.isDate() || col.isTime() || col.isTimestamp()) return "date";
+  if (col.isVariant() || col.isObject() || col.isMap()) return "json";
+  if (col.isBinary()) return "binary";
+  if (col.isString()) return "string";
+  // ARRAY and anything the SDK doesn't classify
+  return "other";
+}
+
 function getProxySettings(): ProxyOptions {
   const uri = process.env.SNOWFLAKE_PROXY;
   if (!uri) return {};
@@ -189,7 +208,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     // Wait for the query to finish and fetch the results.
     const res = await new Promise<{
       rows: T[];
-      columns: { name: string }[];
+      columns: QueryResponseColumnData[];
     }>((resolve, reject) => {
       connection
         .getResultsFromQueryId({
@@ -203,6 +222,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
               const columns = stmtColumns
                 ? stmtColumns.map((col) => ({
                     name: col.getName().toLowerCase(),
+                    dataType: getColumnDataType(col),
                   }))
                 : [];
               resolve({ rows: (rows as T[]) || [], columns });

@@ -170,9 +170,6 @@ export default class BigQuery extends SqlIntegration {
   hasQuantileSketch(): boolean {
     return true;
   }
-  supportsLimitZeroColumnValidation(): boolean {
-    return true;
-  }
   getDefaultDatabase() {
     return this.params.projectId || "";
   }

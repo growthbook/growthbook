@@ -1,5 +1,14 @@
 import { DBSQLClient } from "@databricks/sql";
-import { QueryResponse } from "shared/types/integrations";
+import {
+  TColumnDesc,
+  TTableSchema,
+  TTypeId,
+} from "@databricks/sql/thrift/TCLIService_types";
+import {
+  QueryResponse,
+  QueryResponseColumnData,
+} from "shared/types/integrations";
+import { FactTableColumnType } from "shared/types/fact-table";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { logger } from "back-end/src/util/logger";
 import { ENVIRONMENT } from "back-end/src/util/secrets";
@@ -41,6 +50,77 @@ export function buildDatabricksConnectionOptions(
   };
 }
 
+function getColumnDataType(
+  column: TColumnDesc,
+): FactTableColumnType | undefined {
+  // HiveServer2 reports the complex types through `primitiveEntry` too, with
+  // the details in type qualifiers we don't need
+  const typeId = column.typeDesc?.types?.[0]?.primitiveEntry?.type;
+  if (typeId === undefined) return undefined;
+
+  switch (typeId) {
+    case TTypeId.BOOLEAN_TYPE:
+      return "boolean";
+
+    case TTypeId.TINYINT_TYPE:
+    case TTypeId.SMALLINT_TYPE:
+    case TTypeId.INT_TYPE:
+    case TTypeId.BIGINT_TYPE:
+    case TTypeId.FLOAT_TYPE:
+    case TTypeId.DOUBLE_TYPE:
+    case TTypeId.DECIMAL_TYPE:
+      return "number";
+
+    case TTypeId.STRING_TYPE:
+    case TTypeId.VARCHAR_TYPE:
+    case TTypeId.CHAR_TYPE:
+      return "string";
+
+    case TTypeId.TIMESTAMP_TYPE:
+    case TTypeId.DATE_TYPE:
+      return "date";
+
+    case TTypeId.BINARY_TYPE:
+      return "binary";
+
+    // Spark SQL has no JSON type; these are its structured equivalents
+    case TTypeId.MAP_TYPE:
+    case TTypeId.STRUCT_TYPE:
+      return "json";
+
+    case TTypeId.ARRAY_TYPE:
+    case TTypeId.UNION_TYPE:
+    case TTypeId.USER_DEFINED_TYPE:
+    case TTypeId.INTERVAL_YEAR_MONTH_TYPE:
+    case TTypeId.INTERVAL_DAY_TIME_TYPE:
+      return "other";
+
+    // An all-null expression, so the type is unknowable
+    case TTypeId.NULL_TYPE:
+      return undefined;
+  }
+
+  return undefined;
+}
+
+/**
+ * The query's output schema, which the driver reports whether or not the query
+ * matched any rows -- so a LIMIT 0 query is enough to read it. Row keys come
+ * from these same `columnName`s, so the two always agree.
+ */
+export function getDatabricksResultColumns(
+  schema: TTableSchema | null,
+): QueryResponseColumnData[] | undefined {
+  if (!schema?.columns) return undefined;
+
+  return [...schema.columns]
+    .sort((a, b) => a.position - b.position)
+    .map((column) => {
+      const dataType = getColumnDataType(column);
+      return { name: column.columnName, ...(dataType && { dataType }) };
+    });
+}
+
 export async function runDatabricksQuery<T>(
   conn: DatabricksConnectionParams,
   sql: string,
@@ -54,7 +134,7 @@ export async function runDatabricksQuery<T>(
   // So we have to wrap everything in a `new Promise()` and handle errors manually
 
   try {
-    const result = await new Promise<T[]>((resolve, reject) => {
+    const result = await new Promise<QueryResponse<T[]>>((resolve, reject) => {
       const client = new DBSQLClient({
         logger: {
           log(level, message) {
@@ -79,14 +159,27 @@ export async function runDatabricksQuery<T>(
             // This is required to have the results returned immediately
             maxRows: 1000,
           });
-          const result = (await queryOperation.fetchAll({
+          const rows = (await queryOperation.fetchAll({
             progress: false,
-          })) as unknown as Promise<T[]>;
+          })) as unknown as T[];
+
+          // fetchAll already fetched the result metadata to pick its result
+          // handler, and the operation memoizes it -- so this is a cache hit
+          // rather than another round trip. Never fail a query that returned
+          // rows just because the schema couldn't be read.
+          let columns: QueryResponseColumnData[] | undefined;
+          try {
+            columns = getDatabricksResultColumns(
+              await queryOperation.getSchema(),
+            );
+          } catch (e) {
+            logger.warn(e, "Databricks: failed to read the result schema");
+          }
 
           // As soon as we have the reuslt, return it
           if (!finished) {
             finished = true;
-            resolve(result);
+            resolve({ rows, columns });
           }
 
           // Do cleanup in the background and ignore errors
@@ -101,7 +194,7 @@ export async function runDatabricksQuery<T>(
           }
         });
     });
-    return { rows: result };
+    return result;
   } catch (e) {
     if (e.response?.displayMessage) {
       throw new Error(e.response.displayMessage);

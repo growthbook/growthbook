@@ -13,6 +13,8 @@ import {
   getMostRecentUpdateOccurrence,
   normalizeJSONFieldsInput,
   stripIncompatibleFields,
+  detectColumnsFromQueryResult,
+  buildColumnTypeMaps,
 } from "back-end/src/util/factTable";
 import { mergeUpsertColumns } from "back-end/src/models/FactTableModel";
 
@@ -630,6 +632,127 @@ describe("deriveUserIdTypesFromColumns", () => {
       const ds = makeStandardDatasource([{ userIdType: "user_id" }]);
       const cols = [makeColumn("revenue"), makeColumn("country")];
       expect(deriveUserIdTypesFromColumns(ds, cols)).toEqual([]);
+    });
+  });
+
+  describe("detectColumnsFromQueryResult", () => {
+    it("infers types from the returned rows", () => {
+      expect(
+        detectColumnsFromQueryResult({
+          results: [
+            {
+              user_id: "u1",
+              timestamp: "2024-01-02 03:04:05",
+              revenue: 12.5,
+              is_new: true,
+              nothing: null,
+            },
+          ],
+        }),
+      ).toEqual([
+        { column: "user_id", datatype: "string" },
+        { column: "timestamp", datatype: "date" },
+        { column: "revenue", datatype: "number" },
+        { column: "is_new", datatype: "boolean" },
+        { column: "nothing", datatype: "" },
+      ]);
+    });
+
+    it("falls back to the engine's reported schema when there are no rows", () => {
+      expect(
+        detectColumnsFromQueryResult({
+          results: [],
+          columns: [
+            { name: "user_id", dataType: "string" },
+            { name: "timestamp", dataType: "date" },
+            { name: "props", dataType: "json" },
+          ],
+        }),
+      ).toEqual([
+        { column: "user_id", datatype: "string" },
+        { column: "timestamp", datatype: "date" },
+        // JSON without field info stays typed, fields get filled in later
+        { column: "props", datatype: "json" },
+      ]);
+    });
+
+    it("keeps the engine's JSON fields", () => {
+      expect(
+        detectColumnsFromQueryResult({
+          results: [],
+          columns: [
+            {
+              name: "props",
+              dataType: "json",
+              fields: [{ name: "plan", dataType: "string" }],
+            },
+          ],
+        }),
+      ).toEqual([
+        {
+          column: "props",
+          datatype: "json",
+          jsonFields: { plan: { datatype: "string" } },
+        },
+      ]);
+    });
+
+    it("prefers the inferred type over an undetected engine type", () => {
+      expect(
+        detectColumnsFromQueryResult({
+          results: [{ revenue: 10 }],
+          columns: [{ name: "revenue", dataType: "" }],
+        }),
+      ).toEqual([{ column: "revenue", datatype: "number" }]);
+    });
+
+    it("lists name-only schema columns with an unknown type", () => {
+      // Snowflake and Presto report column names without datatypes
+      expect(
+        detectColumnsFromQueryResult({
+          results: [],
+          columns: [{ name: "user_id" }, { name: "timestamp" }],
+        }),
+      ).toEqual([
+        { column: "user_id", datatype: "" },
+        { column: "timestamp", datatype: "" },
+      ]);
+    });
+
+    it("returns nothing when there are no rows and no schema", () => {
+      expect(detectColumnsFromQueryResult({ results: [] })).toEqual([]);
+    });
+  });
+
+  describe("buildColumnTypeMaps", () => {
+    // The refresh marks a column deleted when it's missing from `datatypes`,
+    // so untypeable columns the engine still reports have to appear there.
+    it("lists untypeable schema columns in datatypes", () => {
+      const { datatypes } = buildColumnTypeMaps({
+        results: [],
+        columns: [
+          { name: "user_id", dataType: "string" },
+          // JSON without field info can't be typed from an empty row sample
+          { name: "props", dataType: "json" },
+          // Vertica and Query Service report names without types
+          { name: "revenue" },
+        ],
+      });
+
+      expect([...datatypes]).toEqual([
+        ["user_id", "string"],
+        ["props", "json"],
+        ["revenue", ""],
+      ]);
+    });
+
+    it("prefers inferred types over the engine's in datatypes", () => {
+      const { datatypes } = buildColumnTypeMaps({
+        results: [{ revenue: 10 }],
+        columns: [{ name: "revenue" }],
+      });
+
+      expect([...datatypes]).toEqual([["revenue", "number"]]);
     });
   });
 });

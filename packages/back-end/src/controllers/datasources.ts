@@ -1326,13 +1326,20 @@ export async function testLimitedQuery(
     templateVariables?: TemplateVariables;
     timestampColumn?: string;
     limit?: number;
+    detectColumns?: boolean;
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
 
-  const { query, datasourceId, templateVariables, timestampColumn, limit } =
-    req.body;
+  const {
+    query,
+    datasourceId,
+    templateVariables,
+    timestampColumn,
+    limit,
+    detectColumns,
+  } = req.body;
 
   // Sanity check to prevent potential abuse
   if (limit && limit > SQL_ROW_LIMIT) {
@@ -1342,7 +1349,9 @@ export async function testLimitedQuery(
     });
   }
 
-  const maxLimit = limit || SQL_ROW_LIMIT;
+  // Nullish, not falsy: 0 is a meaningful limit -- it reads the query's output
+  // schema without reading any rows.
+  const maxLimit = limit ?? SQL_ROW_LIMIT;
 
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
@@ -1352,13 +1361,14 @@ export async function testLimitedQuery(
     });
   }
 
-  const { results, sql, duration, error } = await testQuery(
+  const { results, sql, duration, error, columns } = await testQuery(
     context,
     datasource,
     query,
     templateVariables,
     maxLimit,
     timestampColumn,
+    detectColumns,
   );
 
   res.status(200).json({
@@ -1367,6 +1377,7 @@ export async function testLimitedQuery(
     results,
     sql,
     error,
+    columns,
   });
 }
 

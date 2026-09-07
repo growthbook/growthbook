@@ -26,6 +26,10 @@ export default class Vertica extends SqlIntegration {
       defaultSchema: this.params.defaultSchema || "",
     };
   }
+  // Speaks the Postgres wire protocol, so `runPostgresQuery` reports the query's
+  // output columns. No type OID map is passed: Vertica numbers its OIDs
+  // differently from Postgres, so its columns come back as undetected types for
+  // the user to set. See getFactTableTypeFromPostgresOid.
   runQuery(sql: string): Promise<QueryResponse> {
     return runPostgresQuery(this.params, sql);
   }

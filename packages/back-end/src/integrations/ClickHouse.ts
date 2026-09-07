@@ -16,6 +16,7 @@ import {
 import { SqlDialect } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
+import { getFactTableTypeFromClickHouseType } from "back-end/src/util/warehouseColumnTypes";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
 import { clickHouseDialect } from "./dialects/clickhouse";
@@ -126,6 +127,12 @@ export default class ClickHouse extends SqlIntegration {
     }
     return {
       rows,
+      // Returned for every query, rows or not, so a LIMIT 0 query is enough to
+      // read a query's output schema
+      columns: data.meta?.map((col) => {
+        const dataType = getFactTableTypeFromClickHouseType(col.type);
+        return { name: col.name, ...(dataType && { dataType }) };
+      }),
       statistics: data.statistics
         ? {
             executionDurationMs: data.statistics.elapsed,

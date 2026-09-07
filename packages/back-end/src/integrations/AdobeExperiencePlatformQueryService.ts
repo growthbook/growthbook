@@ -35,6 +35,10 @@ export default class AdobeExperiencePlatformQueryService extends SqlIntegration 
   getSqlDialect(): SqlDialect {
     return adobeExperiencePlatformQueryServiceDialect;
   }
+  // Speaks the Postgres wire protocol, so `runPostgresQuery` reports the query's
+  // output columns. No type OID map is passed: it's unconfirmed that Query
+  // Service numbers its OIDs the way Postgres does, so its columns come back as
+  // undetected types for the user to set.
   runQuery(sql: string): Promise<QueryResponse> {
     return runPostgresQuery(toPostgresConnectionParams(this.params), sql);
   }

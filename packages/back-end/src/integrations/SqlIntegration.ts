@@ -356,9 +356,6 @@ export default abstract class SqlIntegration
   hasQuantileSketch(): boolean {
     return false;
   }
-  supportsLimitZeroColumnValidation(): boolean {
-    return false;
-  }
   getPastExperimentQuery(params: PastExperimentParams): string {
     // TODO: for past experiments, UNION all exposure queries together
     const experimentQueries = this.datasource.settings.queries?.exposure || [];
@@ -725,13 +722,13 @@ export default abstract class SqlIntegration
     templateVariables?: TemplateVariables,
     timestampColumn?: string,
   ): string {
-    // Use LIMIT 0 for datasources that support column metadata without data
-    const limit = this.supportsLimitZeroColumnValidation() ? 0 : 1;
+    // Every SQL data source reports its output columns without returning any
+    // rows, so validate against the schema rather than reading data
     return this.getTestQuery({
       query,
       templateVariables,
       testDays: testDays ?? DEFAULT_TEST_QUERY_DAYS,
-      limit,
+      limit: 0,
       timestampColumn,
     });
   }
