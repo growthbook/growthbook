@@ -15,6 +15,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getInitialFactTableQuery, validateSQL } from "@/services/datasources";
+import { getNewFactTableProjects } from "@/services/factTables";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -198,26 +199,12 @@ export default function FactTableModal({
             const ds = getDatasourceById(value.datasource);
             if (!ds) throw new Error("Must select a valid data source");
 
-            let projects = ds.projects || [];
-
-            if (projects.length) {
-              // If the data source has projects, filter out any the user doesn't have permission to create fact tables in
-              projects = projects.filter((project) => {
-                return permissionsUtil.canCreateFactTable({
-                  projects: [project],
-                });
-              });
-            } else {
-              // If the data source is in all projects, check if the user has permission to create a fact table globally
-              if (permissionsUtil.canCreateFactTable({ projects: [] })) {
-                projects = []; // If the user does have global permissions, allow the fact table to be created in all projects
-              } else {
-                // If the user doesn't have global permission to create fact tables, use the project the user is in
-                projects = [project];
-              }
-            }
             value.columns = [];
-            value.projects = projects;
+            value.projects = getNewFactTableProjects({
+              datasource: ds,
+              project,
+              permissionsUtil,
+            });
             value.aggregatedFactTableSettings =
               normalizedAggSettings ?? undefined;
 

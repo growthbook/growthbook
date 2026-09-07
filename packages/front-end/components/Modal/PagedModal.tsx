@@ -50,6 +50,8 @@ type Props = {
   skipped?: Set<number>;
   hideNav?: boolean;
   bodyPrefix?: ReactNode;
+  overflowAuto?: boolean;
+  autoFocusSelector?: string;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
   trackingEventModalType: string;
   // The source (likely page or component) causing the modal to be shown
@@ -99,7 +101,8 @@ const PagedModal: FC<Props> = (props) => {
   const style = navStyle ? navStyle : "default";
   const steps: {
     display: string;
-    enabled: boolean;
+    // Optional on Page -- undefined means enabled, same as the nextStep logic
+    enabled?: boolean;
     validate?: () => Promise<void>;
     customNext?: () => void;
   }[] = [];
@@ -124,7 +127,7 @@ const PagedModal: FC<Props> = (props) => {
   async function validateSteps(before?: number) {
     before = before ?? steps.length;
     for (let i = 0; i < before; i++) {
-      if (!steps[i].enabled) continue;
+      if (steps[i].enabled === false) continue;
       if (!steps[i].validate) continue;
       try {
         await steps[i].validate?.();

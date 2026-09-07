@@ -101,7 +101,6 @@ export default function SchemaBrowserWrapper({
                 value={tableFilter}
                 onChange={(e) => onTableFilterChange(e.target.value)}
                 placeholder="Search..."
-                autoFocus
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();

@@ -11,6 +11,7 @@ import {
   columnRefValidator,
   metricTypeValidator,
   factTableColumnTypeValidator,
+  factTableTypeValidator,
   testFactFilterPropsValidator,
   testVirtualColumnPropsValidator,
   conversionWindowUnitValidator,
@@ -35,6 +36,7 @@ import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
+export type FactTableType = z.infer<typeof factTableTypeValidator>;
 
 // Funnel step / settings types (validators live in validators/fact-table).
 export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
@@ -97,6 +99,9 @@ export interface FactTableInterface {
   sql: string;
   timestampColumn?: string; // defaults to "timestamp"
   eventName: string;
+  // Set when the table was created through a flow that asked. Absent on older
+  // fact tables, which predate the question.
+  tableType?: FactTableType;
   columns: ColumnInterface[];
   columnsError?: string | null;
   columnRefreshPending?: boolean;

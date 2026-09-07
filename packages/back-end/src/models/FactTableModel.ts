@@ -66,6 +66,7 @@ const factTableSchema = new mongoose.Schema({
   sql: String,
   timestampColumn: String,
   eventName: String,
+  tableType: String,
   columns: [
     {
       _id: false,
@@ -193,6 +194,7 @@ export function createPropsToInterface(
     userIdTypes: props.userIdTypes,
     userIdColumns: props.userIdColumns,
     eventName: props.eventName,
+    tableType: props.tableType,
     columns,
     columnsError: null,
     managedBy: props.managedBy || "",
