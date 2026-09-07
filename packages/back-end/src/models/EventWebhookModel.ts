@@ -41,18 +41,10 @@ const eventWebHookSchema = new mongoose.Schema({
     required: false,
   },
   slack: {
-    appId: String,
     teamId: String,
-    teamName: String,
-    enterpriseId: String,
-    enterpriseName: String,
     channelName: String,
     channelId: String,
     configurationUrl: String,
-    botUserId: String,
-    authedUserId: String,
-    scope: String,
-    isEnterpriseInstall: Boolean,
   },
   method: {
     type: String,
@@ -194,9 +186,6 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  */
 const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
   const payload = omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]);
-  if (payload.slack && "botAccessToken" in payload.slack) {
-    delete (payload.slack as Record<string, unknown>).botAccessToken;
-  }
 
   // Add defaults values
   const defaults = {
