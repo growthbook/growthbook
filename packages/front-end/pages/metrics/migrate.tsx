@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import uniqid from "uniqid";
+import { omit } from "lodash";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import {
@@ -109,13 +110,7 @@ function toFactTableProps(
 }
 
 function toFactMetricProps(metric: FactMetricInterface) {
-  const {
-    organization: _org,
-    dateCreated: _created,
-    dateUpdated: _updated,
-    ...props
-  } = metric;
-  return props;
+  return omit(metric, ["organization", "dateCreated", "dateUpdated"]);
 }
 
 type PlanItem = { group: LegacyMetricGroup; metrics: FactMetricInterface[] };
@@ -424,25 +419,29 @@ export default function MigrateLegacyMetricsPage() {
                   {summary.notArchived.length} legacy metrics were migrated but
                   could not be archived:
                 </Text>
-                <ul className="mb-0">
-                  {summary.notArchived.map((n) => (
-                    <li key={n.id}>
-                      {legacyNames.get(n.id) || n.id}: {n.reason}
-                    </li>
-                  ))}
-                </ul>
+                <Box asChild mb="0">
+                  <ul>
+                    {summary.notArchived.map((n) => (
+                      <li key={n.id}>
+                        {legacyNames.get(n.id) || n.id}: {n.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </Box>
               </Box>
             )}
             {summary.errors.length > 0 && (
               <Box mt="2">
                 <Text weight="semibold">{summary.errors.length} errors:</Text>
-                <ul className="mb-0">
-                  {summary.errors.map((e, i) => (
-                    <li key={i}>
-                      {e.id}: {e.message}
-                    </li>
-                  ))}
-                </ul>
+                <Box asChild mb="0">
+                  <ul>
+                    {summary.errors.map((e, i) => (
+                      <li key={i}>
+                        {e.id}: {e.message}
+                      </li>
+                    ))}
+                  </ul>
+                </Box>
               </Box>
             )}
           </Callout>
@@ -509,11 +508,13 @@ export default function MigrateLegacyMetricsPage() {
                   content={
                     <>
                       <Text as="p">This creates:</Text>
-                      <ul className="mb-3">
-                        {confirmItems.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
+                      <Box asChild mb="3">
+                        <ul>
+                          {confirmItems.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </Box>
                       <Text as="p" mb="0">
                         The legacy metrics they replace are then archived.
                         Existing experiment results that reference them will
