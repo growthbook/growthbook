@@ -42,6 +42,9 @@ type DropdownProps = {
   // collision, so e.g. "top" opens upward when there's room, else downward.
   menuSide?: "top" | "right" | "bottom" | "left";
   menuWidth?: "full" | number;
+  /** Cap the menu height. Its built-in ScrollArea then scrolls the items,
+   * with the scrollbar flush against the menu edge. */
+  menuMaxHeight?: number | string;
   children: AllowedChildren;
   color?: RadixDropdownMenu.ContentProps["color"];
   variant?: RadixDropdownMenu.ContentProps["variant"];
@@ -64,6 +67,7 @@ export function DropdownMenu({
   menuPlacement = "start",
   menuSide = "bottom",
   menuWidth,
+  menuMaxHeight,
   children,
   color,
   variant,
@@ -171,6 +175,7 @@ export function DropdownMenu({
           }
           style={{
             width: typeof menuWidth === "number" ? menuWidth : undefined,
+            maxHeight: menuMaxHeight,
             visibility: isHiddenWithDelay ? "hidden" : "visible",
           }}
         >
