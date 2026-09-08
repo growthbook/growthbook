@@ -68,6 +68,7 @@ export default function QuantileFields({
     const agg = scope === "unit" ? aggregationForShape(shape) : undefined;
     return (
       <DataList
+        maxColumns={1}
         data={[
           { label: "Scope", value: SCOPE_LABELS[scope] },
           {
