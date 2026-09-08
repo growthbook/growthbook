@@ -1,7 +1,7 @@
 import {
   scrubEventUrls,
   scrubUrl,
-} from "../../src/plugins/session-replay-url-scrub";
+} from "../../src/plugins/session-replay/url-scrub";
 
 describe("session replay URL scrubbing", () => {
   it("strips query params and fragments and redacts ID-like path segments", () => {

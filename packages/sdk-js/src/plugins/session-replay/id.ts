@@ -1,4 +1,4 @@
-import { genUUID } from "../util";
+import { genUUID } from "../../util";
 
 type StoredSessionReplayState = {
   session_replay_id: string;

@@ -3,7 +3,7 @@ import {
   GB_BLOCK_CLASS,
   GB_IGNORE_CLASS,
   GB_MASK_CLASS,
-} from "../../src/plugins/session-replay-privacy";
+} from "../../src/plugins/session-replay/privacy";
 
 describe("session replay privacy options", () => {
   it("uses deny-by-default input masking and GrowthBook privacy selectors", () => {

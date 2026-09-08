@@ -30,12 +30,12 @@
     },
     "./plugins/session-replay": {
       "import": {
-        "types": "./dist/plugins/session-replay.d.ts",
-        "default": "./dist/esm/plugins/session-replay.mjs"
+        "types": "./dist/plugins/session-replay/index.d.ts",
+        "default": "./dist/esm/plugins/session-replay/index.mjs"
       },
       "require": {
-        "types": "./dist/plugins/session-replay.d.ts",
-        "default": "./dist/cjs/plugins/session-replay.js"
+        "types": "./dist/plugins/session-replay/index.d.ts",
+        "default": "./dist/cjs/plugins/session-replay/index.js"
       }
     }
   },

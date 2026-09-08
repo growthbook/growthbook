@@ -1,4 +1,4 @@
 {
-  "main": "../../dist/cjs/plugins/session-replay.js",
-  "types": "../../dist/plugins/session-replay.d.ts"
+  "main": "../../dist/cjs/plugins/session-replay/index.js",
+  "types": "../../dist/plugins/session-replay/index.d.ts"
 }

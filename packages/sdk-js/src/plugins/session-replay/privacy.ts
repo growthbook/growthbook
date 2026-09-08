@@ -1,8 +1,8 @@
 import type { recordOptions } from "rrweb";
 import type { eventWithTime } from "@rrweb/types";
-import type { SessionReplayUrlScrubberConfig } from "./session-replay-url-scrub";
+import type { SessionReplayUrlScrubberConfig } from "./url-scrub";
 
-export type { SessionReplayUrlScrubberConfig } from "./session-replay-url-scrub";
+export type { SessionReplayUrlScrubberConfig } from "./url-scrub";
 
 /**
  * Privacy controls for the session-replay SDK plugin.

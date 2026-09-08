@@ -6,10 +6,10 @@ import { sessionReplayPlugin } from "../../src/plugins/session-replay";
 jest.mock("rrweb", () => ({ record: jest.fn() }));
 
 // No-op stubs — privacy config and URL scrubbing have their own unit tests
-jest.mock("../../src/plugins/session-replay-privacy", () => ({
+jest.mock("../../src/plugins/session-replay/privacy", () => ({
   buildRrwebPrivacyOptions: () => ({}),
 }));
-jest.mock("../../src/plugins/session-replay-url-scrub", () => ({
+jest.mock("../../src/plugins/session-replay/url-scrub", () => ({
   scrubEventUrls: (event: unknown) => event,
 }));
 

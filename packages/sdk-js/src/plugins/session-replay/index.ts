@@ -1,23 +1,23 @@
 import { record } from "rrweb";
 import type { eventWithTime } from "@rrweb/types";
-import { GrowthBook } from "../GrowthBook";
+import { GrowthBook } from "../../GrowthBook";
 import {
   SessionReplayPrivacyConfig,
   buildRrwebPrivacyOptions,
-} from "./session-replay-privacy";
-import { scrubEventUrls } from "./session-replay-url-scrub";
+} from "./privacy";
+import { scrubEventUrls } from "./url-scrub";
 import {
   createRetry,
   RetryExhaustedError,
   RetryCancelledError,
 } from "./retry-manager";
-import { getOrCreateSessionReplayId } from "./session-replay-id";
+import { getOrCreateSessionReplayId } from "./id";
 
 export type {
   SessionReplayPrivacyConfig,
   MaskableInputType,
   SessionReplayUrlScrubberConfig,
-} from "./session-replay-privacy";
+} from "./privacy";
 
 type PluginOptions = {
   trackingHost?: string;

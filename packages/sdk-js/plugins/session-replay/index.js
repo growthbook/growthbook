@@ -1,1 +1,1 @@
-module.exports = require("../../dist/cjs/plugins/session-replay.js");
+module.exports = require("../../dist/cjs/plugins/session-replay/index.js");
