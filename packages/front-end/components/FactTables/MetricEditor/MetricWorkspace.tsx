@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import omit from "lodash/omit";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -10,7 +10,9 @@ import {
 } from "shared/types/fact-table";
 import {
   CreateFactMetricFormProps,
+  fromFactMetricFormValues,
   getDefaultFactMetricProps,
+  toFactMetricFormValues,
 } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -27,60 +29,13 @@ type DefaultsContext = Pick<
   "datasources" | "project" | "metricDefaults" | "settings"
 >;
 
-// getDefaultFactMetricProps returns targetMDE/minPercentChange/maxPercentChange
-// as raw fractions (0.05), but the form (and AdvancedSettings, built against
-// this convention already) edits them as whole percents (5) - matches
-// FactMetricModal's own ×100-on-load/÷100-on-submit boundary exactly.
-// winRisk/loseRisk are excluded: the new UI never displays them, so they
-// pass through unscaled in both directions.
 function buildFormDefaults(
   existing: FactMetricInterface | null,
   ctx: DefaultsContext,
 ): CreateFactMetricFormProps {
-  const defaults = getDefaultFactMetricProps({
-    ...ctx,
-    existing: existing ?? undefined,
-  });
-  defaults.targetMDE = defaults.targetMDE * 100;
-  defaults.minPercentChange = defaults.minPercentChange * 100;
-  defaults.maxPercentChange = defaults.maxPercentChange * 100;
-  return defaults;
-}
-
-// Inverse of buildFormDefaults, plus the submit-time normalization
-// FactMetricModal applies that has no reset-rule equivalent yet: resetting
-// displayAsPercentage for types that don't use it, and rejecting a capping
-// type with no value. (The other checks in FactMetricModal's submit handler
-// are already continuously enforced by applyFormType on type switch.)
-function buildSavePayload(
-  values: CreateFactMetricFormProps,
-): CreateFactMetricFormProps {
-  const result = { ...values };
-  if (result.targetMDE) result.targetMDE = result.targetMDE / 100;
-  result.minPercentChange = result.minPercentChange / 100;
-  result.maxPercentChange = result.maxPercentChange / 100;
-
-  if (
-    result.metricType !== "ratio" &&
-    result.metricType !== "dailyParticipation"
-  ) {
-    result.displayAsPercentage = undefined;
-  } else if (
-    result.metricType === "dailyParticipation" &&
-    result.displayAsPercentage === undefined
-  ) {
-    result.displayAsPercentage = true;
-  }
-
-  if (result.cappingSettings?.type && !result.cappingSettings.value) {
-    throw new Error("Capped Value cannot be 0");
-  }
-
-  if (!result.datasource) {
-    throw new Error("Must select a Data Source");
-  }
-
-  return result;
+  return toFactMetricFormValues(
+    getDefaultFactMetricProps({ ...ctx, existing: existing ?? undefined }),
+  );
 }
 
 // FunnelStepsInput has no equivalent to these - matches FactMetricModal's
@@ -128,6 +83,20 @@ export default function MetricWorkspace({
   );
   const [error, setError] = useState<string | null>(null);
 
+  // useForm's defaultValues are only read once, at mount - view mode would
+  // otherwise keep showing whatever `existing` looked like when the page
+  // first loaded, even after an out-of-band update (e.g. "Convert to
+  // Official Metric" on [fmid].tsx, which PUTs and calls mutateDefinitions()
+  // without going through this form at all). Re-sync whenever the saved
+  // metric changes while not actively editing; skipped while editing so an
+  // unrelated mutateDefinitions() elsewhere doesn't clobber in-progress edits.
+  useEffect(() => {
+    if (isEditing) return;
+    form.reset(buildFormDefaults(seedSource, defaultsCtx));
+    setFunnelSettings(seedSource?.funnelSettings ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedSource, isEditing]);
+
   // Mirrors MetricEditor's own check - the Save button must stay disabled for
   // a definition the editor can't represent (and thus can't render any field
   // to correct), the same way MetricEditor refuses to render an edit control
@@ -146,7 +115,7 @@ export default function MetricWorkspace({
   ).representable;
 
   async function handleSave() {
-    const values = buildSavePayload(form.getValues());
+    const values = fromFactMetricFormValues(form.getValues());
     const isFunnel = values.metricType === "funnel";
     if (isFunnel) validateFunnelSteps(funnelSettings);
 
