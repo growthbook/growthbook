@@ -83,6 +83,11 @@ export default function MetricWorkspace({
   );
   const [error, setError] = useState<string | null>(null);
 
+  function resync(source: FactMetricInterface | null) {
+    form.reset(buildFormDefaults(source, defaultsCtx));
+    setFunnelSettings(source?.funnelSettings ?? null);
+  }
+
   // useForm's defaultValues are only read once, at mount - view mode would
   // otherwise keep showing whatever `existing` looked like when the page
   // first loaded, even after an out-of-band update (e.g. "Convert to
@@ -92,10 +97,9 @@ export default function MetricWorkspace({
   // unrelated mutateDefinitions() elsewhere doesn't clobber in-progress edits.
   useEffect(() => {
     if (isEditing) return;
-    form.reset(buildFormDefaults(seedSource, defaultsCtx));
-    setFunnelSettings(seedSource?.funnelSettings ?? null);
+    resync(existing);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seedSource, isEditing]);
+  }, [existing, isEditing]);
 
   // Mirrors MetricEditor's own check - the Save button must stay disabled for
   // a definition the editor can't represent (and thus can't render any field
@@ -169,8 +173,7 @@ export default function MetricWorkspace({
       onCancel();
       return;
     }
-    form.reset(buildFormDefaults(existing, defaultsCtx));
-    setFunnelSettings(existing?.funnelSettings ?? null);
+    resync(existing);
     setError(null);
     setIsEditing(false);
   }
