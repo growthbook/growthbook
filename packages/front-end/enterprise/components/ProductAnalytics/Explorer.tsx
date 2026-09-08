@@ -20,8 +20,11 @@ import { NuqsAdapter } from "nuqs/adapters/next/pages";
 import ShadowedScrollArea from "@/components/ShadowedScrollArea/ShadowedScrollArea";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import EmptyState from "./EmptyState";
 import ExplorerSideBar from "./SideBar/ExplorerSideBar";
 import SaveFunnelMetricAction from "./SideBar/SaveFunnelMetricAction";
 import {
@@ -30,6 +33,9 @@ import {
   useDefaultDataSourceId,
 } from "./ExplorerContext";
 import ExplorerMainSection from "./MainSection/ExplorerMainSection";
+import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
+import ExplorerPageActions from "./ExplorerPageActions";
+import { useOptionalSqlEditorContext } from "./SqlEditorContext";
 import {
   createEmptyDataset,
   createEmptyValue,
@@ -40,11 +46,13 @@ import {
   comparisonModeQueryParser,
   stripExplorerDraftFields,
 } from "./util";
+import styles from "./Explorer.module.scss";
 
 const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   metric: "Metric",
   fact_table: "Fact Table",
   data_source: "Data Source",
+  sql: "SQL",
   funnel: "Funnel",
 };
 
@@ -95,75 +103,178 @@ function deriveConfigError(
   return null;
 }
 
-function ExplorerContent() {
-  const { managedWarehouseUnavailable, draftExploreState } =
-    useExplorerContext();
+export function ExplorerContent({
+  height = "calc(100vh - 72px)",
+  hideDataSourceSelector = false,
+  hideSidebarHeaderActions = false,
+  sidebarHeaderActions,
+}: {
+  height?: string;
+  hideDataSourceSelector?: boolean;
+  hideSidebarHeaderActions?: boolean;
+  sidebarHeaderActions?: React.ReactNode;
+}) {
+  const {
+    managedWarehouseUnavailable,
+    draftExploreState,
+    ensureDefaultSqlValue,
+  } = useExplorerContext();
+  const sqlEditorContext = useOptionalSqlEditorContext();
+  const isSql = draftExploreState.type === "sql";
   const isFunnel = draftExploreState.type === "funnel";
 
+  const explorerBody = (
+    <PanelGroup direction="horizontal">
+      <Panel
+        id="main-section"
+        order={1}
+        defaultSize={75}
+        minSize={65}
+        style={{ display: "flex", flexDirection: "column" }}
+      >
+        <ExplorerMainSection
+          showDataSourceSelector={!hideDataSourceSelector && !isSql}
+        />
+      </Panel>
+
+      <PanelResizeHandle
+        style={{
+          width: "10px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Box
+          flexGrow="1"
+          mb="3"
+          mt={isSql ? "3" : "9"}
+          style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
+        ></Box>
+        <PiDotsSix size={16} style={{ transform: "rotate(90deg)" }} />
+        <Box
+          flexGrow="1"
+          my="3"
+          style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
+        ></Box>
+      </PanelResizeHandle>
+
+      <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
+        <Flex direction="column" height="100%">
+          <Box style={{ flex: 1, minHeight: 0 }}>
+            <ShadowedScrollArea height="100%">
+              <ExplorerSideBar
+                hideHeaderActions={hideSidebarHeaderActions || isSql}
+                headerActions={sidebarHeaderActions}
+              />
+            </ShadowedScrollArea>
+          </Box>
+          {isFunnel && (
+            <Box
+              p="2"
+              style={{
+                borderTop: "1px solid var(--gray-a3)",
+              }}
+            >
+              <SaveFunnelMetricAction />
+            </Box>
+          )}
+        </Flex>
+      </Panel>
+    </PanelGroup>
+  );
+
   return (
-    <Flex direction="column" gap="3" height="calc(100vh - 72px)">
+    <Flex direction="column" gap="3" height={height}>
       {managedWarehouseUnavailable ? (
         <Box px="2">
           <ManagedWarehouseNoEventsCallout />
         </Box>
       ) : null}
-      <PanelGroup direction="horizontal">
-        {/* Main Section */}
-        <Panel
-          id="main-section"
-          order={1}
-          defaultSize={75}
-          minSize={65}
-          style={{ display: "flex", flexDirection: "column" }}
-        >
-          <ExplorerMainSection />
-        </Panel>
-
-        {/* Resize Handle */}
-        <PanelResizeHandle
-          style={{
-            width: "10px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Box
-            flexGrow="1"
-            mb="3"
-            mt="9"
-            style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
-          ></Box>
-          <PiDotsSix size={16} style={{ transform: "rotate(90deg)" }} />
-          <Box
-            flexGrow="1"
-            my="3"
-            style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
-          ></Box>
-        </PanelResizeHandle>
-
-        {/* Sidebar */}
-        <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
-          <Flex direction="column" height="100%">
-            <Box style={{ flex: 1, minHeight: 0 }}>
-              <ShadowedScrollArea height="100%">
-                <ExplorerSideBar />
-              </ShadowedScrollArea>
-            </Box>
-            {isFunnel && (
-              <Box
-                p="2"
-                style={{
-                  borderTop: "1px solid var(--gray-a3)",
-                }}
-              >
-                <SaveFunnelMetricAction />
-              </Box>
-            )}
+      {isSql && sqlEditorContext ? (
+        <>
+          <Flex direction="column" gap="1" px="2" flexShrink="0">
+            {!hideDataSourceSelector ? (
+              <Flex align="center" height="32px" mt="1">
+                <DataSourceDropdown />
+              </Flex>
+            ) : null}
           </Flex>
-        </Panel>
-      </PanelGroup>
+          <Tabs
+            value={sqlEditorContext.viewMode}
+            onValueChange={(value) => {
+              if (value === "dataset" || value === "explore") {
+                if (value === "explore") {
+                  ensureDefaultSqlValue();
+                  sqlEditorContext.markExploreSeen();
+                }
+                sqlEditorContext.setViewMode(value);
+              }
+            }}
+            style={{
+              flex: 1,
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <Flex
+              align="center"
+              justify="between"
+              flexShrink="0"
+              px="2"
+              style={{
+                width: "100%",
+                borderBottom: "1px solid var(--gray-a5)",
+              }}
+            >
+              <TabsList
+                style={{
+                  boxShadow: "none",
+                }}
+                size="lg"
+              >
+                <TabsTrigger value="dataset">Build Dataset</TabsTrigger>
+                <Tooltip
+                  body="Write or generate a query to build your dataset. Then you can explore the results and build visualizations with the data."
+                  shouldDisplay={!sqlEditorContext.exploreReady}
+                >
+                  <span style={{ display: "inline-flex" }}>
+                    <TabsTrigger
+                      value="explore"
+                      disabled={!sqlEditorContext.exploreReady}
+                    >
+                      <Flex align="center" gap="2">
+                        Explore Dataset
+                        {sqlEditorContext.exploreReady &&
+                        !sqlEditorContext.hasSeenExplore ? (
+                          <span
+                            className={styles.readyDot}
+                            aria-label="Sample results ready"
+                          >
+                            <span className={styles.readyDotPing} aria-hidden />
+                          </span>
+                        ) : null}
+                      </Flex>
+                    </TabsTrigger>
+                  </span>
+                </Tooltip>
+              </TabsList>
+              <Flex align="center" gap="2">
+                {!hideSidebarHeaderActions && !sidebarHeaderActions ? (
+                  <ExplorerPageActions />
+                ) : (
+                  sidebarHeaderActions
+                )}
+              </Flex>
+            </Flex>
+            <Box style={{ flex: 1, minHeight: 0 }}>{explorerBody}</Box>
+          </Tabs>
+        </>
+      ) : (
+        explorerBody
+      )}
     </Flex>
   );
 }
@@ -249,8 +360,13 @@ export default function Explorer({ type }: { type: DatasetType }) {
 function ExplorerInner({ type }: { type: DatasetType }) {
   const router = useRouter();
   const defaultDataSourceId = useDefaultDataSourceId();
-  const { ready, getFactMetricById, getFactTableById, getDatasourceById } =
-    useDefinitions();
+  const {
+    ready,
+    datasources,
+    getFactMetricById,
+    getFactTableById,
+    getDatasourceById,
+  } = useDefinitions();
 
   const [urlConfig, setUrlConfig] = useQueryState(
     "config",
@@ -294,22 +410,24 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     () => configError,
   );
 
-  // Funnels manage their initial state via createEmptyDataset (which seeds
-  // one empty step); the other dataset types still seed an empty value here
-  // so the sidebar opens with one ready-to-edit row.
+  // Funnels seed their first step in createEmptyDataset. SQL starts without a
+  // value so running raw SQL does not also trigger an exploration query.
   const defaultDataset = createEmptyDataset(type);
   const defaultDraftState = {
     ...DEFAULT_EXPLORE_STATE,
     type,
     datasource: defaultDataSourceId,
     dataset:
-      type === "funnel"
+      type === "funnel" || type === "sql"
         ? defaultDataset
         : { ...defaultDataset, values: [createEmptyValue(type)] },
     // Funnels don't render time-series charts, so the default date dimension
     // from DEFAULT_EXPLORE_STATE doesn't apply — start with no dimensions and
     // let the user add one explicitly via "Group By".
-    ...(type === "funnel" ? { dimensions: [] } : {}),
+    // SQL starts as a table exploration with no dimensions until the user
+    // configures them after testing their query.
+    ...(type === "funnel" || type === "sql" ? { dimensions: [] } : {}),
+    ...(type === "sql" ? { chartType: "table" as const } : {}),
   } as ExplorerDraftConfig;
 
   let seedError: string | null = null;
@@ -448,17 +566,25 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         }
         trackingSource="manual-explorer"
       >
-        <ExplorerUrlSync setUrlConfig={setUrlConfig} />
-        {type === "funnel" && (
-          <ExplorerFunnelMetricUrlSync
-            setUrlFunnelMetricId={setUrlFunnelMetricId}
-          />
+        {datasources.length === 0 ? (
+          <Flex direction="column" height="calc(100vh - 72px)">
+            <EmptyState />
+          </Flex>
+        ) : (
+          <>
+            <ExplorerUrlSync setUrlConfig={setUrlConfig} />
+            {type === "funnel" && (
+              <ExplorerFunnelMetricUrlSync
+                setUrlFunnelMetricId={setUrlFunnelMetricId}
+              />
+            )}
+            <ExplorerPreviousTimeFrameUrlSync
+              setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
+              setUrlComparisonMode={setUrlComparisonMode}
+            />
+            <ExplorerContent />
+          </>
         )}
-        <ExplorerPreviousTimeFrameUrlSync
-          setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
-          setUrlComparisonMode={setUrlComparisonMode}
-        />
-        <ExplorerContent />
       </ExplorerProvider>
     </>
   );

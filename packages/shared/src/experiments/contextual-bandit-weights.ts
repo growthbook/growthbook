@@ -25,11 +25,9 @@ function contextVariationWeights(
 }
 
 /**
- * Sample-size-weighted average of per-context variation weights, i.e. the
- * overall (marginal) weights across every context. Contexts are weighted by
- * their share of total users; when no users are recorded, contexts are weighted
- * uniformly. Returns one entry per variation, `null` when no context
- * contributed a usable weight for that variation.
+ * Sample-size-weighted average of per-context variation weights. Returns `null`
+ * for every variation when no per-context sample sizes are recorded, since the
+ * contexts cannot be weighted without them.
  *
  * Throws if any context is missing `updatedWeights`.
  */
@@ -43,10 +41,10 @@ export function computeOverallVariationWeights(
 
   const contextTotals = responses.map(contextTotalSampleSize);
   const totalUsers = contextTotals.reduce((sum, n) => sum + n, 0);
-  const contextWeights =
-    totalUsers > 0
-      ? contextTotals.map((n) => n / totalUsers)
-      : responses.map(() => 1 / responses.length);
+  if (totalUsers <= 0) {
+    return Array(numVariations).fill(null);
+  }
+  const contextWeights = contextTotals.map((n) => n / totalUsers);
 
   const overall: number[] = Array(numVariations).fill(0);
   const hasContribution = Array(numVariations).fill(false);
@@ -63,4 +61,45 @@ export function computeOverallVariationWeights(
   });
 
   return overall.map((v, j) => (hasContribution[j] ? v : null));
+}
+
+/**
+ * Population-weighted average of per-context variation means. Returns `null`
+ * for every variation when no per-context sample sizes are recorded, since the
+ * contexts cannot be weighted without them.
+ */
+export function computeOverallVariationMeans(
+  responses: ContextualBanditResponseSnapshot[],
+  numVariations: number,
+): (number | null)[] {
+  if (!responses.length || numVariations === 0) {
+    return Array(numVariations).fill(null);
+  }
+
+  const contextTotals = responses.map(contextTotalSampleSize);
+  const totalUsers = contextTotals.reduce((sum, n) => sum + n, 0);
+  if (totalUsers <= 0) {
+    return Array(numVariations).fill(null);
+  }
+  const contextWeights = contextTotals.map((n) => n / totalUsers);
+
+  const weightedSum: number[] = Array(numVariations).fill(0);
+  const weightNorm: number[] = Array(numVariations).fill(0);
+
+  responses.forEach((row, c) => {
+    const means = row.sampleMeans;
+    if (!means) return;
+    const contextWeight = contextWeights[c];
+    for (let j = 0; j < numVariations; j++) {
+      const mean = means[j];
+      if (mean !== undefined && mean !== null && !Number.isNaN(mean)) {
+        weightedSum[j] += contextWeight * Number(mean);
+        weightNorm[j] += contextWeight;
+      }
+    }
+  });
+
+  return weightedSum.map((sum, j) =>
+    weightNorm[j] > 0 ? sum / weightNorm[j] : null,
+  );
 }
