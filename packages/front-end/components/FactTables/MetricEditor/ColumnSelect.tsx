@@ -1,6 +1,12 @@
 import { FactTableDefinition } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
-import { columnsForShape, RatioShape } from "./metricFormTranslation";
+import DataList from "@/ui/DataList";
+import {
+  aggregationForShape,
+  columnsForShape,
+  columnValueLabel,
+  RatioShape,
+} from "./metricFormTranslation";
 
 // columnsFor(shape, factTable).length === 0 means omit the field, not
 // disable it (spec) - the null return is what makes that possible.
@@ -13,6 +19,7 @@ export default function ColumnSelect({
   value,
   onChange,
   label = "Column",
+  canEdit = true,
 }: {
   shape: RatioShape;
   factTable: FactTableDefinition | null;
@@ -20,7 +27,22 @@ export default function ColumnSelect({
   value: string;
   onChange: (column: string) => void;
   label?: string;
+  canEdit?: boolean;
 }) {
+  if (!canEdit) {
+    const agg = aggregationForShape(shape);
+    return (
+      <DataList
+        data={[
+          { label, value: columnValueLabel(value) },
+          ...(agg
+            ? [{ label: "Per-User Aggregation", value: agg.toUpperCase() }]
+            : []),
+        ]}
+      />
+    );
+  }
+
   const columns = columnsForShape(shape, factTable, hasCountDistinctHLL);
   if (columns.length === 0) return null;
 

@@ -10,9 +10,13 @@ import { Select, SelectItem } from "@/ui/Select";
 import TextField from "@/ui/TextField";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
+import DataList from "@/ui/DataList";
+import { getPercentileLabel } from "@/services/metrics";
 import ShapeSelect from "@/components/FactTables/MetricEditor/ShapeSelect";
 import ColumnSelect from "@/components/FactTables/MetricEditor/ColumnSelect";
 import {
+  aggregationForShape,
+  columnValueLabel,
   onQuantileScopeChange,
   onShapeChange,
   shapeFromColumnRef,
@@ -26,6 +30,8 @@ const QUANTILE_OPTIONS = [
   { value: "0.99", label: "P99" },
 ];
 
+const SCOPE_LABELS = { event: "All events", unit: "All units" };
+
 // Across: 2 radios, 50% each (spec). Unit scope shows an Aggregation
 // ShapeSelect; event scope skips it and restricts Column to numeric only -
 // onQuantileScopeChange (PR 1) already encodes both refits.
@@ -36,6 +42,7 @@ export default function QuantileFields({
   onNumeratorChange,
   factTable,
   hasCountDistinctHLL,
+  canEdit = true,
 }: {
   quantileSettings: MetricQuantileSettings;
   onQuantileSettingsChange: (value: MetricQuantileSettings) => void;
@@ -43,6 +50,7 @@ export default function QuantileFields({
   onNumeratorChange: (value: ColumnRef) => void;
   factTable: FactTableDefinition | null;
   hasCountDistinctHLL: boolean;
+  canEdit?: boolean;
 }) {
   const scope = quantileSettings.type;
   const shape =
@@ -55,6 +63,29 @@ export default function QuantileFields({
   // FactMetricModal's QuantileSelector).
   const [showCustom, setShowCustom] = useState(!isPresetQuantile);
   const isCustomQuantile = showCustom || !isPresetQuantile;
+
+  if (!canEdit) {
+    const agg = scope === "unit" ? aggregationForShape(shape) : undefined;
+    return (
+      <DataList
+        data={[
+          { label: "Scope", value: SCOPE_LABELS[scope] },
+          { label: "Value", value: columnValueLabel(numerator.column) },
+          ...(agg
+            ? [{ label: "Per-User Aggregation", value: agg.toUpperCase() }]
+            : []),
+          {
+            label: "Percentile",
+            value: getPercentileLabel(quantileSettings.quantile),
+          },
+          {
+            label: "Ignore Zeros",
+            value: quantileSettings.ignoreZeros ? "Yes" : "No",
+          },
+        ]}
+      />
+    );
+  }
 
   return (
     <Flex direction="column" gap="3">
