@@ -585,6 +585,8 @@ export function applyFormType<T extends MetricTypeSwitchState>(
       ...current,
       metricType,
       numerator: null,
+      denominator: null,
+      quantileSettings: null,
       funnelSettings,
       ...(cappingSettings !== undefined && { cappingSettings }),
       ...(windowSettings !== undefined && { windowSettings }),
