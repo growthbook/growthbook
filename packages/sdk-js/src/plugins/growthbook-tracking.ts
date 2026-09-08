@@ -18,7 +18,7 @@ import type {
   UserScopedGrowthBook,
 } from "../GrowthBookClient";
 import { EVENT_EXPERIMENT_VIEWED, EVENT_FEATURE_EVALUATED } from "../core";
-import { resolveSessionId } from "./utils/gb-session";
+import { resolveSessionId } from "./utils/session";
 import { DEFAULT_INGESTOR_HOST } from "./utils/ingestor";
 
 const SDK_VERSION = loadSDKVersion();

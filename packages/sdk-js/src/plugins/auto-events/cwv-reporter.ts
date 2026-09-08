@@ -1,7 +1,7 @@
 import type { GrowthBook } from "../../GrowthBook";
 import { shouldSample } from "../utils/sampling";
 import { currentPageUrl, detectEnv, whenActivated } from "../utils/browser";
-import { subscribeToUrlChanges } from "../utils/urlChangeObserver";
+import { subscribeToUrlChanges } from "../utils/url-change-observer";
 
 export type CWVReporterSettings = {
   trackFCP?: boolean;
@@ -138,9 +138,9 @@ export function createCWVReporter({
         });
         observers.length = 0;
         lcpObserver = null;
-        unsubscribeUrlChanges?.();
+        unsubscribeUrlChanges && unsubscribeUrlChanges();
         unsubscribeUrlChanges = null;
-        removeListeners?.();
+        removeListeners && removeListeners();
         removeListeners = null;
       };
 
@@ -168,7 +168,7 @@ export function createCWVReporter({
       const navEntry = performance.getEntriesByType("navigation")[0] as
         | (PerformanceNavigationTiming & { activationStart?: number })
         | undefined;
-      const activationStart = navEntry?.activationStart ?? 0;
+      const activationStart = (navEntry && navEntry.activationStart) ?? 0;
 
       // Fires after location has changed; the metrics belong to the page left
       unsubscribeUrlChanges = subscribeToUrlChanges(reportCWV, {
@@ -201,7 +201,7 @@ export function createCWVReporter({
           const entry = list.getEntriesByName("first-contentful-paint")[0];
           if (!entry || entry.startTime >= firstHiddenTime) return;
           fcpTime = entry.startTime;
-          fcpObserver?.disconnect();
+          fcpObserver && fcpObserver.disconnect();
           trackFCP &&
             log("CWV:FCP", Math.max(0, entry.startTime - activationStart));
         });
@@ -223,9 +223,9 @@ export function createCWVReporter({
       if (trackLCP) {
         const firstInputObserver = observe("first-input", (list) => {
           if (!list.getEntries().length) return;
-          firstInputObserver?.disconnect();
+          firstInputObserver && firstInputObserver.disconnect();
           lcpFrozen = true;
-          lcpObserver?.disconnect();
+          lcpObserver && lcpObserver.disconnect();
         });
       }
 

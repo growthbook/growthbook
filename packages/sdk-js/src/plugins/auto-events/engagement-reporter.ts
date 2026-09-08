@@ -1,8 +1,8 @@
 import type { GrowthBook } from "../../GrowthBook";
 import { shouldSample } from "../utils/sampling";
 import { currentPageUrl, detectEnv, whenActivated } from "../utils/browser";
-import { subscribeToUrlChanges } from "../utils/urlChangeObserver";
-import { createPageState, type PageState } from "./pageState";
+import { subscribeToUrlChanges } from "../utils/url-change-observer";
+import { createPageState, type PageState } from "./page-state";
 
 export type EngagementReporterSettings = {
   samplingRate?: number;
@@ -186,7 +186,7 @@ export function createEngagementReporter({
     stopped = true;
     heartbeatTimer && clearInterval(heartbeatTimer);
     heartbeatTimer = null;
-    unsubUrlChanges?.();
+    unsubUrlChanges && unsubUrlChanges();
     unsubUrlChanges = null;
     window.removeEventListener("pageshow", onPageShow);
     window.removeEventListener("pagehide", onPageHide, true);

@@ -9,8 +9,8 @@ import {
   getFormActionProperties,
   cleanProperties,
   type ElementPropertyOptions,
-} from "./elementUtils";
-import { createPageState, type PageState } from "./pageState";
+} from "./element-utils";
+import { createPageState, type PageState } from "./page-state";
 
 const DEFAULT_CLICK_SELECTOR =
   "a, button, [role='button'], [role='link'], " +

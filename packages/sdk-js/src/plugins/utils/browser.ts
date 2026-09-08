@@ -1,7 +1,12 @@
 export function detectEnv(): "browser" | "node" | "unknown" {
   if (typeof window !== "undefined" && typeof window.document !== "undefined")
     return "browser";
-  if (typeof process !== "undefined" && process.versions?.node) return "node";
+  if (
+    typeof process !== "undefined" &&
+    process.versions &&
+    process.versions.node
+  )
+    return "node";
   return "unknown";
 }
 

@@ -1,13 +1,13 @@
 import { GrowthBook } from "../../src";
-import { createCWVReporter } from "../../src/plugins/auto-events/cwvReporter";
-import { createErrorReporter } from "../../src/plugins/auto-events/errorReporter";
-import { createInteractionReporter } from "../../src/plugins/auto-events/interactionReporter";
-import { createEngagementReporter } from "../../src/plugins/auto-events/engagementReporter";
-import { createPageState } from "../../src/plugins/auto-events/pageState";
+import { createCWVReporter } from "../../src/plugins/auto-events/cwv-reporter";
+import { createErrorReporter } from "../../src/plugins/auto-events/error-reporter";
+import { createInteractionReporter } from "../../src/plugins/auto-events/interaction-reporter";
+import { createEngagementReporter } from "../../src/plugins/auto-events/engagement-reporter";
+import { createPageState } from "../../src/plugins/auto-events/page-state";
 import {
   _resetUrlChangeObserverForTests,
   subscribeToUrlChanges,
-} from "../../src/plugins/utils/urlChangeObserver";
+} from "../../src/plugins/utils/url-change-observer";
 import { autoEventsPlugin } from "../../src/plugins/auto-events";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

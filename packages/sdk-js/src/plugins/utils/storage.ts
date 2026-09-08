@@ -21,7 +21,10 @@ export function getLocalStorage(): SessionStorageCompat | undefined {
 // stored value is not valid JSON.
 export function readSessionJSON(key: string): unknown {
   try {
-    const raw = getSessionStorage()?.getItem(key) as string | null | undefined;
+    const storage = getSessionStorage();
+    const raw = storage
+      ? (storage.getItem(key) as string | null | undefined)
+      : undefined;
     if (!raw) return null;
     return JSON.parse(raw);
   } catch {

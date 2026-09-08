@@ -4,11 +4,11 @@ import type {
   UserScopedGrowthBook,
 } from "../../GrowthBookClient";
 import { normalizeSamplingRate } from "../utils/sampling";
-import { createCWVReporter } from "./cwvReporter";
-import { createErrorReporter } from "./errorReporter";
-import { createEngagementReporter } from "./engagementReporter";
-import { createInteractionReporter } from "./interactionReporter";
-import { createPageState } from "./pageState";
+import { createCWVReporter } from "./cwv-reporter";
+import { createErrorReporter } from "./error-reporter";
+import { createEngagementReporter } from "./engagement-reporter";
+import { createInteractionReporter } from "./interaction-reporter";
+import { createPageState } from "./page-state";
 
 function isFullGrowthBook(
   gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,

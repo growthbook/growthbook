@@ -58,10 +58,10 @@ export function createPersistedEphemeralId(config: PersistedEphemeralIdConfig) {
 
   function read(): StoredIdState | null {
     try {
-      const raw = getStorage()?.getItem(config.key) as
-        | string
-        | null
-        | undefined;
+      const storage = getStorage();
+      const raw = storage
+        ? (storage.getItem(config.key) as string | null | undefined)
+        : undefined;
       if (raw) {
         const stored = normalize(JSON.parse(raw));
         if (stored) return stored;
@@ -76,8 +76,10 @@ export function createPersistedEphemeralId(config: PersistedEphemeralIdConfig) {
   // polyfills) still yields a stable ID for this JS context
   function persist(state: StoredIdState): void {
     inMemoryFallback = state;
+    const storage = getStorage();
+    if (!storage) return;
     try {
-      getStorage()?.setItem(
+      storage.setItem(
         config.key,
         JSON.stringify({
           [config.key]: state.id,
@@ -91,10 +93,12 @@ export function createPersistedEphemeralId(config: PersistedEphemeralIdConfig) {
   }
 
   function getOrCreate(options?: GetOrCreateOptions): string {
-    const idleTimeoutMs = options?.idleTimeoutMs ?? config.idleTimeoutMs;
-    const maxDurationMs = options?.maxDurationMs ?? config.maxDurationMs;
+    const idleTimeoutMs =
+      (options && options.idleTimeoutMs) ?? config.idleTimeoutMs;
+    const maxDurationMs =
+      (options && options.maxDurationMs) ?? config.maxDurationMs;
     const now = Date.now();
-    const stored = options?.forceNew ? null : read();
+    const stored = options && options.forceNew ? null : read();
 
     if (
       stored &&

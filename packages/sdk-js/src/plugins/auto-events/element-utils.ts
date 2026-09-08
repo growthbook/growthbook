@@ -122,7 +122,8 @@ function getSafeElementText(
 
 function getHrefProperties(el: Element): Record<string, unknown> {
   const anchor = el.closest("a");
-  const href = el.getAttribute("href") || anchor?.getAttribute("href");
+  const href =
+    el.getAttribute("href") || (anchor ? anchor.getAttribute("href") : null);
   if (!href) return {};
   try {
     const parsed = new URL(href, location.href);

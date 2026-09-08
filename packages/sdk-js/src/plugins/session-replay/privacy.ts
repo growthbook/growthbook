@@ -107,7 +107,7 @@ function buildMaskFn(
   userMaskFn: ((text: string, el: HTMLElement | null) => string) | undefined,
 ): (text: string, el: HTMLElement | null) => string {
   return (text, el) => {
-    if (el?.closest(`[${GB_ALLOW_ATTR}]`)) return text;
+    if (el && el.closest(`[${GB_ALLOW_ATTR}]`)) return text;
     if (userMaskFn) return userMaskFn(text, el);
     return "*".repeat(text.length);
   };

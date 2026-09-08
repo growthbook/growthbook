@@ -4,7 +4,7 @@ import { getLocalStorage } from "./storage";
 export const DEFAULT_IDLE_TIMEOUT_MS = 10 * 60 * 1000;
 export const DEFAULT_MAX_DURATION_MS = 60 * 60 * 1000;
 
-export type GbSessionConfig = {
+export type SessionConfig = {
   // Inactivity window (ms); each read refreshes it. Defaults to 10 minutes.
   idleTimeout?: number;
   // Hard cap (ms) from creation, regardless of activity. Defaults to 1 hour.
@@ -13,26 +13,24 @@ export type GbSessionConfig = {
 
 // Module-level so every consumer touches the session with the same expiry
 // policy; set once by auto-attributes
-let sessionConfig: GbSessionConfig = {};
+let sessionConfig: SessionConfig = {};
 
-export function configureGbSession(config: GbSessionConfig): void {
+export function configureSession(config: SessionConfig): void {
   sessionConfig = { ...config };
 }
 
 // Cross-tab activity session: localStorage-backed so one sitting spans tabs
 // and reloads
-const gbSession = createPersistedEphemeralId({
+const session = createPersistedEphemeralId({
   key: "gb_session_id",
   idleTimeoutMs: DEFAULT_IDLE_TIMEOUT_MS,
   maxDurationMs: DEFAULT_MAX_DURATION_MS,
   storage: getLocalStorage,
 });
 
-export function getOrCreateGbSessionId(options?: {
-  forceNew?: boolean;
-}): string {
-  return gbSession.getOrCreate({
-    forceNew: options?.forceNew,
+export function getOrCreateSessionId(options?: { forceNew?: boolean }): string {
+  return session.getOrCreate({
+    forceNew: options ? options.forceNew : undefined,
     idleTimeoutMs: sessionConfig.idleTimeout,
     maxDurationMs: sessionConfig.maxDuration,
   });
@@ -49,13 +47,13 @@ export function resolveSessionId(
   const byo = attributes.session_id;
   if (typeof byo === "string" && byo) return byo;
 
-  if (typeof window !== "undefined") return getOrCreateGbSessionId();
+  if (typeof window !== "undefined") return getOrCreateSessionId();
 
   const projected = attributes.sessionId;
   return typeof projected === "string" && projected ? projected : null;
 }
 
-export function _resetGbSessionForTests(): void {
-  gbSession.reset();
+export function _resetSessionForTests(): void {
+  session.reset();
   sessionConfig = {};
 }

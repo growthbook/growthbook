@@ -1,6 +1,6 @@
 import { GrowthBook, GrowthBookClient } from "../../src";
 import { autoAttributesPlugin } from "../../src/plugins/auto-attributes";
-import { _resetGbSessionForTests } from "../../src/plugins/utils/gb-session";
+import { _resetSessionForTests } from "../../src/plugins/utils/session";
 
 declare global {
   interface Window {
@@ -72,7 +72,7 @@ describe("autoAttributesPlugin", () => {
     if (typeof localStorage.clear === "function") {
       localStorage.clear();
     }
-    _resetGbSessionForTests();
+    _resetSessionForTests();
   });
 
   it("should set initial attributes", async () => {

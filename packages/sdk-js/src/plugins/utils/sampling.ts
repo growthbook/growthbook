@@ -60,7 +60,9 @@ export function shouldSample({
   if (rate >= 1) return true;
   if (rate <= 0) return false;
   const attributeValue = hashAttribute
-    ? attributes?.[hashAttribute]
+    ? attributes
+      ? attributes[hashAttribute]
+      : undefined
     : undefined;
   const samplingValue = toString(attributeValue);
   if (typeof samplingValue === "string") {

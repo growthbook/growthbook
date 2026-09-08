@@ -4,10 +4,10 @@ export { thirdPartyTrackingPlugin } from "./third-party-tracking";
 export { autoEventsPlugin } from "./auto-events/index";
 export type { AutoEventsSettings } from "./auto-events/index";
 export {
-  configureGbSession,
-  getOrCreateGbSessionId,
+  configureSession,
+  getOrCreateSessionId,
   resolveSessionId,
-} from "./utils/gb-session";
+} from "./utils/session";
 export {
   devtoolsPlugin,
   devtoolsNextjsPlugin,
@@ -20,7 +20,7 @@ export {
 export type { AutoAttributeSettings } from "./auto-attributes";
 export type { TrackingTransport } from "./growthbook-tracking";
 export type { Trackers } from "./third-party-tracking";
-export type { GbSessionConfig } from "./utils/gb-session";
+export type { SessionConfig } from "./utils/session";
 export type {
   DevtoolsState,
   ExpressRequestCompat,

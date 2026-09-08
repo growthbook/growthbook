@@ -116,6 +116,7 @@ Three tiers: global (`manageTeam`, `manageBilling`), project-scoped (`manageFeat
 - **Testing policy** — write tests for utility/helper functions; do not write tests for front-end components or back-end routers/controllers/models.
 - **Zod as source of truth** — infer types from schemas (`z.infer<typeof mySchema>`); do not duplicate type definitions.
 - **ESLint suppression** — never suppress lint errors by prefixing variables, params, or imports with `_`; remove unused code.
+- **SDK optional chaining** — in `packages/sdk-js` avoid `?.`; it transpiles to verbose ES5 in the published bundles. Use `a && a.b` / `fn && fn()`. `??` is fine.
 - **Nullish comparisons** — use strict `===`/`!==`, never loose `==`/`!=`. When both `null` and `undefined` mean absent, normalize first: `(x ?? null) !== null`. Use `null`, not `undefined`, as the explicit “no value” sentinel in state and APIs when possible.
 
 ## Detailed Guidance

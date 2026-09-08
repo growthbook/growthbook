@@ -6,8 +6,9 @@ import { sessionReplayPlugin } from "./plugins/session-replay/index";
 
 // Enabled by default; data-session-replay-disabled or
 // window.growthbook_config.sessionReplay.enabled = false turns it off
+const replayConfig = windowContext.sessionReplay || {};
 const sessionReplayDisabled =
-  windowContext.sessionReplay?.enabled === false ||
+  replayConfig.enabled === false ||
   dataContext.sessionReplayDisabled === "" ||
   dataContext.sessionReplayDisabled === "true";
 
@@ -15,8 +16,8 @@ if (!sessionReplayDisabled) {
   sessionReplayPlugin({
     ingestorHost:
       windowContext.eventIngestorHost || dataContext.eventIngestorHost,
-    enabled: windowContext.sessionReplay?.enabled,
-    privacy: windowContext.sessionReplay?.privacy,
+    enabled: replayConfig.enabled,
+    privacy: replayConfig.privacy,
   })(gb);
 }
 

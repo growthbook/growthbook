@@ -1,11 +1,11 @@
 import {
-  getOrCreateGbSessionId,
+  getOrCreateSessionId,
   resolveSessionId,
-  configureGbSession,
+  configureSession,
   DEFAULT_IDLE_TIMEOUT_MS,
   DEFAULT_MAX_DURATION_MS,
-  _resetGbSessionForTests,
-} from "../../src/plugins/utils/gb-session";
+  _resetSessionForTests,
+} from "../../src/plugins/utils/session";
 import { setPolyfills } from "../../src/feature-repository";
 
 const STORAGE_KEY = "gb_session_id";
@@ -26,21 +26,21 @@ function writeStoredState(state: Record<string, unknown>) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-describe("gb session manager", () => {
+describe("session manager", () => {
   beforeEach(() => {
     localStorage.removeItem(STORAGE_KEY);
-    _resetGbSessionForTests();
+    _resetSessionForTests();
     jest.spyOn(Date, "now").mockReturnValue(1000);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
     localStorage.removeItem(STORAGE_KEY);
-    _resetGbSessionForTests();
+    _resetSessionForTests();
   });
 
   it("creates and stores a session id in localStorage", () => {
-    const id = getOrCreateGbSessionId();
+    const id = getOrCreateSessionId();
     const stored = readStoredState();
 
     expect(id).toEqual(expect.any(String));
@@ -59,7 +59,7 @@ describe("gb session manager", () => {
     });
     jest.spyOn(Date, "now").mockReturnValue(2000);
 
-    const id = getOrCreateGbSessionId();
+    const id = getOrCreateSessionId();
 
     expect(id).toBe("existing-id");
     expect(readStoredState()).toEqual({
@@ -77,7 +77,7 @@ describe("gb session manager", () => {
     });
     jest.spyOn(Date, "now").mockReturnValue(1000 + DEFAULT_IDLE_TIMEOUT_MS + 1);
 
-    const id = getOrCreateGbSessionId();
+    const id = getOrCreateSessionId();
 
     expect(id).not.toBe("idle-id");
   });
@@ -86,18 +86,18 @@ describe("gb session manager", () => {
     let now = 1000;
     jest.spyOn(Date, "now").mockImplementation(() => now);
 
-    const id = getOrCreateGbSessionId();
+    const id = getOrCreateSessionId();
 
     // Touch every 5 minutes — always inside the idle window
     const step = 5 * 60 * 1000;
     while (now - 1000 + step < DEFAULT_MAX_DURATION_MS) {
       now += step;
-      expect(getOrCreateGbSessionId()).toBe(id);
+      expect(getOrCreateSessionId()).toBe(id);
     }
 
     // Next touch crosses the hard cap — rotates despite recent activity
     now = 1000 + DEFAULT_MAX_DURATION_MS + 1;
-    expect(getOrCreateGbSessionId()).not.toBe(id);
+    expect(getOrCreateSessionId()).not.toBe(id);
   });
 
   it("rotates when forceNew is true", () => {
@@ -107,7 +107,7 @@ describe("gb session manager", () => {
       lastActiveAt: 1000,
     });
 
-    const id = getOrCreateGbSessionId({ forceNew: true });
+    const id = getOrCreateSessionId({ forceNew: true });
 
     expect(id).toEqual(expect.any(String));
     expect(id).not.toBe("existing-id");
@@ -120,7 +120,7 @@ describe("gb session manager", () => {
 
   it("respects a configured idleTimeout and maxDuration", () => {
     const idleTimeout = 60 * 1000;
-    configureGbSession({ idleTimeout });
+    configureSession({ idleTimeout });
     writeStoredState({
       gb_session_id: "short-lived",
       createdAt: 1000,
@@ -129,22 +129,22 @@ describe("gb session manager", () => {
 
     // Within the custom idle window — reuse
     jest.spyOn(Date, "now").mockReturnValue(1000 + idleTimeout - 1);
-    expect(getOrCreateGbSessionId()).toBe("short-lived");
+    expect(getOrCreateSessionId()).toBe("short-lived");
 
     // Past the custom idle window — rotate
     jest.spyOn(Date, "now").mockReturnValue(1000 + 2 * idleTimeout);
-    expect(getOrCreateGbSessionId()).not.toBe("short-lived");
+    expect(getOrCreateSessionId()).not.toBe("short-lived");
 
     // Custom hard cap beats recent activity
     const maxDuration = 5 * 60 * 1000;
-    configureGbSession({ maxDuration });
+    configureSession({ maxDuration });
     writeStoredState({
       gb_session_id: "capped",
       createdAt: 1000,
       lastActiveAt: 1000 + maxDuration,
     });
     jest.spyOn(Date, "now").mockReturnValue(1000 + maxDuration + 1);
-    expect(getOrCreateGbSessionId()).not.toBe("capped");
+    expect(getOrCreateSessionId()).not.toBe("capped");
   });
 
   it("resolveSessionId prefers BYO session_id, else the live session (reading it counts as activity)", () => {
@@ -157,7 +157,7 @@ describe("gb session manager", () => {
     const minted = resolveSessionId({ sessionId: "stale-projection" });
     expect(minted).toEqual(expect.any(String));
     expect(minted).not.toBe("stale-projection");
-    expect(getOrCreateGbSessionId()).toBe(minted);
+    expect(getOrCreateSessionId()).toBe(minted);
 
     jest.spyOn(Date, "now").mockReturnValue(1000 + 5000);
     expect(resolveSessionId({})).toBe(minted);
@@ -167,7 +167,7 @@ describe("gb session manager", () => {
   it("replaces invalid stored state", () => {
     writeStoredState({ gb_session_id: "", createdAt: 1000 });
 
-    const id = getOrCreateGbSessionId();
+    const id = getOrCreateSessionId();
 
     expect(id).toEqual(expect.any(String));
     expect(id).not.toBe("");
@@ -189,7 +189,7 @@ describe("gb session manager", () => {
       },
     });
 
-    const id = getOrCreateGbSessionId();
+    const id = getOrCreateSessionId();
 
     expect(id).toEqual(expect.any(String));
     const stored = JSON.parse(store[STORAGE_KEY] || "{}");
@@ -214,11 +214,11 @@ describe("gb session manager", () => {
       },
     });
 
-    const id = getOrCreateGbSessionId();
+    const id = getOrCreateSessionId();
     expect(id).toEqual(expect.any(String));
 
     // Second call should return same id via in-memory fallback
-    const id2 = getOrCreateGbSessionId();
+    const id2 = getOrCreateSessionId();
     expect(id2).toBe(id);
 
     setPolyfills({ localStorage: globalThis.localStorage });
@@ -235,8 +235,8 @@ describe("gb session manager", () => {
       },
     });
 
-    const id = getOrCreateGbSessionId();
-    const id2 = getOrCreateGbSessionId();
+    const id = getOrCreateSessionId();
+    const id2 = getOrCreateSessionId();
     expect(id2).toBe(id);
 
     setPolyfills({ localStorage: globalThis.localStorage });

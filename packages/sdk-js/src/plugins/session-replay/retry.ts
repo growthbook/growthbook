@@ -96,7 +96,9 @@ export function createRetry<TArgs extends unknown[], TReturn>(
   };
 
   const handle = run as RetryHandle<TArgs, TReturn>;
-  handle.cancel = () => _cancelFn?.();
+  handle.cancel = () => {
+    if (_cancelFn) _cancelFn();
+  };
   Object.defineProperty(handle, "attempts", { get: () => _attempts });
 
   return handle;

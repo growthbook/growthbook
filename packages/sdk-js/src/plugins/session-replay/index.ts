@@ -3,7 +3,7 @@ import type { eventWithTime } from "@rrweb/types";
 import type { SessionReplaySettings } from "../../types/growthbook";
 import { GrowthBook } from "../../GrowthBook";
 import { readSessionJSON, writeSessionJSON } from "../utils/storage";
-import { resolveSessionId } from "../utils/gb-session";
+import { resolveSessionId } from "../utils/session";
 import { shouldSampleScope, persistSampleDecision } from "../utils/sampling";
 import { mergeSettings } from "../utils/settings";
 import { DEFAULT_INGESTOR_HOST } from "../utils/ingestor";
@@ -103,6 +103,9 @@ function writePersistedReplayState(state: PersistedReplayState): void {
   writeSessionJSON(REPLAY_STORAGE_KEY, state);
 }
 
+const errorStatus = (e: unknown): number | undefined =>
+  e && typeof e === "object" ? (e as { status?: number }).status : undefined;
+
 // Exponential back-off for retriable sends (5xx / 429 / network).
 const RETRY_BASE_DELAY_MS = 1_000;
 const RETRY_MAX_DELAY_MS = 30_000;
@@ -140,14 +143,18 @@ export function sessionReplayPlugin({
   // A local `enabled: false` is definitive: remote settings can turn a
   // locally-enabled plugin off, never on.
   const resolveSettings = (): Required<SessionReplaySettings> => {
-    const remote = gbRef?.getDecryptedPayload().sdkSettings?.sessionReplay;
+    const sdkSettings = gbRef
+      ? gbRef.getDecryptedPayload().sdkSettings
+      : undefined;
+    const remote = sdkSettings ? sdkSettings.sessionReplay : undefined;
     const settings = mergeSettings(
       DEFAULT_SETTINGS,
       { enabled, samplingRate },
       remote,
     );
     // Missing on either side means "no opinion", not off
-    settings.enabled = (enabled ?? true) && (remote?.enabled ?? true);
+    const remoteEnabled = remote ? remote.enabled : undefined;
+    settings.enabled = (enabled ?? true) && (remoteEnabled ?? true);
     return settings;
   };
   let host = "";
@@ -247,7 +254,7 @@ export function sessionReplayPlugin({
       maxAttempts: RETRY_MAX_ATTEMPTS,
       jitterMs: RETRY_JITTER_MS,
       isRetriable: (e) => {
-        const status = (e as { status?: number })?.status;
+        const status = errorStatus(e);
         const is4xx =
           typeof status === "number" &&
           status >= 400 &&
@@ -264,7 +271,7 @@ export function sessionReplayPlugin({
     // response get picked up by the next trigger
     if (flushInFlight) return;
 
-    if (!gbRef || !replayEvents?.length) return;
+    if (!gbRef || !replayEvents.length) return;
     // First chunk must contain a full snapshot so the player can initialize
     if (chunkIndex === 0 && !replayEvents.some((e) => e.type === 2)) return;
     // Don't flush sessions with no real user interaction (filters out hot-reload noise)
@@ -397,7 +404,7 @@ export function sessionReplayPlugin({
         }
 
         // Permanent 4XX — the payload or credentials are unrecoverable
-        const status = (e as { status?: number })?.status;
+        const status = errorStatus(e);
         if (status === 401 || status === 403) {
           // A bad clientKey won't fix itself within the page load; stop so
           // pagehide doesn't fire one last POST against the same bad key
@@ -431,7 +438,7 @@ export function sessionReplayPlugin({
       flushInFlight = false;
       // stopRecording's own flush call no-ops while a cancelled retry holds
       // the guard; fire the final keepalive flush for it here
-      if (!isRecording && replayEvents?.length) {
+      if (!isRecording && replayEvents.length) {
         void flushBuffer();
       }
     }
@@ -464,7 +471,9 @@ export function sessionReplayPlugin({
       return;
     }
 
-    void gbRef?.updateAttributes({ session_replay_id: nextSessionReplayId });
+    if (gbRef) {
+      void gbRef.updateAttributes({ session_replay_id: nextSessionReplayId });
+    }
 
     // Resume only the same logical replay session with a recent-enough last
     // chunk; forceNew rotations always start fresh
@@ -505,13 +514,18 @@ export function sessionReplayPlugin({
       emit(event: eventWithTime) {
         // Scrub URL fields before the event lands in the buffer so nothing
         // downstream ever sees an unsanitized version
-        const scrubbedEvent = scrubEventUrls(event, privacy?.url);
+        const scrubbedEvent = scrubEventUrls(
+          event,
+          privacy ? privacy.url : undefined,
+        );
 
         // Only deliberate input (rrweb IncrementalSource 2=MouseInteraction,
         // 5=Input, 6=TouchMove, 12=Drag) counts as interaction; checked
         // before the buffer cap so a dropped event still flips the flag
         if (event.type === 3) {
-          const source = (event.data as { source?: number })?.source;
+          const source = event.data
+            ? (event.data as { source?: number }).source
+            : undefined;
           if (source === 2 || source === 5 || source === 6 || source === 12) {
             hasUserInteraction = true;
             lastInteractionAt = Date.now();
@@ -601,7 +615,7 @@ export function sessionReplayPlugin({
     // Fire-and-forget: keepalive delivers after teardown, and awaiting would
     // block the synchronous shutdown path (onDestroy, checkAndRotate)
     void flushBuffer();
-    stopFn?.();
+    stopFn && stopFn();
     stopFn = undefined;
     isRecording = false;
 
@@ -632,7 +646,7 @@ export function sessionReplayPlugin({
         timestamp: Date.now(),
         result: {
           value: result.value,
-          experimentKey: result.experiment?.key,
+          experimentKey: result.experiment ? result.experiment.key : undefined,
         },
       });
     });

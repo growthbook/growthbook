@@ -65,7 +65,9 @@ export function createErrorReporter({
       attributes:
         "getAttributes" in growthbook
           ? growthbook.getAttributes()
-          : userContext?.attributes,
+          : userContext
+            ? userContext.attributes
+            : undefined,
       seed: samplingSeed ?? "error-sampling",
     })
   ) {
@@ -118,7 +120,7 @@ export function createErrorReporter({
 
   const onError = (event: ErrorEvent) => {
     const message = event.message || "";
-    const stack = event.error?.stack || "";
+    const stack = (event.error && event.error.stack) || "";
     const key = buildDedupeKey({
       message,
       stack,

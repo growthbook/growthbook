@@ -15,9 +15,9 @@ import type {
   GrowthBookClient,
 } from "../GrowthBookClient";
 import { genUUID } from "../util";
-import { configureGbSession, getOrCreateGbSessionId } from "./utils/gb-session";
+import { configureSession, getOrCreateSessionId } from "./utils/session";
 import { readSessionJSON, writeSessionJSON } from "./utils/storage";
-import { subscribeToUrlChanges } from "./utils/urlChangeObserver";
+import { subscribeToUrlChanges } from "./utils/url-change-observer";
 
 export type AutoAttributeSettings = {
   uuidCookieName?: string;
@@ -69,7 +69,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   }
 
   // Module-level, so every consumer touches the session with the same windows
-  configureGbSession({
+  configureSession({
     idleTimeout: settings.idleTimeout,
     maxDuration: settings.maxDuration,
   });
@@ -126,7 +126,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     return {
       ...getDataLayerVariables(),
       [uuidKey]: _uuid,
-      sessionId: getOrCreateGbSessionId(),
+      sessionId: getOrCreateSessionId(),
       ...getURLAttributes(url),
       pageTitle: document.title,
       viewportWidth: window.innerWidth || 0,

@@ -628,12 +628,12 @@ export class GrowthBook<
 
   public startSessionReplay() {
     if (this._destroyed) return;
-    this._sessionReplayStart?.();
+    if (this._sessionReplayStart) this._sessionReplayStart();
   }
 
   public stopSessionReplay() {
     if (this._destroyed) return;
-    this._sessionReplayStop?.();
+    if (this._sessionReplayStop) this._sessionReplayStop();
   }
 
   public isDestroyed() {
