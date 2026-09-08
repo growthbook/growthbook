@@ -104,37 +104,6 @@ describe("session replay ID manager", () => {
     });
   });
 
-  it("migrates the legacy session_replay_id/lastTouchedAt shape", () => {
-    writeStoredState({
-      session_replay_id: "legacy-replay-id",
-      lastTouchedAt: 1000,
-    });
-    jest.spyOn(Date, "now").mockReturnValue(2000);
-
-    const sessionReplayId = getOrCreateSessionReplayId();
-
-    expect(sessionReplayId).toBe("legacy-replay-id");
-    expect(readStoredState()).toEqual({
-      gb_session_replay_id: "legacy-replay-id",
-      createdAt: 1000,
-      lastActiveAt: 2000,
-    });
-  });
-
-  it("migrates the oldest legacy id field", () => {
-    writeStoredState({ id: "oldest-replay-id", lastTouchedAt: 1000 });
-    jest.spyOn(Date, "now").mockReturnValue(2000);
-
-    const sessionReplayId = getOrCreateSessionReplayId();
-
-    expect(sessionReplayId).toBe("oldest-replay-id");
-    expect(readStoredState()).toEqual({
-      gb_session_replay_id: "oldest-replay-id",
-      createdAt: 1000,
-      lastActiveAt: 2000,
-    });
-  });
-
   it("replaces invalid stored state", () => {
     writeStoredState({ gb_session_replay_id: "", lastActiveAt: 1000 });
 

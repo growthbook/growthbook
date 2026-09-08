@@ -88,13 +88,8 @@ function readPersistedReplayState(): PersistedReplayState | null {
     REPLAY_STORAGE_KEY,
   ) as PersistedReplayState | null;
   if (!parsed) return null;
-  const legacyParsed = parsed as unknown as { sessionId?: unknown };
   const sessionReplayId =
-    typeof parsed.sessionReplayId === "string"
-      ? parsed.sessionReplayId
-      : typeof legacyParsed.sessionId === "string"
-        ? legacyParsed.sessionId
-        : "";
+    typeof parsed.sessionReplayId === "string" ? parsed.sessionReplayId : "";
   if (
     !sessionReplayId ||
     typeof parsed.sessionStartedAt !== "number" ||

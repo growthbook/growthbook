@@ -9,7 +9,6 @@ export const SESSION_REPLAY_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 // rotates after the user has been inactive for the full timeout.
 const sessionReplayId = createPersistedEphemeralId({
   key: "gb_session_replay_id",
-  legacyIdFields: ["session_replay_id", "id"],
   idleTimeoutMs: SESSION_REPLAY_IDLE_TIMEOUT_MS,
 });
 

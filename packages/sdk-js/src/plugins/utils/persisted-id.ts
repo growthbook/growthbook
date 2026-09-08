@@ -11,8 +11,6 @@ type StoredIdState = {
 export type PersistedEphemeralIdConfig = {
   // Storage key; also the field holding the id inside the stored JSON
   key: string;
-  // Older id field names still accepted on read
-  legacyIdFields?: string[];
   // Rotate after this much inactivity; each read refreshes the window
   idleTimeoutMs?: number;
   // Rotate this long after creation, regardless of activity
@@ -41,22 +39,19 @@ export function createPersistedEphemeralId(config: PersistedEphemeralIdConfig) {
     const stored = value as Record<string, unknown> | null;
     if (!stored) return null;
 
-    let id = "";
-    for (const field of [config.key, ...(config.legacyIdFields ?? [])]) {
-      const candidate = stored[field];
-      if (typeof candidate === "string" && candidate) {
-        id = candidate;
-        break;
-      }
+    const id = stored[config.key];
+    const createdAt = finiteNumber(stored.createdAt);
+    const lastActiveAt = finiteNumber(stored.lastActiveAt);
+    if (
+      typeof id !== "string" ||
+      !id ||
+      createdAt === null ||
+      lastActiveAt === null
+    ) {
+      return null;
     }
 
-    // lastTouchedAt is the pre-consolidation field name
-    const lastActiveAt =
-      finiteNumber(stored.lastActiveAt) ?? finiteNumber(stored.lastTouchedAt);
-    const createdAt = finiteNumber(stored.createdAt) ?? lastActiveAt;
-    if (!id || createdAt === null) return null;
-
-    return { id, createdAt, lastActiveAt: lastActiveAt ?? createdAt };
+    return { id, createdAt, lastActiveAt };
   }
 
   function read(): StoredIdState | null {

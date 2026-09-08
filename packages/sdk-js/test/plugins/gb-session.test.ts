@@ -143,20 +143,6 @@ describe("gb session manager", () => {
     expect(getOrCreateGbSessionId({ maxDuration })).not.toBe("capped");
   });
 
-  it("migrates the legacy gbSessionId field", () => {
-    writeStoredState({ gbSessionId: "legacy-id", createdAt: 1000 });
-    jest.spyOn(Date, "now").mockReturnValue(2000);
-
-    const id = getOrCreateGbSessionId();
-
-    expect(id).toBe("legacy-id");
-    expect(readStoredState()).toEqual({
-      gb_session: "legacy-id",
-      createdAt: 1000,
-      lastActiveAt: 2000,
-    });
-  });
-
   it("replaces invalid stored state", () => {
     writeStoredState({ gb_session: "", createdAt: 1000 });
 

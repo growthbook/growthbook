@@ -60,8 +60,9 @@ function seedSessionReplayId(sessionReplayId: string) {
   sessionStorage.setItem(
     "gb_session_replay_id",
     JSON.stringify({
-      session_replay_id: sessionReplayId,
-      lastTouchedAt: Date.now(),
+      gb_session_replay_id: sessionReplayId,
+      createdAt: Date.now(),
+      lastActiveAt: Date.now(),
     }),
   );
 }

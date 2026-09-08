@@ -9,7 +9,6 @@ export const DEFAULT_MAX_DURATION_MS = 60 * 60 * 1000;
 // refreshes the window), with maxDuration as a hard cap from creation.
 const gbSession = createPersistedEphemeralId({
   key: "gb_session",
-  legacyIdFields: ["gbSessionId"],
   idleTimeoutMs: DEFAULT_IDLE_TIMEOUT_MS,
   maxDurationMs: DEFAULT_MAX_DURATION_MS,
   storage: getLocalStorage,
