@@ -84,11 +84,27 @@ export function fitColumn(
     : (candidates[0] ?? "");
 }
 
-function aggregationForShape(shape: RatioShape): ColumnAggregation | undefined {
+// Exported for read-only rendering: a shape determines its aggregation
+// deterministically (shapeFromColumnRef is the reverse mapping), so a
+// read-only display can derive "Per-User Aggregation" from shape alone
+// rather than needing the stored ColumnRef's own aggregation field.
+export function aggregationForShape(
+  shape: RatioShape,
+): ColumnAggregation | undefined {
   if (shape === "sum") return "sum";
   if (shape === "max") return "max";
   if (shape === "distinct") return "count distinct";
   return undefined; // count / days / users carry no aggregation
+}
+
+// Sentinel columns read as plain English in read-only views; a real column
+// name is already plain English. Single source of truth for this
+// translation - was duplicated ad hoc across read-only display components.
+export function columnValueLabel(column: string): string {
+  if (column === "$$count") return "Count of Rows";
+  if (column === "$$distinctUsers") return "Unique Users";
+  if (column === "$$distinctDates") return "Distinct Dates";
+  return column;
 }
 
 const SHAPES_NEEDING_COLUMNS: readonly RatioShape[] = [

@@ -1,8 +1,10 @@
 import {
+  aggregationForShape,
   applyFormType,
   availableShapes,
   cappingOk,
   columnsForShape,
+  columnValueLabel,
   fitColumn,
   formTypeFromStored,
   onFactTableChange,
@@ -790,6 +792,32 @@ describe("shapeForValueType", () => {
     expect(shapeForValueType("ratio")).toBeUndefined();
     expect(shapeForValueType("quantile")).toBeUndefined();
     expect(shapeForValueType("funnel")).toBeUndefined();
+  });
+});
+
+describe("aggregationForShape", () => {
+  it("returns the aggregation for sum/max/distinct", () => {
+    expect(aggregationForShape("sum")).toBe("sum");
+    expect(aggregationForShape("max")).toBe("max");
+    expect(aggregationForShape("distinct")).toBe("count distinct");
+  });
+
+  it("returns undefined for count/days/users", () => {
+    expect(aggregationForShape("count")).toBeUndefined();
+    expect(aggregationForShape("days")).toBeUndefined();
+    expect(aggregationForShape("users")).toBeUndefined();
+  });
+});
+
+describe("columnValueLabel", () => {
+  it("translates sentinel columns to plain English", () => {
+    expect(columnValueLabel("$$count")).toBe("Count of Rows");
+    expect(columnValueLabel("$$distinctUsers")).toBe("Unique Users");
+    expect(columnValueLabel("$$distinctDates")).toBe("Distinct Dates");
+  });
+
+  it("returns a real column name unchanged", () => {
+    expect(columnValueLabel("revenue")).toBe("revenue");
   });
 });
 
