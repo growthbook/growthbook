@@ -2,7 +2,7 @@ import { FactTableDefinition } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
 import { availableShapes, RatioShape } from "./metricFormTranslation";
 
-const SHAPE_LABELS: Record<RatioShape, string> = {
+export const SHAPE_LABELS: Record<RatioShape, string> = {
   count: "Row count",
   sum: "Column sum",
   max: "Column max",

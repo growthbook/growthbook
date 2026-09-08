@@ -4,10 +4,15 @@ import { ColumnRef, FactTableDefinition } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
+import DataList from "@/ui/DataList";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
+import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
+import FilterSummary from "@/components/FactTables/MetricEditor/FilterSummary";
 import ShapeSelect from "@/components/FactTables/MetricEditor/ShapeSelect";
 import ColumnSelect from "@/components/FactTables/MetricEditor/ColumnSelect";
 import {
+  aggregationForShape,
+  columnValueLabel,
   onFactTableChange,
   onShapeChange,
   RatioShape,
@@ -38,6 +43,7 @@ function RatioPart({
   factTable,
   hasCountDistinctHLL,
   extra,
+  canEdit = true,
 }: {
   label: string;
   value: ColumnRef;
@@ -45,8 +51,46 @@ function RatioPart({
   factTable: FactTableDefinition | null;
   hasCountDistinctHLL: boolean;
   extra?: ReactNode;
+  canEdit?: boolean;
 }) {
   const shape = shapeFromColumnRef(value) ?? "sum";
+
+  if (!canEdit) {
+    const agg = aggregationForShape(shape);
+    return (
+      <Frame p="3" mb="0">
+        <Text weight="semibold" size="sm" mb="2" as="div">
+          {label}
+        </Text>
+        <DataList
+          data={[
+            {
+              label: "Fact Table",
+              value: <FactTableLink id={value.factTableId} />,
+            },
+            {
+              label: "Row Filter",
+              value: (
+                <FilterSummary
+                  rowFilters={value.rowFilters || []}
+                  factTable={factTable}
+                />
+              ),
+            },
+            { label: "Value", value: columnValueLabel(value.column) },
+            ...(agg
+              ? [
+                  {
+                    label: "Per-User Aggregation",
+                    value: agg.toUpperCase(),
+                  },
+                ]
+              : []),
+          ]}
+        />
+      </Frame>
+    );
+  }
 
   return (
     <Frame p="3" mb="0">
@@ -100,6 +144,7 @@ export default function RatioFields({
   availableFactTables,
   getFactTableById,
   hasCountDistinctHLL,
+  canEdit = true,
 }: {
   numerator: ColumnRef;
   onNumeratorChange: (value: ColumnRef) => void;
@@ -109,6 +154,7 @@ export default function RatioFields({
   availableFactTables: FactTableDefinition[];
   getFactTableById: (id: string) => FactTableDefinition | null;
   hasCountDistinctHLL: boolean;
+  canEdit?: boolean;
 }) {
   const denominatorShape = shapeFromColumnRef(denominator) ?? "sum";
   const denominatorFactTable =
@@ -122,6 +168,7 @@ export default function RatioFields({
         onChange={onNumeratorChange}
         factTable={factTable}
         hasCountDistinctHLL={hasCountDistinctHLL}
+        canEdit={canEdit}
       />
       <RatioPart
         label="Denominator"
@@ -129,8 +176,9 @@ export default function RatioFields({
         onChange={onDenominatorChange}
         factTable={denominatorFactTable}
         hasCountDistinctHLL={hasCountDistinctHLL}
+        canEdit={canEdit}
         extra={
-          denominatorShape !== "users" ? (
+          canEdit && denominatorShape !== "users" ? (
             <Select
               label="Fact table"
               value={denominator.factTableId}
