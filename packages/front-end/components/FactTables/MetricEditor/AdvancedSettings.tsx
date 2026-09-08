@@ -159,11 +159,15 @@ function queryItems({
   ];
 }
 
-// Collapsed by default in edit mode, matching today's modal
-// (metricformfields.md's "auto-opens when non-default" nice-to-have isn't
-// built yet - a plain toggle already surfaces everything, just not open by
-// default). View mode has no such precedent - the old [fmid].tsx page always
-// showed these facts in its right rail with no collapse - so it starts open.
+// Collapsed by default only on a fresh mount in edit mode (creating a new
+// metric), matching today's modal (metricformfields.md's "auto-opens when
+// non-default" nice-to-have isn't built yet). View mode has no such
+// precedent - the old [fmid].tsx page always showed these facts in its
+// right rail with no collapse - so a fresh mount in view mode starts open.
+// Since `open` is local state on this one component instance, not
+// remounted when `canEdit` changes, viewing a metric (open=true) and then
+// clicking Edit leaves it open too - a deliberate, harmless carry-over,
+// not a bug: nothing the user was just looking at suddenly disappears.
 export default function AdvancedSettings({
   form,
   formType,

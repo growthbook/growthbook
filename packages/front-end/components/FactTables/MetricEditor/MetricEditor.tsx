@@ -137,18 +137,26 @@ export default function MetricEditor({
       factTable,
       hasCountDistinctHLL,
     );
-    form.setValue("metricType", result.metricType);
-    // Funnel has no numerator - matches today's modal, which leaves the
-    // stale ColumnRef in the form and only nulls it in the submit payload.
-    if (result.numerator) form.setValue("numerator", result.numerator);
-    form.setValue("denominator", result.denominator ?? null);
-    form.setValue("quantileSettings", result.quantileSettings ?? null);
-    if (result.cappingSettings) {
-      form.setValue("cappingSettings", result.cappingSettings);
-    }
-    if (result.windowSettings) {
-      form.setValue("windowSettings", result.windowSettings);
-    }
+    // One atomic reset instead of a pile of setValues - safe because nothing
+    // reads form.formState.isDirty (funnelSettings lives outside the form
+    // anyway, so isDirty could never fully answer "did anything change").
+    // numerator and funnelSettings are carried over as the old value rather
+    // than written through: funnel has no numerator, and CreateFactMetricFormProps
+    // types both fields against the Standard side of a discriminated union
+    // (see its own comment in services/metrics.tsx) - matches today's modal,
+    // which leaves the stale ColumnRef in the form and only nulls it in the
+    // submit payload.
+    form.reset({
+      ...form.getValues(),
+      metricType: result.metricType,
+      numerator: result.numerator ?? numerator,
+      denominator: result.denominator ?? null,
+      quantileSettings: result.quantileSettings ?? null,
+      ...(result.cappingSettings && {
+        cappingSettings: result.cappingSettings,
+      }),
+      ...(result.windowSettings && { windowSettings: result.windowSettings }),
+    });
     onFunnelSettingsChange(result.funnelSettings ?? null);
   }
 
