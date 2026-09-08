@@ -1440,7 +1440,7 @@ describe("autoEventsPlugin", () => {
     const apply = autoEventsPlugin({
       cwv: false,
       errors: false,
-      standardEvents: { samplingRate: 1, heartbeats: true },
+      pageEvents: { samplingRate: 1, heartbeats: true },
       clickstream: { samplingRate: 1 },
     });
     apply(gb);
@@ -1463,18 +1463,18 @@ describe("autoEventsPlugin", () => {
     gb.destroy();
   });
 
-  it("warns when given a non-GrowthBook instance and a browser-only stream is enabled", () => {
+  it("warns when given a non-GrowthBook instance and a browser-only category is enabled", () => {
     const fakeClient = { logEvent: jest.fn() };
     const apply = autoEventsPlugin({
       cwv: false,
-      standardEvents: false,
+      pageEvents: false,
       clickstream: true,
     });
     apply(fakeClient as never);
 
     const warns = consoleWarnSpy.mock.calls.map((c) => String(c[0]));
     expect(
-      warns.some((m) => m.includes("CWV / standard events / clickstream")),
+      warns.some((m) => m.includes("CWV / page events / clickstream")),
     ).toBe(true);
   });
 });

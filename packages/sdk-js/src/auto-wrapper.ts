@@ -160,17 +160,17 @@ const plugins: Plugin[] = [
 ];
 
 // Script-tag surface for auto-events, mirroring data-tracking:
-//   data-auto-events="standardEvents,errors,cwv,clickstream" (or "all")
-// plus optional data-<stream>-sampling-rate. Anything else goes through
-// window.growthbook_config.autoEvents. Streams are opt-in here; a sampling
-// rate never decides whether a stream exists.
-const AUTO_EVENT_STREAMS = [
-  "standardEvents",
+//   data-auto-events="pageEvents,errors,cwv,clickstream" (or "all")
+// plus optional data-<category>-sampling-rate. Anything else goes through
+// window.growthbook_config.autoEvents. Categories are opt-in here; a
+// sampling rate never decides whether one is on.
+const AUTO_EVENT_CATEGORIES = [
+  "pageEvents",
   "errors",
   "cwv",
   "clickstream",
 ] as const;
-type AutoEventStream = (typeof AUTO_EVENT_STREAMS)[number];
+type AutoEventCategory = (typeof AUTO_EVENT_CATEGORIES)[number];
 
 function readAutoEventsSettings(): AutoEventsSettings {
   // window config wins outright, matching every other wrapper setting
@@ -182,20 +182,20 @@ function readAutoEventsSettings(): AutoEventsSettings {
       ? null
       : new Set(
           list === "all"
-            ? AUTO_EVENT_STREAMS
+            ? AUTO_EVENT_CATEGORIES
             : list.split(",").map((s) => s.trim()),
         );
-  for (const stream of AUTO_EVENT_STREAMS) {
+  for (const category of AUTO_EVENT_CATEGORIES) {
     if (listed !== null) {
-      settings[stream] = listed.has(stream)
-        ? (settings[stream] ?? true)
+      settings[category] = listed.has(category)
+        ? (settings[category] ?? true)
         : false;
     }
-    settings[stream] ??= false;
-    const rate = dataContext[`${stream}SamplingRate`];
-    if (rate !== undefined && settings[stream] !== false) {
-      const current = settings[stream];
-      settings[stream] = {
+    settings[category] ??= false;
+    const rate = dataContext[`${category}SamplingRate`];
+    if (rate !== undefined && settings[category] !== false) {
+      const current = settings[category];
+      settings[category] = {
         ...(typeof current === "object" ? current : {}),
         samplingRate: parseFloat(rate),
       };
@@ -208,10 +208,12 @@ const autoEventsSettings: AutoEventsSettings = {
   privacy: windowContext.privacy,
   ...readAutoEventsSettings(),
 };
-const autoEventsEnabled = AUTO_EVENT_STREAMS.some((stream: AutoEventStream) => {
-  const value = autoEventsSettings[stream];
-  return typeof value === "object" ? value.enabled !== false : value === true;
-});
+const autoEventsEnabled = AUTO_EVENT_CATEGORIES.some(
+  (category: AutoEventCategory) => {
+    const value = autoEventsSettings[category];
+    return typeof value === "object" ? value.enabled !== false : value === true;
+  },
+);
 
 const tracking = dataContext.tracking || "gtag,gtm,segment";
 const trackers =

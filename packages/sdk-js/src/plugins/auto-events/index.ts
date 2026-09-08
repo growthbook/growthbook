@@ -7,16 +7,14 @@ import { createEngagementReporter } from "./engagement-reporter";
 import { createInteractionReporter } from "./interaction-reporter";
 import { createPageState } from "./page-state";
 
-// Each stream is its own switch: `true`/`false` for the defaults, or an
-// options object to tune it. Sampling rates never decide whether a stream
-// exists (a payload-delivered rate may override them later).
-type Stream<T> = boolean | (T & { enabled?: boolean });
+// `true`/`false` for the defaults, or an options object to tune a category
+type Toggle<T> = boolean | (T & { enabled?: boolean });
 
 export type CwvMetric = "FCP" | "LCP" | "INP" | "CLS" | "TTFB" | "TBT";
 
 export type AutoEventsSettings = {
   // page_view / page_leave, plus optional page_engagement heartbeats
-  standardEvents?: Stream<{
+  pageEvents?: Toggle<{
     samplingRate?: number;
     heartbeats?: boolean;
     heartbeatIntervalMs?: number;
@@ -24,27 +22,25 @@ export type AutoEventsSettings = {
     trackScrollDepth?: boolean;
   }>;
   // browser-error events from window.onerror / unhandledrejection
-  errors?: Stream<{
+  errors?: Toggle<{
     samplingRate?: number;
     debounceTimeout?: number;
   }>;
   // Core Web Vitals
-  cwv?: Stream<{
+  cwv?: Toggle<{
     samplingRate?: number;
     metrics?: CwvMetric[];
   }>;
   // clicks, form submits, rage clicks
-  clickstream?: Stream<{
+  clickstream?: Toggle<{
     samplingRate?: number;
     clickSelector?: string;
     collectElementText?: boolean;
     formSelector?: string;
   }>;
 
-  // Shared
-  // gb-block/gb-mask/gb-ignore/gb-allow labels plus these selectors decide
-  // what clickstream captures; other plugins inherit anything set here
-  privacy?: PrivacySettings;
+  // Shared across categories
+  privacy?: PrivacySettings; // also inherited by other plugins
   trackQueryStringChanges?: boolean; // treat ?query changes as new pages
   hashAttribute?: string;
   samplingSeed?: string; // change to rerandomize the cohort
@@ -55,9 +51,9 @@ const DEFAULT_SAMPLING_RATE = 0.1;
 
 type Resolved<T> = T & { enabled: boolean };
 
-function resolveStream<T extends { samplingRate?: number }>(
+function resolveCategory<T extends { samplingRate?: number }>(
   name: string,
-  value: Stream<T> | undefined,
+  value: Toggle<T> | undefined,
   defaults: Resolved<T>,
 ): Resolved<T> {
   const resolved: Resolved<T> =
@@ -75,24 +71,20 @@ function resolveStream<T extends { samplingRate?: number }>(
 }
 
 export function autoEventsPlugin(settings: AutoEventsSettings = {}) {
-  const standardEvents = resolveStream(
-    "standardEvents",
-    settings.standardEvents,
-    {
-      enabled: true,
-      samplingRate: DEFAULT_SAMPLING_RATE,
-      heartbeats: false,
-    },
-  );
-  const errors = resolveStream("errors", settings.errors, {
+  const pageEvents = resolveCategory("pageEvents", settings.pageEvents, {
+    enabled: true,
+    samplingRate: DEFAULT_SAMPLING_RATE,
+    heartbeats: false,
+  });
+  const errors = resolveCategory("errors", settings.errors, {
     enabled: true,
     samplingRate: DEFAULT_SAMPLING_RATE,
   });
-  const cwv = resolveStream("cwv", settings.cwv, {
+  const cwv = resolveCategory("cwv", settings.cwv, {
     enabled: true,
     samplingRate: DEFAULT_SAMPLING_RATE,
   });
-  const clickstream = resolveStream("clickstream", settings.clickstream, {
+  const clickstream = resolveCategory("clickstream", settings.clickstream, {
     enabled: false,
     samplingRate: DEFAULT_SAMPLING_RATE,
   });
@@ -114,12 +106,9 @@ export function autoEventsPlugin(settings: AutoEventsSettings = {}) {
     const fullGB = isFullGrowthBook(gb);
     const pageState = createPageState();
 
-    if (
-      !fullGB &&
-      (cwv.enabled || standardEvents.enabled || clickstream.enabled)
-    ) {
+    if (!fullGB && (cwv.enabled || pageEvents.enabled || clickstream.enabled)) {
       console.warn(
-        "autoEventsPlugin: CWV / standard events / clickstream need a GrowthBook instance, skipping",
+        "autoEventsPlugin: CWV / page events / clickstream need a GrowthBook instance, skipping",
       );
     }
 
@@ -149,13 +138,13 @@ export function autoEventsPlugin(settings: AutoEventsSettings = {}) {
       });
     }
 
-    if (standardEvents.enabled && fullGB) {
+    if (pageEvents.enabled && fullGB) {
       createEngagementReporter({
-        samplingRate: standardEvents.samplingRate,
-        heartbeats: standardEvents.heartbeats,
-        heartbeatIntervalMs: standardEvents.heartbeatIntervalMs,
-        maxHeartbeats: standardEvents.maxHeartbeats,
-        trackScrollDepth: standardEvents.trackScrollDepth,
+        samplingRate: pageEvents.samplingRate,
+        heartbeats: pageEvents.heartbeats,
+        heartbeatIntervalMs: pageEvents.heartbeatIntervalMs,
+        maxHeartbeats: pageEvents.maxHeartbeats,
+        trackScrollDepth: pageEvents.trackScrollDepth,
         hashAttribute,
         samplingSeed,
         trackQueryStringChanges,
