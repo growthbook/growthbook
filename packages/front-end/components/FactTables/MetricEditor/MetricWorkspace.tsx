@@ -21,6 +21,7 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import MetricEditor from "@/components/FactTables/MetricEditor/MetricEditor";
+import { formTypeFromStored } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 
 type DefaultsContext = Pick<
   Parameters<typeof getDefaultFactMetricProps>[0],
@@ -112,7 +113,8 @@ export default function MetricWorkspace({
   onSaved?: (metric: FactMetricInterface) => void;
   onCancel?: () => void;
 }) {
-  const { datasources, project } = useDefinitions();
+  const { datasources, project, getFactTableById, getDatasourceById } =
+    useDefinitions();
   const { apiCall } = useAuth();
   const { metricDefaults } = useOrganizationMetricDefaults();
   const settings = useOrgSettings();
@@ -126,6 +128,23 @@ export default function MetricWorkspace({
     existing?.funnelSettings ?? null,
   );
   const [error, setError] = useState<string | null>(null);
+
+  // Mirrors MetricEditor's own check - the Save button must stay disabled for
+  // a definition the editor can't represent (and thus can't render any field
+  // to correct), the same way MetricEditor refuses to render an edit control
+  // for it.
+  const metricType = form.watch("metricType");
+  const numerator = form.watch("numerator");
+  const denominator = form.watch("denominator");
+  const quantileSettings = form.watch("quantileSettings");
+  const primaryFactTableId =
+    metricType === "funnel"
+      ? (funnelSettings?.steps[0]?.factTableId ?? "")
+      : numerator.factTableId;
+  const representable = formTypeFromStored(
+    { metricType, numerator, denominator, quantileSettings },
+    getFactTableById(primaryFactTableId),
+  ).representable;
 
   async function handleSave() {
     const values = buildSavePayload(form.getValues());
@@ -154,7 +173,17 @@ export default function MetricWorkspace({
       mutate();
       setIsEditing(false);
     } else {
-      const createPayload = payload as CreateFactMetricProps;
+      // New metrics have no Projects field of their own yet (matches
+      // FactMetricModal's own create payload) - default to the numerator
+      // fact table's projects, falling back to the datasource's.
+      const primaryFactTable = isFunnel
+        ? getFactTableById(funnelSettings?.steps[0]?.factTableId ?? "")
+        : getFactTableById(values.numerator.factTableId);
+      const datasource = getDatasourceById(values.datasource);
+      const createPayload = {
+        ...payload,
+        projects: primaryFactTable?.projects || datasource?.projects || [],
+      } as CreateFactMetricProps;
       const res = await apiCall<{ factMetric: FactMetricInterface }>(
         "/fact-metrics",
         {
@@ -178,36 +207,46 @@ export default function MetricWorkspace({
     setIsEditing(false);
   }
 
+  const actionBar = isEditing && (
+    <Frame>
+      {error && (
+        <Callout status="error" mb="2">
+          {error}
+        </Callout>
+      )}
+      <Flex justify="between" align="center">
+        <Text color="text-mid">
+          {existing ? "Editing metric" : "Creating a new metric"}
+        </Text>
+        <Flex gap="2">
+          <Button variant="soft" color="gray" onClick={handleDiscard}>
+            {onCancel ? "Cancel" : "Discard"}
+          </Button>
+          <Button
+            onClick={handleSave}
+            setError={setError}
+            disabled={!representable}
+          >
+            Save
+          </Button>
+        </Flex>
+      </Flex>
+    </Frame>
+  );
+
   return (
     <Flex direction="column" gap="3">
-      {isEditing && (
-        <Frame>
-          {error && (
-            <Callout status="error" mb="2">
-              {error}
-            </Callout>
-          )}
-          <Flex justify="between" align="center">
-            <Text color="text-mid">
-              {existing ? "Editing metric" : "Creating a new metric"}
-            </Text>
-            <Flex gap="2">
-              <Button variant="soft" color="gray" onClick={handleDiscard}>
-                Discard
-              </Button>
-              <Button onClick={handleSave} setError={setError}>
-                Save
-              </Button>
-            </Flex>
-          </Flex>
-        </Frame>
-      )}
+      {actionBar}
       <MetricEditor
         form={form}
         canEdit={isEditing}
         funnelSettings={funnelSettings}
         onFunnelSettingsChange={setFunnelSettings}
       />
+      {/* Editing a metric definition is a long form (type, definition,
+          basics, advanced settings) - repeat the actions at the bottom so
+          Save/Discard don't scroll out of reach. */}
+      {actionBar}
     </Flex>
   );
 }
