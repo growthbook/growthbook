@@ -385,13 +385,13 @@ export function sessionReplayPlugin({
       // leaking. When that diagnosis lands we'll reintroduce a corrected
       // scrubber rather than restoring the previous one.
 
-      const gbSessionId =
-        typeof attrs.gbSessionId === "string" ? attrs.gbSessionId : undefined;
+      const sessionId =
+        typeof attrs.sessionId === "string" ? attrs.sessionId : undefined;
 
       const payload = JSON.stringify({
         clientKey,
         session_replay_id: sessionReplayId,
-        ...(gbSessionId && { gb_session_id: gbSessionId }),
+        ...(sessionId && { gb_session_id: sessionId }),
         chunkIndex: chunkIndexBeingSent,
         sessionStartedAt,
         viewport: { width: viewportWidth, height: viewportHeight },

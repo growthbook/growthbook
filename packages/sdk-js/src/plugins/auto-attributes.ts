@@ -108,7 +108,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     return {
       ...getDataLayerVariables(),
       [uuidKey]: _uuid,
-      gbSessionId: getOrCreateGbSessionId({
+      sessionId: getOrCreateGbSessionId({
         idleTimeout: settings.idleTimeout,
         maxDuration: settings.maxDuration,
       }),

@@ -8,7 +8,7 @@ export const DEFAULT_MAX_DURATION_MS = 60 * 60 * 1000;
 // spans tabs and reloads. Rotates after idleTimeout of inactivity (each read
 // refreshes the window), with maxDuration as a hard cap from creation.
 const gbSession = createPersistedEphemeralId({
-  key: "gb_session",
+  key: "gb_session_id",
   idleTimeoutMs: DEFAULT_IDLE_TIMEOUT_MS,
   maxDurationMs: DEFAULT_MAX_DURATION_MS,
   storage: getLocalStorage,

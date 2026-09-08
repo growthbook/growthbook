@@ -6,15 +6,15 @@ import {
 } from "../../src/plugins/utils/gb-session";
 import { setPolyfills } from "../../src/feature-repository";
 
-const STORAGE_KEY = "gb_session";
+const STORAGE_KEY = "gb_session_id";
 
 function readStoredState(): {
-  gb_session?: string;
+  gb_session_id?: string;
   createdAt?: number;
   lastActiveAt?: number;
 } {
   return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") as {
-    gb_session?: string;
+    gb_session_id?: string;
     createdAt?: number;
     lastActiveAt?: number;
   };
@@ -43,7 +43,7 @@ describe("gb session manager", () => {
 
     expect(id).toEqual(expect.any(String));
     expect(stored).toEqual({
-      gb_session: id,
+      gb_session_id: id,
       createdAt: 1000,
       lastActiveAt: 1000,
     });
@@ -51,7 +51,7 @@ describe("gb session manager", () => {
 
   it("reuses an existing session inside the idle window and refreshes it", () => {
     writeStoredState({
-      gb_session: "existing-id",
+      gb_session_id: "existing-id",
       createdAt: 1000,
       lastActiveAt: 1000,
     });
@@ -61,7 +61,7 @@ describe("gb session manager", () => {
 
     expect(id).toBe("existing-id");
     expect(readStoredState()).toEqual({
-      gb_session: "existing-id",
+      gb_session_id: "existing-id",
       createdAt: 1000,
       lastActiveAt: 2000,
     });
@@ -69,7 +69,7 @@ describe("gb session manager", () => {
 
   it("rotates after idleTimeout of inactivity", () => {
     writeStoredState({
-      gb_session: "idle-id",
+      gb_session_id: "idle-id",
       createdAt: 1000,
       lastActiveAt: 1000,
     });
@@ -100,7 +100,7 @@ describe("gb session manager", () => {
 
   it("rotates when forceNew is true", () => {
     writeStoredState({
-      gb_session: "existing-id",
+      gb_session_id: "existing-id",
       createdAt: 1000,
       lastActiveAt: 1000,
     });
@@ -110,7 +110,7 @@ describe("gb session manager", () => {
     expect(id).toEqual(expect.any(String));
     expect(id).not.toBe("existing-id");
     expect(readStoredState()).toEqual({
-      gb_session: id,
+      gb_session_id: id,
       createdAt: 1000,
       lastActiveAt: 1000,
     });
@@ -119,7 +119,7 @@ describe("gb session manager", () => {
   it("respects custom idleTimeout and maxDuration", () => {
     const idleTimeout = 60 * 1000;
     writeStoredState({
-      gb_session: "short-lived",
+      gb_session_id: "short-lived",
       createdAt: 1000,
       lastActiveAt: 1000,
     });
@@ -135,7 +135,7 @@ describe("gb session manager", () => {
     // Custom hard cap beats recent activity
     const maxDuration = 5 * 60 * 1000;
     writeStoredState({
-      gb_session: "capped",
+      gb_session_id: "capped",
       createdAt: 1000,
       lastActiveAt: 1000 + maxDuration,
     });
@@ -144,14 +144,14 @@ describe("gb session manager", () => {
   });
 
   it("replaces invalid stored state", () => {
-    writeStoredState({ gb_session: "", createdAt: 1000 });
+    writeStoredState({ gb_session_id: "", createdAt: 1000 });
 
     const id = getOrCreateGbSessionId();
 
     expect(id).toEqual(expect.any(String));
     expect(id).not.toBe("");
     expect(readStoredState()).toEqual({
-      gb_session: id,
+      gb_session_id: id,
       createdAt: 1000,
       lastActiveAt: 1000,
     });
@@ -173,7 +173,7 @@ describe("gb session manager", () => {
     expect(id).toEqual(expect.any(String));
     const stored = JSON.parse(store[STORAGE_KEY] || "{}");
     expect(stored).toEqual({
-      gb_session: id,
+      gb_session_id: id,
       createdAt: 1000,
       lastActiveAt: 1000,
     });

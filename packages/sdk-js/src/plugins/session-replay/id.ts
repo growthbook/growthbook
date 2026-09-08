@@ -4,7 +4,7 @@ export const SESSION_REPLAY_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
 // Tab-scoped (sessionStorage) by design: a recording captures one DOM, so
 // each tab gets its own replay id. Correlation across tabs and to other
-// event streams happens via the shared gb_session id, not this one.
+// event streams happens via the shared sessionId attribute, not this one.
 // Idle-refreshed: every read pushes the expiry out, so the replay id only
 // rotates after the user has been inactive for the full timeout.
 const sessionReplayId = createPersistedEphemeralId({

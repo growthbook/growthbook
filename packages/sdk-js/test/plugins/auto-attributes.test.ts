@@ -55,7 +55,7 @@ describe("autoAttributesPlugin", () => {
     query: "",
     viewportWidth: expect.any(Number),
     viewportHeight: expect.any(Number),
-    gbSessionId: expect.any(String),
+    sessionId: expect.any(String),
   };
 
   beforeEach(() => {
@@ -94,7 +94,7 @@ describe("autoAttributesPlugin", () => {
 
     expect(gb.getAttributes()).toEqual({
       id: expect.any(String),
-      gbSessionId: expect.any(String),
+      sessionId: expect.any(String),
       browser: "chrome",
       deviceType: "desktop",
       url: "http://localhost/test?hello=world",
@@ -109,25 +109,27 @@ describe("autoAttributesPlugin", () => {
     gb.destroy();
   });
 
-  it("stores gbSessionId in localStorage", () => {
+  it("stores sessionId in localStorage", () => {
     const plugin = autoAttributesPlugin();
     const gb = new GrowthBook({
       plugins: [plugin],
     });
 
-    const stored = JSON.parse(localStorage.getItem("gb_session") || "{}") as {
-      gb_session?: string;
+    const stored = JSON.parse(
+      localStorage.getItem("gb_session_id") || "{}",
+    ) as {
+      gb_session_id?: string;
     };
-    expect(stored.gb_session).toBe(gb.getAttributes().gbSessionId);
+    expect(stored.gb_session_id).toBe(gb.getAttributes().sessionId);
 
     gb.destroy();
   });
 
-  it("preserves customer session_id while owning gbSessionId", () => {
+  it("preserves customer session_id while owning sessionId", () => {
     localStorage.setItem(
-      "gb_session",
+      "gb_session_id",
       JSON.stringify({
-        gb_session: "internal-replay-id",
+        gb_session_id: "internal-replay-id",
         createdAt: Date.now(),
         lastActiveAt: Date.now(),
       }),
@@ -137,7 +139,7 @@ describe("autoAttributesPlugin", () => {
     const gb = new GrowthBook({
       attributes: {
         session_id: "customer-session-id",
-        gbSessionId: "user-supplied-replay-id",
+        sessionId: "user-supplied-replay-id",
       },
       plugins: [plugin],
     });
@@ -145,7 +147,7 @@ describe("autoAttributesPlugin", () => {
     expect(gb.getAttributes()).toEqual(
       expect.objectContaining({
         session_id: "customer-session-id",
-        gbSessionId: "internal-replay-id",
+        sessionId: "internal-replay-id",
       }),
     );
 
@@ -247,7 +249,7 @@ describe("autoAttributesPlugin", () => {
       JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
     );
 
-    // gb_session now lives in localStorage, so utm_params is the only
+    // The gb session now lives in localStorage, so utm_params is the only
     // sessionStorage read here.
     sessionStorage.getItem.mockReturnValueOnce(
       JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
