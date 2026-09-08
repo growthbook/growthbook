@@ -8,6 +8,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { truncateString } from "shared/util";
 import { date } from "shared/dates";
 import PageHead from "@/components/Layout/PageHead";
+import { getDimensionDisplayName } from "@/components/Dimensions/DimensionChooser";
 import ReportResults from "@/components/Report/ReportResults";
 import ReportMetaInfo from "@/components/Report/ReportMetaInfo";
 import { useUser } from "@/services/UserContext";
@@ -63,15 +64,10 @@ export default function ReportPage(props: ReportPageProps) {
 
   const ssrPolyfills = useSSRPolyfills(ssrData);
 
-  const dimensionName = !snapshot?.dimension
-    ? "None"
-    : ssrPolyfills?.getDimensionById?.(snapshot.dimension)?.name ||
-      (snapshot.dimension === "pre:date"
-        ? "Date Cohorts (First Exposure)"
-        : "") ||
-      (snapshot.dimension === "pre:activation" ? "Activation status" : "") ||
-      snapshot.dimension?.split(":")?.[1] ||
-      "None";
+  const dimensionName = getDimensionDisplayName(
+    snapshot?.dimension || "",
+    (id) => ssrPolyfills?.getDimensionById?.(id)?.name || undefined,
+  );
 
   const dateRangeLabel = snapshot
     ? `${date(snapshot.settings.startDate)} — ${

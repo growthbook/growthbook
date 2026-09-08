@@ -72,8 +72,13 @@ export type DateTruncGranularity = "hour" | "day" | "week" | "month" | "year";
 // reference another column) or a string literal (which must be left alone).
 export type SqlIdentifierQuote = '"' | "`";
 
+// How the warehouse folds unquoted identifiers. Quoted identifiers must use
+// this case to match columns the user wrote without quotes (Snowflake: UPPER).
+export type UnquotedIdentifierFold = "upper" | "lower";
+
 export interface SqlDialect {
   identifierQuote: SqlIdentifierQuote;
+  unquotedIdentifierFold?: UnquotedIdentifierFold;
   escapeStringLiteral: (s: string) => string;
   stringMatch: StringMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
@@ -160,6 +165,11 @@ export interface SqlDialect {
   ) => string;
   formatDate: (column: string) => string;
   formatDateTimeString: (column: string) => string;
+  // Renders a timestamp column at its full stored precision as the body of a
+  // zoneless literal (`YYYY-MM-DD HH:mm:ss.ffffff`) that the same engine will
+  // parse back to the identical instant. Used to persist exact incremental
+  // refresh watermarks. Dialects without a known-lossless format return NULL.
+  formatTimestampExact: (column: string) => string;
   selectStarLimit: (
     from: string,
     limit: number,
