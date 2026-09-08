@@ -1,5 +1,4 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { FactTableColumnType } from "shared/types/fact-table";
 import { Permissions } from "shared/permissions";
 
 /**
@@ -28,19 +27,4 @@ export function getNewFactTableProjects({
   return permissionsUtil.canCreateFactTable({ projects: [] })
     ? []
     : [project].filter(Boolean);
-}
-
-export const DATATYPE_OPTIONS: { value: FactTableColumnType; label: string }[] =
-  [
-    { value: "number", label: "Number" },
-    { value: "string", label: "String" },
-    { value: "date", label: "Date/Time" },
-    { value: "boolean", label: "Boolean" },
-    { value: "json", label: "JSON" },
-    { value: "binary", label: "Binary" },
-    { value: "other", label: "Other" },
-  ];
-
-export function datatypeLabel(datatype: FactTableColumnType): string {
-  return DATATYPE_OPTIONS.find((o) => o.value === datatype)?.label || "Unknown";
 }

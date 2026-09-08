@@ -1,21 +1,14 @@
 import { MutableRefObject, useCallback, useEffect, useState } from "react";
-import { FaExclamationTriangle, FaPlay } from "react-icons/fa";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiDotsThreeVertical, PiPlay, PiWarningFill } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import {
-  InformationSchemaInterfaceWithPaths,
-  TestQueryRow,
-} from "shared/types/integrations";
+import { TestQueryRow } from "shared/types/integrations";
 import { DetectedFactTableColumn } from "shared/types/fact-table";
 import { isProjectListValidForProject, parseIntWithDefault } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
-import CodeTextArea, { AceCompletion } from "@/components/Forms/CodeTextArea";
-import Field from "@/components/Forms/Field";
-import { CursorData } from "@/components/Segments/SegmentForm";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
-import { usesEventName } from "@/components/Metrics/MetricForm";
 import {
   Panel,
   PanelGroup,
@@ -23,20 +16,18 @@ import {
 } from "@/components/ResizablePanels";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
+import useSqlAutocomplete from "@/components/SchemaBrowser/useSqlAutocomplete";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { getAutoCompletions } from "@/services/sqlAutoComplete";
 import { canFormatSql, formatSql } from "@/services/sqlFormatter";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 
-// Rows to read when the user runs the query. Always an explicit opt-in, since
-// the query can't be filtered by date until the timestamp column is set.
+// Rows the Test Query button reads.
 const SAMPLE_ROW_LIMIT = 20;
 
 type TestQueryResults = {
@@ -54,8 +45,6 @@ export default function NewFactTableSqlStep({
   setDatasourceId,
   sql,
   setSql,
-  eventName,
-  setEventName,
   detected,
   detectedSql,
   onColumnsDetected,
@@ -65,8 +54,6 @@ export default function NewFactTableSqlStep({
   setDatasourceId: (id: string) => void;
   sql: string;
   setSql: (sql: string) => void;
-  eventName: string;
-  setEventName: (eventName: string) => void;
   detected: DetectedFactTableColumn[] | null;
   // The SQL that produced `detected`, so we know when the columns are stale
   detectedSql: string | null;
@@ -82,16 +69,16 @@ export default function NewFactTableSqlStep({
   const [testQueryResults, setTestQueryResults] =
     useState<TestQueryResults | null>(null);
   const [testingQuery, setTestingQuery] = useState(false);
-  const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
-  const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
-  const [informationSchema, setInformationSchema] = useState<
-    InformationSchemaInterfaceWithPaths | undefined
-  >();
-  const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
-    "sql-editor-autocomplete-enabled",
-    true,
-  );
+  const {
+    autoCompletions,
+    isAutocompleteEnabled,
+    setCursorData,
+    setIsAutocompleteEnabled,
+  } = useSqlAutocomplete({
+    datasourceId,
+    source: "EditSqlModal",
+  });
 
   const datasource = getDatasourceById(datasourceId);
   const canRunQueries = datasource
@@ -121,7 +108,6 @@ export default function NewFactTableSqlStep({
           body: JSON.stringify({
             query: sql,
             datasourceId,
-            templateVariables: { eventName },
             limit,
             detectColumns: true,
           }),
@@ -142,64 +128,8 @@ export default function NewFactTableSqlStep({
         setTestingQuery(false);
       }
     },
-    [apiCall, datasourceId, eventName, sql, onColumnsDetected],
+    [apiCall, datasourceId, sql, onColumnsDetected],
   );
-
-  // Update autocompletions when the cursor or schema changes
-  useEffect(() => {
-    const fetchCompletions = async () => {
-      if (!isAutocompleteEnabled) {
-        setAutoCompletions([]);
-        return;
-      }
-      try {
-        setAutoCompletions(
-          await getAutoCompletions(
-            cursorData,
-            informationSchema,
-            datasource?.type,
-            apiCall,
-            // Selects the completion set that includes template variables
-            "EditSqlModal",
-            eventName,
-          ),
-        );
-      } catch (error) {
-        console.error("Failed to fetch autocompletions:", error);
-        setAutoCompletions([]);
-      }
-    };
-
-    const timeoutId = setTimeout(fetchCompletions, 200);
-    return () => clearTimeout(timeoutId);
-  }, [
-    cursorData,
-    informationSchema,
-    datasource?.type,
-    apiCall,
-    eventName,
-    isAutocompleteEnabled,
-  ]);
-
-  useEffect(() => {
-    const fetchSchema = async () => {
-      if (!isAutocompleteEnabled) {
-        setInformationSchema(undefined);
-        return;
-      }
-      try {
-        const response = await apiCall<{
-          informationSchema: InformationSchemaInterfaceWithPaths;
-        }>(`/datasource/${datasourceId}/schema`);
-        setInformationSchema(response.informationSchema);
-      } catch (error) {
-        console.error("Failed to fetch schema:", error);
-        setInformationSchema(undefined);
-      }
-    };
-
-    fetchSchema();
-  }, [datasourceId, apiCall, isAutocompleteEnabled]);
 
   // Survives stepping back from the configure step, which unmounts this
   // component -- there's no need to re-run a query the SQL hasn't outgrown.
@@ -236,7 +166,7 @@ export default function NewFactTableSqlStep({
                       <Flex gap="3" align="center">
                         {formatError && (
                           <Tooltip body={formatError}>
-                            <FaExclamationTriangle className="text-danger" />
+                            <PiWarningFill color="var(--red-11)" />
                           </Tooltip>
                         )}
                         {canFormat ? (
@@ -267,7 +197,7 @@ export default function NewFactTableSqlStep({
                           <Button
                             size="sm"
                             variant="soft"
-                            icon={<FaPlay />}
+                            icon={<PiPlay />}
                             onClick={() => runQuery(SAMPLE_ROW_LIMIT)}
                             loading={testingQuery}
                             disabled={!canRunQueries || !sql}
@@ -283,7 +213,7 @@ export default function NewFactTableSqlStep({
                               radius="full"
                               size="3"
                             >
-                              <BsThreeDotsVertical size={16} />
+                              <PiDotsThreeVertical size={16} />
                             </IconButton>
                           }
                         >
@@ -301,32 +231,9 @@ export default function NewFactTableSqlStep({
                     </Flex>
                   }
                 >
-                  <Box style={{ position: "relative", height: "100%" }}>
-                    {usesEventName(sql) && (
-                      <Box
-                        p="2"
-                        style={{
-                          borderBottom: "1px solid var(--gray-a3)",
-                          backgroundColor: "var(--slate-a2)",
-                        }}
-                      >
-                        <Flex align="center" gap="4">
-                          <Text size="sm" weight="semibold">
-                            SQL template variables:
-                          </Text>
-                          <Field
-                            size="sm"
-                            label="eventName"
-                            labelClassName="mr-2"
-                            value={eventName}
-                            onChange={(e) => setEventName(e.target.value)}
-                          />
-                        </Flex>
-                      </Box>
-                    )}
+                  <Box height="100%">
                     <CodeTextArea
                       wrapperClassName={styles["sql-editor-wrapper"]}
-                      required
                       language="sql"
                       value={sql}
                       setValue={(v) => {
@@ -336,7 +243,6 @@ export default function NewFactTableSqlStep({
                       placeholder={
                         "SELECT\n  user_id,\n  timestamp\nFROM\n  events"
                       }
-                      helpText={""}
                       fullHeight
                       setCursorData={setCursorData}
                       onCtrlEnter={() => runQuery(SAMPLE_ROW_LIMIT)}

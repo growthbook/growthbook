@@ -60,8 +60,7 @@ export function getFactTableTypeFromTrinoType(
   }
 
   // `timestamp with time zone`, `time with time zone`, `interval day to second`
-  if (base.startsWith("timestamp") || base.startsWith("date")) return "date";
-  if (base.startsWith("time")) return "date";
+  if (base.startsWith("date") || base.startsWith("time")) return "date";
   if (base.startsWith("interval")) return "other";
 
   return undefined;

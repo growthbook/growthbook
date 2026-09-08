@@ -11,7 +11,6 @@ import {
 import { DocLink } from "@/components/DocLink";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import NewFactTableSqlStep from "@/components/FactTables/NewFactTableSqlStep";
-import Field from "@/components/Forms/Field";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import { useAuth } from "@/services/auth";
@@ -22,6 +21,7 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import TextField from "@/ui/TextField";
 import Callout from "@/ui/Callout";
 import RadioGroup from "@/ui/RadioGroup";
 import { Select, SelectItem } from "@/ui/Select";
@@ -48,10 +48,96 @@ const INLINE_FILTER_CANDIDATES = [
   "event_type",
   "eventType",
   "event",
-  "name",
-  "type",
-  "action",
+  "se_action",
 ];
+
+// Re-running the SQL, or pointing another mapping at the same column, can make
+// an earlier selection invalid. Treat those as unset everywhere rather than
+// sending a column the API will reject.
+const validColumn = (options: DetectedFactTableColumn[], column: string) =>
+  options.some((c) => c.column === column) ? column : "";
+
+// One row of the column mapping table: timestamp, the event type column, and
+// each of the Data Source's identifier types all map the same way. A row with
+// no onRemove can't be emptied, so it skips the link and always shows a select.
+function MappingRow({
+  label,
+  value,
+  options,
+  setValue,
+  onRemove,
+}: {
+  label: string;
+  value: string;
+  options: DetectedFactTableColumn[];
+  setValue: (column: string) => void;
+  onRemove?: () => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const selected = validColumn(options, value);
+
+  return (
+    <TableRow align="center">
+      <TableCell>
+        <Text size="sm" weight="medium">
+          {label}
+        </Text>
+      </TableCell>
+      {selected || adding || !onRemove ? (
+        <>
+          <TableCell>
+            <Select
+              size="sm"
+              mb="0"
+              // Focuses only a select the user just revealed by clicking the link
+              autoFocus={adding}
+              value={selected || undefined}
+              setValue={setValue}
+              placeholder="Select a column..."
+            >
+              {options.map((c) => (
+                <SelectItem key={c.column} value={c.column}>
+                  {c.column}
+                </SelectItem>
+              ))}
+            </Select>
+          </TableCell>
+          <TableCell>
+            {onRemove ? (
+              // Flex wrapper drops the line box's baseline strut, which
+              // otherwise leaves the button riding high
+              <Flex align="center">
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  size="1"
+                  onClick={() => {
+                    setAdding(false);
+                    onRemove();
+                  }}
+                  aria-label={`Remove ${label}`}
+                >
+                  <PiX />
+                </IconButton>
+              </Flex>
+            ) : null}
+          </TableCell>
+        </>
+      ) : (
+        <TableCell colSpan={2}>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<PiPlus />}
+            onClick={() => setAdding(true)}
+          >
+            Add column
+          </Button>
+        </TableCell>
+      )}
+    </TableRow>
+  );
+}
 
 // Room for the SQL step's editor, schema browser, and results panel. The
 // configure step only uses it as a ceiling -- it sizes to its content.
@@ -72,7 +158,6 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
         .datasource,
   );
   const [sql, setSql] = useState("");
-  const [eventName, setEventName] = useState("");
 
   // Step 2 state
   const [detected, setDetected] = useState<DetectedFactTableColumn[] | null>(
@@ -85,7 +170,6 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     {},
   );
   const [inlineFilterColumn, setInlineFilterColumn] = useState("");
-  const [addingInlineFilter, setAddingInlineFilter] = useState(false);
   const [tableType, setTableType] = useState<FactTableType>("event");
 
   // Set by the SQL step, so the modal's Next button can run the query first
@@ -125,9 +209,6 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       !Object.values(userIdColumns).includes(c.column),
   );
 
-  const addIdentifier = (idType: string) =>
-    setUserIdColumns((prev) => ({ ...prev, [idType]: "" }));
-
   const removeIdentifier = (idType: string) =>
     setUserIdColumns((prev) => {
       const next = { ...prev };
@@ -135,22 +216,13 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       return next;
     });
 
-  // Changing a column's data type (or reusing it for another mapping) can make
-  // an earlier selection invalid. Treat those as unset everywhere rather than
-  // sending a column the API will reject.
-  const validColumn = (options: DetectedFactTableColumn[], column: string) =>
-    options.some((c) => c.column === column) ? column : "";
-
   const handleColumnsDetected = useCallback(
     (columns: DetectedFactTableColumn[]) => {
       setDetectedSql(sql);
 
       // Always take the newest detection -- reading a row sample narrows types
-      // the schema alone couldn't pin down. Manual overrides still win, since
-      // datatypeFor prefers them.
-      if (JSON.stringify(columns) !== JSON.stringify(detected)) {
-        setDetected(columns);
-      }
+      // the schema alone couldn't pin down.
+      setDetected(columns);
 
       // Only reset the form when the SQL returns a different set of columns.
       // Better types for the same columns leave the configuration alone.
@@ -189,7 +261,6 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
           ),
         ) || "";
       setInlineFilterColumn(eventTypeColumn);
-      setAddingInlineFilter(false);
       setTableType(eventTypeColumn ? "event" : "model");
     },
     [detected, sql, datasourceId, getDatasourceById],
@@ -236,7 +307,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       }),
       datasource: datasourceId,
       sql,
-      eventName: eventName || name,
+      eventName: name,
       tableType,
       userIdTypes,
       ...(Object.keys(remapped).length ? { userIdColumns: remapped } : {}),
@@ -297,8 +368,6 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
             setDatasourceId={setDatasourceId}
             sql={sql}
             setSql={setSql}
-            eventName={eventName}
-            setEventName={setEventName}
             detected={detected}
             detectedSql={detectedSql}
             onColumnsDetected={handleColumnsDetected}
@@ -320,18 +389,14 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
               expandable
               collapsedLines={3}
               filename={
-                <Link
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setStep(0);
-                  }}
-                >
-                  <PiArrowLeft className="mr-1" /> Edit SQL
+                <Link onClick={() => setStep(0)}>
+                  <Flex align="center" gap="1">
+                    <PiArrowLeft /> Edit SQL
+                  </Flex>
                 </Link>
               }
             />
-            <Field
+            <TextField
               label="Fact Table name"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -400,161 +465,34 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <TableRow align="center">
-                  <TableCell>
-                    <Text size="sm" weight="medium">
-                      timestamp
-                    </Text>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      size="sm"
-                      mb="0"
-                      value={
-                        validColumn(timestampOptions, timestampColumn) ||
-                        undefined
-                      }
-                      setValue={setTimestampColumn}
-                      placeholder="Select a column..."
-                    >
-                      {timestampOptions.map((c) => (
-                        <SelectItem key={c.column} value={c.column}>
-                          {c.column}
-                        </SelectItem>
-                      ))}
-                    </Select>
-                  </TableCell>
-                  <TableCell />
-                </TableRow>
+                <MappingRow
+                  label="timestamp"
+                  value={timestampColumn}
+                  options={timestampOptions}
+                  setValue={setTimestampColumn}
+                />
                 {tableType === "event" ? (
-                  <TableRow align="center">
-                    <TableCell>
-                      <Text size="sm" weight="medium">
-                        event_name
-                      </Text>
-                    </TableCell>
-                    {inlineFilterColumn || addingInlineFilter ? (
-                      <>
-                        <TableCell>
-                          <Select
-                            size="sm"
-                            mb="0"
-                            autoFocus={!inlineFilterColumn}
-                            value={
-                              validColumn(
-                                inlineFilterOptions,
-                                inlineFilterColumn,
-                              ) || undefined
-                            }
-                            setValue={setInlineFilterColumn}
-                            placeholder="Select a column..."
-                          >
-                            {inlineFilterOptions.map((c) => (
-                              <SelectItem key={c.column} value={c.column}>
-                                {c.column}
-                              </SelectItem>
-                            ))}
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Flex align="center">
-                            <IconButton
-                              variant="ghost"
-                              color="gray"
-                              size="1"
-                              onClick={() => {
-                                setInlineFilterColumn("");
-                                setAddingInlineFilter(false);
-                              }}
-                              aria-label="Remove event_name column"
-                            >
-                              <PiX />
-                            </IconButton>
-                          </Flex>
-                        </TableCell>
-                      </>
-                    ) : (
-                      <TableCell colSpan={2}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          icon={<PiPlus />}
-                          onClick={() => setAddingInlineFilter(true)}
-                        >
-                          column
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
+                  <MappingRow
+                    label="event_name"
+                    value={inlineFilterColumn}
+                    options={inlineFilterOptions}
+                    setValue={setInlineFilterColumn}
+                    onRemove={() => setInlineFilterColumn("")}
+                  />
                 ) : null}
                 {identifierTypes.map((idType) => (
-                  <TableRow key={idType} align="center">
-                    <TableCell>
-                      <Text size="sm" weight="medium">
-                        {idType}
-                      </Text>
-                    </TableCell>
-                    {idType in userIdColumns ? (
-                      <>
-                        <TableCell>
-                          <Select
-                            size="sm"
-                            mb="0"
-                            // Only a row added by clicking the link starts
-                            // empty, so this focuses just that one
-                            autoFocus={!userIdColumns[idType]}
-                            value={
-                              validColumn(
-                                identifierOptions,
-                                userIdColumns[idType],
-                              ) || undefined
-                            }
-                            setValue={(v) => {
-                              setUserIdColumns({
-                                ...userIdColumns,
-                                [idType]: v,
-                              });
-                              // An identifier column can't also be the event type
-                              if (v === inlineFilterColumn) {
-                                setInlineFilterColumn("");
-                              }
-                            }}
-                            placeholder="Select a column..."
-                          >
-                            {identifierOptions.map((c) => (
-                              <SelectItem key={c.column} value={c.column}>
-                                {c.column}
-                              </SelectItem>
-                            ))}
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Flex align="center">
-                            <IconButton
-                              variant="ghost"
-                              color="gray"
-                              size="1"
-                              onClick={() => removeIdentifier(idType)}
-                              aria-label={`Remove ${idType}`}
-                            >
-                              <PiX />
-                            </IconButton>
-                          </Flex>
-                        </TableCell>
-                      </>
-                    ) : (
-                      <TableCell colSpan={2}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          icon={<PiPlus />}
-                          onClick={() => addIdentifier(idType)}
-                        >
-                          column
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
+                  <MappingRow
+                    key={idType}
+                    label={idType}
+                    value={userIdColumns[idType] || ""}
+                    options={identifierOptions}
+                    setValue={(v) => {
+                      setUserIdColumns({ ...userIdColumns, [idType]: v });
+                      // An identifier column can't also be the event type
+                      if (v === inlineFilterColumn) setInlineFilterColumn("");
+                    }}
+                    onRemove={() => removeIdentifier(idType)}
+                  />
                 ))}
               </TableBody>
             </Table>
