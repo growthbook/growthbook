@@ -1,5 +1,7 @@
 import {
   getOrCreateGbSessionId,
+  resolveSessionId,
+  configureGbSession,
   DEFAULT_IDLE_TIMEOUT_MS,
   DEFAULT_MAX_DURATION_MS,
   _resetGbSessionForTests,
@@ -116,8 +118,9 @@ describe("gb session manager", () => {
     });
   });
 
-  it("respects custom idleTimeout and maxDuration", () => {
+  it("respects a configured idleTimeout and maxDuration", () => {
     const idleTimeout = 60 * 1000;
+    configureGbSession({ idleTimeout });
     writeStoredState({
       gb_session_id: "short-lived",
       createdAt: 1000,
@@ -126,21 +129,35 @@ describe("gb session manager", () => {
 
     // Within the custom idle window — reuse
     jest.spyOn(Date, "now").mockReturnValue(1000 + idleTimeout - 1);
-    expect(getOrCreateGbSessionId({ idleTimeout })).toBe("short-lived");
+    expect(getOrCreateGbSessionId()).toBe("short-lived");
 
     // Past the custom idle window — rotate
     jest.spyOn(Date, "now").mockReturnValue(1000 + 2 * idleTimeout);
-    expect(getOrCreateGbSessionId({ idleTimeout })).not.toBe("short-lived");
+    expect(getOrCreateGbSessionId()).not.toBe("short-lived");
 
     // Custom hard cap beats recent activity
     const maxDuration = 5 * 60 * 1000;
+    configureGbSession({ maxDuration });
     writeStoredState({
       gb_session_id: "capped",
       createdAt: 1000,
       lastActiveAt: 1000 + maxDuration,
     });
     jest.spyOn(Date, "now").mockReturnValue(1000 + maxDuration + 1);
-    expect(getOrCreateGbSessionId({ maxDuration })).not.toBe("capped");
+    expect(getOrCreateGbSessionId()).not.toBe("capped");
+  });
+
+  it("resolveSessionId prefers BYO session_id, then the projected attribute, then mints", () => {
+    expect(
+      resolveSessionId({ session_id: "byo", sessionId: "projected" }),
+    ).toBe("byo");
+    expect(resolveSessionId({ sessionId: "projected" })).toBe("projected");
+
+    const minted = resolveSessionId({});
+    expect(minted).toEqual(expect.any(String));
+    // Minting goes through the shared module — a second resolve reuses it
+    expect(resolveSessionId({})).toBe(minted);
+    expect(getOrCreateGbSessionId()).toBe(minted);
   });
 
   it("replaces invalid stored state", () => {

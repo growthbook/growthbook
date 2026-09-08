@@ -149,7 +149,7 @@ describe("growthbookTrackingPlugin", () => {
       properties_json: { bar: "baz" },
       sdk_language: "js",
       sdk_version: "",
-      session_id: null,
+      session_id: expect.any(String),
       url: "http://localhost:3000",
       user_id: null,
     });

@@ -6,6 +6,7 @@ import type {
   UserScopedGrowthBook,
 } from "../GrowthBookClient";
 import { EVENT_EXPERIMENT_VIEWED, EVENT_FEATURE_EVALUATED } from "../core";
+import { resolveSessionId } from "./utils/gb-session";
 
 const SDK_VERSION = loadSDKVersion();
 
@@ -74,6 +75,7 @@ function parseAttributes(attributes: Attributes): {
     id,
     page_id,
     session_id,
+    sessionId,
     utmCampaign,
     utmContent,
     utmMedium,
@@ -89,7 +91,9 @@ function parseAttributes(attributes: Attributes): {
       user_id: parseString(user_id),
       device_id: parseString(device_id || anonymous_id || id),
       page_id: parseString(page_id),
-      session_id: parseString(session_id),
+      // BYO session_id wins, else the projected/minted GB session — same
+      // precedence the replay payload uses, so the join key can't diverge
+      session_id: resolveSessionId({ session_id, sessionId }),
       utm_campaign: parseString(utmCampaign) || undefined,
       utm_content: parseString(utmContent) || undefined,
       utm_medium: parseString(utmMedium) || undefined,

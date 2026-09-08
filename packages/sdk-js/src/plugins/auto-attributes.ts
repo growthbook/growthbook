@@ -4,7 +4,7 @@ import type {
   GrowthBookClient,
 } from "../GrowthBookClient";
 import { genUUID } from "../util";
-import { getOrCreateGbSessionId } from "./utils/gb-session";
+import { configureGbSession, getOrCreateGbSessionId } from "./utils/gb-session";
 import { readSessionJSON, writeSessionJSON } from "./utils/storage";
 
 export type AutoAttributeSettings = {
@@ -55,6 +55,13 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   if (typeof window === "undefined") {
     throw new Error("autoAttributesPlugin only works in the browser");
   }
+
+  // Session expiry policy is shared module state so every consumer (replay,
+  // tracking) touches the session with the same windows.
+  configureGbSession({
+    idleTimeout: settings.idleTimeout,
+    maxDuration: settings.maxDuration,
+  });
 
   const COOKIE_NAME = settings.uuidCookieName || "gbuuid";
   const COOKIE_DOMAIN = settings.uuidCookieDomain || "";
@@ -108,10 +115,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     return {
       ...getDataLayerVariables(),
       [uuidKey]: _uuid,
-      sessionId: getOrCreateGbSessionId({
-        idleTimeout: settings.idleTimeout,
-        maxDuration: settings.maxDuration,
-      }),
+      sessionId: getOrCreateGbSessionId(),
       ...getURLAttributes(url),
       pageTitle: document.title,
       viewportWidth: window.innerWidth || 0,

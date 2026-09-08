@@ -7,6 +7,7 @@ import {
   RetryCancelledError,
 } from "../utils/retry-manager";
 import { readSessionJSON, writeSessionJSON } from "../utils/storage";
+import { resolveSessionId } from "../utils/gb-session";
 import {
   SessionReplayPrivacyConfig,
   buildRrwebPrivacyOptions,
@@ -385,8 +386,10 @@ export function sessionReplayPlugin({
       // leaking. When that diagnosis lands we'll reintroduce a corrected
       // scrubber rather than restoring the previous one.
 
-      const sessionId =
-        typeof attrs.sessionId === "string" ? attrs.sessionId : undefined;
+      // Same precedence as the tracking plugin's session_id column, so the
+      // replay↔events join key can't diverge (BYO session_id wins, else the
+      // projected/minted GB session).
+      const sessionId = resolveSessionId(attrs);
 
       const payload = JSON.stringify({
         clientKey,
