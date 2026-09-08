@@ -378,7 +378,8 @@ function isExplorationBlockWithConfig(block: { type: string }): boolean {
   );
 }
 
-function explorationAnalysisId(block: { type: string }): string {
+/** Empty means the block has no result yet, which is what says run it. */
+export function explorationAnalysisId(block: { type: string }): string {
   return (block as { explorerAnalysisId?: string }).explorerAnalysisId ?? "";
 }
 

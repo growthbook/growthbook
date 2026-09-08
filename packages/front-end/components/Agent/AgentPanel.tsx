@@ -4,7 +4,6 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiX, PiPlus, PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
 import { useSWRConfig } from "swr";
 import type { AIChatMessage } from "shared/ai-chat";
-import { dashboardPagePath } from "shared/enterprise";
 import Markdown from "@/components/Markdown/Markdown";
 import Text from "@/ui/Text";
 import track from "@/services/track";
@@ -223,7 +222,7 @@ export default function AgentPanel({
     [mutate],
   );
 
-  /** Open a new dashboard (which becomes the next turn's page context); refresh an edited one. */
+  /** Refresh caches after a dashboard write; a new one is opened by the link in the reply. */
   const handleDashboardWrite = useCallback(
     (event: { type: string; data: Record<string, unknown> }) => {
       const write = dashboardWriteFromEvent(event);
@@ -231,7 +230,6 @@ export default function AgentPanel({
 
       if (write.kind === "created") {
         void mutateDashboards();
-        void routerRef.current?.push(dashboardPagePath(write.id));
         return;
       }
 

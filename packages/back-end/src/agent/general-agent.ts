@@ -131,7 +131,8 @@ when they are there. Do not look the other one up, and do not \`askUser\` to
 offer it as a choice: a name that does not match the page is not ambiguity,
 it is a refusal you already know the answer to, and asking spends the user's
 turn to reach the same place. Creating a new dashboard has no such
-restriction.
+restriction — end that reply with a link to the new dashboard, and say that
+changing it means opening that link first.
 
 A user message may carry other auto-injected lines of the same
 \`[Label: value]\` shape — e.g. \`[Active product-analytics datasource: <id>]\`,

@@ -361,25 +361,18 @@ export type CompletedExperimentsBlockFilters = {
 };
 
 /**
- * Effective filters for a "Completed Experiments" block. Today these come
- * straight from the block; the `dashboard` arg is the forward-compat seam for a
- * future dashboard-wide filter bar (project / date range) that would take
- * precedence — mirrors resolveBlockComparison so render code never changes.
- * The date range is resolved with the same helper Metric Explorer uses.
+ * Effective filters for a "Completed Experiments" block. Callers pass the block
+ * that getEffectiveExperimentBlock already overlaid the dashboard-wide filters
+ * onto, so the values here are final. The date range is resolved with the same
+ * helper Metric Explorer uses.
  */
 export function resolveCompletedExperimentsFilters(
   block: CompletedExperimentsBlockFilters,
-  dashboard?: { projects?: string[] } | null,
 ): { startDate: Date; endDate: Date; projects: string[] } {
-  const projects =
-    dashboard?.projects && dashboard.projects.length > 0
-      ? dashboard.projects
-      : block.projects;
-
   const { startDate, endDate } = calculateProductAnalyticsDateRange(
     block.dateRange,
   );
-  return { startDate, endDate, projects };
+  return { startDate, endDate, projects: block.projects };
 }
 
 const experimentDimensionBlockInterface = baseBlockInterface
