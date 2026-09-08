@@ -280,7 +280,9 @@ export function createCWVReporter({
           const count =
             (performance as { interactionCount?: number }).interactionCount ??
             seenInteractions;
-          const sorted = [...worstByInteraction.values()].sort((a, b) => b - a);
+          const sorted = Array.from(worstByInteraction.values()).sort(
+            (a, b) => b - a,
+          );
           inpValue =
             sorted[Math.min(Math.floor(count / 50), sorted.length - 1)];
         },
