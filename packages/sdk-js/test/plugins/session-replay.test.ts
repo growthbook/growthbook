@@ -129,6 +129,24 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     expect(mockRecord).not.toHaveBeenCalled();
   });
 
+  it("a remote payload without an enabled key leaves a locally-enabled plugin on", async () => {
+    await gb.setPayload({
+      sdkSettings: { sessionReplay: { samplingRate: 1 } },
+    });
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it("a remote enabled:true cannot override a constructor enabled:false", async () => {
+    await gb.setPayload({ sdkSettings: { sessionReplay: { enabled: true } } });
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, enabled: false })(gb);
+    expect(mockRecord).not.toHaveBeenCalled();
+
+    await gb.setPayload({ sdkSettings: { sessionReplay: { enabled: true } } });
+    gb.startSessionReplay();
+    expect(mockRecord).not.toHaveBeenCalled();
+  });
+
   it("kill switch beats a forced start", () => {
     sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, enabled: false })(gb);
     gb.startSessionReplay();

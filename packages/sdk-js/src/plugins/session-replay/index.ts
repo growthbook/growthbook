@@ -136,13 +136,20 @@ export function sessionReplayPlugin({
   // Remote re-enables resume recording only if nothing stopped it explicitly
   let autoRestart = autoRecord;
 
-  // defaults ← constructor options ← remote sdkSettings from the payload
-  const resolveSettings = (): Required<SessionReplaySettings> =>
-    mergeSettings(
+  // defaults ← constructor options ← remote sdkSettings from the payload.
+  // A local `enabled: false` is definitive: remote settings can turn a
+  // locally-enabled plugin off, never on.
+  const resolveSettings = (): Required<SessionReplaySettings> => {
+    const remote = gbRef?.getDecryptedPayload().sdkSettings?.sessionReplay;
+    const settings = mergeSettings(
       DEFAULT_SETTINGS,
       { enabled, samplingRate },
-      gbRef?.getDecryptedPayload().sdkSettings?.sessionReplay,
+      remote,
     );
+    // Missing on either side means "no opinion", not off
+    settings.enabled = (enabled ?? true) && (remote?.enabled ?? true);
+    return settings;
+  };
   let host = "";
   let clientKey = "";
 

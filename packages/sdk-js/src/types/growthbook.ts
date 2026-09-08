@@ -484,7 +484,8 @@ export type AutoExperimentVariation = {
 export type FeatureDefinitions = Record<string, FeatureDefinition>;
 
 export type SessionReplaySettings = {
-  // Remote kill switch: false stops in-flight recordings and blocks new ones
+  // Remote kill switch: false stops in-flight recordings and blocks new ones.
+  // Can only turn a locally-enabled plugin off — a local `enabled: false` wins.
   enabled?: boolean;
   // Fraction of sessions to record (0-1). True-random, sticky per session.
   samplingRate?: number;
