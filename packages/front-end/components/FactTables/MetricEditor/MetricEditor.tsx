@@ -410,32 +410,25 @@ export default function MetricEditor({
                 ]}
               />
             )}
-            {canEdit ? (
-              <Flex direction="column" gap="1">
-                <Text weight="semibold" size="sm" as="div">
-                  Tags
-                </Text>
+            <Flex direction="column" gap="1">
+              <Text weight="semibold" size="sm" as="div">
+                Tags
+              </Text>
+              {canEdit ? (
                 <TagsInput
                     label="Tags"
                     autoFocus={false}
                   value={form.watch("tags") || []}
                   onChange={(tags) => form.setValue("tags", tags)}
                 />
-              </Flex>
-            ) : (
-              <Flex direction="column" gap="1">
-                <Text weight="semibold" size="sm" as="div">
-                  Tags
+              ) : form.watch("tags")?.length ? (
+                <SortedTags tags={form.watch("tags")} useFlex />
+              ) : (
+                <Text color="text-mid" as="div">
+                  No tags
                 </Text>
-                {form.watch("tags")?.length ? (
-                  <SortedTags tags={form.watch("tags")} useFlex />
-                ) : (
-                  <Text color="text-mid" as="div">
-                    No tags
-                  </Text>
-                )}
-              </Flex>
-            )}
+              )}
+            </Flex>
           </Flex>
         </Frame>
 
