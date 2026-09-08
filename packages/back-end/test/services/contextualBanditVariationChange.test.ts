@@ -1369,7 +1369,7 @@ describe("executeContextualBanditVariationChange", () => {
       v("v3", "3"),
     ]);
 
-    expect(applyWeightEpochUpdateMock).toHaveBeenCalledTimes(2);
+    expect(applyWeightEpochUpdateMock).toHaveBeenCalledTimes(3);
     const retryWeights =
       applyWeightEpochUpdateMock.mock.calls[1][1].variationWeights;
     const byId = Object.fromEntries(
@@ -1421,7 +1421,7 @@ describe("executeContextualBanditVariationChange", () => {
       v("v3", "3"),
     ]);
 
-    expect(applyWeightEpochUpdateMock).toHaveBeenCalledTimes(2);
+    expect(applyWeightEpochUpdateMock).toHaveBeenCalledTimes(3);
     const retryVariations =
       applyWeightEpochUpdateMock.mock.calls[1][1].variations;
     const retryIds = retryVariations.map((x: { id: string }) => x.id);
