@@ -70,6 +70,7 @@ function validateFunnelSteps(funnelSettings: FunnelSettings | null): void {
 
 export default function MetricWorkspace({
   existing,
+  duplicateFrom,
   isEditing,
   setIsEditing = () => {},
   mutate,
@@ -77,6 +78,9 @@ export default function MetricWorkspace({
   onCancel,
 }: {
   existing: FactMetricInterface | null;
+  // Seeds defaults for a brand-new metric (create payload, not update) -
+  // distinct from `existing`, which also decides POST vs PUT.
+  duplicateFrom?: FactMetricInterface | null;
   isEditing: boolean;
   setIsEditing?: (value: boolean) => void;
   mutate: () => void;
@@ -90,9 +94,10 @@ export default function MetricWorkspace({
   const settings = useOrgSettings();
 
   const defaultsCtx = { datasources, project, metricDefaults, settings };
+  const seedSource = existing ?? duplicateFrom ?? null;
 
   const form = useForm<CreateFactMetricFormProps>({
-    defaultValues: buildFormDefaults(existing, defaultsCtx),
+    defaultValues: buildFormDefaults(seedSource, defaultsCtx),
   });
   const metricType = form.watch("metricType");
   const numeratorTable = form.watch("numerator.factTableId");
@@ -122,9 +127,9 @@ export default function MetricWorkspace({
   // unrelated mutateDefinitions() elsewhere doesn't clobber in-progress edits.
   useEffect(() => {
     if (isEditing) return;
-    resync(existing);
+    resync(seedSource);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existing, isEditing]);
+  }, [seedSource, isEditing]);
 
   async function handleSave() {
     const values = fromFactMetricFormValues(form.getValues());
@@ -190,7 +195,7 @@ export default function MetricWorkspace({
       onCancel();
       return;
     }
-    resync(existing);
+    resync(seedSource);
     setError(null);
     setIsEditing(false);
   }
