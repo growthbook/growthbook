@@ -1,17 +1,7 @@
 import { UseFormReturn } from "react-hook-form";
 import { Flex, Grid } from "@radix-ui/themes";
-import {
-  ColumnRef,
-  FactMetricType,
-  FactTableDefinition,
-  FunnelSettings,
-  MetricQuantileSettings,
-} from "shared/types/fact-table";
-import { getAggregateFilters } from "shared/experiments";
-import {
-  CreateFactMetricFormProps,
-  getPercentileLabel,
-} from "@/services/metrics";
+import { ColumnRef, FunnelSettings } from "shared/types/fact-table";
+import { CreateFactMetricFormProps } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useFullFactTable from "@/hooks/useFullFactTable";
@@ -22,7 +12,7 @@ import TextField from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
 import Callout from "@/ui/Callout";
 import Field from "@/components/Forms/Field";
-import DataList, { DataListItem } from "@/ui/DataList";
+import DataList from "@/ui/DataList";
 import TagsInput from "@/components/Tags/TagsInput";
 import SortedTags from "@/components/Tags/SortedTags";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
@@ -51,7 +41,6 @@ import {
   FormMetricType,
   onFactTableChange,
   onShapeChange,
-  retentionModeFromWindow,
   shapeForValueType,
   UnrepresentableReason,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
@@ -66,114 +55,6 @@ const UNREPRESENTABLE_REASON_COPY: Record<UnrepresentableReason, string> = {
   "unsupported-aggregate-filter":
     "its threshold comparison uses a column or basis that isn't supported here",
 };
-
-// Read-only helpers, ported from [fmid].tsx's numeratorData/denominatorData -
-// same facts, adapted to read off form state instead of a saved FactMetricInterface.
-function columnValueLabel(column: string): string {
-  if (column === "$$count") return "Count of Rows";
-  if (column === "$$distinctUsers") return "Unique Users";
-  if (column === "$$distinctDates") return "Distinct Dates";
-  return column;
-}
-
-// Value/Per-User Aggregation/User Filter/Quantile lines only - Fact Table and
-// Row Filter are separate top-level fields for every type these apply to
-// (unlike Ratio, whose parts bundle their own fact table/filters).
-function numeratorSummary({
-  metricType,
-  formType,
-  numerator,
-  quantileSettings,
-}: {
-  metricType: FactMetricType;
-  formType: FormMetricType;
-  numerator: ColumnRef;
-  quantileSettings: MetricQuantileSettings | null;
-}): DataListItem[] {
-  // isBinomialMetric's own check ("proportion"|"retention"|"funnel") narrowed
-  // to the two reachable here - funnel is handled by a wholly separate branch.
-  const isBinomial = metricType === "proportion" || metricType === "retention";
-  const userFilters = getAggregateFilters({
-    columnRef: numerator,
-    column:
-      numerator.aggregateFilterColumn === "$$count"
-        ? "COUNT(*)"
-        : `SUM(${numerator.aggregateFilterColumn})`,
-    ignoreInvalid: true,
-  });
-
-  return [
-    ...(!isBinomial
-      ? [{ label: "Value", value: columnValueLabel(numerator.column) }]
-      : []),
-    ...(!numerator.column.startsWith("$$") &&
-    (formType !== "quantile" || quantileSettings?.type === "unit")
-      ? [
-          {
-            label: "Per-User Aggregation",
-            value: (numerator.aggregation || "SUM").toUpperCase(),
-          },
-        ]
-      : userFilters.length > 0
-        ? [{ label: "User Filter", value: userFilters.join(" AND ") }]
-        : []),
-    ...(formType === "quantile" && quantileSettings
-      ? [
-          { label: "Quantile Scope", value: quantileSettings.type },
-          {
-            label: "Ignore Zeros",
-            value: quantileSettings.ignoreZeros ? "Yes" : "No",
-          },
-          {
-            label: "Quantile",
-            value: getPercentileLabel(quantileSettings.quantile),
-          },
-        ]
-      : []),
-  ];
-}
-
-// Ratio parts bundle fact table + filters + value/aggregation together,
-// matching RatioFields' own per-part Frame in edit mode.
-function ratioPartSummary(
-  value: ColumnRef,
-  factTable: FactTableDefinition | null,
-): DataListItem[] {
-  return [
-    { label: "Fact Table", value: <FactTableLink id={value.factTableId} /> },
-    {
-      label: "Row Filter",
-      value: (
-        <FilterSummary
-          rowFilters={value.rowFilters || []}
-          factTable={factTable}
-        />
-      ),
-    },
-    { label: "Value", value: columnValueLabel(value.column) },
-    ...(!value.column.startsWith("$$")
-      ? [
-          {
-            label: "Per-User Aggregation",
-            value: (value.aggregation || "SUM").toUpperCase(),
-          },
-        ]
-      : []),
-  ];
-}
-
-function retentionWindowProse(windowSettings: {
-  delayValue: number;
-  delayUnit: string;
-  windowValue: number;
-}): string {
-  const mode = retentionModeFromWindow(windowSettings);
-  if (mode === "starting") {
-    return `Starting ${windowSettings.delayValue} ${windowSettings.delayUnit} after exposure`;
-  }
-  const end = windowSettings.delayValue + windowSettings.windowValue;
-  return `Between ${windowSettings.delayValue} and ${end} ${windowSettings.delayUnit} after exposure`;
-}
 
 export default function MetricEditor({
   form,
@@ -367,64 +248,48 @@ export default function MetricEditor({
               />
             )}
 
-            {formType === "threshold" &&
-              (canEdit ? (
-                <ThresholdBasisRow
-                  value={thresholdValue}
-                  onChange={onThresholdChange}
-                  factTable={factTable}
-                />
-              ) : null)}
-
-            {formType === "retention" &&
-              (canEdit ? (
-                <RetentionFields
-                  windowSettings={form.watch("windowSettings")}
-                  onWindowSettingsChange={(v) =>
-                    form.setValue("windowSettings", v)
-                  }
-                  threshold={thresholdValue}
-                  onThresholdChange={onThresholdChange}
-                  factTable={factTable}
-                />
-              ) : (
-                <Text as="div">
-                  {retentionWindowProse(form.watch("windowSettings"))}
-                </Text>
-              ))}
-
-            {valueShape &&
-              (canEdit ? (
-                <ColumnSelect
-                  shape={valueShape}
-                  factTable={factTable}
-                  hasCountDistinctHLL={hasCountDistinctHLL}
-                  value={numerator.column}
-                  onChange={(column) => {
-                    const refit = onShapeChange(
-                      numerator,
-                      valueShape,
-                      factTable,
-                      hasCountDistinctHLL,
-                    );
-                    form.setValue("numerator", { ...refit, column });
-                  }}
-                />
-              ) : null)}
-
-            {!isRatioOrFunnel && (
-              <DataList
-                columns={1}
-                data={numeratorSummary({
-                  metricType,
-                  formType,
-                  numerator,
-                  quantileSettings,
-                })}
+            {formType === "threshold" && (
+              <ThresholdBasisRow
+                value={thresholdValue}
+                onChange={onThresholdChange}
+                factTable={factTable}
+                canEdit={canEdit}
               />
             )}
 
-            {formType === "quantile" && quantileSettings && canEdit && (
+            {formType === "retention" && (
+              <RetentionFields
+                windowSettings={form.watch("windowSettings")}
+                onWindowSettingsChange={(v) =>
+                  form.setValue("windowSettings", v)
+                }
+                threshold={thresholdValue}
+                onThresholdChange={onThresholdChange}
+                factTable={factTable}
+                canEdit={canEdit}
+              />
+            )}
+
+            {valueShape && (
+              <ColumnSelect
+                shape={valueShape}
+                factTable={factTable}
+                hasCountDistinctHLL={hasCountDistinctHLL}
+                value={numerator.column}
+                onChange={(column) => {
+                  const refit = onShapeChange(
+                    numerator,
+                    valueShape,
+                    factTable,
+                    hasCountDistinctHLL,
+                  );
+                  form.setValue("numerator", { ...refit, column });
+                }}
+                canEdit={canEdit}
+              />
+            )}
+
+            {formType === "quantile" && quantileSettings && (
               <QuantileFields
                 quantileSettings={quantileSettings}
                 onQuantileSettingsChange={(v) =>
@@ -436,51 +301,27 @@ export default function MetricEditor({
                 }
                 factTable={factTable}
                 hasCountDistinctHLL={hasCountDistinctHLL}
+                canEdit={canEdit}
               />
             )}
 
-            {formType === "ratio" &&
-              denominator &&
-              (canEdit ? (
-                <RatioFields
-                  numerator={numerator}
-                  onNumeratorChange={(v: ColumnRef) =>
-                    form.setValue("numerator", v)
-                  }
-                  denominator={denominator}
-                  onDenominatorChange={(v: ColumnRef) =>
-                    form.setValue("denominator", v)
-                  }
-                  factTable={factTable}
-                  availableFactTables={sameDatasourceFactTables}
-                  getFactTableById={(id) => getFactTableById(id) ?? null}
-                  hasCountDistinctHLL={hasCountDistinctHLL}
-                />
-              ) : (
-                <Flex direction="column" gap="3">
-                  <Frame p="3" mb="0">
-                    <Text weight="semibold" size="sm" mb="2" as="div">
-                      Numerator
-                    </Text>
-                    <DataList
-                      columns={1}
-                      data={ratioPartSummary(numerator, factTable)}
-                    />
-                  </Frame>
-                  <Frame p="3" mb="0">
-                    <Text weight="semibold" size="sm" mb="2" as="div">
-                      Denominator
-                    </Text>
-                    <DataList
-                      columns={1}
-                      data={ratioPartSummary(
-                        denominator,
-                        getFactTableById(denominator.factTableId) ?? factTable,
-                      )}
-                    />
-                  </Frame>
-                </Flex>
-              ))}
+            {formType === "ratio" && denominator && (
+              <RatioFields
+                numerator={numerator}
+                onNumeratorChange={(v: ColumnRef) =>
+                  form.setValue("numerator", v)
+                }
+                denominator={denominator}
+                onDenominatorChange={(v: ColumnRef) =>
+                  form.setValue("denominator", v)
+                }
+                factTable={factTable}
+                availableFactTables={sameDatasourceFactTables}
+                getFactTableById={(id) => getFactTableById(id) ?? null}
+                hasCountDistinctHLL={hasCountDistinctHLL}
+                canEdit={canEdit}
+              />
+            )}
 
             {isFunnel &&
               (canEdit ? (
