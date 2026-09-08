@@ -28,8 +28,8 @@ import {
 } from "shared/validators";
 import {
   autoMerge,
+  generateVariationId,
   reconcileMergeBaselines,
-  resetReviewOnChange,
   validateFeatureValue,
 } from "shared/util";
 import {
@@ -708,12 +708,6 @@ async function stripContextualBanditRuleFromOpenDrafts({
           subject: `rule ${removedRules.map((r) => r.id).join(", ")}`,
           value: JSON.stringify(removedRules),
         },
-        resetReviewOnChange({
-          feature,
-          changedEnvironments: changedEnvs,
-          defaultValueChanged: false,
-          settings: context.org?.settings,
-        }),
       );
       await recordRevisionUpdate(
         context,
@@ -1121,7 +1115,6 @@ export async function executeContextualBanditVariationChange(
       diff,
       newVariationValues,
       linkedInfo,
-      generatedIds,
     );
 
     const provisionalVariations: ContextualBanditVariation[] = [

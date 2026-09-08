@@ -605,7 +605,7 @@ describe("executeContextualBanditVariationChange", () => {
     expect(updateRevisionMock).not.toHaveBeenCalled();
   });
 
-  it("rejects a new variation sent without an id when linked features exist", async () => {
+  it("assigns a server-generated id to a variation sent without one and requires a value for it", async () => {
     getRefLinkedFeatureInfoMock.mockResolvedValue([linkedInfo(makeFeature())]);
     const cb = makeCb({ linkedFeatures: ["feature"] });
     const { context, updateMock } = makeContext(cb);
@@ -616,7 +616,7 @@ describe("executeContextualBanditVariationChange", () => {
         v("v1", "1"),
         v("", "2"),
       ]),
-    ).rejects.toThrow(/must include an `id`/);
+    ).rejects.toThrow(/Set a Feature Flag value for every new variation/);
 
     expect(updateMock).not.toHaveBeenCalled();
   });
