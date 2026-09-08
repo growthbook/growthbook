@@ -1,11 +1,11 @@
 import React from "react";
+import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LinkButton from "@/ui/LinkButton";
-import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
 import Button from "@/ui/Button";
 import { Tabs, TabsTrigger, TabsList, TabsContent } from "@/ui/Tabs";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -14,6 +14,7 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const MetricsPage = (): React.ReactElement => {
+  const router = useRouter();
   const { metrics, factMetrics, factTables, datasources, project } =
     useDefinitions();
 
@@ -33,16 +34,8 @@ const MetricsPage = (): React.ReactElement => {
     projects: [project],
   });
 
-  const [showNewModal, setShowNewModal] = React.useState(false);
-
   return (
     <Box className="pagecontents container-fluid">
-      {showNewModal && (
-        <NewMetricModal
-          close={() => setShowNewModal(false)}
-          source={"metrics-empty-state"}
-        />
-      )}
       <CreateMetricFromTemplate />
       <Box mb="4">
         <h1 style={{ margin: 0 }}>Metrics</h1>
@@ -72,7 +65,7 @@ const MetricsPage = (): React.ReactElement => {
               >
                 <Button
                   disabled={!canCreateMetric}
-                  onClick={() => setShowNewModal(true)}
+                  onClick={() => router.push("/fact-metrics/new")}
                 >
                   Add Metric
                 </Button>
