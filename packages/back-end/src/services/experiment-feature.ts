@@ -1327,7 +1327,7 @@ async function resolveRulesForExperiment({
   for (const feature of features) {
     const liveTouched = (feature.rules ?? []).filter(refersToExperiment);
     let cleanupDraft: FeatureRevisionInterface | null = null;
-    let landed = feature;
+    let current = feature;
     try {
       if (liveTouched.length) {
         const bypass = bypassFor.get(feature.id) ?? false;
@@ -1364,7 +1364,7 @@ async function resolveRulesForExperiment({
         if (!mergeResult.success) {
           throw new Error("the change did not merge cleanly onto live");
         }
-        landed = await publishRevision({
+        current = await publishRevision({
           context,
           feature,
           revision: updated,
@@ -1376,7 +1376,7 @@ async function resolveRulesForExperiment({
         await audit({
           event: "feature.publish",
           entity: { object: "feature", id: feature.id },
-          details: auditDetailsUpdate(feature, landed, {
+          details: auditDetailsUpdate(feature, current, {
             revision: updated.version,
             comment,
           }),
@@ -1388,7 +1388,7 @@ async function resolveRulesForExperiment({
         context,
         organization: context.org.id,
         featureId: feature.id,
-        feature: landed,
+        feature: current,
         status: DRAFT_REVISION_STATUSES,
         skipPagination: true,
       });
@@ -1397,13 +1397,14 @@ async function resolveRulesForExperiment({
         if (!touched.length) continue;
         await updateRevision(
           context,
-          landed,
+          current,
           draft,
           { rules: rewrite(draft.rules ?? []) },
           logEntry(touched),
         );
       }
-      await unlink(landed);
+      await unlink(current);
+      landed += 1;
     } catch (e) {
       if (cleanupDraft) {
         await discardRevision(
