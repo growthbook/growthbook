@@ -19,27 +19,18 @@ export type SessionReplayUrlScrubberConfig = {
   keepFragment?: boolean;
 };
 
-// Built-in ID heuristics. Conservative — slugs like "my-blog-post" stay
-// intact; only segments that look unambiguously like opaque identifiers
-// get redacted.
+// Only segments that are unambiguously opaque ids; slugs stay intact
 const ID_PATTERNS: RegExp[] = [
-  // Pure numeric — covers `/users/12345`, `/orders/987`
   /^\d+$/,
-  // UUID v1–v5 (8-4-4-4-12 hex with dashes, case-insensitive)
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  // Long pure-hex — `/sessions/abc123def456...`. 16+ chars to avoid
-  // false-positives on short slugs like `cafe` or `bead`.
+  // 16+ hex chars, so short words like "cafe" survive
   /^[0-9a-f]{16,}$/i,
 ];
 
 const ID_REPLACEMENT = "[id]";
 
-/**
- * Scrub a single URL string. Relative URLs (e.g. `/path?q=1`, `../foo`)
- * are resolved against the current document so they can be properly scrubbed
- * rather than discarded. Truly unparseable values (e.g. `javascript:`) return
- * "[invalid-url]".
- */
+// Relative URLs resolve against the document; unparseable ones (e.g.
+// `javascript:`) become "[invalid-url]"
 export function scrubUrl(
   url: string,
   config: SessionReplayUrlScrubberConfig = {},
@@ -50,8 +41,6 @@ export function scrubUrl(
   try {
     parsed = new URL(url);
   } catch {
-    // Relative URLs are the common case in DOM attributes (href, src, action).
-    // Resolve against the current document so we can scrub them properly.
     try {
       const base =
         typeof window !== "undefined" ? window.location.href : undefined;
@@ -62,17 +51,15 @@ export function scrubUrl(
     }
   }
 
-  // --- Path: replace ID-like segments ---
   const allPatterns = [...ID_PATTERNS, ...(config.redactPathPatterns ?? [])];
   const scrubbedSegments = parsed.pathname.split("/").map((segment) => {
-    if (!segment) return segment; // leading "" and consecutive "//"
+    if (!segment) return segment;
     return allPatterns.some((pattern) => pattern.test(segment))
       ? ID_REPLACEMENT
       : segment;
   });
   parsed.pathname = scrubbedSegments.join("/");
 
-  // --- Query params: deny-by-default with allowlist ---
   const allowed = new Set(config.allowQueryParams ?? []);
   if (allowed.size === 0) {
     parsed.search = "";
@@ -85,7 +72,6 @@ export function scrubUrl(
     parsed.search = search ? `?${search}` : "";
   }
 
-  // --- Fragment: drop unless explicitly preserved ---
   if (!config.keepFragment) {
     parsed.hash = "";
   }
@@ -93,12 +79,7 @@ export function scrubUrl(
   return parsed.toString();
 }
 
-/**
- * Set of DOM attribute names that carry URLs and must be scrubbed
- * wherever they appear — inside FullSnapshot tree nodes, inside
- * IncrementalSnapshot attribute mutations, anywhere rrweb captures
- * element attributes. Lowercased keys; matched case-insensitively.
- */
+// Attribute names that carry URLs, wherever rrweb captures them
 const URL_ATTRS = new Set([
   "href",
   "src",
@@ -112,14 +93,8 @@ const URL_ATTRS = new Set([
   "longdesc",
 ]);
 
-/**
- * Scrub URL-shaped attribute values in an object whose keys are
- * attribute names (rrweb's serialized `attributes` shape).
- *
- * Returns a NEW object with only the modified keys replaced, or the
- * original by reference if nothing matched — keeps the hot-path
- * allocations down for the common case of an event with no URL attrs.
- */
+// Returns the same object when nothing changed — most events have no URL
+// attributes, so the hot path allocates nothing
 function scrubUrlAttrs<T extends Record<string, unknown>>(
   attrs: T,
   config: SessionReplayUrlScrubberConfig,
@@ -137,13 +112,7 @@ function scrubUrlAttrs<T extends Record<string, unknown>>(
   return (out as T) ?? attrs;
 }
 
-/**
- * Recursively walk the serialized DOM tree inside a FullSnapshot and
- * scrub URL attributes on every element. rrweb's serialized format
- * stores attributes on element nodes as `{ attributes: { href: "..." } }`;
- * we look for those, scrub URL-typed entries, and rebuild the tree only
- * along the path that changed (structural sharing for everything else).
- */
+// Rebuilds the serialized DOM tree only along paths that changed
 function scrubTreeUrls(
   node: unknown,
   config: SessionReplayUrlScrubberConfig,
@@ -155,8 +124,6 @@ function scrubTreeUrls(
     childNodes?: unknown[];
   };
 
-  // Recurse into children first so any rebuilt subtree is in hand
-  // before we decide whether THIS node changed.
   let newChildNodes: unknown[] | undefined;
   if (Array.isArray(n.childNodes) && n.childNodes.length > 0) {
     let childChanged = false;
@@ -170,9 +137,6 @@ function scrubTreeUrls(
     if (childChanged) newChildNodes = next;
   }
 
-  // Attribute scrubbing applies only to Element nodes (rrweb-snapshot
-  // NodeType.Element === 2), but checking `typeof attributes === object`
-  // is sufficient and avoids a version-specific enum dependency.
   let newAttributes: Record<string, unknown> | undefined;
   if (n.attributes && typeof n.attributes === "object") {
     const scrubbed = scrubUrlAttrs(n.attributes, config);
@@ -187,25 +151,13 @@ function scrubTreeUrls(
   };
 }
 
-/**
- * Scrub URL fields embedded inside an rrweb event before it's persisted
- * or transmitted. Handles three event surfaces per spec §7.4:
- *
- *   - type 4 (Meta): `data.href` (the recorder's URL snapshot)
- *   - type 2 (FullSnapshot): URL attributes anywhere in the serialized
- *     DOM tree
- *   - type 3 source 0 (Mutation): URL attributes in `data.attributes`
- *     attribute-change mutations
- *
- * Returns a NEW event object when modification is needed, or the
- * original by reference when no scrubbing applies. Structural sharing
- * inside FullSnapshot keeps allocations bounded.
- */
+// Scrubs every URL-bearing surface of an rrweb event: Meta href (type 4),
+// FullSnapshot tree attributes (type 2), and Mutation attribute changes
+// (type 3, source 0). Returns the original event when nothing changed.
 export function scrubEventUrls<T extends { type: number; data?: unknown }>(
   event: T,
   config: SessionReplayUrlScrubberConfig = {},
 ): T {
-  // type 4 (Meta) — the recorder's session-start URL
   if (event.type === 4) {
     const data = event.data as { href?: string } | undefined;
     if (!data || typeof data.href !== "string") return event;
@@ -214,7 +166,6 @@ export function scrubEventUrls<T extends { type: number; data?: unknown }>(
     return { ...event, data: { ...data, href: scrubbedHref } };
   }
 
-  // type 2 (FullSnapshot) — serialized DOM tree
   if (event.type === 2) {
     const data = event.data as { node?: unknown } | undefined;
     if (!data || !data.node) return event;
@@ -223,9 +174,6 @@ export function scrubEventUrls<T extends { type: number; data?: unknown }>(
     return { ...event, data: { ...data, node: scrubbedNode } };
   }
 
-  // type 3 (IncrementalSnapshot) — only the Mutation source (0) carries
-  // attribute changes. rrweb's mutation payload is
-  //   { source: 0, attributes: [ { id, attributes: {...} }, ... ], ... }
   if (event.type === 3) {
     const data = event.data as
       | {

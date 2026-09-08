@@ -59,6 +59,9 @@ export type AutoEventsSettings = {
   samplingSeed?: string; // change to rerandomize the cohort
 };
 
+// Nothing ships at full volume unless explicitly configured
+const DEFAULT_SAMPLING_RATE = 0.1;
+
 type Resolved<T> = T & { enabled: boolean };
 
 function resolveStream<T extends { samplingRate?: number }>(
@@ -79,9 +82,6 @@ function resolveStream<T extends { samplingRate?: number }>(
   );
   return resolved;
 }
-
-// Nothing ships at full volume unless explicitly configured
-const DEFAULT_SAMPLING_RATE = 0.1;
 
 export function autoEventsPlugin(settings: AutoEventsSettings = {}) {
   const standardEvents = resolveStream(
@@ -117,10 +117,6 @@ export function autoEventsPlugin(settings: AutoEventsSettings = {}) {
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
     if (typeof window === "undefined" || typeof document === "undefined")
       return;
-
-    if (!gb.logEvent) {
-      throw new Error("GrowthBook instance must have a logEvent method");
-    }
 
     const fullGB = isFullGrowthBook(gb);
     const pageState = createPageState();

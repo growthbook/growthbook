@@ -54,8 +54,8 @@ function getAncestorChain(el: Element, maxDepth = 5): Element[] {
   return chain;
 }
 
-export function buildSelector(el: Element, maxDepth = 5): string | undefined {
-  const chain = getAncestorChain(el, maxDepth).filter(
+export function buildSelector(el: Element): string | undefined {
+  const chain = getAncestorChain(el).filter(
     (e) => e !== document.body && e !== document.documentElement,
   );
   if (!chain.length) return undefined;
@@ -72,8 +72,7 @@ export function buildSelector(el: Element, maxDepth = 5): string | undefined {
     }
   }
 
-  const selected = chain.slice(startIndex).slice(-5);
-  const parts = selected.map((e) => {
+  const parts = chain.slice(startIndex).map((e) => {
     let part = lower(e.tagName);
     const id = e.getAttribute("id");
     if (id) return part + "#" + cssEscape(id);
@@ -210,7 +209,7 @@ export function cleanProperties(
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) {
-    if (v == null || v === "") continue;
+    if ((v ?? null) === null || v === "") continue;
     out[k] = typeof v === "string" ? truncate(v) : v;
   }
   return out;

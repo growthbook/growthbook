@@ -9,7 +9,6 @@ import { detectEnv } from "../utils/browser";
 
 export type ErrorReporterSettings = {
   debounceTimeout?: number;
-  // sampling:
   samplingRate?: number;
   hashAttribute?: string;
   samplingSeed?: string;
@@ -64,7 +63,7 @@ export function createErrorReporter({
       rate: samplingRate,
       hashAttribute,
       attributes:
-        growthbook && "getAttributes" in growthbook
+        "getAttributes" in growthbook
           ? growthbook.getAttributes()
           : userContext?.attributes,
       seed: samplingSeed ?? "error-sampling",
@@ -73,11 +72,11 @@ export function createErrorReporter({
     return;
   }
 
-  // LRU-ish cache; insertion order preserved, oldest evicted when full
+  // Insertion-ordered; oldest evicted when full
   const lastErrorTimestamps = new Map<string, number>();
 
-  // Cross-origin "Script error." reports collapse to the same (message, stack)
-  // pair, so we include source/lineno/colno to avoid masking real errors
+  // Cross-origin "Script error." reports share message+stack; source/line/col
+  // keep them distinct
   function buildDedupeKey(parts: {
     message: string;
     stack: string;
@@ -106,7 +105,6 @@ export function createErrorReporter({
     const now = Date.now();
     const last = lastErrorTimestamps.get(key) || 0;
     if (now - last < debounceTimeout) return false;
-    // Re-insert to mark as most recent
     lastErrorTimestamps.delete(key);
     lastErrorTimestamps.set(key, now);
     while (lastErrorTimestamps.size > DEDUPE_CACHE_SIZE) {
@@ -142,8 +140,6 @@ export function createErrorReporter({
   };
 
   const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-    // event.reason can be anything: Error, plain object, string, number, etc.
-    // The previous cast silently dropped non-Error rejection values.
     const reason: unknown = event.reason;
     let message = "Unhandled Promise rejection";
     let stack = "";
@@ -161,7 +157,6 @@ export function createErrorReporter({
       }
       typeof r.stack === "string" && (stack = r.stack);
     } else if ((reason ?? null) !== null) {
-      // primitive (string, number, boolean) — Promise.reject("...") is common
       message = String(reason);
     }
     if (!shouldLogError(buildDedupeKey({ message, stack }))) return;
@@ -171,7 +166,6 @@ export function createErrorReporter({
   window.addEventListener("error", onError);
   window.addEventListener("unhandledrejection", onUnhandledRejection);
 
-  // Clean up on destroy so we don't leak listeners or log on a dead instance
   "onDestroy" in growthbook &&
     growthbook.onDestroy(() => {
       window.removeEventListener("error", onError);

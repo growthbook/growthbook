@@ -64,9 +64,7 @@ export type MaskableInputType =
   | "select"
   | "password";
 
-// Shipped privacy class names + data attributes — the customer-facing
-// surface for element-level privacy. Exported so docs and customer code
-// reference the same literals.
+// Exported so docs and customer code reference the same literals
 export const GB_BLOCK_CLASS = "gb-block";
 export const GB_MASK_CLASS = "gb-mask";
 export const GB_IGNORE_CLASS = "gb-ignore";
@@ -75,18 +73,10 @@ export const GB_MASK_ATTR = "data-gb-mask";
 export const GB_IGNORE_ATTR = "data-gb-ignore";
 export const GB_ALLOW_ATTR = "data-gb-allow";
 
-// Default selectors that catch the data-attribute form alongside the
-// class form. Customer-supplied selectors get appended, so they ADD to
-// the defaults rather than replacing them.
 const DEFAULT_BLOCK_SELECTOR = `[${GB_BLOCK_ATTR}], .${GB_BLOCK_CLASS}`;
 const DEFAULT_MASK_TEXT_SELECTOR = `[${GB_MASK_ATTR}], .${GB_MASK_CLASS}`;
 const DEFAULT_IGNORE_SELECTOR = `[${GB_IGNORE_ATTR}], .${GB_IGNORE_CLASS}`;
 
-/**
- * Subset of `rrweb`'s `recordOptions` that this module produces. Anything
- * outside the privacy domain (e.g. emit, sampling, checkoutEveryNms) is
- * the plugin's responsibility, not this module's.
- */
 type RrwebPrivacyOptions = Pick<
   recordOptions<eventWithTime>,
   | "blockClass"
@@ -102,11 +92,7 @@ type RrwebPrivacyOptions = Pick<
   | "errorHandler"
 >;
 
-/**
- * Compose a customer-supplied selector with our default. Either may be
- * absent. Returns a comma-separated CSS selector list, or undefined when
- * neither is set (rrweb treats absent as "match nothing").
- */
+// Customer selectors add to the shipped defaults, never replace them
 function composeSelectors(
   defaultSelector: string,
   customerSelector?: string,
@@ -115,34 +101,18 @@ function composeSelectors(
   return `${defaultSelector}, ${customerSelector}`;
 }
 
-/**
- * Build a mask function that bypasses masking when the element (or any
- * ancestor) carries the `data-gb-allow` attribute. Wraps the customer's
- * own mask function if provided; otherwise falls back to rrweb's standard
- * length-preserved asterisks.
- */
+// data-gb-allow on the element or an ancestor bypasses masking entirely;
+// otherwise the customer's mask fn, else rrweb's length-preserving asterisks
 function buildMaskFn(
   userMaskFn: ((text: string, el: HTMLElement | null) => string) | undefined,
 ): (text: string, el: HTMLElement | null) => string {
   return (text, el) => {
-    if (el && typeof el.closest === "function") {
-      if (el.closest(`[${GB_ALLOW_ATTR}]`)) {
-        return text;
-      }
-    }
+    if (el?.closest(`[${GB_ALLOW_ATTR}]`)) return text;
     if (userMaskFn) return userMaskFn(text, el);
-    // Match rrweb's default asterisk-fill so opt-out behavior is
-    // consistent whether or not a custom mask fn is supplied.
     return "*".repeat(text.length);
   };
 }
 
-/**
- * Translate a SessionReplayPrivacyConfig into rrweb's `record()` options.
- * The GrowthBook-shipped class names and data attributes are always
- * honored; customer-supplied selectors and mask functions compose with
- * (not replace) those defaults.
- */
 export function buildRrwebPrivacyOptions(
   privacy: SessionReplayPrivacyConfig = {},
 ): RrwebPrivacyOptions {

@@ -68,8 +68,7 @@ export function createEngagementReporter({
   // Tab-switch churn shouldn't emit unbounded events
   const MAX_HIDDEN_EVENTS = 10;
   let hiddenEvents = 0;
-  // Events are attributed to their page explicitly rather than by mutating
-  // the SDK's URL, which would re-run auto experiments for sampled users only
+  // Attributed explicitly — mutating the SDK URL would re-run auto experiments
   let pageUrl = currentPageUrl();
 
   const startPage = () => {
@@ -170,7 +169,6 @@ export function createEngagementReporter({
     }, heartbeatIntervalMs);
   }
 
-  // Wire up listeners
   window.addEventListener("pageshow", onPageShow);
   window.addEventListener("pagehide", onPageHide, { capture: true });
   document.addEventListener("visibilitychange", onVisibilityChange);

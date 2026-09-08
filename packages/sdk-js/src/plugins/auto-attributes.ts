@@ -67,8 +67,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     throw new Error("autoAttributesPlugin only works in the browser");
   }
 
-  // Session expiry policy is shared module state so every consumer (replay,
-  // tracking) touches the session with the same windows.
+  // Module-level, so every consumer touches the session with the same windows
   configureGbSession({
     idleTimeout: settings.idleTimeout,
     maxDuration: settings.maxDuration,

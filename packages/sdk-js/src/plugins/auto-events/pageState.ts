@@ -1,6 +1,3 @@
-// Per-page-view mutable state. Reset on SPA navigation by engagement reporter;
-// counters incremented by interaction reporter.
-
 // The plugins barrel is imported server-side too
 const now = () =>
   typeof performance !== "undefined" ? performance.now() : Date.now();

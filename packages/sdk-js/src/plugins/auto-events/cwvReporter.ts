@@ -10,7 +10,6 @@ export type CWVReporterSettings = {
   trackCLS?: boolean;
   trackTTFB?: boolean;
   trackTBT?: boolean;
-  // sampling:
   samplingRate?: number;
   hashAttribute?: string;
   samplingSeed?: string;
@@ -20,13 +19,11 @@ export type CWVReporterSettings = {
   growthbook: GrowthBook;
 };
 
-// types are incomplete
 type LayoutShiftEntry = PerformanceEntry & {
   hadRecentInput: boolean;
   value: number;
 };
 
-// types are incomplete
 type EventTimingEntry = PerformanceEntry & {
   interactionId?: number;
 };
@@ -41,8 +38,7 @@ function safeObserve(
     observer.observe({ type, buffered: true, ...options });
     return observer;
   } catch {
-    // entry type unsupported, ignore
-    return null;
+    return null; // entry type unsupported
   }
 }
 
@@ -63,7 +59,6 @@ export function createCWVReporter({
   if (detectEnv() !== "browser") return;
   // Duck-type rather than instanceof so multi-bundle setups (CDN + npm) work
   if (
-    !growthbook ||
     typeof growthbook.getAttributes !== "function" ||
     typeof growthbook.onDestroy !== "function" ||
     typeof growthbook.logEvent !== "function"
@@ -175,9 +170,7 @@ export function createCWVReporter({
         | undefined;
       const activationStart = navEntry?.activationStart ?? 0;
 
-      // Report deferred metrics on SPA navigations. The location has already
-      // changed when this fires, so don't sync the GrowthBook URL first — the
-      // metrics belong to the page that was just left.
+      // Fires after location has changed; the metrics belong to the page left
       unsubscribeUrlChanges = subscribeToUrlChanges(reportCWV, {
         trackQueryString: trackQueryStringChanges,
       });
@@ -306,19 +299,16 @@ export function createCWVReporter({
         });
       }
 
-      // TTFB
       // responseStart is 0 for some cross-origin redirect chains
       if (trackTTFB && navEntry && navEntry.responseStart > 0) {
         log("CWV:TTFB", Math.max(0, navEntry.responseStart - activationStart));
       }
 
-      // TBT — sum of (effectiveDuration - 50ms) for the post-FCP portion of
-      // each long task. Pre-FCP segments contribute 0.
+      // TBT — post-FCP portion of each long task beyond the 50ms threshold
       if (trackTBT) {
         tbtValue = 0;
         observe("longtask", (list) => {
-          // Fall back to getEntriesByName if the paint observer hasn't fired
-          // yet, so buffered long-tasks aren't silently dropped
+          // Buffered long tasks can arrive before the paint observer fires
           if (fcpTime === null) {
             const fcp = performance.getEntriesByName(
               "first-contentful-paint",
@@ -330,7 +320,6 @@ export function createCWVReporter({
             const taskStart = Math.max(entry.startTime, fcpTime);
             const taskEnd = entry.startTime + entry.duration;
             if (taskEnd <= taskStart) continue;
-            // 50ms is the long-task threshold
             tbtValue = (tbtValue ?? 0) + Math.max(0, taskEnd - taskStart - 50);
           }
         });

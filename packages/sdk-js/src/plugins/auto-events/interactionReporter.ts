@@ -35,7 +35,6 @@ export type InteractionReporterSettings = {
   ignoreClickSelector?: string;
   collectElementText?: boolean;
   sensitiveSelector?: string;
-  // forms
   formSelector?: string;
   ignoreFormSelector?: string;
   // Shared with the engagement reporter of the same instance
@@ -82,7 +81,6 @@ export function createInteractionReporter({
     sensitiveSelector,
   };
 
-  // Rage click state
   let rageClicks: { time: number; x: number; y: number }[] = [];
   const maxDistSq = RAGE_MAX_DISTANCE_PX * RAGE_MAX_DISTANCE_PX;
 
@@ -106,9 +104,6 @@ export function createInteractionReporter({
         incrementRageClickCount();
         growthbook.logEvent("rage_click", {
           click_count: nearby,
-          threshold: RAGE_THRESHOLD,
-          time_window_ms: RAGE_WINDOW_MS,
-          max_distance_px: RAGE_MAX_DISTANCE_PX,
           origin_x: Math.round(origin.x),
           origin_y: Math.round(origin.y),
           latest_x: Math.round(click.x),
@@ -127,7 +122,7 @@ export function createInteractionReporter({
 
     incrementClickCount();
 
-    if (RAGE_THRESHOLD > 0) handleRageClick(event, target);
+    handleRageClick(event, target);
 
     if (shouldIgnore(target, ignoreClickSelector)) return;
     const tracked = target.closest(clickSelector);
