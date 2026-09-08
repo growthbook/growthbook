@@ -350,33 +350,33 @@ export default function MetricEditor({
           <Flex direction="column" gap="3">
             {/* Ratio's numerator has no override of its own, so this select
                 is its only way to set a fact table - only funnel (which owns
-                per-step fact tables via FunnelStepsInput) hides it. */}
-            {!isFunnel &&
-              (canEdit ? (
-                <Select
-                  label="Fact table"
-                  value={primaryFactTableId}
-                  setValue={changeFactTable}
-                >
-                  {availableFactTables.map((ft) => (
-                    <SelectItem key={ft.id} value={ft.id}>
-                      {ft.name}
-                    </SelectItem>
-                  ))}
-                </Select>
-              ) : (
-                !isRatioOrFunnel && (
-                  <DataList
-                    columns={1}
-                    data={[
-                      {
-                        label: "Fact Table",
-                        value: <FactTableLink id={primaryFactTableId} />,
-                      },
-                    ]}
-                  />
-                )
-              ))}
+                per-step fact tables via FunnelStepsInput) hides it. Read-only
+                mode shows it here for every type except ratio, which shows
+                its own Fact Table line per-part below instead. */}
+            {canEdit && !isFunnel && (
+              <Select
+                label="Fact table"
+                value={primaryFactTableId}
+                setValue={changeFactTable}
+              >
+                {availableFactTables.map((ft) => (
+                  <SelectItem key={ft.id} value={ft.id}>
+                    {ft.name}
+                  </SelectItem>
+                ))}
+              </Select>
+            )}
+            {!canEdit && !isRatioOrFunnel && (
+              <DataList
+                columns={1}
+                data={[
+                  {
+                    label: "Fact Table",
+                    value: <FactTableLink id={primaryFactTableId} />,
+                  },
+                ]}
+              />
+            )}
 
             {formType === "threshold" &&
               (canEdit ? (
@@ -450,48 +450,48 @@ export default function MetricEditor({
               />
             )}
 
-            {formType === "ratio" && denominator && canEdit && (
-              <RatioFields
-                numerator={numerator}
-                onNumeratorChange={(v: ColumnRef) =>
-                  form.setValue("numerator", v)
-                }
-                denominator={denominator}
-                onDenominatorChange={(v: ColumnRef) =>
-                  form.setValue("denominator", v)
-                }
-                factTable={factTable}
-                availableFactTables={sameDatasourceFactTables}
-                getFactTableById={(id) => getFactTableById(id) ?? null}
-                hasCountDistinctHLL={hasCountDistinctHLL}
-              />
-            )}
-
-            {formType === "ratio" && denominator && !canEdit && (
-              <Flex direction="column" gap="3">
-                <Frame p="3" mb="0">
-                  <Text weight="semibold" size="sm" mb="2" as="div">
-                    Numerator
-                  </Text>
-                  <DataList
-                    columns={1}
-                    data={ratioPartSummary(numerator, factTable)}
-                  />
-                </Frame>
-                <Frame p="3" mb="0">
-                  <Text weight="semibold" size="sm" mb="2" as="div">
-                    Denominator
-                  </Text>
-                  <DataList
-                    columns={1}
-                    data={ratioPartSummary(
-                      denominator,
-                      getFactTableById(denominator.factTableId) ?? factTable,
-                    )}
-                  />
-                </Frame>
-              </Flex>
-            )}
+            {formType === "ratio" &&
+              denominator &&
+              (canEdit ? (
+                <RatioFields
+                  numerator={numerator}
+                  onNumeratorChange={(v: ColumnRef) =>
+                    form.setValue("numerator", v)
+                  }
+                  denominator={denominator}
+                  onDenominatorChange={(v: ColumnRef) =>
+                    form.setValue("denominator", v)
+                  }
+                  factTable={factTable}
+                  availableFactTables={sameDatasourceFactTables}
+                  getFactTableById={(id) => getFactTableById(id) ?? null}
+                  hasCountDistinctHLL={hasCountDistinctHLL}
+                />
+              ) : (
+                <Flex direction="column" gap="3">
+                  <Frame p="3" mb="0">
+                    <Text weight="semibold" size="sm" mb="2" as="div">
+                      Numerator
+                    </Text>
+                    <DataList
+                      columns={1}
+                      data={ratioPartSummary(numerator, factTable)}
+                    />
+                  </Frame>
+                  <Frame p="3" mb="0">
+                    <Text weight="semibold" size="sm" mb="2" as="div">
+                      Denominator
+                    </Text>
+                    <DataList
+                      columns={1}
+                      data={ratioPartSummary(
+                        denominator,
+                        getFactTableById(denominator.factTableId) ?? factTable,
+                      )}
+                    />
+                  </Frame>
+                </Flex>
+              ))}
 
             {isFunnel &&
               (canEdit ? (
