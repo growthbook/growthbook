@@ -81,14 +81,14 @@ function buildSavePayload(
 export default function MetricWorkspace({
   existing,
   isEditing,
-  setIsEditing,
+  setIsEditing = () => {},
   mutate,
   onSaved,
   onCancel,
 }: {
   existing: FactMetricInterface | null;
   isEditing: boolean;
-  setIsEditing: (value: boolean) => void;
+  setIsEditing?: (value: boolean) => void;
   mutate: () => void;
   onSaved?: (metric: FactMetricInterface) => void;
   onCancel?: () => void;
@@ -110,14 +110,16 @@ export default function MetricWorkspace({
 
   async function handleSave() {
     const values = buildSavePayload(form.getValues());
-    const isFunnel = values.metricType === "funnel";
-    const payload = {
-      ...values,
-      numerator: isFunnel ? null : values.numerator,
-      denominator: isFunnel ? null : values.denominator,
-      funnelSettings: isFunnel ? funnelSettings : null,
-      quantileSettings: isFunnel ? null : values.quantileSettings,
-    };
+    const payload =
+      values.metricType === "funnel"
+        ? {
+            ...values,
+            numerator: null,
+            denominator: null,
+            funnelSettings,
+            quantileSettings: null,
+          }
+        : { ...values, funnelSettings: null };
 
     if (existing) {
       const updatePayload = omit(payload, [
