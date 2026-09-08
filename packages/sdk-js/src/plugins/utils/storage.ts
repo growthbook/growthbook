@@ -9,6 +9,14 @@ export function getSessionStorage(): SessionStorageCompat | undefined {
   }
 }
 
+export function getLocalStorage(): SessionStorageCompat | undefined {
+  try {
+    return getPolyfills().localStorage ?? globalThis.localStorage;
+  } catch {
+    return undefined;
+  }
+}
+
 // Returns null when the key is missing, storage is unavailable, or the
 // stored value is not valid JSON.
 export function readSessionJSON(key: string): unknown {

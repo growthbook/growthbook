@@ -1,88 +1,94 @@
 import {
   getOrCreateSessionReplayId,
   SESSION_REPLAY_IDLE_TIMEOUT_MS,
+  _resetSessionReplayIdForTests,
 } from "../../src/plugins/session-replay/id";
 
 const STORAGE_KEY = "gb_session_replay_id";
 
 function readStoredState(): {
-  session_replay_id?: string;
-  lastTouchedAt?: number;
+  gb_session_replay_id?: string;
+  createdAt?: number;
+  lastActiveAt?: number;
 } {
   return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}") as {
-    session_replay_id?: string;
-    lastTouchedAt?: number;
+    gb_session_replay_id?: string;
+    createdAt?: number;
+    lastActiveAt?: number;
   };
+}
+
+function writeStoredState(state: Record<string, unknown>) {
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 describe("session replay ID manager", () => {
   beforeEach(() => {
     sessionStorage.removeItem(STORAGE_KEY);
+    _resetSessionReplayIdForTests();
     jest.spyOn(Date, "now").mockReturnValue(1000);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
     sessionStorage.removeItem(STORAGE_KEY);
+    _resetSessionReplayIdForTests();
   });
 
-  it("creates and stores a session_replay_id", () => {
+  it("creates and stores a replay id", () => {
     const sessionReplayId = getOrCreateSessionReplayId();
     const stored = readStoredState();
 
     expect(sessionReplayId).toEqual(expect.any(String));
     expect(stored).toEqual({
-      session_replay_id: sessionReplayId,
-      lastTouchedAt: 1000,
+      gb_session_replay_id: sessionReplayId,
+      createdAt: 1000,
+      lastActiveAt: 1000,
     });
   });
 
-  it("reuses and touches an existing session_replay_id inside the idle window", () => {
-    sessionStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        session_replay_id: "existing-replay-id",
-        lastTouchedAt: 1000,
-      }),
-    );
+  it("reuses and touches an existing replay id inside the idle window", () => {
+    writeStoredState({
+      gb_session_replay_id: "existing-replay-id",
+      createdAt: 1000,
+      lastActiveAt: 1000,
+    });
     jest.spyOn(Date, "now").mockReturnValue(2000);
 
     const sessionReplayId = getOrCreateSessionReplayId();
 
     expect(sessionReplayId).toBe("existing-replay-id");
     expect(readStoredState()).toEqual({
-      session_replay_id: "existing-replay-id",
-      lastTouchedAt: 2000,
+      gb_session_replay_id: "existing-replay-id",
+      createdAt: 1000,
+      lastActiveAt: 2000,
     });
   });
 
   it("rotates when forceNew is true", () => {
-    sessionStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        session_replay_id: "existing-replay-id",
-        lastTouchedAt: 1000,
-      }),
-    );
+    writeStoredState({
+      gb_session_replay_id: "existing-replay-id",
+      createdAt: 1000,
+      lastActiveAt: 1000,
+    });
 
     const sessionReplayId = getOrCreateSessionReplayId(true);
 
     expect(sessionReplayId).toEqual(expect.any(String));
     expect(sessionReplayId).not.toBe("existing-replay-id");
     expect(readStoredState()).toEqual({
-      session_replay_id: sessionReplayId,
-      lastTouchedAt: 1000,
+      gb_session_replay_id: sessionReplayId,
+      createdAt: 1000,
+      lastActiveAt: 1000,
     });
   });
 
-  it("rotates when the stored session_replay_id is stale", () => {
-    sessionStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        session_replay_id: "stale-replay-id",
-        lastTouchedAt: 1000,
-      }),
-    );
+  it("rotates when the stored replay id is stale", () => {
+    writeStoredState({
+      gb_session_replay_id: "stale-replay-id",
+      createdAt: 1000,
+      lastActiveAt: 1000,
+    });
     jest
       .spyOn(Date, "now")
       .mockReturnValue(1000 + SESSION_REPLAY_IDLE_TIMEOUT_MS + 1);
@@ -92,46 +98,54 @@ describe("session replay ID manager", () => {
     expect(sessionReplayId).toEqual(expect.any(String));
     expect(sessionReplayId).not.toBe("stale-replay-id");
     expect(readStoredState()).toEqual({
-      session_replay_id: sessionReplayId,
-      lastTouchedAt: 1000 + SESSION_REPLAY_IDLE_TIMEOUT_MS + 1,
+      gb_session_replay_id: sessionReplayId,
+      createdAt: 1000 + SESSION_REPLAY_IDLE_TIMEOUT_MS + 1,
+      lastActiveAt: 1000 + SESSION_REPLAY_IDLE_TIMEOUT_MS + 1,
     });
   });
 
-  it("migrates the legacy stored id field to session_replay_id", () => {
-    sessionStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        id: "legacy-replay-id",
-        lastTouchedAt: 1000,
-      }),
-    );
+  it("migrates the legacy session_replay_id/lastTouchedAt shape", () => {
+    writeStoredState({
+      session_replay_id: "legacy-replay-id",
+      lastTouchedAt: 1000,
+    });
     jest.spyOn(Date, "now").mockReturnValue(2000);
 
     const sessionReplayId = getOrCreateSessionReplayId();
 
     expect(sessionReplayId).toBe("legacy-replay-id");
     expect(readStoredState()).toEqual({
-      session_replay_id: "legacy-replay-id",
-      lastTouchedAt: 2000,
+      gb_session_replay_id: "legacy-replay-id",
+      createdAt: 1000,
+      lastActiveAt: 2000,
+    });
+  });
+
+  it("migrates the oldest legacy id field", () => {
+    writeStoredState({ id: "oldest-replay-id", lastTouchedAt: 1000 });
+    jest.spyOn(Date, "now").mockReturnValue(2000);
+
+    const sessionReplayId = getOrCreateSessionReplayId();
+
+    expect(sessionReplayId).toBe("oldest-replay-id");
+    expect(readStoredState()).toEqual({
+      gb_session_replay_id: "oldest-replay-id",
+      createdAt: 1000,
+      lastActiveAt: 2000,
     });
   });
 
   it("replaces invalid stored state", () => {
-    sessionStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        session_replay_id: "",
-        lastTouchedAt: 1000,
-      }),
-    );
+    writeStoredState({ gb_session_replay_id: "", lastActiveAt: 1000 });
 
     const sessionReplayId = getOrCreateSessionReplayId();
 
     expect(sessionReplayId).toEqual(expect.any(String));
     expect(sessionReplayId).not.toBe("");
     expect(readStoredState()).toEqual({
-      session_replay_id: sessionReplayId,
-      lastTouchedAt: 1000,
+      gb_session_replay_id: sessionReplayId,
+      createdAt: 1000,
+      lastActiveAt: 1000,
     });
   });
 });

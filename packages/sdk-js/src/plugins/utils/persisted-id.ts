@@ -1,27 +1,40 @@
 import { genUUID } from "../../util";
+import type { SessionStorageCompat } from "../../types/growthbook";
 import { getSessionStorage } from "./storage";
 
 type StoredIdState = {
   id: string;
-  timestamp: number;
+  createdAt: number;
+  lastActiveAt: number;
 };
 
 export type PersistedEphemeralIdConfig = {
-  storageKey: string;
-  // Field names used in the stored JSON, so each ID keeps its wire format
-  idField: string;
-  timestampField: string;
-  // Older field names still accepted on read
+  // Storage key; also the field holding the id inside the stored JSON
+  key: string;
+  // Older id field names still accepted on read
   legacyIdFields?: string[];
-  // "fixed" expires relative to creation; "idle" refreshes the timestamp on
-  // every read so the ID only expires after a quiet gap
-  expiry: "fixed" | "idle";
-  durationMs: number;
+  // Rotate after this much inactivity; each read refreshes the window
+  idleTimeoutMs?: number;
+  // Rotate this long after creation, regardless of activity
+  maxDurationMs?: number;
+  // Storage medium; defaults to (polyfill-aware) sessionStorage
+  storage?: () => SessionStorageCompat | undefined;
 };
 
-// Mint-once, sessionStorage-persisted ephemeral ID with an in-memory
-// fallback when storage is unavailable (e.g. incognito windows, Node).
+type GetOrCreateOptions = {
+  forceNew?: boolean;
+  idleTimeoutMs?: number;
+  maxDurationMs?: number;
+};
+
+function finiteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+// Mint-once persisted ephemeral ID, valid within the configured time bounds.
+// Falls back to in-memory state when storage is unavailable (incognito, Node).
 export function createPersistedEphemeralId(config: PersistedEphemeralIdConfig) {
+  const getStorage = config.storage ?? getSessionStorage;
   let inMemoryFallback: StoredIdState | null = null;
 
   function normalize(value: unknown): StoredIdState | null {
@@ -29,7 +42,7 @@ export function createPersistedEphemeralId(config: PersistedEphemeralIdConfig) {
     if (!stored) return null;
 
     let id = "";
-    for (const field of [config.idField, ...(config.legacyIdFields ?? [])]) {
+    for (const field of [config.key, ...(config.legacyIdFields ?? [])]) {
       const candidate = stored[field];
       if (typeof candidate === "string" && candidate) {
         id = candidate;
@@ -37,68 +50,80 @@ export function createPersistedEphemeralId(config: PersistedEphemeralIdConfig) {
       }
     }
 
-    const timestamp = stored[config.timestampField];
-    if (!id || typeof timestamp !== "number" || !Number.isFinite(timestamp)) {
-      return null;
-    }
+    // lastTouchedAt is the pre-consolidation field name
+    const lastActiveAt =
+      finiteNumber(stored.lastActiveAt) ?? finiteNumber(stored.lastTouchedAt);
+    const createdAt = finiteNumber(stored.createdAt) ?? lastActiveAt;
+    if (!id || createdAt === null) return null;
 
-    return { id, timestamp };
+    return { id, createdAt, lastActiveAt: lastActiveAt ?? createdAt };
   }
 
   function read(): StoredIdState | null {
     try {
-      const raw = getSessionStorage()?.getItem(config.storageKey) as
+      const raw = getStorage()?.getItem(config.key) as
         | string
         | null
         | undefined;
-      if (!raw) return null;
-      return normalize(JSON.parse(raw));
+      if (raw) {
+        const stored = normalize(JSON.parse(raw));
+        if (stored) return stored;
+      }
     } catch {
-      return inMemoryFallback;
+      // fall through to the in-memory copy
     }
+    return inMemoryFallback;
   }
 
+  // The in-memory copy is written through on every persist so degraded
+  // storage (quota errors, async-only polyfills) still yields a stable ID
+  // for the life of this JS context instead of minting one per read.
   function persist(state: StoredIdState): void {
-    const storage = getSessionStorage();
-    if (!storage) {
-      inMemoryFallback = state;
-      return;
-    }
+    inMemoryFallback = state;
     try {
-      storage.setItem(
-        config.storageKey,
+      getStorage()?.setItem(
+        config.key,
         JSON.stringify({
-          [config.idField]: state.id,
-          [config.timestampField]: state.timestamp,
+          [config.key]: state.id,
+          createdAt: state.createdAt,
+          lastActiveAt: state.lastActiveAt,
         }),
       );
     } catch {
-      inMemoryFallback = state;
+      // storage unavailable — the in-memory copy above still applies
     }
   }
 
-  function getOrCreate(options?: {
-    forceNew?: boolean;
-    durationMs?: number;
-  }): string {
-    const durationMs = options?.durationMs ?? config.durationMs;
+  function getOrCreate(options?: GetOrCreateOptions): string {
+    const idleTimeoutMs = options?.idleTimeoutMs ?? config.idleTimeoutMs;
+    const maxDurationMs = options?.maxDurationMs ?? config.maxDurationMs;
     const now = Date.now();
     const stored = options?.forceNew ? null : read();
 
-    if (stored && now - stored.timestamp < durationMs) {
-      if (config.expiry === "idle") {
-        persist({ id: stored.id, timestamp: now });
+    if (
+      stored &&
+      (idleTimeoutMs === undefined ||
+        now - stored.lastActiveAt < idleTimeoutMs) &&
+      (maxDurationMs === undefined || now - stored.createdAt < maxDurationMs)
+    ) {
+      if (idleTimeoutMs !== undefined && stored.lastActiveAt !== now) {
+        persist({ ...stored, lastActiveAt: now });
       }
       return stored.id;
     }
 
     const fresh: StoredIdState = {
       id: genUUID(globalThis.crypto),
-      timestamp: now,
+      createdAt: now,
+      lastActiveAt: now,
     };
     persist(fresh);
     return fresh.id;
   }
 
-  return { getOrCreate };
+  function reset(): void {
+    inMemoryFallback = null;
+  }
+
+  return { getOrCreate, reset };
 }

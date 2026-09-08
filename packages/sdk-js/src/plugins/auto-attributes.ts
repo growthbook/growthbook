@@ -16,7 +16,11 @@ export type AutoAttributeSettings = {
   // anonymous id is shared across subdomains. Without this the cookie is
   // host-only and a redirect to another subdomain mints a brand new id.
   uuidCookieDomain?: string;
-  // Hard time cap (ms) on the generic browser session. Defaults to 30 minutes.
+  // Inactivity window (ms) on the shared gb session; each read refreshes it.
+  // Defaults to 10 minutes.
+  idleTimeout?: number;
+  // Hard time cap (ms) on the shared gb session, regardless of activity.
+  // Defaults to 1 hour.
   maxDuration?: number;
 };
 
@@ -105,6 +109,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
       ...getDataLayerVariables(),
       [uuidKey]: _uuid,
       gbSessionId: getOrCreateGbSessionId({
+        idleTimeout: settings.idleTimeout,
         maxDuration: settings.maxDuration,
       }),
       ...getURLAttributes(url),

@@ -1,5 +1,6 @@
 import { GrowthBook, GrowthBookClient } from "../../src";
 import { autoAttributesPlugin } from "../../src/plugins/auto-attributes";
+import { _resetGbSessionForTests } from "../../src/plugins/utils/gb-session";
 
 declare global {
   interface Window {
@@ -68,6 +69,10 @@ describe("autoAttributesPlugin", () => {
     if (typeof sessionStorage.clear === "function") {
       sessionStorage.clear();
     }
+    if (typeof localStorage.clear === "function") {
+      localStorage.clear();
+    }
+    _resetGbSessionForTests();
   });
 
   it("should set initial attributes", async () => {
@@ -104,26 +109,27 @@ describe("autoAttributesPlugin", () => {
     gb.destroy();
   });
 
-  it("stores gbSessionId in sessionStorage", () => {
+  it("stores gbSessionId in localStorage", () => {
     const plugin = autoAttributesPlugin();
     const gb = new GrowthBook({
       plugins: [plugin],
     });
 
-    const stored = JSON.parse(sessionStorage.getItem("gb_session") || "{}") as {
-      gbSessionId?: string;
+    const stored = JSON.parse(localStorage.getItem("gb_session") || "{}") as {
+      gb_session?: string;
     };
-    expect(stored.gbSessionId).toBe(gb.getAttributes().gbSessionId);
+    expect(stored.gb_session).toBe(gb.getAttributes().gbSessionId);
 
     gb.destroy();
   });
 
   it("preserves customer session_id while owning gbSessionId", () => {
-    sessionStorage.setItem(
+    localStorage.setItem(
       "gb_session",
       JSON.stringify({
-        gbSessionId: "internal-replay-id",
+        gb_session: "internal-replay-id",
         createdAt: Date.now(),
+        lastActiveAt: Date.now(),
       }),
     );
 
@@ -241,14 +247,11 @@ describe("autoAttributesPlugin", () => {
       JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
     );
 
-    // getAutoAttributes() calls getOrCreateGbSessionId() before getUtmAttributes(), so
-    // the session storage read for "gb_session" happens first. Chain two Once values:
-    // call 1 (gb_session) → null (generate new session), call 2 (utm_params) → UTM data.
-    sessionStorage.getItem
-      .mockReturnValueOnce(null)
-      .mockReturnValueOnce(
-        JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
-      );
+    // gb_session now lives in localStorage, so utm_params is the only
+    // sessionStorage read here.
+    sessionStorage.getItem.mockReturnValueOnce(
+      JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
+    );
 
     // UTM should still be picked up on a new GrowthBook instance with a different URL
     setWindowURL("http://localhost/");

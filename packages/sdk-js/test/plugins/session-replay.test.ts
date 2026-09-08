@@ -218,17 +218,17 @@ describe("sessionReplayPlugin — stopRecording keepalive flush", () => {
 
     const initialStored = JSON.parse(
       sessionStorage.getItem("gb_session_replay_id") || "{}",
-    ) as { session_replay_id?: string };
+    ) as { gb_session_replay_id?: string };
 
     jest.advanceTimersByTime(31 * 60 * 1000);
     await flushMicrotasks();
 
     const rotatedStored = JSON.parse(
       sessionStorage.getItem("gb_session_replay_id") || "{}",
-    ) as { session_replay_id?: string };
-    expect(rotatedStored.session_replay_id).toBeTruthy();
-    expect(rotatedStored.session_replay_id).not.toBe(
-      initialStored.session_replay_id,
+    ) as { gb_session_replay_id?: string };
+    expect(rotatedStored.gb_session_replay_id).toBeTruthy();
+    expect(rotatedStored.gb_session_replay_id).not.toBe(
+      initialStored.gb_session_replay_id,
     );
     expect(mockRecord).toHaveBeenCalledTimes(2);
   });
