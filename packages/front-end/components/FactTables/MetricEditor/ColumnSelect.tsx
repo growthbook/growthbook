@@ -33,6 +33,7 @@ export default function ColumnSelect({
     const agg = aggregationForShape(shape);
     return (
       <DataList
+        maxColumns={1}
         data={[
           { label, value: columnValueLabel(value, factTable) },
           ...(agg
