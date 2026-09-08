@@ -11,7 +11,8 @@ import MetricWorkspace from "@/components/FactTables/MetricEditor/MetricWorkspac
 
 export default function NewFactMetricPage() {
   const router = useRouter();
-  const { project, ready, mutateDefinitions } = useDefinitions();
+  const { project, ready, mutateDefinitions, getFactMetricById } =
+    useDefinitions();
   const permissionsUtil = usePermissionsUtil();
 
   const returnUrl =
@@ -20,6 +21,18 @@ export default function NewFactMetricPage() {
       : "/metrics";
 
   if (!ready || !router.isReady) return <LoadingOverlay />;
+
+  const duplicateId =
+    typeof router.query.duplicate === "string"
+      ? router.query.duplicate
+      : undefined;
+  const duplicateSource = duplicateId ? getFactMetricById(duplicateId) : null;
+  // Matches MetricsList.tsx's existing duplicate-name convention exactly -
+  // including not resetting managedBy, a pre-existing quirk this migration
+  // preserves rather than fixes.
+  const duplicateFrom = duplicateSource
+    ? { ...duplicateSource, name: duplicateSource.name + " (copy)" }
+    : null;
 
   const canCreate = permissionsUtil.canCreateFactMetric({
     projects: project ? [project] : [],
@@ -45,6 +58,7 @@ export default function NewFactMetricPage() {
       ) : (
         <MetricWorkspace
           existing={null}
+          duplicateFrom={duplicateFrom}
           isEditing={true}
           mutate={mutateDefinitions}
           onSaved={(metric: FactMetricInterface) =>
