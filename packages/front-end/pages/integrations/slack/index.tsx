@@ -6,12 +6,14 @@ import React, {
   useState,
 } from "react";
 import { NextPage } from "next";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaSlack } from "react-icons/fa";
 import { PiPlus, PiPlugs } from "react-icons/pi";
+import LegacySlackIntegrationsPage from "@/components/SlackIntegrations/LegacySlackIntegrationsPage";
 import SlackChannelSettings, {
   getSlackChannelLabel,
 } from "@/components/SlackIntegrations/SlackChannelSettings";
@@ -225,7 +227,7 @@ function AddChannelModal({
   );
 }
 
-const SlackIntegrationsPage: NextPage = () => {
+const SlackWorkspacePage: NextPage = () => {
   const permissionsUtils = usePermissionsUtil();
   const canManageIntegrations = permissionsUtils.canManageIntegrations();
   const router = useRouter();
@@ -801,6 +803,15 @@ const SlackIntegrationsPage: NextPage = () => {
         <SlackIntegrationsListViewContainer key={orgId} legacyOnly />
       </Flex>
     </Box>
+  );
+};
+
+const SlackIntegrationsPage: NextPage = () => {
+  const workspaceUIEnabled = useFeatureIsOn("slack-workspace-ui");
+  return workspaceUIEnabled ? (
+    <SlackWorkspacePage />
+  ) : (
+    <LegacySlackIntegrationsPage />
   );
 };
 

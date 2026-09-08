@@ -1,3 +1,4 @@
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import React, { FC } from "react";
 import Link from "next/link";
 import { EventWebHookInterface } from "shared/types/event-webhook";
@@ -25,11 +26,15 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
 
   const iconForState = useIconForState(lastState);
 
+  const workspaceUIEnabled = useFeatureIsOn("slack-workspace-ui");
+
   if (!payloadType) return null;
 
   const detailedWebhook = ["raw", "json"].includes(payloadType);
   const managedInSlack =
-    payloadType === "slack" && !!eventWebHook.slack?.teamId;
+    workspaceUIEnabled &&
+    payloadType === "slack" &&
+    !!eventWebHook.slack?.teamId;
 
   return (
     <Link href={href} style={{ textDecoration: "none" }} className="card p-3">
@@ -46,7 +51,11 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
           <div className="d-flex">
             <h3 className="link-purple text-truncate">{name}</h3>
             {enabled && (
-              <Badge label="Enabled" color="gray" variant="soft" ml="2" />
+              <div>
+                <span className="badge badge-gray text-uppercase ml-2">
+                  Enabled
+                </span>
+              </div>
             )}
             {managedInSlack && (
               <Badge
