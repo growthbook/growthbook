@@ -29,7 +29,7 @@ import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
 import WorkspaceLinks from "@/components/GetStarted/WorkspaceLinks";
 import { HomeMarketingBanner } from "@/components/Marketing/MarketingBanner";
 import Callout from "@/ui/Callout";
-import SetupRunCallout from "@/components/GetStarted/SetupRunCallout";
+import AutoRunCallout from "@/components/GetStarted/AutoRunCallout";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import NeedingAttention from "@/components/GetStarted/NeedingAttention";
@@ -339,7 +339,7 @@ const GetStartedAndHomePage = ({
                   </Button>
                 )}
               </Flex>
-              <SetupRunCallout />
+              <AutoRunCallout />
               {!showGettingStarted && (
                 <Callout status="info" size="md" mb="4">
                   <Text size="2">

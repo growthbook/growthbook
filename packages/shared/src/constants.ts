@@ -297,7 +297,7 @@ export const entityEvents = {
   vercelNativeIntegration: ["create", "update", "delete"],
   factTable: ["autocreate", "create", "update", "delete"],
   customField: ["create", "update", "delete"],
-  setupRun: ["create", "update", "delete"],
+  autoRun: ["create", "update", "delete"],
   experimentTemplate: ["create", "update", "delete"],
   safeRollout: ["create", "update", "delete"],
   decisionCriteria: ["create", "update", "delete"],

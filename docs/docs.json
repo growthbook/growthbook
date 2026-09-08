@@ -1066,13 +1066,13 @@
                 ]
               },
               {
-                "group": "Setup Runs",
+                "group": "Auto Runs",
                 "pages": [
-                  "api/SetupRuns/operation/listSetupRuns",
-                  "api/SetupRuns/operation/createSetupRun",
-                  "api/SetupRuns/operation/getSetupRun",
-                  "api/SetupRuns/operation/updateSetupRun",
-                  "api/SetupRuns/operation/appendSetupRunArtifact"
+                  "api/AutoRuns/operation/listAutoRuns",
+                  "api/AutoRuns/operation/createAutoRun",
+                  "api/AutoRuns/operation/getAutoRun",
+                  "api/AutoRuns/operation/updateAutoRun",
+                  "api/AutoRuns/operation/appendAutoRunArtifact"
                 ]
               }
             ]
@@ -1084,6 +1084,7 @@
               "api/AnalyticsExploration_model",
               "api/Archetype_model",
               "api/Attribute_model",
+              "api/AutoRun_model",
               "api/CodeRef_model",
               "api/Config_model",
               "api/ConfigKeyUsage_model",
@@ -1181,7 +1182,6 @@
               "api/SdkConnection_model",
               "api/Segment_model",
               "api/Settings_model",
-              "api/SetupRun_model",
               "api/Targeting Rule_model",
               "api/Team_model",
               "api/VisualChange_model",

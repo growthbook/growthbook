@@ -1,27 +1,27 @@
 import { z } from "zod";
 import {
-  setupRunValidator,
-  apiUpdateSetupRunBody,
-  SetupRunArtifact,
-  ApiSetupRun,
+  autoRunValidator,
+  apiUpdateAutoRunBody,
+  AutoRunArtifact,
+  ApiAutoRun,
 } from "shared/validators";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
-  setupRunApiSpec,
-  appendSetupRunArtifactEndpoint,
-} from "back-end/src/api/specs/setup-run.spec";
+  autoRunApiSpec,
+  appendAutoRunArtifactEndpoint,
+} from "back-end/src/api/specs/auto-run.spec";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
-  schema: setupRunValidator,
-  collectionName: "setupruns",
-  idPrefix: "setr_",
+  schema: autoRunValidator,
+  collectionName: "autoruns",
+  idPrefix: "arun_",
   auditLog: {
-    entity: "setupRun",
-    createEvent: "setupRun.create",
-    updateEvent: "setupRun.update",
-    deleteEvent: "setupRun.delete",
+    entity: "autoRun",
+    createEvent: "autoRun.create",
+    updateEvent: "autoRun.update",
+    deleteEvent: "autoRun.delete",
   },
   globallyUniquePrimaryKeys: false,
   defaultValues: {
@@ -36,13 +36,13 @@ const BaseClass = MakeModelClass({
     dateCompleted: null,
   },
   apiConfig: {
-    modelKey: "setupRuns",
-    openApiSpec: setupRunApiSpec,
+    modelKey: "autoRuns",
+    openApiSpec: autoRunApiSpec,
     customHandlers: [
       defineCustomApiHandler({
-        ...appendSetupRunArtifactEndpoint,
-        reqHandler: async (req): Promise<ApiSetupRun> =>
-          req.context.models.setupRuns.appendArtifactsApi(req.params.id, [
+        ...appendAutoRunArtifactEndpoint,
+        reqHandler: async (req): Promise<ApiAutoRun> =>
+          req.context.models.autoRuns.appendArtifactsApi(req.params.id, [
             req.body,
           ]),
       }),
@@ -50,9 +50,9 @@ const BaseClass = MakeModelClass({
   },
 });
 
-type SetupRunDoc = z.infer<typeof setupRunValidator>;
+type AutoRunDoc = z.infer<typeof autoRunValidator>;
 
-export class SetupRunModel extends BaseClass {
+export class AutoRunModel extends BaseClass {
   // A record of the team's own onboarding activity, like an audit entry: readable
   // by any member, creatable by anyone who could have run the wizard.
   protected canRead(): boolean {
@@ -66,7 +66,7 @@ export class SetupRunModel extends BaseClass {
   // Only the developer who ran the wizard, or an org admin, may rewrite a run's
   // checks and outcome. Runs created with an org-level key carry no owner and
   // stay open to any member, as before.
-  protected canUpdate(existing: SetupRunDoc): boolean {
+  protected canUpdate(existing: AutoRunDoc): boolean {
     if (this.context.permissions.canManageOrgSettings()) return true;
     const owner = existing.createdBy ?? null;
     return owner === null || owner === this.context.userId;
@@ -87,14 +87,14 @@ export class SetupRunModel extends BaseClass {
 
   // A run stops being in-progress the moment an outcome is recorded.
   protected async processApiUpdateBody(rawBody: unknown) {
-    const body = rawBody as z.infer<typeof apiUpdateSetupRunBody>;
+    const body = rawBody as z.infer<typeof apiUpdateAutoRunBody>;
     return {
       ...body,
       ...(body.outcome ? { dateCompleted: new Date() } : {}),
     } as never;
   }
 
-  protected toApiInterface(doc: SetupRunDoc): ApiSetupRun {
+  protected toApiInterface(doc: AutoRunDoc): ApiAutoRun {
     return {
       id: doc.id,
       dateCreated: doc.dateCreated.toISOString(),
@@ -119,19 +119,19 @@ export class SetupRunModel extends BaseClass {
       // the sidebar — correct for the full-screen setup wizard, wrong here.
       // The page looks the run up in the browser's current organization, which need not be
       // the one the run was created in when a user belongs to several. Name it in the URL.
-      url: `${APP_ORIGIN}/setup-runs/${doc.id}?org=${encodeURIComponent(doc.organization)}`,
+      url: `${APP_ORIGIN}/auto-runs/${doc.id}?org=${encodeURIComponent(doc.organization)}`,
     };
   }
 
   // toApiInterface is protected; the internal router needs a public way in.
-  public toApi(doc: SetupRunDoc): ApiSetupRun {
+  public toApi(doc: AutoRunDoc): ApiAutoRun {
     return this.toApiInterface(doc);
   }
 
   public async appendArtifactsApi(
     id: string,
-    incoming: Omit<SetupRunArtifact, "dateCreated">[],
-  ): Promise<ApiSetupRun> {
+    incoming: Omit<AutoRunArtifact, "dateCreated">[],
+  ): Promise<ApiAutoRun> {
     return this.toApiInterface(await this.appendArtifacts(id, incoming));
   }
 
@@ -141,7 +141,7 @@ export class SetupRunModel extends BaseClass {
   // its tool calls in parallel) from each storing a copy that lacks the other's.
   public async appendArtifacts(
     id: string,
-    incoming: Omit<SetupRunArtifact, "dateCreated">[],
+    incoming: Omit<AutoRunArtifact, "dateCreated">[],
   ) {
     const run = await this.updateWithCas(id, ["artifacts"], (existing) => {
       const artifacts = [...existing.artifacts];
@@ -157,7 +157,7 @@ export class SetupRunModel extends BaseClass {
       }
       return { artifacts };
     });
-    if (!run) throw new Error(`Setup Run ${id} not found`);
+    if (!run) throw new Error(`Auto Run ${id} not found`);
     return run;
   }
 }

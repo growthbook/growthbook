@@ -413,8 +413,8 @@ tags:
     description: >-
       Hold a share of traffic out of all experiments to measure their combined
       effect.
-  - name: SetupRuns
-    x-displayName: Setup Runs
+  - name: AutoRuns
+    x-displayName: Auto Runs
     description: ''
   - name: AggregatedFactTable_model
     x-displayName: Aggregated Fact Table
@@ -428,6 +428,9 @@ tags:
   - name: Attribute_model
     x-displayName: Attribute
     description: <SchemaDefinition schemaRef="#/components/schemas/Attribute" />
+  - name: AutoRun_model
+    x-displayName: Auto Run
+    description: <SchemaDefinition schemaRef="#/components/schemas/AutoRun" />
   - name: CodeRef_model
     x-displayName: Code Ref
     description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
@@ -763,9 +766,6 @@ tags:
   - name: Settings_model
     x-displayName: Settings
     description: <SchemaDefinition schemaRef="#/components/schemas/Settings" />
-  - name: SetupRun_model
-    x-displayName: Setup Run
-    description: <SchemaDefinition schemaRef="#/components/schemas/SetupRun" />
   - name: Targeting Rule_model
     x-displayName: Targeting Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/Targeting Rule" />
@@ -50358,18 +50358,18 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/holdouts/{id}/stop' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/setup-runs:
+  /v1/auto-runs:
     post:
-      operationId: createSetupRun
-      summary: Create a single setupRun
+      operationId: createAutoRun
+      summary: Create a single autoRun
       tags:
-        - SetupRuns
+        - AutoRuns
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              description: Open a setup run. Everything it creates is appended afterwards
+              description: Open an auto run. Everything it creates is appended afterwards
               type: object
               properties:
                 source:
@@ -50401,21 +50401,21 @@ paths:
               schema:
                 type: object
                 properties:
-                  setupRun:
-                    $ref: '#/components/schemas/SetupRun'
+                  autoRun:
+                    $ref: '#/components/schemas/AutoRun'
                 required:
-                  - setupRun
+                  - autoRun
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: |-
-            curl -X POST 'https://api.growthbook.io/api/v1/setup-runs' \
+            curl -X POST 'https://api.growthbook.io/api/v1/auto-runs' \
               -H 'Authorization: Bearer YOUR_API_KEY'
     get:
-      operationId: listSetupRuns
-      summary: Get all setupRuns
+      operationId: listAutoRuns
+      summary: Get all autoRuns
       tags:
-        - SetupRuns
+        - AutoRuns
       responses:
         '200':
           description: Successful response
@@ -50424,24 +50424,24 @@ paths:
               schema:
                 type: object
                 properties:
-                  setupRuns:
+                  autoRuns:
                     type: array
                     items:
-                      $ref: '#/components/schemas/SetupRun'
+                      $ref: '#/components/schemas/AutoRun'
                 required:
-                  - setupRuns
+                  - autoRuns
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: |-
-            curl -X GET 'https://api.growthbook.io/api/v1/setup-runs' \
+            curl -X GET 'https://api.growthbook.io/api/v1/auto-runs' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/setup-runs/{id}:
+  /v1/auto-runs/{id}:
     get:
-      operationId: getSetupRun
-      summary: Get a single setupRun
+      operationId: getAutoRun
+      summary: Get a single autoRun
       tags:
-        - SetupRuns
+        - AutoRuns
       parameters:
         - name: id
           in: path
@@ -50457,21 +50457,21 @@ paths:
               schema:
                 type: object
                 properties:
-                  setupRun:
-                    $ref: '#/components/schemas/SetupRun'
+                  autoRun:
+                    $ref: '#/components/schemas/AutoRun'
                 required:
-                  - setupRun
+                  - autoRun
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: |-
-            curl -X GET 'https://api.growthbook.io/api/v1/setup-runs/{id}' \
+            curl -X GET 'https://api.growthbook.io/api/v1/auto-runs/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
     put:
-      operationId: updateSetupRun
-      summary: Update a single setupRun
+      operationId: updateAutoRun
+      summary: Update a single autoRun
       tags:
-        - SetupRuns
+        - AutoRuns
       parameters:
         - name: id
           in: path
@@ -50484,7 +50484,7 @@ paths:
         content:
           application/json:
             schema:
-              description: Record the outcome of a setup run
+              description: Record the outcome of an auto run
               type: object
               properties:
                 metadata:
@@ -50535,22 +50535,22 @@ paths:
               schema:
                 type: object
                 properties:
-                  setupRun:
-                    $ref: '#/components/schemas/SetupRun'
+                  autoRun:
+                    $ref: '#/components/schemas/AutoRun'
                 required:
-                  - setupRun
+                  - autoRun
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: |-
-            curl -X PUT 'https://api.growthbook.io/api/v1/setup-runs/{id}' \
+            curl -X PUT 'https://api.growthbook.io/api/v1/auto-runs/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/setup-runs/{id}/artifacts:
+  /v1/auto-runs/{id}/artifacts:
     post:
-      operationId: appendSetupRunArtifact
-      summary: Record something a setup run created
+      operationId: appendAutoRunArtifact
+      summary: Record something an auto run created
       tags:
-        - SetupRuns
+        - AutoRuns
       parameters:
         - name: id
           in: path
@@ -50606,7 +50606,7 @@ paths:
           content:
             application/json:
               schema:
-                id: SetupRun
+                id: AutoRun
                 type: object
                 properties:
                   id:
@@ -50682,7 +50682,7 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/setup-runs/{id}/artifacts' \
+            'https://api.growthbook.io/api/v1/auto-runs/{id}/artifacts' \
               -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
@@ -66742,7 +66742,7 @@ components:
         - linkedFeatures
         - linkedExperiments
       additionalProperties: false
-    SetupRun:
+    AutoRun:
       type: object
       properties:
         id:
@@ -71168,13 +71168,14 @@ x-tagGroups:
       - RampScheduleTemplates
       - Learnings
       - Holdouts
-      - SetupRuns
+      - AutoRuns
   - name: Models
     tags:
       - AggregatedFactTable_model
       - AnalyticsExploration_model
       - Archetype_model
       - Attribute_model
+      - AutoRun_model
       - CodeRef_model
       - Config_model
       - ConfigKeyUsage_model
@@ -71272,7 +71273,6 @@ x-tagGroups:
       - SdkConnection_model
       - Segment_model
       - Settings_model
-      - SetupRun_model
       - Targeting Rule_model
       - Team_model
       - VisualChange_model

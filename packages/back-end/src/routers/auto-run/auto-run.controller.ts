@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { ApiSetupRun } from "shared/validators";
+import { ApiAutoRun } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
@@ -8,8 +8,8 @@ import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 // name carries its id as the label; show the experiment's current name instead.
 async function withExperimentNames(
   context: Parameters<typeof getExperimentsByIds>[0],
-  run: ApiSetupRun,
-): Promise<ApiSetupRun> {
+  run: ApiAutoRun,
+): Promise<ApiAutoRun> {
   const unnamed = run.artifacts.filter(
     (a) => a.kind === "experiment" && a.label === a.id,
   );
@@ -31,44 +31,44 @@ async function withExperimentNames(
   };
 }
 
-export const getSetupRun = async (
+export const getAutoRun = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<
-    { status: 200; setupRun: ApiSetupRun } | { status: 404; message: string }
+    { status: 200; autoRun: ApiAutoRun } | { status: 404; message: string }
   >,
 ) => {
   const context = getContextFromReq(req);
-  const run = await context.models.setupRuns.getById(req.params.id);
+  const run = await context.models.autoRuns.getById(req.params.id);
 
   if (!run) {
-    res.status(404).json({ status: 404, message: "Setup Run not found" });
+    res.status(404).json({ status: 404, message: "Auto Run not found" });
     return;
   }
 
   res.status(200).json({
     status: 200,
-    setupRun: await withExperimentNames(
+    autoRun: await withExperimentNames(
       context,
-      context.models.setupRuns.toApi(run),
+      context.models.autoRuns.toApi(run),
     ),
   });
 };
 
 // Newest first, so "my last run" is the first match the caller finds.
-export const getSetupRuns = async (
+export const getAutoRuns = async (
   req: AuthRequest,
-  res: Response<{ status: 200; setupRuns: ApiSetupRun[] }>,
+  res: Response<{ status: 200; autoRuns: ApiAutoRun[] }>,
 ) => {
   const context = getContextFromReq(req);
-  const runs = await context.models.setupRuns.getAll();
+  const runs = await context.models.autoRuns.getAll();
 
   res.status(200).json({
     status: 200,
-    setupRuns: await Promise.all(
+    autoRuns: await Promise.all(
       runs
         .sort((a, b) => b.dateCreated.getTime() - a.dateCreated.getTime())
         .map((r) =>
-          withExperimentNames(context, context.models.setupRuns.toApi(r)),
+          withExperimentNames(context, context.models.autoRuns.toApi(r)),
         ),
     ),
   });

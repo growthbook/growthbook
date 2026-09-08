@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import { Box, Container, Flex, Grid } from "@radix-ui/themes";
-import { ApiSetupRun, setupRunMetaString } from "shared/validators";
+import { ApiAutoRun, autoRunMetaString } from "shared/validators";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import {
@@ -21,7 +21,7 @@ import Table, {
 import Text from "@/ui/Text";
 import useApi from "@/hooks/useApi";
 
-type Artifact = ApiSetupRun["artifacts"][number];
+type Artifact = ApiAutoRun["artifacts"][number];
 type ArtifactKind = Artifact["kind"];
 
 // Type label and destination per kind. No icon: an icon is the one thing that
@@ -163,16 +163,16 @@ function SetUpTable({ artifacts }: { artifacts: Artifact[] }) {
   );
 }
 
-export default function SetupRunPage() {
+export default function AutoRunPage() {
   const router = useRouter();
   const { id } = router.query;
 
-  const { data, error, isLoading } = useApi<{ setupRun: ApiSetupRun }>(
-    `/setup-runs/${id}`,
+  const { data, error, isLoading } = useApi<{ autoRun: ApiAutoRun }>(
+    `/auto-runs/${id}`,
     { shouldRun: () => router.isReady && !!id },
   );
 
-  const run = data?.setupRun;
+  const run = data?.autoRun;
   const completed = run?.outcome === "completed";
 
   // Distinguish the three states rather than showing one overlay for all of them.
@@ -186,7 +186,7 @@ export default function SetupRunPage() {
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
         <Callout status="error">
-          Couldn&apos;t load this setup run: {error.message}
+          Couldn&apos;t load this run: {error.message}
           {/not found/i.test(error.message)
             ? ". If the setup ran in another of your organizations, switch to it and reload."
             : ""}
@@ -203,8 +203,8 @@ export default function SetupRunPage() {
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
         <Callout status="warning">
-          No setup run with id <code>{String(id)}</code>. It may belong to
-          another organization.
+          No run with id <code>{String(id)}</code>. It may belong to another
+          organization.
         </Callout>
       </Container>
     );
@@ -213,7 +213,7 @@ export default function SetupRunPage() {
   const byDeveloper = run.artifacts.filter((a) => a.by === "developer");
   const byGrowthBook = run.artifacts.filter((a) => a.by === "growthbook");
   const failing = run.checks.filter((c) => !c.ok && c.required);
-  const environment = setupRunMetaString(run.metadata, "environment");
+  const environment = autoRunMetaString(run.metadata, "environment");
 
   return (
     <Container
