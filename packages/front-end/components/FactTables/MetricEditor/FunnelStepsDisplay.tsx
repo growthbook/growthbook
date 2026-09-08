@@ -1,10 +1,10 @@
 import { Flex } from "@radix-ui/themes";
-import { FunnelSettings, FunnelStep } from "shared/types/fact-table";
+import { FunnelSettings } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
-import DataList, { DataListItem } from "@/ui/DataList";
+import DataList from "@/ui/DataList";
 import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
 import FilterSummary from "@/components/FactTables/MetricEditor/FilterSummary";
 
@@ -18,41 +18,36 @@ export default function FunnelStepsDisplay({
 }) {
   const { getFactTableById } = useDefinitions();
 
-  const getStepItems = (step: FunnelStep): DataListItem[] => [
-    { label: "Fact Table", value: <FactTableLink id={step.factTableId} /> },
-    ...(step.rowFilters?.length
-      ? [
-          {
-            label: "Row Filter",
-            value: (
-              <FilterSummary
-                rowFilters={step.rowFilters}
-                factTable={getFactTableById(step.factTableId)}
-              />
-            ),
-          },
-        ]
-      : []),
-  ];
-
-  const getConversionWindowValue = (
-    step: FunnelStep,
-    i: number,
-  ): string | null =>
-    step.conversionWindow
-      ? i === 0
-        ? `Within ${step.conversionWindow.value} ${step.conversionWindow.unit} of exposure`
-        : `Within ${step.conversionWindow.value} ${step.conversionWindow.unit} of the nearest required prior step`
-      : null;
-
   return (
     <Flex direction="column" gap="2">
       <Heading as="h4" size="sm" mb="1">
         Funnel Steps
       </Heading>
       {funnelSettings.steps.map((step, i) => {
-        const items = getStepItems(step);
-        const conversionWindowValue = getConversionWindowValue(step, i);
+        const items = [
+          {
+            label: "Fact Table",
+            value: <FactTableLink id={step.factTableId} />,
+          },
+          ...(step.rowFilters?.length
+            ? [
+                {
+                  label: "Row Filter",
+                  value: (
+                    <FilterSummary
+                      rowFilters={step.rowFilters}
+                      factTable={getFactTableById(step.factTableId)}
+                    />
+                  ),
+                },
+              ]
+            : []),
+        ];
+        const conversionWindowValue = step.conversionWindow
+          ? i === 0
+            ? `Within ${step.conversionWindow.value} ${step.conversionWindow.unit} of exposure`
+            : `Within ${step.conversionWindow.value} ${step.conversionWindow.unit} of the nearest required prior step`
+          : null;
         const hasMetadata = !!conversionWindowValue || !!step.optional;
         return (
           <Frame key={i} p="3" mb="0">
