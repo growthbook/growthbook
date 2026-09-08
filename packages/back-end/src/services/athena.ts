@@ -85,7 +85,6 @@ export function athenaStateToStatus(
         state: "failed",
         error: stateChangeReason || "Query was cancelled",
       };
-    // switch-exhaustiveness-check wants undefined matched explicitly.
     case undefined:
     default:
       return { state: "unknown", reason: "unrecognized" };
