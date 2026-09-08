@@ -4,6 +4,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
+import Text from "@/ui/Text";
 import DataList from "@/ui/DataList";
 import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
 import FilterSummary from "@/components/FactTables/MetricEditor/FilterSummary";
@@ -29,19 +30,6 @@ export default function FunnelStepsDisplay({
             label: "Fact Table",
             value: <FactTableLink id={step.factTableId} />,
           },
-          ...(step.rowFilters?.length
-            ? [
-                {
-                  label: "Row Filter",
-                  value: (
-                    <FilterSummary
-                      rowFilters={step.rowFilters}
-                      factTable={getFactTableById(step.factTableId)}
-                    />
-                  ),
-                },
-              ]
-            : []),
         ];
         const conversionWindowValue = step.conversionWindow
           ? i === 0
@@ -57,6 +45,13 @@ export default function FunnelStepsDisplay({
               mb="2"
             >{`Step ${i + 1}: ${step.name}`}</Heading>
             <DataList data={items} maxColumns={1} />
+            <Text weight="semibold" size="sm" mt="2" as="div">
+              Row Filter
+            </Text>
+            <FilterSummary
+              rowFilters={step.rowFilters || []}
+              factTable={getFactTableById(step.factTableId)}
+            />
             {hasMetadata ? (
               <Flex gap="4" align="center" wrap="wrap" mt="2">
                 {conversionWindowValue ? (
