@@ -105,6 +105,9 @@ export default function AdvancedSettings({
   const showsGoalAndSlices = formType !== "funnel";
   const priorSettings = form.watch("priorSettings");
   const cappingItem = cappingSummary(form.watch("cappingSettings"));
+  const windowSettings = form.watch("windowSettings");
+  const minSampleSizeLabel =
+    formType === "ratio" ? "Minimum numerator total" : "Minimum metric total";
 
   if (!open) {
     return (
@@ -121,7 +124,7 @@ export default function AdvancedSettings({
           <MetricWindowSettingsForm form={form} type={metricType} />
         ) : (
           <Text as="div" mb="3">
-            {windowProse(form.watch("windowSettings"), metricType)}
+            {windowProse(windowSettings, metricType)}
           </Text>
         ))}
       {showsGoalAndSlices &&
@@ -209,7 +212,7 @@ export default function AdvancedSettings({
                 data={[
                   {
                     label: "Metric Delay",
-                    value: `${form.watch("windowSettings").delayValue} ${form.watch("windowSettings").delayUnit} after experiment exposure`,
+                    value: `${windowSettings.delayValue} ${windowSettings.delayUnit} after experiment exposure`,
                   },
                 ]}
               />
@@ -350,11 +353,7 @@ export default function AdvancedSettings({
         <TabsContent value="display" style={{ padding: "var(--space-4)" }}>
           {canEdit ? (
             <Field
-              label={
-                formType === "ratio"
-                  ? "Minimum numerator total"
-                  : "Minimum metric total"
-              }
+              label={minSampleSizeLabel}
               type="number"
               {...form.register("minSampleSize", { valueAsNumber: true })}
               helpText={`Required in an experiment variation before showing results (default ${metricDefaults.minimumSampleSize})`}
@@ -364,10 +363,7 @@ export default function AdvancedSettings({
               columns={1}
               data={[
                 {
-                  label:
-                    formType === "ratio"
-                      ? "Minimum numerator total"
-                      : "Minimum metric total",
+                  label: minSampleSizeLabel,
                   value: form.watch("minSampleSize"),
                 },
               ]}
