@@ -36,12 +36,9 @@ import Text from "@/ui/Text";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Link from "@/ui/Link";
 
-// `user_id`, `userId`, and `USER_ID` all name the same thing
 const normalizeIdentifier = (name: string) =>
   name.replace(/[^a-z]/gi, "").toLowerCase();
 
-// Columns commonly used to tell one event type apart from another, which makes
-// them the most useful default for an inline filter.
 const INLINE_FILTER_CANDIDATES = [
   "event_name",
   "eventName",
@@ -51,15 +48,9 @@ const INLINE_FILTER_CANDIDATES = [
   "se_action",
 ];
 
-// Re-running the SQL, or pointing another mapping at the same column, can make
-// an earlier selection invalid. Treat those as unset everywhere rather than
-// sending a column the API will reject.
 const validColumn = (options: DetectedFactTableColumn[], column: string) =>
   options.some((c) => c.column === column) ? column : "";
 
-// One row of the column mapping table: timestamp, the event type column, and
-// each of the Data Source's identifier types all map the same way. A row with
-// no onRemove can't be emptied, so it skips the link and always shows a select.
 function MappingRow({
   label,
   value,
@@ -89,7 +80,6 @@ function MappingRow({
             <Select
               size="sm"
               mb="0"
-              // Focuses only a select the user just revealed by clicking the link
               autoFocus={adding}
               value={selected || undefined}
               setValue={setValue}
@@ -104,8 +94,6 @@ function MappingRow({
           </TableCell>
           <TableCell>
             {onRemove ? (
-              // Flex wrapper drops the line box's baseline strut, which
-              // otherwise leaves the button riding high
               <Flex align="center">
                 <IconButton
                   variant="ghost"
@@ -139,8 +127,6 @@ function MappingRow({
   );
 }
 
-// Room for the SQL step's editor, schema browser, and results panel. The
-// configure step only uses it as a ceiling -- it sizes to its content.
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
 export default function NewFactTableModal({ close }: { close: () => void }) {
@@ -159,7 +145,6 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
   );
   const [sql, setSql] = useState("");
 
-  // Step 2 state
   const [detected, setDetected] = useState<DetectedFactTableColumn[] | null>(
     null,
   );
@@ -172,10 +157,8 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
   const [inlineFilterColumn, setInlineFilterColumn] = useState("");
   const [tableType, setTableType] = useState<FactTableType>("event");
 
-  // Set by the SQL step, so the modal's Next button can run the query first
   const validateSql = useRef<(() => Promise<void>) | null>(null);
 
-  // Seed the editor with starter SQL for whichever Data Source is selected.
   // Keyed off a ref so a background definitions refresh can't wipe user edits.
   const seededDatasource = useRef<string | null>(null);
   useEffect(() => {
@@ -191,7 +174,6 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     (t) => t.userIdType,
   );
 
-  // Which columns each mapping can point at, matching what the API accepts.
   const timestampOptions = (detected || []).filter((c) =>
     ["date", "other", ""].includes(c.datatype),
   );
@@ -219,9 +201,6 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
   const handleColumnsDetected = useCallback(
     (columns: DetectedFactTableColumn[]) => {
       setDetectedSql(sql);
-
-      // Always take the newest detection -- reading a row sample narrows types
-      // the schema alone couldn't pin down.
       setDetected(columns);
 
       // Only reset the form when the SQL returns a different set of columns.
@@ -234,9 +213,9 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
         return;
       }
 
-      const idTypes = (
-        getDatasourceById(datasourceId)?.settings?.userIdTypes || []
-      ).map((t) => t.userIdType);
+      const idTypes = (datasource?.settings?.userIdTypes || []).map(
+        (t) => t.userIdType,
+      );
 
       setTimestampColumn(
         columns.find((c) => c.datatype === "date")?.column || "",
@@ -252,8 +231,6 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
           }),
         ),
       );
-      // An event-type column is the only table type signal the detected
-      // columns give us. Nothing marks a rollup, so that stays a manual choice.
       const eventTypeColumn =
         INLINE_FILTER_CANDIDATES.find((candidate) =>
           columns.some(
@@ -263,7 +240,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       setInlineFilterColumn(eventTypeColumn);
       setTableType(eventTypeColumn ? "event" : "model");
     },
-    [detected, sql, datasourceId, getDatasourceById],
+    [detected, sql, datasource],
   );
 
   async function submit() {
@@ -274,7 +251,6 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     const timestamp = validColumn(timestampOptions, timestampColumn);
     if (!timestamp) throw new Error("Select a timestamp column");
 
-    // Only an event stream has an event type column to inline filter on
     const inlineFilter =
       tableType === "event"
         ? validColumn(inlineFilterOptions, inlineFilterColumn)
@@ -349,9 +325,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       cta="Create Fact Table"
       size={step === 0 ? "max" : "md"}
       overflowAuto={false}
-      // The SQL step focuses its own editor
       autoFocusSelector=""
-      // Two steps with a Back button don't need a stepper
       hideNav
       bodyClassName="p-0"
       backButton
@@ -487,8 +461,10 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
                     value={userIdColumns[idType] || ""}
                     options={identifierOptions}
                     setValue={(v) => {
-                      setUserIdColumns({ ...userIdColumns, [idType]: v });
-                      // An identifier column can't also be the event type
+                      setUserIdColumns((prev) => ({
+                        ...prev,
+                        [idType]: v,
+                      }));
                       if (v === inlineFilterColumn) setInlineFilterColumn("");
                     }}
                     onRemove={() => removeIdentifier(idType)}

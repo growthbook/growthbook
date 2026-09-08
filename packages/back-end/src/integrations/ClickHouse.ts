@@ -127,8 +127,6 @@ export default class ClickHouse extends SqlIntegration {
     }
     return {
       rows,
-      // Returned for every query, rows or not, so a LIMIT 0 query is enough to
-      // read a query's output schema
       columns: data.meta?.map((col) => {
         const dataType = getFactTableTypeFromClickHouseType(col.type);
         return { name: col.name, ...(dataType && { dataType }) };

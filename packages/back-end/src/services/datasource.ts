@@ -352,10 +352,7 @@ export async function testQuery(
   templateVariables?: TemplateVariables,
   limit?: number,
   timestampColumn?: string,
-  // Also return the columns the query outputs, with their datatypes. Detection
-  // starts from the schema the warehouse reports and narrows it using whatever
-  // rows came back, so it composes with any `limit` -- including 0, which reads
-  // the schema without touching the data.
+  // Return detected output columns along with sampled rows.
   detectColumns?: boolean,
 ): Promise<{
   results?: TestQueryRow[];

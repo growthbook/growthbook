@@ -15,11 +15,7 @@ import { mssqlDialect } from "./dialects/mssql";
 /** Default TCP port for SQL Server; used when stored params are missing or not parseable as an integer. */
 const MSSQL_DEFAULT_TCP_PORT = 1433;
 
-/**
- * The mssql driver attaches a `declaration` (a lowercased T-SQL type name) to
- * each column's type factory, but doesn't declare it on `ISqlTypeFactory`, so
- * read it defensively.
- */
+// `declaration` exists at runtime but is missing from `ISqlTypeFactory`.
 function getTypeDeclaration(type: unknown): string | undefined {
   if (type === null || (typeof type !== "object" && typeof type !== "function"))
     return undefined;
@@ -33,18 +29,15 @@ function getRecordsetColumns(
   const columns = recordset?.columns;
   if (!columns) return undefined;
 
-  return (
-    Object.values(columns)
-      // Keyed by name, so restore the SELECT order
-      .sort((a, b) => a.index - b.index)
-      .map((column) => {
-        const declaration = getTypeDeclaration(column.type);
-        const dataType = declaration
-          ? getFactTableTypeFromMssqlDeclaration(declaration)
-          : undefined;
-        return { name: column.name, ...(dataType && { dataType }) };
-      })
-  );
+  return Object.values(columns)
+    .sort((a, b) => a.index - b.index)
+    .map((column) => {
+      const declaration = getTypeDeclaration(column.type);
+      const dataType = declaration
+        ? getFactTableTypeFromMssqlDeclaration(declaration)
+        : undefined;
+      return { name: column.name, ...(dataType && { dataType }) };
+    });
 }
 
 export default class Mssql extends SqlIntegration {
@@ -71,9 +64,6 @@ export default class Mssql extends SqlIntegration {
     const results = await conn.request().query(sqlStr);
     return {
       rows: results.recordset,
-      // Column metadata arrives before any rows and is attached to the
-      // recordset even when it's empty, so a TOP 0 query is enough to read the
-      // query's output schema
       columns: getRecordsetColumns(results.recordset),
     };
   }

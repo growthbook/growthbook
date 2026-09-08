@@ -97,7 +97,6 @@ export default function FactTablesPage() {
   const permissionsUtil = usePermissionsUtil();
 
   const [createFactOpen, setCreateFactOpen] = useState(false);
-  // A/B test of the two-step create flow against the original single-page modal
   const twoStepCreate = useFeatureIsOn("new-fact-table-modal");
   const [showArchived, setShowArchived] = useState(false);
 

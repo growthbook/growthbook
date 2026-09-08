@@ -103,11 +103,6 @@ function getColumnDataType(
   return undefined;
 }
 
-/**
- * The query's output schema, which the driver reports whether or not the query
- * matched any rows -- so a LIMIT 0 query is enough to read it. Row keys come
- * from these same `columnName`s, so the two always agree.
- */
 export function getDatabricksResultColumns(
   schema: TTableSchema | null,
 ): QueryResponseColumnData[] | undefined {
@@ -163,10 +158,7 @@ export async function runDatabricksQuery<T>(
             progress: false,
           })) as unknown as T[];
 
-          // fetchAll already fetched the result metadata to pick its result
-          // handler, and the operation memoizes it -- so this is a cache hit
-          // rather than another round trip. Never fail a query that returned
-          // rows just because the schema couldn't be read.
+          // getSchema is memoized after fetchAll; don't discard rows if it fails.
           let columns: QueryResponseColumnData[] | undefined;
           try {
             columns = getDatabricksResultColumns(

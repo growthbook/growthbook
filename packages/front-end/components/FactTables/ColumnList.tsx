@@ -90,8 +90,6 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
     ...column,
     name: column.name || column.column,
     id: column.name || column.column,
-    // An identifier type can be mapped to a differently-named column, so flag
-    // the column it resolves to rather than the type name.
     identifier: factTable.userIdTypes.some(
       (idType) => getFactTableIdColumn(factTable, idType) === column.column,
     ),

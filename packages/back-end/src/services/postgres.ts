@@ -52,8 +52,6 @@ export function runPostgresQuery(
         } catch (e) {
           logger.warn(e, "Postgres query failed");
         }
-        // `fields` describes the query's output schema and comes back even
-        // when no rows matched, so a LIMIT 0 query is enough to read it
         resolve({
           rows: res.rows,
           columns: res.fields?.map((field) => {

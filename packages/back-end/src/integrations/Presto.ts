@@ -128,7 +128,6 @@ export default class Presto extends SqlIntegration {
     const client = this.createClient();
 
     return new Promise<QueryResponse>((resolve, reject) => {
-      let cols: string[];
       let columns: QueryResponseColumnData[] = [];
       const rows: Row[] = [];
       const statistics: QueryStatistics = {};
@@ -150,9 +149,6 @@ export default class Presto extends SqlIntegration {
         },
         columns: (error, data) => {
           if (error) return;
-          cols = data.map((d) => d.name);
-          // Reported before any rows arrive, so a LIMIT 0 query is enough to
-          // read a query's output schema
           columns = data.map((d) => {
             const dataType = d.type
               ? getFactTableTypeFromTrinoType(d.type)
@@ -169,7 +165,7 @@ export default class Presto extends SqlIntegration {
           data.forEach((d) => {
             const row: Row = {};
             d.forEach((v, i) => {
-              row[cols[i]] = v;
+              row[columns[i].name] = v;
             });
             rows.push(row);
           });

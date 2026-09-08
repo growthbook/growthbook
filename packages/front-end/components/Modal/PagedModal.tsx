@@ -101,7 +101,6 @@ const PagedModal: FC<Props> = (props) => {
   const style = navStyle ? navStyle : "default";
   const steps: {
     display: string;
-    // Optional on Page -- undefined means enabled, same as the nextStep logic
     enabled?: boolean;
     validate?: () => Promise<void>;
     customNext?: () => void;

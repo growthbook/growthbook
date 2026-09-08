@@ -40,8 +40,6 @@ export default class Mysql extends SqlIntegration {
     conn.end();
     return {
       rows: rows as RowDataPacket[],
-      // `fields` describes the query's output schema and comes back even when
-      // no rows matched, so a LIMIT 0 query is enough to read it
       columns: fields?.map((field) => {
         const dataType =
           field.columnType === undefined

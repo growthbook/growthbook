@@ -56,6 +56,7 @@ import {
   populateAutoSlices,
 } from "back-end/src/services/factTableColumns";
 import {
+  buildColumnTypeMaps,
   deriveUserIdTypesFromColumns,
   validateAggregatedFactTableSettings,
   validateColumnMappingTargets,
@@ -239,7 +240,6 @@ async function testVirtualColumnQuery(
   }
 }
 
-// Helper to merge existing columns with new type map from LIMIT 0
 function mergeColumnsWithTypeMap(
   existingColumns: ColumnInterface[],
   typeMap: Map<string, FactTableColumnType>,
@@ -247,7 +247,6 @@ function mergeColumnsWithTypeMap(
 ): ColumnInterface[] {
   const columns = cloneDeep(existingColumns);
 
-  // Update existing columns
   columns.forEach((col) => {
     // Virtual columns are user-defined and never appear in the SQL output
     // schema, so preserve them instead of marking them deleted.
@@ -263,7 +262,6 @@ function mergeColumnsWithTypeMap(
         col.deleted = false;
         col.dateUpdated = new Date();
       }
-      // Only update datatype if it was previously empty (preserve rich types)
       if (col.datatype === "" && type !== "") {
         col.datatype = type;
         col.dateUpdated = new Date();
@@ -271,7 +269,6 @@ function mergeColumnsWithTypeMap(
     }
   });
 
-  // Add new columns
   typeMap.forEach((datatype, column) => {
     if (
       !columns.some((c) => columnNamesMatch(c.column, column, caseSensitive))
@@ -292,17 +289,11 @@ function mergeColumnsWithTypeMap(
   return columns;
 }
 
-// Result type for the unified refreshColumns function
 export type RefreshColumnsResult = {
   columns: ColumnInterface[];
-  needsBackgroundRefresh: boolean; // True if LIMIT 0 was used and background job needed
+  needsBackgroundRefresh: boolean;
 };
 
-/**
- * Unified function to refresh columns that handles both LIMIT 0 (fast) and LIMIT 20 (full) paths.
- * - For datasources supporting LIMIT 0: Returns basic columns from metadata, signals background refresh needed
- * - For other datasources: Returns full columns with type inference, no background refresh needed
- */
 export async function refreshColumns(
   context: ReqContext,
   datasource: DataSourceInterface,
@@ -322,12 +313,9 @@ export async function refreshColumns(
     throw new Error("Testing not supported on this data source");
   }
 
-  // Reading the output schema needs no data, so it's the default. An explicit
-  // force falls through to the slow path, which also reads top values inline.
   if (!forceColumnRefresh) {
     const timestampColumn = getFactTableTimestampColumn(factTable);
 
-    // Fast path: LIMIT 0 query
     const sql = integration.getTestQuery({
       query: factTable.sql,
       templateVariables: { eventName: factTable.eventName },
@@ -346,30 +334,19 @@ export async function refreshColumns(
       throw new Error("SQL did not return any columns");
     }
 
-    // Build type map from metadata (includes "json" without fields)
-    const typeMap = new Map<string, FactTableColumnType>();
-    result.columns.forEach((col) => {
-      typeMap.set(col.name, col.dataType || "");
-    });
-
-    // Merge with existing columns (preserve rich types like json with jsonFields)
+    const { datatypes } = buildColumnTypeMaps(result);
     const columns = mergeColumnsWithTypeMap(
       factTable.columns || [],
-      typeMap,
+      datatypes,
       integration.columnNamesAreCaseSensitive,
     );
 
     return { columns, needsBackgroundRefresh: true };
-  } else {
-    // Slow path runs full detection plus top values inline
-    const columns = await runColumnDetectionQuery(
-      context,
-      datasource,
-      factTable,
-    );
-    await refreshColumnTopValues(context, datasource, factTable, columns);
-    return { columns, needsBackgroundRefresh: false };
   }
+
+  const columns = await runColumnDetectionQuery(context, datasource, factTable);
+  await refreshColumnTopValues(context, datasource, factTable, columns);
+  return { columns, needsBackgroundRefresh: false };
 }
 
 export const postFactTable = async (

@@ -176,15 +176,8 @@ export function deriveUserIdTypesFromColumns(
 }
 
 /**
- * Only keys the write is introducing are checked. Deleting an identifier type
- * from a Data Source leaves stale keys behind on every fact table that mapped
- * it, and those must not block an unrelated edit — API clients routinely
- * round-trip the whole mapping on save.
- *
- * Keys are checked against the Data Source's identifier types rather than the
- * fact table's own userIdTypes, because a column refresh re-derives userIdTypes
- * from this mapping — mapping a type the fact table doesn't list yet is how you
- * add it.
+ * Checks newly introduced keys against the Data Source identifier types.
+ * Existing stale keys must not block unrelated edits.
  */
 export function validateNewUserIdColumnKeys({
   datasource,
@@ -210,12 +203,8 @@ export function validateNewUserIdColumnKeys({
 }
 
 /**
- * A mapping has to name a column generated SQL can actually read, so callers
- * pass the post-write column state. Column detection runs asynchronously, so a
- * request that sets a mapping has to send `columns` too rather than mapping
- * onto columns nobody has seen yet. Only values the write is changing are
- * checked, so a column later dropped from the SQL doesn't block an unrelated
- * edit that round-trips the whole mapping.
+ * Validates changed mappings against the post-write column state without
+ * blocking unrelated edits when an existing mapped column has disappeared.
  */
 export function validateColumnMappingTargets({
   columns,
@@ -366,15 +355,8 @@ export function getNextUpdateOccurrence(
 }
 
 /**
- * Column types for a Fact Table SQL result. Prefers the datatype the SQL engine
- * reported for each column, and infers the rest from the returned rows. JSON is
- * only taken from the engine when it also described the fields, so we can fall
- * back to inferring them from the data.
- *
- * `datatypes` is every column the query returns, in SELECT order, with `""` for
- * the ones neither the engine nor the rows could type. It is the only complete
- * list of what exists -- a name-only engine (Vertica, Query Service) or JSON
- * without field info yields no type at all for a perfectly real column.
+ * Combines the engine's schema with row inference. `datatypes` includes every
+ * reported column in SELECT order, using `""` when its type is unknown.
  */
 export function buildColumnTypeMaps(
   result: Pick<TestQueryResult, "results" | "columns">,
@@ -422,9 +404,6 @@ export function buildColumnTypeMaps(
     }
   });
 
-  // Start from the engine's output schema so the order follows the SELECT list
-  // and columns it names without a datatype still appear. Inferred types win
-  // wherever the rows told us more.
   const datatypes = new Map<string, FactTableColumnType>(
     (result.columns || []).map((col) => [col.name, col.dataType || ""]),
   );
@@ -433,12 +412,6 @@ export function buildColumnTypeMaps(
   return { jsonMap, warehouseTypeMap, datatypes };
 }
 
-/**
- * Flat list of the columns a Fact Table's SQL returns, for the create flow to
- * show before anything is persisted. Includes columns the engine reported but
- * the rows couldn't type (an untyped `LIMIT 0` result, or JSON without field
- * info) so a query with no rows still yields a column list.
- */
 export function detectColumnsFromQueryResult(
   result: Pick<TestQueryResult, "results" | "columns">,
 ): DetectedFactTableColumn[] {

@@ -27,7 +27,6 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 
-// Rows the Test Query button reads.
 const SAMPLE_ROW_LIMIT = 20;
 
 type TestQueryResults = {
@@ -35,8 +34,6 @@ type TestQueryResults = {
   error?: string;
   results?: TestQueryRow[];
   sql?: string;
-  // Columns the query outputs, detected server-side. Falls back to the
-  // warehouse's reported schema when the query returns no rows.
   columns?: DetectedFactTableColumn[];
 };
 
@@ -55,11 +52,8 @@ export default function NewFactTableSqlStep({
   sql: string;
   setSql: (sql: string) => void;
   detected: DetectedFactTableColumn[] | null;
-  // The SQL that produced `detected`, so we know when the columns are stale
   detectedSql: string | null;
   onColumnsDetected: (columns: DetectedFactTableColumn[]) => void;
-  // Filled in with what the modal's Next button should do: run the query if the
-  // SQL hasn't been tested yet, and refuse to advance if it comes back unusable.
   validateRef: MutableRefObject<(() => Promise<void>) | null>;
 }) {
   const { apiCall } = useAuth();
@@ -92,12 +86,6 @@ export default function NewFactTableSqlStep({
     .filter((d) => isProjectListValidForProject(d.projects, project))
     .filter((d) => d.properties?.queryLanguage === "sql");
 
-  // Reading rows lets detection narrow the types the schema couldn't pin down
-  // -- JSON held in a string column, or a warehouse that reports column names
-  // without types at all. limit 0 reads the output schema without reading any
-  // rows, which is all the Next button needs: with no timestamp column yet the
-  // query can't be date-filtered, and LIMIT doesn't bound how much a warehouse
-  // scans.
   const runQuery = useCallback(
     async (limit: number): Promise<TestQueryResults> => {
       setTestingQuery(true);
@@ -114,8 +102,6 @@ export default function NewFactTableSqlStep({
         });
         const results = { ...res, error: res.error || "" };
         setTestQueryResults(results);
-        // Reported even when empty, so a run that stops returning columns
-        // clears the stale ones rather than leaving them on screen
         if (!results.error) {
           onColumnsDetected(results.columns || []);
         }
@@ -131,20 +117,14 @@ export default function NewFactTableSqlStep({
     [apiCall, datasourceId, sql, onColumnsDetected],
   );
 
-  // Survives stepping back from the configure step, which unmounts this
-  // component -- there's no need to re-run a query the SQL hasn't outgrown.
   const hasFreshResults = detectedSql === sql && !!detected?.length;
 
   useEffect(() => {
     validateRef.current = async () => {
       if (hasFreshResults) return;
       const results = await runQuery(0);
-      // Both failures are already spelled out in this step, so don't repeat
-      // them in the modal's error bar
       if (results.error || !results.columns?.length) throw new Error("");
     };
-    // Once the modal is past this step the query has already been tested, and
-    // this closure's view of that is stale
     return () => {
       validateRef.current = null;
     };
