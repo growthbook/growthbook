@@ -12,7 +12,7 @@
  * extension picks up server-rendered evaluations.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { GrowthBook } from "../GrowthBook";
+import type { GrowthBook } from "../GrowthBook";
 import {
   Attributes,
   FeatureApiResponse,
@@ -20,6 +20,7 @@ import {
   Plugin,
 } from "../types/growthbook";
 import { GrowthBookClient, UserScopedGrowthBook } from "../GrowthBookClient";
+import { isFullGrowthBook, isGrowthBookClient } from "./utils/instance";
 
 export type DevtoolsState = {
   attributes?: Record<string, any>;
@@ -74,7 +75,7 @@ function applyDevtoolsState(
 export function devtoolsPlugin(devtoolsState?: DevtoolsState): Plugin {
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
     // Only works for user-scoped GrowthBook instances
-    if ("createScopedInstance" in gb) {
+    if (isGrowthBookClient(gb)) {
       throw new Error(
         "devtoolsPlugin can only be set on a user-scoped instance",
       );
@@ -220,7 +221,7 @@ export function getDebugEvent(
   if (!gb.inDevMode()) {
     return null;
   }
-  if (gb instanceof GrowthBook) {
+  if (isFullGrowthBook(gb)) {
     // GrowthBook SDK
     const [apiHost, clientKey] = gb.getApiInfo();
     return {

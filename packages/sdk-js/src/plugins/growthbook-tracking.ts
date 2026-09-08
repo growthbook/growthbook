@@ -19,6 +19,7 @@ import type {
 } from "../GrowthBookClient";
 import { EVENT_EXPERIMENT_VIEWED, EVENT_FEATURE_EVALUATED } from "../core";
 import { resolveSessionId } from "./utils/session";
+import { isFullGrowthBook, isGrowthBookClient } from "./utils/instance";
 import { DEFAULT_INGESTOR_HOST } from "./utils/ingestor";
 
 const SDK_VERSION = loadSDKVersion();
@@ -241,7 +242,7 @@ export function growthbookTrackingPlugin({
     // LRU cache for events to avoid duplicates
     const eventCache = new Set<string>();
 
-    const isMultiUser = "createScopedInstance" in gb;
+    const isMultiUser = isGrowthBookClient(gb);
 
     if ("setEventLogger" in gb) {
       let _q: EventPayload[] = [];
@@ -385,7 +386,7 @@ export function growthbookTrackingPlugin({
           }
         };
         document.addEventListener("visibilitychange", onVisibilityChange);
-        "onDestroy" in gb &&
+        isFullGrowthBook(gb) &&
           gb.onDestroy(() =>
             document.removeEventListener(
               "visibilitychange",
@@ -407,7 +408,7 @@ export function growthbookTrackingPlugin({
         };
         window.addEventListener("pagehide", onPageHide);
         window.addEventListener("pageshow", onPageShow);
-        "onDestroy" in gb &&
+        isFullGrowthBook(gb) &&
           gb.onDestroy(() => {
             window.removeEventListener("pagehide", onPageHide);
             window.removeEventListener("pageshow", onPageShow);
@@ -415,7 +416,7 @@ export function growthbookTrackingPlugin({
       }
 
       // Flush the queue when the growthbook instance is destroyed
-      "onDestroy" in gb &&
+      isFullGrowthBook(gb) &&
         gb.onDestroy(() => {
           flush().catch(console.error);
         });
@@ -423,7 +424,7 @@ export function growthbookTrackingPlugin({
 
     // Listen on window.gbEvents.push if in a browser
     // This makes it easier to integrate with Segment, GTM, etc.
-    if (typeof window !== "undefined" && !("createScopedInstance" in gb)) {
+    if (typeof window !== "undefined" && !isGrowthBookClient(gb)) {
       const prevEvents = Array.isArray(window.gbEvents) ? window.gbEvents : [];
       window.gbEvents = {
         push: (event: GlobalTrackedEvent | string) => {

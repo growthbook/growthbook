@@ -1,21 +1,11 @@
-import type { GrowthBook } from "../../GrowthBook";
-import type {
-  GrowthBookClient,
-  UserScopedGrowthBook,
-} from "../../GrowthBookClient";
 import { normalizeSamplingRate } from "../utils/sampling";
+import { isFullGrowthBook, type AnyGrowthBook } from "../utils/instance";
 import { sharePrivacySettings, type PrivacySettings } from "../utils/privacy";
 import { createCWVReporter } from "./cwv-reporter";
 import { createErrorReporter } from "./error-reporter";
 import { createEngagementReporter } from "./engagement-reporter";
 import { createInteractionReporter } from "./interaction-reporter";
 import { createPageState } from "./page-state";
-
-function isFullGrowthBook(
-  gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
-): gb is GrowthBook {
-  return "getAttributes" in gb && "onDestroy" in gb && "setURL" in gb;
-}
 
 // Each stream is its own switch: `true`/`false` for the defaults, or an
 // options object to tune it. Sampling rates never decide whether a stream
@@ -117,7 +107,7 @@ export function autoEventsPlugin(settings: AutoEventsSettings = {}) {
     cwv.metrics ?? ["FCP", "LCP", "INP", "CLS", "TTFB", "TBT"],
   );
 
-  return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
+  return (gb: AnyGrowthBook) => {
     if (typeof window === "undefined" || typeof document === "undefined")
       return;
 

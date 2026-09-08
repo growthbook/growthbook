@@ -6,6 +6,7 @@ import type {
 import type { EventProperties, UserContext } from "../../types/growthbook";
 import { shouldSample } from "../utils/sampling";
 import { detectEnv } from "../utils/browser";
+import { isFullGrowthBook, isGrowthBookClient } from "../utils/instance";
 
 export type ErrorReporterSettings = {
   debounceTimeout?: number;
@@ -32,8 +33,8 @@ function logError(
     properties.stack = properties.stack.slice(0, MAX_STACK_LENGTH);
   }
   // GrowthBookClient needs an explicit userContext on logEvent
-  if ("createScopedInstance" in growthbook) {
-    (growthbook as GrowthBookClient).logEvent(
+  if (isGrowthBookClient(growthbook)) {
+    growthbook.logEvent(
       "browser-error",
       properties,
       userContext || ({} as UserContext),
@@ -62,12 +63,11 @@ export function createErrorReporter({
     !shouldSample({
       rate: samplingRate,
       hashAttribute,
-      attributes:
-        "getAttributes" in growthbook
-          ? growthbook.getAttributes()
-          : userContext
-            ? userContext.attributes
-            : undefined,
+      attributes: isFullGrowthBook(growthbook)
+        ? growthbook.getAttributes()
+        : userContext
+          ? userContext.attributes
+          : undefined,
       seed: samplingSeed ?? "error-sampling",
     })
   ) {
@@ -169,7 +169,7 @@ export function createErrorReporter({
   window.addEventListener("error", onError);
   window.addEventListener("unhandledrejection", onUnhandledRejection);
 
-  "onDestroy" in growthbook &&
+  isFullGrowthBook(growthbook) &&
     growthbook.onDestroy(() => {
       window.removeEventListener("error", onError);
       window.removeEventListener("unhandledrejection", onUnhandledRejection);

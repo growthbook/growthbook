@@ -16,6 +16,7 @@ import type {
 } from "../GrowthBookClient";
 import { genUUID } from "../util";
 import { configureSession, getOrCreateSessionId } from "./utils/session";
+import { isFullGrowthBook, isGrowthBookClient } from "./utils/instance";
 import { readSessionJSON, writeSessionJSON } from "./utils/storage";
 import { subscribeToUrlChanges } from "./utils/url-change-observer";
 
@@ -138,7 +139,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
 
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
     // Only works for instances with user attributes
-    if ("createScopedInstance" in gb) {
+    if (isGrowthBookClient(gb)) {
       return;
     }
 
@@ -172,7 +173,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     };
     document.addEventListener("growthbookrefresh", refreshListener);
 
-    if ("onDestroy" in gb) {
+    if (isFullGrowthBook(gb)) {
       gb.onDestroy(() => {
         clearInterval(intervalTimer);
         unsubUrlChanges();

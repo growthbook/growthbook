@@ -57,15 +57,6 @@ export function createCWVReporter({
 }: CWVReporterSettings) {
   samplingRate = Math.min(1, Math.max(0, samplingRate));
   if (detectEnv() !== "browser") return;
-  // Duck-type rather than instanceof so multi-bundle setups (CDN + npm) work
-  if (
-    typeof growthbook.getAttributes !== "function" ||
-    typeof growthbook.onDestroy !== "function" ||
-    typeof growthbook.logEvent !== "function"
-  ) {
-    throw new Error("CWV reporting requires a GrowthBook instance");
-  }
-
   if (
     !shouldSample({
       rate: samplingRate,

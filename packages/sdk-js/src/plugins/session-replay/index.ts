@@ -8,6 +8,7 @@ import { shouldSampleScope, persistSampleDecision } from "../utils/sampling";
 import { mergeSettings } from "../utils/settings";
 import { DEFAULT_INGESTOR_HOST } from "../utils/ingestor";
 import { resolvePrivacySettings, sharePrivacySettings } from "../utils/privacy";
+import { isFullGrowthBook, type AnyGrowthBook } from "../utils/instance";
 import { createRetry, RetryExhaustedError, RetryCancelledError } from "./retry";
 import {
   SessionReplayPrivacySettings,
@@ -631,7 +632,11 @@ export function sessionReplayPlugin({
     document.removeEventListener("visibilitychange", onVisibilityChange);
   };
 
-  return (gb: GrowthBook) => {
+  return (gb: AnyGrowthBook) => {
+    if (!isFullGrowthBook(gb)) {
+      console.warn("sessionReplayPlugin needs a GrowthBook instance, skipping");
+      return;
+    }
     gbRef = gb;
     let cleanedUp = false;
 
