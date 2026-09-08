@@ -1,3 +1,16 @@
+/**
+ * Connects an SDK instance to the GrowthBook DevTools browser extension.
+ * Applies overrides from DevTools (attributes, forced features, forced
+ * variations) to the instance — in dev mode only.
+ *
+ * Overrides arrive as a `DevtoolsState` payload: passed directly to
+ * `devtoolsPlugin`, or extracted from the `_gbdebug` querystring param /
+ * cookie by the server-side variants (`devtoolsNextjsPlugin`,
+ * `devtoolsExpressPlugin`) so SSR evaluations honor DevTools overrides too.
+ * For the reverse direction, `getDebugScriptContents`/`getDebugEvent` emit
+ * the instance's logs and SDK info onto `window._gbdebugEvents`, where the
+ * extension picks up server-rendered evaluations.
+ */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { GrowthBook } from "../GrowthBook";
 import {
