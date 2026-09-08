@@ -26,9 +26,7 @@ import AdvancedSettings from "@/components/FactTables/MetricEditor/AdvancedSetti
 import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
 import FilterSummary from "@/components/FactTables/MetricEditor/FilterSummary";
 import FunnelStepsDisplay from "@/components/FactTables/MetricEditor/FunnelStepsDisplay";
-import PreviewPanel, {
-  MetricDetailsPanel,
-} from "@/components/FactTables/MetricEditor/PreviewPanel";
+import PreviewPanel from "@/components/FactTables/MetricEditor/PreviewPanel";
 import ColumnSelect from "@/components/FactTables/MetricEditor/ColumnSelect";
 import ThresholdBasisRow, {
   ThresholdBasisValue,
@@ -452,15 +450,6 @@ export default function MetricEditor({
 
       <Flex direction="column" gap="4">
         <PreviewPanel />
-        <MetricDetailsPanel
-          data={[
-            { label: "Owner", value: form.watch("owner") || "—" },
-            {
-              label: "Directionality",
-              value: form.watch("inverse") ? "Decrease" : "Increase",
-            },
-          ]}
-        />
       </Flex>
     </Grid>
   );
