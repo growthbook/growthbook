@@ -126,6 +126,18 @@ describe("BigQuery getExternalQueryStatus (status-only)", () => {
     });
   });
 
+  it.each([
+    ["missing status", {}],
+    ["missing state", { status: {} }],
+    ["unfamiliar state", { status: { state: "SOMETHING_NEW" } }],
+  ])("maps %s to unknown/unrecognized", async (_, metadata) => {
+    mockJob.getMetadata.mockResolvedValue([metadata]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "unknown",
+      reason: "unrecognized",
+    });
+  });
+
   it("maps a 404 to unknown/expired", async () => {
     mockJob.getMetadata.mockRejectedValue(
       Object.assign(new Error("Job x: not found"), { code: 404 }),

@@ -97,16 +97,22 @@ export default class BigQuery extends SqlIntegration {
     try {
       const [md] = await job.getMetadata();
       const status = md.status;
-      if (status && status.state === "DONE") {
-        if (status.errorResult) {
-          return {
-            state: "failed",
-            error: status.errorResult.message || "BigQuery job failed",
-          };
-        }
-        return { state: "succeeded" };
+      if (!status) return { state: "unknown", reason: "unrecognized" };
+      switch (status.state) {
+        case "PENDING":
+        case "RUNNING":
+          return { state: "running" };
+        case "DONE":
+          if (status.errorResult) {
+            return {
+              state: "failed",
+              error: status.errorResult.message || "BigQuery job failed",
+            };
+          }
+          return { state: "succeeded" };
+        default:
+          return { state: "unknown", reason: "unrecognized" };
       }
-      return { state: "running" };
     } catch (e) {
       const code = (e as { code?: unknown })?.code;
       if (code === 404 || /not found/i.test(getErrorMessage(e))) {
