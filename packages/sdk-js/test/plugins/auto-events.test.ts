@@ -831,7 +831,6 @@ describe("subscribeToUrlChanges", () => {
   });
 
   it("trackQueryString is per-subscriber and does not leak across subscribers", () => {
-    // Regression test for the previous module-level trackQueryString flag
     const tracksQS = jest.fn();
     const ignoresQS = jest.fn();
 

@@ -43,9 +43,7 @@ function createCapturingScheduler() {
   return { scheduler, delays };
 }
 
-// Drains all pending microtasks. setTimeout(0) is a macrotask that fires after
-// all microtasks (including multiple promise-chain levels from ts-jest's
-// async→generator transform) have drained.
+// A macrotask, so every pending microtask level has drained first
 const flushPromises = () => new Promise<void>((r) => setTimeout(r, 0));
 
 describe("createRetry", () => {
@@ -191,8 +189,6 @@ describe("createRetry", () => {
       const retry = createRetry({ scheduler, ...noJitter }, fn);
 
       const promise = retry();
-      // flushPromises uses setImmediate which drains all microtask levels —
-      // reliable even with ts-jest's async→generator transform.
       await flushPromises();
       retry.cancel();
 

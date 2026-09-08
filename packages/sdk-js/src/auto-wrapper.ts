@@ -224,9 +224,9 @@ const trackers =
         .map((t) => t.trim())
     : [];
 
-// Perf events need a logger even when "growthbook" isn't a configured
-// tracker — but then only perf/custom events ship, not every exposure and
-// feature evaluation the user never opted into sending
+// Auto-events need a logger even when "growthbook" isn't a configured
+// tracker, but then only custom events ship, not exposures and feature
+// evaluations
 const growthbookTracking = trackers.includes("growthbook");
 if (growthbookTracking || autoEventsEnabled) {
   const eventTransport =

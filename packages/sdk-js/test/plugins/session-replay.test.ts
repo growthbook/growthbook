@@ -15,17 +15,9 @@ jest.mock("../../src/plugins/session-replay/url-scrub", () => ({
 
 const mockRecord = record as jest.MockedFunction<typeof record>;
 
-// Capture real setTimeout before jest.useFakeTimers() replaces it.
-// flushMicrotasks() uses it to wait until the entire microtask queue has
-// drained without advancing the fake clock.
+// Real setTimeout, captured before jest.useFakeTimers(): a real macrotask
+// drains every pending microtask without advancing the fake clock
 const realSetTimeout = global.setTimeout.bind(global);
-
-/**
- * Schedules a macrotask via the real (unfaked) setTimeout. The JS event loop
- * drains the microtask queue completely before any macrotask fires, so
- * awaiting this guarantees every pending promise callback — including nested
- * chains — has settled before the test resumes.
- */
 const flushMicrotasks = () => new Promise<void>((r) => realSetTimeout(r, 0));
 
 // Minimal rrweb events needed to pass flushBuffer's early-exit guards:

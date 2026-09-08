@@ -36,11 +36,9 @@ export function getOrCreateSessionId(options?: { forceNew?: boolean }): string {
   });
 }
 
-// The one place the session precedence rule lives; every payload carrying a
-// session id resolves through here so consumers can't disagree. BYO
-// `session_id` wins; in the browser the live session is read (which counts
-// as activity and keeps it alive); the projected `sessionId` attribute is
-// the server-side fallback — a server never mints a process-wide session.
+// The session precedence rule, used by every payload that carries a session
+// id: BYO `session_id`, else the live browser session (reading it counts as
+// activity), else the projected `sessionId` attribute on the server
 export function resolveSessionId(
   attributes: Record<string, unknown>,
 ): string | null {

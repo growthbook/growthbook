@@ -4,7 +4,7 @@
  * shared session id), page context (url/path/host/query, title, viewport),
  * device (browser, device type), UTM params, and GTM dataLayer variables.
  *
- * Attributes refresh on URL changes (polled) and on a `growthbookrefresh`
+ * Attributes refresh on URL changes and on a `growthbookrefresh`
  * DOM event; `growthbookpersist` forces the anonymous-id cookie write (for
  * deferred-consent flows). Also the config point for the shared gb session's
  * expiry policy (`idleTimeout` / `maxDuration`). Browser only.

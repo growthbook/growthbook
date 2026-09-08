@@ -15,7 +15,6 @@ export type CWVReporterSettings = {
   samplingSeed?: string;
   // Also finalize CWV on query-string changes (default: pathname-only)
   trackQueryStringChanges?: boolean;
-  // GrowthBook only — needs getAttributes + onDestroy
   growthbook: GrowthBook;
 };
 

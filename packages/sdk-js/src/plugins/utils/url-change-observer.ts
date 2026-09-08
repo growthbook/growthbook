@@ -26,7 +26,6 @@ function getCurrentPath(trackQueryString: boolean): string {
 }
 
 function notifyIfChanged() {
-  // Each subscriber sees its own URL view (per-subscriber trackQueryString)
   subscribers.forEach((sub) => {
     const newPath = getCurrentPath(sub.trackQueryString);
     if (newPath === sub.lastPath) return;

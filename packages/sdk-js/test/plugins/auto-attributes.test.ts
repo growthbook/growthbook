@@ -249,8 +249,7 @@ describe("autoAttributesPlugin", () => {
       JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
     );
 
-    // The gb session now lives in localStorage, so utm_params is the only
-    // sessionStorage read here.
+    // utm_params is the only sessionStorage read; the session uses localStorage
     sessionStorage.getItem.mockReturnValueOnce(
       JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
     );

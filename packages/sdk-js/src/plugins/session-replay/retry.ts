@@ -51,55 +51,49 @@ export function createRetry<TArgs extends unknown[], TReturn>(
     isRetriable = () => true,
   } = config;
 
-  let _attempts = 0;
-  let _cancelFn: (() => void) | null = null;
+  let attempts = 0;
+  let cancelFn: (() => void) | null = null;
 
   const run = async (...args: TArgs): Promise<TReturn> => {
-    _attempts = 0;
+    attempts = 0;
 
     while (true) {
-      // Only fn() is inside the try so that RetryCancelledError (thrown from
-      // the sleep below) propagates directly out without being caught here.
+      // Only fn() is inside the try: a RetryCancelledError from the sleep
+      // below must reach the caller, not this catch
       let caughtError: unknown;
-      let didThrow = false;
       try {
         return await fn(...args);
       } catch (e) {
         caughtError = e;
-        didThrow = true;
       }
 
-      if (didThrow) {
-        if (!isRetriable(caughtError)) throw caughtError;
-        if (_attempts >= maxAttempts)
-          throw new RetryExhaustedError(_attempts, caughtError);
+      if (!isRetriable(caughtError)) throw caughtError;
+      if (attempts >= maxAttempts)
+        throw new RetryExhaustedError(attempts, caughtError);
 
-        const delay = Math.min(
-          baseDelayMs * Math.pow(2, _attempts) + random() * jitterMs,
-          maxDelayMs,
-        );
-        _attempts++;
+      const delay = Math.min(
+        baseDelayMs * Math.pow(2, attempts) + random() * jitterMs,
+        maxDelayMs,
+      );
+      attempts++;
 
-        // Awaiting outside the try/catch so a RetryCancelledError thrown here
-        // propagates to the caller without being swallowed by our retry logic.
-        await new Promise<void>((resolve, reject) => {
-          const id = scheduler(resolve, delay);
-          _cancelFn = () => {
-            clearTimeout(id);
-            _cancelFn = null;
-            reject(new RetryCancelledError());
-          };
-        });
-        _cancelFn = null;
-      }
+      await new Promise<void>((resolve, reject) => {
+        const id = scheduler(resolve, delay);
+        cancelFn = () => {
+          clearTimeout(id);
+          cancelFn = null;
+          reject(new RetryCancelledError());
+        };
+      });
+      cancelFn = null;
     }
   };
 
   const handle = run as RetryHandle<TArgs, TReturn>;
   handle.cancel = () => {
-    if (_cancelFn) _cancelFn();
+    if (cancelFn) cancelFn();
   };
-  Object.defineProperty(handle, "attempts", { get: () => _attempts });
+  Object.defineProperty(handle, "attempts", { get: () => attempts });
 
   return handle;
 }

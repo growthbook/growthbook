@@ -46,8 +46,6 @@ const DEFAULT_SETTINGS: Required<SessionReplaySettings> = {
 // Do Not Track / Global Privacy Control (CCPA-binding), checked before
 // rrweb starts so no events are generated at all
 function userOptedOutOfTracking(): boolean {
-  if (typeof navigator === "undefined") return false;
-
   // navigator.doNotTrack is a string: "1" = opt out, "0" = opt in, null = no preference
   if (navigator.doNotTrack === "1") return true;
 
@@ -169,8 +167,6 @@ export function createReplayRecorder({
   let idleCheckInterval: ReturnType<typeof setInterval> | null = null;
   // Upper-bound estimate of the buffer's serialized size
   let bufferedBytes = 0;
-  // Event buffer kept in closure scope — not on window — so third-party
-  // scripts cannot read, mutate, or clear it.
   let replayEvents: eventWithTime[] = [];
 
   const featureEvals: Array<{
@@ -317,9 +313,6 @@ export function createReplayRecorder({
       const events = [...eventsBeingSent, ...customEvents].sort(
         (a, b) => a.timestamp - b.timestamp,
       );
-
-      // PII protection is rrweb-native masking/blocking only; the regex
-      // scrubber was removed for not dispatching against the leaking surface
 
       // Same precedence as the tracking plugin's session_id column, so the
       // replay↔events join key can't diverge
@@ -495,9 +488,8 @@ export function createReplayRecorder({
 
     // Snapshot viewport once at start — re-reading per chunk would be
     // inconsistent if the user resizes mid-session
-    viewportWidth = typeof window !== "undefined" ? window.innerWidth || 0 : 0;
-    viewportHeight =
-      typeof window !== "undefined" ? window.innerHeight || 0 : 0;
+    viewportWidth = window.innerWidth || 0;
+    viewportHeight = window.innerHeight || 0;
 
     hasUserInteraction = false;
     lastInteractionAt = Date.now();
