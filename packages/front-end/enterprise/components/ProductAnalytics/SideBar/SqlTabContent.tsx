@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiEye, PiEyeSlash, PiPlus } from "react-icons/pi";
-import clsx from "clsx";
+import { Flex, Separator } from "@radix-ui/themes";
+import { PiPlus } from "react-icons/pi";
 import type { SqlValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
+import Checkbox from "@/ui/Checkbox";
 import {
   generateUniqueValueName,
   getValueTypeLabel,
@@ -13,7 +13,6 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import Text from "@/ui/Text";
 import TimestampColumnSelector from "./TimestampColumnSelector";
 import ValueCard from "./ValueCard";
-import styles from "./SqlTabContent.module.scss";
 
 const VALUE_TYPE_OPTIONS: {
   value: "count" | "sum";
@@ -99,21 +98,22 @@ export default function SqlTabContent() {
             backgroundColor: "var(--color-panel-translucent)",
           }}
         >
-          <Text weight="medium">Configure Columns</Text>
+          <Text weight="medium">Configure columns</Text>
           <Flex direction="column" gap="1" width="100%">
             {columnOptions.map(({ value, label }) => {
               const isVisible = !dataset?.hiddenColumns?.includes(value);
               const isLastVisible = isVisible && visibleColumnCount === 1;
-              const toggleLabel = isVisible ? "Hide column" : "Show column";
               return (
-                <button
+                <Checkbox
                   key={value}
-                  type="button"
-                  className={styles.columnRow}
+                  label={label}
+                  size="sm"
+                  weight="medium"
+                  value={isVisible}
                   disabled={isLastVisible}
-                  aria-pressed={isVisible}
-                  aria-label={toggleLabel}
-                  onClick={() => {
+                  disabledMessage="Keep at least one column visible"
+                  setValue={(nextVisible) => {
+                    if (isLastVisible && !nextVisible) return;
                     setDraftExploreState((prev) => {
                       if (prev.type !== "sql" || prev.dataset.type !== "sql") {
                         return prev;
@@ -121,10 +121,10 @@ export default function SqlTabContent() {
                       const hiddenColumns = new Set(
                         prev.dataset.hiddenColumns ?? [],
                       );
-                      if (isVisible) {
-                        hiddenColumns.add(value);
-                      } else {
+                      if (nextVisible) {
                         hiddenColumns.delete(value);
+                      } else {
+                        hiddenColumns.add(value);
                       }
                       return {
                         ...prev,
@@ -135,25 +135,7 @@ export default function SqlTabContent() {
                       };
                     });
                   }}
-                >
-                  <Box style={{ flex: 1, minWidth: 0 }}>
-                    <Text
-                      as="div"
-                      size="sm"
-                      color={isVisible ? "text-high" : "text-low"}
-                      truncate
-                    >
-                      {label}
-                    </Text>
-                  </Box>
-                  <span
-                    className={clsx(styles.eyeIcon, {
-                      [styles.eyeIconHidden]: !isVisible,
-                    })}
-                  >
-                    {isVisible ? <PiEye size={16} /> : <PiEyeSlash size={16} />}
-                  </span>
-                </button>
+                />
               );
             })}
           </Flex>
