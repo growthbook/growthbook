@@ -2,8 +2,8 @@ import mutate, { DeclarativeMutation } from "dom-mutator";
 import type {
   ApiHost,
   Attributes,
-  LogEventOptions,
   AutoExperiment,
+  TrackingUserContext,
   AutoExperimentVariation,
   ClientKey,
   Options,
@@ -119,7 +119,7 @@ export class GrowthBook<
   private _pendingEvents: Array<{
     eventName: string;
     properties?: Record<string, unknown>;
-    options?: LogEventOptions;
+    userContext?: Partial<TrackingUserContext>;
   }> = [];
   private static _MAX_PENDING_EVENTS = 100;
   private _warnedNoEventLogger?: boolean;
@@ -1015,18 +1015,21 @@ export class GrowthBook<
     if (this._pendingEvents.length) {
       const pending = this._pendingEvents;
       this._pendingEvents = [];
-      for (const { eventName, properties, options } of pending) {
-        this.logEvent(eventName, properties, options).catch((e) =>
+      for (const { eventName, properties, userContext } of pending) {
+        this.logEvent(eventName, properties, userContext).catch((e) =>
           console.error(e),
         );
       }
     }
   }
 
+  // userContext overrides fields of the instance's own context for this event
+  // (e.g. the url of a page already navigated away from), mirroring
+  // GrowthBookClient.logEvent
   public async logEvent(
     eventName: string,
     properties?: Record<string, unknown>,
-    options?: LogEventOptions,
+    userContext?: Partial<TrackingUserContext>,
   ) {
     if (this._destroyed) {
       console.error("Cannot log event to destroyed GrowthBook instance");
@@ -1051,20 +1054,17 @@ export class GrowthBook<
     }
     if (this._options.eventLogger) {
       try {
-        const userContext = getTrackingUserContext(this._getUserContext());
-        if (options?.url) userContext.url = options.url;
-        await this._options.eventLogger(
-          eventName,
-          properties || {},
-          userContext,
-        );
+        await this._options.eventLogger(eventName, properties || {}, {
+          ...getTrackingUserContext(this._getUserContext()),
+          ...userContext,
+        });
       } catch (e) {
         console.error(e);
       }
     } else {
       // Buffer for a logger registered later (e.g. plugin-order race);
       // drop the oldest when over cap
-      this._pendingEvents.push({ eventName, properties, options });
+      this._pendingEvents.push({ eventName, properties, userContext });
       if (this._pendingEvents.length > GrowthBook._MAX_PENDING_EVENTS) {
         this._pendingEvents.shift();
       }
