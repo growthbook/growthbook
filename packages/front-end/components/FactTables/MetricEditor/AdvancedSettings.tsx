@@ -112,19 +112,20 @@ function cupedItemValue(
 function queryItems({
   form,
   formType,
+  windowSettings,
+  priorSettings,
   cappingItem,
   metricDefaults,
   orgSettings,
 }: {
   form: UseFormReturn<CreateFactMetricFormProps>;
   formType: FormMetricType;
+  windowSettings: MetricWindowSettings;
+  priorSettings: MetricPriorSettings;
   cappingItem: DataListItem | null;
   metricDefaults: MetricDefaults;
   orgSettings: OrganizationSettings;
 }): DataListItem[] {
-  const windowSettings = form.watch("windowSettings");
-  const priorSettings = form.watch("priorSettings");
-
   return [
     ...(windowOk(formType) && windowSettings.delayValue
       ? [
@@ -368,6 +369,8 @@ export default function AdvancedSettings({
               data={queryItems({
                 form,
                 formType,
+                windowSettings,
+                priorSettings,
                 cappingItem,
                 metricDefaults,
                 orgSettings,
