@@ -37,7 +37,8 @@ type WindowContext = Context & {
   antiFlicker?: boolean;
   antiFlickerTimeout?: number;
   additionalTrackingCallback?: TrackingCallback;
-} & Partial<BrowserEventsSettings>;
+  browserEvents?: BrowserEventsSettings;
+};
 declare global {
   interface Window {
     _growthbook?: GrowthBook;
@@ -148,102 +149,42 @@ const plugins: Plugin[] = [
   }),
 ];
 
-// Read BrowserEventsSettings from data-* attrs + windowContext, preferring data-*
-const BROWSER_EVENTS_NUM_KEYS: (keyof BrowserEventsSettings)[] = [
+// Script-tag surface for auto-events: per-stream opt-in booleans plus optional
+// sampling rates (dataset key → setting). Everything else is configured via
+// window.growthbook_config.browserEvents.
+const BROWSER_EVENTS_BOOL_ATTRS: Record<string, keyof BrowserEventsSettings> = {
+  trackCwv: "trackCWV",
+  trackErrors: "trackErrors",
+  trackPageViews: "trackPageViews",
+  trackEngagement: "trackEngagement",
+  trackInteractions: "trackInteractions",
+};
+const BROWSER_EVENTS_RATE_ATTRS: (keyof BrowserEventsSettings)[] = [
   "cwvSamplingRate",
   "errorSamplingRate",
   "pageViewSamplingRate",
   "engagementSamplingRate",
   "interactionSamplingRate",
-  "debounceErrorTimeout",
-  "heartbeatIntervalMs",
-  "maxHeartbeats",
-  "rageThreshold",
-  "rageTimeWindowMs",
-  "rageMaxDistancePx",
 ];
-const BROWSER_EVENTS_BOOL_KEYS: (keyof BrowserEventsSettings)[] = [
-  "trackFCP",
-  "trackLCP",
-  "trackFID",
-  "trackINP",
-  "trackCLS",
-  "trackTTFB",
-  "trackTBT",
-  "trackScrollDepth",
-  "trackQueryStringChanges",
-  "enableUrlPolling",
-  "collectElementText",
-  "independentSampling",
-];
-const BROWSER_EVENTS_STR_KEYS: (keyof BrowserEventsSettings)[] = [
-  "hashAttribute",
-  "samplingSeed",
-  "clickSelector",
-  "ignoreClickSelector",
-  "sensitiveSelector",
-  "formSelector",
-  "ignoreFormSelector",
-];
-
-const TRUTHY_STRINGS = new Set(["1", "true", "yes", "on"]);
-const FALSY_STRINGS = new Set(["0", "false", "no", "off"]);
-function toBool(v: string): boolean | undefined {
-  const s = v.toLowerCase().trim();
-  if (TRUTHY_STRINGS.has(s)) return true;
-  if (FALSY_STRINGS.has(s)) return false;
-  return undefined;
-}
-
-// The natural attribute spelling `data-track-fcp` parses to the dataset key
-// "trackFcp", not "trackFCP" — accept both
-function readDataAttr(k: string): string | undefined {
-  if (dataContext[k] !== undefined) return dataContext[k];
-  const alias = k.replace(
-    /([A-Z])([A-Z]+)/g,
-    (_, first: string, rest: string) => first + rest.toLowerCase(),
-  );
-  return dataContext[alias];
-}
-
-const BROWSER_EVENTS_RATE_KEYS = [
-  "cwvSamplingRate",
-  "errorSamplingRate",
-  "pageViewSamplingRate",
-  "engagementSamplingRate",
-  "interactionSamplingRate",
-] as const;
 
 function readBrowserEventsSettings(): BrowserEventsSettings {
-  const out: Record<string, unknown> = {};
-  for (const k of BROWSER_EVENTS_NUM_KEYS) {
-    const raw = readDataAttr(k);
-    const v = raw !== undefined ? parseFloat(raw) : windowContext[k];
-    if ((v ?? null) !== null && isFinite(v as number)) out[k] = v;
+  const out: Record<string, unknown> = { ...windowContext.browserEvents };
+  for (const [attr, key] of Object.entries(BROWSER_EVENTS_BOOL_ATTRS)) {
+    const raw = dataContext[attr];
+    if (raw !== undefined) out[key] = raw === "true";
   }
-  for (const k of BROWSER_EVENTS_BOOL_KEYS) {
-    const raw = readDataAttr(k);
-    const v = raw !== undefined ? toBool(raw) : windowContext[k];
-    if ((v ?? null) !== null) out[k] = v;
-  }
-  for (const k of BROWSER_EVENTS_STR_KEYS) {
-    const v = readDataAttr(k) ?? windowContext[k];
-    if ((v ?? null) !== null) out[k] = v;
-  }
-  // Per-stream opt-in: unset streams stay off instead of inheriting defaults
-  for (const k of BROWSER_EVENTS_RATE_KEYS) {
-    if ((out[k] ?? null) === null) out[k] = 0;
+  for (const key of BROWSER_EVENTS_RATE_ATTRS) {
+    const raw = dataContext[key];
+    if (raw !== undefined) out[key] = parseFloat(raw);
   }
   return out as BrowserEventsSettings;
 }
 
 const browserEventsSettings = readBrowserEventsSettings();
-const performanceEnabled = !!(
-  browserEventsSettings.cwvSamplingRate ||
-  browserEventsSettings.errorSamplingRate ||
-  browserEventsSettings.pageViewSamplingRate ||
-  browserEventsSettings.engagementSamplingRate ||
-  browserEventsSettings.interactionSamplingRate
+// Streams are opt-in; sampling rates never decide whether a stream exists
+// (a payload-delivered rate may later override the local one)
+const autoEventsEnabled = Object.values(BROWSER_EVENTS_BOOL_ATTRS).some(
+  (key) => browserEventsSettings[key] === true,
 );
 
 const tracking = dataContext.tracking || "gtag,gtm,segment";
@@ -259,7 +200,7 @@ const trackers =
 // tracker — but then only perf/custom events ship, not every exposure and
 // feature evaluation the user never opted into sending
 const growthbookTracking = trackers.includes("growthbook");
-if (growthbookTracking || performanceEnabled) {
+if (growthbookTracking || autoEventsEnabled) {
   const eventTransport =
     windowContext.eventTransport || dataContext.eventTransport;
   plugins.push(
@@ -288,7 +229,7 @@ if (tracking !== "none" && !windowContext.trackingCallback) {
   );
 }
 
-if (performanceEnabled) {
+if (autoEventsEnabled) {
   plugins.push(browserEventsPlugin(browserEventsSettings));
 }
 

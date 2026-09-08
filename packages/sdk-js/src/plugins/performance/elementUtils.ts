@@ -33,7 +33,6 @@ function cssEscape(v: string): string {
 export type ElementPropertyOptions = {
   collectText?: boolean;
   sensitiveSelector?: string;
-  maxSelectorDepth?: number;
 };
 
 export type ElementProperties = Record<string, unknown>;
@@ -196,7 +195,7 @@ export function getElementProperties(
             .slice(0, MAX_CLASSES)
             .join(" ")
         : undefined,
-    element_selector: buildSelector(el, opts.maxSelectorDepth ?? 5),
+    element_selector: buildSelector(el),
     element_text:
       !sensitive && opts.collectText !== false
         ? getSafeElementText(el, opts.sensitiveSelector)

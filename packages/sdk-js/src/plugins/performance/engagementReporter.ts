@@ -9,15 +9,15 @@ import { subscribeToUrlChanges } from "../util/urlChangeObserver";
 import { createPageState, type PageState } from "./pageState";
 
 export type EngagementReporterSettings = {
-  // page_view events (same as old pageViewReporter)
+  // page_view events
+  trackPageViews?: boolean;
   pageViewSamplingRate?: number;
   // heartbeats + scroll + page_leave
+  trackEngagement?: boolean;
   engagementSamplingRate?: number;
   hashAttribute?: string;
-  pageViewSamplingSeed?: string;
-  engagementSamplingSeed?: string;
+  samplingSeed?: string;
   trackQueryStringChanges?: boolean;
-  enableUrlPolling?: boolean;
   heartbeatIntervalMs?: number;
   maxHeartbeats?: number;
   trackScrollDepth?: boolean;
@@ -27,13 +27,13 @@ export type EngagementReporterSettings = {
 };
 
 export function createEngagementReporter({
+  trackPageViews: pageViewsEnabled = true,
   pageViewSamplingRate = 0,
+  trackEngagement: engagementEnabled = true,
   engagementSamplingRate = 0,
   hashAttribute = "id",
-  pageViewSamplingSeed,
-  engagementSamplingSeed,
+  samplingSeed = "engagement",
   trackQueryStringChanges = false,
-  enableUrlPolling = false,
   heartbeatIntervalMs = 30000,
   maxHeartbeats = 3,
   trackScrollDepth = true,
@@ -46,20 +46,20 @@ export function createEngagementReporter({
 
   const attrs = growthbook.getAttributes();
   const trackPageViews =
-    pageViewSamplingRate > 0 &&
+    pageViewsEnabled &&
     shouldSample({
       rate: pageViewSamplingRate,
       hashAttribute,
       attributes: attrs,
-      seed: pageViewSamplingSeed ?? "pageview-sampling",
+      seed: samplingSeed,
     });
   const trackEngagement =
-    engagementSamplingRate > 0 &&
+    engagementEnabled &&
     shouldSample({
       rate: engagementSamplingRate,
       hashAttribute,
       attributes: attrs,
-      seed: engagementSamplingSeed ?? "engagement-sampling",
+      seed: samplingSeed,
     });
 
   if (!trackPageViews && !trackEngagement) return;
@@ -200,7 +200,6 @@ export function createEngagementReporter({
 
   unsubUrlChanges = subscribeToUrlChanges(onUrlChange, {
     trackQueryString: trackQueryStringChanges,
-    enablePolling: enableUrlPolling,
   });
 
   whenActivated(startPage);

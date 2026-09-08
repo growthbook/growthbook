@@ -10,8 +10,6 @@ import { subscribeToUrlChanges } from "../util/urlChangeObserver";
 export type CWVReporterSettings = {
   trackFCP?: boolean;
   trackLCP?: boolean;
-  // FID is deprecated in favor of INP; off by default
-  trackFID?: boolean;
   trackINP?: boolean;
   trackCLS?: boolean;
   trackTTFB?: boolean;
@@ -22,7 +20,6 @@ export type CWVReporterSettings = {
   samplingSeed?: string;
   // Also finalize CWV on query-string changes (default: pathname-only)
   trackQueryStringChanges?: boolean;
-  enableUrlPolling?: boolean;
   // GrowthBook only — needs getAttributes + onDestroy
   growthbook: GrowthBook;
 };
@@ -31,11 +28,6 @@ export type CWVReporterSettings = {
 type LayoutShiftEntry = PerformanceEntry & {
   hadRecentInput: boolean;
   value: number;
-};
-
-// types are incomplete
-type FirstInputEntry = PerformanceEntry & {
-  processingStart: number;
 };
 
 // types are incomplete
@@ -61,7 +53,6 @@ function safeObserve(
 export function createCWVReporter({
   trackFCP = true,
   trackLCP = true,
-  trackFID = false,
   trackINP = true,
   trackCLS = true,
   trackTTFB = true,
@@ -70,7 +61,6 @@ export function createCWVReporter({
   hashAttribute = "id",
   samplingSeed,
   trackQueryStringChanges = false,
-  enableUrlPolling = false,
   growthbook,
 }: CWVReporterSettings) {
   samplingRate = Math.min(1, Math.max(0, samplingRate));
@@ -194,7 +184,6 @@ export function createCWVReporter({
       // metrics belong to the page that was just left.
       unsubscribeUrlChanges = subscribeToUrlChanges(reportCWV, {
         trackQueryString: trackQueryStringChanges,
-        enablePolling: enableUrlPolling,
       });
 
       // Paint metrics from a page that loaded hidden (background tab) would be
@@ -241,24 +230,13 @@ export function createCWVReporter({
         });
       }
 
-      // First-input — used for FID (optional) and to freeze LCP per spec.
-      // We attach this whenever LCP is on, even if FID itself isn't reported.
-      if (trackFID || trackLCP) {
-        let firstInputFired = false;
+      // First input freezes LCP per spec
+      if (trackLCP) {
         const firstInputObserver = observe("first-input", (list) => {
-          if (firstInputFired) return;
-          const entry = list.getEntries()[0] as FirstInputEntry | undefined;
-          if (!entry) return;
-          firstInputFired = true;
+          if (!list.getEntries().length) return;
           firstInputObserver?.disconnect();
-          // Freeze LCP at its current value
-          if (trackLCP) {
-            lcpFrozen = true;
-            lcpObserver?.disconnect();
-          }
-          if (trackFID) {
-            log("CWV:FID", entry.processingStart - entry.startTime);
-          }
+          lcpFrozen = true;
+          lcpObserver?.disconnect();
         });
       }
 

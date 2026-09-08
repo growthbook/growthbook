@@ -19,6 +19,10 @@ const DEFAULT_IGNORE_CLICK_SELECTOR =
 const DEFAULT_IGNORE_FORM_SELECTOR =
   "[data-gb-ignore], [data-gb-ignore-forms], .gb-ignore";
 const IGNORE_RAGE_SELECTOR = "[data-gb-ignore-rage]";
+// Rage click: this many clicks within the window, all within this radius
+const RAGE_THRESHOLD = 3;
+const RAGE_WINDOW_MS = 3000;
+const RAGE_MAX_DISTANCE_PX = 50;
 const DEFAULT_SENSITIVE_SELECTOR =
   "input[type='password'], [data-gb-sensitive]";
 
@@ -30,10 +34,6 @@ export type InteractionReporterSettings = {
   ignoreClickSelector?: string;
   collectElementText?: boolean;
   sensitiveSelector?: string;
-  // rage click
-  rageThreshold?: number;
-  rageTimeWindowMs?: number;
-  rageMaxDistancePx?: number;
   // forms
   formSelector?: string;
   ignoreFormSelector?: string;
@@ -50,9 +50,6 @@ export function createInteractionReporter({
   ignoreClickSelector = DEFAULT_IGNORE_CLICK_SELECTOR,
   collectElementText = true,
   sensitiveSelector = DEFAULT_SENSITIVE_SELECTOR,
-  rageThreshold = 3,
-  rageTimeWindowMs = 3000,
-  rageMaxDistancePx = 50,
   formSelector = "form",
   ignoreFormSelector = DEFAULT_IGNORE_FORM_SELECTOR,
   pageState,
@@ -86,7 +83,7 @@ export function createInteractionReporter({
 
   // Rage click state
   let rageClicks: { time: number; x: number; y: number }[] = [];
-  const maxDistSq = rageMaxDistancePx * rageMaxDistancePx;
+  const maxDistSq = RAGE_MAX_DISTANCE_PX * RAGE_MAX_DISTANCE_PX;
 
   function handleRageClick(event: MouseEvent, target: Element) {
     if (shouldIgnore(target, ignoreClickSelector)) return;
@@ -94,7 +91,7 @@ export function createInteractionReporter({
 
     const now = performance.now();
     const click = { time: now, x: event.clientX, y: event.clientY };
-    rageClicks = rageClicks.filter((c) => now - c.time <= rageTimeWindowMs);
+    rageClicks = rageClicks.filter((c) => now - c.time <= RAGE_WINDOW_MS);
     rageClicks.push(click);
 
     for (const origin of rageClicks) {
@@ -104,13 +101,13 @@ export function createInteractionReporter({
         const dy = origin.y - c.y;
         if (dx * dx + dy * dy <= maxDistSq) nearby++;
       }
-      if (nearby >= rageThreshold) {
+      if (nearby >= RAGE_THRESHOLD) {
         incrementRageClickCount();
         growthbook.logEvent("rage_click", {
           click_count: nearby,
-          threshold: rageThreshold,
-          time_window_ms: rageTimeWindowMs,
-          max_distance_px: rageMaxDistancePx,
+          threshold: RAGE_THRESHOLD,
+          time_window_ms: RAGE_WINDOW_MS,
+          max_distance_px: RAGE_MAX_DISTANCE_PX,
           origin_x: Math.round(origin.x),
           origin_y: Math.round(origin.y),
           latest_x: Math.round(click.x),
@@ -129,7 +126,7 @@ export function createInteractionReporter({
 
     incrementClickCount();
 
-    if (rageThreshold > 0) handleRageClick(event, target);
+    if (RAGE_THRESHOLD > 0) handleRageClick(event, target);
 
     if (shouldIgnore(target, ignoreClickSelector)) return;
     const tracked = target.closest(clickSelector);

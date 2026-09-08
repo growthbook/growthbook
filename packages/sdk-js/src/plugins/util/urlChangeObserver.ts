@@ -1,14 +1,11 @@
 // Shared SPA URL-change observer; one set of patches across reporters.
-// Detection: navigatesuccess > history pushState/replaceState + popstate > polling (opt-in)
+// Detection: navigatesuccess > history pushState/replaceState + popstate
 
 type UrlChangeListener = (newPath: string, oldPath: string | null) => void;
 
 type SubscribeOptions = {
   // Per-subscriber — does not leak across subscribers
   trackQueryString?: boolean;
-  // Module-level (shared timer); most-permissive-wins once on, stays on
-  enablePolling?: boolean;
-  pollIntervalMs?: number;
 };
 
 type Subscriber = {
@@ -19,9 +16,6 @@ type Subscriber = {
 
 const subscribers = new Set<Subscriber>();
 let initialized = false;
-let pollTimer: ReturnType<typeof setTimeout> | null = null;
-let pollingEnabled = false;
-let pollIntervalMs = 500;
 
 function getCurrentPath(trackQueryString: boolean): string {
   return (
@@ -46,20 +40,6 @@ function notifyIfChanged() {
   });
 }
 
-function startPolling() {
-  if (pollTimer) return;
-  const poll = () => {
-    notifyIfChanged();
-    pollTimer = setTimeout(poll, pollIntervalMs);
-  };
-  pollTimer = setTimeout(poll, pollIntervalMs);
-}
-
-function stopPolling() {
-  pollTimer && clearTimeout(pollTimer);
-  pollTimer = null;
-}
-
 function initialize() {
   if (initialized) return;
   initialized = true;
@@ -82,25 +62,14 @@ function initialize() {
   });
 
   window.addEventListener("popstate", notifyIfChanged);
-
-  pollingEnabled && startPolling();
 }
 
 // Subscribe to SPA URL changes; returns unsubscribe.
-// trackQueryString is per-subscriber; polling is most-permissive-wins.
 export function subscribeToUrlChanges(
   cb: UrlChangeListener,
   options: SubscribeOptions = {},
 ): () => void {
   if (typeof window === "undefined") return () => undefined;
-
-  options.pollIntervalMs &&
-    options.pollIntervalMs > 0 &&
-    (pollIntervalMs = options.pollIntervalMs);
-  if (options.enablePolling) {
-    pollingEnabled = true;
-    initialized && startPolling();
-  }
 
   initialize();
 
@@ -114,8 +83,6 @@ export function subscribeToUrlChanges(
 
   return () => {
     subscribers.delete(sub);
-    // No subs left → drop the timer; history patches stay (others may have wrapped them)
-    subscribers.size === 0 && stopPolling();
   };
 }
 
@@ -123,7 +90,4 @@ export function subscribeToUrlChanges(
 export function _resetUrlChangeObserverForTests() {
   subscribers.clear();
   initialized = false;
-  pollingEnabled = false;
-  pollIntervalMs = 500;
-  stopPolling();
 }

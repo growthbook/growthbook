@@ -17,11 +17,17 @@ function isFullGrowthBook(
 }
 
 export type BrowserEventsSettings = {
+  // Which streams exist. Sampling rates only decide how much of each is kept.
+  trackCWV?: boolean;
+  trackErrors?: boolean;
+  trackPageViews?: boolean;
+  trackEngagement?: boolean;
+  trackInteractions?: boolean;
+
   // Core web vitals (browser performance)
   cwvSamplingRate?: number;
   trackFCP?: boolean;
   trackLCP?: boolean;
-  trackFID?: boolean; // deprecated, off by default
   trackINP?: boolean;
   trackCLS?: boolean;
   trackTTFB?: boolean;
@@ -36,7 +42,6 @@ export type BrowserEventsSettings = {
 
   // CWV + page views shared settings
   trackQueryStringChanges?: boolean; // treat ?query changes as new pages
-  enableUrlPolling?: boolean; // setInterval fallback for URL change detection
 
   // Errors
   errorSamplingRate?: number;
@@ -48,27 +53,27 @@ export type BrowserEventsSettings = {
   ignoreClickSelector?: string;
   collectElementText?: boolean;
   sensitiveSelector?: string;
-  rageThreshold?: number;
-  rageTimeWindowMs?: number;
-  rageMaxDistancePx?: number;
   formSelector?: string;
   ignoreFormSelector?: string;
 
   // Global settings
   hashAttribute?: string;
   samplingSeed?: string; // change to rerandomize the cohort
-  independentSampling?: boolean; // true = per-reporter seeds; false = same user in/out of all
 };
 
 // Nothing ships at full volume unless explicitly configured
 const DEFAULT_SAMPLING_RATE = 0.1;
 
 export function browserEventsPlugin({
+  trackCWV = true,
+  trackErrors = true,
+  trackPageViews = true,
+  trackEngagement = false,
+  trackInteractions = false,
   // Core web vitals
   cwvSamplingRate = DEFAULT_SAMPLING_RATE,
   trackFCP = true,
   trackLCP = true,
-  trackFID = false,
   trackINP = true,
   trackCLS = true,
   trackTTFB = true,
@@ -81,7 +86,6 @@ export function browserEventsPlugin({
   trackScrollDepth = true,
   // CWV + page views shared settings
   trackQueryStringChanges = false,
-  enableUrlPolling = false,
   // Errors
   errorSamplingRate = DEFAULT_SAMPLING_RATE,
   debounceErrorTimeout = 100,
@@ -91,15 +95,11 @@ export function browserEventsPlugin({
   ignoreClickSelector,
   collectElementText,
   sensitiveSelector,
-  rageThreshold,
-  rageTimeWindowMs,
-  rageMaxDistancePx,
   formSelector,
   ignoreFormSelector,
   // Global settings
   hashAttribute = "id",
   samplingSeed = "gb-events",
-  independentSampling = false,
 }: BrowserEventsSettings = {}) {
   cwvSamplingRate = normalizeSamplingRate(
     cwvSamplingRate,
@@ -137,58 +137,51 @@ export function browserEventsPlugin({
 
     const fullGB = isFullGrowthBook(gb);
     const pageState = createPageState();
-    const seed = (id: string) =>
-      samplingSeed + (independentSampling ? ":" + id : "");
 
-    if (!fullGB) {
-      const needsFullGB =
-        cwvSamplingRate > 0 ||
-        pageViewSamplingRate > 0 ||
-        engagementSamplingRate > 0 ||
-        interactionSamplingRate > 0;
-      needsFullGB &&
-        console.warn(
-          "browserEventsPlugin: CWV / engagement / interaction need a GrowthBook instance, skipping",
-        );
+    if (
+      !fullGB &&
+      (trackCWV || trackPageViews || trackEngagement || trackInteractions)
+    ) {
+      console.warn(
+        "browserEventsPlugin: CWV / engagement / interaction need a GrowthBook instance, skipping",
+      );
     }
 
-    if (cwvSamplingRate > 0 && fullGB) {
+    if (trackCWV && fullGB) {
       createCWVReporter({
         trackFCP,
         trackLCP,
-        trackFID,
         trackINP,
         trackCLS,
         trackTTFB,
         trackTBT,
         samplingRate: cwvSamplingRate,
         hashAttribute,
-        samplingSeed: seed("cwv"),
+        samplingSeed,
         trackQueryStringChanges,
-        enableUrlPolling,
         growthbook: gb,
       });
     }
 
-    if (errorSamplingRate > 0) {
+    if (trackErrors) {
       createErrorReporter({
         debounceTimeout: debounceErrorTimeout,
         samplingRate: errorSamplingRate,
         hashAttribute,
-        samplingSeed: seed("error"),
+        samplingSeed,
         growthbook: gb,
       });
     }
 
-    if ((pageViewSamplingRate > 0 || engagementSamplingRate > 0) && fullGB) {
+    if ((trackPageViews || trackEngagement) && fullGB) {
       createEngagementReporter({
+        trackPageViews,
+        trackEngagement,
         pageViewSamplingRate,
         engagementSamplingRate,
         hashAttribute,
-        pageViewSamplingSeed: seed("pageview"),
-        engagementSamplingSeed: seed("engagement"),
+        samplingSeed,
         trackQueryStringChanges,
-        enableUrlPolling,
         heartbeatIntervalMs,
         maxHeartbeats,
         trackScrollDepth,
@@ -197,18 +190,15 @@ export function browserEventsPlugin({
       });
     }
 
-    if (interactionSamplingRate > 0 && fullGB) {
+    if (trackInteractions && fullGB) {
       createInteractionReporter({
         samplingRate: interactionSamplingRate,
         hashAttribute,
-        samplingSeed: seed("interaction"),
+        samplingSeed,
         clickSelector,
         ignoreClickSelector,
         collectElementText,
         sensitiveSelector,
-        rageThreshold,
-        rageTimeWindowMs,
-        rageMaxDistancePx,
         formSelector,
         ignoreFormSelector,
         pageState,

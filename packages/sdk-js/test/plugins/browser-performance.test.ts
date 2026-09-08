@@ -149,54 +149,6 @@ describe("CWV reporter", () => {
     }
   });
 
-  it("reports FID as the input delay (processingStart - startTime), not the timestamp", () => {
-    const gb = new GrowthBook({ clientKey: "test" });
-    const logEvent = jest.spyOn(gb, "logEvent");
-
-    createCWVReporter({
-      growthbook: gb,
-      trackFID: true,
-      trackFCP: false,
-      trackLCP: false,
-      trackINP: false,
-      trackCLS: false,
-      trackTTFB: false,
-      trackTBT: false,
-    });
-
-    emitEntries("first-input", [{ startTime: 5000, processingStart: 5050 }]);
-
-    expect(logEvent).toHaveBeenCalledWith(
-      "CWV:FID",
-      { value: 50 },
-      { url: expect.any(String) },
-    );
-    gb.destroy();
-  });
-
-  it("does not track FID by default (deprecated in favor of INP)", () => {
-    const gb = new GrowthBook({ clientKey: "test" });
-    const logEvent = jest.spyOn(gb, "logEvent");
-
-    createCWVReporter({
-      growthbook: gb,
-      trackFCP: false,
-      trackINP: false,
-      trackCLS: false,
-      trackTTFB: false,
-      trackTBT: false,
-    });
-
-    emitEntries("first-input", [{ startTime: 5000, processingStart: 5050 }]);
-
-    expect(logEvent).not.toHaveBeenCalledWith(
-      "CWV:FID",
-      expect.anything(),
-      expect.anything(),
-    );
-    gb.destroy();
-  });
-
   it("freezes LCP at the value seen before the first user interaction", () => {
     const gb = new GrowthBook({ clientKey: "test" });
     const logEvent = jest.spyOn(gb, "logEvent");
@@ -892,7 +844,6 @@ describe("subscribeToUrlChanges", () => {
       trackQueryStringChanges: false,
       trackFCP: false,
       trackLCP: false,
-      trackFID: false,
       trackINP: false,
       trackCLS: false,
       trackTTFB: false,
@@ -927,13 +878,6 @@ describe("subscribeToUrlChanges", () => {
     );
 
     gb.destroy();
-  });
-
-  it("stops the polling timer once the last subscriber unsubscribes", () => {
-    // jest will surface leaked timers; just need this to settle cleanly
-    const cb = jest.fn();
-    const unsub = subscribeToUrlChanges(cb, { enablePolling: true });
-    unsub();
   });
 });
 
@@ -1033,9 +977,6 @@ describe("Interaction reporter", () => {
     createInteractionReporter({
       growthbook: gb,
       samplingRate: 1,
-      rageThreshold: 3,
-      rageTimeWindowMs: 5000,
-      rageMaxDistancePx: 100,
     });
 
     const btn = document.createElement("button");
@@ -1403,8 +1344,10 @@ describe("browserEventsPlugin", () => {
     const logEvent = jest.spyOn(gb, "logEvent");
 
     const apply = browserEventsPlugin({
-      cwvSamplingRate: 0,
-      errorSamplingRate: 0,
+      trackCWV: false,
+      trackErrors: false,
+      trackEngagement: true,
+      trackInteractions: true,
       pageViewSamplingRate: 1,
       engagementSamplingRate: 1,
       interactionSamplingRate: 1,
@@ -1432,9 +1375,9 @@ describe("browserEventsPlugin", () => {
   it("warns when given a non-GrowthBook instance and engagement/interaction are enabled", () => {
     const fakeClient = { logEvent: jest.fn() };
     const apply = browserEventsPlugin({
-      cwvSamplingRate: 0,
-      errorSamplingRate: 1,
-      interactionSamplingRate: 1,
+      trackCWV: false,
+      trackPageViews: false,
+      trackInteractions: true,
     });
     apply(fakeClient as never);
 

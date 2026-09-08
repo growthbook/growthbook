@@ -8,8 +8,6 @@ import { detectEnv, shouldSample } from "../util";
 
 export type ErrorReporterSettings = {
   debounceTimeout?: number;
-  // Bounds memory usage of the dedupe cache on long-running pages
-  dedupeCacheSize?: number;
   // sampling:
   samplingRate?: number;
   hashAttribute?: string;
@@ -19,6 +17,7 @@ export type ErrorReporterSettings = {
 };
 
 const MAX_MESSAGE_LENGTH = 1000;
+const DEDUPE_CACHE_SIZE = 100;
 const MAX_STACK_LENGTH = 4000;
 
 function logError(
@@ -49,7 +48,6 @@ function logError(
 
 export function createErrorReporter({
   debounceTimeout = 100,
-  dedupeCacheSize = 100,
   samplingRate = 1,
   hashAttribute = "id",
   samplingSeed,
@@ -110,7 +108,7 @@ export function createErrorReporter({
     // Re-insert to mark as most recent
     lastErrorTimestamps.delete(key);
     lastErrorTimestamps.set(key, now);
-    while (lastErrorTimestamps.size > dedupeCacheSize) {
+    while (lastErrorTimestamps.size > DEDUPE_CACHE_SIZE) {
       const oldest = lastErrorTimestamps.keys().next().value;
       if (oldest === undefined) break;
       lastErrorTimestamps.delete(oldest);
