@@ -6,6 +6,10 @@ import {
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
+import {
+  getFactTableIdColumn,
+  getFactTableTimestampColumn,
+} from "shared/experiments";
 import { useEffect, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import Collapsible from "react-collapsible";
@@ -78,6 +82,8 @@ export default function FactTableModal({
       name: existing?.name || "",
       sql: existing?.sql || "",
       userIdTypes: existing?.userIdTypes || [],
+      userIdColumns: existing?.userIdColumns,
+      timestampColumn: existing?.timestampColumn,
       tags: existing?.tags || [],
       eventName: existing?.eventName || "",
       managedBy: existing?.managedBy || "",
@@ -129,6 +135,8 @@ export default function FactTableModal({
             sql: form.watch("sql"),
             eventName: form.watch("eventName"),
             userIdTypes: form.watch("userIdTypes"),
+            userIdColumns: form.watch("userIdColumns"),
+            timestampColumn: form.watch("timestampColumn"),
             name: form.watch("name"),
           }}
           save={async ({ sql, userIdTypes, eventName }) => {
@@ -156,7 +164,12 @@ export default function FactTableModal({
             throw new Error("Must add a SQL query");
           }
 
-          validateSQL(value.sql, ["timestamp", ...value.userIdTypes]);
+          validateSQL(value.sql, [
+            getFactTableTimestampColumn(value),
+            ...value.userIdTypes.map(
+              (idType) => getFactTableIdColumn(value, idType).split(".")[0],
+            ),
+          ]);
 
           // Default eventName to the metric name
           value.eventName = value.eventName || value.name;
