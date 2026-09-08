@@ -11,10 +11,10 @@ want to have an experimentation development culture, and determining the impact 
 
 ## Running Experiments with Feature Flags
 
-Feature flag experiments are created with an experiment override rule. This experiment rule will randomly assign
-variations to your users based on the configurations you select. When a user is placed in an experiment via an experiment
-override rule, the assignment will be tracked in your data warehouse using the `trackingCallback` defined in the SDK
-implementation.
+Feature flag experiments use an experiment override rule. Saving and publishing the rule makes it available to the SDK.
+A user is enrolled when your application evaluates the feature (for example with `isOn` or `getFeatureValue`) and they
+qualify. That is when `trackingCallback` runs. If they are not included, you still get a value and `trackingCallback`
+does not run.
 
 Here's what an Experiment rule looks like in the GrowthBook UI:
 
@@ -53,7 +53,7 @@ You can read more about [targeting attributes](/features/targeting).
 
 Here you can choose the overall traffic you want to see the experiment as well as any custom split percentages. If you
 assign to less than 100% of the users, the remaining users will skip the rule and fall through to the next matching one
-(or the default value) instead.
+(or the default value) instead. 100% traffic means 100% of those evaluations, not 100% of all visitors.
 
 You may want to run an experiment at a split percentages that weights the control group
 in order to de-risk the new feature (say 90% control, 10% new treatment). It is best practice in such cases to keep the splits the
@@ -83,8 +83,5 @@ Before you can use namespaces, you must configure them under _Experimentation â†
 
 ## Experiment Results
 
-Saving and publishing the experiment rule makes it available to the SDK. Users are not randomized until your application
-evaluates the feature (for example with `isOn` or `getFeatureValue`) and they qualify. That is when `trackingCallback`
-runs. 100% traffic means 100% of those evaluations, not 100% of all visitors. Results only count people who got that
-exposure. There is a link to view experiment results on the bottom of each experiment override rule. Read more about
-[experiment results](/app/experiment-results).
+Results only include people who got an exposure. There is a link to view experiment results on the bottom of each
+experiment override rule. Read more about [experiment results](/app/experiment-results).
