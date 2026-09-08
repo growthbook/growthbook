@@ -1193,7 +1193,7 @@ export function toFetchKey(
       ? stripExplorerDraftFields(config)
       : config;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { showAs, ...rest } = base;
+  const { showAs, chartSettings, ...rest } = base;
   if (isTimelessSqlExploration(base) && base.dataset.type === "sql") {
     return {
       ...rest,
