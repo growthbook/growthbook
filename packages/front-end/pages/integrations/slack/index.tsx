@@ -326,13 +326,15 @@ const SlackIntegrationsPage: NextPage = () => {
     if (!code) return;
     const state = getQueryStringValue(router.query.state);
     callbackProcessed.current = true;
-    router.replace("/integrations/slack", undefined, { shallow: true });
 
     if (!state) {
+      // Keep the code in the callback URL until confirmed or canceled.
+      // Switching organizations remounts this page and clears local state.
       setInstallCode(code);
       return;
     }
 
+    router.replace("/integrations/slack", undefined, { shallow: true });
     setConnecting(true);
     setConnectError(null);
     apiCall<SlackOAuthConnectionResponse>(
@@ -414,8 +416,9 @@ const SlackIntegrationsPage: NextPage = () => {
             body: JSON.stringify({ code: installCode }),
           },
         );
-      await mutate();
       setInstallCode(null);
+      await router.replace("/integrations/slack", undefined, { shallow: true });
+      await mutate();
       setConnectedMessage("Slack workspace connected successfully.");
       if (!slackIntegration) {
         setAddChannelTeamId(slackConnection.teamId);
@@ -430,7 +433,7 @@ const SlackIntegrationsPage: NextPage = () => {
       installInFlight.current = false;
       setInstalling(false);
     }
-  }, [apiCall, installCode, mutate]);
+  }, [apiCall, installCode, mutate, router]);
 
   const switchInstallOrganization = useCallback(
     (nextOrgId: string) => {
@@ -480,6 +483,7 @@ const SlackIntegrationsPage: NextPage = () => {
                   label="Organization"
                   value={orgId || ""}
                   setValue={switchInstallOrganization}
+                  disabled={installing}
                 >
                   {organizationOptions.map((organization) => (
                     <SelectItem
@@ -509,7 +513,11 @@ const SlackIntegrationsPage: NextPage = () => {
               </Button>
               <Button
                 variant="ghost"
-                onClick={() => {
+                disabled={installing}
+                onClick={async () => {
+                  await router.replace("/integrations/slack", undefined, {
+                    shallow: true,
+                  });
                   setInstallCode(null);
                   setConnectError(null);
                 }}
