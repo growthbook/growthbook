@@ -229,8 +229,7 @@ function readBrowserEventsSettings(): BrowserEventsSettings {
     const v = readDataAttr(k) ?? windowContext[k];
     if (v != null) out[k] = v;
   }
-  // Script-tag config is per-stream opt-in: streams without an explicit rate
-  // stay off rather than inheriting the plugin's defaults
+  // Per-stream opt-in: unset streams stay off instead of inheriting defaults
   for (const k of BROWSER_EVENTS_RATE_KEYS) {
     if (out[k] == null) out[k] = 0;
   }

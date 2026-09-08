@@ -107,8 +107,7 @@ export function createCWVReporter({
     let unsubscribeUrlChanges: (() => void) | null = null;
     let removeListeners: (() => void) | null = null;
 
-    // The URL these metrics belong to. Deferred metrics are finalized after
-    // an SPA navigation has already changed location, so attribute explicitly.
+    // Deferred metrics finalize after an SPA navigation has changed location
     const pageUrl = window.location.href;
     const log = (eventName: string, value: number) =>
       growthbook.logEvent(eventName, { value }, { url: pageUrl });
@@ -123,9 +122,8 @@ export function createCWVReporter({
       return observer;
     };
 
-    // Observer callbacks are async; entries queued but not yet delivered
-    // (e.g. the layout shift from the click that navigated away) would be
-    // lost without draining first
+    // Drain queued entries first — observer callbacks are async, and the
+    // shift from the click that navigated away is usually still pending
     const stopObserving = () => {
       if (stopped) return;
       stopped = true;
@@ -170,8 +168,7 @@ export function createCWVReporter({
       trackINP && inpValue != null && log("CWV:INP", inpValue);
     };
 
-    // Prerendered pages (speculation rules) report times relative to
-    // activation, matching web-vitals
+    // Prerendered pages measure from activation, matching web-vitals
     const navEntry = performance.getEntriesByType("navigation")[0] as
       | (PerformanceNavigationTiming & { activationStart?: number })
       | undefined;
@@ -248,11 +245,9 @@ export function createCWVReporter({
       });
     }
 
-    // INP — per-interaction worst duration (grouped by interactionId), then
-    // the web-vitals estimator: the worst interaction, stepping down one
-    // candidate per 50 interactions to approximate p98 on busy pages. Entries
-    // without an interactionId (hover, etc.) aren't interactions. Pages with
-    // no interaction report nothing rather than 0.
+    // INP — worst duration per interaction (grouped by interactionId), then
+    // web-vitals' estimator: step down one candidate per 50 interactions to
+    // approximate p98. No interaction → nothing reported.
     if (trackINP) {
       const MAX_CANDIDATES = 10;
       const worstByInteraction = new Map<number, number>();
@@ -281,8 +276,7 @@ export function createCWVReporter({
             }
           }
           if (!worstByInteraction.size) return;
-          // performance.interactionCount counts every interaction, not just
-          // the ones over the 40ms threshold we observe
+          // counts every interaction, not just those over the 40ms threshold
           const count =
             (performance as { interactionCount?: number }).interactionCount ??
             seenInteractions;
@@ -320,8 +314,7 @@ export function createCWVReporter({
     }
 
     // TTFB
-    // responseStart is 0 for some cross-origin redirect chains — not a
-    // real measurement
+    // responseStart is 0 for some cross-origin redirect chains
     if (trackTTFB && navEntry && navEntry.responseStart > 0) {
       log("CWV:TTFB", Math.max(0, navEntry.responseStart - activationStart));
     }

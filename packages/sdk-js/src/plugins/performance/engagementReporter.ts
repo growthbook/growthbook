@@ -74,7 +74,7 @@ export function createEngagementReporter({
   let stopped = false;
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let unsubUrlChanges: (() => void) | null = null;
-  // Tab-switch churn shouldn't emit unbounded hidden-state events per page
+  // Tab-switch churn shouldn't emit unbounded events
   const MAX_HIDDEN_EVENTS = 10;
   let hiddenEvents = 0;
 
@@ -94,8 +94,8 @@ export function createEngagementReporter({
       active_time_ms: getActiveTimeMs(),
       max_scroll_depth_percent: getMaxScrollDepthPercent(),
       engagement_heartbeat_count: getHeartbeatCount(),
-      // Click/form counters only exist while the interaction reporter is
-      // running for this user; omit rather than report a misleading 0
+      // Only the interaction reporter increments these; omit rather than
+      // report a misleading 0
       ...(isInteractionTrackingActive() && {
         click_count: getClickCount(),
         tracked_click_count: getTrackedClickCount(),

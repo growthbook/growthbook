@@ -185,8 +185,8 @@ export type Attributes = Record<string, any>;
 export type TrackingUserContext = Pick<UserContext, "attributes" | "url">;
 
 export type LogEventOptions = {
-  // Attribute the event to this URL instead of the current one, e.g. for
-  // metrics finalized after an SPA navigation away from the page they measured
+  // Attribute the event to this URL instead of the current one (e.g. metrics
+  // finalized after navigating away from the page they measured)
   url?: string;
 };
 

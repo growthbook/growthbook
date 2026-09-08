@@ -1,8 +1,7 @@
 // Per-page-view mutable state. Reset on SPA navigation by engagement reporter;
 // counters incremented by interaction reporter.
 
-// Module-level code must not assume a browser (the plugins barrel is
-// imported server-side too)
+// The plugins barrel is imported server-side too
 const now = () =>
   typeof performance !== "undefined" ? performance.now() : Date.now();
 
@@ -21,8 +20,6 @@ let trackedClickCount = 0;
 let rageClickCount = 0;
 let formSubmitCount = 0;
 let heartbeatCount = 0;
-// Click/form counters are only meaningful while an interaction reporter is
-// incrementing them; page_leave omits them otherwise
 let interactionTrackingActive = false;
 
 export function resetPageState() {

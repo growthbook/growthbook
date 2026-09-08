@@ -361,8 +361,8 @@ export function growthbookTrackingPlugin({
           isUnloading = true;
           flush(true).catch(console.error);
         };
-        // A bfcache restore brings the page back fully live; without this the
-        // unload fast-path (per-event beacons, with credentials) would stick
+        // A bfcache restore is fully live again; don't leave the unload
+        // fast-path (per-event beacons) stuck on
         const onPageShow = (event: PageTransitionEvent) => {
           if (event.persisted) isUnloading = false;
         };

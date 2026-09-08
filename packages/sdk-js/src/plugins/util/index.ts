@@ -26,9 +26,8 @@ export function shouldSample({
   return Math.random() < rate;
 }
 
-// Out-of-range or non-numeric rates fall back to the stream's default with a
-// warning rather than throwing — a typo in an observability setting must
-// never take the SDK down with it.
+// Bad rates warn and fall back rather than throw — an observability typo
+// must never take the SDK down with it
 export function normalizeSamplingRate(
   rate: number | undefined,
   fallback: number,

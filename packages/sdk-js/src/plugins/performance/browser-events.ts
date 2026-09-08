@@ -59,8 +59,7 @@ export type BrowserEventsSettings = {
   independentSampling?: boolean; // true = per-reporter seeds; false = same user in/out of all
 };
 
-// Conservative defaults: each stream samples 10% unless configured. Nothing
-// ships at full volume implicitly.
+// Nothing ships at full volume unless explicitly configured
 const DEFAULT_SAMPLING_RATE = 0.1;
 
 export function browserEventsPlugin({
