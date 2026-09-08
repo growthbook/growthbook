@@ -490,10 +490,8 @@ export type SessionReplaySettings = {
   sampleRate?: number;
 };
 
-// Remotely-delivered plugin settings. Rides inside the cached features
-// payload so it inherits localStorage warm-start, background refresh, and
-// SSE streaming. Merged over plugin-constructor options, which merge over
-// plugin defaults.
+// Remotely-delivered plugin settings. Riding inside the features payload
+// inherits its caching, refresh, and SSE streaming for free.
 export type SdkSettings = {
   sessionReplay?: SessionReplaySettings;
 };

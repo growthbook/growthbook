@@ -29,7 +29,7 @@ type PluginOptions = {
   // Kill switch: when false, the plugin loads but never records. Default true.
   enabled?: boolean;
   // Fraction of sessions to record (0-1, default 1). True-random and sticky
-  // per replay session. gb.startSessionReplay() bypasses it.
+  // per replay session.
   sampleRate?: number;
   // Masking/blocking controls for what rrweb captures. Defaults to
   // deny-by-default (every input masked).
@@ -134,8 +134,7 @@ export function sessionReplayPlugin({
   let gbRef: GrowthBook | null = null;
 
   // defaults ← constructor options ← remote sdkSettings from the payload
-  // (cached payloads count, so this is usually right at init; re-resolved
-  // on every payload update)
+  // (cached payloads make this usually right even at init)
   const resolveSettings = (): Required<SessionReplaySettings> =>
     mergeSettings(
       DEFAULT_SETTINGS,
@@ -640,14 +639,11 @@ export function sessionReplayPlugin({
       sessionEvents.push({ eventName, timestamp: Date.now(), properties });
     });
 
-    // The public gb.startSessionReplay() is the programmatic trigger — it
-    // bypasses sampling but not the kill switch
     const forceStart = () => startRecording(false, true);
     gb._registerSessionReplay(forceStart, stopRecording);
 
-    // React to remote settings changes, including mid-recording: a kill
-    // switch stops in-flight recordings; re-enabling resumes when
-    // autoRecord'd (sampling stays sticky per session).
+    // Remote settings apply mid-recording: the kill switch stops in-flight
+    // recordings, re-enabling resumes when autoRecord'd
     const offPayload = gb._subscribePayloadUpdates(() => {
       const settings = resolveSettings();
       if (!settings.enabled && isRecording) {

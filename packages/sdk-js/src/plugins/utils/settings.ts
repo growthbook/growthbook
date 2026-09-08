@@ -26,9 +26,8 @@ function mergeTwo<T extends Record<string, unknown>>(
   return result as T;
 }
 
-// Layered plugin settings: defaults, then each override layer in order
-// (e.g. plugin constructor options, then remote sdkSettings from the
-// payload). undefined values in a layer never clobber earlier layers.
+// Layered plugin settings: defaults, then each override layer in order.
+// undefined values in a layer never clobber earlier layers.
 export function mergeSettings<T extends Record<string, unknown>>(
   defaults: T,
   ...layers: Array<Record<string, unknown> | undefined>
