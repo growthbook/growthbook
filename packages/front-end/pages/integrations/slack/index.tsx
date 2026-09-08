@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { NextPage } from "next";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
+import LegacySlackIntegrationsPage from "@/components/SlackIntegrations/LegacySlackIntegrationsPage";
 import { SlackIntegrationsListViewContainer } from "@/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
@@ -14,7 +16,7 @@ const getSlackAuthorizationError = (error: string) =>
     ? "Slack authorization was canceled."
     : "Slack authorization failed. Try again.";
 
-const SlackIntegrationsPage: NextPage = () => {
+const SlackWorkspacePage: NextPage = () => {
   const permissionsUtils = usePermissionsUtil();
   const router = useRouter();
   const { apiCall } = useAuth();
@@ -40,9 +42,7 @@ const SlackIntegrationsPage: NextPage = () => {
     const state = getQueryStringValue(router.query.state);
     callbackProcessed.current = true;
     if (!state) {
-      setConnectError(
-        "This Slack install was not started from GrowthBook. Start the connection from this page.",
-      );
+      setConnectError("This Slack install was not started from GrowthBook.");
       router.replace("/integrations/slack", undefined, { shallow: true });
       return;
     }
@@ -97,6 +97,15 @@ const SlackIntegrationsPage: NextPage = () => {
       )}
       <SlackIntegrationsListViewContainer />
     </div>
+  );
+};
+
+const SlackIntegrationsPage: NextPage = () => {
+  const workspaceUIEnabled = useFeatureIsOn("slack-workspace-ui");
+  return workspaceUIEnabled ? (
+    <SlackWorkspacePage />
+  ) : (
+    <LegacySlackIntegrationsPage />
   );
 };
 
