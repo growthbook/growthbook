@@ -50,6 +50,7 @@ describe("warehouse column types", () => {
 
     it("returns undefined for types it doesn't know", () => {
       expect(getFactTableTypeFromTrinoType("hyperloglog")).toBeUndefined();
+      expect(getFactTableTypeFromTrinoType("unknown")).toBeUndefined();
       expect(getFactTableTypeFromTrinoType("")).toBeUndefined();
     });
   });
@@ -96,6 +97,11 @@ describe("warehouse column types", () => {
       expect(
         getFactTableTypeFromClickHouseType("LowCardinality(Nullable(String))"),
       ).toBe("string");
+      expect(
+        getFactTableTypeFromClickHouseType(
+          "SimpleAggregateFunction(anyLast, Nullable(String))",
+        ),
+      ).toBe("string");
     });
 
     it("maps the variable-shape types to json", () => {
@@ -111,6 +117,10 @@ describe("warehouse column types", () => {
 
     it("returns undefined for types it doesn't know", () => {
       expect(getFactTableTypeFromClickHouseType("IntervalDay")).toBeUndefined();
+      expect(getFactTableTypeFromClickHouseType("Nothing")).toBeUndefined();
+      expect(
+        getFactTableTypeFromClickHouseType("Nullable(Nothing)"),
+      ).toBeUndefined();
       expect(getFactTableTypeFromClickHouseType("")).toBeUndefined();
     });
   });

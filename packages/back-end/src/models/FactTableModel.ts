@@ -861,9 +861,10 @@ export async function deleteColumn(
 
   // Block deletion if anything still references this column — otherwise
   // generated SQL falls back to a bare, now-undefined identifier and fails
-  // at query time. Scanned on demand (other virtual columns, saved filters,
-  // Fact Metrics, saved explorations, and dashboard blocks); no dependency
-  // state is persisted.
+  // at query time. Scanned on demand; no dependency state is persisted.
+  const dependentIdentifierTypes = Object.entries(factTable.userIdColumns ?? {})
+    .filter(([, mappedColumn]) => mappedColumn.split(".")[0] === columnName)
+    .map(([idType]) => idType);
   const dependentVirtualColumns = factTable.columns.filter(
     (c) =>
       c.isVirtual &&
@@ -914,6 +915,9 @@ export async function deleteColumn(
   );
 
   const lines: string[] = [
+    ...dependentIdentifierTypes.map(
+      (idType) => `\n - Identifier mapping: ${idType}`,
+    ),
     ...dependentVirtualColumns.map(
       (c) => `\n - Virtual column: ${c.name || c.column}`,
     ),

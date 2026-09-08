@@ -55,8 +55,9 @@ export function getFactTableTypeFromTrinoType(
     case "map":
       return "json";
     case "array":
-    case "unknown":
       return "other";
+    case "unknown":
+      return undefined;
   }
 
   // `timestamp with time zone`, `time with time zone`, `interval day to second`
@@ -74,6 +75,13 @@ export function getFactTableTypeFromClickHouseType(
   // These wrap the real type rather than being types themselves
   const wrapped = trimmed.match(/^(?:Nullable|LowCardinality)\((.*)\)$/i);
   if (wrapped) return getFactTableTypeFromClickHouseType(wrapped[1]);
+
+  const simpleAggregateFunction = trimmed.match(
+    /^SimpleAggregateFunction\([^,]+,\s*(.+)\)$/i,
+  );
+  if (simpleAggregateFunction) {
+    return getFactTableTypeFromClickHouseType(simpleAggregateFunction[1]);
+  }
 
   // Parameterized: `FixedString(8)`, `DateTime64(3, 'UTC')`, `Decimal(10, 2)`,
   // `Enum8('a' = 1)`, `Tuple(a String)`
@@ -104,14 +112,14 @@ export function getFactTableTypeFromClickHouseType(
     case "nested":
       return "json";
     case "array":
-    case "nothing":
     case "point":
     case "ring":
     case "polygon":
     case "multipolygon":
     case "aggregatefunction":
-    case "simpleaggregatefunction":
       return "other";
+    case "nothing":
+      return undefined;
   }
 
   return undefined;

@@ -202,6 +202,8 @@ export function validateNewUserIdColumnKeys({
   }
 }
 
+const SAFE_BARE_SQL_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 /**
  * Validates changed mappings against the post-write column state without
  * blocking unrelated edits when an existing mapped column has disappeared.
@@ -232,6 +234,11 @@ export function validateColumnMappingTargets({
     );
 
   if (timestampColumn && timestampColumn !== existing?.timestampColumn) {
+    if (!SAFE_BARE_SQL_IDENTIFIER.test(timestampColumn)) {
+      throw new Error(
+        `Invalid timestampColumn: ${timestampColumn} must be a safe bare SQL identifier`,
+      );
+    }
     // Emitted as a bare `m.<name>`, so a virtual column's expression and a JSON
     // field path would both reach the warehouse as invalid SQL.
     const column = find(timestampColumn, ["date", "other"]);
@@ -245,6 +252,14 @@ export function validateColumnMappingTargets({
   for (const [idType, column] of Object.entries(userIdColumns || {})) {
     if (!column || column === existing?.userIdColumns?.[idType]) continue;
     const [root, field, ...rest] = column.split(".");
+    if (
+      !SAFE_BARE_SQL_IDENTIFIER.test(root) ||
+      (field && !SAFE_BARE_SQL_IDENTIFIER.test(field))
+    ) {
+      throw new Error(
+        `Invalid userIdColumns value for ${idType}: ${column} must use safe bare SQL identifiers`,
+      );
+    }
     const resolved = field
       ? !rest.length && find(root, ["json"])
       : find(column, ["string", "number", "other"]);

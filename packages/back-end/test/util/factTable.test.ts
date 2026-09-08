@@ -342,6 +342,9 @@ describe("validateColumnMappingTargets", () => {
     expect(() => check({ timestampColumn: "event_time" })).not.toThrow();
     expect(() => check({ timestampColumn: "userId" })).toThrow(/not a date/);
     expect(() => check({ timestampColumn: "missing" })).toThrow(/not a date/);
+    expect(() => check({ timestampColumn: "event-time" })).toThrow(
+      /safe bare SQL identifier/,
+    );
     // Emitted as a bare `m.<name>`, so neither resolves at query time.
     expect(() => check({ timestampColumn: "properties.ts" })).toThrow();
     expect(() => check({ timestampColumn: "ts_vc" })).toThrow();
@@ -356,7 +359,9 @@ describe("validateColumnMappingTargets", () => {
     expect(v("missing")).toThrow();
     expect(v("userId.nested")).toThrow(); // root isn't a JSON column
     expect(v("properties.a.b")).toThrow(); // more than one dot
-    expect(v("ts; DROP TABLE events")).toThrow();
+    expect(v("user-id")).toThrow(/safe bare SQL identifiers/);
+    expect(v("properties.anon-id")).toThrow(/safe bare SQL identifiers/);
+    expect(v("ts; DROP TABLE events")).toThrow(/safe bare SQL identifiers/);
   });
 
   // Detection is async, so a mapping can only be set alongside `columns`.
