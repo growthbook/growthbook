@@ -1033,6 +1033,7 @@
                   "api/AnalyticsExplorations/operation/postMetricExploration",
                   "api/AnalyticsExplorations/operation/postFactTableExploration",
                   "api/AnalyticsExplorations/operation/postDataSourceExploration",
+                  "api/AnalyticsExplorations/operation/postSqlExploration",
                   "api/AnalyticsExplorations/operation/postFunnelExploration"
                 ]
               },
@@ -1200,6 +1201,11 @@
       "type": "button",
       "label": "Log in",
       "href": "https://app.growthbook.io/"
+    }
+  },
+  "integrations": {
+    "gtm": {
+      "tagId": "GTM-MF7GKV4V"
     }
   },
   "footer": {

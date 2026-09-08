@@ -72,7 +72,6 @@ export async function assertIncrementalRefreshPrerequisites({
       org,
       "incremental-refresh",
     ),
-    skipPartialData: snapshotSettings.skipPartialData,
     activationMetric: experiment.activationMetric,
     metrics: selectedMetrics,
     experimentType: experiment.type,
@@ -525,6 +524,18 @@ export function exploratoryOverallRequiresFullRefresh({
   if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
     return true;
   }
+
+  // Originally skipPartialData was not supported for Incremental Pipeline,
+  // and also the incremental refresh model did not record materializedBySnapshotId.
+  // For those scenarios, where skipPartialData is true, but incrementalRefreshModel
+  // is outdated, we force a full-refresh.
+  if (
+    snapshotSettings.skipPartialData &&
+    !incrementalRefreshModel.materializedBySnapshotId
+  ) {
+    return true;
+  }
+
   return overallResultsBuiltWithoutIncrementalPipeline({
     unitsTableFullName: incrementalRefreshModel.unitsTableFullName,
     materializedBySnapshotId: incrementalRefreshModel.materializedBySnapshotId,

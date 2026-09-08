@@ -175,6 +175,9 @@ export type FactMetricSource = {
   metricEnd: Date;
   maxHoursToConvert: number;
   bindingLastMaxTimestamp: boolean;
+  // Exact watermark literal body when `bindingLastMaxTimestamp` and the
+  // caller had one; null otherwise.
+  lastMaxTimestampRaw: string | null;
 };
 
 export type FactMetricQuantileData = {
@@ -272,17 +275,31 @@ export type DateDimension = {
 export type ActivationDimension = {
   type: "activation";
 };
+export type DateCutoffDimension = {
+  type: "datecutoff";
+  cutoff: Date;
+};
+export type ComboConstituent = UserDimension | ExperimentDimension;
+export type ComboDimension = {
+  type: "combo";
+  // Length 2 enforced at parse/validation for now
+  dimensions: ComboConstituent[];
+};
 export type Dimension =
   | UserDimension
   | ExperimentDimension
   | DateDimension
-  | ActivationDimension;
+  | ActivationDimension
+  | DateCutoffDimension
+  | ComboDimension;
 
 export type ProcessedDimensions = {
   unitDimensions: UserDimension[];
   experimentDimensions: ExperimentDimension[];
   activationDimension: ActivationDimension | null;
   dateDimension: DateDimension | null;
+  dateCutoffDimension: DateCutoffDimension | null;
+  comboDimension: ComboDimension | null;
 };
 
 export interface DropTableQueryParams {
@@ -367,6 +384,8 @@ export interface UpdateExperimentIncrementalUnitsQueryParams
   segment: SegmentInterface | null;
   incrementalRefreshStartTime: Date;
   lastMaxTimestamp: Date | null;
+  // Exact watermark (see rawWatermark), when the warehouse gave us one.
+  lastMaxTimestampRaw?: string | null;
   unitsTempTableFullName: string;
 }
 
@@ -417,6 +436,10 @@ export interface InsertMetricSourceDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  lastMaxTimestampRaw?: string | null;
+  // Wall-clock start of the refresh. The fact table scan never runs past it,
+  // so a row stamped ahead of the refresh can't become the cache watermark.
+  incrementalRefreshStartTime: Date;
 }
 
 export interface DropMetricSourceCovariateTableQueryParams {
@@ -448,6 +471,7 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastCovariateSuccessfulMaxTimestamp: Date | null;
+  lastCovariateSuccessfulMaxTimestampRaw?: string | null;
   // When true, snap the raw scan to daily grain so this fallback covers the same
   // days the pre-aggregated table would.
   alignLegacyScanToDailyGrain: boolean;
@@ -465,6 +489,7 @@ export interface InsertMetricSourceCovariateFromAggregatedFactTableQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastCovariateSuccessfulMaxTimestamp: Date | null;
+  lastCovariateSuccessfulMaxTimestampRaw?: string | null;
   // Warehouse table the daily partials are read from (registry.tableFullName).
   aggregatedTableFullName: string;
   // Native id type the aggregated table is keyed on (= exposure userIdType).
@@ -494,11 +519,18 @@ export interface InsertAggregatedFactTableDataQueryParams {
   // Lower bound on event timestamp: incremental uses the watermark with
   // exclusiveStart=true; restate uses the chunk start with exclusiveStart=false.
   windowStartDate: Date;
+  // Exact watermark (see rawWatermark) for exclusiveStart, when the
+  // warehouse gave us one.
+  windowStartDateRaw?: string | null;
   exclusiveStart: boolean;
-  // Exclusive upper bound on event timestamp. Set for all but the last chunk
-  // of a chunked restate so chunks tile [windowStart, now) half-open; null for
-  // incremental, the final restate chunk, and unchunked restates (open to "now").
-  windowEndDate: Date | null;
+  // Exclusive upper bound on event timestamp: the next chunk's start, or the
+  // run's own start time for the last (or only) chunk. Never later than the
+  // run's clock: the scan's MAX(timestamp) becomes the watermark, and a row
+  // stamped in the future (e.g. a client event time from a device clock set
+  // ahead) would otherwise stall every later incremental run, which reads
+  // only rows after the watermark, until the wall clock caught up. Rows
+  // stamped later are appended, once, by the first run whose clock passes them.
+  windowEndDate: Date;
 }
 
 export interface AggregatedFactTableMaxTimestampQueryParams {
@@ -525,6 +557,9 @@ export interface IncrementalRefreshStatisticsQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  // skipPartialData cutoff is relative to this (defaults to now). Important for Incremental Exploratory
+  // which passes the last overall snapshot's dateCreated.
+  asOf?: Date;
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
@@ -802,6 +837,8 @@ export type ContextualBanditSrmQueryResponseRows = {
 
 export type MaxTimestampQueryResponseRow = {
   max_timestamp: string;
+  // Same instant via SqlDialect.formatTimestampExact; NULL when unsupported.
+  max_timestamp_raw?: string;
 };
 
 export type UserExperimentExposuresQueryResponseRows = {

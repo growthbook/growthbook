@@ -32,6 +32,7 @@ export function getUserPermissions(
   user: { id: string; superAdmin?: boolean },
   org: OrganizationInterface,
   teams: TeamInterface[],
+  restrictedProjects?: string[],
 ): UserPermissions {
   const memberInfo = org.members.find((m) => m.id === user.id);
 
@@ -52,5 +53,11 @@ export function getUserPermissions(
     throw new Error("User is not a member of this organization");
   }
 
-  return getRolePermissions(memberInfo, org, teams);
+  return getRolePermissions(
+    memberInfo,
+    org,
+    teams,
+    // Super admins bypass access-restricted projects
+    user.superAdmin ? undefined : restrictedProjects,
+  );
 }

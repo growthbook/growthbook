@@ -172,4 +172,35 @@ describe("Mongrule", () => {
       ).toBe(false);
     });
   });
+
+  describe("$elemMatch with falsy array elements", () => {
+    it("matches falsy elements (0, false, empty string) in an array", () => {
+      expect(
+        evalCondition({ nums: [0] }, { nums: { $elemMatch: { $eq: 0 } } }, {}),
+      ).toBe(true);
+      expect(
+        evalCondition(
+          { flags: [false] },
+          { flags: { $elemMatch: { $eq: false } } },
+          {},
+        ),
+      ).toBe(true);
+      expect(
+        evalCondition(
+          { tags: [""] },
+          { tags: { $elemMatch: { $eq: "" } } },
+          {},
+        ),
+      ).toBe(true);
+    });
+    it("still returns false when no array element matches", () => {
+      expect(
+        evalCondition(
+          { nums: [1, 2] },
+          { nums: { $elemMatch: { $eq: 0 } } },
+          {},
+        ),
+      ).toBe(false);
+    });
+  });
 });
