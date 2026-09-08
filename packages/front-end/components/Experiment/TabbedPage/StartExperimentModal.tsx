@@ -410,7 +410,7 @@ export default function StartExperimentModal({
               <Text size="sm" weight="semibold" color="text-high">
                 {managedFeature
                   ? "Variation values that could not be published"
-                  : "Linked feature drafts that could not be published"}
+                  : "Linked Feature Flag drafts that could not be published"}
               </Text>
               <Flex direction="column" gap="2" mt="2">
                 {pendingDraftFailures.map((failure) => (

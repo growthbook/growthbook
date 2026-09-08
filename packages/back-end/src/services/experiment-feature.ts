@@ -1293,9 +1293,16 @@ async function resolveRulesForExperiment({
       ),
     });
   };
+  // Only a write race can fail after the authority pass; flags already landed
+  // stay landed, and a retry skips them.
+  const landed = 0;
   const refuse = (feature: FeatureInterface, reason: string) =>
     new Error(
-      `Could not update Feature Flag "${feature.id}": ${reason}. Ask someone who can publish that Feature Flag, or remove the experiment rule from it first.`,
+      `Could not update Feature Flag "${feature.id}": ${reason}. Ask someone who can publish that Feature Flag, or remove the experiment rule from it first.${
+        landed
+          ? ` ${landed} other linked Feature Flag${landed === 1 ? " was" : "s were"} already updated; retrying finishes the rest.`
+          : ""
+      }`,
     );
 
   const bypassFor = new Map<string, boolean>();
