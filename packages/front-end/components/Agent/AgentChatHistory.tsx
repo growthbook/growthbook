@@ -98,7 +98,7 @@ export default function AgentChatHistory({
                   <Box style={{ maxWidth: TITLE_MAX_WIDTH }}>
                     <Text
                       as="div"
-                      size="md"
+                      size="sm"
                       weight={isActive ? "semibold" : "medium"}
                       truncate
                       title={conv.title || "Untitled"}
