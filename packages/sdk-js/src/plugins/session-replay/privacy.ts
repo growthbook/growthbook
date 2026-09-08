@@ -5,46 +5,23 @@ import type { SessionReplayUrlScrubberConfig } from "./url-scrub";
 export type { SessionReplayUrlScrubberConfig } from "./url-scrub";
 
 /**
- * Privacy controls for the session-replay SDK plugin.
+ * Privacy controls for the session-replay plugin. Deny-by-default:
+ * `maskAllInputs` is true unless explicitly disabled.
  *
- * Element-level privacy is layered:
- *
- *   1. GrowthBook's shipped CLASSES (the simplest API — slap one on):
- *      - class="gb-block"  → element captured as opaque rectangle
- *      - class="gb-mask"   → text content replaced with asterisks
- *      - class="gb-ignore" → events on element are not recorded
- *
- *   2. GrowthBook's shipped DATA ATTRIBUTES (cleaner in component
- *      libraries that already use data-* conventions):
- *      - data-gb-block  → same as gb-block
- *      - data-gb-mask   → same as gb-mask
- *      - data-gb-ignore → same as gb-ignore
- *      - data-gb-allow  → opt this element (and its descendants) BACK
- *        into raw capture even if maskAllInputs / maskTextSelector
- *        would otherwise mask it. Only affects mask, NOT block or
- *        ignore — those are hard guardrails with no escape hatch.
- *
- *   3. Customer-supplied CSS selectors via `blockSelector` /
- *      `maskTextSelector` / `ignoreSelector`. Composed with the
- *      GrowthBook defaults — your selectors ADD to ours, they don't
- *      replace them.
- *
- *   4. Custom `maskInputFn` / `maskTextFn` for shape-preserving or
- *      hash-based redaction. Layered under the data-gb-allow check —
- *      yours runs only when the element isn't opted in via data-gb-allow.
- *
- * Defaults are deny-by-default: `maskAllInputs` is true unless
- * explicitly disabled. rrweb's built-in default masking (length-
- * preserved asterisks) is used unless you supply custom mask functions.
+ * Element-level privacy layers, all composed together:
+ *   1. Shipped classes: gb-block (opaque rectangle), gb-mask (text →
+ *      asterisks), gb-ignore (events not recorded)
+ *   2. Shipped data attributes: data-gb-block/-mask/-ignore, plus
+ *      data-gb-allow to opt an element back into raw capture (escapes
+ *      masking only — block/ignore have no escape hatch)
+ *   3. Customer CSS selectors (blockSelector/maskTextSelector/
+ *      ignoreSelector) — additive with the shipped ones
+ *   4. Custom maskInputFn/maskTextFn for shape-preserving redaction
  */
 export type SessionReplayPrivacyConfig = {
   /**
-   * Mask all input fields by default. STRONGLY recommended — it's the
-   * difference between an opt-in masking model (one CC field that wasn't
-   * tagged leaks card numbers) and an opt-out model (you have to
-   * explicitly allowlist non-sensitive inputs).
-   *
-   * Default: true.
+   * Mask all input fields (default true). Disabling flips masking to
+   * opt-in, where one untagged credit-card field leaks card numbers.
    */
   maskAllInputs?: boolean;
 

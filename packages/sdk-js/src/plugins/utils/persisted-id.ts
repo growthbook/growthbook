@@ -70,9 +70,8 @@ export function createPersistedEphemeralId(config: PersistedEphemeralIdConfig) {
     return inMemoryFallback;
   }
 
-  // The in-memory copy is written through on every persist so degraded
-  // storage (quota errors, async-only polyfills) still yields a stable ID
-  // for the life of this JS context instead of minting one per read.
+  // Write through to memory so degraded storage (quota errors, async-only
+  // polyfills) still yields a stable ID for this JS context
   function persist(state: StoredIdState): void {
     inMemoryFallback = state;
     try {
@@ -85,7 +84,7 @@ export function createPersistedEphemeralId(config: PersistedEphemeralIdConfig) {
         }),
       );
     } catch {
-      // storage unavailable — the in-memory copy above still applies
+      // the in-memory copy above still applies
     }
   }
 

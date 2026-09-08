@@ -1,22 +1,11 @@
 /**
- * URL scrubber for session-replay payloads.
+ * Deny-by-default URL scrubber for session-replay payloads, applied before
+ * events leave the browser. URLs are the leakiest field: query params carry
+ * tokens/emails, path segments embed user ids, fragments hold OAuth tokens.
  *
- * Per spec §7.4, URLs leak more PII than any other field — query params
- * carry session tokens / email addresses / signed redirect targets, path
- * segments embed user IDs, and fragments often hold OAuth bearer tokens
- * during redirect flows. The scrubber runs every URL through a deny-by-
- * default transformation BEFORE events leave the browser, so what lands
- * on our infrastructure has been pre-flattened.
- *
- * Default behavior:
- *   - Strip ALL query parameters unless the customer has allowlisted them
- *   - Replace ID-like path segments (numeric, UUID, long hex) with [id]
- *   - Drop the URL fragment entirely
- *
- * Customers can:
- *   - Allowlist specific query param names that are safe (e.g. ["page", "tab"])
- *   - Add path patterns to redact in addition to the built-in ID heuristics
- *   - Opt back into preserving fragments if they're needed for SPA routing
+ * Defaults: strip all query params, replace ID-like path segments
+ * (numeric/UUID/long hex) with [id], drop the fragment. The config can
+ * allowlist query params, add path patterns, or preserve fragments.
  */
 
 export type SessionReplayUrlScrubberConfig = {

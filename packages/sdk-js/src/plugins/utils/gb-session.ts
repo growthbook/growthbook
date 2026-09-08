@@ -11,18 +11,16 @@ export type GbSessionConfig = {
   maxDuration?: number;
 };
 
-// Session config is module-level so every consumer (auto-attributes,
-// session replay, the tracking plugin) touches the session with the same
-// expiry policy. Set once, by whichever plugin the user configures.
+// Module-level so every consumer touches the session with the same expiry
+// policy; set once by auto-attributes
 let sessionConfig: GbSessionConfig = {};
 
 export function configureGbSession(config: GbSessionConfig): void {
   sessionConfig = { ...config };
 }
 
-// Cross-tab activity session (APM-style): localStorage-backed so one sitting
-// spans tabs and reloads. Rotates after idleTimeout of inactivity (each read
-// refreshes the window), with maxDuration as a hard cap from creation.
+// Cross-tab activity session: localStorage-backed so one sitting spans tabs
+// and reloads
 const gbSession = createPersistedEphemeralId({
   key: "gb_session_id",
   idleTimeoutMs: DEFAULT_IDLE_TIMEOUT_MS,
@@ -40,16 +38,10 @@ export function getOrCreateGbSessionId(options?: {
   });
 }
 
-/**
- * The one place the session precedence rule lives. Every payload that
- * carries a session id must resolve it through here so the events column,
- * replay chunks, and future consumers can never disagree:
- *
- *   1. `session_id` — a customer-supplied session always wins
- *   2. `sessionId` — the GB session already projected into attributes
- *   3. mint — browser only; on the server a session comes from customer
- *      attributes or propagated request context, never a process-wide mint
- */
+// The one place the session precedence rule lives; every payload carrying a
+// session id resolves through here so consumers can't disagree. BYO
+// `session_id` wins, then the projected `sessionId` attribute, then mint —
+// browser only, so a server can never mint a process-wide session.
 export function resolveSessionId(
   attributes: Record<string, unknown>,
 ): string | null {
