@@ -22,11 +22,10 @@ export default function NewFactMetricPage() {
 
   if (!ready) return <LoadingOverlay />;
 
-  const duplicateId =
+  const duplicateSource =
     typeof router.query.duplicate === "string"
-      ? router.query.duplicate
-      : undefined;
-  const duplicateSource = duplicateId ? getFactMetricById(duplicateId) : null;
+      ? getFactMetricById(router.query.duplicate)
+      : null;
   // Matches MetricsList.tsx's existing duplicate-name convention exactly -
   // including not resetting managedBy, a pre-existing quirk this migration
   // preserves rather than fixes.
