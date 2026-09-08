@@ -5,60 +5,44 @@ import { subscribeToUrlChanges } from "../utils/urlChangeObserver";
 import { createPageState, type PageState } from "./pageState";
 
 export type EngagementReporterSettings = {
-  // page_view events
-  trackPageViews?: boolean;
-  pageViewSamplingRate?: number;
-  // heartbeats + scroll + page_leave
-  trackEngagement?: boolean;
-  engagementSamplingRate?: number;
-  hashAttribute?: string;
-  samplingSeed?: string;
-  trackQueryStringChanges?: boolean;
+  samplingRate?: number;
+  // page_engagement heartbeats + hidden-tab events; page_view/page_leave are
+  // always emitted for sampled users
+  heartbeats?: boolean;
   heartbeatIntervalMs?: number;
   maxHeartbeats?: number;
   trackScrollDepth?: boolean;
+  trackQueryStringChanges?: boolean;
+  hashAttribute?: string;
+  samplingSeed?: string;
   // Shared with the interaction reporter of the same instance
   pageState?: PageState;
   growthbook: GrowthBook;
 };
 
 export function createEngagementReporter({
-  trackPageViews: pageViewsEnabled = true,
-  pageViewSamplingRate = 0,
-  trackEngagement: engagementEnabled = true,
-  engagementSamplingRate = 0,
-  hashAttribute = "id",
-  samplingSeed = "engagement",
-  trackQueryStringChanges = false,
+  samplingRate = 1,
+  heartbeats = false,
   heartbeatIntervalMs = 30000,
   maxHeartbeats = 3,
   trackScrollDepth = true,
+  trackQueryStringChanges = false,
+  hashAttribute = "id",
+  samplingSeed = "engagement",
   pageState,
   growthbook,
 }: EngagementReporterSettings) {
   if (detectEnv() !== "browser") return;
-  pageViewSamplingRate = Math.min(1, Math.max(0, pageViewSamplingRate));
-  engagementSamplingRate = Math.min(1, Math.max(0, engagementSamplingRate));
-
-  const attrs = growthbook.getAttributes();
-  const trackPageViews =
-    pageViewsEnabled &&
-    shouldSample({
-      rate: pageViewSamplingRate,
+  if (
+    !shouldSample({
+      rate: Math.min(1, Math.max(0, samplingRate)),
       hashAttribute,
-      attributes: attrs,
+      attributes: growthbook.getAttributes(),
       seed: samplingSeed,
-    });
-  const trackEngagement =
-    engagementEnabled &&
-    shouldSample({
-      rate: engagementSamplingRate,
-      hashAttribute,
-      attributes: attrs,
-      seed: samplingSeed,
-    });
-
-  if (!trackPageViews && !trackEngagement) return;
+    })
+  ) {
+    return;
+  }
 
   const {
     resetPageState,
@@ -95,11 +79,11 @@ export function createEngagementReporter({
     trackScrollDepth && updateScrollDepth();
     startHeartbeats();
     if (stopped) return;
-    trackPageViews && growthbook.logEvent("page_view", {}, { url: pageUrl });
+    growthbook.logEvent("page_view", {}, { url: pageUrl });
   };
 
   const sendPageLeave = (reason: string) => {
-    if (!trackEngagement || stopped || isPageLeaveSent()) return;
+    if (stopped || isPageLeaveSent()) return;
     markPageLeaveSent();
     updateVisibleTime();
     trackScrollDepth && updateScrollDepth();
@@ -141,7 +125,7 @@ export function createEngagementReporter({
 
   const onVisibilityChange = () => {
     updateVisibleTime();
-    if (!trackEngagement || stopped) return;
+    if (!heartbeats || stopped) return;
     if (document.visibilityState === "hidden") {
       if (hiddenEvents >= MAX_HIDDEN_EVENTS) return;
       hiddenEvents++;
@@ -163,7 +147,7 @@ export function createEngagementReporter({
   function startHeartbeats() {
     heartbeatTimer && clearInterval(heartbeatTimer);
     heartbeatTimer = null;
-    if (!trackEngagement) return;
+    if (!heartbeats) return;
     heartbeatTimer = setInterval(() => {
       if (stopped) return;
       if (document.visibilityState !== "visible") return;

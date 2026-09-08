@@ -851,7 +851,7 @@ describe("subscribeToUrlChanges", () => {
     });
     createEngagementReporter({
       growthbook: gb,
-      pageViewSamplingRate: 1,
+      samplingRate: 1,
       trackQueryStringChanges: true,
     });
 
@@ -1023,13 +1023,13 @@ describe("Engagement reporter", () => {
     setVisibilityState("visible");
   });
 
-  it("fires initial page_view when pageViewSamplingRate > 0", () => {
+  it("fires initial page_view for sampled users", () => {
     const gb = new GrowthBook({ clientKey: "test" });
     const logEvent = jest.spyOn(gb, "logEvent");
 
     createEngagementReporter({
       growthbook: gb,
-      pageViewSamplingRate: 1,
+      samplingRate: 1,
     });
 
     expect(logEvent).toHaveBeenCalledWith(
@@ -1040,14 +1040,14 @@ describe("Engagement reporter", () => {
     gb.destroy();
   });
 
-  it("does not fire page_view when pageViewSamplingRate is 0", () => {
+  it("emits nothing when sampled out", () => {
     const gb = new GrowthBook({ clientKey: "test" });
     const logEvent = jest.spyOn(gb, "logEvent");
 
     createEngagementReporter({
       growthbook: gb,
-      pageViewSamplingRate: 0,
-      engagementSamplingRate: 1,
+      samplingRate: 0,
+      heartbeats: true,
     });
 
     expect(logEvent).not.toHaveBeenCalledWith(
@@ -1064,8 +1064,8 @@ describe("Engagement reporter", () => {
 
     createEngagementReporter({
       growthbook: gb,
-      pageViewSamplingRate: 0,
-      engagementSamplingRate: 1,
+      samplingRate: 1,
+      heartbeats: true,
     });
 
     window.dispatchEvent(new Event("pagehide"));
@@ -1086,8 +1086,8 @@ describe("Engagement reporter", () => {
     const setURL = jest.spyOn(gb, "setURL");
     createEngagementReporter({
       growthbook: gb,
-      pageViewSamplingRate: 1,
-      engagementSamplingRate: 1,
+      samplingRate: 1,
+      heartbeats: true,
     });
     const firstUrl = window.location.href;
     logEvent.mockClear();
@@ -1118,8 +1118,8 @@ describe("Engagement reporter", () => {
     for (const gb of [gb1, gb2]) {
       createEngagementReporter({
         growthbook: gb,
-        pageViewSamplingRate: 0,
-        engagementSamplingRate: 1,
+        samplingRate: 1,
+        heartbeats: true,
       });
     }
 
@@ -1144,8 +1144,7 @@ describe("Engagement reporter", () => {
     const logEvent = jest.spyOn(gb, "logEvent");
     createEngagementReporter({
       growthbook: gb,
-      pageViewSamplingRate: 1,
-      engagementSamplingRate: 0,
+      samplingRate: 1,
     });
 
     expect(logEvent).toHaveBeenCalledWith(
@@ -1161,8 +1160,8 @@ describe("Engagement reporter", () => {
     const logEvent = jest.spyOn(gb, "logEvent");
     createEngagementReporter({
       growthbook: gb,
-      pageViewSamplingRate: 0,
-      engagementSamplingRate: 1,
+      samplingRate: 1,
+      heartbeats: true,
     });
 
     window.dispatchEvent(new Event("pagehide"));
@@ -1179,8 +1178,8 @@ describe("Engagement reporter", () => {
     const logEvent = jest.spyOn(gb, "logEvent");
     createEngagementReporter({
       growthbook: gb,
-      pageViewSamplingRate: 0,
-      engagementSamplingRate: 1,
+      samplingRate: 1,
+      heartbeats: true,
     });
 
     window.dispatchEvent(new Event("pagehide"));
@@ -1195,8 +1194,8 @@ describe("Engagement reporter", () => {
     createInteractionReporter({ growthbook: gb2, samplingRate: 1, pageState });
     createEngagementReporter({
       growthbook: gb2,
-      pageViewSamplingRate: 0,
-      engagementSamplingRate: 1,
+      samplingRate: 1,
+      heartbeats: true,
       pageState,
     });
     window.dispatchEvent(new Event("pagehide"));
@@ -1211,8 +1210,8 @@ describe("Engagement reporter", () => {
 
     createEngagementReporter({
       growthbook: gb,
-      pageViewSamplingRate: 0,
-      engagementSamplingRate: 1,
+      samplingRate: 1,
+      heartbeats: true,
     });
 
     setVisibilityState("hidden");
@@ -1231,8 +1230,8 @@ describe("Engagement reporter", () => {
 
     createEngagementReporter({
       growthbook: gb,
-      pageViewSamplingRate: 1,
-      engagementSamplingRate: 1,
+      samplingRate: 1,
+      heartbeats: true,
     });
 
     expect(logEvent).toHaveBeenCalledWith(
@@ -1265,8 +1264,8 @@ describe("Engagement reporter", () => {
 
     createEngagementReporter({
       growthbook: gb,
-      pageViewSamplingRate: 0,
-      engagementSamplingRate: 1,
+      samplingRate: 1,
+      heartbeats: true,
       heartbeatIntervalMs: 1000,
       maxHeartbeats: 2,
     });
@@ -1291,8 +1290,8 @@ describe("Engagement reporter", () => {
 
     createEngagementReporter({
       growthbook: gb,
-      pageViewSamplingRate: 1,
-      engagementSamplingRate: 1,
+      samplingRate: 1,
+      heartbeats: true,
       heartbeatIntervalMs: 1000,
     });
 
@@ -1313,14 +1312,14 @@ describe("autoEventsPlugin", () => {
   });
 
   it("is SSR-safe (returns a function without throwing)", () => {
-    expect(() => autoEventsPlugin({ cwvSamplingRate: 1 })).not.toThrow();
+    expect(() => autoEventsPlugin({ cwv: true })).not.toThrow();
   });
 
   it("falls back to the default rate with a warning instead of throwing on bad config", () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
-    expect(() => autoEventsPlugin({ cwvSamplingRate: 15 })).not.toThrow();
+    expect(() => autoEventsPlugin({ cwv: { samplingRate: 15 } })).not.toThrow();
     expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining("cwvSamplingRate must be between 0 and 1"),
+      expect.stringContaining("cwv.samplingRate must be between 0 and 1"),
     );
     warn.mockRestore();
   });
@@ -1344,13 +1343,10 @@ describe("autoEventsPlugin", () => {
     const logEvent = jest.spyOn(gb, "logEvent");
 
     const apply = autoEventsPlugin({
-      trackCWV: false,
-      trackErrors: false,
-      trackEngagement: true,
-      trackInteractions: true,
-      pageViewSamplingRate: 1,
-      engagementSamplingRate: 1,
-      interactionSamplingRate: 1,
+      cwv: false,
+      errors: false,
+      standardEvents: { samplingRate: 1, heartbeats: true },
+      clickstream: { samplingRate: 1 },
     });
     apply(gb);
 
@@ -1372,18 +1368,18 @@ describe("autoEventsPlugin", () => {
     gb.destroy();
   });
 
-  it("warns when given a non-GrowthBook instance and engagement/interaction are enabled", () => {
+  it("warns when given a non-GrowthBook instance and a browser-only stream is enabled", () => {
     const fakeClient = { logEvent: jest.fn() };
     const apply = autoEventsPlugin({
-      trackCWV: false,
-      trackPageViews: false,
-      trackInteractions: true,
+      cwv: false,
+      standardEvents: false,
+      clickstream: true,
     });
     apply(fakeClient as never);
 
     const warns = consoleWarnSpy.mock.calls.map((c) => String(c[0]));
     expect(
-      warns.some((m) => m.includes("CWV / engagement / interaction")),
+      warns.some((m) => m.includes("CWV / standard events / clickstream")),
     ).toBe(true);
   });
 });

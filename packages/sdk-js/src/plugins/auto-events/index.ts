@@ -16,115 +16,102 @@ function isFullGrowthBook(
   return "getAttributes" in gb && "onDestroy" in gb && "setURL" in gb;
 }
 
+// Each stream is its own switch: `true`/`false` for the defaults, or an
+// options object to tune it. Sampling rates never decide whether a stream
+// exists (a payload-delivered rate may override them later).
+type Stream<T> = boolean | (T & { enabled?: boolean });
+
+export type CwvMetric = "FCP" | "LCP" | "INP" | "CLS" | "TTFB" | "TBT";
+
 export type AutoEventsSettings = {
-  // Which streams exist. Sampling rates only decide how much of each is kept.
-  trackCWV?: boolean;
-  trackErrors?: boolean;
-  trackPageViews?: boolean;
-  trackEngagement?: boolean;
-  trackInteractions?: boolean;
+  // page_view / page_leave, plus optional page_engagement heartbeats
+  standardEvents?: Stream<{
+    samplingRate?: number;
+    heartbeats?: boolean;
+    heartbeatIntervalMs?: number;
+    maxHeartbeats?: number;
+    trackScrollDepth?: boolean;
+  }>;
+  // browser-error events from window.onerror / unhandledrejection
+  errors?: Stream<{
+    samplingRate?: number;
+    debounceTimeout?: number;
+  }>;
+  // Core Web Vitals
+  cwv?: Stream<{
+    samplingRate?: number;
+    metrics?: CwvMetric[];
+  }>;
+  // clicks, form submits, rage clicks
+  clickstream?: Stream<{
+    samplingRate?: number;
+    clickSelector?: string;
+    ignoreClickSelector?: string;
+    collectElementText?: boolean;
+    sensitiveSelector?: string;
+    formSelector?: string;
+    ignoreFormSelector?: string;
+  }>;
 
-  // Core web vitals (browser performance)
-  cwvSamplingRate?: number;
-  trackFCP?: boolean;
-  trackLCP?: boolean;
-  trackINP?: boolean;
-  trackCLS?: boolean;
-  trackTTFB?: boolean;
-  trackTBT?: boolean;
-
-  // Page views + engagement
-  pageViewSamplingRate?: number;
-  engagementSamplingRate?: number;
-  heartbeatIntervalMs?: number;
-  maxHeartbeats?: number;
-  trackScrollDepth?: boolean;
-
-  // CWV + page views shared settings
+  // Shared
   trackQueryStringChanges?: boolean; // treat ?query changes as new pages
-
-  // Errors
-  errorSamplingRate?: number;
-  debounceErrorTimeout?: number;
-
-  // User interactions
-  interactionSamplingRate?: number;
-  clickSelector?: string;
-  ignoreClickSelector?: string;
-  collectElementText?: boolean;
-  sensitiveSelector?: string;
-  formSelector?: string;
-  ignoreFormSelector?: string;
-
-  // Global settings
   hashAttribute?: string;
   samplingSeed?: string; // change to rerandomize the cohort
 };
 
+type Resolved<T> = T & { enabled: boolean };
+
+function resolveStream<T extends { samplingRate?: number }>(
+  name: string,
+  value: Stream<T> | undefined,
+  defaults: Resolved<T>,
+): Resolved<T> {
+  const resolved: Resolved<T> =
+    value === undefined
+      ? defaults
+      : typeof value === "boolean"
+        ? { ...defaults, enabled: value }
+        : { ...defaults, ...value, enabled: value.enabled ?? true };
+  resolved.samplingRate = normalizeSamplingRate(
+    resolved.samplingRate,
+    defaults.samplingRate ?? DEFAULT_SAMPLING_RATE,
+    `${name}.samplingRate`,
+  );
+  return resolved;
+}
+
 // Nothing ships at full volume unless explicitly configured
 const DEFAULT_SAMPLING_RATE = 0.1;
 
-export function autoEventsPlugin({
-  trackCWV = true,
-  trackErrors = true,
-  trackPageViews = true,
-  trackEngagement = false,
-  trackInteractions = false,
-  // Core web vitals
-  cwvSamplingRate = DEFAULT_SAMPLING_RATE,
-  trackFCP = true,
-  trackLCP = true,
-  trackINP = true,
-  trackCLS = true,
-  trackTTFB = true,
-  trackTBT = true,
-  // Page views + engagement
-  pageViewSamplingRate = DEFAULT_SAMPLING_RATE,
-  engagementSamplingRate = 0,
-  heartbeatIntervalMs = 30000,
-  maxHeartbeats = 3,
-  trackScrollDepth = true,
-  // CWV + page views shared settings
-  trackQueryStringChanges = false,
-  // Errors
-  errorSamplingRate = DEFAULT_SAMPLING_RATE,
-  debounceErrorTimeout = 100,
-  // User interactions
-  interactionSamplingRate = 0,
-  clickSelector,
-  ignoreClickSelector,
-  collectElementText,
-  sensitiveSelector,
-  formSelector,
-  ignoreFormSelector,
-  // Global settings
-  hashAttribute = "id",
-  samplingSeed = "gb-events",
-}: AutoEventsSettings = {}) {
-  cwvSamplingRate = normalizeSamplingRate(
-    cwvSamplingRate,
-    DEFAULT_SAMPLING_RATE,
-    "cwvSamplingRate",
+export function autoEventsPlugin(settings: AutoEventsSettings = {}) {
+  const standardEvents = resolveStream(
+    "standardEvents",
+    settings.standardEvents,
+    {
+      enabled: true,
+      samplingRate: DEFAULT_SAMPLING_RATE,
+      heartbeats: false,
+    },
   );
-  pageViewSamplingRate = normalizeSamplingRate(
-    pageViewSamplingRate,
-    DEFAULT_SAMPLING_RATE,
-    "pageViewSamplingRate",
-  );
-  engagementSamplingRate = normalizeSamplingRate(
-    engagementSamplingRate,
-    0,
-    "engagementSamplingRate",
-  );
-  errorSamplingRate = normalizeSamplingRate(
-    errorSamplingRate,
-    DEFAULT_SAMPLING_RATE,
-    "errorSamplingRate",
-  );
-  interactionSamplingRate = normalizeSamplingRate(
-    interactionSamplingRate,
-    0,
-    "interactionSamplingRate",
+  const errors = resolveStream("errors", settings.errors, {
+    enabled: true,
+    samplingRate: DEFAULT_SAMPLING_RATE,
+  });
+  const cwv = resolveStream("cwv", settings.cwv, {
+    enabled: true,
+    samplingRate: DEFAULT_SAMPLING_RATE,
+  });
+  const clickstream = resolveStream("clickstream", settings.clickstream, {
+    enabled: false,
+    samplingRate: DEFAULT_SAMPLING_RATE,
+  });
+  const {
+    trackQueryStringChanges = false,
+    hashAttribute = "id",
+    samplingSeed = "gb-events",
+  } = settings;
+  const metrics = new Set<CwvMetric>(
+    cwv.metrics ?? ["FCP", "LCP", "INP", "CLS", "TTFB", "TBT"],
   );
 
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
@@ -140,22 +127,22 @@ export function autoEventsPlugin({
 
     if (
       !fullGB &&
-      (trackCWV || trackPageViews || trackEngagement || trackInteractions)
+      (cwv.enabled || standardEvents.enabled || clickstream.enabled)
     ) {
       console.warn(
-        "autoEventsPlugin: CWV / engagement / interaction need a GrowthBook instance, skipping",
+        "autoEventsPlugin: CWV / standard events / clickstream need a GrowthBook instance, skipping",
       );
     }
 
-    if (trackCWV && fullGB) {
+    if (cwv.enabled && fullGB) {
       createCWVReporter({
-        trackFCP,
-        trackLCP,
-        trackINP,
-        trackCLS,
-        trackTTFB,
-        trackTBT,
-        samplingRate: cwvSamplingRate,
+        trackFCP: metrics.has("FCP"),
+        trackLCP: metrics.has("LCP"),
+        trackINP: metrics.has("INP"),
+        trackCLS: metrics.has("CLS"),
+        trackTTFB: metrics.has("TTFB"),
+        trackTBT: metrics.has("TBT"),
+        samplingRate: cwv.samplingRate,
         hashAttribute,
         samplingSeed,
         trackQueryStringChanges,
@@ -163,44 +150,42 @@ export function autoEventsPlugin({
       });
     }
 
-    if (trackErrors) {
+    if (errors.enabled) {
       createErrorReporter({
-        debounceTimeout: debounceErrorTimeout,
-        samplingRate: errorSamplingRate,
+        debounceTimeout: errors.debounceTimeout,
+        samplingRate: errors.samplingRate,
         hashAttribute,
         samplingSeed,
         growthbook: gb,
       });
     }
 
-    if ((trackPageViews || trackEngagement) && fullGB) {
+    if (standardEvents.enabled && fullGB) {
       createEngagementReporter({
-        trackPageViews,
-        trackEngagement,
-        pageViewSamplingRate,
-        engagementSamplingRate,
+        samplingRate: standardEvents.samplingRate,
+        heartbeats: standardEvents.heartbeats,
+        heartbeatIntervalMs: standardEvents.heartbeatIntervalMs,
+        maxHeartbeats: standardEvents.maxHeartbeats,
+        trackScrollDepth: standardEvents.trackScrollDepth,
         hashAttribute,
         samplingSeed,
         trackQueryStringChanges,
-        heartbeatIntervalMs,
-        maxHeartbeats,
-        trackScrollDepth,
         pageState,
         growthbook: gb,
       });
     }
 
-    if (trackInteractions && fullGB) {
+    if (clickstream.enabled && fullGB) {
       createInteractionReporter({
-        samplingRate: interactionSamplingRate,
+        samplingRate: clickstream.samplingRate,
         hashAttribute,
         samplingSeed,
-        clickSelector,
-        ignoreClickSelector,
-        collectElementText,
-        sensitiveSelector,
-        formSelector,
-        ignoreFormSelector,
+        clickSelector: clickstream.clickSelector,
+        ignoreClickSelector: clickstream.ignoreClickSelector,
+        collectElementText: clickstream.collectElementText,
+        sensitiveSelector: clickstream.sensitiveSelector,
+        formSelector: clickstream.formSelector,
+        ignoreFormSelector: clickstream.ignoreFormSelector,
         pageState,
         growthbook: gb,
       });

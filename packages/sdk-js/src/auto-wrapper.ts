@@ -38,7 +38,7 @@ type WindowContext = Context & {
   antiFlicker?: boolean;
   antiFlickerTimeout?: number;
   additionalTrackingCallback?: TrackingCallback;
-  browserEvents?: AutoEventsSettings;
+  autoEvents?: AutoEventsSettings;
   // Consumed by auto-wrapper-plus
   trackingHost?: string;
   sessionReplay?: { enabled?: boolean; privacy?: SessionReplayPrivacyConfig };
@@ -153,43 +153,54 @@ const plugins: Plugin[] = [
   }),
 ];
 
-// Script-tag surface for auto-events: per-stream opt-in booleans plus optional
-// sampling rates (dataset key → setting). Everything else is configured via
-// window.growthbook_config.browserEvents.
-const BROWSER_EVENTS_BOOL_ATTRS: Record<string, keyof AutoEventsSettings> = {
-  trackCwv: "trackCWV",
-  trackErrors: "trackErrors",
-  trackPageViews: "trackPageViews",
-  trackEngagement: "trackEngagement",
-  trackInteractions: "trackInteractions",
-};
-const BROWSER_EVENTS_RATE_ATTRS: (keyof AutoEventsSettings)[] = [
-  "cwvSamplingRate",
-  "errorSamplingRate",
-  "pageViewSamplingRate",
-  "engagementSamplingRate",
-  "interactionSamplingRate",
-];
+// Script-tag surface for auto-events, mirroring data-tracking:
+//   data-auto-events="standardEvents,errors,cwv,clickstream" (or "all")
+// plus optional data-<stream>-sampling-rate. Anything else goes through
+// window.growthbook_config.autoEvents. Streams are opt-in here; a sampling
+// rate never decides whether a stream exists.
+const AUTO_EVENT_STREAMS = [
+  "standardEvents",
+  "errors",
+  "cwv",
+  "clickstream",
+] as const;
+type AutoEventStream = (typeof AUTO_EVENT_STREAMS)[number];
 
 function readAutoEventsSettings(): AutoEventsSettings {
-  const out: Record<string, unknown> = { ...windowContext.browserEvents };
-  for (const [attr, key] of Object.entries(BROWSER_EVENTS_BOOL_ATTRS)) {
-    const raw = dataContext[attr];
-    if (raw !== undefined) out[key] = raw === "true";
+  const settings: AutoEventsSettings = { ...windowContext.autoEvents };
+  const list = dataContext.autoEvents;
+  const listed =
+    list === undefined
+      ? null
+      : new Set(
+          list === "all"
+            ? AUTO_EVENT_STREAMS
+            : list.split(",").map((s) => s.trim()),
+        );
+  for (const stream of AUTO_EVENT_STREAMS) {
+    if (listed !== null) {
+      settings[stream] = listed.has(stream)
+        ? (settings[stream] ?? true)
+        : false;
+    }
+    settings[stream] ??= false;
+    const rate = dataContext[`${stream}SamplingRate`];
+    if (rate !== undefined && settings[stream] !== false) {
+      const current = settings[stream];
+      settings[stream] = {
+        ...(typeof current === "object" ? current : {}),
+        samplingRate: parseFloat(rate),
+      };
+    }
   }
-  for (const key of BROWSER_EVENTS_RATE_ATTRS) {
-    const raw = dataContext[key];
-    if (raw !== undefined) out[key] = parseFloat(raw);
-  }
-  return out as AutoEventsSettings;
+  return settings;
 }
 
-const browserEventsSettings = readAutoEventsSettings();
-// Streams are opt-in; sampling rates never decide whether a stream exists
-// (a payload-delivered rate may later override the local one)
-const autoEventsEnabled = Object.values(BROWSER_EVENTS_BOOL_ATTRS).some(
-  (key) => browserEventsSettings[key] === true,
-);
+const autoEventsSettings = readAutoEventsSettings();
+const autoEventsEnabled = AUTO_EVENT_STREAMS.some((stream: AutoEventStream) => {
+  const value = autoEventsSettings[stream];
+  return typeof value === "object" ? value.enabled !== false : value === true;
+});
 
 const tracking = dataContext.tracking || "gtag,gtm,segment";
 const trackers =
@@ -234,7 +245,7 @@ if (tracking !== "none" && !windowContext.trackingCallback) {
 }
 
 if (autoEventsEnabled) {
-  plugins.push(autoEventsPlugin(browserEventsSettings));
+  plugins.push(autoEventsPlugin(autoEventsSettings));
 }
 
 // Create GrowthBook instance
