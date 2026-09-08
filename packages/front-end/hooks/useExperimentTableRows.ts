@@ -25,6 +25,8 @@ import {
   generateSliceString,
   generateSelectAllSliceString,
   isMetricGroupId,
+  resolveMetricsForSnapshot,
+  resolveSnapshotMetricIds,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isDefined } from "shared/util";
@@ -298,12 +300,12 @@ export function useExperimentTableRows({
     ]);
 
   const unsortedRows = useMemo<ExperimentTableRow[]>(() => {
-    function getRowsForMetric(
-      metricId: string,
+    function getRowsForMetricGroup(
+      metricIds: string[],
       resultGroup: "goal" | "secondary" | "guardrail",
     ): ExperimentTableRow[] {
-      return generateRowsForMetric({
-        metricId,
+      return generateRowsForMetricGroup({
+        metricIds,
         resultGroup,
         results,
         metricOverrides,
@@ -320,7 +322,15 @@ export function useExperimentTableRows({
     if (!results || !results.variations || (!ready && !ssrPolyfills)) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       // Only include goals in calculation, not secondary or guardrails
-      setAdjustedPValuesOnResults([results], expandedGoals, pValueCorrection);
+      setAdjustedPValuesOnResults(
+        [results],
+        resolveSnapshotMetricIds({
+          metricIds: expandedGoals,
+          getExperimentMetricById,
+          results: [results],
+        }),
+        pValueCorrection,
+      );
       setAdjustedCIs([results], pValueThreshold);
     }
 
@@ -417,17 +427,11 @@ export function useExperimentTableRows({
             )
           : filteredGuardrails;
 
-    const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
-      getRowsForMetric(metricId, "goal"),
-    );
-    const retSecondary = sortedFilteredSecondary.flatMap((metricId) =>
-      getRowsForMetric(metricId, "secondary"),
-    );
-    const retGuardrails = sortedFilteredGuardrails.flatMap((metricId) =>
-      getRowsForMetric(metricId, "guardrail"),
-    );
-
-    return [...retMetrics, ...retSecondary, ...retGuardrails];
+    return [
+      ...getRowsForMetricGroup(sortedFilteredMetrics, "goal"),
+      ...getRowsForMetricGroup(sortedFilteredSecondary, "secondary"),
+      ...getRowsForMetricGroup(sortedFilteredGuardrails, "guardrail"),
+    ];
   }, [
     results,
     metricGroups,
@@ -471,6 +475,39 @@ export function useExperimentTableRows({
     rows,
     getChildRowCounts,
   };
+}
+
+/**
+ * Rows for one result group, substituting the metrics a newer metric replaces
+ * when the snapshot only has the older ones. Ids in a group are already
+ * deduped, but substitution can reintroduce collisions - two new metrics can
+ * each replace the same older one - so keep the first occurrence.
+ */
+export function generateRowsForMetricGroup({
+  metricIds,
+  ...params
+}: Omit<Parameters<typeof generateRowsForMetric>[0], "metricId"> & {
+  metricIds: string[];
+}): ExperimentTableRow[] {
+  const { results, getExperimentMetricById } = params;
+  const seen = new Set<string>();
+  return metricIds.flatMap((metricId) => {
+    const metric = getExperimentMetricById(metricId);
+    if (!metric) return [];
+    const { metrics, replacedByMetricName } = resolveMetricsForSnapshot({
+      metric,
+      getExperimentMetricById,
+      results: Array.isArray(results) ? results : [results],
+    });
+    return metrics.flatMap((m) => {
+      if (seen.has(m.id)) return [];
+      seen.add(m.id);
+      const rows = generateRowsForMetric({ ...params, metricId: m.id });
+      return replacedByMetricName
+        ? rows.map((row) => ({ ...row, replacedByMetricName }))
+        : rows;
+    });
+  });
 }
 
 export function generateRowsForMetric({

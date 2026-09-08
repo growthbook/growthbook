@@ -4,6 +4,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
+  DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { v4 as uuidv4 } from "uuid";
@@ -580,6 +581,15 @@ export function upgradeOrganizationDoc(
   // the field should inherit the original "always bypass" behaviour.
   if (org.settings.restApiBypassesReviews === undefined) {
     org.settings.restApiBypassesReviews = true;
+  }
+
+  // Default stickyBucketingOnByDefault for orgs that predate this field. Unset
+  // means "on by default" so existing orgs keep defaulting new experiments to
+  // sticky bucketing exactly as they did before the setting existed. An explicit
+  // false (per-experiment opt-in) is preserved.
+  if (org.settings.stickyBucketingOnByDefault === undefined) {
+    org.settings.stickyBucketingOnByDefault =
+      DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT;
   }
 
   // Migrate Arroval Flow Settings

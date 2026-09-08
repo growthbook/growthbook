@@ -145,6 +145,18 @@ export function removeRuleAtEnvIndex(
   return { rules: next, removed };
 }
 
+// Insert directly above the anchor rule; appends when the anchor is gone
+// (deleted in the draft) rather than failing the save.
+export function insertRuleBefore(
+  rules: FeatureRule[],
+  rule: FeatureRule,
+  anchorRuleId: string | undefined,
+): FeatureRule[] {
+  const idx = anchorRuleId ? rules.findIndex((r) => r.id === anchorRuleId) : -1;
+  if (idx === -1) return [...rules, rule];
+  return [...rules.slice(0, idx), rule, ...rules.slice(idx)];
+}
+
 // Remove a rule by its stable id. Removes globally regardless of scope,
 // including pending rules (`environments: []`).
 export function removeRuleById(

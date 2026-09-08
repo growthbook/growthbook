@@ -5,8 +5,12 @@ import type {
   ContextualLeafMapEntry,
   ContextualLeafStatsEntry,
   ContextualSseTrajectoryEntry,
+  ContextualTreeSplit,
 } from "../../types/stats";
-import { computeOverallVariationWeights } from "./contextual-bandit-weights";
+import {
+  computeOverallVariationMeans,
+  computeOverallVariationWeights,
+} from "./contextual-bandit-weights";
 
 /** Minimal variation identity needed to label the leaf-first results view. */
 export type ContextualBanditResultsVariation = {
@@ -18,6 +22,11 @@ export type ContextualBanditOverallVariation = {
   variationId: string;
   variationName?: string;
   weight: number | null;
+  /**
+   * Population-weighted mean outcome for this variation across all contexts:
+   * the expected outcome if this variation served the entire population.
+   */
+  mean: number | null;
   users: number | null;
 };
 
@@ -58,6 +67,11 @@ export type ContextualBanditResultsLeaf = {
 export type ContextualBanditSseStep = {
   numSplits: number;
   totalSse: number;
+  /**
+   * Metadata for the split that produced this stage. Absent on the root stage
+   * (`numSplits === 0`), where no split has been applied yet.
+   */
+  split?: ContextualTreeSplit;
 };
 
 /**
@@ -173,11 +187,13 @@ export function buildContextualBanditResultsView(
     responses,
     numVariations,
   );
+  const overallMeans = computeOverallVariationMeans(responses, numVariations);
   const overallVariations: ContextualBanditOverallVariation[] = Array.from(
     { length: numVariations },
     (_, i) => ({
       ...meta(i),
       weight: overallWeights[i] ?? null,
+      mean: overallMeans[i] ?? null,
       users: responses.reduce(
         (sum, r) => sum + (r.sampleSizePerVariation?.[i] ?? 0),
         0,
@@ -186,7 +202,11 @@ export function buildContextualBanditResultsView(
   );
 
   const sseTrajectory: ContextualBanditSseStep[] = sseTrajectorySnapshot.map(
-    (step) => ({ numSplits: step.numSplits, totalSse: step.totalSse }),
+    (step) => ({
+      numSplits: step.numSplits,
+      totalSse: step.totalSse,
+      ...(step.split ? { split: step.split } : {}),
+    }),
   );
 
   return {

@@ -34,6 +34,7 @@ export type CustomApiHandler<
   validator: RequestSchemas<ParamsSchema, BodySchema, QuerySchema>;
   zodReturnObject: ReturnShape;
   summary: string; // For generating docs, e.g. "Get all dashboards for an experiment"
+  description?: string;
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
   reqHandler: (

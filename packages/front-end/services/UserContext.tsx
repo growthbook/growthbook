@@ -40,6 +40,7 @@ import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { AgreementType } from "shared/validators";
 import { AIProvider } from "shared/ai";
+import { NonJsonResponseError } from "shared/util";
 import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
 import {
   getGrowthBookBuild,
@@ -239,6 +240,29 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   } = useApi<GetOrganizationResponse>(`/organization`, {
     shouldRun: () => !!orgId,
   });
+
+  // An expired auth proxy session (e.g. Google IAP) answers API calls in plain text; only a top-level navigation can re-authenticate it, so reload, at most once a minute
+  const AUTH_PROXY_RELOAD_KEY = "gb-auth-proxy-reload";
+  const proxyAuthError = [error, orgLoadingError].some(
+    (e) =>
+      e instanceof NonJsonResponseError &&
+      (e.status === 401 || e.status === 403),
+  );
+  useEffect(() => {
+    if (!proxyAuthError) return;
+    try {
+      const lastReload = parseInt(
+        window.sessionStorage.getItem(AUTH_PROXY_RELOAD_KEY) || "0",
+        10,
+      );
+      if (Date.now() - lastReload < 60_000) return;
+      window.sessionStorage.setItem(AUTH_PROXY_RELOAD_KEY, `${Date.now()}`);
+    } catch (e) {
+      // no guard available; don't risk a reload loop
+      return;
+    }
+    window.location.reload();
+  }, [proxyAuthError]);
 
   const refreshOrganization = useCallback(
     async (options?: RefreshOrganizationOptions) => {

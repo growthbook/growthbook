@@ -111,7 +111,7 @@ const ArchetypeResults: FC<{
               {details.log?.length > 0 && (
                 <div className="col">
                   <h5>Log</h5>
-                  <div className="bg-white border border-light rounded p-3">
+                  <div className="bg-white border border-light rounded">
                     {details.debugLog.map((log, i) => (
                       <div className="row mb-3" key={i}>
                         <div className="col-auto">

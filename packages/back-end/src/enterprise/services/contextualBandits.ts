@@ -19,14 +19,12 @@ import {
   ContextualBanditQueryInterface,
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
+  getEffectiveContextualAttributes,
   LeafWeight,
   RevisionRampAction,
 } from "shared/validators";
-import {
-  autoMerge,
-  reconcileMergeBaselines,
-  resetReviewOnChange,
-} from "shared/util";
+import type { SDKAttributeSchema } from "shared/types/organization";
+import { autoMerge, reconcileMergeBaselines } from "shared/util";
 import { conditionFromLeafClauses } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
@@ -97,6 +95,7 @@ export async function getContextualBanditLinkedFeatureInfo(
     matchRule: (rule) =>
       rule.type === "contextual-bandit-ref" &&
       rule.contextualBanditId === contextualBandit.id,
+    pendingFeatureDrafts: contextualBandit.pendingFeatureDrafts,
   });
 }
 
@@ -267,7 +266,7 @@ export async function linkFeatureToContextualBandit({
   /** Start a new draft off live rather than reusing an open one. */
   forceNewDraft?: boolean;
 }): Promise<{ version: number; published: boolean; ruleId: string }> {
-  const { org, environments } = context;
+  const { environments } = context;
 
   if (
     rule.type !== "contextual-bandit-ref" ||
@@ -377,12 +376,6 @@ export async function linkFeatureToContextualBandit({
       combinedChanges.title = "Publish contextual bandit";
     }
 
-    const resetReview = resetReviewOnChange({
-      feature,
-      changedEnvironments: ruleEnvFootprint,
-      defaultValueChanged: false,
-      settings: org?.settings,
-    });
     const auditSubject = scopedRule.allEnvironments
       ? "to all environments"
       : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
@@ -397,7 +390,6 @@ export async function linkFeatureToContextualBandit({
         subject: auditSubject,
         value: JSON.stringify(scopedRule),
       },
-      resetReview,
     );
     await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
       environments: ruleEnvFootprint,
@@ -447,7 +439,7 @@ export async function updateContextualBanditFeatureRule({
   feature: FeatureInterface;
   rule: ContextualBanditRefRule;
 }): Promise<{ version: number; published: boolean; ruleIds: string[] }> {
-  const { org, environments } = context;
+  const { environments } = context;
 
   if (
     rule.type !== "contextual-bandit-ref" ||
@@ -556,12 +548,6 @@ export async function updateContextualBanditFeatureRule({
       throw new BadRequestError(noRuleMessage);
     }
 
-    const resetReview = resetReviewOnChange({
-      feature,
-      changedEnvironments: ruleChangedEnvs,
-      defaultValueChanged: false,
-      settings: org?.settings,
-    });
     const updatedRevision = await updateRevision(
       context,
       feature,
@@ -573,7 +559,6 @@ export async function updateContextualBanditFeatureRule({
         subject: `rule ${ruleIds.join(", ")}`,
         value: JSON.stringify(scopedRule),
       },
-      resetReview,
     );
     await recordRevisionUpdate(
       context,
@@ -625,7 +610,7 @@ export async function unlinkFeatureFromContextualBandit({
   revisionVersion: number | null;
   published: boolean;
 }> {
-  const { org, environments } = context;
+  const { environments } = context;
 
   const isRuleForBandit = (r: FeatureRule) =>
     isRuleForContextualBandit(r, contextualBandit.id);
@@ -709,12 +694,6 @@ export async function unlinkFeatureFromContextualBandit({
       changes.rampActions = filteredRampActions;
     }
 
-    const resetReview = resetReviewOnChange({
-      feature,
-      changedEnvironments: ruleChangedEnvs,
-      defaultValueChanged: false,
-      settings: org?.settings,
-    });
     const updatedRevision = await updateRevision(
       context,
       feature,
@@ -726,7 +705,6 @@ export async function unlinkFeatureFromContextualBandit({
         subject: `rule ${removedRuleIds.join(", ")}`,
         value: JSON.stringify(removedRules),
       },
-      resetReview,
     );
     await recordRevisionUpdate(
       context,
@@ -818,6 +796,7 @@ export async function getContextualBanditResultsForUi(
         leaf_map: latestEvent.leaf_map,
         leaf_stats: latestEvent.leaf_stats,
         sse_trajectory: latestEvent.sse_trajectory,
+        bic_trajectory: latestEvent.bic_trajectory,
       }
     : null;
 
@@ -869,7 +848,44 @@ export async function runContextualBanditSnapshot(
   const snapshotSettings = buildContextualBanditSnapshotSettings(
     updatedCb,
     cbQuery,
+    context.org.settings?.attributeSchema,
   );
+
+  const droppedContextualAttributes = updatedCb.contextualAttributes.filter(
+    (a) => !snapshotSettings.contextualAttributes.includes(a),
+  );
+  if (droppedContextualAttributes.length > 0) {
+    const previousSnapshot =
+      await context.models.contextualBanditSnapshots.getLatestForContextualBandit(
+        updatedCb.id,
+      );
+    if (
+      !isEqual(
+        previousSnapshot?.frozenSettings?.contextualAttributes,
+        snapshotSettings.contextualAttributes,
+      )
+    ) {
+      try {
+        await context.auditLog({
+          event: "contextualBandit.update",
+          entity: {
+            object: "contextualBandit",
+            id: updatedCb.id,
+          },
+          details: auditDetailsUpdate(
+            { contextualAttributes: updatedCb.contextualAttributes },
+            { contextualAttributes: snapshotSettings.contextualAttributes },
+            { droppedContextualAttributes, triggeredBy: opts.triggeredBy },
+          ),
+        });
+      } catch (e) {
+        context.logger.error(
+          e,
+          `Error creating audit log for dropped contextual attributes (${updatedCb.id})`,
+        );
+      }
+    }
+  }
 
   const cbs = await context.models.contextualBanditSnapshots.create({
     contextualBandit: updatedCb.id,
@@ -1063,6 +1079,7 @@ export async function persistContextualBanditEvent(
     leaf_map: result.leaf_map,
     leaf_stats: result.leaf_stats,
     sse_trajectory: result.sse_trajectory,
+    bic_trajectory: result.bic_trajectory,
     weightsWereUpdated,
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
     // Store the seed for historical tracking
@@ -1109,8 +1126,20 @@ export async function persistContextualBanditEvent(
 export function buildContextualBanditSnapshotSettings(
   cb: ContextualBanditInterface,
   cbQuery: ContextualBanditQueryInterface,
+  attributeSchema: SDKAttributeSchema | undefined,
 ): ContextualBanditSnapshotSettings {
   const numVariations = cb.variations?.length || 1;
+
+  const effectiveContextualAttributes = getEffectiveContextualAttributes(
+    cb.contextualAttributes,
+    cbQuery.targetingAttributeColumns,
+    attributeSchema,
+  );
+  if (effectiveContextualAttributes.length === 0) {
+    throw new Error(
+      `Contextual bandit ${cb.id} has no usable contextual attributes: none of its selected attributes are on both the query and the attribute schema.`,
+    );
+  }
 
   const banditStart = cb.dateStarted ?? new Date();
   const effectiveEnd = cb.dateStopped ?? new Date();
@@ -1130,8 +1159,7 @@ export function buildContextualBanditSnapshotSettings(
     contextualBanditQueryId: cb.contextualBanditQueryId,
     query: cbQuery.query,
     userIdType: cbQuery.userIdType,
-    contextualAttributes:
-      cbQuery.targetingAttributeColumns ?? cb.contextualAttributes,
+    contextualAttributes: effectiveContextualAttributes,
 
     decisionMetric: cb.decisionMetric ?? "",
     metricSettings: {},
@@ -1201,10 +1229,11 @@ export function buildSnapshotSettingsForCb(
 export function getContextualBanditSettingsForStatsEngine(
   cb: ContextualBanditInterface,
   variationIds: string[],
+  contextualAttributes: string[],
 ): ContextualBanditStatsSettings {
   return {
     varIds: variationIds,
-    contextualAttributes: cb.contextualAttributes,
+    contextualAttributes,
     maxLeaves: cb.maxLeaves,
     minUsersPerLeaf: cb.minUsersPerLeaf,
   };

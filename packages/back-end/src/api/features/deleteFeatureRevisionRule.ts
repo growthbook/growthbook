@@ -1,10 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { deleteFeatureRevisionRuleValidator } from "shared/validators";
-import {
-  getApplicableEnvIds,
-  resetReviewOnChange,
-  ruleAppliesToEnv,
-} from "shared/util";
+import { getApplicableEnvIds, ruleAppliesToEnv } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -125,24 +121,12 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
       }
     }
 
-    await updateRevision(
-      req.context,
-      feature,
-      revision,
-      changes,
-      {
-        user: req.context.auditUser,
-        action: "delete rule",
-        subject: req.params.ruleId,
-        value: JSON.stringify({ environment }),
-      },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: [environment],
-        defaultValueChanged: false,
-        settings: req.organization.settings,
-      }),
-    );
+    await updateRevision(req.context, feature, revision, changes, {
+      user: req.context.auditUser,
+      action: "delete rule",
+      subject: req.params.ruleId,
+      value: JSON.stringify({ environment }),
+    });
 
     // Clean up the SafeRollout only when the rule was removed entirely and
     // the live feature no longer references it. A narrowed rule still exists
