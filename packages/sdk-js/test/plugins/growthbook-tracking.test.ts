@@ -203,7 +203,7 @@ describe("growthbookTrackingPlugin", () => {
     await sleep(150);
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(
-      body.map((event: { event_name: string }) => event.event_name),
+      body.events.map((event: { event_name: string }) => event.event_name),
     ).toEqual([EVENT_EXPERIMENT_VIEWED, "Custom Event"]);
     expect(eventFilter).toHaveBeenCalledTimes(2);
 
