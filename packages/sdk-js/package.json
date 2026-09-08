@@ -28,14 +28,14 @@
         "default": "./dist/cjs/plugins/index.js"
       }
     },
-    "./plugins/session-replay": {
+    "./plugins/*": {
       "import": {
-        "types": "./dist/plugins/session-replay/index.d.ts",
-        "default": "./dist/esm/plugins/session-replay/index.mjs"
+        "types": "./dist/plugins/*/index.d.ts",
+        "default": "./dist/esm/plugins/*/index.mjs"
       },
       "require": {
-        "types": "./dist/plugins/session-replay/index.d.ts",
-        "default": "./dist/cjs/plugins/session-replay/index.js"
+        "types": "./dist/plugins/*/index.d.ts",
+        "default": "./dist/cjs/plugins/*/index.js"
       }
     }
   },

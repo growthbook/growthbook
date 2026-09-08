@@ -134,7 +134,6 @@ export function sessionReplayPlugin({
   let gbRef: GrowthBook | null = null;
 
   // defaults ← constructor options ← remote sdkSettings from the payload
-  // (cached payloads make this usually right even at init)
   const resolveSettings = (): Required<SessionReplaySettings> =>
     mergeSettings(
       DEFAULT_SETTINGS,
