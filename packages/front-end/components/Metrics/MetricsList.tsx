@@ -192,9 +192,16 @@ export interface MetricTableItem {
 
 export function useCombinedMetrics({
   setMetricModalProps,
+  enableRowActions,
   afterArchive,
 }: {
+  // Still the legacy-metric edit/duplicate mechanism (opens MetricForm via
+  // the modal state) - not a stand-in for "does this caller want row
+  // actions" anymore now that fact metrics navigate instead of using it.
   setMetricModalProps?: (props: MetricModalState) => void;
+  // The real "did this caller opt into row actions" signal, explicit rather
+  // than inferred from setMetricModalProps's presence.
+  enableRowActions?: boolean;
   afterArchive?: (id: string, archived: boolean) => void;
 }): MetricTableItem[] {
   const {
@@ -258,7 +265,7 @@ export function useCombinedMetrics({
             }
           : undefined,
         onDuplicate:
-          canDuplicate && setMetricModalProps
+          canDuplicate && enableRowActions && setMetricModalProps
             ? () =>
                 setMetricModalProps({
                   mode: "duplicate",
@@ -275,7 +282,7 @@ export function useCombinedMetrics({
                 })
             : undefined,
         onEdit:
-          canEdit && setMetricModalProps
+          canEdit && enableRowActions && setMetricModalProps
             ? () =>
                 setMetricModalProps({
                   mode: "edit",
@@ -342,15 +349,12 @@ export function useCombinedMetrics({
               }
             }
           : undefined,
-        // `setMetricModalProps` is kept as the "did this caller opt into row
-        // actions" gate (matching the legacy-metric branch below), even
-        // though fact metrics navigate instead of calling it directly.
         onDuplicate:
-          canDuplicate && setMetricModalProps
+          canDuplicate && enableRowActions
             ? () => router.push(`/fact-metrics/new?duplicate=${m.id}`)
             : undefined,
         onEdit:
-          canEdit && setMetricModalProps
+          canEdit && enableRowActions
             ? () => router.push(`/fact-metrics/${m.id}`)
             : undefined,
         onDelete: canDelete
@@ -397,6 +401,7 @@ const MetricsList = (): React.ReactElement => {
   const [showArchived, setShowArchived] = useState(false);
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
+    enableRowActions: true,
   });
 
   const metrics = useAddComputedFields(
