@@ -171,6 +171,15 @@ export interface SqlDialect {
   // parse back to the identical instant. Used to persist exact incremental
   // refresh watermarks. Dialects without a known-lossless format return NULL.
   formatTimestampExact: (column: string) => string;
+  // Renders a quoted 'YYYY-MM-DD HH:MM:SS.fff…' string (the shape
+  // formatTimestampExact prints) as a temporal literal that compares with a
+  // user timestamp column at the string's full precision. Absent,
+  // castToTimestamp is used. Override where that cast can't do the job:
+  // BigQuery returns the bare literal, which coerces to DATETIME or TIMESTAMP
+  // alike; Presto returns a typed literal, whose precision follows the string
+  // where CAST would round it. Used e.g. by incremental refresh filters
+  // (`<column> > <literal>`).
+  exactTimestampLiteral?: (quoted: string) => string;
   selectStarLimit: (
     from: string,
     limit: number,
