@@ -16,7 +16,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Frame from "@/ui/Frame";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -207,36 +206,39 @@ export default function MetricWorkspace({
     setIsEditing(false);
   }
 
-  const actionBar = isEditing && (
-    <Frame>
-      {error && (
-        <Callout status="error" mb="2">
-          {error}
-        </Callout>
-      )}
-      <Flex justify="between" align="center">
-        <Text color="text-mid">
-          {existing ? "Editing metric" : "Creating a new metric"}
-        </Text>
-        <Flex gap="2">
-          <Button variant="soft" color="gray" onClick={handleDiscard}>
-            {onCancel ? "Cancel" : "Discard"}
-          </Button>
-          <Button
-            onClick={handleSave}
-            setError={setError}
-            disabled={!representable}
-          >
-            Save
-          </Button>
-        </Flex>
+  const actionRow = isEditing && (
+    <Flex
+      justify="between"
+      align="center"
+      py="3"
+      px="4"
+      style={{
+        background: "var(--color-panel-solid)",
+        borderRadius: "var(--radius-3)",
+      }}
+    >
+      <Text color="text-mid">
+        {existing ? "Editing metric" : "Creating a new metric"}
+      </Text>
+      <Flex gap="2">
+        <Button variant="soft" color="gray" onClick={handleDiscard}>
+          {onCancel ? "Cancel" : "Discard"}
+        </Button>
+        <Button
+          onClick={handleSave}
+          setError={setError}
+          disabled={!representable}
+        >
+          Save
+        </Button>
       </Flex>
-    </Frame>
+    </Flex>
   );
 
   return (
     <Flex direction="column" gap="3">
-      {actionBar}
+      {isEditing && error && <Callout status="error">{error}</Callout>}
+      {actionRow}
       <MetricEditor
         form={form}
         canEdit={isEditing}
@@ -244,9 +246,10 @@ export default function MetricWorkspace({
         onFunnelSettingsChange={setFunnelSettings}
       />
       {/* Editing a metric definition is a long form (type, definition,
-          basics, advanced settings) - repeat the actions at the bottom so
-          Save/Discard don't scroll out of reach. */}
-      {actionBar}
+          basics, advanced settings) - repeat just the buttons at the bottom
+          so Save/Discard don't scroll out of reach. The error stays above,
+          not duplicated here. */}
+      {actionRow}
     </Flex>
   );
 }
