@@ -24,7 +24,7 @@ export const prestoDialect: SqlDialect = {
   // A typed literal takes its precision from the string, so a timestamp(6)
   // watermark compares exactly with a timestamp(6) column. `CAST(... AS
   // TIMESTAMP)` is timestamp(3) on Trino and rounds the value first. A bare
-  // string is a type error against a timestamp on both Presto and Trino.
+  // string is a type error against a timestamp on Trino/Presto.
   exactTimestampLiteral: (quoted: string) => `TIMESTAMP ${quoted}`,
   dateDiff: (startCol: string, endCol: string) =>
     `date_diff('day', ${startCol}, ${endCol})`,
