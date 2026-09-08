@@ -63,19 +63,11 @@ function RatioPart({
           {label}
         </Text>
         <DataList
+          maxColumns={1}
           data={[
             {
               label: "Fact Table",
               value: <FactTableLink id={value.factTableId} />,
-            },
-            {
-              label: "Row Filter",
-              value: (
-                <FilterSummary
-                  rowFilters={value.rowFilters || []}
-                  factTable={factTable}
-                />
-              ),
             },
             {
               label: "Value",
@@ -90,6 +82,13 @@ function RatioPart({
                 ]
               : []),
           ]}
+        />
+        <Text weight="semibold" size="sm" mt="2" as="div">
+          Row Filter
+        </Text>
+        <FilterSummary
+          rowFilters={value.rowFilters || []}
+          factTable={factTable}
         />
       </Frame>
     );
