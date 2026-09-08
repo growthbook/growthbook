@@ -7,6 +7,7 @@ import {
   TrackingCallback,
 } from "./types/growthbook";
 import { GrowthBook } from "./GrowthBook";
+import { EVENT_EXPERIMENT_VIEWED } from "./core";
 import {
   BrowserCookieStickyBucketService,
   LocalStorageStickyBucketService,
@@ -18,6 +19,9 @@ import {
   thirdPartyTrackingPlugin,
   Trackers,
 } from "./plugins/third-party-tracking";
+import { autoEventsPlugin } from "./plugins/auto-events";
+import type { AutoEventsSettings } from "./plugins/auto-events";
+import type { SessionReplayPrivacyConfig } from "./plugins/session-replay";
 
 type WindowContext = Context & {
   uuidCookieName?: string;
@@ -34,6 +38,10 @@ type WindowContext = Context & {
   antiFlicker?: boolean;
   antiFlickerTimeout?: number;
   additionalTrackingCallback?: TrackingCallback;
+  browserEvents?: AutoEventsSettings;
+  // Consumed by auto-wrapper-plus
+  trackingHost?: string;
+  sessionReplay?: { enabled?: boolean; privacy?: SessionReplayPrivacyConfig };
 };
 declare global {
   interface Window {
@@ -141,41 +149,92 @@ const plugins: Plugin[] = [
     uuidCookieName: windowContext.uuidCookieName || dataContext.uuidCookieName,
     uuidCookieDomain,
     uuidKey: windowContext.uuidKey || dataContext.uuidKey,
-    uuidAutoPersist: !uuid && dataContext.noAutoCookies == null,
+    uuidAutoPersist: !uuid && (dataContext.noAutoCookies ?? null) === null,
   }),
 ];
 
+// Script-tag surface for auto-events: per-stream opt-in booleans plus optional
+// sampling rates (dataset key → setting). Everything else is configured via
+// window.growthbook_config.browserEvents.
+const BROWSER_EVENTS_BOOL_ATTRS: Record<string, keyof AutoEventsSettings> = {
+  trackCwv: "trackCWV",
+  trackErrors: "trackErrors",
+  trackPageViews: "trackPageViews",
+  trackEngagement: "trackEngagement",
+  trackInteractions: "trackInteractions",
+};
+const BROWSER_EVENTS_RATE_ATTRS: (keyof AutoEventsSettings)[] = [
+  "cwvSamplingRate",
+  "errorSamplingRate",
+  "pageViewSamplingRate",
+  "engagementSamplingRate",
+  "interactionSamplingRate",
+];
+
+function readAutoEventsSettings(): AutoEventsSettings {
+  const out: Record<string, unknown> = { ...windowContext.browserEvents };
+  for (const [attr, key] of Object.entries(BROWSER_EVENTS_BOOL_ATTRS)) {
+    const raw = dataContext[attr];
+    if (raw !== undefined) out[key] = raw === "true";
+  }
+  for (const key of BROWSER_EVENTS_RATE_ATTRS) {
+    const raw = dataContext[key];
+    if (raw !== undefined) out[key] = parseFloat(raw);
+  }
+  return out as AutoEventsSettings;
+}
+
+const browserEventsSettings = readAutoEventsSettings();
+// Streams are opt-in; sampling rates never decide whether a stream exists
+// (a payload-delivered rate may later override the local one)
+const autoEventsEnabled = Object.values(BROWSER_EVENTS_BOOL_ATTRS).some(
+  (key) => browserEventsSettings[key] === true,
+);
+
 const tracking = dataContext.tracking || "gtag,gtm,segment";
-if (tracking !== "none") {
-  const trackers = tracking
-    .toLowerCase()
-    .split(",")
-    .map((t) => t.trim());
+const trackers =
+  tracking !== "none"
+    ? tracking
+        .toLowerCase()
+        .split(",")
+        .map((t) => t.trim())
+    : [];
 
-  if (trackers.includes("growthbook")) {
-    const eventTransport =
-      windowContext.eventTransport || dataContext.eventTransport;
-    plugins.push(
-      growthbookTrackingPlugin({
-        ingestorHost: dataContext.eventIngestorHost,
-        transport:
-          eventTransport === "auto" ||
-          eventTransport === "beacon" ||
-          eventTransport === "fetch"
-            ? eventTransport
-            : undefined,
-      }),
-    );
-  }
+// Perf events need a logger even when "growthbook" isn't a configured
+// tracker — but then only perf/custom events ship, not every exposure and
+// feature evaluation the user never opted into sending
+const growthbookTracking = trackers.includes("growthbook");
+if (growthbookTracking || autoEventsEnabled) {
+  const eventTransport =
+    windowContext.eventTransport || dataContext.eventTransport;
+  plugins.push(
+    growthbookTrackingPlugin({
+      ingestorHost: dataContext.eventIngestorHost,
+      transport:
+        eventTransport === "auto" ||
+        eventTransport === "beacon" ||
+        eventTransport === "fetch"
+          ? eventTransport
+          : undefined,
+      enableFeatureUsageEvents: growthbookTracking,
+      eventFilter: growthbookTracking
+        ? undefined
+        : (e) => e.eventName !== EVENT_EXPERIMENT_VIEWED,
+    }),
+  );
+}
 
-  if (!windowContext.trackingCallback) {
-    plugins.push(
-      thirdPartyTrackingPlugin({
-        additionalCallback: windowContext.additionalTrackingCallback,
-        trackers: trackers as Trackers[],
-      }),
-    );
-  }
+if (tracking !== "none" && !windowContext.trackingCallback) {
+  plugins.push(
+    thirdPartyTrackingPlugin({
+      additionalCallback: windowContext.additionalTrackingCallback,
+      trackers: trackers as Trackers[],
+    }),
+  );
+}
+
+if (autoEventsEnabled) {
+  plugins.push(autoEventsPlugin(browserEventsSettings));
 }
 
 // Create GrowthBook instance
@@ -237,3 +296,4 @@ window.growthbook_queue = {
 
 // Store a reference in window to enable more advanced use cases
 export default gb;
+export { dataContext, windowContext };

@@ -1,0 +1,4 @@
+{
+  "main": "../../dist/cjs/plugins/auto-events/index.js",
+  "types": "../../dist/plugins/auto-events/index.d.ts"
+}

@@ -1,3 +1,5 @@
+import { hash, toString } from "../../util";
+import type { Attributes } from "../../types/growthbook";
 import { readSessionJSON, writeSessionJSON } from "./storage";
 
 type StoredDecision = {
@@ -41,4 +43,46 @@ export function persistSampleDecision(
   sampled: boolean,
 ): void {
   writeSessionJSON(storageKey, { scopeId, sampled });
+}
+
+// Deterministic hash-based sampling: a stable cohort per attribute value
+export function shouldSample({
+  rate,
+  hashAttribute,
+  attributes,
+  seed = "",
+}: {
+  rate: number;
+  hashAttribute?: string;
+  attributes?: Attributes;
+  seed?: string;
+}) {
+  if (rate >= 1) return true;
+  if (rate <= 0) return false;
+  const attributeValue = hashAttribute
+    ? attributes?.[hashAttribute]
+    : undefined;
+  const samplingValue = toString(attributeValue);
+  if (typeof samplingValue === "string") {
+    const v = hash(seed, samplingValue, 2);
+    return v !== null && v < rate;
+  }
+  return Math.random() < rate;
+}
+
+// Bad rates warn and fall back rather than throw — an observability typo
+// must never take the SDK down with it
+export function normalizeSamplingRate(
+  rate: number | undefined,
+  fallback: number,
+  label: string,
+): number {
+  if (rate === undefined) return fallback;
+  if (typeof rate !== "number" || !isFinite(rate) || rate < 0 || rate > 1) {
+    console.warn(
+      `autoEventsPlugin: ${label} must be between 0 and 1 (got ${rate}); using ${fallback}`,
+    );
+    return fallback;
+  }
+  return rate;
 }

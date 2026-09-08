@@ -42,6 +42,7 @@ type EventPayload = {
   sdk_language: string;
   sdk_version: string;
   url: string;
+  timestamp: string;
   context_json: Record<string, unknown>;
   user_id: string | null;
   device_id: string | null;
@@ -121,6 +122,7 @@ type EventData = {
   properties: EventProperties;
   attributes: Attributes;
   url: string;
+  timestamp: string;
 };
 
 function getEventPayload({
@@ -128,6 +130,7 @@ function getEventPayload({
   properties,
   attributes,
   url,
+  timestamp,
 }: EventData): EventPayload {
   const { nested, topLevel } = parseAttributes(attributes || {});
 
@@ -138,6 +141,7 @@ function getEventPayload({
     sdk_language: "js",
     sdk_version: SDK_VERSION,
     url: url,
+    timestamp,
     context_json: nested,
   };
 }
@@ -160,7 +164,11 @@ async function track({
   const endpoint = `${
     ingestorHost || "https://us-east-1.gb-ingest.com"
   }/track?client_key=${clientKey}`;
-  const body = JSON.stringify(events);
+  const payload = {
+    events,
+    sentAt: new Date().toISOString(),
+  };
+  const body = JSON.stringify(payload);
 
   // sendBeacon is queued by the browser and survives page unload even where
   // fetch keepalive is unsupported. text/plain keeps it a CORS simple request.
@@ -237,6 +245,8 @@ export function growthbookTrackingPlugin({
     if ("setEventLogger" in gb) {
       let _q: EventPayload[] = [];
       let timer: NodeJS.Timeout | null = null;
+      let isUnloading = false;
+      let immediateFlush: Promise<void> | null = null;
       let promise: Promise<void> | null = null;
       let flushDone: (() => void) | null = null;
       const flush = async (unloading?: boolean) => {
@@ -269,6 +279,7 @@ export function growthbookTrackingPlugin({
           properties,
           attributes: userContext.attributes || {},
           url: userContext.url || "",
+          timestamp: new Date().toISOString(),
         };
 
         if (
@@ -331,6 +342,24 @@ export function growthbookTrackingPlugin({
 
         _q.push(payload);
 
+        // Hidden or unloading pages may be frozen before a delayed flush
+        // fires (mobile app-switch). Flush on a microtask so events logged
+        // in the same tick — e.g. the CWV finals — share one beacon.
+        if (
+          isUnloading ||
+          (typeof document !== "undefined" &&
+            document.visibilityState === "hidden")
+        ) {
+          if (!immediateFlush) {
+            immediateFlush = Promise.resolve().then(() => {
+              immediateFlush = null;
+              return flush(true);
+            });
+          }
+          await immediateFlush;
+          return;
+        }
+
         // Only one in-progress promise at a time
         if (!promise) {
           promise = new Promise((resolve) => {
@@ -346,6 +375,8 @@ export function growthbookTrackingPlugin({
 
       // Flush the queue on page unload. Listeners are removed on destroy so
       // SPA re-inits don't accumulate handlers over dead instances.
+      // visibilitychange → hidden doesn't set isUnloading so a tab switch
+      // doesn't degrade batching for the rest of the page.
       if (typeof document !== "undefined" && document.visibilityState) {
         const onVisibilityChange = () => {
           if (document.visibilityState === "hidden") {
@@ -361,16 +392,25 @@ export function growthbookTrackingPlugin({
             ),
           );
       }
-      // pagehide fires on navigations where visibilitychange may not
+      // pagehide fires on navigations where visibilitychange may not; it's the
+      // real unload signal, so later events skip the queue delay
       if (typeof window !== "undefined") {
         const onPageHide = () => {
+          isUnloading = true;
           flush(true).catch(console.error);
         };
+        // A bfcache restore is fully live again; don't leave the unload
+        // fast-path (per-event beacons) stuck on
+        const onPageShow = (event: PageTransitionEvent) => {
+          if (event.persisted) isUnloading = false;
+        };
         window.addEventListener("pagehide", onPageHide);
+        window.addEventListener("pageshow", onPageShow);
         "onDestroy" in gb &&
-          gb.onDestroy(() =>
-            window.removeEventListener("pagehide", onPageHide),
-          );
+          gb.onDestroy(() => {
+            window.removeEventListener("pagehide", onPageHide);
+            window.removeEventListener("pageshow", onPageShow);
+          });
       }
 
       // Flush the queue when the growthbook instance is destroyed
