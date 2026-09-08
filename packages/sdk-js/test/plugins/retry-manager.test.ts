@@ -4,7 +4,7 @@ import {
   RetryExhaustedError,
   RetryCancelledError,
   BackoffConfig,
-} from "../../src/plugins/utils/retry-manager";
+} from "../../src/plugins/session-replay/retry-manager";
 
 function createTestScheduler() {
   const calls: Array<{ fn: () => void; delay: number }> = [];

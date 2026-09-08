@@ -30,7 +30,7 @@ function finiteNumber(value: unknown): number | null {
 }
 
 // Mint-once persisted ephemeral ID, valid within the configured time bounds.
-// Falls back to in-memory state when storage is unavailable (incognito, Node).
+// Falls back to in-memory state when storage is unavailable.
 export function createPersistedEphemeralId(config: PersistedEphemeralIdConfig) {
   const getStorage = config.storage ?? getSessionStorage;
   let inMemoryFallback: StoredIdState | null = null;
