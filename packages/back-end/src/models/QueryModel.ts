@@ -274,9 +274,7 @@ export async function touchQueuedQueriesHeartbeat(
   ids: string[],
 ): Promise<number> {
   if (!ids.length) return 0;
-  // Filtered on "queued" in Mongo, not on the caller's pointer status, which
-  // lags: a doc already promoted to running must not get a queued-style beat,
-  // and a never-resolved cache-copy doc would otherwise stay alive forever.
+
   const result = await QueryModel.updateMany(
     {
       organization: context.org.id,

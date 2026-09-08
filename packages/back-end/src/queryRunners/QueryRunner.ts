@@ -223,7 +223,7 @@ export abstract class QueryRunner<
   private dagPersisted = false;
   private useCache: boolean;
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
-  private lockHeartbeatTimer: null | NodeJS.Timeout = null;
+  private heartbeatTimer: null | NodeJS.Timeout = null;
   private refreshWatchdogTimer: null | NodeJS.Timeout = null;
   /** Non-null while a refresh pass is in flight; watchdog skips re-arm then. */
   private refreshStartedAt: number | null = null;
@@ -307,34 +307,31 @@ export abstract class QueryRunner<
    */
   protected onHeartbeat(): void {}
 
-  private startLockHeartbeat(): void {
-    if (this.lockHeartbeatTimer) return;
-    this.lockHeartbeatTimer = setInterval(() => {
+  private startHeartbeat(): void {
+    if (this.heartbeatTimer) return;
+    this.heartbeatTimer = setInterval(() => {
       this.onHeartbeat();
       this.heartbeatQueuedQueries();
     }, 30000);
   }
 
   /**
-   * Lets the stalled-snapshot reaper tell a live runner whose queries are
-   * waiting on the concurrency cap from a runner whose process died.
+   * While the query is queued, update the heartbeat to show that this
+   * runner is still alive and monitoring the dependencies and will start
+   * the query when ready.
    */
   private heartbeatQueuedQueries(): void {
-    // "running" pointers are included because pointer status lags Mongo; the
-    // model's own "queued" filter decides which docs get the beat.
-    const ids = this.model.queries
-      .filter((q) => q.status === "queued" || q.status === "running")
-      .map((q) => q.query);
+    const ids = this.model.queries.map((q) => q.query);
     if (!ids.length) return;
     touchQueuedQueriesHeartbeat(this.context, ids).catch((e) =>
       logger.warn(e, `Failed to heartbeat queued queries for ${this.model.id}`),
     );
   }
 
-  private stopLockHeartbeat(): void {
-    if (this.lockHeartbeatTimer) {
-      clearInterval(this.lockHeartbeatTimer);
-      this.lockHeartbeatTimer = null;
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
     }
   }
 
@@ -665,12 +662,12 @@ export abstract class QueryRunner<
     this.result = result;
 
     if (this.status === "running") {
-      this.startLockHeartbeat();
+      this.startHeartbeat();
       this.startRefreshWatchdog();
     }
 
     if (this.status === "finished") {
-      this.stopLockHeartbeat();
+      this.stopHeartbeat();
       this.stopRefreshWatchdog();
       this.emitter.emit(FINISH_EVENT);
     }

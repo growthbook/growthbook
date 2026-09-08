@@ -125,13 +125,13 @@ describe("classifyStalledSnapshot", () => {
   const cases: {
     name: string;
     ageMs: number;
-    statuses: StalledQueryStatus[];
+    queryStatuses: StalledQueryStatus[];
     expected: StalledSnapshotVerdict;
   }[] = [
     {
       name: "something is still running",
       ageMs: 3 * HOUR,
-      statuses: [
+      queryStatuses: [
         row("qry_1", "running", { createdAgoMs: 3 * HOUR }),
         row("qry_2", "queued", {
           createdAgoMs: 3 * HOUR,
@@ -144,7 +144,7 @@ describe("classifyStalledSnapshot", () => {
     {
       name: "never-heartbeated queued queries on a young snapshot",
       ageMs: 10 * MIN,
-      statuses: [
+      queryStatuses: [
         row("qry_1", "queued", { createdAgoMs: 10 * MIN }),
         row("qry_2", "queued", { createdAgoMs: 10 * MIN }),
       ],
@@ -153,7 +153,7 @@ describe("classifyStalledSnapshot", () => {
     {
       name: "never-heartbeated queued queries past the legacy threshold",
       ageMs: 71 * MIN,
-      statuses: [
+      queryStatuses: [
         row("qry_1", "queued", { createdAgoMs: 71 * MIN }),
         row("qry_2", "queued", { createdAgoMs: 71 * MIN }),
       ],
@@ -162,7 +162,7 @@ describe("classifyStalledSnapshot", () => {
     {
       name: "fresh beats on an hours-old snapshot",
       ageMs: 3 * HOUR,
-      statuses: [
+      queryStatuses: [
         row("qry_1", "queued", {
           createdAgoMs: 3 * HOUR,
           heartbeatAgoMs: 2 * MIN,
@@ -177,7 +177,7 @@ describe("classifyStalledSnapshot", () => {
     {
       name: "stale beats minutes after the runner died",
       ageMs: 12 * MIN,
-      statuses: [
+      queryStatuses: [
         row("qry_1", "queued", {
           createdAgoMs: 12 * MIN,
           heartbeatAgoMs: 6 * MIN,
@@ -192,7 +192,7 @@ describe("classifyStalledSnapshot", () => {
     {
       name: "one fresh beat alongside a never-heartbeated query",
       ageMs: 3 * HOUR,
-      statuses: [
+      queryStatuses: [
         row("qry_1", "queued", {
           createdAgoMs: 3 * HOUR,
           heartbeatAgoMs: 1 * MIN,
@@ -204,7 +204,7 @@ describe("classifyStalledSnapshot", () => {
     {
       name: "stale beat with one query already succeeded",
       ageMs: 12 * MIN,
-      statuses: [
+      queryStatuses: [
         row("qry_1", "succeeded", {
           createdAgoMs: 30 * MIN,
           finishedAgoMs: 20 * MIN,
@@ -219,7 +219,7 @@ describe("classifyStalledSnapshot", () => {
     {
       name: "heartbeat only a millisecond past createdAt is not a real beat",
       ageMs: 3 * HOUR,
-      statuses: [
+      queryStatuses: [
         row("qry_1", "queued", {
           createdAgoMs: 3 * HOUR,
           heartbeatAgoMs: 3 * HOUR - 1,
@@ -234,7 +234,7 @@ describe("classifyStalledSnapshot", () => {
     {
       name: "all succeeded on a young snapshot",
       ageMs: 30 * MIN,
-      statuses: [
+      queryStatuses: [
         row("qry_1", "succeeded", {
           createdAgoMs: 30 * MIN,
           finishedAgoMs: 25 * MIN,
@@ -249,7 +249,7 @@ describe("classifyStalledSnapshot", () => {
     {
       name: "all succeeded but still inside the finalize grace window",
       ageMs: 2 * HOUR,
-      statuses: [
+      queryStatuses: [
         row("qry_1", "succeeded", {
           createdAgoMs: 2 * HOUR,
           finishedAgoMs: 30 * MIN,
@@ -264,7 +264,7 @@ describe("classifyStalledSnapshot", () => {
     {
       name: "all succeeded and past the finalize grace window",
       ageMs: 2 * HOUR,
-      statuses: [
+      queryStatuses: [
         row("qry_1", "succeeded", {
           createdAgoMs: 2 * HOUR,
           finishedAgoMs: 30 * MIN,
@@ -279,7 +279,7 @@ describe("classifyStalledSnapshot", () => {
     {
       name: "succeeded plus failed, past the finalize grace window",
       ageMs: 2 * HOUR,
-      statuses: [
+      queryStatuses: [
         row("qry_1", "succeeded", {
           createdAgoMs: 2 * HOUR,
           finishedAgoMs: 20 * MIN,
@@ -293,10 +293,10 @@ describe("classifyStalledSnapshot", () => {
     },
   ];
 
-  it.each(cases)("$name -> $expected", ({ ageMs, statuses, expected }) => {
+  it.each(cases)("$name -> $expected", ({ ageMs, queryStatuses, expected }) => {
     expect(
       classifyStalledSnapshot({
-        statuses,
+        queryStatuses,
         snapshotDateCreated: new Date(NOW - ageMs),
         now: NOW,
       }),
