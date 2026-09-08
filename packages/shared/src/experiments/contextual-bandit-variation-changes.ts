@@ -142,3 +142,14 @@ export function reconcileVariationWeights(
       : { variationId: id, weight: 1 / denom },
   );
 }
+
+export function nextContextualBanditVariationKey(
+  existingKeys: readonly string[],
+): string {
+  let max = -1;
+  for (const key of existingKeys) {
+    const n = parseInt(key, 10);
+    if (Number.isFinite(n) && String(n) === key && n > max) max = n;
+  }
+  return String(max + 1);
+}

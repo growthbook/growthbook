@@ -8,6 +8,7 @@ import {
   isDeactivatedVariation,
   isPendingVariation,
   MIN_CONTEXTUAL_BANDIT_VARIATIONS,
+  nextContextualBanditVariationKey,
   reconcileVariationWeights,
 } from "../src/experiments/contextual-bandit-variation-changes";
 
@@ -274,5 +275,67 @@ describe("variation lifecycle helpers", () => {
     const res = reconcileVariationWeights(current, activeIds, "redistribute");
     expect(res.map((p) => p.variationId)).toEqual(["a", "b"]);
     expect(res.reduce((s, p) => s + p.weight, 0)).toBeCloseTo(1, 9);
+  });
+});
+
+describe("nextContextualBanditVariationKey", () => {
+  it('returns "0" for an empty list', () => {
+    expect(nextContextualBanditVariationKey([])).toBe("0");
+  });
+
+  it("returns max+1 across strict integer keys", () => {
+    expect(nextContextualBanditVariationKey(["0", "1", "2"])).toBe("3");
+    expect(nextContextualBanditVariationKey(["7", "3", "5"])).toBe("8");
+  });
+
+  it("ignores non-numeric and non-canonical keys", () => {
+    expect(
+      nextContextualBanditVariationKey([
+        "helloworld",
+        "manual",
+        "var_mtgtt9sv",
+      ]),
+    ).toBe("0");
+    expect(nextContextualBanditVariationKey(["1", "01", "2"])).toBe("3");
+    expect(nextContextualBanditVariationKey(["1abc", "2"])).toBe("3");
+  });
+
+  it("counts tombstoned arm keys so the counter is monotonic across deletes", () => {
+    expect(nextContextualBanditVariationKey(["0", "1", "2", "3", "4"])).toBe(
+      "5",
+    );
+  });
+
+  it("tolerates duplicates and existing gaps: max wins", () => {
+    expect(
+      nextContextualBanditVariationKey([
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "20",
+        "22",
+        "23",
+        "19",
+        "20",
+        "21",
+        "22",
+        "helloworld",
+        "manual",
+        "var_mtgtt9sv",
+      ]),
+    ).toBe("24");
   });
 });

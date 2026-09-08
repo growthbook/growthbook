@@ -25,6 +25,7 @@ import {
 } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import { isFactMetricId } from "shared/experiments";
+import { NotFoundError } from "back-end/src/util/errors";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   cancelContextualBanditEndpoint,
@@ -93,7 +94,9 @@ const BaseClass = MakeModelClass({
             req.params.id,
           );
           if (!cb) {
-            return req.context.throwNotFoundError();
+            return req.context.throwNotFoundError(
+              `Contextual Bandit ${req.params.id} not found or not accessible`,
+            );
           }
           const envs =
             req.context.org.settings?.environments?.map((e) => e.id) ?? [];
@@ -125,7 +128,9 @@ const BaseClass = MakeModelClass({
             req.params.id,
           );
           if (!cb) {
-            return req.context.throwNotFoundError();
+            return req.context.throwNotFoundError(
+              `Contextual Bandit ${req.params.id} not found or not accessible`,
+            );
           }
           const envs =
             req.context.org.settings?.environments?.map((e) => e.id) ?? [];
@@ -149,7 +154,9 @@ const BaseClass = MakeModelClass({
             req.params.id,
           );
           if (!cb) {
-            return req.context.throwNotFoundError();
+            return req.context.throwNotFoundError(
+              `Contextual Bandit ${req.params.id} not found or not accessible`,
+            );
           }
           const envs =
             req.context.org.settings?.environments?.map((e) => e.id) ?? [];
@@ -170,7 +177,9 @@ const BaseClass = MakeModelClass({
             req.params.id,
           );
           if (!cb) {
-            return req.context.throwNotFoundError();
+            return req.context.throwNotFoundError(
+              `Contextual Bandit ${req.params.id} not found or not accessible`,
+            );
           }
           if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
             req.context.permissions.throwPermissionError();
@@ -200,7 +209,9 @@ const BaseClass = MakeModelClass({
             req.params.id,
           );
           if (!cb) {
-            return req.context.throwNotFoundError();
+            return req.context.throwNotFoundError(
+              `Contextual Bandit ${req.params.id} not found or not accessible`,
+            );
           }
           const envs =
             req.context.org.settings?.environments?.map((e) => e.id) ?? [];
@@ -452,7 +463,9 @@ export class ContextualBanditModel extends BaseClass {
   ): Promise<ContextualBanditInterface> {
     const existingCB = await this.getById(cbId);
     if (!existingCB) {
-      throw new Error(`ContextualBandit not found: ${cbId}`);
+      throw new NotFoundError(
+        `Contextual Bandit ${cbId} not found or not accessible`,
+      );
     }
     if (!changes.bypassPermissionCheck && !this.canUpdate(existingCB)) {
       this.context.permissions.throwPermissionError();

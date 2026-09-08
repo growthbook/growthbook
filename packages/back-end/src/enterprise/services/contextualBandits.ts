@@ -27,7 +27,6 @@ import {
 } from "shared/validators";
 import {
   autoMerge,
-  generateVariationId,
   reconcileMergeBaselines,
   resetReviewOnChange,
   validateFeatureValue,
@@ -41,6 +40,7 @@ import {
   getVisibleVariations,
   isDeactivatedVariation,
   isPendingVariation,
+  nextContextualBanditVariationKey,
   reconcileVariationWeights,
   WeightReconcileMode,
 } from "shared/experiments";
@@ -75,6 +75,7 @@ import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
 import {
   ApprovalRequiredError,
   BadRequestError,
+  NotFoundError,
 } from "back-end/src/util/errors";
 import {
   PendingDraftFailure,
@@ -174,7 +175,9 @@ async function getRulesForTargetVersion(
     version: targetVersion,
   });
   if (!existingDraft) {
-    throw new Error("Cannot find revision");
+    throw new NotFoundError(
+      `Revision ${targetVersion} for Feature Flag ${feature.id} not found`,
+    );
   }
   return existingDraft.rules ?? [];
 }
@@ -1089,11 +1092,24 @@ export async function executeContextualBanditVariationChange(
   const previousById = new Map(previousVisible.map((v) => [v.id, v]));
 
   const generatedIds = new Set<string>();
+  let nextKeyCounter: number | null = null;
+  const nextKey = () => {
+    if (nextKeyCounter === null) {
+      nextKeyCounter = parseInt(
+        nextContextualBanditVariationKey(cb.variations.map((x) => x.key)),
+        10,
+      );
+    }
+    return String(nextKeyCounter++);
+  };
   const newVariations: ContextualBanditVariation[] = requestedVariations.map(
     (v) => {
       const id = v.id || generateVariationId();
       if (!v.id) generatedIds.add(id);
-      return { ...v, id, screenshots: v.screenshots ?? [] };
+      const isNewArm = !previousById.has(id) && !tombstoneIds.has(id);
+      const keyIsAutoFilled = !v.key || v.key === v.id;
+      const key = isNewArm && keyIsAutoFilled ? nextKey() : v.key;
+      return { ...v, id, key, screenshots: v.screenshots ?? [] };
     },
   );
 
@@ -1251,20 +1267,11 @@ function validateAndAuthorizeVariationChange(
   diff: { addedIds: string[]; removedIds: string[] },
   providedValues: Record<string, Record<string, string>> | undefined,
   linkedInfo: LinkedFeatureInfo[],
-  generatedIds: Set<string>,
 ): void {
   const editable = linkedInfo.filter(
     (info) => info.state === "live" || info.state === "draft",
   );
   if (editable.length === 0) return;
-
-  // A server-generated id can't be keyed in `newVariationValues`.
-  const blankId = diff.addedIds.find((id) => generatedIds.has(id));
-  if (blankId) {
-    throw new BadRequestError(
-      "New variations must include an `id` when the contextual bandit has linked Feature Flags, so their values can be supplied in `newVariationValues`.",
-    );
-  }
 
   const missingValues: string[] = [];
   for (const info of editable) {

@@ -985,6 +985,111 @@ describe("executeContextualBanditVariationChange", () => {
     ).rejects.toThrow(/cannot be re-added/);
   });
 
+  it("assigns a monotonic counter key to a new arm added via the modal (id stays a hash)", async () => {
+    getRefLinkedFeatureInfoMock.mockResolvedValue([]);
+    const cb = makeCb({
+      variations: [
+        { id: "var_a", key: "0", name: "Control", screenshots: [] },
+        { id: "var_b", key: "1", name: "V1", screenshots: [] },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const { context } = makeContext(cb);
+
+    const { updated } = await executeContextualBanditVariationChange(
+      context,
+      cb,
+      [
+        {
+          id: "var_a",
+          key: "0",
+          name: "Control",
+          screenshots: [],
+        } as Variation,
+        { id: "var_b", key: "1", name: "V1", screenshots: [] } as Variation,
+        v("var_new", "var_new"),
+      ],
+    );
+
+    const added = updated.variations.find((x) => x.id === "var_new");
+    expect(added).toBeDefined();
+    expect(added?.key).toBe("2");
+  });
+
+  it("counter key is monotonic past tombstones and duplicate legacy keys", async () => {
+    getRefLinkedFeatureInfoMock.mockResolvedValue([]);
+    const cb = makeCb({
+      variations: [
+        { id: "var_a", key: "0", name: "Control", screenshots: [] },
+        { id: "var_b", key: "20", name: "V1", screenshots: [] },
+        {
+          id: "var_c",
+          key: "23",
+          name: "V-tomb",
+          screenshots: [],
+          status: "deactivated" as const,
+        },
+        { id: "var_d", key: "helloworld", name: "V-custom", screenshots: [] },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const { context } = makeContext(cb);
+
+    const { updated } = await executeContextualBanditVariationChange(
+      context,
+      cb,
+      [
+        {
+          id: "var_a",
+          key: "0",
+          name: "Control",
+          screenshots: [],
+        } as Variation,
+        { id: "var_b", key: "20", name: "V1", screenshots: [] } as Variation,
+        {
+          id: "var_d",
+          key: "helloworld",
+          name: "V-custom",
+          screenshots: [],
+        } as Variation,
+        v("var_new1", ""),
+        v("var_new2", ""),
+      ],
+    );
+
+    const one = updated.variations.find((x) => x.id === "var_new1");
+    const two = updated.variations.find((x) => x.id === "var_new2");
+    expect(one?.key).toBe("24");
+    expect(two?.key).toBe("25");
+  });
+
+  it("preserves a user-typed key on a new arm", async () => {
+    getRefLinkedFeatureInfoMock.mockResolvedValue([]);
+    const cb = makeCb({
+      variations: [
+        { id: "var_a", key: "0", name: "Control", screenshots: [] },
+        { id: "var_b", key: "1", name: "V1", screenshots: [] },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const { context } = makeContext(cb);
+
+    const { updated } = await executeContextualBanditVariationChange(
+      context,
+      cb,
+      [
+        {
+          id: "var_a",
+          key: "0",
+          name: "Control",
+          screenshots: [],
+        } as Variation,
+        { id: "var_b", key: "1", name: "V1", screenshots: [] } as Variation,
+        v("var_new", "myLabel"),
+      ],
+    );
+
+    const added = updated.variations.find((x) => x.id === "var_new");
+    expect(added?.key).toBe("myLabel");
+  });
+
   it("carries tombstones through a metadata-only save untouched", async () => {
     const cb = makeCb({
       variations: [
