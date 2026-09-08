@@ -74,7 +74,10 @@ export default function ConfirmActionCard({
         </Flex>
         {prompt.summary &&
           prompt.summary !== `${prompt.method} ${prompt.path}` && (
-            <Markdown>{prompt.summary}</Markdown>
+            // On the card's scale, or the write reads larger than its heading.
+            <Text as="div" size="sm" color="text-low">
+              <Markdown>{prompt.summary}</Markdown>
+            </Text>
           )}
         {(prompt.body !== undefined || prompt.query) && (
           <ToolUsageDetails

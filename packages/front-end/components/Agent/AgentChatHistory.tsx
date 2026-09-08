@@ -95,31 +95,23 @@ export default function AgentChatHistory({
                   gap="0"
                   style={{ minWidth: 0, width: "100%", overflow: "hidden" }}
                 >
-                  <span
-                    style={{
-                      display: "block",
-                      maxWidth: TITLE_MAX_WIDTH,
-                      fontSize: 13,
-                      lineHeight: 1.4,
-                      fontWeight: isActive ? 600 : 500,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {conv.title || "Untitled"}
-                  </span>
-                  <span
-                    style={{
-                      marginTop: 2,
-                      fontSize: 11,
-                      lineHeight: 1.2,
-                      // Inherit so it flips with the item's highlight color.
-                      opacity: 0.7,
-                    }}
-                  >
-                    {formatShortAgo(conv.createdAt)}
-                  </span>
+                  <Box style={{ maxWidth: TITLE_MAX_WIDTH }}>
+                    <Text
+                      as="div"
+                      size="md"
+                      weight={isActive ? "semibold" : "medium"}
+                      truncate
+                      title={conv.title || "Untitled"}
+                    >
+                      {conv.title || "Untitled"}
+                    </Text>
+                  </Box>
+                  {/* Opacity, not a text color, so it flips with the item's highlight. */}
+                  <Box style={{ marginTop: 2, opacity: 0.7 }}>
+                    <Text as="div" size="sm">
+                      {formatShortAgo(conv.createdAt)}
+                    </Text>
+                  </Box>
                 </Flex>
               </DropdownMenuItem>
             );
