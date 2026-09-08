@@ -3,11 +3,7 @@ import type { eventWithTime } from "@rrweb/types";
 import { GrowthBook } from "../../GrowthBook";
 import { readSessionJSON, writeSessionJSON } from "../utils/storage";
 import { resolveSessionId } from "../utils/gb-session";
-import {
-  createRetry,
-  RetryExhaustedError,
-  RetryCancelledError,
-} from "./retry-manager";
+import { createRetry, RetryExhaustedError, RetryCancelledError } from "./retry";
 import {
   SessionReplayPrivacyConfig,
   buildRrwebPrivacyOptions,

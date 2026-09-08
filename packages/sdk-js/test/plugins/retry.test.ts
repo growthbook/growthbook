@@ -3,7 +3,7 @@ import {
   RetryExhaustedError,
   RetryCancelledError,
   RetryConfig,
-} from "../../src/plugins/session-replay/retry-manager";
+} from "../../src/plugins/session-replay/retry";
 
 // Shared config shorthand: zero jitter makes delay assertions exact.
 const noJitter: Pick<RetryConfig, "random"> = { random: () => 0 };
