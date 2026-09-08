@@ -77,7 +77,10 @@ function RatioPart({
                 />
               ),
             },
-            { label: "Value", value: columnValueLabel(value.column) },
+            {
+              label: "Value",
+              value: columnValueLabel(value.column, factTable),
+            },
             ...(agg
               ? [
                   {
