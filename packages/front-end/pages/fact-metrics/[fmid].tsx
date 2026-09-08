@@ -10,6 +10,7 @@ import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBEdit, GBExperiment } from "@/components/Icons";
@@ -230,6 +231,20 @@ export default function FactMetricPage() {
           </Heading>
         </Flex>
         <Flex align="center" gap="2" pr="2">
+          {!isEditing && (
+            <Tooltip
+              content={REST_API_ONLY_EDIT_MESSAGE}
+              enabled={editViaApiOnly}
+            >
+              <Button
+                variant="soft"
+                disabled={!canEdit || editViaApiOnly}
+                onClick={() => setIsEditing(true)}
+              >
+                Edit metric
+              </Button>
+            </Tooltip>
+          )}
           <OpenInExplorerButton
             enabled={canOpenInExplorer}
             // Funnel metrics open in the Funnel Builder, which understands
