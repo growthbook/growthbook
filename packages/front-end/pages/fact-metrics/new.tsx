@@ -42,7 +42,6 @@ export default function NewFactMetricPage() {
         <MetricWorkspace
           existing={null}
           isEditing={true}
-          setIsEditing={() => {}}
           mutate={mutateDefinitions}
           onSaved={(metric: FactMetricInterface) =>
             router.replace(`/fact-metrics/${metric.id}`)
