@@ -18,11 +18,20 @@ export type ErrorReporterSettings = {
   growthbook: GrowthBook | GrowthBookClient | UserScopedGrowthBook;
 };
 
+const MAX_MESSAGE_LENGTH = 1000;
+const MAX_STACK_LENGTH = 4000;
+
 function logError(
   growthbook: GrowthBook | GrowthBookClient | UserScopedGrowthBook,
   properties: EventProperties,
   userContext?: UserContext,
 ) {
+  if (typeof properties.message === "string") {
+    properties.message = properties.message.slice(0, MAX_MESSAGE_LENGTH);
+  }
+  if (typeof properties.stack === "string") {
+    properties.stack = properties.stack.slice(0, MAX_STACK_LENGTH);
+  }
   // GrowthBookClient needs an explicit userContext on logEvent
   if ("createScopedInstance" in growthbook) {
     (growthbook as GrowthBookClient).logEvent(
@@ -146,11 +155,10 @@ export function createErrorReporter({
       const r = reason as { message?: unknown; stack?: unknown };
       if (typeof r.message === "string") message = r.message;
       else {
-        try {
-          message = JSON.stringify(reason);
-        } catch {
-          message = String(reason);
-        }
+        // Never serialize arbitrary rejection values — API responses and
+        // config objects routinely carry tokens or PII
+        const keys = Object.keys(reason).slice(0, 10).join(", ");
+        message = `Non-Error promise rejection captured with keys: ${keys}`;
       }
       typeof r.stack === "string" && (stack = r.stack);
     } else if (reason != null) {

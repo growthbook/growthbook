@@ -8,6 +8,7 @@ import { createCWVReporter } from "./cwvReporter";
 import { createErrorReporter } from "./errorReporter";
 import { createEngagementReporter } from "./engagementReporter";
 import { createInteractionReporter } from "./interactionReporter";
+import { createPageState } from "./pageState";
 
 function isFullGrowthBook(
   gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
@@ -135,6 +136,7 @@ export function browserEventsPlugin({
     }
 
     const fullGB = isFullGrowthBook(gb);
+    const pageState = createPageState();
     const seed = (id: string) =>
       samplingSeed + (independentSampling ? ":" + id : "");
 
@@ -190,6 +192,7 @@ export function browserEventsPlugin({
         heartbeatIntervalMs,
         maxHeartbeats,
         trackScrollDepth,
+        pageState,
         growthbook: gb,
       });
     }
@@ -208,6 +211,7 @@ export function browserEventsPlugin({
         rageMaxDistancePx,
         formSelector,
         ignoreFormSelector,
+        pageState,
         growthbook: gb,
       });
     }

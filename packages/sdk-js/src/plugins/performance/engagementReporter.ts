@@ -1,23 +1,12 @@
 import type { GrowthBook } from "../../GrowthBook";
-import { detectEnv, shouldSample, whenActivated } from "../util";
-import { subscribeToUrlChanges } from "../util/urlChangeObserver";
 import {
-  resetPageState,
-  updateVisibleTime,
-  getActiveTimeMs,
-  getElapsedTimeMs,
-  getMaxScrollDepthPercent,
-  getClickCount,
-  getTrackedClickCount,
-  getFormSubmitCount,
-  getHeartbeatCount,
-  incrementHeartbeatCount,
-  isPageLeaveSent,
-  isInteractionTrackingActive,
-  markPageLeaveSent,
-  scheduleScrollUpdate,
-  updateScrollDepth,
-} from "./pageState";
+  currentPageUrl,
+  detectEnv,
+  shouldSample,
+  whenActivated,
+} from "../util";
+import { subscribeToUrlChanges } from "../util/urlChangeObserver";
+import { createPageState, type PageState } from "./pageState";
 
 export type EngagementReporterSettings = {
   // page_view events (same as old pageViewReporter)
@@ -32,6 +21,8 @@ export type EngagementReporterSettings = {
   heartbeatIntervalMs?: number;
   maxHeartbeats?: number;
   trackScrollDepth?: boolean;
+  // Shared with the interaction reporter of the same instance
+  pageState?: PageState;
   growthbook: GrowthBook;
 };
 
@@ -46,6 +37,7 @@ export function createEngagementReporter({
   heartbeatIntervalMs = 30000,
   maxHeartbeats = 3,
   trackScrollDepth = true,
+  pageState,
   growthbook,
 }: EngagementReporterSettings) {
   if (detectEnv() !== "browser") return;
@@ -72,6 +64,24 @@ export function createEngagementReporter({
 
   if (!trackPageViews && !trackEngagement) return;
 
+  const {
+    resetPageState,
+    updateVisibleTime,
+    getActiveTimeMs,
+    getElapsedTimeMs,
+    getMaxScrollDepthPercent,
+    getClickCount,
+    getTrackedClickCount,
+    getFormSubmitCount,
+    getHeartbeatCount,
+    incrementHeartbeatCount,
+    isPageLeaveSent,
+    isInteractionTrackingActive,
+    markPageLeaveSent,
+    scheduleScrollUpdate,
+    updateScrollDepth,
+  } = pageState ?? createPageState();
+
   let stopped = false;
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let unsubUrlChanges: (() => void) | null = null;
@@ -80,12 +90,12 @@ export function createEngagementReporter({
   let hiddenEvents = 0;
   // Events are attributed to their page explicitly rather than by mutating
   // the SDK's URL, which would re-run auto experiments for sampled users only
-  let pageUrl = window.location.href;
+  let pageUrl = currentPageUrl();
 
   const startPage = () => {
     resetPageState();
     hiddenEvents = 0;
-    pageUrl = window.location.href;
+    pageUrl = currentPageUrl();
     trackScrollDepth && updateScrollDepth();
     startHeartbeats();
     if (stopped) return;

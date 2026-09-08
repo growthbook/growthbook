@@ -1,5 +1,10 @@
 import type { GrowthBook } from "../../GrowthBook";
-import { detectEnv, shouldSample, whenActivated } from "../util";
+import {
+  currentPageUrl,
+  detectEnv,
+  shouldSample,
+  whenActivated,
+} from "../util";
 import { subscribeToUrlChanges } from "../util/urlChangeObserver";
 
 export type CWVReporterSettings = {
@@ -117,7 +122,7 @@ export function createCWVReporter({
       let removeListeners: (() => void) | null = null;
 
       // Deferred metrics finalize after an SPA navigation has changed location
-      const pageUrl = window.location.href;
+      const pageUrl = currentPageUrl();
       const log = (eventName: string, value: number) =>
         growthbook.logEvent(eventName, { value }, { url: pageUrl });
 

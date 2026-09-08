@@ -9,14 +9,7 @@ import {
   cleanProperties,
   type ElementPropertyOptions,
 } from "./elementUtils";
-import {
-  incrementClickCount,
-  incrementTrackedClickCount,
-  incrementRageClickCount,
-  markInteractionTrackingActive,
-  markInteractionTrackingInactive,
-  incrementFormSubmitCount,
-} from "./pageState";
+import { createPageState, type PageState } from "./pageState";
 
 const DEFAULT_CLICK_SELECTOR =
   "a, button, [role='button'], [role='link'], " +
@@ -44,6 +37,8 @@ export type InteractionReporterSettings = {
   // forms
   formSelector?: string;
   ignoreFormSelector?: string;
+  // Shared with the engagement reporter of the same instance
+  pageState?: PageState;
   growthbook: GrowthBook;
 };
 
@@ -60,6 +55,7 @@ export function createInteractionReporter({
   rageMaxDistancePx = 50,
   formSelector = "form",
   ignoreFormSelector = DEFAULT_IGNORE_FORM_SELECTOR,
+  pageState,
   growthbook,
 }: InteractionReporterSettings) {
   if (detectEnv() !== "browser") return;
@@ -73,6 +69,15 @@ export function createInteractionReporter({
     })
   )
     return;
+
+  const {
+    incrementClickCount,
+    incrementTrackedClickCount,
+    incrementRageClickCount,
+    incrementFormSubmitCount,
+    markInteractionTrackingActive,
+    markInteractionTrackingInactive,
+  } = pageState ?? createPageState();
 
   const elOpts: ElementPropertyOptions = {
     collectText: collectElementText,

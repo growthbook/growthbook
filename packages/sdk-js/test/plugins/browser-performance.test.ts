@@ -3,7 +3,7 @@ import { createCWVReporter } from "../../src/plugins/performance/cwvReporter";
 import { createErrorReporter } from "../../src/plugins/performance/errorReporter";
 import { createInteractionReporter } from "../../src/plugins/performance/interactionReporter";
 import { createEngagementReporter } from "../../src/plugins/performance/engagementReporter";
-import { _resetPageStateForTests } from "../../src/plugins/performance/pageState";
+import { createPageState } from "../../src/plugins/performance/pageState";
 import {
   _resetUrlChangeObserverForTests,
   subscribeToUrlChanges,
@@ -754,12 +754,12 @@ describe("Error reporter", () => {
       expect.objectContaining({ message: "42" }),
     );
 
-    // plain object without `.message` — JSON-stringified
+    // plain object without `.message` — described by shape, never serialized
     dispatch({ code: 500, error: "internal" });
     expect(logEvent).toHaveBeenLastCalledWith(
       "browser-error",
       expect.objectContaining({
-        message: JSON.stringify({ code: 500, error: "internal" }),
+        message: "Non-Error promise rejection captured with keys: code, error",
       }),
     );
 
@@ -788,6 +788,23 @@ describe("Error reporter", () => {
       expect.objectContaining({ message: "Unhandled Promise rejection" }),
     );
 
+    gb.destroy();
+  });
+
+  it("caps oversized error messages and stacks", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    createErrorReporter({ growthbook: gb, debounceTimeout: 0 });
+
+    const err = new Error("x".repeat(5000));
+    err.stack = "y".repeat(10000);
+    window.dispatchEvent(
+      new ErrorEvent("error", { error: err, message: err.message }),
+    );
+
+    const [, props] = logEvent.mock.calls[0];
+    expect((props as { message: string }).message).toHaveLength(1000);
+    expect((props as { stack: string }).stack).toHaveLength(4000);
     gb.destroy();
   });
 
@@ -867,7 +884,6 @@ describe("subscribeToUrlChanges", () => {
   });
 
   it("a CWV-style reporter is not finalized prematurely by an engagement reporter that opted into query-string tracking", async () => {
-    _resetPageStateForTests();
     const gb = new GrowthBook({ clientKey: "test" });
     const logEvent = jest.spyOn(gb, "logEvent");
 
@@ -922,9 +938,7 @@ describe("subscribeToUrlChanges", () => {
 });
 
 describe("Interaction reporter", () => {
-  beforeEach(() => {
-    _resetPageStateForTests();
-  });
+  beforeEach(() => {});
 
   it("tracks clicks on default selectors (links, buttons, data-gb-track)", () => {
     const gb = new GrowthBook({ clientKey: "test" });
@@ -1064,7 +1078,6 @@ describe("Interaction reporter", () => {
 describe("Engagement reporter", () => {
   beforeEach(() => {
     _resetUrlChangeObserverForTests();
-    _resetPageStateForTests();
     window.history.replaceState({}, "", "/");
     setVisibilityState("visible");
   });
@@ -1156,6 +1169,52 @@ describe("Engagement reporter", () => {
     gb.destroy();
   });
 
+  it("keeps page state per instance so two live instances each emit page_leave", () => {
+    const gb1 = new GrowthBook({ clientKey: "one" });
+    const gb2 = new GrowthBook({ clientKey: "two" });
+    const log1 = jest.spyOn(gb1, "logEvent");
+    const log2 = jest.spyOn(gb2, "logEvent");
+    for (const gb of [gb1, gb2]) {
+      createEngagementReporter({
+        growthbook: gb,
+        pageViewSamplingRate: 0,
+        engagementSamplingRate: 1,
+      });
+    }
+
+    window.dispatchEvent(new Event("pagehide"));
+    expect(log1.mock.calls.filter((c) => c[0] === "page_leave")).toHaveLength(
+      1,
+    );
+    expect(log2.mock.calls.filter((c) => c[0] === "page_leave")).toHaveLength(
+      1,
+    );
+    gb1.destroy();
+    gb2.destroy();
+  });
+
+  it("strips the URL fragment from event attribution", () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/callback?code=abc#access_token=secret",
+    );
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    createEngagementReporter({
+      growthbook: gb,
+      pageViewSamplingRate: 1,
+      engagementSamplingRate: 0,
+    });
+
+    expect(logEvent).toHaveBeenCalledWith(
+      "page_view",
+      {},
+      { url: "http://localhost/callback?code=abc" },
+    );
+    gb.destroy();
+  });
+
   it("reports max_scroll_depth_percent as 100 for a page that fits the viewport", () => {
     const gb = new GrowthBook({ clientKey: "test" });
     const logEvent = jest.spyOn(gb, "logEvent");
@@ -1189,14 +1248,15 @@ describe("Engagement reporter", () => {
     expect(props).not.toHaveProperty("is_bounce_candidate");
     gb.destroy();
 
-    _resetPageStateForTests();
     const gb2 = new GrowthBook({ clientKey: "test" });
     const logEvent2 = jest.spyOn(gb2, "logEvent");
-    createInteractionReporter({ growthbook: gb2, samplingRate: 1 });
+    const pageState = createPageState();
+    createInteractionReporter({ growthbook: gb2, samplingRate: 1, pageState });
     createEngagementReporter({
       growthbook: gb2,
       pageViewSamplingRate: 0,
       engagementSamplingRate: 1,
+      pageState,
     });
     window.dispatchEvent(new Event("pagehide"));
     const [, props2] = logEvent2.mock.calls.find((c) => c[0] === "page_leave")!;
@@ -1308,7 +1368,6 @@ describe("Engagement reporter", () => {
 describe("browserEventsPlugin", () => {
   beforeEach(() => {
     _resetUrlChangeObserverForTests();
-    _resetPageStateForTests();
     window.history.replaceState({}, "", "/");
   });
 
