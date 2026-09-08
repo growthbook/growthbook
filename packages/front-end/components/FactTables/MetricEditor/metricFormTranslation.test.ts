@@ -614,6 +614,22 @@ describe("applyFormType", () => {
     expect(result.quantileSettings).toBeNull();
   });
 
+  it("clears a stale denominator and quantileSettings when switching to funnel", () => {
+    const withBoth = {
+      ...current,
+      metricType: "ratio" as const,
+      denominator: { factTableId: "ft2", column: "revenue", rowFilters: [] },
+      quantileSettings: {
+        type: "event" as const,
+        ignoreZeros: true,
+        quantile: 0.9,
+      },
+    };
+    const result = applyFormType(withBoth, "funnel", factTable);
+    expect(result.denominator).toBeNull();
+    expect(result.quantileSettings).toBeNull();
+  });
+
   it("initializes two funnel steps sharing the numerator's fact table when none exist", () => {
     const result = applyFormType(current, "funnel", factTable);
     expect(result.funnelSettings?.steps).toHaveLength(2);
