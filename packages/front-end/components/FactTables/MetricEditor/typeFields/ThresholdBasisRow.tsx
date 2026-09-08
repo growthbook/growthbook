@@ -1,9 +1,14 @@
 import { Flex } from "@radix-ui/themes";
 import { FactTableDefinition } from "shared/types/fact-table";
 import TextField from "@/ui/TextField";
-import ShapeSelect from "@/components/FactTables/MetricEditor/ShapeSelect";
+import DataList from "@/ui/DataList";
+import ShapeSelect, {
+  SHAPE_LABELS,
+} from "@/components/FactTables/MetricEditor/ShapeSelect";
 import ColumnSelect from "@/components/FactTables/MetricEditor/ColumnSelect";
 import {
+  columnsForShape,
+  columnValueLabel,
   fitColumn,
   shapeFromColumnRef,
   THRESHOLD_SHAPES,
@@ -22,14 +27,36 @@ export function ThresholdBasisRow({
   value,
   onChange,
   factTable,
+  canEdit = true,
 }: {
   value: ThresholdBasisValue;
   onChange: (value: ThresholdBasisValue) => void;
   factTable: FactTableDefinition | null;
+  canEdit?: boolean;
 }) {
   const shape =
     shapeFromColumnRef({ column: value.aggregateFilterColumn || "$$count" }) ??
     "count";
+
+  if (!canEdit) {
+    const hasColumn = columnsForShape(shape, factTable, false).length > 0;
+    return (
+      <DataList
+        data={[
+          { label: "Basis", value: SHAPE_LABELS[shape] },
+          ...(hasColumn
+            ? [
+                {
+                  label: "Column",
+                  value: columnValueLabel(value.aggregateFilterColumn || ""),
+                },
+              ]
+            : []),
+          { label: "Comparison", value: value.aggregateFilter || "—" },
+        ]}
+      />
+    );
+  }
 
   return (
     <Flex gap="2" align="end" wrap="wrap">

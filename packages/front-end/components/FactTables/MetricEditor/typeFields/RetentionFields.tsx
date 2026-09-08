@@ -21,6 +21,15 @@ const UNIT_OPTIONS = [
   { value: "weeks", label: "Weeks" },
 ];
 
+function retentionWindowProse(windowSettings: MetricWindowSettings): string {
+  const mode = retentionModeFromWindow(windowSettings);
+  if (mode === "starting") {
+    return `Starting ${windowSettings.delayValue} ${windowSettings.delayUnit} after exposure`;
+  }
+  const end = windowSettings.delayValue + windowSettings.windowValue;
+  return `Between ${windowSettings.delayValue} and ${end} ${windowSettings.delayUnit} after exposure`;
+}
+
 // Window row reads as a sentence (spec): Mode, delay, optional "and" + end,
 // ONE unit governing both values, "after exposure". Threshold is optional -
 // same ONE-row shape/column/comparison as the standalone Threshold type,
@@ -31,15 +40,33 @@ export default function RetentionFields({
   threshold,
   onThresholdChange,
   factTable,
+  canEdit = true,
 }: {
   windowSettings: MetricWindowSettings;
   onWindowSettingsChange: (value: MetricWindowSettings) => void;
   threshold: ThresholdBasisValue;
   onThresholdChange: (value: ThresholdBasisValue) => void;
   factTable: FactTableDefinition | null;
+  canEdit?: boolean;
 }) {
   const mode = retentionModeFromWindow(windowSettings);
   const hasThreshold = !!threshold.aggregateFilterColumn;
+
+  if (!canEdit) {
+    return (
+      <Flex direction="column" gap="3">
+        <Text as="div">{retentionWindowProse(windowSettings)}</Text>
+        {hasThreshold && (
+          <ThresholdBasisRow
+            value={threshold}
+            onChange={onThresholdChange}
+            factTable={factTable}
+            canEdit={false}
+          />
+        )}
+      </Flex>
+    );
+  }
 
   return (
     <Flex direction="column" gap="3">
