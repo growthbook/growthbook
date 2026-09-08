@@ -1,4 +1,3 @@
-import type { GrowthBook } from "../../GrowthBook";
 import { hash, toString } from "../../util";
 import type { Attributes } from "../../types/growthbook";
 
