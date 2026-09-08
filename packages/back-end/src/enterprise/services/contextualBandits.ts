@@ -948,31 +948,42 @@ function contextualBanditWeightMode(
   return !cb.stage || cb.stage === "explore" ? "uniform" : "redistribute";
 }
 
+type ReconciledArmStatePlan = {
+  variations: ContextualBanditVariation[];
+  variationWeights: VariationWeightPair[];
+  activeIds: string[];
+  mode: WeightReconcileMode;
+};
+
 async function writeReconciledArmStateGuarded(
   context: ReqContext | ApiReqContext,
   seed: ContextualBanditInterface,
-  finalVariations: ContextualBanditVariation[],
-  variationWeights: VariationWeightPair[],
-  activeIds: string[],
-  mode: WeightReconcileMode,
+  planFromBase: (
+    base: ContextualBanditInterface,
+  ) => ReconciledArmStatePlan | Promise<ReconciledArmStatePlan>,
   opts?: { bypassPermissionChecks?: boolean },
 ): Promise<ContextualBanditInterface> {
   const maxAttempts = 3;
   let base = seed;
   for (let attempt = 1; ; attempt++) {
+    const plan = await planFromBase(base);
     const leafWeights: LeafWeight[] =
-      mode === "uniform"
+      plan.mode === "uniform"
         ? []
         : (base.currentLeafWeights ?? []).map((lw) => ({
             ...lw,
-            weights: reconcileVariationWeights(lw.weights, activeIds, mode),
+            weights: reconcileVariationWeights(
+              lw.weights,
+              plan.activeIds,
+              plan.mode,
+            ),
           }));
     try {
       return await context.models.contextualBandits.applyWeightEpochUpdate(
         seed.id,
         {
-          variations: finalVariations,
-          variationWeights,
+          variations: plan.variations,
+          variationWeights: plan.variationWeights,
           currentLeafWeights: leafWeights,
           bumpVersion: true,
           expectedBanditVersion: base.banditVersion,
@@ -987,7 +998,7 @@ async function writeReconciledArmStateGuarded(
       if (!fresh) throw err;
       context.logger.warn(
         { contextualBanditId: seed.id, attempt },
-        "banditVersion moved while reconciling arm state (concurrent snapshot run or arm change); recomputing from fresh weights",
+        "banditVersion moved while reconciling arm state (concurrent snapshot run or arm change); recomputing plan from fresh doc",
       );
       base = fresh;
     }
@@ -1015,25 +1026,26 @@ export async function activatePendingContextualBanditVariations(
   if (!activatedIds.length) return { activatedIds: [], updated: cb };
 
   const activatedSet = new Set(activatedIds);
-  const newVariations: ContextualBanditVariation[] = cb.variations.map((v) =>
-    activatedSet.has(v.id) ? { ...v, status: "active" as const } : v,
-  );
-
-  const mode = contextualBanditWeightMode(cb);
-  const activeIds = getActiveVariations(newVariations).map((v) => v.id);
-  const variationWeights = reconcileVariationWeights(
-    cb.variationWeights ?? [],
-    activeIds,
-    mode,
-  );
 
   const updated = await writeReconciledArmStateGuarded(
     context,
     cb,
-    newVariations,
-    variationWeights,
-    activeIds,
-    mode,
+    (base) => {
+      const newVariations: ContextualBanditVariation[] = base.variations.map(
+        (v) =>
+          activatedSet.has(v.id) && isPendingVariation(v)
+            ? { ...v, status: "active" as const }
+            : v,
+      );
+      const mode = contextualBanditWeightMode(base);
+      const activeIds = getActiveVariations(newVariations).map((v) => v.id);
+      const variationWeights = reconcileVariationWeights(
+        base.variationWeights ?? [],
+        activeIds,
+        mode,
+      );
+      return { variations: newVariations, variationWeights, activeIds, mode };
+    },
     opts,
   );
 
@@ -1117,42 +1129,61 @@ export async function executeContextualBanditVariationChange(
       linkedInfo,
     );
 
-    const provisionalVariations: ContextualBanditVariation[] = [
-      ...newVariations.map((v) => {
-        const prev = previousById.get(v.id);
-        if (prev) return prev.status ? { ...v, status: prev.status } : v;
-        return { ...v, status: "pending" as const };
-      }),
-      ...diff.removedIds.map((id) => ({
-        ...previousById.get(id)!,
-        status: "deactivated" as const,
-      })),
-      ...tombstones,
-    ];
+    let finalDiff = diff;
 
-    const mode = contextualBanditWeightMode(cb);
-    const activeIds = getActiveVariations(provisionalVariations).map(
-      (v) => v.id,
-    );
-    const newVariationWeights = reconcileVariationWeights(
-      cb.variationWeights ?? [],
-      activeIds,
-      mode,
-    );
+    updated = await writeReconciledArmStateGuarded(context, cb, (base) => {
+      const basePreviousVisible = getVisibleVariations(base.variations);
+      const basePreviousById = new Map(
+        basePreviousVisible.map((v) => [v.id, v]),
+      );
+      const baseTombstones = base.variations.filter(isDeactivatedVariation);
+      const baseTombstoneIds = new Set(baseTombstones.map((v) => v.id));
 
-    updated = await writeReconciledArmStateGuarded(
-      context,
-      cb,
-      provisionalVariations,
-      newVariationWeights,
-      activeIds,
-      mode,
-    );
+      for (const v of newVariations) {
+        if (baseTombstoneIds.has(v.id)) {
+          throw new BadRequestError(
+            `Variation ${v.id} was removed from this contextual bandit and cannot be re-added. Create a new variation instead.`,
+          );
+        }
+      }
+
+      finalDiff = diffVariations(basePreviousVisible, newVariations);
+
+      const provisionalVariations: ContextualBanditVariation[] = [
+        ...newVariations.map((v) => {
+          const prev = basePreviousById.get(v.id);
+          if (prev) return prev.status ? { ...v, status: prev.status } : v;
+          return { ...v, status: "pending" as const };
+        }),
+        ...finalDiff.removedIds.map((id) => ({
+          ...basePreviousById.get(id)!,
+          status: "deactivated" as const,
+        })),
+        ...baseTombstones,
+      ];
+
+      const mode = contextualBanditWeightMode(base);
+      const activeIds = getActiveVariations(provisionalVariations).map(
+        (v) => v.id,
+      );
+      const variationWeights = reconcileVariationWeights(
+        base.variationWeights ?? [],
+        activeIds,
+        mode,
+      );
+
+      return {
+        variations: provisionalVariations,
+        variationWeights,
+        activeIds,
+        mode,
+      };
+    });
 
     ({ failures: featureDraftPublishFailures } =
       await reconcileLinkedFeatureVariations(context, updated, {
-        addedIds: diff.addedIds,
-        removedIds: diff.removedIds,
+        addedIds: finalDiff.addedIds,
+        removedIds: finalDiff.removedIds,
         providedValues: newVariationValues,
         linkedInfo,
       }));

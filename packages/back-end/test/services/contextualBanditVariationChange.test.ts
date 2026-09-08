@@ -1313,6 +1313,81 @@ describe("executeContextualBanditVariationChange", () => {
     );
   });
 
+  it("recomputes variations AND weights from fresh state on CAS retry, not just leaf weights", async () => {
+    const cb = makeCb({
+      stage: "exploit",
+      variations: [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+      variationWeights: [
+        { variationId: "v0", weight: 0.5 },
+        { variationId: "v1", weight: 0.3 },
+        { variationId: "v2", weight: 0.2 },
+      ],
+      currentLeafWeights: [
+        {
+          leafId: 0,
+          condition: { country: "US" },
+          weights: [
+            { variationId: "v0", weight: 0.5 },
+            { variationId: "v1", weight: 0.3 },
+            { variationId: "v2", weight: 0.2 },
+          ],
+        },
+      ],
+    });
+    const { context, applyWeightEpochUpdateMock, getByIdMock } =
+      makeContext(cb);
+
+    const freshDoc = {
+      ...cb,
+      banditVersion: cb.banditVersion + 1,
+      variationWeights: [
+        { variationId: "v0", weight: 0.5 },
+        { variationId: "v1", weight: 0.25 },
+        { variationId: "v2", weight: 0.25 },
+      ],
+      currentLeafWeights: [
+        {
+          leafId: 0,
+          condition: { country: "US" },
+          weights: [
+            { variationId: "v0", weight: 0.5 },
+            { variationId: "v1", weight: 0.25 },
+            { variationId: "v2", weight: 0.25 },
+          ],
+        },
+      ],
+    };
+    applyWeightEpochUpdateMock.mockImplementationOnce(() => {
+      throw new CasConflictError();
+    });
+    getByIdMock.mockResolvedValueOnce(freshDoc);
+
+    await executeContextualBanditVariationChange(context, cb, [
+      v("v0", "0"),
+      v("v1", "1"),
+      v("v2", "2"),
+      v("v3", "3"),
+    ]);
+
+    expect(applyWeightEpochUpdateMock).toHaveBeenCalledTimes(2);
+    const retryWeights =
+      applyWeightEpochUpdateMock.mock.calls[1][1].variationWeights;
+    const byId = Object.fromEntries(
+      retryWeights.map((p: { variationId: string; weight: number }) => [
+        p.variationId,
+        p.weight,
+      ]),
+    );
+    expect(byId["v0"]).toBeCloseTo(0.5, 6);
+    expect(byId["v1"]).toBeCloseTo(0.25, 6);
+    expect(byId["v2"]).toBeCloseTo(0.25, 6);
+    expect(applyWeightEpochUpdateMock.mock.calls[1][1]).toEqual(
+      expect.objectContaining({
+        expectedBanditVersion: freshDoc.banditVersion,
+      }),
+    );
+  });
+
   it("keeps added arms pending and skips activation when a linked feature fails to take its values", async () => {
     const feature = makeFeature();
     getRefLinkedFeatureInfoMock.mockResolvedValue([linkedInfo(feature)]);
