@@ -43,7 +43,7 @@ export function createPageState() {
 
   function updateVisibleTime() {
     const t = now();
-    if (visibleSince != null) {
+    if (visibleSince !== null) {
       activeTimeMs += t - visibleSince;
       visibleSince = document.visibilityState === "visible" ? t : null;
     } else if (document.visibilityState === "visible") {
@@ -53,7 +53,7 @@ export function createPageState() {
 
   function getActiveTimeMs(): number {
     let t = activeTimeMs;
-    if (visibleSince != null) t += now() - visibleSince;
+    if (visibleSince !== null) t += now() - visibleSince;
     return Math.round(t);
   }
 

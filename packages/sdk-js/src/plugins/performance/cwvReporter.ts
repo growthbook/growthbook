@@ -174,13 +174,13 @@ export function createCWVReporter({
       const reportCWV = () => {
         if (stopped) return;
         stopObserving();
-        // `!= null` so 0 is a valid (and good) measurement
+        // null checks, not truthiness — 0 is a valid (and good) measurement
         trackLCP &&
-          lcpTime != null &&
+          lcpTime !== null &&
           log("CWV:LCP", Math.max(0, lcpTime - activationStart));
-        trackCLS && clsValue != null && log("CWV:CLS", clsValue);
-        trackTBT && tbtValue != null && log("CWV:TBT", tbtValue);
-        trackINP && inpValue != null && log("CWV:INP", inpValue);
+        trackCLS && clsValue !== null && log("CWV:CLS", clsValue);
+        trackTBT && tbtValue !== null && log("CWV:TBT", tbtValue);
+        trackINP && inpValue !== null && log("CWV:INP", inpValue);
       };
 
       // Prerendered pages measure from activation, matching web-vitals
@@ -345,13 +345,13 @@ export function createCWVReporter({
         observe("longtask", (list) => {
           // Fall back to getEntriesByName if the paint observer hasn't fired
           // yet, so buffered long-tasks aren't silently dropped
-          if (fcpTime == null) {
+          if (fcpTime === null) {
             const fcp = performance.getEntriesByName(
               "first-contentful-paint",
             )[0];
             fcp && (fcpTime = fcp.startTime);
           }
-          if (fcpTime == null) return;
+          if (fcpTime === null) return;
           for (const entry of list.getEntries()) {
             const taskStart = Math.max(entry.startTime, fcpTime);
             const taskEnd = entry.startTime + entry.duration;

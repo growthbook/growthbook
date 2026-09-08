@@ -144,7 +144,7 @@ const plugins: Plugin[] = [
     uuidCookieName: windowContext.uuidCookieName || dataContext.uuidCookieName,
     uuidCookieDomain,
     uuidKey: windowContext.uuidKey || dataContext.uuidKey,
-    uuidAutoPersist: !uuid && dataContext.noAutoCookies == null,
+    uuidAutoPersist: !uuid && (dataContext.noAutoCookies ?? null) === null,
   }),
 ];
 
@@ -198,7 +198,7 @@ function toBool(v: string): boolean | undefined {
 // The natural attribute spelling `data-track-fcp` parses to the dataset key
 // "trackFcp", not "trackFCP" — accept both
 function readDataAttr(k: string): string | undefined {
-  if (dataContext[k] != null) return dataContext[k];
+  if (dataContext[k] !== undefined) return dataContext[k];
   const alias = k.replace(
     /([A-Z])([A-Z]+)/g,
     (_, first: string, rest: string) => first + rest.toLowerCase(),
@@ -218,21 +218,21 @@ function readBrowserEventsSettings(): BrowserEventsSettings {
   const out: Record<string, unknown> = {};
   for (const k of BROWSER_EVENTS_NUM_KEYS) {
     const raw = readDataAttr(k);
-    const v = raw != null ? parseFloat(raw) : windowContext[k];
-    if (v != null && isFinite(v as number)) out[k] = v;
+    const v = raw !== undefined ? parseFloat(raw) : windowContext[k];
+    if ((v ?? null) !== null && isFinite(v as number)) out[k] = v;
   }
   for (const k of BROWSER_EVENTS_BOOL_KEYS) {
     const raw = readDataAttr(k);
-    const v = raw != null ? toBool(raw) : windowContext[k];
-    if (v != null) out[k] = v;
+    const v = raw !== undefined ? toBool(raw) : windowContext[k];
+    if ((v ?? null) !== null) out[k] = v;
   }
   for (const k of BROWSER_EVENTS_STR_KEYS) {
     const v = readDataAttr(k) ?? windowContext[k];
-    if (v != null) out[k] = v;
+    if ((v ?? null) !== null) out[k] = v;
   }
   // Per-stream opt-in: unset streams stay off instead of inheriting defaults
   for (const k of BROWSER_EVENTS_RATE_KEYS) {
-    if (out[k] == null) out[k] = 0;
+    if ((out[k] ?? null) === null) out[k] = 0;
   }
   return out as BrowserEventsSettings;
 }

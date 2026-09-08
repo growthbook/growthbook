@@ -161,7 +161,7 @@ export function createErrorReporter({
         message = `Non-Error promise rejection captured with keys: ${keys}`;
       }
       typeof r.stack === "string" && (stack = r.stack);
-    } else if (reason != null) {
+    } else if ((reason ?? null) !== null) {
       // primitive (string, number, boolean) — Promise.reject("...") is common
       message = String(reason);
     }

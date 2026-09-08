@@ -19,7 +19,7 @@ function truncate(
   v: string | null | undefined,
   max = MAX_STRING_LEN,
 ): string | undefined {
-  if (v == null) return undefined;
+  if ((v ?? null) === null) return undefined;
   const s = String(v);
   return s.length <= max ? s : s.slice(0, max - 1) + "\u2026";
 }
