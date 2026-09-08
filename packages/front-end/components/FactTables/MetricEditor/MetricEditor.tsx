@@ -23,7 +23,6 @@ import TextField from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
 import Callout from "@/ui/Callout";
 import Field from "@/components/Forms/Field";
-import Link from "@/ui/Link";
 import DataList, { DataListItem } from "@/ui/DataList";
 import TagsInput from "@/components/Tags/TagsInput";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -34,6 +33,7 @@ import MetricTypeSelect, {
   TYPE_LABELS,
 } from "@/components/FactTables/MetricEditor/MetricTypeSelect";
 import AdvancedSettings from "@/components/FactTables/MetricEditor/AdvancedSettings";
+import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
 import FilterSummary from "@/components/FactTables/MetricEditor/FilterSummary";
 import FunnelStepsDisplay from "@/components/FactTables/MetricEditor/FunnelStepsDisplay";
 import PreviewPanel, {
@@ -77,17 +77,6 @@ function columnValueLabel(column: string): string {
   if (column === "$$distinctUsers") return "Unique Users";
   if (column === "$$distinctDates") return "Distinct Dates";
   return column;
-}
-
-function FactTableLink({ id }: { id?: string }) {
-  const { getFactTableById } = useDefinitions();
-  const factTable = getFactTableById(id || "");
-  if (!factTable) {
-    return (
-      <em style={{ color: "var(--color-text-mid)" }}>Unknown fact table</em>
-    );
-  }
-  return <Link href={`/fact-tables/${factTable.id}`}>{factTable.name}</Link>;
 }
 
 // Value/Per-User Aggregation/User Filter/Quantile lines only - Fact Table and
