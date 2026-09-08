@@ -1,3 +1,15 @@
+/**
+ * Sends the SDK's events to a GrowthBook event ingestor. Registers as the
+ * instance's event logger, then queues, dedupes, and batches events before
+ * POSTing them.
+ *
+ * Handles `gb.logEvent()` calls, exposure events it synthesizes from the
+ * tracking/feature-usage callbacks, and the `window.gbEvents` queue.
+ * Well-known attributes (`user_id`, `session_id`, UTMs, ...) are promoted
+ * to top-level payload fields; the rest ship in `context_json`. Flushes on
+ * an interval and before unload (beacon/keepalive). Works in the browser
+ * and on the server.
+ */
 import { loadSDKVersion } from "../util";
 import type { Attributes, EventProperties } from "../types/growthbook";
 import type { GrowthBook } from "../GrowthBook";
