@@ -138,7 +138,7 @@ function queryItems({
     ...(cappingOk(formType) && cappingItem ? [cappingItem] : []),
     {
       label: "Target MDE",
-      value: `${(form.watch("targetMDE") ?? 0) * 100}%`,
+      value: `${form.watch("targetMDE") ?? 0}%`,
     },
     { label: "Priors", value: priorsItemValue(priorSettings, metricDefaults) },
     ...(formType !== "quantile"
@@ -159,9 +159,11 @@ function queryItems({
   ];
 }
 
-// Collapsed by default, matching today's modal (metricformfields.md's
-// "auto-opens when non-default" nice-to-have isn't built yet - a plain
-// toggle already surfaces everything, just not open by default).
+// Collapsed by default in edit mode, matching today's modal
+// (metricformfields.md's "auto-opens when non-default" nice-to-have isn't
+// built yet - a plain toggle already surfaces everything, just not open by
+// default). View mode has no such precedent - the old [fmid].tsx page always
+// showed these facts in its right rail with no collapse - so it starts open.
 export default function AdvancedSettings({
   form,
   formType,
@@ -173,7 +175,7 @@ export default function AdvancedSettings({
   factTable: FactTableDefinition | null;
   canEdit: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!canEdit);
   const { getDatasourceById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -193,10 +195,11 @@ export default function AdvancedSettings({
   const windowSettings = form.watch("windowSettings");
   const minSampleSizeLabel =
     formType === "ratio" ? "Minimum numerator total" : "Minimum metric total";
-  // A write gate around an edit control, not around the fact itself - a
-  // viewer who can't toggle this should still see whether the metric is
-  // official, the same way [fmid].tsx's badge isn't permission-gated even
-  // though the "Convert to Official" action is.
+  // A write gate around an edit control, not around the fact itself - the
+  // fact itself is now an OfficialBadge next to the Name field in
+  // MetricEditor's Basics card, matching how the rest of the app (FactMetricModal,
+  // [fmid].tsx, fact table pages) always shows official status, not just when
+  // Advanced Settings happens to be open.
   const canEditOfficial =
     canEdit &&
     permissionsUtil.canUpdateOfficialResources(
@@ -204,7 +207,6 @@ export default function AdvancedSettings({
       {},
     ) &&
     hasCommercialFeature("manage-official-resources");
-  const isOfficial = form.watch("managedBy") === "admin";
 
   if (!open) {
     return (
@@ -431,11 +433,11 @@ export default function AdvancedSettings({
                 },
                 {
                   label: "Max percent change",
-                  value: `${form.watch("maxPercentChange") * 100}%`,
+                  value: `${form.watch("maxPercentChange")}%`,
                 },
                 {
                   label: "Min percent change",
-                  value: `${form.watch("minPercentChange") * 100}%`,
+                  value: `${form.watch("minPercentChange")}%`,
                 },
                 ...(formType === "ratio" || formType === "dailyParticipation"
                   ? [
@@ -451,7 +453,7 @@ export default function AdvancedSettings({
         </TabsContent>
       </Tabs>
 
-      {canEditOfficial ? (
+      {canEditOfficial && (
         <Checkbox
           label="Mark as official metric"
           disabled={form.watch("managedBy") === "api"}
@@ -460,13 +462,6 @@ export default function AdvancedSettings({
           value={form.watch("managedBy") === "admin"}
           setValue={(value) => form.setValue("managedBy", value ? "admin" : "")}
         />
-      ) : (
-        isOfficial && (
-          <DataList
-            columns={1}
-            data={[{ label: "Official metric", value: "Yes" }]}
-          />
-        )
       )}
 
       <Flex mt="3">
