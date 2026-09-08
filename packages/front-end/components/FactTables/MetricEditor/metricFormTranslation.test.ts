@@ -22,7 +22,7 @@ import {
 
 const factTable = {
   columns: [
-    { column: "revenue", datatype: "number" as const },
+    { column: "revenue", name: "Revenue (USD)", datatype: "number" as const },
     { column: "plan", datatype: "string" as const },
     { column: "timestamp", datatype: "date" as const },
     { column: "old_col", datatype: "number" as const, deleted: true },
@@ -568,6 +568,16 @@ describe("applyFormType", () => {
     expect(result.denominator).toEqual(withDenominator.denominator);
   });
 
+  it("clears a stale denominator when switching away from ratio", () => {
+    const withDenominator = {
+      ...current,
+      metricType: "ratio" as const,
+      denominator: { factTableId: "ft2", column: "revenue", rowFilters: [] },
+    };
+    const result = applyFormType(withDenominator, "colSum", factTable);
+    expect(result.denominator).toBeNull();
+  });
+
   it("initializes quantileSettings for quantile when none exists", () => {
     const result = applyFormType(current, "quantile", factTable);
     expect(result.quantileSettings).toEqual({
@@ -588,6 +598,20 @@ describe("applyFormType", () => {
     };
     const result = applyFormType(withSettings, "quantile", factTable);
     expect(result.quantileSettings).toEqual(withSettings.quantileSettings);
+  });
+
+  it("clears stale quantileSettings when switching away from quantile", () => {
+    const withSettings = {
+      ...current,
+      metricType: "quantile" as const,
+      quantileSettings: {
+        type: "event" as const,
+        ignoreZeros: true,
+        quantile: 0.9,
+      },
+    };
+    const result = applyFormType(withSettings, "colSum", factTable);
+    expect(result.quantileSettings).toBeNull();
   });
 
   it("initializes two funnel steps sharing the numerator's fact table when none exist", () => {
@@ -816,8 +840,16 @@ describe("columnValueLabel", () => {
     expect(columnValueLabel("$$distinctDates")).toBe("Distinct Dates");
   });
 
-  it("returns a real column name unchanged", () => {
+  it("returns the raw column id unchanged when no factTable is given", () => {
     expect(columnValueLabel("revenue")).toBe("revenue");
+  });
+
+  it("resolves a real column's display name from the fact table", () => {
+    expect(columnValueLabel("revenue", factTable)).toBe("Revenue (USD)");
+  });
+
+  it("falls back to the raw column id when the fact table has no name for it", () => {
+    expect(columnValueLabel("plan", factTable)).toBe("plan");
   });
 });
 

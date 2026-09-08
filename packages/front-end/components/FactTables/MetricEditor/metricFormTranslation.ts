@@ -24,6 +24,7 @@ export const THRESHOLD_SHAPES = ["count", "sum"] as const;
 
 type MinimalColumn = {
   column: string;
+  name?: string;
   datatype: FactTableColumnType;
   deleted?: boolean;
 };
@@ -100,11 +101,14 @@ export function aggregationForShape(
 // Sentinel columns read as plain English in read-only views; a real column
 // name is already plain English. Single source of truth for this
 // translation - was duplicated ad hoc across read-only display components.
-export function columnValueLabel(column: string): string {
+export function columnValueLabel(
+  column: string,
+  factTable?: MinimalFactTable,
+): string {
   if (column === "$$count") return "Count of Rows";
   if (column === "$$distinctUsers") return "Unique Users";
   if (column === "$$distinctDates") return "Distinct Dates";
-  return column;
+  return factTable?.columns.find((c) => c.column === column)?.name || column;
 }
 
 const SHAPES_NEEDING_COLUMNS: readonly RatioShape[] = [
@@ -629,21 +633,27 @@ export function applyFormType<T extends MetricTypeSwitchState>(
     ...current,
     metricType,
     numerator,
+    // Only ratio/quantile carry a denominator/quantileSettings - clear the
+    // other's field on every switch, not just spread the stale value
+    // forward, so it doesn't reach save on a type that never showed a
+    // control to edit it back.
+    denominator:
+      newFormType === "ratio"
+        ? (current.denominator ?? {
+            factTableId: numerator.factTableId,
+            column: "$$count",
+            rowFilters: [],
+          })
+        : null,
     ...(cappingSettings !== undefined && { cappingSettings }),
     ...(windowSettings !== undefined && { windowSettings }),
-    ...(newFormType === "ratio" && {
-      denominator: current.denominator ?? {
-        factTableId: numerator.factTableId,
-        column: "$$count",
-        rowFilters: [],
-      },
-    }),
-    ...(newFormType === "quantile" && {
-      quantileSettings: current.quantileSettings ?? {
-        type: "unit" as const,
-        ignoreZeros: false,
-        quantile: DEFAULT_QUANTILE,
-      },
-    }),
+    quantileSettings:
+      newFormType === "quantile"
+        ? (current.quantileSettings ?? {
+            type: "unit" as const,
+            ignoreZeros: false,
+            quantile: DEFAULT_QUANTILE,
+          })
+        : null,
   };
 }
