@@ -27,6 +27,7 @@ export default function NewFactMetricPage() {
     factTables,
     datasources,
     metrics,
+    getFactTableById,
   } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
 
@@ -37,6 +38,11 @@ export default function NewFactMetricPage() {
   const returnUrl = getSafeReturnUrl(router.query.returnUrl);
 
   if (!ready || !router.isReady) return <LoadingOverlay />;
+
+  const initialFactTable =
+    typeof router.query.factTable === "string"
+      ? getFactTableById(router.query.factTable)
+      : null;
 
   const duplicateSource =
     typeof router.query.duplicate === "string"
@@ -86,6 +92,7 @@ export default function NewFactMetricPage() {
     permissionsUtil.canCreateMetric({ projects: project ? [project] : [] }) &&
     metrics.some(
       (m) =>
+        (!initialFactTable || m.datasource === initialFactTable.datasource) &&
         isProjectListValidForProject(m.projects, project) &&
         m.datasource !== demoDataSourceId,
     );
@@ -95,6 +102,7 @@ export default function NewFactMetricPage() {
       {showLegacyForm && (
         <MetricForm
           current={{
+            datasource: initialFactTable?.datasource,
             projects: project ? [project] : [],
           }}
           edit={false}
@@ -131,6 +139,7 @@ export default function NewFactMetricPage() {
         <MetricWorkspace
           existing={null}
           duplicateFrom={duplicateFrom}
+          initialFactTable={initialFactTable}
           isEditing={true}
           mutate={mutateDefinitions}
           onSaved={(metric: FactMetricInterface) =>
