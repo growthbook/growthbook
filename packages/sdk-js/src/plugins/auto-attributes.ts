@@ -5,6 +5,7 @@ import type {
 } from "../GrowthBookClient";
 import { genUUID } from "../util";
 import { getOrCreateGbSessionId } from "./utils/gb-session";
+import { readSessionJSON, writeSessionJSON } from "./utils/storage";
 
 export type AutoAttributeSettings = {
   uuidCookieName?: string;
@@ -180,13 +181,9 @@ function getCookie(name: string): string {
 function getUtmAttributes(url: URL | Location | undefined) {
   // Store utm- params in sessionStorage for future page loads
   let utms: Record<string, string> = {};
-  try {
-    const existing = sessionStorage.getItem("utm_params");
-    if (existing) {
-      utms = JSON.parse(existing);
-    }
-  } catch (e) {
-    // Do nothing if sessionStorage is disabled (e.g. incognito window)
+  const existing = readSessionJSON("utm_params");
+  if (existing && typeof existing === "object") {
+    utms = existing as Record<string, string>;
   }
 
   // Add utm params from querystring
@@ -205,13 +202,9 @@ function getUtmAttributes(url: URL | Location | undefined) {
       }
     });
 
-    // Write back to sessionStorage
+    // Write back to sessionStorage; failures (e.g. incognito window) are fine
     if (hasChanges) {
-      try {
-        sessionStorage.setItem("utm_params", JSON.stringify(utms));
-      } catch (e) {
-        // Do nothing if sessionStorage is disabled (e.g. incognito window)
-      }
+      writeSessionJSON("utm_params", utms);
     }
   }
 

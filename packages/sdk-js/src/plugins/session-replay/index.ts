@@ -2,16 +2,20 @@ import { record } from "rrweb";
 import type { eventWithTime } from "@rrweb/types";
 import { GrowthBook } from "../../GrowthBook";
 import {
+  createRetry,
+  RetryExhaustedError,
+  RetryCancelledError,
+} from "../utils/retry-manager";
+import { readSessionJSON, writeSessionJSON } from "../utils/storage";
+import {
   SessionReplayPrivacyConfig,
   buildRrwebPrivacyOptions,
 } from "./privacy";
 import { scrubEventUrls } from "./url-scrub";
 import {
-  createRetry,
-  RetryExhaustedError,
-  RetryCancelledError,
-} from "./retry-manager";
-import { getOrCreateSessionReplayId } from "./id";
+  getOrCreateSessionReplayId,
+  SESSION_REPLAY_IDLE_TIMEOUT_MS,
+} from "./id";
 
 export type {
   SessionReplayPrivacyConfig,
@@ -73,50 +77,44 @@ const REPLAY_STORAGE_KEY = "gb_session_replay";
 /**
  * Maximum idle gap between successful chunk sends before a resume across a
  * page reload is rejected and a fresh session starts. Must match the
- * session replay ID manager's idle timeout (30 min): if this were shorter,
- * a reload in the gap would reuse the same session_replay_id but reset
- * chunkIndex to 0, creating a chunk-0 collision in the ingestor.
+ * session replay ID manager's idle timeout: if this were shorter, a reload
+ * in the gap would reuse the same session_replay_id but reset chunkIndex
+ * to 0, creating a chunk-0 collision in the ingestor.
  */
-const RESUME_STALENESS_MS = 30 * 60 * 1000;
+const RESUME_STALENESS_MS = SESSION_REPLAY_IDLE_TIMEOUT_MS;
 
 function readPersistedReplayState(): PersistedReplayState | null {
-  try {
-    const raw = sessionStorage.getItem(REPLAY_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PersistedReplayState;
-    const legacyParsed = parsed as unknown as { sessionId?: unknown };
-    const sessionReplayId =
-      typeof parsed?.sessionReplayId === "string"
-        ? parsed.sessionReplayId
-        : typeof legacyParsed.sessionId === "string"
-          ? legacyParsed.sessionId
-          : "";
-    if (
-      !sessionReplayId ||
-      typeof parsed.sessionStartedAt !== "number" ||
-      typeof parsed.lastChunkIndex !== "number" ||
-      typeof parsed.lastChunkAt !== "number"
-    ) {
-      return null;
-    }
-    return {
-      sessionReplayId,
-      sessionStartedAt: parsed.sessionStartedAt,
-      lastChunkIndex: parsed.lastChunkIndex,
-      lastChunkAt: parsed.lastChunkAt,
-    };
-  } catch {
+  const parsed = readSessionJSON(
+    REPLAY_STORAGE_KEY,
+  ) as PersistedReplayState | null;
+  if (!parsed) return null;
+  const legacyParsed = parsed as unknown as { sessionId?: unknown };
+  const sessionReplayId =
+    typeof parsed.sessionReplayId === "string"
+      ? parsed.sessionReplayId
+      : typeof legacyParsed.sessionId === "string"
+        ? legacyParsed.sessionId
+        : "";
+  if (
+    !sessionReplayId ||
+    typeof parsed.sessionStartedAt !== "number" ||
+    typeof parsed.lastChunkIndex !== "number" ||
+    typeof parsed.lastChunkAt !== "number"
+  ) {
     return null;
   }
+  return {
+    sessionReplayId,
+    sessionStartedAt: parsed.sessionStartedAt,
+    lastChunkIndex: parsed.lastChunkIndex,
+    lastChunkAt: parsed.lastChunkAt,
+  };
 }
 
+// Failures are ignored: without storage, resume-across-reloads won't work
+// but within-page recording is unaffected.
 function writePersistedReplayState(state: PersistedReplayState): void {
-  try {
-    sessionStorage.setItem(REPLAY_STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // sessionStorage disabled — resume-across-reloads won't work but
-    // within-page recording is unaffected.
-  }
+  writeSessionJSON(REPLAY_STORAGE_KEY, state);
 }
 
 /**
