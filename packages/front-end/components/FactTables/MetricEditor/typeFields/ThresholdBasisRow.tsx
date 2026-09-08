@@ -42,6 +42,7 @@ export function ThresholdBasisRow({
     const hasColumn = columnsForShape(shape, factTable, false).length > 0;
     return (
       <DataList
+        maxColumns={1}
         data={[
           { label: "Basis", value: SHAPE_LABELS[shape] },
           ...(hasColumn

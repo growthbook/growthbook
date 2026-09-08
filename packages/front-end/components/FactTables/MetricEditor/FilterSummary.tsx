@@ -27,7 +27,7 @@ export default function FilterSummary({
 
   return (
     <Flex direction="column" gap="1">
-      <Link onClick={() => setOpen(!open)}>
+      <Link onClick={() => setOpen(!open)} aria-expanded={open}>
         {rowFilters.length} filter{rowFilters.length === 1 ? "" : "s"} applied
       </Link>
       {open && (
