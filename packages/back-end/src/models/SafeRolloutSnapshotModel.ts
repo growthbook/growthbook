@@ -3,6 +3,10 @@ import {
   SafeRolloutSnapshotInterface,
   safeRolloutSnapshotInterface,
 } from "shared/validators";
+import {
+  findAnalysisComputeFailure,
+  getSafeRolloutSnapshotAnalysis,
+} from "shared/util";
 import { updateSafeRolloutTimeSeries } from "back-end/src/services/safeRolloutTimeSeries";
 import {
   getSafeRolloutAnalysisSummary,
@@ -107,7 +111,12 @@ export class SafeRolloutSnapshotModel extends BaseClass {
       latestSafeRolloutSnapshot === null ||
       latestSafeRolloutSnapshot?.id === updatedDoc.id;
 
-    if (isLatestSnapshot && updatedDoc.status === "success") {
+    if (
+      isLatestSnapshot &&
+      updatedDoc.status === "success" &&
+      findAnalysisComputeFailure(getSafeRolloutSnapshotAnalysis(updatedDoc)) ===
+        null
+    ) {
       const safeRollout = await this.context.models.safeRollout.getById(
         updatedDoc.safeRolloutId,
       );
@@ -181,7 +190,6 @@ export class SafeRolloutSnapshotModel extends BaseClass {
           ruleId: matchingRule.id,
           feature,
         });
-        // update the ramp up Schedule if the status is running and the ramp up is enabled and not completed
         if (status === "running") {
           await updateRampUpSchedule({
             context: this.context,

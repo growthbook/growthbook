@@ -1,4 +1,8 @@
-import { Permissions, userHasPermission } from "shared/permissions";
+import {
+  Permissions,
+  getRolePermissions,
+  userHasPermission,
+} from "shared/permissions";
 import { uniq } from "lodash";
 import md5 from "md5";
 import type pino from "pino";
@@ -37,7 +41,6 @@ import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
   getUserPermissions,
-  getRolePermissions,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
@@ -403,6 +406,7 @@ export class ReqContextClass {
     apiKey,
     apiKeyData,
     req,
+    restrictedProjects = [],
   }: {
     org: OrganizationInterface;
     user?: {
@@ -417,6 +421,7 @@ export class ReqContextClass {
     teams?: TeamInterface[];
     auditUser: EventUser;
     req?: Request;
+    restrictedProjects?: string[];
   }) {
     this.org = org;
     this.auditUser = auditUser;
@@ -441,7 +446,12 @@ export class ReqContextClass {
       this.email = user.email;
       this.userName = user.name || "";
       this.superAdmin = user.superAdmin || false;
-      this.userPermissions = getUserPermissions(user, org, teams || []);
+      this.userPermissions = getUserPermissions(
+        user,
+        org,
+        teams || [],
+        restrictedProjects,
+      );
     }
     // If an API key or background job is making this request
     else {
@@ -459,6 +469,7 @@ export class ReqContextClass {
         { ...roleInfo, role },
         org,
         teams || [],
+        restrictedProjects,
       );
     }
 

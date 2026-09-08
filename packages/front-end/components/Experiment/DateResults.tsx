@@ -212,7 +212,7 @@ const DateResults: FC<{
               if (differenceType === "absolute") {
                 up = crB - crA;
               } else {
-                up = crA ? (crB - crA) / crA : 0;
+                up = crA ? (crB - crA) / Math.abs(crA) : 0;
               }
             }
 

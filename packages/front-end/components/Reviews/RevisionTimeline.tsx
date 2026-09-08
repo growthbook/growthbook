@@ -14,6 +14,7 @@ import {
   PiPlusMinusBold,
   PiProhibitFill,
   PiRocketLaunch,
+  PiXCircleFill,
   PiSpinnerGap,
 } from "react-icons/pi";
 import { date, datetime } from "shared/dates";
@@ -23,6 +24,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import EventUser from "@/components/Avatar/EventUser";
 import Avatar from "@/ui/Avatar";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
 import MarkdownWithDiffRefs from "@/components/Reviews/DiffCommentMarkdown";
 import CommentCard from "@/components/Comments/CommentCard";
@@ -220,7 +222,7 @@ function rowVisual(action: string): RowVisual {
       return {
         color: "gray",
         verb: "discarded this revision",
-        icon: <PiProhibitFill />,
+        icon: <PiXCircleFill />,
         showCommentBody: false,
         showAuditDetails: false,
       };
@@ -271,12 +273,52 @@ export type VerdictRetraction = {
   label: string;
 };
 
+// Verdict tags: why an approval doesn't count, and whether it was retracted.
+// One row so they never crowd the header line.
+function VerdictTags({
+  uncoveredReason,
+  retraction,
+  mb,
+}: {
+  uncoveredReason?: string;
+  retraction?: VerdictRetraction | null;
+  mb?: "2";
+}) {
+  if (!uncoveredReason && !retraction) return null;
+  return (
+    <Flex align="center" gap="2" mb={mb}>
+      {uncoveredReason && (
+        <Tooltip
+          usePortal
+          body={`This approval does not let the draft publish: ${uncoveredReason}.`}
+        >
+          <Badge
+            color="gray"
+            variant="soft"
+            label="Not a qualifying approval"
+            size="xs"
+          />
+        </Tooltip>
+      )}
+      {retraction && (
+        <Badge
+          color="gray"
+          variant="solid"
+          label={retraction.label}
+          size="xs"
+        />
+      )}
+    </Flex>
+  );
+}
+
 export function RevisionLogRow({
   log,
   onEditComment,
   onDeleteComment,
   retraction,
   onRetractVerdict,
+  uncoveredApproverReasons,
 }: {
   log: RevisionLog;
   first?: boolean;
@@ -293,6 +335,9 @@ export function RevisionLogRow({
   // "Retract review" action in the card's overflow menu (more discoverable
   // than the actions-column dropdown).
   onRetractVerdict?: () => void | Promise<void>;
+  // Approver id -> why their verdict cannot sanction this draft. Outlines the
+  // avatar and annotates the row.
+  uncoveredApproverReasons?: Map<string, string>;
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -364,8 +409,18 @@ export function RevisionLogRow({
       : log.action === "Requested Changes"
         ? "red"
         : null;
+  const uncoveredReason =
+    log.action === "Approved" && logUserId
+      ? uncoveredApproverReasons?.get(logUserId)
+      : undefined;
+  const verdictUncovered = !!uncoveredReason;
   const verdictLeading = verdictAvatarColor ? (
-    <Avatar size="md" color={verdictAvatarColor} variant="solid">
+    <Avatar
+      size="md"
+      color={verdictAvatarColor}
+      variant={verdictUncovered ? "soft" : "solid"}
+      ring={verdictUncovered}
+    >
       <>{visual.icon}</>
     </Avatar>
   ) : undefined;
@@ -380,16 +435,6 @@ export function RevisionLogRow({
           stripeColor={visual.color}
           leading={verdictLeading}
           avatarSize="md"
-          metadataExtra={
-            retraction ? (
-              <Badge
-                color="gray"
-                variant="solid"
-                label={retraction.label}
-                size="xs"
-              />
-            ) : undefined
-          }
           actions={
             canEdit || canDelete || canRetractVerdict ? (
               <DropdownMenu
@@ -439,9 +484,16 @@ export function RevisionLogRow({
             ) : undefined
           }
           body={
-            <MarkdownWithDiffRefs className="speech-bubble" highlightCode>
-              {comment ?? ""}
-            </MarkdownWithDiffRefs>
+            <>
+              <VerdictTags
+                uncoveredReason={uncoveredReason}
+                retraction={retraction}
+                mb="2"
+              />
+              <MarkdownWithDiffRefs className="speech-bubble" highlightCode>
+                {comment ?? ""}
+              </MarkdownWithDiffRefs>
+            </>
           }
         />
       </Box>
@@ -483,14 +535,11 @@ export function RevisionLogRow({
             on {datetime(log.timestamp)}
           </Text>
         </Text>
-        {retraction && (
-          <Badge
-            color="gray"
-            variant="solid"
-            label={retraction.label}
-            size="xs"
-          />
-        )}
+
+        <VerdictTags
+          uncoveredReason={uncoveredReason}
+          retraction={retraction}
+        />
         {showDetails && (
           <Button
             variant="ghost"
@@ -563,9 +612,11 @@ export default function RevisionTimeline({
   onEditComment,
   onDeleteComment,
   onRetractVerdict,
+  uncoveredApproverReasons,
   emptyText = "No history for this revision.",
 }: {
   logs: RevisionLog[];
+  uncoveredApproverReasons?: Map<string, string>;
   // When provided, entries failing the predicate are collapsed into
   // "N other events" toggles (one per consecutive run, within each date
   // group) instead of rendering inline. The verdict-retraction scan still
@@ -677,6 +728,7 @@ export default function RevisionTimeline({
           ? onRetractVerdict
           : undefined
       }
+      uncoveredApproverReasons={uncoveredApproverReasons}
     />
   );
 

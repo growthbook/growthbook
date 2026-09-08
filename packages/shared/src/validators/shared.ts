@@ -43,6 +43,24 @@ export const savedGroupTargeting = z
   .strict();
 export type SavedGroupTargeting = z.infer<typeof savedGroupTargeting>;
 
+// Rule/phase targeting arrives in the storage shape or the response spelling.
+// Storage wins; undefined when neither is supplied.
+export function resolveSavedGroupsInput(input: {
+  savedGroups?: SavedGroupTargeting[] | null;
+  savedGroupTargeting?: {
+    matchType: "all" | "any" | "none";
+    savedGroups: string[];
+  }[];
+}): SavedGroupTargeting[] | undefined {
+  return (
+    input.savedGroups ??
+    input.savedGroupTargeting?.map((s) => ({
+      match: s.matchType,
+      ids: s.savedGroups,
+    }))
+  );
+}
+
 /** Response-side pagination fields returned by list endpoints. */
 export const apiPaginationFieldsValidator = namedSchema(
   "PaginationFields",

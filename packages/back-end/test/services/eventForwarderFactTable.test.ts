@@ -6,7 +6,7 @@ import {
   deleteEventForwarderEventsFactTableForDatasource,
   mergeEventForwarderFactTableColumnFromDesired,
   queueEventForwarderEventsFactTablesColumnsRefresh,
-  syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange,
+  syncEventForwarderEventsFactTableMetadata,
 } from "back-end/src/services/eventForwarder/factTable";
 import * as DataSourceModel from "back-end/src/models/DataSourceModel";
 import * as FactTableModel from "back-end/src/models/FactTableModel";
@@ -314,7 +314,7 @@ describe("queueEventForwarderEventsFactTablesColumnsRefresh", () => {
   });
 });
 
-describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", () => {
+describe("syncEventForwarderEventsFactTableMetadata", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedGetBigQueryTablePrefix.mockReturnValue("gb");
@@ -368,14 +368,11 @@ describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", 
       serviceAccountKey: "{}",
     });
 
-    await syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
-      ctx as never,
-      [
-        { property: "user_id", datatype: "string", hashAttribute: true },
-        { property: "age", datatype: "number" },
-        { property: "other_project", datatype: "string", projects: ["proj_2"] },
-      ],
-    );
+    await syncEventForwarderEventsFactTableMetadata(ctx as never, [
+      { property: "user_id", datatype: "string", hashAttribute: true },
+      { property: "age", datatype: "number" },
+      { property: "other_project", datatype: "string", projects: ["proj_2"] },
+    ]);
 
     expect(mockedGetContextForAgendaJobByOrgObject).toHaveBeenCalledWith(
       ctx.org,
@@ -403,6 +400,44 @@ describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", 
       ft,
       expect.any(Date),
     );
+  });
+
+  it("leaves a fact table the user took ownership of alone", async () => {
+    const ctx = context();
+    ctx.models.eventForwarderConfigs.getAll.mockResolvedValue([
+      {
+        datasourceId: "ds_1",
+        sinkType: "bigquery",
+      },
+    ]);
+
+    const ds = datasource({
+      settings: {
+        userIdTypes: [{ userIdType: "user_id", description: "" }],
+      },
+    });
+    const ft = eventsFactTable({ managedBy: "", sql: "SELECT my_own_thing" });
+
+    mockedGetDataSourceById.mockResolvedValue(ds);
+    mockedGetFactTable.mockResolvedValue(ft);
+    mockedGetSourceIntegrationObject.mockReturnValue({
+      params: {
+        defaultProject: "my-project",
+      },
+    } as never);
+    mockedDecrypt.mockReturnValue({
+      dataset: "analytics_123",
+      tablePrefix: "gb",
+      serviceAccountKey: "{}",
+    });
+
+    await syncEventForwarderEventsFactTableMetadata(ctx as never, [
+      { property: "user_id", datatype: "string", hashAttribute: true },
+      { property: "age", datatype: "number" },
+    ]);
+
+    expect(mockedUpdateFactTable).not.toHaveBeenCalled();
+    expect(mockedQueueFactTableColumnsRefreshAt).not.toHaveBeenCalled();
   });
 
   it("marks column refresh pending when metadata is already current", async () => {
@@ -460,10 +495,9 @@ WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`;
       serviceAccountKey: "{}",
     });
 
-    await syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
-      ctx as never,
-      [{ property: "user_id", datatype: "string", hashAttribute: true }],
-    );
+    await syncEventForwarderEventsFactTableMetadata(ctx as never, [
+      { property: "user_id", datatype: "string", hashAttribute: true },
+    ]);
 
     expect(mockedUpdateFactTable).toHaveBeenCalledWith(agendaContext, ft, {
       columnRefreshPending: true,

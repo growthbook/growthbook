@@ -298,7 +298,9 @@ export default function RevertModal({
         ) : (
           diffs
             .filter((d) => d.a !== d.b)
-            .map((diff) => <ExpandableDiff {...diff} key={diff.title} />)
+            .map((diff) => (
+              <ExpandableDiff key={diff.key ?? diff.title} {...diff} />
+            ))
         )}
       </div>
 

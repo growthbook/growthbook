@@ -11,6 +11,8 @@ import {
   _dangerousUpdateSSOConnection,
   _dangerousGetAllSSOConnections,
   _dangerousGetSSOConnectionById,
+  _dangerousGetSSOConnectionsByOrganization,
+  _dangerousSetSSOConnectionsDisabled,
 } from "back-end/src/models/SSOConnectionModel";
 import {
   getAllUsersFiltered,
@@ -209,6 +211,32 @@ export async function _dangerousAdminPutOrganization(
   });
 }
 
+async function setSSOConnectionsDisabledWithAudit(
+  req: AuthRequest<{ orgId: string }>,
+  orgId: string,
+  disabled: boolean,
+) {
+  const connections = await _dangerousGetSSOConnectionsByOrganization(orgId);
+  const toUpdate = connections.filter((c) => !!c.disabled !== disabled);
+  if (!toUpdate.length) return;
+
+  await _dangerousSetSSOConnectionsDisabled(orgId, disabled);
+
+  for (const connection of toUpdate) {
+    await req.audit({
+      event: "ssoConnection.update",
+      entity: {
+        object: "ssoConnection",
+        id: connection.id || "",
+      },
+      details: auditDetailsUpdate(
+        { disabled: connection.disabled },
+        { disabled },
+      ),
+    });
+  }
+}
+
 // delete organization - For now, we're just marking the organization as deleted
 export async function _dangerousAdminDisableOrganization(
   req: AuthRequest<{ orgId: string }>,
@@ -237,6 +265,10 @@ export async function _dangerousAdminDisableOrganization(
   orig.disabled = org.disabled;
 
   await updateOrganization(org.id, updates);
+
+  // Also disable the org's SSO connections so domain-based SSO lookups and
+  // auto-joins can't route users into a disabled org
+  await setSSOConnectionsDisabledWithAudit(req, org.id, true);
 
   await req.audit({
     event: "organization.disable",
@@ -279,6 +311,9 @@ export async function _dangerousAdminEnableOrganization(
   orig.disabled = org.disabled;
 
   await updateOrganization(org.id, updates);
+
+  // Re-enable the org's SSO connections to mirror the disable behavior
+  await setSSOConnectionsDisabledWithAudit(req, org.id, false);
 
   await req.audit({
     event: "organization.enable",
@@ -475,6 +510,33 @@ export async function _dangerousAdminUpsertSSOConnection(
 
   const all = await _dangerousGetAllSSOConnections();
   const existing = all.find((sso) => sso.id === id);
+
+  // An email domain must map to a single active SSO connection, otherwise
+  // domain-based SSO lookups are ambiguous and can route users (and SSO
+  // auto-joins) to the wrong organization
+  const requestedDomains = new Set(
+    (emailDomains || []).map((d) => d.trim().toLowerCase()).filter(Boolean),
+  );
+  for (const sso of all) {
+    if (sso.id === id) continue;
+    if (sso.disabled) continue;
+
+    const overlap = (sso.emailDomains || []).filter((d) =>
+      requestedDomains.has(d.trim().toLowerCase()),
+    );
+    if (!overlap.length) continue;
+
+    // Connections pointing to disabled orgs can't be used to log in, so they
+    // don't conflict (covers connections created before the disabled flag)
+    const otherOrg = sso.organization
+      ? await getOrganizationById(sso.organization)
+      : null;
+    if (otherOrg?.disabled) continue;
+
+    throw new Error(
+      `Email domain(s) ${overlap.join(", ")} already in use by SSO connection "${sso.id}" (org ${sso.organization}). Remove them there first, or disable that organization.`,
+    );
+  }
 
   if (existing) {
     // Update existing SSO Connection

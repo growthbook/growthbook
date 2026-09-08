@@ -15,6 +15,7 @@ import {
 } from "back-end/src/services/owner";
 import {
   columnsHaveAutoSlices,
+  columnsNeedDetection,
   validateAggregatedFactTableSettings,
   validateVirtualColumnProps,
 } from "back-end/src/util/factTable";
@@ -107,6 +108,9 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
         req.body.userIdTypes,
       );
     }
+
+    data.columnRefreshPending =
+      !data.columns?.length || columnsNeedDetection(data.columns);
 
     const factTable = await createFactTable(req.context, data);
     await queueFactTableColumnsRefresh(factTable);

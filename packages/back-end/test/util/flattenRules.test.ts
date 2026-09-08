@@ -1,10 +1,9 @@
 import { FeatureRule } from "shared/validators";
 import { Environment } from "shared/types/organization";
-import { stemRuleId, suffixRuleId } from "shared/util";
+import { getApplicableEnvIds, stemRuleId, suffixRuleId } from "shared/util";
 import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
-  getApplicableEnvIds,
   hasNoV1EnvRules,
   isV2RevisionRules,
   narrowRuleForEnvRemoval,

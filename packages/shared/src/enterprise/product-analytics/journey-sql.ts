@@ -2,7 +2,10 @@ import { format } from "shared/sql";
 import { SqlDialect } from "shared/types/sql";
 import { FactTableInterface, FactTableMap } from "shared/types/fact-table";
 import { DataSourceType } from "shared/types/datasource";
-import { getColumnExpression } from "../../experiments/experiments";
+import {
+  getColumnExpression,
+  getFactTableTimestampColumn,
+} from "../../experiments/experiments";
 import {
   ExplorationConfig,
   JourneyDataset,
@@ -30,15 +33,28 @@ import {
 
 type CTE = { name: string; sql: string };
 
+type JourneyFactTable = Pick<
+  FactTableInterface,
+  "sql" | "columns" | "filters" | "userIdTypes"
+> & {
+  timestampColumn: string | null;
+  quoteTimestampColumn: boolean;
+};
+
 type FactTableGroup = {
   index: number;
-  factTable: Pick<
-    FactTableInterface,
-    "sql" | "columns" | "filters" | "userIdTypes" | "timestampColumn"
-  >;
+  factTable: JourneyFactTable;
   metrics: [];
   units: [];
 };
+
+function toJourneyFactTable(factTable: FactTableInterface): JourneyFactTable {
+  return {
+    ...factTable,
+    timestampColumn: getFactTableTimestampColumn(factTable),
+    quoteTimestampColumn: false,
+  };
+}
 
 function lit(dialect: SqlDialect, value: string): string {
   return `'${dialect.escapeStringLiteral(value)}'`;
@@ -363,7 +379,8 @@ export function buildJourneySql(
   // validateJourneyDataset has already rejected a null unit / anchor.
   const unit = dataset.unit as string;
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
-  const timestampColumn = factTable.timestampColumn || "timestamp";
+  const journeyFactTable = toJourneyFactTable(factTable);
+  const timestampColumn = getFactTableTimestampColumn(factTable);
   const unitExpr = columnExpr(unit, factTable, dialect);
   const stepExpr = stepExpression(
     dataset.stepColumns,
@@ -380,7 +397,7 @@ export function buildJourneySql(
 
   const factTableGroup: FactTableGroup = {
     index: 0,
-    factTable,
+    factTable: journeyFactTable,
     metrics: [],
     units: [],
   };
@@ -422,7 +439,7 @@ export function buildJourneySql(
 
   const filterParts = generateRowFilterSQL(
     dataset.rowFilters,
-    factTable,
+    journeyFactTable,
     dialect,
   );
   if (dimension?.dimensionType === "static" && dimension.values.length > 0) {

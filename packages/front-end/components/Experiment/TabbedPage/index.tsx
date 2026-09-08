@@ -435,6 +435,7 @@ export default function TabbedPage({
       experiment={experiment}
       linkedFeatures={linkedFeatures}
       visualChangesets={visualChangesets}
+      urlRedirects={urlRedirects}
       connections={connections}
       mutateExperiment={mutate}
       editTargeting={editTargeting}

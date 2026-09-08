@@ -21,12 +21,8 @@ import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
 import { useTemplates } from "@/hooks/useTemplates";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
-import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
 
 type Props = {
@@ -60,7 +56,6 @@ const TemplateForm: FC<Props> = ({
 
   const { getDatasourceById, refreshTags, project, projects } =
     useDefinitions();
-  const { hasCommercialFeature } = useUser();
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
@@ -120,17 +115,19 @@ const TemplateForm: FC<Props> = ({
     },
   });
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "experiment",
-    form.watch("project"),
-  );
+  const selectedProject = form.watch("project");
+
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "experiment",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
-
-  const selectedProject = form.watch("project");
 
   const { apiCall } = useAuth();
 
@@ -335,20 +332,15 @@ const TemplateForm: FC<Props> = ({
               />
             </div>
 
-            {hasCommercialFeature("custom-metadata") &&
-              !!customFields?.length && (
-                <div className="form-group">
-                  <CustomFieldInput
-                    customFields={customFields}
-                    setCustomFields={(value) => {
-                      form.setValue("customFields", value);
-                    }}
-                    currentCustomFields={form.watch("customFields") || {}}
-                    section={"experiment"}
-                    project={selectedProject}
-                  />
-                </div>
-              )}
+            {customFields.length > 0 && (
+              <div className="form-group">
+                <CustomFieldInput
+                  fields={customFields}
+                  value={customFieldValues}
+                  onChange={(value) => form.setValue("customFields", value)}
+                />
+              </div>
+            )}
           </div>
         </Page>
 

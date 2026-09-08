@@ -8,6 +8,7 @@ import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useUser } from "@/services/UserContext";
 
 // How long a dismissed banner stays hidden before re-showing.
 const DISMISS_DURATION_MS = 90 * 24 * 60 * 60 * 1000;
@@ -123,7 +124,28 @@ type MarketingBannerConfig = {
   buttonCopy: string;
   buttonLink: string;
   dismissible?: boolean;
+  maxUserAgeDays?: number;
 };
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+export function isWithinUserAgeWindow({
+  userDateCreated,
+  maxUserAgeDays,
+  now = Date.now(),
+}: {
+  userDateCreated?: Date;
+  maxUserAgeDays?: number;
+  now?: number;
+}): boolean {
+  if (typeof maxUserAgeDays !== "number" || maxUserAgeDays <= 0) return true;
+  if (!userDateCreated) return false;
+
+  const createdAt = userDateCreated.getTime();
+  if (Number.isNaN(createdAt)) return false;
+
+  return now - maxUserAgeDays * MS_PER_DAY <= createdAt;
+}
 
 // Slug derived from the title so changing the banner copy re-shows it to users
 // who dismissed the previous one.
@@ -137,8 +159,8 @@ function slugify(value: string): string {
 /**
  * Reads the `home-marketing-banner` JSON feature flag and renders the banner.
  * Requires a title and a complete button (both buttonCopy and buttonLink).
- * Everything else — pill, subheader, dismissible — is optional and degrades
- * gracefully.
+ * Everything else — pill, subheader, dismissible, maxUserAgeDays — is optional
+ * and degrades gracefully.
  * Returns null when a required field is missing or the flag is unset.
  */
 export function HomeMarketingBanner() {
@@ -146,6 +168,7 @@ export function HomeMarketingBanner() {
     "home-marketing-banner",
     null,
   );
+  const { accountCreatedAt } = useUser();
 
   const cta =
     config?.buttonCopy && config?.buttonLink
@@ -153,6 +176,17 @@ export function HomeMarketingBanner() {
       : undefined;
 
   if (!config?.title || !cta) return null;
+
+  if (
+    !isWithinUserAgeWindow({
+      userDateCreated: accountCreatedAt
+        ? new Date(accountCreatedAt)
+        : undefined,
+      maxUserAgeDays: config.maxUserAgeDays,
+    })
+  ) {
+    return null;
+  }
 
   // Identity changes when the banner copy changes. The `key` forces a
   // remount so useLocalStorage re-reads the dismissed state from the new

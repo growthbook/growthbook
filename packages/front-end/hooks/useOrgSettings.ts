@@ -1,30 +1,36 @@
 import { AGREEMENT_TYPE_AI } from "shared/validators";
 import { CLOUD_MANAGED_AI_MODEL } from "shared/ai";
 import { DEFAULT_REVISION_CONFIGURATION } from "shared/constants";
+import type { OrganizationSettings } from "shared/types/organization";
 import { useUser } from "@/services/UserContext";
 import { isCloud, hasAnyAIKey } from "@/services/env";
+
+// Unlicensed orgs keep their stored rules but none of them require approval.
+// Every rule, not just the first: an org can carry per-project overrides.
+export function applyApprovalFlowEntitlements(
+  approvalFlows: OrganizationSettings["approvalFlows"],
+  hasRequireApprovals: boolean,
+): OrganizationSettings["approvalFlows"] {
+  if (hasRequireApprovals || !approvalFlows) return approvalFlows;
+  const savedGroups = approvalFlows.savedGroups?.length
+    ? approvalFlows.savedGroups
+    : DEFAULT_REVISION_CONFIGURATION.savedGroups;
+  return {
+    ...approvalFlows,
+    savedGroups: savedGroups.map((rule) => ({ ...rule, required: false })),
+  };
+}
 
 export default function useOrgSettings() {
   const { settings, hasCommercialFeature } = useUser();
   if (!hasCommercialFeature("require-approvals") && settings) {
-    if (!settings.approvalFlows) return { ...settings, requireReviews: [] };
-
-    const savedGroupApprovalFlow =
-      settings.approvalFlows.savedGroups?.[0] ??
-      DEFAULT_REVISION_CONFIGURATION.savedGroups[0];
     return {
       ...settings,
       requireReviews: [],
-      approvalFlows: {
-        ...settings.approvalFlows,
-        savedGroups: [
-          {
-            ...savedGroupApprovalFlow,
-            required: false,
-          },
-          ...(settings.approvalFlows.savedGroups?.slice(1) ?? []),
-        ],
-      },
+      approvalFlows: applyApprovalFlowEntitlements(
+        settings.approvalFlows,
+        false,
+      ),
     };
   }
   return settings;

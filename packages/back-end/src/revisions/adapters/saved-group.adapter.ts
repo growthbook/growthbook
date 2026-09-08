@@ -1,7 +1,8 @@
 import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   Revision,
-  getApprovalFlowSettings,
+  getApprovalFlowRules,
+  entityProjects,
   isSavedGroupRevisionMetadataOnly,
   normalizeProposedChanges,
 } from "shared/enterprise";
@@ -10,6 +11,7 @@ import {
   savedGroupUpdatableFieldsSchema,
 } from "shared/validators";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import type { ReviewRequirement } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   ApplyChangesResult,
@@ -76,11 +78,35 @@ function canEditSavedGroup(
   );
 }
 
+// Org-wide: whether the revision workflow is in use for saved groups at all.
+// The per-entity gate below is what resolves the governing project's rule.
 function isSavedGroupApprovalRequired(context: Context): boolean {
   return (
     context.hasPremiumFeature("require-approvals") &&
-    !!context.org.settings?.approvalFlows?.savedGroups?.[0]?.required
+    !!context.org.settings?.approvalFlows?.savedGroups?.some((r) => r.required)
   );
+}
+
+// The rules governing this revision: one per project the saved group belongs to.
+// A metadata-only change answers only to the rules that gate metadata.
+function savedGroupReviewRequirement(
+  context: Context,
+  revision: Revision,
+): ReviewRequirement {
+  if (!context.hasPremiumFeature("require-approvals")) {
+    return { required: false, rules: [] };
+  }
+  const rules = getApprovalFlowRules(
+    context.org.settings?.approvalFlows,
+    "saved-group",
+    entityProjects(revision.target.snapshot),
+  ).filter((r) => r.required);
+  const governing = isSavedGroupRevisionMetadataOnly(
+    revision.target.proposedChanges,
+  )
+    ? rules.filter((r) => r.requireMetadataReview !== false)
+    : rules;
+  return { required: governing.length > 0, rules: governing };
 }
 
 export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
@@ -148,16 +174,11 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   // metadata-only autoPublish shortcut in PUT /saved-groups/:id so the
   // generic /revision/:id/merge endpoint reaches the same conclusion.
   isApprovalRequiredForRevision(context: Context, revision: Revision): boolean {
-    if (!context.hasPremiumFeature("require-approvals")) return false;
+    return savedGroupReviewRequirement(context, revision).required;
+  },
 
-    const settings = getApprovalFlowSettings(
-      context.org.settings?.approvalFlows,
-      "saved-group",
-    );
-    if (!settings?.required) return false;
-    const metadataReviewRequired = settings.requireMetadataReview ?? true;
-    if (metadataReviewRequired) return true;
-    return !isSavedGroupRevisionMetadataOnly(revision.target.proposedChanges);
+  reviewRequirementForRevision(context: Context, revision: Revision) {
+    return savedGroupReviewRequirement(context, revision);
   },
 
   canBypassApproval(context: Context, snapshot: SavedGroupInterface): boolean {

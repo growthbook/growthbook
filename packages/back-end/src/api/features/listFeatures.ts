@@ -14,6 +14,7 @@ import {
 } from "back-end/src/services/features";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
+import { getReferenceIdsInFeatures } from "back-end/src/util/features";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -99,17 +100,17 @@ export async function loadFeaturesPage(
   }
   let projectIds: string[] | null = null;
   if (!projectId) {
-    projectIds = context.permissions.getProjectsWithPermission("readData");
+    projectIds = context.permissions.getProjectsWithPermission(
+      "readData",
+      await context.models.projects.getAllIdsForOrg(),
+    );
     if (projectIds !== null && projectIds.length === 0) {
       return { empty: true, response: emptyListResponse(limit, offset) };
     }
   }
 
   const experimentScope = projectId ? [projectId] : (projectIds ?? undefined);
-  const [groupMap, experimentMap] = await Promise.all([
-    getSavedGroupMap(context),
-    getAllPayloadExperiments(context, experimentScope),
-  ]);
+  const groupMap = await getSavedGroupMap(context);
 
   let filtered: Awaited<ReturnType<typeof getFeaturesPage>>;
   let total: number;
@@ -171,6 +172,7 @@ export async function loadFeaturesPage(
     if (skipPagination) {
       const features = await getAllFeatures(context, {
         projects: projectsFilter,
+        projectsAreReadAllowlist: true,
         includeArchived,
       });
       const sorted = features.sort(
@@ -198,6 +200,13 @@ export async function loadFeaturesPage(
   );
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
+
+  // Loaded after the page resolves so the experiments it references come too.
+  const experimentMap = await getAllPayloadExperiments(
+    context,
+    experimentScope,
+    getReferenceIdsInFeatures(filtered, "experiment-ref"),
+  );
 
   const hasMore = skipPagination ? false : offset + limit < total;
   const nextOffset = hasMore ? offset + limit : null;

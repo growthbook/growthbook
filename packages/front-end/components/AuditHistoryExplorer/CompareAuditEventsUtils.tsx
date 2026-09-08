@@ -21,6 +21,14 @@ export const COMPACT_DIFF_STYLES = {
     wordBreak: "break-all" as const,
   },
   gutter: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.6" },
+  codeFold: {
+    fontSize: "11px",
+    lineHeight: "1.6",
+    height: "auto",
+    padding: "1px 2px",
+    a: { fontSize: "11px" },
+  },
+  codeFoldGutter: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.6" },
 };
 
 // ---- Types ----

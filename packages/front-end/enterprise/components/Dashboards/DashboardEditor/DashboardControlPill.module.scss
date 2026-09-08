@@ -1,0 +1,38 @@
+// Opaque panel fill for outline pills; doubled to beat Radix's transparent bg.
+.controlPill {
+  &.controlPill {
+    background-color: var(--color-panel-solid);
+  }
+
+  &.controlPill:hover:not(:disabled) {
+    background-color: var(--gray-2);
+  }
+}
+
+// Extra right padding so the sibling ✕ can sit over the pill edge.
+.controlPillRemovable {
+  &.controlPillRemovable {
+    padding-right: 26px;
+  }
+}
+
+.pillWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+// Size/placement set inline on the element.
+.pillRemove {
+  &.pillRemove {
+    border-radius: var(--radius-1);
+    color: var(--gray-a10);
+    cursor: pointer;
+  }
+
+  &.pillRemove:hover:not(:disabled),
+  &.pillRemove:focus-visible {
+    color: var(--gray-12);
+    background-color: var(--gray-a4);
+  }
+}

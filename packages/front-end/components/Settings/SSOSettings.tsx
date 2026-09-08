@@ -1,5 +1,5 @@
 import { SSOConnectionInterface } from "shared/types/sso-connection";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { isDefined } from "shared/util";
 import { isCloud } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -30,11 +30,11 @@ export default function SSOSettings({ ssoConnection }: Props) {
                   <div className="small mt-1">
                     or any of the following email domains:{" "}
                     {ssoConnection.emailDomains.slice(1).map((d, i) => (
-                      <>
-                        <strong key={i}>{d}</strong>
+                      <Fragment key={d}>
+                        <strong>{d}</strong>
                         {i < (ssoConnection.emailDomains?.length || 0) - 2 &&
                           ", "}
-                      </>
+                      </Fragment>
                     ))}
                   </div>
                 )}

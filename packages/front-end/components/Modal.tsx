@@ -49,7 +49,7 @@ type ModalProps = {
   docSection?: DocSection;
   error?: string;
   loading?: boolean;
-  size?: "md" | "lg" | "max" | "fill";
+  size?: "md" | "lg" | "xl" | "max" | "fill";
   sizeY?: "max" | "fill";
   inline?: boolean;
   overflowAuto?: boolean;
@@ -459,9 +459,11 @@ const Modal: FC<ModalProps> = ({
         style={
           size === "max"
             ? { width: "95vw", maxWidth: 1400, margin: "2vh auto" }
-            : size === "fill"
-              ? { width: "100%", maxWidth: "100%" }
-              : {}
+            : size === "xl"
+              ? { width: "95vw", maxWidth: 1100 }
+              : size === "fill"
+                ? { width: "100%", maxWidth: "100%" }
+                : {}
         }
       >
         {submit && !isSuccess ? (

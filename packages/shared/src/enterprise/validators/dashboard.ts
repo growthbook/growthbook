@@ -52,6 +52,10 @@ export const dashboardGlobalControlsValidator = z
   .object({
     dateRange: baseExplorationConfigValidator.shape.dateRange.optional(),
     dateGranularity: z.enum(dateGranularity).optional(),
+    // Experiment-block filters, applied per-block via globalControlSettings.
+    // `projects: []` means all projects; absent means no dashboard-wide filter.
+    projects: z.array(z.string()).optional(),
+    experimentSearchString: z.string().optional(),
   })
   .strict();
 export type DashboardGlobalControls = z.infer<

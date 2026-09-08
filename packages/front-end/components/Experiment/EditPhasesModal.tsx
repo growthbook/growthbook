@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { phaseSummary } from "@/services/utils";
@@ -21,6 +24,7 @@ import NewPhaseForm from "./NewPhaseForm";
 export interface Props {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures?: LinkedFeatureInfo[];
   mutateExperiment: () => void;
   editTargeting: (() => void) | null;
   source?: string;
@@ -29,6 +33,7 @@ export interface Props {
 export default function EditPhasesModal({
   close,
   experiment,
+  linkedFeatures,
   mutateExperiment,
   editTargeting,
   source,
@@ -57,6 +62,7 @@ export default function EditPhasesModal({
           }
         }}
         experiment={experiment}
+        linkedFeatures={linkedFeatures}
         mutate={mutateExperiment}
       />
     );

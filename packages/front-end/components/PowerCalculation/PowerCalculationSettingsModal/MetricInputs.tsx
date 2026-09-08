@@ -81,8 +81,14 @@ export const InputField = ({
   const helpText = (() => {
     if (c.type === "boolean") return;
 
-    const min = c.minValue ? c.minValue * 100 : c.minValue;
-    const max = c.maxValue ? c.maxValue * 100 : c.maxValue;
+    const min =
+      c.minValue !== undefined && c.type === "percent"
+        ? c.minValue * 100
+        : c.minValue;
+    const max =
+      c.maxValue !== undefined && c.type === "percent"
+        ? c.maxValue * 100
+        : c.maxValue;
 
     if (min !== undefined && max !== undefined)
       return `Must be greater than ${min} and less than ${max}`;

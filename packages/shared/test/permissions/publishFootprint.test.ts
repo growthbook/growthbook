@@ -96,6 +96,50 @@ describe("featurePublishFootprint", () => {
     ]);
   });
 
+  // A rule marked `allEnvironments` structurally touches every applicable
+  // environment, including ones the flag is disabled in. The footprint must stay
+  // the serving set — demanding authority over a disabled environment the change
+  // can never reach blocked a feature owner from publishing their own draft.
+  it("counts an allEnvironments rule only where the flag actually serves", () => {
+    const allEnvRule = {
+      ...rule("r1"),
+      allEnvironments: true,
+    } as unknown as FeatureRule;
+    expect(footprint({ rules: [allEnvRule] }, { liveRules: [] })).toEqual([
+      "dev",
+      "staging",
+    ]);
+  });
+
+  // Every changed env is disabled, so the narrowing above would empty the set and
+  // fall through to the whole serving list — demanding authority in dev/staging,
+  // which this draft never touched. It stays the environment that was edited.
+  it("keeps the edited environment when the narrowing would empty the set", () => {
+    expect(footprint({ rules: [rule("r1", "production")] })).toEqual([
+      "production",
+    ]);
+  });
+
+  // The `environmentsEnabled` contribution is deliberately not narrowed, so an env
+  // this same draft switches on stays in the footprint.
+  it("counts an environment the draft enables while editing its rules", () => {
+    expect(
+      footprint({
+        rules: [rule("r1", "production")],
+        environmentsEnabled: { production: true },
+      }),
+    ).toEqual(["production"]);
+  });
+
+  it("unions an enabled environment with the serving envs whose rules changed", () => {
+    expect(
+      footprint({
+        rules: [rule("r2", "dev")],
+        environmentsEnabled: { production: true },
+      }),
+    ).toEqual(["dev", "production"]);
+  });
+
   // A global field is felt everywhere, so the footprint is everything the change
   // REACHES — including an environment this same draft switches on. Returning
   // only the already-serving set let a draft that enabled production and edited

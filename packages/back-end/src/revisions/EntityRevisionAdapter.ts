@@ -1,5 +1,6 @@
 import { isEqual } from "lodash";
 import type { Revision } from "shared/enterprise";
+import type { ReviewRequirement } from "shared/util";
 import {
   NO_ENVIRONMENT_BINDING,
   RevisionAction,
@@ -69,10 +70,17 @@ export function revisionActionHooks<TSnapshot extends Record<string, unknown>>({
       context.permissions.canRevisionAction(model, "draft", {
         projects: projectsOf(snapshot),
       }),
-    canReview: (context, snapshot) =>
-      context.permissions.canRevisionAction(model, "review", {
-        projects: projectsOf(snapshot),
-      }),
+    // `environments` is the caller's change-aware footprint; falling back to
+    // envsOf keeps callers that cannot compute one working.
+    canReview: (context, snapshot, environments) =>
+      environments !== undefined
+        ? context.permissions.canRevisionAction(
+            model,
+            "review",
+            { projects: projectsOf(snapshot) },
+            environments,
+          )
+        : scoped("review", context, snapshot),
     canPublishRevision: (context, snapshot) =>
       scoped("publish", context, snapshot),
     canRevert: (context, snapshot) => scoped("revert", context, snapshot),
@@ -151,7 +159,11 @@ export interface EntityRevisionAdapter<
   canManageDrafts?(context: Context, snapshot: TSnapshot): boolean;
 
   /** Approve / request changes / undo a verdict. */
-  canReview?(context: Context, snapshot: TSnapshot): boolean;
+  canReview?(
+    context: Context,
+    snapshot: TSnapshot,
+    environments?: string[] | null,
+  ): boolean;
 
   /** Restore a previously-published revision. */
   canRevert?(context: Context, snapshot: TSnapshot): boolean;
@@ -189,15 +201,27 @@ export interface EntityRevisionAdapter<
   // lets metadata-only revisions skip review).
   isApprovalRequiredForRevision?(context: Context, revision: Revision): boolean;
 
+  // Same answer as isApprovalRequiredForRevision, plus the rules that demanded
+  // it — what per-rule policy hangs off. Saved groups carry no rules.
+  reviewRequirementForRevision?(
+    context: Context,
+    revision: Revision,
+  ): ReviewRequirement;
+
   /** Whether the current user can bypass the approval requirement. */
   canBypassApproval(context: Context, snapshot: TSnapshot): boolean;
 
-  // Whether an *approved* revision should reset to pending-review when its
-  // proposed changes are subsequently modified. Defaults (when not implemented)
-  // to the entity's approval-flow `resetReviewOnChange` toggle. Override when the
-  // decision depends on what changed and/or the settings live elsewhere — e.g.
-  // constants, which use the feature `requireReviews` model.
-  shouldResetReviewOnChange?(context: Context, revision: Revision): boolean;
+  // Whether a write to an *approved* revision sends it back to pending-review.
+  // `before` is the revision as approved and `after` is what the write makes
+  // it, so the decision can rest on what this write changed. Defaults (when not
+  // implemented) to the entity's approval-flow `resetReviewOnChange` toggle.
+  // Override when the decision depends on what changed and/or the settings live
+  // elsewhere — e.g. constants, which use the feature `requireReviews` model.
+  shouldResetReviewOnChange?(
+    context: Context,
+    before: Revision,
+    after: Revision,
+  ): boolean;
 
   // Whether auto-publish-on-approval may be armed for this entity. Defaults
   // (when not implemented) to the entity's approval-flow `autopublishOnApproval`

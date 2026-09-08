@@ -1,4 +1,4 @@
-import { KnownBlock } from "@slack/types";
+import { KnownBlock, MessageAttachment } from "@slack/types";
 import formatNumber from "number-format.js";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
@@ -1999,6 +1999,12 @@ export type SlackMessage = {
   blocks: KnownBlock[];
 };
 
+// Some senders post an attachments-based payload (e.g. a colored sentiment bar)
+// rather than top-level blocks; the webhook transport is identical either way.
+export type SlackWebhookMessage =
+  | SlackMessage
+  | { attachments: MessageAttachment[] };
+
 /**
  * Sends a Slack message.
  * @param slackMessage
@@ -2006,7 +2012,7 @@ export type SlackMessage = {
  * @throws Error If the request fails
  */
 export const sendSlackMessage = async (
-  slackMessage: SlackMessage,
+  slackMessage: SlackWebhookMessage,
   webHookEndpoint: string,
 ): Promise<boolean> => {
   try {
@@ -2014,6 +2020,7 @@ export const sendSlackMessage = async (
       webHookEndpoint,
       {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(slackMessage),
       },
       {

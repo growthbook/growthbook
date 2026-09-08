@@ -15,6 +15,7 @@ import {
   COMPARISON_MODE_LABELS,
   formatExplorationDateRange,
 } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
+import styles from "./DashboardControlPill.module.scss";
 
 const DEFAULT_DATE_RANGE: ExplorationDateRange = {
   predefined: "last30Days",
@@ -81,6 +82,11 @@ export default function DashboardDateControlsDropdown({
       tooltip={triggerTooltip}
       suffix={suffix}
       disabled={disabled}
+      // This trigger leads the dashboard's filter-pill row: it gets the same
+      // opaque pill fill as its neighbours, and anchors the panel on its left
+      // edge so the panel opens into the row rather than off the left margin.
+      align="start"
+      triggerClassName={styles.controlPill}
     >
       <DateRangeComparePanel
         key={open ? "open" : "closed"}

@@ -38,6 +38,8 @@ export function OfficialBadge({
   type,
   managedBy,
   disableTooltip,
+  tooltip,
+  usePortal,
   showOfficialLabel,
   color,
   leftGap,
@@ -46,6 +48,10 @@ export function OfficialBadge({
   type: string;
   managedBy?: "" | "config" | "api" | "admin";
   disableTooltip?: boolean;
+  // Replaces the default "managed by the API" copy.
+  tooltip?: React.ReactNode;
+  // Needed when the badge sits inside a container that clips overflow.
+  usePortal?: boolean;
   showOfficialLabel?: boolean;
   color?: string;
   leftGap?: boolean;
@@ -66,9 +72,12 @@ export function OfficialBadge({
   return (
     <Box display="inline" className="text-purple mr-1" {...marginProps}>
       <Tooltip
+        usePortal={usePortal}
         body={
           disableTooltip ? (
             ""
+          ) : tooltip ? (
+            tooltip
           ) : (
             <>
               <h4 className="pb-1">

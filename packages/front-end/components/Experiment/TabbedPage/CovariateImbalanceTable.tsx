@@ -257,7 +257,7 @@ function CovariateImbalanceTableSection({
                     row.baselineMean !== 0 ? (
                       percentageFormatter.format(
                         (row.variationMean - row.baselineMean) /
-                          row.baselineMean,
+                          Math.abs(row.baselineMean),
                       )
                     ) : (
                       "-"

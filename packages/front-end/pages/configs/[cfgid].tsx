@@ -973,7 +973,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     !isLocked &&
     (!selectedRevision || isDraft);
   // Inline editing works in a live context too — saving auto-creates a draft
-  // (saveValue's writeQuery falls back to ?forceCreateRevision=1). Kept in lockstep
+  // (writeQuery falls back to ?forceCreateRevision=1). Kept in lockstep
   // with canEditNow so locked/discarded contexts expose no edit controls.
   const canEditInline = canEditNow;
   const canBypassApproval = permissionsUtil.canBypassFlagApprovalChecks(
@@ -1009,10 +1009,21 @@ export default function ConfigDetailPage(): React.ReactElement {
       ? `?revisionId=${selectedRevision.id}`
       : `?forceCreateRevision=1`;
 
-  const saveValue = async (next: Record<string, unknown>) => {
+  // One property per request, so a stale read can't drop properties another
+  // writer added.
+  const savePropertyValue = async (property: string, value: unknown) => {
     const res = await apiCall<{ revision?: Revision }>(
-      `/configs/${config.id}${writeQuery()}`,
-      { method: "PUT", body: JSON.stringify({ value: JSON.stringify(next) }) },
+      `/configs/${config.id}/property${writeQuery()}`,
+      { method: "PUT", body: JSON.stringify({ property, value }) },
+    );
+    await mutate();
+    if (res?.revision) await onRevisionCreated(res.revision);
+  };
+
+  const removePropertyValue = async (property: string) => {
+    const res = await apiCall<{ revision?: Revision }>(
+      `/configs/${config.id}/property${writeQuery()}`,
+      { method: "DELETE", body: JSON.stringify({ property }) },
     );
     await mutate();
     if (res?.revision) await onRevisionCreated(res.revision);
@@ -1066,10 +1077,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     if (!editKey) return;
     // Unset = omit the key from this config's own value (optional field absent).
     if (editKind === "undefined") {
-      const v = { ...ownValue() };
-      delete v[editKey];
       try {
-        await saveValue(v);
+        await removePropertyValue(editKey);
         setEditKey(null);
       } catch (e) {
         setEditError(e instanceof Error ? e.message : "Failed to save value");
@@ -1110,7 +1119,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
     // Surface backend rejections inline; the Save button has no setError of its own.
     try {
-      await saveValue({ ...ownValue(), [editKey]: parsed });
+      await savePropertyValue(editKey, parsed);
       setEditKey(null);
     } catch (e) {
       setEditError(e instanceof Error ? e.message : "Failed to save value");
@@ -1197,11 +1206,9 @@ export default function ConfigDetailPage(): React.ReactElement {
 
   // Removes only this config's override (reverts to inherited); the parent's definition is untouched.
   const removeOverride = async (key: string) => {
-    const v = ownValue();
-    delete v[key];
     setDeleteError(null);
     try {
-      await saveValue(v);
+      await removePropertyValue(key);
     } catch (e) {
       setDeleteError(
         e instanceof Error ? e.message : "Failed to remove override",
@@ -2203,6 +2210,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 entityName={config.name}
                 entityNoun="Config"
                 requiresApproval={selectedRevisionRequiresApproval}
+                reviewRules={reviewRule ? [reviewRule] : []}
                 canEditEntity={canDraft}
                 canRevertEntity={canRevertEntity}
                 canLandRevertEntity={canRevertLandingEntity}
@@ -2250,6 +2258,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   "config",
                   selectedRevision ?? displayRevision ?? null,
                   config,
+                  revisionPublishEnvironments,
                 )}
                 canManageDraftsEntity={permissionsUtil.canRevisionAction(
                   "config",

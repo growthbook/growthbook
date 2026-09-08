@@ -1,0 +1,227 @@
+.editor {
+  flex: 1;
+  min-width: 0;
+
+  :global(.ProseMirror) {
+    outline: none;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: var(--font-size-2);
+    line-height: 20px;
+    color: var(--gray-12);
+    padding: 6px 0;
+    overflow-y: auto;
+
+    p {
+      margin: 0;
+    }
+
+    span[data-type="metricMention"],
+    span[data-type="skillCommand"] {
+      padding: 1px 4px;
+      border-radius: var(--radius-2);
+      white-space: nowrap;
+    }
+
+    span[data-type="metricMention"] {
+      background: var(--violet-a3);
+      color: var(--violet-11);
+    }
+
+    span[data-type="metricMention"][data-stale="true"] {
+      background: var(--gray-a4);
+      color: var(--gray-11);
+
+      &::after {
+        content: "!";
+        margin-left: 3px;
+        color: var(--red-11);
+        font-weight: 700;
+      }
+    }
+
+    span[data-type="skillCommand"] {
+      background: var(--gray-a4);
+      color: var(--gray-12);
+      font-family: var(--code-font-family, monospace);
+      font-size: 0.9em;
+    }
+
+    p:global(.is-empty):first-child::before {
+      content: attr(data-placeholder);
+      float: left;
+      height: 0;
+      pointer-events: none;
+      color: var(--gray-a9);
+    }
+  }
+
+  &.readOnly :global(.ProseMirror) {
+    color: var(--gray-a11);
+    cursor: default;
+
+    p:global(.is-empty):first-child::before {
+      color: var(--gray-a8);
+    }
+  }
+}
+
+// --- Shared box --------------------------------------------------------------
+
+// Common to every variant: anchors the @-mention popup, which sits directly
+// above the composer.
+.box {
+  position: relative;
+  width: 100%;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+// The single-line-ish variants (compact, wide) sit the button beside the
+// editor, bottom-aligned so it stays put as the editor grows.
+.inlineBox {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  // Reduced on the right so the button sits close to the edge.
+  padding: 4px 4px 4px 12px;
+
+  // 6 rows + the editor's own padding, matching the textarea's old maxRows.
+  .editor :global(.ProseMirror) {
+    max-height: 132px;
+  }
+}
+
+// --- Compact variant ---------------------------------------------------------
+
+.compactWrapper {
+  border-top: 1px solid var(--gray-a3);
+  background: var(--color-panel-solid);
+  padding: 10px 12px 12px;
+}
+
+.compactBox {
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-4);
+  background: var(--color-background);
+}
+
+.compactBoxFocused {
+  border-color: var(--violet-8);
+  box-shadow: 0 0 0 2px var(--violet-a4);
+}
+
+// --- Wide variant ------------------------------------------------------------
+
+// Layout (centering, padding) comes from the Radix `Flex` in the component;
+// this only carries the chrome Flex has no prop for.
+.wideWrapper {
+  width: 100%;
+  border-top: 1px solid var(--gray-a3);
+  background: var(--color-panel-solid);
+}
+
+// Border chrome mirrors `.form-control` from global.scss, so the PA composer
+// keeps the look it had as a `<Field size="legacy">`.
+.wideBox {
+  max-width: 800px;
+  border: 1px solid var(--gray-a7);
+  border-radius: var(--radius-2);
+  background-color: var(--color-surface);
+}
+
+.wideBoxFocused {
+  box-shadow: 0 0 0 1px var(--violet-8);
+}
+
+// --- Hero variant ------------------------------------------------------------
+
+// The tall entry composer on the PA empty state. The button is absolutely
+// positioned rather than a flex sibling so the box keeps the roomy bottom
+// padding it had as a `<Field textarea>`.
+.heroBox {
+  padding: 16px 16px 40px;
+  // 8 rows, matching the textarea's old maxRows. The min comes from `minRows`,
+  // set inline by the component.
+  .editor :global(.ProseMirror) {
+    max-height: 160px;
+  }
+
+  border: 1px solid var(--gray-a7);
+  border-radius: var(--radius-5);
+  background-color: var(--color-surface);
+}
+
+.heroBoxFocused {
+  box-shadow: 0 0 0 1px var(--violet-8);
+}
+
+.heroSendButton {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 1;
+}
+
+// --- Buttons -----------------------------------------------------------------
+
+// `@/ui/Button` wraps its children in a Radix `<Text>` span, so an icon passed
+// as a child lands on the text baseline and sits high in the button. Collapse
+// that line box and center the icon — the same correction the compact
+// variant's `svg { display: block }` makes below.
+//
+// Passing the icon via Button's `icon` prop instead would dodge the wrapper,
+// but `.rt-Button` sets `gap`, so the empty `<Text>` left behind would push the
+// icon off-center horizontally.
+.wideSendButton > span {
+  display: flex;
+  align-items: center;
+  line-height: 0;
+}
+
+.sendButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  line-height: 0;
+  border: none;
+  border-radius: var(--radius-3);
+  background: var(--violet-10);
+  color: #fff;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    opacity 120ms ease;
+
+  // The icon defaults to inline (baseline) layout, which leaves descender
+  // space and shifts it off-center; force block layout so flex centering is
+  // exact in both axes.
+  svg {
+    display: block;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--violet-11);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+// Stop/cancel state during streaming. A filled neutral chip with a clearly
+// visible stop glyph reads better than the near-white square it was before.
+.stopButton {
+  background: var(--gray-a5);
+  color: var(--gray-12);
+
+  &:hover:not(:disabled) {
+    background: var(--gray-a6);
+  }
+}

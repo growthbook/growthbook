@@ -115,7 +115,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ],
   // The lifecycle, one policy per action. Each bundles the three flag
   // entities, so an admin grants "may publish flags" without choosing between
-  // Features, Configs and Constants — the split exists for the checks.
+  // Features, Configs, and Constants — the split exists for the checks.
   FlagsCreate: [
     "readData",
     "createFeatures",
@@ -965,19 +965,21 @@ export const ENV_SCOPED_PERMISSIONS = [
   "manageSDKConnections",
   "manageSDKWebhooks",
   "runExperiments",
+  // Review is env-scoped exactly where publish is: you may not approve what you
+  // could not publish. Saved groups are absent because none of their atoms are.
+  "reviewFeatures",
+  "reviewConfigs",
+  "reviewConstants",
 ] as const;
 
 export const PROJECT_SCOPED_PERMISSIONS = [
   "readData",
   "addComments",
   "editFeatureDrafts",
-  "reviewFeatures",
   "bypassApprovalFeatures",
   "editConfigDrafts",
-  "reviewConfigs",
   "bypassApprovalConfigs",
   "editConstantDrafts",
-  "reviewConstants",
   "bypassApprovalConstants",
   "manageArchetype",
   "manageProjects",

@@ -33,7 +33,15 @@ export type Props = {
   style?: CSSProperties;
   tabIndex?: number;
 } & MarginProps &
-  Pick<ButtonProps, "title" | "type" | "aria-label" | "className">;
+  Pick<
+    ButtonProps,
+    | "title"
+    | "type"
+    | "aria-label"
+    | "aria-disabled"
+    | "aria-pressed"
+    | "className"
+  >;
 
 const Button = forwardRef<HTMLButtonElement, Props>(
   (

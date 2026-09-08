@@ -31,6 +31,8 @@ export default function DraftSelector({
   newDraftDisabled = false,
   newDraftDisabledReason,
   recommendExisting = false,
+  alert,
+  alertActive = true,
 }: {
   hasActiveDrafts: boolean;
   mode: DraftMode;
@@ -65,8 +67,13 @@ export default function DraftSelector({
   newDraftDisabledReason?: ReactNode;
   /** Flag "add to existing draft" as the recommended choice (soft cap reached). */
   recommendExisting?: boolean;
+  alert?: ReactNode;
+  alertActive?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
+
+  const hasAlert = !!alert;
+  const showsConflict = hasAlert && alertActive;
 
   const newOptionLabel = metadataOnly
     ? "Add to a new revision"
@@ -164,19 +171,19 @@ export default function DraftSelector({
 
   const trigger = (
     <Flex
-      align="center"
+      align={hasAlert ? "start" : "center"}
       justify="between"
       gap="3"
       px="3"
-      py="4"
+      py={hasAlert ? "3" : "4"}
       style={{
         cursor: singleOption ? "default" : "pointer",
         userSelect: "none",
       }}
-      className={`draft-selector-collapsible-trigger${singleOption ? " no-hover" : ""}`}
+      className={`draft-selector-collapsible-trigger${singleOption ? " no-hover" : ""}${showsConflict ? " has-conflict" : ""}`}
     >
-      <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-        <HelperText status="info">
+      <Box style={{ flex: 1, minWidth: 0 }}>
+        <HelperText status={showsConflict ? "warning" : "info"}>
           <div
             className="ml-1"
             style={{
@@ -189,6 +196,11 @@ export default function DraftSelector({
             {triggerLabel}
           </div>
         </HelperText>
+        {alert && (
+          <Box mt="1" ml="1">
+            {alert}
+          </Box>
+        )}
       </Box>
       {!singleOption && (
         <Button
@@ -224,7 +236,15 @@ export default function DraftSelector({
           if (!singleOption) setIsOpen((v) => !v);
         }}
       >
-        <Box px="3" py="3" style={{ backgroundColor: "var(--violet-a3)" }}>
+        <Box
+          px="3"
+          py="3"
+          style={{
+            backgroundColor: showsConflict
+              ? "var(--amber-a3)"
+              : "var(--violet-a3)",
+          }}
+        >
           <RadioGroup
             options={options}
             value={mode}

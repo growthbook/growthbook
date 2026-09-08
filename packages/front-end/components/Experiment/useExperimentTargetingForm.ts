@@ -15,6 +15,7 @@ import { useAuth } from "@/services/auth";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import {
   useAttributeSchema,
+  useStrictAttributeProjectScoping,
   validateUnregisteredAttributes,
 } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -35,16 +36,17 @@ export interface UseExperimentTargetingFormResult {
 }
 
 // Shared by the targeting and traffic modals, which both POST to the same
-// `/experiment/:id/targeting` endpoint.
+// `/experiment/:id/targeting` endpoint. When `attributeScopeProjects` is
+// omitted the pre-flight falls back to `experiment.project`.
 export function useExperimentTargetingForm(
   experiment: ExperimentInterfaceStringDates,
+  attributeScopeProjects?: string[] | null,
 ): UseExperimentTargetingFormResult {
   const { apiCall } = useAuth();
   const orgSettings = useOrgSettings();
-  // Unfiltered schema for client-side validation so requireProjectScoping
-  // gating in validateUnregisteredAttributes can actually distinguish
-  // unknown vs out-of-project attributes.
+  // Unfiltered so the pre-flight can distinguish unknown vs out-of-project.
   const allAttributesSchema = useAttributeSchema(false);
+  const strictScoping = useStrictAttributeProjectScoping();
   const [conditionKey, forceConditionRender] = useIncrementer();
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
@@ -68,6 +70,7 @@ export function useExperimentTargetingForm(
     coverage: lastPhase?.coverage ?? 1,
     hashAttribute: experiment.hashAttribute || "id",
     fallbackAttribute: experiment.fallbackAttribute || "",
+    attributeScopeAllProjects: experiment.attributeScopeAllProjects ?? false,
     hashVersion: experiment.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
     disableStickyBucketing: experiment.disableStickyBucketing ?? false,
     bucketVersion: experiment.bucketVersion || 1,
@@ -162,7 +165,12 @@ export function useExperimentTargetingForm(
         {
           attributeSchema: allAttributesSchema,
           requireRegisteredAttributes: orgSettings.requireRegisteredAttributes,
-          project: experiment.project || undefined,
+          project:
+            value.attributeScopeAllProjects && !strictScoping
+              ? null
+              : attributeScopeProjects !== undefined
+                ? attributeScopeProjects
+                : experiment.project || undefined,
         },
         existingAttributeParts,
       );

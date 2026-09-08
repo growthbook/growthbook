@@ -26,6 +26,7 @@ pnpm lint             # ESLint with auto-fix
 pnpm type-check       # TypeScript check all packages
 pnpm pretty           # Prettier formatting (writes)
 pnpm pretty:check     # Prettier check only
+node scripts/check-docs-frontmatter.mjs  # Quote YAML values that contain ": "
 
 # Single-package type-check
 pnpm --filter front-end type-check
@@ -132,3 +133,4 @@ The detailed reference material lives under `.agents/guides/`. Read the relevant
 - Back-end APIs: `.agents/guides/backend/api-patterns.md`
 - Back-end models: `.agents/guides/backend/model-patterns.md`
 - Legacy model migrations: `.agents/guides/backend/legacy-model-migration-patterns.md`
+- Docs (Mintlify MDX): `.agents/guides/docs.md`

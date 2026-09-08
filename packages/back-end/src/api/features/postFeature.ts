@@ -2,6 +2,7 @@ import { z } from "zod";
 import { normalizeTargetingProjects, validateFeatureValue } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { featurePublishEnvironmentIds } from "back-end/src/services/featurePublishGates";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -186,7 +187,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   assertCanCreateFeatureInState({
     context: req.context,
     feature,
-    environmentIds: orgEnvs.map((e) => e.id),
+    environmentIds: featurePublishEnvironmentIds(req.context.org, feature),
   });
 
   // AFTER every authorization: tags are a persistent org-level side effect, and

@@ -28,9 +28,15 @@ import {
   type FeedbackState,
 } from "@/enterprise/components/AIChat/AIChatFeedback";
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
+import MessageTokens from "@/enterprise/components/AIChat/MessageTokens";
 import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMessages";
 import aiChatStyles from "@/enterprise/components/AIChat/AIChatPrimitives.module.scss";
-import ChatInputBar from "@/enterprise/components/AIChat/ChatInputBar";
+import ChatComposer, {
+  type ChatComposerHandle,
+  type ComposerSubmission,
+} from "@/enterprise/components/AIChat/Composer/ChatComposer";
+import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
+import { useSkillCommandItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import AgentChatHistory from "./AgentChatHistory";
 import {
   type MessageTurn,
@@ -141,7 +147,7 @@ export default function AgentPanel({
   onClose,
   onToggleExpanded,
 }: AgentPanelProps) {
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<ChatComposerHandle>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const askSeqRef = useRef(0);
   // Preserves each tool-detail disclosure's open/closed state across the
@@ -168,6 +174,15 @@ export default function AgentPanel({
   // Holds the decision to attach to the next outgoing message. Consumed (and
   // cleared) by buildRequestBody so it only rides along with one request.
   const pendingDecisionRef = useRef<ConfirmDecisionBody | null>(null);
+  const pendingSubmissionRef = useRef<ComposerSubmission>({
+    text: "",
+    mentions: [],
+    skills: [],
+  });
+
+  const { items: mentionItems, ready: mentionItemsReady } =
+    useMetricMentionItems();
+  const skillItems = useSkillCommandItems();
 
   const {
     feedbackMap,
@@ -203,11 +218,15 @@ export default function AgentPanel({
     const dsId = datasourceIdRef.current;
     const decision = pendingDecisionRef.current;
     pendingDecisionRef.current = null;
+    const { mentions, skills } = pendingSubmissionRef.current;
+    pendingSubmissionRef.current = { text: "", mentions: [], skills: [] };
     return {
       message,
       conversationId: cid,
       ...(path ? { currentPage: path } : {}),
       ...(dsId ? { datasourceId: dsId } : {}),
+      ...(mentions.length ? { mentions } : {}),
+      ...(skills.length ? { skills } : {}),
       ...(decision ?? {}),
     };
   }, []);
@@ -372,22 +391,16 @@ export default function AgentPanel({
     displayedTextMap,
   );
 
-  // Focus the composer after a short delay so any slide-in / layout transition
-  // settles first. Used on open, new chat, conversation select, and turn end.
+  // Focus the composer after a short delay so any layout transition settles
+  // first. Used on new chat, conversation select, and turn end — opening the
+  // panel remounts the composer, so that case is its own `autoFocus`.
   const focusInput = useCallback((delay = 100) => {
-    window.setTimeout(() => inputRef.current?.focus(), delay);
+    window.setTimeout(() => composerRef.current?.focus(), delay);
   }, []);
 
-  useEffect(() => {
-    if (open) {
-      const t = setTimeout(() => inputRef.current?.focus(), 100);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
-
   // Re-focus the input when a turn finishes (loading true → false) so the user
-  // can immediately type a follow-up. The Field is disabled while loading, so
-  // focus only takes once it re-enables.
+  // can immediately type a follow-up. The composer is read-only while loading,
+  // so focus only takes once it re-enables.
   const prevLoadingRef = useRef(false);
   useEffect(() => {
     if (open && prevLoadingRef.current && !loading) {
@@ -408,20 +421,33 @@ export default function AgentPanel({
     });
   }, [defaultAIModel, messages.length]);
 
-  const handleSend = useCallback(() => {
-    const text = input.trim();
-    if (!text || loading) return;
-    if (askPrompt && !askPrompt.resolved) {
-      // Typing a free-text reply also resolves the active question.
-      setAskPrompt({ ...askPrompt, resolved: true });
-    }
-    if (confirmPrompt && !confirmPrompt.resolved) {
-      // Typing instead of clicking supersedes the parked mutation server-side.
-      setConfirmPrompt({ ...confirmPrompt, resolved: true });
-    }
-    trackMessageSent();
-    sendMessage();
-  }, [input, loading, sendMessage, askPrompt, confirmPrompt, trackMessageSent]);
+  const handleSend = useCallback(
+    (
+      submission: ComposerSubmission = {
+        text: input,
+        mentions: [],
+        skills: [],
+      },
+    ) => {
+      const text = submission.text.trim();
+      if (!text || loading) return;
+      pendingSubmissionRef.current = submission;
+      if (askPrompt && !askPrompt.resolved) {
+        // Typing a free-text reply also resolves the active question.
+        setAskPrompt({ ...askPrompt, resolved: true });
+      }
+      if (confirmPrompt && !confirmPrompt.resolved) {
+        // Typing instead of clicking supersedes the parked mutation server-side.
+        setConfirmPrompt({ ...confirmPrompt, resolved: true });
+      }
+      trackMessageSent();
+      sendMessage(text, {
+        mentions: submission.mentions,
+        skills: submission.skills,
+      });
+    },
+    [input, loading, sendMessage, askPrompt, confirmPrompt, trackMessageSent],
+  );
 
   const handleAskOption = useCallback(
     (option: AskUserOption) => {
@@ -448,16 +474,6 @@ export default function AgentPanel({
       });
     },
     [confirmPrompt, sendMessage, loading, trackMessageSent],
-  );
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSend();
-      }
-    },
-    [handleSend],
   );
 
   const resetTransientState = useCallback(() => {
@@ -664,12 +680,15 @@ export default function AgentPanel({
       </Box>
 
       {/* Input */}
-      <ChatInputBar
+      <ChatComposer
         variant="compact"
-        inputRef={inputRef}
-        input={input}
-        onInputChange={setInput}
-        onKeyDown={handleKeyDown}
+        ref={composerRef}
+        autoFocus
+        mentionItems={mentionItems}
+        mentionItemsReady={mentionItemsReady}
+        skillItems={skillItems}
+        value={input}
+        onChange={setInput}
         onSend={handleSend}
         onCancel={cancelGeneration}
         loading={loading}
@@ -790,7 +809,15 @@ function PersistedTurn({
     <>
       {turn.user && (
         <UserBubble>
-          <Text size="sm">{getUserText(turn.user)}</Text>
+          <Text size="sm">
+            <MessageTokens
+              text={getUserText(turn.user)}
+              mentions={
+                turn.user.role === "user" ? turn.user.mentions : undefined
+              }
+              skills={turn.user.role === "user" ? turn.user.skills : undefined}
+            />
+          </Text>
         </UserBubble>
       )}
 

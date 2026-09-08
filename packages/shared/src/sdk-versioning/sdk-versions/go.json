@@ -1,10 +1,17 @@
 {
   "versions": [
     {
+      "version": "0.4.0"
+    },
+    {
+      "version": "0.3.0"
+    },
+    {
       "version": "0.2.9"
     },
     {
-      "version": "0.2.8"
+      "version": "0.2.8",
+      "capabilities": ["trackingPlugin"]
     },
     {
       "version": "0.2.7",

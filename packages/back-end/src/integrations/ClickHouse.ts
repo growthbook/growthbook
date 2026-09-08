@@ -57,6 +57,7 @@ export default class ClickHouse extends SqlIntegration {
   params!: ClickHouseConnectionParams;
   requiresDatabase = false;
   requiresSchema = false;
+  columnNamesAreCaseSensitive = true;
   setParams(encryptedParams: string) {
     this.params =
       decryptDataSourceParams<ClickHouseConnectionParams>(encryptedParams);

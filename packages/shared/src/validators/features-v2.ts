@@ -2,6 +2,7 @@ import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   apiPaginationFieldsValidator,
+  savedGroupTargeting,
   booleanQueryField,
   paginationQueryFields,
   publishOverrideBodyFields,
@@ -494,6 +495,17 @@ const postFeatureSavedGroupTargeting = z.object({
   savedGroups: z.array(z.string()),
 });
 
+const v2RuleSavedGroupInput = {
+  savedGroups: z.array(savedGroupTargeting).optional(),
+  savedGroupTargeting: z
+    .array(postFeatureSavedGroupTargeting)
+    .optional()
+    .describe(
+      "Deprecated — use `savedGroups`. Accepted so a GET response can be posted back unchanged; `savedGroups` takes precedence if both are sent.",
+    )
+    .meta({ deprecated: true }),
+};
+
 const postFeaturePrerequisite = z.object({
   id: z.string().describe("Feature ID"),
   condition: z.string(),
@@ -529,7 +541,7 @@ const v2RuleConfigInput = z
 const v2RuleForceBase = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().optional(),
-  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
+  ...v2RuleSavedGroupInput,
   prerequisites: z.array(postFeaturePrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRule).optional(),
   id: z.string().optional(),
@@ -543,7 +555,7 @@ const v2RuleForceBase = z.object({
 const v2RuleRolloutBase = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().optional(),
-  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
+  ...v2RuleSavedGroupInput,
   prerequisites: z.array(postFeaturePrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRule).optional(),
   id: z.string().optional(),
@@ -567,7 +579,7 @@ const v2RuleExperimentRefBase = z.object({
   enabled: z.boolean().optional(),
   type: z.literal("experiment-ref"),
   condition: z.string().optional(),
-  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
+  ...v2RuleSavedGroupInput,
   prerequisites: z.array(postFeaturePrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRule).optional(),
   variations: z.array(
@@ -595,7 +607,7 @@ const v2RuleSafeRolloutBase = z.object({
   enabled: z.boolean().optional(),
   type: z.literal("safe-rollout"),
   condition: z.string().optional(),
-  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
+  ...v2RuleSavedGroupInput,
   prerequisites: z.array(postFeaturePrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRule).optional(),
   controlValue: z.string(),

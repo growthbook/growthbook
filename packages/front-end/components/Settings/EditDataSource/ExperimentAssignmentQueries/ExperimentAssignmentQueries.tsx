@@ -7,6 +7,11 @@ import cloneDeep from "lodash/cloneDeep";
 import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
 import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { DimensionSlicesInterface } from "shared/types/dimension";
+import { isEventForwarderManaged } from "shared/util";
+import {
+  EVENT_FORWARDER_MANAGED_TOOLTIP,
+  EventForwarderManagedBadge,
+} from "@/components/Settings/EditDataSource/EventForwarderManaged";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
@@ -148,11 +153,10 @@ export const ExperimentAssignmentQueries: FC<
 
       {experimentExposureQueries.map((query, idx) => {
         const isOpen = openIndexes[idx] || false;
-        // Event Forwarder managed queries are intentionally editable and
-        // deletable for now. Restore
-        // `isEventForwarderManagedExposureQuery(query)` here (and in the delete
-        // handler above) to lock them again.
-        const isManaged = false;
+        const isManaged = isEventForwarderManaged(query);
+        const managedTooltip = isManaged
+          ? EVENT_FORWARDER_MANAGED_TOOLTIP
+          : undefined;
 
         return (
           <Card mt="3" key={query.id}>
@@ -161,6 +165,9 @@ export const ExperimentAssignmentQueries: FC<
               <Box width="100%">
                 <Heading as="h4" size="3" mb="0">
                   {query.name}
+                  {isManaged && (
+                    <EventForwarderManagedBadge type="assignment query" />
+                  )}
                 </Heading>
                 {query.description && (
                   <p className="text-muted mb-0 mt-1">{query.description}</p>
@@ -242,30 +249,34 @@ export const ExperimentAssignmentQueries: FC<
                   >
                     <DropdownMenuItem
                       onClick={handleActionClicked(idx, "edit")}
+                      disabled={isManaged}
+                      tooltip={managedTooltip}
                     >
                       Edit Query
                     </DropdownMenuItem>
                     {query.dimensions.length > 0 ? (
                       <DropdownMenuItem
                         onClick={handleActionClicked(idx, "dimension")}
+                        disabled={isManaged}
+                        tooltip={managedTooltip}
                       >
                         Edit Dimensions
                       </DropdownMenuItem>
                     ) : null}
-                    {!isManaged && (
-                      <DropdownMenuItem
-                        color="red"
-                        confirmation={{
-                          submit: handleActionDeleteClicked(idx),
-                          confirmationTitle: `Delete ${query.name}`,
-                          cta: "Delete",
-                          getConfirmationContent: async () =>
-                            `Are you sure you want to delete experiment assignment query ${query.name}?`,
-                        }}
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    )}
+                    <DropdownMenuItem
+                      color="red"
+                      disabled={isManaged}
+                      tooltip={managedTooltip}
+                      confirmation={{
+                        submit: handleActionDeleteClicked(idx),
+                        confirmationTitle: `Delete ${query.name}`,
+                        cta: "Delete",
+                        getConfirmationContent: async () =>
+                          `Are you sure you want to delete experiment assignment query ${query.name}?`,
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
                   </DropdownMenu>
                 )}
 

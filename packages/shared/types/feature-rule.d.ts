@@ -7,6 +7,7 @@ import {
   RampStep,
   RampStepAction,
 } from "shared/validators";
+import { DraftConflict } from "shared/types/draft-conflict";
 
 // Inline ramp schedule to create atomically with the rule.
 export type InlineRampScheduleCreate = {
@@ -74,13 +75,21 @@ export type PostFeatureRuleBody = {
   environments: string[];
   safeRolloutFields?: CreateSafeRolloutInterface;
   rampSchedule?: InlineRampScheduleCreate | InlineRampScheduleDetach;
+  // Insert the new rule directly above this rule; appends when the id is
+  // missing from the revision.
+  insertBeforeRuleId?: string;
 };
+
+export type PutFeatureRuleConflict = DraftConflict<FeatureRule>;
 
 export type PutFeatureRuleBody = {
   rule: Partial<FeatureRule>;
   // Stable rule locator. Every rule in v2 has an id (assigned at creation
   // or via JIT migration on read), so app callers always send this.
   ruleId: string;
+  baseline?: {
+    rule: FeatureRule;
+  };
   rampSchedule?:
     | InlineRampScheduleCreate
     | InlineRampScheduleUpdate

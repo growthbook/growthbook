@@ -84,7 +84,7 @@ export default function FeatureArchiveModal({
     const reviewSetting = getReviewSetting(raw, feature);
     if (!reviewSetting?.requireReviewOn) return false;
     if (servingEnvs.length === 0) return false;
-    const gatedEnvs = reviewSetting.environments;
+    const gatedEnvs = reviewSetting.environments ?? [];
     if (gatedEnvs.length === 0) return true;
     return servingEnvs.some((env) => gatedEnvs.includes(env));
   })();

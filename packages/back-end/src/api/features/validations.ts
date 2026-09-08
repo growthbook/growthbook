@@ -187,9 +187,11 @@ export const validateCustomFields = async (
   customFieldValues: Record<string, unknown> | undefined,
   context: ApiReqContext,
   project?: string,
+  existingCustomFieldValues?: Record<string, unknown>,
 ) => {
   await validateCustomFieldsForSection({
     customFieldValues,
+    existingCustomFieldValues,
     customFieldsModel: context.models.customFields,
     section: "feature",
     project,
@@ -311,7 +313,7 @@ export function validateRuleAttributes(
     fallbackAttribute?: string;
   },
   context: ApiReqContext,
-  project?: string,
+  project?: string | string[],
 ): void {
   assertRegisteredAttributes(
     context,

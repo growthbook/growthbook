@@ -3,7 +3,7 @@ import {
   canWriteArchiveIntoDraft,
 } from "shared/permissions";
 import { SavedGroupInterface } from "shared/types/saved-group";
-import { Revision } from "shared/enterprise";
+import { Revision, getApprovalFlowSettings } from "shared/enterprise";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
@@ -56,8 +56,11 @@ export default function SavedGroupArchiveModal({
         )
       : permissionsUtil.canBypassSavedGroupApprovalChecks({ project: "" });
 
-  const approvalRequired =
-    settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
+  const approvalRequired = !!getApprovalFlowSettings(
+    settings.approvalFlows,
+    "saved-group",
+    savedGroup.projects ?? [],
+  )?.required;
 
   return (
     <ArchiveModal

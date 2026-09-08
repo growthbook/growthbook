@@ -64,11 +64,16 @@ export function definitionsScope(
 
 // Ensure a single doc per org so concurrent first-touch upserts can't create
 // duplicates (which would make the version non-monotonic). Called at startup.
+// Cosmos DB rejects unique indexes on existing collections — don't fail boot.
 export async function ensureDefinitionsVersionIndex(): Promise<void> {
-  await getCollection<DefinitionsVersion>(COLLECTION).createIndex(
-    { organization: 1 },
-    { unique: true },
-  );
+  try {
+    await getCollection<DefinitionsVersion>(COLLECTION).createIndex(
+      { organization: 1 },
+      { unique: true },
+    );
+  } catch (err) {
+    logger.error(err, `Error creating unique index for ${COLLECTION}`);
+  }
 }
 
 /**

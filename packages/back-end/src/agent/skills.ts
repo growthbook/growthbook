@@ -1,38 +1,41 @@
 import fs from "fs";
 import path from "path";
+import type { SkillSummary } from "shared/ai-chat";
 import { logger } from "back-end/src/util/logger";
 
 /**
  * Agent skills teach the generic agent how to use slices of the GrowthBook
  * REST API via the `callApi` tool.
  *
- * This module is the loader; the skill content lives in the sibling `skills/`
- * directory as plain markdown (copied verbatim into `dist/agent/skills` at
- * build time by the `build:skills` script).
+ * This module is the loader; the content is assembled at build time into
+ * `generated/agent-skills` from a growthbook/skills checkout plus the
+ * in-app-only `skills-local` tree (see `scripts/assemble-agent-skills.mjs`).
  *
  * Layout (one level deep):
  *
- *   skills.ts                          # this loader
- *   skills/
- *     product-analytics.md          # standalone domain (no children)
+ *   generated/agent-skills/
+ *     growthbook-docs/
+ *       SKILL.md                  # standalone domain, no workflows
  *     feature-flags/
- *       SKILL.md                    # domain router (name: feature-flags)
- *       flag-create.md              # leaf (group: feature-flags)
- *       ...
+ *       SKILL.md                  # domain router (name: feature-flags)
+ *       references/
+ *         flag-create.md          # workflow, qualified as
+ *                                 # feature-flags/references/flag-create
  *
- * Domain routers appear in the system-prompt index; leaves are loaded on
- * demand after the model reads the router's child map.
+ * Domain routers appear in the system-prompt index and the composer's
+ * slash-command menu; workflows load on demand once the model has read the
+ * router's workflow table.
  */
 
-export type SkillKind = "domain" | "leaf";
-
-export interface Skill {
-  name: string;
-  description: string;
+/** A skill's index entry plus the prompt body only the agent reads. */
+export interface Skill extends SkillSummary {
   body: string;
-  kind: SkillKind;
-  /** Parent domain name for leaf skills; equals `name` for domain routers. */
-  group?: string;
+}
+
+interface SkillRegistry {
+  /** Index entries for domains and workflows, in menu order. */
+  summaries: SkillSummary[];
+  skills: Map<string, Skill>;
 }
 
 const FRONTMATTER_RE = /^---\s*\n([\s\S]*?)\n---\s*\n?/;
@@ -66,7 +69,6 @@ function skillsDirHasContent(dir: string): boolean {
     return false;
   }
   for (const entry of fs.readdirSync(dir)) {
-    if (entry.endsWith(".md")) return true;
     const child = path.join(dir, entry);
     if (
       fs.statSync(child).isDirectory() &&
@@ -80,171 +82,179 @@ function skillsDirHasContent(dir: string): boolean {
 
 function resolveSkillsDir(): string | null {
   const candidates = [
-    // Compiled (dist/agent/skills.js -> dist/agent/skills) and tests run from
-    // source (src/agent/skills.ts -> src/agent/skills) both resolve here.
     path.join(__dirname, "skills"),
-    // Fallback to source when running compiled code in the repo layout
-    // (dist/agent -> packages/back-end/src/agent/skills).
-    path.resolve(__dirname, "..", "..", "src", "agent", "skills"),
+    path.resolve(__dirname, "..", "..", "generated", "agent-skills"),
   ];
-  for (const dir of candidates) {
-    if (skillsDirHasContent(dir)) {
-      return dir;
-    }
-  }
-  return null;
+  return candidates.find(skillsDirHasContent) ?? null;
 }
 
-function parseSkillFile(
-  fullPath: string,
-  fileLabel: string,
-  kind: SkillKind,
-  group?: string,
-): Skill {
-  const raw = fs.readFileSync(fullPath, "utf8");
-  const { data, body } = parseFrontmatter(raw);
-  const name = data.name || path.basename(fileLabel, ".md");
-  const description = data.description || "";
-  if (!description) {
+function readMarkdownFile(fullPath: string) {
+  return parseFrontmatter(fs.readFileSync(fullPath, "utf8"));
+}
+
+function readDomainSkill(
+  skillsDir: string,
+  directoryName: string,
+): Skill | null {
+  const domainDir = path.join(skillsDir, directoryName);
+  if (!fs.statSync(domainDir).isDirectory()) return null;
+
+  const routerPath = path.join(domainDir, "SKILL.md");
+  if (!fs.existsSync(routerPath)) return null;
+
+  const { data: frontmatter, body } = readMarkdownFile(routerPath);
+  const name = frontmatter.name || directoryName;
+  const domain: Skill = {
+    name,
+    description: frontmatter.description || "",
+    body: body.trim(),
+    kind: "domain",
+    group: name,
+  };
+  if (!domain.description) {
     logger.warn(
-      `Skill ${fileLabel} is missing a 'description' frontmatter field; agents won't know when to use it.`,
+      `Skill ${directoryName}/SKILL.md is missing a 'description' frontmatter field; agents won't know when to use it.`,
     );
   }
-  return {
-    name,
-    description,
-    body: body.trim(),
-    kind,
-    ...(group !== undefined ? { group } : {}),
-  };
+  return domain;
 }
 
-let cachedSkills: Skill[] | null = null;
+function readReferenceSkills(
+  skillsDir: string,
+  directoryName: string,
+  domainName: string,
+): Skill[] | null {
+  const referencesDir = path.join(skillsDir, directoryName, "references");
+  if (
+    !fs.existsSync(referencesDir) ||
+    !fs.statSync(referencesDir).isDirectory()
+  ) {
+    return null;
+  }
 
-function loadSkillsFromDisk(): Skill[] {
-  const dir = resolveSkillsDir();
+  const references: Skill[] = [];
+  const files = fs
+    .readdirSync(referencesDir)
+    .filter((file) => file.endsWith(".md"))
+    .sort();
+
+  for (const file of files) {
+    const referencePath = path.join(referencesDir, file);
+    if (!fs.statSync(referencePath).isFile()) continue;
+
+    const name = `${domainName}/references/${path.basename(file, ".md")}`;
+    const { data: frontmatter, body } = readMarkdownFile(referencePath);
+    if (!frontmatter.description) {
+      logger.warn(
+        `Skill ${directoryName}/references/${file} is missing a 'description' frontmatter field; it will only be findable by name in the skill menu.`,
+      );
+    }
+    references.push({
+      name,
+      description: frontmatter.description || "",
+      body: body.trim(),
+      kind: "leaf",
+      group: domainName,
+    });
+  }
+  return references;
+}
+
+function toSummary({ name, description, kind, group }: Skill): SkillSummary {
+  return { name, description, kind, ...(group === undefined ? {} : { group }) };
+}
+
+let cachedRegistry: SkillRegistry | null = null;
+
+function loadSkillsFromDirectory(dir: string | null): SkillRegistry {
   if (!dir) {
     logger.warn(
       `No skills directory found near ${__dirname}; the generic agent will run without skill instructions.`,
     );
-    return [];
+    return { summaries: [], skills: new Map() };
   }
 
-  const skills: Skill[] = [];
-  const seenNames = new Set<string>();
+  const summaries: SkillSummary[] = [];
+  const skills = new Map<string, Skill>();
 
   for (const entry of fs.readdirSync(dir).sort()) {
-    const fullPath = path.join(dir, entry);
+    const domain = readDomainSkill(dir, entry);
+    if (!domain) continue;
 
-    if (entry.endsWith(".md") && fs.statSync(fullPath).isFile()) {
-      // Top-level markdown without frontmatter is documentation, not a
-      // routable skill — skip it so it never lands in the system-prompt index.
-      if (!FRONTMATTER_RE.test(fs.readFileSync(fullPath, "utf8"))) {
-        continue;
-      }
-      const skill = parseSkillFile(fullPath, entry, "domain");
-      if (seenNames.has(skill.name)) {
-        logger.warn(
-          `Duplicate skill name "${skill.name}" in ${entry}; skipping.`,
-        );
-        continue;
-      }
-      seenNames.add(skill.name);
-      skills.push(skill);
-      continue;
-    }
-
-    if (!fs.statSync(fullPath).isDirectory()) continue;
-
-    const routerPath = path.join(fullPath, "SKILL.md");
-    if (!fs.existsSync(routerPath)) continue;
-
-    const domainSkill = parseSkillFile(
-      routerPath,
-      `${entry}/SKILL.md`,
-      "domain",
-    );
-    if (seenNames.has(domainSkill.name)) {
+    if (skills.has(domain.name)) {
       logger.warn(
-        `Duplicate skill name "${domainSkill.name}" in ${entry}/SKILL.md; skipping domain.`,
+        `Duplicate skill name "${domain.name}" in ${entry}/SKILL.md; skipping domain.`,
       );
       continue;
     }
-    seenNames.add(domainSkill.name);
-    domainSkill.group = domainSkill.name;
-    skills.push(domainSkill);
+    summaries.push(toSummary(domain));
+    skills.set(domain.name, domain);
 
-    for (const leafFile of fs.readdirSync(fullPath).sort()) {
-      if (!leafFile.endsWith(".md") || leafFile === "SKILL.md") continue;
-      const leafPath = path.join(fullPath, leafFile);
-      if (!fs.statSync(leafPath).isFile()) continue;
-
-      const leaf = parseSkillFile(
-        leafPath,
-        `${entry}/${leafFile}`,
-        "leaf",
-        domainSkill.name,
+    const domainReferences = readReferenceSkills(dir, entry, domain.name);
+    if (domainReferences === null) continue;
+    if (domainReferences.length === 0) {
+      logger.warn(
+        `Skill domain "${domain.name}" has no workflows. Run 'pnpm --filter back-end assemble-skills' with a growthbook/skills checkout; see packages/back-end/src/agent/README.md.`,
       );
-      if (seenNames.has(leaf.name)) {
-        logger.warn(
-          `Duplicate skill name "${leaf.name}" in ${entry}/${leafFile}; skipping.`,
-        );
-        continue;
-      }
-      seenNames.add(leaf.name);
-      skills.push(leaf);
+    }
+    for (const reference of domainReferences) {
+      skills.set(reference.name, reference);
+      summaries.push(toSummary(reference));
     }
   }
 
-  const domainCount = skills.filter((s) => s.kind === "domain").length;
-  const leafCount = skills.filter((s) => s.kind === "leaf").length;
+  const names = [...skills.keys()];
+  const domainCount = summaries.filter((s) => s.kind === "domain").length;
   logger.info(
-    `Loaded ${skills.length} agent skill(s) from ${dir} (${domainCount} domain, ${leafCount} leaf): ${skills
-      .map((s) => s.name)
-      .join(", ")}`,
+    `Loaded ${names.length} agent skill(s) from ${dir} (${domainCount} domain, ${names.length - domainCount} reference): ${names.join(", ")}`,
   );
-  return skills;
+  return { summaries, skills };
 }
 
-export function getAllSkills(): Skill[] {
-  if (!cachedSkills) {
-    cachedSkills = loadSkillsFromDisk();
+function getSkillRegistry(): SkillRegistry {
+  if (!cachedRegistry) {
+    cachedRegistry = loadSkillsFromDirectory(resolveSkillsDir());
   }
-  return cachedSkills;
-}
-
-export function getSkillByName(name: string): Skill | undefined {
-  return getAllSkills().find((s) => s.name === name);
-}
-
-export function getDomainSkills(): Skill[] {
-  return getAllSkills().filter((s) => s.kind === "domain");
-}
-
-export function getLeafSkillsForDomain(domainName: string): Skill[] {
-  return getAllSkills().filter(
-    (s) => s.kind === "leaf" && s.group === domainName,
-  );
+  return cachedRegistry;
 }
 
 /**
- * Compact index for the system prompt: domain routers only.
- * Leaf bodies load on demand via `loadSkill` after reading the router.
+ * Skills are keyed `<domain>` or `<domain>/references/<workflow>`, but a domain
+ * router lists its workflows as `references/<workflow>.md` — the path a
+ * shell-capable agent would read — and sibling workflows refer to each other by
+ * bare name. Accept those shapes when they point at exactly one skill, so the
+ * caller doesn't have to reassemble the qualified key from the router's table.
  */
-export function assembleSkillsIndexForPrompt(): string {
-  const domains = getDomainSkills();
-  if (!domains.length) return "";
-  return domains
-    .map((s) => `- **${s.name}** — ${s.description || "(no description)"}`)
-    .join("\n");
+function resolveSkill(
+  skills: Map<string, Skill>,
+  name: string,
+): Skill | undefined {
+  const exact = skills.get(name);
+  if (exact) return exact;
+
+  const workflow = name.trim().split("/").pop()?.replace(/\.md$/, "");
+  if (!workflow) return undefined;
+
+  const matches = [...skills.keys()].filter(
+    (key) => key === workflow || key.endsWith(`/references/${workflow}`),
+  );
+  return matches.length === 1 ? skills.get(matches[0]) : undefined;
 }
 
-/** Names of all loaded skills (domains and leaves), for tool error messages. */
-export function getSkillNames(): string[] {
-  return getAllSkills().map((s) => s.name);
+// Exposed for unit tests — see test/agent/skills.test.ts
+export const _loadSkillsFromDirectory = loadSkillsFromDirectory;
+export const _resolveSkill = resolveSkill;
+
+/** Domain routers only — the compact index inlined into the system prompt. */
+export function listDomainSkills(): readonly SkillSummary[] {
+  return getSkillRegistry().summaries.filter((s) => s.kind === "domain");
 }
 
-/** Test-only: clears the cached skills so a fresh read happens next call. */
-export function _clearSkillCacheForTests(): void {
-  cachedSkills = null;
+/** Domains and workflows — the composer's slash-command menu lists both. */
+export function listSkillSummaries(): readonly SkillSummary[] {
+  return getSkillRegistry().summaries;
+}
+
+export function readSkill(name: string): Skill | undefined {
+  return resolveSkill(getSkillRegistry().skills, name);
 }

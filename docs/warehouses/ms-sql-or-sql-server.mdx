@@ -1,0 +1,49 @@
+---
+title: Setting Up SQL Server as a Data Source
+description: Connect SQL Server to GrowthBook with a read-only login, whitelist the Cloud IP if needed, and enter server, port, encryption, and timeout settings.
+sidebarTitle: MS SQL or SQL Server
+slug: ms-sql-or-sql-server
+---
+
+GrowthBook runs `SELECT` queries against Microsoft SQL Server to compute experiment results. Create a dedicated read-only login, allow network access from GrowthBook, then add the connection in **Metrics and Data** → **Data Sources**.
+
+## 1. Create a read-only login
+
+Grant `SELECT` only on the schema that holds experiment assignment and metric events.
+
+```sql
+CREATE LOGIN growthbook WITH PASSWORD = 'use-a-strong-password';
+CREATE USER growthbook FOR LOGIN growthbook;
+GRANT SELECT ON SCHEMA::dbo TO growthbook;
+```
+
+Replace `dbo` with your analytics schema if events live elsewhere.
+
+## 2. Allow network access
+
+If you use [GrowthBook Cloud](https://app.growthbook.io), whitelist `52.70.79.40` in your SQL Server firewall, security group, or Azure allowlist. SQL Server typically listens on port `1433`.
+
+Self-hosted GrowthBook runs in Docker. To reach a database on the host machine, use `host.docker.internal` as the server instead of `localhost`.
+
+## 3. Add SQL Server in GrowthBook
+
+1. Go to **Metrics and Data** → **Data Sources**.
+2. Choose **MS SQL Server** (guided setup if you use a supported event tracker, or manual setup for a custom schema).
+3. Enter the connection fields:
+
+| Field                    | Notes                                                                                     |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| Server                   | Public hostname or IP. Cloud cannot reach `localhost`.                                    |
+| Port                     | Default `1433`.                                                                           |
+| Database                 | The database GrowthBook should query.                                                     |
+| User / Password          | The read-only login from step 1.                                                          |
+| Request Timeout          | Optional, in seconds. Empty disables the extra timeout. The driver default is 15 seconds. |
+| Default Schema           | Optional. Prefixed onto generated SQL.                                                    |
+| Enable encryption        | Turn on TLS. Defaults to on for new connections.                                          |
+| Trust server certificate | Allows self-signed certificates.                                                          |
+
+4. Save. GrowthBook runs a `SELECT 1` query to confirm the connection.
+
+## 4. Map assignments and metrics
+
+After the connection succeeds, define [experiment assignment queries](/app/datasources#experiment-assignment-queries) and [Fact Tables](/app/metrics). SQL Server supports the Schema Browser, so you can inspect tables and columns while writing SQL.

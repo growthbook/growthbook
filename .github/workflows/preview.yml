@@ -14,7 +14,9 @@ on:
 
 jobs:
   preview:
-    if: ${{ github.repository == 'growthbook/growthbook' }}
+    if: >-
+      github.repository == 'growthbook/growthbook' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,6 +36,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+
+      - name: Checkout agent skills
+        if: ${{ github.event.action != 'closed' }}
+        uses: ./.github/actions/checkout-agent-skills
 
       - name: Generate Fly Dockerfile
         run: cat Dockerfile preview/Dockerfile.append > preview/Dockerfile.generated

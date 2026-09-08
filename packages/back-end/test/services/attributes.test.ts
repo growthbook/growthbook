@@ -1,4 +1,8 @@
-import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  assertRegisteredAttributes,
+  assertRegisteredAttributesScoped,
+  lazyAttributeScope,
+} from "back-end/src/services/attributes";
 import { BadRequestError } from "back-end/src/util/errors";
 import { ReqContext } from "back-end/types/request";
 
@@ -242,6 +246,63 @@ describe("assertRegisteredAttributes", () => {
     expect(err?.message).toMatch(/country/);
   });
 
+  // Feature and experiment callers pass a targeting-union of projects rather
+  // than a single id. The attribute is in scope when ANY project overlaps.
+  it("accepts a project-scoped attribute when any project in the union matches", () => {
+    const ctx = makeContext({
+      attributeSchema: [
+        {
+          property: "country",
+          datatype: "string",
+          projects: ["proj_one"],
+        } as unknown as {
+          property: string;
+          datatype: "string";
+          archived?: boolean;
+        },
+      ],
+    });
+    expect(() =>
+      assertRegisteredAttributes(
+        ctx,
+        { hashAttribute: "country" },
+        "rule",
+        undefined,
+        ["proj_two", "proj_one"],
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects a project-scoped attribute when no project in the union matches", () => {
+    const ctx = makeContext({
+      attributeSchema: [
+        {
+          property: "country",
+          datatype: "string",
+          projects: ["proj_one"],
+        } as unknown as {
+          property: string;
+          datatype: "string";
+          archived?: boolean;
+        },
+      ],
+    });
+    let err: BadRequestError | undefined;
+    try {
+      assertRegisteredAttributes(
+        ctx,
+        { hashAttribute: "country" },
+        "rule",
+        undefined,
+        ["proj_two", "proj_three"],
+      );
+    } catch (e) {
+      err = e as BadRequestError;
+    }
+    expect(err).toBeInstanceOf(BadRequestError);
+    expect(err?.message).toMatch(/not part of this project's scope/);
+  });
+
   // The setting is stored as an object on new orgs; legacy boolean shapes
   // still come through unchanged on older orgs. Lock down both forms behave
   // the same for the strict (everything-on) case so we don't regress
@@ -407,5 +468,111 @@ describe("assertRegisteredAttributes", () => {
         "proj_one",
       ),
     ).not.toThrow();
+  });
+});
+
+describe("assertRegisteredAttributesScoped", () => {
+  const projectSchema = [
+    { property: "userId", datatype: "string" as const },
+    {
+      property: "scoped",
+      datatype: "string",
+      // Cast — fixture type forbids `projects`, but the shared util reads it.
+      projects: ["p2"],
+    } as unknown as {
+      property: string;
+      datatype: "string";
+      archived?: boolean;
+    },
+  ];
+
+  it("does not run the scope loader when the setting is off", async () => {
+    const ctx = makeContext({ requireRegisteredAttributes: false });
+    const loadScope = jest.fn(async () => ["p1"]);
+    await assertRegisteredAttributesScoped(
+      ctx,
+      { condition: JSON.stringify({ some_typo: "x" }) },
+      "rule",
+      undefined,
+      loadScope,
+    );
+    expect(loadScope).not.toHaveBeenCalled();
+  });
+
+  it("does not run the scope loader when nothing attribute-bearing changed", async () => {
+    const ctx = makeContext({
+      requireRegisteredAttributes: { isOn: true, requireProjectScoping: true },
+    });
+    const loadScope = jest.fn(async () => ["p1"]);
+    const condition = JSON.stringify({ userId: "a" });
+    await assertRegisteredAttributesScoped(
+      ctx,
+      { hashAttribute: "userId", condition },
+      "rule",
+      { hashAttribute: "userId", condition },
+      loadScope,
+    );
+    expect(loadScope).not.toHaveBeenCalled();
+  });
+
+  it("skips the loader but still validates registration when project scoping is off", async () => {
+    const ctx = makeContext({
+      requireRegisteredAttributes: { isOn: true, requireProjectScoping: false },
+    });
+    const loadScope = jest.fn(async () => ["p1"]);
+    await expect(
+      assertRegisteredAttributesScoped(
+        ctx,
+        { condition: JSON.stringify({ some_typo: "x" }) },
+        "rule",
+        undefined,
+        loadScope,
+      ),
+    ).rejects.toThrow(BadRequestError);
+    expect(loadScope).not.toHaveBeenCalled();
+  });
+
+  it("loads the scope and enforces it when a field changed", async () => {
+    const ctx = makeContext({
+      requireRegisteredAttributes: { isOn: true, requireProjectScoping: true },
+      attributeSchema: projectSchema,
+    });
+    const loadScope = jest.fn(async () => ["p1"]);
+    await expect(
+      assertRegisteredAttributesScoped(
+        ctx,
+        { condition: JSON.stringify({ scoped: "x" }) },
+        "rule",
+        undefined,
+        loadScope,
+      ),
+    ).rejects.toThrow(/not part of this project's scope/);
+    expect(loadScope).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes when the loaded scope covers the attribute", async () => {
+    const ctx = makeContext({
+      requireRegisteredAttributes: { isOn: true, requireProjectScoping: true },
+      attributeSchema: projectSchema,
+    });
+    await expect(
+      assertRegisteredAttributesScoped(
+        ctx,
+        { condition: JSON.stringify({ scoped: "x" }) },
+        "rule",
+        undefined,
+        async () => ["p1", "p2"],
+      ),
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe("lazyAttributeScope", () => {
+  it("runs the underlying load at most once", async () => {
+    const load = jest.fn(async () => ["p1"]);
+    const scope = lazyAttributeScope(load);
+    await expect(scope()).resolves.toEqual(["p1"]);
+    await expect(scope()).resolves.toEqual(["p1"]);
+    expect(load).toHaveBeenCalledTimes(1);
   });
 });

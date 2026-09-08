@@ -146,6 +146,25 @@ describe("mapV2ApiRuleToFeatureRule", () => {
       expect(out.savedGroups).toEqual([{ match: "any", ids: ["g1", "g2"] }]);
     });
 
+    it("takes savedGroups through as-is instead of dropping the targeting", () => {
+      const out = mapV2ApiRuleToFeatureRule({
+        type: "force",
+        value: "true",
+        savedGroups: [{ match: "all", ids: ["g1"] }],
+      } as ApiRuleV2Input);
+      expect(out.savedGroups).toEqual([{ match: "all", ids: ["g1"] }]);
+    });
+
+    it("prefers savedGroups when both spellings are supplied", () => {
+      const out = mapV2ApiRuleToFeatureRule({
+        type: "force",
+        value: "true",
+        savedGroups: [{ match: "all", ids: ["storage"] }],
+        savedGroupTargeting: [{ matchType: "any", savedGroups: ["response"] }],
+      } as ApiRuleV2Input);
+      expect(out.savedGroups).toEqual([{ match: "all", ids: ["storage"] }]);
+    });
+
     it("infers allEnvironments:false when only environments[] is provided", () => {
       const out = mapV2ApiRuleToFeatureRule({
         type: "force",

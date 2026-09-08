@@ -15,6 +15,9 @@ image:
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
+  # Pin an immutable digest ("sha256:..."), e.g. when mirroring into a private
+  # registry. Takes precedence over tag.
+  digest: ""
 
 command:
 args:

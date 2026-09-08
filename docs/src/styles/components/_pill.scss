@@ -1,6 +1,0 @@
-@import "../mixins";
-
-.pill {
-  display: inline-block;
-  @include pill(var(--violet-7), #fff);
-}

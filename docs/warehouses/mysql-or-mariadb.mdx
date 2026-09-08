@@ -1,0 +1,46 @@
+---
+title: Setting Up MySQL or MariaDB as a Data Source
+description: Connect MySQL or MariaDB to GrowthBook with a read-only user, whitelist the Cloud IP if needed, and enter host, port, database, and SSL settings.
+sidebarTitle: MySQL or MariaDB
+slug: mysql-or-mariadb
+---
+
+GrowthBook runs `SELECT` queries against MySQL or MariaDB to compute experiment results. Create a dedicated read-only user, allow network access from GrowthBook, then add the connection in **Metrics and Data** → **Data Sources**.
+
+## 1. Create a read-only user
+
+Grant `SELECT` only on the database that holds experiment assignment and metric events.
+
+```sql
+CREATE USER 'growthbook'@'%' IDENTIFIED BY 'use-a-strong-password';
+GRANT SELECT ON your_database.* TO 'growthbook'@'%';
+FLUSH PRIVILEGES;
+```
+
+Tighten the host in `'growthbook'@'%'` if you can restrict the user to the GrowthBook Cloud IP or your self-hosted instance.
+
+## 2. Allow network access
+
+If you use [GrowthBook Cloud](https://app.growthbook.io), whitelist `52.70.79.40` in your MySQL or MariaDB firewall, security group, or cloud allowlist.
+
+Self-hosted GrowthBook runs in Docker. To reach a database on the host machine, use `host.docker.internal` as the host instead of `localhost`.
+
+## 3. Add MySQL or MariaDB in GrowthBook
+
+1. Go to **Metrics and Data** → **Data Sources**.
+2. Choose **MySQL / MariaDB** (guided setup if you use a supported event tracker, or manual setup for a custom schema).
+3. Enter the connection fields:
+
+| Field           | Notes                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------- |
+| Host            | Public hostname or IP. Cloud cannot reach `localhost`.                                |
+| Port            | Default `3306`.                                                                       |
+| Database        | The database GrowthBook should query.                                                 |
+| User / Password | The read-only user from step 1.                                                       |
+| Require SSL     | Enable if your server requires TLS. You can attach a CA, client cert, and client key. |
+
+4. Save. GrowthBook runs a `SELECT 1` query to confirm the connection.
+
+## 4. Map assignments and metrics
+
+After the connection succeeds, define [experiment assignment queries](/app/datasources#experiment-assignment-queries) and [Fact Tables](/app/metrics). MySQL and MariaDB support the Schema Browser, so you can inspect tables and columns while writing SQL.

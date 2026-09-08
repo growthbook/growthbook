@@ -37,6 +37,7 @@ export default defineConfig([
     "docs/.docusaurus",
     "docs/docusaurus.config.js",
     "docs/build",
+    "docs-archive/",
     "packages/sdk-js/scripts",
     "**/*.tsbuildinfo",
     "packages/shared/types/*.js",
@@ -148,6 +149,15 @@ export default defineConfig([
         "error",
         {
           ignore: ["jsx", "global"],
+        },
+      ],
+
+      "react/jsx-key": [
+        "error",
+        {
+          checkFragmentShorthand: true,
+          checkKeyMustBeforeSpread: true,
+          warnOnDuplicates: true,
         },
       ],
 

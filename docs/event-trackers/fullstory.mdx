@@ -1,0 +1,33 @@
+---
+title: Setting Up FullStory as an Event Tracker
+description: Send experiment exposure to FullStory, export FullStory to a warehouse, then connect that warehouse to GrowthBook for analysis.
+sidebarTitle: FullStory
+slug: fullstory
+---
+
+import DefaultInstructions from "/snippets/event-trackers/_default-event-instructions.mdx";
+
+GrowthBook does not query FullStory directly. Track experiment exposure with the FullStory SDK, export those events to a warehouse, then connect the warehouse as a data source.
+
+FullStory warehouse support in GrowthBook is in beta.
+
+## Exposure tracking
+
+Send a custom event from the GrowthBook SDK `trackingCallback`.
+
+```js
+trackingCallback: (experiment, result) => {
+  FS.event("Experiment Viewed", {
+    experiment_id: experiment.key,
+    variation_id: result.key,
+  });
+};
+```
+
+## Export FullStory to a warehouse
+
+FullStory Data Destinations can send events to BigQuery, Snowflake, Redshift, Presto, Athena, and Databricks. See [FullStory Data Destinations](https://help.fullstory.com/hc/en-us/articles/6295300682903-Data-Destinations).
+
+After the export is running, add that warehouse in GrowthBook and choose **FullStory** as the event tracker. The default SQL assumes a BigQuery-style `events_*` export. Edit it if your destination uses a different layout.
+
+<DefaultInstructions eventTracker="FullStory" slug="fullstory" />

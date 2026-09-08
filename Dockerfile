@@ -12,6 +12,11 @@
 # Pinned to debian-12 (bookworm) to match the glibc of node:24-slim, keeping the
 # gbstats venv and the kerberos native addon ABI-compatible. Do NOT move to
 # debian-13 without re-validating both.
+#
+# Building this file requires `docker login dhi.io` — that registry rejects
+# unauthenticated requests (even metadata reads) with a 401 that doesn't name
+# DHI. Any free Docker account works; see docs.growthbook.io/self-host#building-from-source.
+# Pulling the published growthbook/growthbook image needs no credentials.
 # ============================================================================
 
 ARG PYTHON_MAJOR=3.11
@@ -110,30 +115,25 @@ COPY packages/shared/package.json ./packages/shared/package.json
 COPY packages/stats-ts/package.json ./packages/stats-ts/package.json
 # Install dependencies using cached store
 RUN pnpm install --frozen-lockfile --offline
-RUN pnpm postinstall
+
+# Compile kerberos from source (its prebuilt binary crashes at require time on
+# the distroless runtime); before COPY packages so the layer caches per-lockfile.
+RUN pnpm rebuild kerberos
+
 COPY packages ./packages
+COPY skills-src ./skills-src
+# Prod-only tree in place: install --prod re-links the workspace projects (CI=true
+# auto-confirms the no-TTY purge; .pnpm is kept), prune then drops dev deps from
+# .pnpm. prune alone empties the workspace projects' node_modules (pnpm 10).
 RUN \
   pnpm build \
   && test -f packages/back-end/dist/server.js || (echo "ERROR: packages/back-end/dist/server.js is missing after build!" && exit 1) \
-  && rm -rf node_modules \
-  && rm -rf packages/back-end/node_modules \
-  && rm -rf packages/front-end/node_modules \
   && rm -rf packages/front-end/.next/cache \
-  && rm -rf packages/shared/node_modules \
-  && rm -rf packages/stats-ts/node_modules \
-  && rm -rf packages/sdk-js/node_modules \
-  && rm -rf packages/sdk-react/node_modules \
-  && pnpm install --frozen-lockfile --prod --no-optional \
-  && pnpm store prune \
-  && find node_modules -type f -name "*.md" -delete \
-  && find node_modules -type f -name "*.ts" ! -name "*.d.ts" -delete \
-  && find node_modules -type f -name "*.map" -delete \
-  && find node_modules -type f -name "CHANGELOG*" -delete \
-  && find node_modules -type f -name "LICENSE*" -delete \
-  && find node_modules -type f -name "README*" -delete \
+  && CI=true pnpm install --frozen-lockfile --offline --prod --no-optional \
+  && CI=true pnpm prune --prod --no-optional \
+  && find node_modules \( -name "*.md" -o -name "*.map" -o -name "CHANGELOG*" -o -name "LICENSE*" -o -name "README*" -o \( -name "*.ts" ! -name "*.d.ts" \) \) -type f -delete \
   && find node_modules -type d -name benchmarks -prune -exec rm -rf {} + \
   && rm -f packages/stats/poetry.lock
-RUN pnpm postinstall
 
 # Drop front-end TS source + tsconfig so `next start` never tries to enable
 # TypeScript at runtime. The stock image did this in a final-stage RUN; the
@@ -142,13 +142,9 @@ RUN rm -f packages/front-end/tsconfig.json && \
     find packages/front-end -maxdepth 1 -name "*.ts" -delete && \
     find packages/front-end -maxdepth 1 -name "*.tsx" -delete
 
-# Force kerberos to compile from source. Its prebuilt binary is selected by
-# node-gyp-build's runtime libc detection, which fails on the distroless runtime
-# (no ldd, sparse /etc) and crashes at require time; a from-source
-# build/Release/kerberos.node is resolved by path, no detection needed.
-RUN pnpm rebuild kerberos && \
-    find node_modules/.pnpm -path '*/kerberos/build/Release/kerberos.node' -type f | grep -q . \
-      || (echo "ERROR: kerberos.node was not produced by the source build" && exit 1)
+# Assert the from-source kerberos.node survived the prod re-link and prune.
+RUN find node_modules/.pnpm -path '*/kerberos/build/Release/kerberos.node' -type f | grep -q . \
+  || (echo "ERROR: kerberos.node missing from the prod node_modules tree" && exit 1)
 
 # Assert the pm2-runtime entrypoint (the CMD and chart command) exists before this
 # node_modules tree is copied into the shell-less final image. Replaces the deleted
@@ -232,6 +228,9 @@ ENV LD_LIBRARY_PATH="/opt/python/lib:/opt/pydeps:/opt/krb5deps:/usr/lib/x86_64-l
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PM2_HOME=/tmp/.pm2
+# pm2's pidusage probes `getconf CLK_TCK`/`PAGESIZE` via /bin/sh; with no shell it logs a
+# spawn ENOENT per key on boot before falling back to the correct Linux values (100/4096).
+ENV PIDUSAGE_SILENT=1
 
 # App code from the node build stage.
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
@@ -263,5 +262,5 @@ EXPOSE 3100
 # Launch pm2-runtime via node directly: the node_modules/.bin/pm2-runtime shim is
 # a `#!/bin/sh` script that can't exec in a shell-less runtime, but pm2's real
 # entry is plain Node. pm2's only shell-out (pidusage's `getconf` for CPU metrics)
-# fails gracefully to a default, so it's not fatal here.
+# fails gracefully to a default, silenced by PIDUSAGE_SILENT above.
 CMD ["/usr/local/bin/node", "node_modules/pm2/bin/pm2-runtime", "start", "ecosystem.config.js"]

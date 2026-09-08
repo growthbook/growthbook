@@ -3,10 +3,12 @@ import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
-  isEventForwarderManagedExposureQuery,
-  isEventForwarderManagedFeatureUsageQuery,
+  DataRegion,
+  findEventForwarderManagedViolation,
+  isEventForwarderManaged,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
+  findNewDuplicateUserIdTypeName,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -14,6 +16,7 @@ import {
   DataSourcePipelineSettings,
   DataSourceSettings,
   DataSourceType,
+  GrowthbookClickhouseDataSource,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import { ApiDataSource } from "shared/validators";
@@ -126,6 +129,32 @@ export async function getDataSourcesByOrganization(
   return datasources.filter((ds) =>
     context.permissions.canReadMultiProjectResource(ds.projects),
   );
+}
+
+// Unfiltered by project permissions - the org's event ingestor region isn't
+// sensitive on its own, and gating it on datasource read permissions means
+// users without access to the Managed Warehouse/Event Forwarder datasource
+// would get an incorrect region for the SDK setup snippets.
+export async function getEventIngestorRegionForOrganization(
+  context: ReqContext | ApiReqContext,
+): Promise<DataRegion | undefined> {
+  const datasources = usingFileConfig()
+    ? getConfigDatasources(context.org.id)
+    : (await DataSourceModel.find({ organization: context.org.id })).map(
+        toInterface,
+      );
+
+  const managedWarehouse = datasources.find(
+    (d): d is GrowthbookClickhouseDataSource =>
+      d.type === "growthbook_clickhouse",
+  );
+  if (managedWarehouse) {
+    return managedWarehouse.settings?.region;
+  }
+
+  const forwarderConfigs =
+    await context.models.eventForwarderConfigs.getAllBypassingReadPermissions();
+  return forwarderConfigs.find((c) => c.region)?.region;
 }
 
 // WARNING: This does not restrict by organization
@@ -319,6 +348,57 @@ export async function deleteAllDataSourcesForAProject({
   await touchDefinitionsVersion(organizationId, definitionsScope([projectId]));
 }
 
+// Identifier type names become warehouse column aliases, so two names differing
+// only in case would collide as one column.
+function assertUniqueUserIdTypeNames(
+  settings: DataSourceSettings | undefined,
+  existing?: DataSourceSettings,
+): void {
+  if (!settings?.userIdTypes?.length) {
+    return;
+  }
+  const duplicate = findNewDuplicateUserIdTypeName(
+    existing?.userIdTypes ?? [],
+    settings.userIdTypes,
+  );
+  if (duplicate) {
+    throw new Error(
+      `The identifier type ${duplicate} already exists (names are case-insensitive)`,
+    );
+  }
+}
+
+// Managed records have no Edit or Delete in the UI; this is what holds the line
+// for direct API calls and stale browser tabs.
+function assertEventForwarderManagedRecordsIntact(
+  updated: DataSourceSettings | undefined,
+  existing: DataSourceSettings | undefined,
+): void {
+  const violation =
+    findEventForwarderManagedViolation({
+      before: existing?.userIdTypes,
+      after: updated?.userIdTypes,
+      identify: (record) => record.userIdType,
+      label: "identifier type",
+    }) ??
+    findEventForwarderManagedViolation({
+      before: existing?.queries?.exposure,
+      after: updated?.queries?.exposure,
+      identify: (record) => record.id,
+      label: "experiment assignment query",
+    }) ??
+    findEventForwarderManagedViolation({
+      before: existing?.queries?.featureUsage,
+      after: updated?.queries?.featureUsage,
+      identify: (record) => record.id,
+      label: "feature usage query",
+    });
+
+  if (violation) {
+    throw new Error(violation);
+  }
+}
+
 export async function createDataSource(
   context: ReqContext,
   name: string,
@@ -372,6 +452,7 @@ export async function createDataSource(
     "all",
   );
 
+  assertUniqueUserIdTypeNames(settings);
   validatePipelineSettingsInvariants(settings.pipelineSettings);
 
   const model = (await DataSourceModel.create(
@@ -432,7 +513,7 @@ export async function validateExposureQueriesAndAddMissingIds(
 
         if (
           skipEventForwarderManagedValidation &&
-          isEventForwarderManagedExposureQuery(exposure) &&
+          isEventForwarderManaged(exposure) &&
           validation !== "all"
         ) {
           exposure.error = undefined;
@@ -479,7 +560,7 @@ export async function validateExposureQueriesAndAddMissingIds(
 
         if (
           skipEventForwarderManagedValidation &&
-          isEventForwarderManagedFeatureUsageQuery(featureUsage) &&
+          isEventForwarderManaged(featureUsage) &&
           validation !== "all"
         ) {
           featureUsage.error = undefined;
@@ -585,6 +666,13 @@ export async function updateDataSource(
           : "changed",
       skipEventForwarderManagedValidation,
     );
+    assertUniqueUserIdTypeNames(updates.settings, datasource.settings);
+    if (!skipEventForwarderManagedValidation) {
+      assertEventForwarderManagedRecordsIntact(
+        updates.settings,
+        datasource.settings,
+      );
+    }
     validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
   if (!hasActualChanges(datasource, updates)) {

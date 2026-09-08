@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { postFeatureRuleV2 } from "shared/validators";
+import { resolveSavedGroupsInput } from "shared/validators";
 import {
   validateScheduleRules,
   setConfigBacking,
@@ -263,10 +264,7 @@ export function mapV2ApiRuleToFeatureRule(
     description: ruleInput.description ?? "",
     enabled: ruleInput.enabled ?? true,
     condition: ruleInput.condition ?? "",
-    savedGroups: ruleInput.savedGroupTargeting?.map((s) => ({
-      match: s.matchType,
-      ids: s.savedGroups,
-    })),
+    savedGroups: resolveSavedGroupsInput(ruleInput),
     allEnvironments: resolvedAllEnvs,
     environments: resolvedEnvs,
     allProjects: resolvedAllProjects,

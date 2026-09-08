@@ -20,7 +20,6 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Table, {
   TableHeader,
@@ -48,9 +47,6 @@ export default function IdLists({ groups, mutate }: Props) {
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
     useState<SavedGroupWithoutValues | null>(null);
-  const settings = useOrgSettings();
-  const approvalFlowRequired =
-    settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
   const { project, projects, getProjectById } = useDefinitions();
   const { getOwnerDisplay } = useUser();
 
@@ -191,7 +187,6 @@ export default function IdLists({ groups, mutate }: Props) {
             close={() => setSavedGroupForm(null)}
             current={savedGroupForm}
             type="list"
-            approvalFlowRequired={approvalFlowRequired}
             mutate={mutate}
           />
         )}

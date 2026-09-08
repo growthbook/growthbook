@@ -110,7 +110,11 @@ export function featurePublishFootprint({
   if (holdoutEnvs === HOLDOUT_ENVS_UNRESOLVED) return [...environmentIds];
 
   const changedRules = changes.rules;
-  const changedRuleEnvs =
+  // A rule change is only observable where the flag serves, so intersect with
+  // `serving` — an `allEnvironments` rule otherwise demands authority over disabled
+  // environments it can never reach. An env this draft ENABLES stays covered by the
+  // unnarrowed `environmentsEnabled` contribution below.
+  const changedRuleEnvsAll =
     changedRules === undefined
       ? []
       : environmentIds.filter(
@@ -120,6 +124,14 @@ export function featurePublishFootprint({
               getRulesForEnvironment(changedRules, env),
             ),
         );
+  const servingRuleEnvs = changedRuleEnvsAll.filter((env) =>
+    serving.includes(env),
+  );
+  // Never let the narrowing empty the set: the fallback below would then claim
+  // everything the flag serves, which a disabled-env-only edit never touched.
+  const changedRuleEnvs = servingRuleEnvs.length
+    ? servingRuleEnvs
+    : changedRuleEnvsAll;
 
   const envScoped = new Set([
     ...changedRuleEnvs,

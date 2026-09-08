@@ -1,5 +1,5 @@
 import type { ExperimentInterface } from "shared/validators";
-import { autoMerge, checkIfRevisionNeedsReview } from "shared/util";
+import { autoMerge } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
@@ -32,13 +32,17 @@ jest.mock("back-end/src/util/logger", () => ({
 jest.mock("shared/util", () => ({
   ...jest.requireActual("shared/util"),
   autoMerge: jest.fn(),
-  checkIfRevisionNeedsReview: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/featurePublishGates", () => ({
+  assessRevisionApproval: jest.fn(),
 }));
 
 import {
   formatPendingDraftFailureMessage,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
+import { assessRevisionApproval } from "back-end/src/services/featurePublishGates";
 import {
   getFeature,
   prevalidatePublishRevision,
@@ -72,14 +76,27 @@ const mockGetLiveAndBase =
     typeof getLiveAndBaseRevisionsForFeature
   >;
 const mockAutoMerge = autoMerge as jest.MockedFunction<typeof autoMerge>;
-const mockCheckIfRevisionNeedsReview =
-  checkIfRevisionNeedsReview as jest.MockedFunction<
-    typeof checkIfRevisionNeedsReview
-  >;
+const mockAssessRevisionApproval =
+  assessRevisionApproval as jest.MockedFunction<typeof assessRevisionApproval>;
+
+// The shared approval answer; tests override it to simulate a blocked draft.
+const approvalSatisfied = {
+  requiresReview: false,
+  uncoveredApprovers: [],
+  hasCoveringApproval: false,
+  requiredApproverTeams: { satisfied: true, unmet: [] },
+  satisfied: true,
+};
+const approvalBlocked = {
+  ...approvalSatisfied,
+  requiresReview: true,
+  satisfied: false,
+};
 
 const ctx = {
   org: { id: "org_1", settings: {} },
   environments: ["production"],
+  teams: [],
   hasPremiumFeature: () => true,
 } as unknown as ReqContext;
 
@@ -108,7 +125,7 @@ beforeEach(() => {
     conflicts: [],
     result: { rules: [] },
   });
-  mockCheckIfRevisionNeedsReview.mockReturnValue(false);
+  mockAssessRevisionApproval.mockReturnValue(approvalSatisfied);
 });
 
 describe("publishPendingFeatureDraftsForExperiment", () => {
@@ -140,8 +157,9 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     mockGetRevision.mockImplementation(async ({ version }) => {
       return { version, status: "draft", rules: [] } as never;
     });
-    mockCheckIfRevisionNeedsReview.mockImplementationOnce(() => false);
-    mockCheckIfRevisionNeedsReview.mockImplementationOnce(() => true);
+    mockAssessRevisionApproval
+      .mockReturnValueOnce(approvalSatisfied)
+      .mockReturnValueOnce(approvalBlocked);
 
     const experiment = makeExperiment([
       { featureId: "feat_a", revisionVersion: 6 },
@@ -347,6 +365,7 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     const rebaseCtx = {
       ...ctx,
       org: { id: "org_1", settings: { requireRebaseBeforePublish: true } },
+      teams: [],
     } as unknown as ReqContext;
     mockGetRevision.mockResolvedValue({
       version: 6,

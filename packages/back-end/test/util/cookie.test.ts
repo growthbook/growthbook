@@ -1,6 +1,11 @@
 import jwt from "jsonwebtoken";
 import { Request, Response } from "express";
-import { isIdTokenExpired, setIdTokenCookie } from "back-end/src/util/cookie";
+import {
+  IdTokenCookie,
+  RefreshTokenCookie,
+  isIdTokenExpired,
+  setIdTokenCookie,
+} from "back-end/src/util/cookie";
 
 function makeReqRes() {
   const cookieCalls: {
@@ -69,6 +74,43 @@ describe("setIdTokenCookie", () => {
 
     expect(cookieCalls).toHaveLength(0);
     expect(clearCalls.some((c) => c.name === "AUTH_ID_TOKEN")).toBe(true);
+  });
+});
+
+describe("Cookie.getValue", () => {
+  function reqWithCookies(cookies: Record<string, unknown>) {
+    return { cookies } as unknown as Request;
+  }
+
+  it("returns the value for a normal string cookie", () => {
+    const req = reqWithCookies({ AUTH_REFRESH_TOKEN: "abc123" });
+    expect(RefreshTokenCookie.getValue(req)).toBe("abc123");
+  });
+
+  it("returns an empty string when the cookie is missing", () => {
+    expect(RefreshTokenCookie.getValue(reqWithCookies({}))).toBe("");
+  });
+
+  // cookie-parser turns `AUTH_REFRESH_TOKEN=j:{"$ne":""}` into an object. If it
+  // reached the Mongo filter it would match any refresh token, so it must be
+  // dropped here.
+  it("drops a JSON-decoded object instead of passing it through", () => {
+    const req = reqWithCookies({ AUTH_REFRESH_TOKEN: { $ne: "" } });
+    expect(RefreshTokenCookie.getValue(req)).toBe("");
+  });
+
+  it("drops JSON-decoded arrays and numbers", () => {
+    expect(
+      RefreshTokenCookie.getValue(reqWithCookies({ AUTH_REFRESH_TOKEN: [1] })),
+    ).toBe("");
+    expect(
+      RefreshTokenCookie.getValue(reqWithCookies({ AUTH_REFRESH_TOKEN: 42 })),
+    ).toBe("");
+  });
+
+  it("applies to every cookie, not just the refresh token", () => {
+    const req = reqWithCookies({ AUTH_ID_TOKEN: { $ne: "" } });
+    expect(IdTokenCookie.getValue(req)).toBe("");
   });
 });
 

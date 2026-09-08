@@ -58,7 +58,7 @@ export default function TargetingAttributesSettings() {
                     <Checkbox
                       id="toggle-requireProjectScoping"
                       label="Require Project match"
-                      description="Also block attributes that aren't scoped to the rule's Project."
+                      description="Also block attributes that aren't scoped to the Projects the Feature Flag or experiment targets."
                       value={requireProjectScoping}
                       setValue={(value) =>
                         update({ isOn, requireProjectScoping: !!value })

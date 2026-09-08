@@ -606,25 +606,49 @@ export function getVariationColor(i: number, experimentTheme = false) {
   return colors[i % colors.length];
 }
 
+// True when the org enforces project-scoped attribute registration — the
+// picker opt-out must be ignored then; it never loosens enforcement.
+export function useStrictAttributeProjectScoping(): boolean {
+  const { isOn, requireProjectScoping } =
+    getRequireRegisteredAttributesSettings(
+      useOrgSettings().requireRegisteredAttributes,
+    );
+  return isOn && requireProjectScoping;
+}
+
+// Resolve a picker's attribute filter: an explicitly provided scope wins
+// (null = unscoped, show everything); otherwise fall back to the entity's
+// primary project.
+export function resolveAttributeFilter(
+  attributeProjects: string[] | null | undefined,
+  fallbackProject: string | undefined,
+): string | string[] | null {
+  return attributeProjects !== undefined
+    ? attributeProjects
+    : fallbackProject || null;
+}
+
 export function useAttributeSchema(
   showArchived = false,
-  projectFilter?: string,
+  projectFilter?: string | string[] | null,
 ) {
   const attributeSchema = useOrgSettings().attributeSchema || [];
 
-  const filteredAttributeSchema = attributeSchema.filter((attribute) => {
-    return (
-      !projectFilter ||
-      !attribute.projects?.length ||
-      attribute.projects.includes(projectFilter)
-    );
-  });
+  // Content-keyed — callers often build the projects array inline per render.
+  const filterKey = Array.isArray(projectFilter)
+    ? projectFilter.filter(Boolean).join("||")
+    : (projectFilter ?? "");
   return useMemo(() => {
-    if (!showArchived) {
-      return filteredAttributeSchema.filter((s) => !s.archived);
-    }
-    return filteredAttributeSchema;
-  }, [attributeSchema, showArchived, projectFilter]);
+    const filterProjects = new Set(filterKey ? filterKey.split("||") : []);
+    return attributeSchema.filter((attribute) => {
+      if (!showArchived && attribute.archived) return false;
+      return (
+        !filterProjects.size ||
+        !attribute.projects?.length ||
+        attribute.projects.some((p) => filterProjects.has(p))
+      );
+    });
+  }, [attributeSchema, showArchived, filterKey]);
 }
 
 // Shared formatter so the client-side pre-flight error matches the back-end
@@ -670,7 +694,7 @@ export function validateUnregisteredAttributes(
   options: {
     attributeSchema?: SDKAttributeSchema;
     requireRegisteredAttributes?: RawRequireRegistered;
-    project?: string;
+    project?: string | string[] | null;
   },
   existingParts?: AttributeParts,
 ): void {
@@ -700,7 +724,7 @@ export function validateUnregisteredAttributes(
   const buckets = categorizeUnregisteredAttributes(
     keys,
     options.attributeSchema,
-    requireProjectScoping ? options.project : undefined,
+    requireProjectScoping ? (options.project ?? undefined) : undefined,
   );
   if (buckets.unknown.length || buckets.outOfProject.length) {
     throw new Error(formatUnregisteredAttributesError(label, buckets));
@@ -713,6 +737,7 @@ export function validateFeatureRule(
   options: {
     attributeSchema?: SDKAttributeSchema;
     requireRegisteredAttributes?: RawRequireRegistered;
+    attributeProjects?: string[] | null;
   } = {},
   existingRule?: FeatureRule,
 ): null | FeatureRule {
@@ -744,7 +769,13 @@ export function validateFeatureRule(
       condition: ruleCopy.condition,
     },
     "rule",
-    { ...options, project: feature.project },
+    {
+      ...options,
+      project: resolveAttributeFilter(
+        options.attributeProjects,
+        feature.project,
+      ),
+    },
     existingRule
       ? {
           hashAttribute: (existingRule as { hashAttribute?: string })
@@ -1613,7 +1644,7 @@ function getAttributeDataType(type: SDKAttributeType) {
 }
 
 export function useAttributeMap(
-  projectFilter?: string,
+  projectFilter?: string | string[] | null,
 ): Map<string, AttributeData> {
   const attributeSchema = useAttributeSchema(true, projectFilter);
 

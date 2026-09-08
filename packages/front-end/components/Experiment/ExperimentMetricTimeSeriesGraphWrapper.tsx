@@ -17,8 +17,9 @@ import {
   getExperimentMetricFormatter,
   formatPercent,
 } from "@/services/metrics";
+import { findTimeSeriesVariation } from "@/services/timeSeriesVariations";
 import { useCurrency } from "@/hooks/useCurrency";
-import { GraphVariation } from "./ExperimentDateGraph";
+import type { GraphVariation } from "./ExperimentDateGraph";
 import ExperimentTimeSeriesGraph, {
   DataPointVariation,
   ExperimentTimeSeriesGraphDataPoint,
@@ -65,7 +66,7 @@ function mapTimeSeriesPointToVariationCells({
   pValueThreshold: number;
 }): (DataPointVariation | null)[] {
   return variations.map((gv) => {
-    const variation = point.variations.find((v) => v.name === gv.name);
+    const variation = findTimeSeriesVariation(point.variations, gv);
     if (!variation) return null;
 
     const liftSlice = getLiftSlice(variation, differenceType);
@@ -130,6 +131,7 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   pValueAdjustmentEnabled: boolean;
   firstDateToRender: Date;
   sliceId?: string;
+  funnelStepId?: string;
   baselineRow?: number;
   unavailableMessage?: string;
   preloadedTimeSeries?: MetricTimeSeries;
@@ -167,6 +169,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   pValueAdjustmentEnabled,
   firstDateToRender,
   sliceId,
+  funnelStepId,
   baselineRow = 0,
   unavailableMessage,
   preloadedTimeSeries,
@@ -183,7 +186,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
     getFactTableById,
   );
 
-  const metricId = sliceId ?? metric.id;
+  const metricId = funnelStepId ?? sliceId ?? metric.id;
   const dimensionQuery =
     dimensionId && dimensionValue !== undefined
       ? `&dimensions[0][id]=${encodeURIComponent(

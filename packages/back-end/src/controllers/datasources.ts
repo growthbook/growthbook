@@ -489,9 +489,6 @@ export async function putDataSource(
     }
 
     if (settings) {
-      // Event Forwarder managed identifier types (`ef_` prefixed) used to be
-      // rejected here. They're intentionally editable and deletable for now —
-      // restore the guard if we need to lock them down again.
       updates.settings = settings;
     }
 

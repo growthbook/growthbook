@@ -11,7 +11,10 @@ import {
   resolveComparisonMode,
   resolveComparisonPreviousTimeFrame,
   restoreBlockLocalDateControls,
+  blockUsesDashboardDateControl,
+  SqlExplorationBlockInterface,
 } from "shared/enterprise";
+import { ReactNode } from "react";
 import { isEqual } from "lodash";
 import type {
   ComparisonMode,
@@ -22,7 +25,11 @@ import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import { ExplorerProvider } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import type { ExplorerDraftConfig } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  normalizeTimelessSqlConfig,
+  stripExplorerDraftFields,
+  type ExplorerDraftConfig,
+} from "@/enterprise/components/ProductAnalytics/util";
 import ProductAnalyticsExplorerSideBarWrapper from "./ProductAnalyticsExplorerSideBarWrapper";
 
 interface Props {
@@ -30,6 +37,7 @@ interface Props {
     | MetricExplorationBlockInterface
     | FactTableExplorationBlockInterface
     | DataSourceExplorationBlockInterface
+    | SqlExplorationBlockInterface
     | FunnelExplorationBlockInterface
   >;
   setBlock: React.Dispatch<
@@ -37,12 +45,16 @@ interface Props {
       | MetricExplorationBlockInterface
       | FactTableExplorationBlockInterface
       | DataSourceExplorationBlockInterface
+      | SqlExplorationBlockInterface
       | FunnelExplorationBlockInterface
     >
   >;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
+  hideDataSourceSelector?: boolean;
+  sqlExploreConfigOnly?: boolean;
+  dashboardHeaderLeadingContent?: ReactNode;
 }
 
 export default function ProductAnalyticsExplorerSettings({
@@ -51,6 +63,9 @@ export default function ProductAnalyticsExplorerSettings({
   dashboardGlobalControls,
   saveAndCloseTrigger,
   onSaveAndClose,
+  hideDataSourceSelector,
+  sqlExploreConfigOnly,
+  dashboardHeaderLeadingContent,
 }: Props) {
   const { data, error } = useApi<{
     status: number;
@@ -75,15 +90,19 @@ export default function ProductAnalyticsExplorerSettings({
         config: baseInitialConfig,
       } as typeof block)
     : null;
+  const dateControlledBlock = blockUsesDashboardDateControl(block)
+    ? block
+    : null;
   const effectiveInitialConfig = blockForInitialConfig
-    ? dashboardGlobalControls
+    ? dashboardGlobalControls &&
+      blockUsesDashboardDateControl(blockForInitialConfig)
       ? getEffectiveExplorationConfig(blockForInitialConfig, {
           globalControls: dashboardGlobalControls,
         })
       : baseInitialConfig
     : null;
   const usesDashboardDateRange =
-    block.globalControlSettings?.dateRange === true &&
+    dateControlledBlock?.globalControlSettings?.dateRange === true &&
     Boolean(dashboardGlobalControls?.dateRange);
   const hasStaleDashboardDateResults =
     usesDashboardDateRange &&
@@ -132,11 +151,12 @@ export default function ProductAnalyticsExplorerSettings({
         }
       : exploration.config
     : undefined;
-  // No `block.comparison` here: the provider owns the comparison while open, so
-  // keying on it makes it remount itself on toggle and drop the in-flight run.
+  // Deliberately excluded, since both remount the provider and lose in-flight work:
+  // - `block.comparison`, which the provider owns while open
+  // - the date-range follow flag, which now flips on every edit of an inherited
+  //   range. Revert reseeds the draft itself, so it needs no remount.
   const explorerProviderKey = [
     dashboardBlockHasIds(block) ? block.id : "",
-    block.globalControlSettings?.dateRange === true,
     JSON.stringify(dashboardGlobalControls ?? null),
     hasStaleDashboardDateResults,
   ].join(":");
@@ -147,6 +167,11 @@ export default function ProductAnalyticsExplorerSettings({
       initialConfig={initialConfig}
       initialSubmittedConfig={initialSubmittedConfig}
       hasExistingResults={!!block.explorerAnalysisId}
+      initialLinkedFunnelMetricId={
+        "linkedFunnelMetricId" in block
+          ? (block.linkedFunnelMetricId ?? null)
+          : null
+      }
       trackingSource="dashboard-editor"
       onRunComplete={(
         exploration,
@@ -162,9 +187,13 @@ export default function ProductAnalyticsExplorerSettings({
                 ...(comparisonMode === "custom" && { previousTimeFrame }),
               }
             : undefined;
-        const nextConfig = usesDashboardDateRange
-          ? restoreBlockLocalDateControls(exploration.config, block.config)
-          : exploration.config;
+        const nextConfig =
+          usesDashboardDateRange && dateControlledBlock
+            ? restoreBlockLocalDateControls(
+                exploration.config as typeof dateControlledBlock.config,
+                dateControlledBlock.config,
+              )
+            : exploration.config;
         setBlock({
           ...block,
           explorerAnalysisId: exploration.id,
@@ -177,14 +206,18 @@ export default function ProductAnalyticsExplorerSettings({
                 comparison: undefined,
                 comparisonExplorerAnalysisId: undefined,
               }),
-          config: {
-            ...nextConfig,
-            chartType: block.config?.chartType || exploration.config?.chartType,
-          },
+          config: stripExplorerDraftFields(
+            normalizeTimelessSqlConfig({
+              ...nextConfig,
+              chartType:
+                block.config?.chartType || exploration.config?.chartType,
+            }),
+          ),
         } as
           | MetricExplorationBlockInterface
           | FactTableExplorationBlockInterface
           | DataSourceExplorationBlockInterface
+          | SqlExplorationBlockInterface
           | FunnelExplorationBlockInterface);
       }}
     >
@@ -195,6 +228,9 @@ export default function ProductAnalyticsExplorerSettings({
         invalidateStaleResults={!hasStaleDashboardDateResults}
         saveAndCloseTrigger={saveAndCloseTrigger}
         onSaveAndClose={onSaveAndClose}
+        hideDataSourceSelector={hideDataSourceSelector}
+        sqlExploreConfigOnly={sqlExploreConfigOnly}
+        dashboardHeaderLeadingContent={dashboardHeaderLeadingContent}
       />
     </ExplorerProvider>
   );

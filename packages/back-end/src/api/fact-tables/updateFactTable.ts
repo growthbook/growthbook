@@ -1,6 +1,5 @@
 import { updateFactTableValidator } from "shared/validators";
 import {
-  ColumnInterface,
   FactTableInterface,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
@@ -20,6 +19,7 @@ import {
 } from "back-end/src/services/owner";
 import {
   columnsHaveAutoSlices,
+  columnsNeedDetection,
   validateAggregatedFactTableSettings,
   validateVirtualColumnProps,
   validateVirtualColumnSql,
@@ -173,11 +173,15 @@ export const updateFactTable = createApiRequestHandler(
     delete data.columns;
   }
 
-  await updateFactTableInDb(req.context, factTable, data);
-  if (
+  const willRefresh =
     needsColumnRefresh(factTable, data) ||
-    (columnsUpserted && columnsNeedDetection(factTable.columns))
-  ) {
+    (columnsUpserted && columnsNeedDetection(factTable.columns));
+  if (willRefresh) {
+    data.columnRefreshPending = true;
+  }
+
+  await updateFactTableInDb(req.context, factTable, data);
+  if (willRefresh) {
     await queueFactTableColumnsRefresh(factTable);
   }
 
@@ -189,6 +193,7 @@ export const updateFactTable = createApiRequestHandler(
     ...factTable,
     ...req.body,
     columns: factTable.columns,
+    columnRefreshPending: willRefresh ? true : factTable.columnRefreshPending,
   };
   return {
     factTable: await resolveOwnerEmail(
@@ -206,8 +211,4 @@ export function needsColumnRefresh(
   const eventNameChanged =
     changes.eventName !== undefined && changes.eventName !== existing.eventName;
   return sqlChanged || eventNameChanged;
-}
-
-export function columnsNeedDetection(columns?: ColumnInterface[]): boolean {
-  return (columns ?? []).some((c) => c.datatype === "");
 }

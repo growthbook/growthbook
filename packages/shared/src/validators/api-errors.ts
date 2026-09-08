@@ -10,6 +10,7 @@ const checklistItemSchema = z.object({
   status: z.enum(["complete", "incomplete"]),
   manual: z.boolean(),
   reason: z.string(),
+  hardBlock: z.boolean().optional(),
 });
 
 const pendingDraftFailureSchema = z.object({
@@ -49,6 +50,22 @@ export const apiErrorRegistry = {
     detailsSchema: z.object({
       currentStatus: z.string(),
       expectedStatuses: z.array(z.string()),
+    }),
+  },
+  requires_full_refresh: {
+    status: 409,
+    description:
+      "The Incremental Pipeline needs a Full Refresh of Overall Results before this request can be served",
+    detailsSchema: z.object({
+      reason: z.string(),
+    }),
+  },
+  dimension_already_up_to_date: {
+    status: 409,
+    description:
+      "The requested dimension was already computed from the latest Overall Results",
+    detailsSchema: z.object({
+      overallResultsAsOf: z.string(),
     }),
   },
 } satisfies Record<

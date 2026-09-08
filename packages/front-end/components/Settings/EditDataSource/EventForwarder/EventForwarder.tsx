@@ -763,6 +763,12 @@ export default function EventForwarder({
                   />
                 </>
               ) : null}
+              <EventForwarderConfigField
+                label="Data region"
+                value={getDataRegionLabel(
+                  eventForwarderConfig.region ?? DEFAULT_DATA_REGION,
+                )}
+              />
             </Flex>
 
             {isProvisioning ? (

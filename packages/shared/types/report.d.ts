@@ -87,6 +87,7 @@ export interface ExperimentReportInterface extends ReportInterfaceBase {
 
 export interface ExperimentReportVariation {
   id: string;
+  experimentVariationId?: string;
   name: string;
   weight: number;
   index: number;

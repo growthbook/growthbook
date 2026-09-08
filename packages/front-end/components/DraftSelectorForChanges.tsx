@@ -23,6 +23,8 @@ export default function DraftSelectorForChanges<K>({
   isAdmin = false,
   allowNewDraftAtCap = false,
   capNoun = "This",
+  alert,
+  alertActive,
 }: {
   activeDraftKeys: K[];
   selectedDraft: K | null;
@@ -47,6 +49,8 @@ export default function DraftSelectorForChanges<K>({
   capNoun?: string;
   /** Active drafts this flow may write to. */
   writableDraftKeys?: K[];
+  alert?: ReactNode;
+  alertActive?: boolean;
 }) {
   const activeDraftKeys = writableDraftKeys ?? allActiveDraftKeys;
   const singleOption =
@@ -111,6 +115,8 @@ export default function DraftSelectorForChanges<K>({
       canDraft={canDraft}
       singleOption={singleOption}
       recommendExisting={atDraftCap}
+      alert={alert}
+      alertActive={alertActive}
       newDraftDisabled={newDraftBlocked}
       newDraftDisabledReason={
         newDraftBlocked

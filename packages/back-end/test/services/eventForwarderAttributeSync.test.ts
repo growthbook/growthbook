@@ -12,8 +12,8 @@ const mockedHasAnyEventForwarderConfig =
     typeof EventForwarderConfig.hasAnyEventForwarderConfig
   >;
 const mockedSyncFactTable =
-  EventForwarderFactTable.syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange as jest.MockedFunction<
-    typeof EventForwarderFactTable.syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange
+  EventForwarderFactTable.syncEventForwarderEventsFactTableMetadata as jest.MockedFunction<
+    typeof EventForwarderFactTable.syncEventForwarderEventsFactTableMetadata
   >;
 const mockedReconcileDatasourceMetadata =
   EventForwarderUserIdTypes.reconcileAllEventForwarderDatasourceUserIdTypesAndExposureQueries as jest.MockedFunction<

@@ -47,6 +47,7 @@ function datasetTypeToBlockType(
   | "metric-exploration"
   | "fact-table-exploration"
   | "data-source-exploration"
+  | "sql-exploration"
   | "funnel-exploration"
   | null {
   switch (type) {
@@ -56,6 +57,8 @@ function datasetTypeToBlockType(
       return "fact-table-exploration";
     case "data_source":
       return "data-source-exploration";
+    case "sql":
+      return "sql-exploration";
     case "funnel":
       return "funnel-exploration";
     case "journey":
@@ -88,6 +91,8 @@ interface Props {
   comparisonMode?: ComparisonMode;
   /** Current comparison exploration id, to seed the block before first refresh. */
   comparisonExplorationId?: string | null;
+  /** Funnel metric the exploration was loaded from, if any. */
+  linkedFunnelMetricId?: string | null;
   trackingSource?: string;
 }
 
@@ -99,6 +104,7 @@ export default function SaveToDashboardModal({
   previousTimeFrame = null,
   comparisonMode = "previousPeriod",
   comparisonExplorationId = null,
+  linkedFunnelMetricId = null,
   trackingSource,
 }: Props) {
   const router = useRouter();
@@ -169,6 +175,9 @@ export default function SaveToDashboardModal({
       ...(comparison ? { comparison } : {}),
       ...(comparison && comparisonExplorationId
         ? { comparisonExplorerAnalysisId: comparisonExplorationId }
+        : {}),
+      ...(blockType === "funnel-exploration" && linkedFunnelMetricId
+        ? { linkedFunnelMetricId }
         : {}),
     };
 

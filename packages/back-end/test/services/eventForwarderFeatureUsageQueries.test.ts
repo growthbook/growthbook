@@ -124,7 +124,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
     expect(ids).toEqual([featureUsage[0].id]);
   });
 
-  it("appends a managed query when a manual query already exists", async () => {
+  it("does not add a managed twin beside the user's own query", async () => {
     const raw = ds({
       queries: {
         featureUsage: [{ id: "manual", query: "SELECT 1" }],
@@ -143,12 +143,10 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
       { defaultProject: "my-project" } as never,
     );
 
-    const featureUsage =
-      mockedUpdate.mock.calls[0][2].settings?.queries?.featureUsage ?? [];
-    expect(featureUsage).toHaveLength(2);
-    expect(featureUsage[0].id).toBe("manual");
-    expect(featureUsage[1].managedBy).toBe("api");
-    expect(ids).toEqual([featureUsage[1].id]);
+    // One feature usage query per datasource, so theirs is never shadowed by a
+    // managed twin.
+    expect(mockedUpdate).not.toHaveBeenCalled();
+    expect(ids).toEqual(["manual"]);
   });
 
   it("skips when a managed query already exists", async () => {

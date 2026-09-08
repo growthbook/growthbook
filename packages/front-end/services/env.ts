@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { scrubSentryEvent } from "shared/sentry";
 import { EnvironmentInitValue } from "@/./pages/api/init";
 
 const env: EnvironmentInitValue = {
@@ -44,6 +45,7 @@ export async function initEnv() {
       sendDefaultPii: true,
       environment: env.environment,
       release: env.build?.sha,
+      beforeSend: (event) => scrubSentryEvent(event),
     });
   }
 }
@@ -117,7 +119,7 @@ export function getSuperadminDefaultRole() {
   return env.superadminDefaultRole;
 }
 export function getIngestorHost() {
-  return env.ingestorOverride || "https://us1.gb-ingest.com";
+  return env.ingestorOverride || "https://us-east-1.gb-ingest.com";
 }
 
 export function getStripePublishableKey() {

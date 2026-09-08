@@ -71,6 +71,7 @@ export default function ExperimentDimensionBlock({
 
   const variations = getLatestPhaseVariations(experiment).map((v, i) => ({
     id: v.key || v.index + "",
+    experimentVariationId: v.id,
     index: v.index,
     name: v.name,
     weight:

@@ -1,3 +1,4 @@
+import { ANY_REVIEW_FOOTPRINT } from "shared/util";
 import { postFeatureRevisionUndoReviewV2Validator } from "shared/validators";
 import { toApiRevisionV2 } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
@@ -16,7 +17,12 @@ export const postFeatureRevisionUndoReviewV2 = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (!req.context.permissions.canReviewFeatureDrafts(feature)) {
+  if (
+    !req.context.permissions.canReviewFeatureDrafts(
+      feature,
+      ANY_REVIEW_FOOTPRINT,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

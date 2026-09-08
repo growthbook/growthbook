@@ -81,8 +81,10 @@ atom that carried the source side:
 
 The footprint is the set of environments a change actually reaches:
 
-- A Feature Flag revision: the environments whose rules or enabled state change,
-  plus any the change re-enables.
+- A Feature Flag revision: the serving environments whose rules change, plus any
+  the change enables or disables. A rule change in a disabled environment reaches
+  no payload, so it needs no authority there. This is the same rule as archive
+  below.
 - A Constant or Config: the per-environment overrides that differ.
 - A Saved Group: none — it is not partitioned by environment.
 - A **revert**: the environments where the _restored_ state differs from
@@ -116,6 +118,23 @@ reach for `[]` to make a type fit.
   (`reviewAuthorityOnRow`).
 - **A revert** asks about the restored state versus current live
   (`getConstantRestoreChange` and its siblings).
+
+## Approval on automatic publishes
+
+Every publish flow asks one function, `assessRevisionApproval` — the app endpoint,
+the REST endpoint, bulk publish, and the two autostart paths (experiment and
+contextual bandit). An autostart can therefore never land a draft the publish
+button would refuse.
+
+Two automatic flows deliberately skip it. Both are decisions, not omissions:
+
+- **Ramp advance** — a schedule publishes on a cadence someone already approved
+  when they armed it. A spurious approval blocker would stall the schedule.
+- **Safe-rollout rollback** — a background guardrail response with no user in the
+  loop to approve anything. Gating it would leave a failing rollout serving, so it
+  also passes `bypassLockdown`.
+
+Anything else that publishes without asking is a bug, not a third exemption.
 
 ## Write sequencing
 

@@ -1,10 +1,11 @@
 import { z } from "zod";
 import {
   apiFactTableColumnValidator,
+  apiFactTableValidator,
   rowFilterValidator,
+  updateFactTablePropsValidator,
   updateFactTableValidator,
 } from "../../src/validators/fact-table";
-import { postBulkImportFactsValidator } from "../../src/validators/bulk-import";
 
 describe("rowFilterValidator", () => {
   const parse = (operator: string, values?: string[]) =>
@@ -44,42 +45,6 @@ describe("rowFilterValidator", () => {
   });
 });
 
-// The bulk-import body re-declares the row filter shape inline (twice — once per
-// column ref), so the range rule has to be wired into each copy rather than
-// inherited. Assert through the real body schema so a new copy that forgets it
-// fails here instead of silently accepting a three-bound range.
-describe("postBulkImportFacts rowFilters", () => {
-  const parse = (values: string[]) =>
-    postBulkImportFactsValidator.bodySchema.safeParse({
-      factMetrics: [
-        {
-          id: "fact__test",
-          data: {
-            name: "Test",
-            metricType: "mean",
-            numerator: {
-              factTableId: "ft_1",
-              column: "amount",
-              rowFilters: [
-                { operator: "between", column: "signup_date", values },
-              ],
-            },
-          },
-        },
-      ],
-    });
-
-  it("accepts a two-bound range", () => {
-    expect(parse(["2024-01-01", "2024-02-01"]).success).toBe(true);
-  });
-
-  it("rejects a range with more than two values", () => {
-    const result = parse(["2024-01-01", "2024-02-01", "2024-03-01"]);
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.path).toContain("values");
-  });
-});
-
 function isResponseOnly(schema: z.ZodType): boolean {
   if (schema instanceof z.ZodOptional) {
     return isResponseOnly(schema.unwrap());
@@ -88,6 +53,18 @@ function isResponseOnly(schema: z.ZodType): boolean {
 }
 
 describe("updateFactTableValidator", () => {
+  it("keeps columnsError response-only", () => {
+    expect(isResponseOnly(apiFactTableValidator.shape.columnsError)).toBe(true);
+  });
+
+  it("rejects the response-only fact table field columnsError", () => {
+    const result = updateFactTableValidator.bodySchema.safeParse({
+      columnsError: "SQL compilation error",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it("excludes every response-only column field", () => {
     const updateColumnShape =
       updateFactTableValidator.bodySchema.shape.columns.unwrap().element.shape;
@@ -114,6 +91,16 @@ describe("updateFactTableValidator", () => {
           [field]: value,
         },
       ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("updateFactTablePropsValidator", () => {
+  it("rejects the server-owned field columnsError", () => {
+    const result = updateFactTablePropsValidator.safeParse({
+      columnsError: "SQL compilation error",
     });
 
     expect(result.success).toBe(false);

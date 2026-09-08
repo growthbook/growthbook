@@ -63,7 +63,7 @@ export default function VariationLabelStories() {
           Names hidden when available width is too narrow
         </Text>
         <Flex direction="column" gap="2">
-          <Flex key="60px" gap="2" align="center">
+          <Flex gap="2" align="center">
             <Text size="1" style={{ width: 64, color: "var(--gray-9)" }}>
               Name hidden
             </Text>
@@ -78,7 +78,7 @@ export default function VariationLabelStories() {
               />
             </Box>
           </Flex>
-          <Flex key="60px" gap="2" align="center">
+          <Flex gap="2" align="center">
             <Text size="1" style={{ width: 64, color: "var(--gray-9)" }}>
               Name shown
             </Text>

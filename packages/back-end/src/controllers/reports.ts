@@ -106,11 +106,12 @@ export async function postReportFromSnapshot(
     ...pick(reportArgs, [
       "userIdType",
       "differenceType",
-      "dimension",
       "dateStarted",
       "dateEnded",
       "customMetricSlices",
     ]),
+    // Not every caller sends a dimension
+    dimension: reportArgs.dimension ?? snapshot.dimension ?? undefined,
   } as ExperimentReportAnalysisSettings;
   if (!_experimentAnalysisSettings.dateStarted) {
     _experimentAnalysisSettings.dateStarted =

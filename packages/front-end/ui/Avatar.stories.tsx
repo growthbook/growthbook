@@ -15,6 +15,10 @@ export default function AvatarStories() {
       <Avatar color="orange" variant="soft" size="sm">
         sm
       </Avatar>
+      <Avatar ring>BF</Avatar>
+      <Avatar ring color="green" variant="soft">
+        AB
+      </Avatar>
     </Flex>
   );
 }

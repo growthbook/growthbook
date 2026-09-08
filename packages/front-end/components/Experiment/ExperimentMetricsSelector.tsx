@@ -89,6 +89,26 @@ export default function ExperimentMetricsSelector({
           experimentType,
         );
 
+      // Query generation rejects funnel metrics for bandits.
+      if (experimentType === "multi-armed-bandit") {
+        const ids = isGroup
+          ? expandMetricGroups(
+              metricGroups.find((mg) => mg.id === metricId)?.metrics ?? [],
+              metricGroups,
+            )
+          : [metricId];
+        const hasFunnelMetric = ids.some((id) => {
+          const metric = getExperimentMetricById(id);
+          return metric && isFactFunnelMetric(metric);
+        });
+        if (hasFunnelMetric) {
+          return {
+            disabled: true,
+            reason: "Funnel metrics are not supported in Bandit experiments",
+          };
+        }
+      }
+
       if (!isExperimentIncludedInIncrementalRefresh) {
         return { disabled: false };
       }

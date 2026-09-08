@@ -4,9 +4,11 @@ import type {
   SDKAttributeSchema,
   SDKAttributeType,
 } from "shared/types/organization";
+import type { UserIdType } from "shared/types/datasource";
 import {
   attributeMatchesDatasourceProjects,
-  getEventForwarderManagedIdentifierSourceAttribute,
+  getEventForwarderUserIdTypeSourceAttribute,
+  isEventForwarderManaged,
 } from "./event-forwarder-datasource";
 import {
   resolveBigQueryEventForwarderTableNames,
@@ -76,15 +78,12 @@ export function resolveEventForwarderAttributeLookupKeys(
   return [sanitizeEventForwarderAvroFieldName(property)];
 }
 
-/**
- * EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY — delay after connector ready or
- * attribute metadata changes before refreshing fact table columns. Increase
- * here if warehouse tables need longer to materialize (currently 1 min).
- */
 export const EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS = 1 * 60 * 1000;
 
 export const EVENT_FORWARDER_EVENTS_FACT_TABLE_ID_SUFFIX = "_events";
 export const EVENT_FORWARDER_EVENTS_FACT_TABLE_NAME_SUFFIX = " Events";
+export const EVENT_FORWARDER_MANAGED_EVENTS_FACT_TABLE_DESCRIPTION =
+  "This fact table was auto-generated when the Event Forwarder was enabled. As you make changes to attributes, we'll automatically update the Fact Table's SQL to reflect the changes.";
 
 export function getEventForwarderEventsFactTableId(
   datasourceId: string,
@@ -103,7 +102,7 @@ export function isEventForwarderEventsFactTable(
   datasourceId: string,
 ): boolean {
   return (
-    factTable.managedBy === "api" &&
+    isEventForwarderManaged(factTable) &&
     factTable.id === getEventForwarderEventsFactTableId(datasourceId)
   );
 }
@@ -373,7 +372,7 @@ function buildEventForwarderEventsFactTableSelect({
   sinkType: "bigquery" | "snowflake";
   attributeSchema?: SDKAttributeSchema;
   datasourceProjects?: string[];
-  userIdTypes?: string[];
+  userIdTypes?: UserIdType[];
 }): string {
   const baseColumns =
     sinkType === "bigquery"
@@ -388,17 +387,16 @@ function buildEventForwarderEventsFactTableSelect({
   const attributeColumns: string[] = [];
 
   for (const userIdType of userIdTypes) {
-    // The projected column (alias / join key) keeps the managed identifier id
-    // (e.g. "ef_user_id"), but the value is extracted from the real source
-    // attribute ("user_id"). Non-managed identifier types resolve to themselves.
-    const fieldName = sanitizeEventForwarderAvroFieldName(userIdType);
+    const fieldName = sanitizeEventForwarderAvroFieldName(
+      userIdType.userIdType,
+    );
     const key = fieldName.toLowerCase();
     if (projectedFieldKeys.has(key)) {
       continue;
     }
     projectedFieldKeys.add(key);
     const sourceAttribute =
-      getEventForwarderManagedIdentifierSourceAttribute(userIdType);
+      getEventForwarderUserIdTypeSourceAttribute(userIdType);
     const matchingAttribute = findEventForwarderEventsFactTableAttribute(
       attributes,
       sourceAttribute,
@@ -446,7 +444,7 @@ export type BuildEventForwarderEventsFactTableSqlParams =
       tablePrefix: string;
       attributeSchema?: SDKAttributeSchema;
       datasourceProjects?: string[];
-      userIdTypes?: string[];
+      userIdTypes?: UserIdType[];
     }
   | {
       sinkType: "snowflake";
@@ -455,7 +453,7 @@ export type BuildEventForwarderEventsFactTableSqlParams =
       tablePrefix: string;
       attributeSchema?: SDKAttributeSchema;
       datasourceProjects?: string[];
-      userIdTypes?: string[];
+      userIdTypes?: UserIdType[];
     };
 
 export function buildEventForwarderEventsFactTableSql(
@@ -496,7 +494,7 @@ function getEventForwarderFactTableColumnDatatype(
 }
 
 export function buildEventForwarderEventsFactTableColumns(
-  userIdTypes: string[],
+  userIdTypes: UserIdType[],
   attributeSchema: SDKAttributeSchema = [],
   datasourceProjects?: string[],
 ): CreateColumnProps[] {
@@ -524,16 +522,16 @@ export function buildEventForwarderEventsFactTableColumns(
   }
 
   for (const userIdType of userIdTypes) {
-    const fieldName = sanitizeEventForwarderAvroFieldName(userIdType);
+    const fieldName = sanitizeEventForwarderAvroFieldName(
+      userIdType.userIdType,
+    );
     const key = fieldName.toLowerCase();
     if (seen.has(key)) {
       continue;
     }
     seen.add(key);
-    // Keep the column datatype aligned with the SELECT: a managed identifier id
-    // (e.g. "ef_user_id") inherits the datatype of its source attribute.
     const sourceAttribute =
-      getEventForwarderManagedIdentifierSourceAttribute(userIdType);
+      getEventForwarderUserIdTypeSourceAttribute(userIdType);
     const matchingAttribute = findEventForwarderEventsFactTableAttribute(
       attributes,
       sourceAttribute,

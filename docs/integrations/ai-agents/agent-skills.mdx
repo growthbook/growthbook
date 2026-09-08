@@ -1,0 +1,96 @@
+---
+title: "Install the Agent Skills plugin"
+description: "Install GrowthBook's Agent Skills plugin in Claude Code, Cursor, or other agents that can run shell commands. Same playbooks as the MCP server, no MCP process."
+keywords: [agent skills, AI, Claude Code, Cursor]
+sidebarTitle: Agent Skills plugin
+---
+
+The [MCP Server](/integrations/mcp) and this plugin load the **same playbooks**. Use this page only if you want those playbooks installed locally — slash commands, no MCP process. On GrowthBook Cloud, most hosts should use the [hosted MCP endpoint](/integrations/mcp#growthbook-cloud) instead.
+
+The plugin works in agents that follow the [Agent Skills standard](https://agentskills.io) and can run shell commands: Claude Code, Cursor, Codex, and others. It calls the [GrowthBook REST API](/app/api) through a small bundled helper.
+
+<Info>
+**Open source**
+
+The playbooks live at [github.com/growthbook/skills](https://github.com/growthbook/skills). The MCP server bundles that same repo at build time.
+
+</Info>
+
+## Prerequisites
+
+- **A GrowthBook account:** [GrowthBook Cloud](https://app.growthbook.io) or a self-hosted instance.
+- **A Personal Access Token (PAT):** create one at [**Account** &rarr; **Personal Access Tokens**](https://app.growthbook.io/account/personal-access-tokens). The token is tied to your GrowthBook user, so flags and experiments the plugin creates are attributed to you.
+- **Node.js 18+:** check with `node -v`. Many agents already run on it.
+
+## Install
+
+<Tabs>
+  <Tab title="Claude Code">
+
+Add the marketplace, then install the plugin:
+
+```text
+/plugin marketplace add growthbook/skills
+/plugin install growthbook@growthbook-skills
+```
+
+  </Tab>
+  <Tab title="Cursor, Codex, and others">
+
+Install with the [Agent Skills](https://agentskills.io) CLI:
+
+```bash
+npx skills add growthbook/skills
+```
+
+Restart your agent if the skills don't appear right away.
+
+  </Tab>
+</Tabs>
+
+## Configure credentials
+
+Run the setup skill and follow the prompts:
+
+```text
+/growthbook:gb-setup
+```
+
+It asks for your PAT or API key (and, for self-hosted, your API URL), validates them against the live API, and writes `~/.config/growthbook/.env` with `chmod 600`. Every other skill reads that file automatically.
+
+<Tip>
+**Prefer environment variables?**
+
+The helper reads environment variables first and only falls back to the file. Handy for CI:
+
+```bash
+export GB_API_KEY=<your-key>             # required: PAT or Secret Key
+export GB_API_URL=https://api.your-host  # self-hosted only
+```
+
+</Tip>
+
+Then ask your agent to list your feature flags. If the credentials are wrong, the error points you back to `/growthbook:gb-setup`.
+
+## What you can do
+
+The plugin covers four domains. Describe the task in natural language, or use a `/growthbook:…` slash command in Claude Code. The agent picks the matching workflow.
+
+| Domain        | Covers                                                            |
+| ------------- | ----------------------------------------------------------------- |
+| Feature flags | Create, target, ramp, review, publish, search, and clean up flags |
+| Experiments   | Brainstorm, design, launch, analyze, and stop A/B tests           |
+| Analytics     | Search the metric catalog and chart product data                  |
+| Setup         | `gb-setup` — configure and validate your API credentials          |
+
+The live workflow list is in the [skills README](https://github.com/growthbook/skills). MCP users get the same list from `growthbook_list_skills`.
+
+Guardrails are in the playbooks, not in this page: draft → review → publish, two-step deletes, and read-only workflows that never write. See [Publishing & approval flows](/features/publishing-and-approval-flows).
+
+## Next steps
+
+- [Set up the MCP Server](/integrations/mcp) if your host can't run a shell, or you want Cloud OAuth
+- [MCP vs the plugin](/integrations/ai-agents)
+- [Skills source on GitHub](https://github.com/growthbook/skills)
+
+[Join our community Slack for additional help, tips, and announcements](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ)

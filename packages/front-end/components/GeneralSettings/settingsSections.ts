@@ -1,3 +1,5 @@
+export const SETTINGS_TABS_ANCHOR = "settings-tabs";
+
 export const SETTINGS_TAB = {
   experiment: "experiment",
   feature: "feature",

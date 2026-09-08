@@ -1,16 +1,16 @@
 /*
 Track usage statistics
+- We collect usage telemetry to help us improve GrowthBook. This includes a hashed
+  org/user identifier, IP address, and user agent.
 - This file hashes both the org and user id on self-hosted; cloud additionally sends
   raw user_id and org for priority support.
 - source_ip is blanked in this payload, but the receiving endpoints observe the client
-  IP and user agent, and the ingestor retains the IP plus derived geo.
-- Other paths send more (the back-end SDK sends an unhashed user id) — see the
-  DISABLE_TELEMETRY docs for the full list of what GrowthBook collects.
+  IP and user agent.
 - Helps us figure out how often features are used so we can prioritize development
 - For example, if people start creating a metric and then
   abandon the form, that tells us the UI needs improvement.
 - You can disable this tracking completely by setting
-  DISABLE_TELEMETRY=1 in your env.
+  DISABLE_TELEMETRY=true in your env.
 */
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
