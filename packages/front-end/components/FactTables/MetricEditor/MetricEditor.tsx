@@ -15,6 +15,7 @@ import Field from "@/components/Forms/Field";
 import DataList from "@/ui/DataList";
 import TagsInput from "@/components/Tags/TagsInput";
 import SortedTags from "@/components/Tags/SortedTags";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FunnelStepsInput from "@/components/FactTables/FunnelStepsInput";
 import MetricTypeSelect, {
@@ -185,9 +186,11 @@ export default function MetricEditor({
           <Heading as="h4" size="sm" mb="1">
             Metric Type
           </Heading>
-          <Text color="text-mid" as="div" mb="3">
-            Choose what kind of number this metric produces.
-          </Text>
+          {canEdit && (
+            <Text color="text-mid" as="div" mb="3">
+              Choose what kind of number this metric produces.
+            </Text>
+          )}
           {canEdit ? (
             <MetricTypeSelect
               value={formType}
@@ -213,10 +216,12 @@ export default function MetricEditor({
           <Heading as="h4" size="sm" mb="1">
             Definition
           </Heading>
-          <Text color="text-mid" as="div" mb="3">
-            Tell us what to count and where to find it, and we&apos;ll take care
-            of matching it to the right experiments.
-          </Text>
+          {canEdit && (
+            <Text color="text-mid" as="div" mb="3">
+              Tell us what to count and where to find it, and we&apos;ll take
+              care of matching it to the right experiments.
+            </Text>
+          )}
           <Flex direction="column" gap="3">
             {/* Ratio's numerator has no override of its own, so this select
                 is its only way to set a fact table - only funnel (which owns
@@ -372,12 +377,17 @@ export default function MetricEditor({
         </Frame>
 
         <Frame>
-          <Heading as="h4" size="sm" mb="1">
-            Basics
-          </Heading>
-          <Text color="text-mid" as="div" mb="3">
-            Define this metric with a clear name, description, and tags.
-          </Text>
+          <Flex align="center" gap="1" mb="1">
+            <Heading as="h4" size="sm" mb="0">
+              Basics
+            </Heading>
+            <OfficialBadge type="metric" managedBy={form.watch("managedBy")} />
+          </Flex>
+          {canEdit && (
+            <Text color="text-mid" as="div" mb="3">
+              Define this metric with a clear name, description, and tags.
+            </Text>
+          )}
           <Flex direction="column" gap="3">
             {canEdit ? (
               <TextField
