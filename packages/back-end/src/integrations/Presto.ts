@@ -131,9 +131,6 @@ export default class Presto extends SqlIntegration {
     return new Promise<void>((resolve, reject) => {
       client.kill(externalId, (error) => {
         if (error) {
-          logger.debug(
-            `Failed to cancel Presto/Trino query ${externalId}: ${error.message}`,
-          );
           reject(error);
         } else {
           logger.debug(`Cancelled Presto/Trino query ${externalId}`);

@@ -9,7 +9,7 @@ export type CancelExternalQueryTarget = {
   metadata?: Record<string, string>;
 };
 
-export async function cancelExternalQuery(
+export async function cancelQueryAndConfirm(
   integration: SourceIntegrationInterface,
   { externalId, metadata }: CancelExternalQueryTarget,
   logContext: Record<string, string>,

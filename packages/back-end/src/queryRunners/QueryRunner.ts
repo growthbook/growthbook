@@ -24,7 +24,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
-import { cancelExternalQuery } from "back-end/src/services/queryCancellation";
+import { cancelQueryAndConfirm } from "back-end/src/services/queryCancellation";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -964,7 +964,7 @@ export abstract class QueryRunner<
         await promiseAllChunks(
           externalJobs.map(({ id, metadata }) => {
             return () =>
-              cancelExternalQuery(
+              cancelQueryAndConfirm(
                 this.integration,
                 { externalId: id, metadata },
                 {

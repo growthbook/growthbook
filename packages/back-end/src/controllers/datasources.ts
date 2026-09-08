@@ -101,7 +101,7 @@ import {
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
 import { logger } from "back-end/src/util/logger";
-import { cancelExternalQuery } from "back-end/src/services/queryCancellation";
+import { cancelQueryAndConfirm } from "back-end/src/services/queryCancellation";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   removeManagedWarehouseLegacyIdentifier,
@@ -1577,7 +1577,7 @@ export async function cancelDataSourceQuery(
   );
 
   if (query.externalId) {
-    await cancelExternalQuery(
+    await cancelQueryAndConfirm(
       integration,
       {
         externalId: query.externalId,

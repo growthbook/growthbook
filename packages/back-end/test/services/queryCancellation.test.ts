@@ -1,6 +1,6 @@
 import {
   CANCEL_CONFIRMATION_DELAY_MS,
-  cancelExternalQuery,
+  cancelQueryAndConfirm,
 } from "back-end/src/services/queryCancellation";
 import {
   ExternalQueryStatus,
@@ -43,11 +43,11 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-describe("cancelExternalQuery", () => {
+describe("cancelQueryAndConfirm", () => {
   it("does nothing when the integration cannot cancel", async () => {
     const integration = makeIntegration({});
 
-    await cancelExternalQuery(integration, { externalId: "q1" }, logContext);
+    await cancelQueryAndConfirm(integration, { externalId: "q1" }, logContext);
 
     expect(mockedLogger.warn).not.toHaveBeenCalled();
     expect(mockedLogger.debug).not.toHaveBeenCalled();
@@ -60,7 +60,7 @@ describe("cancelExternalQuery", () => {
       getExternalQueryStatus,
     });
 
-    await cancelExternalQuery(integration, { externalId: "q1" }, logContext);
+    await cancelQueryAndConfirm(integration, { externalId: "q1" }, logContext);
 
     expect(mockedLogger.warn).toHaveBeenCalledTimes(1);
     expect(mockedLogger.warn).toHaveBeenCalledWith(
@@ -75,7 +75,7 @@ describe("cancelExternalQuery", () => {
       cancelQuery: jest.fn().mockResolvedValue(undefined),
     });
 
-    await cancelExternalQuery(integration, { externalId: "q1" }, logContext);
+    await cancelQueryAndConfirm(integration, { externalId: "q1" }, logContext);
 
     expect(mockedLogger.warn).not.toHaveBeenCalled();
     expect(mockedLogger.debug).toHaveBeenCalledTimes(1);
@@ -91,7 +91,11 @@ describe("cancelExternalQuery", () => {
         }),
       });
 
-      await cancelExternalQuery(integration, { externalId: "q1" }, logContext);
+      await cancelQueryAndConfirm(
+        integration,
+        { externalId: "q1" },
+        logContext,
+      );
       expect(mockedLogger.warn).not.toHaveBeenCalled();
 
       await flushConfirmation();
@@ -122,7 +126,11 @@ describe("cancelExternalQuery", () => {
         getExternalQueryStatus: jest.fn().mockResolvedValue(status),
       });
 
-      await cancelExternalQuery(integration, { externalId: "q1" }, logContext);
+      await cancelQueryAndConfirm(
+        integration,
+        { externalId: "q1" },
+        logContext,
+      );
       await flushConfirmation();
 
       expect(mockedLogger.warn).not.toHaveBeenCalled();
@@ -143,7 +151,11 @@ describe("cancelExternalQuery", () => {
         }),
       });
 
-      await cancelExternalQuery(integration, { externalId: "q1" }, logContext);
+      await cancelQueryAndConfirm(
+        integration,
+        { externalId: "q1" },
+        logContext,
+      );
       await flushConfirmation();
 
       expect(mockedLogger.warn).toHaveBeenCalledTimes(1);
@@ -171,7 +183,11 @@ describe("cancelExternalQuery", () => {
         getExternalQueryStatus: jest.fn().mockRejectedValue(new Error("down")),
       });
 
-      await cancelExternalQuery(integration, { externalId: "q1" }, logContext);
+      await cancelQueryAndConfirm(
+        integration,
+        { externalId: "q1" },
+        logContext,
+      );
       await flushConfirmation();
 
       expect(mockedLogger.warn).toHaveBeenCalledTimes(1);
