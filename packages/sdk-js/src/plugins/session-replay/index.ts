@@ -41,9 +41,8 @@ type PluginOptions = {
   privacy?: SessionReplayPrivacyConfig;
 };
 
-// True when the browser signals Do Not Track or Global Privacy Control
-// (GPC is CCPA-binding). Checked before rrweb starts so no events are
-// generated at all.
+// Do Not Track / Global Privacy Control (CCPA-binding), checked before
+// rrweb starts so no events are generated at all
 function userOptedOutOfTracking(): boolean {
   if (typeof navigator === "undefined") return false;
 
@@ -67,9 +66,9 @@ type PersistedReplayState = {
 
 const REPLAY_STORAGE_KEY = "gb_session_replay";
 
-// Max idle gap before a resume across a page reload is rejected. Must match
-// the replay id's idle timeout: shorter would reuse the same
-// session_replay_id with chunkIndex reset to 0 — a chunk-0 collision.
+// Max idle gap before a cross-reload resume is rejected. Must match the
+// replay id's idle timeout or a resume could reset chunkIndex to 0 under
+// the same session_replay_id — a chunk-0 collision.
 const RESUME_STALENESS_MS = SESSION_REPLAY_IDLE_TIMEOUT_MS;
 
 function readPersistedReplayState(): PersistedReplayState | null {
@@ -112,9 +111,8 @@ const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 // Hard cap on one recording's wall-clock length, even while active
 const MAX_DURATION_MS = 30 * 60 * 1000;
 const FLUSH_INTERVAL_MS = 60_000;
-// Flush before any event that would push the buffer past this. Sized so the
-// gzipped chunk stays under fetch keepalive's 64KB body limit (rrweb gzips
-// ~8-15x), keeping unload flushes deliverable.
+// Flush threshold, sized so gzipped chunks (~8-15x) stay under fetch
+// keepalive's 64KB body limit and unload flushes deliver
 const FLUSH_BYTE_SIZE = 256 * 1024;
 // Backstop when every flush is failing (offline); new events are dropped
 const MAX_BUFFERED_EVENTS = 500;
@@ -143,16 +141,12 @@ export function sessionReplayPlugin({
   let viewportWidth = 0;
   let viewportHeight = 0;
   let lastInteractionAt = 0;
-  // Re-entrancy guard for flushBuffer. The timer, size trigger, stopRecording,
-  // pagehide, and visibilitychange handlers can all fire while a previous
-  // flush is awaiting its network response — without this, a concurrent flush
-  // would race the buffer-snapshot/clear and double-send the same events.
+  // Guards concurrent flush triggers from racing the buffer snapshot/clear
+  // and double-sending events
   let flushInFlight = false;
   let flushInterval: ReturnType<typeof setInterval> | null = null;
   let idleCheckInterval: ReturnType<typeof setInterval> | null = null;
-  // Running estimate of the buffer's serialized size in bytes, used by the
-  // size-based flush trigger. Reset whenever the buffer is cleared. This is
-  // an upper-bound approximation
+  // Upper-bound estimate of the buffer's serialized size
   let bufferedBytes = 0;
   // Event buffer kept in closure scope — not on window — so third-party
   // scripts cannot read, mutate, or clear it.
@@ -193,10 +187,8 @@ export function sessionReplayPlugin({
     }
   };
 
-  // Upload one serialized chunk. Throws on network failure or non-2xx so
-  // flushBuffer can revert and retry — losing chunk 0 (the FullSnapshot)
-  // makes a session unplayable. keepalive lets pagehide flushes deliver;
-  // bodies over the 64KB keepalive limit (gzip unavailable) skip it.
+  // Throws on network failure or non-2xx so flushBuffer can revert and
+  // retry — losing chunk 0 (the FullSnapshot) makes a session unplayable
   const sendChunk = async (payload: string): Promise<void> => {
     let body: BodyInit = payload;
     const headers: Record<string, string> = {
@@ -226,9 +218,7 @@ export function sessionReplayPlugin({
     }
   };
 
-  // Wraps sendChunk with exponential back-off for retriable failures (5xx / 429 / network).
-  // Permanent 4xx errors (except 429) are not retried — the payload or credentials
-  // are wrong and retrying would produce the same result.
+  // Back off and retry on 5xx/429/network; permanent 4xx are not retried
   const sendWithRetry = createRetry(
     {
       baseDelayMs: RETRY_BASE_DELAY_MS,
@@ -307,9 +297,8 @@ export function sessionReplayPlugin({
         (a, b) => a.timestamp - b.timestamp,
       );
 
-      // PII protection is rrweb-native masking/blocking only (see
-      // buildRrwebPrivacyOptions); the pre-transmission regex scrubber was
-      // removed because it didn't dispatch against the surface that leaked.
+      // PII protection is rrweb-native masking/blocking only; the regex
+      // scrubber was removed for not dispatching against the leaking surface
 
       // Same precedence as the tracking plugin's session_id column, so the
       // replay↔events join key can't diverge
@@ -329,9 +318,8 @@ export function sessionReplayPlugin({
         sessionEvents: { items: sessionEventsBeingSent },
       });
 
-      // Clear the live buffer synchronously so emits arriving mid-flight
-      // land in a fresh buffer. chunkIndex only advances once the send is
-      // acknowledged.
+      // Clear synchronously so mid-flight emits land in a fresh buffer;
+      // chunkIndex only advances once the send is acknowledged
       replayEvents.length = 0;
       bufferedBytes = 0;
 
@@ -426,9 +414,8 @@ export function sessionReplayPlugin({
     }
   };
 
-  // forceNew skips the resume check so in-page rotations start with a fresh
-  // sessionStartedAt — resuming the old one would re-trip tooLong on the
-  // next interval, looping forever.
+  // forceNew skips the resume check — resuming a rotated-out session's
+  // sessionStartedAt would re-trip tooLong every interval
   const startRecording = (forceNew = false) => {
     if (isRecording) return;
     if (!enabled) return;
@@ -481,11 +468,9 @@ export function sessionReplayPlugin({
         // downstream ever sees an unsanitized version
         const scrubbedEvent = scrubEventUrls(event, privacy?.url);
 
-        // Only deliberate input counts as interaction (rrweb
-        // IncrementalSource: 2=MouseInteraction, 5=Input, 6=TouchMove,
-        // 12=Drag) — mutations/mouse-drift/scroll would mark visually-empty
-        // sessions as active. Checked before the buffer cap so a dropped
-        // event still flips hasUserInteraction.
+        // Only deliberate input (rrweb IncrementalSource 2=MouseInteraction,
+        // 5=Input, 6=TouchMove, 12=Drag) counts as interaction; checked
+        // before the buffer cap so a dropped event still flips the flag
         if (event.type === 3) {
           const source = (event.data as { source?: number })?.source;
           if (source === 2 || source === 5 || source === 6 || source === 12) {
@@ -497,9 +482,8 @@ export function sessionReplayPlugin({
         // UTF-16 length, not exact bytes — close enough for cap decisions
         const eventBytes = JSON.stringify(scrubbedEvent).length;
 
-        // Flush BEFORE the event that would overflow the cap, so the chunk
-        // being flushed never overshoots. Skipped pre-interaction: those
-        // flushes no-op anyway and the warm-up phase would flap.
+        // Flush before the event that would overflow the cap so chunks
+        // never overshoot; pre-interaction flushes would no-op anyway
         if (
           hasUserInteraction &&
           replayEvents.length > 0 &&
@@ -563,9 +547,8 @@ export function sessionReplayPlugin({
   const stopRecording = () => {
     if (!isRecording) return;
 
-    // If a retry sleep was active, cancelling leaves flushInFlight true, so
-    // the flush below no-ops; flushBuffer's finally block fires the final
-    // flush once the guard clears.
+    // Cancelling an active retry leaves flushInFlight true (the flush below
+    // no-ops); flushBuffer's finally block re-fires it once the guard clears
     sendWithRetry.cancel();
 
     // Fire-and-forget: keepalive delivers after teardown, and awaiting would
