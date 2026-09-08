@@ -3,6 +3,7 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { date } from "shared/dates";
 import { getFactMetricFactTableIds } from "shared/experiments";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
@@ -40,7 +41,6 @@ import {
   isMergeAggregationMetric,
   REST_API_ONLY_EDIT_MESSAGE,
 } from "@/services/factMetrics";
-import FactMetricModal from "./FactMetricModal";
 
 function FactMetricRowMenu({
   metric,
@@ -171,7 +171,7 @@ export default function FactMetricList({
   factTable,
   metrics: providedMetrics,
 }: Props) {
-  const [newOpen, setNewOpen] = useState(false);
+  const router = useRouter();
   const [showArchived, setShowArchived] = useState(false);
 
   const { _factMetricsIncludingArchived: factMetrics, getProjectById } =
@@ -193,12 +193,7 @@ export default function FactMetricList({
     hasCommercialFeature("metric-slices") &&
     factTable.columns.some((col) => col.isAutoSliceColumn && !col.deleted);
 
-  const [editMetric, setEditMetric] = useState<
-    FactMetricInterface | undefined
-  >();
-  const [duplicateMetric, setDuplicateMetric] = useState<
-    FactMetricInterface | undefined
-  >();
+  const returnUrl = `/fact-tables/${factTable.id}`;
 
   const canEdit = (factMetric: FactMetricInterface) => {
     let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
@@ -314,28 +309,6 @@ export default function FactMetricList({
 
   return (
     <>
-      {editMetric && (
-        <FactMetricModal
-          close={() => setEditMetric(undefined)}
-          existing={editMetric}
-          source="fact-metric"
-        />
-      )}
-      {newOpen && (
-        <FactMetricModal
-          close={() => setNewOpen(false)}
-          initialFactTable={factTable.id}
-          source="fact-table"
-        />
-      )}
-      {duplicateMetric && (
-        <FactMetricModal
-          close={() => setDuplicateMetric(undefined)}
-          existing={duplicateMetric}
-          duplicate
-          source="fact-table-duplicate"
-        />
-      )}
       {showRecommendedMetricsModal && (
         <RecommendedFactMetricsModal
           factTable={factTable}
@@ -388,7 +361,9 @@ export default function FactMetricList({
             <Button
               onClick={() => {
                 if (!canCreateMetrics) return;
-                setNewOpen(true);
+                router.push(
+                  `/fact-metrics/new?factTable=${factTable.id}&returnUrl=${encodeURIComponent(returnUrl)}`,
+                );
               }}
               disabled={!canCreateMetrics}
             >
@@ -516,22 +491,16 @@ export default function FactMetricList({
                       canEdit={canEdit(metric)}
                       canDelete={canDelete(metric)}
                       canDuplicate={canCreateMetrics}
-                      onEdit={() => setEditMetric(metric)}
+                      onEdit={() => router.push(`/fact-metrics/${metric.id}`)}
                       editDisabledReason={
                         isMergeAggregationMetric(metric)
                           ? REST_API_ONLY_EDIT_MESSAGE
                           : undefined
                       }
                       onDuplicate={() =>
-                        setDuplicateMetric({
-                          ...metric,
-                          name: `${metric.name} (Copy)`,
-                          managedBy:
-                            metric.managedBy === "admin" &&
-                            permissionsUtil.canCreateOfficialResources(metric)
-                              ? "admin"
-                              : "",
-                        })
+                        router.push(
+                          `/fact-metrics/new?duplicate=${metric.id}&returnUrl=${encodeURIComponent(returnUrl)}`,
+                        )
                       }
                     />
                   </td>
