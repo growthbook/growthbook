@@ -11,8 +11,13 @@ import MetricWorkspace from "@/components/FactTables/MetricEditor/MetricWorkspac
 
 export default function NewFactMetricPage() {
   const router = useRouter();
-  const { project, ready, mutateDefinitions, getFactMetricById } =
-    useDefinitions();
+  const {
+    project,
+    ready,
+    mutateDefinitions,
+    getFactMetricById,
+    getFactTableById,
+  } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
 
   const returnUrl =
@@ -21,6 +26,11 @@ export default function NewFactMetricPage() {
       : "/metrics";
 
   if (!ready) return <LoadingOverlay />;
+
+  const initialFactTable =
+    typeof router.query.factTable === "string"
+      ? getFactTableById(router.query.factTable)
+      : null;
 
   const duplicateSource =
     typeof router.query.duplicate === "string"
@@ -69,6 +79,7 @@ export default function NewFactMetricPage() {
         <MetricWorkspace
           existing={null}
           duplicateFrom={duplicateFrom}
+          initialFactTable={initialFactTable}
           isEditing={true}
           mutate={mutateDefinitions}
           onSaved={(metric: FactMetricInterface) =>

@@ -5,6 +5,7 @@ import { Flex } from "@radix-ui/themes";
 import {
   CreateFactMetricProps,
   FactMetricInterface,
+  FactTableDefinition,
   FunnelSettings,
   UpdateFactMetricProps,
 } from "shared/types/fact-table";
@@ -25,7 +26,7 @@ import MetricEditor from "@/components/FactTables/MetricEditor/MetricEditor";
 
 type DefaultsContext = Pick<
   Parameters<typeof getDefaultFactMetricProps>[0],
-  "datasources" | "project" | "metricDefaults" | "settings"
+  "datasources" | "project" | "metricDefaults" | "settings" | "initialFactTable"
 >;
 
 function buildFormDefaults(
@@ -70,6 +71,7 @@ function validateFunnelSteps(funnelSettings: FunnelSettings | null): void {
 export default function MetricWorkspace({
   existing,
   duplicateFrom,
+  initialFactTable,
   isEditing,
   setIsEditing = () => {},
   mutate,
@@ -80,6 +82,11 @@ export default function MetricWorkspace({
   // Seeds defaults for a brand-new metric (create payload, not update) -
   // distinct from `existing`, which also decides POST vs PUT.
   duplicateFrom?: FactMetricInterface | null;
+  // Pre-selects a fact table for a brand-new metric with no existing/
+  // duplicateFrom data of its own to seed from (e.g. "Add Metric" from a
+  // fact table's own page) - existing/duplicateFrom's own fact table always
+  // wins when either is set.
+  initialFactTable?: FactTableDefinition | null;
   isEditing: boolean;
   setIsEditing?: (value: boolean) => void;
   mutate: () => void;
@@ -92,7 +99,13 @@ export default function MetricWorkspace({
   const { metricDefaults } = useOrganizationMetricDefaults();
   const settings = useOrgSettings();
 
-  const defaultsCtx = { datasources, project, metricDefaults, settings };
+  const defaultsCtx = {
+    datasources,
+    project,
+    metricDefaults,
+    settings,
+    initialFactTable: initialFactTable ?? undefined,
+  };
   const seedSource = existing ?? duplicateFrom ?? null;
 
   const form = useForm<CreateFactMetricFormProps>({
