@@ -988,8 +988,8 @@ export function ExplorerProvider({
         if (chartType === "rawTable") {
           if (prev.type !== "sql" || prev.dataset.type !== "sql") return prev;
           // Dimensions and values stay on the draft so switching back to a
-          // visualization restores them; `cleanConfigForSubmission` drops
-          // them from the raw-table query.
+          // visualization restores them; `stripExplorerDraftFields` drops
+          // them from every config sent to or persisted by the server.
           const { previousTimeFrame: _, comparisonMode: __, ...rest } = prev;
           return { ...rest, chartType };
         }

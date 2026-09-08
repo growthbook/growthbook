@@ -57,10 +57,23 @@ export type ExplorerDraftConfig = ExplorationConfig & {
   comparisonMode?: ComparisonMode;
 };
 
+/**
+ * Converts an explorer draft into a config the API accepts. Drops the UI-only
+ * compare fields, and — for raw tables — the dimensions and values the draft
+ * keeps so switching back to a visualization is reversible. Raw tables return
+ * unaggregated rows, so the server rejects a config that still carries them.
+ */
 export function stripExplorerDraftFields(
   config: ExplorerDraftConfig,
 ): ExplorationConfig {
   const { previousTimeFrame: _, comparisonMode: __, ...rest } = config;
+  if (rest.type === "sql" && rest.chartType === "rawTable") {
+    return {
+      ...rest,
+      dimensions: [],
+      dataset: { ...rest.dataset, values: [] },
+    };
+  }
   return rest;
 }
 import {
@@ -959,19 +972,6 @@ export function cleanConfigForSubmission(
   const configWithoutPrevious = stripExplorerDraftFields(
     normalizeTimelessSqlConfig(config),
   );
-  // Raw tables return unaggregated rows. The draft keeps any values and
-  // dimensions the user configured for a visualization so switching chart
-  // types is reversible, but the query itself must not carry them.
-  if (
-    configWithoutPrevious.type === "sql" &&
-    configWithoutPrevious.chartType === "rawTable"
-  ) {
-    return {
-      ...configWithoutPrevious,
-      dimensions: [],
-      dataset: { ...configWithoutPrevious.dataset, values: [] },
-    };
-  }
   const cleanedDataset = removeIncompleteInputs(configWithoutPrevious.dataset);
   const cleanedDimensions = configWithoutPrevious.dimensions.filter((d) => {
     if (d.dimensionType === "date" || d.dimensionType === "slice") return true;
