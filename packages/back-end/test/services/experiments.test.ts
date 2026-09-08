@@ -1,5 +1,3 @@
-import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
 import { z } from "zod";
 import {
   postExperimentValidator,
@@ -13,6 +11,7 @@ import { isFactMetric } from "shared/experiments";
 import { ExperimentInterface, Variation } from "shared/types/experiment";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
+import { addTags } from "back-end/src/models/TagModel";
 import { Context } from "back-end/src/models/BaseModel";
 import {
   ScheduleUpdateInput,
@@ -34,23 +33,12 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 
+jest.mock("back-end/src/models/TagModel", () => ({ addTags: jest.fn() }));
+
 describe("createMetric", () => {
-  let mongod: MongoMemoryServer;
-
-  beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
-  });
-
-  afterAll(async () => {
-    await mongoose.connection.close();
-    await mongod.stop();
-  });
-
   it("does not register tags when metric creation is denied", async () => {
-    const organizationId = "org_metric_create_order";
     const context = {
-      org: { id: organizationId },
+      org: { id: "org_metric_create_order" },
       permissions: {
         canCreateMetric: () => false,
         throwPermissionError: () => {
@@ -66,11 +54,7 @@ describe("createMetric", () => {
       }),
     ).rejects.toThrow("Permission denied");
 
-    expect(
-      await mongoose.connection
-        .db!.collection("tags")
-        .countDocuments({ organization: organizationId }),
-    ).toBe(0);
+    expect(addTags).not.toHaveBeenCalled();
   });
 });
 
