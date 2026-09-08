@@ -2,6 +2,7 @@ import mutate, { DeclarativeMutation } from "dom-mutator";
 import type {
   ApiHost,
   Attributes,
+  LogEventOptions,
   AutoExperiment,
   AutoExperimentVariation,
   ClientKey,
@@ -118,6 +119,7 @@ export class GrowthBook<
   private _pendingEvents: Array<{
     eventName: string;
     properties?: Record<string, unknown>;
+    options?: LogEventOptions;
   }> = [];
   private static _MAX_PENDING_EVENTS = 100;
   private _warnedNoEventLogger?: boolean;
@@ -186,7 +188,11 @@ export class GrowthBook<
 
     if (options.plugins) {
       for (const plugin of options.plugins) {
-        plugin(this);
+        try {
+          plugin(this);
+        } catch (e) {
+          console.error("GrowthBook plugin failed to initialize", e);
+        }
       }
     }
 
@@ -1009,8 +1015,10 @@ export class GrowthBook<
     if (this._pendingEvents.length) {
       const pending = this._pendingEvents;
       this._pendingEvents = [];
-      for (const { eventName, properties } of pending) {
-        this.logEvent(eventName, properties).catch((e) => console.error(e));
+      for (const { eventName, properties, options } of pending) {
+        this.logEvent(eventName, properties, options).catch((e) =>
+          console.error(e),
+        );
       }
     }
   }
@@ -1018,6 +1026,7 @@ export class GrowthBook<
   public async logEvent(
     eventName: string,
     properties?: Record<string, unknown>,
+    options?: LogEventOptions,
   ) {
     if (this._destroyed) {
       console.error("Cannot log event to destroyed GrowthBook instance");
@@ -1042,10 +1051,12 @@ export class GrowthBook<
     }
     if (this._options.eventLogger) {
       try {
+        const userContext = getTrackingUserContext(this._getUserContext());
+        if (options?.url) userContext.url = options.url;
         await this._options.eventLogger(
           eventName,
           properties || {},
-          getTrackingUserContext(this._getUserContext()),
+          userContext,
         );
       } catch (e) {
         console.error(e);
@@ -1053,7 +1064,7 @@ export class GrowthBook<
     } else {
       // Buffer for a logger registered later (e.g. plugin-order race);
       // drop the oldest when over cap
-      this._pendingEvents.push({ eventName, properties });
+      this._pendingEvents.push({ eventName, properties, options });
       if (this._pendingEvents.length > GrowthBook._MAX_PENDING_EVENTS) {
         this._pendingEvents.shift();
       }

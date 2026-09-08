@@ -47,9 +47,7 @@ export function createErrorReporter({
   userContext,
   growthbook,
 }: ErrorReporterSettings) {
-  if (samplingRate < 0 || samplingRate > 1) {
-    throw new Error("samplingRate must be between 0 and 1");
-  }
+  samplingRate = Math.min(1, Math.max(0, samplingRate));
 
   if (detectEnv() !== "browser") return;
 

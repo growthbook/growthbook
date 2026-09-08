@@ -205,6 +205,14 @@ function readDataAttr(k: string): string | undefined {
   return dataContext[alias];
 }
 
+const BROWSER_EVENTS_RATE_KEYS = [
+  "cwvSamplingRate",
+  "errorSamplingRate",
+  "pageViewSamplingRate",
+  "engagementSamplingRate",
+  "interactionSamplingRate",
+] as const;
+
 function readBrowserEventsSettings(): BrowserEventsSettings {
   const out: Record<string, unknown> = {};
   for (const k of BROWSER_EVENTS_NUM_KEYS) {
@@ -220,6 +228,11 @@ function readBrowserEventsSettings(): BrowserEventsSettings {
   for (const k of BROWSER_EVENTS_STR_KEYS) {
     const v = readDataAttr(k) ?? windowContext[k];
     if (v != null) out[k] = v;
+  }
+  // Script-tag config is per-stream opt-in: streams without an explicit rate
+  // stay off rather than inheriting the plugin's defaults
+  for (const k of BROWSER_EVENTS_RATE_KEYS) {
+    if (out[k] == null) out[k] = 0;
   }
   return out as BrowserEventsSettings;
 }

@@ -361,11 +361,18 @@ export function growthbookTrackingPlugin({
           isUnloading = true;
           flush(true).catch(console.error);
         };
+        // A bfcache restore brings the page back fully live; without this the
+        // unload fast-path (per-event beacons, with credentials) would stick
+        const onPageShow = (event: PageTransitionEvent) => {
+          if (event.persisted) isUnloading = false;
+        };
         window.addEventListener("pagehide", onPageHide);
+        window.addEventListener("pageshow", onPageShow);
         "onDestroy" in gb &&
-          gb.onDestroy(() =>
-            window.removeEventListener("pagehide", onPageHide),
-          );
+          gb.onDestroy(() => {
+            window.removeEventListener("pagehide", onPageHide);
+            window.removeEventListener("pageshow", onPageShow);
+          });
       }
 
       // Flush the queue when the growthbook instance is destroyed

@@ -33,6 +33,11 @@ type FirstInputEntry = PerformanceEntry & {
   processingStart: number;
 };
 
+// types are incomplete
+type EventTimingEntry = PerformanceEntry & {
+  interactionId?: number;
+};
+
 function safeObserve(
   type: string,
   callback: (list: PerformanceObserverEntryList) => void,
@@ -63,9 +68,7 @@ export function createCWVReporter({
   enableUrlPolling = false,
   growthbook,
 }: CWVReporterSettings) {
-  if (samplingRate < 0 || samplingRate > 1) {
-    throw new Error("samplingRate must be between 0 and 1");
-  }
+  samplingRate = Math.min(1, Math.max(0, samplingRate));
   if (detectEnv() !== "browser") return;
   // Duck-type rather than instanceof so multi-bundle setups (CDN + npm) work
   if (
@@ -95,21 +98,56 @@ export function createCWVReporter({
   try {
     let stopped = false;
     let lcpFrozen = false;
-    const observers: PerformanceObserver[] = [];
+    type Observed = {
+      observer: PerformanceObserver;
+      callback: (list: PerformanceObserverEntryList) => void;
+    };
+    const observers: Observed[] = [];
     let lcpObserver: PerformanceObserver | null = null;
     let unsubscribeUrlChanges: (() => void) | null = null;
-    let removeVisibilityListener: (() => void) | null = null;
+    let removeListeners: (() => void) | null = null;
 
+    // The URL these metrics belong to. Deferred metrics are finalized after
+    // an SPA navigation has already changed location, so attribute explicitly.
+    const pageUrl = window.location.href;
+    const log = (eventName: string, value: number) =>
+      growthbook.logEvent(eventName, { value }, { url: pageUrl });
+
+    const observe = (
+      type: string,
+      callback: Observed["callback"],
+      options?: PerformanceObserverInit,
+    ) => {
+      const observer = safeObserve(type, callback, options);
+      observer && observers.push({ observer, callback });
+      return observer;
+    };
+
+    // Observer callbacks are async; entries queued but not yet delivered
+    // (e.g. the layout shift from the click that navigated away) would be
+    // lost without draining first
     const stopObserving = () => {
       if (stopped) return;
       stopped = true;
-      observers.forEach((o) => o.disconnect());
+      observers.forEach(({ observer, callback }) => {
+        if (typeof observer.takeRecords === "function") {
+          const records = observer.takeRecords();
+          records.length &&
+            callback({
+              getEntries: () => records,
+              getEntriesByName: (name) =>
+                records.filter((e) => e.name === name),
+              getEntriesByType: (t) => records.filter((e) => e.entryType === t),
+            });
+        }
+        observer.disconnect();
+      });
       observers.length = 0;
       lcpObserver = null;
       unsubscribeUrlChanges?.();
       unsubscribeUrlChanges = null;
-      removeVisibilityListener?.();
-      removeVisibilityListener = null;
+      removeListeners?.();
+      removeListeners = null;
     };
 
     growthbook.onDestroy(stopObserving);
@@ -126,17 +164,18 @@ export function createCWVReporter({
       // `!= null` so 0 is a valid (and good) measurement
       trackLCP &&
         lcpTime != null &&
-        growthbook.logEvent("CWV:LCP", { value: lcpTime });
-      trackCLS &&
-        clsValue != null &&
-        growthbook.logEvent("CWV:CLS", { value: clsValue });
-      trackTBT &&
-        tbtValue != null &&
-        growthbook.logEvent("CWV:TBT", { value: tbtValue });
-      trackINP &&
-        inpValue != null &&
-        growthbook.logEvent("CWV:INP", { value: inpValue });
+        log("CWV:LCP", Math.max(0, lcpTime - activationStart));
+      trackCLS && clsValue != null && log("CWV:CLS", clsValue);
+      trackTBT && tbtValue != null && log("CWV:TBT", tbtValue);
+      trackINP && inpValue != null && log("CWV:INP", inpValue);
     };
+
+    // Prerendered pages (speculation rules) report times relative to
+    // activation, matching web-vitals
+    const navEntry = performance.getEntriesByType("navigation")[0] as
+      | (PerformanceNavigationTiming & { activationStart?: number })
+      | undefined;
+    const activationStart = navEntry?.activationStart ?? 0;
 
     // Report deferred metrics on SPA navigations. The location has already
     // changed when this fires, so don't sync the GrowthBook URL first — the
@@ -150,43 +189,49 @@ export function createCWVReporter({
     // a visible event first, which would prematurely halt observation.
     // The page is unchanged here, so refresh attributes (title/UTM) before
     // finalizing.
-    const onVisibilityChange = () => {
-      if (document.visibilityState !== "hidden" || stopped) return;
+    const finalizeOnLeave = () => {
+      if (stopped) return;
       syncGrowthBookUrl(growthbook);
       reportCWV();
     };
+    const onVisibilityChange = () => {
+      document.visibilityState === "hidden" && finalizeOnLeave();
+    };
     document.addEventListener("visibilitychange", onVisibilityChange);
-    removeVisibilityListener = () =>
+    // Older Safari doesn't reliably fire visibilitychange on unload
+    window.addEventListener("pagehide", finalizeOnLeave);
+    removeListeners = () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", finalizeOnLeave);
+    };
 
     // FCP — also used as the start time for TBT
     if (trackFCP || trackTBT) {
-      const fcpObserver = safeObserve("paint", (list) => {
+      const fcpObserver = observe("paint", (list) => {
         const entry = list.getEntriesByName("first-contentful-paint")[0];
         if (!entry) return;
         fcpTime = entry.startTime;
         fcpObserver?.disconnect();
-        trackFCP && growthbook.logEvent("CWV:FCP", { value: entry.startTime });
+        trackFCP &&
+          log("CWV:FCP", Math.max(0, entry.startTime - activationStart));
       });
-      fcpObserver && observers.push(fcpObserver);
     }
 
     // LCP — observe until first input freezes it (per spec) or report time
     if (trackLCP) {
-      lcpObserver = safeObserve("largest-contentful-paint", (list) => {
+      lcpObserver = observe("largest-contentful-paint", (list) => {
         if (lcpFrozen) return;
         const entries = list.getEntries();
         const lastEntry = entries[entries.length - 1];
         lastEntry && (lcpTime = lastEntry.startTime);
       });
-      lcpObserver && observers.push(lcpObserver);
     }
 
     // First-input — used for FID (optional) and to freeze LCP per spec.
     // We attach this whenever LCP is on, even if FID itself isn't reported.
     if (trackFID || trackLCP) {
       let firstInputFired = false;
-      const firstInputObserver = safeObserve("first-input", (list) => {
+      const firstInputObserver = observe("first-input", (list) => {
         if (firstInputFired) return;
         const entry = list.getEntries()[0] as FirstInputEntry | undefined;
         if (!entry) return;
@@ -198,26 +243,55 @@ export function createCWVReporter({
           lcpObserver?.disconnect();
         }
         if (trackFID) {
-          const delay = entry.processingStart - entry.startTime;
-          growthbook.logEvent("CWV:FID", { value: delay });
+          log("CWV:FID", entry.processingStart - entry.startTime);
         }
       });
-      firstInputObserver && observers.push(firstInputObserver);
     }
 
-    // INP — worst event-timing duration; 40ms threshold catches near-misses
+    // INP — per-interaction worst duration (grouped by interactionId), then
+    // the web-vitals estimator: the worst interaction, stepping down one
+    // candidate per 50 interactions to approximate p98 on busy pages. Entries
+    // without an interactionId (hover, etc.) aren't interactions. Pages with
+    // no interaction report nothing rather than 0.
     if (trackINP) {
-      inpValue = 0;
-      const inpObserver = safeObserve(
+      const MAX_CANDIDATES = 10;
+      const worstByInteraction = new Map<number, number>();
+      let seenInteractions = 0;
+      observe(
         "event",
         (list) => {
-          for (const entry of list.getEntries() as PerformanceEventTiming[]) {
-            if (entry.duration > (inpValue ?? 0)) inpValue = entry.duration;
+          for (const entry of list.getEntries() as EventTimingEntry[]) {
+            const id = entry.interactionId;
+            if (!id) continue;
+            const prev = worstByInteraction.get(id);
+            if (prev === undefined) seenInteractions++;
+            if (prev === undefined || entry.duration > prev) {
+              worstByInteraction.set(id, entry.duration);
+            }
+            if (worstByInteraction.size > MAX_CANDIDATES) {
+              let minId = 0;
+              let minDuration = Infinity;
+              worstByInteraction.forEach((d, i) => {
+                if (d < minDuration) {
+                  minDuration = d;
+                  minId = i;
+                }
+              });
+              worstByInteraction.delete(minId);
+            }
           }
+          if (!worstByInteraction.size) return;
+          // performance.interactionCount counts every interaction, not just
+          // the ones over the 40ms threshold we observe
+          const count =
+            (performance as { interactionCount?: number }).interactionCount ??
+            seenInteractions;
+          const sorted = [...worstByInteraction.values()].sort((a, b) => b - a);
+          inpValue =
+            sorted[Math.min(Math.floor(count / 50), sorted.length - 1)];
         },
         { durationThreshold: 40 } as PerformanceObserverInit,
       );
-      inpObserver && observers.push(inpObserver);
     }
 
     // CLS — session-windowed (5s window / 1s gap), max session sum
@@ -226,7 +300,7 @@ export function createCWVReporter({
       let sessionValue = 0;
       let firstSessionEntryTime = 0;
       let lastSessionEntryTime = 0;
-      const clsObserver = safeObserve("layout-shift", (list) => {
+      observe("layout-shift", (list) => {
         for (const entry of list.getEntries() as LayoutShiftEntry[]) {
           if (entry.hadRecentInput) continue;
           // Start a new session if the gap or window threshold is exceeded
@@ -243,28 +317,20 @@ export function createCWVReporter({
           if (sessionValue > (clsValue ?? 0)) clsValue = sessionValue;
         }
       });
-      clsObserver && observers.push(clsObserver);
     }
 
     // TTFB
-    if (trackTTFB) {
-      const navEntry = performance.getEntriesByType("navigation")[0] as
-        | (PerformanceNavigationTiming & { activationStart?: number })
-        | undefined;
-      if (navEntry) {
-        // activationStart subtracts prerender time; 0 otherwise
-        const activationStart = navEntry.activationStart ?? 0;
-        growthbook.logEvent("CWV:TTFB", {
-          value: Math.max(0, navEntry.responseStart - activationStart),
-        });
-      }
+    // responseStart is 0 for some cross-origin redirect chains — not a
+    // real measurement
+    if (trackTTFB && navEntry && navEntry.responseStart > 0) {
+      log("CWV:TTFB", Math.max(0, navEntry.responseStart - activationStart));
     }
 
     // TBT — sum of (effectiveDuration - 50ms) for the post-FCP portion of
     // each long task. Pre-FCP segments contribute 0.
     if (trackTBT) {
       tbtValue = 0;
-      const tbtObserver = safeObserve("longtask", (list) => {
+      observe("longtask", (list) => {
         // Fall back to getEntriesByName if the paint observer hasn't fired
         // yet, so buffered long-tasks aren't silently dropped
         if (fcpTime == null) {
@@ -280,7 +346,6 @@ export function createCWVReporter({
           tbtValue = (tbtValue ?? 0) + Math.max(0, taskEnd - taskStart - 50);
         }
       });
-      tbtObserver && observers.push(tbtObserver);
     }
   } catch {
     // noop — observability shouldn't crash the host page

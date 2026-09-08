@@ -32,6 +32,8 @@ type ObserverInstance = {
     getEntriesByName: (name: string) => unknown[];
   }) => void;
   disconnected: boolean;
+  // entries observed but not yet delivered to the callback
+  pending: unknown[];
 };
 
 const mockObservers: ObserverInstance[] = [];
@@ -51,11 +53,24 @@ class MockPerformanceObserver {
       type: opts.type,
       callback: this.cb,
       disconnected: false,
+      pending: [],
     };
     mockObservers.push(this.instance);
   }
   disconnect() {
     if (this.instance) this.instance.disconnected = true;
+  }
+  takeRecords() {
+    const records = this.instance?.pending ?? [];
+    if (this.instance) this.instance.pending = [];
+    return records;
+  }
+}
+
+// Entries the browser has recorded but whose observer callback hasn't run yet
+function queueEntries(type: string, entries: unknown[]) {
+  for (const o of mockObservers) {
+    if (o.type === type && !o.disconnected) o.pending.push(...entries);
   }
 }
 
@@ -151,7 +166,11 @@ describe("CWV reporter", () => {
 
     emitEntries("first-input", [{ startTime: 5000, processingStart: 5050 }]);
 
-    expect(logEvent).toHaveBeenCalledWith("CWV:FID", { value: 50 });
+    expect(logEvent).toHaveBeenCalledWith(
+      "CWV:FID",
+      { value: 50 },
+      { url: expect.any(String) },
+    );
     gb.destroy();
   });
 
@@ -170,7 +189,11 @@ describe("CWV reporter", () => {
 
     emitEntries("first-input", [{ startTime: 5000, processingStart: 5050 }]);
 
-    expect(logEvent).not.toHaveBeenCalledWith("CWV:FID", expect.anything());
+    expect(logEvent).not.toHaveBeenCalledWith(
+      "CWV:FID",
+      expect.anything(),
+      expect.anything(),
+    );
     gb.destroy();
   });
 
@@ -194,31 +217,133 @@ describe("CWV reporter", () => {
     emitEntries("largest-contentful-paint", [{ startTime: 3000 }]);
 
     setVisibilityState("hidden");
-    expect(logEvent).toHaveBeenCalledWith("CWV:LCP", { value: 1200 });
+    expect(logEvent).toHaveBeenCalledWith(
+      "CWV:LCP",
+      { value: 1200 },
+      { url: expect.any(String) },
+    );
     gb.destroy();
   });
 
-  it("reports the worst INP from event timing entries", () => {
+  const inpOnly = {
+    trackFCP: false,
+    trackLCP: false,
+    trackCLS: false,
+    trackTTFB: false,
+    trackTBT: false,
+  };
+
+  it("reports INP as the worst interaction, grouped by interactionId", () => {
     const gb = new GrowthBook({ clientKey: "test" });
     const logEvent = jest.spyOn(gb, "logEvent");
+    createCWVReporter({ growthbook: gb, ...inpOnly });
 
+    // One interaction emits several event-timing entries (pointerdown,
+    // pointerup, click); the interaction's value is its worst entry
+    emitEntries("event", [
+      { interactionId: 1, duration: 80 },
+      { interactionId: 1, duration: 200 },
+      { interactionId: 2, duration: 150 },
+    ]);
+
+    setVisibilityState("hidden");
+    expect(logEvent).toHaveBeenCalledWith(
+      "CWV:INP",
+      { value: 200 },
+      { url: expect.any(String) },
+    );
+    gb.destroy();
+  });
+
+  it("ignores event-timing entries that aren't interactions and reports nothing without one", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    createCWVReporter({ growthbook: gb, ...inpOnly });
+
+    // A slow mouseover handler has no interactionId — not an interaction
+    emitEntries("event", [{ interactionId: 0, duration: 900 }]);
+
+    setVisibilityState("hidden");
+    expect(logEvent).not.toHaveBeenCalled();
+    gb.destroy();
+  });
+
+  it("steps down from the worst interaction on pages with many interactions (p98 estimate)", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    createCWVReporter({ growthbook: gb, ...inpOnly });
+
+    Object.defineProperty(performance, "interactionCount", {
+      configurable: true,
+      get: () => 120,
+    });
+    emitEntries("event", [
+      { interactionId: 1, duration: 500 },
+      { interactionId: 2, duration: 400 },
+      { interactionId: 3, duration: 300 },
+      { interactionId: 4, duration: 200 },
+    ]);
+
+    // 120 interactions → skip 2 candidates → third-worst
+    setVisibilityState("hidden");
+    expect(logEvent).toHaveBeenCalledWith(
+      "CWV:INP",
+      { value: 300 },
+      { url: expect.any(String) },
+    );
+    delete (performance as unknown as { interactionCount?: number })
+      .interactionCount;
+    gb.destroy();
+  });
+
+  it("drains entries still queued in observers before finalizing", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
     createCWVReporter({
       growthbook: gb,
       trackFCP: false,
       trackLCP: false,
-      trackCLS: false,
+      trackINP: false,
       trackTTFB: false,
       trackTBT: false,
     });
 
-    emitEntries("event", [
-      { duration: 80 },
-      { duration: 200 },
-      { duration: 150 },
+    emitEntries("layout-shift", [
+      { startTime: 100, value: 0.1, hadRecentInput: false },
+    ]);
+    // The shift caused by the click that leaves the page hasn't been
+    // delivered yet when visibility changes
+    queueEntries("layout-shift", [
+      { startTime: 200, value: 0.25, hadRecentInput: false },
     ]);
 
     setVisibilityState("hidden");
-    expect(logEvent).toHaveBeenCalledWith("CWV:INP", { value: 200 });
+    expect(logEvent).toHaveBeenCalledWith(
+      "CWV:CLS",
+      { value: 0.35 },
+      { url: expect.any(String) },
+    );
+    gb.destroy();
+  });
+
+  it("finalizes on pagehide when visibilitychange never fires", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    createCWVReporter({
+      growthbook: gb,
+      trackFCP: false,
+      trackLCP: false,
+      trackINP: false,
+      trackTTFB: false,
+      trackTBT: false,
+    });
+
+    window.dispatchEvent(new Event("pagehide"));
+    expect(logEvent).toHaveBeenCalledWith(
+      "CWV:CLS",
+      { value: 0 },
+      { url: expect.any(String) },
+    );
     gb.destroy();
   });
 
@@ -292,7 +417,11 @@ describe("CWV reporter", () => {
     emitEntries("longtask", [{ startTime: 400, duration: 120 }]);
 
     setVisibilityState("hidden");
-    expect(logEvent).toHaveBeenCalledWith("CWV:TBT", { value: 70 });
+    expect(logEvent).toHaveBeenCalledWith(
+      "CWV:TBT",
+      { value: 70 },
+      { url: expect.any(String) },
+    );
     gb.destroy();
   });
 
@@ -323,7 +452,11 @@ describe("CWV reporter", () => {
     ]);
 
     setVisibilityState("hidden");
-    expect(logEvent).toHaveBeenCalledWith("CWV:TBT", { value: 70 });
+    expect(logEvent).toHaveBeenCalledWith(
+      "CWV:TBT",
+      { value: 70 },
+      { url: expect.any(String) },
+    );
     gb.destroy();
   });
 
@@ -364,12 +497,18 @@ describe("CWV reporter", () => {
       trackTBT: false,
     });
 
+    const pageUrl = window.location.href;
     window.history.pushState({}, "", "/cwv-next-page");
     await sleep(0);
 
-    // Deferred metrics belong to the page that was just left, so the
-    // GrowthBook URL must not be synced to the new page before logging
-    expect(logEvent).toHaveBeenCalledWith("CWV:CLS", { value: 0 });
+    // Deferred metrics belong to the page that was just left: attributed to
+    // its URL explicitly, and the GrowthBook URL is not synced beforehand
+    expect(window.location.href).not.toBe(pageUrl);
+    expect(logEvent).toHaveBeenCalledWith(
+      "CWV:CLS",
+      { value: 0 },
+      { url: pageUrl },
+    );
     expect(setURL).not.toHaveBeenCalled();
     gb.destroy();
   });
@@ -388,7 +527,11 @@ describe("CWV reporter", () => {
     });
     setVisibilityState("hidden");
 
-    expect(logEvent).toHaveBeenCalledWith("CWV:CLS", { value: 0 });
+    expect(logEvent).toHaveBeenCalledWith(
+      "CWV:CLS",
+      { value: 0 },
+      { url: expect.any(String) },
+    );
     gb.destroy();
   });
 
@@ -406,7 +549,11 @@ describe("CWV reporter", () => {
     });
     setVisibilityState("hidden");
 
-    expect(logEvent).toHaveBeenCalledWith("CWV:TBT", { value: 0 });
+    expect(logEvent).toHaveBeenCalledWith(
+      "CWV:TBT",
+      { value: 0 },
+      { url: expect.any(String) },
+    );
     gb.destroy();
   });
 
@@ -429,7 +576,9 @@ describe("CWV reporter", () => {
     expect(logEvent).not.toHaveBeenCalled();
 
     setVisibilityState("hidden");
-    expect(logEvent).toHaveBeenCalledWith("CWV:CLS", expect.any(Object));
+    expect(logEvent).toHaveBeenCalledWith("CWV:CLS", expect.any(Object), {
+      url: expect.any(String),
+    });
     gb.destroy();
   });
 
@@ -879,6 +1028,36 @@ describe("Engagement reporter", () => {
     gb.destroy();
   });
 
+  it("omits click/form counters from page_leave unless the interaction reporter is running", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    createEngagementReporter({
+      growthbook: gb,
+      pageViewSamplingRate: 0,
+      engagementSamplingRate: 1,
+    });
+
+    window.dispatchEvent(new Event("pagehide"));
+    const [, props] = logEvent.mock.calls.find((c) => c[0] === "page_leave")!;
+    expect(props).not.toHaveProperty("click_count");
+    expect(props).not.toHaveProperty("is_bounce_candidate");
+    gb.destroy();
+
+    _resetPageStateForTests();
+    const gb2 = new GrowthBook({ clientKey: "test" });
+    const logEvent2 = jest.spyOn(gb2, "logEvent");
+    createInteractionReporter({ growthbook: gb2, samplingRate: 1 });
+    createEngagementReporter({
+      growthbook: gb2,
+      pageViewSamplingRate: 0,
+      engagementSamplingRate: 1,
+    });
+    window.dispatchEvent(new Event("pagehide"));
+    const [, props2] = logEvent2.mock.calls.find((c) => c[0] === "page_leave")!;
+    expect(props2).toMatchObject({ click_count: 0, is_bounce_candidate: true });
+    gb2.destroy();
+  });
+
   it("sends page_engagement on visibilitychange to hidden", () => {
     const gb = new GrowthBook({ clientKey: "test" });
     const logEvent = jest.spyOn(gb, "logEvent");
@@ -979,6 +1158,34 @@ describe("browserEventsPlugin", () => {
 
   it("is SSR-safe (returns a function without throwing)", () => {
     expect(() => browserEventsPlugin({ cwvSamplingRate: 1 })).not.toThrow();
+  });
+
+  it("falls back to the default rate with a warning instead of throwing on bad config", () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    expect(() => browserEventsPlugin({ cwvSamplingRate: 15 })).not.toThrow();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("cwvSamplingRate must be between 0 and 1"),
+    );
+    warn.mockRestore();
+  });
+
+  it("a plugin that throws during init does not prevent the GrowthBook instance from being created", () => {
+    const error = jest.spyOn(console, "error").mockImplementation(() => {});
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [
+        () => {
+          throw new Error("misconfigured plugin");
+        },
+      ],
+    });
+    expect(gb.getClientKey()).toBe("test");
+    expect(error).toHaveBeenCalledWith(
+      "GrowthBook plugin failed to initialize",
+      expect.any(Error),
+    );
+    error.mockRestore();
+    gb.destroy();
   });
 
   it("wires up interaction + engagement reporters when rates > 0", () => {

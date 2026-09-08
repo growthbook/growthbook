@@ -371,6 +371,33 @@ describe("growthbookTrackingPlugin", () => {
     gb.destroy();
   });
 
+  it("resets the unload fast-path when the page is restored from bfcache", async () => {
+    const plugin = growthbookTrackingPlugin({ queueFlushInterval: 100 });
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [plugin],
+      url: "http://localhost:3000",
+      attributes: { id: "abc" },
+    });
+
+    window.dispatchEvent(new Event("pagehide"));
+    await sleep(0);
+
+    // Back-button restore: the page is fully live again
+    const pageshow = new Event("pageshow");
+    Object.defineProperty(pageshow, "persisted", { value: true });
+    window.dispatchEvent(pageshow);
+
+    // Events must go back through the batching queue, not flush per-event
+    gb.logEvent("after-restore");
+    await sleep(0);
+    expect(fetchMock).toHaveBeenCalledTimes(0);
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    gb.destroy();
+  });
+
   it("does not permanently flip isUnloading on visibilitychange (tab-switch)", async () => {
     // Ensure visibility starts "visible"
     Object.defineProperty(document, "visibilityState", {

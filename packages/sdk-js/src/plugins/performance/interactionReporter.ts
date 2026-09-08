@@ -13,13 +13,18 @@ import {
   incrementClickCount,
   incrementTrackedClickCount,
   incrementRageClickCount,
+  markInteractionTrackingActive,
   incrementFormSubmitCount,
 } from "./pageState";
 
 const DEFAULT_CLICK_SELECTOR =
   "a, button, [role='button'], [role='link'], " +
   "input[type='submit'], input[type='button'], [data-gb-track]";
-const DEFAULT_IGNORE_SELECTOR = "[data-gb-ignore], .gb-ignore";
+const DEFAULT_IGNORE_CLICK_SELECTOR =
+  "[data-gb-ignore], [data-gb-ignore-clicks], .gb-ignore";
+const DEFAULT_IGNORE_FORM_SELECTOR =
+  "[data-gb-ignore], [data-gb-ignore-forms], .gb-ignore";
+const IGNORE_RAGE_SELECTOR = "[data-gb-ignore-rage]";
 const DEFAULT_SENSITIVE_SELECTOR =
   "input[type='password'], [data-gb-sensitive]";
 
@@ -46,19 +51,18 @@ export function createInteractionReporter({
   hashAttribute = "id",
   samplingSeed,
   clickSelector = DEFAULT_CLICK_SELECTOR,
-  ignoreClickSelector = DEFAULT_IGNORE_SELECTOR,
+  ignoreClickSelector = DEFAULT_IGNORE_CLICK_SELECTOR,
   collectElementText = true,
   sensitiveSelector = DEFAULT_SENSITIVE_SELECTOR,
   rageThreshold = 3,
   rageTimeWindowMs = 3000,
   rageMaxDistancePx = 50,
   formSelector = "form",
-  ignoreFormSelector = DEFAULT_IGNORE_SELECTOR,
+  ignoreFormSelector = DEFAULT_IGNORE_FORM_SELECTOR,
   growthbook,
 }: InteractionReporterSettings) {
   if (detectEnv() !== "browser") return;
-  if (samplingRate < 0 || samplingRate > 1)
-    throw new Error("samplingRate must be between 0 and 1");
+  samplingRate = Math.min(1, Math.max(0, samplingRate));
   if (
     !shouldSample({
       rate: samplingRate,
@@ -80,6 +84,7 @@ export function createInteractionReporter({
 
   function handleRageClick(event: MouseEvent, target: Element) {
     if (shouldIgnore(target, ignoreClickSelector)) return;
+    if (shouldIgnore(target, IGNORE_RAGE_SELECTOR)) return;
 
     const now = performance.now();
     const click = { time: now, x: event.clientX, y: event.clientY };
@@ -154,6 +159,7 @@ export function createInteractionReporter({
     );
   };
 
+  markInteractionTrackingActive();
   document.addEventListener("click", onClick, { capture: true, passive: true });
   document.addEventListener("submit", onSubmit, { capture: true });
 

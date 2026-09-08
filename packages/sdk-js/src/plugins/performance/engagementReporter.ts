@@ -13,6 +13,7 @@ import {
   getHeartbeatCount,
   incrementHeartbeatCount,
   isPageLeaveSent,
+  isInteractionTrackingActive,
   markPageLeaveSent,
   scheduleScrollUpdate,
 } from "./pageState";
@@ -47,10 +48,8 @@ export function createEngagementReporter({
   growthbook,
 }: EngagementReporterSettings) {
   if (detectEnv() !== "browser") return;
-  if (pageViewSamplingRate < 0 || pageViewSamplingRate > 1)
-    throw new Error("pageViewSamplingRate must be between 0 and 1");
-  if (engagementSamplingRate < 0 || engagementSamplingRate > 1)
-    throw new Error("engagementSamplingRate must be between 0 and 1");
+  pageViewSamplingRate = Math.min(1, Math.max(0, pageViewSamplingRate));
+  engagementSamplingRate = Math.min(1, Math.max(0, engagementSamplingRate));
 
   const attrs = growthbook.getAttributes();
   const trackPageViews =
@@ -75,6 +74,9 @@ export function createEngagementReporter({
   let stopped = false;
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let unsubUrlChanges: (() => void) | null = null;
+  // Tab-switch churn shouldn't emit unbounded hidden-state events per page
+  const MAX_HIDDEN_EVENTS = 10;
+  let hiddenEvents = 0;
 
   const reportPageView = () => {
     if (stopped) return;
@@ -91,20 +93,25 @@ export function createEngagementReporter({
       elapsed_time_ms: getElapsedTimeMs(),
       active_time_ms: getActiveTimeMs(),
       max_scroll_depth_percent: getMaxScrollDepthPercent(),
-      click_count: getClickCount(),
-      tracked_click_count: getTrackedClickCount(),
-      form_submit_count: getFormSubmitCount(),
       engagement_heartbeat_count: getHeartbeatCount(),
-      is_bounce_candidate:
-        getTrackedClickCount() === 0 &&
-        getFormSubmitCount() === 0 &&
-        getActiveTimeMs() < 10000,
+      // Click/form counters only exist while the interaction reporter is
+      // running for this user; omit rather than report a misleading 0
+      ...(isInteractionTrackingActive() && {
+        click_count: getClickCount(),
+        tracked_click_count: getTrackedClickCount(),
+        form_submit_count: getFormSubmitCount(),
+        is_bounce_candidate:
+          getTrackedClickCount() === 0 &&
+          getFormSubmitCount() === 0 &&
+          getActiveTimeMs() < 10000,
+      }),
     });
   };
 
   const onUrlChange = () => {
     sendPageLeave("route_change");
     resetPageState();
+    hiddenEvents = 0;
     startHeartbeats();
     reportPageView();
   };
@@ -112,6 +119,7 @@ export function createEngagementReporter({
   const onPageShow = (event: PageTransitionEvent) => {
     if (!event.persisted) return;
     resetPageState();
+    hiddenEvents = 0;
     startHeartbeats();
     reportPageView();
   };
@@ -122,6 +130,8 @@ export function createEngagementReporter({
     updateVisibleTime();
     if (!trackEngagement || stopped) return;
     if (document.visibilityState === "hidden") {
+      if (hiddenEvents >= MAX_HIDDEN_EVENTS) return;
+      hiddenEvents++;
       growthbook.logEvent("page_engagement", {
         visibility_state: "hidden",
         elapsed_time_ms: getElapsedTimeMs(),

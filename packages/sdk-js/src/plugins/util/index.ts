@@ -26,6 +26,24 @@ export function shouldSample({
   return Math.random() < rate;
 }
 
+// Out-of-range or non-numeric rates fall back to the stream's default with a
+// warning rather than throwing — a typo in an observability setting must
+// never take the SDK down with it.
+export function normalizeSamplingRate(
+  rate: number | undefined,
+  fallback: number,
+  label: string,
+): number {
+  if (rate === undefined) return fallback;
+  if (typeof rate !== "number" || !isFinite(rate) || rate < 0 || rate > 1) {
+    console.warn(
+      `browserEventsPlugin: ${label} must be between 0 and 1 (got ${rate}); using ${fallback}`,
+    );
+    return fallback;
+  }
+  return rate;
+}
+
 export function detectEnv(): "browser" | "node" | "unknown" {
   if (typeof window !== "undefined" && typeof window.document !== "undefined")
     return "browser";

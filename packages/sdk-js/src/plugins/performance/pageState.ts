@@ -1,10 +1,15 @@
 // Per-page-view mutable state. Reset on SPA navigation by engagement reporter;
 // counters incremented by interaction reporter.
 
-let startTime = performance.now();
+// Module-level code must not assume a browser (the plugins barrel is
+// imported server-side too)
+const now = () =>
+  typeof performance !== "undefined" ? performance.now() : Date.now();
+
+let startTime = now();
 let visibleSince: number | null =
   typeof document !== "undefined" && document.visibilityState === "visible"
-    ? performance.now()
+    ? now()
     : null;
 let activeTimeMs = 0;
 let maxScrollDepthPercent = 0;
@@ -16,11 +21,13 @@ let trackedClickCount = 0;
 let rageClickCount = 0;
 let formSubmitCount = 0;
 let heartbeatCount = 0;
+// Click/form counters are only meaningful while an interaction reporter is
+// incrementing them; page_leave omits them otherwise
+let interactionTrackingActive = false;
 
 export function resetPageState() {
-  startTime = performance.now();
-  visibleSince =
-    document.visibilityState === "visible" ? performance.now() : null;
+  startTime = now();
+  visibleSince = document.visibilityState === "visible" ? now() : null;
   activeTimeMs = 0;
   maxScrollDepthPercent = 0;
   scrollScheduled = false;
@@ -33,23 +40,23 @@ export function resetPageState() {
 }
 
 export function updateVisibleTime() {
-  const now = performance.now();
+  const t = now();
   if (visibleSince != null) {
-    activeTimeMs += now - visibleSince;
-    visibleSince = document.visibilityState === "visible" ? now : null;
+    activeTimeMs += t - visibleSince;
+    visibleSince = document.visibilityState === "visible" ? t : null;
   } else if (document.visibilityState === "visible") {
-    visibleSince = now;
+    visibleSince = t;
   }
 }
 
 export function getActiveTimeMs(): number {
   let t = activeTimeMs;
-  if (visibleSince != null) t += performance.now() - visibleSince;
+  if (visibleSince != null) t += now() - visibleSince;
   return Math.round(t);
 }
 
 export function getElapsedTimeMs(): number {
-  return Math.round(performance.now() - startTime);
+  return Math.round(now() - startTime);
 }
 
 export function getScrollDepthPercent(): number {
@@ -128,7 +135,14 @@ export function incrementHeartbeatCount() {
 export function markPageLeaveSent() {
   pageLeaveSent = true;
 }
+export function markInteractionTrackingActive() {
+  interactionTrackingActive = true;
+}
+export function isInteractionTrackingActive() {
+  return interactionTrackingActive;
+}
 
 export function _resetPageStateForTests() {
   resetPageState();
+  interactionTrackingActive = false;
 }

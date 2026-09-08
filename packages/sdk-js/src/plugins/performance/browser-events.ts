@@ -3,6 +3,7 @@ import type {
   GrowthBookClient,
   UserScopedGrowthBook,
 } from "../../GrowthBookClient";
+import { normalizeSamplingRate } from "../util";
 import { createCWVReporter } from "./cwvReporter";
 import { createErrorReporter } from "./errorReporter";
 import { createEngagementReporter } from "./engagementReporter";
@@ -58,9 +59,13 @@ export type BrowserEventsSettings = {
   independentSampling?: boolean; // true = per-reporter seeds; false = same user in/out of all
 };
 
+// Conservative defaults: each stream samples 10% unless configured. Nothing
+// ships at full volume implicitly.
+const DEFAULT_SAMPLING_RATE = 0.1;
+
 export function browserEventsPlugin({
   // Core web vitals
-  cwvSamplingRate = 1,
+  cwvSamplingRate = DEFAULT_SAMPLING_RATE,
   trackFCP = true,
   trackLCP = true,
   trackFID = false,
@@ -69,7 +74,7 @@ export function browserEventsPlugin({
   trackTTFB = true,
   trackTBT = true,
   // Page views + engagement
-  pageViewSamplingRate = 1,
+  pageViewSamplingRate = DEFAULT_SAMPLING_RATE,
   engagementSamplingRate = 0,
   heartbeatIntervalMs = 30000,
   maxHeartbeats = 3,
@@ -78,7 +83,7 @@ export function browserEventsPlugin({
   trackQueryStringChanges = false,
   enableUrlPolling = false,
   // Errors
-  errorSamplingRate = 1,
+  errorSamplingRate = DEFAULT_SAMPLING_RATE,
   debounceErrorTimeout = 100,
   // User interactions
   interactionSamplingRate = 0,
@@ -96,6 +101,32 @@ export function browserEventsPlugin({
   samplingSeed = "gb-events",
   independentSampling = false,
 }: BrowserEventsSettings = {}) {
+  cwvSamplingRate = normalizeSamplingRate(
+    cwvSamplingRate,
+    DEFAULT_SAMPLING_RATE,
+    "cwvSamplingRate",
+  );
+  pageViewSamplingRate = normalizeSamplingRate(
+    pageViewSamplingRate,
+    DEFAULT_SAMPLING_RATE,
+    "pageViewSamplingRate",
+  );
+  engagementSamplingRate = normalizeSamplingRate(
+    engagementSamplingRate,
+    0,
+    "engagementSamplingRate",
+  );
+  errorSamplingRate = normalizeSamplingRate(
+    errorSamplingRate,
+    DEFAULT_SAMPLING_RATE,
+    "errorSamplingRate",
+  );
+  interactionSamplingRate = normalizeSamplingRate(
+    interactionSamplingRate,
+    0,
+    "interactionSamplingRate",
+  );
+
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
     if (typeof window === "undefined" || typeof document === "undefined")
       return;
