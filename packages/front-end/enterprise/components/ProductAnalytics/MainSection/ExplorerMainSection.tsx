@@ -71,15 +71,14 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
     submittedExploreState,
   });
 
-  // The raw-table empty state carries its own "Load full table" button, so the
-  // floating callout would be a duplicate. Every other empty canvas needs it —
-  // on the SQL Explore page its Refresh button is the only way to submit.
-  const draftIsRawTable =
+  // SQL empty states carry their own submit button (Load table / Render
+  // chart). The floating callout would duplicate it. Other empty canvases
+  // still need Refresh — on the Explore page that callout is the only submit.
+  const sqlEmptyCanvas =
     draftExploreState.type === "sql" &&
-    draftExploreState.chartType === "rawTable";
+    !hasSubmittablePayload(submittedExploreState);
   const suppressStaleFloatingCallout =
-    (draftIsRawTable && !hasSubmittablePayload(submittedExploreState)) ||
-    (!loading && needsFetch && !isSubmittable);
+    sqlEmptyCanvas || (!loading && needsFetch && !isSubmittable);
 
   return (
     <Flex
@@ -328,6 +327,22 @@ export default function ExplorerMainSection({
     draftExploreState.dataset?.type === "funnel" &&
     !hasSubmittablePayload(submittedExploreState);
 
+  const sqlEmptyButtonLabel =
+    isRawTable ||
+    draftExploreState.chartType === "table" ||
+    draftExploreState.chartType === "timeseries-table"
+      ? "Load table"
+      : "Render chart";
+  const sqlEmptyHelper = isRawTable
+    ? isTimelessSqlExploration(draftExploreState)
+      ? "Configure columns in the sidebar."
+      : "Configure columns in the sidebar, or change the date range above."
+    : !hasSubmittablePayload(draftExploreState)
+      ? "Add a value in the sidebar."
+      : isTimelessSqlExploration(draftExploreState)
+        ? "Add a group by in the sidebar."
+        : "Change the date range above, or add a group by in the sidebar.";
+
   const exploreEmptyState = (
     <Flex
       align="center"
@@ -368,7 +383,7 @@ export default function ExplorerMainSection({
         </>
       ) : (
         <>
-          {isRawTable ? (
+          {isSql ? (
             <Flex direction="column" align="center" gap="3">
               <Button
                 size="lg"
@@ -381,21 +396,17 @@ export default function ExplorerMainSection({
                 }
                 onClick={() => handleSubmit({ force: true })}
               >
-                Load Table
+                {sqlEmptyButtonLabel}
               </Button>
               <Text size="sm" color="text-low">
-                {isTimelessSqlExploration(draftExploreState)
-                  ? "Configure columns in the sidebar."
-                  : "Configure columns in the sidebar, or change the date range above."}
+                {sqlEmptyHelper}
               </Text>
             </Flex>
           ) : (
             <>
               <PiChartLineUp size={48} style={{ color: "var(--gray-a9)" }} />
               <Text size="lg" weight="medium">
-                {isSql
-                  ? "Add a value in the sidebar, then click Update to explore"
-                  : "Configure your explorer to visualize data"}
+                Configure your explorer to visualize data
               </Text>
             </>
           )}
