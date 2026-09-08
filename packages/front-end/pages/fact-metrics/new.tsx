@@ -1,0 +1,55 @@
+import { useRouter } from "next/router";
+import { FactMetricInterface } from "shared/types/fact-table";
+import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
+import PageHead from "@/components/Layout/PageHead";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import MetricWorkspace from "@/components/FactTables/MetricEditor/MetricWorkspace";
+
+export default function NewFactMetricPage() {
+  const router = useRouter();
+  const { project, ready, mutateDefinitions } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
+
+  const returnUrl =
+    typeof router.query.returnUrl === "string"
+      ? router.query.returnUrl
+      : "/metrics";
+
+  if (!ready) return <LoadingOverlay />;
+
+  const canCreate = permissionsUtil.canCreateFactMetric({
+    projects: project ? [project] : [],
+    managedBy: "",
+  });
+
+  return (
+    <div className="pagecontents container-fluid">
+      <PageHead
+        breadcrumb={[
+          { display: "Metrics", href: "/metrics" },
+          { display: "New Metric" },
+        ]}
+      />
+      {!canCreate ? (
+        <Callout status="error">
+          You don&apos;t have permission to create metrics in this project.{" "}
+          <Link href="/metrics">Back to all metrics</Link>
+        </Callout>
+      ) : (
+        <MetricWorkspace
+          existing={null}
+          isEditing={true}
+          setIsEditing={() => {}}
+          mutate={mutateDefinitions}
+          onSaved={(metric: FactMetricInterface) =>
+            router.replace(`/fact-metrics/${metric.id}`)
+          }
+          onCancel={() => router.push(returnUrl)}
+        />
+      )}
+    </div>
+  );
+}
