@@ -19,6 +19,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Frame from "@/ui/Frame";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import MetricEditor from "@/components/FactTables/MetricEditor/MetricEditor";
 
 type DefaultsContext = Pick<
@@ -165,13 +166,18 @@ export default function MetricWorkspace({
               {error}
             </Callout>
           )}
-          <Flex justify="end" gap="2">
-            <Button variant="soft" color="gray" onClick={handleDiscard}>
-              Discard
-            </Button>
-            <Button onClick={handleSave} setError={setError}>
-              Save
-            </Button>
+          <Flex justify="between" align="center">
+            <Text color="text-mid">
+              {existing ? "Editing metric" : "Creating a new metric"}
+            </Text>
+            <Flex gap="2">
+              <Button variant="soft" color="gray" onClick={handleDiscard}>
+                Discard
+              </Button>
+              <Button onClick={handleSave} setError={setError}>
+                Save
+              </Button>
+            </Flex>
           </Flex>
         </Frame>
       )}
