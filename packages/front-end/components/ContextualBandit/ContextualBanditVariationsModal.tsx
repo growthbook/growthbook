@@ -28,8 +28,6 @@ type FormValues = {
 type NewVariationValues = Record<string, Record<string, string>>;
 type EmptyStringConfirmations = Record<string, Record<string, boolean>>;
 
-/**
- */
 export default function ContextualBanditVariationsModal({
   cb,
   linkedFeatures = [],

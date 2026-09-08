@@ -1095,7 +1095,6 @@ export async function executeContextualBanditVariationChange(
     },
   );
 
-  // Never resurrect a deactivated id
   for (const v of newVariations) {
     if (tombstoneIds.has(v.id)) {
       throw new BadRequestError(
@@ -1206,7 +1205,6 @@ export async function executeContextualBanditVariationChange(
     }
   }
 
-  // No-op if nothing is pending.
   if (featureDraftPublishFailures.length === 0) {
     ({ updated } = await activatePendingContextualBanditVariations(
       context,
@@ -1229,7 +1227,6 @@ export async function executeContextualBanditVariationChange(
   };
 }
 
-/** Union of two failure lists, deduped by feature (first entry wins). */
 function mergePendingDraftFailures(
   first: PendingDraftFailure[],
   second: { failures: PendingDraftFailure[] },

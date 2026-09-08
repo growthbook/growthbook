@@ -142,16 +142,6 @@ export default function ContextualBanditLinkedFeatureFlag({
     info.state !== "locked" &&
     info.state !== "archived";
 
-  // Messaging for an unpublished draft revision turns on two independent axes,
-  // so build the pieces here rather than nesting ternaries in the JSX:
-  //   1. cb.status — auto-publish only ever fires on the start transition, so
-  //      only a not-yet-started bandit can promise it. On a started bandit,
-  //      info.state === "draft" means no live rule exists at all (see
-  //      getRefLinkedFeatureInfo: refIsDraft is false, so the draft-differs
-  //      branch is skipped and "draft" implies zero live matches).
-  //   2. approval — a draft behind a required review can't be published until
-  //      somebody approves it, so "publish manually" on its own isn't
-  //      actionable advice.
   const cbNotStarted = cb.status === "draft";
   const awaitingApproval =
     !!info.pendingApproval && info.draftRevisionStatus !== "approved";

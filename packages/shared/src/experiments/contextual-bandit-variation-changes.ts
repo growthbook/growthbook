@@ -9,12 +9,6 @@ export const MIN_CONTEXTUAL_BANDIT_VARIATIONS = 2;
 export type WeightReconcileMode = "uniform" | "redistribute";
 export type VariationIdentity = { id: string };
 
-/**
- * CB variation (arm) lifecycle status.
- * - active (default when absent): served, weighted, analyzed
- * - pending: added but value not yet live on a linked feature; no weight
- * - deactivated: removed; tombstoned so the id is never reused
- */
 export type VariationWithStatus = VariationIdentity & {
   status?: ContextualBanditVariationStatus;
 };
@@ -31,14 +25,12 @@ export function isDeactivatedVariation(v: VariationWithStatus): boolean {
   return v.status === "deactivated";
 }
 
-/** Arms the user can see and edit: active + pending (tombstones hidden). */
 export function getVisibleVariations<T extends VariationWithStatus>(
   variations: T[],
 ): T[] {
   return variations.filter((v) => !isDeactivatedVariation(v));
 }
 
-/** Arms that serve traffic and receive weight: active only. */
 export function getActiveVariations<T extends VariationWithStatus>(
   variations: T[],
 ): T[] {
