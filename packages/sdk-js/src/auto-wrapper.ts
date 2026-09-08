@@ -19,8 +19,8 @@ import {
   thirdPartyTrackingPlugin,
   Trackers,
 } from "./plugins/third-party-tracking";
-import { autoEventsPlugin } from "./plugins/auto-events";
-import type { AutoEventsSettings } from "./plugins/auto-events";
+import { autoEventsPlugin } from "./plugins/auto-events/index";
+import type { AutoEventsSettings } from "./plugins/auto-events/index";
 import type { SessionReplayPrivacyConfig } from "./plugins/session-replay";
 
 type WindowContext = Context & {

@@ -2,7 +2,7 @@
 // rrweb is inlined (rollup external: () => false), so this stays a single
 // self-contained script.
 import gb, { dataContext, windowContext } from "./auto-wrapper";
-import { sessionReplayPlugin } from "./plugins/session-replay";
+import { sessionReplayPlugin } from "./plugins/session-replay/index";
 
 const CLOUD_INGESTOR_HOST = "__INGESTOR_HOST__";
 

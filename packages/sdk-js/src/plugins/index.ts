@@ -1,8 +1,8 @@
 export { autoAttributesPlugin } from "./auto-attributes";
 export { growthbookTrackingPlugin } from "./growthbook-tracking";
 export { thirdPartyTrackingPlugin } from "./third-party-tracking";
-export { autoEventsPlugin } from "./auto-events";
-export type { AutoEventsSettings } from "./auto-events";
+export { autoEventsPlugin } from "./auto-events/index";
+export type { AutoEventsSettings } from "./auto-events/index";
 export {
   configureGbSession,
   getOrCreateGbSessionId,
