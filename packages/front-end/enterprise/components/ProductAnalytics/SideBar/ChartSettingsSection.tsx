@@ -2,10 +2,10 @@ import { Box, Flex } from "@radix-ui/themes";
 import { useState } from "react";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import Collapsible from "react-collapsible";
-import Field from "@/components/Forms/Field";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import TextField from "@/ui/TextField";
 
 type AxisLabelKey = "categoryAxisLabel" | "valueAxisLabel";
 
@@ -72,8 +72,15 @@ export default function ChartSettingsSection() {
             size="sm"
             onClick={() => setIsCollapsed((prev) => !prev)}
             title={isCollapsed ? "Expand" : "Collapse"}
+            aria-label={
+              isCollapsed ? "Expand chart settings" : "Collapse chart settings"
+            }
+            aria-expanded={!isCollapsed}
+            icon={
+              isCollapsed ? <PiCaretDown size={14} /> : <PiCaretUp size={14} />
+            }
           >
-            {isCollapsed ? <PiCaretDown size={14} /> : <PiCaretUp size={14} />}
+            {""}
           </Button>
         </Flex>
       </Flex>
@@ -86,22 +93,24 @@ export default function ChartSettingsSection() {
         <Flex direction="column" gap="3" mt="2">
           <Flex
             direction="column"
+            gap="2"
             px="3"
             pt="3"
+            pb="3"
             style={{
               border: "1px solid var(--gray-a3)",
               borderRadius: "var(--radius-3)",
               backgroundColor: "var(--color-panel-translucent)",
             }}
           >
-            <Field
-              label="X-axis Label"
+            <TextField
+              label="X-axis label"
               placeholder="Default"
               value={axes?.[xAxisKey] ?? ""}
               onChange={(e) => updateAxisLabel(xAxisKey, e.target.value)}
             />
-            <Field
-              label="Y-axis Label"
+            <TextField
+              label="Y-axis label"
               placeholder="Default"
               value={axes?.[yAxisKey] ?? ""}
               onChange={(e) => updateAxisLabel(yAxisKey, e.target.value)}
