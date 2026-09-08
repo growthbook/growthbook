@@ -1,8 +1,11 @@
 import { record } from "rrweb";
 import type { eventWithTime } from "@rrweb/types";
+import type { SessionReplaySettings } from "../../types/growthbook";
 import { GrowthBook } from "../../GrowthBook";
 import { readSessionJSON, writeSessionJSON } from "../utils/storage";
 import { resolveSessionId } from "../utils/gb-session";
+import { shouldSampleScope, persistSampleDecision } from "../utils/sampling";
+import { mergeSettings } from "../utils/settings";
 import { createRetry, RetryExhaustedError, RetryCancelledError } from "./retry";
 import {
   SessionReplayPrivacyConfig,
@@ -25,9 +28,19 @@ type PluginOptions = {
   autoRecord?: boolean;
   // Kill switch: when false, the plugin loads but never records. Default true.
   enabled?: boolean;
+  // Fraction of sessions to record (0-1, default 1). True-random and sticky
+  // per replay session. gb.startSessionReplay() bypasses it.
+  sampleRate?: number;
   // Masking/blocking controls for what rrweb captures. Defaults to
   // deny-by-default (every input masked).
   privacy?: SessionReplayPrivacyConfig;
+};
+
+const SAMPLE_DECISION_KEY = "gb_session_replay_sampled";
+
+const DEFAULT_SETTINGS: Required<SessionReplaySettings> = {
+  enabled: true,
+  sampleRate: 1,
 };
 
 // Do Not Track / Global Privacy Control (CCPA-binding), checked before
@@ -110,7 +123,8 @@ const COMPRESS_REQUESTS = true;
 export function sessionReplayPlugin({
   trackingHost = "",
   autoRecord = true,
-  enabled = true,
+  enabled,
+  sampleRate,
   privacy,
 }: PluginOptions = {}) {
   if (typeof window === "undefined" || typeof document === "undefined") {
@@ -118,6 +132,16 @@ export function sessionReplayPlugin({
   }
 
   let gbRef: GrowthBook | null = null;
+
+  // defaults ← constructor options ← remote sdkSettings from the payload
+  // (cached payloads count, so this is usually right at init; re-resolved
+  // on every payload update)
+  const resolveSettings = (): Required<SessionReplaySettings> =>
+    mergeSettings(
+      DEFAULT_SETTINGS,
+      { enabled, sampleRate },
+      gbRef?.getDecryptedPayload().sdkSettings?.sessionReplay,
+    );
   let host = "";
   let clientKey = "";
 
@@ -404,16 +428,32 @@ export function sessionReplayPlugin({
   };
 
   // forceNew skips the resume check — resuming a rotated-out session's
-  // sessionStartedAt would re-trip tooLong every interval
-  const startRecording = (forceNew = false) => {
+  // sessionStartedAt would re-trip tooLong every interval. force bypasses
+  // sampling (programmatic gb.startSessionReplay()), never the kill switch.
+  const startRecording = (forceNew = false, force = false) => {
     if (isRecording) return;
-    if (!enabled) return;
+    const settings = resolveSettings();
+    if (!settings.enabled) return;
     if (userOptedOutOfTracking()) return;
 
     const persisted = readPersistedReplayState();
     const now = Date.now();
     const nextSessionReplayId = getOrCreateSessionReplayId(forceNew);
     if (!nextSessionReplayId) return;
+
+    if (force) {
+      // Sticky, so reloads within a forced session keep recording
+      persistSampleDecision(SAMPLE_DECISION_KEY, nextSessionReplayId, true);
+    } else if (
+      !shouldSampleScope({
+        rate: settings.sampleRate,
+        storageKey: SAMPLE_DECISION_KEY,
+        scopeId: nextSessionReplayId,
+      })
+    ) {
+      return;
+    }
+
     void gbRef?.updateAttributes({ session_replay_id: nextSessionReplayId });
 
     // Resume only the same logical replay session with a recent-enough last
@@ -600,7 +640,22 @@ export function sessionReplayPlugin({
       sessionEvents.push({ eventName, timestamp: Date.now(), properties });
     });
 
-    gb._registerSessionReplay(startRecording, stopRecording);
+    // The public gb.startSessionReplay() is the programmatic trigger — it
+    // bypasses sampling but not the kill switch
+    const forceStart = () => startRecording(false, true);
+    gb._registerSessionReplay(forceStart, stopRecording);
+
+    // React to remote settings changes, including mid-recording: a kill
+    // switch stops in-flight recordings; re-enabling resumes when
+    // autoRecord'd (sampling stays sticky per session).
+    const offPayload = gb._subscribePayloadUpdates(() => {
+      const settings = resolveSettings();
+      if (!settings.enabled && isRecording) {
+        stopRecording();
+      } else if (settings.enabled && autoRecord && !isRecording) {
+        startRecording();
+      }
+    });
 
     if (autoRecord) startRecording();
 
@@ -618,10 +673,11 @@ export function sessionReplayPlugin({
       offFeature();
       offExperiment();
       offEvent();
+      offPayload();
       stopRecording();
       window.removeEventListener("pagehide", onPageHide);
       document.removeEventListener("visibilitychange", onVisibilityHide);
-      gb._unregisterSessionReplay(startRecording, stopRecording);
+      gb._unregisterSessionReplay(forceStart, stopRecording);
     };
 
     gb.onDestroy(cleanup);

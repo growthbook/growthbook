@@ -67,6 +67,75 @@ function seedSessionReplayId(sessionReplayId: string) {
   );
 }
 
+describe("sessionReplayPlugin — remote settings and sampling", () => {
+  let gb: GrowthBook;
+
+  beforeEach(() => {
+    mockRecord.mockClear();
+    mockRecord.mockImplementation(() => jest.fn());
+    seedSessionReplayId("f47ac10b-58cc-4372-a567-0e02b2c3d479");
+    gb = buildGrowthBook();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    gb.destroy();
+    sessionStorage.clear();
+  });
+
+  it("payload kill switch stops an in-flight recording and re-enables later", async () => {
+    let stopped = false;
+    mockRecord.mockImplementation(() => () => {
+      stopped = true;
+    });
+    sessionReplayPlugin({ trackingHost: TRACKING_HOST })(gb);
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+
+    await gb.setPayload({ sdkSettings: { sessionReplay: { enabled: false } } });
+    expect(stopped).toBe(true);
+
+    await gb.setPayload({ sdkSettings: { sessionReplay: { enabled: true } } });
+    expect(mockRecord).toHaveBeenCalledTimes(2);
+  });
+
+  it("payload sampleRate applies over the constructor value", async () => {
+    await gb.setPayload({
+      sdkSettings: { sessionReplay: { sampleRate: 0 } },
+    });
+    sessionReplayPlugin({ trackingHost: TRACKING_HOST, sampleRate: 1 })(gb);
+    expect(mockRecord).not.toHaveBeenCalled();
+  });
+
+  it("unsampled sessions don't record; startSessionReplay() forces one", () => {
+    jest.spyOn(Math, "random").mockReturnValue(0.99);
+    sessionReplayPlugin({ trackingHost: TRACKING_HOST, sampleRate: 0.5 })(gb);
+    expect(mockRecord).not.toHaveBeenCalled();
+
+    gb.startSessionReplay();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
+  it("the sampling decision sticks for the session across plugin inits", () => {
+    jest.spyOn(Math, "random").mockReturnValue(0.99);
+    sessionReplayPlugin({ trackingHost: TRACKING_HOST, sampleRate: 0.5 })(gb);
+    expect(mockRecord).not.toHaveBeenCalled();
+    gb.destroy();
+
+    // Same replay session, now with a winning roll — the stored "out"
+    // decision must win
+    jest.spyOn(Math, "random").mockReturnValue(0.01);
+    gb = buildGrowthBook();
+    sessionReplayPlugin({ trackingHost: TRACKING_HOST, sampleRate: 0.5 })(gb);
+    expect(mockRecord).not.toHaveBeenCalled();
+  });
+
+  it("kill switch beats a forced start", () => {
+    sessionReplayPlugin({ trackingHost: TRACKING_HOST, enabled: false })(gb);
+    gb.startSessionReplay();
+    expect(mockRecord).not.toHaveBeenCalled();
+  });
+});
+
 describe("sessionReplayPlugin — stopRecording keepalive flush", () => {
   let gb: GrowthBook;
   let emitEvent: (event: eventWithTime) => void;

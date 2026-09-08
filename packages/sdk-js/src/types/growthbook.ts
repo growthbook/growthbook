@@ -483,6 +483,21 @@ export type AutoExperimentVariation = {
 
 export type FeatureDefinitions = Record<string, FeatureDefinition>;
 
+export type SessionReplaySettings = {
+  // Remote kill switch: false stops in-flight recordings and blocks new ones
+  enabled?: boolean;
+  // Fraction of sessions to record (0-1). True-random, sticky per session.
+  sampleRate?: number;
+};
+
+// Remotely-delivered plugin settings. Rides inside the cached features
+// payload so it inherits localStorage warm-start, background refresh, and
+// SSE streaming. Merged over plugin-constructor options, which merge over
+// plugin defaults.
+export type SdkSettings = {
+  sessionReplay?: SessionReplaySettings;
+};
+
 export type FeatureApiResponse = {
   features?: FeatureDefinitions;
   dateUpdated?: string;
@@ -493,6 +508,7 @@ export type FeatureApiResponse = {
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
+  sdkSettings?: SdkSettings;
 };
 
 // Alias

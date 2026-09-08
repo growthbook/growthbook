@@ -87,6 +87,7 @@ export class GrowthBook<
   private _subscriptions: Set<SubscriptionFunction>;
   private _featureUsageSubs: Set<FeatureUsageSubCallback>;
   private _customEventSubs: Set<CustomEventSubCallback>;
+  private _payloadUpdateSubs: Set<() => void>;
   private _assigned: Map<
     string,
     {
@@ -130,6 +131,7 @@ export class GrowthBook<
     this._subscriptions = new Set();
     this._featureUsageSubs = new Set();
     this._customEventSubs = new Set();
+    this._payloadUpdateSubs = new Set();
     this.ready = false;
     this._assigned = new Map();
     this._activeAutoExperiments = new Map();
@@ -239,6 +241,13 @@ export class GrowthBook<
     }
     this.ready = true;
     this._render();
+    this._payloadUpdateSubs.forEach((cb) => {
+      try {
+        cb();
+      } catch (e) {
+        console.error(e);
+      }
+    });
   }
 
   public initSync(options: InitSyncOptions): GrowthBook {
@@ -552,6 +561,13 @@ export class GrowthBook<
   public _subscribeCustomEvents(cb: CustomEventSubCallback): () => void {
     this._customEventSubs.add(cb);
     return () => this._customEventSubs.delete(cb);
+  }
+
+  // Internal — first-party plugin use only.
+  // Fires after every setPayload() so plugins can react to remote settings.
+  public _subscribePayloadUpdates(cb: () => void): () => void {
+    this._payloadUpdateSubs.add(cb);
+    return () => this._payloadUpdateSubs.delete(cb);
   }
 
   private async _refreshForRemoteEval() {
