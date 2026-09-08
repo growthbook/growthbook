@@ -4,7 +4,7 @@ import type {
   UserScopedGrowthBook,
 } from "../../GrowthBookClient";
 import type { EventProperties, UserContext } from "../../types/growthbook";
-import { shouldSample } from "../utils/sampling";
+import { DEFAULT_SAMPLING_SEED, shouldSample } from "../utils/sampling";
 import { detectEnv } from "../utils/browser";
 import { isFullGrowthBook, isGrowthBookClient } from "../utils/instance";
 
@@ -68,7 +68,7 @@ export function createErrorReporter({
         : userContext
           ? userContext.attributes
           : undefined,
-      seed: samplingSeed ?? "error-sampling",
+      seed: samplingSeed ?? DEFAULT_SAMPLING_SEED,
     })
   ) {
     return;

@@ -45,6 +45,11 @@ export function persistSampleDecision(
   writeSessionJSON(storageKey, { scopeId, sampled });
 }
 
+// One seed for every auto-events category keeps their cohorts nested: a
+// user inside a 10% cohort is inside every larger one, so cwv, errors, and
+// clicks for the same user arrive together
+export const DEFAULT_SAMPLING_SEED = "gb-events";
+
 // Deterministic hash-based sampling: a stable cohort per attribute value
 export function shouldSample({
   rate,

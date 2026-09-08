@@ -1,5 +1,5 @@
 import type { GrowthBook } from "../../GrowthBook";
-import { shouldSample } from "../utils/sampling";
+import { DEFAULT_SAMPLING_SEED, shouldSample } from "../utils/sampling";
 import { detectEnv } from "../utils/browser";
 import {
   composeSelectors,
@@ -61,7 +61,7 @@ export function createInteractionReporter({
       rate: samplingRate,
       hashAttribute,
       attributes: growthbook.getAttributes(),
-      seed: samplingSeed ?? "interaction-sampling",
+      seed: samplingSeed ?? DEFAULT_SAMPLING_SEED,
     })
   )
     return;

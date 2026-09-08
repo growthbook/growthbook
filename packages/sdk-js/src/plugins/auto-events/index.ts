@@ -1,4 +1,7 @@
-import { normalizeSamplingRate } from "../utils/sampling";
+import {
+  DEFAULT_SAMPLING_SEED,
+  normalizeSamplingRate,
+} from "../utils/sampling";
 import { isFullGrowthBook, type AnyGrowthBook } from "../utils/instance";
 import { sharePrivacySettings, type PrivacySettings } from "../utils/privacy";
 import { createCWVReporter } from "./cwv-reporter";
@@ -92,7 +95,7 @@ export function autoEventsPlugin(settings: AutoEventsSettings = {}) {
     privacy,
     trackQueryStringChanges = false,
     hashAttribute = "id",
-    samplingSeed = "gb-events",
+    samplingSeed = DEFAULT_SAMPLING_SEED,
   } = settings;
   sharePrivacySettings(privacy);
   const metrics = new Set<CwvMetric>(

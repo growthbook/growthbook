@@ -1,5 +1,5 @@
 import type { GrowthBook } from "../../GrowthBook";
-import { shouldSample } from "../utils/sampling";
+import { DEFAULT_SAMPLING_SEED, shouldSample } from "../utils/sampling";
 import { currentPageUrl, detectEnv, whenActivated } from "../utils/browser";
 import { subscribeToUrlChanges } from "../utils/url-change-observer";
 
@@ -62,7 +62,7 @@ export function createCWVReporter({
       rate: samplingRate,
       hashAttribute,
       attributes: growthbook.getAttributes(),
-      seed: samplingSeed ?? "cwv-sampling",
+      seed: samplingSeed ?? DEFAULT_SAMPLING_SEED,
     })
   ) {
     return;

@@ -1,9 +1,37 @@
 import {
+  DEFAULT_SAMPLING_SEED,
+  shouldSample,
   shouldSampleScope,
   persistSampleDecision,
 } from "../../src/plugins/utils/sampling";
 
 const STORAGE_KEY = "gb_test_sample_decision";
+
+describe("shouldSample", () => {
+  it("nests cohorts sampled under one seed, so a 10% user is also a 25% user", () => {
+    let inSmall = 0;
+    for (let i = 0; i < 2000; i++) {
+      const attributes = { id: `user-${i}` };
+      const small = shouldSample({
+        rate: 0.1,
+        hashAttribute: "id",
+        attributes,
+        seed: DEFAULT_SAMPLING_SEED,
+      });
+      const large = shouldSample({
+        rate: 0.25,
+        hashAttribute: "id",
+        attributes,
+        seed: DEFAULT_SAMPLING_SEED,
+      });
+      if (small) {
+        inSmall++;
+        expect(large).toBe(true);
+      }
+    }
+    expect(inSmall).toBeGreaterThan(100);
+  });
+});
 
 describe("shouldSampleScope", () => {
   afterEach(() => {
