@@ -188,11 +188,7 @@ export class GrowthBook<
 
     if (options.plugins) {
       for (const plugin of options.plugins) {
-        try {
-          plugin(this);
-        } catch (e) {
-          console.error("GrowthBook plugin failed to initialize", e);
-        }
+        plugin(this);
       }
     }
 

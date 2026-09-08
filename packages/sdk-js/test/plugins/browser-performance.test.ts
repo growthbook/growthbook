@@ -1384,23 +1384,18 @@ describe("browserEventsPlugin", () => {
     warn.mockRestore();
   });
 
-  it("a plugin that throws during init does not prevent the GrowthBook instance from being created", () => {
-    const error = jest.spyOn(console, "error").mockImplementation(() => {});
-    const gb = new GrowthBook({
-      clientKey: "test",
-      plugins: [
-        () => {
-          throw new Error("misconfigured plugin");
-        },
-      ],
-    });
-    expect(gb.getClientKey()).toBe("test");
-    expect(error).toHaveBeenCalledWith(
-      "GrowthBook plugin failed to initialize",
-      expect.any(Error),
-    );
-    error.mockRestore();
-    gb.destroy();
+  it("a plugin that throws during init fails the GrowthBook constructor loudly", () => {
+    expect(
+      () =>
+        new GrowthBook({
+          clientKey: "test",
+          plugins: [
+            () => {
+              throw new Error("misconfigured plugin");
+            },
+          ],
+        }),
+    ).toThrow("misconfigured plugin");
   });
 
   it("wires up interaction + engagement reporters when rates > 0", () => {
