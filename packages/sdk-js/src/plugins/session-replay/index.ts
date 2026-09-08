@@ -27,17 +27,10 @@ export type {
 type PluginOptions = {
   trackingHost?: string;
   autoRecord?: boolean;
-  /**
-   * Per-app kill switch. When false, the plugin loads but never starts
-   * recording.
-   * Default: true.
-   */
+  // Kill switch: when false, the plugin loads but never records. Default true.
   enabled?: boolean;
-  /**
-   * Privacy controls for what rrweb captures.
-   * This option only covers input masking strategy and custom
-   * transform hooks. Defaults to deny-by-default (every input masked).
-   */
+  // Masking/blocking controls for what rrweb captures. Defaults to
+  // deny-by-default (every input masked).
   privacy?: SessionReplayPrivacyConfig;
 };
 

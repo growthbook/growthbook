@@ -19,75 +19,30 @@ export type { SessionReplayUrlScrubberConfig } from "./url-scrub";
  *   4. Custom maskInputFn/maskTextFn for shape-preserving redaction
  */
 export type SessionReplayPrivacyConfig = {
-  /**
-   * Mask all input fields (default true). Disabling flips masking to
-   * opt-in, where one untagged credit-card field leaks card numbers.
-   */
+  // Mask all input fields (default true). Disabling flips masking to
+  // opt-in, where one untagged credit-card field leaks card numbers.
   maskAllInputs?: boolean;
-
-  /**
-   * When `maskAllInputs` is false, this is the per-input-type allowlist
-   * for which types ARE masked. Ignored when `maskAllInputs` is true
-   * (every input is masked regardless).
-   *
-   * Example: { password: true, email: true } — only password and email
-   * inputs are masked, all other input types render their values in the
-   * replay.
-   */
+  // When maskAllInputs is false, the per-input-type allowlist of which
+  // types ARE masked (e.g. { password: true, email: true })
   maskInputOptions?: Partial<Record<MaskableInputType, boolean>>;
-
-  /**
-   * Additional CSS selector for elements to block (capture as opaque
-   * rectangle). Composes with the default `[data-gb-block], .gb-block`
-   * — elements matching EITHER are blocked.
-   */
+  // Extra CSS selector for elements to block (opaque rectangle); composes
+  // with the default `[data-gb-block], .gb-block`
   blockSelector?: string;
-
-  /**
-   * Additional CSS selector for text masking. Composes with the default
-   * `[data-gb-mask], .gb-mask`.
-   */
+  // Extra CSS selector for text masking; composes with `[data-gb-mask], .gb-mask`
   maskTextSelector?: string;
-
-  /**
-   * Additional CSS selector for elements whose input events are ignored.
-   * Composes with the default `[data-gb-ignore], .gb-ignore`. Note: this
-   * suppresses event RECORDING for the element, not its rendering — use
-   * `blockSelector` to redact rendering.
-   */
+  // Extra CSS selector for elements whose input events aren't recorded
+  // (rendering unaffected — use blockSelector for that); composes with
+  // `[data-gb-ignore], .gb-ignore`
   ignoreSelector?: string;
-
-  /**
-   * Custom input masking function. Called by rrweb with the input's
-   * current value and the element. Return the value to record. Useful
-   * for preserving shape (e.g. last-4-of-CC) or hashing while still
-   * masking.
-   *
-   * GrowthBook wraps your function: `data-gb-allow` ancestors bypass
-   * yours entirely (raw value recorded), so you don't need to handle
-   * that case.
-   */
+  // Custom input masking (e.g. shape-preserving last-4). Return the value to
+  // record; `data-gb-allow` ancestors bypass it entirely.
   maskInputFn?: (text: string, el: HTMLElement | null) => string;
-
-  /**
-   * Custom text masking function. Called by rrweb with the text node's
-   * content and parent element. Return the value to record. Wrapped the
-   * same way as `maskInputFn`.
-   */
+  // Custom text masking; wrapped the same way as maskInputFn
   maskTextFn?: (text: string, el: HTMLElement | null) => string;
-
-  /**
-   * rrweb internal error handler. Called when rrweb itself throws while
-   * capturing — typically harmless (rrweb survives and continues), but
-   * useful to wire into customer Sentry for visibility.
-   */
+  // Called when rrweb itself throws while capturing (usually survivable);
+  // useful to wire into customer error tracking
   errorHandler?: (err: unknown) => void;
-
-  /**
-   * URL scrubbing config. URLs that leave the browser are deny-by-default:
-   * all query params stripped unless allowlisted, ID-like path segments
-   * replaced with `[id]`, fragments dropped. Set knobs here to tune.
-   */
+  // URL scrubbing knobs (see SessionReplayUrlScrubberConfig)
   url?: SessionReplayUrlScrubberConfig;
 };
 
@@ -109,12 +64,9 @@ export type MaskableInputType =
   | "select"
   | "password";
 
-/**
- * GrowthBook's shipped privacy class names + data attributes. These are
- * the customer-facing surface for element-level privacy — slap one of
- * these on the element and the SDK does the right thing. The constants
- * are exported so docs and customer code reference the same literals.
- */
+// Shipped privacy class names + data attributes — the customer-facing
+// surface for element-level privacy. Exported so docs and customer code
+// reference the same literals.
 export const GB_BLOCK_CLASS = "gb-block";
 export const GB_MASK_CLASS = "gb-mask";
 export const GB_IGNORE_CLASS = "gb-ignore";

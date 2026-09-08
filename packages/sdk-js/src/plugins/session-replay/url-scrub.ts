@@ -9,26 +9,13 @@
  */
 
 export type SessionReplayUrlScrubberConfig = {
-  /**
-   * Query param names whose values are safe to keep in the replay. Any
-   * param NOT on this list is stripped (key + value both gone). Default
-   * is empty — strip everything.
-   */
+  // Query params safe to keep; everything else is stripped (default: all)
   allowQueryParams?: string[];
-
-  /**
-   * Additional regex patterns to redact from path segments. Built-in
-   * heuristics already catch numeric IDs, UUIDs, and long hex strings;
-   * use this for app-specific patterns (e.g. order codes that look like
-   * `ORD-12AB34CD`).
-   */
+  // App-specific path-segment patterns to redact, on top of the built-in
+  // numeric/UUID/long-hex heuristics
   redactPathPatterns?: RegExp[];
-
-  /**
-   * Preserve the URL fragment (`#section`). Default false because
-   * fragments commonly carry OAuth bearer tokens during redirect flows
-   * (`#access_token=...`).
-   */
+  // Keep `#fragment`. Default false — fragments carry OAuth tokens during
+  // redirect flows.
   keepFragment?: boolean;
 };
 
