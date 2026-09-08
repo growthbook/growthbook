@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { Flex } from "@radix-ui/themes";
-import { FactTableDefinition } from "shared/types/fact-table";
+import {
+  FactTableDefinition,
+  MetricCappingSettings,
+  MetricPriorSettings,
+  MetricWindowSettings,
+} from "shared/types/fact-table";
+import {
+  MetricDefaults,
+  OrganizationSettings,
+} from "shared/types/organization";
 import { CreateFactMetricFormProps } from "@/services/metrics";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -35,12 +44,7 @@ import {
 // a saved FactMetricInterface, and placed inside this same section for both
 // modes. No metricType param: windowOk already excludes retention at the
 // call site, so a "plus the retention window" clause here could never fire.
-function windowProse(windowSettings: {
-  type: string;
-  windowValue: number;
-  windowUnit: string;
-  delayValue: number;
-}): string {
+function windowProse(windowSettings: MetricWindowSettings): string {
   const afterExposure = windowSettings.delayValue
     ? " plus the metric delay"
     : "";
@@ -53,11 +57,9 @@ function windowProse(windowSettings: {
   return `Disabled - Include all metric data after first experiment exposure${afterExposure}.`;
 }
 
-function cappingSummary(cappingSettings: {
-  type: string;
-  value: number;
-  ignoreZeros?: boolean | null;
-}): DataListItem | null {
+function cappingSummary(
+  cappingSettings: MetricCappingSettings,
+): DataListItem | null {
   if (!cappingSettings.type || !cappingSettings.value) return null;
   const extra =
     cappingSettings.type === "percentile"
@@ -69,6 +71,91 @@ function cappingSummary(cappingSettings: {
     label: `${capitalizeFirstLetter(cappingSettings.type)} capping`,
     value: `${cappingSettings.value}${extra}`,
   };
+}
+
+function priorsItemValue(
+  priorSettings: MetricPriorSettings,
+  metricDefaults: MetricDefaults,
+): string {
+  if (!priorSettings.override) {
+    return `Using organization defaults (proper prior: ${
+      metricDefaults.priorSettings?.proper ? "On" : "Off"
+    })`;
+  }
+  const properPart = priorSettings.proper
+    ? ` (mean ${priorSettings.mean}, stddev ${priorSettings.stddev})`
+    : "";
+  return `Use proper prior: ${priorSettings.proper ? "On" : "Off"}${properPart}`;
+}
+
+function cupedItemValue(
+  regressionAdjustment: {
+    override: boolean;
+    enabled?: boolean;
+    days?: number;
+  },
+  orgSettings: OrganizationSettings,
+): string {
+  if (regressionAdjustment.override) {
+    return `Apply: ${
+      regressionAdjustment.enabled ? "On" : "Off"
+    }, lookback ${regressionAdjustment.days} days`;
+  }
+  if (orgSettings.regressionAdjustmentEnabled) {
+    return `Using organization defaults (apply: On, lookback ${orgSettings.regressionAdjustmentDays} days)`;
+  }
+  return "Disabled";
+}
+
+// Query tab's read-only side, next to cappingSummary/windowProse - one
+// DataList for the whole tab instead of a canEdit branch per control.
+function queryItems({
+  form,
+  formType,
+  cappingItem,
+  metricDefaults,
+  orgSettings,
+}: {
+  form: UseFormReturn<CreateFactMetricFormProps>;
+  formType: FormMetricType;
+  cappingItem: DataListItem | null;
+  metricDefaults: MetricDefaults;
+  orgSettings: OrganizationSettings;
+}): DataListItem[] {
+  const windowSettings = form.watch("windowSettings");
+  const priorSettings = form.watch("priorSettings");
+
+  return [
+    ...(windowOk(formType) && windowSettings.delayValue
+      ? [
+          {
+            label: "Metric Delay",
+            value: `${windowSettings.delayValue} ${windowSettings.delayUnit} after experiment exposure`,
+          },
+        ]
+      : []),
+    ...(cappingOk(formType) && cappingItem ? [cappingItem] : []),
+    {
+      label: "Target MDE",
+      value: `${(form.watch("targetMDE") ?? 0) * 100}%`,
+    },
+    { label: "Priors", value: priorsItemValue(priorSettings, metricDefaults) },
+    ...(formType !== "quantile"
+      ? [
+          {
+            label: "Regression Adjustment (CUPED)",
+            value: cupedItemValue(
+              {
+                override: form.watch("regressionAdjustmentOverride"),
+                enabled: form.watch("regressionAdjustmentEnabled"),
+                days: form.watch("regressionAdjustmentDays"),
+              },
+              orgSettings,
+            ),
+          },
+        ]
+      : []),
+  ];
 }
 
 // Collapsed by default, matching today's modal (metricformfields.md's
@@ -210,98 +297,38 @@ export default function AdvancedSettings({
         </TabsList>
 
         <TabsContent value="query" style={{ padding: "var(--space-4)" }}>
-          {windowOk(formType) &&
-            (canEdit ? (
-              <MetricDelaySettings form={form} />
-            ) : (
-              windowSettings.delayValue && (
-                <DataList
-                  columns={1}
-                  data={[
-                    {
-                      label: "Metric Delay",
-                      value: `${windowSettings.delayValue} ${windowSettings.delayUnit} after experiment exposure`,
-                    },
-                  ]}
-                />
-              )
-            ))}
-          {cappingOk(formType) &&
-            (canEdit ? (
-              <MetricCappingSettingsForm
-                form={form}
-                datasourceType={datasource?.type}
-                metricType={metricType}
-              />
-            ) : (
-              cappingItem && <DataList columns={1} data={[cappingItem]} />
-            ))}
           {canEdit ? (
-            <Field
-              label="Target MDE"
-              type="number"
-              step="any"
-              append="%"
-              {...form.register("targetMDE", { valueAsNumber: true })}
-              helpText={`The percentage change that you want to reliably detect before ending your experiment. (default ${
-                metricDefaults.targetMDE * 100
-              }%)`}
-            />
-          ) : (
-            <DataList
-              columns={1}
-              data={[
-                {
-                  label: "Target MDE",
-                  value: `${(form.watch("targetMDE") ?? 0) * 100}%`,
-                },
-              ]}
-            />
-          )}
-          {canEdit ? (
-            <MetricPriorSettingsForm
-              priorSettings={priorSettings}
-              setPriorSettings={(v) => form.setValue("priorSettings", v)}
-              metricDefaults={metricDefaults}
-            />
-          ) : (
-            <Flex direction="column" gap="1" mt="2" mb="2">
-              <Text weight="semibold" size="sm" as="div">
-                Priors
-              </Text>
-              {priorSettings.override ? (
-                <>
-                  <Text size="sm" as="div">
-                    Use proper prior: {priorSettings.proper ? "On" : "Off"}
-                  </Text>
-                  {priorSettings.proper && (
-                    <>
-                      <Text size="sm" as="div">
-                        Mean: {priorSettings.mean}
-                      </Text>
-                      <Text size="sm" as="div">
-                        Standard deviation: {priorSettings.stddev}
-                      </Text>
-                    </>
-                  )}
-                </>
-              ) : (
-                <Text size="sm" color="text-mid" as="div">
-                  Using organization defaults (proper prior:{" "}
-                  {metricDefaults.priorSettings?.proper ? "On" : "Off"})
-                </Text>
-              )}
-            </Flex>
-          )}
-          {formType !== "quantile" && (
             <>
-              <PremiumTooltip commercialFeature="regression-adjustment">
-                <Text weight="semibold" as="div" mb="1">
-                  Regression adjustment (CUPED)
-                </Text>
-              </PremiumTooltip>
-              {canEdit ? (
+              {windowOk(formType) && <MetricDelaySettings form={form} />}
+              {cappingOk(formType) && (
+                <MetricCappingSettingsForm
+                  form={form}
+                  datasourceType={datasource?.type}
+                  metricType={metricType}
+                />
+              )}
+              <Field
+                label="Target MDE"
+                type="number"
+                step="any"
+                append="%"
+                {...form.register("targetMDE", { valueAsNumber: true })}
+                helpText={`The percentage change that you want to reliably detect before ending your experiment. (default ${
+                  metricDefaults.targetMDE * 100
+                }%)`}
+              />
+              <MetricPriorSettingsForm
+                priorSettings={priorSettings}
+                setPriorSettings={(v) => form.setValue("priorSettings", v)}
+                metricDefaults={metricDefaults}
+              />
+              {formType !== "quantile" && (
                 <>
+                  <PremiumTooltip commercialFeature="regression-adjustment">
+                    <Text weight="semibold" as="div" mb="1">
+                      Regression adjustment (CUPED)
+                    </Text>
+                  </PremiumTooltip>
                   <Switch
                     label="Override organization-level settings"
                     value={form.watch("regressionAdjustmentOverride")}
@@ -333,28 +360,19 @@ export default function AdvancedSettings({
                     </Flex>
                   )}
                 </>
-              ) : form.watch("regressionAdjustmentOverride") ? (
-                <Flex direction="column" gap="1">
-                  <Text size="sm" as="div">
-                    Apply regression adjustment:{" "}
-                    {form.watch("regressionAdjustmentEnabled") ? "On" : "Off"}
-                  </Text>
-                  <Text size="sm" as="div">
-                    Lookback period (days):{" "}
-                    {form.watch("regressionAdjustmentDays")}
-                  </Text>
-                </Flex>
-              ) : orgSettings.regressionAdjustmentEnabled ? (
-                <Text size="sm" color="text-mid" as="div">
-                  Using organization defaults (apply regression adjustment: On,
-                  lookback period: {orgSettings.regressionAdjustmentDays} days)
-                </Text>
-              ) : (
-                <Text size="sm" color="text-mid" as="div">
-                  Disabled
-                </Text>
               )}
             </>
+          ) : (
+            <DataList
+              columns={1}
+              data={queryItems({
+                form,
+                formType,
+                cappingItem,
+                metricDefaults,
+                orgSettings,
+              })}
+            />
           )}
         </TabsContent>
 
