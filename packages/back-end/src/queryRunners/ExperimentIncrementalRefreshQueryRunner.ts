@@ -61,7 +61,7 @@ import {
   filterRegressionAdjustedMetrics,
   planMetricFanOut,
 } from "back-end/src/services/experimentQueries/planMetricFanOut";
-import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
+import { buildMultiSourceSubGroups } from "back-end/src/services/experimentQueries/multiSourceSubGroups";
 import {
   conversionWindowMinutesKey,
   conversionWindowQueryNameSuffix,
@@ -1102,24 +1102,20 @@ const startExperimentIncrementalRefreshQueries = async (
     }
   }
 
-  // Cross-FT pair pass: for every unordered pair of fact tables that hosts
-  // at least one cross-FT ratio metric, schedule a single joined stats
-  // query. The query reads both caches and computes per-metric ratios using
-  // each metric's correct orientation. Same-FT metrics that happen to share
-  // a cache with these cross-FT halves are NOT included here — they ran in
-  // the per-FT loop above.
-  const crossFtSubGroups = buildCrossFtSubGroups<SourcePipeline>({
-    crossFtPairs: desiredFanOut.crossFtPairs,
+  // Multi-source pass: for every group of metrics that needs 2+ fact table
+  // caches joined (cross-FT ratios, multi-FT funnels, or both), schedule a
+  // single stats query. Metrics sharing the same sorted FT set are grouped
+  // together so they share one joined query.
+  const multiSourceSubGroups = buildMultiSourceSubGroups<SourcePipeline>({
+    multiSourceGroups: desiredFanOut.multiSourceGroups,
     metricSourceGroups,
     pipelineByGroupId,
-    // Main runner: the per-FT pass above must have built every pipeline a
-    // cross-FT metric needs. A missing pipeline indicates a fan-out bug.
     onMissingPipeline: "throw",
     getWindowKey: (m) =>
       snapshotSettings.skipPartialData
         ? conversionWindowMinutesKey(
             getOverriddenMetricConversionWindowHours(
-              m.metric,
+              m,
               activationMetric,
               snapshotSettings,
             ),
@@ -1127,68 +1123,50 @@ const startExperimentIncrementalRefreshQueries = async (
         : null,
   });
 
-  for (const subGroup of crossFtSubGroups) {
-    const [pipelineA, pipelineB] = subGroup.pipelines;
-    const ftA = params.factTableMap.get(pipelineA.group.factTableId);
-    const ftB = params.factTableMap.get(pipelineB.group.factTableId);
-    const sourceName = ftA && ftB ? `(${ftA.name} x ${ftB.name})` : "";
+  for (const subGroup of multiSourceSubGroups) {
+    const ftNames = subGroup.pipelines
+      .map(
+        (p) =>
+          params.factTableMap.get(p.group.factTableId)?.name ??
+          p.group.factTableId,
+      )
+      .join(" x ");
+    const sourceName = `(${ftNames})`;
+    const queryNameParts = subGroup.pipelines
+      .map((p) => p.group.groupId)
+      .join("__");
 
-    // Quantile metrics cannot be cross-FT ratios, so this set is always
-    // non-quantile and supports pre-computed dimensions.
     const dimensionsForPrecomputation = org.settings
       ?.disablePrecomputedDimensions
       ? []
       : eligibleDimensionsWithSlicesUnderMaxCells;
 
-    const crossStatsQuery = await startQuery({
-      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`,
-      displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
+    const multiSourceStatsQuery = await startQuery({
+      name: `statistics_multi_${queryNameParts}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`,
+      displayTitle: `Compute Multi-Source Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
         exposureQuery: resolvedExposureQuery,
         activationMetric: activationMetric,
         factTableMap: params.factTableMap,
         unitsSourceTableFullName: unitsTableFullName,
-        metrics: subGroup.metrics.map((m) => m.metric),
-        // The earliest of the two caches' max timestamps gates which rows
-        // we can trust as fully populated. For simplicity we just pass
-        // null; the stats query reads whatever each cache holds and the
-        // ratio aggregation works regardless of catch-up state.
+        metrics: subGroup.metrics,
         lastMaxTimestamp: null,
         dimensionsForPrecomputation,
         dimensionsForAnalysis: [],
-        // Cross-FT CUPED uses one covariate cache per pipeline — the
-        // numerator FT's cache carries `_value` covariates, the
-        // denominator FT's cache carries `_denominator_value` covariates,
-        // and the per-source covariate LEFT JOIN inside each
-        // `__joinedData{i}` picks the right side from each side's cache.
-        // Pipelines with no RA metrics omit `covariateTableFullName`.
-        metricSources: [
-          {
-            factTableId: pipelineA.group.factTableId,
-            tableFullName: pipelineA.tableFullName,
-            ...(pipelineA.covariateTableFullName
-              ? { covariateTableFullName: pipelineA.covariateTableFullName }
-              : {}),
-          },
-          {
-            factTableId: pipelineB.group.factTableId,
-            tableFullName: pipelineB.tableFullName,
-            ...(pipelineB.covariateTableFullName
-              ? { covariateTableFullName: pipelineB.covariateTableFullName }
-              : {}),
-          },
-        ],
+        metricSources: subGroup.pipelines.map((p) => ({
+          factTableId: p.group.factTableId,
+          tableFullName: p.tableFullName,
+          ...(p.covariateTableFullName
+            ? { covariateTableFullName: p.covariateTableFullName }
+            : {}),
+        })),
       }),
       dependencies: [
-        pipelineA.insertQuery.query,
-        pipelineB.insertQuery.query,
-        ...(pipelineA.covariateInsertQuery
-          ? [pipelineA.covariateInsertQuery.query]
-          : []),
-        ...(pipelineB.covariateInsertQuery
-          ? [pipelineB.covariateInsertQuery.query]
-          : []),
+        ...subGroup.pipelines.map((p) => p.insertQuery.query),
+        ...subGroup.pipelines.flatMap((p) =>
+          p.covariateInsertQuery ? [p.covariateInsertQuery.query] : [],
+        ),
       ],
       run: (query, setExternalId, queryMetadata) =>
         integration.runIncrementalRefreshStatisticsQuery(
@@ -1198,124 +1176,7 @@ const startExperimentIncrementalRefreshQueries = async (
         ),
       queryType: "experimentIncrementalRefreshStatistics",
     });
-    queries.push(crossStatsQuery);
-  }
-
-  // Multifact funnel pass: funnels whose steps span 2+ fact tables need a
-  // stats query that joins ALL of their caches. Group funnels that share the
-  // same FT set into a single query to avoid redundant joins.
-  if (desiredFanOut.multiFtFunnels.length > 0) {
-    const multiFtGroups = new Map<
-      string,
-      {
-        factTableIds: string[];
-        metrics: FactMetricInterface[];
-        pipelines: SourcePipeline[];
-      }
-    >();
-    for (const { metric, factTableIds } of desiredFanOut.multiFtFunnels) {
-      const groupKey = [...factTableIds].sort().join("__");
-      const existing = multiFtGroups.get(groupKey);
-      if (existing) {
-        existing.metrics.push(metric);
-      } else {
-        const pipelines: SourcePipeline[] = [];
-        const seenGroupIds = new Set<string>();
-        for (const ftId of factTableIds) {
-          const group = metricSourceGroups.find(
-            (g) =>
-              g.factTableId === ftId &&
-              g.metrics.some((m) => m.id === metric.id),
-          );
-          if (!group) {
-            throw new Error(
-              `Multifact funnel metric "${metric.id}" is missing a source group for fact table "${ftId}".`,
-            );
-          }
-          if (seenGroupIds.has(group.groupId)) continue;
-          seenGroupIds.add(group.groupId);
-          const pipeline = pipelineByGroupId.get(group.groupId);
-          if (!pipeline) {
-            throw new Error(
-              `Multifact funnel metric "${metric.id}" is missing its pipeline for group "${group.groupId}".`,
-            );
-          }
-          pipelines.push(pipeline);
-        }
-        multiFtGroups.set(groupKey, {
-          factTableIds,
-          metrics: [metric],
-          pipelines,
-        });
-      }
-    }
-
-    for (const subGroup of multiFtGroups.values()) {
-      const ftNames = subGroup.factTableIds
-        .map((id) => params.factTableMap.get(id)?.name ?? id)
-        .join(" x ");
-      const sourceName = `(${ftNames})`;
-
-      // Use the earliest maxTimestamp across all involved fact table
-      // caches so every CTE scans only new rows. If any source lacks a
-      // checkpoint (freshly created), fall back to null (full scan).
-      let multiFtLastMaxTimestamp: Date | null = null;
-      for (const p of subGroup.pipelines) {
-        const source = existingSources?.find(
-          (s) => s.groupId === p.group.groupId,
-        );
-        if (!source?.maxTimestamp) {
-          multiFtLastMaxTimestamp = null;
-          break;
-        }
-        if (
-          multiFtLastMaxTimestamp === null ||
-          source.maxTimestamp < multiFtLastMaxTimestamp
-        ) {
-          multiFtLastMaxTimestamp = source.maxTimestamp;
-        }
-      }
-
-      const funnelStatsQuery = await startQuery({
-        name: `statistics_multi_ft_funnel_${subGroup.factTableIds.sort().join("_")}`,
-        displayTitle: `Compute Multi-FT Funnel Statistics ${sourceName}`,
-        query: integration.getIncrementalRefreshStatisticsQuery({
-          settings: snapshotSettings,
-          exposureQuery: resolvedExposureQuery,
-          activationMetric: activationMetric,
-          factTableMap: params.factTableMap,
-          unitsSourceTableFullName: unitsTableFullName,
-          metrics: subGroup.metrics,
-          lastMaxTimestamp: multiFtLastMaxTimestamp,
-          dimensionsForPrecomputation: org.settings
-            ?.disablePrecomputedDimensions
-            ? []
-            : eligibleDimensionsWithSlicesUnderMaxCells,
-          dimensionsForAnalysis: [],
-          metricSources: subGroup.pipelines.map((p) => ({
-            factTableId: p.group.factTableId,
-            tableFullName: p.tableFullName,
-            ...(p.covariateTableFullName
-              ? { covariateTableFullName: p.covariateTableFullName }
-              : {}),
-          })),
-        }),
-        dependencies: [
-          ...subGroup.pipelines.map((p) => p.insertQuery.query),
-          ...subGroup.pipelines.flatMap((p) =>
-            p.covariateInsertQuery ? [p.covariateInsertQuery.query] : [],
-          ),
-        ],
-        run: (query, setExternalId, queryMetadata) =>
-          integration.runIncrementalRefreshStatisticsQuery(
-            query,
-            setExternalId,
-            queryMetadata,
-          ),
-        queryType: "experimentIncrementalRefreshStatistics",
-      });
-      queries.push(funnelStatsQuery);
-    }
+    queries.push(multiSourceStatsQuery);
   }
 
   const runTrafficQuery = shouldRunHealthTrafficQuery({

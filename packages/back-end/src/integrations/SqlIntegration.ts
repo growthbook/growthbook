@@ -96,6 +96,7 @@ import {
   DropAggregatedFactTableQueryParams,
   PipelineIntegration,
   ResolvedExposureQuery,
+  FactMetricData,
 } from "shared/types/integrations";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import {
@@ -200,6 +201,85 @@ const supportedEventTrackers: Record<AutoFactTableSchemas, true> = {
   rudderstack: true,
   amplitude: true,
 };
+
+/**
+ * Column names consumed/transformed by funnel resolution CTEs. These are
+ * excluded from the passthrough list so they don't flow into the terminal
+ * table twice.
+ */
+function getFunnelWorkingColumns(
+  funnelMetrics: FunnelMetricForResolution[],
+  filterFactTableId?: string,
+): Set<string> {
+  return new Set(
+    funnelMetrics.flatMap(({ metric, alias }) =>
+      (metric.funnelSettings?.steps ?? []).flatMap((step, stepIndex) => {
+        if (filterFactTableId && step.factTableId !== filterFactTableId)
+          return [];
+        return [
+          stepIndex === 0
+            ? funnelStepResolvedTsColumn(alias, 0)
+            : funnelStepArrayColumn(alias, stepIndex),
+        ];
+      }),
+    ),
+  );
+}
+
+/**
+ * Columns the funnel resolution CTEs must carry through unchanged — base
+ * identity columns, non-funnel metric values, and optionally covariates.
+ */
+function getFunnelPassthroughColumns({
+  baseIdType,
+  dimensionCols,
+  includeVariationAndDimensions,
+  metricData,
+  metricColumnFilter,
+  covariatePairs,
+}: {
+  baseIdType: string;
+  dimensionCols: { alias: string }[];
+  includeVariationAndDimensions: boolean;
+  metricData: FactMetricData[];
+  metricColumnFilter?: (data: FactMetricData) => {
+    numerator: boolean;
+    denominator: boolean;
+  };
+  covariatePairs?: {
+    data: FactMetricData;
+    includeNumerator: boolean;
+    includeDenominator: boolean;
+  }[];
+}): string[] {
+  const cols: string[] = [baseIdType];
+  if (includeVariationAndDimensions) {
+    cols.push("variation", ...dimensionCols.map((d) => d.alias));
+  }
+  cols.push("first_exposure_timestamp");
+  for (const data of metricData) {
+    if (isFactFunnelMetric(data.metric)) continue;
+    const filter = metricColumnFilter?.(data);
+    const hasNumerator = filter ? filter.numerator : true;
+    const hasDenominator = filter ? filter.denominator : data.ratioMetric;
+    if (hasNumerator) {
+      cols.push(`${data.alias}_value`);
+      if (data.quantileMetric === "event") cols.push(`${data.alias}_n_events`);
+    }
+    if (hasDenominator) cols.push(`${data.alias}_denominator`);
+  }
+  if (covariatePairs) {
+    for (const {
+      data,
+      includeNumerator,
+      includeDenominator,
+    } of covariatePairs) {
+      if (includeNumerator) cols.push(`${data.alias}_covariate_value`);
+      if (includeDenominator) cols.push(`${data.alias}_covariate_denominator`);
+    }
+  }
+  return cols;
+}
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface, PipelineIntegration
@@ -2452,6 +2532,14 @@ export default abstract class SqlIntegration
       );
     }
 
+    // Multi-FT funnels flatten all sources into one table, so column refs
+    // must use the bare `m` alias instead of per-source `m{i}`.
+    const hasMultiFtFunnelMetrics = params.metrics.some(
+      (m) =>
+        isFactFunnelMetric(m) &&
+        [...new Set(getFactMetricFactTableIds(m))].length > 1,
+    );
+
     const {
       sources,
       metricData,
@@ -2462,6 +2550,7 @@ export default abstract class SqlIntegration
       ...params,
       // Covariate data joined to single table with `m` alias before columns are extracted
       covariateTableAlias: "m",
+      flattenSources: hasMultiFtFunnelMetrics,
     });
 
     if (sources.length > 5) {
@@ -3049,51 +3138,27 @@ export default abstract class SqlIntegration
 
           if (!hasFunnel) return joinCte;
 
-          const funnelWorkingCols = new Set(
-            funnelMetricsForSource.flatMap(({ metric, alias }) =>
-              (metric.funnelSettings?.steps ?? []).flatMap(
-                (step, stepIndex) => {
-                  if (step.factTableId !== sources[i].factTable.id) return [];
-                  return [
-                    stepIndex === 0
-                      ? funnelStepResolvedTsColumn(alias, 0)
-                      : funnelStepArrayColumn(alias, stepIndex),
-                  ];
-                },
+          const funnelWorkingCols = getFunnelWorkingColumns(
+            funnelMetricsForSource,
+            sources[i].factTable.id,
+          );
+          const funnelPassthroughCols = getFunnelPassthroughColumns({
+            baseIdType,
+            dimensionCols: allDimensionCols,
+            includeVariationAndDimensions: isSource0,
+            metricData,
+            metricColumnFilter: (data) => ({
+              numerator: data.numeratorSourceIndex === i,
+              denominator: !!(
+                data.ratioMetric && data.denominatorSourceIndex === i
               ),
-            ),
-          );
-          const funnelPassthroughCols: string[] = [baseIdType];
-          if (isSource0) {
-            funnelPassthroughCols.push(
-              "variation",
-              ...allDimensionCols.map((d) => d.alias),
-            );
-          }
-          funnelPassthroughCols.push("first_exposure_timestamp");
-          metricData.forEach((data) => {
-            if (isFactFunnelMetric(data.metric)) return;
-            const numeratorHere = data.numeratorSourceIndex === i;
-            const denominatorHere =
-              data.ratioMetric && data.denominatorSourceIndex === i;
-            if (numeratorHere) {
-              funnelPassthroughCols.push(`${data.alias}_value`);
-              if (data.quantileMetric === "event")
-                funnelPassthroughCols.push(`${data.alias}_n_events`);
-            }
-            if (denominatorHere)
-              funnelPassthroughCols.push(`${data.alias}_denominator`);
+            }),
+            covariatePairs: localCovariatePairs.map((p) => ({
+              data: p.data,
+              includeNumerator: p.numeratorHere,
+              includeDenominator: !!p.denominatorHere,
+            })),
           });
-          localCovariatePairs.forEach(
-            ({ data, numeratorHere, denominatorHere }) => {
-              if (numeratorHere)
-                funnelPassthroughCols.push(`${data.alias}_covariate_value`);
-              if (denominatorHere)
-                funnelPassthroughCols.push(
-                  `${data.alias}_covariate_denominator`,
-                );
-            },
-          );
 
           return (
             joinCte +
@@ -3174,30 +3239,12 @@ export default abstract class SqlIntegration
           baseIdType,
         });
 
-        // Passthrough columns: everything the statistics CTE reads that
-        // isn't a funnel working column (candidate arrays / step-0 scalar).
-        const funnelWorkingCols = new Set(
-          multiFtFunnelMetrics.flatMap(({ metric, alias }) =>
-            (metric.funnelSettings?.steps ?? []).flatMap((_step, stepIndex) => [
-              stepIndex === 0
-                ? funnelStepResolvedTsColumn(alias, 0)
-                : funnelStepArrayColumn(alias, stepIndex),
-            ]),
-          ),
-        );
-        const funnelPassthroughCols: string[] = [
+        const funnelWorkingCols = getFunnelWorkingColumns(multiFtFunnelMetrics);
+        const funnelPassthroughCols = getFunnelPassthroughColumns({
           baseIdType,
-          "variation",
-          ...allDimensionCols.map((d) => d.alias),
-          "first_exposure_timestamp",
-        ];
-        metricData.forEach((data) => {
-          if (isFactFunnelMetric(data.metric)) return;
-          funnelPassthroughCols.push(`${data.alias}_value`);
-          if (data.quantileMetric === "event")
-            funnelPassthroughCols.push(`${data.alias}_n_events`);
-          if (data.ratioMetric)
-            funnelPassthroughCols.push(`${data.alias}_denominator`);
+          dimensionCols: allDimensionCols,
+          includeVariationAndDimensions: true,
+          metricData,
         });
 
         const resolutionCtes = getFunnelResolutionCTEs(this.getSqlDialect(), {

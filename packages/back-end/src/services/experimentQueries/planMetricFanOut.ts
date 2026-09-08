@@ -19,11 +19,14 @@ export interface CrossFtRatioMetric {
   denominatorFactTableId: string;
 }
 
-// A funnel metric whose steps span more than one fact table. The stats
-// query must join all of its caches and flatten before resolving steps.
-export interface MultiFtFunnelGroup {
-  metric: FactMetricInterface;
-  factTableIds: string[]; // distinct FTs, in step order
+// A group of metrics that need a multi-source stats query joining 2+ fact
+// table caches. Cross-FT ratio metrics and multi-FT funnel metrics that share
+// the same (sorted) FT set are merged into a single group so they share one
+// joined stats query.
+export interface MultiSourceGroup {
+  factTableIds: string[]; // sorted, de-duplicated
+  metrics: FactMetricInterface[];
+  crossFtRatioMetrics: CrossFtRatioMetric[]; // orientation data for the ratio subset
 }
 
 export interface MetricFanOut {
@@ -37,19 +40,10 @@ export interface MetricFanOut {
     factTableId: string;
     metrics: FactMetricInterface[];
   }>;
-  // One entry per unordered fact-table pair that participates in at least one
-  // cross-FT ratio metric. Each pair collects every metric joining those two
-  // tables (in either numerator/denominator orientation). Order is stable:
-  // pairs appear in the order their first metric was supplied, and within
-  // each pair `factTableIds` is sorted so {A,B} == {B,A}.
-  crossFtPairs: Array<{
-    factTableIds: [string, string];
-    metrics: CrossFtRatioMetric[];
-  }>;
-  // Funnel metrics whose steps span 2+ fact tables. Each needs a multi-source
-  // stats query that joins all of its caches. Funnels sharing the same FT set
-  // can be grouped into a single stats query by the runner.
-  multiFtFunnels: MultiFtFunnelGroup[];
+  // One entry per unique sorted set of fact table IDs that needs a multi-source
+  // stats query. Groups cross-FT ratio metrics and multi-FT funnel metrics that
+  // share the same FT set so they can share a single joined query.
+  multiSourceGroups: MultiSourceGroup[];
 }
 
 // Returns true iff `metric` is a ratio metric whose numerator and denominator
@@ -67,7 +61,7 @@ export function isCrossFtRatioMetric(
   );
 }
 
-// Stable key for an unordered fact-table pair (so {A,B} and {B,A} collide).
+// Stable key for an unordered fact-table set (so {A,B} and {B,A} collide).
 export function getCrossFtPairKey(
   factTableIdA: string,
   factTableIdB: string,
@@ -78,7 +72,7 @@ export function getCrossFtPairKey(
 }
 
 // Compute the canonical fan-out for a list of metrics — i.e. which fact
-// tables host which metrics, and which fact-table pairs need a joined stats
+// tables host which metrics, and which fact-table sets need a joined stats
 // query.
 //
 // This is the single source of truth for that layout. Everything downstream
@@ -89,25 +83,18 @@ export function getCrossFtPairKey(
 // For each metric:
 //   - non-ratio or same-FT ratio metric: appears once, in its numerator FT.
 //   - cross-FT ratio metric: appears in BOTH its numerator and denominator
-//     FTs (the schema gen / insert SQL inspect the metric's numerator and
-//     denominator factTableIds to figure out which side this cache owns), and
-//     once in `crossFtPairs` under the unordered FT pair.
+//     FTs, and once in `multiSourceGroups` under the sorted FT set.
+//   - multi-FT funnel metric: appears in ALL step FTs, and once in
+//     `multiSourceGroups` under the sorted FT set.
 //
-// Metric, FT, and pair ordering is stable in the supplied metric order so
+// Metric, FT, and group ordering is stable in the supplied metric order so
 // the resulting query layout is deterministic across runs.
 export function planMetricFanOut(metrics: FactMetricInterface[]): MetricFanOut {
   const perFtMap = new Map<
     string,
     { factTableId: string; metrics: FactMetricInterface[] }
   >();
-  const crossFtPairMap = new Map<
-    string,
-    {
-      factTableIds: [string, string];
-      metrics: CrossFtRatioMetric[];
-    }
-  >();
-  const multiFtFunnels: MultiFtFunnelGroup[] = [];
+  const multiSourceGroupMap = new Map<string, MultiSourceGroup>();
 
   const upsertMetric = (factTableId: string, metric: FactMetricInterface) => {
     const existing = perFtMap.get(factTableId);
@@ -118,11 +105,30 @@ export function planMetricFanOut(metrics: FactMetricInterface[]): MetricFanOut {
     }
   };
 
+  const upsertMultiSourceGroup = (
+    sortedFtIds: string[],
+    metric: FactMetricInterface,
+    crossFtRatio?: CrossFtRatioMetric,
+  ) => {
+    const groupKey = sortedFtIds.join("__");
+    const existing = multiSourceGroupMap.get(groupKey);
+    if (existing) {
+      existing.metrics.push(metric);
+      if (crossFtRatio) existing.crossFtRatioMetrics.push(crossFtRatio);
+    } else {
+      multiSourceGroupMap.set(groupKey, {
+        factTableIds: sortedFtIds,
+        metrics: [metric],
+        crossFtRatioMetrics: crossFtRatio ? [crossFtRatio] : [],
+      });
+    }
+  };
+
   metrics.forEach((metric) => {
-    const numeratorFactTableId = getFactMetricPrimaryFactTableId(metric);
-    if (!numeratorFactTableId) {
+    const primaryFactTableId = getFactMetricPrimaryFactTableId(metric);
+    if (!primaryFactTableId) {
       throw new Error(
-        `Fact metric "${metric.id}" is missing a numerator fact table.`,
+        `Fact metric "${metric.id}" is missing a primary fact table.`,
       );
     }
 
@@ -131,50 +137,34 @@ export function planMetricFanOut(metrics: FactMetricInterface[]): MetricFanOut {
       const allFtIds = getFactMetricFactTableIds(metric);
       allFtIds.forEach((ftId) => upsertMetric(ftId, metric));
       if (allFtIds.length > 1) {
-        multiFtFunnels.push({ metric, factTableIds: allFtIds });
+        upsertMultiSourceGroup([...allFtIds].sort(), metric);
       }
       return;
     }
 
-    upsertMetric(numeratorFactTableId, metric);
+    upsertMetric(primaryFactTableId, metric);
     if (!isCrossFtRatioMetric(metric)) return;
 
     const denominatorFactTableId = metric.denominator.factTableId;
     upsertMetric(denominatorFactTableId, metric);
 
-    // Sort the pair so {A,B} and {B,A} collide in the pair map. We still
-    // remember each metric's original numerator/denominator orientation in
-    // the CrossFtRatioMetric entry so the stats query stays correct.
-    const pairKey = getCrossFtPairKey(
-      numeratorFactTableId,
-      denominatorFactTableId,
-    );
-    const sortedPair: [string, string] =
-      numeratorFactTableId < denominatorFactTableId
-        ? [numeratorFactTableId, denominatorFactTableId]
-        : [denominatorFactTableId, numeratorFactTableId];
-
     const crossFtMetric: CrossFtRatioMetric = {
       metric,
-      numeratorFactTableId,
+      numeratorFactTableId: primaryFactTableId,
       denominatorFactTableId,
     };
 
-    const existingPair = crossFtPairMap.get(pairKey);
-    if (existingPair) {
-      existingPair.metrics.push(crossFtMetric);
-    } else {
-      crossFtPairMap.set(pairKey, {
-        factTableIds: sortedPair,
-        metrics: [crossFtMetric],
-      });
-    }
+    const sortedFtIds =
+      primaryFactTableId < denominatorFactTableId
+        ? [primaryFactTableId, denominatorFactTableId]
+        : [denominatorFactTableId, primaryFactTableId];
+
+    upsertMultiSourceGroup(sortedFtIds, metric, crossFtMetric);
   });
 
   return {
     perFt: Array.from(perFtMap.values()),
-    crossFtPairs: Array.from(crossFtPairMap.values()),
-    multiFtFunnels,
+    multiSourceGroups: Array.from(multiSourceGroupMap.values()),
   };
 }
 

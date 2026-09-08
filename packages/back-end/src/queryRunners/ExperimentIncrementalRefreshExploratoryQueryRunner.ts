@@ -29,7 +29,7 @@ import {
   hasAnyRegressionAdjustedMetric,
   planMetricFanOut,
 } from "back-end/src/services/experimentQueries/planMetricFanOut";
-import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
+import { buildMultiSourceSubGroups } from "back-end/src/services/experimentQueries/multiSourceSubGroups";
 import {
   conversionWindowMinutesKey,
   conversionWindowQueryNameSuffix,
@@ -318,16 +318,11 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     }
   }
 
-  // Cross-FT pair pass — mirrors the main runner. We re-derive the
-  // numerator/denominator orientation per metric from planMetricFanOut and
-  // look up each side's cache from the existing source list. If either
-  // side hasn't been built yet (e.g. the user is asking for exploratory
-  // analysis before the first cross-FT main run completes), we soft-skip
-  // the pair rather than fail — the next main run will materialize both
-  // halves.
+  // Multi-source pass — mirrors the main runner. Soft-skip any group whose
+  // caches haven't all been built yet.
   const fanOut = planMetricFanOut(factMetrics);
-  const crossFtSubGroups = buildCrossFtSubGroups<ExploratoryPipeline>({
-    crossFtPairs: fanOut.crossFtPairs,
+  const multiSourceSubGroups = buildMultiSourceSubGroups<ExploratoryPipeline>({
+    multiSourceGroups: fanOut.multiSourceGroups,
     metricSourceGroups,
     pipelineByGroupId,
     onMissingPipeline: "skip",
@@ -335,22 +330,30 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       snapshotSettings.skipPartialData
         ? conversionWindowMinutesKey(
             getOverriddenMetricConversionWindowHours(
-              m.metric,
+              m,
               activationMetric,
               snapshotSettings,
             ),
           )
         : null,
   });
-  for (const subGroup of crossFtSubGroups) {
-    const [pipelineA, pipelineB] = subGroup.pipelines;
-    const ftA = params.factTableMap.get(pipelineA.group.factTableId);
-    const ftB = params.factTableMap.get(pipelineB.group.factTableId);
-    const sourceName = ftA && ftB ? `(${ftA.name} x ${ftB.name})` : "";
 
-    const crossStatsQuery = await startQuery({
-      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`,
-      displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
+  for (const subGroup of multiSourceSubGroups) {
+    const ftNames = subGroup.pipelines
+      .map(
+        (p) =>
+          params.factTableMap.get(p.group.factTableId)?.name ??
+          p.group.factTableId,
+      )
+      .join(" x ");
+    const sourceName = `(${ftNames})`;
+    const queryNameParts = subGroup.pipelines
+      .map((p) => p.group.groupId)
+      .join("__");
+
+    const multiSourceStatsQuery = await startQuery({
+      name: `statistics_multi_${queryNameParts}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`,
+      displayTitle: `Compute Multi-Source Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
         exposureQuery: resolvedExposureQuery,
@@ -359,28 +362,16 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
         dimensionsForAnalysis: dimensionObjs,
         factTableMap: params.factTableMap,
         unitsSourceTableFullName: unitsTableFullName,
-        metrics: subGroup.metrics.map((m) => m.metric),
+        metrics: subGroup.metrics,
         lastMaxTimestamp: null,
         asOf,
-        // Cross-FT CUPED reads each side's covariate cache. Either
-        // pipeline may have none (if its metrics aren't RA), and we omit
-        // `covariateTableFullName` in that case.
-        metricSources: [
-          {
-            factTableId: pipelineA.group.factTableId,
-            tableFullName: pipelineA.tableFullName,
-            ...(pipelineA.covariateTableFullName
-              ? { covariateTableFullName: pipelineA.covariateTableFullName }
-              : {}),
-          },
-          {
-            factTableId: pipelineB.group.factTableId,
-            tableFullName: pipelineB.tableFullName,
-            ...(pipelineB.covariateTableFullName
-              ? { covariateTableFullName: pipelineB.covariateTableFullName }
-              : {}),
-          },
-        ],
+        metricSources: subGroup.pipelines.map((p) => ({
+          factTableId: p.group.factTableId,
+          tableFullName: p.tableFullName,
+          ...(p.covariateTableFullName
+            ? { covariateTableFullName: p.covariateTableFullName }
+            : {}),
+        })),
       }),
       dependencies: [],
       run: fenced((query, setExternalId, queryMetadata) =>
@@ -392,95 +383,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       ),
       queryType: "experimentIncrementalRefreshStatistics",
     });
-    queries.push(crossStatsQuery);
-  }
-
-  // Multifact funnel pass — mirrors the main runner. Soft-skip any funnel
-  // whose caches haven't all been built yet.
-  if (fanOut.multiFtFunnels.length > 0) {
-    const multiFtGroups = new Map<
-      string,
-      {
-        factTableIds: string[];
-        metrics: FactMetricInterface[];
-        pipelines: ExploratoryPipeline[];
-      }
-    >();
-    for (const { metric, factTableIds } of fanOut.multiFtFunnels) {
-      const groupKey = [...factTableIds].sort().join("__");
-      const existing = multiFtGroups.get(groupKey);
-      if (existing) {
-        existing.metrics.push(metric);
-        continue;
-      }
-      const pipelines: ExploratoryPipeline[] = [];
-      const seenGroupIds = new Set<string>();
-      let missingPipeline = false;
-      for (const ftId of factTableIds) {
-        const group = metricSourceGroups.find(
-          (g) =>
-            g.factTableId === ftId && g.metrics.some((m) => m.id === metric.id),
-        );
-        if (!group) {
-          missingPipeline = true;
-          break;
-        }
-        if (seenGroupIds.has(group.groupId)) continue;
-        seenGroupIds.add(group.groupId);
-        const pipeline = pipelineByGroupId.get(group.groupId);
-        if (!pipeline) {
-          missingPipeline = true;
-          break;
-        }
-        pipelines.push(pipeline);
-      }
-      if (missingPipeline) continue;
-      multiFtGroups.set(groupKey, {
-        factTableIds,
-        metrics: [metric],
-        pipelines,
-      });
-    }
-
-    for (const subGroup of multiFtGroups.values()) {
-      const ftNames = subGroup.factTableIds
-        .map((id) => params.factTableMap.get(id)?.name ?? id)
-        .join(" x ");
-      const sourceName = `(${ftNames})`;
-
-      const funnelStatsQuery = await startQuery({
-        name: `statistics_multi_ft_funnel_${subGroup.factTableIds.sort().join("_")}`,
-        displayTitle: `Compute Multi-FT Funnel Statistics ${sourceName}`,
-        query: integration.getIncrementalRefreshStatisticsQuery({
-          settings: snapshotSettings,
-          exposureQuery: resolvedExposureQuery,
-          activationMetric: activationMetric,
-          dimensionsForPrecomputation: [],
-          dimensionsForAnalysis: dimensionObjs,
-          factTableMap: params.factTableMap,
-          unitsSourceTableFullName: unitsTableFullName,
-          metrics: subGroup.metrics,
-          lastMaxTimestamp: null,
-          metricSources: subGroup.pipelines.map((p) => ({
-            factTableId: p.group.factTableId,
-            tableFullName: p.tableFullName,
-            ...(p.covariateTableFullName
-              ? { covariateTableFullName: p.covariateTableFullName }
-              : {}),
-          })),
-        }),
-        dependencies: [],
-        run: fenced((query, setExternalId, queryMetadata) =>
-          integration.runIncrementalRefreshStatisticsQuery(
-            query,
-            setExternalId,
-            queryMetadata,
-          ),
-        ),
-        queryType: "experimentIncrementalRefreshStatistics",
-      });
-      queries.push(funnelStatsQuery);
-    }
+    queries.push(multiSourceStatsQuery);
   }
 
   return queries;

@@ -24,13 +24,6 @@ export interface FunnelMetricSteps extends FunnelMetricForResolution {
   stepIndices: number[];
 }
 
-/** Step 0 needs array + resolve CTE when its conversion window is relative to exposure. */
-export function funnelStep0NeedsExposureWindow(
-  metric: FunnelFactMetricInterface,
-): boolean {
-  return !!metric.funnelSettings.steps[0]?.conversionWindow;
-}
-
 /**
  * Resolve step 0 to a scalar timestamp at aggregate time.
  *
