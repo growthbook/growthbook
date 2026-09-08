@@ -1,10 +1,12 @@
+import { scrubUrl, type UrlScrubSettings } from "../utils/privacy";
+
 const SAFE_PROTOCOLS = ["http:", "https:"];
+// Privacy labels and tracking directives never ship as event properties
 const RESERVED_DATA_GB_KEYS = new Set([
+  "block",
+  "mask",
   "ignore",
-  "ignore-clicks",
-  "ignore-forms",
-  "ignore-rage",
-  "sensitive",
+  "allow",
   "track",
 ]);
 const MAX_TEXT_LEN = 80;
@@ -32,8 +34,17 @@ function cssEscape(v: string): string {
 
 export type ElementPropertyOptions = {
   collectText?: boolean;
-  sensitiveSelector?: string;
+  // Elements whose text and data-gb-* attributes are redacted
+  maskSelector?: string;
+  // Escapes masking for the element and its descendants
+  allowSelector?: string;
+  url?: UrlScrubSettings;
 };
+
+export function isMasked(el: Element, opts: ElementPropertyOptions): boolean {
+  if (!opts.maskSelector || !el.closest(opts.maskSelector)) return false;
+  return !(opts.allowSelector && el.closest(opts.allowSelector));
+}
 
 export type ElementProperties = Record<string, unknown>;
 
@@ -88,14 +99,9 @@ export function buildSelector(el: Element): string | undefined {
 
 export function getDataGbAttributes(
   el: Element,
-  sensitiveSelector?: string,
 ): Record<string, string | undefined> {
-  const chain = getAncestorChain(el);
-  if (sensitiveSelector && chain.some((e) => e.matches(sensitiveSelector)))
-    return {};
-
   const result: Record<string, string | undefined> = {};
-  for (const e of chain) {
+  for (const e of getAncestorChain(el)) {
     for (const attr of Array.from(e.attributes || [])) {
       if (!attr.name.startsWith("data-gb-")) continue;
       const rawKey = attr.name.slice("data-gb-".length);
@@ -108,26 +114,26 @@ export function getDataGbAttributes(
   return result;
 }
 
-function getSafeElementText(
-  el: Element,
-  sensitiveSelector?: string,
-): string | undefined {
+function getSafeElementText(el: Element): string | undefined {
   if (el.matches("input, textarea, select")) return undefined;
-  if (sensitiveSelector && el.closest(sensitiveSelector)) return undefined;
   const text = ((el as HTMLElement).innerText || el.textContent || "")
     .replace(/\s+/g, " ")
     .trim();
   return truncate(text, MAX_TEXT_LEN);
 }
 
-function getHrefProperties(el: Element): Record<string, unknown> {
+function getHrefProperties(
+  el: Element,
+  url?: UrlScrubSettings,
+): Record<string, unknown> {
   const anchor = el.closest("a");
   const href =
     el.getAttribute("href") || (anchor ? anchor.getAttribute("href") : null);
   if (!href) return {};
   try {
-    const parsed = new URL(href, location.href);
-    if (!SAFE_PROTOCOLS.includes(parsed.protocol)) return {};
+    const raw = new URL(href, location.href);
+    if (!SAFE_PROTOCOLS.includes(raw.protocol)) return {};
+    const parsed = new URL(scrubUrl(raw.href, url));
     return cleanProperties({
       element_href: truncate(parsed.origin + parsed.pathname),
       element_href_host: truncate(parsed.host),
@@ -160,11 +166,12 @@ export function getClickEventName(el: Element): string {
 
 export function getFormActionProperties(
   form: HTMLFormElement,
+  url?: UrlScrubSettings,
 ): Record<string, unknown> {
   const action = form.getAttribute("action");
   if (!action) return {};
   try {
-    const parsed = new URL(action, location.href);
+    const parsed = new URL(scrubUrl(action, url));
     return {
       form_action_host: truncate(parsed.host),
       form_action_path: truncate(parsed.pathname),
@@ -178,9 +185,7 @@ export function getElementProperties(
   el: Element,
   opts: ElementPropertyOptions = {},
 ): ElementProperties {
-  const sensitive = opts.sensitiveSelector
-    ? !!el.closest(opts.sensitiveSelector)
-    : false;
+  const masked = isMasked(el, opts);
 
   return cleanProperties({
     element_tag: lower(el.tagName),
@@ -197,11 +202,11 @@ export function getElementProperties(
         : undefined,
     element_selector: buildSelector(el),
     element_text:
-      !sensitive && opts.collectText !== false
-        ? getSafeElementText(el, opts.sensitiveSelector)
+      !masked && opts.collectText !== false
+        ? getSafeElementText(el)
         : undefined,
-    ...getHrefProperties(el),
-    ...getDataGbAttributes(el, opts.sensitiveSelector),
+    ...getHrefProperties(el, opts.url),
+    ...(masked ? {} : getDataGbAttributes(el)),
   });
 }
 

@@ -21,6 +21,7 @@ export type { AutoAttributeSettings } from "./auto-attributes";
 export type { TrackingTransport } from "./growthbook-tracking";
 export type { Trackers } from "./third-party-tracking";
 export type { SessionConfig } from "./utils/session";
+export type { PrivacySettings, UrlScrubSettings } from "./utils/privacy";
 export type {
   DevtoolsState,
   ExpressRequestCompat,

@@ -4,6 +4,7 @@ import type {
   UserScopedGrowthBook,
 } from "../../GrowthBookClient";
 import { normalizeSamplingRate } from "../utils/sampling";
+import { sharePrivacySettings, type PrivacySettings } from "../utils/privacy";
 import { createCWVReporter } from "./cwv-reporter";
 import { createErrorReporter } from "./error-reporter";
 import { createEngagementReporter } from "./engagement-reporter";
@@ -46,14 +47,14 @@ export type AutoEventsSettings = {
   clickstream?: Stream<{
     samplingRate?: number;
     clickSelector?: string;
-    ignoreClickSelector?: string;
     collectElementText?: boolean;
-    sensitiveSelector?: string;
     formSelector?: string;
-    ignoreFormSelector?: string;
   }>;
 
   // Shared
+  // gb-block/gb-mask/gb-ignore/gb-allow labels plus these selectors decide
+  // what clickstream captures; other plugins inherit anything set here
+  privacy?: PrivacySettings;
   trackQueryStringChanges?: boolean; // treat ?query changes as new pages
   hashAttribute?: string;
   samplingSeed?: string; // change to rerandomize the cohort
@@ -106,10 +107,12 @@ export function autoEventsPlugin(settings: AutoEventsSettings = {}) {
     samplingRate: DEFAULT_SAMPLING_RATE,
   });
   const {
+    privacy,
     trackQueryStringChanges = false,
     hashAttribute = "id",
     samplingSeed = "gb-events",
   } = settings;
+  sharePrivacySettings(privacy);
   const metrics = new Set<CwvMetric>(
     cwv.metrics ?? ["FCP", "LCP", "INP", "CLS", "TTFB", "TBT"],
   );
@@ -177,11 +180,9 @@ export function autoEventsPlugin(settings: AutoEventsSettings = {}) {
         hashAttribute,
         samplingSeed,
         clickSelector: clickstream.clickSelector,
-        ignoreClickSelector: clickstream.ignoreClickSelector,
         collectElementText: clickstream.collectElementText,
-        sensitiveSelector: clickstream.sensitiveSelector,
         formSelector: clickstream.formSelector,
-        ignoreFormSelector: clickstream.ignoreFormSelector,
+        privacy,
         pageState,
         growthbook: gb,
       });

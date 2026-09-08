@@ -21,7 +21,8 @@ import {
 } from "./plugins/third-party-tracking";
 import { autoEventsPlugin } from "./plugins/auto-events/index";
 import type { AutoEventsSettings } from "./plugins/auto-events/index";
-import type { SessionReplayPrivacyConfig } from "./plugins/session-replay";
+import type { PrivacySettings } from "./plugins/utils/privacy";
+import type { SessionReplayPrivacySettings } from "./plugins/session-replay/index";
 
 type WindowContext = Context & {
   uuidCookieName?: string;
@@ -40,8 +41,13 @@ type WindowContext = Context & {
   additionalTrackingCallback?: TrackingCallback;
   autoEvents?: AutoEventsSettings;
   eventIngestorHost?: string;
+  // Shared by every content-capturing plugin unless it sets its own
+  privacy?: PrivacySettings;
   // Consumed by auto-wrapper-plus
-  sessionReplay?: { enabled?: boolean; privacy?: SessionReplayPrivacyConfig };
+  sessionReplay?: {
+    enabled?: boolean;
+    privacy?: SessionReplayPrivacySettings;
+  };
 };
 declare global {
   interface Window {
@@ -198,7 +204,10 @@ function readAutoEventsSettings(): AutoEventsSettings {
   return settings;
 }
 
-const autoEventsSettings = readAutoEventsSettings();
+const autoEventsSettings: AutoEventsSettings = {
+  privacy: windowContext.privacy,
+  ...readAutoEventsSettings(),
+};
 const autoEventsEnabled = AUTO_EVENT_STREAMS.some((stream: AutoEventStream) => {
   const value = autoEventsSettings[stream];
   return typeof value === "object" ? value.enabled !== false : value === true;

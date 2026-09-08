@@ -7,9 +7,10 @@ import { resolveSessionId } from "../utils/session";
 import { shouldSampleScope, persistSampleDecision } from "../utils/sampling";
 import { mergeSettings } from "../utils/settings";
 import { DEFAULT_INGESTOR_HOST } from "../utils/ingestor";
+import { resolvePrivacySettings, sharePrivacySettings } from "../utils/privacy";
 import { createRetry, RetryExhaustedError, RetryCancelledError } from "./retry";
 import {
-  SessionReplayPrivacyConfig,
+  SessionReplayPrivacySettings,
   buildRrwebPrivacyOptions,
 } from "./privacy";
 import { scrubEventUrls } from "./url-scrub";
@@ -19,10 +20,10 @@ import {
 } from "./id";
 
 export type {
-  SessionReplayPrivacyConfig,
+  SessionReplayPrivacySettings,
   MaskableInputType,
-  SessionReplayUrlScrubberConfig,
 } from "./privacy";
+export type { PrivacySettings, UrlScrubSettings } from "../utils/privacy";
 
 type PluginOptions = {
   ingestorHost?: string;
@@ -32,9 +33,9 @@ type PluginOptions = {
   // Fraction of sessions to record (0-1, default 1). True-random and sticky
   // per replay session.
   samplingRate?: number;
-  // Masking/blocking controls for what rrweb captures. Defaults to
-  // deny-by-default (every input masked).
-  privacy?: SessionReplayPrivacyConfig;
+  // What rrweb may capture. Deny by default (every input masked); keys
+  // omitted here inherit whatever autoEventsPlugin({ privacy }) was given.
+  privacy?: SessionReplayPrivacySettings;
 };
 
 const SAMPLE_DECISION_KEY = "gb_session_replay_sampled";
@@ -134,6 +135,8 @@ export function sessionReplayPlugin({
   if (typeof window === "undefined" || typeof document === "undefined") {
     throw new Error("sessionReplayPlugin only works in the browser");
   }
+
+  sharePrivacySettings(privacy);
 
   let gbRef: GrowthBook | null = null;
   // Remote re-enables resume recording only if nothing stopped it explicitly
@@ -452,6 +455,7 @@ export function sessionReplayPlugin({
     const settings = resolveSettings();
     if (!settings.enabled) return;
     if (userOptedOutOfTracking()) return;
+    const resolvedPrivacy = resolvePrivacySettings({}, privacy);
 
     const persisted = readPersistedReplayState();
     const now = Date.now();
@@ -514,10 +518,7 @@ export function sessionReplayPlugin({
       emit(event: eventWithTime) {
         // Scrub URL fields before the event lands in the buffer so nothing
         // downstream ever sees an unsanitized version
-        const scrubbedEvent = scrubEventUrls(
-          event,
-          privacy ? privacy.url : undefined,
-        );
+        const scrubbedEvent = scrubEventUrls(event, resolvedPrivacy.url);
 
         // Only deliberate input (rrweb IncrementalSource 2=MouseInteraction,
         // 5=Input, 6=TouchMove, 12=Drag) counts as interaction; checked
@@ -567,7 +568,7 @@ export function sessionReplayPlugin({
         scroll: 150,
         input: "last",
       },
-      ...buildRrwebPrivacyOptions(privacy),
+      ...buildRrwebPrivacyOptions(resolvedPrivacy),
     });
 
     if (!rrwebStop) {

@@ -1,9 +1,9 @@
+import { buildRrwebPrivacyOptions } from "../../src/plugins/session-replay/privacy";
 import {
-  buildRrwebPrivacyOptions,
   GB_BLOCK_CLASS,
   GB_IGNORE_CLASS,
   GB_MASK_CLASS,
-} from "../../src/plugins/session-replay/privacy";
+} from "../../src/plugins/utils/privacy";
 
 describe("session replay privacy options", () => {
   it("uses deny-by-default input masking and GrowthBook privacy selectors", () => {
@@ -49,12 +49,18 @@ describe("session replay privacy options", () => {
     );
   });
 
-  it("wraps custom mask functions but bypasses masking inside data-gb-allow", () => {
+  it("wraps custom mask functions but bypasses masking inside gb-allow", () => {
     document.body.innerHTML = `
       <div>
         <input id="masked" />
         <div data-gb-allow>
-          <input id="allowed" />
+          <input id="allowed-attr" />
+        </div>
+        <div class="gb-allow">
+          <input id="allowed-class" />
+        </div>
+        <div class="customer-allow">
+          <input id="allowed-custom" />
         </div>
       </div>
     `;
@@ -64,15 +70,20 @@ describe("session replay privacy options", () => {
     const options = buildRrwebPrivacyOptions({
       maskInputFn: userInputMask,
       maskTextFn: userTextMask,
+      allowSelector: ".customer-allow",
     });
 
-    const masked = document.getElementById("masked") as HTMLElement;
-    const allowed = document.getElementById("allowed") as HTMLElement;
+    const el = (id: string) => document.getElementById(id) as HTMLElement;
 
-    expect(options.maskInputFn?.("secret", masked)).toBe("input:secret");
-    expect(options.maskTextFn?.("private", masked)).toBe("text:private");
-    expect(options.maskInputFn?.("safe", allowed)).toBe("safe");
-    expect(options.maskTextFn?.("visible", allowed)).toBe("visible");
+    expect(options.maskInputFn?.("secret", el("masked"))).toBe("input:secret");
+    expect(options.maskTextFn?.("private", el("masked"))).toBe("text:private");
+    expect(options.maskInputFn?.("safe", el("allowed-attr"))).toBe("safe");
+    expect(options.maskTextFn?.("visible", el("allowed-class"))).toBe(
+      "visible",
+    );
+    expect(options.maskInputFn?.("custom", el("allowed-custom"))).toBe(
+      "custom",
+    );
     expect(userInputMask).toHaveBeenCalledTimes(1);
     expect(userTextMask).toHaveBeenCalledTimes(1);
   });

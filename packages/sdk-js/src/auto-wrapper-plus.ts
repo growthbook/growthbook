@@ -17,7 +17,7 @@ if (!sessionReplayDisabled) {
     ingestorHost:
       windowContext.eventIngestorHost || dataContext.eventIngestorHost,
     enabled: replayConfig.enabled,
-    privacy: replayConfig.privacy,
+    privacy: replayConfig.privacy || windowContext.privacy,
   })(gb);
 }
 

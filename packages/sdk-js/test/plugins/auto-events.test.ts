@@ -9,6 +9,10 @@ import {
   subscribeToUrlChanges,
 } from "../../src/plugins/utils/url-change-observer";
 import { autoEventsPlugin } from "../../src/plugins/auto-events";
+import {
+  _resetPrivacyForTests,
+  sharePrivacySettings,
+} from "../../src/plugins/utils/privacy";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -900,7 +904,10 @@ describe("subscribeToUrlChanges", () => {
 });
 
 describe("Interaction reporter", () => {
-  beforeEach(() => {});
+  beforeEach(() => {
+    _resetPrivacyForTests();
+    document.body.innerHTML = "";
+  });
 
   it("tracks clicks on default selectors (links, buttons, data-gb-track)", () => {
     const gb = new GrowthBook({ clientKey: "test" });
@@ -922,24 +929,94 @@ describe("Interaction reporter", () => {
     gb.destroy();
   });
 
-  it("respects ignoreClickSelector", () => {
+  it("skips gb-ignore elements and customer ignoreSelector, including rage clicks", () => {
     const gb = new GrowthBook({ clientKey: "test" });
     const logEvent = jest.spyOn(gb, "logEvent");
 
     createInteractionReporter({
       growthbook: gb,
       samplingRate: 1,
-      ignoreClickSelector: ".skip-me",
+      privacy: { ignoreSelector: ".skip-me" },
     });
 
-    const btn = document.createElement("button");
-    btn.className = "skip-me";
-    document.body.appendChild(btn);
-    btn.click();
+    document.body.innerHTML = `
+      <button class="skip-me">a</button>
+      <div data-gb-ignore><button id="labeled">b</button></div>
+      <form class="gb-ignore" name="secret"></form>
+    `;
+    for (const btn of Array.from(document.querySelectorAll("button"))) {
+      for (let i = 0; i < 3; i++) {
+        btn.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, clientX: 1, clientY: 1 }),
+        );
+      }
+    }
+    document
+      .querySelector("form")!
+      .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 
     expect(logEvent).not.toHaveBeenCalled();
+    gb.destroy();
+  });
 
-    document.body.removeChild(btn);
+  it("redacts text, data attributes, and href ids under gb-mask/gb-block, with gb-allow as the escape", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createInteractionReporter({
+      growthbook: gb,
+      samplingRate: 1,
+      privacy: { maskTextSelector: ".pii" },
+    });
+
+    document.body.innerHTML = `
+      <div data-gb-mask data-gb-plan="pro">
+        <a id="masked" href="/users/123/orders?token=x" data-gb-cta="buy">Jane Doe</a>
+        <span class="gb-allow"><button id="allowed" data-gb-cta="ok">Visible</button></span>
+      </div>
+      <button id="blocked" class="gb-block">Card 4242</button>
+      <button id="custom" class="pii">SSN</button>
+      <button id="plain" data-gb-cta="go">Plain</button>
+    `;
+    for (const id of ["masked", "allowed", "blocked", "custom", "plain"]) {
+      document.getElementById(id)!.click();
+    }
+
+    const props = (id: string) =>
+      logEvent.mock.calls.find((c) => c[1]?.element_id === id)?.[1] ?? {};
+
+    expect(props("masked")).toEqual(
+      expect.objectContaining({
+        element_href: "http://localhost/users/[id]/orders",
+        element_href_path: "/users/[id]/orders",
+      }),
+    );
+    expect(props("masked")).not.toHaveProperty("element_text");
+    expect(props("masked")).not.toHaveProperty("data_cta");
+    expect(props("masked")).not.toHaveProperty("data_plan");
+    expect(props("allowed")).toEqual(
+      expect.objectContaining({ element_text: "Visible", data_cta: "ok" }),
+    );
+    expect(props("blocked")).not.toHaveProperty("element_text");
+    expect(props("custom")).not.toHaveProperty("element_text");
+    expect(props("plain")).toEqual(
+      expect.objectContaining({ element_text: "Plain", data_cta: "go" }),
+    );
+    expect(props("plain")).not.toHaveProperty("data_mask");
+    gb.destroy();
+  });
+
+  it("inherits privacy settings another plugin registered, even after it started", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createInteractionReporter({ growthbook: gb, samplingRate: 1 });
+    sharePrivacySettings({ ignoreSelector: ".from-replay" });
+
+    document.body.innerHTML = `<button class="from-replay">x</button>`;
+    document.querySelector("button")!.click();
+
+    expect(logEvent).not.toHaveBeenCalled();
     gb.destroy();
   });
 

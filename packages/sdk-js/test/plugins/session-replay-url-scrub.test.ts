@@ -1,7 +1,5 @@
-import {
-  scrubEventUrls,
-  scrubUrl,
-} from "../../src/plugins/session-replay/url-scrub";
+import { scrubEventUrls } from "../../src/plugins/session-replay/url-scrub";
+import { scrubUrl } from "../../src/plugins/utils/privacy";
 
 describe("session replay URL scrubbing", () => {
   it("strips query params and fragments and redacts ID-like path segments", () => {
@@ -63,7 +61,7 @@ describe("session replay URL scrubbing", () => {
     });
   });
 
-  it("scrubs URL attributes throughout full snapshot trees", () => {
+  it("scrubs navigation URLs throughout full snapshot trees and leaves resource URLs loadable", () => {
     const event = {
       type: 2,
       timestamp: 1000,
@@ -111,13 +109,49 @@ describe("session replay URL scrubbing", () => {
                   type: 2,
                   tagName: "img",
                   attributes: {
-                    src: "https://cdn.example.com/assets/abcdef1234567890.png",
+                    src: "https://cdn.example.com/assets/abcdef1234567890.png?signature=secret",
                   },
                 },
               ],
             },
           ],
         },
+      },
+    });
+  });
+
+  it("scrubs resource URLs only when scrubResourceUrls is set", () => {
+    const event = {
+      type: 3,
+      timestamp: 1000,
+      data: {
+        source: 0,
+        attributes: [
+          {
+            id: 1,
+            attributes: {
+              src: "https://cdn.example.com/u/123/avatar.png?sig=secret",
+              poster: "https://cdn.example.com/v/456/poster.jpg?sig=secret",
+            },
+          },
+        ],
+      },
+    };
+
+    expect(scrubEventUrls(event)).toBe(event);
+    expect(scrubEventUrls(event, { scrubResourceUrls: true })).toEqual({
+      ...event,
+      data: {
+        source: 0,
+        attributes: [
+          {
+            id: 1,
+            attributes: {
+              src: "https://cdn.example.com/u/[id]/avatar.png",
+              poster: "https://cdn.example.com/v/[id]/poster.jpg",
+            },
+          },
+        ],
       },
     });
   });

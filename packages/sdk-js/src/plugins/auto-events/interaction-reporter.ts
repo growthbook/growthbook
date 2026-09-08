@@ -2,6 +2,15 @@ import type { GrowthBook } from "../../GrowthBook";
 import { shouldSample } from "../utils/sampling";
 import { detectEnv } from "../utils/browser";
 import {
+  composeSelectors,
+  DEFAULT_ALLOW_SELECTOR,
+  DEFAULT_BLOCK_SELECTOR,
+  DEFAULT_IGNORE_SELECTOR,
+  DEFAULT_MASK_SELECTOR,
+  resolvePrivacySettings,
+  type PrivacySettings,
+} from "../utils/privacy";
+import {
   resolveElement,
   shouldIgnore,
   getElementProperties,
@@ -15,28 +24,20 @@ import { createPageState, type PageState } from "./page-state";
 const DEFAULT_CLICK_SELECTOR =
   "a, button, [role='button'], [role='link'], " +
   "input[type='submit'], input[type='button'], [data-gb-track]";
-const DEFAULT_IGNORE_CLICK_SELECTOR =
-  "[data-gb-ignore], [data-gb-ignore-clicks], .gb-ignore";
-const DEFAULT_IGNORE_FORM_SELECTOR =
-  "[data-gb-ignore], [data-gb-ignore-forms], .gb-ignore";
-const IGNORE_RAGE_SELECTOR = "[data-gb-ignore-rage]";
 // Rage click: this many clicks within the window, all within this radius
 const RAGE_THRESHOLD = 3;
 const RAGE_WINDOW_MS = 3000;
 const RAGE_MAX_DISTANCE_PX = 50;
-const DEFAULT_SENSITIVE_SELECTOR =
-  "input[type='password'], [data-gb-sensitive]";
+const PASSWORD_SELECTOR = "input[type='password']";
 
 export type InteractionReporterSettings = {
   samplingRate?: number;
   hashAttribute?: string;
   samplingSeed?: string;
   clickSelector?: string;
-  ignoreClickSelector?: string;
   collectElementText?: boolean;
-  sensitiveSelector?: string;
   formSelector?: string;
-  ignoreFormSelector?: string;
+  privacy?: PrivacySettings;
   // Shared with the engagement reporter of the same instance
   pageState?: PageState;
   growthbook: GrowthBook;
@@ -47,11 +48,9 @@ export function createInteractionReporter({
   hashAttribute = "id",
   samplingSeed,
   clickSelector = DEFAULT_CLICK_SELECTOR,
-  ignoreClickSelector = DEFAULT_IGNORE_CLICK_SELECTOR,
   collectElementText = true,
-  sensitiveSelector = DEFAULT_SENSITIVE_SELECTOR,
   formSelector = "form",
-  ignoreFormSelector = DEFAULT_IGNORE_FORM_SELECTOR,
+  privacy,
   pageState,
   growthbook,
 }: InteractionReporterSettings) {
@@ -76,18 +75,43 @@ export function createInteractionReporter({
     markInteractionTrackingInactive,
   } = pageState ?? createPageState();
 
-  const elOpts: ElementPropertyOptions = {
-    collectText: collectElementText,
-    sensitiveSelector,
-  };
+  // Resolved per event so settings another plugin registers later still apply
+  function currentPrivacy(): {
+    ignoreSelector: string;
+    elOpts: ElementPropertyOptions;
+  } {
+    const p = resolvePrivacySettings({}, privacy);
+    return {
+      ignoreSelector: composeSelectors(
+        DEFAULT_IGNORE_SELECTOR,
+        p.ignoreSelector,
+      ),
+      elOpts: {
+        collectText: collectElementText,
+        maskSelector: composeSelectors(
+          DEFAULT_BLOCK_SELECTOR,
+          DEFAULT_MASK_SELECTOR,
+          PASSWORD_SELECTOR,
+          p.blockSelector,
+          p.maskTextSelector,
+        ),
+        allowSelector: composeSelectors(
+          DEFAULT_ALLOW_SELECTOR,
+          p.allowSelector,
+        ),
+        url: p.url,
+      },
+    };
+  }
 
   let rageClicks: { time: number; x: number; y: number }[] = [];
   const maxDistSq = RAGE_MAX_DISTANCE_PX * RAGE_MAX_DISTANCE_PX;
 
-  function handleRageClick(event: MouseEvent, target: Element) {
-    if (shouldIgnore(target, ignoreClickSelector)) return;
-    if (shouldIgnore(target, IGNORE_RAGE_SELECTOR)) return;
-
+  function handleRageClick(
+    event: MouseEvent,
+    target: Element,
+    elOpts: ElementPropertyOptions,
+  ) {
     const now = performance.now();
     const click = { time: now, x: event.clientX, y: event.clientY };
     rageClicks = rageClicks.filter((c) => now - c.time <= RAGE_WINDOW_MS);
@@ -122,12 +146,13 @@ export function createInteractionReporter({
 
     incrementClickCount();
 
-    handleRageClick(event, target);
+    const { ignoreSelector, elOpts } = currentPrivacy();
+    if (shouldIgnore(target, ignoreSelector)) return;
 
-    if (shouldIgnore(target, ignoreClickSelector)) return;
+    handleRageClick(event, target, elOpts);
+
     const tracked = target.closest(clickSelector);
     if (!tracked) return;
-    if (shouldIgnore(tracked, ignoreClickSelector)) return;
 
     incrementTrackedClickCount();
     growthbook.logEvent(getClickEventName(tracked), {
@@ -140,7 +165,8 @@ export function createInteractionReporter({
   const onSubmit = (event: Event) => {
     const form = resolveElement(event.target);
     if (!form || !form.matches(formSelector)) return;
-    if (shouldIgnore(form, ignoreFormSelector)) return;
+    const { ignoreSelector, elOpts } = currentPrivacy();
+    if (shouldIgnore(form, ignoreSelector)) return;
 
     incrementFormSubmitCount();
     const submitter = resolveElement((event as SubmitEvent).submitter);
@@ -150,7 +176,7 @@ export function createInteractionReporter({
         form_id: form.getAttribute("id") || undefined,
         form_name: form.getAttribute("name") || undefined,
         form_method: form.getAttribute("method") || "get",
-        ...getFormActionProperties(form as HTMLFormElement),
+        ...getFormActionProperties(form as HTMLFormElement, elOpts.url),
         submitter: submitter
           ? getElementProperties(submitter, elOpts)
           : undefined,
