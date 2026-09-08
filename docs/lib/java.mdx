@@ -899,9 +899,44 @@ As of version 0.9.0, there are 2 refresh strategies available.
 
 This is the default strategy but can be explicitly stated by passing `FeatureRefreshStrategy.STALE_WHILE_REVALIDATE` as the refresh strategy option to the `GBFeaturesRepository` builder or constructor.
 
-The `GBFeaturesRepository` will automatically refresh the features when the features become stale. Features are considered stale every 60 seconds. This amount is configurable with the `ttlSeconds` option.
+The `GBFeaturesRepository` will automatically refresh the features when the features become stale. Features are considered stale every 60 seconds. This amount is configurable with the `swrTtlSeconds` option, which also sets the interval of the background poll that drives the refresh.
 
 When you fetch features and they are considered stale, the stale features are returned from the `getFeaturesJson()` method and a network call to refresh the features is enqueued asynchronously. When that request succeeds, the features are updated with the newest features, and the next call to `getFeaturesJson()` will return the refreshed features.
+
+<CodeGroup>
+
+```java Enhanced Client
+Options options = Options.builder()
+        .apiHost("https://cdn.growthbook.io")
+        .clientKey("sdk-abc123")
+        // Consider features stale after 10 minutes
+        .swrTtlSeconds(600)
+        .build();
+
+GrowthBookClient gb = new GrowthBookClient(options);
+gb.initialize();
+```
+
+```java Traditional
+GBFeaturesRepository featuresRepository = GBFeaturesRepository
+    .builder()
+    .apiHost("https://cdn.growthbook.io")
+    .clientKey("sdk-abc123")
+    // Consider features stale after 10 minutes
+    .swrTtlSeconds(600)
+    .build();
+```
+
+</CodeGroup>
+
+<Warning>
+**Re-read `getFeaturesJson()` per request**
+
+`GBContext` holds the features JSON you pass it as a fixed snapshot. If you build a single `GBContext` at startup, refreshed features will never reach it no matter what `swrTtlSeconds` is set to. Either call `getFeaturesJson()` again when building each request's context, or use the [Enhanced Client](#enhanced-client-recommended), which handles this for you.
+
+</Warning>
+
+`swrTtlSeconds` has no effect under the `SERVER_SENT_EVENTS` refresh strategy, where updates are pushed as they happen.
 
 ##### Server-Sent Events
 

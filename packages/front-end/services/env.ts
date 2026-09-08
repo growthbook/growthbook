@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { scrubSentryEvent } from "shared/sentry";
 import { EnvironmentInitValue } from "@/./pages/api/init";
 
 const env: EnvironmentInitValue = {
@@ -44,6 +45,7 @@ export async function initEnv() {
       sendDefaultPii: true,
       environment: env.environment,
       release: env.build?.sha,
+      beforeSend: (event) => scrubSentryEvent(event),
     });
   }
 }

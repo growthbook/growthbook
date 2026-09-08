@@ -199,6 +199,8 @@ class ExperimentMetricAnalysisResult:
     unknownVariations: List[str]
     multipleExposures: float
     dimensions: List[DimensionResponse]
+    error: Optional[str] = None
+    traceback: Optional[str] = None
 
 
 @dataclass

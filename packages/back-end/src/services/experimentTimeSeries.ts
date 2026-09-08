@@ -6,6 +6,7 @@ import {
   expandDerivedMetricsInMap,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
+  getFactMetricFactTableIds,
   getFactMetricPrimaryFactTableId,
   isFactFunnelMetric,
   parseFunnelStepMetricId,
@@ -235,16 +236,23 @@ export async function updateExperimentAnalysisTimeSeries({
     for (const metricId of allMetricIds) {
       const variations: MetricTimeSeriesVariation[] = variationIds.map(
         (v, variationIndex) => {
-          const relativeMetric =
-            resultsByDifferenceType.relative?.variations[variationIndex]
-              ?.metrics[metricId];
-          const absoluteMetric =
-            resultsByDifferenceType.absolute?.variations[variationIndex]
-              ?.metrics[metricId];
-          const scaledMetric =
-            resultsByDifferenceType.scaled?.variations[variationIndex]?.metrics[
-              metricId
-            ];
+          // Each difference type computes independently; drop the ones that
+          // errored and keep the rest, rather than dropping the whole metric.
+          const relativeMetric = getComputedMetric(
+            resultsByDifferenceType.relative,
+            variationIndex,
+            metricId,
+          );
+          const absoluteMetric = getComputedMetric(
+            resultsByDifferenceType.absolute,
+            variationIndex,
+            metricId,
+          );
+          const scaledMetric = getComputedMetric(
+            resultsByDifferenceType.scaled,
+            variationIndex,
+            metricId,
+          );
 
           return {
             id: v.id,
@@ -258,6 +266,14 @@ export async function updateExperimentAnalysisTimeSeries({
           };
         },
       );
+
+      const hasComputedValue = variations.some(
+        (v) =>
+          v.relative !== undefined ||
+          v.absolute !== undefined ||
+          v.scaled !== undefined,
+      );
+      if (!hasComputedValue) continue;
 
       const baseDataPoint = {
         source: "experiment",
@@ -308,6 +324,19 @@ function getAnalysisResult(
   if (!analysis) return undefined;
   if (dimensionValue === undefined) return analysis.results[0];
   return analysis.results.find((result) => result.name === dimensionValue);
+}
+
+// A stats-engine compute failure yields a zeroed metric flagged computeFailed.
+// Drop those so a failed difference type is neither recorded as a real value
+// nor picked as the stats source. Key off computeFailed, not errorMessage: a
+// successful metric can carry errorMessage: null from gbstats.
+function getComputedMetric(
+  result: ExperimentSnapshotAnalysis["results"][number] | undefined,
+  variationIndex: number,
+  metricId: string,
+): SnapshotMetric | undefined {
+  const metric = result?.variations[variationIndex]?.metrics[metricId];
+  return metric && !metric.computeFailed ? metric : undefined;
 }
 
 function getAnalysisByDifferenceType(
@@ -412,6 +441,69 @@ function getDefinitionMetricId(metricId: string): string {
     : parseSliceMetricId(metricId).baseMetricId;
 }
 
+/**
+ * The slice of a fact metric's definition (and its fact tables') that affects
+ * generated SQL, for change-detection hashes. Funnel steps resolve filters
+ * against their own fact table; step tables beyond the numerator's are hashed
+ * under `funnelStepFactTables`, which stays `undefined` when absent
+ * (JSON.stringify drops it) so unaffected metrics keep their existing hashes.
+ */
+export function getFactMetricDefinitionForHash(
+  factMetric: FactMetricInterface,
+  factTableMap?: Map<string, FactTableInterface>,
+) {
+  const numeratorFactTableId = getFactMetricPrimaryFactTableId(factMetric);
+  const numeratorFactTable = numeratorFactTableId
+    ? factTableMap?.get(numeratorFactTableId)
+    : undefined;
+
+  const denominatorFactTableId = factMetric.denominator?.factTableId;
+  const denominatorFactTable = denominatorFactTableId
+    ? factTableMap?.get(denominatorFactTableId)
+    : undefined;
+
+  const extraFunnelFactTableIds = isFactFunnelMetric(factMetric)
+    ? getFactMetricFactTableIds(factMetric).filter(
+        (id) => id !== numeratorFactTableId,
+      )
+    : [];
+
+  return {
+    metricType: factMetric.metricType,
+    numerator: factMetric.numerator,
+    denominator: factMetric.denominator,
+    cappingSettings: factMetric.cappingSettings,
+    quantileSettings: factMetric.quantileSettings,
+    funnelSettings: factMetric.funnelSettings,
+    numeratorFactTable: {
+      sql: numeratorFactTable?.sql,
+      eventName: numeratorFactTable?.eventName,
+      filters: getFiltersForHash(numeratorFactTable, factMetric.numerator),
+      funnelFilters: isFactFunnelMetric(factMetric)
+        ? factMetric.funnelSettings.steps.flatMap(
+            (step) =>
+              getFiltersForHash(factTableMap?.get(step.factTableId), step) ??
+              [],
+          )
+        : undefined,
+    },
+    denominatorFactTable: {
+      sql: denominatorFactTable?.sql,
+      eventName: denominatorFactTable?.eventName,
+      // TODO: also include denominator filters?
+    },
+    funnelStepFactTables: extraFunnelFactTableIds.length
+      ? extraFunnelFactTableIds.map((id) => {
+          const factTable = factTableMap?.get(id);
+          return {
+            sql: factTable?.sql,
+            eventName: factTable?.eventName,
+          };
+        })
+      : undefined,
+  };
+}
+
 export function getMetricSettingsHash(
   metricId: string,
   metricSettings?: MetricForSnapshot,
@@ -424,42 +516,11 @@ export function getMetricSettingsHash(
   );
   if (!factMetric) {
     return hashObject(metricSettings ?? { id: metricId });
-  } else {
-    const numeratorFactTableId = getFactMetricPrimaryFactTableId(factMetric);
-    const numeratorFactTable = numeratorFactTableId
-      ? factTableMap?.get(numeratorFactTableId)
-      : undefined;
-
-    const denominatorFactTableId = factMetric.denominator?.factTableId;
-    const denominatorFactTable = denominatorFactTableId
-      ? factTableMap?.get(denominatorFactTableId)
-      : undefined;
-
-    return hashObject({
-      ...metricSettings,
-      metricType: factMetric.metricType,
-      numerator: factMetric.numerator,
-      denominator: factMetric.denominator,
-      cappingSettings: factMetric.cappingSettings,
-      quantileSettings: factMetric.quantileSettings,
-      funnelSettings: factMetric.funnelSettings,
-      numeratorFactTable: {
-        sql: numeratorFactTable?.sql,
-        eventName: numeratorFactTable?.eventName,
-        filters: getFiltersForHash(numeratorFactTable, factMetric.numerator),
-        funnelFilters: isFactFunnelMetric(factMetric)
-          ? factMetric.funnelSettings.steps.flatMap(
-              (step) => getFiltersForHash(numeratorFactTable, step) ?? [],
-            )
-          : undefined,
-      },
-      denominatorFactTable: {
-        sql: denominatorFactTable?.sql,
-        eventName: denominatorFactTable?.eventName,
-        // TODO: also include denominator filters?
-      },
-    });
   }
+  return hashObject({
+    ...metricSettings,
+    ...getFactMetricDefinitionForHash(factMetric, factTableMap),
+  });
 }
 
 function getHasSignificantDifference(

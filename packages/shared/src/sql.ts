@@ -70,11 +70,19 @@ export function format(
   }
 }
 
+/**
+ * Drop a terminating semicolon even when a trailing comment follows it, e.g.
+ * `SELECT 1;\n-- note`. `/;\s*$/` misses that case and the leftover `;` then
+ * fails multi-statement checks after the query is wrapped in a subquery.
+ */
+export function stripTrailingSemicolon(sql: string): string {
+  return sql.replace(/;(\s|--[^\n]*|\/\*[\s\S]*?\*\/)*$/, "").trim();
+}
+
 export function ensureLimit(sql: string, limit: number): string {
   if (limit <= 0) throw new Error("Limit must be a positive integer");
 
-  // Remove trailing semicolons and spaces
-  sql = sql.replace(/;\s*$/, "").trim();
+  sql = stripTrailingSemicolon(sql);
 
   // Case 1: Has both LIMIT and OFFSET clauses
   const limitOffsetMatch = sql.match(/LIMIT\s+(\d+)\s+OFFSET\s+(\d+)$/i);
@@ -137,7 +145,7 @@ export function isMultiStatementSQL(sql: string, backslashEscapes: boolean) {
   if (parseError) {
     // Parse failed, so string boundaries are unknown. Stay conservative and
     // treat any non-trailing semicolon as a statement separator.
-    return sql.replace(/;\s*$/, "").includes(";");
+    return stripTrailingSemicolon(sql).includes(";");
   }
   // Otherwise, search the stripped SQL for semicolons
   else {

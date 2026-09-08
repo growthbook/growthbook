@@ -1,5 +1,6 @@
 import { z } from "zod";
 import isEqual from "lodash/isEqual";
+import { v4 as uuidv4 } from "uuid";
 import {
   apiContextualBanditCancelReturn,
   apiContextualBanditLifecycleReturn,
@@ -7,7 +8,7 @@ import {
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
-  assertExposureQueriesTargetingAttributeColumnsValid,
+  assertContextualAttributesValid,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
   ContextualBanditInterface,
   contextualBanditValidator,
@@ -280,23 +281,20 @@ export class ContextualBanditModel extends BaseClass {
       }
     }
 
-    const targetingAttributeColumns =
-      doc.targetingAttributeColumns ?? doc.contextualAttributes;
-    if ((targetingAttributeColumns?.length ?? 0) === 0) {
-      throw new Error(
-        "A contextual bandit must declare at least one contextual attribute.",
+    if (
+      !previousDoc ||
+      !isEqual(doc.contextualAttributes, previousDoc.contextualAttributes)
+    ) {
+      if ((doc.contextualAttributes?.length ?? 0) === 0) {
+        throw new Error(
+          "A contextual bandit must declare at least one contextual attribute.",
+        );
+      }
+      assertContextualAttributesValid(
+        this.context.org.settings?.attributeSchema,
+        doc,
       );
     }
-    assertExposureQueriesTargetingAttributeColumnsValid(
-      this.context.org.settings?.attributeSchema,
-      [
-        {
-          id: doc.id,
-          name: doc.name,
-          targetingAttributeColumns,
-        },
-      ],
-    );
   }
 
   public override async handleApiList(
@@ -341,11 +339,11 @@ export class ContextualBanditModel extends BaseClass {
         id: generateVariationId(),
         screenshots: [],
       })),
-      targetingAttributeColumns: body.contextualAttributes,
       contextualAttributes: body.contextualAttributes,
       status: "draft" as const,
       currentLeafWeights: [],
       banditVersion: 0,
+      seed: uuidv4(),
     };
   }
 
@@ -356,9 +354,6 @@ export class ContextualBanditModel extends BaseClass {
       if (body[field] !== undefined) {
         (out as Record<string, unknown>)[field] = body[field];
       }
-    }
-    if (body.contextualAttributes !== undefined) {
-      out.targetingAttributeColumns = body.contextualAttributes;
     }
     return out as Parameters<typeof this.updateById>[1];
   }
@@ -399,6 +394,7 @@ export class ContextualBanditModel extends BaseClass {
     leafWeights: LeafWeight[],
     options?: {
       bumpVersion?: boolean;
+      newSeed?: string;
     },
   ): Promise<ContextualBanditInterface> {
     const existingCB = await this.getById(cbId);
@@ -414,6 +410,9 @@ export class ContextualBanditModel extends BaseClass {
     const set: Record<string, unknown> = { dateUpdated: now };
     if (leafWeights.length > 0) {
       set.currentLeafWeights = leafWeights;
+    }
+    if (options?.newSeed) {
+      set.seed = options.newSeed;
     }
     const res = await collection.updateOne(
       {

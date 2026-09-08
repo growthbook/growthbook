@@ -87,6 +87,10 @@ function validateSingleCustomFieldValue(
         `Invalid enum value for custom field ${customField.id} (${toStringValue(value)}). Only one value is allowed for enum fields.`,
       );
     }
+    if (customField.creatable) {
+      return;
+    }
+
     const possibleValues = customField.values
       ? customField.values
           .split(",")
@@ -137,9 +141,20 @@ function validateSingleCustomFieldValue(
 export function validateCustomFieldValues(
   customFields: CustomField[],
   customFieldValues: Record<string, unknown>,
+  existingCustomFieldValues?: Record<string, unknown>,
 ): void {
+  // Untouched values are grandfathered in, so stale values (entered before an
+  // option was removed, creatable turned off, or a field deleted) don't block
+  // saves of unrelated changes
+  const isUnchanged = (key: string) =>
+    existingCustomFieldValues !== undefined &&
+    isEqual(customFieldValues[key], existingCustomFieldValues[key]);
+
   if (customFields.length === 0) {
-    if (customFieldValues && Object.keys(customFieldValues).length > 0) {
+    const changedKeys = Object.keys(customFieldValues ?? {}).filter(
+      (key) => !isUnchanged(key),
+    );
+    if (changedKeys.length > 0) {
       throw new Error(`No custom fields are available to be defined.`);
     }
 
@@ -150,7 +165,7 @@ export function validateCustomFieldValues(
   // Ensure all custom fields being passed in, are valid keys
   const validKeys = new Set(customFields.map((v) => v.id));
   for (const key of Object.keys(customFieldValues)) {
-    if (!validKeys.has(key)) {
+    if (!validKeys.has(key) && !isUnchanged(key)) {
       throw new Error(
         `Invalid custom field: ${key}. This custom field does not exist.`,
       );
@@ -158,6 +173,10 @@ export function validateCustomFieldValues(
   }
 
   for (const customField of customFields) {
+    if (isUnchanged(customField.id)) {
+      continue;
+    }
+
     if (!(customField.id in customFieldValues)) {
       if (customField.required) {
         throw new Error(`Custom field "${customField.name}" is required.`);
@@ -191,11 +210,13 @@ export function shouldValidateCustomFieldsOnUpdate({
 // Helper that fetches the required customfields to validate against
 export async function validateCustomFieldsForSection({
   customFieldValues,
+  existingCustomFieldValues,
   project,
   section,
   customFieldsModel,
 }: {
   customFieldValues: Record<string, unknown> | undefined;
+  existingCustomFieldValues?: Record<string, unknown>;
   project: string | undefined;
   section: CustomFieldSection;
   customFieldsModel: CustomFieldModel;
@@ -206,5 +227,9 @@ export async function validateCustomFieldsForSection({
       project,
     })) ?? [];
 
-  validateCustomFieldValues(applicableCustomFields, customFieldValues ?? {});
+  validateCustomFieldValues(
+    applicableCustomFields,
+    customFieldValues ?? {},
+    existingCustomFieldValues,
+  );
 }

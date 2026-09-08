@@ -6,7 +6,11 @@ import {
   blockHasFieldOfType,
   DashboardInterface,
 } from "shared/enterprise";
-import { isString } from "shared/util";
+import {
+  findAnalysisComputeFailure,
+  getSnapshotAnalysis,
+  isString,
+} from "shared/util";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -163,6 +167,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
         of: [experimentSnapshotTrafficObject],
       },
       error: String,
+      multipleExposures: Number,
     },
     power: {
       _id: false,
@@ -530,7 +535,9 @@ export async function updateSnapshot({
 
     const shouldUpdateExperimentAnalysisSummary =
       experimentSnapshot.type === "standard" &&
-      experimentSnapshot.status === "success";
+      experimentSnapshot.status === "success" &&
+      findAnalysisComputeFailure(getSnapshotAnalysis(experimentSnapshot)) ===
+        null;
 
     shouldRunEagerDimensionAnalyses =
       shouldUpdateExperimentAnalysisSummary && hasAnalysisUpdates;

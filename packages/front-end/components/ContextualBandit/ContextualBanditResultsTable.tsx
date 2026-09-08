@@ -7,6 +7,7 @@ import { ApiContextualBanditInterface } from "shared/validators";
 import {
   expandMetricGroups,
   conditionFromLeafClauses,
+  getMetricLink,
 } from "shared/experiments";
 import type {
   ContextualBanditResultsLeaf,
@@ -18,14 +19,17 @@ import HelperText from "@/ui/HelperText";
 import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import Heatmap, { HeatmapColumn, HeatmapRow } from "@/ui/Heatmap";
-import VariationLabel from "@/ui/VariationLabel";
 import VariationNumber from "@/ui/VariationNumber";
 import Tooltip from "@/ui/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getExperimentMetricFormatter } from "@/services/metrics";
+import { useCurrency } from "@/hooks/useCurrency";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useContextualBanditResults } from "@/hooks/useContextualBandits";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import ContextualBanditAttributeTable from "@/components/ContextualBandit/ContextualBanditAttributeTable";
+import ContextualBanditOverviewTable from "@/components/ContextualBandit/ContextualBanditOverviewTable";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import RunQueriesButton, {
@@ -119,56 +123,22 @@ function formatModeValue(value: number, mode: ComparisonMode): string {
   }).format(value);
 }
 
-function OverallWeights({
-  variations,
-  weights,
-  units,
-  unitDisplayName,
+function SectionHeading({
+  title,
+  description,
 }: {
-  variations: ApiContextualBanditInterface["variations"];
-  weights: (number | null)[];
-  units: number[];
-  unitDisplayName: string;
+  title: string;
+  description: string;
 }) {
-  const cards = variations
-    .map((v, index) => ({
-      id: v.id,
-      index,
-      name: v.name,
-      weight: weights[index] ?? null,
-      units: units[index] ?? 0,
-    }))
-    .sort((a, b) => (b.weight ?? -1) - (a.weight ?? -1));
-
   return (
-    <Flex
-      align="stretch"
-      style={{ overflowX: "auto" }}
-      role="list"
-      aria-label="Overall weights by variation"
-    >
-      {cards.map((card, i) => (
-        <Box
-          key={card.id}
-          role="listitem"
-          px="3"
-          py="1"
-          style={{
-            minWidth: 110,
-            flex: "1 1 0",
-            borderLeft: i === 0 ? undefined : "1px solid var(--gray-a4)",
-          }}
-        >
-          <VariationLabel number={card.index} name={card.name} />
-          <Heading as="h4" size="xl" weight="medium" mt="2">
-            {card.weight === null ? "—" : formatWeight(card.weight)}
-          </Heading>
-          <Text size="sm" color="text-low">
-            {numberFormatter.format(card.units)} {unitDisplayName.toLowerCase()}
-          </Text>
-        </Box>
-      ))}
-    </Flex>
+    <Box mb="3">
+      <Heading as="h3" size="sm" mb="1">
+        {title}
+      </Heading>
+      <Text size="sm" color="text-low" as="div">
+        {description}
+      </Text>
+    </Box>
   );
 }
 
@@ -181,8 +151,14 @@ export default function ContextualBanditResultsTable({
 }) {
   const [mode, setMode] = useState<ComparisonMode>("weights");
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
-  const { getDatasourceById, metricGroups } = useDefinitions();
+  const {
+    getDatasourceById,
+    getExperimentMetricById,
+    getFactTableById,
+    metricGroups,
+  } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
+  const displayCurrency = useCurrency();
 
   const {
     loading,
@@ -204,6 +180,19 @@ export default function ContextualBanditResultsTable({
   const unitDisplayName = userIdType
     ? startCase(userIdType.split("_").join(" ")) + "s"
     : "Units";
+
+  const goalMetric = cb.decisionMetric
+    ? getExperimentMetricById(cb.decisionMetric)
+    : null;
+  const goalMetricName = goalMetric?.name ?? "outcome";
+  const goalMetricLink = goalMetric ? getMetricLink(goalMetric.id) : null;
+  const formatGoalMetricMean = (value: number): string => {
+    if (Number.isNaN(value)) return "—";
+    if (!goalMetric) return formatModeValue(value, "means");
+    return getExperimentMetricFormatter(goalMetric, getFactTableById)(value, {
+      currency: displayCurrency,
+    });
+  };
 
   const queryLatest = latest;
   const { status } = getQueryStatus(
@@ -227,6 +216,15 @@ export default function ContextualBanditResultsTable({
   const leaves = useMemo(() => results?.leaves ?? [], [results?.leaves]);
   const hasTableData = leaves.length > 0;
 
+  const sseTrajectory = useMemo(
+    () => results?.sseTrajectory ?? [],
+    [results?.sseTrajectory],
+  );
+  const hasSplitMetadata = useMemo(
+    () => sseTrajectory.some((step) => step.split),
+    [sseTrajectory],
+  );
+
   const leavesBySampleSize = useMemo(
     () =>
       [...leaves].sort(
@@ -244,6 +242,14 @@ export default function ContextualBanditResultsTable({
       Array.from(
         { length: numVariations },
         (_, i) => overallVariations[i]?.weight ?? null,
+      ),
+    [numVariations, overallVariations],
+  );
+  const overallVariationMeans = useMemo(
+    () =>
+      Array.from(
+        { length: numVariations },
+        (_, i) => overallVariations[i]?.mean ?? null,
       ),
     [numVariations, overallVariations],
   );
@@ -397,10 +403,7 @@ export default function ContextualBanditResultsTable({
 
   return (
     <Box>
-      <Flex justify="between" align="center" mb="3" gap="4" wrap="wrap">
-        <Heading as="h3" size="sm">
-          Overall Weights
-        </Heading>
+      <Flex justify="end" align="center" mb="4" gap="4" wrap="wrap">
         {headerActions}
       </Flex>
 
@@ -418,24 +421,56 @@ export default function ContextualBanditResultsTable({
 
       {hasTableData ? (
         <>
-          <OverallWeights
-            variations={variations}
-            weights={overallVariationWeights}
-            units={overallVariationUnits}
-            unitDisplayName={unitDisplayName}
+          <SectionHeading
+            title="Variation Performance"
+            description="Breakdown by variation."
           />
+          <Box mb="5">
+            <ContextualBanditOverviewTable
+              variations={variations}
+              means={overallVariationMeans}
+              weights={overallVariationWeights}
+              units={overallVariationUnits}
+              unitDisplayName={unitDisplayName}
+              goalMetricName={goalMetricName}
+              goalMetricLink={goalMetricLink}
+              formatMean={formatGoalMetricMean}
+              formatWeight={formatWeight}
+            />
+          </Box>
+
+          <SectionHeading
+            title="Attribute Importance"
+            description="Attributes ranked by proportion of total error removed."
+          />
+          {hasSplitMetadata ? (
+            <Box mb="5">
+              <ContextualBanditAttributeTable steps={sseTrajectory} />
+            </Box>
+          ) : (
+            <Text size="sm" color="text-low" as="div" mb="5">
+              Split details aren&apos;t available yet. Refresh results to
+              compute them.
+            </Text>
+          )}
 
           <Flex
             justify="between"
-            align="center"
+            align="start"
             mt="5"
             mb="3"
             gap="3"
             wrap="wrap"
           >
-            <Heading as="h3" size="sm">
-              Comparison
-            </Heading>
+            <Box>
+              <Heading as="h3" size="sm" mb="1">
+                Bandit Breakdown
+              </Heading>
+              <Text size="sm" color="text-low" as="div">
+                Variation weights, sample {goalMetricName} means, and sample
+                sizes by bandit group.
+              </Text>
+            </Box>
             <SegmentedControl.Root
               size="1"
               value={mode}

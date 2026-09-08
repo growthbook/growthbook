@@ -4,7 +4,7 @@ import type { SqlDialect } from "shared/types/sql";
 
 import { getConversionWindowClause } from "back-end/src/integrations/sql/clauses/conversion-window-clause";
 
-export function getFunnelUsersCTE(
+export function getLegacyFunnelUsersCTE(
   dialect: SqlDialect,
   baseIdType: string,
   metrics: ExperimentMetricInterface[],

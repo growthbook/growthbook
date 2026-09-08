@@ -140,6 +140,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         customFields ?? feature.customFields,
         req.context,
         effectiveProject,
+        // A project change must re-validate all values against the new
+        // project's fields, so only grandfather unchanged values in place
+        projectChanged ? undefined : feature.customFields,
       );
     }
 
@@ -345,6 +348,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         feature,
         envSettings.rules,
         feature.rules ?? [],
+        {
+          project: project ?? feature.project,
+          targetingAllProjects:
+            targetingAllProjects ?? feature.targetingAllProjects,
+          targetingProjects: targetingProjects ?? feature.targetingProjects,
+        },
       );
       // Inherit stored seed/hashVersion first so the backfill can't re-bucket a legacy rollout.
       inheritStoredRolloutSeeds(converted, feature.rules ?? []);

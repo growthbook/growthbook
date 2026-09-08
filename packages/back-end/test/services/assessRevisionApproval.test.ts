@@ -137,6 +137,27 @@ describe("assessRevisionApproval", () => {
     expect(result.satisfied).toBe(true);
   });
 
+  // One verdict stands per reviewer and changes-requested outranks approved, so
+  // a covering approval can coexist with an open objection. Coverage alone is
+  // not the publish condition — callers must gate on status too (`satisfied`).
+  it("is unsatisfied while another reviewer's changes-requested stands over a covering approval", async () => {
+    const result = await assess(
+      makeContext({}),
+      revision({
+        rules: [rule("production")],
+        status: "changes-requested",
+        reviews: [
+          { userId: "u_rev", status: "approved" },
+          { userId: "u_other", status: "changes-requested" },
+        ],
+      } as Partial<FeatureRevisionInterface>),
+    );
+
+    expect(result.requiresReview).toBe(true);
+    expect(result.hasCoveringApproval).toBe(true);
+    expect(result.satisfied).toBe(false);
+  });
+
   // The case the branch exists for: approved, but not by anyone who could
   // publish what the draft now changes.
   it("refuses an approval that does not cover the changed environment", async () => {

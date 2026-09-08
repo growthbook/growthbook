@@ -1,5 +1,33 @@
 import { ExperimentMetricInterface } from "shared/experiments";
-import { buildResultMetricNameResolver } from "back-end/src/api/experiments/bulkResultSerialization";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import {
+  buildResultMetricNameResolver,
+  toApiResultAnalysis,
+} from "back-end/src/api/experiments/bulkResultSerialization";
+
+describe("toApiResultAnalysis", () => {
+  it("carries a stats-engine errorMessage into the analysis entry", () => {
+    const data = {
+      value: 0,
+      cr: 0,
+      users: 0,
+      errorMessage: "singular matrix",
+    } as SnapshotMetric;
+
+    const analysis = toApiResultAnalysis("bayesian", "relative", data);
+
+    expect(analysis.errorMessage).toBe("singular matrix");
+    expect(analysis.numerator).toBe(0);
+  });
+
+  it("omits errorMessage when the metric computed successfully", () => {
+    const data = { value: 5, cr: 0.5, users: 10 } as SnapshotMetric;
+
+    const analysis = toApiResultAnalysis("bayesian", "relative", data);
+
+    expect("errorMessage" in analysis).toBe(false);
+  });
+});
 
 describe("buildResultMetricNameResolver", () => {
   const funnelMetric = {

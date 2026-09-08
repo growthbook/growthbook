@@ -14,7 +14,7 @@ on:
       - ".github/workflows/docs.yml"
 jobs:
   # Mintlify hosts/deploys docs via their GitHub App; this job only validates content.
-  ci:
+  docs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

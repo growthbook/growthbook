@@ -4,7 +4,12 @@ import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { datetime } from "shared/dates";
-import { Revision, RevisionStatus, getRevisionKey } from "shared/enterprise";
+import {
+  Revision,
+  RevisionStatus,
+  getRevisionKey,
+  isInReviewCycle,
+} from "shared/enterprise";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { FeatureMetaInfo } from "shared/types/feature";
 import Link from "next/link";
@@ -399,7 +404,8 @@ const ApprovalRequests: FC = () => {
 
   // Scope-level filter applied on top of the status/search filtering.
   // - "needs-my-review": rows I'm allowed to review, that I didn't author,
-  //   and that are in an actionable state (pending-review, changes-requested).
+  //   and that still accept a verdict — "approved" included, since an approval
+  //   that doesn't cover the change still needs one that does.
   // - "my-requests": rows I authored (any status).
   // - "all": no additional filtering.
   const effectiveItems = useMemo(() => {
@@ -412,8 +418,7 @@ const ApprovalRequests: FC = () => {
     // scope === "needs-my-review"
     return statusFilteredItems.filter(
       (row) =>
-        (row.status === "pending-review" ||
-          row.status === "changes-requested") &&
+        isInReviewCycle(row.status) &&
         row.authorId !== userId &&
         canReviewRow(row),
     );

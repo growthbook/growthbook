@@ -16,16 +16,19 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
-  PRECOMPUTED_DIMENSION_PREFIX,
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
   autoMerge,
   draftHasChangesOutsideTargetRef,
   DRAFT_REVISION_STATUSES,
+  findAnalysisComputeFailure,
   fillRevisionFromFeature,
   generateVariationId,
+  getExperimentAttributeScopeProjectIds,
+  getFeatureAttributeScopeWithDrafts,
   getMatchingRules,
+  getRequireRegisteredAttributesSettings,
   getNamespaceRanges,
   getReviewSetting,
   getSnapshotAnalysis,
@@ -52,8 +55,9 @@ import {
   isFactFunnelMetric,
   isFactMetric,
   isFactMetricId,
+  isFactMetricJoinable,
   isMetricJoinable,
-  isDimensionPrecomputed,
+  parseDimensionId,
   parseFunnelStepMetricId,
   parseSliceMetricId,
   setAdjustedCIs,
@@ -61,7 +65,6 @@ import {
   getAllVariations,
   getLatestPhaseVariations,
   getPhaseVariations,
-  getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -91,7 +94,7 @@ import {
   ScheduledStopPlan,
   resolveSavedGroupsInput,
 } from "shared/validators";
-import { Dimension } from "shared/types/integrations";
+import { ComboConstituent, Dimension } from "shared/types/integrations";
 import {
   ConversionWindowUnit,
   MetricPriorSettings,
@@ -136,6 +139,7 @@ import { StatsEngine } from "shared/types/stats";
 import {
   ContextualBanditRefRule,
   ExperimentRefRule,
+  FeatureInterface,
   FeatureRule,
 } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
@@ -194,7 +198,10 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
-import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
+import {
+  getActiveDraftMetadataByFeatureIds,
+  getFeatureRevisionsByFeatureIds,
+} from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -552,12 +559,20 @@ export function isJoinableMetric({
     return true;
   }
 
-  const metricIdTypes =
-    (isFactMetric(metric)
-      ? factTableMap.get(getFactMetricPrimaryFactTableId(metric))?.userIdTypes
-      : metric.userIdTypes) ?? [];
+  if (isFactMetric(metric)) {
+    return isFactMetricJoinable(
+      metric,
+      experimentIdType,
+      (id) => factTableMap.get(id),
+      datasource.settings,
+    );
+  }
 
-  return isMetricJoinable(metricIdTypes, experimentIdType, datasource.settings);
+  return isMetricJoinable(
+    metric.userIdTypes ?? [],
+    experimentIdType,
+    datasource.settings,
+  );
 }
 
 export function getSnapshotSettings({
@@ -874,40 +889,66 @@ export function getSnapshotSettings({
   };
 }
 
+async function parseComboConstituent(
+  constituentId: string,
+  organization: string,
+): Promise<ComboConstituent> {
+  const parsed = parseDimensionId(constituentId);
+  if (parsed.kind === "experiment") {
+    return { type: "experiment", id: parsed.column };
+  }
+  if (parsed.kind === "user") {
+    const obj = await findDimensionById(parsed.id, organization);
+    if (obj) {
+      return { type: "user", dimension: obj };
+    }
+    throw new Error(`Dimension "${constituentId}" not found`);
+  }
+  throw new Error(
+    `Invalid combination dimension "${constituentId}". Each must be an experiment dimension ("exp:<name>") or a unit dimension id`,
+  );
+}
+
 export async function parseDimension(
   dimension: string | null | undefined,
   slices: string[] | undefined,
   organization: string,
 ): Promise<Dimension | null> {
-  if (dimension) {
-    if (dimension.match(/^exp:/)) {
+  if (!dimension) return null;
+
+  const parsed = parseDimensionId(dimension);
+  switch (parsed.kind) {
+    case "experiment":
       return {
         type: "experiment",
-        id: dimension.substring(4),
+        id: parsed.column,
         specifiedSlices: slices,
       };
-    } else if (isDimensionPrecomputed(dimension, [])) {
+    case "date":
+      return { type: "date" };
+    case "activation":
+      return { type: "activation" };
+    case "datecutoff":
+      return { type: "datecutoff", cutoff: parsed.cutoff };
+    case "combo":
       return {
-        type: "experiment",
-        id: dimension.substring(PRECOMPUTED_DIMENSION_PREFIX.length),
-        specifiedSlices: slices,
+        type: "combo",
+        dimensions: await Promise.all(
+          parsed.constituentIds.map((c) =>
+            parseComboConstituent(c, organization),
+          ),
+        ),
       };
-    } else if (dimension.substring(0, 4) === "pre:") {
-      return {
-        // eslint-disable-next-line
-        type: dimension.substring(4) as any,
-      };
-    } else {
-      const obj = await findDimensionById(dimension, organization);
+    case "invalid":
+      throw new Error(parsed.reason);
+    case "user": {
+      const obj = await findDimensionById(parsed.id, organization);
       if (obj) {
-        return {
-          type: "user",
-          dimension: obj,
-        };
+        return { type: "user", dimension: obj };
       }
+      return null;
     }
   }
-  return null;
 }
 
 export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
@@ -1210,6 +1251,18 @@ export function updateExperimentBanditSettings({
   reweight?: boolean;
   isScheduled?: boolean;
 }): Changeset {
+  const computeFailure = snapshot
+    ? findAnalysisComputeFailure(getSnapshotAnalysis(snapshot))
+    : null;
+  if (computeFailure !== null) {
+    throw new Error(
+      `Bandit analysis failed: ${
+        computeFailure.errorMessage ||
+        `Metric ${computeFailure.metricId} failed to compute`
+      }`,
+    );
+  }
+
   if (!changes) changes = {};
   if (!changes.phases) {
     changes.phases = cloneDeep<ExperimentPhase[]>(experiment.phases);
@@ -3006,8 +3059,9 @@ export async function toExperimentApiInterface(
     ),
     phases: experiment.phases.map((p) => ({
       name: p.name,
-      dateStarted: p.dateStarted.toISOString(),
-      dateEnded: p.dateEnded ? p.dateEnded.toISOString() : "",
+      // dateStarted is required by the API but some legacy phases might not have one
+      dateStarted: p.dateStarted?.toISOString() ?? "",
+      dateEnded: p.dateEnded?.toISOString() ?? "",
       reasonForStopping: p.reason || "",
       seed: p.seed || experiment.trackingKey,
       coverage: p.coverage,
@@ -3116,6 +3170,7 @@ export async function toExperimentApiInterface(
         }
       : null),
     linkedFeatures: experiment.linkedFeatures || [],
+    attributeScopeAllProjects: experiment.attributeScopeAllProjects || false,
     hasVisualChangesets: experiment.hasVisualChangesets || false,
     hasURLRedirects: experiment.hasURLRedirects || false,
     customFields: experiment.customFields ?? {},
@@ -3163,28 +3218,44 @@ export function safeFloatOrNull(n: number | undefined): number | null {
   return parseFloat(n.toFixed(20));
 }
 
+export function toApiDimension(
+  dimensionId: string | null | undefined,
+): ApiExperimentResults["dimension"] {
+  if (!dimensionId) return { type: "none" };
+  const parsed = parseDimensionId(dimensionId);
+  switch (parsed.kind) {
+    case "experiment":
+      return { type: "experiment", id: parsed.column };
+    case "date":
+      return { type: "date" };
+    case "activation":
+      return { type: "activation" };
+    case "datecutoff":
+      return { type: "datecutoff", id: parsed.cutoff.toISOString() };
+    case "combo":
+      return {
+        type: "combo",
+        dimensions: parsed.constituentIds.map((c) => {
+          const constituent = parseDimensionId(c);
+          return constituent.kind === "experiment"
+            ? { type: "experiment", id: constituent.column }
+            : { type: "user", id: c };
+        }),
+      };
+    case "invalid":
+      // Preserve legacy output for unrecognized "pre:*" ids stored on old snapshots
+      return { type: dimensionId.replace(/^pre:/, "") };
+    case "user":
+      return { type: "user", id: parsed.id };
+  }
+}
+
 export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
 ): ApiExperimentResults {
-  const dimension = !snapshot.dimension
-    ? {
-        type: "none",
-      }
-    : snapshot.dimension.match(/^exp:/)
-      ? {
-          type: "experiment",
-          id: snapshot.dimension.substring(4),
-        }
-      : snapshot.dimension.match(/^pre:/)
-        ? {
-            type: snapshot.dimension.substring(4),
-          }
-        : {
-            type: "user",
-            id: snapshot.dimension,
-          };
+  const dimension = toApiDimension(snapshot.dimension);
 
   const phase = experiment.phases[snapshot.phase];
 
@@ -3302,11 +3373,15 @@ export function toSnapshotApiInterface(
                     mean: safeFloat(data?.stats?.mean),
                     stddev: safeFloat(data?.stats?.stddev),
                     percentChange: safeFloat(data?.expected),
+                    effectStandardError: safeFloat(data?.uplift?.stddev),
                     ciLow: safeFloat(data?.ci?.[0]),
                     ciHigh: safeFloat(data?.ci?.[1]),
                     pValue: safeFloat(data?.pValue),
                     risk: safeFloat(data?.risk?.[1]),
                     chanceToBeatControl: safeFloat(data?.chanceToWin),
+                    ...(data?.errorMessage
+                      ? { errorMessage: data.errorMessage }
+                      : null),
                   },
                 ],
               };
@@ -4348,8 +4423,13 @@ export function postExperimentApiPayloadToInterface(
     archived: payload.archived ?? false,
     hashAttribute: payload.hashAttribute ?? "",
     fallbackAttribute: payload.fallbackAttribute || "",
+    ...(payload.attributeScopeAllProjects !== undefined
+      ? { attributeScopeAllProjects: payload.attributeScopeAllProjects }
+      : {}),
     hashVersion: payload.hashVersion ?? 2,
-    disableStickyBucketing: payload.disableStickyBucketing ?? false,
+    disableStickyBucketing:
+      payload.disableStickyBucketing ??
+      !organization.settings?.stickyBucketingOnByDefault,
     ...(payload.bucketVersion !== undefined
       ? { bucketVersion: payload.bucketVersion }
       : {}),
@@ -4747,6 +4827,9 @@ export function updateExperimentApiPayloadToInterface(
     ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
+    ...(payload.attributeScopeAllProjects !== undefined
+      ? { attributeScopeAllProjects: payload.attributeScopeAllProjects }
+      : {}),
     ...(disableStickyBucketing !== undefined ? { disableStickyBucketing } : {}),
     ...(bucketVersion !== undefined ? { bucketVersion } : {}),
     ...(minBucketVersion !== undefined ? { minBucketVersion } : {}),
@@ -4956,25 +5039,37 @@ export async function getRefLinkedFeatureInfo({
   linkedFeatureIds,
   refIsDraft,
   matchRule,
+  pendingFeatureDrafts,
 }: {
   context: ReqContext | ApiReqContext;
   linkedFeatureIds: string[];
   refIsDraft: boolean;
   matchRule: (rule: FeatureRule) => boolean;
+  pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
 }): Promise<LinkedFeatureInfo[]> {
   if (!linkedFeatureIds.length) return [];
+
+  const pendingVersionsByFeatureId = new Map<string, Set<number>>();
+  (pendingFeatureDrafts ?? []).forEach(({ featureId, revisionVersion }) => {
+    const versions = pendingVersionsByFeatureId.get(featureId) ?? new Set();
+    versions.add(revisionVersion);
+    pendingVersionsByFeatureId.set(featureId, versions);
+  });
 
   const features = await getFeaturesByIds(context, linkedFeatureIds);
 
   const featuresByFeatureId = Object.fromEntries(
     features.map((f) => [f.id, f]),
   );
-  const revisionsByFeatureId = await getFeatureRevisionsByFeatureIds(
-    context,
-    context.org.id,
-    linkedFeatureIds,
-    featuresByFeatureId,
-  );
+  const [revisionsByFeatureId, draftMetadataByFeatureId] = await Promise.all([
+    getFeatureRevisionsByFeatureIds(
+      context,
+      context.org.id,
+      linkedFeatureIds,
+      featuresByFeatureId,
+    ),
+    getActiveDraftMetadataByFeatureIds(context.org.id, linkedFeatureIds),
+  ]);
 
   const environments = getEnvironmentIdsFromOrg(context.org);
 
@@ -5121,10 +5216,16 @@ export async function getRefLinkedFeatureInfo({
         ),
       );
 
+      const envEnabled = (environmentId: string): boolean =>
+        (state === "draft"
+          ? matchedDraftRevision?.environmentsEnabled?.[environmentId]
+          : undefined) ??
+        !!feature.environmentSettings?.[environmentId]?.enabled;
+
       const environmentStates: Record<string, LinkedFeatureEnvState> = {};
       environments.forEach((env) => (environmentStates[env] = "missing"));
       matches.forEach((match) => {
-        if (!match.environmentEnabled) {
+        if (!envEnabled(match.environmentId)) {
           environmentStates[match.environmentId] = "disabled-env";
         } else if (
           match.rule.enabled === false &&
@@ -5136,10 +5237,37 @@ export async function getRefLinkedFeatureInfo({
         }
       });
 
+      // Envs the pending draft will turn on when it's auto-published on start.
+      let environmentsToEnable: string[] | undefined;
+      if (
+        state === "draft" &&
+        matchedDraftRevision &&
+        pendingVersionsByFeatureId
+          .get(feature.id)
+          ?.has(matchedDraftRevision.version)
+      ) {
+        const enabled = new Set<string>();
+        matches.forEach((match) => {
+          if (
+            envEnabled(match.environmentId) &&
+            !feature.environmentSettings?.[match.environmentId]?.enabled
+          ) {
+            enabled.add(match.environmentId);
+          }
+        });
+        if (enabled.size > 0) environmentsToEnable = [...enabled];
+      }
+
+      const attributeScopeProjects = getFeatureAttributeScopeWithDrafts(
+        feature,
+        draftMetadataByFeatureId[feature.id] || [],
+      );
+
       const info: LinkedFeatureInfo = {
         feature,
         state,
         environmentStates,
+        attributeScopeProjects,
         values: refRuleValues(matches[0]?.rule),
         sparse: !!(matches[0]?.rule as ExperimentRefRule)?.sparse,
         valuesFrom: matches[0]?.environmentId || "",
@@ -5156,6 +5284,7 @@ export async function getRefLinkedFeatureInfo({
         ...(hasUnrelatedDraftChanges !== undefined && {
           hasUnrelatedDraftChanges,
         }),
+        ...(environmentsToEnable !== undefined && { environmentsToEnable }),
       };
 
       return info;
@@ -5175,7 +5304,48 @@ export async function getLinkedFeatureInfo(
     refIsDraft: experiment.status === "draft",
     matchRule: (rule) =>
       rule.type === "experiment-ref" && rule.experimentId === experiment.id,
+    pendingFeatureDrafts: experiment.pendingFeatureDrafts,
   });
+}
+
+// Enforcement scope for `assertRegisteredAttributes`; undefined = unscoped.
+// The `attributeScopeAllProjects` picker preference never loosens this.
+export async function getExperimentAttributeScopeProjects(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "project" | "linkedFeatures">,
+  preloadedFeatures?: FeatureInterface[],
+): Promise<string[] | undefined> {
+  const { isOn, requireProjectScoping } =
+    getRequireRegisteredAttributesSettings(
+      context.org.settings?.requireRegisteredAttributes,
+    );
+  if (!isOn || !requireProjectScoping) return undefined;
+  if (!experiment.project) {
+    return undefined;
+  }
+
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+  const scopes: Array<string[] | null> = [];
+  if (linkedFeatureIds.length) {
+    const [features, draftMetadataByFeatureId] = await Promise.all([
+      preloadedFeatures
+        ? Promise.resolve(
+            preloadedFeatures.filter((f) => linkedFeatureIds.includes(f.id)),
+          )
+        : getFeaturesByIds(context, linkedFeatureIds),
+      getActiveDraftMetadataByFeatureIds(context.org.id, linkedFeatureIds),
+    ]);
+    for (const feature of features) {
+      scopes.push(
+        getFeatureAttributeScopeWithDrafts(
+          feature,
+          draftMetadataByFeatureId[feature.id] || [],
+        ),
+      );
+    }
+  }
+
+  return getExperimentAttributeScopeProjectIds(experiment, scopes) ?? undefined;
 }
 
 export async function getLinkedChangeEnvironmentStates(

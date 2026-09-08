@@ -137,6 +137,7 @@ The following options are set via builder methods rather than constructor parame
 - `.setQAMode(Boolean)` - Disable randomization for QA testing (default: false)
 - `.setForcedVariations(Map<String, Int>)` - Force specific variations for QA
 - `.setRefreshHandler(GBCacheRefreshHandler)` - Callback fired when features are refreshed
+- `.setCacheMaxAge(Long)` - Freshness window for cached features, in milliseconds (default: unset)
 - `.setStickyBucketService(GBStickyBucketService)` - Enable sticky bucketing
 - `.setFeatureUsageCallback(GBFeatureUsageCallback)` - Callback fired on every feature evaluation
 
@@ -528,6 +529,34 @@ lifecycleScope.launch {
 
 ### Cache Configuration
 
+#### Cache freshness (TTL)
+
+By default the SDK refetches features on every fetch. `setCacheMaxAge()` sets a freshness window, in milliseconds: while the cache is younger than that, the network call is skipped and the cached features are served instead.
+
+```kotlin
+val growthBook = GBSDKBuilder(
+    apiKey = "sdk_abc123",
+    apiHost = "https://cdn.growthbook.io/",
+    attributes = attributes,
+    networkDispatcher = GBNetworkDispatcherKtor(),
+    trackingCallback = { _, _ -> },
+)
+    // Consider the cache stale after 10 minutes
+    .setCacheMaxAge(10 * 60 * 1000L)
+    .initialize()
+```
+
+This is a staleness gate evaluated on the next fetch, not a background polling mechanism.
+
+<Note>
+**`refreshCache()` ignores the freshness window**
+
+`growthBook.refreshCache()` is an explicit refresh and always hits the network, even when the cache is still within its max age. Don't drive it from a timer to emulate a TTL — that defeats the freshness window entirely.
+
+</Note>
+
+#### Disabling the cache
+
 By default, caching is enabled. You can disable it via the `cachingEnabled` constructor parameter:
 
 ```kotlin
@@ -540,6 +569,8 @@ val growthBook = GBSDKBuilder(
     cachingEnabled = false // disable local cache
 ).initialize()
 ```
+
+#### Refresh notifications
 
 To be notified when features are refreshed from the server, use `setRefreshHandler()` on the builder:
 

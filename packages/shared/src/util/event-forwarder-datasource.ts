@@ -1,4 +1,5 @@
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import {
   DataSourceParams,
   DataSourceType,
@@ -134,7 +135,10 @@ export function findEventForwarderManagedViolation<
     if (!updated) {
       return `Cannot delete ${label} ${identify(record)} because it is managed by Event Forwarder`;
     }
-    if (!isEqual(record, updated)) {
+    // `error` is stamped by query validation on the way through, so it is the
+    // one field a managed record must be free to change — otherwise a broken
+    // managed query can never persist its error and the UI shows nothing.
+    if (!isEqual(omit(record, "error"), omit(updated, "error"))) {
       return `Cannot edit ${label} ${identify(record)} because it is managed by Event Forwarder`;
     }
   }

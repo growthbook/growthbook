@@ -393,7 +393,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     python: {
       name: "Python SDK",
-      version: "2.4.0",
+      version: "3.0.0",
       github: "https://github.com/growthbook/growthbook-python",
       examples: [],
       packageRepos: [

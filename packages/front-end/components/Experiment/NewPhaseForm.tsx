@@ -1,8 +1,9 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import {
@@ -26,13 +27,32 @@ import SavedGroupTargetingField, {
 } from "@/components/Features/SavedGroupTargetingField";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
+import {
+  getLinkedExperimentAttributeScopes,
+  useAttributeScopePicker,
+} from "./useAttributeScopePicker";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   close: () => void;
   source?: string;
-}> = ({ experiment, close, mutate, source }) => {
+}> = ({ experiment, linkedFeatures, close, mutate, source }) => {
+  const { dropdown: dropdownScope } = getLinkedExperimentAttributeScopes(
+    experiment.project,
+    linkedFeatures,
+  );
+  const [scopeAllProjects, setScopeAllProjects] = useState(
+    !!experiment.attributeScopeAllProjects,
+  );
+  const { effectiveAttributeProjects, attributeScopeToggle } =
+    useAttributeScopePicker({
+      project: experiment.project,
+      scopeProjects: dropdownScope,
+      allProjects: scopeAllProjects,
+      setAllProjects: setScopeAllProjects,
+    });
   const { refreshWatching } = useWatching();
 
   const firstPhase = !experiment.phases.length;
@@ -182,6 +202,8 @@ const NewPhaseForm: FC<{
           onChange={(condition) => form.setValue("condition", condition)}
           key={conditionKey}
           project={experiment.project || ""}
+          attributeProjects={effectiveAttributeProjects}
+          attributeSelectIndicator={attributeScopeToggle}
         />
       )}
 

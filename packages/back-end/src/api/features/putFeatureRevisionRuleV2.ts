@@ -1,6 +1,6 @@
 import isEqual from "lodash/isEqual";
 import {
-  resetReviewOnChange,
+  getAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
 } from "shared/util";
@@ -259,7 +259,11 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     if (attrPatch.fallbackAttribute !== undefined)
       changedAttributes.fallbackAttribute = attrPatch.fallbackAttribute;
     if (Object.keys(changedAttributes).length > 0) {
-      validateRuleAttributes(changedAttributes, req.context, feature.project);
+      validateRuleAttributes(
+        changedAttributes,
+        req.context,
+        getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+      );
     }
     if (
       basePatch.condition !== undefined ||
@@ -347,29 +351,17 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       changes.rampActions = nextRampActions;
     }
 
-    // Affected envs for review reset.
+    // Affected envs for the revision-update record.
     const ruleEnvs = updatedRule.allEnvironments
       ? Object.keys(feature.environmentSettings ?? {})
       : (updatedRule.environments ?? []);
 
-    await updateRevision(
-      req.context,
-      feature,
-      revision,
-      changes,
-      {
-        user: req.context.auditUser,
-        action: "edit rule",
-        subject: req.params.ruleId,
-        value: JSON.stringify(updatedRule),
-      },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ruleEnvs,
-        defaultValueChanged: false,
-        settings: req.organization.settings,
-      }),
-    );
+    await updateRevision(req.context, feature, revision, changes, {
+      user: req.context.auditUser,
+      action: "edit rule",
+      subject: req.params.ruleId,
+      value: JSON.stringify(updatedRule),
+    });
 
     const updated = await getRevision({
       context: req.context,

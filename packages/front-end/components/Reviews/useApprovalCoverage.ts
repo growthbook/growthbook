@@ -4,6 +4,7 @@ import {
   assessRequiredApproverTeams,
   getRolePermissions,
   revisionActionPermission,
+  teamsForMember,
   userHasPermission,
 } from "shared/permissions";
 import type { ReviewAuthorityFootprint } from "shared/util";
@@ -19,6 +20,10 @@ const NO_RULES: { requiredApproverTeams?: string[] }[] = [];
 export interface ApprovalCoverage {
   uncoveredApprovers: Set<string>;
   uncoveredApproverReasons: Map<string, string>;
+  // Approvals that cannot sanction the publish: short of the footprint, or in
+  // none of the required teams. The verdict icon outlines these.
+  insufficientApprovers: Set<string>;
+  insufficientApproverReasons: Map<string, string>;
   uncoveredFootprintEnvs: string[];
   approvalsCoverFootprint: boolean;
   // Approved but short of the footprint — the "approved, but not enough" state.
@@ -27,6 +32,7 @@ export interface ApprovalCoverage {
   requiredTeams: {
     satisfied: boolean;
     unmet: { id: string; name: string }[][];
+    enforcedTeamIds: string[][];
   };
 }
 
@@ -146,9 +152,49 @@ export function useApprovalCoverage({
     [reviewRules, reviewers, uncoveredApprovers, organization, teams],
   );
 
+  // Required-team rules are summative — different rules can be satisfied by
+  // different approvers — so only an approval satisfying none is insufficient.
+  const nonContributingApprovers = useMemo(() => {
+    // The enforced sets, not the raw rules: a rule implied by a stricter one is
+    // never enforced, so satisfying only that rule contributes nothing.
+    const ruleTeams = requiredTeams.enforcedTeamIds.map((ids) => new Set(ids));
+    if (requiredTeams.satisfied || !ruleTeams.length) return new Set<string>();
+    const out = new Set<string>();
+    reviewers
+      .filter((r) => r.status === "approved")
+      .forEach((r) => {
+        const mine = teamsForMember(
+          r.id,
+          organization as OrganizationInterface,
+          (teams ?? []) as TeamInterface[],
+        ).map((t) => t.id);
+        if (!ruleTeams.some((ids) => mine.some((id) => ids.has(id)))) {
+          out.add(r.id);
+        }
+      });
+    return out;
+  }, [requiredTeams, reviewers, organization, teams]);
+
+  const insufficientApprovers = useMemo(
+    () => new Set([...uncoveredApprovers, ...nonContributingApprovers]),
+    [uncoveredApprovers, nonContributingApprovers],
+  );
+
+  const insufficientApproverReasons = useMemo(() => {
+    const merged = new Map(uncoveredApproverReasons);
+    nonContributingApprovers.forEach((id) => {
+      if (!merged.has(id)) {
+        merged.set(id, "the reviewer is not in a required approver team");
+      }
+    });
+    return merged;
+  }, [uncoveredApproverReasons, nonContributingApprovers]);
+
   return {
     uncoveredApprovers,
     uncoveredApproverReasons,
+    insufficientApprovers,
+    insufficientApproverReasons,
     uncoveredFootprintEnvs,
     approvalsCoverFootprint,
     hasUncoveredApproval:

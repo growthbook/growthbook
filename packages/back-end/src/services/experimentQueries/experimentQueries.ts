@@ -3,12 +3,11 @@ import {
   isFactMetric,
   isLegacyMetric,
   isPercentileCappedMetric,
-  isRatioMetric,
   isRegressionAdjusted,
   quantileMetricType,
   eligibleForUncappedMetric,
   isFactFunnelMetric,
-  getFactMetricPrimaryFactTableId,
+  getFactMetricFactTableIds,
   parseFunnelStepMetricId,
 } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
@@ -277,38 +276,23 @@ export function getFactMetricGroup(
     ? `_cw${getMaxHoursToConvert(false, [metric], null)}`
     : "";
 
-  // Funnel metrics build a chain of resolution CTEs on top of the shared
-  // per-user aggregate, so they can ride along with other metrics on the same
-  // fact table and conversion window.
-  if (isFactFunnelMetric(metric)) {
-    const factTableId = getFactMetricPrimaryFactTableId(metric);
-    return factTableId ? `${factTableId}${conversionWindowKey}` : "";
-  }
-
-  // Ratio metrics must have the same numerator and denominator fact table to be grouped
-  if (isRatioMetric(metric)) {
-    if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
-      // TODO: smarter logic to make fewer groupings work
-      const tableIds = [
-        metric.numerator.factTableId,
-        metric.denominator?.factTableId,
-      ].sort((a, b) => a?.localeCompare(b ?? "") ?? 0);
-      return tableIds.length >= 2
-        ? `${tableIds[0]} ${tableIds[1]} (cross-table ratio metrics)${conversionWindowKey}`
-        : metric.id;
-    }
-  }
+  // Metrics group on the exact set of fact tables they read from — a ratio's
+  // numerator and denominator tables, or a funnel's per-step tables. Future
+  // optimizations are possible.
+  const factTableIds = [...getFactMetricFactTableIds(metric)].sort();
+  if (!factTableIds.length) return "";
 
   // Quantile metrics get their own group to prevent slowing down the main query
   // and because they do not support re-aggregation across pre-computed dimensions
   if (quantileMetricType(metric)) {
-    return metric.numerator.factTableId
-      ? `${metric.numerator.factTableId}_qtile${conversionWindowKey}`
-      : "";
+    return `${factTableIds.join(" ")}_qtile${conversionWindowKey}`;
   }
-  return metric.numerator.factTableId
-    ? `${metric.numerator.factTableId}${conversionWindowKey}`
-    : "";
+
+  if (factTableIds.length > 1) {
+    return `${factTableIds.join(" ")} (cross-table metrics)${conversionWindowKey}`;
+  }
+
+  return `${factTableIds[0]}${conversionWindowKey}`;
 }
 
 export interface GroupedMetrics {

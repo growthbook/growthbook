@@ -1,5 +1,9 @@
 # Changelog
 
+## **1.7.1** - Unreleased
+
+- Add an option to disable feature usage events in the GrowthBook tracking plugin
+
 ## **1.7.0** - Aug 7, 2026
 
 - Add Contextual Bandit support

@@ -37,6 +37,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Checkout agent skills
+        if: ${{ github.event.action != 'closed' }}
+        uses: ./.github/actions/checkout-agent-skills
+
       - name: Generate Fly Dockerfile
         run: cat Dockerfile preview/Dockerfile.append > preview/Dockerfile.generated
 

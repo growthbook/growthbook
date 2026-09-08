@@ -2181,8 +2181,10 @@ export function renderRevisionMetadata(
     }
   }
 
+  // `null` and `undefined` both mean "not set" here — an explicit staged
+  // null only matters when it clears a current `true`.
   if (
-    current?.neverStale !== draft.neverStale &&
+    (current?.neverStale ?? false) !== (draft.neverStale ?? false) &&
     draft.neverStale !== undefined
   ) {
     rows.push(
@@ -2216,7 +2218,7 @@ export function renderRevisionMetadata(
   }
 
   if (
-    !isEqual(current?.customFields, draft.customFields) &&
+    !isEqual(current?.customFields ?? null, draft.customFields ?? null) &&
     draft.customFields !== undefined
   ) {
     rows.push(

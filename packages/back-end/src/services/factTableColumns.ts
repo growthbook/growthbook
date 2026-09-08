@@ -1,5 +1,8 @@
 import chunk from "lodash/chunk";
-import { canInlineFilterColumn } from "shared/experiments";
+import {
+  canInlineFilterColumn,
+  getFactTableTimestampColumn,
+} from "shared/experiments";
 import {
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
   DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
@@ -10,11 +13,16 @@ import {
   ColumnInterface,
   FactTableColumnType,
   FactTableInterface,
-  JSONColumnFields,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ReqContext } from "back-end/types/request";
-import { determineColumnTypes } from "back-end/src/util/sql";
+import {
+  columnNamesMatch,
+  type DetectedJSONFields,
+  determineColumnTypes,
+  getColumnByName,
+  mergeJsonFields,
+} from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { normalizePersistedColumn } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
@@ -89,7 +97,7 @@ export function selectColumnsForTopValues({
 export async function runColumnsTopValuesQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
-  factTable: Pick<FactTableInterface, "sql" | "eventName">,
+  factTable: Pick<FactTableInterface, "sql" | "eventName" | "timestampColumn">,
   columns: ColumnInterface[],
 ): Promise<Record<string, string[]>> {
   if (!context.permissions.canRunFactQueries(datasource)) {
@@ -215,7 +223,7 @@ export async function runColumnDetectionQuery(
   datasource: DataSourceInterface,
   factTable: Pick<
     FactTableInterface,
-    "sql" | "eventName" | "columns" | "userIdTypes"
+    "sql" | "eventName" | "columns" | "userIdTypes" | "timestampColumn"
   >,
 ): Promise<ColumnInterface[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
@@ -228,7 +236,9 @@ export async function runColumnDetectionQuery(
     throw new Error("Testing not supported on this data source");
   }
 
-  const timestampColumn = "timestamp";
+  const caseSensitive = integration.columnNamesAreCaseSensitive;
+
+  const timestampColumn = getFactTableTimestampColumn(factTable);
 
   const sql = integration.getTestQuery({
     query: factTable.sql,
@@ -247,7 +257,7 @@ export async function runColumnDetectionQuery(
   );
 
   const typeMap = new Map<string, FactTableColumnType>();
-  const jsonMap = new Map<string, JSONColumnFields>();
+  const jsonMap = new Map<string, DetectedJSONFields>();
   const warehouseTypeMap = new Map<string, FactTableColumnType>();
 
   result.columns?.forEach((col) => {
@@ -262,9 +272,9 @@ export async function runColumnDetectionQuery(
         col.fields.length > 0
       ) {
         typeMap.set(col.name, "json");
-        jsonMap.set(
-          col.name,
-          col.fields.reduce(
+        jsonMap.set(col.name, {
+          source: "querySchema",
+          fields: col.fields.reduce(
             (acc, field) => ({
               ...acc,
               [field.name]: {
@@ -273,7 +283,7 @@ export async function runColumnDetectionQuery(
             }),
             {},
           ),
-        );
+        });
       } else if (col.dataType !== "json") {
         typeMap.set(col.name, col.dataType);
       }
@@ -283,7 +293,10 @@ export async function runColumnDetectionQuery(
   determineColumnTypes(result.results, typeMap).forEach((col) => {
     typeMap.set(col.column, col.datatype);
     if (col.jsonFields) {
-      jsonMap.set(col.column, col.jsonFields);
+      jsonMap.set(col.column, {
+        source: "sampledValues",
+        fields: col.jsonFields,
+      });
     }
   });
 
@@ -298,8 +311,8 @@ export async function runColumnDetectionQuery(
       return;
     }
 
-    const type = typeMap.get(col.column);
-    const jsonFields = jsonMap.get(col.column);
+    const type = getColumnByName(typeMap, col.column, caseSensitive);
+    const jsonFields = getColumnByName(jsonMap, col.column, caseSensitive);
 
     // Column no longer exists, mark as deleted
     if (type === undefined) {
@@ -313,7 +326,11 @@ export async function runColumnDetectionQuery(
         col.dateUpdated = new Date();
       }
 
-      const warehouseType = warehouseTypeMap.get(col.column);
+      const warehouseType = getColumnByName(
+        warehouseTypeMap,
+        col.column,
+        caseSensitive,
+      );
       if (
         warehouseType !== undefined &&
         col.dataTypeFromWarehouse !== warehouseType
@@ -325,22 +342,18 @@ export async function runColumnDetectionQuery(
       // If we now know the datatype, update it
       if (col.datatype === "" && type !== "") {
         col.datatype = type;
-        col.jsonFields = jsonFields;
+        col.jsonFields = jsonFields?.fields;
         col.dateUpdated = new Date();
       }
       // If this is a JSON column, merge in the JSON fields
       else if (col.datatype === "json" && jsonFields !== undefined) {
-        // Merge existing JSON fields with new ones (prefering existing)
-        const newJSONFields = { ...col.jsonFields };
-        let hasNewFields = false;
-        for (const key in jsonFields) {
-          if (!newJSONFields[key]) {
-            newJSONFields[key] = jsonFields[key];
-            hasNewFields = true;
-          }
-        }
-        if (hasNewFields) {
-          col.jsonFields = newJSONFields;
+        const { fields, changed } = mergeJsonFields(
+          col.jsonFields,
+          jsonFields,
+          caseSensitive,
+        );
+        if (changed) {
+          col.jsonFields = fields;
           col.dateUpdated = new Date();
         }
       }
@@ -349,12 +362,14 @@ export async function runColumnDetectionQuery(
 
   // Add new columns that don't exist yet
   typeMap.forEach((datatype, column) => {
-    if (!columns.some((c) => c.column === column)) {
+    if (
+      !columns.some((c) => columnNamesMatch(c.column, column, caseSensitive))
+    ) {
       columns.push({
         column,
         datatype,
         dataTypeFromWarehouse: warehouseTypeMap.get(column),
-        jsonFields: jsonMap.get(column),
+        jsonFields: jsonMap.get(column)?.fields,
         dateCreated: new Date(),
         dateUpdated: new Date(),
         description: "",
@@ -383,7 +398,10 @@ export async function runColumnDetectionQuery(
 export async function refreshColumnTopValues(
   context: ReqContext,
   datasource: DataSourceInterface,
-  factTable: Pick<FactTableInterface, "sql" | "eventName" | "userIdTypes">,
+  factTable: Pick<
+    FactTableInterface,
+    "sql" | "eventName" | "userIdTypes" | "timestampColumn"
+  >,
   columns: ColumnInterface[],
 ): Promise<ColumnInterface[]> {
   const refreshedColumns: ColumnInterface[] = [];

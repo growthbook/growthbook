@@ -6,6 +6,7 @@ import {
 import {
   Revision,
   constantPublishFootprint,
+  getConstantRevisionApprovalChange,
   getConstantRevisionChange,
   normalizeProposedChanges,
 } from "shared/enterprise";
@@ -231,16 +232,16 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   // Constants borrow the feature `requireReviews` model (not `approvalFlows`),
   // so reset-on-change and autopublish-on-approval are derived from the matched
   // review rule rather than the default approval-flow toggles.
-  shouldResetReviewOnChange(context: Context, revision: Revision): boolean {
+  shouldResetReviewOnChange(
+    context: Context,
+    before: Revision,
+    after: Revision,
+  ): boolean {
     if (!context.hasPremiumFeature("require-approvals")) return false;
-    const snapshot = revision.target.snapshot as ConstantInterface;
-    const { valueChanged, changedEnvironments } = getConstantRevisionChange(
-      snapshot,
-      revision.target.proposedChanges,
-    );
+    const snapshot = after.target.snapshot as ConstantInterface;
     return constantResetReviewOnChange(
       { project: snapshot.project },
-      { valueChanged, changedEnvironments },
+      getConstantRevisionApprovalChange(before.target, after.target),
       context.org.settings,
     );
   },

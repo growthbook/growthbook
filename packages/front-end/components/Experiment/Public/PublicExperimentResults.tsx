@@ -1,17 +1,14 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import {
-  MetricSnapshotSettings,
-} from "shared/types/report";
+import { MetricSnapshotSettings } from "shared/types/report";
 import { getSnapshotAnalysis } from "shared/util";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
-  ExperimentInterfaceStringDates,
-} from "shared/types/experiment";
-import {
-  getEffectiveLookbackOverride, getLatestPhaseVariations,
+  getEffectiveLookbackOverride,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import { SignificanceThresholds } from "shared/types/stats";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -54,11 +51,11 @@ export default function PublicExperimentResults({
     };
   });
   const analysis = snapshot
-    ? getSnapshotAnalysis(snapshot) ?? undefined
+    ? (getSnapshotAnalysis(snapshot) ?? undefined)
     : undefined;
   const queryStatusData = getQueryStatus(
     snapshot?.queries || [],
-    snapshot?.error
+    snapshot?.error,
   );
 
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
@@ -72,10 +69,10 @@ export default function PublicExperimentResults({
         m.computedSettings?.regressionAdjustmentReason || "",
       regressionAdjustmentDays:
         m.computedSettings?.regressionAdjustmentDays || 0,
-      regressionAdjustmentEnabled: !!m.computedSettings
-        ?.regressionAdjustmentEnabled,
-      regressionAdjustmentAvailable: !!m.computedSettings
-        ?.regressionAdjustmentAvailable,
+      regressionAdjustmentEnabled:
+        !!m.computedSettings?.regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable:
+        !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
   const _orgSettings = useOrgSettings();
@@ -125,15 +122,11 @@ export default function PublicExperimentResults({
       <div className="appbox pt-3 mb-5">
         {snapshotError ? (
           <div className="mx-3 mb-3">
-            <Callout status="error">
-              Experiment snapshot error
-            </Callout>
+            <Callout status="error">Experiment snapshot error</Callout>
           </div>
         ) : snapshot && !analysis ? (
           <div className="mx-3 mb-3">
-            <Callout status="error">
-              Missing analysis
-            </Callout>
+            <Callout status="error">Missing analysis</Callout>
           </div>
         ) : !snapshot ? (
           <div className="d-flex justify-content-center my-4">
@@ -153,7 +146,9 @@ export default function PublicExperimentResults({
             metricOverrides={experiment.metricOverrides ?? []}
             settingsForSnapshotMetrics={settingsForSnapshotMetrics}
             customMetricSlices={experiment.customMetricSlices}
-            statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
+            statsEngine={
+              analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
+            }
             pValueCorrection={pValueCorrection}
             startDate={phaseObj?.dateStarted ?? ""}
             endDate={phaseObj?.dateEnded ?? ""}
@@ -176,7 +171,9 @@ export default function PublicExperimentResults({
                 results={analysis?.results ?? []}
                 seriestype={snapshot.dimension ?? ""}
                 variations={variations}
-                statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
+                statsEngine={
+                  analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
+                }
                 differenceType={analysis.settings?.differenceType}
                 ssrPolyfills={ssrPolyfills}
               />
