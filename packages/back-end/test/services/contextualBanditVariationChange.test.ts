@@ -1388,6 +1388,57 @@ describe("executeContextualBanditVariationChange", () => {
     );
   });
 
+  it("preserves an arm a concurrent writer added when CAS retries", async () => {
+    const cb = makeCb({
+      variations: [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+      variationWeights: [
+        { variationId: "v0", weight: 1 / 3 },
+        { variationId: "v1", weight: 1 / 3 },
+        { variationId: "v2", weight: 1 / 3 },
+      ],
+    });
+    const { context, applyWeightEpochUpdateMock, getByIdMock } =
+      makeContext(cb);
+
+    const concurrentArm = {
+      ...v("v99", "99"),
+      status: "pending" as const,
+    };
+    const freshDoc = {
+      ...cb,
+      banditVersion: cb.banditVersion + 1,
+      variations: [...cb.variations, concurrentArm],
+    };
+    applyWeightEpochUpdateMock.mockImplementationOnce(() => {
+      throw new CasConflictError();
+    });
+    getByIdMock.mockResolvedValueOnce(freshDoc);
+
+    await executeContextualBanditVariationChange(context, cb, [
+      v("v0", "0"),
+      v("v1", "1"),
+      v("v2", "2"),
+      v("v3", "3"),
+    ]);
+
+    expect(applyWeightEpochUpdateMock).toHaveBeenCalledTimes(2);
+    const retryVariations =
+      applyWeightEpochUpdateMock.mock.calls[1][1].variations;
+    const retryIds = retryVariations.map((x: { id: string }) => x.id);
+    expect(retryIds).toEqual(
+      expect.arrayContaining(["v0", "v1", "v2", "v3", "v99"]),
+    );
+    const v99OnRetry = retryVariations.find(
+      (x: { id: string }) => x.id === "v99",
+    );
+    expect(v99OnRetry?.status).toBe("pending");
+    const v99Deactivated = retryVariations.find(
+      (x: { id: string; status?: string }) =>
+        x.id === "v99" && x.status === "deactivated",
+    );
+    expect(v99Deactivated).toBeUndefined();
+  });
+
   it("keeps added arms pending and skips activation when a linked feature fails to take its values", async () => {
     const feature = makeFeature();
     getRefLinkedFeatureInfoMock.mockResolvedValue([linkedInfo(feature)]);

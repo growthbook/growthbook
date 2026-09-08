@@ -1049,12 +1049,6 @@ export async function activatePendingContextualBanditVariations(
     opts,
   );
 
-  await refreshLinkedFeaturePayloads(
-    context,
-    updated,
-    "contextualBandit.refresh",
-  );
-
   return { activatedIds, updated };
 }
 
@@ -1129,7 +1123,8 @@ export async function executeContextualBanditVariationChange(
       linkedInfo,
     );
 
-    let finalDiff = diff;
+    const requestedIds = new Set(newVariations.map((v) => v.id));
+    const removedSet = new Set(diff.removedIds);
 
     updated = await writeReconciledArmStateGuarded(context, cb, (base) => {
       const basePreviousVisible = getVisibleVariations(base.variations);
@@ -1147,18 +1142,32 @@ export async function executeContextualBanditVariationChange(
         }
       }
 
-      finalDiff = diffVariations(basePreviousVisible, newVariations);
-
-      const provisionalVariations: ContextualBanditVariation[] = [
-        ...newVariations.map((v) => {
-          const prev = basePreviousById.get(v.id);
+      const visibleFromRequest: ContextualBanditVariation[] = newVariations.map(
+        (v) => {
+          const prev = basePreviousById.get(v.id) ?? previousById.get(v.id);
           if (prev) return prev.status ? { ...v, status: prev.status } : v;
           return { ...v, status: "pending" as const };
-        }),
-        ...finalDiff.removedIds.map((id) => ({
+        },
+      );
+
+      const preservedConcurrentArms = basePreviousVisible.filter(
+        (v) =>
+          !requestedIds.has(v.id) &&
+          !removedSet.has(v.id) &&
+          !previousById.has(v.id),
+      );
+
+      const removedNowInBase = diff.removedIds
+        .filter((id) => basePreviousById.has(id))
+        .map((id) => ({
           ...basePreviousById.get(id)!,
           status: "deactivated" as const,
-        })),
+        }));
+
+      const provisionalVariations: ContextualBanditVariation[] = [
+        ...visibleFromRequest,
+        ...preservedConcurrentArms,
+        ...removedNowInBase,
         ...baseTombstones,
       ];
 
@@ -1182,8 +1191,8 @@ export async function executeContextualBanditVariationChange(
 
     ({ failures: featureDraftPublishFailures } =
       await reconcileLinkedFeatureVariations(context, updated, {
-        addedIds: finalDiff.addedIds,
-        removedIds: finalDiff.removedIds,
+        addedIds: diff.addedIds,
+        removedIds: diff.removedIds,
         providedValues: newVariationValues,
         linkedInfo,
       }));

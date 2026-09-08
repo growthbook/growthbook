@@ -39,6 +39,7 @@ import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   executeContextualBanditStart,
   executeContextualBanditStop,
+  refreshLinkedFeaturePayloads,
 } from "back-end/src/services/contextualBanditChanges";
 import {
   activatePendingContextualBanditVariations,
@@ -517,10 +518,19 @@ export class ContextualBanditModel extends BaseClass {
       try {
         const cb = await this.getById(cbId);
         if (!cb) continue;
-        if (!cb.variations.some((v) => v.status === "pending")) continue;
-        await activatePendingContextualBanditVariations(this.context, cb, {
-          bypassPermissionChecks: true,
-        });
+        let latest = cb;
+        if (cb.variations.some((v) => v.status === "pending")) {
+          ({ updated: latest } =
+            await activatePendingContextualBanditVariations(this.context, cb, {
+              bypassPermissionChecks: true,
+            }));
+        }
+        // Unconditional: heals a prior activation whose refresh failed.
+        await refreshLinkedFeaturePayloads(
+          this.context,
+          latest,
+          "contextualBandit.refresh",
+        );
       } catch (e) {
         this.context.logger.error(
           e,
