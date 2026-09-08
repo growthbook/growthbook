@@ -48,7 +48,10 @@ export function ThresholdBasisRow({
             ? [
                 {
                   label: "Column",
-                  value: columnValueLabel(value.aggregateFilterColumn || ""),
+                  value: columnValueLabel(
+                    value.aggregateFilterColumn || "",
+                    factTable,
+                  ),
                 },
               ]
             : []),
