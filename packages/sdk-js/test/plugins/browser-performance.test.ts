@@ -460,9 +460,10 @@ describe("CWV reporter", () => {
     gb.destroy();
   });
 
-  it("dispatches growthbookrefresh before logging deferred metrics", () => {
+  it("finalizing never mutates the SDK URL or dispatches growthbookrefresh", () => {
     const gb = new GrowthBook({ clientKey: "test" });
     const logEvent = jest.spyOn(gb, "logEvent");
+    const setURL = jest.spyOn(gb, "setURL");
     const refreshHandler = jest.fn();
     document.addEventListener("growthbookrefresh", refreshHandler);
 
@@ -477,9 +478,89 @@ describe("CWV reporter", () => {
 
     setVisibilityState("hidden");
 
-    expect(refreshHandler).toHaveBeenCalled();
     expect(logEvent).toHaveBeenCalled();
+    expect(setURL).not.toHaveBeenCalled();
+    expect(refreshHandler).not.toHaveBeenCalled();
     document.removeEventListener("growthbookrefresh", refreshHandler);
+    gb.destroy();
+  });
+
+  it("suppresses FCP/LCP (but not CLS) for a page that loaded hidden", () => {
+    setVisibilityState("hidden");
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    createCWVReporter({
+      growthbook: gb,
+      trackINP: false,
+      trackTTFB: false,
+      trackTBT: false,
+    });
+
+    // Background tab gets focused much later, then paints
+    setVisibilityState("visible");
+    emitEntries("paint", [
+      { name: "first-contentful-paint", startTime: 90000 },
+    ]);
+    emitEntries("largest-contentful-paint", [{ startTime: 90500 }]);
+    emitEntries("layout-shift", [
+      { startTime: 91000, value: 0.2, hadRecentInput: false },
+    ]);
+
+    setVisibilityState("hidden");
+    expect(logEvent).not.toHaveBeenCalledWith(
+      "CWV:FCP",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(logEvent).not.toHaveBeenCalledWith(
+      "CWV:LCP",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(logEvent).toHaveBeenCalledWith(
+      "CWV:CLS",
+      { value: 0.2 },
+      { url: expect.any(String) },
+    );
+    gb.destroy();
+  });
+
+  it("waits for prerender activation before observing", () => {
+    Object.defineProperty(document, "prerendering", {
+      configurable: true,
+      get: () => true,
+    });
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    createCWVReporter({
+      growthbook: gb,
+      trackFCP: false,
+      trackLCP: false,
+      trackINP: false,
+      trackTTFB: false,
+      trackTBT: false,
+    });
+
+    // Nothing observed yet — hidden during prerender must not finalize
+    expect(mockObservers.length).toBe(0);
+    setVisibilityState("hidden");
+    expect(logEvent).not.toHaveBeenCalled();
+
+    Object.defineProperty(document, "prerendering", {
+      configurable: true,
+      get: () => false,
+    });
+    setVisibilityState("visible");
+    document.dispatchEvent(new Event("prerenderingchange"));
+    expect(mockObservers.length).toBeGreaterThan(0);
+
+    setVisibilityState("hidden");
+    expect(logEvent).toHaveBeenCalledWith(
+      "CWV:CLS",
+      { value: 0 },
+      { url: expect.any(String) },
+    );
+    delete (document as unknown as { prerendering?: boolean }).prerendering;
     gb.destroy();
   });
 
@@ -808,7 +889,11 @@ describe("subscribeToUrlChanges", () => {
     });
 
     // Initial page_view
-    expect(logEvent).toHaveBeenCalledWith("page_view");
+    expect(logEvent).toHaveBeenCalledWith(
+      "page_view",
+      {},
+      { url: expect.any(String) },
+    );
     logEvent.mockClear();
 
     window.history.pushState({}, "", "/?qs=1");
@@ -819,7 +904,11 @@ describe("subscribeToUrlChanges", () => {
       String(c[0]).startsWith("CWV:"),
     );
     expect(cwvCalls.length).toBe(0);
-    expect(logEvent).toHaveBeenCalledWith("page_view");
+    expect(logEvent).toHaveBeenCalledWith(
+      "page_view",
+      {},
+      { url: expect.any(String) },
+    );
 
     gb.destroy();
   });
@@ -989,7 +1078,11 @@ describe("Engagement reporter", () => {
       pageViewSamplingRate: 1,
     });
 
-    expect(logEvent).toHaveBeenCalledWith("page_view");
+    expect(logEvent).toHaveBeenCalledWith(
+      "page_view",
+      {},
+      { url: expect.any(String) },
+    );
     gb.destroy();
   });
 
@@ -1003,7 +1096,11 @@ describe("Engagement reporter", () => {
       engagementSamplingRate: 1,
     });
 
-    expect(logEvent).not.toHaveBeenCalledWith("page_view");
+    expect(logEvent).not.toHaveBeenCalledWith(
+      "page_view",
+      expect.anything(),
+      expect.anything(),
+    );
     gb.destroy();
   });
 
@@ -1024,6 +1121,55 @@ describe("Engagement reporter", () => {
       expect.objectContaining({
         leave_reason: "pagehide",
       }),
+      { url: expect.any(String) },
+    );
+    gb.destroy();
+  });
+
+  it("attributes page_leave to the page left and page_view to the new page without touching the SDK URL", async () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    const setURL = jest.spyOn(gb, "setURL");
+    createEngagementReporter({
+      growthbook: gb,
+      pageViewSamplingRate: 1,
+      engagementSamplingRate: 1,
+    });
+    const firstUrl = window.location.href;
+    logEvent.mockClear();
+
+    window.history.pushState({}, "", "/second");
+    await sleep(0);
+
+    expect(logEvent).toHaveBeenCalledWith(
+      "page_leave",
+      expect.objectContaining({ leave_reason: "route_change" }),
+      { url: firstUrl },
+    );
+    expect(logEvent).toHaveBeenCalledWith(
+      "page_view",
+      {},
+      { url: window.location.href },
+    );
+    expect(window.location.href).not.toBe(firstUrl);
+    expect(setURL).not.toHaveBeenCalled();
+    gb.destroy();
+  });
+
+  it("reports max_scroll_depth_percent as 100 for a page that fits the viewport", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    createEngagementReporter({
+      growthbook: gb,
+      pageViewSamplingRate: 0,
+      engagementSamplingRate: 1,
+    });
+
+    window.dispatchEvent(new Event("pagehide"));
+    expect(logEvent).toHaveBeenCalledWith(
+      "page_leave",
+      expect.objectContaining({ max_scroll_depth_percent: 100 }),
+      { url: expect.any(String) },
     );
     gb.destroy();
   });
@@ -1073,6 +1219,7 @@ describe("Engagement reporter", () => {
     expect(logEvent).toHaveBeenCalledWith(
       "page_engagement",
       expect.objectContaining({ visibility_state: "hidden" }),
+      { url: expect.any(String) },
     );
     gb.destroy();
   });
@@ -1087,7 +1234,11 @@ describe("Engagement reporter", () => {
       engagementSamplingRate: 1,
     });
 
-    expect(logEvent).toHaveBeenCalledWith("page_view");
+    expect(logEvent).toHaveBeenCalledWith(
+      "page_view",
+      {},
+      { url: expect.any(String) },
+    );
     logEvent.mockClear();
 
     window.history.pushState({}, "", "/new-page");
@@ -1096,8 +1247,13 @@ describe("Engagement reporter", () => {
     expect(logEvent).toHaveBeenCalledWith(
       "page_leave",
       expect.objectContaining({ leave_reason: "route_change" }),
+      { url: expect.any(String) },
     );
-    expect(logEvent).toHaveBeenCalledWith("page_view");
+    expect(logEvent).toHaveBeenCalledWith(
+      "page_view",
+      {},
+      { url: expect.any(String) },
+    );
     gb.destroy();
   });
 
@@ -1201,7 +1357,11 @@ describe("browserEventsPlugin", () => {
     });
     apply(gb);
 
-    expect(logEvent).toHaveBeenCalledWith("page_view");
+    expect(logEvent).toHaveBeenCalledWith(
+      "page_view",
+      {},
+      { url: expect.any(String) },
+    );
 
     const btn = document.createElement("button");
     document.body.appendChild(btn);
@@ -1251,6 +1411,31 @@ describe("GrowthBook event buffer", () => {
     expect(logger).toHaveBeenCalledTimes(2);
     expect(logger.mock.calls[0]?.[0]).toBe("evt-1");
     expect(logger.mock.calls[1]?.[0]).toBe("evt-2");
+    gb.destroy();
+  });
+
+  it("does not re-run devtools/subscriber hooks when flushing the buffer", async () => {
+    const gb = new GrowthBook({ clientKey: "test", enableDevMode: true });
+    const sub = jest.fn();
+    gb._subscribeCustomEvents(sub);
+    await gb.logEvent("buffered", { a: 1 });
+    expect(
+      gb.logs.filter(
+        (l) => l.logType === "event" && l.eventName === "buffered",
+      ),
+    ).toHaveLength(1);
+    expect(sub).toHaveBeenCalledTimes(1);
+
+    const logger = jest.fn();
+    gb.setEventLogger(logger);
+    await sleep(0);
+    expect(logger).toHaveBeenCalledTimes(1);
+    expect(
+      gb.logs.filter(
+        (l) => l.logType === "event" && l.eventName === "buffered",
+      ),
+    ).toHaveLength(1);
+    expect(sub).toHaveBeenCalledTimes(1);
     gb.destroy();
   });
 

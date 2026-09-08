@@ -7,6 +7,7 @@ import {
   TrackingCallback,
 } from "./types/growthbook";
 import { GrowthBook } from "./GrowthBook";
+import { EVENT_EXPERIMENT_VIEWED } from "./core";
 import {
   BrowserCookieStickyBucketService,
   LocalStorageStickyBucketService,
@@ -254,8 +255,11 @@ const trackers =
         .map((t) => t.trim())
     : [];
 
-// Perf events need a logger; include even when tracking="none"
-if (trackers.includes("growthbook") || performanceEnabled) {
+// Perf events need a logger even when "growthbook" isn't a configured
+// tracker — but then only perf/custom events ship, not every exposure and
+// feature evaluation the user never opted into sending
+const growthbookTracking = trackers.includes("growthbook");
+if (growthbookTracking || performanceEnabled) {
   const eventTransport =
     windowContext.eventTransport || dataContext.eventTransport;
   plugins.push(
@@ -267,6 +271,10 @@ if (trackers.includes("growthbook") || performanceEnabled) {
         eventTransport === "fetch"
           ? eventTransport
           : undefined,
+      enableFeatureUsageEvents: growthbookTracking,
+      eventFilter: growthbookTracking
+        ? undefined
+        : (e) => e.eventName !== EVENT_EXPERIMENT_VIEWED,
     }),
   );
 }

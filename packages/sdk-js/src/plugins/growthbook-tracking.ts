@@ -230,6 +230,7 @@ export function growthbookTrackingPlugin({
       let _q: EventPayload[] = [];
       let timer: NodeJS.Timeout | null = null;
       let isUnloading = false;
+      let immediateFlush: Promise<void> | null = null;
       let promise: Promise<void> | null = null;
       let flushDone: (() => void) | null = null;
       const flush = async (unloading?: boolean) => {
@@ -325,9 +326,21 @@ export function growthbookTrackingPlugin({
 
         _q.push(payload);
 
-        // The page is tearing down; a delayed flush would never fire
-        if (isUnloading) {
-          await flush(true);
+        // Hidden or unloading pages may be frozen before a delayed flush
+        // fires (mobile app-switch). Flush on a microtask so events logged
+        // in the same tick — e.g. the CWV finals — share one beacon.
+        if (
+          isUnloading ||
+          (typeof document !== "undefined" &&
+            document.visibilityState === "hidden")
+        ) {
+          if (!immediateFlush) {
+            immediateFlush = Promise.resolve().then(() => {
+              immediateFlush = null;
+              return flush(true);
+            });
+          }
+          await immediateFlush;
           return;
         }
 

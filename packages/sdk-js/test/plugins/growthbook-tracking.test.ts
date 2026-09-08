@@ -410,6 +410,49 @@ describe("growthbookTrackingPlugin", () => {
     gb.destroy();
   });
 
+  it("flushes events logged while the page is hidden without waiting for the timer, batching same-tick events", async () => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [growthbookTrackingPlugin({ queueFlushInterval: 100 })],
+      url: "http://localhost:3000",
+    });
+
+    // The tracking plugin's own hidden handler flushes an empty queue; the
+    // CWV finals are logged by a later-registered listener in the same tick
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "hidden",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+    gb.logEvent("CWV:LCP", { value: 1 });
+    gb.logEvent("CWV:CLS", { value: 0 });
+    gb.logEvent("page_leave");
+    await sleep(0);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(
+      body.events.map((e: { event_name: string }) => e.event_name),
+    ).toEqual(["CWV:LCP", "CWV:CLS", "page_leave"]);
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ keepalive: true });
+
+    // Back to visible: batching resumes
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+    gb.logEvent("later");
+    await sleep(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    gb.destroy();
+  });
+
   it("resets the unload fast-path when the page is restored from bfcache", async () => {
     const plugin = growthbookTrackingPlugin({ queueFlushInterval: 100 });
     const gb = new GrowthBook({
@@ -522,10 +565,9 @@ describe("growthbookTrackingPlugin", () => {
     await sleep(10);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    // Later events must still be flushed (immediately, since the page is
-    // unloading and a queued timer would never fire)
+    // Later events must flush immediately — a queued timer would never fire
     gb.logEvent("b");
-    await sleep(150);
+    await sleep(0);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(
       JSON.parse(fetchMock.mock.calls[1][1].body).events[0].event_name,

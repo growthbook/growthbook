@@ -1012,13 +1012,18 @@ export class GrowthBook<
   public setEventLogger(logger: EventLogger) {
     this._options.eventLogger = logger;
     // Flush any events buffered before a logger was registered
+    // Hand buffered events straight to the logger — they already went
+    // through logEvent's devtools/subscriber hooks when first logged
     if (this._pendingEvents.length) {
       const pending = this._pendingEvents;
       this._pendingEvents = [];
       for (const { eventName, properties, userContext } of pending) {
-        this.logEvent(eventName, properties, userContext).catch((e) =>
-          console.error(e),
-        );
+        Promise.resolve(
+          logger(eventName, properties || {}, {
+            ...getTrackingUserContext(this._getUserContext()),
+            ...userContext,
+          }),
+        ).catch((e) => console.error(e));
       }
     }
   }

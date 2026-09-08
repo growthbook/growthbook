@@ -135,6 +135,9 @@ export function markPageLeaveSent() {
 export function markInteractionTrackingActive() {
   interactionTrackingActive = true;
 }
+export function markInteractionTrackingInactive() {
+  interactionTrackingActive = false;
+}
 export function isInteractionTrackingActive() {
   return interactionTrackingActive;
 }

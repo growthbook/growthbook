@@ -50,18 +50,13 @@ export function detectEnv(): "browser" | "node" | "unknown" {
   return "unknown";
 }
 
-// Sync the current URL into GrowthBook so subsequent events are attributed
-// to the new page. Dispatch covers autoAttributesPlugin (UTM/title refresh);
-// setURL is the direct path that works without it. Both are idempotent.
-export function syncGrowthBookUrl(gb: GrowthBook) {
-  try {
-    document.dispatchEvent(new Event("growthbookrefresh"));
-  } catch {
-    // noop
-  }
-  try {
-    void gb.setURL(window.location.href);
-  } catch {
-    // noop
+// Prerendered pages (speculation rules) run scripts before the user sees
+// anything; observability must wait for activation
+export function whenActivated(fn: () => void): void {
+  const doc = document as Document & { prerendering?: boolean };
+  if (doc.prerendering) {
+    doc.addEventListener("prerenderingchange", () => fn(), { once: true });
+  } else {
+    fn();
   }
 }

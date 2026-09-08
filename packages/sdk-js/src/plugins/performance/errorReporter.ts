@@ -86,7 +86,14 @@ export function createErrorReporter({
     ].join("|");
   }
 
+  // Debounce is per error key; a throwing interval with varying messages
+  // would otherwise emit indefinitely
+  const MAX_ERRORS_PER_PAGE = 100;
+  let errorsLogged = 0;
+
   function shouldLogError(key: string) {
+    if (errorsLogged >= MAX_ERRORS_PER_PAGE) return false;
+    errorsLogged++;
     if (debounceTimeout <= 0) return true;
     const now = Date.now();
     const last = lastErrorTimestamps.get(key) || 0;

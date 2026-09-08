@@ -14,6 +14,7 @@ import {
   incrementTrackedClickCount,
   incrementRageClickCount,
   markInteractionTrackingActive,
+  markInteractionTrackingInactive,
   incrementFormSubmitCount,
 } from "./pageState";
 
@@ -164,6 +165,7 @@ export function createInteractionReporter({
   document.addEventListener("submit", onSubmit, { capture: true });
 
   growthbook.onDestroy(() => {
+    markInteractionTrackingInactive();
     document.removeEventListener("click", onClick, true);
     document.removeEventListener("submit", onSubmit, true);
     rageClicks = [];
