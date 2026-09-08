@@ -191,11 +191,12 @@ export function getDefaultFactMetricProps({
 export function toFactMetricFormValues(
   defaults: CreateFactMetricFormProps & { targetMDE: number },
 ): CreateFactMetricFormProps {
-  const result = { ...defaults };
-  result.targetMDE = result.targetMDE * 100;
-  result.minPercentChange = result.minPercentChange * 100;
-  result.maxPercentChange = result.maxPercentChange * 100;
-  return result;
+  return {
+    ...defaults,
+    targetMDE: defaults.targetMDE * 100,
+    minPercentChange: defaults.minPercentChange * 100,
+    maxPercentChange: defaults.maxPercentChange * 100,
+  };
 }
 
 // Inverse of toFactMetricFormValues, plus the submit-time normalization
