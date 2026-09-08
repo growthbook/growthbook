@@ -76,7 +76,25 @@ function buildSavePayload(
     throw new Error("Capped Value cannot be 0");
   }
 
+  if (!result.datasource) {
+    throw new Error("Must select a Data Source");
+  }
+
   return result;
+}
+
+// FunnelStepsInput has no equivalent to these - matches FactMetricModal's
+// own funnel submit checks, which have no reset-rule equivalent either.
+function validateFunnelSteps(funnelSettings: FunnelSettings | null): void {
+  if (!funnelSettings || funnelSettings.steps.length < 2) {
+    throw new Error("Funnel metrics require at least 2 steps");
+  }
+  for (const step of funnelSettings.steps) {
+    if (!step.name.trim()) throw new Error("Every funnel step needs a name");
+    if (!step.factTableId) {
+      throw new Error("Every funnel step needs a Fact Table");
+    }
+  }
 }
 
 export default function MetricWorkspace({
@@ -111,16 +129,19 @@ export default function MetricWorkspace({
 
   async function handleSave() {
     const values = buildSavePayload(form.getValues());
-    const payload =
-      values.metricType === "funnel"
-        ? {
-            ...values,
-            numerator: null,
-            denominator: null,
-            funnelSettings,
-            quantileSettings: null,
-          }
-        : { ...values, funnelSettings: null };
+    const isFunnel = values.metricType === "funnel";
+    if (isFunnel) validateFunnelSteps(funnelSettings);
+
+    const payload = isFunnel
+      ? {
+          ...values,
+          numerator: null,
+          denominator: null,
+          funnelSettings,
+          quantileSettings: null,
+          metricAutoSlices: [],
+        }
+      : { ...values, funnelSettings: null };
 
     if (existing) {
       const updatePayload = omit(payload, [
