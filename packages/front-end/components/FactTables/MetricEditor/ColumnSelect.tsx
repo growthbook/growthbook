@@ -34,7 +34,7 @@ export default function ColumnSelect({
     return (
       <DataList
         data={[
-          { label, value: columnValueLabel(value) },
+          { label, value: columnValueLabel(value, factTable) },
           ...(agg
             ? [{ label: "Per-User Aggregation", value: agg.toUpperCase() }]
             : []),
