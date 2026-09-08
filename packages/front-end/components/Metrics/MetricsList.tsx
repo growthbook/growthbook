@@ -207,6 +207,8 @@ export function useCombinedMetrics({
 
   const { apiCall } = useAuth();
 
+  const router = useRouter();
+
   const combinedMetrics = [
     ...inlineMetrics.map((m) => {
       const canDuplicate = permissionsUtil.canCreateMetric({
@@ -340,24 +342,16 @@ export function useCombinedMetrics({
               }
             }
           : undefined,
+        // `setMetricModalProps` is kept as the "did this caller opt into row
+        // actions" gate (matching the legacy-metric branch below), even
+        // though fact metrics navigate instead of calling it directly.
         onDuplicate:
           canDuplicate && setMetricModalProps
-            ? () =>
-                setMetricModalProps({
-                  mode: "duplicate",
-                  currentFactMetric: {
-                    ...m,
-                    name: m.name + " (copy)",
-                  },
-                })
+            ? () => router.push(`/fact-metrics/new?duplicate=${m.id}`)
             : undefined,
         onEdit:
           canEdit && setMetricModalProps
-            ? () =>
-                setMetricModalProps({
-                  mode: "edit",
-                  currentFactMetric: m,
-                })
+            ? () => router.push(`/fact-metrics/${m.id}`)
             : undefined,
         onDelete: canDelete
           ? async () => {
@@ -568,7 +562,11 @@ const MetricsList = (): React.ReactElement => {
                 disabled={
                   !permissionsUtil.canCreateMetric({ projects: [project] })
                 }
-                onClick={() => setModalData({ mode: "new" })}
+                onClick={() =>
+                  hasFactTables
+                    ? router.push("/fact-metrics/new")
+                    : setModalData({ mode: "new" })
+                }
               >
                 Add Metric
               </Button>
