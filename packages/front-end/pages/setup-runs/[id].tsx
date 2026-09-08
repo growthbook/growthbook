@@ -112,7 +112,7 @@ function CreatedTable({
           <TableColumnHeader>Name</TableColumnHeader>
           <TableColumnHeader>Type</TableColumnHeader>
           <TableColumnHeader>Environment</TableColumnHeader>
-          <TableColumnHeader style={{ width: "1%" }} />
+          <TableColumnHeader style={{ width: "1%" }}>Review</TableColumnHeader>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -143,7 +143,7 @@ function SetUpTable({ artifacts }: { artifacts: Artifact[] }) {
         <TableRow>
           <TableColumnHeader>Type</TableColumnHeader>
           <TableColumnHeader>Name</TableColumnHeader>
-          <TableColumnHeader style={{ width: "1%" }} />
+          <TableColumnHeader style={{ width: "1%" }}>Review</TableColumnHeader>
         </TableRow>
       </TableHeader>
       <TableBody>

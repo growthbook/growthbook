@@ -33,6 +33,7 @@ const AGENTS = [
   { id: "codex", label: "Codex" },
   { id: "opencode", label: "opencode" },
   { id: "gemini", label: "Gemini CLI" },
+  { id: "antigravity", label: "Antigravity" },
 ] as const;
 type AgentId = (typeof AGENTS)[number]["id"];
 
@@ -64,6 +65,43 @@ export default function ConnectPage() {
   const wizardable = !NO_WIZARD.has(language);
   const command = `npx ${PACKAGE} --language ${language} --${agent}${organization.id ? ` --org ${organization.id}` : ""}`;
   const agentLabel = AGENTS.find((a) => a.id === agent)?.label ?? "your agent";
+
+  const manual = (
+    <>
+      {!wizardable && (
+        <Box mb="3">
+          <Callout status="info">
+            This one is set up by hand — there is no package to install, so the
+            AI-assisted path does not apply.
+          </Callout>
+        </Box>
+      )}
+      <Frame p="4" mb="0">
+        {/* apiKey is read only by this component's script-tag branch. Where it
+                matters the key is public by design; elsewhere it is unused, so an
+                empty value invents nothing. The snippets that embed a real key
+                live on the SDK connection itself. */}
+        <InstallationCodeSnippet
+          language={language}
+          apiKey=""
+          apiHost={apiHost}
+          remoteEvalEnabled={false}
+          eventTracker={eventTracker}
+          setEventTracker={setEventTracker}
+        />
+      </Frame>
+      <Box mt="3">
+        <Text as="p" color="text-mid" mb="3">
+          That installs the SDK. Initializing it needs your client key, which
+          belongs to an SDK connection — create one and its setup snippets
+          arrive with the key already filled in.
+        </Text>
+        <LinkButton href="/sdks" variant="outline">
+          Create an SDK Connection
+        </LinkButton>
+      </Box>
+    </>
+  );
 
   return (
     <Container
@@ -108,100 +146,66 @@ export default function ConnectPage() {
           languageFilter={languageFilter}
           setLanguageFilter={setLanguageFilter}
         />
-      ) : (
-        <Tabs defaultValue={wizardable ? "ai-assisted" : "manual"}>
+      ) : wizardable ? (
+        <Tabs defaultValue="ai-assisted">
           <Box mb="5">
             <TabsList>
-              {wizardable && (
-                <TabsTrigger value="ai-assisted">AI-assisted</TabsTrigger>
-              )}
+              <TabsTrigger value="ai-assisted">AI-assisted</TabsTrigger>
               <TabsTrigger value="manual">Manual setup</TabsTrigger>
             </TabsList>
           </Box>
-
-          {wizardable && (
-            <TabsContent value="ai-assisted">
-              <Flex align="center" gap="2" mb="3">
-                <Heading as="h2" size="md" weight="semibold" mb="0">
-                  AI-Assisted Setup
-                </Heading>
-                <Tooltip content="It signs you in, creates an SDK Connection and installs the SDK, then hands over to your coding agent to wire it up, find targeting attributes in your code, and put something behind a first flag.">
-                  <Box style={{ color: "var(--slate-9)", display: "flex" }}>
-                    <PiInfo size={16} />
-                  </Box>
-                </Tooltip>
-              </Flex>
-
-              <Frame p="4" mb="0">
-                <Box mb="3" maxWidth="240px">
-                  <Select
-                    label="Coding agent"
-                    value={agent}
-                    setValue={(v) => {
-                      const next = AGENTS.find((a) => a.id === v);
-                      if (next) setAgent(next.id);
-                    }}
-                    size="sm"
-                  >
-                    {AGENTS.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.label}
-                      </SelectItem>
-                    ))}
-                  </Select>
+          <TabsContent value="ai-assisted">
+            <Flex align="center" gap="2" mb="3">
+              <Heading as="h2" size="md" weight="semibold" mb="0">
+                AI-Assisted Setup
+              </Heading>
+              <Tooltip content="It signs you in, creates an SDK Connection and installs the SDK, then hands over to your coding agent to wire it up, find targeting attributes in your code, and put something behind a first Feature Flag.">
+                <Box style={{ color: "var(--slate-9)", display: "flex" }}>
+                  <PiInfo size={16} />
                 </Box>
-                <Text as="p" color="text-mid" mb="3">
-                  Run this in a terminal in your project. It signs you in,
-                  installs the SDK, and{" "}
-                  {agent === "gemini"
-                    ? "prints the prompt for Gemini CLI."
-                    : `opens ${agentLabel} with the rest.`}
-                </Text>
-                <Code
-                  language="bash"
-                  code={command}
-                  showLineNumbers={false}
-                  filename="Terminal"
-                />
-              </Frame>
-            </TabsContent>
-          )}
+              </Tooltip>
+            </Flex>
 
-          <TabsContent value="manual">
-            {!wizardable && (
-              <Box mb="3">
-                <Callout status="info">
-                  This one is set up by hand — there is no package to install,
-                  so the AI-assisted path does not apply.
-                </Callout>
-              </Box>
-            )}
             <Frame p="4" mb="0">
-              {/* apiKey is read only by this component's script-tag branch. Where it
-                  matters the key is public by design; elsewhere it is unused, so an
-                  empty value invents nothing. The snippets that embed a real key
-                  live on the SDK connection itself. */}
-              <InstallationCodeSnippet
-                language={language}
-                apiKey=""
-                apiHost={apiHost}
-                remoteEvalEnabled={false}
-                eventTracker={eventTracker}
-                setEventTracker={setEventTracker}
+              <Box mb="3" maxWidth="240px">
+                <Select
+                  label="Coding agent"
+                  value={agent}
+                  setValue={(v) => {
+                    const next = AGENTS.find((a) => a.id === v);
+                    if (next) setAgent(next.id);
+                  }}
+                  size="sm"
+                >
+                  {AGENTS.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.label}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </Box>
+              <Text as="p" color="text-mid" mb="3">
+                Run this in a terminal in your project. It signs you in,
+                installs the SDK, and{" "}
+                {agent === "gemini"
+                  ? "prints the prompt for Gemini CLI."
+                  : agent === "antigravity"
+                    ? "opens Antigravity with the prompt on your clipboard."
+                    : `opens ${agentLabel} with the rest.`}
+              </Text>
+              <Code
+                language="bash"
+                code={command}
+                showLineNumbers={false}
+                filename="Terminal"
               />
             </Frame>
-            <Box mt="3">
-              <Text as="p" color="text-mid" mb="3">
-                That installs the SDK. Initializing it needs your client key,
-                which belongs to an SDK connection — create one and its setup
-                snippets arrive with the key already filled in.
-              </Text>
-              <LinkButton href="/sdks" variant="outline">
-                Create an SDK Connection
-              </LinkButton>
-            </Box>
           </TabsContent>
+          <TabsContent value="manual">{manual}</TabsContent>
         </Tabs>
+      ) : (
+        // One choice is not a tab bar: hand-set-up targets get the manual steps alone.
+        manual
       )}
 
       <Separator size="4" my="6" />

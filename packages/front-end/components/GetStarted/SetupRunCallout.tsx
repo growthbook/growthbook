@@ -22,16 +22,32 @@ export default function SetupRunCallout() {
   const appName = setupRunMetaString(run.metadata, "appName");
   const where = appName ? ` in ${appName}` : "";
 
-  return (
-    <Callout status={unfinished ? "warning" : "success"} size="md" mb="4">
-      <Text size="md">
-        {unfinished
-          ? `Your GrowthBook setup${where} has ${unfinished} step${
-              unfinished === 1 ? "" : "s"
-            } left to finish.`
-          : `You set up GrowthBook${where}. Here's everything it created.`}{" "}
-        <Link href={`/setup-runs/${run.id}`}>View setup</Link>
-      </Text>
+  const body = (
+    <Text size="md">
+      {unfinished
+        ? `Your GrowthBook setup${where} has ${unfinished} step${
+            unfinished === 1 ? "" : "s"
+          } left to finish.`
+        : `You set up GrowthBook${where}. Here's everything it created.`}{" "}
+      <Link href={`/setup-runs/${run.id}`}>View setup</Link>
+    </Text>
+  );
+
+  // A finished run is a recap, so it can be put away; unfinished work keeps its
+  // resume cue until it is done.
+  return unfinished ? (
+    <Callout status="warning" size="md" mb="4">
+      {body}
+    </Callout>
+  ) : (
+    <Callout
+      status="success"
+      size="md"
+      mb="4"
+      dismissible
+      id={`setup-run:${run.id}`}
+    >
+      {body}
     </Callout>
   );
 }
