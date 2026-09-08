@@ -2,6 +2,7 @@ import { useRouter } from "next/router";
 import { FactMetricInterface } from "shared/types/fact-table";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
+import Heading from "@/ui/Heading";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -33,9 +34,12 @@ export default function NewFactMetricPage() {
           { display: "New Metric" },
         ]}
       />
+      <Heading as="h1" mb="3">
+        New Fact Metric
+      </Heading>
       {!canCreate ? (
         <Callout status="error">
-          You don&apos;t have permission to create metrics in this project.{" "}
+          You don&apos;t have permission to create Fact Metrics in this Project.{" "}
           <Link href="/metrics">Back to all metrics</Link>
         </Callout>
       ) : (
