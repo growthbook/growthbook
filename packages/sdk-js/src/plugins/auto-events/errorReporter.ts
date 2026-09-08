@@ -100,18 +100,19 @@ export function createErrorReporter({
 
   function shouldLogError(key: string) {
     if (errorsLogged >= MAX_ERRORS_PER_PAGE) return false;
-    errorsLogged++;
-    if (debounceTimeout <= 0) return true;
-    const now = Date.now();
-    const last = lastErrorTimestamps.get(key) || 0;
-    if (now - last < debounceTimeout) return false;
-    lastErrorTimestamps.delete(key);
-    lastErrorTimestamps.set(key, now);
-    while (lastErrorTimestamps.size > DEDUPE_CACHE_SIZE) {
-      const oldest = lastErrorTimestamps.keys().next().value;
-      if (oldest === undefined) break;
-      lastErrorTimestamps.delete(oldest);
+    if (debounceTimeout > 0) {
+      const now = Date.now();
+      const last = lastErrorTimestamps.get(key) || 0;
+      if (now - last < debounceTimeout) return false;
+      lastErrorTimestamps.delete(key);
+      lastErrorTimestamps.set(key, now);
+      while (lastErrorTimestamps.size > DEDUPE_CACHE_SIZE) {
+        const oldest = lastErrorTimestamps.keys().next().value;
+        if (oldest === undefined) break;
+        lastErrorTimestamps.delete(oldest);
+      }
     }
+    errorsLogged++;
     return true;
   }
 

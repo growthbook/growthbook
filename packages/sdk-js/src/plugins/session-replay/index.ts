@@ -6,6 +6,7 @@ import { readSessionJSON, writeSessionJSON } from "../utils/storage";
 import { resolveSessionId } from "../utils/gb-session";
 import { shouldSampleScope, persistSampleDecision } from "../utils/sampling";
 import { mergeSettings } from "../utils/settings";
+import { DEFAULT_INGESTOR_HOST } from "../utils/ingestor";
 import { createRetry, RetryExhaustedError, RetryCancelledError } from "./retry";
 import {
   SessionReplayPrivacyConfig,
@@ -24,13 +25,13 @@ export type {
 } from "./privacy";
 
 type PluginOptions = {
-  trackingHost?: string;
+  ingestorHost?: string;
   autoRecord?: boolean;
   // Kill switch: when false, the plugin loads but never records. Default true.
   enabled?: boolean;
   // Fraction of sessions to record (0-1, default 1). True-random and sticky
   // per replay session.
-  sampleRate?: number;
+  samplingRate?: number;
   // Masking/blocking controls for what rrweb captures. Defaults to
   // deny-by-default (every input masked).
   privacy?: SessionReplayPrivacyConfig;
@@ -40,7 +41,7 @@ const SAMPLE_DECISION_KEY = "gb_session_replay_sampled";
 
 const DEFAULT_SETTINGS: Required<SessionReplaySettings> = {
   enabled: true,
-  sampleRate: 1,
+  samplingRate: 1,
 };
 
 // Do Not Track / Global Privacy Control (CCPA-binding), checked before
@@ -121,10 +122,10 @@ const MAX_BUFFERED_EVENTS = 500;
 const COMPRESS_REQUESTS = true;
 
 export function sessionReplayPlugin({
-  trackingHost = "",
+  ingestorHost,
   autoRecord = true,
   enabled,
-  sampleRate,
+  samplingRate,
   privacy,
 }: PluginOptions = {}) {
   if (typeof window === "undefined" || typeof document === "undefined") {
@@ -132,12 +133,14 @@ export function sessionReplayPlugin({
   }
 
   let gbRef: GrowthBook | null = null;
+  // Remote re-enables resume recording only if nothing stopped it explicitly
+  let autoRestart = autoRecord;
 
   // defaults ← constructor options ← remote sdkSettings from the payload
   const resolveSettings = (): Required<SessionReplaySettings> =>
     mergeSettings(
       DEFAULT_SETTINGS,
-      { enabled, sampleRate },
+      { enabled, samplingRate },
       gbRef?.getDecryptedPayload().sdkSettings?.sessionReplay,
     );
   let host = "";
@@ -348,6 +351,16 @@ export function sessionReplayPlugin({
           });
         }
       } catch (e) {
+        // Rotated mid-flight — the chunk belongs to a session that's gone, so
+        // it must never be restored into the new session's buffer
+        if (sessionReplayId !== sessionReplayIdBeingSent) {
+          console.warn(
+            `session-replay: chunk ${chunkIndexBeingSent} lost during session rotation`,
+            e,
+          );
+          return;
+        }
+
         if (e instanceof RetryCancelledError) {
           // stopRecording cancelled a pending retry — restore the snapshot
           // for its final keepalive flush
@@ -356,15 +369,6 @@ export function sessionReplayPlugin({
           featureEvals.unshift(...featureEvalsBeingSent);
           experimentEvals.unshift(...experimentEvalsBeingSent);
           sessionEvents.unshift(...sessionEventsBeingSent);
-          return;
-        }
-
-        if (sessionReplayId !== sessionReplayIdBeingSent) {
-          // Rotated mid-flight — chunk is lost regardless of error class
-          console.warn(
-            `session-replay: chunk ${chunkIndexBeingSent} lost during session rotation`,
-            e,
-          );
           return;
         }
 
@@ -398,6 +402,7 @@ export function sessionReplayPlugin({
           );
           replayEvents.length = 0;
           bufferedBytes = 0;
+          autoRestart = false;
           stopRecording();
           return;
         }
@@ -444,7 +449,7 @@ export function sessionReplayPlugin({
       persistSampleDecision(SAMPLE_DECISION_KEY, nextSessionReplayId, true);
     } else if (
       !shouldSampleScope({
-        rate: settings.sampleRate,
+        rate: settings.samplingRate,
         storageKey: SAMPLE_DECISION_KEY,
         scopeId: nextSessionReplayId,
       })
@@ -519,9 +524,17 @@ export function sessionReplayPlugin({
           void flushBuffer();
         }
 
-        // Drop NEW events at the cap (don't evict old) so the type-2
-        // snapshot at the head — required by the player — is preserved
-        if (replayEvents.length >= MAX_BUFFERED_EVENTS) return;
+        if (replayEvents.length >= MAX_BUFFERED_EVENTS) {
+          // Flushes are failing: drop new events rather than the snapshot
+          if (hasUserInteraction) return;
+          // Nothing has shipped yet, so dropping mutations would desync the
+          // replay; restart the buffer from a fresh snapshot instead
+          replayEvents = [];
+          bufferedBytes = 0;
+          typeof record.takeFullSnapshot === "function" &&
+            record.takeFullSnapshot();
+          return;
+        }
 
         replayEvents.push(scrubbedEvent);
         bufferedBytes += eventBytes;
@@ -600,9 +613,8 @@ export function sessionReplayPlugin({
     gbRef = gb;
     let cleanedUp = false;
 
-    const [apiHost, key] = gb.getApiInfo();
-    host = trackingHost || apiHost;
-    clientKey = key;
+    host = ingestorHost || DEFAULT_INGESTOR_HOST;
+    clientKey = gb.getApiInfo()[1];
 
     // Eval/event subscriptions append to typed buffers that flushBuffer
     // drains on every chunk send
@@ -638,16 +650,23 @@ export function sessionReplayPlugin({
       sessionEvents.push({ eventName, timestamp: Date.now(), properties });
     });
 
-    const forceStart = () => startRecording(false, true);
-    gb._registerSessionReplay(forceStart, stopRecording);
+    const forceStart = () => {
+      autoRestart = true;
+      startRecording(false, true);
+    };
+    const explicitStop = () => {
+      autoRestart = false;
+      stopRecording();
+    };
+    gb._registerSessionReplay(forceStart, explicitStop);
 
     // Remote settings apply mid-recording: the kill switch stops in-flight
-    // recordings, re-enabling resumes when autoRecord'd
+    // recordings; re-enabling resumes unless something stopped it explicitly
     const offPayload = gb._subscribePayloadUpdates(() => {
       const settings = resolveSettings();
       if (!settings.enabled && isRecording) {
         stopRecording();
-      } else if (settings.enabled && autoRecord && !isRecording) {
+      } else if (settings.enabled && autoRestart && !isRecording) {
         startRecording();
       }
     });
@@ -672,7 +691,7 @@ export function sessionReplayPlugin({
       stopRecording();
       window.removeEventListener("pagehide", onPageHide);
       document.removeEventListener("visibilitychange", onVisibilityHide);
-      gb._unregisterSessionReplay(forceStart, stopRecording);
+      gb._unregisterSessionReplay(forceStart, explicitStop);
     };
 
     gb.onDestroy(cleanup);

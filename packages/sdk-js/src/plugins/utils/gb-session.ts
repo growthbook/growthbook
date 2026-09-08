@@ -40,19 +40,19 @@ export function getOrCreateGbSessionId(options?: {
 
 // The one place the session precedence rule lives; every payload carrying a
 // session id resolves through here so consumers can't disagree. BYO
-// `session_id` wins, then the projected `sessionId` attribute, then mint —
-// browser only, so a server can never mint a process-wide session.
+// `session_id` wins; in the browser the live session is read (which counts
+// as activity and keeps it alive); the projected `sessionId` attribute is
+// the server-side fallback — a server never mints a process-wide session.
 export function resolveSessionId(
   attributes: Record<string, unknown>,
 ): string | null {
   const byo = attributes.session_id;
   if (typeof byo === "string" && byo) return byo;
 
-  const projected = attributes.sessionId;
-  if (typeof projected === "string" && projected) return projected;
+  if (typeof window !== "undefined") return getOrCreateGbSessionId();
 
-  if (typeof window === "undefined") return null;
-  return getOrCreateGbSessionId();
+  const projected = attributes.sessionId;
+  return typeof projected === "string" && projected ? projected : null;
 }
 
 export function _resetGbSessionForTests(): void {

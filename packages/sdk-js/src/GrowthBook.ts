@@ -251,6 +251,10 @@ export class GrowthBook<
     }
     this.ready = true;
     this._render();
+    this._notifyPayloadUpdate();
+  }
+
+  private _notifyPayloadUpdate() {
     this._payloadUpdateSubs.forEach((cb) => {
       try {
         cb();
@@ -297,6 +301,7 @@ export class GrowthBook<
     }
 
     this.ready = true;
+    this._notifyPayloadUpdate();
 
     startBackgroundSync(this, options);
 
@@ -655,6 +660,8 @@ export class GrowthBook<
     this._subscriptions.clear();
     this._featureUsageSubs.clear();
     this._customEventSubs.clear();
+    this._payloadUpdateSubs.clear();
+    this._pendingEvents = [];
     this._assigned.clear();
     this._trackedExperiments.clear();
     this._completedChangeIds.clear();

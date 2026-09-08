@@ -30,11 +30,6 @@ export type {
   SdkInfo,
 } from "./devtools";
 
-// Session-replay types only — the plugin function is intentionally excluded
-// here (rrweb is heavy); it ships via the auto-wrapper-plus bundle and the
+// Session replay is intentionally absent (its types depend on rrweb); it ships
+// via the auto-wrapper-plus bundle and the
 // "@growthbook/growthbook/plugins/session-replay" subpath export.
-export type {
-  SessionReplayPrivacyConfig,
-  MaskableInputType,
-  SessionReplayUrlScrubberConfig,
-} from "./session-replay";

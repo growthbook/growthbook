@@ -743,6 +743,24 @@ describe("Error reporter", () => {
     gb.destroy();
   });
 
+  it("counts only logged errors against the per-page budget", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    createErrorReporter({ growthbook: gb, debounceTimeout: 100 });
+
+    // 500 rapid duplicates: one logged, the rest debounced — none consume budget
+    for (let i = 0; i < 500; i++) {
+      window.dispatchEvent(new ErrorEvent("error", { message: "same" }));
+    }
+    window.dispatchEvent(new ErrorEvent("error", { message: "different" }));
+
+    const messages = logEvent.mock.calls.map(
+      (c) => (c[1] as { message: string }).message,
+    );
+    expect(messages).toEqual(["same", "different"]);
+    gb.destroy();
+  });
+
   it("caps oversized error messages and stacks", () => {
     const gb = new GrowthBook({ clientKey: "test" });
     const logEvent = jest.spyOn(gb, "logEvent");

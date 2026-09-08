@@ -17,6 +17,7 @@ import type {
 import { genUUID } from "../util";
 import { configureGbSession, getOrCreateGbSessionId } from "./utils/gb-session";
 import { readSessionJSON, writeSessionJSON } from "./utils/storage";
+import { subscribeToUrlChanges } from "./utils/urlChangeObserver";
 
 export type AutoAttributeSettings = {
   uuidCookieName?: string;
@@ -146,15 +147,20 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     attributes.url && gb.setURL(attributes.url);
     gb.updateAttributes(attributes);
 
-    // Poll for URL changes and update GrowthBook
+    // Refresh on SPA navigation — synchronously via the history hooks so
+    // plugins registered after this one see fresh attributes, with a poll as
+    // the fallback for routers that bypass them
     let currentUrl = attributes.url;
-    const intervalTimer = setInterval(() => {
-      if (location.href !== currentUrl) {
-        currentUrl = location.href;
-        gb.setURL(currentUrl);
-        gb.updateAttributes(getAutoAttributes(settings));
-      }
-    }, 500);
+    const refreshIfUrlChanged = () => {
+      if (location.href === currentUrl) return;
+      currentUrl = location.href;
+      gb.setURL(currentUrl);
+      gb.updateAttributes(getAutoAttributes(settings));
+    };
+    const unsubUrlChanges = subscribeToUrlChanges(refreshIfUrlChanged, {
+      trackQueryString: true,
+    });
+    const intervalTimer = setInterval(refreshIfUrlChanged, 500);
 
     // Listen for a custom event to update URL and attributes
     const refreshListener = () => {
@@ -169,6 +175,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     if ("onDestroy" in gb) {
       gb.onDestroy(() => {
         clearInterval(intervalTimer);
+        unsubUrlChanges();
         document.removeEventListener("growthbookrefresh", refreshListener);
       });
     }

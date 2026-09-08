@@ -39,8 +39,8 @@ type WindowContext = Context & {
   antiFlickerTimeout?: number;
   additionalTrackingCallback?: TrackingCallback;
   autoEvents?: AutoEventsSettings;
+  eventIngestorHost?: string;
   // Consumed by auto-wrapper-plus
-  trackingHost?: string;
   sessionReplay?: { enabled?: boolean; privacy?: SessionReplayPrivacyConfig };
 };
 declare global {
@@ -167,7 +167,9 @@ const AUTO_EVENT_STREAMS = [
 type AutoEventStream = (typeof AUTO_EVENT_STREAMS)[number];
 
 function readAutoEventsSettings(): AutoEventsSettings {
-  const settings: AutoEventsSettings = { ...windowContext.autoEvents };
+  // window config wins outright, matching every other wrapper setting
+  if (windowContext.autoEvents) return windowContext.autoEvents;
+  const settings: AutoEventsSettings = {};
   const list = dataContext.autoEvents;
   const listed =
     list === undefined
@@ -220,7 +222,8 @@ if (growthbookTracking || autoEventsEnabled) {
     windowContext.eventTransport || dataContext.eventTransport;
   plugins.push(
     growthbookTrackingPlugin({
-      ingestorHost: dataContext.eventIngestorHost,
+      ingestorHost:
+        windowContext.eventIngestorHost || dataContext.eventIngestorHost,
       transport:
         eventTransport === "auto" ||
         eventTransport === "beacon" ||

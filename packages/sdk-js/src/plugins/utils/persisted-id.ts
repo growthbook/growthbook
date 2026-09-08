@@ -25,6 +25,8 @@ type GetOrCreateOptions = {
   maxDurationMs?: number;
 };
 
+const TOUCH_THROTTLE_MS = 1000;
+
 function finiteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -100,7 +102,11 @@ export function createPersistedEphemeralId(config: PersistedEphemeralIdConfig) {
         now - stored.lastActiveAt < idleTimeoutMs) &&
       (maxDurationMs === undefined || now - stored.createdAt < maxDurationMs)
     ) {
-      if (idleTimeoutMs !== undefined && stored.lastActiveAt !== now) {
+      // Every event read counts as activity; throttle the write
+      if (
+        idleTimeoutMs !== undefined &&
+        now - stored.lastActiveAt >= TOUCH_THROTTLE_MS
+      ) {
         persist({ ...stored, lastActiveAt: now });
       }
       return stored.id;

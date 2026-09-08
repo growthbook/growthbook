@@ -21,7 +21,15 @@ const terserSettings = terser({
       // rrweb uses _cssText in the serialized snapshot data format — it's
       // written by the recorder and read by the replayer across build
       // boundaries. Mangling it breaks CSS in session replays.
-      reserved: ["_cssText"],
+      // First-party plugin hooks called by npm-installed plugins on CDN instances
+      reserved: [
+        "_cssText",
+        "_subscribeFeatureUsage",
+        "_subscribeCustomEvents",
+        "_subscribePayloadUpdates",
+        "_registerSessionReplay",
+        "_unregisterSessionReplay",
+      ],
     },
   },
   ecma: 5,
@@ -129,8 +137,6 @@ export default [
       }),
       replace({
         __SDK_VERSION__: JSON.stringify(version),
-        __INGESTOR_HOST__:
-          process.env.INGESTOR_HOST || "https://us1.gb-ingest.com",
         preventAssignment: true,
       }),
       babel({

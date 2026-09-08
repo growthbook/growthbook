@@ -487,7 +487,7 @@ export type SessionReplaySettings = {
   // Remote kill switch: false stops in-flight recordings and blocks new ones
   enabled?: boolean;
   // Fraction of sessions to record (0-1). True-random, sticky per session.
-  sampleRate?: number;
+  samplingRate?: number;
 };
 
 // Remotely-delivered plugin settings. Riding inside the features payload

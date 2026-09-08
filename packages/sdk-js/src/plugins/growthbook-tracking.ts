@@ -19,6 +19,7 @@ import type {
 } from "../GrowthBookClient";
 import { EVENT_EXPERIMENT_VIEWED, EVENT_FEATURE_EVALUATED } from "../core";
 import { resolveSessionId } from "./utils/gb-session";
+import { DEFAULT_INGESTOR_HOST } from "./utils/ingestor";
 
 const SDK_VERSION = loadSDKVersion();
 
@@ -162,7 +163,7 @@ async function track({
   if (!events.length) return;
 
   const endpoint = `${
-    ingestorHost || "https://us-east-1.gb-ingest.com"
+    ingestorHost || DEFAULT_INGESTOR_HOST
   }/track?client_key=${clientKey}`;
   const payload = {
     events,

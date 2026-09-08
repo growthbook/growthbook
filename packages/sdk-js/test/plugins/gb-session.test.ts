@@ -147,17 +147,21 @@ describe("gb session manager", () => {
     expect(getOrCreateGbSessionId()).not.toBe("capped");
   });
 
-  it("resolveSessionId prefers BYO session_id, then the projected attribute, then mints", () => {
+  it("resolveSessionId prefers BYO session_id, else the live session (reading it counts as activity)", () => {
     expect(
       resolveSessionId({ session_id: "byo", sessionId: "projected" }),
     ).toBe("byo");
-    expect(resolveSessionId({ sessionId: "projected" })).toBe("projected");
 
-    const minted = resolveSessionId({});
+    // In the browser the live session wins over a possibly stale projected
+    // attribute, and reading it refreshes the idle window
+    const minted = resolveSessionId({ sessionId: "stale-projection" });
     expect(minted).toEqual(expect.any(String));
-    // Minting goes through the shared module — a second resolve reuses it
-    expect(resolveSessionId({})).toBe(minted);
+    expect(minted).not.toBe("stale-projection");
     expect(getOrCreateGbSessionId()).toBe(minted);
+
+    jest.spyOn(Date, "now").mockReturnValue(1000 + 5000);
+    expect(resolveSessionId({})).toBe(minted);
+    expect(readStoredState().lastActiveAt).toBe(6000);
   });
 
   it("replaces invalid stored state", () => {

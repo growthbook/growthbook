@@ -4,8 +4,6 @@
 import gb, { dataContext, windowContext } from "./auto-wrapper";
 import { sessionReplayPlugin } from "./plugins/session-replay/index";
 
-const CLOUD_INGESTOR_HOST = "__INGESTOR_HOST__";
-
 // Enabled by default; data-session-replay-disabled or
 // window.growthbook_config.sessionReplay.enabled = false turns it off
 const sessionReplayDisabled =
@@ -15,10 +13,8 @@ const sessionReplayDisabled =
 
 if (!sessionReplayDisabled) {
   sessionReplayPlugin({
-    trackingHost:
-      dataContext.eventIngestorHost ||
-      windowContext.trackingHost ||
-      CLOUD_INGESTOR_HOST,
+    ingestorHost:
+      windowContext.eventIngestorHost || dataContext.eventIngestorHost,
     enabled: windowContext.sessionReplay?.enabled,
     privacy: windowContext.sessionReplay?.privacy,
   })(gb);

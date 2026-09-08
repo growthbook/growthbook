@@ -43,7 +43,7 @@ const INTERACTION_EVENT = {
   data: { source: 2 },
 } as unknown as eventWithTime;
 
-const TRACKING_HOST = "https://ingest.example.com";
+const INGESTOR_HOST = "https://ingest.example.com";
 
 function buildGrowthBook() {
   return new GrowthBook({
@@ -88,7 +88,7 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     mockRecord.mockImplementation(() => () => {
       stopped = true;
     });
-    sessionReplayPlugin({ trackingHost: TRACKING_HOST })(gb);
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
     expect(mockRecord).toHaveBeenCalledTimes(1);
 
     await gb.setPayload({ sdkSettings: { sessionReplay: { enabled: false } } });
@@ -98,17 +98,17 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     expect(mockRecord).toHaveBeenCalledTimes(2);
   });
 
-  it("payload sampleRate applies over the constructor value", async () => {
+  it("payload samplingRate applies over the constructor value", async () => {
     await gb.setPayload({
-      sdkSettings: { sessionReplay: { sampleRate: 0 } },
+      sdkSettings: { sessionReplay: { samplingRate: 0 } },
     });
-    sessionReplayPlugin({ trackingHost: TRACKING_HOST, sampleRate: 1 })(gb);
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, samplingRate: 1 })(gb);
     expect(mockRecord).not.toHaveBeenCalled();
   });
 
   it("unsampled sessions don't record; startSessionReplay() forces one", () => {
     jest.spyOn(Math, "random").mockReturnValue(0.99);
-    sessionReplayPlugin({ trackingHost: TRACKING_HOST, sampleRate: 0.5 })(gb);
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, samplingRate: 0.5 })(gb);
     expect(mockRecord).not.toHaveBeenCalled();
 
     gb.startSessionReplay();
@@ -117,7 +117,7 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
 
   it("the sampling decision sticks for the session across plugin inits", () => {
     jest.spyOn(Math, "random").mockReturnValue(0.99);
-    sessionReplayPlugin({ trackingHost: TRACKING_HOST, sampleRate: 0.5 })(gb);
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, samplingRate: 0.5 })(gb);
     expect(mockRecord).not.toHaveBeenCalled();
     gb.destroy();
 
@@ -125,12 +125,12 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     // decision must win
     jest.spyOn(Math, "random").mockReturnValue(0.01);
     gb = buildGrowthBook();
-    sessionReplayPlugin({ trackingHost: TRACKING_HOST, sampleRate: 0.5 })(gb);
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, samplingRate: 0.5 })(gb);
     expect(mockRecord).not.toHaveBeenCalled();
   });
 
   it("kill switch beats a forced start", () => {
-    sessionReplayPlugin({ trackingHost: TRACKING_HOST, enabled: false })(gb);
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, enabled: false })(gb);
     gb.startSessionReplay();
     expect(mockRecord).not.toHaveBeenCalled();
   });
@@ -154,7 +154,7 @@ describe("sessionReplayPlugin — stopRecording keepalive flush", () => {
     gb = buildGrowthBook();
 
     const plugin = sessionReplayPlugin({
-      trackingHost: TRACKING_HOST,
+      ingestorHost: INGESTOR_HOST,
       autoRecord: false, // tests call startSessionReplay() explicitly
     });
     plugin(gb);
@@ -208,7 +208,7 @@ describe("sessionReplayPlugin — stopRecording keepalive flush", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1][0]).toBe(
-      `${TRACKING_HOST}/ingest/session-replay`,
+      `${INGESTOR_HOST}/ingest/session-replay`,
     );
   });
 
@@ -226,7 +226,7 @@ describe("sessionReplayPlugin — stopRecording keepalive flush", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe(
-      `${TRACKING_HOST}/ingest/session-replay`,
+      `${INGESTOR_HOST}/ingest/session-replay`,
     );
   });
 
