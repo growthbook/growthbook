@@ -27,6 +27,7 @@ type Toggle<T> = boolean | (T & { enabled?: boolean });
 
 export type CwvMetric = "FCP" | "LCP" | "INP" | "CLS" | "TTFB" | "TBT";
 
+// Every samplingRate is 0-1 and defaults to 0.1
 type PageEventsOptions = {
   samplingRate?: number;
   heartbeats?: boolean;
@@ -264,7 +265,9 @@ export function autoEventsPlugin(settings: AutoEventsSettings = {}) {
       );
     };
 
-    sync();
+    // Wait for the payload when one is coming, so remote settings shape the
+    // first start instead of restarting every category a moment later
+    if (!full || full.ready) sync();
     if (full) {
       const off = full._subscribePayloadUpdates(sync);
       full.onDestroy(off);

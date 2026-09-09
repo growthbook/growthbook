@@ -31,7 +31,7 @@ export function thirdPartyTrackingPlugin({
   }
 
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
-    gb.setTrackingCallback(async (e, r) => {
+    gb.setTrackingCallback((e, r) => {
       const promises: Promise<unknown>[] = [];
       const eventParams = { experiment_id: e.key, variation_id: r.key };
 
@@ -79,7 +79,10 @@ export function thirdPartyTrackingPlugin({
         promises.push(segmentPromise);
       }
 
-      await Promise.all(promises);
+      // No promise when nothing consumed the event, so callers can't mistake
+      // "no tracker on the page" for delivery
+      if (!promises.length) return;
+      return Promise.all(promises).then(() => undefined);
     });
   };
 }

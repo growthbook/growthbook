@@ -1012,6 +1012,25 @@ describe("Interaction reporter", () => {
     gb.destroy();
   });
 
+  it("drops text under masked or blocked descendants, as replay would", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    createInteractionReporter({ growthbook: gb, samplingRate: 1 });
+
+    document.body.innerHTML = `
+      <a id="masked-child" href="/account">Hi, <span class="gb-mask">Jane Doe</span></a>
+      <button id="blocked-child">Pay <b data-gb-block>4242</b> now</button>
+    `;
+    document.getElementById("masked-child")!.click();
+    document.getElementById("blocked-child")!.click();
+
+    const props = (id: string) =>
+      logEvent.mock.calls.find((c) => c[1]?.element_id === id)?.[1] ?? {};
+    expect(props("masked-child").element_text).toBe("Hi,");
+    expect(props("blocked-child").element_text).toBe("Pay now");
+    gb.destroy();
+  });
+
   it("describes rage clicks on untracked elements without their text", () => {
     const gb = new GrowthBook({ clientKey: "test" });
     const logEvent = jest.spyOn(gb, "logEvent");
@@ -1440,7 +1459,7 @@ describe("autoEventsPlugin", () => {
 
   it("falls back to the default rate with a warning instead of throwing on bad config", () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
-    const gb = new GrowthBook({ clientKey: "test" });
+    const gb = new GrowthBook({ clientKey: "test", features: {} });
     expect(() =>
       autoEventsPlugin({ cwv: { samplingRate: 15 } })(gb),
     ).not.toThrow();
@@ -1451,8 +1470,22 @@ describe("autoEventsPlugin", () => {
     gb.destroy();
   });
 
+  it("waits for the payload so the first page_view is not duplicated by a restart", async () => {
+    const gb = new GrowthBook({ clientKey: "test", attributes: { id: "1" } });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    autoEventsPlugin({ pageEvents: { samplingRate: 0.5 } })(gb);
+    expect(logEvent).not.toHaveBeenCalled();
+
+    await gb.setPayload({
+      sdkSettings: { autoEvents: { pageEvents: { samplingRate: 1 } } },
+    });
+    const pageViews = logEvent.mock.calls.filter((c) => c[0] === "page_view");
+    expect(pageViews).toHaveLength(1);
+    gb.destroy();
+  });
+
   it("categories are off until local settings or remote sdkSettings turn them on", async () => {
-    const gb = new GrowthBook({ clientKey: "test" });
+    const gb = new GrowthBook({ clientKey: "test", features: {} });
     const logEvent = jest.spyOn(gb, "logEvent");
     autoEventsPlugin()(gb);
     const btn = document.createElement("button");
@@ -1481,7 +1514,7 @@ describe("autoEventsPlugin", () => {
   });
 
   it("a local false stays off when remote enables the category", async () => {
-    const gb = new GrowthBook({ clientKey: "test" });
+    const gb = new GrowthBook({ clientKey: "test", features: {} });
     const logEvent = jest.spyOn(gb, "logEvent");
     autoEventsPlugin({ clickstream: false })(gb);
     await gb.setPayload({
@@ -1500,7 +1533,7 @@ describe("autoEventsPlugin", () => {
   });
 
   it("a remote samplingRate overrides the local one and restarts the category", async () => {
-    const gb = new GrowthBook({ clientKey: "test" });
+    const gb = new GrowthBook({ clientKey: "test", features: {} });
     const logEvent = jest.spyOn(gb, "logEvent");
     autoEventsPlugin({ clickstream: { samplingRate: 0 } })(gb);
     const btn = document.createElement("button");
@@ -1534,7 +1567,7 @@ describe("autoEventsPlugin", () => {
   });
 
   it("wires up interaction + engagement reporters when rates > 0", () => {
-    const gb = new GrowthBook({ clientKey: "test" });
+    const gb = new GrowthBook({ clientKey: "test", features: {} });
     const logEvent = jest.spyOn(gb, "logEvent");
 
     const apply = autoEventsPlugin({
@@ -1580,6 +1613,20 @@ describe("autoEventsPlugin", () => {
 });
 
 describe("GrowthBook event buffer", () => {
+  it("survives a logger that throws synchronously while flushing", async () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    await gb.logEvent("evt-1");
+    const error = jest.spyOn(console, "error").mockImplementation(() => {});
+    expect(() =>
+      gb.setEventLogger(() => {
+        throw new Error("boom");
+      }),
+    ).not.toThrow();
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+    gb.destroy();
+  });
+
   it("buffers events logged before setEventLogger is called and flushes them", async () => {
     const gb = new GrowthBook({ clientKey: "test" });
 

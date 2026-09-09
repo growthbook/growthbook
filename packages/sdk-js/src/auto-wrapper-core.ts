@@ -207,7 +207,7 @@ export function buildCore(defaults: WrapperDefaults = {}) {
   // so the logger must exist. Without the "growthbook" tracker only custom
   // events ship, not exposures and feature evaluations.
   const growthbookTracking = trackers.includes("growthbook");
-  {
+  if (dataContext.clientKey || windowContext.clientKey) {
     const eventTransport =
       windowContext.eventTransport || dataContext.eventTransport;
     plugins.push(

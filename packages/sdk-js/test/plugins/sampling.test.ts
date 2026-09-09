@@ -1,4 +1,5 @@
 import {
+  _resetSampleDecisionsForTests,
   DEFAULT_SAMPLING_SEED,
   shouldSample,
   shouldSampleScope,
@@ -34,6 +35,30 @@ describe("shouldSample", () => {
 });
 
 describe("shouldSampleScope", () => {
+  beforeEach(() => _resetSampleDecisionsForTests());
+
+  it("keeps the decision in memory when sessionStorage loses it", () => {
+    const random = jest.fn().mockReturnValue(0.9);
+    expect(
+      shouldSampleScope({
+        rate: 0.5,
+        storageKey: STORAGE_KEY,
+        scopeId: "s1",
+        random,
+      }),
+    ).toBe(false);
+    sessionStorage.clear();
+    random.mockReturnValue(0.1);
+    expect(
+      shouldSampleScope({
+        rate: 0.5,
+        storageKey: STORAGE_KEY,
+        scopeId: "s1",
+        random,
+      }),
+    ).toBe(false);
+  });
+
   afterEach(() => {
     sessionStorage.removeItem(STORAGE_KEY);
   });
@@ -42,9 +67,8 @@ describe("shouldSampleScope", () => {
     expect(
       shouldSampleScope({ rate: 1, storageKey: STORAGE_KEY, scopeId: "a" }),
     ).toBe(true);
-    sessionStorage.removeItem(STORAGE_KEY);
     expect(
-      shouldSampleScope({ rate: 0, storageKey: STORAGE_KEY, scopeId: "a" }),
+      shouldSampleScope({ rate: 0, storageKey: STORAGE_KEY, scopeId: "b" }),
     ).toBe(false);
   });
 

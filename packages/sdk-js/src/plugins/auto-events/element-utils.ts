@@ -120,11 +120,26 @@ export function getDataGbAttributes(
   return result;
 }
 
-function getSafeElementText(el: Element): string | undefined {
+// Text of the element minus any masked or blocked descendant, so a label on
+// a child redacts the same text rrweb would
+function getSafeElementText(
+  el: Element,
+  opts: ElementPropertyOptions,
+): string | undefined {
   if (el.matches("input, textarea, select")) return undefined;
-  const text = ((el as HTMLElement).innerText || el.textContent || "")
-    .replace(/\s+/g, " ")
-    .trim();
+  const parts: string[] = [];
+  const collect = (node: Node) => {
+    if (node.nodeType === 3) {
+      parts.push(node.textContent || "");
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    const child = node as Element;
+    if (isBlocked(child, opts) || isMasked(child, opts)) return;
+    child.childNodes.forEach(collect);
+  };
+  el.childNodes.forEach(collect);
+  const text = parts.join("").replace(/\s+/g, " ").trim();
   return truncate(text, MAX_TEXT_LEN);
 }
 
@@ -210,7 +225,7 @@ export function getElementProperties(
     element_selector: buildSelector(el),
     element_text:
       !masked && opts.collectText !== false
-        ? getSafeElementText(el)
+        ? getSafeElementText(el, opts)
         : undefined,
     ...getHrefProperties(el, opts.url),
     ...(masked ? {} : getDataGbAttributes(el)),

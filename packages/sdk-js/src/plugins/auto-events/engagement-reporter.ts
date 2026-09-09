@@ -74,12 +74,12 @@ export function createEngagementReporter({
   let pageUrl = currentPageUrl();
 
   const startPage = () => {
+    if (stopped) return;
     resetPageState();
     hiddenEvents = 0;
     pageUrl = currentPageUrl();
     trackScrollDepth && updateScrollDepth();
     startHeartbeats();
-    if (stopped) return;
     growthbook.logEvent("page_view", {}, { url: pageUrl });
   };
 

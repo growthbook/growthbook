@@ -1,6 +1,7 @@
 import { record, type eventWithTime } from "rrweb";
 import { GrowthBook } from "../../src";
 import { sessionReplayPlugin } from "../../src/plugins/session-replay";
+import { _resetSampleDecisionsForTests } from "../../src/plugins/utils/sampling";
 
 jest.mock("rrweb", () => ({ record: jest.fn() }));
 
@@ -36,10 +37,12 @@ const INTERACTION_EVENT = {
 
 const INGESTOR_HOST = "https://ingest.example.com";
 
-function buildGrowthBook() {
+function buildGrowthBook(ready = true) {
   return new GrowthBook({
     clientKey: "sdk-test-key",
     apiHost: "https://cdn.example.com",
+    // A payload marks the instance ready, so the plugin auto-starts on apply
+    ...(ready ? { features: {} } : {}),
     attributes: {
       session_id: "customer-session-id",
       session_replay_id: "user-supplied-replay-id",
@@ -72,6 +75,7 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     jest.restoreAllMocks();
     gb.destroy();
     sessionStorage.clear();
+    _resetSampleDecisionsForTests();
   });
 
   it("payload kill switch stops an in-flight recording and re-enables later", async () => {
@@ -168,6 +172,26 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     jest.useRealTimers();
   });
 
+  it("waits for the payload so remote settings decide the first sampling roll", async () => {
+    gb.destroy();
+    gb = buildGrowthBook(false);
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    expect(mockRecord).not.toHaveBeenCalled();
+
+    await gb.setPayload({
+      sdkSettings: { sessionReplay: { samplingRate: 0 } },
+    });
+    expect(mockRecord).not.toHaveBeenCalled();
+
+    gb.destroy();
+    sessionStorage.clear();
+    _resetSampleDecisionsForTests();
+    gb = buildGrowthBook(false);
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    await gb.setPayload({});
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+  });
+
   it("kill switch beats a forced start", () => {
     sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, enabled: false })(gb);
     gb.startSessionReplay();
@@ -212,6 +236,7 @@ describe("sessionReplayPlugin — stopRecording keepalive flush", () => {
     delete (global as unknown as Record<string, unknown>).fetch;
     gb.destroy();
     sessionStorage.clear();
+    _resetSampleDecisionsForTests();
   });
 
   it("fires a keepalive flush after stopRecording cancels an in-flight retry sleep", async () => {

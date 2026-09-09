@@ -679,7 +679,9 @@ export function createReplayRecorder({
     }
   });
 
-  if (autoRecord) startRecording();
+  // Before the payload arrives the remote settings are unknown, and the
+  // sampling roll would stick; the payload subscription above starts it
+  if (autoRecord && growthbook.ready) startRecording();
 
   const onPageHide = () => void flushBuffer();
   const onVisibilityHide = () => {

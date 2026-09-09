@@ -7,6 +7,10 @@ type StoredDecision = {
   sampled: boolean;
 };
 
+// Write-through copy so the decision sticks within the page even when
+// sessionStorage is unavailable
+const decisions = new Map<string, StoredDecision>();
+
 // True-random sampling with a decision that sticks for the given scope
 // (e.g. one replay session), so reloads don't re-roll mid-scope. A new
 // scopeId rolls fresh.
@@ -21,7 +25,9 @@ export function shouldSampleScope({
   scopeId: string;
   random?: () => number;
 }): boolean {
-  const stored = readSessionJSON(storageKey) as StoredDecision | null;
+  const stored =
+    (readSessionJSON(storageKey) as StoredDecision | null) ||
+    decisions.get(storageKey);
   if (
     stored &&
     stored.scopeId === scopeId &&
@@ -31,7 +37,7 @@ export function shouldSampleScope({
   }
 
   const sampled = rate >= 1 || (rate > 0 && random() < rate);
-  writeSessionJSON(storageKey, { scopeId, sampled });
+  persistSampleDecision(storageKey, scopeId, sampled);
   return sampled;
 }
 
@@ -42,7 +48,13 @@ export function persistSampleDecision(
   scopeId: string,
   sampled: boolean,
 ): void {
-  writeSessionJSON(storageKey, { scopeId, sampled });
+  const decision = { scopeId, sampled };
+  decisions.set(storageKey, decision);
+  writeSessionJSON(storageKey, decision);
+}
+
+export function _resetSampleDecisionsForTests(): void {
+  decisions.clear();
 }
 
 // One seed for every auto-events category keeps their cohorts nested: a
@@ -74,8 +86,16 @@ export function shouldSample({
     const v = hash(seed, samplingValue, 2);
     return v !== null && v < rate;
   }
+  if (hashAttribute && !warnedMissing.has(hashAttribute)) {
+    warnedMissing.add(hashAttribute);
+    console.warn(
+      `Sampling attribute "${hashAttribute}" is not set; falling back to a random roll`,
+    );
+  }
   return Math.random() < rate;
 }
+
+const warnedMissing = new Set<string>();
 
 // Bad rates warn and fall back rather than throw — an observability typo
 // must never take the SDK down with it

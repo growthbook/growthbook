@@ -1077,12 +1077,16 @@ export class GrowthBook<
       const pending = this._pendingEvents;
       this._pendingEvents = [];
       for (const { eventName, properties, userContext } of pending) {
-        Promise.resolve(
-          logger(eventName, properties || {}, {
-            ...getTrackingUserContext(this._getUserContext()),
-            ...userContext,
-          }),
-        ).catch((e) => console.error(e));
+        try {
+          Promise.resolve(
+            logger(eventName, properties || {}, {
+              ...getTrackingUserContext(this._getUserContext()),
+              ...userContext,
+            }),
+          ).catch((e) => console.error(e));
+        } catch (e) {
+          console.error(e);
+        }
       }
     }
   }
