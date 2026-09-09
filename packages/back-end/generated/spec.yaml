@@ -37767,6 +37767,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -44663,6 +44664,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
