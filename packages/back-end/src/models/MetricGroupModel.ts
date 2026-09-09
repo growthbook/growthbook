@@ -65,6 +65,8 @@ export class MetricGroupModel extends BaseClass {
     doc: MetricGroupInterface,
     previousDoc?: MetricGroupInterface,
   ) {
+    // Allow edits to projects without validating metrics unless new metrics
+    // are added or projects are changed.
     const metricIds = getMetricGroupMetricsToValidate(doc, previousDoc ?? null);
     if (!metricIds.length) return;
 
