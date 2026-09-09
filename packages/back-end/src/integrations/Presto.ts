@@ -36,16 +36,13 @@ const prestoQueryInfoSchema = z.object({
   errorCode: z.object({ name: z.string().nullish() }).nullish(),
 });
 
-// FINISHED, FAILED, and FAILING are terminal (FAILING is a failed query whose
-// tasks are still being torn down); every other reported state is still
-// executing. An unparseable payload means we can't tell, so return unknown
-// rather than assuming the query is alive.
+// Only FINISHED and FAILED are terminal in Presto and Trino.
 export function prestoStateToStatus(info: unknown): ExternalQueryStatus {
   const parsed = prestoQueryInfoSchema.safeParse(info);
   if (!parsed.success) return { state: "unknown", reason: "unrecognized" };
   const { state, failureInfo, errorCode } = parsed.data;
   if (state === "FINISHED") return { state: "succeeded" };
-  if (state === "FAILED" || state === "FAILING") {
+  if (state === "FAILED") {
     return {
       state: "failed",
       error: failureInfo?.message || errorCode?.name || "Query failed",
