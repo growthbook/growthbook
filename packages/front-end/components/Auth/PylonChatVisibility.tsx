@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
 import { isCloud } from "@/services/env";
 
 type PylonApi = (command: string, ...args: unknown[]) => void;
@@ -7,18 +6,11 @@ type PylonApi = (command: string, ...args: unknown[]) => void;
 const getPylon = (): PylonApi | undefined =>
   (window as unknown as { Pylon?: PylonApi }).Pylon;
 
-/**
- * While the AI assistant panel is open, asks the Pylon live chat widget (cloud
- * only) to hide so it doesn't sit above the panel via its high z-index DOM.
- * Renders nothing.
- */
-export default function PylonChatVisibility() {
-  const { open } = useAgentPanel();
-
+export default function PylonChatVisibility({ hidden }: { hidden: boolean }) {
   useEffect(() => {
     if (!isCloud()) return;
 
-    if (!open) {
+    if (!hidden) {
       getPylon()?.("showChatBubble");
       return;
     }
@@ -60,7 +52,7 @@ export default function PylonChatVisibility() {
       window.clearTimeout(timeoutId);
       if (resolved) restore(resolved);
     };
-  }, [open]);
+  }, [hidden]);
 
   return null;
 }

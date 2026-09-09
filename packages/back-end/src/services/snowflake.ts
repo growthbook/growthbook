@@ -5,7 +5,9 @@ import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { QueryMetadata } from "shared/types/query";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
+import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { getQueryTagString } from "back-end/src/util/integration";
+import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
 type ProxyOptions = {
@@ -179,9 +181,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
         await setExternalId(queryId);
       } catch (e) {
         logger.debug(
-          `Snowflake: failed to persist external id ${queryId}: ${
-            e instanceof Error ? e.message : String(e)
-          }`,
+          `Snowflake: failed to persist external id ${queryId}: ${getErrorMessage(e)}`,
         );
       }
     }
@@ -235,13 +235,6 @@ export async function cancelSnowflakeQuery(
   conn: SnowflakeConnectionParams,
   queryId: string,
 ): Promise<void> {
-  if (!queryId) {
-    logger.debug(
-      `Failed to cancel Snowflake query ${queryId}: No query ID provided`,
-    );
-    return;
-  }
-
   const connection = buildSnowflakeConnection(conn);
   try {
     await connectSnowflake(connection, 30000);
@@ -270,12 +263,42 @@ export async function cancelSnowflakeQuery(
     });
 
     logger.debug(`Cancelled Snowflake query ${queryId}`);
+  } finally {
+    await destroySnowflakeConnection(connection);
+  }
+}
+
+export function snowflakeStatusToExternalStatus(
+  status: string,
+  { isRunning, isError }: { isRunning: boolean; isError: boolean },
+): ExternalQueryStatus {
+  if (isRunning) return { state: "running" };
+  if (isError) return { state: "failed", error: status };
+  if (status === "SUCCESS") return { state: "succeeded" };
+  // NO_QUERY_DATA means the query id is no longer in Snowflake's monitoring
+  // history (expired), not that the query is still running.
+  if (status === "NO_QUERY_DATA")
+    return { state: "unknown", reason: "expired" };
+  return { state: "unknown", reason: "unrecognized" };
+}
+
+export async function getSnowflakeQueryStatus(
+  conn: SnowflakeConnectionParams,
+  queryId: string,
+): Promise<ExternalQueryStatus> {
+  const connection = buildSnowflakeConnection(conn);
+  try {
+    await connectSnowflake(connection, 30000);
+    const status = await connection.getQueryStatus(queryId);
+    return snowflakeStatusToExternalStatus(status, {
+      isRunning: connection.isStillRunning(status),
+      isError: connection.isAnError(status),
+    });
   } catch (e) {
     logger.debug(
-      `Failed to cancel Snowflake query ${queryId}: ${
-        e instanceof Error ? e.message : String(e)
-      }`,
+      `Failed to get Snowflake query status ${queryId}: ${getErrorMessage(e)}`,
     );
+    return { state: "unknown", reason: "unreachable" };
   } finally {
     await destroySnowflakeConnection(connection);
   }

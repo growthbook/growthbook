@@ -5,6 +5,7 @@ import type {
   ContextualLeafMapEntry,
   ContextualLeafStatsEntry,
   ContextualSseTrajectoryEntry,
+  ContextualTreeSplit,
   MetricSettingsForStatsEngine,
 } from "shared/types/stats";
 import { leafClausesFromContexts } from "shared/experiments";
@@ -691,6 +692,11 @@ type BuildTreeResult = {
    * SSE by (stage, variation).  stage = 0 is the root (before the first split)
    */
   sseTrajectory: number[][];
+  /**
+   * Metadata for each split actually performed, in growth order. `splits[k]`
+   * describes the split that produced `sseTrajectory[k + 1]`.
+   */
+  splits: ContextualTreeSplit[];
   bicTrajectory: ContextualBicTrajectoryEntry[];
 };
 
@@ -759,8 +765,17 @@ function buildTree(
     [0, new Set<number>()],
   ]);
   if (contexts.length === 0) {
-    return { leafInfo: new Map(), sseTrajectory: [], bicTrajectory: [] };
+    return {
+      leafInfo: new Map(),
+      sseTrajectory: [],
+      splits: [],
+      bicTrajectory: [],
+    };
   }
+
+  // `{ alias: value }` map per context (parallel to the sorted `contexts`),
+  // used to derive each split's pre-split leaf condition.
+  const attrMaps = contexts.map((ctx) => contextAttrMap(ctx, attributes));
 
   const isBinomial = metric.main_metric_type === "binomial";
 
@@ -883,6 +898,7 @@ function buildTree(
   };
 
   const sseTrajectory: number[][] = [totalSsePerVariation()];
+  const splits: ContextualTreeSplit[] = [];
   // BIC statistic per accepted split, accumulated as the tree grows (the root
   // has no split, so this stays one shorter than `sseTrajectory`).
   const bicTrajectory: ContextualBicTrajectoryEntry[] = [];
@@ -951,10 +967,40 @@ function buildTree(
     }
 
     const newLeaf = iteration + 1;
+
+    // Capture split metadata before mutating paths or reassigning contexts, so
+    // the recorded leaf condition and partition reflect the node as it was
+    // immediately before this split.
+    const memberContextIdxs: number[] = [];
+    for (let c = 0; c < contexts.length; c++) {
+      if (currentLeaf[c] === bestLeaf) memberContextIdxs.push(c);
+    }
+    const parentPathAttrs = pathAttrsByLeaf.get(bestLeaf) ?? new Set<number>();
+    const parentPathAttrNames = [...parentPathAttrs]
+      .sort((a, b) => a - b)
+      .map((i) => attributes[i]);
+    const leafClauses = leafClausesFromContexts(
+      memberContextIdxs.map((c) => attrMaps[c]),
+      parentPathAttrNames,
+      attrMaps.filter((_, c) => currentLeaf[c] !== bestLeaf),
+    );
+    const rightSet = new Set<string>();
+    const leftSet = new Set<string>();
+    for (const c of memberContextIdxs) {
+      const value = contexts[c].tuple[bestAttr];
+      if (bestGroup.has(value)) rightSet.add(value);
+      else leftSet.add(value);
+    }
+    splits.push({
+      leafClauses,
+      attribute: attributes[bestAttr],
+      leftLevels: [...leftSet].sort(),
+      rightLevels: [...rightSet].sort(),
+    });
+
     // Both sides of the split now constrain `bestAttr` along their paths: the
     // new child inherits the parent's path attrs plus this split's attribute,
     // and the retained parent leaf gains it too.
-    const parentPathAttrs = pathAttrsByLeaf.get(bestLeaf) ?? new Set<number>();
     pathAttrsByLeaf.set(
       newLeaf,
       new Set<number>([...parentPathAttrs, bestAttr]),
@@ -996,7 +1042,7 @@ function buildTree(
     leafInfo.get(currentLeaf[c])?.memberContexts.push(c);
   }
 
-  return { leafInfo, sseTrajectory, bicTrajectory };
+  return { leafInfo, sseTrajectory, splits, bicTrajectory };
 }
 
 function bicPenalty(numVariations: number, totalSampleSize: number): number {
@@ -1064,7 +1110,7 @@ export function computeContextualBanditWeights(
     return { attributes, responses: [], leaf_map: [] };
   }
 
-  const { leafInfo, sseTrajectory, bicTrajectory } = buildTree(
+  const { leafInfo, sseTrajectory, splits, bicTrajectory } = buildTree(
     contexts,
     attributes,
     metricSettings,
@@ -1120,7 +1166,10 @@ export function computeContextualBanditWeights(
     (ssePerVariation, numSplits) => ({
       numSplits,
       totalSse: ssePerVariation.reduce((total, sse) => total + sse, 0),
-      ssePerVariation,
+      // Index 0 is the root (no split); index k is produced by splits[k - 1].
+      ...(numSplits > 0 && splits[numSplits - 1]
+        ? { split: splits[numSplits - 1] }
+        : {}),
     }),
   );
 
