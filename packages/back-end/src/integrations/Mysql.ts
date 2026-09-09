@@ -4,6 +4,7 @@ import { SqlDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
 import { MysqlConnectionParams } from "shared/types/integrations/mysql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
 import { mysqlDialect } from "./dialects/mysql";
 
@@ -34,10 +35,16 @@ export default class Mysql extends SqlIntegration {
       };
     }
     const conn = await mysql.createConnection(config);
-
-    const [rows] = await conn.query(sql);
-    conn.end();
-    return { rows: rows as RowDataPacket[] };
+    try {
+      const [rows] = await conn.query(sql);
+      return { rows: rows as RowDataPacket[] };
+    } finally {
+      try {
+        await conn.end();
+      } catch (e) {
+        logger.warn(e, "Failed to close MySQL connection");
+      }
+    }
   }
   hasQuantileTesting(): boolean {
     return false;

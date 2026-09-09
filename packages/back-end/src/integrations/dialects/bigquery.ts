@@ -128,6 +128,14 @@ export const bigQueryDialect: SqlDialect = {
   // TIMESTAMP holds microseconds; %E6S prints all six, in UTC.
   formatTimestampExact: (col: string) =>
     `format_timestamp("%F %H:%M:%E6S", ${col})`,
+  // A fact table's timestamp column may be TIMESTAMP or DATETIME and BigQuery
+  // has no implicit coercion between the two: `datetime_col > CAST('…' AS TIMESTAMP)`
+  // is a type error.
+  // A bare string literal instead coerces to whichever type the column has, at microsecond
+  // precision, like every other date bound this dialect renders (toTimestamp).
+  // The watermark is CAST(MAX(col) AS TIMESTAMP) printed in UTC, which for a
+  // DATETIME column is its own wall-clock value, so it round-trips exactly.
+  exactTimestampLiteral: (quoted: string) => quoted,
   castToString: (col: string) => `cast(${col} as string)`,
   stringMatch: createLikeStringMatchFn({
     escapeStringLiteral: bigQueryEscapeStringLiteral,
@@ -182,6 +190,9 @@ export const bigQueryDialect: SqlDialect = {
   // BigQuery uses `IGNORE NULLS` in aggregates rather than `FILTER (WHERE …)`.
   arrayAggSorted: (col: string) =>
     `ARRAY_AGG(${col} IGNORE NULLS ORDER BY ${col})`,
+  // Concatenate all per-row arrays in the group into one array (incremental
+  // funnel read-step merge of per-day step arrays).
+  arrayConcatAgg: (col: string) => `ARRAY_CONCAT_AGG(${col})`,
   // BQ supports `ANY_VALUE(x HAVING MIN y)` natively — picks an `x` value from
   // the row that has the minimum `y`. `IGNORE NULLS` is NOT valid in this form
   // (syntax error) and is unnecessary: aggregate functions ignore NULL inputs,
@@ -213,10 +224,19 @@ export const bigQueryDialect: SqlDialect = {
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      case "datetime":
+        // BigQuery event timestamps are DATETIME (castUserDateCol casts to
+        // DATETIME). Funnel step caches store these, and the resolver's
+        // DATETIME_ADD/SUB arithmetic requires DATETIME operands.
+        return "DATETIME";
       case "hll":
         return "BYTES";
       case "quantileSketch":
         return "BYTES";
+      case "arrayTimestamp":
+        // Element type must match `datetime` (DATETIME) — the funnel step
+        // arrays hold event timestamps.
+        return "ARRAY<DATETIME>";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);
