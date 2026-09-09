@@ -70,7 +70,7 @@ export type WrapperDefaults = {
 // Everything the script-tag bundles share. Each entrypoint (auto-wrapper.ts,
 // auto-wrapper-plus.ts) calls this once with its own defaults; rollup inlines
 // it into each bundle.
-export function bootstrap(defaults: WrapperDefaults = {}) {
+export function buildCore(defaults: WrapperDefaults = {}) {
   // Ensure dataLayer exists
   window.dataLayer = window.dataLayer || [];
 

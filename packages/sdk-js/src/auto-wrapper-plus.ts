@@ -1,7 +1,7 @@
 // core+sessions bundle: everything in auto.js plus session replay, with page
 // events, errors, and CWV on by default. rrweb is inlined (rollup external:
 // () => false), so this stays a single self-contained script.
-import { bootstrap, type WindowContext } from "./auto-wrapper-core";
+import { buildCore, type WindowContext } from "./auto-wrapper-core";
 import {
   sessionReplayPlugin,
   type SessionReplayOptions,
@@ -15,7 +15,7 @@ type PlusWindowContext = WindowContext & {
 // A fresh opt-in, so the low-risk categories are on out of the box at the
 // plugin defaults (10% sample, hashed on the auto-attributes id).
 // Clickstream stays opt-in because it captures element text.
-const { gb, dataContext, windowContext } = bootstrap({
+const { gb, dataContext, windowContext } = buildCore({
   autoEvents: { pageEvents: true, errors: true, cwv: true },
 });
 
