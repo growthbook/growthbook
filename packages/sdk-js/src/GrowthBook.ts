@@ -3,6 +3,7 @@ import type {
   ApiHost,
   Attributes,
   AutoExperiment,
+  TrackingUserContext,
   AutoExperimentVariation,
   ClientKey,
   Options,
@@ -113,6 +114,15 @@ export class GrowthBook<
 
   private _autoExperimentsAllowed: boolean;
   private _destroyed?: boolean;
+
+  // Bounded buffer for events logged before an eventLogger is registered
+  private _pendingEvents: Array<{
+    eventName: string;
+    properties?: Record<string, unknown>;
+    userContext?: Partial<TrackingUserContext>;
+  }> = [];
+  private static _MAX_PENDING_EVENTS = 100;
+  private _warnedNoEventLogger?: boolean;
 
   constructor(options?: Options) {
     options = options || {};
@@ -997,11 +1007,30 @@ export class GrowthBook<
 
   public setEventLogger(logger: EventLogger) {
     this._options.eventLogger = logger;
+    // Flush any events buffered before a logger was registered
+    // Hand buffered events straight to the logger — they already went
+    // through logEvent's devtools/subscriber hooks when first logged
+    if (this._pendingEvents.length) {
+      const pending = this._pendingEvents;
+      this._pendingEvents = [];
+      for (const { eventName, properties, userContext } of pending) {
+        Promise.resolve(
+          logger(eventName, properties || {}, {
+            ...getTrackingUserContext(this._getUserContext()),
+            ...userContext,
+          }),
+        ).catch((e) => console.error(e));
+      }
+    }
   }
 
+  // userContext overrides fields of the instance's own context for this event
+  // (e.g. the url of a page already navigated away from), mirroring
+  // GrowthBookClient.logEvent
   public async logEvent(
     eventName: string,
     properties?: Record<string, unknown>,
+    userContext?: Partial<TrackingUserContext>,
   ) {
     if (this._destroyed) {
       console.error("Cannot log event to destroyed GrowthBook instance");
@@ -1026,16 +1055,29 @@ export class GrowthBook<
     }
     if (this._options.eventLogger) {
       try {
-        await this._options.eventLogger(
-          eventName,
-          properties || {},
-          getTrackingUserContext(this._getUserContext()),
-        );
+        await this._options.eventLogger(eventName, properties || {}, {
+          ...getTrackingUserContext(this._getUserContext()),
+          ...userContext,
+        });
       } catch (e) {
         console.error(e);
       }
     } else {
-      console.error("No event logger configured");
+      // Buffer for a logger registered later (e.g. plugin-order race);
+      // drop the oldest when over cap
+      this._pendingEvents.push({ eventName, properties, userContext });
+      if (this._pendingEvents.length > GrowthBook._MAX_PENDING_EVENTS) {
+        this._pendingEvents.shift();
+      }
+      if (!this._warnedNoEventLogger) {
+        this._warnedNoEventLogger = true;
+        console.warn(
+          "GrowthBook: logEvent called before an event logger was registered. " +
+            "Events are being buffered (up to " +
+            GrowthBook._MAX_PENDING_EVENTS +
+            ") and will flush when setEventLogger is called.",
+        );
+      }
     }
   }
 
