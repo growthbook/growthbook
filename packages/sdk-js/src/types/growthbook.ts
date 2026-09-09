@@ -483,8 +483,8 @@ export type AutoExperimentVariation = {
 
 export type FeatureDefinitions = Record<string, FeatureDefinition>;
 
-// Remote settings only tighten: they can turn a locally-enabled plugin off
-// or lower its sampling rate, never the reverse
+// Remote settings override the plugin's local ones, except that a local
+// `enabled: false` is definitive
 export type SessionReplaySettings = {
   enabled?: boolean;
   samplingRate?: number; // 0-1

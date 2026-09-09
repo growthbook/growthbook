@@ -138,13 +138,13 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     expect(mockRecord).not.toHaveBeenCalled();
   });
 
-  it("a remote samplingRate can lower the constructor rate but not raise it", async () => {
+  it("a remote samplingRate overrides the constructor value in either direction", async () => {
     jest.spyOn(Math, "random").mockReturnValue(0.5);
     await gb.setPayload({
       sdkSettings: { sessionReplay: { samplingRate: 1 } },
     });
     sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, samplingRate: 0.1 })(gb);
-    expect(mockRecord).not.toHaveBeenCalled();
+    expect(mockRecord).toHaveBeenCalledTimes(1);
   });
 
   it("an invalid remote samplingRate is ignored with a warning", async () => {

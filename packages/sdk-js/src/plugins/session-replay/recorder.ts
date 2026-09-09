@@ -136,8 +136,8 @@ export function createReplayRecorder({
   let autoRestart = autoRecord;
 
   // defaults ← constructor options ← remote sdkSettings from the payload.
-  // A local `enabled: false` is definitive: remote settings can turn a
-  // locally-enabled plugin off, never on.
+  // Remote overrides local, except a local `enabled: false`, which is
+  // definitive.
   const resolveSettings = (): Required<SessionReplaySettings> => {
     const sdkSettings = growthbook.getDecryptedPayload().sdkSettings;
     const remote = sdkSettings ? sdkSettings.sessionReplay : undefined;
@@ -149,17 +149,14 @@ export function createReplayRecorder({
     // Missing on either side means "no opinion", not off
     const remoteEnabled = remote ? remote.enabled : undefined;
     settings.enabled = (enabled ?? true) && (remoteEnabled ?? true);
-    settings.samplingRate = Math.min(
+    settings.samplingRate = normalizeSamplingRate(
+      remote ? remote.samplingRate : undefined,
       normalizeSamplingRate(
         samplingRate,
         1,
         "sessionReplayPlugin: samplingRate",
       ),
-      normalizeSamplingRate(
-        remote ? remote.samplingRate : undefined,
-        1,
-        "sdkSettings.sessionReplay.samplingRate",
-      ),
+      "sdkSettings.sessionReplay.samplingRate",
     );
     return settings;
   };
