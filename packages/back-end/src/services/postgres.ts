@@ -1,5 +1,6 @@
 import { Client, ClientConfig } from "pg";
 import { QueryResponse } from "shared/types/integrations";
+import { FactTableColumnType } from "shared/types/fact-table";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { logger } from "back-end/src/util/logger";
 
@@ -7,6 +8,11 @@ export async function runPostgresQuery(
   conn: PostgresConnectionParams,
   sql: string,
   values: string[] = [],
+  // Maps a column's Postgres type OID onto a Fact Table column type. Passed in
+  // rather than assumed, because not every data source on this driver numbers
+  // its OIDs the way Postgres does -- see getFactTableTypeFromPostgresOid.
+  // Without it, columns are still reported, just with no datatype.
+  getDataType?: (oid: number) => FactTableColumnType | undefined,
 ): Promise<QueryResponse> {
   let ssl: false | ClientConfig["ssl"] = false;
   if (conn.ssl === true || conn.ssl === "true") {
@@ -44,7 +50,13 @@ export async function runPostgresQuery(
       client.connect().then(() => client.query(sql, values)),
       socketError,
     ]);
-    return { rows: res.rows };
+    return {
+      rows: res.rows,
+      columns: res.fields?.map((field) => {
+        const dataType = getDataType?.(field.dataTypeID);
+        return { name: field.name, ...(dataType && { dataType }) };
+      }),
+    };
   } finally {
     try {
       await client.end();
