@@ -1,6 +1,7 @@
 import { Flex } from "@radix-ui/themes";
 import { ReactNode } from "react";
 import { ColumnRef, FactTableDefinition } from "shared/types/fact-table";
+import useFullFactTable from "@/hooks/useFullFactTable";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
@@ -159,8 +160,14 @@ export default function RatioFields({
   canEdit?: boolean;
 }) {
   const denominatorShape = shapeFromColumnRef(denominator) ?? "sum";
-  const denominatorFactTable =
-    getFactTableById(denominator.factTableId) ?? factTable;
+  // getFactTableById (still used below, for onFactTableChange's own column
+  // refit) returns the slim definitions-endpoint shape - fine for that, but
+  // this specific value renders the denominator's own column/filter pickers,
+  // which need jsonFields the same way the numerator's factTable prop does.
+  const { factTable: fullDenominatorFactTable } = useFullFactTable(
+    denominator.factTableId || null,
+  );
+  const denominatorFactTable = fullDenominatorFactTable ?? factTable;
 
   return (
     <Flex direction="column" gap="3">
