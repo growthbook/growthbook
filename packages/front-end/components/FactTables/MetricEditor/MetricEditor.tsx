@@ -78,7 +78,16 @@ export default function MetricEditor({
       ? (funnelSettings?.steps[0]?.factTableId ?? "")
       : numerator.factTableId;
   const factTable = getFactTableById(primaryFactTableId) ?? null;
-  const availableFactTables = factTables.filter(
+  // The primary Fact Table select is what DERIVES datasource (spec, see
+  // changeFactTable below) - filtering its own options by a datasource that
+  // hasn't actually been chosen yet would make some or all fact tables
+  // permanently unreachable (e.g. a fresh create's guessed default
+  // datasource has no fact tables of its own: the selector would be empty
+  // with no way out). Ratio's denominator override is different: it has to
+  // stay on the SAME datasource as the already-chosen numerator, since one
+  // metric's query runs against one datasource.
+  const availableFactTables = factTables;
+  const sameDatasourceFactTables = factTables.filter(
     (ft) => !datasourceId || ft.datasource === datasourceId,
   );
 
@@ -267,7 +276,7 @@ export default function MetricEditor({
                   form.setValue("denominator", v)
                 }
                 factTable={factTable}
-                availableFactTables={availableFactTables}
+                availableFactTables={sameDatasourceFactTables}
                 getFactTableById={(id) => getFactTableById(id) ?? null}
                 hasCountDistinctHLL={hasCountDistinctHLL}
               />
