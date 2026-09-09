@@ -126,6 +126,25 @@ const funnelDatasetValidator = z
   .strict();
 export type FunnelDataset = z.infer<typeof funnelDatasetValidator>;
 
+/**
+ * The literal values a discriminated union accepts, as an error message.
+ * Zod reports an unrecognized discriminator as "Invalid input" and names no
+ * alternative, which leaves an API caller — or an agent — guessing at a closed
+ * set. Derived from the options so it cannot drift when a branch is added.
+ */
+function mustBeOneOf(
+  options: readonly { shape: Record<string, unknown> }[],
+  key: string,
+): string {
+  const values = options.map((option) => {
+    const field = option.shape[key];
+    return field && typeof field === "object" && "value" in field
+      ? `"${String((field as { value: unknown }).value)}"`
+      : "";
+  });
+  return `must be one of ${values.filter(Boolean).join(", ")}`;
+}
+
 export const explorationDatasetValidator = z.discriminatedUnion("type", [
   metricDatasetValidator,
   factTableDatasetValidator,
@@ -181,12 +200,17 @@ export const sliceDimensionValidator = z.object({
   ),
 });
 
-export const dimensionValidator = z.discriminatedUnion("dimensionType", [
+const dimensionOptions = [
   dateDimensionValidator,
   dynamicDimensionValidator,
   staticDimensionValidator,
   sliceDimensionValidator,
-]);
+] as const;
+export const dimensionValidator = z.discriminatedUnion(
+  "dimensionType",
+  dimensionOptions,
+  { error: mustBeOneOf(dimensionOptions, "dimensionType") },
+);
 
 export const chartTypes = [
   "line",
@@ -284,6 +308,14 @@ export const funnelExplorationConfigValidator =
     dataset: funnelDatasetValidator,
   });
 
+const configOptions = [
+  metricExplorationConfigValidator,
+  factTableExplorationConfigValidator,
+  dataSourceExplorationConfigValidator,
+  sqlExplorationConfigValidator,
+  funnelExplorationConfigValidator,
+] as const;
+
 // For SQL datasets, we need to know the column types
 // This is the shape of the response from the warehouse / API
 export const sqlDatasetColumnResponseRowValidator = z.object({
@@ -332,13 +364,9 @@ export const productAnalyticsExplorationValidator = z.object({
   datasource: z.string(),
   configHash: z.string(),
   valueHashes: z.array(z.string()),
-  config: z.discriminatedUnion("type", [
-    metricExplorationConfigValidator,
-    factTableExplorationConfigValidator,
-    dataSourceExplorationConfigValidator,
-    sqlExplorationConfigValidator,
-    funnelExplorationConfigValidator,
-  ]),
+  config: z.discriminatedUnion("type", configOptions, {
+    error: mustBeOneOf(configOptions, "type"),
+  }),
   result: productAnalyticsResultValidator,
   dateStart: z.string(),
   dateEnd: z.string(),
@@ -366,13 +394,11 @@ export type BaseExplorationConfig = z.infer<
   typeof baseExplorationConfigValidator
 >;
 
-export const explorationConfigValidator = z.discriminatedUnion("type", [
-  metricExplorationConfigValidator,
-  factTableExplorationConfigValidator,
-  dataSourceExplorationConfigValidator,
-  sqlExplorationConfigValidator,
-  funnelExplorationConfigValidator,
-]);
+export const explorationConfigValidator = z.discriminatedUnion(
+  "type",
+  configOptions,
+  { error: mustBeOneOf(configOptions, "type") },
+);
 export type ExplorationConfig = z.infer<typeof explorationConfigValidator>;
 
 export type MetricExplorationConfig = z.infer<
