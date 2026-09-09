@@ -269,20 +269,26 @@ describe("retention window reset rules", () => {
     expect(result.windowValue).toBe(11); // end (14) - new delay (3)
   });
 
-  it("zeroes windowValue when switching to starting mode", () => {
+  it("zeroes windowValue and clears type when switching to starting mode", () => {
     const result = onRetentionDelayOrModeChange(between, {
       type: "mode",
       value: "starting",
     });
     expect(result.windowValue).toBe(0);
+    // The query only enforces an upper bound when type === "conversion" - a
+    // stale "conversion" here combined with the forced windowValue: 0 would
+    // produce an upper bound equal to the lower bound (always-false).
+    expect(result.type).toBe("");
   });
 
-  it("picks a valid end when switching to between mode from starting", () => {
+  it("picks a valid end and sets type: conversion when switching to between mode from starting", () => {
     const result = onRetentionDelayOrModeChange(starting, {
       type: "mode",
       value: "between",
     });
     expect(result.windowValue).toBeGreaterThan(0);
+    // Otherwise the query never enforces the upper bound this mode implies.
+    expect(result.type).toBe("conversion");
   });
 
   it("leaves an already-valid between state alone on a mode no-op", () => {
